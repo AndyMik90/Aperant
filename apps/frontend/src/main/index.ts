@@ -324,7 +324,7 @@ function createWindow(): void {
   }
 
   // Open DevTools in development
-  if (is.dev) {
+  if (is.dev && process.env.OPEN_DEVTOOLS !== 'false') {
     mainWindow.webContents.openDevTools({ mode: 'right' });
   }
 
