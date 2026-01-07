@@ -314,7 +314,7 @@ function LogEntry({ entry }: LogEntryProps) {
   const formatTime = (timestamp: string) => {
     try {
       const date = new Date(timestamp);
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     } catch {
       return '';
     }

@@ -217,7 +217,7 @@ export function buildIssueContext(issue: IssueLike, projectPath: string, instanc
   lines.push('');
   lines.push(`**Project:** ${safeProjectPath}`);
   lines.push(`**State:** ${safeIssue.state}`);
-  lines.push(`**Created:** ${new Date(safeIssue.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`);
+  lines.push(`**Created:** ${new Date(safeIssue.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`);
 
   if (safeIssue.labels.length > 0) {
     lines.push(`**Labels:** ${safeIssue.labels.join(', ')}`);

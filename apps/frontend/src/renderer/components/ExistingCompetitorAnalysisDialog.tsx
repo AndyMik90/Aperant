@@ -43,7 +43,7 @@ export function ExistingCompetitorAnalysisDialog({
 
   const formatDate = (date?: Date) => {
     if (!date) return 'recently';
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(undefined, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',

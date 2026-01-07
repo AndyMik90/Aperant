@@ -50,7 +50,7 @@ interface MRDetailProps {
 }
 
 function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
+  return new Date(dateString).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',

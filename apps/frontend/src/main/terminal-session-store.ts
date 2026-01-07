@@ -67,7 +67,7 @@ function getDateLabel(dateStr: string): string {
   } else {
     // Format as "Dec 10" or similar
     const date = new Date(dateStr + 'T00:00:00');
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 }
 
