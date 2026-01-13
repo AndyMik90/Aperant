@@ -1,0 +1,576 @@
+{
+  "title": "設定",
+  "tabs": {
+    "app": "アプリ設定",
+    "project": "プロジェクト設定"
+  },
+  "sections": {
+    "appearance": {
+      "title": "外観",
+      "description": "Auto Claudeの見た目をカスタマイズ"
+    },
+    "display": {
+      "title": "表示",
+      "description": "UI要素のサイズを調整"
+    },
+    "language": {
+      "title": "言語",
+      "description": "使用言語を選択"
+    },
+    "devtools": {
+      "title": "開発ツール",
+      "description": "IDEとターミナルの設定"
+    },
+    "agent": {
+      "title": "エージェント設定",
+      "description": "デフォルトのモデルとフレームワーク"
+    },
+    "paths": {
+      "title": "パス",
+      "description": "CLIツールとフレームワークのパス"
+    },
+    "integrations": {
+      "title": "連携",
+      "description": "APIキーとClaudeアカウント"
+    },
+    "api-profiles": {
+      "title": "APIプロファイル",
+      "description": "カスタムAPIエンドポイントプロファイル"
+    },
+    "updates": {
+      "title": "アップデート",
+      "description": "Auto Claudeのアップデート"
+    },
+    "notifications": {
+      "title": "通知",
+      "description": "アラートの設定"
+    },
+    "debug": {
+      "title": "デバッグとログ",
+      "description": "トラブルシューティングツール"
+    }
+  },
+  "apiProfiles": {
+    "title": "APIプロファイル",
+    "description": "Anthropic互換のカスタムAPIエンドポイントを設定",
+    "addButton": "プロファイルを追加",
+    "presets": {
+      "anthropic": "Anthropic",
+      "openrouter": "OpenRouter",
+      "groq": "Groq",
+      "glmGlobal": "GLM (Global)",
+      "glmChina": "GLM (China)"
+    },
+    "fields": {
+      "name": "名前",
+      "preset": "プリセット",
+      "baseUrl": "ベースURL",
+      "apiKey": "APIキー"
+    },
+    "placeholders": {
+      "name": "カスタムAPI",
+      "preset": "プロバイダープリセットを選択",
+      "baseUrl": "https://api.anthropic.com",
+      "apiKey": "sk-ant-..."
+    },
+    "hints": {
+      "preset": "プリセットでベースURLが自動入力されますが、APIキーは別途貼り付ける必要があります。",
+      "baseUrl": "例: https://api.anthropic.com または http://localhost:8080"
+    },
+    "validation": {
+      "nameRequired": "名前は必須です",
+      "baseUrlRequired": "ベースURLは必須です",
+      "baseUrlInvalid": "無効なURL形式です (http:// または https:// で始まる必要があります)",
+      "apiKeyRequired": "APIキーは必須です",
+      "apiKeyInvalid": "無効なAPIキー形式です"
+    },
+    "actions": {
+      "save": "プロファイルを保存",
+      "saving": "保存中...",
+      "cancel": "キャンセル",
+      "changeKey": "変更",
+      "cancelKeyChange": "キャンセル"
+    },
+    "testConnection": {
+      "label": "接続をテスト",
+      "testing": "テスト中...",
+      "success": "接続成功",
+      "failure": "接続失敗"
+    },
+    "models": {
+      "title": "オプション: モデル名のマッピング",
+      "description": "APIプロバイダーからモデルを選択してください。空白のままにするとデフォルトが使用されます。",
+      "defaultLabel": "デフォルトモデル (オプション)",
+      "haikuLabel": "Haikuモデル (オプション)",
+      "sonnetLabel": "Sonnetモデル (オプション)",
+      "opusLabel": "Opusモデル (オプション)",
+      "defaultPlaceholder": "例: claude-3-5-sonnet-20241022",
+      "haikuPlaceholder": "例: claude-3-5-haiku-20241022",
+      "sonnetPlaceholder": "例: claude-3-5-sonnet-20241022",
+      "opusPlaceholder": "例: claude-3-5-opus-20241022"
+    },
+    "empty": {
+      "title": "APIプロファイルが設定されていません",
+      "description": "ビルド用のカスタムAPIエンドポイントを設定するには、プロファイルを作成してください。",
+      "action": "最初のプロファイルを作成"
+    },
+    "switchToOauth": {
+      "label": "OAuthに切り替え",
+      "loading": "切り替え中..."
+    },
+    "activeBadge": "有効",
+    "customModels": "カスタムモデル: {{models}}",
+    "setActive": {
+      "label": "有効にする",
+      "loading": "設定中..."
+    },
+    "tooltips": {
+      "edit": "プロファイルを編集",
+      "deleteActive": "削除する前にOAuthに切り替えてください",
+      "deleteInactive": "プロファイルを削除"
+    },
+    "deleteAriaLabel": "プロファイル{{name}}を削除",
+    "toast": {
+      "create": {
+        "title": "プロファイルを作成しました",
+        "description": "「{{name}}」が正常に追加されました。"
+      },
+      "update": {
+        "title": "プロファイルを更新しました",
+        "description": "「{{name}}」が正常に更新されました。"
+      },
+      "delete": {
+        "title": "プロファイルを削除しました",
+        "description": "「{{name}}」が削除されました。",
+        "errorTitle": "プロファイルの削除に失敗しました",
+        "errorFallback": "プロファイルの削除中にエラーが発生しました。"
+      },
+      "switch": {
+        "oauthTitle": "OAuthに切り替えました",
+        "oauthDescription": "OAuth認証を使用しています",
+        "profileTitle": "プロファイルを有効化しました",
+        "profileDescription": "{{name}}を使用しています",
+        "errorTitle": "認証方法の切り替えに失敗しました",
+        "errorFallback": "認証方法の切り替え中にエラーが発生しました。"
+      }
+    },
+    "dialog": {
+      "createTitle": "APIプロファイルを追加",
+      "editTitle": "プロファイルを編集",
+      "description": "ビルド用のAnthropic互換カスタムAPIエンドポイントを設定します。",
+      "deleteTitle": "プロファイルを削除しますか?",
+      "deleteDescription": "「{{name}}」を削除してもよろしいですか? この操作は元に戻せません。",
+      "cancel": "キャンセル",
+      "delete": "削除",
+      "deleting": "削除中..."
+    }
+  },
+  "modelSelect": {
+    "placeholder": "モデルを選択または手動で入力",
+    "placeholderManual": "モデル名を入力 (例: claude-3-5-sonnet-20241022)",
+    "searchPlaceholder": "モデルを検索...",
+    "noResults": "検索条件に一致するモデルがありません",
+    "discoveryNotAvailable": "モデル検出が利用できません。モデル名を手動で入力してください。"
+  },
+  "language": {
+    "label": "インターフェース言語",
+    "description": "アプリケーションのインターフェース言語を選択"
+  },
+  "scale": {
+    "presets": "スケールプリセット",
+    "presetsDescription": "一般的な表示サイズの簡易オプション",
+    "fineTune": "スケールの微調整",
+    "fineTuneDescription": "75%から200%まで5%刻みで調整",
+    "default": "デフォルト",
+    "comfortable": "快適",
+    "large": "大きい"
+  },
+  "general": {
+    "otherAgentSettings": "その他のエージェント設定",
+    "otherAgentSettingsDescription": "追加のエージェント設定オプション",
+    "agentFramework": "エージェントフレームワーク",
+    "agentFrameworkDescription": "自律タスクに使用するコーディングフレームワーク",
+    "agentFrameworkAutoClaude": "Auto Claude",
+    "aiTerminalNaming": "AIターミナル命名",
+    "aiTerminalNamingDescription": "コマンドに基づいてターミナルに自動的に名前を付ける (Haikuを使用)",
+    "featureModelSettings": "機能モデル設定",
+    "featureModelSettingsDescription": "インサイト、アイデア、ロードマップのモデルと思考レベル",
+    "model": "モデル",
+    "thinkingLevel": "思考レベル",
+    "paths": "パス",
+    "pathsDescription": "実行可能ファイルとフレームワークのパスを設定",
+    "pythonPath": "Pythonパス",
+    "pythonPathDescription": "Python実行可能ファイルのパス (空白の場合は自動検出)",
+    "pythonPathPlaceholder": "python3 (デフォルト)",
+    "gitPath": "Gitパス",
+    "gitPathDescription": "Git実行可能ファイルのパス (空白の場合は自動検出)",
+    "gitPathPlaceholder": "git (デフォルト)",
+    "githubCLIPath": "GitHub CLIパス",
+    "githubCLIPathDescription": "GitHub CLI (gh) 実行可能ファイルのパス (空白の場合は自動検出)",
+    "githubCLIPathPlaceholder": "gh (デフォルト)",
+    "claudePath": "Claude CLIパス",
+    "claudePathDescription": "Claude CLI実行可能ファイルのパス (空白の場合は自動検出)",
+    "claudePathPlaceholder": "claude (デフォルト)",
+    "detectedPath": "自動検出",
+    "detectedVersion": "バージョン",
+    "detectedSource": "ソース",
+    "sourceUserConfig": "ユーザー設定",
+    "sourceVenv": "仮想環境",
+    "sourceHomebrew": "Homebrew",
+    "sourceNvm": "NVM",
+    "sourceSystemPath": "システムPATH",
+    "sourceBundled": "バンドル",
+    "sourceFallback": "フォールバック",
+    "notDetected": "検出されていません",
+    "autoClaudePath": "Auto Claudeパス",
+    "autoClaudePathDescription": "プロジェクト内のauto-claudeディレクトリへの相対パス",
+    "autoClaudePathPlaceholder": "auto-claude (デフォルト)",
+    "autoNameTerminals": "ターミナルに自動的に名前を付ける",
+    "autoNameTerminalsDescription": "AIを使用して、ターミナルタブの動作に基づいて説明的な名前を自動生成"
+  },
+  "theme": {
+    "title": "外観",
+    "description": "Auto Claudeの見た目をカスタマイズ",
+    "mode": "モード",
+    "modeDescription": "ライトテーマとダークテーマを選択",
+    "light": "ライト",
+    "dark": "ダーク",
+    "system": "システム",
+    "colorTheme": "カラーテーマ",
+    "colorThemeDescription": "お好みのカラーパレットを選択"
+  },
+  "devtools": {
+    "title": "開発ツール",
+    "description": "ワークツリーで使用するIDEとターミナルを設定",
+    "detecting": "インストール済みツールを検出中...",
+    "detectAgain": "再検出",
+    "ide": {
+      "label": "優先IDE",
+      "description": "Auto Claudeはワークツリーをこのエディターで開きます",
+      "placeholder": "IDEを選択...",
+      "customPath": "カスタムIDEパス",
+      "customPathPlaceholder": "/path/to/your/ide"
+    },
+    "terminal": {
+      "label": "優先ターミナル",
+      "description": "Auto Claudeはターミナルセッションをここで開きます",
+      "placeholder": "ターミナルを選択...",
+      "customPath": "カスタムターミナルパス",
+      "customPathPlaceholder": "/path/to/your/terminal"
+    },
+    "detected": "検出済み",
+    "notInstalled": "インストールされていません",
+    "detectedSummary": "システムで検出されたツール:",
+    "noToolsDetected": "追加ツールは検出されませんでした（VS Codeとシステムターミナルが使用されます）"
+  },
+  "updates": {
+    "title": "アップデート",
+    "description": "Auto Claudeのアップデートを管理",
+    "appUpdateReady": "アプリのアップデートが準備完了",
+    "newVersion": "新しいバージョン",
+    "released": "リリース済み",
+    "downloading": "ダウンロード中...",
+    "updateDownloaded": "アップデートがダウンロードされました! インストールをクリックして再起動し、アップデートを適用してください。",
+    "installAndRestart": "インストールして再起動",
+    "downloadUpdate": "アップデートをダウンロード",
+    "version": "バージョン",
+    "loading": "読み込み中...",
+    "checkingForUpdates": "アップデートを確認中...",
+    "newVersionAvailable": "新しいバージョンが利用可能です:",
+    "latestVersion": "最新バージョンを使用中です。",
+    "viewRelease": "GitHubで完全なリリースを表示",
+    "unableToCheck": "アップデートを確認できません",
+    "checkForUpdates": "アップデートを確認",
+    "autoUpdateProjects": "プロジェクトを自動更新",
+    "autoUpdateProjectsDescription": "新しいバージョンが利用可能な場合、プロジェクト内のAuto Claudeを自動的に更新",
+    "betaUpdates": "ベータアップデート",
+    "betaUpdatesDescription": "新機能を含むプレリリースベータバージョンを受け取る（安定性が低い場合があります）",
+    "stableDowngradeAvailable": "安定版が利用可能",
+    "stableDowngradeDescription": "現在ベータバージョンを使用中です。ベータアップデートを無効にしたため、最新の安定版リリースに切り替えることができます。",
+    "stableVersion": "安定版バージョン",
+    "downloadStableVersion": "安定版をダウンロード"
+  },
+  "notifications": {
+    "title": "通知",
+    "description": "デフォルトの通知設定を構成",
+    "onTaskComplete": "タスク完了時",
+    "onTaskCompleteDescription": "タスクが正常に完了したときに通知",
+    "onTaskFailed": "タスク失敗時",
+    "onTaskFailedDescription": "タスクがエラーに遭遇したときに通知",
+    "onReviewNeeded": "レビュー必要時",
+    "onReviewNeededDescription": "QAがレビューを必要とするときに通知",
+    "sound": "サウンド",
+    "soundDescription": "通知時に音を再生"
+  },
+  "actions": {
+    "save": "設定を保存",
+    "rerunWizard": "ウィザードを再実行",
+    "rerunWizardDescription": "セットアップウィザードを再度開始"
+  },
+  "projectSections": {
+    "general": {
+      "title": "全般",
+      "description": "自動ビルドとエージェント設定",
+      "useClaudeMd": "CLAUDE.mdを使用",
+      "useClaudeMdDescription": "エージェントコンテキストにCLAUDE.mdの指示を含める"
+    },
+    "claude": {
+      "title": "Claude認証",
+      "description": "Claude認証"
+    },
+    "linear": {
+      "title": "Linear",
+      "description": "Linear連携",
+      "integrationTitle": "Linear連携",
+      "integrationDescription": "課題追跡とタスクインポートのためにLinearに接続",
+      "syncDescription": "課題追跡のためにLinearと同期"
+    },
+    "github": {
+      "title": "GitHub",
+      "description": "GitHub課題の同期",
+      "integrationTitle": "GitHub連携",
+      "integrationDescription": "課題追跡のためにGitHubに接続",
+      "syncDescription": "GitHub Issuesと同期"
+    },
+    "gitlab": {
+      "title": "GitLab",
+      "description": "GitLab課題の同期",
+      "integrationTitle": "GitLab連携",
+      "integrationDescription": "課題追跡のためにGitLabに接続",
+      "syncDescription": "GitLab Issuesと同期"
+    },
+    "memory": {
+      "title": "メモリ",
+      "description": "Graphitiメモリバックエンド",
+      "integrationTitle": "メモリ",
+      "integrationDescription": "エージェント用の永続的なクロスセッションメモリを設定",
+      "syncDescription": "永続的なメモリを設定"
+    }
+  },
+  "agentProfile": {
+    "label": "エージェントプロファイル",
+    "title": "デフォルトのエージェントプロファイル",
+    "sectionDescription": "モデルと思考レベルのプリセット設定を選択",
+    "profilesInfo": "エージェントプロファイルは、Claudeモデルと思考レベルのプリセット設定を提供します。新しいタスクを作成すると、これらの設定がデフォルトとして使用されます。タスク作成ウィザードでいつでも上書きできます。",
+    "custom": "カスタム",
+    "customConfiguration": "カスタム設定",
+    "customDescription": "モデルと思考レベルを選択",
+    "phaseConfiguration": "フェーズ設定",
+    "phaseConfigurationDescription": "各フェーズのモデルと思考レベルをカスタマイズ",
+    "clickToCustomize": "クリックしてカスタマイズ",
+    "model": "モデル",
+    "thinking": "思考",
+    "thinkingLevel": "思考レベル",
+    "selectModel": "モデルを選択",
+    "selectThinkingLevel": "思考レベルを選択",
+    "perPhaseOptimization": "(フェーズごとの最適化)",
+    "resetToDefaults": "デフォルトにリセット",
+    "resetToProfileDefaults": "{{profile}}のデフォルトにリセット",
+    "customized": "カスタマイズ済み",
+    "phaseConfigNote": "これらの設定は、このプロファイルで新しいタスクを作成する際のデフォルトとして使用されます。タスク作成ウィザードでタスクごとに上書きできます。",
+    "phases": {
+      "spec": {
+        "label": "仕様作成",
+        "description": "発見、要件、コンテキスト収集"
+      },
+      "planning": {
+        "label": "計画",
+        "description": "実装計画とアーキテクチャ"
+      },
+      "coding": {
+        "label": "コーディング",
+        "description": "実際のコード実装"
+      },
+      "qa": {
+        "label": "QAレビュー",
+        "description": "品質保証と検証"
+      }
+    }
+  },
+  "workspace": {
+    "roles": {
+      "backend": "バックエンド",
+      "frontend": "フロントエンド",
+      "mobile": "モバイル",
+      "shared": "共有",
+      "apiGateway": "APIゲートウェイ",
+      "worker": "ワーカー",
+      "other": "その他"
+    }
+  },
+  "integrations": {
+    "title": "連携",
+    "description": "ClaudeアカウントとAPIキーを管理",
+    "claudeAccounts": "Claudeアカウント",
+    "claudeAccountsDescription": "複数のClaudeサブスクリプションを追加して、レート制限に達したときに自動的に切り替えます。",
+    "noAccountsYet": "アカウントがまだ設定されていません",
+    "default": "デフォルト",
+    "active": "有効",
+    "authenticated": "認証済み",
+    "needsAuth": "認証が必要",
+    "authenticate": "認証",
+    "setActive": "有効にする",
+    "manualTokenEntry": "トークンの手動入力",
+    "runSetupToken": "トークンを取得するには claude setup-token を実行してください",
+    "tokenPlaceholder": "sk-ant-oat01-...",
+    "emailPlaceholder": "メールアドレス (オプション、表示用)",
+    "saveToken": "トークンを保存",
+    "accountNamePlaceholder": "アカウント名 (例: 仕事用、個人用)",
+    "autoSwitching": "アカウントの自動切り替え",
+    "autoSwitchingDescription": "中断を避けるために、Claudeアカウント間で自動的に切り替えます。制限に達する前に切り替えるよう、プロアクティブな監視を設定してください。",
+    "enableAutoSwitching": "自動切り替えを有効化",
+    "masterSwitch": "すべての自動切り替え機能のマスタースイッチ",
+    "proactiveMonitoring": "プロアクティブ監視",
+    "proactiveDescription": "使用量を定期的にチェックし、制限に達する前に切り替え",
+    "checkUsageEvery": "使用量のチェック間隔",
+    "seconds15": "15秒",
+    "seconds30": "30秒 (推奨)",
+    "minute1": "1分",
+    "disabled": "無効",
+    "sessionThreshold": "セッション使用量のしきい値",
+    "sessionThresholdDescription": "セッション使用量がこのレベルに達したときに切り替え (推奨: 95%)",
+    "weeklyThreshold": "週間使用量のしきい値",
+    "weeklyThresholdDescription": "週間使用量がこのレベルに達したときに切り替え (推奨: 99%)",
+    "reactiveRecovery": "リアクティブリカバリ",
+    "reactiveDescription": "予期しないレート制限に達したときに自動切り替え",
+    "apiKeys": "APIキー",
+    "apiKeysInfo": "ここで設定されたキーはデフォルトとして使用されます。個々のプロジェクトは設定でこれらを上書きできます。",
+    "openaiKey": "OpenAI APIキー",
+    "openaiKeyDescription": "Graphitiメモリバックエンド (埋め込み) に必要",
+    "toast": {
+      "authSuccess": "プロファイルの認証に成功しました",
+      "authSuccessWithEmail": "{{email}}として接続されました",
+      "authSuccessGeneric": "認証が完了しました。このプロファイルを使用できます。",
+      "authStartFailed": "認証に失敗しました",
+      "addProfileFailed": "プロファイルの追加に失敗しました",
+      "tokenSaved": "トークンを保存しました",
+      "tokenSavedDescription": "トークンが正常に保存されました。",
+      "tokenSaveFailed": "トークンの保存に失敗しました",
+      "settingsUpdateFailed": "設定の更新に失敗しました",
+      "tryAgain": "もう一度お試しください。"
+    }
+  },
+  "debug": {
+    "title": "デバッグとログ",
+    "description": "トラブルシューティング用のログとデバッグ情報にアクセス",
+    "errorReporting": {
+      "label": "匿名エラーレポート",
+      "description": "Auto Claudeの改善に役立つクラッシュレポートを送信します。個人データやコードは収集されません。"
+    },
+    "openLogsFolder": "ログフォルダーを開く",
+    "copyDebugInfo": "デバッグ情報をコピー",
+    "copied": "コピーしました!",
+    "loadInfo": "デバッグ情報を読み込む",
+    "systemInfo": "システム情報",
+    "logsLocation": "ログの場所",
+    "recentErrors": "最近のエラー",
+    "noRecentErrors": "最近のエラーはありません",
+    "helpTitle": "問題の報告",
+    "helpText": "バグを報告する際は、「デバッグ情報をコピー」をクリックして、問題の診断に役立つシステム情報と最近のエラーを取得してください。"
+  },
+  "projectSettings": {
+    "noProjectSelected": {
+      "title": "プロジェクトが選択されていません",
+      "description": "サイドバーからプロジェクトを選択して、設定を構成してください。"
+    }
+  },
+  "mcp": {
+    "title": "MCPサーバー概要",
+    "titleWithProject": "{{projectName}}のMCPサーバー概要",
+    "description": "このプロジェクトのエージェントが使用できるMCPサーバーを設定",
+    "descriptionNoProject": "プロジェクトを選択してMCPサーバーを設定してください",
+    "serversEnabled": "{{count}}個のサーバーが有効",
+    "configuration": "MCPサーバー設定",
+    "configurationHint": "サーバーを無効化すると、コンテキスト使用量と起動時間が削減されます",
+    "noProjectSelected": "プロジェクトが選択されていません",
+    "noProjectSelectedDescription": "ドロップダウンからプロジェクトを選択して、MCPサーバーを表示および設定してください。",
+    "projectNotInitialized": "プロジェクトが初期化されていません",
+    "projectNotInitializedDescription": "MCPサーバーを設定するには、このプロジェクトのAuto Claudeを初期化してください。",
+    "browserAutomation": "ブラウザ自動化 (QAエージェントのみ)",
+    "alwaysEnabled": "常に有効",
+    "addServer": "サーバーを追加",
+    "addMcpTo": "{{agent}}にMCPサーバーを追加",
+    "addMcpDescription": "このエージェントに追加するMCPサーバーを選択",
+    "allMcpsAdded": "利用可能なすべてのMCPサーバーが既に追加されています",
+    "added": "追加済み",
+    "removed": "削除済み",
+    "remove": "削除",
+    "restore": "復元",
+    "noMcpServers": "MCPサーバーがありません",
+    "cannotRemove": "削除できません (必須)",
+    "servers": {
+      "context7": {
+        "name": "Context7",
+        "description": "ライブラリのドキュメント検索"
+      },
+      "graphiti": {
+        "name": "Graphitiメモリ",
+        "description": "クロスセッションコンテキスト用のナレッジグラフ",
+        "notConfigured": "メモリ設定が必要です (メモリ設定を参照)"
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "プロジェクト管理連携",
+        "notConfigured": "Linear連携が必要です (Linear設定を参照)"
+      },
+      "electron": {
+        "name": "Electron",
+        "description": "Chrome DevToolsによるデスクトップアプリの自動化"
+      },
+      "puppeteer": {
+        "name": "Puppeteer",
+        "description": "テスト用のWebブラウザ自動化"
+      },
+      "autoClaude": {
+        "name": "Auto-Claudeツール",
+        "description": "ビルド進捗の追跡"
+      }
+    },
+    "customServers": "カスタムサーバー",
+    "addCustomServer": "カスタムサーバーを追加",
+    "editCustomServer": "カスタムサーバーを編集",
+    "customServerDescription": "コマンドベースまたはHTTPベースのMCPサーバーを追加",
+    "serverType": "サーバータイプ",
+    "typeCommand": "コマンド (npx/npm)",
+    "typeHttp": "HTTP",
+    "serverName": "名前",
+    "serverNamePlaceholder": "マイMCPサーバー",
+    "serverDescription": "説明",
+    "serverDescriptionPlaceholder": "このサーバーの機能",
+    "command": "コマンド",
+    "args": "引数",
+    "argsHint": "スペース区切りの引数",
+    "url": "URL",
+    "headers": "ヘッダー",
+    "headerName": "ヘッダー名",
+    "headerValue": "ヘッダー値",
+    "noCustomServers": "カスタムサーバーが設定されていません。エージェントで使用するには追加してください。",
+    "errorNameRequired": "サーバー名は必須です",
+    "errorIdExists": "このIDのサーバーは既に存在します",
+    "errorCommandRequired": "コマンドベースのサーバーにはコマンドが必要です",
+    "errorUrlRequired": "HTTPベースのサーバーにはURLが必要です",
+    "testConnection": "テスト",
+    "testing": "テスト中...",
+    "authToken": "認証トークン",
+    "authTokenPlaceholder": "APIトークンまたはPATをここに貼り付けてください",
+    "authTokenHint": "AuthorizationヘッダーでBearerトークンとして使用されます",
+    "advancedHeaders": "追加ヘッダー",
+    "status": {
+      "healthy": "サーバーが応答しています",
+      "unhealthy": "サーバーが応答していません",
+      "needsAuth": "認証が必要です",
+      "checking": "確認中...",
+      "unknown": "ステータス不明"
+    },
+    "hints": {
+      "github": "これはGitHub MCPサーバーのようです。適切なスコープを持つ個人アクセストークンが必要です。",
+      "createGithubPat": "GitHub PATを作成",
+      "google": "これはGoogle APIのようです。OAuthトークンまたはAPIキーが必要です。",
+      "createGoogleToken": "Google認証情報を作成",
+      "anthropic": "これはAnthropic APIのようです。APIキーが必要です。",
+      "createAnthropicKey": "Anthropic APIキーを作成",
+      "openai": "これはOpenAI APIのようです。APIキーが必要です。",
+      "createOpenaiKey": "OpenAI APIキーを作成"
+    }
+  }
+}

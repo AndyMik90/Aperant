@@ -1,0 +1,238 @@
+{
+  "wizard": {
+    "title": "セットアップウィザード",
+    "description": "いくつかの簡単なステップでAuto Claude環境を設定します",
+    "helpText": "このウィザードでは、わずか数ステップで環境をセットアップできます。Claude OAuthトークンの設定、メモリ機能の設定、最初のタスクの作成を行うことができます。"
+  },
+  "welcome": {
+    "title": "Auto Claudeへようこそ",
+    "subtitle": "AIエージェントによる自律的なソフトウェア開発",
+    "getStarted": "始める",
+    "skip": "セットアップをスキップ",
+    "features": {
+      "aiPowered": {
+        "title": "AI駆動の開発",
+        "description": "Claude Codeエージェントを使用してコードを生成し、機能を構築します"
+      },
+      "specDriven": {
+        "title": "仕様書駆動のワークフロー",
+        "description": "明確な仕様でタスクを定義し、Auto Claudeに実装を任せます"
+      },
+      "memory": {
+        "title": "メモリとコンテキスト",
+        "description": "Graphitiによるセッション間の永続的なメモリ"
+      },
+      "parallel": {
+        "title": "並列実行",
+        "description": "複数のエージェントを並列実行して開発サイクルを高速化します"
+      }
+    }
+  },
+  "oauth": {
+    "title": "Claude認証",
+    "description": "Claudeアカウントを接続してAI機能を有効にします",
+    "configureTitle": "Claude認証を設定",
+    "addAccountsDesc": "Claudeアカウントを追加してAI機能を有効にします",
+    "multiAccountInfo": "レート制限に達したときに自動的に切り替えるために、複数のClaudeサブスクリプションを追加してください。",
+    "noAccountsYet": "アカウントがまだ設定されていません",
+    "badges": {
+      "default": "デフォルト",
+      "active": "アクティブ",
+      "authenticated": "認証済み",
+      "needsAuth": "認証が必要"
+    },
+    "buttons": {
+      "authenticate": "認証",
+      "setActive": "アクティブに設定",
+      "rename": "名前変更",
+      "delete": "削除",
+      "add": "追加",
+      "adding": "追加中...",
+      "showToken": "トークンを表示",
+      "hideToken": "トークンを非表示",
+      "copyToken": "トークンをコピー",
+      "back": "戻る",
+      "continue": "続ける",
+      "skip": "スキップ"
+    },
+    "labels": {
+      "accountName": "アカウント名",
+      "namePlaceholder": "プロファイル名（例：仕事用、個人用）",
+      "tokenLabel": "OAuthトークン",
+      "tokenPlaceholder": "トークンをここに入力",
+      "tokenHint": "OAuthログイン完了後、ターミナルに表示されるトークンを貼り付けてください。"
+    },
+    "keychainTitle": "セキュアストレージ",
+    "keychainDescription": "トークンはシステムのキーチェーンを使用して暗号化されます。macOSからパスワードプロンプトが表示される場合は、「常に許可」をクリックすると再度表示されなくなります。",
+    "toast": {
+      "authSuccess": "プロファイルの認証に成功しました",
+      "authSuccessWithEmail": "アカウント：{{email}}",
+      "authSuccessGeneric": "認証が完了しました。このプロファイルを使用できます。",
+      "authStartFailed": "認証の開始に失敗しました",
+      "addProfileFailed": "プロファイルの追加に失敗しました",
+      "tokenSaved": "トークンを保存しました",
+      "tokenSavedDescription": "トークンが正常に保存されました。",
+      "tokenSaveFailed": "トークンの保存に失敗しました",
+      "tryAgain": "もう一度お試しください。"
+    }
+  },
+  "memory": {
+    "title": "メモリ",
+    "description": "エージェント用の永続的なクロスセッションメモリを設定します",
+    "contextDescription": "Auto Claude Memoryは、コーディングセッション間でコンテキストを記憶するのに役立ちます",
+    "enableMemory": "メモリを有効化",
+    "enableMemoryDescription": "LadybugDB(組み込みデータベース)を使用した永続的なクロスセッションメモリ",
+    "memoryDisabledInfo": "メモリが無効になっています。セッションのインサイトはローカルファイルにのみ保存されます。セマンティック検索による永続的なクロスセッションコンテキストを利用するには、メモリを有効にしてください。",
+    "enableAgentAccess": "エージェントメモリアクセスを有効化",
+    "enableAgentAccessDescription": "エージェントがMCP経由でナレッジグラフを検索および追加できるようにします",
+    "mcpServerUrl": "Graphiti MCPサーバーURL",
+    "mcpServerUrlDescription": "エージェントメモリアクセス用のGraphiti MCPサーバーのURL",
+    "embeddingProvider": "埋め込みプロバイダー",
+    "embeddingProviderDescription": "セマンティック検索用のプロバイダー（オプション - 埋め込みなしでもキーワード検索が機能します）",
+    "selectEmbeddingModel": "埋め込みモデルを選択",
+    "openaiApiKey": "OpenAI APIキー",
+    "openaiApiKeyDescription": "OpenAI埋め込みに必要",
+    "openaiGetKey": "キーを取得する:",
+    "voyageApiKey": "Voyage AI APIキー",
+    "voyageApiKeyDescription": "Voyage AI埋め込みに必要",
+    "googleApiKey": "Google AI APIキー",
+    "googleApiKeyDescription": "Google AI埋め込みに必要",
+    "azureConfig": "Azure OpenAI設定",
+    "azureApiKey": "APIキー",
+    "azureBaseUrl": "ベースURL",
+    "azureEmbeddingDeployment": "埋め込みデプロイ名",
+    "memoryInfo": "メモリは、コードベースに関する発見、パターン、インサイトを保存し、将来のセッションで既にコンテキストがロードされた状態で開始できます。Dockerは不要 - 組み込みデータベースを使用します。",
+    "learnMore": "メモリの詳細を見る",
+    "back": "戻る",
+    "skip": "スキップ",
+    "saving": "保存中...",
+    "saveAndContinue": "保存して続行",
+    "providers": {
+      "ollama": "Ollama（ローカル - 無料）",
+      "openai": "OpenAI",
+      "voyage": "Voyage AI",
+      "google": "Google AI",
+      "azure": "Azure OpenAI"
+    }
+  },
+  "completion": {
+    "title": "準備完了です!",
+    "subtitle": "Auto Claudeは素晴らしいソフトウェアを構築する準備ができています",
+    "setupComplete": "セットアップ完了",
+    "setupCompleteDescription": "環境が設定され、使用できる状態になりました。すぐにタスクの作成を始めることも、自分のペースでアプリケーションを探索することもできます。",
+    "whatsNext": "次のステップ",
+    "createTask": {
+      "title": "タスクを作成",
+      "description": "最初のタスクを作成して、Auto Claudeの動作を確認しましょう。",
+      "action": "タスク作成画面を開く"
+    },
+    "customizeSettings": {
+      "title": "設定をカスタマイズ",
+      "description": "設定を微調整したり、統合を設定したり、このウィザードを再実行したりできます。",
+      "action": "設定を開く"
+    },
+    "exploreDocs": {
+      "title": "ドキュメントを見る",
+      "description": "高度な機能、ベストプラクティス、トラブルシューティングの詳細を学びます。"
+    },
+    "finish": "完了して構築を開始",
+    "rerunHint": "このウィザードは、設定 → アプリケーションからいつでも再実行できます"
+  },
+  "steps": {
+    "welcome": "ようこそ",
+    "authChoice": "認証方法",
+    "auth": "認証",
+    "claudeCode": "CLI",
+    "devtools": "開発ツール",
+    "privacy": "プライバシー",
+    "memory": "メモリ",
+    "done": "完了"
+  },
+  "privacy": {
+    "title": "Auto Claudeの改善にご協力ください",
+    "subtitle": "匿名のエラーレポートは、バグの修正を迅速化します",
+    "whatWeCollect": {
+      "title": "収集する情報",
+      "crashReports": "クラッシュレポートとエラースタックトレース",
+      "errorMessages": "エラーメッセージ(ファイルパスは匿名化)",
+      "appVersion": "アプリバージョンとプラットフォーム情報"
+    },
+    "whatWeNeverCollect": {
+      "title": "決して収集しない情報",
+      "code": "コードまたはプロジェクトファイル",
+      "filenames": "完全なファイルパス（ユーザー名はマスク）",
+      "apiKeys": "APIキーまたはトークン",
+      "personalData": "個人情報または使用状況データ"
+    },
+    "toggle": {
+      "label": "匿名のエラーレポートを送信",
+      "description": "問題の特定と修正にご協力ください"
+    }
+  },
+  "claudeCode": {
+    "title": "Claude Code CLI",
+    "description": "Claude Code CLIをインストールまたは更新して、AI駆動機能を有効にします",
+    "detecting": "Claude Codeのインストールを確認中...",
+    "info": {
+      "title": "Claude Codeとは？",
+      "description": "Claude Codeは、Auto ClaudeのAI機能を支えるAnthropicの公式CLIです。安全な認証とClaudeモデルへの直接アクセスを提供します。"
+    },
+    "status": {
+      "installed": "インストール済み",
+      "outdated": "更新が利用可能",
+      "notFound": "未インストール"
+    },
+    "version": {
+      "current": "現在のバージョン",
+      "latest": "最新バージョン"
+    },
+    "install": {
+      "button": "Claude Codeをインストール",
+      "updating": "Claude Codeを更新",
+      "inProgress": "インストール中...",
+      "success": "インストールコマンドがターミナルに送信されました。そこでインストールを完了してください。",
+      "instructions": "インストーラーがターミナルで開きます。プロンプトに従ってインストールを完了してください。"
+    },
+    "learnMore": "Claude Codeの詳細を見る"
+  },
+  "devtools": {
+    "title": "開発ツール",
+    "description": "Auto Claudeワークツリーで使用する優先IDEとターミナルを選択します",
+    "detecting": "インストールされているツールを検出中...",
+    "detectAgain": "再検出",
+    "whyConfigure": "なぜ設定するのですか？",
+    "whyConfigureDescription": "Auto Claudeが分離されたワークツリーで機能を構築する際、お気に入りのIDEまたはターミナルでそれらを直接開いて、変更をテストおよびレビューできます。",
+    "ide": {
+      "label": "優先IDE",
+      "description": "Auto Claudeはこのエディタでワークツリーを開きます",
+      "customPath": "カスタムIDEパス"
+    },
+    "terminal": {
+      "label": "優先ターミナル",
+      "description": "Auto Claudeはここでターミナルセッションを開きます",
+      "customPath": "カスタムターミナルパス"
+    },
+    "detectedSummary": "システムで検出されました:",
+    "noToolsDetected": "追加のツールは検出されませんでした（VS Codeとシステムターミナルが使用されます）",
+    "custom": "カスタム...",
+    "saveAndContinue": "保存して続行"
+  },
+  "ollama": {
+    "notInstalled": {
+      "title": "Ollamaがインストールされていません",
+      "description": "Ollamaは、セマンティック検索用の無料のローカル埋め込みモデルを提供します。ワンクリックでインストールして、この機能を有効にします。",
+      "installSuccess": "インストールがターミナルで開始されました。そこでインストールを完了してから、再試行をクリックしてください。",
+      "installButton": "Ollamaをインストール",
+      "installing": "インストール中...",
+      "retry": "再試行",
+      "learnMore": "詳細を見る",
+      "fallbackNote": "Ollamaなしでも、メモリはキーワード検索で機能します。"
+    },
+    "notRunning": {
+      "title": "Ollamaが実行されていません",
+      "description": "Ollamaはインストールされていますが、実行されていません。ローカル埋め込みモデルを使用するには、Ollamaを起動してください。",
+      "retry": "再試行",
+      "fallbackNote": "埋め込みなしでも、メモリはキーワード検索で機能します。"
+    }
+  }
+}

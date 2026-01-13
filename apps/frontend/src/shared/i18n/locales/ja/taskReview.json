@@ -1,0 +1,38 @@
+{
+  "terminal": {
+    "openTerminal": "ターミナルを開く",
+    "openInbuilt": "内蔵ターミナルで開く",
+    "openExternal": "外部ターミナルで開く"
+  },
+  "pr": {
+    "title": "プルリクエストを作成",
+    "description": "ブランチをプッシュして「{{taskTitle}}」のプルリクエストを作成します",
+    "errors": {
+      "unknown": "プルリクエストの作成中に不明なエラーが発生しました",
+      "invalidBranchName": "ブランチ名に無効な文字が含まれています。文字、数字、ハイフン(-)、アンダースコア(_)、スラッシュ(/)のみを使用してください。",
+      "emptyTitle": "プルリクエストのタイトルは空にできません。"
+    },
+    "success": {
+      "created": "プルリクエストが正常に作成されました!",
+      "alreadyExists": "このブランチのプルリクエストは既に存在します"
+    },
+    "actions": {
+      "retry": "再試行",
+      "creating": "PRを作成中...",
+      "create": "プルリクエストを作成"
+    },
+    "labels": {
+      "sourceBranch": "ソースブランチ",
+      "targetBranch": "ターゲットブランチ",
+      "commits": "コミット",
+      "changes": "変更",
+      "prTitle": "PRタイトル（オプション）",
+      "draftPR": "ドラフトPRとして作成",
+      "unknown": "不明"
+    },
+    "hints": {
+      "targetBranch": "空のままにするとデフォルトブランチを使用します",
+      "prTitle": "空のままにするとタスクタイトルを使用します"
+    }
+  }
+}

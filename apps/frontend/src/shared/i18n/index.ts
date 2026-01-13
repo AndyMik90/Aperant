@@ -27,6 +27,19 @@ import frTaskReview from './locales/fr/taskReview.json';
 import frTerminal from './locales/fr/terminal.json';
 import frErrors from './locales/fr/errors.json';
 
+// Import Japanese translation resources
+import jaCommon from './locales/ja/common.json';
+import jaNavigation from './locales/ja/navigation.json';
+import jaSettings from './locales/ja/settings.json';
+import jaTasks from './locales/ja/tasks.json';
+import jaWelcome from './locales/ja/welcome.json';
+import jaOnboarding from './locales/ja/onboarding.json';
+import jaDialogs from './locales/ja/dialogs.json';
+import jaGitlab from './locales/ja/gitlab.json';
+import jaTaskReview from './locales/ja/taskReview.json';
+import jaTerminal from './locales/ja/terminal.json';
+import jaErrors from './locales/ja/errors.json';
+
 export const defaultNS = 'common';
 
 export const resources = {
@@ -55,6 +68,19 @@ export const resources = {
     taskReview: frTaskReview,
     terminal: frTerminal,
     errors: frErrors
+  },
+  ja: {
+    common: jaCommon,
+    navigation: jaNavigation,
+    settings: jaSettings,
+    tasks: jaTasks,
+    welcome: jaWelcome,
+    onboarding: jaOnboarding,
+    dialogs: jaDialogs,
+    gitlab: jaGitlab,
+    taskReview: jaTaskReview,
+    terminal: jaTerminal,
+    errors: jaErrors
   }
 } as const;
 
