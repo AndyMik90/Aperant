@@ -48,11 +48,11 @@ export function LanguageSettings({ settings, onSettingsChange }: LanguageSetting
           </p>
           <div className="grid grid-cols-2 gap-3 max-w-md pt-1">
             {AVAILABLE_LANGUAGES.map((lang) => {
-              const isSelected = currentLanguage === lang.value;
+              const isSelected = currentLanguage === lang.code;
               return (
                 <button
-                  key={lang.value}
-                  onClick={() => handleLanguageChange(lang.value)}
+                  key={lang.code}
+                  onClick={() => handleLanguageChange(lang.code)}
                   className={cn(
                     'flex items-center gap-3 p-4 rounded-lg border-2 transition-all',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
