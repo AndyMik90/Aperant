@@ -82,6 +82,7 @@
     "showArchived": "Show archived",
     "addTaskAriaLabel": "Add new task to backlog",
     "queueAllAriaLabel": "Move all tasks to queue",
+    "aiSplitAriaLabel": "Use AI to split text into multiple tasks",
     "closeTaskDetailsAriaLabel": "Close task details",
     "editTask": "Edit task",
     "cannotEditWhileRunning": "Cannot edit while task is running",
@@ -301,5 +302,39 @@
   "referenceImages": {
     "title": "Reference Images (optional)",
     "description": "Add visual references like screenshots or designs to help the AI understand your requirements."
+  },
+  "aiSplitter": {
+    "title": "AI Split Tasks",
+    "description": "Paste a list of items, bug reports, or feature requests and AI will split them into separate tasks.",
+    "previewTitle": "Review & Edit Tasks",
+    "previewDescription": "Review the detected tasks below. You can edit, remove, or add more tasks before creating them.",
+    "inputLabel": "Paste your text",
+    "inputPlaceholder": "Paste your list of tasks, bug reports, or feature requests here...\n\nExample:\n- Fix the login button alignment\n- Add dark mode support\n- Update the API endpoint for user profiles\n- Fix memory leak in the dashboard component",
+    "inputHint": "Each item should be on its own line or separated by bullets. AI will parse and create separate tasks.",
+    "splitting": "Splitting...",
+    "continueToPreview": "Continue to Preview",
+    "taskCount": "{{count}} task detected",
+    "taskCount_plural": "{{count}} tasks detected",
+    "taskTitle": "Title",
+    "taskDescription": "Description",
+    "titlePlaceholder": "Task title (e.g., Fix login bug)",
+    "descriptionPlaceholder": "Detailed description of what needs to be done...",
+    "noTasks": "No tasks detected. Try adding more text or go back to try again.",
+    "bulkCreate": "Create {{count}} Task",
+    "bulkCreate_plural": "Create {{count}} Tasks",
+    "buttonLabel": "AI Split",
+    "buttonAriaLabel": "Use AI to split text into multiple tasks",
+    "errors": {
+      "emptyInput": "Please enter some text to split",
+      "splitFailed": "Failed to split tasks. Please try again."
+    },
+    "success": "Split {{count}} task successfully",
+    "success_plural": "Split {{count}} tasks successfully"
+  },
+  "serviceSelector": {
+    "label": "Work in Folder (optional)",
+    "helpText": "Specify which folder the AI should focus on. The task description will be updated to include this context.",
+    "allCodebase": "All Codebase",
+    "custom": "Custom path..."
   }
 }

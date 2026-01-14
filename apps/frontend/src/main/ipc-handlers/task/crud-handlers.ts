@@ -3,11 +3,15 @@ import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/con
 import type { IPCResult, Task, TaskMetadata } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, Dirent } from 'fs';
+import { spawn } from 'child_process';
 import { projectStore } from '../../project-store';
 import { titleGenerator } from '../../title-generator';
 import { AgentManager } from '../../agent';
 import { findTaskAndProject } from './shared';
 import { findAllSpecPaths } from '../../utils/spec-path-helpers';
+import { parsePythonCommand, getValidatedPythonPath } from '../../python-detector';
+import { getConfiguredPythonPath } from '../../python-env-manager';
+import { getProfileEnv } from '../../rate-limit-detector';
 
 /**
  * Register task CRUD (Create, Read, Update, Delete) handlers
@@ -467,4 +471,236 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       }
     }
   );
+
+  /**
+   * Split text into multiple tasks using AI
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_SPLIT_INTO_TASKS,
+    async (_, projectId: string, text: string): Promise<IPCResult<Array<{ title: string; description: string }>>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      try {
+        const splitTasks = await splitTextIntoTasks(text);
+        return { success: true, data: splitTasks };
+      } catch (error) {
+        console.error('[TASK_SPLIT_INTO_TASKS] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to split text into tasks'
+        };
+      }
+    }
+  );
+}
+
+/**
+ * Split text into multiple tasks using Claude AI
+ */
+async function splitTextIntoTasks(text: string): Promise<Array<{ title: string; description: string }>> {
+  const { spawn } = await import('child_process');
+  const path = await import('path');
+  const { app } = await import('electron');
+  const { existsSync, readFileSync } = await import('fs');
+
+  // Find the auto-claude backend path
+  const possiblePaths = [
+    path.resolve(process.cwd(), 'apps', 'backend'),
+    path.resolve(app.getAppPath(), '..', 'backend'),
+  ];
+
+  let autoBuildSource = '';
+  for (const p of possiblePaths) {
+    if (existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'))) {
+      autoBuildSource = p;
+      break;
+    }
+  }
+
+  if (!autoBuildSource) {
+    console.error('[splitTextIntoTasks] Auto-claude source path not found');
+    return [];
+  }
+
+  // Load environment variables
+  const envPath = path.join(autoBuildSource, '.env');
+  const envVars: Record<string, string> = {};
+  if (existsSync(envPath)) {
+    const envContent = readFileSync(envPath, 'utf-8');
+    for (const line of envContent.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIndex = trimmed.indexOf('=');
+      if (eqIndex > 0) {
+        const key = trimmed.substring(0, eqIndex).trim();
+        let value = trimmed.substring(eqIndex + 1).trim();
+        if ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))) {
+          value = value.slice(1, -1);
+        }
+        envVars[key] = value;
+      }
+    }
+  }
+
+  // Create the Python script for task splitting
+  const escapedText = JSON.stringify(text);
+  const script = `
+import asyncio
+import sys
+import json
+
+async def split_into_tasks():
+    try:
+        from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+
+        text = ${escapedText}
+
+        prompt = """Analyze the following text and split it into separate, actionable tasks.
+
+Return your response as a JSON array of objects with "title" and "description" keys.
+Format: [{"title": "task title", "description": "task description"}]
+
+Text to split:
+""" + text + """
+
+Respond ONLY with the JSON array. No markdown, no explanation."""
+
+        client = ClaudeSDKClient(
+            options=ClaudeAgentOptions(
+                model="claude-haiku-4-5",
+                system_prompt="You are a task planning assistant. Split text into actionable tasks. Return ONLY valid JSON array with title and description fields. No markdown, no explanation.",
+                max_turns=1,
+            )
+        )
+
+        async with client:
+            await client.query(prompt)
+
+            response_text = ""
+            async for msg in client.receive_response():
+                msg_type = type(msg).__name__
+                if msg_type == "AssistantMessage" and hasattr(msg, "content"):
+                    for block in msg.content:
+                        block_type = type(block).__name__
+                        if block_type == "TextBlock" and hasattr(block, "text"):
+                            response_text += block.text
+
+            if response_text:
+                # Try to parse JSON response
+                try:
+                    # Clean up response - remove markdown code blocks if present
+                    cleaned = response_text.strip()
+
+                    # Remove markdown code blocks
+                    triple_backtick = chr(96) + chr(96) + chr(96)
+                    if triple_backtick in cleaned:
+                        # Find content between code blocks
+                        parts = cleaned.split(triple_backtick)
+                        for i, part in enumerate(parts):
+                            if i % 2 == 1:  # Content inside code blocks
+                                cleaned = part.strip()
+                                # Remove language identifier (e.g., "json")
+                                if cleaned.startswith('json'):
+                                    cleaned = cleaned[4:].strip()
+                                break
+
+                    # Clean up any remaining whitespace
+                    cleaned = cleaned.strip()
+
+                    # Try to parse as JSON
+                    tasks = json.loads(cleaned)
+                    if isinstance(tasks, list):
+                        # Validate each task has title and description
+                        valid_tasks = []
+                        for task in tasks:
+                            if isinstance(task, dict) and 'title' in task and 'description' in task:
+                                valid_tasks.append({
+                                    'title': str(task['title']).strip(),
+                                    'description': str(task['description']).strip()
+                                })
+                        if valid_tasks:
+                            print(json.dumps(valid_tasks))
+                            sys.exit(0)
+                except json.JSONDecodeError as e:
+                    print(f"JSON parse error: {e}", file=sys.stderr)
+                    print(f"Response was: {response_text[:1000]}", file=sys.stderr)
+
+        sys.exit(1)
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+asyncio.run(split_into_tasks())
+`;
+
+  return new Promise((resolve) => {
+    const pythonPath = getValidatedPythonPath(getConfiguredPythonPath(), 'splitTextIntoTasks');
+    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+
+    // Get active Claude profile environment (CLAUDE_CONFIG_DIR if not default)
+    const profileEnv = getProfileEnv();
+
+    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, '-c', script], {
+      cwd: autoBuildSource,
+      env: {
+        ...process.env,
+        ...envVars,
+        ...profileEnv, // Include active Claude profile config (OAuth token)
+        PYTHONUNBUFFERED: '1',
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONUTF8: '1'
+      }
+    });
+
+    let output = '';
+    let errorOutput = '';
+    const timeout = setTimeout(() => {
+      console.warn('[splitTextIntoTasks] Task splitting timed out after 120s');
+      childProcess.kill();
+      resolve([]);
+    }, 120000); // 120 second timeout
+
+    childProcess.stdout?.on('data', (data: Buffer) => {
+      output += data.toString();
+    });
+
+    childProcess.stderr?.on('data', (data: Buffer) => {
+      errorOutput += data.toString();
+    });
+
+    childProcess.on('exit', (code: number | null) => {
+      clearTimeout(timeout);
+
+      if (code === 0 && output.trim()) {
+        try {
+          const tasks = JSON.parse(output.trim());
+          console.log('[splitTextIntoTasks] Successfully split into', tasks.length, 'tasks');
+          resolve(tasks);
+        } catch (e) {
+          console.error('[splitTextIntoTasks] Failed to parse response:', output.substring(0, 500));
+          resolve([]);
+        }
+      } else {
+        console.warn('[splitTextIntoTasks] Failed to split tasks', {
+          code,
+          errorOutput: errorOutput.substring(0, 500),
+          output: output.substring(0, 200)
+        });
+        resolve([]);
+      }
+    });
+
+    childProcess.on('error', (err) => {
+      clearTimeout(timeout);
+      console.warn('[splitTextIntoTasks] Process error:', err.message);
+      resolve([]);
+    });
+  });
 }

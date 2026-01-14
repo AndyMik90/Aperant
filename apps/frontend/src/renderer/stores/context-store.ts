@@ -8,6 +8,9 @@ import type {
 } from '../../shared/types';
 
 interface ContextState {
+  // Current project ID (to track which project the index is for)
+  currentProjectId: string | null;
+
   // Project Index
   projectIndex: ProjectIndex | null;
   indexLoading: boolean;
@@ -29,6 +32,7 @@ interface ContextState {
   searchQuery: string;
 
   // Actions
+  setCurrentProjectId: (projectId: string | null) => void;
   setProjectIndex: (index: ProjectIndex | null) => void;
   setIndexLoading: (loading: boolean) => void;
   setIndexError: (error: string | null) => void;
@@ -45,6 +49,9 @@ interface ContextState {
 }
 
 export const useContextStore = create<ContextState>((set) => ({
+  // Current project ID
+  currentProjectId: null,
+
   // Project Index
   projectIndex: null,
   indexLoading: false,
@@ -66,6 +73,19 @@ export const useContextStore = create<ContextState>((set) => ({
   searchQuery: '',
 
   // Actions
+  setCurrentProjectId: (projectId) =>
+    set((state) => {
+      // Clear projectIndex if switching to a different project
+      if (projectId !== state.currentProjectId) {
+        return {
+          currentProjectId: projectId,
+          projectIndex: null,
+          indexLoading: false,
+          indexError: null
+        };
+      }
+      return { currentProjectId: projectId };
+    }),
   setProjectIndex: (index) => set({ projectIndex: index }),
   setIndexLoading: (loading) => set({ indexLoading: loading }),
   setIndexError: (error) => set({ indexError: error }),
@@ -80,6 +100,7 @@ export const useContextStore = create<ContextState>((set) => ({
   setSearchQuery: (query) => set({ searchQuery: query }),
   clearAll: () =>
     set({
+      currentProjectId: null,
       projectIndex: null,
       indexLoading: false,
       indexError: null,
@@ -100,6 +121,8 @@ export const useContextStore = create<ContextState>((set) => ({
  */
 export async function loadProjectContext(projectId: string): Promise<void> {
   const store = useContextStore.getState();
+  // Update current project ID
+  store.setCurrentProjectId(projectId);
   store.setIndexLoading(true);
   store.setMemoryLoading(true);
   store.setIndexError(null);

@@ -81,6 +81,7 @@
     "showArchived": "Afficher les archivées",
     "addTaskAriaLabel": "Ajouter une nouvelle tâche au backlog",
     "queueAllAriaLabel": "Déplacer toutes les tâches vers la file d'attente",
+    "aiSplitAriaLabel": "Utiliser l'IA pour fractionner le texte en plusieurs tâches",
     "closeTaskDetailsAriaLabel": "Fermer les détails de la tâche",
     "editTask": "Modifier la tâche",
     "cannotEditWhileRunning": "Impossible de modifier pendant l'exécution",
@@ -300,5 +301,39 @@
   "referenceImages": {
     "title": "Images de référence (facultatif)",
     "description": "Ajoutez des références visuelles comme des captures d'écran ou des conceptions pour aider l'IA à comprendre vos exigences."
+  },
+  "aiSplitter": {
+    "title": "Fractionnement IA des tâches",
+    "description": "Collez une liste d'éléments, de rapports de bugs ou de demandes de fonctionnalités et l'IA les divisera en tâches séparées.",
+    "previewTitle": "Réviser et modifier les tâches",
+    "previewDescription": "Révisez les tâches détectées ci-dessous. Vous pouvez modifier, supprimer ou ajouter des tâches avant de les créer.",
+    "inputLabel": "Collez votre texte",
+    "inputPlaceholder": "Collez votre liste de tâches, de rapports de bugs ou de demandes de fonctionnalités ici...\n\nExemple :\n- Corriger l'alignement du bouton de connexion\n- Ajouter le support du mode sombre\n- Mettre à jour le point de terminaison API pour les profils utilisateur\n- Corriger la fuite de mémoire dans le composant de tableau de bord",
+    "inputHint": "Chaque élément doit être sur sa propre ligne ou séparé par des puces. L'IA analysera et créera des tâches séparées.",
+    "splitting": "Fractionnement...",
+    "continueToPreview": "Continuer vers l'aperçu",
+    "taskCount": "{{count}} tâche détectée",
+    "taskCount_plural": "{{count}} tâches détectées",
+    "taskTitle": "Titre",
+    "taskDescription": "Description",
+    "titlePlaceholder": "Titre de la tâche (ex: Corriger le bug de connexion)",
+    "descriptionPlaceholder": "Description détaillée de ce qui doit être fait...",
+    "noTasks": "Aucune tâche détectée. Essayez d'ajouter plus de texte ou revenez en arrière pour réessayer.",
+    "bulkCreate": "Créer {{count}} tâche",
+    "bulkCreate_plural": "Créer {{count}} tâches",
+    "buttonLabel": "Fractionnement IA",
+    "buttonAriaLabel": "Utiliser l'IA pour fractionner le texte en plusieurs tâches",
+    "errors": {
+      "emptyInput": "Veuillez entrer du texte à fractionner",
+      "splitFailed": "Échec du fractionnement des tâches. Veuillez réessayer."
+    },
+    "success": "Fractionné {{count}} tâche avec succès",
+    "success_plural": "Fractionné {{count}} tâches avec succès"
+  },
+  "serviceSelector": {
+    "label": "Travailler dans le dossier (optionnel)",
+    "helpText": "Spécifiez le dossier sur lequel l'IA doit se concentrer. La description de la tâche sera mise à jour pour inclure ce contexte.",
+    "allCodebase": "Toute la base de code",
+    "custom": "Chemin personnalisé..."
   }
 }
