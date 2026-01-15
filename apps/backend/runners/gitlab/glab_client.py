@@ -100,12 +100,19 @@ class GitLabClient:
         endpoint: str,
         method: str = "GET",
         data: dict | None = None,
+        params: dict | None = None,
         timeout: float | None = None,
         max_retries: int = 3,
     ) -> Any:
         """Make an API request to GitLab with rate limit handling."""
         validate_endpoint(endpoint)
         url = self._api_url(endpoint)
+
+        # Add query parameters if provided
+        if params:
+            query_string = "&".join(f"{k}={v}" for k, v in params.items())
+            url = f"{url}?{query_string}"
+
         headers = {
             "PRIVATE-TOKEN": self.config.token,
             "Content-Type": "application/json",
