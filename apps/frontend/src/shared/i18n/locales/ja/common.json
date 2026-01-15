@@ -338,7 +338,27 @@
     "cleanReviewMessageFooter": "*この自動レビューでは問題が見つかりませんでした。Auto Claudeにより生成されました。*",
     "failedPostCleanReview": "クリーンレビューの投稿に失敗しました",
     "viewErrorDetails": "詳細を表示",
-    "hideErrorDetails": "詳細を非表示"
+    "hideErrorDetails": "詳細を非表示",
+    "postBlockedStatus": "ステータスを投稿",
+    "postingBlockedStatus": "投稿中...",
+    "blockedStatusPosted": "ステータスをPRに投稿しました",
+    "blockedStatusMessageTitle": "## 🤖 Auto Claude PRレビュー",
+    "blockedStatusMessageFooter": "*このレビューはマージ前に解決する必要があるブロッカーを特定しました。Auto Claudeにより生成されました。*",
+    "failedPostBlockedStatus": "ステータスの投稿に失敗しました",
+    "branchSynced": "ブランチを同期しました（ベースから{{count}}コミット）",
+    "branchSynced_plural": "ブランチを同期しました（ベースから{{count}}コミット）",
+    "newCommitsOverlap": "{{count}}件の新しいコミット（{{files}}個の指摘ファイルが変更されました）",
+    "newCommitsOverlap_plural": "{{count}}件の新しいコミット（{{files}}個の指摘ファイルが変更されました）",
+    "newCommitsNoOverlap": "{{count}}件の新しいコミット（指摘との重複なし）",
+    "newCommitsNoOverlap_plural": "{{count}}件の新しいコミット（指摘との重複なし）",
+    "verifyChanges": "変更を検証",
+    "verifyAnyway": "検証",
+    "runFollowupAnyway": "ファイルが重複していなくてもフォローアップ検証を実行",
+    "logs": {
+      "agentActivity": "エージェントアクティビティ",
+      "showMore": "さらに{{count}}件を表示",
+      "hideMore": "{{count}}件を非表示"
+    }
   },
   "downloads": {
     "toggleExpand": "ダウンロード詳細を切り替え",
