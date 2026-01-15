@@ -6,6 +6,9 @@ GitLab Automation Runner
 CLI interface for GitLab automation features:
 - MR Review: AI-powered merge request review
 - Follow-up Review: Review changes since last review
+- Triage: Classify and organize issues
+- Auto-fix: Automatically create specs from issues
+- Batch: Group and analyze similar issues
 
 Usage:
     # Review a specific MR
@@ -13,6 +16,15 @@ Usage:
 
     # Follow-up review after new commits
     python runner.py followup-review-mr 123
+
+    # Triage issues
+    python runner.py triage --state opened --limit 50
+
+    # Auto-fix an issue
+    python runner.py auto-fix 42
+
+    # Batch similar issues
+    python runner.py batch-issues --label "bug" --min 3
 """
 
 from __future__ import annotations
@@ -245,6 +257,277 @@ async def cmd_followup_review_mr(args) -> int:
         return 1
 
 
+async def cmd_triage(args) -> int:
+    """
+    Triage and classify GitLab issues.
+
+    Categorizes issues into: duplicates, spam, feature creep, actionable.
+    """
+    from glab_client import GitLabClient, GitLabConfig
+
+    config = get_config(args)
+    gitlab_config = GitLabConfig(
+        token=config.token,
+        project=config.project,
+        instance_url=config.instance_url,
+    )
+
+    client = GitLabClient(
+        project_dir=args.project_dir,
+        config=gitlab_config,
+    )
+
+    safe_print(f"[Triage] Fetching issues (state={args.state}, limit={args.limit})...")
+
+    # Fetch issues
+    issues = client.list_issues(
+        state=args.state,
+        labels=args.labels if args.labels else None,
+        per_page=args.limit,
+    )
+
+    if not issues:
+        safe_print("[Triage] No issues found matching criteria")
+        return 0
+
+    safe_print(f"[Triage] Found {len(issues)} issues to triage")
+
+    # Basic triage logic
+    actionable = []
+    duplicates = []
+    spam = []
+    feature_creep = []
+
+    for issue in issues:
+        title = issue.get("title", "").lower()
+        description = issue.get("description", "").lower()
+        author = issue.get("author", {}).get("username", "")
+
+        # Check for spam
+        if any(word in title for word in ["test", "spam", "xxx"]):
+            spam.append(issue)
+            continue
+
+        # Check for duplicates (simple heuristic)
+        if any(word in title for word in ["duplicate", "already", "same"]):
+            duplicates.append(issue)
+            continue
+
+        # Check for feature creep
+        if any(word in title for word in ["also", "while", "additionally", "btw"]):
+            feature_creep.append(issue)
+            continue
+
+        actionable.append(issue)
+
+    # Print results
+    print(f"\n{'=' * 60}")
+    print("Issue Triage Results")
+    print(f"{'=' * 60}")
+    print(f"Total Issues: {len(issues)}")
+    print(f"  Actionable: {len(actionable)}")
+    print(f"  Duplicates: {len(duplicates)}")
+    print(f"  Spam: {len(spam)}")
+    print(f"  Feature Creep: {len(feature_creep)}")
+
+    if args.verbose and actionable[:10]:
+        print("\nActionable Issues (showing first 10):")
+        for issue in actionable[:10]:
+            iid = issue.get("iid")
+            title = issue.get("title", "No title")
+            labels = issue.get("labels", [])
+            print(f"  !{iid}: {title}")
+            print(f"      Labels: {', '.join(labels)}")
+
+    return 0
+
+
+async def cmd_auto_fix(args) -> int:
+    """
+    Auto-fix an issue by creating a spec.
+
+    Analyzes the issue and creates a spec for implementation.
+    """
+    from glab_client import GitLabClient, GitLabConfig
+
+    config = get_config(args)
+    gitlab_config = GitLabConfig(
+        token=config.token,
+        project=config.project,
+        instance_url=config.instance_url,
+    )
+
+    client = GitLabClient(
+        project_dir=args.project_dir,
+        config=gitlab_config,
+    )
+
+    safe_print(f"[Auto-fix] Fetching issue !{args.issue_iid}...")
+
+    # Fetch issue
+    issue = client.get_issue(args.issue_iid)
+
+    if not issue:
+        safe_print(f"[Auto-fix] Issue !{args.issue_iid} not found")
+        return 1
+
+    title = issue.get("title", "")
+    description = issue.get("description", "")
+    labels = issue.get("labels", [])
+    author = issue.get("author", {}).get("username", "")
+
+    print(f"\n{'=' * 60}")
+    print(f"Auto-fix for Issue !{args.issue_iid}")
+    print(f"{'=' * 60}")
+    print(f"Title: {title}")
+    print(f"Author: {author}")
+    print(f"Labels: {', '.join(labels)}")
+    print(f"\nDescription:\n{description[:500]}...")
+
+    # Check if already auto-fixable
+    if any(label in labels for label in ["auto-fix", "spec-created"]):
+        safe_print("[Auto-fix] Issue already marked for auto-fix or has spec")
+        return 0
+
+    # Add auto-fix label
+    if not args.dry_run:
+        try:
+            client.update_issue(args.issue_iid, labels=list(set(labels + ["auto-fix"])))
+            safe_print(f"[Auto-fix] Added 'auto-fix' label to issue !{args.issue_iid}")
+        except Exception as e:
+            safe_print(f"[Auto-fix] Failed to update issue: {e}")
+            return 1
+    else:
+        safe_print("[Auto-fix] Dry run - would add 'auto-fix' label")
+
+    # Note: In a full implementation, this would:
+    # 1. Analyze the issue with AI
+    # 2. Create a spec in .auto-claude/specs/
+    # 3. Run the spec creation pipeline
+
+    safe_print("[Auto-fix] Issue marked for auto-fix (spec creation not implemented)")
+    safe_print(
+        "[Auto-fix] Run 'python spec_runner.py --task \"<issue description>\"' to create spec"
+    )
+
+    return 0
+
+
+async def cmd_batch_issues(args) -> int:
+    """
+    Batch similar issues together for analysis.
+
+    Groups issues by labels, keywords, or patterns.
+    """
+    from collections import defaultdict
+
+    from glab_client import GitLabClient, GitLabConfig
+
+    config = get_config(args)
+    gitlab_config = GitLabConfig(
+        token=config.token,
+        project=config.project,
+        instance_url=config.instance_url,
+    )
+
+    client = GitLabClient(
+        project_dir=args.project_dir,
+        config=gitlab_config,
+    )
+
+    safe_print(f"[Batch] Fetching issues (label={args.label}, limit={args.limit})...")
+
+    # Fetch issues
+    issues = client.list_issues(
+        state=args.state,
+        labels=[args.label] if args.label else None,
+        per_page=args.limit,
+    )
+
+    if not issues:
+        safe_print("[Batch] No issues found matching criteria")
+        return 0
+
+    safe_print(f"[Batch] Found {len(issues)} issues")
+
+    # Group issues by keywords
+    groups = defaultdict(list)
+    keywords = [
+        "bug",
+        "error",
+        "crash",
+        "fix",
+        "feature",
+        "enhancement",
+        "add",
+        "implement",
+        "refactor",
+        "cleanup",
+        "improve",
+        "docs",
+        "documentation",
+        "readme",
+        "test",
+        "testing",
+        "coverage",
+        "performance",
+        "slow",
+        "optimize",
+    ]
+
+    for issue in issues:
+        title = issue.get("title", "").lower()
+        description = issue.get("description", "").lower()
+        combined = f"{title} {description}"
+
+        matched = False
+        for keyword in keywords:
+            if keyword in combined:
+                groups[keyword].append(issue)
+                matched = True
+                break
+
+        if not matched:
+            groups["other"].append(issue)
+
+    # Filter groups by minimum size
+    filtered_groups = {k: v for k, v in groups.items() if len(v) >= args.min}
+
+    # Print results
+    print(f"\n{'=' * 60}")
+    print("Batch Analysis Results")
+    print(f"{'=' * 60}")
+    print(f"Total Issues: {len(issues)}")
+    print(f"Groups Found: {len(filtered_groups)}")
+
+    # Sort by group size
+    sorted_groups = sorted(
+        filtered_groups.items(), key=lambda x: len(x[1]), reverse=True
+    )
+
+    for keyword, group_issues in sorted_groups:
+        print(f"\n[{keyword.upper()}] - {len(group_issues)} issues:")
+        for issue in group_issues[:5]:  # Show first 5
+            iid = issue.get("iid")
+            title = issue.get("title", "No title")
+            print(f"  !{iid}: {title[:60]}...")
+        if len(group_issues) > 5:
+            print(f"  ... and {len(group_issues) - 5} more")
+
+    # Suggest batch actions
+    if len(sorted_groups) > 0:
+        largest_group, largest_issues = sorted_groups[0]
+        if len(largest_issues) >= args.min:
+            print("\nSuggested batch action:")
+            print(f"  Group: {largest_group}")
+            print(f"  Size: {len(largest_issues)} issues")
+            print(
+                f"  Command: python runner.py triage --label {args.label} --limit {len(largest_issues)}"
+            )
+
+    return 0
+
+
 def main():
     """CLI entry point."""
     import argparse
@@ -303,6 +586,47 @@ def main():
     )
     followup_parser.add_argument("mr_iid", type=int, help="MR IID to review")
 
+    # triage command
+    triage_parser = subparsers.add_parser("triage", help="Triage and classify issues")
+    triage_parser.add_argument(
+        "--state", type=str, default="opened", help="Issue state to filter"
+    )
+    triage_parser.add_argument(
+        "--labels", type=str, help="Comma-separated labels to filter"
+    )
+    triage_parser.add_argument(
+        "--limit", type=int, default=50, help="Maximum issues to process"
+    )
+    triage_parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Show detailed output"
+    )
+
+    # auto-fix command
+    autofix_parser = subparsers.add_parser(
+        "auto-fix", help="Auto-fix an issue by creating a spec"
+    )
+    autofix_parser.add_argument("issue_iid", type=int, help="Issue IID to auto-fix")
+    autofix_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without making changes",
+    )
+
+    # batch-issues command
+    batch_parser = subparsers.add_parser(
+        "batch-issues", help="Batch and analyze similar issues"
+    )
+    batch_parser.add_argument("--label", type=str, help="Label to filter issues")
+    batch_parser.add_argument(
+        "--state", type=str, default="opened", help="Issue state to filter"
+    )
+    batch_parser.add_argument(
+        "--limit", type=int, default=100, help="Maximum issues to process"
+    )
+    batch_parser.add_argument(
+        "--min", type=int, default=3, help="Minimum group size to report"
+    )
+
     args = parser.parse_args()
 
     # Validate and sanitize thinking level (handles legacy values like 'ultrathink')
@@ -316,6 +640,9 @@ def main():
     commands = {
         "review-mr": cmd_review_mr,
         "followup-review-mr": cmd_followup_review_mr,
+        "triage": cmd_triage,
+        "auto-fix": cmd_auto_fix,
+        "batch-issues": cmd_batch_issues,
     }
 
     handler = commands.get(args.command)

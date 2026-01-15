@@ -43,6 +43,8 @@ class ReviewPass(str, Enum):
     SECURITY = "security"
     QUALITY = "quality"
     DEEP_ANALYSIS = "deep_analysis"
+    STRUCTURAL = "structural"
+    AI_COMMENT_TRIAGE = "ai_comment_triage"
 
 
 class MergeVerdict(str, Enum):
@@ -68,6 +70,10 @@ class MRReviewFinding:
     end_line: int | None = None
     suggested_fix: str | None = None
     fixable: bool = False
+    # Evidence-based findings - code snippet proving the issue
+    evidence_code: str | None = None
+    # Pass that found this issue
+    found_by_pass: ReviewPass | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -81,10 +87,13 @@ class MRReviewFinding:
             "end_line": self.end_line,
             "suggested_fix": self.suggested_fix,
             "fixable": self.fixable,
+            "evidence_code": self.evidence_code,
+            "found_by_pass": self.found_by_pass.value if self.found_by_pass else None,
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> MRReviewFinding:
+        found_by_pass = data.get("found_by_pass")
         return cls(
             id=data["id"],
             severity=ReviewSeverity(data["severity"]),
@@ -96,6 +105,77 @@ class MRReviewFinding:
             end_line=data.get("end_line"),
             suggested_fix=data.get("suggested_fix"),
             fixable=data.get("fixable", False),
+            evidence_code=data.get("evidence_code"),
+            found_by_pass=ReviewPass(found_by_pass) if found_by_pass else None,
+        )
+
+
+@dataclass
+class StructuralIssue:
+    """A structural issue detected during review (feature creep, scope changes)."""
+
+    id: str
+    type: str  # "feature_creep", "scope_change", "missing_requirement", etc.
+    title: str
+    description: str
+    severity: ReviewSeverity = ReviewSeverity.MEDIUM
+    files_affected: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "type": self.type,
+            "title": self.title,
+            "description": self.description,
+            "severity": self.severity.value,
+            "files_affected": self.files_affected,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> StructuralIssue:
+        return cls(
+            id=data["id"],
+            type=data["type"],
+            title=data["title"],
+            description=data["description"],
+            severity=ReviewSeverity(data.get("severity", "medium")),
+            files_affected=data.get("files_affected", []),
+        )
+
+
+@dataclass
+class AICommentTriage:
+    """Result of triaging another AI tool's comment."""
+
+    comment_id: str
+    tool_name: str  # "CodeRabbit", "Cursor", etc.
+    original_comment: str
+    triage_result: str  # "valid", "false_positive", "questionable", "addressed"
+    reasoning: str
+    file: str | None = None
+    line: int | None = None
+
+    def to_dict(self) -> dict:
+        return {
+            "comment_id": self.comment_id,
+            "tool_name": self.tool_name,
+            "original_comment": self.original_comment,
+            "triage_result": self.triage_result,
+            "reasoning": self.reasoning,
+            "file": self.file,
+            "line": self.line,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AICommentTriage:
+        return cls(
+            comment_id=data["comment_id"],
+            tool_name=data["tool_name"],
+            original_comment=data["original_comment"],
+            triage_result=data["triage_result"],
+            reasoning=data["reasoning"],
+            file=data.get("file"),
+            line=data.get("line"),
         )
 
 
@@ -117,8 +197,13 @@ class MRReviewResult:
     verdict_reasoning: str = ""
     blockers: list[str] = field(default_factory=list)
 
+    # Multi-pass review results
+    structural_issues: list[StructuralIssue] = field(default_factory=list)
+    ai_triages: list[AICommentTriage] = field(default_factory=list)
+
     # Follow-up review tracking
     reviewed_commit_sha: str | None = None
+    reviewed_file_blobs: dict[str, str] = field(default_factory=dict)
     is_followup_review: bool = False
     previous_review_id: int | None = None
     resolved_findings: list[str] = field(default_factory=list)
@@ -128,6 +213,10 @@ class MRReviewResult:
     # Posting tracking
     has_posted_findings: bool = False
     posted_finding_ids: list[str] = field(default_factory=list)
+
+    # CI/CD status
+    ci_status: str | None = None
+    ci_pipeline_id: int | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -142,7 +231,10 @@ class MRReviewResult:
             "verdict": self.verdict.value,
             "verdict_reasoning": self.verdict_reasoning,
             "blockers": self.blockers,
+            "structural_issues": [s.to_dict() for s in self.structural_issues],
+            "ai_triages": [t.to_dict() for t in self.ai_triages],
             "reviewed_commit_sha": self.reviewed_commit_sha,
+            "reviewed_file_blobs": self.reviewed_file_blobs,
             "is_followup_review": self.is_followup_review,
             "previous_review_id": self.previous_review_id,
             "resolved_findings": self.resolved_findings,
@@ -150,6 +242,8 @@ class MRReviewResult:
             "new_findings_since_last_review": self.new_findings_since_last_review,
             "has_posted_findings": self.has_posted_findings,
             "posted_finding_ids": self.posted_finding_ids,
+            "ci_status": self.ci_status,
+            "ci_pipeline_id": self.ci_pipeline_id,
         }
 
     @classmethod
@@ -166,7 +260,14 @@ class MRReviewResult:
             verdict=MergeVerdict(data.get("verdict", "ready_to_merge")),
             verdict_reasoning=data.get("verdict_reasoning", ""),
             blockers=data.get("blockers", []),
+            structural_issues=[
+                StructuralIssue.from_dict(s) for s in data.get("structural_issues", [])
+            ],
+            ai_triages=[
+                AICommentTriage.from_dict(t) for t in data.get("ai_triages", [])
+            ],
             reviewed_commit_sha=data.get("reviewed_commit_sha"),
+            reviewed_file_blobs=data.get("reviewed_file_blobs", {}),
             is_followup_review=data.get("is_followup_review", False),
             previous_review_id=data.get("previous_review_id"),
             resolved_findings=data.get("resolved_findings", []),
@@ -176,6 +277,8 @@ class MRReviewResult:
             ),
             has_posted_findings=data.get("has_posted_findings", False),
             posted_finding_ids=data.get("posted_finding_ids", []),
+            ci_status=data.get("ci_status"),
+            ci_pipeline_id=data.get("ci_pipeline_id"),
         )
 
     def save(self, gitlab_dir: Path) -> None:

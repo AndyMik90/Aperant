@@ -4,10 +4,14 @@ GitLab API Client
 
 Client for GitLab API operations.
 Uses direct API calls with PRIVATE-TOKEN authentication.
+
+Supports both synchronous and asynchronous methods for compatibility
+with provider-agnostic interfaces.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 import urllib.parse
@@ -242,6 +246,337 @@ class GitLabClient:
             f"/projects/{encoded_project}/merge_requests/{mr_iid}",
             method="PUT",
             data={"assignee_ids": user_ids},
+        )
+
+    # -------------------------------------------------------------------------
+    # Issue Operations
+    # -------------------------------------------------------------------------
+
+    def get_issue(self, issue_iid: int) -> dict:
+        """Get issue details."""
+        encoded_project = encode_project_path(self.config.project)
+        return self._fetch(f"/projects/{encoded_project}/issues/{issue_iid}")
+
+    def list_issues(
+        self,
+        state: str | None = None,
+        labels: list[str] | None = None,
+        author: str | None = None,
+        assignee: str | None = None,
+        per_page: int = 100,
+    ) -> list[dict]:
+        """List issues with optional filters."""
+        encoded_project = encode_project_path(self.config.project)
+        params = {"per_page": per_page}
+
+        if state:
+            params["state"] = state
+        if labels:
+            params["labels"] = ",".join(labels)
+        if author:
+            params["author_username"] = author
+        if assignee:
+            params["assignee_username"] = assignee
+
+        return self._fetch(f"/projects/{encoded_project}/issues", params=params)
+
+    def create_issue(
+        self,
+        title: str,
+        description: str,
+        labels: list[str] | None = None,
+        assignee_ids: list[int] | None = None,
+    ) -> dict:
+        """Create a new issue."""
+        encoded_project = encode_project_path(self.config.project)
+        data = {
+            "title": title,
+            "description": description,
+        }
+
+        if labels:
+            data["labels"] = ",".join(labels)
+        if assignee_ids:
+            data["assignee_ids"] = assignee_ids
+
+        return self._fetch(
+            f"/projects/{encoded_project}/issues",
+            method="POST",
+            data=data,
+        )
+
+    def update_issue(
+        self,
+        issue_iid: int,
+        state_event: str | None = None,
+        labels: list[str] | None = None,
+    ) -> dict:
+        """Update an issue."""
+        encoded_project = encode_project_path(self.config.project)
+        data = {}
+
+        if state_event:
+            data["state_event"] = state_event  # "close" or "reopen"
+        if labels:
+            data["labels"] = ",".join(labels)
+
+        return self._fetch(
+            f"/projects/{encoded_project}/issues/{issue_iid}",
+            method="PUT",
+            data=data if data else None,
+        )
+
+    def post_issue_note(self, issue_iid: int, body: str) -> dict:
+        """Post a note (comment) to an issue."""
+        encoded_project = encode_project_path(self.config.project)
+        return self._fetch(
+            f"/projects/{encoded_project}/issues/{issue_iid}/notes",
+            method="POST",
+            data={"body": body},
+        )
+
+    def get_issue_notes(self, issue_iid: int) -> list[dict]:
+        """Get all notes (comments) for an issue."""
+        encoded_project = encode_project_path(self.config.project)
+        return self._fetch(
+            f"/projects/{encoded_project}/issues/{issue_iid}/notes",
+            params={"per_page": 100},
+        )
+
+    # -------------------------------------------------------------------------
+    # MR Discussion and Comment Operations
+    # -------------------------------------------------------------------------
+
+    def get_mr_discussions(self, mr_iid: int) -> list[dict]:
+        """Get all discussions for an MR."""
+        encoded_project = encode_project_path(self.config.project)
+        return self._fetch(
+            f"/projects/{encoded_project}/merge_requests/{mr_iid}/discussions",
+            params={"per_page": 100},
+        )
+
+    def get_mr_notes(self, mr_iid: int) -> list[dict]:
+        """Get all notes (comments) for an MR."""
+        encoded_project = encode_project_path(self.config.project)
+        return self._fetch(
+            f"/projects/{encoded_project}/merge_requests/{mr_iid}/notes",
+            params={"per_page": 100},
+        )
+
+    def post_mr_discussion_note(
+        self,
+        mr_iid: int,
+        discussion_id: str,
+        body: str,
+    ) -> dict:
+        """Post a note to an existing discussion."""
+        encoded_project = encode_project_path(self.config.project)
+        return self._fetch(
+            f"/projects/{encoded_project}/merge_requests/{mr_iid}/discussions/{discussion_id}/notes",
+            method="POST",
+            data={"body": body},
+        )
+
+    def resolve_mr_discussion(self, mr_iid: int, discussion_id: str) -> dict:
+        """Resolve a discussion thread."""
+        encoded_project = encode_project_path(self.config.project)
+        return self._fetch(
+            f"/projects/{encoded_project}/merge_requests/{mr_iid}/discussions/{discussion_id}",
+            method="PUT",
+            data={"resolved": True},
+        )
+
+    # -------------------------------------------------------------------------
+    # Pipeline and CI Operations
+    # -------------------------------------------------------------------------
+
+    def get_mr_pipelines(self, mr_iid: int) -> list[dict]:
+        """Get all pipelines for an MR."""
+        encoded_project = encode_project_path(self.config.project)
+        return self._fetch(
+            f"/projects/{encoded_project}/merge_requests/{mr_iid}/pipelines",
+            params={"per_page": 50},
+        )
+
+    def get_pipeline_status(self, pipeline_id: int) -> dict:
+        """Get detailed status for a specific pipeline."""
+        encoded_project = encode_project_path(self.config.project)
+        return self._fetch(f"/projects/{encoded_project}/pipelines/{pipeline_id}")
+
+    def get_pipeline_jobs(self, pipeline_id: int) -> list[dict]:
+        """Get all jobs for a pipeline."""
+        encoded_project = encode_project_path(self.config.project)
+        return self._fetch(
+            f"/projects/{encoded_project}/pipelines/{pipeline_id}/jobs",
+            params={"per_page": 100},
+        )
+
+    def get_project_pipelines(
+        self,
+        ref: str | None = None,
+        status: str | None = None,
+        per_page: int = 50,
+    ) -> list[dict]:
+        """Get pipelines for the project."""
+        encoded_project = encode_project_path(self.config.project)
+        params = {"per_page": per_page}
+
+        if ref:
+            params["ref"] = ref
+        if status:
+            params["status"] = status
+
+        return self._fetch(
+            f"/projects/{encoded_project}/pipelines",
+            params=params,
+        )
+
+    # -------------------------------------------------------------------------
+    # Commit Operations
+    # -------------------------------------------------------------------------
+
+    def get_commit(self, sha: str) -> dict:
+        """Get details for a specific commit."""
+        encoded_project = encode_project_path(self.config.project)
+        return self._fetch(f"/projects/{encoded_project}/repository/commits/{sha}")
+
+    def get_commit_diff(self, sha: str) -> list[dict]:
+        """Get diff for a specific commit."""
+        encoded_project = encode_project_path(self.config.project)
+        return self._fetch(f"/projects/{encoded_project}/repository/commits/{sha}/diff")
+
+    # -------------------------------------------------------------------------
+    # User and Permission Operations
+    # -------------------------------------------------------------------------
+
+    def get_user_by_username(self, username: str) -> dict | None:
+        """Get user details by username."""
+        users = self._fetch("/users", params={"username": username})
+        return users[0] if users else None
+
+    def get_project_members(self, query: str | None = None) -> list[dict]:
+        """Get members of the project."""
+        encoded_project = encode_project_path(self.config.project)
+        params = {"per_page": 100}
+
+        if query:
+            params["query"] = query
+
+        return self._fetch(
+            f"/projects/{encoded_project}/members/all",
+            params=params,
+        )
+
+    # -------------------------------------------------------------------------
+    # Async Methods
+    # -------------------------------------------------------------------------
+
+    async def _fetch_async(
+        self,
+        endpoint: str,
+        method: str = "GET",
+        data: dict | None = None,
+        timeout: float | None = None,
+    ) -> Any:
+        """Async wrapper around _fetch that runs in thread pool."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: self._fetch(
+                endpoint,
+                method=method,
+                data=data,
+                timeout=timeout,
+            ),
+        )
+
+    async def get_mr_async(self, mr_iid: int) -> dict:
+        """Async version of get_mr."""
+        return await self._fetch_async(
+            f"/projects/{encode_project_path(self.config.project)}/merge_requests/{mr_iid}"
+        )
+
+    async def get_mr_changes_async(self, mr_iid: int) -> dict:
+        """Async version of get_mr_changes."""
+        encoded_project = encode_project_path(self.config.project)
+        return await self._fetch_async(
+            f"/projects/{encoded_project}/merge_requests/{mr_iid}/changes"
+        )
+
+    async def get_mr_diff_async(self, mr_iid: int) -> str:
+        """Async version of get_mr_diff."""
+        changes = await self.get_mr_changes_async(mr_iid)
+        diffs = []
+        for change in changes.get("changes", []):
+            diff = change.get("diff", "")
+            if diff:
+                diffs.append(diff)
+        return "\n".join(diffs)
+
+    async def get_mr_commits_async(self, mr_iid: int) -> list[dict]:
+        """Async version of get_mr_commits."""
+        encoded_project = encode_project_path(self.config.project)
+        return await self._fetch_async(
+            f"/projects/{encoded_project}/merge_requests/{mr_iid}/commits"
+        )
+
+    async def post_mr_note_async(self, mr_iid: int, body: str) -> dict:
+        """Async version of post_mr_note."""
+        encoded_project = encode_project_path(self.config.project)
+        return await self._fetch_async(
+            f"/projects/{encoded_project}/merge_requests/{mr_iid}/notes",
+            method="POST",
+            data={"body": body},
+        )
+
+    async def approve_mr_async(self, mr_iid: int) -> dict:
+        """Async version of approve_mr."""
+        encoded_project = encode_project_path(self.config.project)
+        return await self._fetch_async(
+            f"/projects/{encoded_project}/merge_requests/{mr_iid}/approve",
+            method="POST",
+        )
+
+    async def merge_mr_async(self, mr_iid: int, squash: bool = False) -> dict:
+        """Async version of merge_mr."""
+        encoded_project = encode_project_path(self.config.project)
+        data = {}
+        if squash:
+            data["squash"] = True
+        return await self._fetch_async(
+            f"/projects/{encoded_project}/merge_requests/{mr_iid}/merge",
+            method="PUT",
+            data=data if data else None,
+        )
+
+    async def get_issue_async(self, issue_iid: int) -> dict:
+        """Async version of get_issue."""
+        encoded_project = encode_project_path(self.config.project)
+        return await self._fetch_async(
+            f"/projects/{encoded_project}/issues/{issue_iid}"
+        )
+
+    async def get_mr_discussions_async(self, mr_iid: int) -> list[dict]:
+        """Async version of get_mr_discussions."""
+        encoded_project = encode_project_path(self.config.project)
+        return await self._fetch_async(
+            f"/projects/{encoded_project}/merge_requests/{mr_iid}/discussions",
+            params={"per_page": 100},
+        )
+
+    async def get_mr_pipelines_async(self, mr_iid: int) -> list[dict]:
+        """Async version of get_mr_pipelines."""
+        encoded_project = encode_project_path(self.config.project)
+        return await self._fetch_async(
+            f"/projects/{encoded_project}/merge_requests/{mr_iid}/pipelines",
+            params={"per_page": 50},
+        )
+
+    async def get_pipeline_status_async(self, pipeline_id: int) -> dict:
+        """Async version of get_pipeline_status."""
+        encoded_project = encode_project_path(self.config.project)
+        return await self._fetch_async(
+            f"/projects/{encoded_project}/pipelines/{pipeline_id}"
         )
 
 

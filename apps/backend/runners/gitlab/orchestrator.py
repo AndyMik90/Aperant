@@ -3,8 +3,10 @@ GitLab Automation Orchestrator
 ==============================
 
 Main coordinator for GitLab automation workflows:
-- MR Review: AI-powered merge request review
+- MR Review: AI-powered merge request review with multi-pass analysis
 - Follow-up Review: Review changes since last review
+- Bot Detection: Prevents infinite review loops
+- CI/CD Checking: Pipeline status validation
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 try:
+    from .bot_detection import BotDetector
     from .glab_client import GitLabClient, GitLabConfig
     from .models import (
         GitLabRunnerConfig,
@@ -25,8 +28,11 @@ try:
         MRReviewResult,
     )
     from .services import MRReviewEngine
+    from .services.ci_checker import CIChecker
+    from .services.context_gatherer import MRContextGatherer
 except ImportError:
     # Fallback for direct script execution (not as a module)
+    from bot_detection import BotDetector
     from glab_client import GitLabClient, GitLabConfig
     from models import (
         GitLabRunnerConfig,
@@ -35,6 +41,8 @@ except ImportError:
         MRReviewResult,
     )
     from services import MRReviewEngine
+    from services.ci_checker import CIChecker
+    from services.context_gatherer import MRContextGatherer
 
 # Import safe_print for BrokenPipeError handling
 try:
@@ -77,10 +85,15 @@ class GitLabOrchestrator:
         project_dir: Path,
         config: GitLabRunnerConfig,
         progress_callback: Callable[[ProgressCallback], None] | None = None,
+        enable_bot_detection: bool = True,
+        enable_ci_checking: bool = True,
+        bot_username: str | None = None,
     ):
         self.project_dir = Path(project_dir)
         self.config = config
         self.progress_callback = progress_callback
+        self.enable_bot_detection = enable_bot_detection
+        self.enable_ci_checking = enable_ci_checking
 
         # GitLab directory for storing state
         self.gitlab_dir = self.project_dir / ".auto-claude" / "gitlab"
@@ -106,6 +119,25 @@ class GitLabOrchestrator:
             config=self.config,
             progress_callback=self._forward_progress,
         )
+
+        # Initialize bot detector
+        if enable_bot_detection:
+            self.bot_detector = BotDetector(
+                state_dir=self.gitlab_dir,
+                bot_username=bot_username,
+                review_own_mrs=False,
+            )
+        else:
+            self.bot_detector = None
+
+        # Initialize CI checker
+        if enable_ci_checking:
+            self.ci_checker = CIChecker(
+                project_dir=self.project_dir,
+                config=self.gitlab_config,
+            )
+        else:
+            self.ci_checker = None
 
     def _report_progress(
         self,
@@ -192,6 +224,8 @@ class GitLabOrchestrator:
         """
         Perform AI-powered review of a merge request.
 
+        Includes bot detection and CI/CD status checking.
+
         Args:
             mr_iid: The MR IID to review
 
@@ -208,15 +242,79 @@ class GitLabOrchestrator:
         )
 
         try:
-            # Gather MR context
-            context = await self._gather_mr_context(mr_iid)
+            # Get MR data first for bot detection
+            mr_data = await self.client.get_mr_async(mr_iid)
+            commits = await self.client.get_mr_commits_async(mr_iid)
+
+            # Bot detection check
+            if self.bot_detector:
+                should_skip, skip_reason = self.bot_detector.should_skip_mr_review(
+                    mr_iid=mr_iid,
+                    mr_data=mr_data,
+                    commits=commits,
+                )
+
+                if should_skip:
+                    safe_print(f"[GitLab] Skipping MR !{mr_iid}: {skip_reason}")
+                    result = MRReviewResult(
+                        mr_iid=mr_iid,
+                        project=self.config.project,
+                        success=False,
+                        error=f"Skipped: {skip_reason}",
+                    )
+                    result.save(self.gitlab_dir)
+                    return result
+
+            # CI/CD status check
+            ci_status = None
+            ci_pipeline_id = None
+            ci_blocking_reason = ""
+
+            if self.ci_checker:
+                self._report_progress(
+                    "checking_ci",
+                    20,
+                    "Checking CI/CD pipeline status...",
+                    mr_iid=mr_iid,
+                )
+
+                pipeline_info = await self.ci_checker.check_mr_pipeline(mr_iid)
+
+                if pipeline_info:
+                    ci_status = pipeline_info.status.value
+                    ci_pipeline_id = pipeline_info.pipeline_id
+
+                    if pipeline_info.is_blocking:
+                        ci_blocking_reason = self.ci_checker.get_blocking_reason(
+                            pipeline_info
+                        )
+                        safe_print(f"[GitLab] CI blocking: {ci_blocking_reason}")
+
+                        # For failed pipelines, still do review but note CI failure
+                        if pipeline_info.status == "success":
+                            pass  # Continue normally
+                        elif pipeline_info.status == "failed":
+                            # Continue review but note the failure
+                            pass
+                        else:
+                            # For running/pending, we can still review
+                            pass
+
+            # Gather MR context using the context gatherer
+            context_gatherer = MRContextGatherer(
+                project_dir=self.project_dir,
+                mr_iid=mr_iid,
+                config=self.gitlab_config,
+            )
+
+            context = await context_gatherer.gather()
             safe_print(
                 f"[GitLab] Context gathered: {context.title} "
                 f"({len(context.changed_files)} files, {context.total_additions}+/{context.total_deletions}-)"
             )
 
             self._report_progress(
-                "analyzing", 30, "Running AI review...", mr_iid=mr_iid
+                "analyzing", 40, "Running AI review...", mr_iid=mr_iid
             )
 
             # Run review
@@ -224,6 +322,15 @@ class GitLabOrchestrator:
                 context
             )
             safe_print(f"[GitLab] Review complete: {len(findings)} findings")
+
+            # Adjust verdict based on CI status
+            if ci_status == "failed" and ci_blocking_reason:
+                # CI failure is a blocker
+                blockers.insert(0, f"CI/CD Pipeline Failed: {ci_blocking_reason}")
+                if verdict == MergeVerdict.READY_TO_MERGE:
+                    verdict = MergeVerdict.BLOCKED
+                elif verdict == MergeVerdict.MERGE_WITH_CHANGES:
+                    verdict = MergeVerdict.BLOCKED
 
             # Map verdict to overall_status
             if verdict == MergeVerdict.BLOCKED:
@@ -243,6 +350,13 @@ class GitLabOrchestrator:
                 blockers=blockers,
             )
 
+            # Add CI section if CI was checked
+            if ci_status and self.ci_checker:
+                pipeline_info = await self.ci_checker.check_mr_pipeline(mr_iid)
+                if pipeline_info:
+                    ci_section = self.ci_checker.format_pipeline_summary(pipeline_info)
+                    full_summary = f"{ci_section}\n\n---\n\n{full_summary}"
+
             # Create result
             result = MRReviewResult(
                 mr_iid=mr_iid,
@@ -255,10 +369,16 @@ class GitLabOrchestrator:
                 verdict_reasoning=summary,
                 blockers=blockers,
                 reviewed_commit_sha=context.head_sha,
+                ci_status=ci_status,
+                ci_pipeline_id=ci_pipeline_id,
             )
 
             # Save result
             result.save(self.gitlab_dir)
+
+            # Mark as reviewed in bot detector
+            if self.bot_detector and context.head_sha:
+                self.bot_detector.mark_reviewed(mr_iid, context.head_sha)
 
             self._report_progress("complete", 100, "Review complete!", mr_iid=mr_iid)
 
