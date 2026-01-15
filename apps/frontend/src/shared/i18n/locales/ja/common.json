@@ -352,5 +352,22 @@
     "done": "完了",
     "failedLabel": "失敗",
     "starting": "開始中..."
+  },
+  "ideation": {
+    "converting": "変換中...",
+    "convertToTask": "自動ビルドタスクに変換",
+    "dismissIdea": "アイデアを却下",
+    "description": "説明",
+    "rationale": "根拠",
+    "goToTask": "タスクに移動",
+    "conversionFailed": "変換に失敗しました",
+    "conversionFailedDescription": "アイデアをタスクに変換できませんでした",
+    "conversionError": "変換エラー",
+    "conversionErrorDescription": "アイデアの変換中にエラーが発生しました"
+  },
+  "issues": {
+    "loadingMore": "さらに読み込み中...",
+    "scrollForMore": "スクロールしてさらに表示",
+    "allLoaded": "すべてのIssueを読み込みました"
   }
 }

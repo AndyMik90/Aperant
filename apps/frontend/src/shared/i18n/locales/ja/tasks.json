@@ -145,6 +145,10 @@
     "browseFiles": "ファイルを参照",
     "creating": "作成中...",
     "createTask": "タスクを作成",
+    "worktreeNotice": {
+      "title": "分離されたワークスペース",
+      "description": "このタスクは分離された git ワークツリーで実行されます。マージを選択するまでメインブランチは安全に保たれます。"
+    },
     "gitOptions": {
       "title": "Gitオプション（オプション）",
       "baseBranchLabel": "ベースブランチ（オプション）",
@@ -157,6 +161,17 @@
     "errors": {
       "createFailed": "タスクの作成に失敗しました。もう一度お試しください。"
     }
+  },
+  "feedback": {
+    "dragDropHint": "画像をドラッグ&ドロップするか、スクリーンショットを貼り付け",
+    "imageAdded": "画像が正常に追加されました",
+    "maxImagesError": "最大{{count}}個の画像まで許可されています",
+    "invalidTypeError": "無効な画像形式です。許可される形式：{{types}}",
+    "removeImage": "画像を削除",
+    "processingError": "画像の処理に失敗しました"
+  },
+  "review": {
+    "mergeTooltip": "タスクのワークツリーブランチからベースブランチに変更をマージします。AIが競合を解決します。その後、ワークツリーを保持するか削除するかを選択できます。"
   },
   "edit": {
     "title": "タスクを編集",

@@ -4,6 +4,34 @@
     "openInbuilt": "内蔵ターミナルで開く",
     "openExternal": "外部ターミナルで開く"
   },
+  "merge": {
+    "branchHasNewCommits": "{{branch}}ブランチに{{count}}件の新しいコミットがあります。",
+    "branchHasNewCommits_other": "{{branch}}ブランチに{{count}}件の新しいコミットがあります。",
+    "branchHasNewCommitsSinceWorktree": "{{branch}}ブランチはこのワークツリーが作成されて以来{{count}}件の新しいコミットがあります。",
+    "branchHasNewCommitsSinceWorktree_other": "{{branch}}ブランチはこのワークツリーが作成されて以来{{count}}件の新しいコミットがあります。",
+    "filesNeedMerging": "{{count}}個のファイルをマージする必要があります。",
+    "filesNeedMerging_other": "{{count}}個のファイルをマージする必要があります。",
+    "filesNeedIntelligentMerging": "{{count}}個のファイルはインテリジェントなマージが必要です:",
+    "filesNeedIntelligentMerging_other": "{{count}}個のファイルはインテリジェントなマージが必要です:",
+    "branchHasNewCommitsSinceBuild": "{{branch}}ブランチはこのビルドが開始されて以来{{count}}件の新しいコミットがあります。",
+    "branchHasNewCommitsSinceBuild_other": "{{branch}}ブランチはこのビルドが開始されて以来{{count}}件の新しいコミットがあります。",
+    "filesNeedAIMergeDueToRenames": "{{renameCount}}個のファイル名変更があるため、{{count}}個のファイルはAIマージが必要です。",
+    "filesNeedAIMergeDueToRenames_other": "{{renameCount}}個のファイル名変更があるため、{{count}}個のファイルはAIマージが必要です。",
+    "filesNeedAIMergeDueToRenamesPlural": "{{renameCount}}個のファイル名変更があるため、{{count}}個のファイルはAIマージが必要です。",
+    "filesNeedAIMergeDueToRenamesPlural_other": "{{renameCount}}個のファイル名変更があるため、{{count}}個のファイルはAIマージが必要です。",
+    "fileRenamesDetected": "{{count}}個のファイル名変更が検出されました - AIがマージを処理します。",
+    "fileRenamesDetected_other": "{{count}}個のファイル名変更が検出されました - AIがマージを処理します。",
+    "filesRenamedOrMoved": "ファイルが名前変更または移動された可能性があります - AIがマージを処理します。",
+    "buttons": {
+      "stageWithAIMerge": "AIマージでステージ",
+      "mergeWithAI": "AIでマージ",
+      "stageTo": "{{branch}}にステージ",
+      "mergeTo": "{{branch}}にマージ",
+      "resolving": "解決中...",
+      "staging": "ステージ中...",
+      "merging": "マージ中..."
+    }
+  },
   "pr": {
     "title": "プルリクエストを作成",
     "description": "ブランチをプッシュして「{{taskTitle}}」のプルリクエストを作成します",

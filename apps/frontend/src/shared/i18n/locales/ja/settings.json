@@ -261,7 +261,12 @@
     "detected": "検出済み",
     "notInstalled": "インストールされていません",
     "detectedSummary": "システムで検出されたツール:",
-    "noToolsDetected": "追加ツールは検出されませんでした（VS Codeとシステムターミナルが使用されます）"
+    "noToolsDetected": "追加ツールは検出されませんでした（VS Codeとシステムターミナルが使用されます）",
+    "yoloMode": {
+      "label": "YOLOモード",
+      "description": "Claudeを--dangerously-skip-permissionsフラグで起動し、すべてのセーフティプロンプトをバイパスします。極端に注意して使用してください。",
+      "warning": "このモードはClaudeの権限システムをバイパスします。実行されるコードを完全に信頼する場合にのみ有効にしてください。"
+    }
   },
   "updates": {
     "title": "アップデート",
