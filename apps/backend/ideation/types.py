@@ -34,3 +34,4 @@ class IdeationConfig:
     model: str = "sonnet"  # Changed from "opus" (fix #433)
     refresh: bool = False
     append: bool = False  # If True, preserve existing ideas when merging
+    language: str = "en"  # Output language for generated content (en, zh-CN, fr, etc.)

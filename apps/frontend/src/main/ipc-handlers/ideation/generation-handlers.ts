@@ -26,7 +26,7 @@ import { safeSendToRenderer } from "../utils";
 /**
  * Read ideation feature settings from the settings file
  */
-function getIdeationFeatureSettings(): { model?: string; thinkingLevel?: string } {
+function getIdeationFeatureSettings(): { model?: string; thinkingLevel?: string; language?: string } {
   const settingsPath = path.join(app.getPath("userData"), "settings.json");
 
   try {
@@ -41,6 +41,7 @@ function getIdeationFeatureSettings(): { model?: string; thinkingLevel?: string 
       return {
         model: featureModels.ideation,
         thinkingLevel: featureThinking.ideation,
+        language: settings.language || "en",
       };
     }
   } catch (error) {
@@ -51,6 +52,7 @@ function getIdeationFeatureSettings(): { model?: string; thinkingLevel?: string 
   return {
     model: DEFAULT_FEATURE_MODELS.ideation,
     thinkingLevel: DEFAULT_FEATURE_THINKING.ideation,
+    language: "en",
   };
 }
 
@@ -70,6 +72,7 @@ export function startIdeationGeneration(
     ...config,
     model: config.model || featureSettings.model,
     thinkingLevel: config.thinkingLevel || featureSettings.thinkingLevel,
+    language: config.language || featureSettings.language,
   };
 
   debugLog("[Ideation Handler] Start generation request:", {
@@ -123,6 +126,7 @@ export function refreshIdeationSession(
     ...config,
     model: config.model || featureSettings.model,
     thinkingLevel: config.thinkingLevel || featureSettings.thinkingLevel,
+    language: config.language || featureSettings.language,
   };
 
   debugLog("[Ideation Handler] Refresh session request:", {

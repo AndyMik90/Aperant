@@ -45,6 +45,7 @@ class IdeationOrchestrator:
         thinking_level: str = "medium",
         refresh: bool = False,
         append: bool = False,
+        language: str = "en",
     ):
         """Initialize the ideation orchestrator.
 
@@ -59,6 +60,7 @@ class IdeationOrchestrator:
             thinking_level: Thinking level for extended reasoning
             refresh: Force regeneration of existing files
             append: Preserve existing ideas when merging
+            language: Output language for generated content (en, zh-CN, fr, etc.)
         """
         # Initialize configuration manager
         self.config_manager = IdeationConfigManager(
@@ -72,6 +74,7 @@ class IdeationOrchestrator:
             thinking_level=thinking_level,
             refresh=refresh,
             append=append,
+            language=language,
         )
 
         # Expose configuration for convenience

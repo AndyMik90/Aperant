@@ -8,6 +8,10 @@ from pathlib import Path
 
 from debug import debug, debug_detailed, debug_error, debug_success
 
+# Add parent directory for core module access
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from core.language import get_language_instruction
+
 
 class ScriptExecutor:
     """Executes Python scripts with proper error handling and output capture."""
@@ -73,12 +77,14 @@ class AgentExecutor:
         model: str,
         create_client_func,
         thinking_budget: int | None = None,
+        language: str = "en",
     ):
         self.project_dir = project_dir
         self.output_dir = output_dir
         self.model = model
         self.create_client = create_client_func
         self.thinking_budget = thinking_budget
+        self.language = language
         # Go up from roadmap/ -> runners/ -> auto-claude/prompts/
         self.prompts_dir = Path(__file__).parent.parent.parent / "prompts"
 
@@ -106,6 +112,13 @@ class AgentExecutor:
         debug_detailed(
             "roadmap_executor", "Loaded prompt file", prompt_length=len(prompt)
         )
+
+        # Add language instruction if not English
+        language_instruction = get_language_instruction(
+            self.language, "vision, descriptions, feature titles, rationales, user stories"
+        )
+        if language_instruction:
+            prompt += f"\n{language_instruction}\n"
 
         # Add context
         prompt += f"\n\n---\n\n**Output Directory**: {self.output_dir}\n"

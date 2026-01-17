@@ -32,6 +32,7 @@ class RoadmapOrchestrator:
         refresh: bool = False,
         enable_competitor_analysis: bool = False,
         refresh_competitor_analysis: bool = False,
+        language: str = "en",
     ):
         self.project_dir = Path(project_dir)
         self.model = model
@@ -40,6 +41,7 @@ class RoadmapOrchestrator:
         self.refresh = refresh
         self.enable_competitor_analysis = enable_competitor_analysis
         self.refresh_competitor_analysis = refresh_competitor_analysis
+        self.language = language
 
         # Default output to project's .auto-claude directory (installed instance)
         # Note: auto-claude/ is source code, .auto-claude/ is the installed instance
@@ -60,6 +62,7 @@ class RoadmapOrchestrator:
             self.model,
             create_client,
             self.thinking_budget,
+            self.language,
         )
 
         # Initialize phase handlers

@@ -26,3 +26,4 @@ class RoadmapConfig:
     model: str = "sonnet"  # Changed from "opus" (fix #433)
     refresh: bool = False  # Force regeneration even if roadmap exists
     enable_competitor_analysis: bool = False  # Enable competitor analysis phase
+    language: str = "en"  # Output language for generated content (en, zh-CN, fr, etc.)

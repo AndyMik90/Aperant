@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from client import create_client
+from core.language import get_language_instruction
 from phase_config import get_thinking_budget, resolve_model_id
 from ui import print_status
 
@@ -59,6 +60,7 @@ class IdeationGenerator:
         model: str = "sonnet",  # Changed from "opus" (fix #433)
         thinking_level: str = "medium",
         max_ideas_per_type: int = 5,
+        language: str = "en",
     ):
         self.project_dir = Path(project_dir)
         self.output_dir = Path(output_dir)
@@ -66,6 +68,7 @@ class IdeationGenerator:
         self.thinking_level = thinking_level
         self.thinking_budget = get_thinking_budget(thinking_level)
         self.max_ideas_per_type = max_ideas_per_type
+        self.language = language
         self.prompts_dir = Path(__file__).parent.parent / "prompts"
 
     async def run_agent(
@@ -81,6 +84,13 @@ class IdeationGenerator:
 
         # Load prompt
         prompt = prompt_path.read_text(encoding="utf-8")
+
+        # Add language instruction if not English
+        language_instruction = get_language_instruction(
+            self.language, "titles, descriptions, rationales, user benefits"
+        )
+        if language_instruction:
+            prompt += f"\n{language_instruction}\n"
 
         # Add context
         prompt += f"\n\n---\n\n**Output Directory**: {self.output_dir}\n"

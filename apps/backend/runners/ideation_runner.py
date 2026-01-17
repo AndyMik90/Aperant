@@ -122,6 +122,12 @@ def main():
         action="store_true",
         help="Append new ideas to existing session instead of replacing",
     )
+    parser.add_argument(
+        "--language",
+        type=str,
+        default="en",
+        help="Output language for generated content (en, zh-CN, fr, etc.)",
+    )
 
     args = parser.parse_args()
 
@@ -152,6 +158,7 @@ def main():
         thinking_level=args.thinking_level,
         refresh=args.refresh,
         append=args.append,
+        language=args.language,
     )
 
     try:
