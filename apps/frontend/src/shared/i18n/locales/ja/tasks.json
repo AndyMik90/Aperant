@@ -53,7 +53,6 @@
     "description": "最初のタスクを作成して始めましょう"
   },
   "columns": {
-    "error": "エラー",
     "backlog": "計画中",
     "in_progress": "進行中",
     "ai_review": "AIレビュー",
@@ -72,8 +71,6 @@
     "emptyHumanReviewHint": "承認待ちのタスクがここに表示されます",
     "emptyDone": "完了したタスクなし",
     "emptyDoneHint": "承認されたタスクがここに表示されます",
-    "emptyError": "エラーのタスクなし",
-    "emptyErrorHint": "解析が失敗するとエラータスクがここに表示されます",
     "emptyDefault": "タスクなし",
     "dropHere": "ここにドロップ",
     "showArchived": "アーカイブを表示",

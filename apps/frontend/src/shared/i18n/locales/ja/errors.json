@@ -1,5 +1,9 @@
 {
   "task": {
-    "parseImplementationPlan": "{{specId}}のimplementation_plan.jsonの解析に失敗しました：{{error}}"
+    "parseImplementationPlan": "{{specId}}のimplementation_plan.jsonの解析に失敗しました：{{error}}",
+    "jsonError": {
+      "titleSuffix": "（JSON エラー）",
+      "description": "⚠️ JSON解析エラー：{{error}}\n\nimplementation_plan.jsonファイルが不正です。バックエンドの自動修正を実行するか、手動でファイルを修復してください。"
+    }
   }
 }
