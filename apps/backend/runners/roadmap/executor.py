@@ -115,7 +115,8 @@ class AgentExecutor:
 
         # Add language instruction if not English
         language_instruction = get_language_instruction(
-            self.language, "vision, descriptions, feature titles, rationales, user stories"
+            self.language,
+            "vision, descriptions, feature titles, rationales, user stories",
         )
         if language_instruction:
             prompt += f"\n{language_instruction}\n"
