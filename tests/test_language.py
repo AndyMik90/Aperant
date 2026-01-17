@@ -8,8 +8,6 @@ languages and content types.
 import sys
 from pathlib import Path
 
-import pytest
-
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
