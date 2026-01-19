@@ -20,6 +20,8 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 
+from phase_config import get_iteration_config, is_ralph_wiggum_mode
+
 
 class FailureType(Enum):
     """Types of failures that can occur during autonomous builds."""
@@ -519,16 +521,86 @@ class RecoveryManager:
             if attempt.get("error"):
                 hints.append(f"  Error: {attempt['error'][:100]}")
 
-        # Add guidance
+        # Check for Ralph Wiggum mode and force pivot on circular fixes
+        iteration_config = get_iteration_config(self.spec_dir)
+        force_pivot = iteration_config.get("force_pivot_on_circular", False)
+
+        # Add guidance based on attempt count and mode
         if len(attempts) >= 2:
-            hints.append(
-                "\n⚠️  IMPORTANT: Try a DIFFERENT approach than previous attempts"
-            )
-            hints.append(
-                "Consider: different library, different pattern, or simpler implementation"
-            )
+            if force_pivot and len(attempts) >= 3:
+                # Ralph Wiggum mode with 3+ attempts: FORCE a complete strategy pivot
+                hints.append("\n" + "=" * 60)
+                hints.append("🚨 RALPH WIGGUM MODE: FORCE STRATEGY PIVOT 🚨")
+                hints.append("=" * 60)
+                hints.append(
+                    "\nYou MUST try a COMPLETELY DIFFERENT approach. Previous approaches have failed."
+                )
+
+                # Extract common patterns from failed attempts to suggest avoiding them
+                failed_approaches = [a["approach"].lower() for a in attempts if not a.get("success")]
+                common_patterns = self._extract_common_patterns(failed_approaches)
+
+                if common_patterns:
+                    hints.append(f"\n❌ DO NOT USE these patterns (all previous attempts used them):")
+                    for pattern in common_patterns[:5]:  # Show top 5
+                        hints.append(f"   - {pattern}")
+
+                hints.append("\n✅ TRY INSTEAD:")
+                hints.append("   - Completely different library/framework")
+                hints.append("   - Opposite design pattern (sync vs async, OOP vs functional)")
+                hints.append("   - Simpler implementation that avoids the problem entirely")
+                hints.append("   - Breaking the problem into smaller parts")
+                hints.append("=" * 60)
+            else:
+                # Standard guidance
+                hints.append(
+                    "\n⚠️  IMPORTANT: Try a DIFFERENT approach than previous attempts"
+                )
+                hints.append(
+                    "Consider: different library, different pattern, or simpler implementation"
+                )
 
         return hints
+
+    def _extract_common_patterns(self, approaches: list[str]) -> list[str]:
+        """
+        Extract common technical patterns from failed approaches.
+
+        Args:
+            approaches: List of approach descriptions
+
+        Returns:
+            List of common pattern keywords
+        """
+        if not approaches:
+            return []
+
+        # Technical keywords to track
+        tech_keywords = {
+            "async", "await", "promise", "callback", "sync", "synchronous",
+            "class", "function", "method", "object", "functional",
+            "try", "catch", "error", "exception", "throw",
+            "loop", "recursive", "iteration", "map", "filter", "reduce",
+            "api", "rest", "graphql", "fetch", "axios", "request",
+            "state", "redux", "context", "hook", "usestate", "useeffect",
+            "sql", "query", "orm", "database", "mongo", "postgres",
+            "regex", "parse", "split", "join", "format",
+            "file", "stream", "buffer", "read", "write",
+            "timer", "timeout", "interval", "delay", "debounce",
+            "cache", "memo", "lazy", "eager", "optimization"
+        }
+
+        # Count keyword occurrences across approaches
+        keyword_counts: dict[str, int] = {}
+        for approach in approaches:
+            words = set(approach.split())
+            for word in words:
+                if word in tech_keywords:
+                    keyword_counts[word] = keyword_counts.get(word, 0) + 1
+
+        # Return keywords that appear in 2+ approaches (common patterns)
+        common = [k for k, v in keyword_counts.items() if v >= 2]
+        return sorted(common, key=lambda k: keyword_counts[k], reverse=True)
 
     def clear_stuck_subtasks(self) -> None:
         """Clear all stuck subtasks (for manual resolution)."""

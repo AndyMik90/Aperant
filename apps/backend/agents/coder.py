@@ -18,7 +18,7 @@ from linear_updater import (
     linear_task_started,
     linear_task_stuck,
 )
-from phase_config import get_phase_model, get_phase_thinking_budget
+from phase_config import get_phase_model, get_phase_thinking_budget, get_iteration_config, is_ralph_wiggum_mode
 from phase_event import ExecutionPhase, emit_phase
 from progress import (
     count_subtasks,
@@ -132,6 +132,13 @@ async def run_autonomous_agent(
 
     # Check if this is a fresh start or continuation
     first_run = is_first_run(spec_dir)
+
+    # Load iteration configuration (Ralph Wiggum mode or normal)
+    iteration_config = get_iteration_config(spec_dir)
+    if is_ralph_wiggum_mode(spec_dir):
+        print_status("Ralph Wiggum Mode: ENABLED (\"I'm helping!\")", "info")
+        print_key_value("Max subtask attempts", iteration_config["subtask_attempts_before_stuck"])
+        print()
 
     # Track which phase we're in for logging
     current_log_phase = LogPhase.CODING
@@ -479,9 +486,10 @@ async def run_autonomous_agent(
                 source_spec_dir=source_spec_dir,
             )
 
-            # Check for stuck subtasks
+            # Check for stuck subtasks (use iteration config for threshold)
             attempt_count = recovery_manager.get_attempt_count(subtask_id)
-            if not success and attempt_count >= 3:
+            max_attempts = iteration_config["subtask_attempts_before_stuck"]
+            if not success and attempt_count >= max_attempts:
                 recovery_manager.mark_subtask_stuck(
                     subtask_id, f"Failed after {attempt_count} attempts"
                 )

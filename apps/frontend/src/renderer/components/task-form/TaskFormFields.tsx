@@ -77,6 +77,10 @@ interface TaskFormFieldsProps {
   requireReviewBeforeCoding: boolean;
   onRequireReviewChange: (require: boolean) => void;
 
+  // Ralph Wiggum Mode (aggressive iteration)
+  ralphWiggumMode?: boolean;
+  onRalphWiggumModeChange?: (enable: boolean) => void;
+
   // Form state
   disabled?: boolean;
   error?: string | null;
@@ -124,6 +128,8 @@ export function TaskFormFields({
   onImagesChange,
   requireReviewBeforeCoding,
   onRequireReviewChange,
+  ralphWiggumMode = false,
+  onRalphWiggumModeChange,
   disabled = false,
   error,
   onError,
@@ -339,6 +345,30 @@ export function TaskFormFields({
           </p>
         </div>
       </div>
+
+      {/* Ralph Wiggum Mode Toggle */}
+      {onRalphWiggumModeChange && (
+        <div className="flex items-start gap-3 p-4 rounded-lg border border-border bg-muted/30">
+          <Checkbox
+            id={`${prefix}ralph-wiggum-mode`}
+            checked={ralphWiggumMode}
+            onCheckedChange={(checked) => onRalphWiggumModeChange(checked === true)}
+            disabled={disabled}
+            className="mt-0.5"
+          />
+          <div className="flex-1 space-y-1">
+            <Label
+              htmlFor={`${prefix}ralph-wiggum-mode`}
+              className="text-sm font-medium text-foreground cursor-pointer"
+            >
+              {t('tasks:form.ralphWiggumModeLabel')}
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              {t('tasks:form.ralphWiggumModeDescription')}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Error Display */}
       {error && (

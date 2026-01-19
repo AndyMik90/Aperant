@@ -154,6 +154,7 @@ export interface TaskDraft {
   images: ImageAttachment[];
   referencedFiles: ReferencedFile[];
   requireReviewBeforeCoding?: boolean;
+  ralphWiggumMode?: boolean;
   savedAt: Date;
 }
 
@@ -224,6 +225,9 @@ export interface TaskMetadata {
 
   // Review settings
   requireReviewBeforeCoding?: boolean;  // Require human review of spec/plan before coding starts
+
+  // Iteration mode
+  ralphWiggumMode?: boolean;  // "I'm helping!" - Aggressive iteration mode with higher retry limits
 
   // Agent configuration (from agent profile or manual selection)
   model?: ModelType;  // Claude model to use (haiku, sonnet, opus) - used when not auto profile

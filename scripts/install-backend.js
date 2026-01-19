@@ -29,8 +29,18 @@ function run(cmd, options = {}) {
 // Find Python 3.12+
 // Prefer 3.12 first since it has the most stable wheel support for native packages
 function findPython() {
+  // On Windows, also check common installation paths
+  const windowsPathCandidates = isWindows ? [
+    `${process.env.LOCALAPPDATA}\\Programs\\Python\\Python312\\python.exe`,
+    `${process.env.LOCALAPPDATA}\\Programs\\Python\\Python313\\python.exe`,
+    `${process.env.LOCALAPPDATA}\\Programs\\Python\\Python314\\python.exe`,
+    'C:\\Python312\\python.exe',
+    'C:\\Python313\\python.exe',
+    'C:\\Python314\\python.exe',
+  ] : [];
+
   const candidates = isWindows
-    ? ['py -3.12', 'py -3.13', 'py -3.14', 'python3.12', 'python3.13', 'python3.14', 'python3', 'python']
+    ? ['py -3.12', 'py -3.13', 'py -3.14', 'python3.12', 'python3.13', 'python3.14', 'python3', 'python', ...windowsPathCandidates]
     : ['python3.12', 'python3.13', 'python3.14', 'python3', 'python'];
 
   for (const cmd of candidates) {

@@ -85,6 +85,7 @@ class TaskMetadataConfig(TypedDict, total=False):
     phaseThinking: PhaseThinkingConfig
     model: str
     thinkingLevel: str
+    ralphWiggumMode: bool  # "I'm helping!" - Aggressive iteration mode
 
 
 Phase = Literal["spec", "planning", "coding", "qa"]
@@ -317,3 +318,65 @@ def get_spec_phase_thinking_budget(phase_name: str) -> int | None:
     """
     thinking_level = SPEC_PHASE_THINKING_LEVELS.get(phase_name, "medium")
     return get_thinking_budget(thinking_level)
+
+
+# Ralph Wiggum Mode configuration
+# "I'm helping!" - Aggressive iteration mode with higher retry limits
+RALPH_WIGGUM_CONFIG = {
+    # Subtask retry limits
+    "subtask_attempts_before_stuck": 5,  # Normal: 3
+    # QA loop thresholds
+    "qa_recurring_issue_threshold": 5,  # Normal: 3
+    "qa_consecutive_errors_limit": 5,  # Normal: 3
+    "qa_max_iterations": 100,  # Normal: 50
+    # Flaky test retry
+    "flaky_test_retries": 2,  # Normal: 0
+    # Force strategy pivot on circular fix detection
+    "force_pivot_on_circular": True,  # Normal: False
+}
+
+NORMAL_MODE_CONFIG = {
+    "subtask_attempts_before_stuck": 3,
+    "qa_recurring_issue_threshold": 3,
+    "qa_consecutive_errors_limit": 3,
+    "qa_max_iterations": 50,
+    "flaky_test_retries": 0,
+    "force_pivot_on_circular": False,
+}
+
+
+def is_ralph_wiggum_mode(spec_dir: Path) -> bool:
+    """
+    Check if Ralph Wiggum mode is enabled for the current task.
+
+    Ralph Wiggum mode ("I'm helping!") enables aggressive iteration with:
+    - More retry attempts before marking subtasks as stuck
+    - Higher thresholds for recurring QA issues
+    - Automatic strategy pivots when circular fixes are detected
+    - Flaky test auto-retry
+
+    Args:
+        spec_dir: Path to the spec directory
+
+    Returns:
+        True if Ralph Wiggum mode is enabled
+    """
+    metadata = load_task_metadata(spec_dir)
+    if metadata:
+        return metadata.get("ralphWiggumMode", False)
+    return False
+
+
+def get_iteration_config(spec_dir: Path) -> dict:
+    """
+    Get the iteration configuration based on Ralph Wiggum mode setting.
+
+    Args:
+        spec_dir: Path to the spec directory
+
+    Returns:
+        Configuration dict with iteration limits
+    """
+    if is_ralph_wiggum_mode(spec_dir):
+        return RALPH_WIGGUM_CONFIG.copy()
+    return NORMAL_MODE_CONFIG.copy()

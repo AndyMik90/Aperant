@@ -200,6 +200,8 @@
     "classificationOptional": "Classification (optionnel)",
     "requireReviewLabel": "Exiger une révision humaine avant le codage",
     "requireReviewDescription": "Lorsque activé, vous serez invité à réviser la spécification et le plan d'implémentation avant le début de la phase de codage. Cela vous permet d'approuver, de demander des modifications ou de fournir des commentaires.",
+    "ralphWiggumModeLabel": "Mode Ralph Wiggum (\"J'aide !\")",
+    "ralphWiggumModeDescription": "Mode d'itération agressive. L'agent essaiera plus fort avant d'abandonner : plus de tentatives, seuils plus élevés pour les problèmes récurrents, et pivots de stratégie automatiques en cas de blocage. Idéal pour les tâches complexes nécessitant plusieurs approches.",
     "errors": {
       "descriptionRequired": "Veuillez fournir une description",
       "maxImagesReached": "Maximum de 5 images autorisé",

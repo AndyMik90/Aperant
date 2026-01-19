@@ -112,6 +112,11 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     task.metadata?.requireReviewBeforeCoding ?? false
   );
 
+  // Ralph Wiggum Mode (aggressive iteration)
+  const [ralphWiggumMode, setRalphWiggumMode] = useState(
+    task.metadata?.ralphWiggumMode ?? false
+  );
+
   // Reset form when task changes or dialog opens
   useEffect(() => {
     if (open) {
@@ -152,6 +157,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
 
       setImages(task.metadata?.attachedImages || []);
       setRequireReviewBeforeCoding(task.metadata?.requireReviewBeforeCoding ?? false);
+      setRalphWiggumMode(task.metadata?.ralphWiggumMode ?? false);
       setError(null);
 
       // Auto-expand classification if it has content
@@ -196,6 +202,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       model !== (task.metadata?.model || '') ||
       thinkingLevel !== (task.metadata?.thinkingLevel || '') ||
       requireReviewBeforeCoding !== (task.metadata?.requireReviewBeforeCoding ?? false) ||
+      ralphWiggumMode !== (task.metadata?.ralphWiggumMode ?? false) ||
       JSON.stringify(images) !== JSON.stringify(task.metadata?.attachedImages || []) ||
       JSON.stringify(phaseModels) !== JSON.stringify(task.metadata?.phaseModels || DEFAULT_PHASE_MODELS) ||
       JSON.stringify(phaseThinking) !== JSON.stringify(task.metadata?.phaseThinking || DEFAULT_PHASE_THINKING);
@@ -224,6 +231,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     // Always set attachedImages to persist removal when all images are deleted
     metadataUpdates.attachedImages = images.length > 0 ? images : [];
     metadataUpdates.requireReviewBeforeCoding = requireReviewBeforeCoding;
+    metadataUpdates.ralphWiggumMode = ralphWiggumMode;
 
     const success = await persistUpdateTask(task.id, {
       title: trimmedTitle,
@@ -301,6 +309,8 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         onImagesChange={setImages}
         requireReviewBeforeCoding={requireReviewBeforeCoding}
         onRequireReviewChange={setRequireReviewBeforeCoding}
+        ralphWiggumMode={ralphWiggumMode}
+        onRalphWiggumModeChange={setRalphWiggumMode}
         disabled={isSaving}
         error={error}
         onError={setError}

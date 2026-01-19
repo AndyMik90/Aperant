@@ -200,6 +200,8 @@
     "classificationOptional": "Classification (optional)",
     "requireReviewLabel": "Require human review before coding",
     "requireReviewDescription": "When enabled, you'll be prompted to review the spec and implementation plan before the coding phase begins. This allows you to approve, request changes, or provide feedback.",
+    "ralphWiggumModeLabel": "Ralph Wiggum Mode (\"I'm helping!\")",
+    "ralphWiggumModeDescription": "Aggressive iteration mode. The agent will try harder before giving up: more retry attempts, higher thresholds for recurring issues, and automatic strategy pivots when stuck. Best for complex tasks that may need multiple approaches.",
     "errors": {
       "descriptionRequired": "Please provide a description",
       "maxImagesReached": "Maximum of 5 images allowed",
