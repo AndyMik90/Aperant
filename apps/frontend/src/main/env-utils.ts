@@ -122,6 +122,8 @@ export const COMMON_BIN_PATHS: Record<string, string[]> = {
     '/usr/local/sbin',        // Intel Homebrew sbin
     '~/.local/bin',           // User-local binaries (Claude CLI)
     '~/.dotnet/tools',        // .NET global tools
+    '~/.nix-profile/bin',     // Nix/home-manager user profile
+    '/nix/var/nix/profiles/default/bin', // Determinate Nix default profile
   ],
   linux: [
     '/usr/local/bin',
@@ -130,6 +132,9 @@ export const COMMON_BIN_PATHS: Record<string, string[]> = {
     '~/.local/bin',           // User-local binaries
     '~/.dotnet/tools',        // .NET global tools
     '/usr/sbin',              // System admin binaries
+    '~/.nix-profile/bin',     // Nix/home-manager user profile
+    '/nix/var/nix/profiles/default/bin', // Determinate Nix default profile
+    '/run/current-system/sw/bin', // NixOS system profile
   ],
   win32: [
     // Windows usually handles PATH better, but we can add common locations
