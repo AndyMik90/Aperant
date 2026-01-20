@@ -1,0 +1,29 @@
+// Project tasks configuration. See https://zed.dev/docs/tasks for documentation.
+[
+  {
+    "label": "Run Development Server",
+    "command": "pnpm",
+    "args": ["dev"],
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "reveal_target": "dock",
+    "hide": "always",
+    "shell": "system",
+    "show_summary": true,
+    "show_command": true
+  },
+  {
+    "label": "Install All Dependencies",
+    "command": "pnpm",
+    "args": ["install:all"],
+    "use_new_terminal": true,
+    "allow_concurrent_runs": true,
+    "reveal": "always",
+    "reveal_target": "dock",
+    "hide": "on_success",
+    "shell": "system",
+    "show_summary": true,
+    "show_command": true
+  }
+]

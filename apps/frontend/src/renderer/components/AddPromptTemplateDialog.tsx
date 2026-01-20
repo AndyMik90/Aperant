@@ -1,10 +1,10 @@
 /**
- * AddPromptTemplateDialog - Dialog for creating custom AI task split prompt templates
+ * AddPromptTemplateDialog - Dialog for creating/editing custom AI task split prompt templates
  *
- * This allows users to create their own prompt templates for AI task splitting.
+ * This allows users to create or edit their own prompt templates for AI task splitting.
  * Users can specify a title and a custom prompt template.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
@@ -38,6 +38,17 @@ export function AddPromptTemplateDialog({
   const [title, setTitle] = useState(editingTemplate?.title || '');
   const [prompt, setPrompt] = useState(editingTemplate?.prompt || '');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Update form when editingTemplate changes
+  useEffect(() => {
+    if (editingTemplate) {
+      setTitle(editingTemplate.title);
+      setPrompt(editingTemplate.prompt);
+    } else {
+      setTitle('');
+      setPrompt('');
+    }
+  }, [editingTemplate]);
 
   const handleClose = () => {
     setTitle('');

@@ -2,11 +2,11 @@
  * PromptTemplateSelector - Component for selecting AI task split prompt templates
  *
  * This allows users to select a prompt template for AI task splitting.
- * Users can also create custom templates with the plus button.
+ * Users can also create, edit, and delete custom templates.
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Plus, Sparkles } from 'lucide-react';
+import { ChevronDown, Plus, Sparkles, Pencil, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import {
@@ -29,6 +29,7 @@ export function PromptTemplateSelector({ value, onChange, disabled }: PromptTemp
   const { t } = useTranslation(['tasks']);
   const [isOpen, setIsOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<PromptTemplate | undefined>(undefined);
 
   // Get all templates (default + custom from settings)
   const settings = useSettingsStore();
@@ -42,17 +43,45 @@ export function PromptTemplateSelector({ value, onChange, disabled }: PromptTemp
   const selectedId = value || 'default';
   const selectedTemplate = allTemplates.find(t => t.id === selectedId) || DEFAULT_PROMPT_TEMPLATES[0];
 
+  // Check if selected template is custom
+  const isCustomTemplate = selectedTemplate.isCustom;
+
   const handleSelectTemplate = (templateId: string) => {
     onChange(templateId);
     settings.setSelectedPromptTemplate(templateId);
     setIsOpen(false);
   };
 
-  const handleCreateTemplate = (template: Omit<PromptTemplate, 'id'>) => {
-    settings.addPromptTemplate(template);
-    // The template will be added with an auto-generated ID
+  const handleCreateTemplate = async (template: Omit<PromptTemplate, 'id'>) => {
+    if (editingTemplate) {
+      // Update existing template
+      await settings.updatePromptTemplate({
+        ...template,
+        id: editingTemplate.id
+      });
+    } else {
+      // Create new template
+      await settings.addPromptTemplate(template);
+    }
+    setEditingTemplate(undefined);
     setIsDialogOpen(false);
     setIsOpen(false);
+  };
+
+  const handleEditTemplate = () => {
+    setEditingTemplate(selectedTemplate);
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteTemplate = async () => {
+    if (selectedTemplate.isCustom) {
+      await settings.deletePromptTemplate(selectedTemplate.id);
+    }
+  };
+
+  const handleDialogClose = () => {
+    setEditingTemplate(undefined);
+    setIsDialogOpen(false);
   };
 
   return (
@@ -100,6 +129,28 @@ export function PromptTemplateSelector({ value, onChange, disabled }: PromptTemp
             </div>
           </PopoverContent>
         </Popover>
+        {isCustomTemplate && (
+          <>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleEditTemplate}
+              disabled={disabled}
+              aria-label={t('tasks:aiSplitter.promptTemplate.editTemplateAriaLabel')}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleDeleteTemplate}
+              disabled={disabled}
+              aria-label={t('tasks:aiSplitter.promptTemplate.deleteTemplateAriaLabel')}
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </>
+        )}
         <Button
           variant="outline"
           size="icon"
@@ -116,8 +167,9 @@ export function PromptTemplateSelector({ value, onChange, disabled }: PromptTemp
 
       <AddPromptTemplateDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        onOpenChange={handleDialogClose}
         onTemplateCreated={handleCreateTemplate}
+        editingTemplate={editingTemplate}
       />
     </div>
   );
