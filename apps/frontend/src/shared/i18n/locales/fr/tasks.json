@@ -328,7 +328,30 @@
       "splitFailed": "Échec du fractionnement des tâches. Veuillez réessayer."
     },
     "success": "Fractionné {{count}} tâche avec succès",
-    "success_plural": "Fractionné {{count}} tâches avec succès"
+    "success_plural": "Fractionné {{count}} tâches avec succès",
+    "promptTemplate": {
+      "label": "Modèle de prompt",
+      "helpText": "Sélectionnez un modèle de prompt à utiliser pour le fractionnement IA des tâches.",
+      "default": "Par défaut",
+      "addNew": "Ajouter un modèle",
+      "addNewAriaLabel": "Créer un nouveau modèle de prompt personnalisé",
+      "manageTemplates": "Gérer les modèles",
+      "deleteTemplate": "Supprimer le modèle",
+      "deleteTemplateAriaLabel": "Supprimer ce modèle",
+      "editTemplate": "Modifier le modèle",
+      "editTemplateAriaLabel": "Modifier ce modèle",
+      "createTemplate": "Créer un modèle",
+      "updateTemplate": "Mettre à jour le modèle",
+      "templateTitle": "Titre du modèle",
+      "templateTitlePlaceholder": "ex: Séparateur de rapports de bug",
+      "templatePrompt": "Modèle de prompt",
+      "templatePromptPlaceholder": "Entrez votre modèle de prompt personnalisé...\n\nUtilisez {{text}} comme espace réservé pour le texte d'entrée.\nL'IA renverra un tableau JSON avec des champs titre et description.",
+      "templateTitleRequired": "Veuillez entrer un titre de modèle",
+      "templatePromptRequired": "Veuillez entrer un modèle de prompt",
+      "templateCreated": "Modèle créé avec succès",
+      "templateUpdated": "Modèle mis à jour avec succès",
+      "templateDeleted": "Modèle supprimé avec succès"
+    }
   },
   "serviceSelector": {
     "label": "Travailler dans le dossier (optionnel)",

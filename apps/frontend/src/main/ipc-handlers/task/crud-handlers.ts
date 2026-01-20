@@ -477,14 +477,14 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_SPLIT_INTO_TASKS,
-    async (_, projectId: string, text: string): Promise<IPCResult<Array<{ title: string; description: string }>>> => {
+    async (_, projectId: string, text: string, promptTemplate?: string): Promise<IPCResult<Array<{ title: string; description: string }>>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
         return { success: false, error: 'Project not found' };
       }
 
       try {
-        const splitTasks = await splitTextIntoTasks(text);
+        const splitTasks = await splitTextIntoTasks(text, promptTemplate);
         return { success: true, data: splitTasks };
       } catch (error) {
         console.error('[TASK_SPLIT_INTO_TASKS] Error:', error);
@@ -500,7 +500,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
 /**
  * Split text into multiple tasks using Claude AI
  */
-async function splitTextIntoTasks(text: string): Promise<Array<{ title: string; description: string }>> {
+async function splitTextIntoTasks(text: string, promptTemplate?: string): Promise<Array<{ title: string; description: string }>> {
   const { spawn } = await import('child_process');
   const path = await import('path');
   const { app } = await import('electron');
@@ -548,6 +548,26 @@ async function splitTextIntoTasks(text: string): Promise<Array<{ title: string; 
 
   // Create the Python script for task splitting
   const escapedText = JSON.stringify(text);
+
+  // Use the provided prompt template or default
+  let promptToUse = promptTemplate;
+  if (!promptToUse || !promptToUse.trim()) {
+    // Default prompt if none provided
+    promptToUse = `Analyze the following text and split it into separate, actionable tasks.
+
+Return your response as a JSON array of objects with "title" and "description" keys.
+Format: [{"title": "task title", "description": "task description"}]
+
+Text to split:
+{{text}}
+
+Respond ONLY with the JSON array. No markdown, no explanation.`;
+  }
+
+  // Replace {{text}} placeholder with actual text
+  const promptWithText = promptToUse.replace(/\{\{text\}\}/g, text);
+  const escapedPrompt = JSON.stringify(promptWithText);
+
   const script = `
 import asyncio
 import sys
@@ -557,17 +577,7 @@ async def split_into_tasks():
     try:
         from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
-        text = ${escapedText}
-
-        prompt = """Analyze the following text and split it into separate, actionable tasks.
-
-Return your response as a JSON array of objects with "title" and "description" keys.
-Format: [{"title": "task title", "description": "task description"}]
-
-Text to split:
-""" + text + """
-
-Respond ONLY with the JSON array. No markdown, no explanation."""
+        prompt = ${escapedPrompt}
 
         client = ClaudeSDKClient(
             options=ClaudeAgentOptions(

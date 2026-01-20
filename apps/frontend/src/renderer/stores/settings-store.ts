@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AppSettings } from '../../shared/types';
+import type { AppSettings, PromptTemplate } from '../../shared/types';
 import type { APIProfile, ProfileFormData, TestConnectionResult, DiscoverModelsResult, ModelInfo } from '@shared/types/profile';
 import { DEFAULT_APP_SETTINGS } from '../../shared/constants';
 import { toast } from '../hooks/use-toast';
@@ -41,6 +41,12 @@ interface SettingsState {
   setActiveProfile: (profileId: string | null) => Promise<boolean>;
   testConnection: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<TestConnectionResult | null>;
   discoverModels: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<ModelInfo[] | null>;
+
+  // Prompt template actions
+  addPromptTemplate: (template: Omit<PromptTemplate, 'id'>) => Promise<boolean>;
+  updatePromptTemplate: (template: PromptTemplate) => Promise<boolean>;
+  deletePromptTemplate: (templateId: string) => Promise<boolean>;
+  setSelectedPromptTemplate: (templateId: string) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -292,6 +298,106 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       });
       return null;
     }
+  },
+
+  addPromptTemplate: async (template: Omit<PromptTemplate, 'id'>): Promise<boolean> => {
+    try {
+      const newTemplate: PromptTemplate = {
+        ...template,
+        id: `custom-${Date.now()}`,
+        isCustom: true
+      };
+
+      const currentTemplates = useSettingsStore.getState().settings.promptTemplates || [];
+      const updatedTemplates = [...currentTemplates, newTemplate];
+
+      const result = await window.electronAPI.saveSettings({
+        promptTemplates: updatedTemplates
+      });
+
+      if (result.success) {
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            promptTemplates: updatedTemplates
+          }
+        }));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      return false;
+    }
+  },
+
+  updatePromptTemplate: async (template: PromptTemplate): Promise<boolean> => {
+    try {
+      const currentTemplates = useSettingsStore.getState().settings.promptTemplates || [];
+      const updatedTemplates = currentTemplates.map(t =>
+        t.id === template.id ? template : t
+      );
+
+      const result = await window.electronAPI.saveSettings({
+        promptTemplates: updatedTemplates
+      });
+
+      if (result.success) {
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            promptTemplates: updatedTemplates
+          }
+        }));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      return false;
+    }
+  },
+
+  deletePromptTemplate: async (templateId: string): Promise<boolean> => {
+    try {
+      const currentTemplates = useSettingsStore.getState().settings.promptTemplates || [];
+      const updatedTemplates = currentTemplates.filter(t => t.id !== templateId);
+
+      // If the deleted template was selected, reset to default
+      const currentSelected = useSettingsStore.getState().settings.selectedPromptTemplateId;
+      const updates: Partial<AppSettings> = {
+        promptTemplates: updatedTemplates
+      };
+
+      if (currentSelected === templateId) {
+        updates.selectedPromptTemplateId = 'default';
+      }
+
+      const result = await window.electronAPI.saveSettings(updates);
+
+      if (result.success) {
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            promptTemplates: updatedTemplates,
+            selectedPromptTemplateId: updates.selectedPromptTemplateId
+          }
+        }));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      return false;
+    }
+  },
+
+  setSelectedPromptTemplate: (templateId: string) => {
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        selectedPromptTemplateId: templateId
+      }
+    }));
+    // Persist to main process
+    window.electronAPI.saveSettings({ selectedPromptTemplateId: templateId });
   }
 }));
 

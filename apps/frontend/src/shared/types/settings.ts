@@ -287,6 +287,10 @@ export interface AppSettings {
   autoNameClaudeTerminals?: boolean;
   // Track which version warnings have been shown (e.g., ["2.7.5"])
   seenVersionWarnings?: string[];
+  // Custom prompt templates for AI task splitting
+  promptTemplates?: PromptTemplate[];
+  // Currently selected prompt template for AI task splitting
+  selectedPromptTemplateId?: string;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)
@@ -305,3 +309,34 @@ export interface SourceEnvCheckResult {
   sourcePath?: string;
   error?: string;
 }
+
+/**
+ * Prompt template for AI task splitting
+ */
+export interface PromptTemplate {
+  id: string;
+  title: string;
+  prompt: string;
+  isDefault?: boolean;
+  isCustom?: boolean;
+}
+
+/**
+ * Default built-in prompt templates
+ */
+export const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [
+  {
+    id: 'default',
+    title: 'Default',
+    prompt: `Analyze the following text and split it into separate, actionable tasks.
+
+Return your response as a JSON array of objects with "title" and "description" keys.
+Format: [{{"title": "task title", "description": "task description"}}]
+
+Text to split:
+{{text}}
+
+Respond ONLY with the JSON array. No markdown, no explanation.`,
+    isDefault: true
+  }
+];

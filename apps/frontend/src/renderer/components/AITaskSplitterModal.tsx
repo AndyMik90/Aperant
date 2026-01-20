@@ -5,7 +5,7 @@
  * that you want to split into separate tasks. Paste the text and AI will
  * parse it into individual tasks that you can then review, edit, and create.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2, Sparkles, X, Plus, Trash2, ChevronLeft, Check } from 'lucide-react';
 import { Button } from './ui/button';
@@ -22,6 +22,9 @@ import {
 } from './ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
 import { cn } from '../lib/utils';
+import { PromptTemplateSelector } from './PromptTemplateSelector';
+import { useSettingsStore } from '../stores/settings-store';
+import { DEFAULT_PROMPT_TEMPLATES, type PromptTemplate } from '../../shared/types';
 
 export interface SplitTask {
   title: string;
@@ -44,11 +47,34 @@ export function AITaskSplitterModal({
   projectId
 }: AITaskSplitterModalProps) {
   const { t } = useTranslation(['tasks', 'common']);
+  const settings = useSettingsStore();
+
   const [step, setStep] = useState<Step>('input');
   const [inputText, setInputText] = useState('');
   const [isSplitting, setIsSplitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [splitTasks, setSplitTasks] = useState<SplitTask[]>([]);
+  const [selectedPromptTemplateId, setSelectedPromptTemplateId] = useState<string>('default');
+
+  // Initialize selected template from settings
+  useEffect(() => {
+    if (settings.settings.selectedPromptTemplateId) {
+      setSelectedPromptTemplateId(settings.settings.selectedPromptTemplateId);
+    } else {
+      setSelectedPromptTemplateId('default');
+    }
+  }, [settings.settings.selectedPromptTemplateId]);
+
+  // Get the current prompt template
+  const getPromptTemplate = (): string => {
+    const customTemplates = settings.settings.promptTemplates || [];
+    const allTemplates: PromptTemplate[] = [
+      ...DEFAULT_PROMPT_TEMPLATES,
+      ...customTemplates
+    ];
+    const template = allTemplates.find(t => t.id === selectedPromptTemplateId) || DEFAULT_PROMPT_TEMPLATES[0];
+    return template.prompt;
+  };
 
   const handleSplit = async () => {
     if (!inputText.trim()) {
@@ -60,8 +86,11 @@ export function AITaskSplitterModal({
     setError(null);
 
     try {
-      // Call the backend API to split the text
-      const result = await window.electronAPI.splitIntoTasks(projectId || '', inputText);
+      // Get the prompt template to use
+      const promptTemplate = getPromptTemplate();
+
+      // Call the backend API to split the text with the prompt template
+      const result = await window.electronAPI.splitIntoTasks(projectId || '', inputText, promptTemplate);
 
       if (result.success && result.data) {
         setSplitTasks(result.data);
@@ -139,6 +168,12 @@ export function AITaskSplitterModal({
         {step === 'input' ? (
           // Step 1: Input text to split
           <div className="space-y-4 py-4">
+            <PromptTemplateSelector
+              value={selectedPromptTemplateId}
+              onChange={setSelectedPromptTemplateId}
+              disabled={isSplitting}
+            />
+
             <div className="space-y-2">
               <Label htmlFor="task-input">{t('tasks:aiSplitter.inputLabel')}</Label>
               <Textarea

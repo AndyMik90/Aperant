@@ -329,7 +329,30 @@
       "splitFailed": "Failed to split tasks. Please try again."
     },
     "success": "Split {{count}} task successfully",
-    "success_plural": "Split {{count}} tasks successfully"
+    "success_plural": "Split {{count}} tasks successfully",
+    "promptTemplate": {
+      "label": "Prompt Template",
+      "helpText": "Select a prompt template to use for AI task splitting.",
+      "default": "Default",
+      "addNew": "Add New Template",
+      "addNewAriaLabel": "Create a new custom prompt template",
+      "manageTemplates": "Manage Templates",
+      "deleteTemplate": "Delete Template",
+      "deleteTemplateAriaLabel": "Delete this template",
+      "editTemplate": "Edit Template",
+      "editTemplateAriaLabel": "Edit this template",
+      "createTemplate": "Create Template",
+      "updateTemplate": "Update Template",
+      "templateTitle": "Template Title",
+      "templateTitlePlaceholder": "e.g., Bug Report Splitter",
+      "templatePrompt": "Prompt Template",
+      "templatePromptPlaceholder": "Enter your custom prompt template...\n\nUse {{text}} as a placeholder for the input text.\nThe AI will return a JSON array with title and description fields.",
+      "templateTitleRequired": "Please enter a template title",
+      "templatePromptRequired": "Please enter a prompt template",
+      "templateCreated": "Template created successfully",
+      "templateUpdated": "Template updated successfully",
+      "templateDeleted": "Template deleted successfully"
+    }
   },
   "serviceSelector": {
     "label": "Work in Folder (optional)",
