@@ -289,9 +289,9 @@ class FollowupReviewer:
             # Look for added tests
             if "+ def test_" in file_diff or "+class Test" in file_diff:
                 return True
-        elif finding.category == ReviewCategory.DOCUMENTATION:
+        elif finding.category == ReviewCategory.DOCS:
             # Look for added docstrings or comments
-            if '+"""' in file_diff or "+ #" in file_diff:
+            if '+"""' in file_diff or '+ """' in file_diff or "+ #" in file_diff:
                 return True
 
         return False

@@ -160,6 +160,9 @@ async def test_review_followup_new_findings(
         ],
         files_changed_since_review=["src/feature.py"],
         diff_since_review="diff --git a/src/feature.py b/src/feature.py\n"
+        "--- a/src/feature.py\n"
+        "+++ b/src/feature.py\n"
+        "@@ -0,0 +1,3 @@\n"
         "+ # TODO: implement error handling\n"
         "+ def feature():\n"
         "+     pass",
@@ -171,7 +174,7 @@ async def test_review_followup_new_findings(
 
     # Should detect TODO as new finding
     assert any(
-        f.id.startswith("followup-todo-") and "TODO" in f.title.lower()
+        f.id.startswith("followup-todo-") and "todo" in f.title.lower()
         for f in result.findings
     )
 
@@ -366,7 +369,7 @@ def test_is_finding_addressed_doc_pattern_added(reviewer, sample_previous_review
     doc_finding = MRReviewFinding(
         id="doc-1",
         severity=ReviewSeverity.LOW,
-        category=ReviewCategory.DOCUMENTATION,
+        category=ReviewCategory.DOCS,
         title="Missing docstring",
         description="Add module docstring",
         file="src/api/users.py",
