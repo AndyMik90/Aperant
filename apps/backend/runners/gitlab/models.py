@@ -36,6 +36,18 @@ class ReviewCategory(str, Enum):
     PERFORMANCE = "performance"
 
 
+class TriageCategory(str, Enum):
+    """Issue triage categories."""
+
+    BUG = "bug"
+    FEATURE = "feature"
+    DUPLICATE = "duplicate"
+    QUESTION = "question"
+    SPAM = "spam"
+    INVALID = "invalid"
+    WONTFIX = "wontfix"
+
+
 class ReviewPass(str, Enum):
     """Multi-pass review stages."""
 
@@ -54,6 +66,45 @@ class MergeVerdict(str, Enum):
     MERGE_WITH_CHANGES = "merge_with_changes"
     NEEDS_REVISION = "needs_revision"
     BLOCKED = "blocked"
+
+
+@dataclass
+class TriageResult:
+    """Result of issue triage."""
+
+    issue_iid: int
+    project: str
+    category: TriageCategory
+    confidence: float  # 0.0 to 1.0
+    duplicate_of: int | None = None  # If duplicate, which issue
+    reasoning: str = ""
+    suggested_labels: list[str] = field(default_factory=list)
+    suggested_response: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "issue_iid": self.issue_iid,
+            "project": self.project,
+            "category": self.category.value,
+            "confidence": self.confidence,
+            "duplicate_of": self.duplicate_of,
+            "reasoning": self.reasoning,
+            "suggested_labels": self.suggested_labels,
+            "suggested_response": self.suggested_response,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TriageResult:
+        return cls(
+            issue_iid=data["issue_iid"],
+            project=data["project"],
+            category=TriageCategory(data["category"]),
+            confidence=data["confidence"],
+            duplicate_of=data.get("duplicate_of"),
+            reasoning=data.get("reasoning", ""),
+            suggested_labels=data.get("suggested_labels", []),
+            suggested_response=data.get("suggested_response", ""),
+        )
 
 
 @dataclass
@@ -313,7 +364,10 @@ class GitLabRunnerConfig:
     # Model settings
     model: str = "claude-sonnet-4-5-20250929"
     thinking_level: str = "medium"
-    fast_mode: bool = False
+
+    # Auto-fix settings
+    auto_fix_enabled: bool = False
+    auto_fix_labels: list[str] = field(default_factory=lambda: ["auto-fix", "autofix"])
 
     def to_dict(self) -> dict:
         return {
@@ -322,7 +376,8 @@ class GitLabRunnerConfig:
             "instance_url": self.instance_url,
             "model": self.model,
             "thinking_level": self.thinking_level,
-            "fast_mode": self.fast_mode,
+            "auto_fix_enabled": self.auto_fix_enabled,
+            "auto_fix_labels": self.auto_fix_labels,
         }
 
 
@@ -343,6 +398,11 @@ class MRContext:
     total_deletions: int = 0
     commits: list[dict] = field(default_factory=list)
     head_sha: str | None = None
+    repo_structure: str = ""  # Description of monorepo layout
+    related_files: list[str] = field(default_factory=list)  # Imports, tests, configs
+    # CI/CD pipeline status
+    ci_status: str | None = None
+    ci_pipeline_id: int | None = None
 
 
 @dataclass
@@ -358,3 +418,223 @@ class FollowupMRContext:
     commits_since_review: list[dict] = field(default_factory=list)
     files_changed_since_review: list[str] = field(default_factory=list)
     diff_since_review: str = ""
+
+
+# -------------------------------------------------------------------------
+# Auto-Fix Models
+# -------------------------------------------------------------------------
+
+
+class AutoFixStatus(str, Enum):
+    """Status for auto-fix operations."""
+
+    # Initial states
+    PENDING = "pending"
+    ANALYZING = "analyzing"
+
+    # Spec creation states
+    CREATING_SPEC = "creating_spec"
+    WAITING_APPROVAL = "waiting_approval"  # Human review gate
+
+    # Build states
+    BUILDING = "building"
+    QA_REVIEW = "qa_review"
+
+    # MR states
+    MR_CREATED = "mr_created"
+    MERGE_CONFLICT = "merge_conflict"  # Conflict resolution needed
+
+    # Terminal states
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"  # User cancelled
+
+    # Special states
+    STALE = "stale"  # Issue updated after spec creation
+    RATE_LIMITED = "rate_limited"  # Waiting for rate limit reset
+
+    @classmethod
+    def terminal_states(cls) -> set[AutoFixStatus]:
+        """States that represent end of workflow."""
+        return {cls.COMPLETED, cls.FAILED, cls.CANCELLED}
+
+    @classmethod
+    def recoverable_states(cls) -> set[AutoFixStatus]:
+        """States that can be recovered from."""
+        return {cls.FAILED, cls.STALE, cls.RATE_LIMITED, cls.MERGE_CONFLICT}
+
+    @classmethod
+    def active_states(cls) -> set[AutoFixStatus]:
+        """States that indicate work in progress."""
+        return {
+            cls.PENDING,
+            cls.ANALYZING,
+            cls.CREATING_SPEC,
+            cls.BUILDING,
+            cls.QA_REVIEW,
+            cls.MR_CREATED,
+        }
+
+    def can_transition_to(self, new_state: AutoFixStatus) -> bool:
+        """Check if state transition is valid."""
+        # Define valid transitions
+        transitions = {
+            AutoFixStatus.PENDING: {
+                AutoFixStatus.ANALYZING,
+                AutoFixStatus.CANCELLED,
+            },
+            AutoFixStatus.ANALYZING: {
+                AutoFixStatus.CREATING_SPEC,
+                AutoFixStatus.FAILED,
+                AutoFixStatus.CANCELLED,
+                AutoFixStatus.RATE_LIMITED,
+            },
+            AutoFixStatus.CREATING_SPEC: {
+                AutoFixStatus.WAITING_APPROVAL,
+                AutoFixStatus.BUILDING,
+                AutoFixStatus.FAILED,
+                AutoFixStatus.CANCELLED,
+                AutoFixStatus.STALE,
+            },
+            AutoFixStatus.WAITING_APPROVAL: {
+                AutoFixStatus.BUILDING,
+                AutoFixStatus.CANCELLED,
+                AutoFixStatus.STALE,
+            },
+            AutoFixStatus.BUILDING: {
+                AutoFixStatus.QA_REVIEW,
+                AutoFixStatus.MR_CREATED,
+                AutoFixStatus.FAILED,
+                AutoFixStatus.MERGE_CONFLICT,
+                AutoFixStatus.CANCELLED,
+            },
+            AutoFixStatus.QA_REVIEW: {
+                AutoFixStatus.MR_CREATED,
+                AutoFixStatus.BUILDING,
+                AutoFixStatus.COMPLETED,
+                AutoFixStatus.FAILED,
+                AutoFixStatus.CANCELLED,
+            },
+            AutoFixStatus.MR_CREATED: {
+                AutoFixStatus.COMPLETED,
+                AutoFixStatus.MERGE_CONFLICT,
+                AutoFixStatus.FAILED,
+            },
+            # Recoverable states
+            AutoFixStatus.FAILED: {
+                AutoFixStatus.ANALYZING,
+                AutoFixStatus.CANCELLED,
+            },
+            AutoFixStatus.STALE: {
+                AutoFixStatus.ANALYZING,
+                AutoFixStatus.CANCELLED,
+            },
+            AutoFixStatus.RATE_LIMITED: {
+                AutoFixStatus.PENDING,
+                AutoFixStatus.CANCELLED,
+            },
+            AutoFixStatus.MERGE_CONFLICT: {
+                AutoFixStatus.BUILDING,
+                AutoFixStatus.CANCELLED,
+            },
+        }
+        return new_state in transitions.get(self, set())
+
+
+@dataclass
+class AutoFixState:
+    """State tracking for auto-fix operations."""
+
+    issue_iid: int
+    issue_url: str
+    project: str
+    status: AutoFixStatus = AutoFixStatus.PENDING
+    spec_id: str | None = None
+    spec_dir: str | None = None
+    mr_iid: int | None = None  # GitLab MR IID (not database ID)
+    mr_url: str | None = None
+    bot_comments: list[str] = field(default_factory=list)
+    error: str | None = None
+    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
+
+    def to_dict(self) -> dict:
+        return {
+            "issue_iid": self.issue_iid,
+            "issue_url": self.issue_url,
+            "project": self.project,
+            "status": self.status.value,
+            "spec_id": self.spec_id,
+            "spec_dir": self.spec_dir,
+            "mr_iid": self.mr_iid,
+            "mr_url": self.mr_url,
+            "bot_comments": self.bot_comments,
+            "error": self.error,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AutoFixState:
+        issue_iid = data["issue_iid"]
+        project = data["project"]
+        # Construct issue_url if missing (for backwards compatibility)
+        issue_url = (
+            data.get("issue_url")
+            or f"https://gitlab.com/{project}/-/issues/{issue_iid}"
+        )
+
+        return cls(
+            issue_iid=issue_iid,
+            issue_url=issue_url,
+            project=project,
+            status=AutoFixStatus(data.get("status", "pending")),
+            spec_id=data.get("spec_id"),
+            spec_dir=data.get("spec_dir"),
+            mr_iid=data.get("mr_iid"),
+            mr_url=data.get("mr_url"),
+            bot_comments=data.get("bot_comments", []),
+            error=data.get("error"),
+            created_at=data.get("created_at", datetime.now().isoformat()),
+            updated_at=data.get("updated_at", datetime.now().isoformat()),
+        )
+
+    def update_status(self, status: AutoFixStatus) -> None:
+        """Update status and timestamp with transition validation."""
+        if not self.status.can_transition_to(status):
+            raise ValueError(
+                f"Invalid state transition: {self.status.value} -> {status.value}"
+            )
+        self.status = status
+        self.updated_at = datetime.now().isoformat()
+
+    async def save(self, gitlab_dir: Path) -> None:
+        """Save auto-fix state to .auto-claude/gitlab/issues/ with file locking."""
+        try:
+            from .utils.file_lock import atomic_write
+        except ImportError:
+            from runners.gitlab.utils.file_lock import atomic_write
+
+        issues_dir = gitlab_dir / "issues"
+        issues_dir.mkdir(parents=True, exist_ok=True)
+
+        autofix_file = issues_dir / f"autofix_{self.issue_iid}.json"
+
+        # Atomic write
+        with atomic_write(autofix_file, encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, indent=2)
+
+    @classmethod
+    def load(cls, gitlab_dir: Path, issue_iid: int) -> AutoFixState | None:
+        """Load auto-fix state from disk."""
+        autofix_file = gitlab_dir / "issues" / f"autofix_{issue_iid}.json"
+        if not autofix_file.exists():
+            return None
+
+        with open(autofix_file, encoding="utf-8") as f:
+            return cls.from_dict(json.load(f))
+
+    @classmethod
+    async def load_async(cls, gitlab_dir: Path, issue_iid: int) -> AutoFixState | None:
+        """Async wrapper for loading state."""
+        return cls.load(gitlab_dir, issue_iid)

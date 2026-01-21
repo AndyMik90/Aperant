@@ -1,30 +1,30 @@
 """
-Rate Limiting Protection for GitHub Automation
-===============================================
+Rate Limiting Protection for API Automation
+============================================
 
 Comprehensive rate limiting system that protects against:
-1. GitHub API rate limits (5000 req/hour for authenticated users)
+1. API rate limits (configurable based on platform)
 2. AI API cost overruns (configurable budget per run)
 3. Thundering herd problems (exponential backoff)
 
 Components:
 - TokenBucket: Classic token bucket algorithm for rate limiting
-- RateLimiter: Singleton managing GitHub and AI cost limits
+- RateLimiter: Singleton managing API and AI cost limits
 - @rate_limited decorator: Automatic pre-flight checks with retry logic
 - Cost tracking: Per-model AI API cost calculation and budgeting
 
 Usage:
     # Singleton instance
     limiter = RateLimiter.get_instance(
-        github_limit=5000,
-        github_refill_rate=1.4,  # tokens per second
+        api_limit=5000,  # GitLab: varies by tier, GitHub: 5000/hour
+        api_refill_rate=1.4,  # tokens per second
         cost_limit=10.0,  # $10 per run
     )
 
-    # Decorate GitHub operations
-    @rate_limited(operation_type="github")
+    # Decorate API operations
+    @rate_limited(operation_type="api")
     async def fetch_pr_data(pr_number: int):
-        result = subprocess.run(["gh", "pr", "view", str(pr_number)])
+        result = subprocess.run(["glab", "mr", "view", str(pr_number)])
         return result
 
     # Track AI costs
@@ -35,8 +35,8 @@ Usage:
     )
 
     # Manual rate check
-    if not await limiter.acquire_github():
-        raise RateLimitExceeded("GitHub API rate limit reached")
+    if not await limiter.acquire_api():
+        raise RateLimitExceeded("API rate limit reached")
 """
 
 from __future__ import annotations
@@ -158,15 +158,18 @@ class TokenBucket:
         return tokens_needed / self.refill_rate
 
 
-# AI model pricing (per 1M tokens)
+# AI model pricing (per 1M tokens) - Updated 2026
 AI_PRICING = {
-    # Claude models (as of 2025)
+    # Claude models (2026)
+    "claude-sonnet-4-5-20250929": {"input": 3.00, "output": 15.00},
+    "claude-opus-4-5-20250929": {"input": 15.00, "output": 75.00},
+    "claude-sonnet-3-5-20241022": {"input": 3.00, "output": 15.00},
+    "claude-haiku-3-5-20241022": {"input": 0.25, "output": 1.25},
+    "claude-opus-4-5-20251101": {"input": 15.00, "output": 75.00},
+    "claude-sonnet-4-5-20251101": {"input": 3.00, "output": 15.00},
+    # Legacy model names (for compatibility)
     "claude-sonnet-4-20250514": {"input": 3.00, "output": 15.00},
     "claude-opus-4-20250514": {"input": 15.00, "output": 75.00},
-    "claude-sonnet-3-5-20241022": {"input": 3.00, "output": 15.00},
-    "claude-haiku-3-5-20241022": {"input": 0.80, "output": 4.00},
-    # Extended thinking models (higher output costs)
-    "claude-sonnet-4-20250514-thinking": {"input": 3.00, "output": 15.00},
     # Default fallback
     "default": {"input": 3.00, "output": 15.00},
 }

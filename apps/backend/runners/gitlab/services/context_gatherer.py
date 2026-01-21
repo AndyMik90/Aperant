@@ -14,6 +14,8 @@ Responsibilities:
 
 from __future__ import annotations
 
+import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,19 +52,91 @@ def _validate_file_path(path: str) -> bool:
 
 
 # Known GitLab AI bot patterns
+# Organized by category for maintainability
 GITLAB_AI_BOT_PATTERNS = {
-    # GitLab official bots
+    # === GitLab Official Bots ===
     "gitlab-bot": "GitLab Bot",
     "gitlab": "GitLab",
-    # AI code review tools
+    # === AI Code Review Tools ===
     "coderabbit": "CodeRabbit",
+    "coderabbitai": "CodeRabbit",
+    "coderabbit-ai": "CodeRabbit",
+    "coderabbit[bot]": "CodeRabbit",
     "greptile": "Greptile",
+    "greptile[bot]": "Greptile",
+    "greptile-ai": "Greptile",
+    "greptile-apps": "Greptile",
     "cursor": "Cursor",
-    "sweep": "Sweep AI",
+    "cursor-ai": "Cursor",
+    "cursor[bot]": "Cursor",
+    "sourcery-ai": "Sourcery",
+    "sourcery-ai[bot]": "Sourcery",
+    "sourcery-ai-bot": "Sourcery",
     "codium": "Qodo",
+    "codiumai": "Qodo",
+    "codium-ai[bot]": "Qodo",
+    "codiumai-agent": "Qodo",
+    "qodo-merge-bot": "Qodo",
+    # === AI Coding Assistants ===
+    "sweep": "Sweep AI",
+    "sweep-ai[bot]": "Sweep AI",
+    "sweep-nightly[bot]": "Sweep AI",
+    "sweep-canary[bot]": "Sweep AI",
+    "bitoagent": "Bito AI",
+    "codeium-ai-superpowers": "Codeium",
+    "devin-ai-integration": "Devin AI",
+    # === Dependency Management ===
     "dependabot": "Dependabot",
+    "dependabot[bot]": "Dependabot",
     "renovate": "Renovate",
+    "renovate[bot]": "Renovate",
+    "renovate-bot": "Renovate",
+    "self-hosted-renovate[bot]": "Renovate",
+    # === Code Quality & Static Analysis ===
+    "sonarcloud": "SonarCloud",
+    "sonarcloud[bot]": "SonarCloud",
+    "deepsource-autofix": "DeepSource",
+    "deepsource-autofix[bot]": "DeepSource",
+    "deepsourcebot": "DeepSource",
+    "codeclimate[bot]": "CodeClimate",
+    "codefactor-io[bot]": "CodeFactor",
+    "codacy[bot]": "Codacy",
+    # === Security Scanning ===
+    "snyk-bot": "Snyk",
+    "snyk[bot]": "Snyk",
+    "snyk-security-bot": "Snyk",
+    "gitguardian": "GitGuardian",
+    "gitguardian[bot]": "GitGuardian",
+    "semgrep": "Semgrep",
+    "semgrep-app[bot]": "Semgrep",
+    "semgrep-bot": "Semgrep",
+    # === Code Coverage ===
+    "codecov": "Codecov",
+    "codecov[bot]": "Codecov",
+    "codecov-commenter": "Codecov",
+    "coveralls": "Coveralls",
+    "coveralls[bot]": "Coveralls",
+    # === CI/CD Automation ===
+    "gitlab-ci": "GitLab CI",
+    "gitlab-ci[bot]": "GitLab CI",
 }
+
+
+# Common config file names to search for in project directories
+# Used by both _find_config_files() and find_related_files_for_root()
+CONFIG_FILE_NAMES = [
+    "tsconfig.json",
+    "package.json",
+    "pyproject.toml",
+    "setup.py",
+    ".eslintrc",
+    ".prettierrc",
+    "jest.config.js",
+    "vitest.config.ts",
+    "vite.config.ts",
+    ".gitlab-ci.yml",
+    "Dockerfile",
+]
 
 
 @dataclass
@@ -193,6 +267,26 @@ class MRContextGatherer:
         ai_bot_comments = await self._fetch_ai_bot_comments()
         safe_print(f"[Context] Fetched {len(ai_bot_comments)} AI bot comments")
 
+        # Detect repo structure
+        repo_structure = self._detect_repo_structure()
+        safe_print("[Context] Detected repo structure")
+
+        # Find related files
+        related_files = self._find_related_files(changed_files)
+        safe_print(f"[Context] Found {len(related_files)} related files")
+
+        # Check CI/CD pipeline status
+        ci_status = None
+        ci_pipeline_id = None
+        try:
+            pipeline = await self.client.get_mr_pipeline_async(self.mr_iid)
+            if pipeline:
+                ci_status = pipeline.get("status")
+                ci_pipeline_id = pipeline.get("id")
+                safe_print(f"[Context] CI pipeline: {ci_status}")
+        except Exception:
+            pass  # CI status is optional
+
         return MRContext(
             mr_iid=self.mr_iid,
             title=mr_data.get("title", ""),
@@ -207,6 +301,10 @@ class MRContextGatherer:
             total_deletions=total_deletions,
             commits=commits,
             head_sha=head_sha,
+            repo_structure=repo_structure,
+            related_files=related_files,
+            ci_status=ci_status,
+            ci_pipeline_id=ci_pipeline_id,
         )
 
     async def _fetch_ai_bot_comments(self) -> list[AIBotComment]:
@@ -266,6 +364,513 @@ class MRContextGatherer:
             line=None,
             created_at=note.get("created_at", ""),
         )
+
+    def _detect_repo_structure(self) -> str:
+        """
+        Detect and describe the repository structure.
+
+        Looks for common monorepo patterns and returns a human-readable
+        description that helps the AI understand the project layout.
+        """
+        structure_info = []
+
+        # Check for monorepo indicators
+        apps_dir = self.project_dir / "apps"
+        packages_dir = self.project_dir / "packages"
+        libs_dir = self.project_dir / "libs"
+
+        if apps_dir.exists():
+            apps = [
+                d.name
+                for d in apps_dir.iterdir()
+                if d.is_dir() and not d.name.startswith(".")
+            ]
+            if apps:
+                structure_info.append(f"**Monorepo Apps**: {', '.join(apps)}")
+
+        if packages_dir.exists():
+            packages = [
+                d.name
+                for d in packages_dir.iterdir()
+                if d.is_dir() and not d.name.startswith(".")
+            ]
+            if packages:
+                structure_info.append(f"**Packages**: {', '.join(packages)}")
+
+        if libs_dir.exists():
+            libs = [
+                d.name
+                for d in libs_dir.iterdir()
+                if d.is_dir() and not d.name.startswith(".")
+            ]
+            if libs:
+                structure_info.append(f"**Libraries**: {', '.join(libs)}")
+
+        # Check for package.json (Node.js)
+        if (self.project_dir / "package.json").exists():
+            try:
+                with open(self.project_dir / "package.json", encoding="utf-8") as f:
+                    pkg_data = json.load(f)
+                    if "workspaces" in pkg_data:
+                        structure_info.append(
+                            f"**Workspaces**: {', '.join(pkg_data['workspaces'])}"
+                        )
+            except (json.JSONDecodeError, KeyError):
+                pass
+
+        # Check for Python project structure
+        if (self.project_dir / "pyproject.toml").exists():
+            structure_info.append("**Python Project** (pyproject.toml)")
+
+        if (self.project_dir / "requirements.txt").exists():
+            structure_info.append("**Python** (requirements.txt)")
+
+        # Check for common framework indicators
+        if (self.project_dir / "angular.json").exists():
+            structure_info.append("**Framework**: Angular")
+        if (self.project_dir / "next.config.js").exists():
+            structure_info.append("**Framework**: Next.js")
+        if (self.project_dir / "nuxt.config.js").exists():
+            structure_info.append("**Framework**: Nuxt.js")
+        if (self.project_dir / "vite.config.ts").exists() or (
+            self.project_dir / "vite.config.js"
+        ).exists():
+            structure_info.append("**Build**: Vite")
+
+        # Check for Electron
+        if (self.project_dir / "electron.vite.config.ts").exists():
+            structure_info.append("**Electron** app")
+
+        # Check for GitLab CI
+        if (self.project_dir / ".gitlab-ci.yml").exists():
+            structure_info.append("**GitLab CI** configured")
+
+        if not structure_info:
+            return "**Structure**: Standard single-package repository"
+
+        return "\n".join(structure_info)
+
+    def _find_related_files(self, changed_files: list[dict]) -> list[str]:
+        """
+        Find files related to the changes.
+
+        This includes:
+        - Test files for changed source files
+        - Imported modules and dependencies
+        - Configuration files in the same directory
+        - Related type definition files
+        - Reverse dependencies (files that import changed files)
+        """
+        related = set()
+
+        for changed_file in changed_files:
+            path = Path(
+                changed_file.get("new_path") or changed_file.get("old_path", "")
+            )
+
+            # Find test files
+            related.update(self._find_test_files(path))
+
+            # Find imported files (for supported languages)
+            # Note: We'd need file content for imports, which we don't have here
+            # Skip for now since GitLab API doesn't provide content in changes
+
+            # Find config files in same directory
+            related.update(self._find_config_files(path.parent))
+
+            # Find type definition files
+            if path.suffix in [".ts", ".tsx"]:
+                related.update(self._find_type_definitions(path))
+
+            # Find reverse dependencies (files that import this file)
+            related.update(self._find_dependents(str(path)))
+
+        # Remove files that are already in changed_files
+        changed_paths = {
+            cf.get("new_path") or cf.get("old_path", "") for cf in changed_files
+        }
+        related = {r for r in related if r not in changed_paths}
+
+        # Use smart prioritization
+        return self._prioritize_related_files(related, limit=50)
+
+    def _find_test_files(self, source_path: Path) -> set[str]:
+        """Find test files related to a source file."""
+        test_patterns = [
+            # Jest/Vitest patterns
+            source_path.parent / f"{source_path.stem}.test{source_path.suffix}",
+            source_path.parent / f"{source_path.stem}.spec{source_path.suffix}",
+            source_path.parent / "__tests__" / f"{source_path.name}",
+            # Python patterns
+            source_path.parent / f"test_{source_path.stem}.py",
+            source_path.parent / f"{source_path.stem}_test.py",
+            # Go patterns
+            source_path.parent / f"{source_path.stem}_test.go",
+        ]
+
+        found = set()
+        for test_path in test_patterns:
+            full_path = self.project_dir / test_path
+            if full_path.exists() and full_path.is_file():
+                found.add(str(test_path))
+
+        return found
+
+    def _find_config_files(self, directory: Path) -> set[str]:
+        """Find configuration files in a directory."""
+        found = set()
+        for name in CONFIG_FILE_NAMES:
+            config_path = directory / name
+            full_path = self.project_dir / config_path
+            if full_path.exists() and full_path.is_file():
+                found.add(str(config_path))
+
+        return found
+
+    def _find_type_definitions(self, source_path: Path) -> set[str]:
+        """Find TypeScript type definition files."""
+        # Look for .d.ts files with same name
+        type_def = source_path.parent / f"{source_path.stem}.d.ts"
+        full_path = self.project_dir / type_def
+
+        if full_path.exists() and full_path.is_file():
+            return {str(type_def)}
+
+        return set()
+
+    def _find_dependents(self, file_path: str, max_results: int = 15) -> set[str]:
+        """
+        Find files that import the given file (reverse dependencies).
+
+        Uses pure Python to search for import statements referencing this file.
+        Cross-platform compatible (Windows, macOS, Linux).
+        Limited to prevent performance issues on large codebases.
+
+        Args:
+            file_path: Path of the file to find dependents for
+            max_results: Maximum number of dependents to return
+
+        Returns:
+            Set of file paths that import this file.
+        """
+        dependents: set[str] = set()
+        path_obj = Path(file_path)
+        stem = path_obj.stem  # e.g., 'helpers' from 'utils/helpers.ts'
+
+        # Skip if stem is too generic (would match too many files)
+        if stem in ["index", "main", "app", "utils", "helpers", "types", "constants"]:
+            return dependents
+
+        # Build regex patterns and file extensions based on file type
+        pattern = None
+        file_extensions = []
+
+        if path_obj.suffix in [".ts", ".tsx", ".js", ".jsx"]:
+            # Match various import styles for JS/TS
+            # from './helpers', from '../utils/helpers', from '@/utils/helpers'
+            # Escape stem for regex safety
+            escaped_stem = re.escape(stem)
+            pattern = re.compile(rf"['\"].*{escaped_stem}['\"]")
+            file_extensions = [".ts", ".tsx", ".js", ".jsx"]
+        elif path_obj.suffix == ".py":
+            # Match Python imports: from .helpers import, import helpers
+            escaped_stem = re.escape(stem)
+            pattern = re.compile(rf"(from.*{escaped_stem}|import.*{escaped_stem})")
+            file_extensions = [".py"]
+        else:
+            return dependents
+
+        # Directories to exclude
+        exclude_dirs = {
+            "node_modules",
+            ".git",
+            "dist",
+            "build",
+            "__pycache__",
+            ".venv",
+            "venv",
+        }
+
+        # Walk the project directory
+        project_path = Path(self.project_dir)
+        files_checked = 0
+        max_files_to_check = 2000  # Prevent infinite scanning on large codebases
+
+        try:
+            for root, dirs, files in os.walk(project_path):
+                # Modify dirs in-place to exclude certain directories
+                dirs[:] = [d for d in dirs if d not in exclude_dirs]
+
+                for filename in files:
+                    # Check if we've hit the file limit
+                    if files_checked >= max_files_to_check:
+                        safe_print(
+                            f"[Context] File limit reached finding dependents for {file_path}"
+                        )
+                        return dependents
+
+                    # Check if file has the right extension
+                    if not any(filename.endswith(ext) for ext in file_extensions):
+                        continue
+
+                    file_full_path = Path(root) / filename
+                    files_checked += 1
+
+                    # Get relative path from project root
+                    try:
+                        relative_path = file_full_path.relative_to(project_path)
+                        relative_path_str = str(relative_path).replace("\\", "/")
+
+                        # Don't include the file itself
+                        if relative_path_str == file_path:
+                            continue
+
+                        # Search for the pattern in the file
+                        try:
+                            with open(
+                                file_full_path, encoding="utf-8", errors="ignore"
+                            ) as f:
+                                content = f.read()
+                                if pattern.search(content):
+                                    dependents.add(relative_path_str)
+                                    if len(dependents) >= max_results:
+                                        return dependents
+                        except (OSError, UnicodeDecodeError):
+                            # Skip files that can't be read
+                            continue
+
+                    except ValueError:
+                        # File is not relative to project_path, skip it
+                        continue
+
+        except Exception as e:
+            safe_print(f"[Context] Error finding dependents: {e}")
+
+        return dependents
+
+    def _prioritize_related_files(self, files: set[str], limit: int = 50) -> list[str]:
+        """
+        Prioritize related files by relevance.
+
+        Priority order:
+        1. Test files (most important for review context)
+        2. Type definition files (.d.ts)
+        3. Configuration files
+        4. Direct imports/dependents
+        5. Other files
+
+        Args:
+            files: Set of file paths to prioritize
+            limit: Maximum number of files to return
+
+        Returns:
+            List of files sorted by priority, limited to `limit`.
+        """
+        test_files = []
+        type_files = []
+        config_files = []
+        other_files = []
+
+        for f in files:
+            path = Path(f)
+            name_lower = path.name.lower()
+
+            # Test files
+            if (
+                ".test." in name_lower
+                or ".spec." in name_lower
+                or name_lower.startswith("test_")
+                or name_lower.endswith("_test.py")
+                or "__tests__" in f
+            ):
+                test_files.append(f)
+            # Type definition files
+            elif name_lower.endswith(".d.ts") or "types" in name_lower:
+                type_files.append(f)
+            # Config files
+            elif name_lower in [
+                n.lower() for n in CONFIG_FILE_NAMES
+            ] or name_lower.endswith((".config.js", ".config.ts", "rc", "rc.json")):
+                config_files.append(f)
+            else:
+                other_files.append(f)
+
+        # Sort within each category alphabetically for consistency, then combine
+        prioritized = (
+            sorted(test_files)
+            + sorted(type_files)
+            + sorted(config_files)
+            + sorted(other_files)
+        )
+
+        return prioritized[:limit]
+
+    def _load_json_safe(self, filename: str) -> dict | None:
+        """
+        Load JSON file from project_dir, handling tsconfig-style comments.
+
+        tsconfig.json allows // and /* */ comments, which standard JSON
+        parsers reject. This method first tries standard parsing (most
+        tsconfigs don't have comments), then falls back to comment stripping.
+
+        Note: Comment stripping only handles comments outside strings to
+        avoid mangling path patterns like "@/*" which contain "/*".
+
+        Args:
+            filename: JSON filename relative to project_dir
+
+        Returns:
+            Parsed JSON as dict, or None on error
+        """
+        try:
+            file_path = self.project_dir / filename
+            if not file_path.exists():
+                return None
+
+            content = file_path.read_text(encoding="utf-8")
+
+            # Try standard JSON parse first (most tsconfigs don't have comments)
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                pass
+
+            # Fall back to comment stripping (outside strings only)
+            # First, remove block comments /* ... */
+            # Simple approach: remove everything between /* and */
+            # This handles multi-line block comments
+            while "/*" in content:
+                start = content.find("/*")
+                end = content.find("*/", start)
+                if end == -1:
+                    # Unclosed block comment - remove to end
+                    content = content[:start]
+                    break
+                content = content[:start] + content[end + 2 :]
+
+            # Then handle single-line comments
+            # This regex-based approach handles // comments
+            # outside of strings by checking for quotes
+            lines = content.split("\n")
+            cleaned_lines = []
+            for line in lines:
+                # Strip single-line comments, but not inside strings
+                # Simple heuristic: if '//' appears and there's an even
+                # number of quotes before it, strip from there
+                comment_pos = line.find("//")
+                if comment_pos != -1:
+                    # Count quotes before the //
+                    before_comment = line[:comment_pos]
+                    if before_comment.count('"') % 2 == 0:
+                        line = before_comment
+                cleaned_lines.append(line)
+            content = "\n".join(cleaned_lines)
+
+            return json.loads(content)
+        except (json.JSONDecodeError, OSError) as e:
+            safe_print(f"[Context] Could not load {filename}: {e}")
+            return None
+
+    def _load_tsconfig_paths(self) -> dict[str, list[str]] | None:
+        """
+        Load path mappings from tsconfig.json.
+
+        Handles the 'extends' field to merge paths from base configs.
+
+        Returns:
+            Dict mapping path aliases to target paths, e.g.:
+            {"@/*": ["src/*"], "@shared/*": ["src/shared/*"]}
+            Returns None if no paths configured.
+        """
+        config = self._load_json_safe("tsconfig.json")
+        if not config:
+            return None
+
+        paths: dict[str, list[str]] = {}
+
+        # Handle extends field - load base config first
+        if "extends" in config:
+            extends_path = config["extends"]
+            # Handle relative paths like "./tsconfig.base.json"
+            if extends_path.startswith("./"):
+                extends_path = extends_path[2:]
+            base_config = self._load_json_safe(extends_path)
+            if base_config:
+                base_paths = base_config.get("compilerOptions", {}).get("paths", {})
+                paths.update(base_paths)
+
+        # Override with current config's paths
+        current_paths = config.get("compilerOptions", {}).get("paths", {})
+        paths.update(current_paths)
+
+        return paths if paths else None
+
+    @staticmethod
+    def find_related_files_for_root(
+        changed_files: list[dict],
+        project_root: Path,
+    ) -> list[str]:
+        """
+        Find files related to the changes using a specific project root.
+
+        This static method allows finding related files AFTER a worktree
+        has been created, ensuring files exist in the worktree filesystem.
+
+        Args:
+            changed_files: List of changed files from the MR
+            project_root: Path to search for related files (e.g., worktree path)
+
+        Returns:
+            List of related file paths (relative to project root)
+        """
+        related: set[str] = set()
+
+        for changed_file in changed_files:
+            path_str = changed_file.get("new_path") or changed_file.get("old_path", "")
+            if not path_str:
+                continue
+            path = Path(path_str)
+
+            # Find test files
+            test_patterns = [
+                # Jest/Vitest patterns
+                path.parent / f"{path.stem}.test{path.suffix}",
+                path.parent / f"{path.stem}.spec{path.suffix}",
+                path.parent / "__tests__" / f"{path.name}",
+                # Python patterns
+                path.parent / f"test_{path.stem}.py",
+                path.parent / f"{path.stem}_test.py",
+                # Go patterns
+                path.parent / f"{path.stem}_test.go",
+            ]
+
+            for test_path in test_patterns:
+                full_path = project_root / test_path
+                if full_path.exists() and full_path.is_file():
+                    related.add(str(test_path))
+
+            # Find config files in same directory
+            for name in CONFIG_FILE_NAMES:
+                config_path = path.parent / name
+                full_path = project_root / config_path
+                if full_path.exists() and full_path.is_file():
+                    related.add(str(config_path))
+
+            # Find type definition files
+            if path.suffix in [".ts", ".tsx"]:
+                type_def = path.parent / f"{path.stem}.d.ts"
+                full_path = project_root / type_def
+                if full_path.exists() and full_path.is_file():
+                    related.add(str(type_def))
+
+        # Remove files that are already in changed_files
+        changed_paths = {
+            cf.get("new_path") or cf.get("old_path", "") for cf in changed_files
+        }
+        related = {r for r in related if r not in changed_paths}
+
+        # Limit to 50 most relevant files
+        return sorted(related)[:50]
 
 
 class FollowupMRContextGatherer:

@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 try:
     from .utils.file_lock import FileLock, atomic_write
 except (ImportError, ValueError, SystemError):
-    from utils.file_lock import FileLock, atomic_write
+    from runners.gitlab.utils.file_lock import FileLock, atomic_write
 
 
 @dataclass
