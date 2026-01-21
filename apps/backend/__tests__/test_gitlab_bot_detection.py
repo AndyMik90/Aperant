@@ -6,7 +6,7 @@ Tests for bot detection to prevent infinite review loops.
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
@@ -117,7 +117,7 @@ class TestBotDetector:
 
         # Wait past cooling off (manually update time)
         detector.state.last_review_times["123"] = (
-            datetime.now(timezone.utc) - __import__("datetime").timedelta(minutes=10)
+            datetime.now(timezone.utc) - timedelta(minutes=10)
         ).isoformat()
 
         should_skip, reason = detector.should_skip_mr_review(123, mr_data, commits)
@@ -173,9 +173,7 @@ class TestBotDetector:
     def test_cleanup_stale_mrs(self, detector):
         """Test cleanup of old MR state."""
         # Add an old MR (manually set old timestamp)
-        old_time = (
-            datetime.now(timezone.utc) - __import__("datetime").timedelta(days=40)
-        ).isoformat()
+        old_time = (datetime.now(timezone.utc) - timedelta(days=40)).isoformat()
         detector.state.last_review_times["999"] = old_time
         detector.state.reviewed_commits["999"] = ["old123"]
 
