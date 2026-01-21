@@ -348,7 +348,7 @@ async def locked_read(filepath: str | Path, timeout: float = 5.0) -> Any:
 
     try:
         # Open file for reading
-        with open(filepath) as f:
+        with open(filepath, encoding="utf-8") as f:
             yield f
     finally:
         # Release lock
@@ -441,7 +441,7 @@ async def locked_json_update(
         # Read current data
         def _read_json():
             if filepath.exists():
-                with open(filepath) as f:
+                with open(filepath, encoding="utf-8") as f:
                     return json.load(f)
             return None
 

@@ -71,7 +71,9 @@ class TestFileLock:
         def try_write(value):
             try:
                 with FileLock(lock_file, timeout=1.0, exclusive=True):
-                    with open(lock_file.with_suffix(".txt"), "w") as f:
+                    with open(
+                        lock_file.with_suffix(".txt"), "w", encoding="utf-8"
+                    ) as f:
                         f.write(str(value))
                     results.append(value)
             except Exception:
@@ -122,14 +124,14 @@ class TestAtomicWrite:
             f.write("test content")
 
         assert target_file.exists()
-        assert target_file.read_text() == "test content"
+        assert target_file.read_text(encoding="utf-8") == "test content"
 
     def test_atomic_write_preserves_on_error(self, target_file):
         """Test atomic write doesn't corrupt on error."""
         from runners.gitlab.utils.file_lock import atomic_write
 
         # Create initial content
-        target_file.write_text("original content")
+        target_file.write_text("original content", encoding="utf-8")
 
         try:
             with atomic_write(target_file) as f:
@@ -139,7 +141,7 @@ class TestAtomicWrite:
             pass
 
         # Original content should be preserved
-        assert target_file.read_text() == "original content"
+        assert target_file.read_text(encoding="utf-8") == "original content"
 
     def test_atomic_write_context_manager(self, target_file):
         """Test atomic write context manager."""
@@ -149,7 +151,7 @@ class TestAtomicWrite:
             f.write("line 1\n")
             f.write("line 2\n")
 
-        content = target_file.read_text()
+        content = target_file.read_text(encoding="utf-8")
         assert "line 1" in content
         assert "line 2" in content
 
@@ -171,7 +173,7 @@ class TestLockedJsonOperations:
         locked_json_write(data_file, data)
 
         assert data_file.exists()
-        with open(data_file) as f:
+        with open(data_file, encoding="utf-8") as f:
             loaded = json.load(f)
         assert loaded == data
 
@@ -271,7 +273,7 @@ class TestLockedReadWrite:
         with locked_write(data_file) as f:
             f.write("test content")
 
-        assert data_file.read_text() == "test content"
+        assert data_file.read_text(encoding="utf-8") == "test content"
 
     def test_locked_read(self, data_file):
         """Test reading with lock."""
@@ -293,7 +295,7 @@ class TestLockedReadWrite:
             with locked_write(data_file, lock=None) as f:
                 f.write("custom lock")
 
-        assert data_file.read_text() == "custom lock"
+        assert data_file.read_text(encoding="utf-8") == "custom lock"
 
 
 class TestFileLockError:

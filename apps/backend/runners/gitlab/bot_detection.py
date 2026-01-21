@@ -87,7 +87,7 @@ class BotDetectionState:
         if not state_file.exists():
             return cls()
 
-        with open(state_file) as f:
+        with open(state_file, encoding="utf-8") as f:
             return cls.from_dict(json.load(f))
 
 

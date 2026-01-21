@@ -50,8 +50,21 @@ class EncodingChecker:
         # Check 1: open() without encoding
         # Pattern: open(...) without encoding= parameter
         # Use negative lookbehind to exclude os.open(), urlopen(), etc.
-        for match in re.finditer(r'(?<![a-zA-Z_\.])open\s*\([^)]+\)', content):
-            call = match.group()
+        # We need to find the full open() call including nested parentheses
+        for match in re.finditer(r'(?<![a-zA-Z_\.])open\s*\(', content):
+            start_pos = match.end()
+
+            # Find the matching closing parenthesis (handle nesting)
+            paren_depth = 1
+            end_pos = start_pos
+            while end_pos < len(content) and paren_depth > 0:
+                if content[end_pos] == '(':
+                    paren_depth += 1
+                elif content[end_pos] == ')':
+                    paren_depth -= 1
+                end_pos += 1
+
+            call = content[match.start():end_pos]
 
             # Skip if it's binary mode (must contain 'b' in mode string)
             # Matches: "rb", "wb", "ab", "r+b", "w+b", etc.
