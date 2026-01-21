@@ -667,6 +667,32 @@ class GitLabClient:
             params={"per_page": 100},
         )
 
+    def get_mr_pipeline(self, mr_iid: int) -> dict | None:
+        """Get the latest pipeline for an MR."""
+        pipelines = self.get_mr_pipelines(mr_iid)
+        return pipelines[0] if pipelines else None
+
+    async def get_mr_pipeline_async(self, mr_iid: int) -> dict | None:
+        """Async version of get_mr_pipeline."""
+        pipelines = await self.get_mr_pipelines_async(mr_iid)
+        return pipelines[0] if pipelines else None
+
+    async def get_mr_notes_async(self, mr_iid: int) -> list[dict]:
+        """Async version of get_mr_notes."""
+        encoded_project = encode_project_path(self.config.project)
+        return await self._fetch_async(
+            f"/projects/{encoded_project}/merge_requests/{mr_iid}/notes",
+            params={"per_page": 100},
+        )
+
+    async def get_pipeline_jobs_async(self, pipeline_id: int) -> list[dict]:
+        """Async version of get_pipeline_jobs."""
+        encoded_project = encode_project_path(self.config.project)
+        return await self._fetch_async(
+            f"/projects/{encoded_project}/pipelines/{pipeline_id}/jobs",
+            params={"per_page": 100},
+        )
+
     def get_project_pipelines(
         self,
         ref: str | None = None,
