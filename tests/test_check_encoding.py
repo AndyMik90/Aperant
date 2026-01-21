@@ -313,7 +313,8 @@ def process_files(input_path, output_path):
             result = checker.check_file(temp_path)
 
             assert result is False
-            assert len(checker.issues) == 2
+            # Expects 3 issues: 2 open() calls (one in comment, one actual) + 1 write_text() call
+            assert len(checker.issues) == 3
         finally:
             temp_path.unlink()
 
