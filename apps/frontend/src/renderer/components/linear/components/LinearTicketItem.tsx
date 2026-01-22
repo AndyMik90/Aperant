@@ -1,4 +1,4 @@
-import { Clock, Square, User } from "lucide-react";
+import { Clock, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { LinearTicket } from "../../../../shared/types/integrations";
 import { cn } from "../../../lib/utils";
@@ -107,8 +107,6 @@ function ValidationStatusFlow({
 	if (hasResult && !isValidating) {
 		// Has result and not currently validating - check if changes happened after posting
 		if (hasNewChanges && hasChangesAfterPosting) {
-			flowState = "updated";
-		} else if (hasResult) {
 			flowState = "updated";
 		} else {
 			flowState = "validated";

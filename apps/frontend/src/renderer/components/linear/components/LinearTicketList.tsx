@@ -127,42 +127,6 @@ export function LinearTicketList({
 		);
 	}
 
-	// Loading more state - show spinner at bottom
-	if (isLoadingMore) {
-		return (
-			<div className="flex-1 flex flex-col">
-				<ScrollArea className="flex-1">
-					<div className="divide-y divide-border">
-						{tickets.map((ticket) => {
-							const validationInfo = getValidationStateForTicket(ticket.id);
-
-							return (
-								<LinearTicketItem
-									key={ticket.id}
-									ticket={ticket}
-									isSelected={selectedTicketId === ticket.id}
-									validationInfo={validationInfo}
-									onClick={() => onSelectTicket(ticket.id)}
-								/>
-							);
-						})}
-					</div>
-				</ScrollArea>
-				<div
-					className="py-4 flex justify-center border-t border-border"
-					role="status"
-					aria-live="polite"
-					aria-busy="true"
-				>
-					<div className="flex items-center gap-2 text-muted-foreground">
-						<Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-						<span className="text-sm">{t("linear.loadingMore")}</span>
-					</div>
-				</div>
-			</div>
-		);
-	}
-
 	// Error state
 	if (error) {
 		return (

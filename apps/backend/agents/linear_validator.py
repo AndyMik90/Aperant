@@ -530,12 +530,12 @@ class LinearValidationAgent:
                     "not found" in error_msg.lower()
                     or "does not exist" in error_msg.lower()
                 ):
-                    raise TicketNotFoundError(issue_id, f"Issue {issue_id} not found")
+                    raise TicketNotFoundError(issue_id)
                 raise NetworkError(f"Linear API error: {error_msg}")
 
             issue_data = data.get("data", {}).get("issue")
             if not issue_data:
-                raise TicketNotFoundError(issue_id, f"Issue {issue_id} not found")
+                raise TicketNotFoundError(issue_id)
 
             # Transform to the format expected by validate_ticket
             return {
@@ -808,7 +808,7 @@ Begin your analysis now.
         import re
 
         # Try to extract JSON from the response (first from code blocks, then full text)
-        json_match = re.search(r"```json\s*(\{[\\s\\S]*?\})\s*```", response, re.DOTALL)
+        json_match = re.search(r"```json\s*(\{[\s\S]*?\})\s*```", response, re.DOTALL)
 
         if not json_match:
             # If no code block, try to extract balanced JSON by counting braces
