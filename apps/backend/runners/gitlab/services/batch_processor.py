@@ -39,7 +39,13 @@ class GitlabBatchProcessor:
         self.progress_callback = progress_callback
 
     def _report_progress(self, phase: str, progress: int, message: str, **kwargs):
-        """Report progress if callback is set."""
+        """
+        Report progress if callback is set.
+
+        Uses dynamic import to avoid circular dependency between batch_processor
+        and orchestrator modules. Checks sys.modules first to avoid redundant
+        import attempts when ProgressCallback is already loaded.
+        """
         if self.progress_callback:
             # Import at module level to avoid circular import issues
             import sys
