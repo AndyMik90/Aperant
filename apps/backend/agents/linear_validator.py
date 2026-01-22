@@ -16,6 +16,7 @@ This agent implements a 5-step validation workflow:
 import asyncio
 import logging
 import os
+import random
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -127,15 +128,14 @@ async def retry_with_exponential_backoff(
                 raise
 
             # Calculate delay with exponential backoff
-            delay = min(
-                config.base_delay * (config.exponential_base**attempt), config.max_delay
-            )
+            delay = config.base_delay * (config.exponential_base**attempt)
 
             # Add jitter to avoid thundering herd
             if config.jitter:
-                import random
-
                 delay = delay * (0.5 + random.random())
+
+            # Cap at max_delay (applies after jitter)
+            delay = min(delay, config.max_delay)
 
             logger.warning(
                 f"[{context}] Transient error on attempt {attempt + 1}/{config.max_retries + 1}: {e}. "
@@ -1047,8 +1047,9 @@ def calculate_version_label(
             # Cannot parse, return current with note
             return f"{current_version} (version format unclear)"
 
-        major = int(parts[0]) if len(parts) > 0 else 0
-        minor = int(parts[1]) if len(parts) > 1 else 0
+        # At this point, parts has at least 2 elements
+        major = int(parts[0])
+        minor = int(parts[1])
         patch = int(parts[2]) if len(parts) > 2 else 0
 
         # Determine if patch or minor increment based on work type

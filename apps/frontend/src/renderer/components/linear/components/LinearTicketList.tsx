@@ -2,7 +2,6 @@ import { Loader2, Square } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { LinearTicket } from "../../../../shared/types/integrations";
-import { cn } from "../../../lib/utils";
 import { ScrollArea } from "../../ui/scroll-area";
 import { LinearTicketItem } from "./LinearTicketItem";
 
@@ -229,21 +228,21 @@ export function LinearTicketList({
 					{isLoadingMore ? (
 						<div className="flex items-center gap-2 text-muted-foreground">
 							<Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-							<span className="text-sm">{t("issues.loadingMore")}</span>
+							<span className="text-sm">{t("linear:loadingMore")}</span>
 						</div>
 					) : hasMore ? (
 						<span
 							className="text-xs text-muted-foreground opacity-50"
 							aria-live="polite"
 						>
-							{t("issues.scrollForMore")}
+							{t("linear:scrollForMore")}
 						</span>
 					) : tickets.length > 0 ? (
 						<span
 							className="text-xs text-muted-foreground opacity-50"
 							aria-live="polite"
 						>
-							{t("issues.allLoaded")}
+							{t("linear:allLoaded")}
 						</span>
 					) : null}
 				</div>

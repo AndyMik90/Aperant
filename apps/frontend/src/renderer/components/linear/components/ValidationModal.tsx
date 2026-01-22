@@ -182,11 +182,11 @@ export function ValidationModal({
 				...validation,
 				suggestedLabels: editedLabels,
 				versionRecommendation: {
-					...validation.versionRecommendation,
+					...(validation.versionRecommendation || {}),
 					recommendedVersion: editedVersion,
 				},
 				taskProperties: {
-					...validation.taskProperties,
+					...(validation.taskProperties || {}),
 					category: editedCategory,
 					complexity: editedComplexity,
 					impact: editedImpact,
@@ -222,7 +222,7 @@ export function ValidationModal({
 
 	// Render validation step with icon
 	const renderStep = (step: ValidationStep) => {
-		const { id, label, status, icon: Icon } = step;
+		const { id, label, status } = step;
 
 		return (
 			<div
@@ -398,7 +398,7 @@ export function ValidationModal({
 						<Input
 							value={editedVersion}
 							onChange={(e) => setEditedVersion(e.target.value)}
-							placeholder="e.g., 2.8.0"
+							placeholder={t("tasks:versionPlaceholder")}
 							className="flex-1"
 						/>
 						<Button

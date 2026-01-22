@@ -7,7 +7,6 @@
 import {
 	Badge as BadgeIcon,
 	Check,
-	type Filter,
 	Flag,
 	FolderKanban,
 	Search,
@@ -329,7 +328,7 @@ function FilterDropdown<T extends string>({
 
 interface SingleSelectDropdownProps {
 	title: string;
-	icon: typeof Filter;
+	icon: typeof Flag;
 	items: Array<{ value: string; label: string }>;
 	selected: string | undefined;
 	onChange: (value: string | undefined) => void;

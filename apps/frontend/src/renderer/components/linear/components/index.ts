@@ -1,4 +1,6 @@
-// Placeholder exports - will be implemented in subtasks 4-2 and 4-4
+// Linear integration components
 export { LinearFilterBar } from "./LinearFilterBar";
 export { LinearTicketDetail } from "./LinearTicketDetail";
+export { LinearTicketItem } from "./LinearTicketItem";
 export { LinearTicketList } from "./LinearTicketList";
+export { ValidationModal } from "./ValidationModal";

@@ -56,7 +56,6 @@ export function useLinearFiltering(
 	const storeFilters = useLinearStore((state) => state.filters);
 	const storeUpdateFilter = useLinearStore((state) => state.updateFilter);
 	const storeClearFilters = useLinearStore((state) => state.clearFilters);
-	const storeSetFilters = useLinearStore((state) => state.setFilters);
 
 	// Use store or local filters based on option
 	const filters = useStore ? storeFilters : localFilters;
@@ -102,7 +101,7 @@ export function useLinearFiltering(
 			// Apply status filter
 			if (currentFilters.status) {
 				filtered = filtered.filter(
-					(ticket) => ticket.state.type === currentFilters.status,
+					(ticket) => ticket.state.name === currentFilters.status,
 				);
 			}
 
@@ -165,11 +164,6 @@ export function useLinearFiltering(
 		},
 		[useStore, storeUpdateFilter],
 	);
-
-	// Set search query
-	const setSearchQueryCallback = useCallback((query: string) => {
-		setSearchQuery(query);
-	}, []);
 
 	// Set team filter
 	const setTeamFilter = useCallback(
@@ -234,7 +228,7 @@ export function useLinearFiltering(
 		filters,
 		searchQuery,
 		hasActiveFilters,
-		setSearchQuery: setSearchQueryCallback,
+		setSearchQuery,
 		setTeamFilter,
 		setProjectFilter,
 		setStatusFilter,

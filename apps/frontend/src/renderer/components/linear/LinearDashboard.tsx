@@ -62,9 +62,11 @@ function NotConnectedState({
 function EmptyState({
 	message,
 	hasFilters,
+	t,
 }: {
 	message: string;
 	hasFilters?: boolean;
+	t: (key: string) => string;
 }) {
 	return (
 		<div className="flex-1 flex items-center justify-center">
@@ -74,7 +76,7 @@ function EmptyState({
 				{hasFilters && (
 					<div className="flex items-center justify-center gap-2 text-sm bg-muted/50 rounded-lg p-3">
 						<Info className="h-4 w-4" />
-						<span>Try adjusting your filters or search terms</span>
+						<span>{t("linear:adjustFiltersHint")}</span>
 					</div>
 				)}
 			</div>
@@ -113,13 +115,8 @@ export function LinearDashboard({
 		loadMore,
 		isConnected,
 		selectedTicket,
+		validationResults,
 	} = useLinearTickets({ isActive, projectId: selectedProject?.id });
-
-	// Get validation state for tickets
-	const validationResults = useLinearTickets({
-		isActive,
-		projectId: selectedProject?.id,
-	}).validationResults;
 
 	const getValidationStateForTicket = useCallback(
 		(ticketId: string) => {
@@ -366,7 +363,7 @@ export function LinearDashboard({
 							</TooltipTrigger>
 							<TooltipContent>
 								<p>
-									{isLoading ? "Loading..." : t("linear.shortcutHints.refresh")}
+									{isLoading ? t("common:loading") : t("linear:shortcutHints.refresh")}
 								</p>
 								<p className="text-xs text-muted-foreground mt-1">
 									{t("linear.shortcuts.refresh")}
@@ -415,15 +412,15 @@ export function LinearDashboard({
 					selectedTicket ? (
 						<LinearTicketDetail
 							ticket={selectedTicket}
-							projectId={selectedProjectId || ""}
 							validationResult={validationResult}
 							isValidating={isValidating}
 							onRunValidation={handleRunValidation}
 						/>
 					) : (
 						<EmptyState
-							message={t("linear.selectTicketToView")}
+							message={t("linear:selectTicketToView")}
 							hasFilters={hasActiveFilters}
+							t={t}
 						/>
 					)
 				}

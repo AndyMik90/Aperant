@@ -1,5 +1,4 @@
 import {
-	AlertCircle,
 	CheckCircle2,
 	Clock,
 	ExternalLink,
@@ -15,7 +14,6 @@ import { ValidationModal } from "./ValidationModal";
 
 interface LinearTicketDetailProps {
 	ticket: LinearTicket | null;
-	projectId: string;
 	validationResult: ValidationResult | null;
 	isValidating: boolean;
 	onRunValidation: () => void;
@@ -80,7 +78,7 @@ export function LinearTicketDetail({
 		<div
 			className="flex flex-col h-full gap-4 p-4 overflow-y-auto"
 			role="region"
-			aria-label={`Ticket details for ${ticket.identifier}`}
+			aria-label={t("linear:ticketDetailsFor", { identifier: ticket.identifier })}
 		>
 			{/* Header */}
 			<div className="flex items-start justify-between gap-4">
@@ -92,7 +90,7 @@ export function LinearTicketDetail({
 							target="_blank"
 							rel="noopener noreferrer"
 							className="text-muted-foreground hover:text-foreground transition-colors"
-							aria-label="Open in Linear"
+							aria-label={t("linear:openInLinear")}
 						>
 							<ExternalLink className="w-4 h-4 flex-shrink-0" />
 						</a>
