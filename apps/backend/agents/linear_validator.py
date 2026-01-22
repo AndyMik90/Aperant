@@ -15,11 +15,13 @@ This agent implements a 5-step validation workflow:
 
 import asyncio
 import logging
+import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
 import diskcache
+import requests
 from core.client import create_client
 
 if TYPE_CHECKING:
@@ -446,10 +448,120 @@ class LinearValidationAgent:
         except Exception as e:
             logger.warning(f"Failed to cache result for {issue_id}: {e}")
 
+    def _fetch_linear_issue(self, issue_id: str) -> dict[str, Any]:
+        """
+        Fetch Linear issue data using GraphQL API.
+
+        Args:
+            issue_id: Linear issue identifier (e.g., "LIN-123" or just "123")
+
+        Returns:
+            Dict with issue data including title, description, labels, etc.
+
+        Raises:
+            TicketNotFoundError: If issue not found
+            AuthenticationError: If API key is invalid
+            NetworkError: If network request fails
+        """
+        api_key = os.environ.get("LINEAR_API_KEY")
+        if not api_key:
+            raise AuthenticationError(
+                "LINEAR_API_KEY not found in environment. "
+                "Please set it in your .env file."
+            )
+
+        # Extract numeric ID from issue identifier (e.g., "LIN-123" -> "123")
+        numeric_id = issue_id.replace("LIN-", "").replace("-", "")
+
+        # GraphQL query to fetch issue data
+        query = """
+        query IssueQuery($issueId: String!) {
+            issue(id: $issueId) {
+                id
+                identifier
+                title
+                description
+                state {
+                    id
+                    name
+                    type
+                }
+                priority
+                labels {
+                    nodes {
+                        id
+                        name
+                        color
+                    }
+                }
+                assignee {
+                    id
+                    name
+                }
+                project {
+                    id
+                    name
+                }
+                createdAt
+                updatedAt
+                dueDate
+            }
+        }
+        """
+
+        headers = {
+            "Authorization": api_key,
+            "Content-Type": "application/json",
+        }
+
+        try:
+            response = requests.post(
+                "https://api.linear.app/graphql",
+                json={"query": query, "variables": {"issueId": numeric_id}},
+                headers=headers,
+                timeout=10,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if "errors" in data:
+                error_msg = data["errors"][0].get("message", "Unknown error")
+                if (
+                    "not found" in error_msg.lower()
+                    or "does not exist" in error_msg.lower()
+                ):
+                    raise TicketNotFoundError(issue_id, f"Issue {issue_id} not found")
+                raise NetworkError(f"Linear API error: {error_msg}")
+
+            issue_data = data.get("data", {}).get("issue")
+            if not issue_data:
+                raise TicketNotFoundError(issue_id, f"Issue {issue_id} not found")
+
+            # Transform to the format expected by validate_ticket
+            return {
+                "id": issue_data.get("id"),
+                "identifier": issue_data.get("identifier"),
+                "title": issue_data.get("title", ""),
+                "description": issue_data.get("description", ""),
+                "state": issue_data.get("state", {}),
+                "priority": issue_data.get("priority"),
+                "labels": issue_data.get("labels", {}).get("nodes", []),
+                "assignee": issue_data.get("assignee"),
+                "project": issue_data.get("project"),
+                "createdAt": issue_data.get("createdAt"),
+                "updatedAt": issue_data.get("updatedAt"),
+                "dueDate": issue_data.get("dueDate"),
+            }
+
+        except requests.exceptions.Timeout:
+            raise NetworkError(f"Timeout fetching issue {issue_id} from Linear API")
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(f"Network error fetching issue {issue_id}: {e}")
+
     async def validate_ticket(
         self,
         issue_id: str,
-        issue_data: dict[str, Any],
+        issue_data: dict[str, Any] | None = None,
         current_version: str | None = None,
         skip_cache: bool = False,
     ) -> dict[str, Any]:
@@ -459,6 +571,7 @@ class LinearValidationAgent:
         Args:
             issue_id: Linear issue identifier (e.g., "LIN-123")
             issue_data: Raw issue data from Linear (title, description, labels, etc.)
+                       If not provided, will be fetched from Linear API automatically.
             current_version: Current project version (e.g., "2.7.4") for version calculation
             skip_cache: If True, force re-validation even if cache exists
 
@@ -473,6 +586,11 @@ class LinearValidationAgent:
             - confidence: Overall confidence score (0-1)
             - reasoning: Detailed explanation of recommendations
         """
+        # Fetch issue data from Linear API if not provided
+        if issue_data is None:
+            logger.info(f"Fetching issue data for {issue_id} from Linear API")
+            issue_data = self._fetch_linear_issue(issue_id)
+
         # Extract validation timestamp from issue data
         validation_timestamp = issue_data.get("updatedAt", "")
 

@@ -40,7 +40,7 @@ env_file = Path(__file__).parent.parent / ".env"
 if env_file.exists():
     load_dotenv(env_file)
 
-from agents.linear_validator import LinearValidationError, create_linear_validator
+from agents.linear_validator import ValidationError, create_linear_validator
 
 
 def output_result(result: dict) -> None:
@@ -66,55 +66,74 @@ async def validate_single_ticket(
     try:
         agent = create_linear_validator(project_dir, project_dir, model="opus")
 
-        result = await agent.validate_ticket(ticket_id, skip_cache=skip_cache)
+        # validate_ticket now auto-fetches issue data if not provided
+        result = await agent.validate_ticket(
+            ticket_id, issue_data=None, skip_cache=skip_cache
+        )
 
-        # Convert to serializable format
+        # Result is a dict, extract fields with fallbacks
+        analysis = result.get("analysis", {})
+        completeness = result.get("completeness", {})
+        labels = result.get("recommended_labels", [])
+        properties = result.get("properties", {})
+
         return {
             "success": True,
             "data": {
                 "ticketId": ticket_id,
-                "ticketIdentifier": result.ticket_id,
-                "validationTimestamp": result.validation_timestamp,
-                "cached": result.cached,
-                "status": result.status,
-                "confidence": result.confidence,
-                "reasoning": result.reasoning,
+                "ticketIdentifier": result.get("issue_id", ticket_id),
+                "validationTimestamp": result.get("validation_timestamp", ""),
+                "cached": result.get("cached", False),
+                "status": result.get("status", "complete"),
+                "confidence": result.get("confidence", 0.0),
+                "reasoning": result.get("reasoning", ""),
                 "contentAnalysis": {
-                    "title": result.content_analysis.title,
-                    "descriptionSummary": result.content_analysis.description_summary,
-                    "requirements": result.content_analysis.requirements,
+                    "title": analysis.get("title", result.get("title", "")),
+                    "descriptionSummary": analysis.get(
+                        "description_summary", analysis.get("summary", "")
+                    ),
+                    "requirements": analysis.get("requirements", []),
                 },
                 "completenessValidation": {
-                    "isComplete": result.completeness_validation.is_complete,
-                    "score": result.completeness_validation.feasibility_score,
-                    "missingFields": result.completeness_validation.missing_fields,
-                    "validationNotes": result.completeness_validation.validation_notes,
+                    "isComplete": completeness.get("title_clear", False)
+                    and completeness.get("description_sufficient", False),
+                    "score": completeness.get("feasibility_score", 0.0),
+                    "missingFields": completeness.get("missing_info", []),
+                    "validationNotes": completeness.get("feasibility", ""),
                 },
                 "suggestedLabels": [
                     {
-                        "name": label.name,
-                        "confidence": label.confidence,
-                        "reason": label.reason,
+                        "name": label.get("name", label)
+                        if isinstance(label, dict)
+                        else label,
+                        "confidence": label.get("confidence", 0.0)
+                        if isinstance(label, dict)
+                        else 0.0,
+                        "reason": label.get("reason", "")
+                        if isinstance(label, dict)
+                        else "",
                     }
-                    for label in result.suggested_labels
+                    for label in labels
                 ],
                 "versionRecommendation": {
-                    "currentVersion": result.version_recommendation.current_version,
-                    "recommendedVersion": result.version_recommendation.recommended_version,
-                    "versionType": result.version_recommendation.version_type,
-                    "reasoning": result.version_recommendation.reasoning,
+                    "currentVersion": result.get("current_version", ""),
+                    "recommendedVersion": result.get(
+                        "version_label", result.get("recommended_version", "")
+                    ),
+                    "versionType": result.get("version_type", "patch"),
+                    "reasoning": result.get("version_reasoning", ""),
                 },
                 "taskProperties": {
-                    "category": result.task_properties.category,
-                    "complexity": result.task_properties.complexity,
-                    "impact": result.task_properties.impact,
-                    "priority": result.task_properties.priority,
-                    "rationale": result.task_properties.rationale,
-                    "acceptanceCriteria": result.content_analysis.requirements,
+                    "category": properties.get("category", "feature"),
+                    "complexity": properties.get("complexity", "medium"),
+                    "impact": properties.get("impact", "medium"),
+                    "priority": properties.get("priority", "normal"),
+                    "rationale": result.get("reasoning", ""),
+                    "acceptanceCriteria": analysis.get("requirements", []),
                 },
             },
         }
-    except LinearValidationError as e:
+    except ValidationError as e:
         return {
             "success": False,
             "error": str(e),
@@ -144,74 +163,106 @@ async def validate_batch_tickets(
     try:
         agent = create_linear_validator(project_dir, project_dir, model="opus")
 
-        results = await agent.validate_batch(ticket_ids, skip_cache=skip_cache)
+        # Convert ticket IDs to the format expected by validate_batch
+        # validate_batch expects: [{'id': ticket_id, 'data': {...}}, ...]
+        # Since we now auto-fetch data, we can pass None for data
+        issues = [{"id": ticket_id, "data": None} for ticket_id in ticket_ids]
 
-        # Convert to serializable format
-        successful = []
-        failed = []
+        results = await agent.validate_batch(issues, skip_cache=skip_cache)
 
-        for ticket_id, result in results.items():
-            if isinstance(result, Exception):
-                failed.append(
-                    {
-                        "ticketId": ticket_id,
-                        "error": str(result),
-                    }
-                )
-            else:
-                successful.append(
-                    {
-                        "ticketId": ticket_id,
-                        "result": {
-                            "ticketIdentifier": result.ticket_id,
-                            "validationTimestamp": result.validation_timestamp,
-                            "cached": result.cached,
-                            "status": result.status,
-                            "confidence": result.confidence,
-                            "reasoning": result.reasoning,
-                            "contentAnalysis": {
-                                "title": result.content_analysis.title,
-                                "descriptionSummary": result.content_analysis.description_summary,
-                                "requirements": result.content_analysis.requirements,
-                            },
-                            "completenessValidation": {
-                                "isComplete": result.completeness_validation.is_complete,
-                                "score": result.completeness_validation.feasibility_score,
-                                "missingFields": result.completeness_validation.missing_fields,
-                                "validationNotes": result.completeness_validation.validation_notes,
-                            },
-                            "suggestedLabels": [
-                                {
-                                    "name": label.name,
-                                    "confidence": label.confidence,
-                                    "reason": label.reason,
-                                }
-                                for label in result.suggested_labels
-                            ],
-                            "versionRecommendation": {
-                                "currentVersion": result.version_recommendation.current_version,
-                                "recommendedVersion": result.version_recommendation.recommended_version,
-                                "versionType": result.version_recommendation.version_type,
-                                "reasoning": result.version_recommendation.reasoning,
-                            },
-                            "taskProperties": {
-                                "category": result.task_properties.category,
-                                "complexity": result.task_properties.complexity,
-                                "impact": result.task_properties.impact,
-                                "priority": result.task_properties.priority,
-                                "rationale": result.task_properties.rationale,
-                                "acceptanceCriteria": result.content_analysis.requirements,
-                            },
+        # Convert successful results to serializable format
+        successful_results = []
+        for result in results.get("successful", []):
+            # Extract ticket_id from result
+            ticket_id = result.get("ticketId") or result.get("issue_id", "")
+            analysis = result.get("analysis", {})
+            completeness = result.get("completeness", {})
+            labels = result.get("recommended_labels", [])
+            properties = result.get("properties", {})
+
+            successful_results.append(
+                {
+                    "ticketId": ticket_id,
+                    "result": {
+                        "ticketIdentifier": result.get("issue_id", ticket_id),
+                        "validationTimestamp": result.get("validation_timestamp", ""),
+                        "cached": result.get("cached", False),
+                        "status": result.get("status", "complete"),
+                        "confidence": result.get("confidence", 0.0),
+                        "reasoning": result.get("reasoning", ""),
+                        "contentAnalysis": {
+                            "title": analysis.get("title", result.get("title", "")),
+                            "descriptionSummary": analysis.get(
+                                "description_summary", analysis.get("summary", "")
+                            ),
+                            "requirements": analysis.get("requirements", []),
                         },
-                    }
-                )
+                        "completenessValidation": {
+                            "isComplete": completeness.get("title_clear", False)
+                            and completeness.get("description_sufficient", False),
+                            "score": completeness.get("feasibility_score", 0.0),
+                            "missingFields": completeness.get("missing_info", []),
+                            "validationNotes": completeness.get("feasibility", ""),
+                        },
+                        "suggestedLabels": [
+                            {
+                                "name": label.get("name", label)
+                                if isinstance(label, dict)
+                                else label,
+                                "confidence": label.get("confidence", 0.0)
+                                if isinstance(label, dict)
+                                else 0.0,
+                                "reason": label.get("reason", "")
+                                if isinstance(label, dict)
+                                else "",
+                            }
+                            for label in labels
+                        ],
+                        "versionRecommendation": {
+                            "currentVersion": result.get("current_version", ""),
+                            "recommendedVersion": result.get(
+                                "version_label", result.get("recommended_version", "")
+                            ),
+                            "versionType": result.get("version_type", "patch"),
+                            "reasoning": result.get("version_reasoning", ""),
+                        },
+                        "taskProperties": {
+                            "category": properties.get("category", "feature"),
+                            "complexity": properties.get("complexity", "medium"),
+                            "impact": properties.get("impact", "medium"),
+                            "priority": properties.get("priority", "normal"),
+                            "rationale": result.get(
+                                "rationale", result.get("reasoning", "")
+                            ),
+                            "acceptanceCriteria": analysis.get("requirements", []),
+                        },
+                    },
+                }
+            )
+
+        # Convert failed results
+        failed_results = []
+        for result in results.get("failed", []):
+            ticket_id = result.get("ticketId") or result.get("issue_id", "")
+            failed_results.append(
+                {
+                    "ticketId": ticket_id,
+                    "error": result.get("error", "Unknown error"),
+                }
+            )
 
         return {
             "success": True,
             "data": {
-                "successful": successful,
-                "failed": failed,
+                "successful": successful_results,
+                "failed": failed_results,
+                "summary": results.get("summary", {}),
             },
+        }
+    except ValidationError as e:
+        return {
+            "success": False,
+            "error": str(e),
         }
     except Exception as e:
         return {
