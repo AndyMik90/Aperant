@@ -257,13 +257,16 @@ class FollowupReviewer:
         # Look for +/- changes within 5 lines of the finding
         for line in file_diff.split("\n"):
             if line.startswith("@@"):
-                # Parse hunk header
-                match = re.search(r"-(\d+),?(\d+) \+(\d+),?(\d+) @@", line)
+                # Parse hunk header - handle optional line counts for single-line changes
+                # Format: @@ -old_start[,old_count] +new_start[,new_count] @@
+                # Example with counts: @@ -10,5 +10,7 @@
+                # Example without counts (single line): @@ -40 +40 @@
+                match = re.search(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", line)
                 if match:
                     old_start = int(match.group(1))
-                    old_count = int(match.group(2))
+                    old_count = int(match.group(2)) if match.group(2) else 1
                     new_start = int(match.group(3))
-                    new_count = int(match.group(4))
+                    new_count = int(match.group(4)) if match.group(4) else 1
 
                     # Check if finding line is in the changed range
                     if old_start <= finding.line <= old_start + old_count:

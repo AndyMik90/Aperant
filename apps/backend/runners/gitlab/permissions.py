@@ -212,7 +212,7 @@ class GitLabPermissionChecker:
 
         try:
             # Check project members
-            members = await self.glab_client.get_project_members(query=username)
+            members = await self.glab_client.get_project_members_async(query=username)
 
             if members:
                 member = members[0]

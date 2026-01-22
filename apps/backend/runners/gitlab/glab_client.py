@@ -756,6 +756,19 @@ class GitLabClient:
             params=params,
         )
 
+    async def get_project_members_async(self, query: str | None = None) -> list[dict]:
+        """Async version of get_project_members."""
+        encoded_project = encode_project_path(self.config.project)
+        params = {"per_page": 100}
+
+        if query:
+            params["query"] = query
+
+        return await self._fetch_async(
+            f"/projects/{encoded_project}/members/all",
+            params=params,
+        )
+
     # -------------------------------------------------------------------------
     # Branch Operations
     # -------------------------------------------------------------------------
