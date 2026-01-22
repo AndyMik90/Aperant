@@ -278,9 +278,9 @@ def format_validation_error(error: Exception, issue_id: str | None = None) -> st
         return "Access denied. Please verify your Linear API key has the necessary permissions."
 
     if "404" in error_message or "not found" in error_message:
-        return (
-            issue_id if issue_id else "Ticket not found. Please verify the ticket ID."
-        )
+        if issue_id:
+            return f"Ticket '{issue_id}' not found. Please verify the ticket ID."
+        return "Ticket not found. Please verify the ticket ID."
 
     if "429" in error_message or "rate limit" in error_message:
         return "Rate limit exceeded. Please wait a moment and try again."
@@ -807,10 +807,29 @@ Begin your analysis now.
         import json
         import re
 
-        # Try to extract JSON from the response
-        json_match = re.search(
-            r"```json\s*(\{.*?\})\s*```", response, re.DOTALL
-        ) or re.search(r"(\{.*?\})", response, re.DOTALL)
+        # Try to extract JSON from the response (first from code blocks, then full text)
+        json_match = re.search(r"```json\s*(\{[\\s\\S]*?\})\s*```", response, re.DOTALL)
+
+        if not json_match:
+            # If no code block, try to extract balanced JSON by counting braces
+            start = response.find("{")
+            if start != -1:
+                depth = 0
+                for i, ch in enumerate(response[start:], start):
+                    if ch == "{":
+                        depth += 1
+                    elif ch == "}":
+                        depth -= 1
+                        if depth == 0:
+                            try:
+                                result = json.loads(response[start : i + 1])
+                                result["issue_id"] = issue_id
+                                result["raw_response"] = response
+                                return result
+                            except json.JSONDecodeError:
+                                break
+            # Fallback to regex for simple cases
+            json_match = re.search(r"(\{.*?\})", response, re.DOTALL)
 
         if json_match:
             try:
