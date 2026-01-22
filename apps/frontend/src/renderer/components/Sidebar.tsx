@@ -20,8 +20,7 @@ import {
   GitBranch,
   HelpCircle,
   Wrench,
-  PanelLeft,
-  PanelLeftClose
+  Ticket
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -59,7 +58,7 @@ import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
 import { UpdateBanner } from './UpdateBanner';
 import type { Project, AutoBuildVersionInfo, GitStatus } from '../../shared/types';
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
+export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'linear' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -100,6 +99,11 @@ const gitlabNavItems: NavItem[] = [
   { id: 'gitlab-merge-requests', labelKey: 'navigation:items.gitlabMRs', icon: GitMerge, shortcut: 'R' }
 ];
 
+// Linear nav items shown when Linear is enabled
+const linearNavItems: NavItem[] = [
+  { id: 'linear', labelKey: 'navigation:items.linear', icon: Ticket, shortcut: 'T' }
+];
+
 export function Sidebar({
   onSettingsClick,
   onNewTaskClick,
@@ -120,21 +124,28 @@ export function Sidebar({
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
-  // Sidebar collapsed state from settings
-  const isCollapsed = settings.sidebarCollapsed ?? false;
+  // Load env config when project changes to check GitHub/GitLab/Linear enabled state
+  useEffect(() => {
+    const loadEnvConfig = async () => {
+      if (selectedProject?.autoBuildPath) {
+        try {
+          const result = await window.electronAPI.getProjectEnv(selectedProject.id);
+          if (result.success && result.data) {
+            setEnvConfig(result.data);
+          } else {
+            setEnvConfig(null);
+          }
+        } catch {
+          setEnvConfig(null);
+        }
+      } else {
+        setEnvConfig(null);
+      }
+    };
+    loadEnvConfig();
+  }, [selectedProject?.id, selectedProject?.autoBuildPath]);
 
-  const toggleSidebar = () => {
-    saveSettings({ sidebarCollapsed: !isCollapsed });
-  };
-
-  // Subscribe to project-env-store for reactive GitHub/GitLab tab visibility
-  const githubEnabled = useProjectEnvStore((state) => state.envConfig?.githubEnabled ?? false);
-  const gitlabEnabled = useProjectEnvStore((state) => state.envConfig?.gitlabEnabled ?? false);
-
-  // Track the last loaded project ID to avoid redundant loads
-  const lastLoadedProjectIdRef = useRef<string | null>(null);
-
-  // Compute visible nav items based on GitHub/GitLab enabled state from store
+  // Compute visible nav items based on GitHub/GitLab/Linear enabled state
   const visibleNavItems = useMemo(() => {
     const items = [...baseNavItems];
 
@@ -146,36 +157,12 @@ export function Sidebar({
       items.push(...gitlabNavItems);
     }
 
+    if (envConfig?.linearEnabled) {
+      items.push(...linearNavItems);
+    }
+
     return items;
-  }, [githubEnabled, gitlabEnabled]);
-
-  // Load envConfig when project changes to ensure store is populated
-  useEffect(() => {
-    // Track whether this effect is still current (for race condition handling)
-    let isCurrent = true;
-
-    const initializeEnvConfig = async () => {
-      if (selectedProject?.id && selectedProject?.autoBuildPath) {
-        // Only reload if the project ID differs from what we last loaded
-        if (selectedProject.id !== lastLoadedProjectIdRef.current) {
-          lastLoadedProjectIdRef.current = selectedProject.id;
-          await loadProjectEnvConfig(selectedProject.id);
-          // Check if this effect was cancelled while loading
-          if (!isCurrent) return;
-        }
-      } else {
-        // Clear the store if no project is selected or has no autoBuildPath
-        lastLoadedProjectIdRef.current = null;
-        clearProjectEnvConfig();
-      }
-    };
-    initializeEnvConfig();
-
-    // Cleanup function to mark this effect as stale
-    return () => {
-      isCurrent = false;
-    };
-  }, [selectedProject?.id, selectedProject?.autoBuildPath]);
+  }, [envConfig?.githubEnabled, envConfig?.gitlabEnabled, envConfig?.linearEnabled]);
 
   // Keyboard shortcuts
   useEffect(() => {

@@ -237,16 +237,62 @@ const browserMockAPI: ElectronAPI = {
     onAnalyzePreviewError: () => () => {}
   },
 
-  // Queue Routing API (rate limit recovery)
-  queue: {
-    getRunningTasksByProfile: async () => ({ success: true, data: { byProfile: {}, totalRunning: 0 } }),
-    getBestProfileForTask: async () => ({ success: true, data: null }),
-    assignProfileToTask: async () => ({ success: true }),
-    updateTaskSession: async () => ({ success: true }),
-    getTaskSession: async () => ({ success: true, data: null }),
-    onQueueProfileSwapped: () => () => {},
-    onQueueSessionCaptured: () => () => {},
-    onQueueBlockedNoProfiles: () => () => {}
+  // Linear API
+  linear: {
+    checkLinearConnection: async () => ({
+      success: true,
+      data: { connected: false, error: 'Not configured' }
+    }),
+    getLinearTeams: async () => ({ success: true, data: [] }),
+    getLinearProjects: async () => ({ success: true, data: [] }),
+    getLinearIssues: async () => ({ success: true, data: [] }),
+    importLinearIssues: async () => ({
+      success: true,
+      data: { success: true, imported: 0, failed: 0, errors: [] }
+    }),
+    validateLinearTicket: async () => ({
+      success: true,
+      data: {
+        ticketId: '',
+        ticketIdentifier: '',
+        validationTimestamp: new Date().toISOString(),
+        cached: false,
+        status: 'complete' as const,
+        contentAnalysis: {
+          title: 'Mock',
+          descriptionSummary: 'Mock',
+          requirements: []
+        },
+        completenessValidation: {
+          isComplete: true,
+          missingFields: [],
+          feasibilityScore: 90,
+          feasibilityReasoning: 'Mock'
+        },
+        suggestedLabels: [],
+        versionRecommendation: {
+          recommendedVersion: '2.7.5',
+          versionType: 'patch' as const,
+          reasoning: 'Mock'
+        },
+        taskProperties: {
+          category: 'feature',
+          complexity: 'medium',
+          impact: 'medium',
+          priority: 'medium',
+          rationale: 'Mock'
+        }
+      }
+    }),
+    validateLinearTicketBatch: async () => ({
+      success: true,
+      data: { successful: [], failed: [] }
+    }),
+    updateLinearTicketWithValidation: async () => ({
+      success: true,
+      data: true
+    }),
+    clearLinearCache: async () => ({ success: true, data: undefined as any })
   },
 
   // Claude Code Operations

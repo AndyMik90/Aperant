@@ -1,86 +1,82 @@
 {
-  "sections": {
-    "project": "Project",
-    "tools": "Tools"
-  },
-  "items": {
-    "kanban": "Kanban Board",
-    "terminals": "Agent Terminals",
-    "insights": "Insights",
-    "roadmap": "Roadmap",
-    "ideation": "Ideation",
-    "changelog": "Changelog",
-    "context": "Context",
-    "githubIssues": "GitHub Issues",
-    "githubPRs": "GitHub PRs",
-    "gitlabIssues": "GitLab Issues",
-    "gitlabMRs": "GitLab MRs",
-    "worktrees": "Worktrees",
-    "agentTools": "MCP Overview"
-  },
-  "actions": {
-    "settings": "Settings",
-    "help": "Help & Feedback",
-    "newTask": "New Task",
-    "collapseSidebar": "Collapse Sidebar",
-    "expandSidebar": "Expand Sidebar"
-  },
-  "tooltips": {
-    "settings": "Application Settings",
-    "help": "Help & Feedback"
-  },
-  "messages": {
-    "initializeToCreateTasks": "Initialize Auto Claude to create tasks"
-  },
-  "updateBanner": {
-    "title": "Update Available",
-    "version": "Version {{version}} is ready",
-    "updateAndRestart": "Update and Restart",
-    "installAndRestart": "Install and Restart",
-    "downloading": "Downloading...",
-    "dismiss": "Dismiss",
-    "downloadError": "Failed to download update"
-  },
-  "claudeCode": {
-    "checking": "Checking Claude Code...",
-    "upToDate": "Claude Code is up to date",
-    "upToDateWithVersion": "Claude Code {{version}} installed",
-    "updateAvailable": "Claude Code update available",
-    "notInstalled": "Claude Code not installed",
-    "error": "Error checking Claude Code",
-    "installed": "Installed",
-    "outdated": "Update available",
-    "missing": "Not installed",
-    "current": "Current",
-    "latest": "Latest",
-    "path": "Path",
-    "lastChecked": "Last checked",
-    "learnMore": "Learn more about Claude Code",
-    "learnMoreAriaLabel": "Learn more about Claude Code (opens in new window)",
-    "viewChangelog": "View Claude Code Changelog",
-    "viewChangelogAriaLabel": "View Claude Code Changelog (opens in new window)",
-    "updateWarningTitle": "Update Claude Code?",
-    "updateWarningDescription": "Updating will close all running Claude Code sessions. Any unsaved work in those sessions may be lost. Make sure to save your work before proceeding.",
-    "updateWarningTerminalNote": "A terminal window will open to run the installation command. Please wait for the installation to complete before continuing.",
-    "updateAnyway": "Open Terminal & Update",
-    "switchVersion": "Switch Version",
-    "selectVersion": "Select version",
-    "loadingVersions": "Loading versions...",
-    "failedToLoadVersions": "Failed to load versions",
-    "installingVersion": "Installing version {{version}}...",
-    "rollbackWarningTitle": "Switch to version {{version}}?",
-    "rollbackWarningDescription": "Switching versions will close all running Claude Code sessions. Any unsaved work in those sessions may be lost. Make sure to save your work before proceeding.",
-    "rollbackWarningTerminalNote": "A terminal window will open to run the installation command. Please wait for the installation to complete before continuing.",
-    "switchAnyway": "Open Terminal & Switch",
-    "currentVersion": "Current",
-    "switchInstallation": "Switch Installation",
-    "selectInstallation": "Select installation",
-    "loadingInstallations": "Loading installations...",
-    "failedToLoadInstallations": "Failed to load installations",
-    "activeInstallation": "Active",
-    "pathChangeWarningTitle": "Switch CLI installation?",
-    "pathChangeWarningDescription": "Switching CLI installations will use a different Claude Code binary. Any running sessions will continue using the previous installation until restarted.",
-    "switchInstallationConfirm": "Switch",
-    "versionUnknown": "version unknown"
-  }
+	"sections": {
+		"project": "Project",
+		"tools": "Tools"
+	},
+	"items": {
+		"kanban": "Kanban Board",
+		"terminals": "Agent Terminals",
+		"insights": "Insights",
+		"roadmap": "Roadmap",
+		"ideation": "Ideation",
+		"changelog": "Changelog",
+		"context": "Context",
+		"githubIssues": "GitHub Issues",
+		"githubPRs": "GitHub PRs",
+		"gitlabIssues": "GitLab Issues",
+		"gitlabMRs": "GitLab MRs",
+		"worktrees": "Worktrees",
+		"agentTools": "MCP Overview",
+		"linear": "Linear"
+	},
+	"actions": {
+		"settings": "Settings",
+		"help": "Help & Feedback",
+		"newTask": "New Task"
+	},
+	"tooltips": {
+		"settings": "Application Settings",
+		"help": "Help & Feedback"
+	},
+	"messages": {
+		"initializeToCreateTasks": "Initialize Auto Claude to create tasks"
+	},
+	"updateBanner": {
+		"title": "Update Available",
+		"version": "Version {{version}} is ready",
+		"updateAndRestart": "Update and Restart",
+		"installAndRestart": "Install and Restart",
+		"downloading": "Downloading...",
+		"dismiss": "Dismiss",
+		"downloadError": "Failed to download update"
+	},
+	"claudeCode": {
+		"checking": "Checking Claude Code...",
+		"upToDate": "Claude Code is up to date",
+		"updateAvailable": "Claude Code update available",
+		"notInstalled": "Claude Code not installed",
+		"error": "Error checking Claude Code",
+		"installed": "Installed",
+		"outdated": "Update available",
+		"missing": "Not installed",
+		"current": "Current",
+		"latest": "Latest",
+		"path": "Path",
+		"lastChecked": "Last checked",
+		"learnMore": "Learn more about Claude Code",
+		"learnMoreAriaLabel": "Learn more about Claude Code (opens in new window)",
+		"viewChangelog": "View Claude Code Changelog",
+		"viewChangelogAriaLabel": "View Claude Code Changelog (opens in new window)",
+		"updateWarningTitle": "Update Claude Code?",
+		"updateWarningDescription": "Updating will close all running Claude Code sessions. Any unsaved work in those sessions may be lost. Make sure to save your work before proceeding.",
+		"updateAnyway": "Update Anyway",
+		"switchVersion": "Switch Version",
+		"selectVersion": "Select version",
+		"loadingVersions": "Loading versions...",
+		"failedToLoadVersions": "Failed to load versions",
+		"installingVersion": "Installing version {{version}}...",
+		"rollbackWarningTitle": "Switch to version {{version}}?",
+		"rollbackWarningDescription": "Switching versions will close all running Claude Code sessions. Any unsaved work in those sessions may be lost. Make sure to save your work before proceeding.",
+		"switchAnyway": "Switch Anyway",
+		"currentVersion": "Current",
+		"switchInstallation": "Switch Installation",
+		"selectInstallation": "Select installation",
+		"loadingInstallations": "Loading installations...",
+		"failedToLoadInstallations": "Failed to load installations",
+		"activeInstallation": "Active",
+		"pathChangeWarningTitle": "Switch CLI installation?",
+		"pathChangeWarningDescription": "Switching CLI installations will use a different Claude Code binary. Any running sessions will continue using the previous installation until restarted.",
+		"switchInstallationConfirm": "Switch",
+		"versionUnknown": "version unknown"
+	}
 }

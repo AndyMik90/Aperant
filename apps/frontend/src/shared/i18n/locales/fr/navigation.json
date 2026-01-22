@@ -1,86 +1,82 @@
 {
-  "sections": {
-    "project": "Projet",
-    "tools": "Outils"
-  },
-  "items": {
-    "kanban": "Tableau Kanban",
-    "terminals": "Terminaux Agent",
-    "insights": "Insights",
-    "roadmap": "Feuille de route",
-    "ideation": "Idéation",
-    "changelog": "Journal des modifications",
-    "context": "Contexte",
-    "githubIssues": "Issues GitHub",
-    "githubPRs": "PRs GitHub",
-    "gitlabIssues": "Issues GitLab",
-    "gitlabMRs": "MRs GitLab",
-    "worktrees": "Worktrees",
-    "agentTools": "Aperçu MCP"
-  },
-  "actions": {
-    "settings": "Paramètres",
-    "help": "Aide & Feedback",
-    "newTask": "Nouvelle tâche",
-    "collapseSidebar": "Réduire la barre latérale",
-    "expandSidebar": "Développer la barre latérale"
-  },
-  "tooltips": {
-    "settings": "Paramètres de l'application",
-    "help": "Aide & Feedback"
-  },
-  "messages": {
-    "initializeToCreateTasks": "Initialisez Auto Claude pour créer des tâches"
-  },
-  "updateBanner": {
-    "title": "Mise à jour disponible",
-    "version": "Version {{version}} est prête",
-    "updateAndRestart": "Mettre à jour et redémarrer",
-    "installAndRestart": "Installer et redémarrer",
-    "downloading": "Téléchargement...",
-    "dismiss": "Ignorer",
-    "downloadError": "Échec du téléchargement de la mise à jour"
-  },
-  "claudeCode": {
-    "checking": "Vérification de Claude Code...",
-    "upToDate": "Claude Code est à jour",
-    "upToDateWithVersion": "Claude Code {{version}} installé",
-    "updateAvailable": "Mise à jour Claude Code disponible",
-    "notInstalled": "Claude Code non installé",
-    "error": "Erreur de vérification de Claude Code",
-    "installed": "Installé",
-    "outdated": "Mise à jour disponible",
-    "missing": "Non installé",
-    "current": "Actuelle",
-    "latest": "Dernière",
-    "path": "Chemin",
-    "lastChecked": "Dernière vérification",
-    "learnMore": "En savoir plus sur Claude Code",
-    "learnMoreAriaLabel": "En savoir plus sur Claude Code (s'ouvre dans une nouvelle fenêtre)",
-    "viewChangelog": "Voir le journal des modifications Claude Code",
-    "viewChangelogAriaLabel": "Voir le journal des modifications Claude Code (s'ouvre dans une nouvelle fenêtre)",
-    "updateWarningTitle": "Mettre à jour Claude Code ?",
-    "updateWarningDescription": "La mise à jour fermera toutes les sessions Claude Code en cours. Tout travail non sauvegardé dans ces sessions pourrait être perdu. Assurez-vous de sauvegarder votre travail avant de continuer.",
-    "updateWarningTerminalNote": "Une fenêtre de terminal s'ouvrira pour exécuter la commande d'installation. Veuillez attendre la fin de l'installation avant de continuer.",
-    "updateAnyway": "Ouvrir le terminal et mettre à jour",
-    "switchVersion": "Changer de version",
-    "selectVersion": "Sélectionner une version",
-    "loadingVersions": "Chargement des versions...",
-    "failedToLoadVersions": "Échec du chargement des versions",
-    "installingVersion": "Installation de la version {{version}}...",
-    "rollbackWarningTitle": "Passer à la version {{version}} ?",
-    "rollbackWarningDescription": "Le changement de version fermera toutes les sessions Claude Code en cours. Tout travail non sauvegardé dans ces sessions pourrait être perdu. Assurez-vous de sauvegarder votre travail avant de continuer.",
-    "rollbackWarningTerminalNote": "Une fenêtre de terminal s'ouvrira pour exécuter la commande d'installation. Veuillez attendre la fin de l'installation avant de continuer.",
-    "switchAnyway": "Ouvrir le terminal et changer",
-    "currentVersion": "Actuelle",
-    "switchInstallation": "Changer d'installation",
-    "selectInstallation": "Sélectionner une installation",
-    "loadingInstallations": "Chargement des installations...",
-    "failedToLoadInstallations": "Échec du chargement des installations",
-    "activeInstallation": "Active",
-    "pathChangeWarningTitle": "Changer d'installation CLI ?",
-    "pathChangeWarningDescription": "Le changement d'installation CLI utilisera un binaire Claude Code différent. Les sessions en cours continueront à utiliser l'installation précédente jusqu'à leur redémarrage.",
-    "switchInstallationConfirm": "Changer",
-    "versionUnknown": "version inconnue"
-  }
+	"sections": {
+		"project": "Projet",
+		"tools": "Outils"
+	},
+	"items": {
+		"kanban": "Tableau Kanban",
+		"terminals": "Terminaux Agent",
+		"insights": "Insights",
+		"roadmap": "Feuille de route",
+		"ideation": "Idéation",
+		"changelog": "Journal des modifications",
+		"context": "Contexte",
+		"githubIssues": "Issues GitHub",
+		"githubPRs": "PRs GitHub",
+		"gitlabIssues": "Issues GitLab",
+		"gitlabMRs": "MRs GitLab",
+		"worktrees": "Worktrees",
+		"agentTools": "Aperçu MCP",
+		"linear": "Linear"
+	},
+	"actions": {
+		"settings": "Paramètres",
+		"help": "Aide & Feedback",
+		"newTask": "Nouvelle tâche"
+	},
+	"tooltips": {
+		"settings": "Paramètres de l'application",
+		"help": "Aide & Feedback"
+	},
+	"messages": {
+		"initializeToCreateTasks": "Initialisez Auto Claude pour créer des tâches"
+	},
+	"updateBanner": {
+		"title": "Mise à jour disponible",
+		"version": "Version {{version}} est prête",
+		"updateAndRestart": "Mettre à jour et redémarrer",
+		"installAndRestart": "Installer et redémarrer",
+		"downloading": "Téléchargement...",
+		"dismiss": "Ignorer",
+		"downloadError": "Échec du téléchargement de la mise à jour"
+	},
+	"claudeCode": {
+		"checking": "Vérification de Claude Code...",
+		"upToDate": "Claude Code est à jour",
+		"updateAvailable": "Mise à jour Claude Code disponible",
+		"notInstalled": "Claude Code non installé",
+		"error": "Erreur de vérification de Claude Code",
+		"installed": "Installé",
+		"outdated": "Mise à jour disponible",
+		"missing": "Non installé",
+		"current": "Actuelle",
+		"latest": "Dernière",
+		"path": "Chemin",
+		"lastChecked": "Dernière vérification",
+		"learnMore": "En savoir plus sur Claude Code",
+		"learnMoreAriaLabel": "En savoir plus sur Claude Code (s'ouvre dans une nouvelle fenêtre)",
+		"viewChangelog": "Voir le journal des modifications Claude Code",
+		"viewChangelogAriaLabel": "Voir le journal des modifications Claude Code (s'ouvre dans une nouvelle fenêtre)",
+		"updateWarningTitle": "Mettre à jour Claude Code ?",
+		"updateWarningDescription": "La mise à jour fermera toutes les sessions Claude Code en cours. Tout travail non sauvegardé dans ces sessions pourrait être perdu. Assurez-vous de sauvegarder votre travail avant de continuer.",
+		"updateAnyway": "Mettre à jour quand même",
+		"switchVersion": "Changer de version",
+		"selectVersion": "Sélectionner une version",
+		"loadingVersions": "Chargement des versions...",
+		"failedToLoadVersions": "Échec du chargement des versions",
+		"installingVersion": "Installation de la version {{version}}...",
+		"rollbackWarningTitle": "Passer à la version {{version}} ?",
+		"rollbackWarningDescription": "Le changement de version fermera toutes les sessions Claude Code en cours. Tout travail non sauvegardé dans ces sessions pourrait être perdu. Assurez-vous de sauvegarder votre travail avant de continuer.",
+		"switchAnyway": "Changer quand même",
+		"currentVersion": "Actuelle",
+		"switchInstallation": "Changer d'installation",
+		"selectInstallation": "Sélectionner une installation",
+		"loadingInstallations": "Chargement des installations...",
+		"failedToLoadInstallations": "Échec du chargement des installations",
+		"activeInstallation": "Active",
+		"pathChangeWarningTitle": "Changer d'installation CLI ?",
+		"pathChangeWarningDescription": "Le changement d'installation CLI utilisera un binaire Claude Code différent. Les sessions en cours continueront à utiliser l'installation précédente jusqu'à leur redémarrage.",
+		"switchInstallationConfirm": "Changer",
+		"versionUnknown": "version inconnue"
+	}
 }

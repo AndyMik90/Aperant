@@ -42,6 +42,7 @@ import { GitHubIssues } from './components/GitHubIssues';
 import { GitLabIssues } from './components/GitLabIssues';
 import { GitHubPRs } from './components/github-prs';
 import { GitLabMergeRequests } from './components/gitlab-merge-requests';
+import { LinearDashboard } from './components/linear';
 import { Changelog } from './components/Changelog';
 import { Worktrees } from './components/Worktrees';
 import { AgentTools } from './components/AgentTools';
@@ -921,6 +922,14 @@ export function App() {
                     projectId={activeProjectId || selectedProjectId!}
                     onOpenSettings={() => {
                       setSettingsInitialProjectSection('gitlab');
+                      setIsSettingsDialogOpen(true);
+                    }}
+                  />
+                )}
+                {activeView === 'linear' && (activeProjectId || selectedProjectId) && (
+                  <LinearDashboard
+                    onOpenSettings={() => {
+                      setSettingsInitialProjectSection('linear');
                       setIsSettingsDialogOpen(true);
                     }}
                   />
