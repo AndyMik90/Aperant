@@ -5,6 +5,7 @@ Unit Tests for GitLab Permission System
 Tests for GitLabPermissionChecker and permission verification.
 """
 
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -12,8 +13,8 @@ from runners.gitlab.permissions import (
     GitLabPermissionChecker,
     GitLabRole,
     PermissionCheckResult,
-    PermissionError,
 )
+from runners.gitlab.permissions import PermissionError as GitLabPermissionError
 
 
 class MockGitLabClient:
@@ -66,10 +67,10 @@ async def test_verify_token_scopes_success(permission_checker, mock_glab_client)
 async def test_verify_token_scopes_project_not_found(
     permission_checker, mock_glab_client
 ):
-    """Test project not found raises PermissionError."""
+    """Test project not found raises GitLabPermissionError."""
     mock_glab_client._fetch_async.return_value = None
 
-    with pytest.raises(PermissionError, match="Cannot access project"):
+    with pytest.raises(GitLabPermissionError, match="Cannot access project"):
         await permission_checker.verify_token_scopes()
 
 
@@ -106,7 +107,7 @@ async def test_check_label_adder_success(permission_checker, mock_glab_client):
 
 @pytest.mark.asyncio
 async def test_check_label_adder_label_not_found(permission_checker, mock_glab_client):
-    """Test label not found raises PermissionError."""
+    """Test label not found raises GitLabPermissionError."""
     mock_glab_client._fetch_async.return_value = [
         {
             "id": 1,
@@ -116,13 +117,13 @@ async def test_check_label_adder_label_not_found(permission_checker, mock_glab_c
         },
     ]
 
-    with pytest.raises(PermissionError, match="not found in issue"):
+    with pytest.raises(GitLabPermissionError, match="not found in issue"):
         await permission_checker.check_label_adder(123, "auto-fix")
 
 
 @pytest.mark.asyncio
 async def test_check_label_adder_no_username(permission_checker, mock_glab_client):
-    """Test label event without username raises PermissionError."""
+    """Test label event without username raises GitLabPermissionError."""
     mock_glab_client._fetch_async.return_value = [
         {
             "id": 1,
@@ -131,7 +132,7 @@ async def test_check_label_adder_no_username(permission_checker, mock_glab_clien
         },
     ]
 
-    with pytest.raises(PermissionError, match="Could not determine who added"):
+    with pytest.raises(GitLabPermissionError, match="Could not determine who added"):
         await permission_checker.check_label_adder(123, "auto-fix")
 
 
@@ -321,15 +322,21 @@ async def test_verify_automation_trigger_denied_logs_warning(
 
 def test_log_permission_denial(permission_checker, caplog):
     """Test permission denial logging includes full context."""
-    permission_checker.log_permission_denial(
-        action="auto-fix",
-        username="bob",
-        role=GitLabRole.REPORTER,
-        issue_iid=123,
-    )
+    with caplog.at_level(logging.INFO):
+        permission_checker.log_permission_denial(
+            action="auto-fix",
+            username="bob",
+            role=GitLabRole.REPORTER,
+            issue_iid=123,
+        )
 
     # Check that the log contains all relevant info
-    # Note: actual logging capture depends on logging configuration
+    assert len(caplog.records) > 0
+    log_message = caplog.records[0].message
+    assert "auto-fix" in log_message
+    assert "bob" in log_message
+    assert "REPORTER" in log_message
+    assert "123" in log_message
 
 
 def test_access_levels():

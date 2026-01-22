@@ -51,11 +51,6 @@ _SEVERITY_MAPPING = {
 }
 
 
-def safe_print(msg: str, **kwargs) -> None:
-    """Thread-safe print helper."""
-    print(msg, **kwargs)
-
-
 class FollowupReviewer:
     """
     Performs focused follow-up reviews of GitLab MRs.
@@ -164,15 +159,6 @@ class FollowupReviewer:
 
         # Combine new findings
         all_new_findings = new_findings + comment_findings
-
-        # Update previous findings with resolution status
-        for finding in previous_findings:
-            if finding.id in [f.id for f in resolved]:
-                # Mark as resolved
-                pass  # Will be tracked in resolved_findings list
-            elif finding.id not in [f.id for f in unresolved]:
-                # Shouldn't happen, but treat as unresolved
-                pass
 
         # Determine verdict
         verdict = self._determine_verdict(unresolved, all_new_findings, context.mr_iid)

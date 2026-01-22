@@ -14,10 +14,13 @@ from __future__ import annotations
 import asyncio
 import functools
 import json
+import logging
 import socket
 import ssl
 import time
 import urllib.error
+
+logger = logging.getLogger(__name__)
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -254,14 +257,18 @@ class GitLabClient:
                         wait_time = 2**attempt
 
                     if attempt < max_retries - 1:
-                        print(f"Rate limited. Waiting {wait_time}s before retry...")
+                        logger.warning(
+                            f"Rate limited. Waiting {wait_time}s before retry..."
+                        )
                         time.sleep(wait_time)
                         continue
 
                 # Retry on server errors
                 if e.code in RETRYABLE_STATUS_CODES and attempt < max_retries - 1:
                     wait_time = 2**attempt
-                    print(f"Server error {e.code}. Retrying in {wait_time}s...")
+                    logger.warning(
+                        f"Server error {e.code}. Retrying in {wait_time}s..."
+                    )
                     time.sleep(wait_time)
                     continue
 
@@ -277,7 +284,7 @@ class GitLabClient:
                 last_error = e
                 if attempt < max_retries - 1:
                     wait_time = 2**attempt
-                    print(f"Network error: {e}. Retrying in {wait_time}s...")
+                    logger.warning(f"Network error: {e}. Retrying in {wait_time}s...")
                     time.sleep(wait_time)
                     continue
                 raise Exception(f"GitLab API network error: {e}") from e
@@ -286,7 +293,7 @@ class GitLabClient:
                 last_error = e
                 if attempt < max_retries - 1:
                     wait_time = 2**attempt
-                    print(f"SSL error: {e}. Retrying in {wait_time}s...")
+                    logger.warning(f"SSL error: {e}. Retrying in {wait_time}s...")
                     time.sleep(wait_time)
                     continue
                 raise Exception(f"GitLab API SSL/TLS error: {e}") from e

@@ -81,14 +81,16 @@ class BotDetectionState:
 
     @classmethod
     def load(cls, state_dir: Path) -> BotDetectionState:
-        """Load state from disk."""
+        """Load state from disk with file locking to prevent read-write race conditions."""
         state_file = state_dir / "bot_detection_state.json"
 
         if not state_file.exists():
             return cls()
 
-        with open(state_file, encoding="utf-8") as f:
-            return cls.from_dict(json.load(f))
+        # Use shared file lock (non-exclusive) to prevent reading while another process writes
+        with FileLock(state_file, timeout=5.0, exclusive=False):
+            with open(state_file, encoding="utf-8") as f:
+                return cls.from_dict(json.load(f))
 
 
 # Known GitLab bot account patterns
