@@ -472,6 +472,7 @@ class AutoFixStatus(str, Enum):
             cls.CREATING_SPEC,
             cls.BUILDING,
             cls.QA_REVIEW,
+            cls.WAITING_APPROVAL,
             cls.MR_CREATED,
         }
 
@@ -519,6 +520,7 @@ class AutoFixStatus(str, Enum):
                 AutoFixStatus.COMPLETED,
                 AutoFixStatus.MERGE_CONFLICT,
                 AutoFixStatus.FAILED,
+                AutoFixStatus.CANCELLED,
             },
             # Recoverable states
             AutoFixStatus.FAILED: {
