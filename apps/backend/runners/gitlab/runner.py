@@ -279,10 +279,11 @@ async def cmd_triage(args) -> int:
 
     safe_print(f"[Triage] Fetching issues (state={args.state}, limit={args.limit})...")
 
-    # Fetch issues
+    # Fetch issues (parse comma-separated labels into list)
+    label_list = args.labels.split(",") if args.labels else None
     issues = client.list_issues(
         state=args.state,
-        labels=args.labels if args.labels else None,
+        labels=label_list,
         per_page=args.limit,
     )
 
@@ -521,9 +522,9 @@ async def cmd_batch_issues(args) -> int:
             print("\nSuggested batch action:")
             print(f"  Group: {largest_group}")
             print(f"  Size: {len(largest_issues)} issues")
-            print(
-                f"  Command: python runner.py triage --label {args.label} --limit {len(largest_issues)}"
-            )
+            label_arg = f"--labels {args.label}" if args.label else ""
+            limit_arg = f"--limit {len(largest_issues)}"
+            print(f"  Command: python runner.py triage {label_arg} {limit_arg}")
 
     return 0
 

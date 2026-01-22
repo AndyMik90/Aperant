@@ -690,7 +690,9 @@ class MRContextGatherer:
             # Config files
             elif name_lower in [
                 n.lower() for n in CONFIG_FILE_NAMES
-            ] or name_lower.endswith((".config.js", ".config.ts", "rc.json", ".rc")):
+            ] or name_lower.endswith(
+                (".config.js", ".config.ts", ".jsonrc", "rc.json", ".rc")
+            ):
                 config_files.append(f)
             else:
                 other_files.append(f)

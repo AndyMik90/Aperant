@@ -153,7 +153,12 @@ class GitlabBatchProcessor:
             batch.status = GitlabBatchStatus.ANALYZING
             from .batch_issues import GitlabIssueBatcher
 
-            GitlabIssueBatcher.save_batch(batch)
+            # Create batcher instance to call save_batch (instance method)
+            batcher = GitlabIssueBatcher(
+                gitlab_dir=self.gitlab_dir,
+                similarity_threshold=0.7,
+            )
+            batcher.save_batch(batch)
 
             # Build combined issue description
             combined_description = self._build_combined_description(batch)

@@ -31,9 +31,27 @@ class PromptManager:
         )
 
     def get_review_pass_prompt(self, review_pass: ReviewPass) -> str:
-        """Get the specialized prompt for each review pass."""
-        # For now, return empty string - MR-specific prompts can be added later
-        return ""
+        """Get the specialized prompt for each review pass.
+
+        For now, falls back to the main MR review prompt. Pass-specific
+        prompts can be added later by creating files like:
+        - prompts/gitlab/review_pass_1.md
+        - prompts/gitlab/review_pass_2.md
+        etc.
+        """
+        # Try pass-specific prompt file first
+        pass_prompt_file = (
+            self.prompts_dir / f"review_pass_{review_pass.pass_number}.md"
+        )
+        if pass_prompt_file.exists():
+            try:
+                return pass_prompt_file.read_text(encoding="utf-8")
+            except OSError:
+                # Fall through to default MR prompt on read error
+                pass
+
+        # Fallback to main MR review prompt
+        return self.get_mr_review_prompt()
 
     def get_mr_review_prompt(self) -> str:
         """Get the main MR review prompt."""
