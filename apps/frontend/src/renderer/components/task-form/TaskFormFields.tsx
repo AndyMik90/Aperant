@@ -273,10 +273,6 @@ export function TaskFormFields({
           </div>
         )}
 
-        {/* Optional children (e.g., @ mention autocomplete) */}
-        {children}
-      </div>
-
       {/* Title (Optional) */}
       <div className="space-y-2">
         <Label htmlFor={`${prefix}title`} className="text-sm font-medium text-foreground">
