@@ -273,100 +273,10 @@ export function TaskFormFields({
           </div>
         )}
 
-      {/* Title (Optional) */}
-      <div className="space-y-2">
-        <Label htmlFor={`${prefix}title`} className="text-sm font-medium text-foreground">
-          {t('tasks:form.taskTitle')} <span className="text-muted-foreground font-normal">({t('common:labels.optional')})</span>
-        </Label>
-        <Input
-          id={`${prefix}title`}
-          placeholder={t('tasks:form.titlePlaceholder')}
-          value={title}
-          onChange={(e) => onTitleChange(e.target.value)}
-          disabled={disabled}
-        />
-        <p className="text-xs text-muted-foreground">
-          {t('tasks:form.titleHelpText')}
-        </p>
-      </div>
-
-      {/* Agent Profile Selection */}
-      <AgentProfileSelector
-        profileId={profileId}
-        model={model}
-        thinkingLevel={thinkingLevel}
-        phaseModels={phaseModels}
-        phaseThinking={phaseThinking}
-        onProfileChange={onProfileChange}
-        onModelChange={onModelChange}
-        onThinkingLevelChange={onThinkingLevelChange}
-        onPhaseModelsChange={onPhaseModelsChange}
-        onPhaseThinkingChange={onPhaseThinkingChange}
-        disabled={disabled}
-      />
-
-      {/* Service/Folder Selector */}
-      <ServiceSelector
-        value={serviceId}
-        onChange={onServiceIdChange}
-        projectIndex={projectIndex}
-        disabled={disabled}
-      />
-
-      {/* Classification Toggle */}
-      <button
-        type="button"
-        onClick={() => onShowClassificationChange(!showClassification)}
-        className={cn(
-          'flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors',
-          'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
-        )}
-        disabled={disabled}
-        aria-expanded={showClassification}
-        aria-controls={`${prefix}classification-section`}
-      >
-        <span>{t('tasks:form.classificationOptional')}</span>
-        {showClassification ? (
-          <ChevronUp className="h-4 w-4" />
-        ) : (
-          <ChevronDown className="h-4 w-4" />
-        )}
-      </button>
-
-      {/* Classification Fields */}
-      {showClassification && (
-        <div id={`${prefix}classification-section`}>
-          <ClassificationFields
-            category={category}
-            priority={priority}
-            complexity={complexity}
-            impact={impact}
-            onCategoryChange={onCategoryChange}
-            onPriorityChange={onPriorityChange}
-            onComplexityChange={onComplexityChange}
-            onImpactChange={onImpactChange}
-            disabled={disabled}
-            idPrefix={idPrefix}
-          />
-        </div>
-      )}
-
-      {/* Review Requirement Toggle */}
-      <div className="flex items-start gap-3 p-4 rounded-lg border border-border bg-muted/30">
-        <Checkbox
-          id={`${prefix}require-review`}
-          checked={requireReviewBeforeCoding}
-          onCheckedChange={(checked) => onRequireReviewChange(checked === true)}
-          disabled={disabled}
-          className="mt-0.5"
-        />
-        <div className="flex-1 space-y-1">
-          <Label
-            htmlFor={`${prefix}require-review`}
-            className="text-sm font-medium text-foreground cursor-pointer"
-          >
-            {t('tasks:form.requireReviewLabel')}
->>>>>>> 9ca1b6bc (feat: add AI task splitter and service selector for task creation)
+        {/* Title (Optional) */}
+        <div className="space-y-2">
+          <Label htmlFor={`${prefix}title`} className="text-sm font-medium text-foreground">
+            {t('tasks:form.taskTitle')} <span className="text-muted-foreground font-normal">({t('common:labels.optional')})</span>
           </Label>
           <Input
             id={`${prefix}title`}
@@ -394,6 +304,74 @@ export function TaskFormFields({
           onPhaseThinkingChange={onPhaseThinkingChange}
           disabled={disabled}
         />
+
+        {/* Service/Folder Selector */}
+        <ServiceSelector
+          value={serviceId}
+          onChange={onServiceIdChange}
+          projectIndex={projectIndex}
+          disabled={disabled}
+        />
+
+        {/* Classification Toggle */}
+        <button
+          type="button"
+          onClick={() => onShowClassificationChange(!showClassification)}
+          className={cn(
+            'flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors',
+            'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
+          )}
+          disabled={disabled}
+          aria-expanded={showClassification}
+          aria-controls={`${prefix}classification-section`}
+        >
+          <span>{t('tasks:form.classificationOptional')}</span>
+          {showClassification ? (
+            <ChevronUp className="h-4 w-4" />
+          ) : (
+            <ChevronDown className="h-4 w-4" />
+          )}
+        </button>
+
+        {/* Classification Fields */}
+        {showClassification && (
+          <div id={`${prefix}classification-section`}>
+            <ClassificationFields
+              category={category}
+              priority={priority}
+              complexity={complexity}
+              impact={impact}
+              onCategoryChange={onCategoryChange}
+              onPriorityChange={onPriorityChange}
+              onComplexityChange={onComplexityChange}
+              onImpactChange={onImpactChange}
+              disabled={disabled}
+              idPrefix={idPrefix}
+            />
+          </div>
+        )}
+
+        {/* Review Requirement Toggle */}
+        <div className="flex items-start gap-3 p-4 rounded-lg border border-border bg-muted/30">
+          <Checkbox
+            id={`${prefix}require-review`}
+            checked={requireReviewBeforeCoding}
+            onCheckedChange={(checked) => onRequireReviewChange(checked === true)}
+            disabled={disabled}
+            className="mt-0.5"
+          />
+          <div className="flex-1 space-y-1">
+            <Label
+              htmlFor={`${prefix}require-review`}
+              className="text-sm font-medium text-foreground cursor-pointer"
+            >
+              {t('tasks:form.requireReviewLabel')}
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              {t('tasks:form.requireReviewDescription')}
+            </p>
+          </div>
+        </div>
 
         {/* Reference Images Toggle */}
         <button
@@ -496,66 +474,6 @@ export function TaskFormFields({
             )}
           </div>
         )}
-
-        {/* Classification Toggle */}
-        <button
-          type="button"
-          onClick={() => onShowClassificationChange(!showClassification)}
-          className={cn(
-            'flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors',
-            'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
-          )}
-          disabled={disabled}
-          aria-expanded={showClassification}
-          aria-controls={`${prefix}classification-section`}
-        >
-          <span>{t('tasks:form.classificationOptional')}</span>
-          {showClassification ? (
-            <ChevronUp className="h-4 w-4" />
-          ) : (
-            <ChevronDown className="h-4 w-4" />
-          )}
-        </button>
-
-        {/* Classification Fields */}
-        {showClassification && (
-          <div id={`${prefix}classification-section`}>
-            <ClassificationFields
-              category={category}
-              priority={priority}
-              complexity={complexity}
-              impact={impact}
-              onCategoryChange={onCategoryChange}
-              onPriorityChange={onPriorityChange}
-              onComplexityChange={onComplexityChange}
-              onImpactChange={onImpactChange}
-              disabled={disabled}
-              idPrefix={idPrefix}
-            />
-          </div>
-        )}
-
-        {/* Review Requirement Toggle */}
-        <div className="flex items-start gap-3 p-4 rounded-lg border border-border bg-muted/30">
-          <Checkbox
-            id={`${prefix}require-review`}
-            checked={requireReviewBeforeCoding}
-            onCheckedChange={(checked) => onRequireReviewChange(checked === true)}
-            disabled={disabled}
-            className="mt-0.5"
-          />
-          <div className="flex-1 space-y-1">
-            <Label
-              htmlFor={`${prefix}require-review`}
-              className="text-sm font-medium text-foreground cursor-pointer"
-            >
-              {t('tasks:form.requireReviewLabel')}
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              {t('tasks:form.requireReviewDescription')}
-            </p>
-          </div>
-        </div>
 
         {/* Error Display */}
         {error && (
