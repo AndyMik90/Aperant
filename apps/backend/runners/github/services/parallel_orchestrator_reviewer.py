@@ -474,15 +474,18 @@ Found {len(context.ai_bot_comments)} comments from AI tools.
 
             related_files_section = f"""
 ### Related Files to Investigate
-These files are related to the changes (imports, tests, dependents). Use for context.
+These files are related to the changes (imports, tests, dependents). **Pass relevant files to specialists when delegating.**
 
 **Tests** ({len(tests)} files): {tests_str}
 **Dependencies/Callers** ({len(deps)} files): {deps_str}
 
-**Use these to:**
-- Check if tests need updating for the changes
-- Verify callers aren't broken by signature/behavior changes
-- Find similar patterns that should be consistent
+**When delegating to specialists, include relevant files:**
+- **security-reviewer**: Mention files that handle the same data flow
+- **logic-reviewer**: Mention callers that depend on changed function signatures
+- **quality-reviewer**: Mention files with similar patterns for consistency check
+- **codebase-fit-reviewer**: Mention existing implementations of similar features
+
+Example delegation: "Review the auth changes in login.ts. Also check auth_middleware.ts and auth.test.ts which use this module."
 """
 
         # Build import graph summary (CONTEXT-03)
