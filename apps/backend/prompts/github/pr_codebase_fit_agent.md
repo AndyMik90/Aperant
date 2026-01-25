@@ -296,6 +296,13 @@ Provide findings in JSON format:
     "description": "This file implements custom date formatting, but the codebase already has `formatDate()` in `src/utils/date.ts` that does the same thing.",
     "category": "codebase_fit",
     "severity": "high",
+    "verification": {
+      "code_examined": "const formatted = `${date.getMonth()}/${date.getDate()}/${date.getFullYear()}`;",
+      "line_range_examined": [15, 15],
+      "verification_method": "cross_file_trace"
+    },
+    "is_impact_finding": false,
+    "checked_for_handling_elsewhere": false,
     "existing_code": "src/utils/date.ts:formatDate()",
     "suggested_fix": "Replace custom implementation with: import { formatDate } from '@/utils/date';",
     "confidence": 92
@@ -307,6 +314,13 @@ Provide findings in JSON format:
     "description": "This file uses 'customer' terminology but the rest of the codebase consistently uses 'user'. This creates confusion and makes search/navigation harder.",
     "category": "codebase_fit",
     "severity": "medium",
+    "verification": {
+      "code_examined": "export interface Customer { id: string; name: string; email: string; }",
+      "line_range_examined": [1, 5],
+      "verification_method": "direct_code_inspection"
+    },
+    "is_impact_finding": false,
+    "checked_for_handling_elsewhere": false,
     "codebase_pattern": "src/models/user.ts, src/api/users.ts, src/services/userService.ts",
     "suggested_fix": "Rename to use 'user' terminology to match codebase conventions",
     "confidence": 88
@@ -318,6 +332,13 @@ Provide findings in JSON format:
     "description": "This file is 847 lines and contains order validation, payment processing, inventory management, and notification sending. Each should be separate.",
     "category": "codebase_fit",
     "severity": "high",
+    "verification": {
+      "code_examined": "// File contains: validateOrder(), processPayment(), updateInventory(), sendNotification() - all in one file",
+      "line_range_examined": [1, 847],
+      "verification_method": "direct_code_inspection"
+    },
+    "is_impact_finding": false,
+    "checked_for_handling_elsewhere": false,
     "current_lines": 847,
     "suggested_fix": "Split into: orderValidator.ts, paymentProcessor.ts, inventoryManager.ts, notificationService.ts",
     "confidence": 95

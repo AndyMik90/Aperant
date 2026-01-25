@@ -324,6 +324,13 @@ Provide findings in JSON format:
     "description": "Loop uses `i < arr.length - 1` which skips the last element. For array [1, 2, 3], only processes [1, 2].",
     "category": "logic",
     "severity": "high",
+    "verification": {
+      "code_examined": "for (let i = 0; i < arr.length - 1; i++) { result.push(arr[i]); }",
+      "line_range_examined": [23, 25],
+      "verification_method": "direct_code_inspection"
+    },
+    "is_impact_finding": false,
+    "checked_for_handling_elsewhere": false,
     "example": {
       "input": "[1, 2, 3]",
       "actual_output": "Processes [1, 2]",
@@ -339,6 +346,13 @@ Provide findings in JSON format:
     "description": "Multiple async operations increment `count` without synchronization. With 10 concurrent increments, final count could be less than 10.",
     "category": "logic",
     "severity": "critical",
+    "verification": {
+      "code_examined": "await Promise.all(items.map(async () => { count++; }));",
+      "line_range_examined": [45, 47],
+      "verification_method": "direct_code_inspection"
+    },
+    "is_impact_finding": false,
+    "checked_for_handling_elsewhere": false,
     "example": {
       "input": "10 concurrent increments",
       "actual_output": "count might be 7, 8, or 9",

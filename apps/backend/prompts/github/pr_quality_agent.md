@@ -345,6 +345,13 @@ Provide findings in JSON format:
     "description": "The paymentGateway.charge() call is async but has no error handling. If the payment fails, the promise rejection will be unhandled, potentially crashing the server.",
     "category": "quality",
     "severity": "critical",
+    "verification": {
+      "code_examined": "const result = await paymentGateway.charge(order.total, order.paymentMethod);",
+      "line_range_examined": [34, 34],
+      "verification_method": "direct_code_inspection"
+    },
+    "is_impact_finding": false,
+    "checked_for_handling_elsewhere": true,
     "suggested_fix": "Wrap in try/catch: try { await paymentGateway.charge(...) } catch (error) { logger.error('Payment failed', error); throw new PaymentError(error); }",
     "confidence": 95
   },
@@ -355,6 +362,13 @@ Provide findings in JSON format:
     "description": "This email validation regex is duplicated in 4 other files (user.ts, auth.ts, profile.ts, settings.ts). Changes to validation rules require updating all copies.",
     "category": "quality",
     "severity": "high",
+    "verification": {
+      "code_examined": "const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$/;",
+      "line_range_examined": [15, 15],
+      "verification_method": "cross_file_trace"
+    },
+    "is_impact_finding": false,
+    "checked_for_handling_elsewhere": false,
     "suggested_fix": "Extract to shared utility: export const isValidEmail = (email) => /regex/.test(email); and import where needed",
     "confidence": 90
   }

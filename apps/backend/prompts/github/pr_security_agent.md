@@ -296,6 +296,13 @@ Provide findings in JSON format:
     "description": "User input from req.params.id is directly interpolated into SQL query without sanitization. An attacker could inject malicious SQL to extract sensitive data or modify the database.",
     "category": "security",
     "severity": "critical",
+    "verification": {
+      "code_examined": "const query = `SELECT * FROM users WHERE id = ${req.params.id}`;",
+      "line_range_examined": [45, 45],
+      "verification_method": "direct_code_inspection"
+    },
+    "is_impact_finding": false,
+    "checked_for_handling_elsewhere": false,
     "suggested_fix": "Use parameterized queries: db.query('SELECT * FROM users WHERE id = ?', [req.params.id])",
     "confidence": 95
   },
@@ -306,6 +313,13 @@ Provide findings in JSON format:
     "description": "API secret is hardcoded as a string literal. If this code is committed to version control, the secret is exposed to anyone with repository access.",
     "category": "security",
     "severity": "critical",
+    "verification": {
+      "code_examined": "const API_SECRET = 'sk-prod-abc123xyz789';",
+      "line_range_examined": [12, 12],
+      "verification_method": "direct_code_inspection"
+    },
+    "is_impact_finding": false,
+    "checked_for_handling_elsewhere": false,
     "suggested_fix": "Move secret to environment variable: const API_SECRET = process.env.API_SECRET",
     "confidence": 100
   }
