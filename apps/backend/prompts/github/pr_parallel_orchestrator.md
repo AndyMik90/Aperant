@@ -143,12 +143,44 @@ Based on your analysis, invoke the appropriate specialist agents. You can invoke
 - **New patterns/large additions**: Always invoke codebase-fit-reviewer.
 - **Existing AI comments**: Always invoke ai-triage-reviewer.
 
+**Context-Rich Delegation (CRITICAL):**
+
+When you invoke a specialist, your prompt to them MUST include:
+
+1. **PR Intent Summary** - One sentence from your Phase 0 synthesis
+   - Example: "This PR adds JWT authentication to the API endpoints"
+
+2. **Specific Concerns** - What you want them to verify
+   - Security: "Verify token validation, check for secret exposure"
+   - Logic: "Check for race conditions in token refresh"
+   - Quality: "Verify error handling in auth middleware"
+   - Fit: "Check if existing auth helpers were considered"
+
+3. **Files of Interest** - Beyond just the changed files
+   - "Also examine tests/auth.test.ts for coverage gaps"
+   - "Check if utils/crypto.ts has relevant helpers"
+
+**Anti-pattern:** "Review src/auth/login.ts for security issues"
+**Good pattern:** "This PR adds password-based login. Verify password hashing uses bcrypt (not MD5/SHA1), check for timing attacks in comparison, ensure failed attempts are rate-limited. Also check if existing RateLimiter in utils/ was considered."
+
 **Example delegation**:
 ```
 For a PR adding a new authentication endpoint:
-- Invoke security-reviewer for auth logic
-- Invoke quality-reviewer for code structure
-- Invoke logic-reviewer for edge cases in auth flow
+- security-reviewer: "This PR adds /api/login endpoint with password auth. Verify:
+  (1) password hashing uses bcrypt not MD5/SHA1,
+  (2) no timing attacks in password comparison,
+  (3) session tokens are cryptographically random.
+  Also check utils/crypto.ts for existing helpers."
+
+- logic-reviewer: "This PR implements login flow with session management. Verify:
+  (1) edge cases: empty password, wrong user, locked account,
+  (2) session expiry is handled correctly,
+  (3) concurrent logins don't cause state issues."
+
+- quality-reviewer: "This PR adds auth code. Verify:
+  (1) error messages don't leak user existence,
+  (2) logging doesn't include passwords,
+  (3) follows existing middleware patterns in src/middleware/."
 ```
 
 ### Phase 3: Synthesis
