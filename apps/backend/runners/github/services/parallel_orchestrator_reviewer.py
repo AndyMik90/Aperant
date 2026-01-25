@@ -317,7 +317,9 @@ class ParallelOrchestratorReviewer:
                     "Security specialist. Use for OWASP Top 10, authentication, "
                     "injection, cryptographic issues, and sensitive data exposure. "
                     "Invoke when PR touches auth, API endpoints, user input, database queries, "
-                    "or file operations."
+                    "or file operations. IMPORTANT: Also check related files listed in the "
+                    "PR context - callers may be affected by security changes, and tests "
+                    "should verify security behavior."
                 ),
                 prompt=security_prompt
                 or "You are a security expert. Find vulnerabilities.",
@@ -328,7 +330,9 @@ class ParallelOrchestratorReviewer:
                 description=(
                     "Code quality expert. Use for complexity, duplication, error handling, "
                     "maintainability, and pattern adherence. Invoke when PR has complex logic, "
-                    "large functions, or significant business logic changes."
+                    "large functions, or significant business logic changes. IMPORTANT: Check "
+                    "related files for pattern consistency - if a pattern is changed, similar "
+                    "code elsewhere should be updated too."
                 ),
                 prompt=quality_prompt
                 or "You are a code quality expert. Find quality issues.",
@@ -339,7 +343,9 @@ class ParallelOrchestratorReviewer:
                 description=(
                     "Logic and correctness specialist. Use for algorithm verification, "
                     "edge cases, state management, and race conditions. Invoke when PR has "
-                    "algorithmic changes, data transformations, concurrent operations, or bug fixes."
+                    "algorithmic changes, data transformations, concurrent operations, or bug fixes. "
+                    "IMPORTANT: Check callers and dependents in related files - logic changes "
+                    "may break assumptions made by code that uses this file."
                 ),
                 prompt=logic_prompt
                 or "You are a logic expert. Find correctness issues.",
@@ -350,7 +356,9 @@ class ParallelOrchestratorReviewer:
                 description=(
                     "Codebase consistency expert. Use for naming conventions, ecosystem fit, "
                     "architectural alignment, and avoiding reinvention. Invoke when PR introduces "
-                    "new patterns, large additions, or code that might duplicate existing functionality."
+                    "new patterns, large additions, or code that might duplicate existing functionality. "
+                    "IMPORTANT: Use related files to understand existing patterns - new code "
+                    "should match established conventions in the codebase."
                 ),
                 prompt=codebase_fit_prompt
                 or "You are a codebase expert. Check for consistency.",
@@ -374,7 +382,8 @@ class ParallelOrchestratorReviewer:
                     "they are actually real issues, not false positives. "
                     "Reads the ACTUAL CODE at the finding location with fresh eyes. "
                     "CRITICAL: Invoke for ALL findings after specialist agents complete. "
-                    "Can confirm findings as valid OR dismiss them as false positives."
+                    "Can confirm findings as valid OR dismiss them as false positives. "
+                    "Check related files for mitigations the original agent missed."
                 ),
                 prompt=validator_prompt
                 or "You validate whether findings are real issues.",
