@@ -920,13 +920,39 @@ The SDK will run invoked agents in parallel automatically.
                 f"[PRReview] AgentAgreement: {agent_agreement.model_dump_json()}"
             )
 
+            # Stage 1: Line number verification (cheap pre-filter)
+            # Catches hallucinated line numbers without AI cost
+            verified_findings, line_rejected = self._verify_line_numbers(
+                cross_validated_findings,
+                project_root,
+            )
+
+            logger.info(
+                f"[PRReview] Line verification: {len(line_rejected)} rejected, "
+                f"{len(verified_findings)} passed"
+            )
+
+            # Stage 2: AI validation (if findings remain)
+            # Finding-validator re-reads code with fresh eyes
+            if verified_findings:
+                validated_by_ai = await self._validate_findings(
+                    verified_findings, context, project_root
+                )
+            else:
+                validated_by_ai = []
+
+            logger.info(
+                f"[PRReview] After validation: {len(validated_by_ai)} findings "
+                f"(from {len(cross_validated_findings)} cross-validated)"
+            )
+
             # Apply programmatic evidence and scope filters
             # These catch edge cases that slip through the finding-validator
             changed_file_paths = [f.path for f in context.changed_files]
             validated_findings = []
             filtered_findings = []
 
-            for finding in cross_validated_findings:
+            for finding in validated_by_ai:
                 # Check evidence quality
                 evidence_valid, evidence_reason = _validate_finding_evidence(finding)
                 if not evidence_valid:
