@@ -441,6 +441,78 @@ Found {len(context.ai_bot_comments)} comments from AI tools.
 {chr(10).join(commits_list)}
 """
 
+        # Build related files section (CONTEXT-02)
+        related_files_section = ""
+        if context.related_files:
+            # Categorize by type
+            tests = [
+                f
+                for f in context.related_files
+                if ".test." in f
+                or "_test." in f
+                or f.startswith("test")
+                or "/tests/" in f
+                or "\\tests\\" in f
+            ]
+            deps = [f for f in context.related_files if f not in tests]
+
+            # Limit to avoid context overflow
+            tests = tests[:15]
+            deps = deps[:15]
+
+            tests_str = ", ".join(f"`{t}`" for t in tests) if tests else "None found"
+            deps_str = ", ".join(f"`{d}`" for d in deps) if deps else "None found"
+
+            related_files_section = f"""
+### Related Files to Investigate
+These files are related to the changes (imports, tests, dependents). Use for context.
+
+**Tests** ({len(tests)} files): {tests_str}
+**Dependencies/Callers** ({len(deps)} files): {deps_str}
+
+**Use these to:**
+- Check if tests need updating for the changes
+- Verify callers aren't broken by signature/behavior changes
+- Find similar patterns that should be consistent
+"""
+
+        # Build import graph summary (CONTEXT-03)
+        import_graph_section = ""
+        import_entries = []
+        changed_paths = {f.path for f in context.changed_files}
+
+        for file in context.changed_files[:10]:  # Limit to 10 files
+            # Find what this file imports (look for related files it references)
+            imports_this = [
+                r
+                for r in context.related_files
+                if r in (file.content or "") and r not in changed_paths
+            ][:5]
+            # Find what imports this file (reverse deps in related_files)
+            # Match by filename stem to catch imports without extension
+            file_stem = file.path.split("/")[-1].split(".")[0]
+            imported_by = [
+                r
+                for r in context.related_files
+                if file_stem in r and r not in changed_paths
+            ][:5]
+
+            if imports_this or imported_by:
+                entry = f"**{file.path}**"
+                if imports_this:
+                    entry += f"\n  - Imports: {', '.join(imports_this)}"
+                if imported_by:
+                    entry += f"\n  - Imported by: {', '.join(imported_by)}"
+                import_entries.append(entry)
+
+        if import_entries:
+            import_graph_section = f"""
+### Import Relationships
+How the changed files connect to the codebase:
+
+{chr(10).join(import_entries[:20])}
+"""
+
         pr_context = f"""
 ---
 
@@ -458,7 +530,7 @@ Found {len(context.ai_bot_comments)} comments from AI tools.
 
 ### All Changed Files
 {chr(10).join(files_list)}
-{commits_section}{ai_comments_section}
+{related_files_section}{import_graph_section}{commits_section}{ai_comments_section}
 ### Code Changes
 ```diff
 {diff_content}
