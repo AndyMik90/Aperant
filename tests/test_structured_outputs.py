@@ -39,6 +39,10 @@ from pydantic_models import (
     DeepAnalysisFinding,
     StructuralIssue,
     AICommentTriage,
+    # Verification evidence models (Phase 2)
+    VerificationEvidence,
+    ParallelOrchestratorFinding,
+    BaseFinding,
 )
 
 
@@ -370,6 +374,11 @@ class TestSecurityFinding:
             "description": "Unescaped user input",
             "file": "template.html",
             "line": 50,
+            "verification": {
+                "code_examined": "<div>{{ user_input }}</div>",
+                "line_range_examined": [50, 50],
+                "verification_method": "direct_code_inspection",
+            },
         }
         result = SecurityFinding.model_validate(data)
         assert result.category == "security"
@@ -389,6 +398,11 @@ class TestDeepAnalysisFinding:
             "line": 100,
             "category": "logic",
             "evidence": "shared_state += 1  # no lock protection",
+            "verification": {
+                "code_examined": "shared_state += 1  # no lock protection",
+                "line_range_examined": [100, 100],
+                "verification_method": "direct_code_inspection",
+            },
         }
         result = DeepAnalysisFinding.model_validate(data)
         assert result.evidence == "shared_state += 1  # no lock protection"
@@ -403,6 +417,11 @@ class TestDeepAnalysisFinding:
             "file": "lib.py",
             "category": "verification_failed",
             "verification_note": "Unable to find test coverage",
+            "verification": {
+                "code_examined": "def some_function():\n    return process_data()",
+                "line_range_examined": [1, 2],
+                "verification_method": "cross_file_trace",
+            },
         }
         result = DeepAnalysisFinding.model_validate(data)
         assert result.verification_note == "Unable to find test coverage"
@@ -441,3 +460,220 @@ class TestAICommentTriage:
             }
             result = AICommentTriage.model_validate(data)
             assert result.verdict == verdict
+
+
+# =============================================================================
+# Phase 2: Schema Enforcement Tests
+# =============================================================================
+
+
+class TestVerificationEvidence:
+    """Tests for VerificationEvidence model."""
+
+    def test_valid_verification(self):
+        """Test valid verification evidence."""
+        data = {
+            "code_examined": "def process_input(user_input):\n    return eval(user_input)",
+            "line_range_examined": [10, 11],
+            "verification_method": "direct_code_inspection",
+        }
+        result = VerificationEvidence.model_validate(data)
+        assert "eval" in result.code_examined
+        assert result.line_range_examined == [10, 11]
+        assert result.verification_method == "direct_code_inspection"
+
+    def test_empty_code_examined_rejected(self):
+        """Test that empty code_examined is rejected."""
+        data = {
+            "code_examined": "",
+            "line_range_examined": [1, 5],
+            "verification_method": "direct_code_inspection",
+        }
+        with pytest.raises(ValidationError) as exc_info:
+            VerificationEvidence.model_validate(data)
+        assert "code_examined" in str(exc_info.value)
+
+    def test_invalid_line_range_rejected(self):
+        """Test that invalid line ranges are rejected."""
+        data = {
+            "code_examined": "some code",
+            "line_range_examined": [1],  # Should have exactly 2 elements
+            "verification_method": "direct_code_inspection",
+        }
+        with pytest.raises(ValidationError) as exc_info:
+            VerificationEvidence.model_validate(data)
+        assert "line_range_examined" in str(exc_info.value)
+
+    def test_invalid_verification_method_rejected(self):
+        """Test that invalid verification method is rejected."""
+        data = {
+            "code_examined": "some code",
+            "line_range_examined": [1, 5],
+            "verification_method": "guessed",  # Invalid method
+        }
+        with pytest.raises(ValidationError) as exc_info:
+            VerificationEvidence.model_validate(data)
+        assert "verification_method" in str(exc_info.value)
+
+    def test_all_verification_methods(self):
+        """Test all valid verification methods."""
+        methods = [
+            "direct_code_inspection",
+            "cross_file_trace",
+            "test_verification",
+            "dependency_analysis",
+        ]
+        for method in methods:
+            data = {
+                "code_examined": "code",
+                "line_range_examined": [1, 5],
+                "verification_method": method,
+            }
+            result = VerificationEvidence.model_validate(data)
+            assert result.verification_method == method
+
+
+class TestParallelOrchestratorFindingVerification:
+    """Tests for verification field requirement on ParallelOrchestratorFinding."""
+
+    def test_missing_verification_rejected(self):
+        """Test that findings without verification are rejected."""
+        data = {
+            "id": "test-1",
+            "file": "test.py",
+            "line": 10,
+            "title": "Test finding",
+            "description": "A test finding without verification",
+            "category": "quality",
+            "severity": "medium",
+            # No verification field - should fail
+        }
+        with pytest.raises(ValidationError) as exc_info:
+            ParallelOrchestratorFinding.model_validate(data)
+        assert "verification" in str(exc_info.value)
+
+    def test_valid_finding_with_verification(self):
+        """Test valid finding with verification evidence."""
+        data = {
+            "id": "test-1",
+            "file": "test.py",
+            "line": 10,
+            "title": "SQL Injection vulnerability",
+            "description": "User input passed directly to query",
+            "category": "security",
+            "severity": "critical",
+            "verification": {
+                "code_examined": "cursor.execute(f'SELECT * FROM users WHERE id={user_id}')",
+                "line_range_examined": [10, 10],
+                "verification_method": "direct_code_inspection",
+            },
+        }
+        result = ParallelOrchestratorFinding.model_validate(data)
+        assert result.verification.code_examined is not None
+        assert result.verification.verification_method == "direct_code_inspection"
+
+    def test_is_impact_finding_default_false(self):
+        """Test is_impact_finding defaults to False."""
+        data = {
+            "id": "test-1",
+            "file": "test.py",
+            "line": 10,
+            "title": "Test",
+            "description": "Test",
+            "category": "quality",
+            "severity": "medium",
+            "verification": {
+                "code_examined": "code",
+                "line_range_examined": [10, 10],
+                "verification_method": "direct_code_inspection",
+            },
+        }
+        result = ParallelOrchestratorFinding.model_validate(data)
+        assert result.is_impact_finding is False
+
+    def test_is_impact_finding_true(self):
+        """Test is_impact_finding can be set True."""
+        data = {
+            "id": "test-1",
+            "file": "caller.py",
+            "line": 50,
+            "title": "Breaking change affects caller",
+            "description": "This file calls the changed function and will break",
+            "category": "logic",
+            "severity": "high",
+            "is_impact_finding": True,
+            "verification": {
+                "code_examined": "result = changed_function(x)",
+                "line_range_examined": [50, 50],
+                "verification_method": "cross_file_trace",
+            },
+        }
+        result = ParallelOrchestratorFinding.model_validate(data)
+        assert result.is_impact_finding is True
+
+    def test_checked_for_handling_elsewhere_default_false(self):
+        """Test checked_for_handling_elsewhere defaults to False."""
+        data = {
+            "id": "test-1",
+            "file": "test.py",
+            "line": 10,
+            "title": "Missing error handling",
+            "description": "No try-catch",
+            "category": "quality",
+            "severity": "medium",
+            "verification": {
+                "code_examined": "code",
+                "line_range_examined": [10, 10],
+                "verification_method": "direct_code_inspection",
+            },
+        }
+        result = ParallelOrchestratorFinding.model_validate(data)
+        assert result.checked_for_handling_elsewhere is False
+
+    def test_checked_for_handling_elsewhere_true(self):
+        """Test checked_for_handling_elsewhere can be set True."""
+        data = {
+            "id": "test-1",
+            "file": "api.py",
+            "line": 25,
+            "title": "Missing error handling",
+            "description": "No try-catch around database call",
+            "category": "quality",
+            "severity": "medium",
+            "checked_for_handling_elsewhere": True,
+            "verification": {
+                "code_examined": "result = db.query(user_input)",
+                "line_range_examined": [25, 25],
+                "verification_method": "cross_file_trace",
+            },
+        }
+        result = ParallelOrchestratorFinding.model_validate(data)
+        assert result.checked_for_handling_elsewhere is True
+
+
+class TestVerificationSchemaGeneration:
+    """Tests for JSON schema generation with VerificationEvidence."""
+
+    def test_verification_in_parallel_orchestrator_schema(self):
+        """Test that VerificationEvidence appears in schema."""
+        schema = ParallelOrchestratorFinding.model_json_schema()
+
+        # verification should be in properties
+        assert "verification" in schema["properties"]
+
+        # Check $defs includes VerificationEvidence
+        assert "$defs" in schema
+        assert "VerificationEvidence" in schema["$defs"]
+
+        # Check VerificationEvidence has correct fields
+        ve_schema = schema["$defs"]["VerificationEvidence"]
+        assert "code_examined" in ve_schema["properties"]
+        assert "line_range_examined" in ve_schema["properties"]
+        assert "verification_method" in ve_schema["properties"]
+
+    def test_new_boolean_fields_in_schema(self):
+        """Test is_impact_finding and checked_for_handling_elsewhere in schema."""
+        schema = ParallelOrchestratorFinding.model_json_schema()
+
+        assert "is_impact_finding" in schema["properties"]
+        assert "checked_for_handling_elsewhere" in schema["properties"]
