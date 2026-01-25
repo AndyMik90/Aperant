@@ -29,6 +29,50 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 # =============================================================================
+# Verification Evidence (Required for All Findings)
+# =============================================================================
+
+
+class VerificationEvidence(BaseModel):
+    """Evidence that a finding was verified against actual code.
+
+    All fields are required - schema enforcement guarantees evidence exists.
+    This shifts quality control from programmatic filters to schema enforcement.
+    """
+
+    code_examined: str = Field(
+        min_length=1,
+        description=(
+            "REQUIRED: Exact code snippet that was examined. "
+            "Must be actual code from the file, not a description of code. "
+            "Copy-paste the relevant lines directly."
+        ),
+    )
+    line_range_examined: list[int] = Field(
+        min_length=2,
+        max_length=2,
+        description=(
+            "Start and end line numbers [start, end] of the examined code. "
+            "Must match the code in code_examined."
+        ),
+    )
+    verification_method: Literal[
+        "direct_code_inspection",
+        "cross_file_trace",
+        "test_verification",
+        "dependency_analysis",
+    ] = Field(
+        description=(
+            "How the issue was verified: "
+            "direct_code_inspection = found issue directly in the code shown; "
+            "cross_file_trace = traced through imports/calls to find the issue; "
+            "test_verification = verified through examination of test code; "
+            "dependency_analysis = verified through analyzing dependencies"
+        )
+    )
+
+
+# =============================================================================
 # Common Finding Types
 # =============================================================================
 
@@ -48,7 +92,10 @@ class BaseFinding(BaseModel):
     fixable: bool = Field(False, description="Whether this can be auto-fixed")
     evidence: str | None = Field(
         None,
-        description="Actual code snippet proving the issue exists. Required for validation.",
+        description="DEPRECATED: Use verification.code_examined instead. Will be removed in Phase 5.",
+    )
+    verification: VerificationEvidence = Field(
+        description="Evidence that this finding was verified against actual code"
     )
 
 
@@ -399,7 +446,25 @@ class ParallelOrchestratorFinding(BaseModel):
     )
     evidence: str | None = Field(
         None,
-        description="Actual code snippet proving the issue exists. Required for validation.",
+        description="DEPRECATED: Use verification.code_examined instead. Will be removed in Phase 5.",
+    )
+    verification: VerificationEvidence = Field(
+        description="Evidence that this finding was verified against actual code"
+    )
+    is_impact_finding: bool = Field(
+        False,
+        description=(
+            "True if this finding is about impact on OTHER files (not the changed file). "
+            "Impact findings may reference files outside the PR's changed files list."
+        ),
+    )
+    checked_for_handling_elsewhere: bool = Field(
+        False,
+        description=(
+            "For 'missing X' claims (missing error handling, missing validation, etc.), "
+            "True if the agent verified X is not handled elsewhere in the codebase. "
+            "False if this is a 'missing X' claim but other locations were not checked."
+        ),
     )
     suggested_fix: str | None = Field(None, description="How to fix this issue")
     fixable: bool = Field(False, description="Whether this can be auto-fixed")
