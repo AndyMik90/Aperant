@@ -33,6 +33,146 @@ For each finding you receive:
 4. **PROVIDE** concrete code evidence - the actual code that proves or disproves the issue
 5. **RETURN** validation status with evidence (binary decision based on what the code shows)
 
+## Hypothesis-Validation Structure (MANDATORY)
+
+For EACH finding you investigate, use this structured approach. This prevents rubber-stamping findings as valid without actually verifying them.
+
+### Step 1: State the Hypothesis
+
+Before reading any code, clearly state what you're testing:
+
+```
+HYPOTHESIS: The finding claims "{title}" at {file}:{line}
+
+This hypothesis is TRUE if:
+1. The code at {line} contains the specific pattern described
+2. No mitigation exists in surrounding context (+/- 20 lines)
+3. The issue is actually reachable/exploitable in this codebase
+
+This hypothesis is FALSE if:
+1. The code at {line} is different than described
+2. Mitigation exists (validation, sanitization, framework protection)
+3. The code is unreachable or purely theoretical
+```
+
+### Step 2: Gather Evidence
+
+Read the actual code. Copy-paste it into `code_evidence`.
+
+```
+FILE: {file}
+LINES: {line-20} to {line+20}
+ACTUAL CODE:
+[paste the code here - this is your proof]
+```
+
+### Step 3: Test Each Condition
+
+For each condition in your hypothesis:
+
+```
+CONDITION 1: Code contains {specific pattern from finding}
+EVIDENCE: [specific line from code_evidence that proves/disproves]
+RESULT: TRUE / FALSE / INCONCLUSIVE
+
+CONDITION 2: No mitigation in surrounding context
+EVIDENCE: [what you found or didn't find in ±20 lines]
+RESULT: TRUE / FALSE / INCONCLUSIVE
+
+CONDITION 3: Issue is reachable/exploitable
+EVIDENCE: [how input reaches this code, or why it doesn't]
+RESULT: TRUE / FALSE / INCONCLUSIVE
+```
+
+### Step 4: Conclude Based on Evidence
+
+Apply these rules strictly:
+
+| Conditions | Conclusion |
+|------------|------------|
+| ALL conditions TRUE | `confirmed_valid` |
+| ANY condition FALSE | `dismissed_false_positive` |
+| ANY condition INCONCLUSIVE, none FALSE | `needs_human_review` |
+
+**CRITICAL: Your conclusion MUST match your condition results.** If you found mitigation (Condition 2 = FALSE), you MUST conclude `dismissed_false_positive`, not `confirmed_valid`.
+
+### Worked Example
+
+```
+HYPOTHESIS: SQL injection at auth.py:45
+
+Conditions to test:
+1. User input directly in SQL string (not parameterized)
+2. No sanitization before this point
+3. Input reachable from HTTP request
+
+Evidence gathered:
+FILE: auth.py, lines 25-65
+ACTUAL CODE:
+```python
+def get_user(user_id: str) -> User:
+    # user_id comes from request.args["id"]
+    query = f"SELECT * FROM users WHERE id = {user_id}"  # Line 45
+    return db.execute(query).fetchone()
+```
+
+Testing conditions:
+CONDITION 1: User input in SQL string
+EVIDENCE: Line 45 uses f-string interpolation: f"SELECT * FROM users WHERE id = {user_id}"
+RESULT: TRUE
+
+CONDITION 2: No sanitization
+EVIDENCE: No validation between request.args["id"] (line 43) and query construction (line 45)
+RESULT: TRUE
+
+CONDITION 3: Input reachable
+EVIDENCE: Comment says "user_id comes from request.args", confirmed by caller on line 12
+RESULT: TRUE
+
+CONCLUSION: confirmed_valid (all conditions TRUE)
+CODE_EVIDENCE: "query = f\"SELECT * FROM users WHERE id = {user_id}\""
+LINE_RANGE: [45, 45]
+EXPLANATION: SQL injection confirmed - user input from request.args is interpolated directly into SQL query without parameterization or sanitization.
+```
+
+### Counter-Example: Dismissing a False Positive
+
+```
+HYPOTHESIS: XSS vulnerability at render.py:89
+
+Conditions to test:
+1. User input reaches output without encoding
+2. No sanitization in the call chain
+3. Output context allows script execution
+
+Evidence gathered:
+FILE: render.py, lines 70-110
+ACTUAL CODE:
+```python
+def render_comment(user_input: str) -> str:
+    sanitized = bleach.clean(user_input, tags=[], strip=True)  # Line 85
+    return f"<div class='comment'>{sanitized}</div>"  # Line 89
+```
+
+Testing conditions:
+CONDITION 1: User input reaches output
+EVIDENCE: Line 89 outputs user_input into HTML
+RESULT: TRUE
+
+CONDITION 2: No sanitization
+EVIDENCE: Line 85 uses bleach.clean() with tags=[] (strips ALL tags)
+RESULT: FALSE - sanitization exists
+
+CONDITION 3: Output allows scripts
+EVIDENCE: Even if injected, bleach.clean removes script tags
+RESULT: FALSE - mitigation prevents exploitation
+
+CONCLUSION: dismissed_false_positive (Condition 2 and 3 are FALSE)
+CODE_EVIDENCE: "sanitized = bleach.clean(user_input, tags=[], strip=True)"
+LINE_RANGE: [85, 89]
+EXPLANATION: The original finding missed the sanitization at line 85. bleach.clean() with tags=[] strips all HTML tags including script tags, making XSS impossible.
+```
+
 ## Investigation Process
 
 ### Step 1: Fetch the Code
@@ -46,6 +186,8 @@ Focus on lines around: {finding.line}
 ```
 
 ### Step 2: Analyze with Fresh Eyes - NEVER ASSUME
+
+**Follow the Hypothesis-Validation Structure above for each finding.** State your hypothesis, gather evidence, test each condition, then conclude based on the evidence. This structure prevents you from confirming findings just because they "sound plausible."
 
 **CRITICAL: Do NOT assume the original finding is correct.** The original reviewer may have:
 - Hallucinated line numbers that don't exist
