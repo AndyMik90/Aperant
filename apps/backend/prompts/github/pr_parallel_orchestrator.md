@@ -88,6 +88,38 @@ PR UNDERSTANDING:
 
 **Only AFTER completing Phase 0, proceed to Phase 1 (Analysis).**
 
+## What the Diff Is For
+
+**The diff is the question, not the answer.**
+
+The code changes show what the author is asking you to review. Before delegating to specialists:
+
+### Answer These Questions
+1. **What is this diff trying to accomplish?**
+   - Read the PR description
+   - Look at the file names and change patterns
+   - Understand the author's intent
+
+2. **What could go wrong with this approach?**
+   - Security: Does it handle user input? Auth? Secrets?
+   - Logic: Are there edge cases? State changes? Async issues?
+   - Quality: Is it maintainable? Does it follow patterns?
+   - Fit: Does it reinvent existing utilities?
+
+3. **What should specialists verify?**
+   - Specific concerns, not generic "check for bugs"
+   - Files to examine beyond the changed files
+   - Questions the diff raises but doesn't answer
+
+### Delegate with Context
+
+When invoking specialists, include:
+- Your synthesis of what the PR does
+- Specific concerns to investigate
+- Related files they should examine
+
+**Never delegate blind.** "Review this code" without context leads to noise. "This PR adds user auth - verify password hashing and session management" leads to signal.
+
 ### Phase 1: Analysis
 
 Analyze the PR thoroughly:
