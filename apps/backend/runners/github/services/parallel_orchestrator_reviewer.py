@@ -1369,6 +1369,74 @@ The SDK will run invoked agents in parallel automatically.
 
         return routed
 
+    def _verify_line_numbers(
+        self,
+        findings: list[PRReviewFinding],
+        worktree_path: Path,
+    ) -> tuple[list[PRReviewFinding], list[tuple[PRReviewFinding, str]]]:
+        """
+        Pre-filter findings with obviously invalid line numbers.
+
+        Catches hallucinated line numbers without AI cost by checking that
+        the line number doesn't exceed the file length.
+
+        Args:
+            findings: Findings from specialist agents
+            worktree_path: Path to PR worktree (or project root)
+
+        Returns:
+            Tuple of (valid_findings, rejected_findings_with_reasons)
+        """
+        valid = []
+        rejected: list[tuple[PRReviewFinding, str]] = []
+
+        # Cache file line counts to avoid re-reading
+        line_counts: dict[str, int | float] = {}
+
+        for finding in findings:
+            file_path = worktree_path / finding.file
+
+            # Check file exists
+            if not file_path.exists():
+                rejected.append((finding, f"File does not exist: {finding.file}"))
+                logger.info(
+                    f"[PRReview] Rejected {finding.id}: File does not exist: {finding.file}"
+                )
+                continue
+
+            # Get line count (cached)
+            if finding.file not in line_counts:
+                try:
+                    content = file_path.read_text(encoding="utf-8", errors="replace")
+                    line_counts[finding.file] = len(content.splitlines())
+                except Exception as e:
+                    logger.warning(
+                        f"[PRReview] Could not read file {finding.file}: {e}"
+                    )
+                    # Allow finding on read error (conservative - don't block on read issues)
+                    line_counts[finding.file] = float("inf")
+
+            max_line = line_counts[finding.file]
+
+            # Check line number is valid
+            if finding.line > max_line:
+                reason = (
+                    f"Line {finding.line} exceeds file length ({int(max_line)} lines)"
+                )
+                rejected.append((finding, reason))
+                logger.info(f"[PRReview] Rejected {finding.id}: {reason}")
+                continue
+
+            valid.append(finding)
+
+        # Log summary
+        logger.info(
+            f"[PRReview] Line verification: {len(rejected)} findings rejected, "
+            f"{len(valid)} passed"
+        )
+
+        return valid, rejected
+
     def _generate_verdict(
         self,
         findings: list[PRReviewFinding],
