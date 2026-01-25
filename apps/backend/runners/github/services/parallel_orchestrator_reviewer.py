@@ -44,7 +44,11 @@ try:
     from .category_utils import map_category
     from .io_utils import safe_print
     from .pr_worktree_manager import PRWorktreeManager
-    from .pydantic_models import AgentAgreement, ParallelOrchestratorResponse
+    from .pydantic_models import (
+        AgentAgreement,
+        FindingValidationResponse,
+        ParallelOrchestratorResponse,
+    )
     from .sdk_utils import process_sdk_stream
 except (ImportError, ValueError, SystemError):
     from context_gatherer import PRContext, PRContextGatherer, _validate_git_ref
@@ -63,7 +67,11 @@ except (ImportError, ValueError, SystemError):
     from services.category_utils import map_category
     from services.io_utils import safe_print
     from services.pr_worktree_manager import PRWorktreeManager
-    from services.pydantic_models import AgentAgreement, ParallelOrchestratorResponse
+    from services.pydantic_models import (
+        AgentAgreement,
+        FindingValidationResponse,
+        ParallelOrchestratorResponse,
+    )
     from services.sdk_utils import process_sdk_stream
 
 
@@ -1436,6 +1444,173 @@ The SDK will run invoked agents in parallel automatically.
         )
 
         return valid, rejected
+
+    async def _validate_findings(
+        self,
+        findings: list[PRReviewFinding],
+        context: PRContext,
+        worktree_path: Path,
+    ) -> list[PRReviewFinding]:
+        """
+        Validate findings using the finding-validator agent.
+
+        Invokes the finding-validator agent to re-read code with fresh eyes
+        and determine if findings are real issues or false positives.
+
+        Args:
+            findings: Pre-filtered findings from specialist agents
+            context: PR context with changed files
+            worktree_path: Path to PR worktree for code reading
+
+        Returns:
+            List of validated findings (only confirmed_valid and needs_human_review)
+        """
+        import json
+
+        if not findings:
+            return []
+
+        # Build validation prompt with all findings
+        findings_json = []
+        for f in findings:
+            findings_json.append(
+                {
+                    "id": f.id,
+                    "file": f.file,
+                    "line": f.line,
+                    "title": f.title,
+                    "description": f.description,
+                    "severity": f.severity.value,
+                    "category": f.category.value,
+                    "evidence": f.evidence,
+                }
+            )
+
+        changed_files_str = ", ".join(cf.path for cf in context.changed_files)
+        prompt = f"""
+## Findings to Validate
+
+The following findings were reported by specialist agents. Your job is to validate each one.
+
+**Changed files in this PR:** {changed_files_str}
+
+**Findings:**
+```json
+{json.dumps(findings_json, indent=2)}
+```
+
+For EACH finding above:
+1. Read the actual code at the file/line location
+2. Determine if the issue actually exists
+3. Return validation status with code evidence
+"""
+
+        # Resolve model for validator
+        model_shorthand = self.config.model or "sonnet"
+        model = resolve_model_id(model_shorthand)
+
+        # Create validator client (inherits worktree filesystem access)
+        try:
+            validator_client = create_client(
+                project_dir=worktree_path,
+                spec_dir=self.github_dir,
+                model=model,
+                agent_type="pr_finding_validator",
+                max_thinking_tokens=get_thinking_budget("medium"),
+                output_format={
+                    "type": "json_schema",
+                    "schema": FindingValidationResponse.model_json_schema(),
+                },
+            )
+        except Exception as e:
+            logger.error(f"[PRReview] Failed to create validator client: {e}")
+            # Fail-safe: return original findings
+            return findings
+
+        # Run validation
+        try:
+            async with validator_client:
+                await validator_client.query(prompt)
+
+                stream_result = await process_sdk_stream(
+                    client=validator_client,
+                    context_name="FindingValidator",
+                    model=model,
+                )
+
+                if stream_result.get("error"):
+                    logger.error(
+                        f"[PRReview] Validation failed: {stream_result['error']}"
+                    )
+                    # Fail-safe: return original findings
+                    return findings
+
+                structured_output = stream_result.get("structured_output")
+
+        except Exception as e:
+            logger.error(f"[PRReview] Validation stream error: {e}")
+            # Fail-safe: return original findings
+            return findings
+
+        if not structured_output:
+            logger.warning(
+                "[PRReview] No structured validation output, keeping original findings"
+            )
+            return findings
+
+        # Parse validation results
+        try:
+            response = FindingValidationResponse.model_validate(structured_output)
+        except Exception as e:
+            logger.error(f"[PRReview] Failed to parse validation response: {e}")
+            return findings
+
+        # Build map of validation results
+        validation_map = {v.finding_id: v for v in response.validations}
+
+        # Filter findings based on validation
+        validated_findings = []
+        dismissed_count = 0
+        needs_human_count = 0
+
+        for finding in findings:
+            validation = validation_map.get(finding.id)
+
+            if not validation:
+                # No validation result - keep finding (conservative)
+                validated_findings.append(finding)
+                continue
+
+            if validation.validation_status == "confirmed_valid":
+                # Add validation evidence to finding
+                finding.validation_status = "confirmed_valid"
+                finding.validation_evidence = validation.code_evidence
+                finding.validation_explanation = validation.explanation
+                validated_findings.append(finding)
+
+            elif validation.validation_status == "dismissed_false_positive":
+                # Dismiss - do not include
+                dismissed_count += 1
+                logger.info(
+                    f"[PRReview] Dismissed {finding.id} as false positive: "
+                    f"{validation.explanation[:100]}"
+                )
+
+            elif validation.validation_status == "needs_human_review":
+                # Keep but flag
+                finding.validation_status = "needs_human_review"
+                finding.validation_evidence = validation.code_evidence
+                finding.validation_explanation = validation.explanation
+                finding.title = f"[NEEDS REVIEW] {finding.title}"
+                validated_findings.append(finding)
+                needs_human_count += 1
+
+        logger.info(
+            f"[PRReview] Validation complete: {len(validated_findings)} valid, "
+            f"{dismissed_count} dismissed, {needs_human_count} need human review"
+        )
+
+        return validated_findings
 
     def _generate_verdict(
         self,
