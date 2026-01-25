@@ -953,16 +953,7 @@ The SDK will run invoked agents in parallel automatically.
             filtered_findings = []
 
             for finding in validated_by_ai:
-                # Check evidence quality
-                evidence_valid, evidence_reason = _validate_finding_evidence(finding)
-                if not evidence_valid:
-                    logger.info(
-                        f"[PRReview] Filtered finding {finding.id}: {evidence_reason}"
-                    )
-                    filtered_findings.append((finding, evidence_reason))
-                    continue
-
-                # Check scope
+                # Check scope (evidence now enforced by schema)
                 scope_valid, scope_reason = _is_finding_in_scope(
                     finding, changed_file_paths
                 )
@@ -980,17 +971,9 @@ The SDK will run invoked agents in parallel automatically.
                 f"{len(filtered_findings)} filtered"
             )
 
-            # Apply confidence routing to filter low-confidence findings
-            # and mark medium-confidence findings with "[Potential]" prefix
-            routed_findings = self._apply_confidence_routing(validated_findings)
-
-            logger.info(
-                f"[PRReview] Confidence routing: {len(routed_findings)} included, "
-                f"{len(validated_findings) - len(routed_findings)} dropped (low confidence)"
-            )
-
-            # Use routed findings for verdict and summary
-            unique_findings = routed_findings
+            # No confidence routing - validation is binary via finding-validator
+            unique_findings = validated_findings
+            logger.info(f"[PRReview] Final findings: {len(unique_findings)} validated")
 
             logger.info(
                 f"[ParallelOrchestrator] Review complete: {len(unique_findings)} findings"
