@@ -184,7 +184,20 @@ MOCK_GITLAB_CONFIG = {
 
 def mock_mr_data(**overrides):
     """Create mock MR data with optional overrides."""
-    data = SAMPLE_MR_DATA.copy()
+    import copy
+
+    data = copy.deepcopy(SAMPLE_MR_DATA)
+
+    # Handle special case for author override
+    if "author" in overrides:
+        author_value = overrides.pop("author")
+        if isinstance(author_value, str):
+            # If author is a string, update the username field
+            data["author"]["username"] = author_value
+        else:
+            # Otherwise, merge the author dict
+            data["author"].update(author_value)
+
     data.update(overrides)
     return data
 
@@ -214,6 +227,16 @@ def mock_pipeline_jobs(**overrides):
     """Create mock pipeline jobs with optional overrides."""
     data = SAMPLE_PIPELINE_JOBS.copy()
     if overrides:
+        data[0].update(overrides)
+    return data
+
+
+def mock_mr_commits(**overrides):
+    """Create mock MR commits with optional overrides."""
+    import copy
+
+    data = copy.deepcopy(SAMPLE_MR_COMMITS)
+    if overrides and data:
         data[0].update(overrides)
     return data
 

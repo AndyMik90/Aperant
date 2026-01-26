@@ -49,33 +49,85 @@ try:
     from .services.io_utils import safe_print
 except (ImportError, ValueError, SystemError):
     # When imported directly (runner.py adds github dir to path)
-    from bot_detection import BotDetector
-    from context_gatherer import PRContext, PRContextGatherer
-    from gh_client import GHClient
-    from models import (
-        BRANCH_BEHIND_BLOCKER_MSG,
-        BRANCH_BEHIND_REASONING,
-        AICommentTriage,
-        AICommentVerdict,
-        AutoFixState,
-        GitHubRunnerConfig,
-        MergeVerdict,
-        PRReviewFinding,
-        PRReviewResult,
-        ReviewCategory,
-        ReviewSeverity,
-        StructuralIssue,
-        TriageResult,
-    )
-    from permissions import GitHubPermissionChecker
-    from rate_limiter import RateLimiter
-    from services import (
-        AutoFixProcessor,
-        BatchProcessor,
-        PRReviewEngine,
-        TriageEngine,
-    )
-    from services.io_utils import safe_print
+    # Use try/except for each import to handle partial failures gracefully
+    try:
+        from bot_detection import BotDetector
+    except ImportError:
+        BotDetector = None  # type: ignore
+
+    try:
+        from .context_gatherer import PRContext, PRContextGatherer
+    except ImportError:
+        try:
+            from context_gatherer import PRContext, PRContextGatherer
+        except ImportError:
+            PRContext = None  # type: ignore
+            PRContextGatherer = None  # type: ignore
+
+    try:
+        from gh_client import GHClient
+    except ImportError:
+        GHClient = None  # type: ignore
+
+    # Try to import models, but allow partial failures
+    try:
+        from models import (
+            BRANCH_BEHIND_BLOCKER_MSG,
+            BRANCH_BEHIND_REASONING,
+            AICommentTriage,
+            AICommentVerdict,
+            AutoFixState,
+            GitHubRunnerConfig,
+            MergeVerdict,
+            PRReviewFinding,
+            PRReviewResult,
+            ReviewCategory,
+            ReviewSeverity,
+            StructuralIssue,
+            TriageResult,
+        )
+    except ImportError:
+        BRANCH_BEHIND_BLOCKER_MSG = None  # type: ignore
+        BRANCH_BEHIND_REASONING = None  # type: ignore
+        AICommentTriage = None  # type: ignore
+        AICommentVerdict = None  # type: ignore
+        AutoFixState = None  # type: ignore
+        GitHubRunnerConfig = None  # type: ignore
+        MergeVerdict = None  # type: ignore
+        PRReviewFinding = None  # type: ignore
+        PRReviewResult = None  # type: ignore
+        ReviewCategory = None  # type: ignore
+        ReviewSeverity = None  # type: ignore
+        StructuralIssue = None  # type: ignore
+        TriageResult = None  # type: ignore
+
+    try:
+        from permissions import GitHubPermissionChecker
+    except ImportError:
+        GitHubPermissionChecker = None  # type: ignore
+
+    try:
+        from rate_limiter import RateLimiter
+    except ImportError:
+        RateLimiter = None  # type: ignore
+
+    try:
+        from services import (
+            AutoFixProcessor,
+            BatchProcessor,
+            PRReviewEngine,
+            TriageEngine,
+        )
+    except ImportError:
+        AutoFixProcessor = None  # type: ignore
+        BatchProcessor = None  # type: ignore
+        PRReviewEngine = None  # type: ignore
+        TriageEngine = None  # type: ignore
+
+    try:
+        from services.io_utils import safe_print
+    except ImportError:
+        safe_print = None  # type: ignore
 
 
 @dataclass

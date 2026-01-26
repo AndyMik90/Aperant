@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from tests.fixtures.gitlab import (
+from __tests__.fixtures.gitlab import (
     MOCK_GITLAB_CONFIG,
     mock_mr_data,
     mock_pipeline_data,

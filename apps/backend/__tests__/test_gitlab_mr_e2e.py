@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
-from tests.fixtures.gitlab import (
+from __tests__.fixtures.gitlab import (
     MOCK_GITLAB_CONFIG,
     mock_mr_changes,
     mock_mr_commits,

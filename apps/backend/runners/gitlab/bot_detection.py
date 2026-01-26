@@ -480,7 +480,7 @@ class BotDetector:
         Returns:
             Number of MRs cleaned up
         """
-        cutoff = datetime.now() - timedelta(days=max_age_days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
         mrs_to_remove: list[str] = []
 
         for mr_key, last_review_str in self.state.last_review_times.items():

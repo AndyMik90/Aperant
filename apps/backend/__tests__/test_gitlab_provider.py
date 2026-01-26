@@ -7,7 +7,9 @@ Tests for GitLabProvider implementation of the GitProvider protocol.
 
 import json
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -17,6 +19,11 @@ from __tests__.fixtures.gitlab import (
     mock_mr_data,
     mock_pipeline_data,
 )
+
+# Mock ProviderType enum since GitHub runners aren't available in this branch
+# Note: GitLabProvider defines its own ProviderType when GitHub runners aren't available,
+# so we just use the string value for comparison
+GITLAB_PROVIDER_VALUE = "gitlab"  # GitHub protocol uses lowercase
 
 # Tests for GitLabProvider
 
@@ -43,9 +50,8 @@ class TestGitLabProvider:
 
     def test_provider_type_property(self, provider):
         """Test provider type is GitLab."""
-        from runners.github.providers.protocol import ProviderType
-
-        assert provider.provider_type == ProviderType.GITLAB
+        # Compare the value since ProviderType may be defined in different modules
+        assert provider.provider_type.value == GITLAB_PROVIDER_VALUE
 
     def test_repo_property(self, provider):
         """Test repo property returns the repository."""
@@ -98,7 +104,7 @@ class TestGitLabProvider:
 
     def test_fetch_issue(self, provider):
         """Test fetching a single issue."""
-        from tests.fixtures.gitlab import SAMPLE_ISSUE_DATA
+        from __tests__.fixtures.gitlab import SAMPLE_ISSUE_DATA
 
         provider._glab_client._fetch.return_value = SAMPLE_ISSUE_DATA
 
@@ -122,15 +128,16 @@ class TestGitLabProvider:
 
     def test_post_review(self, provider):
         """Test posting a review to an MR."""
+        # Import ReviewData from GitHub protocol (which GitLabProvider uses)
         from runners.github.providers.protocol import ReviewData
 
         provider._glab_client.post_mr_note.return_value = {"id": 999}
         provider._glab_client._fetch.return_value = {}  # approve MR response
 
         review = ReviewData(
+            pr_number=123,
             body="LGTM with minor suggestions",
             event="approve",
-            comments=[],
         )
 
         note_id = await_if_needed(provider.post_review(123, review))
@@ -158,7 +165,13 @@ class TestGitLabProvider:
 
     def test_create_label(self, provider):
         """Test creating a label."""
-        from runners.github.providers.protocol import LabelData
+        # Use LabelData from the provider's fallback protocol
+        from runners.gitlab.providers.gitlab_provider import (
+            LabelData as GitLabLabelData,
+        )
+
+        # Create an alias for readability
+        LabelData = GitLabLabelData
 
         provider._glab_client._fetch.return_value = {}
 

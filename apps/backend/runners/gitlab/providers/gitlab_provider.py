@@ -23,6 +23,7 @@ except (ImportError, ValueError, SystemError):
 
 # Import the protocol and data models from GitHub's protocol definition
 # This ensures compatibility across providers
+# If GitHub runners aren't available, define the types locally
 try:
     from ...github.providers.protocol import (
         IssueData,
@@ -34,15 +35,106 @@ try:
         ReviewData,
     )
 except (ImportError, ValueError, SystemError):
-    from runners.github.providers.protocol import (
-        IssueData,
-        IssueFilters,
-        LabelData,
-        PRData,
-        PRFilters,
-        ProviderType,
-        ReviewData,
-    )
+    try:
+        from runners.github.providers.protocol import (
+            IssueData,
+            IssueFilters,
+            LabelData,
+            PRData,
+            PRFilters,
+            ProviderType,
+            ReviewData,
+        )
+    except ImportError:
+        # GitHub runners not available - define protocol types locally
+        from dataclasses import dataclass as _dataclass
+        from enum import Enum
+        from typing import Any as _Any
+
+        class ProviderType(Enum):
+            """Git provider type."""
+
+            GITHUB = "GITHUB"
+            GITLAB = "GITLAB"
+
+        @_dataclass
+        class LabelData:
+            """Label data."""
+
+            name: str
+            color: str | None = None
+            description: str | None = None
+
+        @_dataclass
+        class IssueData:
+            """Issue data."""
+
+            number: int
+            title: str
+            body: str
+            state: str
+            author: str
+            labels: list[LabelData]
+            created_at: str
+            updated_at: str
+            assignees: list[str] | None = None
+            url: str = ""
+            milestone: str | None = None
+            provider: ProviderType = ProviderType.GITLAB
+            raw_data: dict[str, _Any] | None = None
+
+        @_dataclass
+        class PRData:
+            """Pull request/MR data."""
+
+            number: int
+            title: str
+            body: str
+            state: str
+            author: str
+            source_branch: str
+            target_branch: str
+            labels: list[LabelData]
+            created_at: str
+            updated_at: str
+            provider: ProviderType
+            diff: str | None = None
+            assignees: list[str] | None = None
+            additions: int = 0
+            deletions: int = 0
+            changed_files: int = 0
+            files: list[_Any] | None = None
+            url: str = ""
+            reviewers: list[str] | None = None
+
+        @_dataclass
+        class ReviewData:
+            """Review data."""
+
+            body: str
+            event: str
+            comments: list[_Any] | None = None
+
+        @_dataclass
+        class IssueFilters:
+            """Issue filters."""
+
+            state: str | None = None
+            labels: list[str] | None = None
+            limit: int | None = None
+            author: str | None = None
+            include_prs: bool = True
+
+        @_dataclass
+        class PRFilters:
+            """PR filters."""
+
+            state: str = "open"
+            labels: list[str] | None = None
+            limit: int | None = None
+            author: str | None = None
+            base_branch: str | None = None
+            head_branch: str | None = None
 
 
 @dataclass
