@@ -363,6 +363,7 @@ class TestMRContextGatherer:
         config = GitLabConfig(
             token="test-token",
             project="group/project",
+            instance_url="https://gitlab.example.com",
         )
 
         with patch("runners.gitlab.services.context_gatherer.GitLabClient"):
@@ -455,6 +456,7 @@ class TestFollowupContextGatherer:
         config = GitLabConfig(
             token="test-token",
             project="group/project",
+            instance_url="https://gitlab.example.com",
         )
 
         with patch("runners.gitlab.services.context_gatherer.GitLabClient"):
