@@ -40,9 +40,8 @@ class PromptManager:
         etc.
         """
         # Try pass-specific prompt file first
-        pass_prompt_file = (
-            self.prompts_dir / f"review_pass_{review_pass.pass_number}.md"
-        )
+        # Use enum value (e.g., "quick_scan", "security") for filename
+        pass_prompt_file = self.prompts_dir / f"review_pass_{review_pass.value}.md"
         if pass_prompt_file.exists():
             try:
                 return pass_prompt_file.read_text(encoding="utf-8")

@@ -190,7 +190,7 @@ class GitlabBatchProcessor:
             # Update batch with spec ID
             batch.spec_id = spec_id
             batch.status = GitlabBatchStatus.CREATING_SPEC
-            GitlabIssueBatcher.save_batch(batch)
+            batcher.save_batch(batch)
 
             self._report_progress(
                 "batch_processing",
@@ -207,7 +207,13 @@ class GitlabBatchProcessor:
             batch.error = str(e)
             from .batch_issues import GitlabIssueBatcher
 
-            GitlabIssueBatcher.save_batch(batch)
+            # Create batcher instance to save the failed batch state
+            batcher = GitlabIssueBatcher(
+                gitlab_dir=self.gitlab_dir,
+                project=self.config.project,
+                project_dir=self.project_dir,
+            )
+            batcher.save_batch(batch)
             return None
 
     def _build_combined_description(self, batch) -> str:

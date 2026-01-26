@@ -85,6 +85,7 @@ VALID_ENDPOINT_PATTERNS = (
     "/groups/",
     "/merge_requests/",
     "/issues/",
+    "/namespaces/",
 )
 
 

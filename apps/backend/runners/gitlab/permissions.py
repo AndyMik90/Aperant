@@ -20,6 +20,12 @@ from typing import Literal
 
 logger = logging.getLogger(__name__)
 
+# Import encode_project_path for URL-encoding project paths
+try:
+    from ..glab_client import encode_project_path
+except (ImportError, ValueError, SystemError):
+    from glab_client import encode_project_path
+
 
 # GitLab permission roles (access levels)
 # 50 = Reporter, 30 = Developer, 40 = Maintainer, 10 = Guest
@@ -115,7 +121,7 @@ class GitLabPermissionChecker:
         try:
             # Verify we can access the project (checks auth + project access)
             project_info = await self.glab_client._fetch_async(
-                f"/projects/{self.glab_client.config.project}"
+                f"/projects/{encode_project_path(self.glab_client.config.project)}"
             )
 
             if not project_info:
@@ -153,7 +159,7 @@ class GitLabPermissionChecker:
         try:
             # Get issue resource label events (who added/removed labels)
             events = await self.glab_client._fetch_async(
-                f"/projects/{self.glab_client.config.project}/issues/{issue_iid}/resource_label_events"
+                f"/projects/{encode_project_path(self.glab_client.config.project)}/issues/{issue_iid}/resource_label_events"
             )
 
             # Find most recent label addition event
@@ -215,7 +221,17 @@ class GitLabPermissionChecker:
             members = await self.glab_client.get_project_members_async(query=username)
 
             if members:
-                member = members[0]
+                # Use exact match verification to avoid privilege escalation
+                # GitLab's query parameter performs fuzzy matching
+                member = next(
+                    (m for m in members if m.get("username") == username), None
+                )
+                if not member:
+                    # No exact match found
+                    role = "NONE"
+                    self._role_cache[username] = role
+                    return role
+
                 access_level = member.get("access_level", 0)
 
                 if access_level >= self.ACCESS_LEVELS["OWNER"]:
@@ -234,7 +250,7 @@ class GitLabPermissionChecker:
 
             # Not a direct member - check if user is the namespace owner
             project_info = await self.glab_client._fetch_async(
-                f"/projects/{self.glab_client.config.project}"
+                f"/projects/{encode_project_path(self.glab_client.config.project)}"
             )
             namespace_info = await self.glab_client._fetch_async(
                 f"/namespaces/{project_info.get('namespace', {}).get('full_path')}"
