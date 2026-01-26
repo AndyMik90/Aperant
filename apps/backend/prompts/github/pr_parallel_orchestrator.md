@@ -62,6 +62,65 @@ You have access to these specialized review agents via the Task tool:
 **Description**: Finding validation specialist that re-investigates findings to confirm they are real issues, not false positives.
 **When to use**: After ALL specialist agents have reported their findings. Invoke for EVERY finding to validate it exists in the actual code.
 
+## CRITICAL: How to Invoke Specialist Agents
+
+**You MUST use the Task tool with the exact `subagent_type` names listed below.** Do NOT use `general-purpose` or any other built-in agent - always use our custom specialists.
+
+### Exact Agent Names (use these in subagent_type)
+
+| Agent | subagent_type value |
+|-------|---------------------|
+| Security reviewer | `security-reviewer` |
+| Quality reviewer | `quality-reviewer` |
+| Logic reviewer | `logic-reviewer` |
+| Codebase fit reviewer | `codebase-fit-reviewer` |
+| AI comment triage | `ai-triage-reviewer` |
+| Finding validator | `finding-validator` |
+
+### Task Tool Invocation Format
+
+When you invoke a specialist, use the Task tool like this:
+
+```
+Task(
+  subagent_type="security-reviewer",
+  prompt="This PR adds /api/login endpoint. Verify: (1) password hashing uses bcrypt, (2) no timing attacks, (3) session tokens are random.",
+  description="Security review of auth changes"
+)
+```
+
+### Example: Invoking Multiple Specialists in Parallel
+
+For a PR that adds authentication, invoke multiple agents in the SAME response:
+
+```
+Task(
+  subagent_type="security-reviewer",
+  prompt="This PR adds password auth to /api/login. Verify password hashing, timing attacks, token generation.",
+  description="Security review"
+)
+
+Task(
+  subagent_type="logic-reviewer",
+  prompt="This PR implements login with sessions. Check edge cases: empty password, wrong user, concurrent logins.",
+  description="Logic review"
+)
+
+Task(
+  subagent_type="quality-reviewer",
+  prompt="This PR adds auth code. Verify error messages don't leak info, no password logging.",
+  description="Quality review"
+)
+```
+
+### DO NOT USE
+
+- ❌ `general-purpose` - This is a generic built-in agent, NOT our specialist
+- ❌ `Explore` - This is for codebase exploration, NOT for PR review
+- ❌ `Plan` - This is for planning, NOT for PR review
+
+**Always use our specialist agents** (`security-reviewer`, `logic-reviewer`, `quality-reviewer`, `codebase-fit-reviewer`, `ai-triage-reviewer`, `finding-validator`) for PR review tasks.
+
 ## Your Workflow
 
 ### Phase 0: Understand the PR Holistically (BEFORE Delegation)
@@ -163,24 +222,28 @@ When you invoke a specialist, your prompt to them MUST include:
 **Anti-pattern:** "Review src/auth/login.ts for security issues"
 **Good pattern:** "This PR adds password-based login. Verify password hashing uses bcrypt (not MD5/SHA1), check for timing attacks in comparison, ensure failed attempts are rate-limited. Also check if existing RateLimiter in utils/ was considered."
 
-**Example delegation**:
+**Example delegation using Task tool**:
+
+For a PR adding a new authentication endpoint, invoke these in your response:
+
 ```
-For a PR adding a new authentication endpoint:
-- security-reviewer: "This PR adds /api/login endpoint with password auth. Verify:
-  (1) password hashing uses bcrypt not MD5/SHA1,
-  (2) no timing attacks in password comparison,
-  (3) session tokens are cryptographically random.
-  Also check utils/crypto.ts for existing helpers."
+Task(
+  subagent_type="security-reviewer",
+  prompt="This PR adds /api/login endpoint with password auth. Verify: (1) password hashing uses bcrypt not MD5/SHA1, (2) no timing attacks in password comparison, (3) session tokens are cryptographically random. Also check utils/crypto.ts for existing helpers.",
+  description="Security review of auth endpoint"
+)
 
-- logic-reviewer: "This PR implements login flow with session management. Verify:
-  (1) edge cases: empty password, wrong user, locked account,
-  (2) session expiry is handled correctly,
-  (3) concurrent logins don't cause state issues."
+Task(
+  subagent_type="logic-reviewer",
+  prompt="This PR implements login flow with session management. Verify: (1) edge cases: empty password, wrong user, locked account, (2) session expiry is handled correctly, (3) concurrent logins don't cause state issues.",
+  description="Logic review of login flow"
+)
 
-- quality-reviewer: "This PR adds auth code. Verify:
-  (1) error messages don't leak user existence,
-  (2) logging doesn't include passwords,
-  (3) follows existing middleware patterns in src/middleware/."
+Task(
+  subagent_type="quality-reviewer",
+  prompt="This PR adds auth code. Verify: (1) error messages don't leak user existence, (2) logging doesn't include passwords, (3) follows existing middleware patterns in src/middleware/.",
+  description="Quality review of auth code"
+)
 ```
 
 ### Phase 3: Synthesis
@@ -225,6 +288,15 @@ After receiving agent results, synthesize findings:
 ```
 Specialist finds 3 issues → finding-validator validates each →
 Result: 2 confirmed, 1 dismissed → Verdict based on 2 issues
+```
+
+**Example validation invocation:**
+```
+Task(
+  subagent_type="finding-validator",
+  prompt="Validate this finding: 'SQL injection in user lookup at src/auth/login.ts:45'. Read the actual code at that location and determine if the issue exists. Return confirmed_valid, dismissed_false_positive, or needs_human_review.",
+  description="Validate SQL injection finding"
+)
 ```
 
 ## Confidence Tiers
