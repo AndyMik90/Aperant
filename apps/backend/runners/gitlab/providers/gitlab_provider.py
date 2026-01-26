@@ -106,6 +106,9 @@ except (ImportError, ValueError, SystemError):
             files: list[_Any] | None = None
             url: str = ""
             reviewers: list[str] | None = None
+            is_draft: bool = False
+            mergeable: bool = True
+            raw_data: dict[str, _Any] | None = None
 
         @_dataclass
         class ReviewData:

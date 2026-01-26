@@ -232,9 +232,10 @@ class MRContextGatherer:
         safe_print(f"[Context] Fetched {len(commits)} commits")
 
         # Get head commit SHA
+        # GitLab API returns commits in newest-first order, so use commits[0]
         head_sha = ""
         if commits:
-            head_sha = commits[-1].get("id") or commits[-1].get("sha", "")
+            head_sha = commits[0].get("id") or commits[0].get("sha", "")
 
         # Build changed files list
         changed_files = []
@@ -959,9 +960,10 @@ class FollowupMRContextGatherer:
             safe_print("[Followup] Previous commit SHA not found in MR history")
 
         # Get current head SHA
+        # GitLab API returns commits in newest-first order, so use commits[0]
         current_sha = ""
         if commits:
-            current_sha = commits[-1].get("id") or commits[-1].get("sha", "")
+            current_sha = commits[0].get("id") or commits[0].get("sha", "")
 
         if previous_sha == current_sha:
             safe_print("[Followup] No new commits since last review")
