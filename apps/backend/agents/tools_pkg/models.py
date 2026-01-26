@@ -270,14 +270,17 @@ AGENT_CONFIGS = {
         "thinking_default": "high",
     },
     "pr_orchestrator_parallel": {
-        "tools": BASE_READ_TOOLS + WEB_TOOLS,  # Read-only for parallel PR orchestrator
+        # Task tool required for invoking SDK subagents (security-reviewer, etc.)
+        # See: https://platform.claude.com/docs/en/agent-sdk/subagents
+        "tools": BASE_READ_TOOLS + WEB_TOOLS + ["Task"],
         "mcp_servers": ["context7"],
         "auto_claude_tools": [],
         "thinking_default": "high",
     },
     "pr_followup_parallel": {
-        "tools": BASE_READ_TOOLS
-        + WEB_TOOLS,  # Read-only for parallel followup reviewer
+        # Task tool required for invoking SDK subagents (comment-analyzer, etc.)
+        # See: https://platform.claude.com/docs/en/agent-sdk/subagents
+        "tools": BASE_READ_TOOLS + WEB_TOOLS + ["Task"],
         "mcp_servers": ["context7"],
         "auto_claude_tools": [],
         "thinking_default": "high",
