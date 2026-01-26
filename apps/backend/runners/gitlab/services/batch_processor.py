@@ -162,6 +162,8 @@ class GitlabBatchProcessor:
             # Create batcher instance to call save_batch (instance method)
             batcher = GitlabIssueBatcher(
                 gitlab_dir=self.gitlab_dir,
+                project=self.config.project,
+                project_dir=self.project_dir,
                 similarity_threshold=0.7,
             )
             batcher.save_batch(batch)

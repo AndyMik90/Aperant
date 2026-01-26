@@ -344,23 +344,22 @@ class TestGatherIntegration:
         assert result.ci_status == "success"
         assert result.ci_pipeline_id == 456
 
+    @pytest.mark.asyncio
+    async def test_gather_handles_missing_ci(
+        self, gatherer, mock_client, sample_mr_data, sample_changes_data, sample_commits
+    ):
+        """Test that gather handles missing CI pipeline gracefully."""
+        mock_client.get_mr_async.return_value = sample_mr_data
+        mock_client.get_mr_changes_async.return_value = sample_changes_data
+        mock_client.get_mr_commits_async.return_value = sample_commits
+        mock_client.get_mr_notes_async.return_value = []
+        mock_client.get_mr_pipeline_async.return_value = None
 
-@pytest.mark.asyncio
-async def test_gather_handles_missing_ci(
-    self, gatherer, mock_client, sample_mr_data, sample_changes_data, sample_commits
-):
-    """Test that gather handles missing CI pipeline gracefully."""
-    mock_client.get_mr_async.return_value = sample_mr_data
-    mock_client.get_mr_changes_async.return_value = sample_changes_data
-    mock_client.get_mr_commits_async.return_value = sample_commits
-    mock_client.get_mr_notes_async.return_value = []
-    mock_client.get_mr_pipeline_async.return_value = None
+        result = await gatherer.gather()
 
-    result = await gatherer.gather()
-
-    # Should not fail, CI fields should be None
-    assert result.ci_status is None
-    assert result.ci_pipeline_id is None
+        # Should not fail, CI fields should be None
+        assert result.ci_status is None
+        assert result.ci_pipeline_id is None
 
 
 class TestAIBotCommentDetection:

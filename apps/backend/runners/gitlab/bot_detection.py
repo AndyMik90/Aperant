@@ -33,7 +33,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -315,7 +315,7 @@ class BotDetector:
 
         try:
             last_review = datetime.fromisoformat(last_review_str)
-            time_since = datetime.now() - last_review
+            time_since = datetime.now(timezone.utc) - last_review
 
             if time_since < timedelta(minutes=self.COOLING_OFF_MINUTES):
                 minutes_left = self.COOLING_OFF_MINUTES - (
@@ -418,7 +418,7 @@ class BotDetector:
             self.state.reviewed_commits[mr_key].append(commit_sha)
 
         # Update last review time
-        self.state.last_review_times[mr_key] = datetime.now().isoformat()
+        self.state.last_review_times[mr_key] = datetime.now(timezone.utc).isoformat()
 
         # Save state
         self.state.save(self.state_dir)
