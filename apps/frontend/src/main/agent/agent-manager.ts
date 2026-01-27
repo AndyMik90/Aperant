@@ -716,4 +716,8 @@ export class AgentManager extends EventEmitter {
   getTaskSessionId(taskId: string): string | null {
     return this.state.getTaskSessionId(taskId) ?? null;
   }
+
+  getTaskProfileAssignment(taskId: string) {
+    return this.state.getTaskProfileAssignment(taskId);
+  }
 }
