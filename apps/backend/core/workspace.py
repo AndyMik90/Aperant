@@ -562,11 +562,7 @@ def _try_smart_merge_inner(
                     MergeProgressStage.RESOLVING,
                     50,
                     f"Resolving {len(git_conflicts.get('conflicting_files', []))} conflicting files with AI",
-                    {
-                        "conflicts_found": len(
-                            git_conflicts.get("conflicting_files", [])
-                        )
-                    },
+                    {"conflicts_found": len(git_conflicts.get("conflicting_files", []))},
                 )
 
             # Try to resolve git conflicts with AI
@@ -687,6 +683,33 @@ def _try_smart_merge_inner(
                         "git_merge": True,  # Flag indicating git merge was used
                     },
                 }
+
+                if progress_callback is not None:
+                    if len(skipped_files) == 0:
+                        progress_callback(
+                            MergeProgressStage.COMPLETE,
+                            100,
+                            f"Direct copy complete ({len(resolved_files)} files)",
+                        )
+                    else:
+                        progress_callback(
+                            MergeProgressStage.ERROR,
+                            0,
+                            f"{len(skipped_files)} file(s) could not be copied",
+                        )
+                if skipped_files:
+                    result["skipped_files"] = skipped_files
+                    result["partial_success"] = len(resolved_files) > 0
+                    print()
+                    print(
+                        warning(
+                            f"  ⚠ {len(skipped_files)} file(s) could not be retrieved:"
+                        )
+                    )
+                    for skipped_file in skipped_files:
+                        print(muted(f"    - {skipped_file}"))
+                    print(muted("  These files may need manual review."))
+                return result
             else:
                 # Merge failed unexpectedly - abort and fall back to semantic analysis
                 debug_warning(
