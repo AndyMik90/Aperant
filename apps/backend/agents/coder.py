@@ -56,7 +56,13 @@ from ui import (
     print_status,
 )
 
-from .base import AUTO_CONTINUE_DELAY_SECONDS, HUMAN_INTERVENTION_FILE
+from .base import (
+    AUTO_CONTINUE_DELAY_SECONDS,
+    HUMAN_INTERVENTION_FILE,
+    INITIAL_RETRY_DELAY_SECONDS,
+    MAX_CONCURRENCY_RETRIES,
+    MAX_RETRY_DELAY_SECONDS,
+)
 from .memory_manager import debug_memory_system_status, get_graphiti_context
 from .session import post_session_processing, run_agent_session
 from .utils import (
@@ -215,6 +221,11 @@ async def run_autonomous_agent(
 
     # Main loop
     iteration = 0
+    consecutive_concurrency_errors = 0  # Track consecutive 400 tool concurrency errors
+    current_retry_delay = INITIAL_RETRY_DELAY_SECONDS  # Exponential backoff delay
+    concurrency_error_context: str | None = (
+        None  # Context to pass to agent after concurrency error
+    )
 
     while True:
         iteration += 1
@@ -405,6 +416,14 @@ async def run_autonomous_agent(
                 prompt += "\n\n" + graphiti_context
                 print_status("Graphiti memory context loaded", "success")
 
+            # Add concurrency error context if recovering from 400 error
+            if concurrency_error_context:
+                prompt += "\n\n" + concurrency_error_context
+                print_status(
+                    f"Added tool concurrency error context (retry {consecutive_concurrency_errors}/{MAX_CONCURRENCY_RETRIES})",
+                    "warning",
+                )
+
             # Show what we're working on
             print(f"Working on: {highlight(subtask_id)}")
             print(f"Description: {next_subtask.get('description', 'No description')}")
@@ -419,7 +438,7 @@ async def run_autonomous_agent(
 
         # Run session with async context manager
         async with client:
-            status, response = await run_agent_session(
+            status, response, error_info = await run_agent_session(
                 client, prompt, spec_dir, verbose, phase=current_log_phase
             )
 
@@ -512,6 +531,11 @@ async def run_autonomous_agent(
             print_build_complete_banner(spec_dir)
             status_manager.update(state=BuildState.COMPLETE)
 
+            # Reset error tracking on success
+            consecutive_concurrency_errors = 0
+            current_retry_delay = INITIAL_RETRY_DELAY_SECONDS
+            concurrency_error_context = None
+
             if task_logger:
                 task_logger.end_phase(
                     LogPhase.CODING,
@@ -526,6 +550,11 @@ async def run_autonomous_agent(
             break
 
         elif status == "continue":
+            # Reset error tracking on successful session
+            consecutive_concurrency_errors = 0
+            current_retry_delay = INITIAL_RETRY_DELAY_SECONDS
+            concurrency_error_context = None
+
             print(
                 muted(
                     f"\nAgent will auto-continue in {AUTO_CONTINUE_DELAY_SECONDS}s..."
@@ -556,10 +585,106 @@ async def run_autonomous_agent(
 
         elif status == "error":
             emit_phase(ExecutionPhase.FAILED, "Session encountered an error")
-            print_status("Session encountered an error", "error")
-            print(muted("Will retry with a fresh session..."))
-            status_manager.update(state=BuildState.ERROR)
-            await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+
+            # Check if this is a tool concurrency error (400)
+            is_concurrency_error = (
+                error_info and error_info.get("type") == "tool_concurrency"
+            )
+
+            if is_concurrency_error:
+                consecutive_concurrency_errors += 1
+
+                # Check if we've exceeded max retries (allow 5 retries with delays: 2s, 4s, 8s, 16s, 32s)
+                if consecutive_concurrency_errors > MAX_CONCURRENCY_RETRIES:
+                    print_status(
+                        f"Tool concurrency limit hit {consecutive_concurrency_errors} times consecutively",
+                        "error",
+                    )
+                    print()
+                    print("=" * 70)
+                    print("  CRITICAL: Agent stuck in retry loop")
+                    print("=" * 70)
+                    print()
+                    print(
+                        "The agent is repeatedly hitting Claude API's tool concurrency limit."
+                    )
+                    print(
+                        "This usually means the agent is trying to use too many tools at once."
+                    )
+                    print()
+                    print("Possible solutions:")
+                    print("  1. The agent needs to reduce tool usage per request")
+                    print("  2. Break down the current subtask into smaller steps")
+                    print("  3. Manual intervention may be required")
+                    print()
+                    print(f"Error: {error_info.get('message', 'Unknown error')[:200]}")
+                    print()
+
+                    # Mark current subtask as stuck if we have one
+                    if subtask_id:
+                        recovery_manager.mark_subtask_stuck(
+                            subtask_id,
+                            f"Tool concurrency errors after {consecutive_concurrency_errors} retries",
+                        )
+                        print_status(f"Subtask {subtask_id} marked as STUCK", "error")
+
+                    status_manager.update(state=BuildState.ERROR)
+                    break  # Exit the loop
+
+                # Exponential backoff: 2s, 4s, 8s, 16s, 32s
+                print_status(
+                    f"Tool concurrency error (retry {consecutive_concurrency_errors}/{MAX_CONCURRENCY_RETRIES})",
+                    "warning",
+                )
+                print(
+                    muted(
+                        f"Waiting {current_retry_delay}s before retry (exponential backoff)..."
+                    )
+                )
+                print()
+
+                # Set context for next retry so agent knows to adjust behavior
+                error_context_message = (
+                    "## CRITICAL: TOOL CONCURRENCY ERROR\n\n"
+                    f"Your previous session hit Claude API's tool concurrency limit (HTTP 400).\n"
+                    f"This is retry {consecutive_concurrency_errors}/{MAX_CONCURRENCY_RETRIES}.\n\n"
+                    "**IMPORTANT: You MUST adjust your approach:**\n"
+                    "1. Use ONE tool at a time - do NOT call multiple tools in parallel\n"
+                    "2. Wait for each tool result before calling the next tool\n"
+                    "3. Avoid starting with `pwd` or multiple Read calls at once\n"
+                    "4. If you need to read multiple files, read them one by one\n"
+                    "5. Take a more incremental, step-by-step approach\n\n"
+                    "Start by focusing on ONE specific action for this subtask."
+                )
+
+                # If we're in planning phase, reset first_run to True so next iteration
+                # re-enters the planning branch (fix for issue #1565)
+                if current_log_phase == LogPhase.PLANNING:
+                    first_run = True
+                    planning_retry_context = error_context_message
+                    print_status("Planning session failed - will retry planning", "warning")
+                else:
+                    concurrency_error_context = error_context_message
+
+                status_manager.update(state=BuildState.ERROR)
+                await asyncio.sleep(current_retry_delay)
+
+                # Double the retry delay for next time (cap at MAX_RETRY_DELAY_SECONDS)
+                current_retry_delay = min(
+                    current_retry_delay * 2, MAX_RETRY_DELAY_SECONDS
+                )
+
+            else:
+                # Other errors - use standard retry logic
+                print_status("Session encountered an error", "error")
+                print(muted("Will retry with a fresh session..."))
+                status_manager.update(state=BuildState.ERROR)
+                await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+
+                # Reset concurrency error tracking on non-concurrency errors
+                consecutive_concurrency_errors = 0
+                current_retry_delay = INITIAL_RETRY_DELAY_SECONDS
+                concurrency_error_context = None
 
         # Small delay between sessions
         if max_iterations is None or iteration < max_iterations:

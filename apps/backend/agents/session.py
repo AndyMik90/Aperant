@@ -46,6 +46,28 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
+def is_tool_concurrency_error(error: Exception) -> bool:
+    """
+    Check if an error is a 400 tool concurrency error from Claude API.
+
+    Tool concurrency errors occur when too many tools are used simultaneously
+    in a single API request, hitting Claude's concurrent tool use limit.
+
+    Args:
+        error: The exception to check
+
+    Returns:
+        True if this is a tool concurrency error, False otherwise
+    """
+    error_str = str(error).lower()
+    # Check for 400 status AND tool concurrency keywords
+    return "400" in error_str and (
+        ("tool" in error_str and "concurrency" in error_str)
+        or "too many tools" in error_str
+        or "concurrent tool" in error_str
+    )
+
+
 async def post_session_processing(
     spec_dir: Path,
     project_dir: Path,
@@ -317,7 +339,7 @@ async def run_agent_session(
     spec_dir: Path,
     verbose: bool = False,
     phase: LogPhase = LogPhase.CODING,
-) -> tuple[str, str]:
+) -> tuple[str, str, dict]:
     """
     Run a single agent session using Claude Agent SDK.
 
@@ -329,10 +351,13 @@ async def run_agent_session(
         phase: Current execution phase for logging
 
     Returns:
-        (status, response_text) where status is:
-        - "continue" if agent should continue working
-        - "complete" if all subtasks complete
-        - "error" if an error occurred
+        (status, response_text, error_info) where:
+        - status: "continue", "complete", or "error"
+        - response_text: Agent's response text
+        - error_info: Dict with error details (empty if no error):
+            - "type": "tool_concurrency" or "other"
+            - "message": Error message string
+            - "exception": Original exception object
     """
     debug_section("session", f"Agent Session - {phase.value}")
     debug(
@@ -529,7 +554,7 @@ async def run_agent_session(
                 tool_count=tool_count,
                 response_length=len(response_text),
             )
-            return "complete", response_text
+            return "complete", response_text, {}
 
         debug_success(
             "session",
@@ -538,17 +563,36 @@ async def run_agent_session(
             tool_count=tool_count,
             response_length=len(response_text),
         )
-        return "continue", response_text
+        return "continue", response_text, {}
 
     except Exception as e:
+        # Detect specific error types for better retry handling
+        is_concurrency = is_tool_concurrency_error(e)
+        error_type = "tool_concurrency" if is_concurrency else "other"
+
         debug_error(
             "session",
             f"Session error: {e}",
             exception_type=type(e).__name__,
+            error_category=error_type,
             message_count=message_count,
             tool_count=tool_count,
         )
-        print(f"Error during agent session: {e}")
+
+        # Log concurrency errors prominently
+        if is_concurrency:
+            print("\n⚠️  Tool concurrency limit reached (400 error)")
+            print("   Claude API limits concurrent tool use in a single request")
+            print(f"   Error: {str(e)[:200]}\n")
+        else:
+            print(f"Error during agent session: {e}")
+
         if task_logger:
             task_logger.log_error(f"Session error: {e}", phase)
-        return "error", str(e)
+
+        error_info = {
+            "type": error_type,
+            "message": str(e),
+            "exception": e,
+        }
+        return "error", str(e), error_info
