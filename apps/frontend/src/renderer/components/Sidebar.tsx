@@ -136,23 +136,33 @@ export function Sidebar({
 
   // Load env config when project changes to check GitHub/GitLab/Linear enabled state
   useEffect(() => {
+    let cancelled = false;
+
     const loadEnvConfig = async () => {
-      if (selectedProject?.autoBuildPath) {
-        try {
-          const result = await window.electronAPI.getProjectEnv(selectedProject.id);
-          if (result.success && result.data) {
-            setEnvConfig(result.data);
-          } else {
-            setEnvConfig(null);
-          }
-        } catch {
+      if (!selectedProject?.autoBuildPath) {
+        if (!cancelled) {
           setEnvConfig(null);
         }
-      } else {
-        setEnvConfig(null);
+        return;
+      }
+
+      try {
+        const result = await window.electronAPI.getProjectEnv(selectedProject.id);
+        if (!cancelled) {
+          setEnvConfig(result.success && result.data ? result.data : null);
+        }
+      } catch {
+        if (!cancelled) {
+          setEnvConfig(null);
+        }
       }
     };
+
     loadEnvConfig();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedProject?.id, selectedProject?.autoBuildPath]);
 
   // Compute visible nav items based on GitHub/GitLab/Linear enabled state
@@ -350,7 +360,7 @@ export function Sidebar({
           isCollapsed ? "justify-center px-2" : "px-4"
         )}>
           {!isCollapsed && (
-            <span className="electron-no-drag text-lg font-bold text-primary">Auto Claude</span>
+            <span className="electron-no-drag text-lg font-bold text-primary">{t('common:appName')}</span>
           )}
         </div>
 

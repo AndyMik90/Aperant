@@ -1,4 +1,5 @@
 {
+	"appName": "Auto Claude",
 	"projectTab": {
 		"settings": "Paramètres du projet",
 		"showArchived": "Afficher archivés",
@@ -87,7 +88,7 @@
 		"success": "Succès",
 		"initializing": "Initialisation...",
 		"saving": "Enregistrement...",
-		"creating": "Creation...",
+		"creating": "Création...",
 		"noData": "Aucune donnée",
 		"optional": "Optionnel",
 		"required": "Requis",

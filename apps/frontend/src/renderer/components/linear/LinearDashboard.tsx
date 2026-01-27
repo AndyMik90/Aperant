@@ -88,7 +88,7 @@ export function LinearDashboard({
 	onOpenSettings,
 	isActive = false,
 }: LinearDashboardProps) {
-	const { t } = useTranslation("common");
+	const { t } = useTranslation(["common", "linear"]);
 	const { toast } = useToast();
 	const projects = useProjectStore((state) => state.projects);
 	const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
@@ -226,7 +226,7 @@ export function LinearDashboard({
 			// Arrow keys: Navigate ticket list (only if we have filtered tickets)
 			if (filteredTickets.length > 0) {
 				const currentIndex = selectedTicketId
-					? filteredTickets.findIndex((t) => t.id === selectedTicketId)
+					? filteredTickets.findIndex((ticket) => ticket.id === selectedTicketId)
 					: -1;
 
 				// Down arrow: Select next ticket

@@ -511,7 +511,7 @@ class LinearValidationAgent:
         """
 
         headers = {
-            "Authorization": api_key,
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
 
@@ -1004,10 +1004,8 @@ Begin your analysis now.
         Returns:
             New version label (e.g., "2.7.5" for patch, "2.8.0" for minor)
         """
-        # Import module-level function with explicit alias to avoid name conflict
-        from . import calculate_version_label as _calculate_version_label_module
-
-        return _calculate_version_label_module(current_version, work_type, priority)
+        # Call module-level function directly (defined in same file at line 1034)
+        return calculate_version_label(current_version, work_type, priority)
 
 
 def validate_batch_limit(issue_ids: list[str]) -> None:

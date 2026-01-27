@@ -248,7 +248,7 @@ export function LinearTicketDetail({
 					className="p-4 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
 					role="region"
 					aria-live="polite"
-					aria-label={t("common:linear.validationResults")}
+					aria-label={t("linear:validationResults")}
 				>
 					<div className="flex items-center gap-2 mb-2">
 						<CheckCircle2
