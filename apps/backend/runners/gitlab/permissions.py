@@ -252,8 +252,9 @@ class GitLabPermissionChecker:
             project_info = await self.glab_client._fetch_async(
                 f"/projects/{encode_project_path(self.glab_client.config.project)}"
             )
+            namespace_path = project_info.get("namespace", {}).get("full_path", "")
             namespace_info = await self.glab_client._fetch_async(
-                f"/namespaces/{project_info.get('namespace', {}).get('full_path')}"
+                f"/namespaces/{encode_project_path(namespace_path)}"
             )
 
             # Check if namespace owner matches username
