@@ -248,8 +248,10 @@ def mock_pipeline_data(**overrides):
 
 def mock_pipeline_jobs(**overrides):
     """Create mock pipeline jobs with optional overrides."""
-    data = SAMPLE_PIPELINE_JOBS.copy()
-    if overrides:
+    import copy
+
+    data = copy.deepcopy(SAMPLE_PIPELINE_JOBS)
+    if overrides and data:
         data[0].update(overrides)
     return data
 

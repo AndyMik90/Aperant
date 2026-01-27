@@ -69,8 +69,7 @@ def sample_webhooks():
 class TestListWebhooks:
     """Tests for list_webhooks method."""
 
-    @pytest.mark.asyncio
-    async def test_list_all_webhooks(self, client, sample_webhooks):
+    def test_list_all_webhooks(self, client, sample_webhooks):
         """Test listing all webhooks."""
         with patch.object(client, "_fetch") as mock_fetch:
             mock_fetch.return_value = sample_webhooks
@@ -81,8 +80,7 @@ class TestListWebhooks:
             assert result[0]["id"] == 1
             assert result[0]["url"] == "https://example.com/webhook"
 
-    @pytest.mark.asyncio
-    async def test_list_webhooks_empty(self, client):
+    def test_list_webhooks_empty(self, client):
         """Test listing webhooks when none exist."""
         with patch.object(client, "_fetch") as mock_fetch:
             mock_fetch.return_value = []
@@ -106,8 +104,7 @@ class TestListWebhooks:
 class TestGetWebhook:
     """Tests for get_webhook method."""
 
-    @pytest.mark.asyncio
-    async def test_get_existing_webhook(self, client, sample_webhooks):
+    def test_get_existing_webhook(self, client, sample_webhooks):
         """Test getting an existing webhook."""
         with patch.object(client, "_fetch") as mock_fetch:
             mock_fetch.return_value = sample_webhooks[0]
@@ -128,8 +125,7 @@ class TestGetWebhook:
 
             assert result["id"] == 1
 
-    @pytest.mark.asyncio
-    async def test_get_nonexistent_webhook(self, client):
+    def test_get_nonexistent_webhook(self, client):
         """Test getting a webhook that doesn't exist."""
         with patch.object(client, "_fetch") as mock_fetch:
             mock_fetch.side_effect = Exception("404 Not Found")
@@ -141,8 +137,7 @@ class TestGetWebhook:
 class TestCreateWebhook:
     """Tests for create_webhook method."""
 
-    @pytest.mark.asyncio
-    async def test_create_webhook_basic(self, client):
+    def test_create_webhook_basic(self, client):
         """Test creating a webhook with basic settings."""
         with patch.object(client, "_fetch") as mock_fetch:
             mock_fetch.return_value = {
@@ -157,8 +152,7 @@ class TestCreateWebhook:
             assert result["id"] == 3
             assert result["url"] == "https://example.com/new-hook"
 
-    @pytest.mark.asyncio
-    async def test_create_webhook_with_events(self, client):
+    def test_create_webhook_with_events(self, client):
         """Test creating a webhook with specific events."""
         with patch.object(client, "_fetch") as mock_fetch:
             mock_fetch.return_value = {
@@ -176,8 +170,7 @@ class TestCreateWebhook:
 
             assert result["push_events"] is True
 
-    @pytest.mark.asyncio
-    async def test_create_webhook_with_all_events(self, client):
+    def test_create_webhook_with_all_events(self, client):
         """Test creating a webhook that listens to all events."""
         with patch.object(client, "_fetch") as mock_fetch:
             mock_fetch.return_value = {"id": 5}
@@ -212,8 +205,7 @@ class TestCreateWebhook:
 class TestUpdateWebhook:
     """Tests for update_webhook method."""
 
-    @pytest.mark.asyncio
-    async def test_update_webhook_url(self, client):
+    def test_update_webhook_url(self, client):
         """Test updating webhook URL."""
         with patch.object(client, "_fetch") as mock_fetch:
             mock_fetch.return_value = {
@@ -228,8 +220,7 @@ class TestUpdateWebhook:
 
             assert result["url"] == "https://example.com/updated-url"
 
-    @pytest.mark.asyncio
-    async def test_update_webhook_events(self, client):
+    def test_update_webhook_events(self, client):
         """Test updating webhook events."""
         with patch.object(client, "_fetch") as mock_fetch:
             mock_fetch.return_value = {
@@ -264,8 +255,7 @@ class TestUpdateWebhook:
 class TestDeleteWebhook:
     """Tests for delete_webhook method."""
 
-    @pytest.mark.asyncio
-    async def test_delete_webhook(self, client):
+    def test_delete_webhook(self, client):
         """Test deleting a webhook."""
         with patch.object(client, "_fetch") as mock_fetch:
             mock_fetch.return_value = None  # 204 No Content
@@ -290,8 +280,7 @@ class TestDeleteWebhook:
 class TestWebhookErrors:
     """Tests for webhook error handling."""
 
-    @pytest.mark.asyncio
-    async def test_get_invalid_webhook_id(self, client):
+    def test_get_invalid_webhook_id(self, client):
         """Test getting webhook with invalid ID."""
         with patch.object(client, "_fetch") as mock_fetch:
             mock_fetch.side_effect = Exception("404 Not Found")
@@ -299,8 +288,7 @@ class TestWebhookErrors:
             with pytest.raises(Exception):  # noqa: B017
                 client.get_webhook(0)
 
-    @pytest.mark.asyncio
-    async def test_create_webhook_invalid_url(self, client):
+    def test_create_webhook_invalid_url(self, client):
         """Test creating webhook with invalid URL."""
         with patch.object(client, "_fetch") as mock_fetch:
             mock_fetch.side_effect = Exception("400 Invalid URL")
@@ -308,8 +296,7 @@ class TestWebhookErrors:
             with pytest.raises(Exception):  # noqa: B017
                 client.create_webhook(url="not-a-url")
 
-    @pytest.mark.asyncio
-    async def test_delete_nonexistent_webhook(self, client):
+    def test_delete_nonexistent_webhook(self, client):
         """Test deleting webhook that doesn't exist."""
         with patch.object(client, "_fetch") as mock_fetch:
             mock_fetch.side_effect = Exception("404 Not Found")
