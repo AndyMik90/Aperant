@@ -141,7 +141,7 @@ class TestGitLabClientRetry:
             raise URLError("Request timed out")
 
         with patch("urllib.request.urlopen", side_effect=mock_urlopen_side_effect):
-            with pytest.raises(Exception, match="GitLab API error after"):
+            with pytest.raises(Exception, match="GitLab API network error"):
                 client.get_mr(123)
 
     def test_retry_with_backoff(self, client):
