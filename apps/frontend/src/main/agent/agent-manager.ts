@@ -697,4 +697,23 @@ export class AgentManager extends EventEmitter {
       };
     }
   }
+
+  // Queue routing methods - delegate to AgentState
+  // These are used by the queue routing IPC handlers for multi-profile support
+
+  getRunningTasksByProfile(): { byProfile: Record<string, string[]>; totalRunning: number } {
+    return this.state.getRunningTasksByProfile();
+  }
+
+  assignProfileToTask(taskId: string, profileId: string, profileName: string, reason: 'proactive' | 'reactive' | 'manual'): void {
+    this.state.assignProfileToTask(taskId, profileId, profileName, reason);
+  }
+
+  updateTaskSession(taskId: string, sessionId: string): void {
+    this.state.updateTaskSession(taskId, sessionId);
+  }
+
+  getTaskSessionId(taskId: string): string | null {
+    return this.state.getTaskSessionId(taskId) ?? null;
+  }
 }
