@@ -910,10 +910,21 @@ Begin your analysis now.
             - summary: Summary statistics (total, succeeded, failed)
 
         Raises:
-            ValueError: If batch size exceeds maximum
+            ValueError: If batch size exceeds maximum, issues lack required 'id' field,
+                        or max_concurrent is less than 1
         """
-        # Filter out None values from issue IDs
-        issue_ids = [issue.get("id") for issue in issues if issue.get("id")]
+        # Validate max_concurrent parameter
+        if not isinstance(max_concurrent, int) or max_concurrent < 1:
+            raise ValueError("max_concurrent must be an integer >= 1")
+
+        # Validate all issues have required 'id' field
+        issue_ids = []
+        for issue in issues:
+            issue_id = issue.get("id")
+            if not issue_id:
+                raise ValueError("All issues must include a non-empty 'id'")
+            issue_ids.append(issue_id)
+
         self.validate_batch_limit(issue_ids)
 
         # Semaphore to limit concurrent validations
