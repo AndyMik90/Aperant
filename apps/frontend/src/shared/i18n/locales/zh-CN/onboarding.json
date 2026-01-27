@@ -1,0 +1,380 @@
+{
+  "wizard": {
+    "title": "设置向导",
+    "description": "在几个简单步骤中配置您的 Auto Claude 环境",
+    "helpText": "此向导将帮助您在几个步骤中设置环境。您可以配置 Claude OAuth 令牌，设置内存功能，并创建第一个任务。"
+  },
+  "welcome": {
+    "title": "欢迎使用 Auto Claude",
+    "subtitle": "使用 AI 驱动的代理自主构建软件",
+    "getStarted": "开始使用",
+    "skip": "跳过设置",
+    "features": {
+      "aiPowered": {
+        "title": "AI 驱动开发",
+        "description": "使用 Claude Code 代理生成代码和构建功能"
+      },
+      "specDriven": {
+        "title": "规范驱动工作流",
+        "description": "使用清晰的规范定义任务，让 Auto Claude 处理实现"
+      },
+      "memory": {
+        "title": "内存与上下文",
+        "description": "使用 Graphiti 跨会话持久化内存"
+      },
+      "parallel": {
+        "title": "并行执行",
+        "description": "并行运行多个代理以加快开发周期"
+      }
+    }
+  },
+  "oauth": {
+    "title": "Claude 身份验证",
+    "description": "连接您的 Claude 账户以启用 AI 功能",
+    "configureTitle": "配置 Claude 身份验证",
+    "addAccountsDesc": "添加您的 Claude 账户以启用 AI 功能",
+    "multiAccountInfo": "添加多个 Claude 订阅，以便在达到速率限制时自动切换。",
+    "noAccountsYet": "尚未配置账户",
+    "badges": {
+      "default": "默认",
+      "active": "活动",
+      "authenticated": "已验证",
+      "needsAuth": "需要验证"
+    },
+    "buttons": {
+      "authenticate": "验证",
+      "setActive": "设为活动",
+      "rename": "重命名",
+      "delete": "删除",
+      "add": "添加",
+      "adding": "添加中...",
+      "showToken": "显示令牌",
+      "hideToken": "隐藏令牌",
+      "copyToken": "复制令牌",
+      "back": "返回",
+      "continue": "继续",
+      "skip": "跳过"
+    },
+    "labels": {
+      "accountName": "账户名称",
+      "namePlaceholder": "配置文件名称（例如：工作、个人）",
+      "tokenLabel": "OAuth 令牌",
+      "tokenPlaceholder": "在此处输入令牌",
+      "tokenHint": "粘贴完成 OAuth 登录后在终端中显示的令牌。"
+    },
+    "keychainTitle": "安全存储",
+    "keychainDescription": "您的令牌使用系统的钥匙串进行加密。您可能会看到来自 macOS 的密码提示 — 点击「始终允许」以避免再次看到它。",
+    "toast": {
+      "authSuccess": "配置文件验证成功",
+      "authSuccessWithEmail": "账户：{{email}}",
+      "authSuccessGeneric": "验证完成。您现在可以使用此配置文件。",
+      "authStartFailed": "验证启动失败",
+      "addProfileFailed": "配置文件添加失败",
+      "tokenSaved": "令牌已保存",
+      "tokenSavedDescription": "您的令牌已成功保存。",
+      "tokenSaveFailed": "令牌保存失败",
+      "tryAgain": "请重试。"
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "配置文件已创建，但验证准备失败：{{error}}",
+      "authPrepareFailed": "验证准备失败：{{error}}",
+      "authStartFailedMessage": "验证启动失败。请重试。"
+    }
+  },
+  "memory": {
+    "title": "内存",
+    "description": "为代理配置持久化的跨会话内存",
+    "contextDescription": "Auto Claude 内存有助于在您的编码会话之间保留上下文",
+    "enableMemory": "启用内存",
+    "enableMemoryDescription": "使用 LadybugDB（嵌入式数据库）持久化跨会话内存",
+    "memoryDisabledInfo": "内存已禁用。会话洞察将仅存储在本地文件中。启用内存以获得具有语义搜索的持久化跨会话上下文。",
+    "enableAgentAccess": "启用代理内存访问",
+    "enableAgentAccessDescription": "允许代理通过 MCP 搜索和添加到知识图谱",
+    "mcpServerUrl": "Graphiti MCP 服务器 URL",
+    "mcpServerUrlDescription": "用于代理内存访问的 Graphiti MCP 服务器 URL",
+    "embeddingProvider": "嵌入提供商",
+    "embeddingProviderDescription": "语义搜索提供商（可选 - 没有关键字搜索也可以工作）",
+    "selectEmbeddingModel": "选择嵌入模型",
+    "openaiApiKey": "OpenAI API 密钥",
+    "openaiApiKeyDescription": "OpenAI 嵌入所需",
+    "openaiGetKey": "从以下位置获取您的密钥",
+    "voyageApiKey": "Voyage AI API 密钥",
+    "voyageApiKeyDescription": "Voyage AI 嵌入所需",
+    "voyageEmbeddingModel": "嵌入模型",
+    "googleApiKey": "Google AI API 密钥",
+    "googleApiKeyDescription": "Google AI 嵌入所需",
+    "azureConfig": "Azure OpenAI 配置",
+    "azureApiKey": "API 密钥",
+    "azureBaseUrl": "基础 URL",
+    "azureEmbeddingDeployment": "嵌入部署名称",
+    "memoryInfo": "内存存储有关您的代码库的发现、模式和洞察，以便未来的会话在已加载上下文的情况下启动。无需 Docker - 使用嵌入式数据库。",
+    "learnMore": "了解有关内存的更多信息",
+    "back": "返回",
+    "skip": "跳过",
+    "saving": "保存中...",
+    "saveAndContinue": "保存并继续",
+    "providers": {
+      "ollama": "Ollama（本地 - 免费）",
+      "openai": "OpenAI",
+      "voyage": "Voyage AI",
+      "google": "Google AI",
+      "azure": "Azure OpenAI"
+    },
+    "ollamaConfig": "Ollama 配置",
+    "checking": "检查中...",
+    "connected": "已连接",
+    "notRunning": "未运行",
+    "baseUrl": "基础 URL",
+    "embeddingModel": "嵌入模型",
+    "embeddingDim": "嵌入维度",
+    "embeddingDimDescription": "Ollama 嵌入所需（例如：nomic-embed-text 为 768）",
+    "modelRecommendation": "推荐：qwen3-embedding:4b（平衡），:8b（质量），:0.6b（快速）"
+  },
+  "completion": {
+    "title": "一切就绪！",
+    "subtitle": "Auto Claude 已准备好帮助您构建出色的软件",
+    "setupComplete": "设置完成",
+    "setupCompleteDescription": "您的环境已配置并准备就绪。您可以立即开始创建任务或以自己的节奏探索应用程序。",
+    "whatsNext": "接下来做什么？",
+    "createTask": {
+      "title": "创建任务",
+      "description": "首先创建您的第一个任务，看看 Auto Claude 的实际效果。",
+      "action": "打开任务创建器"
+    },
+    "customizeSettings": {
+      "title": "自定义设置",
+      "description": "微调您的首选项，配置集成，或重新运行此向导。",
+      "action": "打开设置"
+    },
+    "exploreDocs": {
+      "title": "探索文档",
+      "description": "了解有关高级功能、最佳实践和故障排除的更多信息。"
+    },
+    "finish": "完成并开始构建",
+    "rerunHint": "您始终可以从设置 → 应用程序重新运行此向导"
+  },
+  "steps": {
+    "welcome": "欢迎",
+    "authChoice": "验证方法",
+    "auth": "验证",
+    "claudeCode": "CLI",
+    "devtools": "开发工具",
+    "privacy": "隐私",
+    "memory": "内存",
+    "done": "完成"
+  },
+  "authChoice": {
+    "title": "选择您的身份验证方法",
+    "description": "选择您想要如何使用 Claude 进行身份验证。您可以稍后在设置中更改此设置。",
+    "oauth": {
+      "title": "使用 Anthropic 账户登录",
+      "description": "使用您的 Anthropic 账户进行身份验证。简单且安全的 OAuth 流程。"
+    },
+    "apiKey": {
+      "title": "使用自定义 API 密钥",
+      "description": "从 Anthropic 或兼容的 API 提供商带来您自己的 API 密钥。⚠️ 高度实验性 —— 可能产生大量费用。"
+    },
+    "info": "两种选项都提供对 Claude Code 功能的完全访问权限。根据您的偏好进行选择。",
+    "skip": "暂不设置"
+  },
+  "privacy": {
+    "title": "帮助改进 Auto Claude",
+    "subtitle": "匿名错误报告帮助我们更快地修复错误",
+    "whatWeCollect": {
+      "title": "我们收集什么",
+      "crashReports": "崩溃报告和错误堆栈跟踪",
+      "errorMessages": "错误消息（文件路径已匿名化）",
+      "appVersion": "应用程序版本和平台信息"
+    },
+    "whatWeNeverCollect": {
+      "title": "我们从不收集什么",
+      "code": "您的代码或项目文件",
+      "filenames": "完整文件路径（用户名已屏蔽）",
+      "apiKeys": "API 密钥或令牌",
+      "personalData": "个人信息或使用数据"
+    },
+    "toggle": {
+      "label": "发送匿名错误报告",
+      "description": "帮助我们识别和修复问题"
+    }
+  },
+  "claudeCode": {
+    "title": "Claude Code CLI",
+    "description": "安装或更新 Claude Code CLI 以启用 AI 驱动的功能",
+    "detecting": "检查 Claude Code 安装...",
+    "info": {
+      "title": "什么是 Claude Code？",
+      "description": "Claude Code 是 Anthropic 的官方 CLI，为 Auto Claude 的 AI 功能提供支持。它提供安全的身份验证和对 Claude 模型的直接访问。"
+    },
+    "status": {
+      "installed": "已安装",
+      "outdated": "可用更新",
+      "notFound": "未安装"
+    },
+    "version": {
+      "current": "当前版本",
+      "latest": "最新版本"
+    },
+    "install": {
+      "button": "安装 Claude Code",
+      "updating": "更新 Claude Code",
+      "inProgress": "安装中...",
+      "success": "安装命令已发送到终端。请在那里完成安装。",
+      "instructions": "安装程序将在您的终端中打开。按照提示完成安装。"
+    },
+    "learnMore": "了解有关 Claude Code 的更多信息"
+  },
+  "devtools": {
+    "title": "开发工具",
+    "description": "选择您首选的 IDE 和终端以使用 Auto Claude 工作树",
+    "detecting": "检测已安装的工具...",
+    "detectAgain": "再次检测",
+    "whyConfigure": "为什么要配置这些？",
+    "whyConfigureDescription": "当 Auto Claude 在隔离的工作树中构建功能时，您可以直接在您首选的 IDE 或终端中打开它们以测试和审查更改。",
+    "ide": {
+      "label": "首选 IDE",
+      "description": "Auto Claude 将在此编辑器中打开工作树",
+      "customPath": "自定义 IDE 路径"
+    },
+    "terminal": {
+      "label": "首选终端",
+      "description": "Auto Claude 将在此处打开终端会话",
+      "customPath": "自定义终端路径"
+    },
+    "detectedSummary": "在您的系统上检测到：",
+    "noToolsDetected": "未检测到其他工具（将使用 VS Code 和系统终端）",
+    "custom": "自定义...",
+    "saveAndContinue": "保存并继续"
+  },
+  "ollama": {
+    "notInstalled": {
+      "title": "Ollama 未安装",
+      "description": "Ollama 为语义搜索提供免费的本地嵌入模型。单击一键安装以启用此功能。",
+      "installSuccess": "安装已在您的终端中启动。在那里完成安装，然后单击重试。",
+      "installButton": "安装 Ollama",
+      "installing": "安装中...",
+      "retry": "重试",
+      "learnMore": "了解更多",
+      "fallbackNote": "即使没有 Ollama，内存仍将使用关键字搜索工作。"
+    },
+    "notRunning": {
+      "title": "Ollama 未运行",
+      "description": "Ollama 已安装但未运行。启动 Ollama 以使用本地嵌入模型。",
+      "retry": "重试",
+      "fallbackNote": "即使没有嵌入，内存仍将使用关键字搜索工作。"
+    }
+  },
+  "graphiti": {
+    "title": "内存与上下文",
+    "description": "启用 Graphiti 以在编码会话之间持久化内存",
+    "whatIsGraphiti": "什么是 Graphiti？",
+    "whatIsGraphitiDescription": "Graphiti 是一个智能内存层，帮助 Auto Claude 在会话之间保留上下文。它使用知识图谱存储有关您的代码库的发现、模式和洞察。",
+    "benefits": {
+      "persistentMemory": "在编码会话之间持久化内存",
+      "betterUnderstanding": "随着时间的推移更好地理解您的代码库",
+      "reducesRepetition": "减少重复解释",
+      "noDocker": "无需 Docker - 使用嵌入式数据库"
+    },
+    "learnMoreAboutGraphiti": "了解有关 Graphiti 的更多信息",
+    "enableGraphitiMemory": "启用 Graphiti 内存",
+    "enableGraphitiDescription": "使用 LadybugDB（嵌入式）和 LLM/嵌入提供商",
+    "databaseName": "数据库名称",
+    "databaseLocation": "存储在 ~/.auto-claude/graphs/",
+    "llmProvider": "LLM 提供商",
+    "embeddingProvider": "嵌入提供商",
+    "testConnection": "测试连接",
+    "testingConnection": "测试连接中...",
+    "allConnectionsValidated": "所有连接验证成功！",
+    "validationNote": "注意：API 密钥验证目前仅完全支持 OpenAI。您的密钥将被保存并在运行时使用。",
+    "ollamaValidationNote": "注意：Ollama 连接将通过检查服务器是否可达来测试。",
+    "configuredSuccessfully": "Graphiti 配置成功",
+    "configuredSuccessfullyDescription": "内存功能已启用。Auto Claude 将在会话之间维护上下文以改进代码理解。",
+    "reconfigureSettings": "重新配置 Graphiti 设置",
+    "databaseAutoCreated": "数据库将自动创建",
+    "databaseAutoCreatedDescription": "LadybugDB 使用嵌入式数据库 - 无需 Docker。数据库将在您首次使用内存功能时创建。",
+    "providers": {
+      "openai": {
+        "name": "OpenAI",
+        "description": "GPT 模型（推荐）",
+        "apiKey": "OpenAI API 密钥",
+        "getYourKeyFrom": "从以下位置获取您的密钥",
+        "keyLink": "OpenAI"
+      },
+      "anthropic": {
+        "name": "Anthropic",
+        "description": "Claude 模型",
+        "apiKey": "Anthropic API 密钥",
+        "getYourKeyFrom": "从以下位置获取您的密钥",
+        "keyLink": "Anthropic 控制台"
+      },
+      "voyage": {
+        "name": "Voyage AI",
+        "description": "voyage-3（与 Anthropic 配合良好）"
+      },
+      "google": {
+        "name": "Google AI",
+        "description": "Gemini 模型",
+        "apiKey": "Google API 密钥",
+        "getYourKeyFrom": "从以下位置获取您的密钥",
+        "keyLink": "Google AI Studio"
+      },
+      "groq": {
+        "name": "Groq",
+        "description": "Llama 模型（快速推理）",
+        "apiKey": "Groq API 密钥",
+        "getYourKeyFrom": "从以下位置获取您的密钥",
+        "keyLink": "Groq 控制台"
+      },
+      "openrouter": {
+        "name": "OpenRouter",
+        "description": "多提供商聚合器",
+        "apiKey": "OpenRouter API 密钥",
+        "getYourKeyFrom": "从以下位置获取您的密钥",
+        "keyLink": "OpenRouter 仪表板"
+      },
+      "azure_openai": {
+        "name": "Azure OpenAI",
+        "description": "企业 Azure 部署",
+        "apiKey": "API 密钥",
+        "baseUrl": "基础 URL",
+        "llmDeployment": "LLM 部署名称",
+        "embeddingDeployment": "嵌入部署名称"
+      },
+      "ollama": {
+        "name": "Ollama",
+        "description": "本地模型（免费）",
+        "settings": "Ollama 设置（本地）",
+        "baseUrl": "基础 URL",
+        "llmModel": "LLM 模型",
+        "embeddingModel": "嵌入模型",
+        "embeddingDimension": "嵌入维度",
+        "ensureRunning": "确保 Ollama 在本地运行。请参阅",
+        "link": "ollama.ai"
+      }
+    },
+    "voyage": {
+      "apiKey": "Voyage API 密钥",
+      "getYourKeyFrom": "从以下位置获取您的密钥",
+      "keyLink": "Voyage AI"
+    },
+    "placeholders": {
+      "openai": "sk-...",
+      "anthropic": "sk-ant-...",
+      "google": "AIza...",
+      "groq": "gsk_...",
+      "openrouter": "sk-or-...",
+      "voyage": "pa-...",
+      "azureApiKey": "Azure API 密钥",
+      "azureBaseUrl": "https://your-resource.openai.azure.com",
+      "azureLlmDeployment": "gpt-4",
+      "azureEmbeddingDeployment": "text-embedding-ada-002",
+      "ollamaBaseUrl": "http://localhost:11434",
+      "ollamaLlmModel": "llama3.2, deepseek-r1:7b, 等",
+      "ollamaEmbeddingModel": "nomic-embed-text",
+      "ollamaEmbeddingDim": "768",
+      "databaseName": "auto_claude_memory"
+    },
+    "ready": "就绪",
+    "issue": "问题"
+  }
+}

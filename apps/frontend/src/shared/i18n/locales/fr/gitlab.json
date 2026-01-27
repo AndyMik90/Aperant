@@ -129,6 +129,30 @@
       "all": "Toutes"
     }
   },
+  "createMR": {
+    "title": "Créer une Merge Request",
+    "description": "Créer une nouvelle merge request dans GitLab",
+    "fields": {
+      "title": "Titre",
+      "sourceBranch": "Branche source",
+      "targetBranch": "Branche cible",
+      "description": "Description (facultatif)"
+    },
+    "placeholders": {
+      "title": "Titre de la merge request",
+      "sourceBranch": "feature/ma-fonctionnalité",
+      "targetBranch": "main",
+      "description": "Décrivez les changements dans cette merge request..."
+    },
+    "submit": "Créer une Merge Request",
+    "creating": "Création...",
+    "validation": {
+      "requiredFields": "Le titre, la branche source et la branche cible sont requis"
+    },
+    "errors": {
+      "createFailed": "Échec de la création de la merge request"
+    }
+  },
   "mrReview": {
     "runReview": "Lancer la revue IA",
     "reviewing": "Analyse en cours...",
@@ -168,16 +192,6 @@
       "approve": "Approuver",
       "requestChanges": "Modifications demandées",
       "comment": "Commentaire"
-    },
-    "severity": {
-      "critical": "Bloquant",
-      "criticalDesc": "À corriger",
-      "high": "Requis",
-      "highDesc": "À traiter",
-      "medium": "Recommandé",
-      "mediumDesc": "Améliore la qualité",
-      "low": "Suggestion",
-      "lowDesc": "À considérer"
     },
     "resolution": {
       "resolved": "résolu(s)",

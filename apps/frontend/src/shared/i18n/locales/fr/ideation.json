@@ -1,0 +1,155 @@
+{
+  "generationProgress": {
+    "title": "Génération d'idées",
+    "complete": "{{count}}/{{total}} terminé",
+    "showLogs": "Afficher les journaux",
+    "hideLogs": "Masquer les journaux",
+    "stop": "Arrêter",
+    "stopping": "Arrêt en cours...",
+    "stopTooltip": "Arrêter la génération",
+    "ideas": "{{count}} idées",
+    "ideas_one": "{{count}} idée",
+    "ideas_other": "{{count}} idées",
+    "waiting": "En attente de démarrage...",
+    "failed": "Échec de la génération d'idées pour cette catégorie",
+    "noIdeas": "Aucune idée générée pour cette catégorie"
+  },
+  "header": {
+    "title": "Idéation",
+    "description": "Idées de fonctionnalités générées par l'IA pour votre projet",
+    "ideas": "idées",
+    "selected": "sélectionné",
+    "delete": "Supprimer",
+    "addMore": "Ajouter Plus"
+  },
+  "emptyState": {
+    "title": "Pas Encore d'Idées",
+    "description": "Générez des idées de fonctionnalités alimentées par l'IA basées sur le contexte de votre projet, les modèles existants et le public cible.",
+    "enabledTypes": "Types d'Idéation Activés",
+    "generateButton": "Générer des Idées",
+    "tokenWarning": "Token Claude non configuré. Vous serez invité à l'entrer lors de la génération."
+  },
+  "dialogs": {
+    "configuration": {
+      "title": "Configuration de l'Idéation",
+      "description": "Configurez les types d'idées à générer",
+      "ideationTypes": "Types d'Idéation",
+      "contextSources": "Sources de Contexte",
+      "includeRoadmapContext": "Inclure le Contexte de la Feuille de Route",
+      "includeKanbanContext": "Inclure le Contexte du Kanban"
+    },
+    "addMore": {
+      "title": "Ajouter Plus d'Idées",
+      "description": "Sélectionnez des types d'idéation supplémentaires à générer. Vos idées existantes seront préservées.",
+      "allGenerated": "Vous avez déjà généré tous les types d'idéation !",
+      "useRegenerate": "Utilisez \"Régénérer\" pour actualiser les idées existantes.",
+      "selected": "{{count}} sélectionné",
+      "generate": "Générer {{count}} Types",
+      "generateOne": "Générer des Idées"
+    }
+  },
+  "types": {
+    "code_improvements": "Améliorations de Code",
+    "ui_ux_improvements": "Améliorations UI/UX",
+    "documentation_gaps": "Documentation",
+    "security_hardening": "Sécurité",
+    "performance_optimizations": "Performance",
+    "code_quality": "Qualité du Code"
+  },
+  "typeDescriptions": {
+    "code_improvements": "Opportunités révélées par le code à partir de l'analyse des modèles, de l'architecture et de l'infrastructure",
+    "ui_ux_improvements": "Améliorations visuelles et d'interaction identifiées par l'analyse de l'application",
+    "documentation_gaps": "Documentation manquante ou obsolète nécessitant une attention",
+    "security_hardening": "Vulnérabilités de sécurité et opportunités de durcissement",
+    "performance_optimizations": "Goulots d'étranglement de performance et opportunités d'optimisation",
+    "code_quality": "Opportunités de refactorisation, fichiers volumineux, odeurs de code et violations des meilleures pratiques"
+  },
+  "status": {
+    "draft": "Brouillon",
+    "selected": "Sélectionné",
+    "converted": "Converti",
+    "dismissed": "Rejeté",
+    "archived": "Archivé"
+  },
+  "effort": {
+    "trivial": "Trivial",
+    "small": "Petit",
+    "medium": "Moyen",
+    "large": "Grand",
+    "complex": "Complexe"
+  },
+  "impact": {
+    "low": "Faible",
+    "medium": "Moyen",
+    "high": "Élevé",
+    "critical": "Critique"
+  },
+  "categories": {
+    "uiux": {
+      "usability": "Utilisabilité",
+      "accessibility": "Accessibilité",
+      "performance": "Performance",
+      "visual": "Design Visuel",
+      "interaction": "Interaction"
+    },
+    "documentation": {
+      "readme": "README",
+      "api_docs": "Documentation API",
+      "inline_comments": "Commentaires Inline",
+      "examples": "Exemples et Tutoriels",
+      "architecture": "Documentation d'Architecture",
+      "troubleshooting": "Guide de Dépannage"
+    },
+    "security": {
+      "authentication": "Authentification",
+      "authorization": "Autorisation",
+      "input_validation": "Validation des Entrées",
+      "data_protection": "Protection des Données",
+      "dependencies": "Dépendances",
+      "configuration": "Configuration",
+      "secrets_management": "Gestion des Secrets"
+    },
+    "performance": {
+      "bundle_size": "Taille du Bundle",
+      "runtime": "Performance d'Exécution",
+      "memory": "Utilisation de la Mémoire",
+      "database": "Requêtes de Base de Données",
+      "network": "Requêtes Réseau",
+      "rendering": "Rendu",
+      "caching": "Mise en Cache"
+    },
+    "codeQuality": {
+      "large_files": "Fichiers Volumineux",
+      "code_smells": "Odeurs de Code",
+      "complexity": "Complexité Élevée",
+      "duplication": "Duplication de Code",
+      "naming": "Conventions de Nommage",
+      "structure": "Structure des Fichiers",
+      "linting": "Problèmes de Linting",
+      "testing": "Couverture de Tests",
+      "types": "Sécurité des Types",
+      "dependencies": "Problèmes de Dépendances",
+      "dead_code": "Code Mort",
+      "git_hygiene": "Hygiène Git"
+    }
+  },
+  "severity": {
+    "security": {
+      "low": "Faible",
+      "medium": "Moyen",
+      "high": "Élevé",
+      "critical": "Critique"
+    },
+    "codeQuality": {
+      "suggestion": "Suggestion",
+      "minor": "Mineur",
+      "major": "Majeur",
+      "critical": "Critique"
+    }
+  },
+  "auth": {
+    "title": "Authentification Claude Requise",
+    "description": "Un jeton OAuth Claude Code est requis pour générer des idées de fonctionnalités alimentées par l'IA."
+  },
+  "noIdeasToDisplay": "Aucune idée à afficher"
+}

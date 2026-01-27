@@ -79,5 +79,63 @@
     "alreadyExisted": "existait déjà",
     "noWorktree": "Aucun worktree trouvé pour cette tâche",
     "resultsDescriptionWithSkipped": "{{success}} réussies, {{skipped}} ignorées, {{failed}} échouées"
+  },
+  "workspace": {
+    "buildReady": "Build prêt pour révision",
+    "view": "Voir",
+    "branchDiverged": "Branche divergente",
+    "aiWillResolve": "L'IA résoudra",
+    "filesRenamed": "Fichiers renommés",
+    "branchBehind": "Branche en retard",
+    "readyToMerge": "Prêt à fusionner",
+    "files": "fichiers",
+    "conflict": "conflit",
+    "conflicts": "conflits",
+    "refresh": "Actualiser",
+    "discardBuild": "Abandonner le build",
+    "details": "Détails",
+    "stageOnlyLabel": "Préparer uniquement (réviser dans l'IDE avant de committer)",
+    "checkForConflicts": "Vérifier les conflits",
+    "checkingForConflicts": "Vérification des conflits..."
+  },
+  "staged": {
+    "title": "Modifications préparées avec succès",
+    "commitPlaceholder": "Message de commit...",
+    "aiGeneratedCommit": "Message de commit généré par l'IA",
+    "copied": "Copié !",
+    "copy": "Copier",
+    "editHint": "Modifiez si besoin, puis copiez et utilisez avec",
+    "nextSteps": "Prochaines étapes :",
+    "step1": "Ouvrez votre projet dans votre IDE ou terminal",
+    "step2": "Révisez les modifications préparées avec",
+    "step3": "Commitez quand vous êtes prêt :"
+  },
+  "discard": {
+    "title": "Abandonner le build",
+    "description": "Êtes-vous sûr de vouloir abandonner toutes les modifications pour \"{{title}}\" ?",
+    "warning": "Cela supprimera définitivement l'espace de travail isolé et toutes les modifications non validées. La tâche sera remise au statut Planification.",
+    "filesChanged": "Fichiers modifiés :",
+    "lines": "Lignes :",
+    "cancel": "Annuler",
+    "discard": "Abandonner le build",
+    "discarding": "Abandon en cours..."
+  },
+  "diff": {
+    "title": "Fichiers modifiés",
+    "noChanges": "Aucune modification trouvée",
+    "noChangedFiles": "Aucun fichier modifié trouvé",
+    "close": "Fermer"
+  },
+  "conflict": {
+    "title": "Aperçu des conflits de fusion",
+    "potentialConflicts": "{{count}} conflit potentiel détecté.",
+    "potentialConflicts_other": "{{count}} conflits potentiels détectés.",
+    "canBeAutoMerged": "{{count}} peuvent être fusionnés automatiquement.",
+    "location": "Emplacement :",
+    "reason": "Raison :",
+    "strategy": "Stratégie :",
+    "autoMerge": "fusion auto",
+    "noConflicts": "Aucun conflit détecté",
+    "close": "Fermer"
   }
 }

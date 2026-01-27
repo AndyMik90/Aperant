@@ -4,6 +4,7 @@
  * Uses extracted hooks and components for better maintainability
  */
 
+import { useTranslation } from 'react-i18next';
 import { Download, Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -57,6 +58,7 @@ export function LinearTaskImportModalRefactored({
     handleImport,
     resetState
   } = useLinearImportModal({ projectId, open, onImportComplete });
+  const { t } = useTranslation('linear');
 
   // Handle modal open/close with state reset
   const handleOpenChange = (newOpen: boolean) => {
@@ -72,10 +74,10 @@ export function LinearTaskImportModalRefactored({
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2 text-foreground">
             <Download className="h-5 w-5" />
-            Import Linear Tasks
+            {t('importModal.title')}
           </DialogTitle>
           <DialogDescription>
-            Select tasks from Linear to import into AutoBuild
+            {t('importModal.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -143,7 +145,7 @@ export function LinearTaskImportModalRefactored({
 
         <DialogFooter className="shrink-0">
           <Button variant="outline" onClick={() => handleOpenChange(false)}>
-            {importResult?.success ? 'Done' : 'Cancel'}
+            {importResult?.success ? t('importModal.done') : t('importModal.cancel')}
           </Button>
           {!importResult?.success && (
             <Button
@@ -153,13 +155,12 @@ export function LinearTaskImportModalRefactored({
               {isImporting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Importing...
+                  {t('importModal.importing')}
                 </>
               ) : (
                 <>
                   <Download className="mr-2 h-4 w-4" />
-                  Import {selectedIssueIds.size} Task
-                  {selectedIssueIds.size !== 1 ? 's' : ''}
+                  {t('importModal.importTasks', { count: selectedIssueIds.size })}
                 </>
               )}
             </Button>

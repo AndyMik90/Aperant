@@ -1,0 +1,56 @@
+{
+  "hideSidebar": "Masquer la barre latérale",
+  "showSidebar": "Afficher la barre latérale",
+  "title": "Insights",
+  "description": "Posez des questions sur votre codebase",
+  "newChat": "Nouvelle conversation",
+  "startConversation": "Commencer une conversation",
+  "emptyState": {
+    "description": "Posez des questions sur votre codebase, obtenez des suggestions d'amélioration, ou discutez des fonctionnalités que vous souhaitez implémenter.",
+    "suggestions": [
+      "Quelle est l'architecture de ce projet ?",
+      "Suggérer des améliorations pour la qualité du code",
+      "Quelles fonctionnalités pourrais-je ajouter ensuite ?",
+      "Y a-t-il des problèmes de sécurité ?"
+    ]
+  },
+  "assistant": "Assistant",
+  "you": "Vous",
+  "thinking": "Réflexion...",
+  "placeholder": "Posez des questions sur votre codebase...",
+  "keyboardHint": "Appuyez sur Entrée pour envoyer, Maj+Entrée pour nouvelle ligne",
+  "suggestedTask": "Tâche suggérée",
+  "creating": "Création...",
+  "taskCreated": "Tâche créée",
+  "createTask": "Créer une tâche",
+  "tools": {
+    "one": "{{count}} outil utilisé",
+    "other": "{{count}} outils utilisés"
+  },
+  "toolIndicators": {
+    "read": "Lecture du fichier",
+    "glob": "Recherche de fichiers",
+    "grep": "Recherche de code"
+  },
+  "chatHistory": {
+    "title": "Historique des conversations",
+    "noConversations": "Aucune conversation pour le moment",
+    "newConversation": "Nouvelle conversation",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "daysAgo": "Il y a {{count}} jours",
+    "message": "{{count}} message",
+    "message_plural": "{{count}} messages",
+    "rename": "Renommer",
+    "delete": "Supprimer",
+    "deleteDialog": {
+      "title": "Supprimer la conversation ?",
+      "description": "Cela supprimera définitivement cette conversation et tous ses messages. Cette action ne peut pas être annulée.",
+      "cancel": "Annuler",
+      "confirm": "Supprimer"
+    }
+  },
+  "accessibility": {
+    "opensInNewWindow": "s'ouvre dans une nouvelle fenêtre"
+  }
+}

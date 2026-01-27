@@ -1,0 +1,56 @@
+{
+  "hideSidebar": "Hide sidebar",
+  "showSidebar": "Show sidebar",
+  "title": "Insights",
+  "description": "Ask questions about your codebase",
+  "newChat": "New Chat",
+  "startConversation": "Start a Conversation",
+  "emptyState": {
+    "description": "Ask questions about your codebase, get suggestions for improvements, or discuss features you'd like to implement.",
+    "suggestions": [
+      "What is the architecture of this project?",
+      "Suggest improvements for code quality",
+      "What features could I add next?",
+      "Are there any security concerns?"
+    ]
+  },
+  "assistant": "Assistant",
+  "you": "You",
+  "thinking": "Thinking...",
+  "placeholder": "Ask about your codebase...",
+  "keyboardHint": "Press Enter to send, Shift+Enter for new line",
+  "suggestedTask": "Suggested Task",
+  "creating": "Creating...",
+  "taskCreated": "Task Created",
+  "createTask": "Create Task",
+  "tools": {
+    "one": "{{count}} tool used",
+    "other": "{{count}} tools used"
+  },
+  "toolIndicators": {
+    "read": "Reading file",
+    "glob": "Searching files",
+    "grep": "Searching code"
+  },
+  "chatHistory": {
+    "title": "Chat History",
+    "noConversations": "No conversations yet",
+    "newConversation": "New Conversation",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "daysAgo": "{{count}} days ago",
+    "message": "{{count}} message",
+    "message_plural": "{{count}} messages",
+    "rename": "Rename",
+    "delete": "Delete",
+    "deleteDialog": {
+      "title": "Delete conversation?",
+      "description": "This will permanently delete this conversation and all its messages. This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    }
+  },
+  "accessibility": {
+    "opensInNewWindow": "opens in new window"
+  }
+}

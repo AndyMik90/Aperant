@@ -2,6 +2,7 @@
  * Search input and state filter dropdown
  */
 
+import { useTranslation } from 'react-i18next';
 import { Search, Filter } from 'lucide-react';
 import { Input } from '../../ui/input';
 import {
@@ -27,12 +28,14 @@ export function SearchAndFilterBar({
   onSearchChange,
   onFilterChange
 }: SearchAndFilterBarProps) {
+  const { t } = useTranslation('linear');
+
   return (
     <div className="flex gap-3 items-center shrink-0">
       <div className="flex-1 relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search tasks..."
+          placeholder={t('searchAndFilter.searchPlaceholder')}
           value={searchQuery}
           onChange={e => onSearchChange(e.target.value)}
           className="pl-9"
@@ -45,7 +48,7 @@ export function SearchAndFilterBar({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All states</SelectItem>
+          <SelectItem value="all">{t('searchAndFilter.allStates')}</SelectItem>
           {uniqueStateTypes.map(type => (
             <SelectItem key={type} value={type}>
               {type.charAt(0).toUpperCase() + type.slice(1)}

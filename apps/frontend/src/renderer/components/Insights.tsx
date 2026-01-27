@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   MessageSquare,
@@ -88,7 +88,7 @@ interface InsightsProps {
 }
 
 export function Insights({ projectId }: InsightsProps) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'insights']);
   const session = useInsightsStore((state) => state.session);
   const sessions = useInsightsStore((state) => state.sessions);
   const status = useInsightsStore((state) => state.status);
@@ -98,7 +98,7 @@ export function Insights({ projectId }: InsightsProps) {
 
   // Create markdown components with translated accessibility text
   const markdownComponents = useMemo(() => ({
-    a: createSafeLink(t('accessibility.opensInNewWindow')),
+    a: createSafeLink(t('insights:accessibility.opensInNewWindow')),
   }), [t]);
 
   const [inputValue, setInputValue] = useState('');
@@ -106,9 +106,8 @@ export function Insights({ projectId }: InsightsProps) {
   const [taskCreated, setTaskCreated] = useState<Set<string>>(new Set());
   const [showSidebar, setShowSidebar] = useState(true);
 
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const scrollAreaViewportRef = useRef<HTMLDivElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Load session and set up listeners on mount
   useEffect(() => {
@@ -118,45 +117,8 @@ export function Insights({ projectId }: InsightsProps) {
   }, [projectId]);
 
   // Auto-scroll to bottom when messages change
-  // Uses requestAnimationFrame to ensure DOM layout is complete before scrolling
-  // and direct scrollTop manipulation for more predictable behavior than scrollIntoView
   useEffect(() => {
-    const scrollToBottom = () => {
-      const viewport = scrollAreaViewportRef.current;
-      if (viewport) {
-        // Use direct scrollTop manipulation for immediate, predictable scrolling
-        // This avoids race conditions with smooth scrolling animation on macOS
-        viewport.scrollTop = viewport.scrollHeight;
-      } else {
-        // Fallback to scrollIntoView for the sentinel element
-        messagesEndRef.current?.scrollIntoView({ block: 'end' });
-      }
-    };
-
-    // During streaming, use requestAnimationFrame to ensure DOM is updated
-    // After streaming completes, scroll immediately without animation
-    const isStreaming = !!streamingContent;
-    let rafId: number | undefined;
-    if (isStreaming) {
-      rafId = requestAnimationFrame(scrollToBottom);
-    } else {
-      // Small delay for non-streaming updates to allow layout to settle
-      const timeoutId = setTimeout(() => {
-        rafId = requestAnimationFrame(scrollToBottom);
-      }, 10);
-      return () => {
-        clearTimeout(timeoutId);
-        if (rafId !== undefined) {
-          cancelAnimationFrame(rafId);
-        }
-      };
-    }
-
-    return () => {
-      if (rafId !== undefined) {
-        cancelAnimationFrame(rafId);
-      }
-    };
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [session?.messages, streamingContent]);
 
   // Focus textarea on mount
@@ -168,11 +130,6 @@ export function Insights({ projectId }: InsightsProps) {
   useEffect(() => {
     setTaskCreated(new Set());
   }, [session?.id]);
-
-  // Stable callback for viewport ref to avoid creating new function on each render
-  const handleViewportRef = useCallback((ref: HTMLDivElement | null) => {
-    scrollAreaViewportRef.current = ref;
-  }, []);
 
   const handleSend = () => {
     const message = inputValue.trim();
@@ -266,7 +223,7 @@ export function Insights({ projectId }: InsightsProps) {
               size="icon"
               className="h-8 w-8"
               onClick={() => setShowSidebar(!showSidebar)}
-              title={showSidebar ? 'Hide sidebar' : 'Show sidebar'}
+              title={showSidebar ? t('insights:hideSidebar') : t('insights:showSidebar')}
             >
               {showSidebar ? (
                 <PanelLeftClose className="h-4 w-4" />
@@ -278,9 +235,9 @@ export function Insights({ projectId }: InsightsProps) {
               <Sparkles className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h2 className="font-semibold text-foreground">Insights</h2>
+              <h2 className="font-semibold text-foreground">{t('insights:title')}</h2>
               <p className="text-sm text-muted-foreground">
-                Ask questions about your codebase
+                {t('insights:description')}
               </p>
             </div>
           </div>
@@ -296,35 +253,26 @@ export function Insights({ projectId }: InsightsProps) {
               onClick={handleNewSession}
             >
               <Plus className="mr-2 h-4 w-4" />
-              New Chat
+              {t('insights:newChat')}
             </Button>
           </div>
         </div>
 
       {/* Messages */}
-      <ScrollArea
-        className="flex-1 px-6 py-4"
-        onViewportRef={handleViewportRef}
-      >
+      <ScrollArea className="flex-1 px-6 py-4">
         {messages.length === 0 && !streamingContent ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
               <MessageSquare className="h-8 w-8 text-muted-foreground" />
             </div>
             <h3 className="mb-2 text-lg font-medium text-foreground">
-              Start a Conversation
+              {t('insights:startConversation')}
             </h3>
             <p className="max-w-md text-sm text-muted-foreground">
-              Ask questions about your codebase, get suggestions for improvements,
-              or discuss features you'd like to implement.
+              {t('insights:emptyState.description')}
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-2">
-              {[
-                'What is the architecture of this project?',
-                'Suggest improvements for code quality',
-                'What features could I add next?',
-                'Are there any security concerns?'
-              ].map((suggestion) => (
+              {(t('insights:emptyState.suggestions', { returnObjects: true }) as string[]).map((suggestion) => (
                 <Button
                   key={suggestion}
                   variant="outline"
@@ -361,7 +309,7 @@ export function Insights({ projectId }: InsightsProps) {
                 </div>
                 <div className="flex-1">
                   <div className="mb-1 text-sm font-medium text-foreground">
-                    Assistant
+                    {t('insights:assistant')}
                   </div>
                   {streamingContent && (
                     <div className="prose prose-sm dark:prose-invert max-w-none">
@@ -386,7 +334,7 @@ export function Insights({ projectId }: InsightsProps) {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Thinking...
+                  {t('insights:thinking')}
                 </div>
               </div>
             )}
@@ -405,14 +353,14 @@ export function Insights({ projectId }: InsightsProps) {
       </ScrollArea>
 
       {/* Input */}
-      <div className="flex-shrink-0 border-t border-border p-4">
+      <div className="border-t border-border p-4">
         <div className="flex gap-2">
           <Textarea
             ref={textareaRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about your codebase..."
+            placeholder={t('insights:placeholder')}
             className="min-h-[80px] resize-none"
             disabled={isLoading}
           />
@@ -429,7 +377,7 @@ export function Insights({ projectId }: InsightsProps) {
           </Button>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Press Enter to send, Shift+Enter for new line
+          {t('insights:keyboardHint')}
         </p>
       </div>
       </div>
@@ -452,6 +400,7 @@ function MessageBubble({
   isCreatingTask,
   taskCreated
 }: MessageBubbleProps) {
+  const { t } = useTranslation('insights');
   const isUser = message.role === 'user';
 
   return (
@@ -470,7 +419,7 @@ function MessageBubble({
       </div>
       <div className="flex-1 space-y-2">
         <div className="text-sm font-medium text-foreground">
-          {isUser ? 'You' : 'Assistant'}
+          {isUser ? t('insights:you') : t('insights:assistant')}
         </div>
         <div className="prose prose-sm dark:prose-invert max-w-none">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
@@ -490,7 +439,7 @@ function MessageBubble({
               <div className="mb-2 flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium text-primary">
-                  Suggested Task
+                  {t('insights:suggestedTask')}
                 </span>
               </div>
               <h4 className="mb-2 font-medium text-foreground">
@@ -535,17 +484,17 @@ function MessageBubble({
                 {isCreatingTask ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
+                    {t('insights:creating')}
                   </>
                 ) : taskCreated ? (
                   <>
                     <CheckCircle2 className="mr-2 h-4 w-4" />
-                    Task Created
+                    {t('insights:taskCreated')}
                   </>
                 ) : (
                   <>
                     <Plus className="mr-2 h-4 w-4" />
-                    Create Task
+                    {t('insights:createTask')}
                   </>
                 )}
               </Button>
@@ -567,6 +516,7 @@ interface ToolUsageHistoryProps {
 }
 
 function ToolUsageHistory({ tools }: ToolUsageHistoryProps) {
+  const { t } = useTranslation('insights');
   const [expanded, setExpanded] = useState(false);
 
   if (tools.length === 0) return null;
@@ -620,7 +570,7 @@ function ToolUsageHistory({ tools }: ToolUsageHistoryProps) {
             );
           })}
         </span>
-        <span>{tools.length} tool{tools.length !== 1 ? 's' : ''} used</span>
+        <span>{t('insights:tools', { count: tools.length })}</span>
         <span className="text-[10px]">{expanded ? '▲' : '▼'}</span>
       </button>
 
@@ -657,24 +607,25 @@ interface ToolIndicatorProps {
 
 function ToolIndicator({ name, input }: ToolIndicatorProps) {
   // Get friendly name and icon for each tool
+  const { t: tTool } = useTranslation('insights');
   const getToolInfo = (toolName: string) => {
     switch (toolName) {
       case 'Read':
         return {
           icon: FileText,
-          label: 'Reading file',
+          label: tTool('toolIndicators.read'),
           color: 'text-blue-500 bg-blue-500/10'
         };
       case 'Glob':
         return {
           icon: FolderSearch,
-          label: 'Searching files',
+          label: tTool('toolIndicators.glob'),
           color: 'text-amber-500 bg-amber-500/10'
         };
       case 'Grep':
         return {
           icon: Search,
-          label: 'Searching code',
+          label: tTool('toolIndicators.grep'),
           color: 'text-green-500 bg-green-500/10'
         };
       default:

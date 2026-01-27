@@ -9,6 +9,24 @@
     "closeTabAriaLabel": "Fermer l'onglet (retire le projet de l'application)",
     "addProjectAriaLabel": "Ajouter un projet"
   },
+  "imageUpload": {
+    "maxImages": "Maximum de {{count}} images autorisées",
+    "remainingSlots": "Seulement {{count}} image(s) supplémentaire(s) peuvent être ajoutées. Certains fichiers ont été ignorés.",
+    "invalidType": "\"{{filename}}\" n'est pas un type d'image valide. Types autorisés : {{allowedTypes}}",
+    "largeFile": "\"{{filename}}\" fait plus de 10 Mo. Envisagez de le compresser pour de meilleures performances.",
+    "processFailed": "Échec du traitement de \"{{filename}}\"",
+    "dropPrompt": "Déposez les images ici ou cliquez pour parcourir",
+    "sizeLimit": "{{allowedTypes}} jusqu'à 10 Mo chacune ({{current}}/{{max}})",
+    "maxImagesReached": "Maximum de {{max}} images",
+    "largeFileWarning": "Fichier volumineux - envisagez de compresser"
+  },
+  "fileExplorer": {
+    "title": "Fichiers du projet",
+    "dragHint": "Faites glisser les fichiers dans un terminal pour insérer le chemin",
+    "dragReferencesHint": "Faites glisser les fichiers pour les ajouter comme références",
+    "referencedFiles": "Fichiers référencés",
+    "folder": "dossier"
+  },
   "accessibility": {
     "deleteFeatureAriaLabel": "Supprimer la fonctionnalité",
     "closeFeatureDetailsAriaLabel": "Fermer les détails de la fonctionnalité",
@@ -77,22 +95,9 @@
     "discard": "Abandonner",
     "switch": "Changer",
     "add": "Ajouter",
-    "apply": "Appliquer",
     "gotIt": "Compris",
     "continue": "Continuer",
     "saving": "Enregistrement..."
-  },
-  "actions": {
-    "save": "Enregistrer",
-    "apply": "Appliquer",
-    "delete": "Supprimer",
-    "settings": "Paramètres"
-  },
-  "os": {
-    "windows": "Windows",
-    "macos": "macOS",
-    "linux": "Linux",
-    "unknown": "Inconnu"
   },
   "labels": {
     "loading": "Chargement...",
@@ -105,7 +110,20 @@
     "optional": "Optionnel",
     "required": "Requis",
     "dismiss": "Ignorer",
-    "important": "Important"
+    "important": "Important",
+    "noFilesFound": "Aucun fichier trouvé"
+  },
+  "keyboardShortcuts": {
+    "navigate": "↑↓ naviguer",
+    "select": "Entrée sélectionner",
+    "close": "Échap fermer",
+    "fullHint": "↑↓ naviguer · Entrée sélectionner · Échap fermer"
+  },
+  "terminal": {
+    "title": "Terminal",
+    "dropToInsertPath": "Déposer pour insérer le chemin",
+    "failedToOpenIDE": "Échec de l'ouverture de l'IDE",
+    "couldNotLaunchIDE": "Impossible de lancer l'IDE"
   },
   "selection": {
     "select": "Sélectionner",
@@ -169,6 +187,7 @@
     "upgradeTitle": "Passez à la version supérieure pour plus d'utilisation",
     "upgradeDescription": "Mettez à niveau votre abonnement Claude pour des limites d'utilisation plus élevées.",
     "upgradeSubscription": "Mettre à niveau l'abonnement",
+    "recommendedAriaLabel": "Recommandé",
     "sources": {
       "changelog": "Changelog",
       "task": "Tâche",
@@ -209,7 +228,18 @@
       "whatHappenedDesc": "L'opération {{source}} a été arrêtée car votre compte Claude ({{account}}) a atteint sa limite d'utilisation.",
       "switchRetryOrAdd": "Vous pouvez passer à un autre compte et réessayer, ou ajouter plus de comptes ci-dessus.",
       "addOrWait": "Ajoutez un autre compte Claude ci-dessus pour continuer à travailler, ou attendez la réinitialisation de la limite.",
-      "close": "Fermer"
+      "close": "Fermer",
+      "recommendedLabel": "Recommandé : <strong>{{name}}</strong> a plus de capacité disponible.",
+      "switchAccountAndRetry": "Changer de compte Claude et réessayer l'opération :",
+      "selectAccount": "Sélectionner un compte...",
+      "addNewAccount": "Ajouter un nouveau compte...",
+      "addAnotherSubscription": "Ajoutez un autre abonnement Claude pour basculer automatiquement quand vous atteignez les limites.",
+      "addAnotherAccount": "Ajouter un autre compte :",
+      "connectAccount": "Connecter un compte Claude :",
+      "willOpenLogin": "Cela ouvrira la connexion Claude pour authentifier le nouveau compte.",
+      "upgradeTitle": "Passez à la version supérieure pour plus d'utilisation",
+      "upgradeDescription": "Mettez à niveau votre abonnement Claude pour des limites d'utilisation plus élevées.",
+      "upgradeSubscription": "Mettre à niveau l'abonnement"
     }
   },
   "prReview": {
@@ -662,5 +692,50 @@
     "progress": "Progression",
     "lastActivityPrefix": "dernière activité",
     "lastProgressUpdateTooltip": "Dernière mise à jour de progression reçue"
+  },
+  "insightsModelSelector": {
+    "agentProfile": "Profil d'agent",
+    "modelTitle": "Modèle : {{model}}",
+    "custom": "Personnaliser...",
+    "chooseModel": "Choisir le modèle et le niveau de réflexion"
+  },
+  "worktrees": {
+    "title": "Worktrees",
+    "description": "Gérer les espaces de travail isolés pour vos tâches Auto Claude",
+    "taskWorktrees": "Worktrees de Tâches",
+    "terminalWorktrees": "Terminaux Worktree",
+    "empty": {
+      "title": "Aucun Worktree",
+      "description": "Les worktrees sont créés automatiquement lorsqu'Auto Claude construit des fonctionnalités. Vous pouvez également créer des terminaux worktree à partir de l'onglet Terminaux d'Agent."
+    },
+    "stats": {
+      "filesChanged": "{{count}} fichiers modifiés",
+      "commitsAhead": "{{count}} commits d'avance"
+    },
+    "mergeToBranch": "Fusionner vers {{branch}}",
+    "copyPath": "Copier le Chemin",
+    "createdAt": "Créé {{date}}",
+    "merge": {
+      "title": "Fusionner le Worktree",
+      "description": "Fusionner les modifications de ce worktree dans la branche de base.",
+      "sourceBranch": "Branche Source",
+      "targetBranch": "Branche Cible",
+      "changes": "Modifications",
+      "changesCount": "{{commits}} commits, {{files}} fichiers",
+      "success": "Fusion Réussie",
+      "failed": "Fusion Échouée",
+      "conflictingFiles": "Fichiers en conflit",
+      "merging": "Fusion en cours..."
+    },
+    "delete": {
+      "title": "Supprimer le Worktree ?",
+      "description": "Cela supprimera définitivement le worktree et toutes les modifications non validées.",
+      "warning": "Cette action ne peut pas être annulée.",
+      "deleting": "Suppression..."
+    },
+    "deleteTerminal": {
+      "title": "Supprimer le Worktree Terminal ?",
+      "description": "Cela supprimera définitivement le worktree et sa branche. Toutes les modifications non validées seront perdues."
+    }
   }
 }

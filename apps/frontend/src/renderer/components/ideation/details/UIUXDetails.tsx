@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
   CheckCircle2,
@@ -5,7 +6,7 @@ import {
   FileCode
 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
-import { UIUX_CATEGORY_LABELS } from '../../../../shared/constants';
+import { getUIUXCategoryLabels } from '../../../../shared/constants';
 import type { UIUXImprovementIdea } from '../../../../shared/types';
 
 interface UIUXDetailsProps {
@@ -13,12 +14,14 @@ interface UIUXDetailsProps {
 }
 
 export function UIUXDetails({ idea }: UIUXDetailsProps) {
+  const { t } = useTranslation('ideation');
+  const uiuxLabels = getUIUXCategoryLabels(t);
   return (
     <>
       {/* Category */}
       <div>
         <Badge variant="outline" className="text-sm">
-          {UIUX_CATEGORY_LABELS[idea.category]}
+          {uiuxLabels[idea.category]}
         </Badge>
       </div>
 

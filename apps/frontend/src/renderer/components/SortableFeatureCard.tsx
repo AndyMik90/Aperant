@@ -1,5 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/utils';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -33,6 +34,8 @@ export function SortableFeatureCard({
   onConvertToSpec,
   onGoToTask
 }: SortableFeatureCardProps) {
+  const { t } = useTranslation('roadmap');
+
   const {
     attributes,
     listeners,
@@ -97,7 +100,7 @@ export function SortableFeatureCard({
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>
-                    Phase: {phaseName}
+                    {t('featureCard.phase', { name: phaseName })}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -112,7 +115,7 @@ export function SortableFeatureCard({
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>
-                    This feature addresses competitor pain points
+                    {t('featureCard.competitorInsight')}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -131,7 +134,7 @@ export function SortableFeatureCard({
                 }}
               >
                 <ExternalLink className="h-3 w-3 mr-1" />
-                Task
+                {t('featureCard.task')}
               </Button>
             ) : (
               feature.status !== 'done' &&
@@ -146,7 +149,7 @@ export function SortableFeatureCard({
                   }}
                 >
                   <Play className="h-3 w-3 mr-1" />
-                  Build
+                  {t('featureCard.build')}
                 </Button>
               )
             )}
@@ -185,7 +188,7 @@ export function SortableFeatureCard({
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>
-                {feature.votes} votes from user feedback
+                {t('featureCard.votesFromFeedback', { votes: feature.votes })}
               </TooltipContent>
             </Tooltip>
           )}
@@ -197,11 +200,11 @@ export function SortableFeatureCard({
                   variant="outline"
                   className="text-[10px] px-1.5 py-0 text-orange-500 border-orange-500/30"
                 >
-                  {feature.source?.provider === 'canny' ? 'Canny' : 'External'}
+                  {feature.source?.provider === 'canny' ? t('featureCard.source.canny') : t('featureCard.source.external')}
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>
-                Imported from {feature.source?.provider}
+                {t('featureCard.importedFrom', { provider: feature.source?.provider || 'external' })}
               </TooltipContent>
             </Tooltip>
           )}

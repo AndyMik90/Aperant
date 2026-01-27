@@ -9,6 +9,24 @@
     "closeTabAriaLabel": "Close tab (removes project from app)",
     "addProjectAriaLabel": "Add project"
   },
+  "imageUpload": {
+    "maxImages": "Maximum of {{count}} images allowed",
+    "remainingSlots": "Only {{count}} more image(s) can be added. Some files were skipped.",
+    "invalidType": "\"{{filename}}\" is not a valid image type. Allowed: {{allowedTypes}}",
+    "largeFile": "\"{{filename}}\" is larger than 10MB. Consider compressing it for better performance.",
+    "processFailed": "Failed to process \"{{filename}}\"",
+    "dropPrompt": "Drop images here or click to browse",
+    "sizeLimit": "{{allowedTypes}} up to 10MB each ({{current}}/{{max}})",
+    "maxImagesReached": "{{max}} images maximum",
+    "largeFileWarning": "Large file - consider compressing"
+  },
+  "fileExplorer": {
+    "title": "Project Files",
+    "dragHint": "Drag files into a terminal to insert the path",
+    "dragReferencesHint": "Drag files to add as references",
+    "referencedFiles": "Referenced Files",
+    "folder": "folder"
+  },
   "accessibility": {
     "deleteFeatureAriaLabel": "Delete feature",
     "closeFeatureDetailsAriaLabel": "Close feature details",
@@ -77,22 +95,9 @@
     "discard": "Discard",
     "switch": "Switch",
     "add": "Add",
-    "apply": "Apply",
     "gotIt": "Got it",
     "continue": "Continue",
     "saving": "Saving..."
-  },
-  "actions": {
-    "save": "Save",
-    "apply": "Apply",
-    "delete": "Delete",
-    "settings": "Settings"
-  },
-  "os": {
-    "windows": "Windows",
-    "macos": "macOS",
-    "linux": "Linux",
-    "unknown": "your OS"
   },
   "labels": {
     "loading": "Loading...",
@@ -105,7 +110,20 @@
     "optional": "Optional",
     "required": "Required",
     "dismiss": "Dismiss",
-    "important": "Important"
+    "important": "Important",
+    "noFilesFound": "No files found"
+  },
+  "keyboardShortcuts": {
+    "navigate": "↑↓ navigate",
+    "select": "Enter select",
+    "close": "Esc close",
+    "fullHint": "↑↓ navigate · Enter select · Esc close"
+  },
+  "terminal": {
+    "title": "Terminal",
+    "dropToInsertPath": "Drop to insert path",
+    "failedToOpenIDE": "Failed to open IDE",
+    "couldNotLaunchIDE": "Could not launch IDE"
   },
   "selection": {
     "select": "Select",
@@ -169,6 +187,7 @@
     "upgradeTitle": "Upgrade for more usage",
     "upgradeDescription": "Upgrade your Claude subscription for higher usage limits.",
     "upgradeSubscription": "Upgrade Subscription",
+    "recommendedAriaLabel": "Recommended",
     "sources": {
       "changelog": "Changelog",
       "task": "Task",
@@ -209,7 +228,18 @@
       "whatHappenedDesc": "The {{source}} operation was stopped because your Claude account ({{account}}) reached its usage limit.",
       "switchRetryOrAdd": "You can switch to another account and retry, or add more accounts above.",
       "addOrWait": "Add another Claude account above to continue working, or wait for the limit to reset.",
-      "close": "Close"
+      "close": "Close",
+      "recommendedLabel": "Recommended: <strong>{{name}}</strong> has more capacity available.",
+      "switchAccountAndRetry": "Switch to another Claude account and retry the operation:",
+      "selectAccount": "Select account...",
+      "addNewAccount": "Add new account...",
+      "addAnotherSubscription": "Add another Claude subscription to automatically switch when you hit rate limits.",
+      "addAnotherAccount": "Add another account:",
+      "connectAccount": "Connect a Claude account:",
+      "willOpenLogin": "This will open Claude login to authenticate the new account.",
+      "upgradeTitle": "Upgrade for more usage",
+      "upgradeDescription": "Upgrade your Claude subscription for higher usage limits.",
+      "upgradeSubscription": "Upgrade Subscription"
     }
   },
   "prReview": {
@@ -662,5 +692,50 @@
     "progress": "Progress",
     "lastActivityPrefix": "last activity",
     "lastProgressUpdateTooltip": "Last progress update received"
+  },
+  "insightsModelSelector": {
+    "agentProfile": "Agent Profile",
+    "modelTitle": "Model: {{model}}",
+    "custom": "Custom...",
+    "chooseModel": "Choose model & thinking level"
+  },
+  "worktrees": {
+    "title": "Worktrees",
+    "description": "Manage isolated workspaces for your Auto Claude tasks",
+    "taskWorktrees": "Task Worktrees",
+    "terminalWorktrees": "Terminal Worktrees",
+    "empty": {
+      "title": "No Worktrees",
+      "description": "Worktrees are created automatically when Auto Claude builds features. You can also create terminal worktrees from the Agent Terminals tab."
+    },
+    "stats": {
+      "filesChanged": "{{count}} files changed",
+      "commitsAhead": "{{count}} commits ahead"
+    },
+    "mergeToBranch": "Merge to {{branch}}",
+    "copyPath": "Copy Path",
+    "createdAt": "Created {{date}}",
+    "merge": {
+      "title": "Merge Worktree",
+      "description": "Merge changes from this worktree into the base branch.",
+      "sourceBranch": "Source Branch",
+      "targetBranch": "Target Branch",
+      "changes": "Changes",
+      "changesCount": "{{commits}} commits, {{files}} files",
+      "success": "Merge Successful",
+      "failed": "Merge Failed",
+      "conflictingFiles": "Conflicting files",
+      "merging": "Merging..."
+    },
+    "delete": {
+      "title": "Delete Worktree?",
+      "description": "This will permanently delete the worktree and all uncommitted changes.",
+      "warning": "This action cannot be undone.",
+      "deleting": "Deleting..."
+    },
+    "deleteTerminal": {
+      "title": "Delete Terminal Worktree?",
+      "description": "This will permanently delete the worktree and its branch. Any uncommitted changes will be lost."
+    }
   }
 }

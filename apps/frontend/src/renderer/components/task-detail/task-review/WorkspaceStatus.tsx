@@ -160,7 +160,7 @@ export function WorkspaceStatus({
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-medium text-sm text-foreground flex items-center gap-2">
             <GitBranch className="h-4 w-4 text-purple-400" />
-            Build Ready for Review
+            {t('taskReview:workspace.buildReady')}
           </h3>
           <Button
             variant="ghost"
@@ -169,7 +169,7 @@ export function WorkspaceStatus({
             className="h-7 px-2 text-xs"
           >
             <Eye className="h-3.5 w-3.5 mr-1" />
-            View
+            {t('taskReview:workspace.view')}
           </Button>
         </div>
 
@@ -263,7 +263,7 @@ export function WorkspaceStatus({
         {isLoadingPreview && !mergePreview && (
           <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Checking for conflicts...
+            {t('taskReview:workspace.checkingForConflicts')}
           </div>
         )}
 
@@ -282,8 +282,8 @@ export function WorkspaceStatus({
                 <>
                   <AlertTriangle className="h-4 w-4 text-warning" />
                   <div>
-                    <span className="text-sm font-medium text-warning">Branch Diverged</span>
-                    <span className="text-xs text-muted-foreground ml-2">AI will resolve</span>
+                    <span className="text-sm font-medium text-warning">{t('taskReview:workspace.branchDiverged')}</span>
+                    <span className="text-xs text-muted-foreground ml-2">{t('taskReview:workspace.aiWillResolve')}</span>
                   </div>
                 </>
               ) : isBranchBehind || hasPathMappedMerges ? (
@@ -291,7 +291,7 @@ export function WorkspaceStatus({
                   <AlertTriangle className="h-4 w-4 text-warning" />
                   <div>
                     <span className="text-sm font-medium text-warning">
-                      {hasPathMappedMerges ? 'Files Renamed' : 'Branch Behind'}
+                      {hasPathMappedMerges ? t('taskReview:workspace.filesRenamed') : t('taskReview:workspace.branchBehind')}
                     </span>
                     <span className="text-xs text-muted-foreground ml-2">
                       AI will resolve ({hasPathMappedMerges ? `${pathMappedAIMergeCount} files` : `${commitsBehind} commits`})
@@ -301,7 +301,7 @@ export function WorkspaceStatus({
               ) : !hasAIConflicts ? (
                 <>
                   <CheckCircle className="h-4 w-4 text-success" />
-                  <span className="text-sm font-medium text-success">Ready to merge</span>
+                  <span className="text-sm font-medium text-success">{t('taskReview:workspace.readyToMerge')}</span>
                   <span className="text-xs text-muted-foreground ml-1">
                     {mergePreview.summary.totalFiles} files
                   </span>
@@ -310,7 +310,7 @@ export function WorkspaceStatus({
                 <>
                   <AlertTriangle className="h-4 w-4 text-warning" />
                   <span className="text-sm font-medium text-warning">
-                    {mergePreview.conflicts.length} conflict{mergePreview.conflicts.length !== 1 ? 's' : ''}
+                    {mergePreview.conflicts.length} {mergePreview.conflicts.length === 1 ? t('taskReview:workspace.conflict') : t('taskReview:workspace.conflicts')}
                   </span>
                 </>
               )}
@@ -323,7 +323,7 @@ export function WorkspaceStatus({
                   onClick={() => onShowConflictDialog(true)}
                   className="h-7 text-xs"
                 >
-                  Details
+                  {t('taskReview:workspace.details')}
                 </Button>
               )}
               <Button
@@ -332,7 +332,7 @@ export function WorkspaceStatus({
                 onClick={onLoadMergePreview}
                 disabled={isLoadingPreview}
                 className="h-7 px-2"
-                title="Refresh"
+                title={t('taskReview:workspace.refresh')}
               >
                 {isLoadingPreview ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -386,7 +386,7 @@ export function WorkspaceStatus({
             <span className={cn(
               "transition-colors",
               stageOnly ? "text-foreground" : "text-muted-foreground"
-            )}>Stage only (review in IDE before committing)</span>
+            )}>{t('taskReview:workspace.stageOnlyLabel')}</span>
           </label>
         )}
 
@@ -401,7 +401,7 @@ export function WorkspaceStatus({
               className="flex-1"
             >
               <GitMerge className="mr-2 h-4 w-4" />
-              Check for Conflicts
+              {t('taskReview:workspace.checkForConflicts')}
             </Button>
           )}
 
@@ -413,7 +413,7 @@ export function WorkspaceStatus({
               className="flex-1"
             >
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Checking for conflicts...
+              {t('taskReview:workspace.checkingForConflicts')}
             </Button>
           )}
 
@@ -484,7 +484,7 @@ export function WorkspaceStatus({
             onClick={() => onShowDiscardDialog(true)}
             disabled={isMerging || isDiscarding || isCreatingPR}
             className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
-            title="Discard build"
+            title={t('taskReview:workspace.discardBuild')}
           >
             <FolderX className="h-4 w-4" />
           </Button>

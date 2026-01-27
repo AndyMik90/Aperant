@@ -1,0 +1,85 @@
+{
+  "teamProjectSelector": {
+    "teamLabel": "Team",
+    "projectLabel": "Project (Optional)",
+    "loading": "Loading...",
+    "selectTeam": "Select a team",
+    "allProjects": "All projects",
+    "teamFormat": "{{name}} ({{key}})"
+  },
+  "selectTeamToView": "Select a team to view issues",
+  "searchAndFilter": {
+    "searchPlaceholder": "Search tasks...",
+    "allStates": "All states"
+  },
+  "selection": {
+    "deselectAll": "Deselect all",
+    "selectAll": "Select all",
+    "selectedOf": "{{selected}} of {{total}} selected",
+    "refresh": "Refresh"
+  },
+  "states": {
+    "backlog": "Backlog",
+    "todo": "Todo",
+    "inProgress": "In Progress",
+    "done": "Done",
+    "canceled": "Canceled"
+  },
+  "issueList": {
+    "emptyFilter": "No issues match your filters",
+    "empty": "No issues found"
+  },
+  "importModal": {
+    "title": "Import Linear Tasks",
+    "description": "Select tasks from Linear to import into AutoBuild",
+    "done": "Done",
+    "cancel": "Cancel",
+    "importing": "Importing...",
+    "importTasks": "Import {{count}} Task",
+    "importTasks_plural": "Import {{count}} Tasks"
+  },
+  "errors": {
+    "generic": "An error occurred"
+  },
+  "importSuccess": {
+    "title": "Import completed",
+    "description": "Tasks have been imported successfully",
+    "importedCount": "Successfully imported {{count}} task",
+    "importedCount_plural": "Successfully imported {{count}} tasks",
+    "processing": "Tasks are being processed. Check your Kanban board for progress.",
+    "close": "Close"
+  },
+  "issueCard": {
+    "hideDescription": "Hide description",
+    "showDescription": "Show description",
+    "assignedTo": "Assigned to {{name}}",
+    "project": "Project: {{name}}",
+    "viewInLinear": "View in Linear",
+    "moreLabels": "+{{count}} more"
+  },
+  "integration": {
+    "title": "Linear Integration",
+    "enabled": "Enabled",
+    "enableSync": "Enable Linear Sync",
+    "enableSyncDescription": "Create and update Linear issues automatically",
+    "apiKey": "API Key",
+    "apiKeyDescription": "Get your API key from",
+    "apiKeyPlaceholder": "lin_api_xxxxxxxx",
+    "connectionStatus": "Connection Status",
+    "checking": "Checking...",
+    "connected": "Connected{{name}}",
+    "connectedTo": "Connected to {{name}}",
+    "notConnected": "Not connected",
+    "tasksAvailableToImport": "{{count}}+ tasks available to import",
+    "importExistingTasks": "Import Existing Tasks",
+    "importExistingTasksDescription": "Select which Linear issues to import into AutoBuild as tasks.",
+    "importTasksFromLinear": "Import Tasks from Linear",
+    "realtimeSync": "Real-time Sync",
+    "realtimeSyncDescription": "Automatically import new tasks created in Linear",
+    "realtimeSyncWarning": "When enabled, new Linear issues will be automatically imported into AutoBuild. Make sure to configure your team/project filters below to control which issues are imported.",
+    "teamId": "Team ID (Optional)",
+    "teamIdPlaceholder": "Auto-detected",
+    "projectId": "Project ID (Optional)",
+    "projectIdPlaceholder": "Auto-created"
+  }
+}

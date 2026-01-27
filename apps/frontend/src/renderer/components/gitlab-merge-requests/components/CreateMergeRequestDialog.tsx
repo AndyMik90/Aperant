@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Loader2, GitPullRequest } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
@@ -30,6 +31,7 @@ export function CreateMergeRequestDialog({
   defaultTargetBranch = 'main',
   onSuccess
 }: CreateMergeRequestDialogProps) {
+  const { t } = useTranslation(['gitlab', 'common']);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [sourceBranch, setSourceBranch] = useState(defaultSourceBranch);
@@ -39,7 +41,7 @@ export function CreateMergeRequestDialog({
 
   const handleCreate = async () => {
     if (!title.trim() || !sourceBranch.trim() || !targetBranch.trim()) {
-      setError('Title, source branch, and target branch are required');
+      setError(t('gitlab:createMR.validation.requiredFields'));
       return;
     }
 
@@ -63,10 +65,10 @@ export function CreateMergeRequestDialog({
         setSourceBranch(defaultSourceBranch);
         setTargetBranch(defaultTargetBranch);
       } else {
-        setError(result.error || 'Failed to create merge request');
+        setError(result.error || t('gitlab:createMR.errors.createFailed'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create merge request');
+      setError(err instanceof Error ? err.message : t('gitlab:createMR.errors.createFailed'));
     } finally {
       setIsCreating(false);
     }
@@ -78,19 +80,19 @@ export function CreateMergeRequestDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitPullRequest className="h-5 w-5" />
-            Create Merge Request
+            {t('gitlab:createMR.title')}
           </DialogTitle>
           <DialogDescription>
-            Create a new merge request in GitLab
+            {t('gitlab:createMR.description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
+            <Label htmlFor="title">{t('gitlab:createMR.fields.title')}</Label>
             <Input
               id="title"
-              placeholder="Merge request title"
+              placeholder={t('gitlab:createMR.placeholders.title')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
@@ -98,19 +100,19 @@ export function CreateMergeRequestDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="source">Source Branch</Label>
+              <Label htmlFor="source">{t('gitlab:createMR.fields.sourceBranch')}</Label>
               <Input
                 id="source"
-                placeholder="feature/my-feature"
+                placeholder={t('gitlab:createMR.placeholders.sourceBranch')}
                 value={sourceBranch}
                 onChange={(e) => setSourceBranch(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="target">Target Branch</Label>
+              <Label htmlFor="target">{t('gitlab:createMR.fields.targetBranch')}</Label>
               <Input
                 id="target"
-                placeholder="main"
+                placeholder={t('gitlab:createMR.placeholders.targetBranch')}
                 value={targetBranch}
                 onChange={(e) => setTargetBranch(e.target.value)}
               />
@@ -118,10 +120,10 @@ export function CreateMergeRequestDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description (optional)</Label>
+            <Label htmlFor="description">{t('gitlab:createMR.fields.description')}</Label>
             <Textarea
               id="description"
-              placeholder="Describe the changes in this merge request..."
+              placeholder={t('gitlab:createMR.placeholders.description')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
@@ -137,16 +139,16 @@ export function CreateMergeRequestDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('common:cancel')}
           </Button>
           <Button onClick={handleCreate} disabled={isCreating}>
             {isCreating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating...
+                {t('gitlab:createMR.creating')}
               </>
             ) : (
-              'Create Merge Request'
+              t('gitlab:createMR.submit')
             )}
           </Button>
         </DialogFooter>

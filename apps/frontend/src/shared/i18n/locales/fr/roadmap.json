@@ -1,0 +1,180 @@
+{
+  "generation": {
+    "phases": {
+      "analyzing": "Analyse",
+      "discovering": "Découverte",
+      "generating": "Génération",
+      "complete": "Terminé",
+      "error": "Erreur"
+    },
+    "descriptions": {
+      "analyzing": "Analyse de la structure du projet et de la base de code...",
+      "discovering": "Découverte du public cible et des besoins des utilisateurs...",
+      "generating": "Génération de la feuille de route des fonctionnalités...",
+      "complete": "Génération de la feuille de route terminée !",
+      "error": "Échec de la génération"
+    },
+    "steps": {
+      "analyze": "Analyser",
+      "discover": "Découvrir",
+      "generate": "Générer"
+    },
+    "actions": {
+      "stop": "Arrêter",
+      "stopping": "Arrêt...",
+      "stopGeneration": "Arrêter la génération"
+    },
+    "progress": {
+      "label": "Progression"
+    },
+    "errors": {
+      "failedToStop": "Échec de l'arrêt de la génération :"
+    }
+  },
+  "kanban": {
+    "kanban": "Kanban",
+    "phases": "Phases",
+    "allFeatures": "Toutes les fonctionnalités",
+    "byPriority": "Par priorité",
+    "dropHere": "Déposer ici",
+    "noFeatures": "Aucune fonctionnalité",
+    "dragFeaturesHere": "Glisser les fonctionnalités ici",
+    "unknownStatus": "Statut inconnu",
+    "features": "fonctionnalités"
+  },
+  "status": {
+    "under_review": "En Révision",
+    "planned": "Planifié",
+    "in_progress": "En Cours",
+    "done": "Terminé"
+  },
+  "phase": {
+    "milestones": "Jalons",
+    "features": "Fonctionnalités",
+    "viewTask": "Voir la tâche",
+    "build": "Construire",
+    "moreFeatures": "plus de fonctionnalités"
+  },
+  "featureCard": {
+    "phase": "Phase : {{name}}",
+    "competitorInsight": "Cette fonctionnalité répond aux points de douleur des concurrents",
+    "task": "Tâche",
+    "build": "Construire",
+    "votesFromFeedback": "{{votes}} votes des commentaires des utilisateurs",
+    "externalSource": "Externe",
+    "cannySource": "Canny",
+    "importedFrom": "Importé de {{provider}}",
+    "source": {
+      "canny": "Canny",
+      "external": "Externe"
+    }
+  },
+  "competitorAnalysis": {
+    "enableAnalysisTitle": "Activer l'analyse des concurrents ?",
+    "enableAnalysisDescription": "Enrichissez votre feuille de route avec des informations sur les produits concurrents",
+    "whatItDoesTitle": "Ce que fait l'analyse des concurrents :",
+    "identifiesCompetitors": "Identifie 3 à 5 principaux concurrents en fonction de votre type de projet",
+    "searchesForFeedback": "Recherche les magasins d'applications, les forums et les médias sociaux pour obtenir les commentaires et les points de douleur des utilisateurs",
+    "suggestsFeatures": "Suggère des fonctionnalités qui comblent les lacunes des produits concurrents",
+    "webSearchesPerformed": "Des recherches web seront effectuées",
+    "webSearchesDescription": "Cette fonction effectuera des recherches web pour collecter des informations sur les concurrents. Le nom et le type de votre projet seront utilisés dans les requêtes de recherche. Aucun code ni donnée sensible n'est partagé.",
+    "optionalInfo": "Vous pouvez générer une feuille de route sans analyse des concurrents si vous préférez. La feuille de route sera toujours basée sur la structure de votre projet et les meilleures pratiques.",
+    "skipAnalysisButton": "Non, ignorer l'analyse",
+    "enableAnalysisButton": "Oui, activer l'analyse",
+    "optionsTitle": "Options d'analyse des concurrents",
+    "optionsDescription": "Ce projet dispose déjà d'une analyse des concurrents du {{date}}",
+    "useExistingTitle": "Utiliser l'analyse existante",
+    "recommended": "(Recommandé)",
+    "useExistingDescription": "Réutilisez les informations sur les concurrents que vous possédez déjà. Plus rapide et sans recherche web supplémentaire.",
+    "runNewTitle": "Exécuter une nouvelle analyse",
+    "runNewDescription": "Effectuez de nouvelles recherches web pour obtenir des informations à jour sur les concurrents. Prend plus de temps.",
+    "skipTitle": "Ignorer l'analyse des concurrents",
+    "skipDescription": "Générer une feuille de route sans aucune information sur les concurrents.",
+    "cancelButton": "Annuler",
+    "existing": {
+      "title": "Options d'Analyse des Concurrents",
+      "description": "Ce projet a une analyse existante des concurrents du {{date}}",
+      "recently": "récemment",
+      "recommended": "Recommandé",
+      "useExisting": {
+        "title": "Utiliser l'analyse existante",
+        "description": "Réutilisez les informations sur les concurrents que vous possédez déjà. Plus rapide et sans recherche web supplémentaire."
+      },
+      "runNew": {
+        "title": "Exécuter une nouvelle analyse",
+        "description": "Effectuez de nouvelles recherches web pour obtenir des informations à jour sur les concurrents. Prend plus de temps."
+      },
+      "skip": {
+        "title": "Ignorer l'analyse des concurrents",
+        "description": "Générer une feuille de route sans aucune information sur les concurrents."
+      },
+      "cancel": "Annuler"
+    },
+    "viewer": {
+      "title": "Résultats de l'Analyse des Concurrents",
+      "description": "Analysé {{count}} concurrents pour identifier les lacunes du marché et les opportunités",
+      "identifiedPainPoints": "Points de Douleur Identifiés",
+      "noPainPoints": "Aucun point de douleur identifié",
+      "source": "Source :",
+      "frequency": "Fréquence :",
+      "opportunity": "Opportunité :",
+      "marketInsightsSummary": "Résumé des Informations sur le Marché",
+      "topPainPoints": "Principaux Points de Douleur :",
+      "differentiatorOpportunities": "Opportunités de Différenciation :",
+      "marketTrends": "Tendances du Marché :",
+      "visit": "Visiter"
+    }
+  },
+  "context": {
+    "projectIndexTab": "Index du Projet",
+    "memoriesTab": "Mémoires"
+  },
+  "header": {
+    "addFeature": "Ajouter une Fonctionnalité",
+    "addFeatureTooltip": "Ajouter une nouvelle fonctionnalité à la feuille de route",
+    "regenerateTooltip": "Régénérer la Feuille de Route",
+    "competitorAnalysis": "Analyse des Concurrents",
+    "competitorAnalysisTooltip": "Cliquez pour voir l'analyse détaillée",
+    "competitorAnalysisTooltipContent": "{{count}} concurrents analysés avec {{painPoints}} points de douleur identifiés",
+    "target": "Cible :",
+    "morePersonas": "+{{count}} autres personas",
+    "secondaryPersonas": "Personas Secondaires :",
+    "features": "fonctionnalités",
+    "phases": "phases",
+    "priorities": {
+      "must": "Doit",
+      "should": "Devrait",
+      "could": "Pourrait",
+      "wont": "Ne sera pas"
+    }
+  },
+  "emptyState": {
+    "title": "Pas Encore de Feuille de Route",
+    "description": "Générez une feuille de route alimentée par l'IA qui comprend le public cible de votre projet et crée un plan de fonctionnalités stratégique.",
+    "generateButton": "Générer la Feuille de Route"
+  },
+  "featureCard": {
+    "goToTask": "Aller à la Tâche",
+    "build": "Construire",
+    "competitorInsight": "Information Concurrent",
+    "competitorInsightTooltip": "Cette fonctionnalité répond aux points de douleur des concurrents",
+    "impact": "impact"
+  },
+  "featureDetail": {
+    "description": "Description",
+    "rationale": "Justification",
+    "complexity": "Complexité",
+    "impact": "Impact",
+    "dependencies": "Dépendances",
+    "userStories": "Histoires Utilisateur",
+    "acceptanceCriteria": "Critères d'Acceptation",
+    "addressesCompetitorPainPoints": "Répond aux Points de Douleur des Concurrents",
+    "severity": "gravité",
+    "goToTask": "Aller à la Tâche",
+    "convertToTask": "Convertir en Tâche de Construction Automatique",
+    "deleteTitle": "Supprimer la Fonctionnalité ?",
+    "deleteDescription": "Cela supprimera définitivement \"{{title}}\" de votre feuille de route.",
+    "cancel": "Annuler",
+    "delete": "Supprimer"
+  }
+}

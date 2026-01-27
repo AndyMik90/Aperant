@@ -319,9 +319,9 @@ export function SDKRateLimitModal() {
               <>
                 <p className="text-sm text-muted-foreground mb-3">
                   {suggestedProfile ? (
-                    <>Recommended: <strong>{suggestedProfile.name}</strong> has more capacity available.</>
+                    <>{t('rateLimit.sdk.recommendedLabel', { name: suggestedProfile.name })}</>
                   ) : (
-                    'Switch to another Claude account and retry the operation:'
+                    t('rateLimit.sdk.switchAccountAndRetry')
                   )}
                 </p>
 
@@ -330,9 +330,9 @@ export function SDKRateLimitModal() {
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" className="flex-1 justify-between">
                         <span className="truncate flex items-center gap-2">
-                          {selectedProfile?.name || 'Select account...'}
+                          {selectedProfile?.name || t('rateLimit.sdk.selectAccount')}
                           {selectedProfileId === sdkRateLimitInfo.suggestedProfile?.id && (
-                            <Star className="h-3 w-3 text-yellow-500" />
+                            <Star className="h-3 w-3 text-yellow-500" aria-label={t('rateLimit.recommendedAriaLabel')} />
                           )}
                         </span>
                         <ChevronDown className="h-4 w-4 shrink-0 ml-2" />
@@ -348,7 +348,7 @@ export function SDKRateLimitModal() {
                           <span className="truncate flex items-center gap-2">
                             {profile.name}
                             {profile.id === sdkRateLimitInfo.suggestedProfile?.id && (
-                              <Star className="h-3 w-3 text-yellow-500" aria-label="Recommended" />
+                              <Star className="h-3 w-3 text-yellow-500" aria-label={t('rateLimit.recommendedAriaLabel')} />
                             )}
                           </span>
                           {selectedProfileId === profile.id && (
@@ -366,7 +366,7 @@ export function SDKRateLimitModal() {
                         className="flex items-center gap-2 text-muted-foreground"
                       >
                         <Plus className="h-4 w-4" />
-                        Add new account...
+                        {t('rateLimit.sdk.addNewAccount')}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -415,18 +415,18 @@ export function SDKRateLimitModal() {
               </>
             ) : (
               <p className="text-sm text-muted-foreground mb-3">
-                Add another Claude subscription to automatically switch when you hit rate limits.
+                {t('rateLimit.sdk.addAnotherSubscription')}
               </p>
             )}
 
             {/* Add new account section */}
             <div className={hasMultipleProfiles ? "mt-4 pt-3 border-t border-border/50" : ""}>
               <p className="text-xs text-muted-foreground mb-2">
-                {hasMultipleProfiles ? 'Add another account:' : 'Connect a Claude account:'}
+                {hasMultipleProfiles ? t('rateLimit.sdk.addAnotherAccount') : t('rateLimit.sdk.connectAccount')}
               </p>
               <div className="flex items-center gap-2">
                 <Input
-                  placeholder="Account name (e.g., Work, Personal)"
+                  placeholder={t('rateLimit.accountNamePlaceholder')}
                   value={newProfileName}
                   onChange={(e) => setNewProfileName(e.target.value)}
                   className="flex-1 h-8 text-sm"
@@ -452,7 +452,7 @@ export function SDKRateLimitModal() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                This will open Claude login to authenticate the new account.
+                {t('rateLimit.sdk.willOpenLogin')}
               </p>
             </div>
           </div>
@@ -460,10 +460,10 @@ export function SDKRateLimitModal() {
           {/* Upgrade prompt */}
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
             <h4 className="text-sm font-medium text-foreground mb-2">
-              Upgrade for more usage
+              {t('rateLimit.sdk.upgradeTitle')}
             </h4>
             <p className="text-sm text-muted-foreground mb-3">
-              Upgrade your Claude subscription for higher usage limits.
+              {t('rateLimit.sdk.upgradeDescription')}
             </p>
             <Button
               variant="outline"
@@ -472,7 +472,7 @@ export function SDKRateLimitModal() {
               onClick={handleUpgrade}
             >
               <ExternalLink className="h-4 w-4" />
-              Upgrade Subscription
+              {t('rateLimit.sdk.upgradeSubscription')}
             </Button>
           </div>
 

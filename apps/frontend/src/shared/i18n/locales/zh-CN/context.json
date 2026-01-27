@@ -1,0 +1,108 @@
+{
+  "tabs": {
+    "projectIndex": "项目索引",
+    "memories": "记忆"
+  },
+  "status": {
+    "title": "图记忆状态",
+    "connected": "已连接",
+    "notAvailable": "不可用"
+  },
+  "stats": {
+    "total": "总计",
+    "prReviews": "PR 审查",
+    "sessions": "会话",
+    "codebase": "代码库",
+    "patterns": "模式",
+    "gotchas": "陷阱"
+  },
+  "search": {
+    "title": "搜索记忆",
+    "placeholder": "搜索模式、洞察、陷阱...",
+    "button": "搜索"
+  },
+  "browser": {
+    "title": "记忆浏览器",
+    "subtitle": "{{count}} 条记忆"
+  },
+  "results": {
+    "score": "分数"
+  },
+  "empty": {
+    "noMemories": "尚未记录任何记忆。记忆是在 AI 代理会话和 PR 审查期间创建的。",
+    "noMemoriesForFilter": "没有记忆匹配所选筛选器。"
+  },
+  "filters": {
+    "showAll": "显示所有记忆",
+    "all": "全部",
+    "pr": "PR 审查",
+    "sessions": "会话",
+    "codebase": "代码库",
+    "patterns": "模式",
+    "gotchas": "陷阱"
+  },
+  "projectIndex": {
+    "title": "项目结构",
+    "description": "AI发现的关于您代码库的知识",
+    "refresh": "刷新",
+    "refreshTooltip": "重新分析项目结构",
+    "errorTitle": "加载项目索引失败",
+    "noIndexTitle": "未找到项目索引",
+    "noIndexDescription": "点击刷新按钮以分析您的项目结构并创建索引。",
+    "analyzeProject": "分析项目",
+    "overview": "概览",
+    "services": "服务",
+    "service": "个服务",
+    "servicesPlural": "个服务",
+    "infrastructure": "基础设施",
+    "dockerCompose": "Docker Compose",
+    "ciCd": "CI/CD",
+    "deployment": "部署",
+    "dockerServices": "Docker 服务",
+    "conventions": "约定",
+    "pythonLinting": "Python 代码检查",
+    "jsLinting": "JS 代码检查",
+    "formatting": "格式化",
+    "gitHooks": "Git 钩子",
+    "typescript": "TypeScript",
+    "enabled": "已启用"
+  },
+  "memories": {
+    "title": "图记忆状态",
+    "connected": "已连接",
+    "notAvailable": "不可用",
+    "database": "数据库",
+    "path": "路径",
+    "total": "总计",
+    "prReviews": "PR 审查",
+    "sessions": "会话",
+    "codebase": "代码库",
+    "patterns": "模式",
+    "gotchas": "陷阱",
+    "notConfigured": "未配置 Graphiti 记忆",
+    "enableInstructions": "要启用图记忆，请在项目设置中设置 GRAPHITI_ENABLED=true。",
+    "searchTitle": "搜索记忆",
+    "searchPlaceholder": "搜索模式、洞察、陷阱...",
+    "resultsFound": "找到 {{count}} 个结果",
+    "resultsFoundPlural": "找到 {{count}} 个结果",
+    "score": "分数",
+    "browserTitle": "记忆浏览器",
+    "ofMemories": "{{filtered}} / {{total}} 个记忆",
+    "noMemories": "尚未记录任何记忆。记忆是在 AI 代理会话和 PR 审查期间创建的。",
+    "noMatches": "没有记忆匹配所选筛选器。",
+    "showAllMemories": "显示所有记忆"
+  },
+  "memoryCard": {
+    "expand": "展开",
+    "collapse": "折叠",
+    "whatWorked": "有效的做法",
+    "whatFailed": "失败的原因",
+    "approach": "方法",
+    "recommendations": "建议",
+    "patterns": "模式",
+    "gotchas": "注意事项",
+    "changedFiles": "更改的文件",
+    "fileInsights": "文件洞察",
+    "subtasksCompleted": "已完成的子任务"
+  }
+}

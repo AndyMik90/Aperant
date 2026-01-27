@@ -1,4 +1,4 @@
-import { X, Sparkles, TerminalSquare, FolderGit, ExternalLink, GripVertical, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
+import { X, Sparkles, TerminalSquare, FolderGit, ExternalLink, GripVertical, Maximize2, Minimize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import type { Task, TerminalWorktreeConfig } from '../../../shared/types';
@@ -40,8 +40,6 @@ interface TerminalHeaderProps {
   isExpanded?: boolean;
   /** Callback to toggle expanded state */
   onToggleExpand?: () => void;
-  /** Whether this terminal has a pending Claude resume (deferred until tab activated) */
-  pendingClaudeResume?: boolean;
 }
 
 export function TerminalHeader({
@@ -66,7 +64,6 @@ export function TerminalHeader({
   dragHandleListeners,
   isExpanded,
   onToggleExpand,
-  pendingClaudeResume,
 }: TerminalHeaderProps) {
   const { t } = useTranslation(['terminal', 'common']);
   const backlogTasks = tasks.filter((t) => t.status === 'backlog');
@@ -103,19 +100,10 @@ export function TerminalHeader({
         {isClaudeMode && (
           <span
             className="flex items-center gap-1 text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded"
-            title="Claude"
+            title={t('claude')}
           >
             <Sparkles className="h-2.5 w-2.5" />
-            {terminalCount < 4 && <span>Claude</span>}
-          </span>
-        )}
-        {pendingClaudeResume && (
-          <span
-            className="flex items-center gap-1 text-[10px] font-medium text-cyan-500 bg-cyan-500/10 px-1.5 py-0.5 rounded animate-pulse"
-            title={t('terminal:resume.pendingTooltip')}
-          >
-            <RotateCcw className="h-2.5 w-2.5" />
-            {terminalCount < 4 && <span>{t('terminal:resume.pending')}</span>}
+            {terminalCount < 4 && <span>{t('claude')}</span>}
           </span>
         )}
         {isClaudeMode && (
@@ -184,10 +172,10 @@ export function TerminalHeader({
               e.stopPropagation();
               onInvokeClaude();
             }}
-            title="Claude"
+            title={t('claude')}
           >
             <Sparkles className="h-3 w-3" />
-            {terminalCount < 4 && <span>Claude</span>}
+            {terminalCount < 4 && <span>{t('claude')}</span>}
           </Button>
         )}
         {/* Expand/collapse button */}

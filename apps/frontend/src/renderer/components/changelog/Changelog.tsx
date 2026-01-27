@@ -1,4 +1,5 @@
 import { FileText } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { TooltipProvider } from '../ui/tooltip';
 import { ChangelogHeader } from './ChangelogHeader';
 import { ChangelogFilters } from './ChangelogFilters';
@@ -7,6 +8,7 @@ import { Step2ConfigureGenerate, Step3ReleaseArchive } from './ChangelogDetails'
 import { useChangelog } from './hooks/useChangelog';
 
 export function Changelog() {
+  const { t } = useTranslation('changelog');
   const {
     // State
     selectedProjectId,
@@ -85,9 +87,9 @@ export function Changelog() {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <FileText className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <h3 className="mt-4 text-lg font-medium">No Project Selected</h3>
+          <h3 className="mt-4 text-lg font-medium">{t('list.noProjectSelected')}</h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            Select a project from the sidebar to generate changelogs.
+            {t('list.noProjectSelectedDescription')}
           </p>
         </div>
       </div>

@@ -2,6 +2,7 @@
   "refreshTasks": "Actualiser les tâches",
   "status": {
     "backlog": "Backlog",
+    "queue": "File d'attente",
     "todo": "À faire",
     "in_progress": "En cours",
     "review": "Révision",
@@ -20,7 +21,11 @@
     "viewPR": "Voir la PR",
     "moveTo": "Déplacer vers",
     "taskActions": "Actions de la tâche",
-    "selectTask": "Sélectionner la tâche : {{title}}"
+    "selectTask": "Sélectionner la tâche : {{title}}",
+    "deleting": "Suppression...",
+    "deletePermanently": "Supprimer définitivement",
+    "deleteTask": "Supprimer la tâche",
+    "completedSuccess": "Tâche terminée avec succès"
   },
   "labels": {
     "running": "En cours",
@@ -31,13 +36,26 @@
     "incomplete": "Incomplet",
     "recovering": "Récupération...",
     "needsRecovery": "Récupération requise",
-    "needsResume": "Reprise requise"
+    "needsResume": "Reprise requise",
+    "loadingPlan": "Chargement du plan..."
   },
   "reviewReason": {
     "completed": "Terminé",
     "hasErrors": "Contient des erreurs",
     "qaIssues": "Problèmes QA",
     "approvePlan": "Approuver le plan"
+  },
+  "warnings": {
+    "taskAppearsStuck": "La tâche semble bloquée",
+    "stuckDescription": "Cette tâche est marquée comme en cours d'exécution mais aucun processus actif n'a été trouvé. Cela peut se produire si l'application a planté ou si le processus a été terminé de manière inattendue.",
+    "recoverAndRestart": "Récupérer et redémarrer la tâche",
+    "taskIncomplete": "Tâche incomplète",
+    "incompleteDescription": "Cette tâche a une spec et un plan d'implémentation mais n'a jamais terminé de sous-tâches ({{completed}}/{{total}}). Le processus a probablement planté lors de la création de la spec. Cliquez sur Reprendre pour continuer l'implémentation.",
+    "resumeTask": "Reprendre la tâche"
+  },
+  "errors": {
+    "cannotResume": "Impossible de reprendre la tâche",
+    "failedToLoadPlan": "Échec du chargement du plan d'implémentation. Veuillez réessayer ou vérifier les fichiers de la tâche."
   },
   "tooltips": {
     "archiveTask": "Archiver la tâche",
@@ -169,13 +187,6 @@
   "images": {
     "removeImageAriaLabel": "Supprimer l'image {{filename}}",
     "pasteHint": "Astuce : Collez des captures d'écran directement avec {{shortcut}} pour ajouter des images de référence."
-  },
-  "imagePreview": {
-    "close": "Fermer l'aperçu",
-    "unavailable": "Image indisponible",
-    "description": "Aperçu de {{filename}}",
-    "doubleClickHint": "Double-cliquez pour agrandir",
-    "lowResolution": "Aperçu basse résolution"
   },
   "notifications": {
     "backgroundTaskTitle": "La tâche continue en arrière-plan",
@@ -309,15 +320,43 @@
       "fetchSources": "Échec de la récupération des sources de capture d'écran",
       "capture": "Échec de la capture d'écran",
       "captureFailed": "Échec de la capture d'écran"
-    },
-    "devMode": {
-      "title": "Capture d'écran non disponible",
-      "description": "La capture d'écran n'est pas disponible en mode développement en raison des restrictions de permissions système.",
-      "hint": "Utilisez un outil de capture d'écran externe et collez directement dans la description de la tâche avec {{shortcut}}."
     }
   },
   "referenceImages": {
     "title": "Images de référence (facultatif)",
     "description": "Ajoutez des références visuelles comme des captures d'écran ou des conceptions pour aider l'IA à comprendre vos exigences."
+  },
+  "logs": {
+    "phase": { "planning": "Planification", "coding": "Codage", "validation": "Validation" },
+    "model": { "opus": "Opus", "sonnet": "Sonnet", "haiku": "Haiku" },
+    "thinking": { "none": "Aucun", "low": "Faible", "medium": "Moyen", "high": "Élevé", "ultrathink": "Ultra" },
+    "noLogs": "Aucun log pour le moment",
+    "noLogsHint": "Les logs apparaîtront ici lorsque la tâche s'exécutera",
+    "done": "Terminé",
+    "hideOutput": "Masquer la sortie",
+    "showOutput": "Afficher la sortie",
+    "less": "Moins",
+    "more": "Plus"
+  },
+  "progress": {
+    "label": "Progression",
+    "idle": "Inactif",
+    "planning": "Planification (0-20 %)",
+    "coding": "Codage (20-80 %)",
+    "aiReview": "Revue IA (80-95 %)",
+    "complete": "Terminé (95-100 %)",
+    "failed": "Échec",
+    "subtasksCompleted": "{{completed}}/{{total}} sous-tâches terminées",
+    "noSubtasksYet": "Aucune sous-tâche pour le moment",
+    "subtaskLabel": "Sous-tâche : {{name}}"
+  },
+  "tabs": {
+    "overview": "Vue d'ensemble",
+    "subtasks": "Sous-tâches ({{count}})",
+    "logs": "Journaux"
+  },
+  "delete": {
+    "confirmMessage": "Êtes-vous sûr de vouloir supprimer <strong class=\"text-foreground\">\"{{title}}\"</strong> ?",
+    "warning": "Cette action ne peut pas être annulée. Tous les fichiers de la tâche, y compris la spécification, le plan d'implémentation et tout code généré seront définitivement supprimés du projet."
   }
 }

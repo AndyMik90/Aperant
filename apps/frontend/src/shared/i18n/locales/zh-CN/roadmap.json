@@ -1,0 +1,166 @@
+{
+  "generation": {
+    "phases": {
+      "analyzing": "分析中",
+      "discovering": "发现中",
+      "generating": "生成中",
+      "complete": "完成",
+      "error": "错误"
+    },
+    "descriptions": {
+      "analyzing": "分析项目结构和代码库...",
+      "discovering": "发现目标受众和用户需求...",
+      "generating": "生成功能路线图...",
+      "complete": "路线图生成完成！",
+      "error": "生成失败"
+    },
+    "steps": {
+      "analyze": "分析",
+      "discover": "发现",
+      "generate": "生成"
+    },
+    "actions": {
+      "stop": "停止",
+      "stopping": "停止中...",
+      "stopGeneration": "停止生成"
+    },
+    "progress": {
+      "label": "进度"
+    },
+    "errors": {
+      "failedToStop": "停止生成失败："
+    }
+  },
+  "kanban": {
+    "kanban": "看板",
+    "phases": "阶段",
+    "allFeatures": "所有功能",
+    "byPriority": "按优先级",
+    "dropHere": "拖放到这里",
+    "noFeatures": "无功能",
+    "dragFeaturesHere": "将功能拖放到这里",
+    "unknownStatus": "未知状态",
+    "features": "个功能"
+  },
+  "status": {
+    "under_review": "审核中",
+    "planned": "已计划",
+    "in_progress": "进行中",
+    "done": "已完成"
+  },
+  "phase": {
+    "milestones": "里程碑",
+    "features": "功能",
+    "viewTask": "查看任务",
+    "build": "构建",
+    "moreFeatures": "更多功能"
+  },
+  "competitorAnalysis": {
+    "enableAnalysisTitle": "启用竞争对手分析？",
+    "enableAnalysisDescription": "利用竞争对手产品的洞察增强您的路线图",
+    "whatItDoesTitle": "竞争对手分析的作用：",
+    "identifiesCompetitors": "根据您的项目类型识别3-5个主要竞争对手",
+    "searchesForFeedback": "搜索应用商店、论坛和社交媒体以获取用户反馈和痛点",
+    "suggestsFeatures": "建议能够解决竞争对手产品中差距的功能",
+    "webSearchesPerformed": "将执行网络搜索",
+    "webSearchesDescription": "此功能将执行网络搜索以收集竞争对手信息。您的项目名称和类型将用于搜索查询。不会共享代码或敏感数据。",
+    "optionalInfo": "如果您愿意，可以在不进行竞争对手分析的情况下生成路线图。路线图仍将基于您的项目结构和最佳实践。",
+    "skipAnalysisButton": "不，跳过分析",
+    "enableAnalysisButton": "是，启用分析",
+    "optionsTitle": "竞争对手分析选项",
+    "optionsDescription": "此项目已有{{date}}的竞争对手分析",
+    "useExistingTitle": "使用现有分析",
+    "recommended": "（推荐）",
+    "useExistingDescription": "重用您已有的竞争对手洞察。更快且无需额外的网络搜索。",
+    "runNewTitle": "运行新分析",
+    "runNewDescription": "执行全新的网络搜索以获取更新的竞争对手信息。需要更长的时间。",
+    "skipTitle": "跳过竞争对手分析",
+    "skipDescription": "在没有竞争对手洞察的情况下生成路线图。",
+    "cancelButton": "取消",
+    "existing": {
+      "title": "竞争对手分析选项",
+      "description": "此项目有一个来自 {{date}} 的现有竞争对手分析",
+      "recently": "最近",
+      "recommended": "推荐",
+      "useExisting": {
+        "title": "使用现有分析",
+        "description": "重用您已有的竞争对手洞察。更快且无需额外的网络搜索。"
+      },
+      "runNew": {
+        "title": "运行新分析",
+        "description": "执行全新的网络搜索以获取更新的竞争对手信息。需要更长的时间。"
+      },
+      "skip": {
+        "title": "跳过竞争对手分析",
+        "description": "在没有竞争对手洞察的情况下生成路线图。"
+      },
+      "cancel": "取消"
+    },
+    "viewer": {
+      "title": "竞争对手分析结果",
+      "description": "分析了 {{count}} 个竞争对手以识别市场差距和机会",
+      "identifiedPainPoints": "已识别的痛点",
+      "noPainPoints": "未识别到痛点",
+      "source": "来源：",
+      "frequency": "频率：",
+      "opportunity": "机会：",
+      "marketInsightsSummary": "市场洞察摘要",
+      "topPainPoints": "主要痛点：",
+      "differentiatorOpportunities": "差异化机会：",
+      "marketTrends": "市场趋势：",
+      "visit": "访问"
+    }
+  },
+  "context": {
+    "projectIndexTab": "项目索引",
+    "memoriesTab": "记忆"
+  },
+  "header": {
+    "addFeature": "添加功能",
+    "addFeatureTooltip": "向路线图添加新功能",
+    "regenerateTooltip": "重新生成路线图",
+    "competitorAnalysis": "竞争对手分析",
+    "competitorAnalysisTooltip": "点击查看详细分析",
+    "competitorAnalysisTooltipContent": "分析了 {{count}} 个竞争对手，识别了 {{painPoints}} 个痛点",
+    "target": "目标：",
+    "morePersonas": "+{{count}} 个其他角色",
+    "secondaryPersonas": "次要角色：",
+    "features": "个功能",
+    "phases": "个阶段",
+    "priorities": {
+      "must": "必须",
+      "should": "应该",
+      "could": "可以",
+      "wont": "不会"
+    }
+  },
+  "emptyState": {
+    "title": "还没有路线图",
+    "description": "生成一个理解您项目目标受众并创建战略功能计划的 AI 驱动路线图。",
+    "generateButton": "生成路线图"
+  },
+  "featureCard": {
+    "goToTask": "转到任务",
+    "build": "构建",
+    "competitorInsight": "竞争对手洞察",
+    "competitorInsightTooltip": "此功能解决了竞争对手的痛点",
+    "impact": "影响"
+  },
+  "featureDetail": {
+    "description": "描述",
+    "rationale": "理由",
+    "complexity": "复杂度",
+    "impact": "影响",
+    "dependencies": "依赖项",
+    "userStories": "用户故事",
+    "acceptanceCriteria": "验收标准",
+    "addressesCompetitorPainPoints": "解决竞争对手痛点",
+    "severity": "严重程度",
+    "goToTask": "转到任务",
+    "convertToTask": "转换为自动构建任务",
+    "deleteTitle": "删除功能？",
+    "deleteDescription": "这将永久从您的路线图中删除 \"{{title}}\"。",
+    "cancel": "取消",
+    "delete": "删除"
+  }
+}

@@ -21,7 +21,23 @@
     "viewPR": "View PR",
     "moveTo": "Move to",
     "taskActions": "Task actions",
-    "selectTask": "Select task: {{title}}"
+    "selectTask": "Select task: {{title}}",
+    "deleting": "Deleting...",
+    "deletePermanently": "Delete Permanently",
+    "deleteTask": "Delete Task",
+    "completedSuccess": "Task completed successfully"
+  },
+  "warnings": {
+    "taskAppearsStuck": "Task Appears Stuck",
+    "stuckDescription": "This task is marked as running but no active process was found. This can happen if the app crashed or the process was terminated unexpectedly.",
+    "recoverAndRestart": "Recover & Restart Task",
+    "taskIncomplete": "Task Incomplete",
+    "incompleteDescription": "This task has a spec and implementation plan but never completed any subtasks ({{completed}}/{{total}}). The process likely crashed during spec creation. Click Resume to continue implementation.",
+    "resumeTask": "Resume Task"
+  },
+  "errors": {
+    "cannotResume": "Cannot Resume Task",
+    "failedToLoadPlan": "Failed to load implementation plan. Please try again or check the task files."
   },
   "labels": {
     "running": "Running",
@@ -32,7 +48,8 @@
     "incomplete": "Incomplete",
     "recovering": "Recovering...",
     "needsRecovery": "Needs Recovery",
-    "needsResume": "Needs Resume"
+    "needsResume": "Needs Resume",
+    "loadingPlan": "Loading Plan..."
   },
   "reviewReason": {
     "completed": "Completed",
@@ -171,13 +188,6 @@
     "removeImageAriaLabel": "Remove image {{filename}}",
     "pasteHint": "Tip: Paste screenshots directly with {{shortcut}} to add reference images."
   },
-  "imagePreview": {
-    "close": "Close preview",
-    "unavailable": "Image unavailable",
-    "description": "Preview of {{filename}}",
-    "doubleClickHint": "Double-click to enlarge",
-    "lowResolution": "Low resolution preview"
-  },
   "notifications": {
     "backgroundTaskTitle": "Task continues in background",
     "backgroundTaskDescription": "The task is still running. You can reopen this dialog to monitor progress."
@@ -310,15 +320,57 @@
       "fetchSources": "Failed to fetch screenshot sources",
       "capture": "Failed to capture screenshot",
       "captureFailed": "Failed to capture screenshot"
-    },
-    "devMode": {
-      "title": "Screenshot capture unavailable",
-      "description": "Screen capture is not available in development mode due to system permission restrictions.",
-      "hint": "Use an external screenshot tool and paste directly into the task description with {{shortcut}}."
     }
   },
   "referenceImages": {
     "title": "Reference Images (optional)",
     "description": "Add visual references like screenshots or designs to help the AI understand your requirements."
+  },
+  "logs": {
+    "phase": {
+      "planning": "Planning",
+      "coding": "Coding",
+      "validation": "Validation"
+    },
+    "model": {
+      "opus": "Opus",
+      "sonnet": "Sonnet",
+      "haiku": "Haiku"
+    },
+    "thinking": {
+      "none": "None",
+      "low": "Low",
+      "medium": "Med",
+      "high": "High",
+      "ultrathink": "Ultra"
+    },
+    "noLogs": "No logs yet",
+    "noLogsHint": "Logs will appear here when the task runs",
+    "done": "Done",
+    "hideOutput": "Hide output",
+    "showOutput": "Show output",
+    "less": "Less",
+    "more": "More"
+  },
+  "progress": {
+    "label": "Progress",
+    "idle": "Idle",
+    "planning": "Planning (0-20%)",
+    "coding": "Coding (20-80%)",
+    "aiReview": "AI Review (80-95%)",
+    "complete": "Complete (95-100%)",
+    "failed": "Failed",
+    "subtasksCompleted": "{{completed}}/{{total}} subtasks completed",
+    "noSubtasksYet": "No subtasks yet",
+    "subtaskLabel": "Subtask: {{name}}"
+  },
+  "tabs": {
+    "overview": "Overview",
+    "subtasks": "Subtasks ({{count}})",
+    "logs": "Logs"
+  },
+  "delete": {
+    "confirmMessage": "Are you sure you want to delete <strong class=\"text-foreground\">\"{{title}}\"</strong>?",
+    "warning": "This action cannot be undone. All task files, including the spec, implementation plan, and any generated code will be permanently deleted from the project."
   }
 }

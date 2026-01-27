@@ -1,24 +1,32 @@
 import { ReactNode, useId } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface CollapsibleSectionProps {
-  title: string;
+  title?: string;
+  titleKey?: string;
   icon: ReactNode;
   isExpanded: boolean;
   onToggle: () => void;
   badge?: ReactNode;
+  namespace?: string;
   children: ReactNode;
 }
 
 export function CollapsibleSection({
   title,
+  titleKey,
   icon,
   isExpanded,
   onToggle,
   badge,
+  namespace = 'common',
   children,
 }: CollapsibleSectionProps) {
+  const { t } = useTranslation([namespace, 'common']);
   const contentId = useId();
+
+  const displayTitle = title || (titleKey ? t(`${namespace}:${titleKey}`) : '');
 
   return (
     <section className="space-y-3">
@@ -31,7 +39,7 @@ export function CollapsibleSection({
       >
         <div className="flex items-center gap-2">
           {icon}
-          {title}
+          {displayTitle}
           {badge}
         </div>
         {isExpanded ? (

@@ -79,5 +79,63 @@
     "alreadyExisted": "already existed",
     "noWorktree": "No worktree found for this task",
     "resultsDescriptionWithSkipped": "{{success}} succeeded, {{skipped}} skipped, {{failed}} failed"
+  },
+  "workspace": {
+    "buildReady": "Build Ready for Review",
+    "view": "View",
+    "branchDiverged": "Branch Diverged",
+    "aiWillResolve": "AI will resolve",
+    "filesRenamed": "Files Renamed",
+    "branchBehind": "Branch Behind",
+    "readyToMerge": "Ready to merge",
+    "files": "files",
+    "conflict": "conflict",
+    "conflicts": "conflicts",
+    "refresh": "Refresh",
+    "discardBuild": "Discard build",
+    "details": "Details",
+    "stageOnlyLabel": "Stage only (review in IDE before committing)",
+    "checkForConflicts": "Check for Conflicts",
+    "checkingForConflicts": "Checking for conflicts..."
+  },
+  "staged": {
+    "title": "Changes Staged Successfully",
+    "commitPlaceholder": "Commit message...",
+    "aiGeneratedCommit": "AI-generated commit message",
+    "copied": "Copied!",
+    "copy": "Copy",
+    "editHint": "Edit as needed, then copy and use with",
+    "nextSteps": "Next steps:",
+    "step1": "Open your project in your IDE or terminal",
+    "step2": "Review the staged changes with",
+    "step3": "Commit when ready:"
+  },
+  "discard": {
+    "title": "Discard Build",
+    "description": "Are you sure you want to discard all changes for \"{{title}}\"?",
+    "warning": "This will permanently delete the isolated workspace and all uncommitted changes. The task will be moved back to Planning status.",
+    "filesChanged": "Files changed:",
+    "lines": "Lines:",
+    "cancel": "Cancel",
+    "discard": "Discard Build",
+    "discarding": "Discarding..."
+  },
+  "diff": {
+    "title": "Changed Files",
+    "noChanges": "No changes found",
+    "noChangedFiles": "No changed files found",
+    "close": "Close"
+  },
+  "conflict": {
+    "title": "Merge Conflicts Preview",
+    "potentialConflicts": "{{count}} potential conflict detected.",
+    "potentialConflicts_other": "{{count}} potential conflicts detected.",
+    "canBeAutoMerged": "{{count}} can be auto-merged.",
+    "location": "Location:",
+    "reason": "Reason:",
+    "strategy": "Strategy:",
+    "autoMerge": "auto-merge",
+    "noConflicts": "No conflicts detected",
+    "close": "Close"
   }
 }

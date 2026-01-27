@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import {
   Gauge,
   Box,
@@ -15,7 +16,7 @@ import { Card } from '../../ui/card';
 import {
   IDEATION_IMPACT_COLORS,
   IDEATION_EFFORT_COLORS,
-  PERFORMANCE_CATEGORY_LABELS
+  getPerformanceCategoryLabels
 } from '../../../../shared/constants';
 import type { PerformanceOptimizationIdea } from '../../../../shared/types';
 
@@ -40,6 +41,8 @@ function getCategoryIcon(category: string) {
 }
 
 export function PerformanceOptimizationDetails({ idea }: PerformanceOptimizationDetailsProps) {
+  const { t } = useTranslation('ideation');
+  const performanceLabels = getPerformanceCategoryLabels(t);
   return (
     <>
       {/* Metrics */}
@@ -65,7 +68,7 @@ export function PerformanceOptimizationDetails({ idea }: PerformanceOptimization
           Category
         </h3>
         <Badge variant="outline">
-          {PERFORMANCE_CATEGORY_LABELS[idea.category]}
+          {performanceLabels[idea.category]}
         </Badge>
       </div>
 

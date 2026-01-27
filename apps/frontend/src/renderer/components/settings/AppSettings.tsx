@@ -18,16 +18,14 @@ import {
   Globe,
   Code,
   Bug,
-  Server,
-  Terminal,
   Users
 } from 'lucide-react';
 
 // GitLab icon component (lucide-react doesn't have one)
-function GitLabIcon({ className }: { className?: string }) {
+function GitLabIcon({ className, title = 'GitLab' }: { className?: string; title?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" role="img" aria-labelledby="gitlab-icon-title">
-      <title id="gitlab-icon-title">GitLab</title>
+      <title id="gitlab-icon-title">{title}</title>
       <path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z"/>
     </svg>
   );
@@ -52,8 +50,6 @@ import { GeneralSettings } from './GeneralSettings';
 import { AdvancedSettings } from './AdvancedSettings';
 import { DevToolsSettings } from './DevToolsSettings';
 import { DebugSettings } from './DebugSettings';
-import { TerminalFontSettings } from './terminal-font-settings/TerminalFontSettings';
-import { ProfileList } from './ProfileList';
 import { AccountSettings } from './AccountSettings';
 import { ProjectSelector } from './ProjectSelector';
 import { ProjectSettingsContent, ProjectSettingsSection } from './ProjectSettingsContent';
@@ -69,7 +65,7 @@ interface AppSettingsDialogProps {
 }
 
 // App-level settings sections
-export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'terminal-fonts' | 'agent' | 'paths' | 'integrations' | 'accounts' | 'api-profiles' | 'updates' | 'notifications' | 'debug';
+export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'agent' | 'paths' | 'accounts' | 'updates' | 'notifications' | 'debug';
 
 interface NavItemConfig<T extends string> {
   id: T;
@@ -81,7 +77,6 @@ const appNavItemsConfig: NavItemConfig<AppSection>[] = [
   { id: 'display', icon: Monitor },
   { id: 'language', icon: Globe },
   { id: 'devtools', icon: Code },
-  { id: 'terminal-fonts', icon: Terminal },
   { id: 'agent', icon: Bot },
   { id: 'paths', icon: FolderOpen },
   { id: 'accounts', icon: Users },
@@ -190,8 +185,6 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         return <LanguageSettings settings={settings} onSettingsChange={setSettings} />;
       case 'devtools':
         return <DevToolsSettings settings={settings} onSettingsChange={setSettings} />;
-      case 'terminal-fonts':
-        return <TerminalFontSettings />;
       case 'agent':
         return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="agent" />;
       case 'paths':
@@ -343,7 +336,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                                   : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
                             )}
                           >
-                            <Icon className="h-5 w-5 mt-0.5 shrink-0" />
+                            <Icon className="h-5 w-5 mt-0.5 shrink-0" {...(item.id === 'gitlab' ? { title: t('projectSections.gitlab.title') } : {})} />
                             <div className="min-w-0">
                               <div className="font-medium text-sm">{t(`projectSections.${item.id}.title`)}</div>
                               <div className="text-xs text-muted-foreground truncate">{t(`projectSections.${item.id}.description`)}</div>
@@ -369,7 +362,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
             {/* Main content */}
             <div className="flex-1 overflow-hidden">
               <ScrollArea className="h-full">
-                <div className={appSection === 'terminal-fonts' ? 'p-8' : 'p-8 max-w-2xl'}>
+                <div className="p-8 max-w-2xl">
                   {renderContent()}
                 </div>
               </ScrollArea>

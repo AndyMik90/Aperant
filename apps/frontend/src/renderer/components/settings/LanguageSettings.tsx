@@ -46,7 +46,7 @@ export function LanguageSettings({ settings, onSettingsChange }: LanguageSetting
           <p className="text-sm text-muted-foreground">
             {t('language.description')}
           </p>
-          <div className="grid grid-cols-2 gap-3 max-w-md pt-1">
+          <div className="grid grid-cols-3 gap-3 max-w-2xl pt-1">
             {AVAILABLE_LANGUAGES.map((lang) => {
               const isSelected = currentLanguage === lang.value;
               return (

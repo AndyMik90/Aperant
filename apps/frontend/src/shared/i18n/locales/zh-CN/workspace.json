@@ -1,0 +1,41 @@
+{
+  "title": "创建工作区",
+  "description": "将相关项目分组，用于跨仓库的 spec 和校验。",
+  "form": {
+    "name": "名称",
+    "namePlaceholder": "我的应用工作区",
+    "descriptionLabel": "描述（可选）",
+    "description": "描述（可选）",
+    "descriptionPlaceholder": "My App 的后端、前端与移动端应用",
+    "projects": "项目",
+    "addProjectPlaceholder": "添加项目...",
+    "allProjectsAdded": "已添加全部项目",
+    "noProjectsAvailable": "暂无可用项目"
+  },
+  "roles": {
+    "backend": "后端",
+    "backendDescription": "API 服务器、服务",
+    "frontend": "前端",
+    "frontendDescription": "Web 应用",
+    "mobile": "移动端",
+    "mobileDescription": "移动应用",
+    "shared": "共享",
+    "sharedDescription": "共享类型与工具",
+    "api": "API 网关",
+    "apiDescription": "网关、BFF",
+    "worker": "Worker",
+    "workerDescription": "后台任务",
+    "other": "其他",
+    "otherDescription": "其他项目类型"
+  },
+  "buttons": {
+    "cancel": "取消",
+    "create": "创建工作区",
+    "creating": "创建中..."
+  },
+  "errors": {
+    "nameRequired": "工作区名称为必填",
+    "apiNotAvailable": "Workspace API 不可用",
+    "createFailed": "创建工作区失败"
+  }
+}
