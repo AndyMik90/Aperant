@@ -29,6 +29,65 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+
+def _safe_exists(path: Path) -> bool:
+    """
+    Safely check if a path exists, handling PermissionError.
+
+    On some systems, calling .exists() on deeply nested paths within
+    non-existent directories can raise PermissionError instead of
+    returning False. This wrapper handles that case.
+
+    Args:
+        path: Path to check
+
+    Returns:
+        True if path exists, False otherwise
+    """
+    try:
+        return path.exists()
+    except (PermissionError, OSError):
+        return False
+
+
+def _safe_glob(path: Path, pattern: str) -> list[Path]:
+    """
+    Safely glob files, handling PermissionError.
+
+    Args:
+        path: Directory to glob in
+        pattern: Glob pattern
+
+    Returns:
+        List of matching paths, or empty list if error
+    """
+    try:
+        return list(path.glob(pattern))
+    except (PermissionError, OSError):
+        return []
+
+
+def _safe_is_dir(path: Path) -> bool:
+    """
+    Safely check if a path is a directory, handling PermissionError.
+
+    Args:
+        path: Path to check
+
+    Returns:
+        True if path is a directory, False otherwise
+    """
+    try:
+        return path.is_dir()
+    except (PermissionError, OSError):
+        return False
+
+
 # =============================================================================
 # DATA CLASSES
 # =============================================================================
@@ -225,7 +284,7 @@ class TestDiscovery:
         result.package_manager = self._detect_package_manager(project_dir)
 
         # Discover frameworks based on project type
-        if (project_dir / "package.json").exists():
+        if _safe_exists(project_dir / "package.json"):
             self._discover_js_frameworks(project_dir, result)
 
         # Check for Python project indicators
@@ -237,14 +296,14 @@ class TestDiscovery:
             project_dir / "conftest.py",
             project_dir / "tests" / "conftest.py",
         ]
-        if any(p.exists() for p in python_indicators):
+        if any(_safe_exists(p) for p in python_indicators):
             self._discover_python_frameworks(project_dir, result)
 
-        if (project_dir / "Cargo.toml").exists():
+        if _safe_exists(project_dir / "Cargo.toml"):
             self._discover_rust_frameworks(project_dir, result)
-        if (project_dir / "go.mod").exists():
+        if _safe_exists(project_dir / "go.mod"):
             self._discover_go_frameworks(project_dir, result)
-        if (project_dir / "Gemfile").exists():
+        if _safe_exists(project_dir / "Gemfile"):
             self._discover_ruby_frameworks(project_dir, result)
 
         # Find test directories
@@ -269,25 +328,25 @@ class TestDiscovery:
 
     def _detect_package_manager(self, project_dir: Path) -> str:
         """Detect the package manager used by the project."""
-        if (project_dir / "pnpm-lock.yaml").exists():
+        if _safe_exists(project_dir / "pnpm-lock.yaml"):
             return "pnpm"
-        if (project_dir / "yarn.lock").exists():
+        if _safe_exists(project_dir / "yarn.lock"):
             return "yarn"
-        if (project_dir / "package-lock.json").exists():
+        if _safe_exists(project_dir / "package-lock.json"):
             return "npm"
-        if (project_dir / "bun.lockb").exists() or (project_dir / "bun.lock").exists():
+        if _safe_exists(project_dir / "bun.lockb") or _safe_exists(project_dir / "bun.lock"):
             return "bun"
-        if (project_dir / "uv.lock").exists():
+        if _safe_exists(project_dir / "uv.lock"):
             return "uv"
-        if (project_dir / "poetry.lock").exists():
+        if _safe_exists(project_dir / "poetry.lock"):
             return "poetry"
-        if (project_dir / "Pipfile.lock").exists():
+        if _safe_exists(project_dir / "Pipfile.lock"):
             return "pipenv"
-        if (project_dir / "Cargo.lock").exists():
+        if _safe_exists(project_dir / "Cargo.lock"):
             return "cargo"
-        if (project_dir / "go.sum").exists():
+        if _safe_exists(project_dir / "go.sum"):
             return "go"
-        if (project_dir / "Gemfile.lock").exists():
+        if _safe_exists(project_dir / "Gemfile.lock"):
             return "bundler"
         return ""
 
@@ -296,7 +355,7 @@ class TestDiscovery:
     ) -> None:
         """Discover JavaScript/TypeScript test frameworks."""
         package_json = project_dir / "package.json"
-        if not package_json.exists():
+        if not _safe_exists(package_json):
             return
 
         try:
@@ -319,7 +378,7 @@ class TestDiscovery:
                 # Check for config file
                 config_file = None
                 for cf in pattern.get("config_files", []):
-                    if (project_dir / cf).exists():
+                    if _safe_exists(project_dir / cf):
                         config_file = cf
                         break
 
@@ -384,7 +443,7 @@ class TestDiscovery:
     ) -> None:
         """Discover Python test frameworks."""
         # Check for pytest.ini first (explicit pytest config)
-        if (project_dir / "pytest.ini").exists():
+        if _safe_exists(project_dir / "pytest.ini"):
             if not any(f.name == "pytest" for f in result.frameworks):
                 result.frameworks.append(
                     TestFramework(
@@ -397,7 +456,7 @@ class TestDiscovery:
 
         # Check pyproject.toml
         pyproject = project_dir / "pyproject.toml"
-        if pyproject.exists():
+        if _safe_exists(pyproject):
             content = pyproject.read_text(encoding="utf-8")
 
             # Check for pytest
@@ -417,7 +476,7 @@ class TestDiscovery:
 
         # Check requirements.txt
         requirements = project_dir / "requirements.txt"
-        if requirements.exists():
+        if _safe_exists(requirements):
             content = requirements.read_text(encoding="utf-8").lower()
             if "pytest" in content and not any(
                 f.name == "pytest" for f in result.frameworks
@@ -434,7 +493,7 @@ class TestDiscovery:
         # Check for conftest.py (pytest marker)
         conftest_root = project_dir / "conftest.py"
         conftest_tests = project_dir / "tests" / "conftest.py"
-        if conftest_root.exists() or conftest_tests.exists():
+        if _safe_exists(conftest_root) or _safe_exists(conftest_tests):
             if not any(f.name == "pytest" for f in result.frameworks):
                 result.frameworks.append(
                     TestFramework(
@@ -463,7 +522,7 @@ class TestDiscovery:
     ) -> None:
         """Discover Rust test frameworks."""
         cargo_toml = project_dir / "Cargo.toml"
-        if cargo_toml.exists():
+        if _safe_exists(cargo_toml):
             result.frameworks.append(
                 TestFramework(
                     name="cargo_test",
@@ -478,7 +537,7 @@ class TestDiscovery:
     ) -> None:
         """Discover Go test frameworks."""
         go_mod = project_dir / "go.mod"
-        if go_mod.exists():
+        if _safe_exists(go_mod):
             result.frameworks.append(
                 TestFramework(
                     name="go_test",
@@ -493,18 +552,18 @@ class TestDiscovery:
     ) -> None:
         """Discover Ruby test frameworks."""
         gemfile = project_dir / "Gemfile"
-        if not gemfile.exists():
+        if not _safe_exists(gemfile):
             return
 
         content = gemfile.read_text(encoding="utf-8").lower()
 
-        if "rspec" in content or (project_dir / ".rspec").exists():
+        if "rspec" in content or _safe_exists(project_dir / ".rspec"):
             result.frameworks.append(
                 TestFramework(
                     name="rspec",
                     type="all",
                     command="bundle exec rspec",
-                    config_file=".rspec" if (project_dir / ".rspec").exists() else None,
+                    config_file=".rspec" if _safe_exists(project_dir / ".rspec") else None,
                 )
             )
         elif "minitest" in content:
@@ -532,13 +591,13 @@ class TestDiscovery:
         for pattern in test_dir_patterns:
             if pattern.endswith("*"):
                 # Glob pattern
-                for d in project_dir.glob(pattern):
-                    if d.is_dir():
+                for d in _safe_glob(project_dir, pattern):
+                    if _safe_is_dir(d):
                         found_dirs.append(str(d.relative_to(project_dir)))
             else:
                 # Exact name
                 test_dir = project_dir / pattern
-                if test_dir.is_dir():
+                if _safe_is_dir(test_dir):
                     found_dirs.append(pattern)
 
         return found_dirs
@@ -563,14 +622,14 @@ class TestDiscovery:
         # Check in test directories
         for test_dir in test_directories:
             test_path = project_dir / test_dir
-            if test_path.exists():
+            if _safe_exists(test_path):
                 for pattern in test_file_patterns:
-                    if list(test_path.glob(pattern.replace("**/", ""))):
+                    if list(_safe_glob(test_path, pattern.replace("**/", ""))):
                         return True
 
         # Check project-wide
         for pattern in test_file_patterns:
-            if list(project_dir.glob(pattern)):
+            if list(_safe_glob(project_dir, pattern)):
                 return True
 
         return False

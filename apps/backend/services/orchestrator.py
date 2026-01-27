@@ -28,6 +28,32 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+
+def _safe_exists(path: Path) -> bool:
+    """
+    Safely check if a path exists, handling PermissionError.
+
+    On some systems, calling .exists() on deeply nested paths within
+    non-existent directories can raise PermissionError instead of
+    returning False. This wrapper handles that case.
+
+    Args:
+        path: Path to check
+
+    Returns:
+        True if path exists, False otherwise
+    """
+    try:
+        return path.exists()
+    except (PermissionError, OSError):
+        return False
+
+
 # =============================================================================
 # DATA CLASSES
 # =============================================================================
@@ -127,7 +153,7 @@ class ServiceOrchestrator:
 
         for candidate in candidates:
             path = self.project_dir / candidate
-            if path.exists():
+            if _safe_exists(path):
                 return path
 
         return None
@@ -215,7 +241,7 @@ class ServiceOrchestrator:
 
         for service_dir in service_dirs:
             dir_path = self.project_dir / service_dir
-            if dir_path.exists() and dir_path.is_dir():
+            if _safe_exists(dir_path) and dir_path.is_dir():
                 for item in dir_path.iterdir():
                     if item.is_dir() and self._is_service_directory(item):
                         self._services.append(
@@ -242,7 +268,7 @@ class ServiceOrchestrator:
             "Cargo.toml",
         ]
 
-        return any((path / indicator).exists() for indicator in indicators)
+        return any(_safe_exists(path / indicator) for indicator in indicators)
 
     def is_multi_service(self) -> bool:
         """

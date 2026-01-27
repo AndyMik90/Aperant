@@ -27,6 +27,49 @@ from typing import Any
 
 from risk_classifier import RiskClassifier
 
+
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+
+def _safe_exists(path: Path) -> bool:
+    """
+    Safely check if a path exists, handling PermissionError.
+
+    On some systems, calling .exists() on deeply nested paths within
+    non-existent directories can raise PermissionError instead of
+    returning False. This wrapper handles that case.
+
+    Args:
+        path: Path to check
+
+    Returns:
+        True if path exists, False otherwise
+    """
+    try:
+        return path.exists()
+    except (PermissionError, OSError):
+        return False
+
+
+def _safe_glob(path: Path, pattern: str) -> list[Path]:
+    """
+    Safely glob files, handling PermissionError.
+
+    Args:
+        path: Directory to glob in
+        pattern: Glob pattern
+
+    Returns:
+        List of matching paths, or empty list if error
+    """
+    try:
+        return list(path.glob(pattern))
+    except (PermissionError, OSError):
+        return []
+
+
 # =============================================================================
 # DATA CLASSES
 # =============================================================================
@@ -142,7 +185,7 @@ def detect_project_type(project_dir: Path) -> str:
 
     # Check for specific frameworks first
     package_json = project_dir / "package.json"
-    if package_json.exists():
+    if _safe_exists(package_json):
         try:
             with open(package_json, encoding="utf-8") as f:
                 pkg = json.load(f)
@@ -167,12 +210,12 @@ def detect_project_type(project_dir: Path) -> str:
     # Check for Python projects
     pyproject = project_dir / "pyproject.toml"
     requirements = project_dir / "requirements.txt"
-    if pyproject.exists() or requirements.exists():
+    if _safe_exists(pyproject) or _safe_exists(requirements):
         # Try to detect API framework
         deps_text = ""
-        if requirements.exists():
+        if _safe_exists(requirements):
             deps_text = requirements.read_text(encoding="utf-8").lower()
-        if pyproject.exists():
+        if _safe_exists(pyproject):
             deps_text += pyproject.read_text(encoding="utf-8").lower()
 
         if "fastapi" in deps_text or "flask" in deps_text or "django" in deps_text:
@@ -182,15 +225,15 @@ def detect_project_type(project_dir: Path) -> str:
         return "python"
 
     # Check for other languages
-    if (project_dir / "Cargo.toml").exists():
+    if _safe_exists(project_dir / "Cargo.toml"):
         return "rust"
-    if (project_dir / "go.mod").exists():
+    if _safe_exists(project_dir / "go.mod"):
         return "go"
-    if (project_dir / "Gemfile").exists():
+    if _safe_exists(project_dir / "Gemfile"):
         return "ruby"
 
     # Check for simple HTML/CSS
-    html_files = list(project_dir.glob("*.html"))
+    html_files = _safe_glob(project_dir, "*.html")
     if html_files:
         return "html_css"
 

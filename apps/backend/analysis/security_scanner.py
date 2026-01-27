@@ -40,6 +40,31 @@ except ImportError:
 
 
 # =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+
+def _safe_exists(path: Path) -> bool:
+    """
+    Safely check if a path exists, handling PermissionError.
+
+    On some systems, calling .exists() on deeply nested paths within
+    non-existent directories can raise PermissionError instead of
+    returning False. This wrapper handles that case.
+
+    Args:
+        path: Path to check
+
+    Returns:
+        True if path exists, False otherwise
+    """
+    try:
+        return path.exists()
+    except (PermissionError, OSError):
+        return False
+
+
+# =============================================================================
 # DATA CLASSES
 # =============================================================================
 
@@ -230,8 +255,8 @@ class SecurityScanner:
             for candidate in ["src", "app", project_dir.name, "."]:
                 candidate_path = project_dir / candidate
                 if (
-                    candidate_path.exists()
-                    and (candidate_path / "__init__.py").exists()
+                    _safe_exists(candidate_path)
+                    and _safe_exists(candidate_path / "__init__.py")
                 ):
                     src_dirs.append(str(candidate_path))
 
@@ -298,7 +323,7 @@ class SecurityScanner:
     ) -> None:
         """Run dependency vulnerability audits."""
         # npm audit for JavaScript projects
-        if (project_dir / "package.json").exists():
+        if _safe_exists(project_dir / "package.json"):
             self._run_npm_audit(project_dir, result)
 
         # pip-audit for Python projects (if available)
@@ -407,7 +432,7 @@ class SecurityScanner:
             project_dir / "setup.py",
             project_dir / "setup.cfg",
         ]
-        return any(p.exists() for p in indicators)
+        return any(_safe_exists(p) for p in indicators)
 
     def _check_bandit_available(self) -> bool:
         """Check if Bandit is available."""

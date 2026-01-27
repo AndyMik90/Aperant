@@ -70,7 +70,7 @@ class TestEnvVarTokenResolution:
     def test_no_token_returns_none(self, monkeypatch):
         """Returns None when no auth token is configured."""
         # Mock keychain to return None (env vars already cleared by fixture)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", Mock(return_value=None))
         token = get_auth_token()
         assert token is None
 
@@ -374,7 +374,7 @@ class TestRequireAuthToken:
         for var in AUTH_TOKEN_ENV_VARS:
             os.environ.pop(var, None)
         # Mock keychain to return None (tests that need a token will set env var)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", Mock(return_value=None))
         yield
         # Cleanup after test
         for var in AUTH_TOKEN_ENV_VARS:
@@ -559,7 +559,7 @@ class TestTokenSourceDetection:
     def test_source_none_when_not_found(self, monkeypatch):
         """Returns None when no token source is found."""
         # Mock keychain to return None (env vars already cleared by fixture)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", Mock(return_value=None))
         source = get_auth_token_source()
         assert source is None
 

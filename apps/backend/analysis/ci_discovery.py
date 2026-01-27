@@ -125,25 +125,25 @@ class CIDiscovery:
 
         # GitHub Actions
         github_workflows = project_dir / ".github" / "workflows"
-        if github_workflows.exists():
+        if _safe_exists(github_workflows):
             result = self._parse_github_actions(github_workflows)
 
         # GitLab CI
         if not result:
             gitlab_ci = project_dir / ".gitlab-ci.yml"
-            if gitlab_ci.exists():
+            if _safe_exists(gitlab_ci):
                 result = self._parse_gitlab_ci(gitlab_ci)
 
         # CircleCI
         if not result:
             circleci = project_dir / ".circleci" / "config.yml"
-            if circleci.exists():
+            if _safe_exists(circleci):
                 result = self._parse_circleci(circleci)
 
         # Jenkins
         if not result:
             jenkinsfile = project_dir / "Jenkinsfile"
-            if jenkinsfile.exists():
+            if _safe_exists(jenkinsfile):
                 result = self._parse_jenkinsfile(jenkinsfile)
 
         self._cache[cache_key] = result
@@ -493,6 +493,26 @@ class CIDiscovery:
 # =============================================================================
 # CONVENIENCE FUNCTIONS
 # =============================================================================
+
+
+def _safe_exists(path: Path) -> bool:
+    """
+    Safely check if a path exists, handling PermissionError.
+
+    On some systems, calling .exists() on deeply nested paths within
+    non-existent directories can raise PermissionError instead of
+    returning False. This wrapper handles that case.
+
+    Args:
+        path: Path to check
+
+    Returns:
+        True if path exists, False otherwise
+    """
+    try:
+        return path.exists()
+    except (PermissionError, OSError):
+        return False
 
 
 def discover_ci(project_dir: Path) -> CIConfig | None:
