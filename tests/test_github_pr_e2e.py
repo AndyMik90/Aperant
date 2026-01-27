@@ -31,7 +31,7 @@ from models import (
     GitHubRunnerConfig,
     FollowupReviewContext,
 )
-from bot_detection import BotDetector
+from bot_detection import BotDetector as GitHubBotDetector
 
 
 # ============================================================================
@@ -249,8 +249,8 @@ class TestBotDetectionE2E:
         state_dir = tmp_path / "github"
         state_dir.mkdir(parents=True)
 
-        with patch.object(BotDetector, "_get_bot_username", return_value="auto-claude[bot]"):
-            detector = BotDetector(
+        with patch.object(GitHubBotDetector, "_get_bot_username", return_value="auto-claude[bot]"):
+            detector = GitHubBotDetector(
                 state_dir=state_dir,
                 bot_token="ghp_bot_token",
                 review_own_prs=False,
@@ -310,13 +310,13 @@ class TestBotDetectionE2E:
         state_dir.mkdir(parents=True)
 
         # First detector instance
-        with patch.object(BotDetector, "_get_bot_username", return_value="bot"):
-            detector1 = BotDetector(state_dir=state_dir, bot_token="token")
+        with patch.object(GitHubBotDetector, "_get_bot_username", return_value="bot"):
+            detector1 = GitHubBotDetector(state_dir=state_dir, bot_token="token")
             detector1.mark_reviewed(42, "abc123")
 
         # Second detector instance (simulating app restart)
-        with patch.object(BotDetector, "_get_bot_username", return_value="bot"):
-            detector2 = BotDetector(state_dir=state_dir, bot_token="token")
+        with patch.object(GitHubBotDetector, "_get_bot_username", return_value="bot"):
+            detector2 = GitHubBotDetector(state_dir=state_dir, bot_token="token")
 
         # Should see the reviewed commit
         assert detector2.has_reviewed_commit(42, "abc123") is True

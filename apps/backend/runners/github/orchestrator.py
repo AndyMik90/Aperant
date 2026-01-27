@@ -20,7 +20,7 @@ from pathlib import Path
 
 try:
     # When imported as part of package
-    from .bot_detection import BotDetector
+    from .bot_detection import BotDetector as GitHubBotDetector
     from .context_gatherer import PRContext, PRContextGatherer
     from .gh_client import GHClient
     from .models import (
@@ -58,9 +58,9 @@ except (ImportError, ValueError, SystemError):
         sys.path.insert(0, str(_github_dir))
     # Use try/except for each import to handle partial failures gracefully
     try:
-        from bot_detection import BotDetector
+        from bot_detection import BotDetector as GitHubBotDetector
     except ImportError:
-        BotDetector = None  # type: ignore
+        GitHubBotDetector = None  # type: ignore
 
     try:
         from .context_gatherer import PRContext, PRContextGatherer
@@ -190,7 +190,7 @@ class GitHubOrchestrator:
         # Validate required dependencies are available
         required_deps = {
             "GHClient": GHClient,
-            "BotDetector": BotDetector,
+            "GitHubBotDetector": GitHubBotDetector,
             "GitHubPermissionChecker": GitHubPermissionChecker,
             "RateLimiter": RateLimiter,
             "PRReviewEngine": PRReviewEngine,
@@ -223,7 +223,8 @@ class GitHubOrchestrator:
         )
 
         # Initialize bot detector for preventing infinite loops
-        self.bot_detector = BotDetector(
+        # Note: GitHub GitHubBotDetector uses bot_token and review_own_prs parameters
+        self.bot_detector: GitHubBotDetector = GitHubBotDetector(
             state_dir=self.github_dir,
             bot_token=config.bot_token,
             review_own_prs=config.review_own_prs,

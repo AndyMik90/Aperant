@@ -28,7 +28,7 @@ from models import (
     MergeVerdict,
     FollowupReviewContext,
 )
-from bot_detection import BotDetector
+from bot_detection import BotDetector as GitHubBotDetector
 
 
 # ============================================================================
@@ -84,8 +84,8 @@ def mock_bot_detector(tmp_path):
     state_dir = tmp_path / "github"
     state_dir.mkdir(parents=True)
 
-    with patch.object(BotDetector, "_get_bot_username", return_value="test-bot"):
-        detector = BotDetector(
+    with patch.object(GitHubBotDetector, "_get_bot_username", return_value="test-bot"):
+        detector = GitHubBotDetector(
             state_dir=state_dir,
             bot_token="fake-token",
             review_own_prs=False,
