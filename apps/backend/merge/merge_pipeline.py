@@ -14,6 +14,7 @@ This module handles the pipeline for merging a single file:
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from .conflict_detector import ConflictDetector
 from .conflict_resolver import ConflictResolver

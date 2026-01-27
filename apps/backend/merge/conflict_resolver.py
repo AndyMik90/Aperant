@@ -13,6 +13,7 @@ This module handles:
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from .ai_resolver import AIResolver
 from .auto_merger import AutoMerger, MergeContext
