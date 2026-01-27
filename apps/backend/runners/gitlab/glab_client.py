@@ -39,6 +39,10 @@ RETRYABLE_EXCEPTIONS = (
 )
 MAX_RESPONSE_SIZE = 10 * 1024 * 1024  # 10MB
 
+# Idempotent HTTP methods that are safe to retry on server/network errors
+# Non-idempotent methods (POST, PUT, DELETE, PATCH) should only retry on rate limit (429)
+IDEMPOTENT_METHODS = {"GET", "HEAD", "OPTIONS"}
+
 
 def _async_method(func):
     """
@@ -148,11 +152,18 @@ class GitLabClient:
         """
         Make an API request to GitLab with enhanced retry logic.
 
-        Retries on:
+        Retry behavior differs by HTTP method to prevent unintended side effects:
+
+        Idempotent methods (GET, HEAD, OPTIONS):
         - HTTP 429 (rate limit) with exponential backoff and Retry-After header
         - HTTP 500, 502, 503, 504 (server errors)
         - Network timeouts and connection errors
         - SSL/TLS errors
+
+        Non-idempotent methods (POST, PUT, DELETE, PATCH):
+        - HTTP 429 (rate limit) only
+        - No retry on server errors, network errors, or SSL errors to avoid
+          unintended side effects (e.g., duplicate resource creation)
 
         Args:
             endpoint: API endpoint path
@@ -264,8 +275,16 @@ class GitLabClient:
                         time.sleep(wait_time)
                         continue
 
-                # Retry on server errors
-                if e.code in RETRYABLE_STATUS_CODES and attempt < max_retries - 1:
+                # Retry on server errors (only for idempotent methods)
+                # Non-idempotent methods (POST, PUT, DELETE, PATCH) should not be
+                # retried on server errors as they may cause unintended side effects
+                is_idempotent = method.upper() in IDEMPOTENT_METHODS
+                is_retryable = e.code in RETRYABLE_STATUS_CODES
+                should_retry = (
+                    is_idempotent and is_retryable and attempt < max_retries - 1
+                )
+
+                if should_retry:
                     wait_time = 2**attempt
                     logger.warning(
                         f"Server error {e.code}. Retrying in {wait_time}s..."
@@ -283,7 +302,9 @@ class GitLabClient:
 
             except RETRYABLE_EXCEPTIONS as e:
                 last_error = e
-                if attempt < max_retries - 1:
+                # Only retry network errors for idempotent methods
+                is_idempotent = method.upper() in IDEMPOTENT_METHODS
+                if is_idempotent and attempt < max_retries - 1:
                     wait_time = 2**attempt
                     logger.warning(f"Network error: {e}. Retrying in {wait_time}s...")
                     time.sleep(wait_time)
@@ -292,7 +313,9 @@ class GitLabClient:
 
             except ssl.SSLError as e:
                 last_error = e
-                if attempt < max_retries - 1:
+                # Only retry SSL errors for idempotent methods
+                is_idempotent = method.upper() in IDEMPOTENT_METHODS
+                if is_idempotent and attempt < max_retries - 1:
                     wait_time = 2**attempt
                     logger.warning(f"SSL error: {e}. Retrying in {wait_time}s...")
                     time.sleep(wait_time)
