@@ -71,6 +71,7 @@ interface DaemonResponse {
 class PtyDaemon {
   private ptys = new Map<string, ManagedPty>();
   private server: net.Server | null = null;
+  private isShuttingDown = false;
 
   constructor() {
     console.error('[PTY Daemon] Starting...');
@@ -236,6 +237,11 @@ class PtyDaemon {
    * Create a new PTY
    */
   private createPty(config: PtyConfig): string {
+    // Guard against spawning new PTY processes after shutdown has begun
+    if (this.isShuttingDown) {
+      throw new Error('Cannot create PTY: daemon is shutting down');
+    }
+
     const id = `pty-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     try {
@@ -322,7 +328,13 @@ class PtyDaemon {
     if (managed.isDead) {
       throw new Error(`PTY ${id} is dead`);
     }
-    managed.process.write(data);
+    try {
+      managed.process.write(data);
+    } catch (error) {
+      // PTY process may have been destroyed during teardown
+      console.error(`[PTY Daemon] Error writing to PTY ${id}:`, error);
+      managed.isDead = true;
+    }
   }
 
   /**
@@ -337,9 +349,15 @@ class PtyDaemon {
       console.warn(`[PTY Daemon] Cannot resize dead PTY ${id}`);
       return;
     }
-    managed.process.resize(cols, rows);
-    managed.config.cols = cols;
-    managed.config.rows = rows;
+    try {
+      managed.process.resize(cols, rows);
+      managed.config.cols = cols;
+      managed.config.rows = rows;
+    } catch (error) {
+      // PTY process may have been destroyed during teardown
+      console.error(`[PTY Daemon] Error resizing PTY ${id}:`, error);
+      managed.isDead = true;
+    }
   }
 
   /**
@@ -447,6 +465,9 @@ class PtyDaemon {
   private setupSignalHandlers(): void {
     const shutdown = (signal: string) => {
       console.error(`[PTY Daemon] Received ${signal}, shutting down...`);
+
+      // Set shutdown flag to prevent new PTY creation and guard operations
+      this.isShuttingDown = true;
 
       // Kill all PTYs
       this.ptys.forEach((managed) => {
