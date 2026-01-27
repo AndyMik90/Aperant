@@ -7,8 +7,9 @@ Tests the BotDetector class to ensure it correctly prevents infinite loops.
 
 import json
 import sys
+from datetime import timedelta
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -160,7 +161,8 @@ class TestCoolingOff:
     def test_within_cooling_off(self, mock_bot_detector):
         """Test PR within cooling off period."""
         # Set last review to 30 seconds ago (within 1 minute cooling off)
-        half_min_ago = datetime.now() - timedelta(seconds=30)
+        import datetime as dt
+        half_min_ago = dt.datetime.now() - timedelta(seconds=30)
         mock_bot_detector.state.last_review_times["123"] = half_min_ago.isoformat()
 
         is_cooling, reason = mock_bot_detector.is_within_cooling_off(123)
@@ -171,7 +173,8 @@ class TestCoolingOff:
     def test_outside_cooling_off(self, mock_bot_detector):
         """Test PR outside cooling off period."""
         # Set last review to 2 minutes ago (outside 1 minute cooling off)
-        two_min_ago = datetime.now() - timedelta(minutes=2)
+        import datetime as dt
+        two_min_ago = dt.datetime.now() - timedelta(minutes=2)
         mock_bot_detector.state.last_review_times["123"] = two_min_ago.isoformat()
 
         is_cooling, reason = mock_bot_detector.is_within_cooling_off(123)
@@ -262,7 +265,8 @@ class TestShouldSkipReview:
     def test_skip_cooling_off(self, mock_bot_detector):
         """Test skipping during cooling off period."""
         # Set last review to 30 seconds ago (within 1 minute cooling off)
-        half_min_ago = datetime.now() - timedelta(seconds=30)
+        import datetime as dt
+        half_min_ago = dt.datetime.now() - timedelta(seconds=30)
         mock_bot_detector.state.last_review_times["123"] = half_min_ago.isoformat()
 
         pr_data = {"author": {"login": "alice"}}
