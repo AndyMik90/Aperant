@@ -78,7 +78,7 @@ async def test_verify_token_scopes_project_not_found(
 @pytest.mark.asyncio
 async def test_check_label_adder_success(permission_checker, mock_glab_client):
     """Test successfully finding who added a label."""
-    mock_glab_client._fetch_async.return_value = [
+    mock_glab_client.get_project_members_async.return_value = [
         {
             "id": 1,
             "user": {"username": "alice"},
@@ -109,7 +109,7 @@ async def test_check_label_adder_success(permission_checker, mock_glab_client):
 @pytest.mark.asyncio
 async def test_check_label_adder_label_not_found(permission_checker, mock_glab_client):
     """Test label not found raises GitLabPermissionError."""
-    mock_glab_client._fetch_async.return_value = [
+    mock_glab_client.get_project_members_async.return_value = [
         {
             "id": 1,
             "user": {"username": "alice"},
@@ -125,7 +125,7 @@ async def test_check_label_adder_label_not_found(permission_checker, mock_glab_c
 @pytest.mark.asyncio
 async def test_check_label_adder_no_username(permission_checker, mock_glab_client):
     """Test label event without username raises GitLabPermissionError."""
-    mock_glab_client._fetch_async.return_value = [
+    mock_glab_client.get_project_members_async.return_value = [
         {
             "id": 1,
             "action": "add",
@@ -207,7 +207,7 @@ async def test_get_user_role_no_relationship(permission_checker, mock_glab_clien
 @pytest.mark.asyncio
 async def test_get_user_role_uses_cache(permission_checker, mock_glab_client):
     """Test that role results are cached."""
-    mock_glab_client._fetch_async.return_value = [
+    mock_glab_client.get_project_members_async.return_value = [
         {
             "id": 1,
             "username": "alice",
@@ -222,13 +222,13 @@ async def test_get_user_role_uses_cache(permission_checker, mock_glab_client):
 
     assert role1 == role2 == "MAINTAINER"
     # Should only call API once
-    assert mock_glab_client._fetch_async.call_count == 1
+    assert mock_glab_client.get_project_members_async.call_count == 1
 
 
 @pytest.mark.asyncio
 async def test_is_allowed_for_autofix_allowed(permission_checker, mock_glab_client):
     """Test user is allowed for auto-fix."""
-    mock_glab_client._fetch_async.return_value = [
+    mock_glab_client.get_project_members_async.return_value = [
         {
             "id": 1,
             "username": "alice",
@@ -247,7 +247,7 @@ async def test_is_allowed_for_autofix_allowed(permission_checker, mock_glab_clie
 @pytest.mark.asyncio
 async def test_is_allowed_for_autofix_denied(permission_checker, mock_glab_client):
     """Test user is denied for auto-fix."""
-    mock_glab_client._fetch_async.return_value = [
+    mock_glab_client.get_project_members_async.return_value = [
         {
             "id": 1,
             "username": "bob",
@@ -352,7 +352,7 @@ def test_access_levels():
 @pytest.mark.asyncio
 async def test_get_user_role_developer(permission_checker, mock_glab_client):
     """Test getting DEVELOPER role."""
-    mock_glab_client._fetch_async.return_value = [
+    mock_glab_client.get_project_members_async.return_value = [
         {
             "id": 1,
             "username": "dev",
@@ -368,7 +368,7 @@ async def test_get_user_role_developer(permission_checker, mock_glab_client):
 @pytest.mark.asyncio
 async def test_get_user_role_guest(permission_checker, mock_glab_client):
     """Test getting GUEST role."""
-    mock_glab_client._fetch_async.return_value = [
+    mock_glab_client.get_project_members_async.return_value = [
         {
             "id": 1,
             "username": "guest",
