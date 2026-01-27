@@ -463,15 +463,13 @@ export function LinearFilterBar({
 
 	// Extract unique values from tickets for dynamic filters
 	const uniqueStatuses = useMemo(() => {
-		const statusMap = new Map<string, string>();
+		const statusSet = new Set<string>();
 		storeTickets.forEach((ticket) => {
-			if (!statusMap.has(ticket.state.type)) {
-				statusMap.set(ticket.state.type, ticket.state.name);
-			}
+			statusSet.add(ticket.state.name);
 		});
-		return Array.from(statusMap.entries()).map(([value, label]) => ({
-			value,
-			label,
+		return Array.from(statusSet).sort().map((name) => ({
+			value: name,
+			label: name,
 		}));
 	}, [storeTickets]);
 
@@ -534,6 +532,7 @@ export function LinearFilterBar({
 					/>
 					{searchQuery && (
 						<button
+							type="button"
 							onClick={() => onSearchChange("")}
 							className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
 							aria-label={t("linear.clearSearch")}

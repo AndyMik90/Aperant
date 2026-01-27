@@ -419,6 +419,7 @@
 		"createTaskFailed": "Échec de la création de la tâche",
 		"viewOnLinear": "Voir sur Linear",
 		"validation": "Validation",
+		"validationResults": "Résultats de validation",
 		"labels": "Labels",
 		"status": "Statut",
 		"priority": "Priorité",

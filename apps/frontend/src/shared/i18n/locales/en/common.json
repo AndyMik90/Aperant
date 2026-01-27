@@ -420,6 +420,7 @@
 		"createTaskFailed": "Failed to create task",
 		"viewOnLinear": "View on Linear",
 		"validation": "Validation",
+		"validationResults": "Validation results",
 		"labels": "Labels",
 		"status": "Status",
 		"priority": "Priority",
