@@ -22,6 +22,7 @@ class MockGitLabClient:
 
     def __init__(self):
         self._fetch_async = AsyncMock()
+        self.get_project_members_async = AsyncMock(return_value=[])
 
     def config(self):
         """Return mock config."""
@@ -96,12 +97,12 @@ async def test_check_label_adder_success(permission_checker, mock_glab_client):
 
     assert username == "alice"
     assert role in [
-        GitLabRole.OWNER,
-        GitLabRole.MAINTAINER,
-        GitLabRole.DEVELOPER,
-        GitLabRole.REPORTER,
-        GitLabRole.GUEST,
-        GitLabRole.NONE,
+        "OWNER",
+        "MAINTAINER",
+        "DEVELOPER",
+        "REPORTER",
+        "GUEST",
+        "NONE",
     ]
 
 
@@ -139,7 +140,7 @@ async def test_check_label_adder_no_username(permission_checker, mock_glab_clien
 @pytest.mark.asyncio
 async def test_get_user_role_project_member(permission_checker, mock_glab_client):
     """Test getting role for project member."""
-    mock_glab_client._fetch_async.return_value = [
+    mock_glab_client.get_project_members_async.return_value = [
         {
             "id": 1,
             "username": "alice",
@@ -149,7 +150,7 @@ async def test_get_user_role_project_member(permission_checker, mock_glab_client
 
     role = await permission_checker.get_user_role("alice")
 
-    assert role == GitLabRole.MAINTAINER
+    assert role == "MAINTAINER"
 
 
 @pytest.mark.asyncio
@@ -175,7 +176,7 @@ async def test_get_user_role_owner_via_namespace(permission_checker, mock_glab_c
 
     role = await permission_checker.get_user_role("alice")
 
-    assert role == GitLabRole.OWNER
+    assert role == "OWNER"
 
 
 @pytest.mark.asyncio
@@ -200,7 +201,7 @@ async def test_get_user_role_no_relationship(permission_checker, mock_glab_clien
 
     role = await permission_checker.get_user_role("alice")
 
-    assert role == GitLabRole.NONE
+    assert role == "NONE"
 
 
 @pytest.mark.asyncio
@@ -219,7 +220,7 @@ async def test_get_user_role_uses_cache(permission_checker, mock_glab_client):
     # Second call should use cache
     role2 = await permission_checker.get_user_role("alice")
 
-    assert role1 == role2 == GitLabRole.MAINTAINER
+    assert role1 == role2 == "MAINTAINER"
     # Should only call API once
     assert mock_glab_client._fetch_async.call_count == 1
 
@@ -239,7 +240,7 @@ async def test_is_allowed_for_autofix_allowed(permission_checker, mock_glab_clie
 
     assert result.allowed is True
     assert result.username == "alice"
-    assert result.role == GitLabRole.MAINTAINER
+    assert result.role == "MAINTAINER"
     assert result.reason is None
 
 
@@ -258,7 +259,7 @@ async def test_is_allowed_for_autofix_denied(permission_checker, mock_glab_clien
 
     assert result.allowed is False
     assert result.username == "bob"
-    assert result.role == GitLabRole.REPORTER
+    assert result.role == "REPORTER"
     assert "not in allowed roles" in result.reason
 
 
@@ -326,7 +327,7 @@ def test_log_permission_denial(permission_checker, caplog):
         permission_checker.log_permission_denial(
             action="auto-fix",
             username="bob",
-            role=GitLabRole.REPORTER,
+            role="REPORTER",
             issue_iid=123,
         )
 
@@ -361,7 +362,7 @@ async def test_get_user_role_developer(permission_checker, mock_glab_client):
 
     role = await permission_checker.get_user_role("dev")
 
-    assert role == GitLabRole.DEVELOPER
+    assert role == "DEVELOPER"
 
 
 @pytest.mark.asyncio
@@ -377,4 +378,4 @@ async def test_get_user_role_guest(permission_checker, mock_glab_client):
 
     role = await permission_checker.get_user_role("guest")
 
-    assert role == GitLabRole.GUEST
+    assert role == "GUEST"
