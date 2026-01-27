@@ -110,9 +110,8 @@ def tmp_project_dir(tmp_path):
         "def helper():\n    return True", encoding="utf-8"
     )
 
-    # Create test files
-    (tmp_path / "tests").mkdir()
-    (tmp_path / "tests" / "test_helpers.py").write_text(
+    # Create test files in the same directory as source (matching _find_test_files behavior)
+    (tmp_path / "src" / "utils" / "test_helpers.py").write_text(
         "def test_helper():\n    assert True", encoding="utf-8"
     )
 
@@ -197,8 +196,8 @@ class TestRelatedFilesFinding:
         source_path = Path("src/utils/helpers.py")
         tests = gatherer._find_test_files(source_path)
 
-        # Should find the test file we created
-        assert "tests/test_helpers.py" in tests
+        # Should find the test file we created (in same directory as source)
+        assert "src/utils/test_helpers.py" in tests
 
     def test_find_config_files(self, gatherer, tmp_project_dir):
         """Test finding config files in directory."""
