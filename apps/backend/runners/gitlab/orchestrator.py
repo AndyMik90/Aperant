@@ -31,7 +31,13 @@ try:
     from .services.ci_checker import CIChecker
     from .services.context_gatherer import MRContextGatherer
 except ImportError:
-    # Fallback for direct script execution (not as a module)
+    # Fallback for direct script execution - use absolute imports from runners.gitlab
+    import sys
+    from pathlib import Path
+
+    _gitlab_dir = Path(__file__).parent
+    if str(_gitlab_dir) not in sys.path:
+        sys.path.insert(0, str(_gitlab_dir))
     from bot_detection import BotDetector
     from glab_client import GitLabClient, GitLabConfig
     from models import (

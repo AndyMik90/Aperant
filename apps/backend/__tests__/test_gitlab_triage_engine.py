@@ -104,7 +104,8 @@ class TestTriageEngineBasic:
 
         # Engine should handle all categories
         for category in expected_categories:
-            assert category in TriageCategory
+            # Check if category is a valid TriageCategory enum value
+            assert any(category == member for member in TriageCategory)
 
 
 class ResponseParserTests:

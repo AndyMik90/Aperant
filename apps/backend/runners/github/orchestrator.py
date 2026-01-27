@@ -49,6 +49,13 @@ try:
     from .services.io_utils import safe_print
 except (ImportError, ValueError, SystemError):
     # When imported directly (runner.py adds github dir to path)
+    # Ensure we import from the github directory to avoid conflicts
+    import sys
+    from pathlib import Path
+
+    _github_dir = Path(__file__).parent
+    if str(_github_dir) not in sys.path:
+        sys.path.insert(0, str(_github_dir))
     # Use try/except for each import to handle partial failures gracefully
     try:
         from bot_detection import BotDetector
