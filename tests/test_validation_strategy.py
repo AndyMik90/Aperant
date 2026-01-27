@@ -631,17 +631,12 @@ class TestEdgeCases:
 
     def test_nonexistent_directory(self, builder):
         """Test handling of non-existent directory."""
-        from unittest.mock import patch
+        # Use a path that's guaranteed not to exist (avoid /nonexistent which may exist)
+        fake_dir = Path("/tmp/nonexistent_test_path_xyz123_that_does_not_exist")
 
-        fake_dir = Path("/nonexistent/path")
-
-        # Mock multiple Path methods to avoid permission errors on nonexistent paths
-        with patch.object(Path, 'exists', return_value=False), \
-             patch.object(Path, 'is_dir', return_value=False), \
-             patch.object(Path, 'glob', return_value=[]):
-            # Should not crash, returns unknown
-            strategy = builder.build_strategy(fake_dir, fake_dir, "medium")
-            assert strategy.project_type == "unknown"
+        # Should not crash, returns unknown
+        strategy = builder.build_strategy(fake_dir, fake_dir, "medium")
+        assert strategy.project_type == "unknown"
 
     def test_empty_risk_level_defaults_medium(self, builder, temp_dir):
         """Test that None risk level defaults to medium."""

@@ -629,7 +629,8 @@ class TestEdgeCases:
 
     def test_nonexistent_directory(self, discovery):
         """Test handling of non-existent directory."""
-        fake_dir = Path("/nonexistent/path")
+        # Use a path that's guaranteed not to exist (avoid /nonexistent which may exist)
+        fake_dir = Path("/tmp/nonexistent_test_path_xyz123_that_does_not_exist")
 
         # Should not raise - mock exists to avoid permission error
         with patch.object(Path, 'exists', return_value=False):
