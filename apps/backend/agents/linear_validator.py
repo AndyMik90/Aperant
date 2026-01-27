@@ -471,7 +471,8 @@ class LinearValidationAgent:
             )
 
         # Extract numeric ID from issue identifier (e.g., "LIN-123" -> "123")
-        numeric_id = issue_id.replace("LIN-", "").replace("-", "")
+        # Use the identifier as-is for GraphQL (Linear accepts LIN-123 or just 123)
+        numeric_id = issue_id.replace("LIN-", "")
 
         # GraphQL query to fetch issue data
         query = """
