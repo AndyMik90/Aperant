@@ -92,21 +92,21 @@ export const terminalMock = {
     success: true
   }),
 
-  // Terminal Event Listeners (no-op in browser)
-  onTerminalOutput: () => () => {},
-  onTerminalExit: () => () => {},
-  onTerminalTitleChange: () => () => {},
-  onTerminalWorktreeConfigChange: () => () => {},
-  onTerminalClaudeSession: () => () => {},
-  onTerminalRateLimit: () => () => {},
-  onTerminalOAuthToken: () => () => {},
-  onTerminalAuthCreated: () => () => {},
-  onTerminalClaudeBusy: () => () => {},
-  onTerminalClaudeExit: () => () => {},
-  onTerminalOnboardingComplete: () => () => {},
-  onTerminalPendingResume: () => () => {},
-  onTerminalProfileChanged: () => () => {},
-  onTerminalOAuthCodeNeeded: () => () => {},
+  // Terminal Event Listeners (no-op in browser mock)
+  onTerminalOutput: () => () => {}, // Intentional no-op for browser mock
+  onTerminalExit: () => () => {}, // Intentional no-op for browser mock
+  onTerminalTitleChange: () => () => {}, // Intentional no-op for browser mock
+  onTerminalWorktreeConfigChange: () => () => {}, // Intentional no-op for browser mock
+  onTerminalClaudeSession: () => () => {}, // Intentional no-op for browser mock
+  onTerminalRateLimit: () => () => {}, // Intentional no-op for browser mock
+  onTerminalOAuthToken: () => () => {}, // Intentional no-op for browser mock
+  onTerminalAuthCreated: () => () => {}, // Intentional no-op for browser mock
+  onTerminalClaudeBusy: () => () => {}, // Intentional no-op for browser mock
+  onTerminalClaudeExit: () => () => {}, // Intentional no-op for browser mock
+  onTerminalOnboardingComplete: () => () => {}, // Intentional no-op for browser mock
+  onTerminalPendingResume: () => () => {}, // Intentional no-op for browser mock
+  onTerminalProfileChanged: () => () => {}, // Intentional no-op for browser mock
+  onTerminalOAuthCodeNeeded: () => () => {}, // Intentional no-op for browser mock
 
   // OAuth code submission
   submitOAuthCode: async () => ({
