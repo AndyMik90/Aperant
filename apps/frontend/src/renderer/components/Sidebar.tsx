@@ -20,7 +20,9 @@ import {
   GitBranch,
   HelpCircle,
   Wrench,
-  Ticket
+  Ticket,
+  PanelLeft,
+  PanelLeftClose
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -121,6 +123,14 @@ export function Sidebar({
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [pendingProject, setPendingProject] = useState<Project | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [envConfig, setEnvConfig] = useState<{
+    githubEnabled?: boolean;
+    gitlabEnabled?: boolean;
+    linearEnabled?: boolean;
+  } | null>(null);
+
+  const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
@@ -149,11 +159,11 @@ export function Sidebar({
   const visibleNavItems = useMemo(() => {
     const items = [...baseNavItems];
 
-    if (githubEnabled) {
+    if (envConfig?.githubEnabled) {
       items.push(...githubNavItems);
     }
 
-    if (gitlabEnabled) {
+    if (envConfig?.gitlabEnabled) {
       items.push(...gitlabNavItems);
     }
 

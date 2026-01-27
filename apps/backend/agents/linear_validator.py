@@ -971,7 +971,7 @@ Begin your analysis now.
             },
         }
 
-    def calculate_version_label(
+    def compute_version_label(
         self,
         current_version: str,
         work_type: str,
@@ -991,10 +991,10 @@ Begin your analysis now.
         Returns:
             New version label (e.g., "2.7.5" for patch, "2.8.0" for minor)
         """
-        # Call module-level function via globals to avoid name conflict
-        return globals()["calculate_version_label"](
-            current_version, work_type, priority
-        )
+        # Import module-level function with explicit alias to avoid name conflict
+        from . import calculate_version_label as _calculate_version_label_module
+
+        return _calculate_version_label_module(current_version, work_type, priority)
 
 
 def validate_batch_limit(issue_ids: list[str]) -> None:
