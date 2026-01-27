@@ -668,7 +668,7 @@ class GitLabProvider:
 
         data = {
             "name": label.name,
-            "color": label.color.lstrip("#"),  # GitLab doesn't want # prefix
+            "color": label.color.lstrip("#") if label.color else None,
         }
 
         if label.description:
