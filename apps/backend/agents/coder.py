@@ -662,7 +662,9 @@ async def run_autonomous_agent(
                 if current_log_phase == LogPhase.PLANNING:
                     first_run = True
                     planning_retry_context = error_context_message
-                    print_status("Planning session failed - will retry planning", "warning")
+                    print_status(
+                        "Planning session failed - will retry planning", "warning"
+                    )
                 else:
                     concurrency_error_context = error_context_message
 
