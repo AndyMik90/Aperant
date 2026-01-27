@@ -593,6 +593,6 @@ async def run_agent_session(
         error_info = {
             "type": error_type,
             "message": str(e),
-            "exception": e,
+            "exception_type": type(e).__name__,
         }
         return "error", str(e), error_info
