@@ -183,8 +183,7 @@ async def validate_batch_tickets(
         # Since we now auto-fetch data, we can pass None for data
         issues = [{"id": ticket_id, "data": None} for ticket_id in ticket_ids]
 
-        # Remove skip_cache parameter - validate_batch doesn't accept it
-        results = await agent.validate_batch(issues)
+        results = await agent.validate_batch(issues, skip_cache=skip_cache)
 
         # Convert successful results to serializable format
         successful_results = []

@@ -888,6 +888,7 @@ Begin your analysis now.
         issues: list[dict[str, Any]],
         current_version: str | None = None,
         max_concurrent: int = 2,
+        skip_cache: bool = False,
     ) -> dict[str, Any]:
         """
         Validate multiple tickets in batch (max 5) with concurrent queue.
@@ -902,6 +903,7 @@ Begin your analysis now.
             issues: List of issue dicts with 'id' and 'data' keys
             current_version: Current project version for version calculation
             max_concurrent: Maximum number of concurrent validations (default: 2)
+            skip_cache: If True, bypass cache and fetch fresh data (default: False)
 
         Returns:
             Dict with:
@@ -938,10 +940,10 @@ Begin your analysis now.
             async with semaphore:
                 try:
                     logger.info(
-                        f"[Queue] Validating {issue_id} (concurrent: {max_concurrent})"
+                        f"[Queue] Validating {issue_id} (concurrent: {max_concurrent}, skip_cache: {skip_cache})"
                     )
                     result = await self.validate_ticket(
-                        issue_id, issue_data, current_version
+                        issue_id, issue_data, current_version, skip_cache
                     )
                     logger.info(f"[Queue] Completed {issue_id}")
                     return result

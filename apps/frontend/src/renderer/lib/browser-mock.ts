@@ -237,6 +237,18 @@ const browserMockAPI: ElectronAPI = {
     onAnalyzePreviewError: () => () => {}
   },
 
+  // Queue Routing API (rate limit recovery)
+  queue: {
+    getRunningTasksByProfile: async () => ({ success: true, data: { byProfile: {}, totalRunning: 0 } }),
+    getBestProfileForTask: async () => ({ success: true, data: null }),
+    assignProfileToTask: async () => ({ success: true }),
+    updateTaskSession: async () => ({ success: true }),
+    getTaskSession: async () => ({ success: true, data: null }),
+    onQueueProfileSwapped: () => () => {},
+    onQueueSessionCaptured: () => () => {},
+    onQueueBlockedNoProfiles: () => () => {}
+  },
+
   // Linear API
   linear: {
     checkLinearConnection: async () => ({
