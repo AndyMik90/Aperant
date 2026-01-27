@@ -224,7 +224,7 @@ async def validate_batch_tickets(
             "error": str(e),
         }
     except Exception as e:
-        logger.exception(f"Unexpected error in batch validation")
+        logger.exception("Unexpected error in batch validation")
         return {
             "success": False,
             "error": f"Batch validation failed: {e}",
