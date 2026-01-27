@@ -302,7 +302,6 @@ async def cmd_triage(args) -> int:
     for issue in issues:
         title = issue.get("title", "").lower()
         description = issue.get("description", "").lower()
-        author = issue.get("author", {}).get("username", "")
 
         # Check for spam
         if any(word in title for word in ["test", "spam", "xxx"]):

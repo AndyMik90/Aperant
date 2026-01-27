@@ -5,7 +5,7 @@ Tests for GitLab Webhook Operations
 Tests for webhook listing, creation, updating, and deletion.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 

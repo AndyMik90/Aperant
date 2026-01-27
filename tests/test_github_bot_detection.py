@@ -7,9 +7,8 @@ Tests the BotDetector class to ensure it correctly prevents infinite loops.
 
 import json
 import sys
-from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

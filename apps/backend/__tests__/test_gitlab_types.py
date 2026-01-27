@@ -5,8 +5,6 @@ Tests for GitLab TypedDict Definitions
 Tests for type definitions and TypedDict usage.
 """
 
-from pathlib import Path
-
 import pytest
 
 try:

@@ -7,12 +7,10 @@ Tests for GitLab client timeout, retry, and async operations.
 
 import asyncio
 import json
-from datetime import datetime, timezone
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
-from requests.exceptions import ConnectionError, RequestException, Timeout
+from requests.exceptions import ConnectionError, Timeout
 
 
 class TestGitLabClient:
@@ -154,7 +152,7 @@ class TestGitLabClientRetry:
         import time
 
         with patch.object(client, "_make_request", mock_request):
-            result = client.get_mr(123)
+            client.get_mr(123)
 
         # Check delays between retries increase (exponential backoff)
         if len(call_times) > 2:
