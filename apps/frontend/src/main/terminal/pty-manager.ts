@@ -17,6 +17,28 @@ import type { SupportedTerminal } from '../../shared/types/settings';
 // Windows shell paths are now imported from the platform module via getWindowsShellPaths()
 
 /**
+ * Shutdown flag to prevent PTY handlers from accessing destroyed resources
+ * (e.g., BrowserWindow.webContents) during app shutdown.
+ * Follows the same pattern as isShuttingDown in pty-daemon-client.ts.
+ */
+let isShuttingDown = false;
+
+/**
+ * Set the shutting down flag. Call this during app quit/before-quit
+ * to prevent PTY handlers from accessing destroyed resources.
+ */
+export function setShuttingDown(value: boolean): void {
+  isShuttingDown = value;
+}
+
+/**
+ * Check if the PTY manager is in shutting down state.
+ */
+export function getIsShuttingDown(): boolean {
+  return isShuttingDown;
+}
+
+/**
  * Result of spawning a PTY process
  */
 export interface SpawnPtyResult {
@@ -184,6 +206,9 @@ export function setupPtyHandlers(
 
   // Handle data from terminal
   ptyProcess.onData((data) => {
+    // Skip processing during shutdown to avoid accessing destroyed resources
+    if (isShuttingDown) return;
+
     // Append to output buffer (limit to 100KB)
     terminal.outputBuffer = (terminal.outputBuffer + data).slice(-100000);
 
@@ -201,13 +226,18 @@ export function setupPtyHandlers(
   ptyProcess.onExit(({ exitCode }) => {
     debugLog('[PtyManager] Terminal exited:', id, 'code:', exitCode);
 
-    // Resolve any pending exit promise FIRST (before other cleanup)
+    // Always resolve pending exit promises, even during shutdown
+    // (needed for waitForPtyExit callers to complete)
     const pendingExit = pendingExitPromises.get(id);
     if (pendingExit) {
       clearTimeout(pendingExit.timeoutId);
       pendingExitPromises.delete(id);
       pendingExit.resolve();
     }
+
+    // During shutdown, skip accessing win.webContents and callbacks
+    // to avoid crashes from destroyed BrowserWindow resources
+    if (isShuttingDown) return;
 
     const win = getWindow();
     if (win) {
