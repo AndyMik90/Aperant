@@ -1,0 +1,123 @@
+{
+  "agents": {
+    "spec_gatherer": {
+      "label": "Collecteur de Spécifications",
+      "description": "Collecte les exigences initiales de l'utilisateur"
+    },
+    "spec_researcher": {
+      "label": "Chercheur de Spécifications",
+      "description": "Valide les intégrations externes et les API"
+    },
+    "spec_writer": {
+      "label": "Rédacteur de Spécifications",
+      "description": "Crée le document spec.md"
+    },
+    "spec_critic": {
+      "label": "Critique de Spécifications",
+      "description": "Auto-critique utilisant une analyse approfondie"
+    },
+    "spec_discovery": {
+      "label": "Découverte de Spécifications",
+      "description": "Découverte et analyse initiale du projet"
+    },
+    "spec_context": {
+      "label": "Contexte de Spécifications",
+      "description": "Construit le contexte à partir du codebase existant"
+    },
+    "spec_validation": {
+      "label": "Validation de Spécifications",
+      "description": "Valide l'exhaustivité et la qualité des spécifications"
+    },
+    "planner": {
+      "label": "Planificateur",
+      "description": "Crée un plan d'implémentation avec des sous-tâches"
+    },
+    "coder": {
+      "label": "Codeur",
+      "description": "Implémente des sous-tâches individuelles"
+    },
+    "qa_reviewer": {
+      "label": "Réviseur QA",
+      "description": "Valide les critères d'acceptation. Utilise Electron ou Puppeteer selon le type de projet."
+    },
+    "qa_fixer": {
+      "label": "Correcteur QA",
+      "description": "Corrige les problèmes signalés par QA. Utilise Electron ou Puppeteer selon le type de projet."
+    },
+    "pr_reviewer": {
+      "label": "Réviseur PR",
+      "description": "Révise les pull requests GitHub"
+    },
+    "commit_message": {
+      "label": "Message de Commit",
+      "description": "Génère des messages de commit"
+    },
+    "merge_resolver": {
+      "label": "Résolveur de Fusion",
+      "description": "Résout les conflits de fusion"
+    },
+    "insights": {
+      "label": "Insights",
+      "description": "Extrait des insights de code"
+    },
+    "analysis": {
+      "label": "Analyse",
+      "description": "Analyse du codebase avec recherche de contexte"
+    },
+    "batch_analysis": {
+      "label": "Analyse par Lots",
+      "description": "Traitement par lots de problèmes ou d'éléments"
+    },
+    "ideation": {
+      "label": "Idéation",
+      "description": "Génère des idées de fonctionnalités"
+    },
+    "roadmap_discovery": {
+      "label": "Découverte de Feuille de Route",
+      "description": "Découvre les éléments de la feuille de route"
+    }
+  },
+  "mcpServers": {
+    "context7": {
+      "name": "Context7",
+      "description": "Recherche de documentation pour les bibliothèques et frameworks via @upstash/context7-mcp"
+    },
+    "graphiti-memory": {
+      "name": "Graphiti Memory",
+      "description": "Graphe de connaissances pour le contexte inter-sessions. Nécessite la variable d'environnement GRAPHITI_MCP_URL."
+    },
+    "auto-claude": {
+      "name": "Outils Auto-Claude",
+      "description": "Suivi de la progression de construction, contexte de session, enregistrement des découvertes et des pièges"
+    },
+    "linear": {
+      "name": "Linear",
+      "description": "Gestion de projet via l'API Linear. Nécessite la variable d'environnement LINEAR_API_KEY."
+    },
+    "electron": {
+      "name": "Electron",
+      "description": "Automatisation d'applications de bureau via le protocole Chrome DevTools. Nécessite ELECTRON_MCP_ENABLED=true."
+    },
+    "puppeteer": {
+      "name": "Puppeteer",
+      "description": "Automatisation de navigateur Web pour les frontends Web non-Electron."
+    }
+  },
+  "categories": {
+    "spec": "Création de Spécifications",
+    "build": "Construction",
+    "qa": "QA",
+    "utility": "Utilitaire",
+    "ideation": "Idéation"
+  },
+  "labels": {
+    "availableTools": "Outils Disponibles",
+    "textOnly": "Texte uniquement (aucun outil)",
+    "mcpServers": "Serveurs MCP",
+    "mcp": "MCP",
+    "agents": "agents",
+    "mcpServerOverview": "Vue d'ensemble des Serveurs MCP",
+    "mcpServerConfiguration": "Configuration des Serveurs MCP",
+    "customMcpServers": "Serveurs MCP Personnalisés"
+  }
+}

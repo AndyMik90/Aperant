@@ -6,14 +6,14 @@ import { Card } from '../ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { Checkbox } from '../ui/checkbox';
 import {
-  IDEATION_TYPE_LABELS,
+  getIdeationTypeLabels,
   IDEATION_TYPE_COLORS,
   IDEATION_STATUS_COLORS,
   IDEATION_EFFORT_COLORS,
   IDEATION_IMPACT_COLORS,
   SECURITY_SEVERITY_COLORS,
-  UIUX_CATEGORY_LABELS,
-  DOCUMENTATION_CATEGORY_LABELS,
+  getUIUXCategoryLabels,
+  getDocumentationCategoryLabels,
   CODE_QUALITY_SEVERITY_COLORS
 } from '../../../shared/constants';
 import type {
@@ -46,7 +46,10 @@ interface IdeaCardProps {
 }
 
 export function IdeaCard({ idea, isSelected, onClick, onConvert, onGoToTask, onDismiss, onToggleSelect }: IdeaCardProps) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'ideation']);
+  const typeLabels = getIdeationTypeLabels(t);
+  const uiuxLabels = getUIUXCategoryLabels(t);
+  const docLabels = getDocumentationCategoryLabels(t);
   const isDismissed = idea.status === 'dismissed';
   const isArchived = idea.status === 'archived';
   const isConverted = idea.status === 'converted';
@@ -81,7 +84,7 @@ export function IdeaCard({ idea, isSelected, onClick, onConvert, onGoToTask, onD
           <div className="flex items-center gap-2 mb-1">
             <Badge variant="outline" className={IDEATION_TYPE_COLORS[idea.type]}>
               <TypeIcon type={idea.type} />
-              <span className="ml-1">{IDEATION_TYPE_LABELS[idea.type]}</span>
+              <span className="ml-1">{typeLabels[idea.type]}</span>
             </Badge>
             {idea.status !== 'draft' && (
               <Badge variant="outline" className={IDEATION_STATUS_COLORS[idea.status]}>
@@ -95,12 +98,12 @@ export function IdeaCard({ idea, isSelected, onClick, onConvert, onGoToTask, onD
             )}
             {isUIUXIdea(idea) && (
               <Badge variant="outline">
-                {UIUX_CATEGORY_LABELS[(idea as UIUXImprovementIdea).category]}
+                {uiuxLabels[(idea as UIUXImprovementIdea).category]}
               </Badge>
             )}
             {isDocumentationGapIdea(idea) && (
               <Badge variant="outline">
-                {DOCUMENTATION_CATEGORY_LABELS[(idea as DocumentationGapIdea).category]}
+                {docLabels[(idea as DocumentationGapIdea).category]}
               </Badge>
             )}
             {isSecurityHardeningIdea(idea) && (

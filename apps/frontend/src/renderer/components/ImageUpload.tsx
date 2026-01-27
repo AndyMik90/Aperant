@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState, type DragEvent, type ChangeEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Upload, X, AlertCircle, Image as ImageIcon } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
@@ -128,6 +129,7 @@ export function ImageUpload({
   disabled = false,
   className
 }: ImageUploadProps) {
+  const { t } = useTranslation('common');
   const [isDragOver, setIsDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -145,14 +147,14 @@ export function ImageUpload({
       // Check how many more images we can add
       const remainingSlots = MAX_IMAGES_PER_TASK - images.length;
       if (remainingSlots <= 0) {
-        setError(`Maximum of ${MAX_IMAGES_PER_TASK} images allowed`);
+        setError(t('imageUpload.maxImages', { count: MAX_IMAGES_PER_TASK }));
         return;
       }
 
       // Limit files to remaining slots
       const filesToProcess = fileArray.slice(0, remainingSlots);
       if (fileArray.length > remainingSlots) {
-        setError(`Only ${remainingSlots} more image(s) can be added. Some files were skipped.`);
+        setError(t('imageUpload.remainingSlots', { count: remainingSlots }));
       }
 
       const newImages: ImageAttachment[] = [];
@@ -162,13 +164,13 @@ export function ImageUpload({
       for (const file of filesToProcess) {
         // Validate file type
         if (!isValidImageType(file)) {
-          errors.push(`"${file.name}" is not a valid image type. Allowed: ${ALLOWED_IMAGE_TYPES_DISPLAY}`);
+          errors.push(t('imageUpload.invalidType', { filename: file.name, allowedTypes: ALLOWED_IMAGE_TYPES_DISPLAY }));
           continue;
         }
 
         // Warn about large files
         if (file.size > MAX_IMAGE_SIZE) {
-          errors.push(`"${file.name}" is larger than 10MB. Consider compressing it for better performance.`);
+          errors.push(t('imageUpload.largeFile', { filename: file.name }));
           // Still allow the upload, just warn
         }
 
@@ -189,7 +191,7 @@ export function ImageUpload({
             thumbnail
           });
         } catch {
-          errors.push(`Failed to process "${file.name}"`);
+          errors.push(t('imageUpload.processFailed', { filename: file.name }));
         }
       }
 
@@ -311,12 +313,12 @@ export function ImageUpload({
 
         <div className="space-y-1">
           <p className="text-sm font-medium text-foreground">
-            {canAddMore ? 'Drop images here or click to browse' : 'Maximum images reached'}
+            {canAddMore ? t('imageUpload.dropPrompt') : t('imageUpload.maxImagesReached', { max: MAX_IMAGES_PER_TASK })}
           </p>
           <p className="text-xs text-muted-foreground">
             {canAddMore
-              ? `${ALLOWED_IMAGE_TYPES_DISPLAY} up to 10MB each (${images.length}/${MAX_IMAGES_PER_TASK})`
-              : `${MAX_IMAGES_PER_TASK} images maximum`}
+              ? t('imageUpload.sizeLimit', { allowedTypes: ALLOWED_IMAGE_TYPES_DISPLAY, current: images.length, max: MAX_IMAGES_PER_TASK })
+              : t('imageUpload.maxImagesReached', { max: MAX_IMAGES_PER_TASK })}
           </p>
         </div>
       </div>
@@ -378,7 +380,7 @@ export function ImageUpload({
               {image.size > MAX_IMAGE_SIZE && (
                 <div
                   className="absolute top-1 left-1 p-1 rounded-full bg-warning/90"
-                  title="Large file - consider compressing"
+                  title={t('imageUpload.largeFileWarning')}
                 >
                   <AlertCircle className="h-3 w-3 text-warning-foreground" />
                 </div>

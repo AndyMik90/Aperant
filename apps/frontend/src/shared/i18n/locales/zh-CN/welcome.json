@@ -1,0 +1,18 @@
+{
+  "hero": {
+    "title": "欢迎使用 Auto Claude",
+    "subtitle": "使用 AI 驱动的代理自主构建软件"
+  },
+  "actions": {
+    "newProject": "新建项目",
+    "openProject": "打开项目"
+  },
+  "recentProjects": {
+    "title": "最近的项目",
+    "empty": "还没有项目",
+    "emptyDescription": "创建新项目或打开现有项目以开始使用",
+    "openFolder": "打开文件夹",
+    "openProjectAriaLabel": "打开项目 {{name}}",
+    "initialized": "已初始化"
+  }
+}

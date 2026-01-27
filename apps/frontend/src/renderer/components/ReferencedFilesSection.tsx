@@ -1,4 +1,5 @@
 import { X, Folder, File, FileCode, FileJson, FileText, FileImage } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 import type { ReferencedFile } from '../../shared/types';
@@ -98,6 +99,8 @@ export function ReferencedFilesSection({
   disabled = false,
   className
 }: ReferencedFilesSectionProps) {
+  const { t } = useTranslation('common');
+
   if (files.length === 0) {
     return null;
   }
@@ -108,7 +111,7 @@ export function ReferencedFilesSection({
         {/* Header with count badge */}
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            Referenced Files
+            {t('fileExplorer.referencedFiles')}
             <span className="ml-2 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
               {files.length}/{maxFiles}
             </span>
@@ -137,7 +140,7 @@ export function ReferencedFilesSection({
                   </span>
                   {file.isDirectory && (
                     <span className="text-[10px] text-muted-foreground bg-muted px-1 py-0.5 rounded">
-                      folder
+                      {t('fileExplorer.folder')}
                     </span>
                   )}
                 </div>

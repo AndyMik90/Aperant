@@ -1,11 +1,23 @@
 {
+  "claude": "Claude",
   "expand": {
     "expand": "Expand terminal",
     "collapse": "Collapse terminal"
   },
-  "resume": {
-    "pending": "Resume Available",
-    "pendingTooltip": "Click to resume previous Claude session"
+  "grid": {
+    "title": "Agent Terminals",
+    "description": "Spawn multiple terminals to run Claude agents in parallel. Use {{shortcut}} to create a new terminal.",
+    "newTerminal": "New Terminal",
+    "terminalsCount": "{{current}} / {{max}} terminals",
+    "history": {
+      "title": "History",
+      "restoreFrom": "Restore sessions from...",
+      "sessionCount": "{{count}} session",
+      "sessionCount_plural": "{{count}} sessions"
+    },
+    "invokeClaudeAll": "Invoke Claude All",
+    "files": "Files",
+    "terminal": "Terminal"
   },
   "auth": {
     "terminalTitle": "Auth: {{profileName}}",
@@ -41,5 +53,6 @@
     "deleteTitle": "Delete Worktree?",
     "deleteDescription": "This will permanently delete the worktree and its branch. Any uncommitted changes will be lost.",
     "detached": "(detached)"
-  }
+  },
+  "doubleClickToRename": "Double-click to rename"
 }

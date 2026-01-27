@@ -1,0 +1,41 @@
+{
+  "title": "Créer un espace de travail",
+  "description": "Regroupez des projets connexes pour des specs multi-dépôts et la validation.",
+  "form": {
+    "name": "Nom",
+    "namePlaceholder": "Mon espace Mon App",
+    "descriptionLabel": "Description (facultatif)",
+    "description": "Description (facultatif)",
+    "descriptionPlaceholder": "Backend, frontend et apps mobiles pour Mon App",
+    "projects": "Projets",
+    "addProjectPlaceholder": "Ajouter un projet...",
+    "allProjectsAdded": "Tous les projets ont été ajoutés",
+    "noProjectsAvailable": "Aucun projet disponible"
+  },
+  "roles": {
+    "backend": "Backend",
+    "backendDescription": "Serveur API, services",
+    "frontend": "Frontend",
+    "frontendDescription": "Application web",
+    "mobile": "Mobile",
+    "mobileDescription": "Application mobile",
+    "shared": "Partagé",
+    "sharedDescription": "Types/utils partagés",
+    "api": "API Gateway",
+    "apiDescription": "Passerelle, BFF",
+    "worker": "Worker",
+    "workerDescription": "Tâches en arrière-plan",
+    "other": "Autre",
+    "otherDescription": "Autre type de projet"
+  },
+  "buttons": {
+    "cancel": "Annuler",
+    "create": "Créer l'espace de travail",
+    "creating": "Création..."
+  },
+  "errors": {
+    "nameRequired": "Le nom de l'espace de travail est obligatoire",
+    "apiNotAvailable": "API Workspace non disponible",
+    "createFailed": "Échec de la création de l'espace de travail"
+  }
+}

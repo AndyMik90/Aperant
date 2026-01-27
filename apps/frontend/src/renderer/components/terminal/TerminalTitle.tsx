@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Task } from '../../../shared/types';
 import {
   Tooltip,
@@ -17,6 +18,7 @@ interface TerminalTitleProps {
 }
 
 export function TerminalTitle({ title, associatedTask, onTitleChange, terminalCount = 1 }: TerminalTitleProps) {
+  const { t } = useTranslation('terminal');
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
   const maxWidthClass = getTitleMaxWidthClass(terminalCount);
@@ -87,7 +89,7 @@ export function TerminalTitle({ title, associatedTask, onTitleChange, terminalCo
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-xs">
             <p className="text-sm">{associatedTask.description}</p>
-            <p className="text-xs text-muted-foreground mt-1">Double-click to rename</p>
+            <p className="text-xs text-muted-foreground mt-1">{t('doubleClickToRename')}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -109,7 +111,7 @@ export function TerminalTitle({ title, associatedTask, onTitleChange, terminalCo
           </span>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <p className="text-xs">Double-click to rename</p>
+          <p className="text-xs">{t('doubleClickToRename')}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

@@ -14,6 +14,26 @@ import '@testing-library/jest-dom';
 import { AuthChoiceStep } from './AuthChoiceStep';
 import type { APIProfile } from '@shared/types/profile';
 
+// Mock react-i18next
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => {
+      const translations: Record<string, string> = {
+        'onboarding:authChoice.title': 'Choose Your Authentication Method',
+        'onboarding:authChoice.description': 'Select how you want to authenticate with Claude. You can change this later in Settings.',
+        'onboarding:authChoice.oauth.title': 'Sign in with Anthropic',
+        'onboarding:authChoice.oauth.description': 'Use your Anthropic account to authenticate. Simple and secure OAuth flow.',
+        'onboarding:authChoice.apiKey.title': 'Use Custom API Key',
+        'onboarding:authChoice.apiKey.description': 'Bring your own API key from Anthropic or a compatible API provider. ⚠️ Highly experimental — may incur significant costs.',
+        'onboarding:authChoice.info': 'Both options provide full access to Claude Code features. Choose based on your preference.',
+        'onboarding:authChoice.skip': 'Skip for now'
+      };
+      return translations[key] || key;
+    },
+    i18n: { language: 'en' }
+  })
+}));
+
 // Mock the settings store
 const mockGoToNext = vi.fn();
 const mockGoToPrevious = vi.fn();

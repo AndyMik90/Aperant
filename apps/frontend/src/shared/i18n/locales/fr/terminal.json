@@ -1,45 +1,58 @@
 {
+  "claude": "Claude",
   "expand": {
     "expand": "Agrandir le terminal",
-    "collapse": "Reduire le terminal"
+    "collapse": "Réduire le terminal"
   },
-  "resume": {
-    "pending": "Reprise disponible",
-    "pendingTooltip": "Cliquez pour reprendre la session Claude précédente"
+  "grid": {
+    "title": "Terminaux d'Agent",
+    "description": "Créez plusieurs terminaux pour exécuter des agents Claude en parallèle. Utilisez {{shortcut}} pour créer un nouveau terminal.",
+    "newTerminal": "Nouveau Terminal",
+    "terminalsCount": "{{current}} / {{max}} terminaux",
+    "history": {
+      "title": "Historique",
+      "restoreFrom": "Restaurer les sessions de...",
+      "sessionCount": "{{count}} session",
+      "sessionCount_plural": "{{count}} sessions"
+    },
+    "invokeClaudeAll": "Invoquer Claude Tous",
+    "files": "Fichiers",
+    "terminal": "Terminal"
   },
   "auth": {
-    "terminalTitle": "Auth: {{profileName}}",
-    "maxTerminalsReached": "Impossible d'ouvrir le terminal d'auth: nombre maximum de terminaux atteint. Fermez un terminal d'abord."
+    "terminalTitle": "Auth : {{profileName}}",
+    "maxTerminalsReached": "Impossible d'ouvrir le terminal d'auth : nombre maximum de terminaux atteint. Fermez d'abord un terminal."
   },
   "worktree": {
     "create": "Worktree",
     "createNew": "Nouveau Worktree",
-    "existing": "Worktrees Terminal",
-    "taskWorktrees": "Worktrees de Taches",
+    "existing": "Terminaux Worktree",
+    "taskWorktrees": "Worktrees de Tâches",
     "otherWorktrees": "Autres",
-    "createTitle": "Creer un Worktree Terminal",
-    "createDescription": "Creer un espace de travail isole pour ce terminal. Tout le travail se fera dans le repertoire du worktree.",
+    "createTitle": "Créer un Worktree de Terminal",
+    "createDescription": "Créez un espace de travail isolé pour ce terminal. Tout le travail se fera dans le répertoire du worktree.",
     "name": "Nom du Worktree",
     "namePlaceholder": "ma-fonctionnalite",
     "nameRequired": "Le nom du worktree est requis",
-    "nameInvalid": "Le nom doit commencer et se terminer par une lettre ou un chiffre",
-    "nameHelp": "Lettres minuscules, chiffres, tirets et underscores (les espaces deviennent des tirets)",
-    "associateTask": "Lier a une Tache",
-    "selectTask": "Selectionner une tache...",
-    "noTask": "Pas de tache (worktree autonome)",
-    "createBranch": "Creer une Branche Git",
-    "branchHelp": "Cree la branche: {{branch}}",
+    "nameInvalid": "Le nom doit commencer et finir par une lettre ou un chiffre",
+    "nameHelp": "Lettres minuscules, chiffres, tirets et tirets du bas (les espaces deviennent des tirets)",
+    "associateTask": "Lier à une Tâche",
+    "selectTask": "Sélectionner une tâche...",
+    "noTask": "Aucune tâche (worktree autonome)",
+    "createBranch": "Créer une Branche Git",
+    "branchHelp": "Crée la branche : {{branch}}",
     "baseBranch": "Branche de Base",
-    "selectBaseBranch": "Selectionner la branche de base...",
+    "selectBaseBranch": "Sélectionner la branche de base...",
     "searchBranch": "Rechercher des branches...",
-    "noBranchFound": "Aucune branche trouvee",
-    "useProjectDefault": "Utiliser la valeur par defaut du projet ({{branch}})",
-    "baseBranchHelp": "La branche a partir de laquelle creer le worktree",
-    "openInIDE": "Ouvrir dans IDE",
-    "maxReached": "Maximum de 12 worktrees terminal atteint",
-    "alreadyExists": "Un worktree avec ce nom existe deja",
-    "deleteTitle": "Supprimer le Worktree?",
-    "deleteDescription": "Ceci supprimera definitivement le worktree et sa branche. Les modifications non committées seront perdues.",
+    "noBranchFound": "Aucune branche trouvée",
+    "useProjectDefault": "Utiliser le défaut du projet ({{branch}})",
+    "baseBranchHelp": "La branche depuis laquelle créer le worktree",
+    "openInIDE": "Ouvrir dans l'IDE",
+    "maxReached": "Maximum de 12 terminaux worktree atteint",
+    "alreadyExists": "Un worktree avec ce nom existe déjà",
+    "deleteTitle": "Supprimer le Worktree ?",
+    "deleteDescription": "Cela supprimera définitivement le worktree et sa branche. Toutes les modifications non validées seront perdues.",
     "detached": "(détaché)"
-  }
+  },
+  "doubleClickToRename": "Double-cliquez pour renommer"
 }

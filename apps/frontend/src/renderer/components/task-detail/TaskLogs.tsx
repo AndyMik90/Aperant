@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Terminal,
   Loader2,
@@ -36,12 +37,6 @@ interface TaskLogsProps {
   onTogglePhase: (phase: TaskLogPhase) => void;
 }
 
-const PHASE_LABELS: Record<TaskLogPhase, string> = {
-  planning: 'Planning',
-  coding: 'Coding',
-  validation: 'Validation'
-};
-
 const PHASE_ICONS: Record<TaskLogPhase, typeof Pencil> = {
   planning: Pencil,
   coding: FileCode,
@@ -62,26 +57,11 @@ const LOG_PHASE_TO_CONFIG_PHASE: Record<TaskLogPhase, keyof PhaseModelConfig> = 
   validation: 'qa'
 };
 
-// Short labels for models
-const MODEL_SHORT_LABELS: Record<ModelTypeShort, string> = {
-  opus: 'Opus',
-  sonnet: 'Sonnet',
-  haiku: 'Haiku'
-};
-
-// Short labels for thinking levels
-const THINKING_SHORT_LABELS: Record<ThinkingLevel, string> = {
-  none: 'None',
-  low: 'Low',
-  medium: 'Med',
-  high: 'High',
-  ultrathink: 'Ultra'
-};
-
-// Helper to get model and thinking info for a log phase
+// Helper to get model and thinking info for a log phase (uses t for labels)
 function getPhaseConfig(
   metadata: TaskMetadata | undefined,
-  logPhase: TaskLogPhase
+  logPhase: TaskLogPhase,
+  t: (k: string) => string
 ): { model: string; thinking: string } | null {
   if (!metadata) return null;
 
@@ -92,16 +72,16 @@ function getPhaseConfig(
     const model = metadata.phaseModels[configPhase];
     const thinking = metadata.phaseThinking[configPhase];
     return {
-      model: MODEL_SHORT_LABELS[model] || model,
-      thinking: THINKING_SHORT_LABELS[thinking] || thinking
+      model: (['opus', 'sonnet', 'haiku'].includes(model) ? t(`logs.model.${model}`) : model),
+      thinking: (['none', 'low', 'medium', 'high', 'ultrathink'].includes(thinking) ? t(`logs.thinking.${thinking}`) : thinking)
     };
   }
 
   // Non-auto profile with single model/thinking
   if (metadata.model && metadata.thinkingLevel) {
     return {
-      model: MODEL_SHORT_LABELS[metadata.model] || metadata.model,
-      thinking: THINKING_SHORT_LABELS[metadata.thinkingLevel] || metadata.thinkingLevel
+      model: (['opus', 'sonnet', 'haiku'].includes(metadata.model) ? t(`logs.model.${metadata.model}`) : metadata.model),
+      thinking: (['none', 'low', 'medium', 'high', 'ultrathink'].includes(metadata.thinkingLevel) ? t(`logs.thinking.${metadata.thinkingLevel}`) : metadata.thinkingLevel)
     };
   }
 
@@ -119,6 +99,8 @@ export function TaskLogs({
   onLogsScroll,
   onTogglePhase
 }: TaskLogsProps) {
+  const { t } = useTranslation('tasks');
+
   return (
     <div
       ref={logsContainerRef}
@@ -141,7 +123,7 @@ export function TaskLogs({
                 isExpanded={expandedPhases.has(phase)}
                 onToggle={() => onTogglePhase(phase)}
                 isTaskStuck={isStuck}
-                phaseConfig={getPhaseConfig(task.metadata, phase)}
+                phaseConfig={getPhaseConfig(task.metadata, phase, t)}
               />
             ))}
             <div ref={logsEndRef} />
@@ -155,8 +137,8 @@ export function TaskLogs({
         ) : (
           <div className="text-center text-sm text-muted-foreground py-8">
             <Terminal className="mx-auto mb-2 h-8 w-8 opacity-50" />
-            <p>No logs yet</p>
-            <p className="text-xs mt-1">Logs will appear here when the task runs</p>
+            <p>{t('logs.noLogs')}</p>
+            <p className="text-xs mt-1">{t('logs.noLogsHint')}</p>
           </div>
         )}
       </div>
@@ -175,6 +157,7 @@ interface PhaseLogSectionProps {
 }
 
 function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, phaseConfig }: PhaseLogSectionProps) {
+  const { t } = useTranslation('tasks');
   const Icon = PHASE_ICONS[phase];
   const status = phaseLog?.status || 'pending';
   const hasEntries = (phaseLog?.entries.length || 0) > 0;
@@ -186,34 +169,34 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, p
           return (
             <Badge variant="outline" className="text-xs bg-warning/10 text-warning border-warning/30 flex items-center gap-1">
               <AlertTriangle className="h-3 w-3" />
-              Interrupted
+              {t('execution.labels.interrupted')}
             </Badge>
           );
         }
         return (
           <Badge variant="outline" className="text-xs bg-info/10 text-info border-info/30 flex items-center gap-1">
             <Loader2 className="h-3 w-3 animate-spin" />
-            Running
+            {t('labels.running')}
           </Badge>
         );
       case 'completed':
         return (
           <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/30 flex items-center gap-1">
             <CheckCircle2 className="h-3 w-3" />
-            Complete
+            {t('execution.phases.complete')}
           </Badge>
         );
       case 'failed':
         return (
           <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/30 flex items-center gap-1">
             <XCircle className="h-3 w-3" />
-            Failed
+            {t('execution.phases.failed')}
           </Badge>
         );
       default:
         return (
           <Badge variant="secondary" className="text-xs text-muted-foreground">
-            Pending
+            {t('labels.pending')}
           </Badge>
         );
     }
@@ -242,10 +225,10 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, p
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             )}
             <Icon className={cn('h-4 w-4', isInterrupted ? 'text-warning' : status === 'active' ? PHASE_COLORS[phase].split(' ')[0] : 'text-muted-foreground')} />
-            <span className="font-medium text-sm">{PHASE_LABELS[phase]}</span>
+            <span className="font-medium text-sm">{t(`logs.phase.${phase}`)}</span>
             {hasEntries && (
               <span className="text-xs text-muted-foreground">
-                ({phaseLog?.entries.length} entries)
+                ({phaseLog?.entries.length} {t('execution.labels.entries')})
               </span>
             )}
           </div>
@@ -271,7 +254,7 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, p
       <CollapsibleContent>
         <div className="mt-1 ml-6 border-l-2 border-border pl-4 py-2 space-y-1">
           {!hasEntries ? (
-            <p className="text-xs text-muted-foreground italic">No logs yet</p>
+            <p className="text-xs text-muted-foreground italic">{t('logs.noLogs')}</p>
           ) : (
             phaseLog?.entries.map((entry, idx) => (
               <LogEntry key={`${entry.timestamp}-${idx}`} entry={entry} />
@@ -289,6 +272,7 @@ interface LogEntryProps {
 }
 
 function LogEntry({ entry }: LogEntryProps) {
+  const { t } = useTranslation('tasks');
   const [isExpanded, setIsExpanded] = useState(false);
   const hasDetail = Boolean(entry.detail);
 
@@ -355,7 +339,7 @@ function LogEntry({ entry }: LogEntryProps) {
           <div className={cn('inline-flex items-center gap-2 rounded-md px-2 py-1 text-xs', color, 'opacity-60')}>
             <Icon className="h-3 w-3" />
             <CheckCircle2 className="h-3 w-3 text-success" />
-            <span className="text-muted-foreground">Done</span>
+            <span className="text-muted-foreground">{t('logs.done')}</span>
           </div>
           {hasDetail && (
             <button
@@ -369,12 +353,12 @@ function LogEntry({ entry }: LogEntryProps) {
               {isExpanded ? (
                 <>
                   <ChevronDown className="h-2.5 w-2.5" />
-                  <span>Hide output</span>
+                  <span>{t('logs.hideOutput')}</span>
                 </>
               ) : (
                 <>
                   <ChevronRight className="h-2.5 w-2.5" />
-                  <span>Show output</span>
+                  <span>{t('logs.showOutput')}</span>
                 </>
               )}
             </button>
@@ -463,12 +447,12 @@ function LogEntry({ entry }: LogEntryProps) {
             {isExpanded ? (
               <>
                 <ChevronDown className="h-2.5 w-2.5" />
-                <span>Less</span>
+                <span>{t('logs.less')}</span>
               </>
             ) : (
               <>
                 <ChevronRight className="h-2.5 w-2.5" />
-                <span>More</span>
+                <span>{t('logs.more')}</span>
               </>
             )}
           </button>

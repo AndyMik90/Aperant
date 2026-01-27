@@ -1,0 +1,56 @@
+{
+  "hideSidebar": "隐藏侧边栏",
+  "showSidebar": "显示侧边栏",
+  "title": "洞察",
+  "description": "询问关于您的代码库的问题",
+  "newChat": "新对话",
+  "startConversation": "开始对话",
+  "emptyState": {
+    "description": "询问关于您的代码库的问题，获取改进建议，或讨论您想要实现的功能。",
+    "suggestions": [
+      "这个项目的架构是什么？",
+      "建议改进代码质量",
+      "接下来可以添加什么功能？",
+      "是否存在安全问题？"
+    ]
+  },
+  "assistant": "助手",
+  "you": "您",
+  "thinking": "思考中...",
+  "placeholder": "询问关于您的代码库...",
+  "keyboardHint": "按 Enter 发送，Shift+Enter 换行",
+  "suggestedTask": "建议的任务",
+  "creating": "创建中...",
+  "taskCreated": "任务已创建",
+  "createTask": "创建任务",
+  "tools": {
+    "one": "使用了 {{count}} 个工具",
+    "other": "使用了 {{count}} 个工具"
+  },
+  "toolIndicators": {
+    "read": "正在读取文件",
+    "glob": "正在搜索文件",
+    "grep": "正在搜索代码"
+  },
+  "chatHistory": {
+    "title": "聊天历史",
+    "noConversations": "还没有对话",
+    "newConversation": "新对话",
+    "today": "今天",
+    "yesterday": "昨天",
+    "daysAgo": "{{count}} 天前",
+    "message": "{{count}} 条消息",
+    "message_plural": "{{count}} 条消息",
+    "rename": "重命名",
+    "delete": "删除",
+    "deleteDialog": {
+      "title": "删除对话？",
+      "description": "这将永久删除此对话及其所有消息。此操作无法撤销。",
+      "cancel": "取消",
+      "confirm": "删除"
+    }
+  },
+  "accessibility": {
+    "opensInNewWindow": "在新窗口中打开"
+  }
+}

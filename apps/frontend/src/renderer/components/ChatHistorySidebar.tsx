@@ -52,7 +52,7 @@ export function ChatHistorySidebar({
   onDeleteSession,
   onRenameSession
 }: ChatHistorySidebarProps) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'insights']);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
@@ -89,11 +89,11 @@ export function ChatHistorySidebar({
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
-      return 'Today';
+      return t('insights:chatHistory.today');
     } else if (diffDays === 1) {
-      return 'Yesterday';
+      return t('insights:chatHistory.yesterday');
     } else if (diffDays < 7) {
-      return `${diffDays} days ago`;
+      return t('insights:chatHistory.daysAgo', { count: diffDays });
     } else {
       return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     }
@@ -113,7 +113,7 @@ export function ChatHistorySidebar({
     <div className="flex h-full w-64 flex-col border-r border-border bg-muted/30">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-3 py-3">
-        <h3 className="text-sm font-medium text-foreground">Chat History</h3>
+        <h3 className="text-sm font-medium text-foreground">{t('insights:chatHistory.title')}</h3>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -138,7 +138,7 @@ export function ChatHistorySidebar({
           </div>
         ) : sessions.length === 0 ? (
           <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-            No conversations yet
+            {t('insights:chatHistory.noConversations')}
           </div>
         ) : (
           <div className="py-2">
@@ -172,15 +172,14 @@ export function ChatHistorySidebar({
       <AlertDialog open={!!deleteSessionId} onOpenChange={() => setDeleteSessionId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+            <AlertDialogTitle>{t('insights:chatHistory.deleteDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this conversation and all its messages.
-              This action cannot be undone.
+              {t('insights:chatHistory.deleteDialog.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            <AlertDialogCancel>{t('insights:chatHistory.deleteDialog.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>{t('insights:chatHistory.deleteDialog.confirm')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -281,7 +280,7 @@ function SessionItem({
             {session.title}
           </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            {session.messageCount} message{session.messageCount !== 1 ? 's' : ''}
+            {t('insights:chatHistory.message', { count: session.messageCount })}
           </p>
         </div>
       </div>
@@ -301,14 +300,14 @@ function SessionItem({
         <DropdownMenuContent align="end" sideOffset={5} className="w-36 z-[100]">
           <DropdownMenuItem onSelect={onStartEdit}>
             <Pencil className="mr-2 h-3.5 w-3.5" />
-            Rename
+            {t('insights:chatHistory.rename')}
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={onDelete}
             className="text-destructive focus:text-destructive"
           >
             <Trash2 className="mr-2 h-3.5 w-3.5" />
-            Delete
+            {t('insights:chatHistory.delete')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

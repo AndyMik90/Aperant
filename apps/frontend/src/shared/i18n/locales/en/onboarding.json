@@ -163,6 +163,20 @@
     "memory": "Memory",
     "done": "Done"
   },
+  "authChoice": {
+    "title": "Choose Your Authentication Method",
+    "description": "Select how you want to authenticate with Claude. You can change this later in Settings.",
+    "oauth": {
+      "title": "Sign in with Anthropic",
+      "description": "Use your Anthropic account to authenticate. Simple and secure OAuth flow."
+    },
+    "apiKey": {
+      "title": "Use Custom API Key",
+      "description": "Bring your own API key from Anthropic or a compatible API provider. ⚠️ Highly experimental — may incur significant costs."
+    },
+    "info": "Both options provide full access to Claude Code features. Choose based on your preference.",
+    "skip": "Skip for now"
+  },
   "privacy": {
     "title": "Help Improve Auto Claude",
     "subtitle": "Anonymous error reporting helps us fix bugs faster",
@@ -249,5 +263,118 @@
       "retry": "Retry",
       "fallbackNote": "Memory will still work with keyword search even without embeddings."
     }
+  },
+  "graphiti": {
+    "title": "Memory & Context",
+    "description": "Enable Graphiti for persistent memory across coding sessions",
+    "whatIsGraphiti": "What is Graphiti?",
+    "whatIsGraphitiDescription": "Graphiti is an intelligent memory layer that helps Auto Claude remember context across sessions. It uses a knowledge graph to store discoveries, patterns, and insights about your codebase.",
+    "benefits": {
+      "persistentMemory": "Persistent memory across coding sessions",
+      "betterUnderstanding": "Better understanding of your codebase over time",
+      "reducesRepetition": "Reduces repetitive explanations",
+      "noDocker": "No Docker required - uses embedded database"
+    },
+    "learnMoreAboutGraphiti": "Learn more about Graphiti",
+    "enableGraphitiMemory": "Enable Graphiti Memory",
+    "enableGraphitiDescription": "Uses LadybugDB (embedded) and an LLM/embedding provider",
+    "databaseName": "Database Name",
+    "databaseLocation": "Stored in ~/.auto-claude/graphs/",
+    "llmProvider": "LLM Provider",
+    "embeddingProvider": "Embedding Provider",
+    "testConnection": "Test Connection",
+    "testingConnection": "Testing connection...",
+    "allConnectionsValidated": "All connections validated successfully!",
+    "validationNote": "Note: API key validation currently only fully supports OpenAI. Your key will be saved and used at runtime.",
+    "ollamaValidationNote": "Note: Ollama connection will be tested by checking if the server is reachable.",
+    "configuredSuccessfully": "Graphiti configured successfully",
+    "configuredSuccessfullyDescription": "Memory features are enabled. Auto Claude will maintain context across sessions for improved code understanding.",
+    "reconfigureSettings": "Reconfigure Graphiti settings",
+    "databaseAutoCreated": "Database will be created automatically",
+    "databaseAutoCreatedDescription": "LadybugDB uses an embedded database - no Docker required. The database will be created when you first use memory features.",
+    "providers": {
+      "openai": {
+        "name": "OpenAI",
+        "description": "GPT models (recommended)",
+        "apiKey": "OpenAI API Key",
+        "getYourKeyFrom": "Get your key from",
+        "keyLink": "OpenAI"
+      },
+      "anthropic": {
+        "name": "Anthropic",
+        "description": "Claude models",
+        "apiKey": "Anthropic API Key",
+        "getYourKeyFrom": "Get your key from",
+        "keyLink": "Anthropic Console"
+      },
+      "voyage": {
+        "name": "Voyage AI",
+        "description": "voyage-3 (great with Anthropic)"
+      },
+      "google": {
+        "name": "Google AI",
+        "description": "Gemini models",
+        "apiKey": "Google API Key",
+        "getYourKeyFrom": "Get your key from",
+        "keyLink": "Google AI Studio"
+      },
+      "groq": {
+        "name": "Groq",
+        "description": "Llama models (fast inference)",
+        "apiKey": "Groq API Key",
+        "getYourKeyFrom": "Get your key from",
+        "keyLink": "Groq Console"
+      },
+      "openrouter": {
+        "name": "OpenRouter",
+        "description": "Multi-provider aggregator",
+        "apiKey": "OpenRouter API Key",
+        "getYourKeyFrom": "Get your key from",
+        "keyLink": "OpenRouter Dashboard"
+      },
+      "azure_openai": {
+        "name": "Azure OpenAI",
+        "description": "Enterprise Azure deployment",
+        "apiKey": "API Key",
+        "baseUrl": "Base URL",
+        "llmDeployment": "LLM Deployment Name",
+        "embeddingDeployment": "Embedding Deployment Name"
+      },
+      "ollama": {
+        "name": "Ollama",
+        "description": "Local models (free)",
+        "settings": "Ollama Settings (Local)",
+        "baseUrl": "Base URL",
+        "llmModel": "LLM Model",
+        "embeddingModel": "Embedding Model",
+        "embeddingDimension": "Embedding Dimension",
+        "ensureRunning": "Ensure Ollama is running locally. See",
+        "link": "ollama.ai"
+      }
+    },
+    "voyage": {
+      "apiKey": "Voyage API Key",
+      "getYourKeyFrom": "Get your key from",
+      "keyLink": "Voyage AI"
+    },
+    "placeholders": {
+      "openai": "sk-...",
+      "anthropic": "sk-ant-...",
+      "google": "AIza...",
+      "groq": "gsk_...",
+      "openrouter": "sk-or-...",
+      "voyage": "pa-...",
+      "azureApiKey": "Azure API key",
+      "azureBaseUrl": "https://your-resource.openai.azure.com",
+      "azureLlmDeployment": "gpt-4",
+      "azureEmbeddingDeployment": "text-embedding-ada-002",
+      "ollamaBaseUrl": "http://localhost:11434",
+      "ollamaLlmModel": "llama3.2, deepseek-r1:7b, etc.",
+      "ollamaEmbeddingModel": "nomic-embed-text",
+      "ollamaEmbeddingDim": "768",
+      "databaseName": "auto_claude_memory"
+    },
+    "ready": "Ready",
+    "issue": "Issue"
   }
 }

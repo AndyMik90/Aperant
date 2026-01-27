@@ -1,0 +1,85 @@
+{
+  "teamProjectSelector": {
+    "teamLabel": "团队",
+    "projectLabel": "项目（可选）",
+    "loading": "加载中...",
+    "selectTeam": "选择一个团队",
+    "allProjects": "所有项目",
+    "teamFormat": "{{name}} ({{key}})"
+  },
+  "selectTeamToView": "选择一个团队以查看议题",
+  "searchAndFilter": {
+    "searchPlaceholder": "搜索任务...",
+    "allStates": "所有状态"
+  },
+  "states": {
+    "backlog": "待办",
+    "todo": "待办",
+    "inProgress": "进行中",
+    "done": "已完成",
+    "canceled": "已取消"
+  },
+  "issueList": {
+    "emptyFilter": "没有与筛选条件匹配的议题",
+    "empty": "未找到议题"
+  },
+  "selection": {
+    "deselectAll": "全部取消选择",
+    "selectAll": "全选",
+    "selectedOf": "已选择 {{selected}} / 共 {{total}}",
+    "refresh": "刷新"
+  },
+  "importModal": {
+    "title": "导入 Linear 任务",
+    "description": "从 Linear 选择任务以导入到 AutoBuild",
+    "done": "完成",
+    "cancel": "取消",
+    "importing": "导入中...",
+    "importTasks": "导入 {{count}} 个任务",
+    "importTasks_plural": "导入 {{count}} 个任务"
+  },
+  "errors": {
+    "generic": "发生错误"
+  },
+  "importSuccess": {
+    "title": "导入完成",
+    "description": "任务已成功导入",
+    "importedCount": "成功导入 {{count}} 个任务",
+    "importedCount_plural": "成功导入 {{count}} 个任务",
+    "processing": "任务正在处理中。请查看看板以了解进度。",
+    "close": "关闭"
+  },
+  "issueCard": {
+    "hideDescription": "隐藏描述",
+    "showDescription": "显示描述",
+    "assignedTo": "分配给 {{name}}",
+    "project": "项目：{{name}}",
+    "viewInLinear": "在 Linear 中查看",
+    "moreLabels": "+{{count}} 更多"
+  },
+  "integration": {
+    "title": "Linear 集成",
+    "enabled": "已启用",
+    "enableSync": "启用 Linear 同步",
+    "enableSyncDescription": "自动创建和更新 Linear 议题",
+    "apiKey": "API 密钥",
+    "apiKeyDescription": "从以下位置获取您的 API 密钥",
+    "apiKeyPlaceholder": "lin_api_xxxxxxxx",
+    "connectionStatus": "连接状态",
+    "checking": "检查中...",
+    "connected": "已连接{{name}}",
+    "connectedTo": "已连接到 {{name}}",
+    "notConnected": "未连接",
+    "tasksAvailableToImport": "{{count}}+ 个任务可供导入",
+    "importExistingTasks": "导入现有任务",
+    "importExistingTasksDescription": "选择要从 Linear 导入到 AutoBuild 作为任务的议题。",
+    "importTasksFromLinear": "从 Linear 导入任务",
+    "realtimeSync": "实时同步",
+    "realtimeSyncDescription": "自动导入在 Linear 中创建的新任务",
+    "realtimeSyncWarning": "启用后，新的 Linear 议题将自动导入到 AutoBuild。请确保配置下面的团队/项目筛选器以控制导入的议题。",
+    "teamId": "团队 ID（可选）",
+    "teamIdPlaceholder": "自动检测",
+    "projectId": "项目 ID（可选）",
+    "projectIdPlaceholder": "自动创建"
+  }
+}

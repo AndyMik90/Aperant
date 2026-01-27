@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   DndContext,
   DragOverlay,
@@ -26,7 +27,7 @@ import { SortableFeatureCard } from './SortableFeatureCard';
 import { cn } from '../lib/utils';
 import { useRoadmapStore } from '../stores/roadmap-store';
 import {
-  ROADMAP_STATUS_COLUMNS,
+  getRoadmapStatusColumns,
   type RoadmapStatusColumn
 } from '../../shared/constants';
 import type { RoadmapFeature, RoadmapFeatureStatus, Roadmap } from '../../shared/types';
@@ -74,6 +75,7 @@ function DroppableStatusColumn({
   onGoToTask,
   isOver
 }: DroppableStatusColumnProps) {
+  const { t } = useTranslation('roadmap');
   const { setNodeRef } = useDroppable({
     id: column.id
   });
@@ -111,7 +113,7 @@ function DroppableStatusColumn({
             {column.label}
           </h2>
           <span className="column-count-badge">
-            {features.length}
+            {features.length} {t('kanban.features')}
           </span>
         </div>
       </div>
@@ -136,16 +138,16 @@ function DroppableStatusColumn({
                       <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center mb-2">
                         <Plus className="h-4 w-4 text-primary" />
                       </div>
-                      <span className="text-sm font-medium text-primary">Drop here</span>
+                      <span className="text-sm font-medium text-primary">{t('kanban.dropHere')}</span>
                     </>
                   ) : (
                     <>
                       <Inbox className="h-6 w-6 text-muted-foreground/50" />
                       <span className="mt-2 text-sm font-medium text-muted-foreground/70">
-                        No features
+                        {t('kanban.noFeatures')}
                       </span>
                       <span className="mt-0.5 text-xs text-muted-foreground/50">
-                        Drag features here
+                        {t('kanban.dragFeaturesHere')}
                       </span>
                     </>
                   )}
@@ -177,10 +179,12 @@ export function RoadmapKanbanView({
   onGoToTask,
   onSave
 }: RoadmapKanbanViewProps) {
+  const { t } = useTranslation('roadmap');
   const [activeFeature, setActiveFeature] = useState<RoadmapFeature | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
 
   const updateFeatureStatus = useRoadmapStore((state) => state.updateFeatureStatus);
+  const statusColumns = getRoadmapStatusColumns(t);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -196,14 +200,14 @@ export function RoadmapKanbanView({
   // Get features grouped by status
   const featuresByStatus = useMemo(() => {
     const grouped: Record<string, RoadmapFeature[]> = {};
-    ROADMAP_STATUS_COLUMNS.forEach((column) => {
+    statusColumns.forEach((column) => {
       grouped[column.id] = roadmap.features.filter((f) => f.status === column.id);
     });
     return grouped;
-  }, [roadmap.features]);
+  }, [roadmap.features, statusColumns]);
 
   // Get all status IDs for detecting column drops
-  const statusIds = useMemo(() => ROADMAP_STATUS_COLUMNS.map((c) => c.id), []);
+  const statusIds = useMemo(() => statusColumns.map((c) => c.id), [statusColumns]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -277,8 +281,8 @@ export function RoadmapKanbanView({
 
   // Get status label for a feature (for display in drag overlay)
   const getStatusLabelForFeature = (feature: RoadmapFeature) => {
-    const statusColumn = ROADMAP_STATUS_COLUMNS.find((c) => c.id === feature.status);
-    return statusColumn?.label || 'Unknown Status';
+    const statusColumn = statusColumns.find((c) => c.id === feature.status);
+    return statusColumn?.label || t('kanban.unknownStatus');
   };
 
   return (
@@ -292,7 +296,7 @@ export function RoadmapKanbanView({
         onDragEnd={handleDragEnd}
       >
         <div className="flex flex-1 gap-4 overflow-x-auto p-6">
-          {ROADMAP_STATUS_COLUMNS.map((column) => (
+          {statusColumns.map((column) => (
             <DroppableStatusColumn
               key={column.id}
               column={column}

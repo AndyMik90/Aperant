@@ -129,6 +129,30 @@
       "all": "All"
     }
   },
+  "createMR": {
+    "title": "Create Merge Request",
+    "description": "Create a new merge request in GitLab",
+    "fields": {
+      "title": "Title",
+      "sourceBranch": "Source Branch",
+      "targetBranch": "Target Branch",
+      "description": "Description (optional)"
+    },
+    "placeholders": {
+      "title": "Merge request title",
+      "sourceBranch": "feature/my-feature",
+      "targetBranch": "main",
+      "description": "Describe the changes in this merge request..."
+    },
+    "submit": "Create Merge Request",
+    "creating": "Creating...",
+    "validation": {
+      "requiredFields": "Title, source branch, and target branch are required"
+    },
+    "errors": {
+      "createFailed": "Failed to create merge request"
+    }
+  },
   "mrReview": {
     "runReview": "Run AI Review",
     "reviewing": "Reviewing...",

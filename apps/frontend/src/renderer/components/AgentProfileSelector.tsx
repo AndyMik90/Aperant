@@ -150,8 +150,8 @@ export function AgentProfileSelector({
     // Default to auto profile (the actual default)
     return {
       icon: Sparkles,
-      label: 'Auto (Optimized)',
-      description: 'Uses Opus across all phases with optimized thinking levels'
+      label: t('agentProfile.autoOptimized'),
+      description: t('agentProfile.autoOptimizedDescription')
     };
   };
 

@@ -2,6 +2,7 @@
  * Controls for selecting/deselecting all issues and refreshing
  */
 
+import { useTranslation } from 'react-i18next';
 import { CheckSquare, Square, Minus, RefreshCw } from 'lucide-react';
 
 interface SelectionControlsProps {
@@ -25,6 +26,8 @@ export function SelectionControls({
   onDeselectAll,
   onRefresh
 }: SelectionControlsProps) {
+  const { t } = useTranslation('linear');
+
   return (
     <div className="flex items-center justify-between py-2 border-b border-border shrink-0">
       <div className="flex items-center gap-3">
@@ -39,10 +42,10 @@ export function SelectionControls({
           ) : (
             <Square className="h-4 w-4" />
           )}
-          {isAllSelected ? 'Deselect all' : 'Select all'}
+          {isAllSelected ? t('selection.deselectAll') : t('selection.selectAll')}
         </button>
         <span className="text-xs text-muted-foreground">
-          {selectedCount} of {filteredCount} selected
+          {t('selection.selectedOf', { selected: selectedCount, total: filteredCount })}
         </span>
       </div>
 
@@ -52,7 +55,7 @@ export function SelectionControls({
         disabled={isLoadingIssues}
       >
         <RefreshCw className={`h-3 w-3 ${isLoadingIssues ? 'animate-spin' : ''}`} />
-        Refresh
+        {t('selection.refresh')}
       </button>
     </div>
   );

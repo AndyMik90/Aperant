@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Database,
   Eye,
@@ -46,6 +47,7 @@ export function SecuritySettings({
   expanded,
   onToggle
 }: SecuritySettingsProps) {
+  const { t } = useTranslation('settings');
   // Password visibility for multiple providers
   const [showApiKey, setShowApiKey] = useState<Record<string, boolean>>({
     openai: showOpenAIKey,
@@ -93,28 +95,28 @@ export function SecuritySettings({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label className="text-sm font-medium text-foreground">
-              OpenAI API Key {envConfig.openaiKeyIsGlobal ? '(Override)' : ''}
+              {t('projectSettings.security.openai')} API Key {envConfig.openaiKeyIsGlobal ? t('projectSettings.security.override') : ''}
             </Label>
             {envConfig.openaiKeyIsGlobal && (
               <span className="flex items-center gap-1 text-xs text-info">
                 <Globe className="h-3 w-3" />
-                Using global key
+                {t('projectSettings.security.usingGlobalKey')}
               </span>
             )}
           </div>
           {envConfig.openaiKeyIsGlobal ? (
             <p className="text-xs text-muted-foreground">
-              Using key from App Settings. Enter a project-specific key below to override.
+              {t('projectSettings.security.usingKeyFromApp')}
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">
-              Required for OpenAI embeddings
+              {t('projectSettings.security.requiredForEmbeddings')}
             </p>
           )}
           <div className="relative">
             <Input
               type={showApiKey['openai'] ? 'text' : 'password'}
-              placeholder={envConfig.openaiKeyIsGlobal ? 'Enter to override global key...' : 'sk-xxxxxxxx'}
+              placeholder={envConfig.openaiKeyIsGlobal ? t('projectSettings.security.enterToOverride') : 'sk-xxxxxxxx'}
               value={envConfig.openaiKeyIsGlobal ? '' : (envConfig.openaiApiKey || '')}
               onChange={(e) => updateEnvConfig({ openaiApiKey: e.target.value || undefined })}
               className="pr-10"
@@ -129,9 +131,9 @@ export function SecuritySettings({
             </button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Get your key from{' '}
+            {t('projectSettings.security.getKeyFrom')}{' '}
             <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-              OpenAI
+              {t('projectSettings.security.openai')}
             </a>
           </p>
         </div>
@@ -142,9 +144,9 @@ export function SecuritySettings({
     if (embeddingProvider === 'voyage') {
       return (
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-foreground">Voyage AI API Key</Label>
+          <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.voyageApiKey')}</Label>
           <p className="text-xs text-muted-foreground">
-            Required for Voyage AI embeddings
+            {t('projectSettings.security.requiredForVoyage')}
           </p>
           <div className="relative">
             <Input
@@ -157,7 +159,7 @@ export function SecuritySettings({
                   voyageApiKey: e.target.value || undefined,
                 }
               })}
-              placeholder="pa-xxxxxxxx"
+              placeholder={t('projectSettings.security.voyagePlaceholder')}
               className="pr-10"
             />
             <button
@@ -170,13 +172,13 @@ export function SecuritySettings({
             </button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Get your key from{' '}
+            {t('projectSettings.security.getKeyFrom')}{' '}
             <a href="https://dash.voyageai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-              Voyage AI
+              {t('projectSettings.security.voyage')}
             </a>
           </p>
           <div className="space-y-1 mt-3">
-            <Label className="text-xs text-muted-foreground">Embedding Model (optional)</Label>
+            <Label className="text-xs text-muted-foreground">{t('projectSettings.security.embeddingModel')}</Label>
             <Input
               placeholder="voyage-3"
               value={envConfig.graphitiProviderConfig?.voyageEmbeddingModel || ''}
@@ -197,9 +199,9 @@ export function SecuritySettings({
     if (embeddingProvider === 'google') {
       return (
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-foreground">Google AI API Key</Label>
+          <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.googleApiKey')}</Label>
           <p className="text-xs text-muted-foreground">
-            Required for Google AI embeddings
+            {t('projectSettings.security.requiredForGoogle')}
           </p>
           <div className="relative">
             <Input
@@ -212,7 +214,7 @@ export function SecuritySettings({
                   googleApiKey: e.target.value || undefined,
                 }
               })}
-              placeholder="AIzaSy..."
+              placeholder={t('projectSettings.security.googlePlaceholder')}
               className="pr-10"
             />
             <button
@@ -225,9 +227,9 @@ export function SecuritySettings({
             </button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Get your key from{' '}
+            {t('projectSettings.security.getKeyFrom')}{' '}
             <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-              Google AI Studio
+              {t('projectSettings.security.google')}
             </a>
           </p>
         </div>
@@ -238,9 +240,9 @@ export function SecuritySettings({
     if (embeddingProvider === 'azure_openai') {
       return (
         <div className="space-y-3 p-3 rounded-md bg-muted/50">
-          <Label className="text-sm font-medium text-foreground">Azure OpenAI Configuration</Label>
+          <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.azureOpenAI')}</Label>
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">API Key</Label>
+            <Label className="text-xs text-muted-foreground">{t('projectSettings.security.azureApiKey')}</Label>
             <div className="relative">
               <Input
                 type={showApiKey['azure'] ? 'text' : 'password'}
@@ -252,7 +254,7 @@ export function SecuritySettings({
                     azureOpenaiApiKey: e.target.value || undefined,
                   }
                 })}
-                placeholder="Azure API Key"
+                placeholder={t('projectSettings.security.azureApiKeyPlaceholder')}
                 className="pr-10"
               />
               <button
@@ -266,9 +268,9 @@ export function SecuritySettings({
             </div>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Base URL</Label>
+            <Label className="text-xs text-muted-foreground">{t('projectSettings.security.azureBaseUrl')}</Label>
             <Input
-              placeholder="https://your-resource.openai.azure.com"
+              placeholder={t('projectSettings.security.azureBaseUrlPlaceholder')}
               value={envConfig.graphitiProviderConfig?.azureOpenaiBaseUrl || ''}
               onChange={(e) => updateEnvConfig({
                 graphitiProviderConfig: {
@@ -280,9 +282,9 @@ export function SecuritySettings({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Embedding Deployment Name</Label>
+            <Label className="text-xs text-muted-foreground">{t('projectSettings.security.azureDeployment')}</Label>
             <Input
-              placeholder="text-embedding-ada-002"
+              placeholder={t('projectSettings.security.azureDeploymentPlaceholder')}
               value={envConfig.graphitiProviderConfig?.azureOpenaiEmbeddingDeployment || ''}
               onChange={(e) => updateEnvConfig({
                 graphitiProviderConfig: {
@@ -302,9 +304,9 @@ export function SecuritySettings({
       return (
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Base URL</Label>
+            <Label className="text-xs text-muted-foreground">{t('projectSettings.security.ollamaBaseUrl')}</Label>
             <Input
-              placeholder="http://localhost:11434"
+              placeholder={t('projectSettings.security.ollamaBaseUrlPlaceholder')}
               value={envConfig.graphitiProviderConfig?.ollamaBaseUrl || 'http://localhost:11434'}
               onChange={(e) => updateEnvConfig({
                 graphitiProviderConfig: {
@@ -317,7 +319,7 @@ export function SecuritySettings({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">Select Embedding Model</Label>
+            <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.selectEmbeddingModel')}</Label>
             <OllamaModelSelector
               selectedModel={envConfig.graphitiProviderConfig?.ollamaEmbeddingModel || ''}
               baseUrl={envConfig.graphitiProviderConfig?.ollamaBaseUrl}
@@ -339,13 +341,13 @@ export function SecuritySettings({
       >
         <div className="flex items-center gap-2">
           <Database className="h-4 w-4" />
-          Memory
+          {t('projectSections.memory.title')}
           <span className={`px-2 py-0.5 text-xs rounded-full ${
             envConfig.graphitiEnabled
               ? 'bg-success/10 text-success'
               : 'bg-muted text-muted-foreground'
           }`}>
-            {envConfig.graphitiEnabled ? 'Enabled' : 'Disabled'}
+            {envConfig.graphitiEnabled ? t('projectSettings.security.enabled') : t('projectSettings.security.disabled')}
           </span>
         </div>
         {expanded ? (
@@ -359,9 +361,9 @@ export function SecuritySettings({
         <div className="space-y-4 pl-6 pt-2">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label className="font-normal text-foreground">Enable Memory</Label>
+              <Label className="font-normal text-foreground">{t('projectSettings.security.enableMemory')}</Label>
               <p className="text-xs text-muted-foreground">
-                Persistent cross-session memory using LadybugDB (embedded database)
+                {t('projectSettings.security.enableMemoryDescription')}
               </p>
             </div>
             <Switch
@@ -376,8 +378,7 @@ export function SecuritySettings({
           {!envConfig.graphitiEnabled && (
             <div className="rounded-lg border border-border bg-muted/30 p-3">
               <p className="text-xs text-muted-foreground">
-                Using file-based memory. Session insights are stored locally in JSON files.
-                Enable Memory for persistent cross-session context with semantic search.
+                {t('projectSettings.security.fileBasedMemory')}
               </p>
             </div>
           )}
@@ -387,9 +388,9 @@ export function SecuritySettings({
               {/* Graphiti MCP Server Toggle */}
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label className="font-normal text-foreground">Enable Agent Memory Access</Label>
+                  <Label className="font-normal text-foreground">{t('projectSettings.security.enableAgentMemoryAccess')}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Allow agents to search and add to the knowledge graph via MCP
+                    {t('projectSettings.security.enableAgentMemoryAccessDescription')}
                   </p>
                 </div>
                 <Switch
@@ -402,12 +403,12 @@ export function SecuritySettings({
 
               {settings.graphitiMcpEnabled && (
                 <div className="space-y-2 ml-6">
-                  <Label className="text-sm font-medium text-foreground">Graphiti MCP Server URL</Label>
+                  <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.graphitiUrl')}</Label>
                   <p className="text-xs text-muted-foreground">
-                    URL of the Graphiti MCP server for agent memory access
+                    {t('projectSettings.security.graphitiUrlDescription')}
                   </p>
                   <Input
-                    placeholder="http://localhost:8000/mcp/"
+                    placeholder={t('projectSettings.security.graphitiUrlPlaceholder')}
                     value={settings.graphitiMcpUrl || ''}
                     onChange={(e) => setSettings({ ...settings, graphitiMcpUrl: e.target.value || undefined })}
                   />
@@ -418,9 +419,9 @@ export function SecuritySettings({
 
               {/* Embedding Provider Selection */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">Embedding Provider</Label>
+                <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.embeddingProvider')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Provider for semantic search (optional - keyword search works without)
+                  {t('projectSettings.security.embeddingProviderDescription')}
                 </p>
                 <Select
                   value={embeddingProvider}
@@ -434,14 +435,14 @@ export function SecuritySettings({
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select embedding provider" />
+                    <SelectValue placeholder={t('projectSettings.security.selectEmbeddingProvider')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ollama">Ollama (Local - Free)</SelectItem>
-                    <SelectItem value="openai">OpenAI</SelectItem>
-                    <SelectItem value="voyage">Voyage AI</SelectItem>
-                    <SelectItem value="google">Google AI</SelectItem>
-                    <SelectItem value="azure_openai">Azure OpenAI</SelectItem>
+                    <SelectItem value="ollama">{t('projectSettings.security.ollama')}</SelectItem>
+                    <SelectItem value="openai">{t('projectSettings.security.openai')}</SelectItem>
+                    <SelectItem value="voyage">{t('projectSettings.security.voyage')}</SelectItem>
+                    <SelectItem value="google">{t('projectSettings.security.google')}</SelectItem>
+                    <SelectItem value="azure_openai">{t('projectSettings.security.azureOpenai')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -453,24 +454,24 @@ export function SecuritySettings({
 
               {/* Database Settings */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">Database Name</Label>
+                <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.databaseName')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Stored in ~/.auto-claude/memories/
+                  {t('projectSettings.security.databaseNameDescription')}
                 </p>
                 <Input
-                  placeholder="auto_claude_memory"
+                  placeholder={t('projectSettings.security.databaseNamePlaceholder')}
                   value={envConfig.graphitiDatabase || ''}
                   onChange={(e) => updateEnvConfig({ graphitiDatabase: e.target.value })}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">Database Path (Optional)</Label>
+                <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.databasePath')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Custom storage location. Default: ~/.auto-claude/memories/
+                  {t('projectSettings.security.databasePathDescription')}
                 </p>
                 <Input
-                  placeholder="~/.auto-claude/memories"
+                  placeholder={t('projectSettings.security.databasePathPlaceholder')}
                   value={envConfig.graphitiDbPath || ''}
                   onChange={(e) => updateEnvConfig({ graphitiDbPath: e.target.value || undefined })}
                 />
