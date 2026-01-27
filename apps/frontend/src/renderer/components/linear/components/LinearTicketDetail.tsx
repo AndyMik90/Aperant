@@ -4,7 +4,7 @@ import {
 	ExternalLink,
 	Loader2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
 	LinearTicket,
@@ -28,10 +28,13 @@ export function LinearTicketDetail({
 	const { t } = useTranslation(["common", "linear"]);
 	const [showValidationModal, setShowValidationModal] = useState(false);
 	const validation = validationResult;
+	const detailRef = useRef<HTMLDivElement>(null);
 
 	// Scroll to top when ticket changes
 	useEffect(() => {
-		window.scrollTo({ top: 0, behavior: "smooth" });
+		if (detailRef.current) {
+			detailRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+		}
 	}, [ticket?.id]);
 
 	if (!ticket) {
@@ -76,6 +79,7 @@ export function LinearTicketDetail({
 
 	return (
 		<div
+			ref={detailRef}
 			className="flex flex-col h-full gap-4 p-4 overflow-y-auto"
 			role="region"
 			aria-label={t("linear:ticketDetailsFor", { identifier: ticket.identifier })}
@@ -90,7 +94,7 @@ export function LinearTicketDetail({
 							target="_blank"
 							rel="noopener noreferrer"
 							className="text-muted-foreground hover:text-foreground transition-colors"
-							aria-label={t("linear:openInLinear")}
+							aria-label={t("linear:viewOnLinear")}
 						>
 							<ExternalLink className="w-4 h-4 flex-shrink-0" />
 						</a>
@@ -225,18 +229,18 @@ export function LinearTicketDetail({
 					onClick={handleValidate}
 					disabled={isValidating}
 					className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-					aria-label={t("linear:validateTicket")}
+					aria-label={t("linear:runValidation")}
 					aria-busy={isValidating}
 				>
 					{isValidating ? (
 						<>
 							<Loader2 className="w-4 h-4 animate-spin" />
-							{t("linear:validating")}
+							{t("linear:validatingTicket")}
 						</>
 					) : (
 						<>
 							<CheckCircle2 className="w-4 h-4" />
-							{t("linear:validateTicket")}
+							{t("linear:runValidation")}
 						</>
 					)}
 				</button>

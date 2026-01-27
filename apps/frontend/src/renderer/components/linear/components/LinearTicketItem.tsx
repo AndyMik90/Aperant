@@ -18,9 +18,6 @@ function SrOnly({ children }: { children: React.ReactNode }) {
 interface ValidationStatusInfo {
 	isValidating: boolean;
 	hasResult: boolean;
-	hasBlockingFindings: boolean;
-	hasNewChanges: boolean;
-	hasChangesAfterPosting: boolean;
 }
 
 interface LinearTicketItemProps {
@@ -94,36 +91,20 @@ function ValidationStatusFlow({
 		);
 	}
 
-	const {
-		isValidating,
-		hasResult,
-		hasBlockingFindings,
-		hasNewChanges,
-		hasChangesAfterPosting,
-	} = validationInfo;
+	const { isValidating, hasResult } = validationInfo;
 
 	// Determine flow state - prioritize more advanced states first
 	let flowState: FlowState = "not_started";
 	if (hasResult && !isValidating) {
-		// Has result and not currently validating - check if changes happened after posting
-		if (hasNewChanges && hasChangesAfterPosting) {
-			flowState = "updated";
-		} else {
-			flowState = "validated";
-		}
+		flowState = "validated";
 	} else if (isValidating) {
 		flowState = "validating";
 	} else if (hasResult) {
 		flowState = "validated";
 	}
 
-	// Determine final status color for updated state
-	let finalStatus: FinalStatus = "success";
-	if (hasNewChanges && hasChangesAfterPosting) {
-		finalStatus = "followup";
-	} else if (hasBlockingFindings) {
-		finalStatus = "warning";
-	}
+	// Linear doesn't track changes after posting or blocking findings
+	const finalStatus: FinalStatus = "success";
 
 	// Dot styles based on state
 	const getDotStyle = (dotIndex: 0 | 1 | 2) => {

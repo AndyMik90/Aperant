@@ -130,7 +130,7 @@ export function Sidebar({
     linearEnabled?: boolean;
   } | null>(null);
 
-  const toggleSidebar = () => setIsCollapsed(!isCollapsed);
+  const toggleSidebar = () => setIsCollapsed((prev) => !prev);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
@@ -145,6 +145,9 @@ export function Sidebar({
         }
         return;
       }
+
+      // Clear envConfig immediately while IPC call runs
+      setEnvConfig(null);
 
       try {
         const result = await window.electronAPI.getProjectEnv(selectedProject.id);

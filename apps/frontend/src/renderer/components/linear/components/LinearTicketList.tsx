@@ -43,9 +43,6 @@ function TicketItemSkeleton() {
 interface ValidationStatusInfo {
 	isValidating: boolean;
 	hasResult: boolean;
-	hasBlockingFindings: boolean;
-	hasNewChanges: boolean;
-	hasChangesAfterPosting: boolean;
 }
 
 interface LinearTicketListProps {

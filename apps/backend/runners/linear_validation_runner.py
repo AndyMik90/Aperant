@@ -132,7 +132,9 @@ async def validate_single_ticket(
         Dict with success status and either data or error
     """
     try:
-        agent = create_linear_validator(project_dir, project_dir, model="opus")
+        agent = create_linear_validator(
+            project_dir, project_dir, model="claude-opus-4-5-20251101"
+        )
 
         # validate_ticket now auto-fetches issue data if not provided
         result = await agent.validate_ticket(
@@ -176,7 +178,9 @@ async def validate_batch_tickets(
         Dict with successful and failed results
     """
     try:
-        agent = create_linear_validator(project_dir, project_dir, model="opus")
+        agent = create_linear_validator(
+            project_dir, project_dir, model="claude-opus-4-5-20251101"
+        )
 
         # Convert ticket IDs to the format expected by validate_batch
         # validate_batch expects: [{'id': ticket_id, 'data': {...}}, ...]

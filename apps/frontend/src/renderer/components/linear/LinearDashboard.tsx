@@ -125,17 +125,11 @@ export function LinearDashboard({
 				return {
 					isValidating: false,
 					hasResult: false,
-					hasBlockingFindings: false,
-					hasNewChanges: false,
-					hasChangesAfterPosting: false,
 				};
 			}
 			return {
 				isValidating: result.status === "validating",
 				hasResult: result.status === "complete",
-				hasBlockingFindings: false, // Linear doesn't have blocking findings
-				hasNewChanges: false, // Linear doesn't track new changes
-				hasChangesAfterPosting: false, // Linear doesn't track changes after posting
 			};
 		},
 		[validationResults],
