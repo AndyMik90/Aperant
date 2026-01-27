@@ -83,7 +83,7 @@ def _serialize_validation_result(result: dict, ticket_id: str) -> dict:
         "completenessValidation": {
             "isComplete": completeness.get("title_clear", False)
             and completeness.get("description_sufficient", False),
-            "score": completeness.get("feasibility_score", 0.0),
+            "feasibilityScore": completeness.get("feasibility_score", 0.0),
             "missingFields": completeness.get("missing_info", []),
             "validationNotes": completeness.get("feasibility", ""),
         },
