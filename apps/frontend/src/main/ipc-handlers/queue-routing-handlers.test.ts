@@ -259,7 +259,7 @@ describe('registerQueueRoutingHandlers', () => {
     });
 
     it('should return null when no session', async () => {
-      mockAgentManager.getTaskSessionId = vi.fn(() => undefined);
+      mockAgentManager.getTaskSessionId = vi.fn(() => null);
 
       registerQueueRoutingHandlers(
         mockAgentManager as AgentManager,
