@@ -668,8 +668,11 @@ class GitLabProvider:
 
         data = {
             "name": label.name,
-            "color": label.color.lstrip("#") if label.color else None,
         }
+
+        # Only include color if it's not None/empty
+        if label.color:
+            data["color"] = label.color.lstrip("#")
 
         if label.description:
             data["description"] = label.description

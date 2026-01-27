@@ -34,10 +34,13 @@ class PromptManager:
         """Get the specialized prompt for each review pass.
 
         For now, falls back to the main MR review prompt. Pass-specific
-        prompts can be added later by creating files like:
-        - prompts/gitlab/review_pass_1.md
-        - prompts/gitlab/review_pass_2.md
-        etc.
+        prompts can be added later by creating files named:
+        - prompts/gitlab/review_pass_quick_scan.md
+        - prompts/gitlab/review_pass_security.md
+        - prompts/gitlab/review_pass_full.md
+
+        The filename must match the enum value (review_pass.value), e.g.,
+        "quick_scan", "security", "full", etc.
         """
         # Try pass-specific prompt file first
         # Use enum value (e.g., "quick_scan", "security") for filename

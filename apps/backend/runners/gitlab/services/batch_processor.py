@@ -47,23 +47,30 @@ class GitlabBatchProcessor:
         import attempts when ProgressCallback is already loaded.
         """
         if self.progress_callback:
-            # Import at module level to avoid circular import issues
-            import sys
+            # Wrap entire progress reporting in try/except to handle any failures
+            try:
+                # Import at module level to avoid circular import issues
+                import sys
 
-            if "orchestrator" in sys.modules:
-                ProgressCallback = sys.modules["orchestrator"].ProgressCallback
-            else:
-                # Fallback: try relative import
-                try:
-                    from ..orchestrator import ProgressCallback
-                except ImportError:
-                    from orchestrator import ProgressCallback
+                if "orchestrator" in sys.modules:
+                    ProgressCallback = sys.modules["orchestrator"].ProgressCallback
+                else:
+                    # Fallback: try relative import
+                    try:
+                        from ..orchestrator import ProgressCallback
+                    except ImportError:
+                        from orchestrator import ProgressCallback
 
-            self.progress_callback(
-                ProgressCallback(
-                    phase=phase, progress=progress, message=message, **kwargs
+                self.progress_callback(
+                    ProgressCallback(
+                        phase=phase, progress=progress, message=message, **kwargs
+                    )
                 )
-            )
+            except Exception as e:
+                # Log the error but don't crash batch processing
+                import logging
+
+                logging.getLogger(__name__).warning(f"Failed to report progress: {e}")
 
     async def batch_and_fix_issues(
         self,
@@ -145,7 +152,34 @@ class GitlabBatchProcessor:
         Returns:
             AutoFixState for the batch, or None if failed
         """
-        from .batch_issues import GitlabBatchStatus
+        from .batch_issues import GitlabBatchStatus, GitlabIssueBatcher
+
+        # Guard against empty batches
+        if not batch.issues:
+            safe_print(
+                f"[BATCH] Batch {batch.batch_id} has no issues, marking as failed"
+            )
+            batch.status = GitlabBatchStatus.FAILED
+            batch.error = "Batch has no issues"
+
+            # Save the failed status
+            try:
+                batcher = GitlabIssueBatcher(
+                    gitlab_dir=self.gitlab_dir,
+                    project=self.config.project,
+                    project_dir=self.project_dir,
+                )
+                batcher.save_batch(batch)
+            except Exception as e:
+                safe_print(f"[BATCH] Failed to save empty batch status: {e}")
+
+            self._report_progress(
+                "batch_processing",
+                100,
+                f"Batch {batch.batch_id} failed: No issues",
+                batch_id=batch.batch_id,
+            )
+            return None
 
         self._report_progress(
             "batch_processing",
@@ -253,12 +287,19 @@ class GitlabBatchProcessor:
 
     async def get_queue(self) -> list:
         """Get all batches in the queue."""
+        import asyncio
+
         from .batch_issues import GitlabIssueBatcher
 
-        batcher = GitlabIssueBatcher(
-            gitlab_dir=self.gitlab_dir,
-            project=self.config.project,
-            project_dir=self.project_dir,
-        )
+        # Offload blocking filesystem I/O to a thread pool
+        loop = asyncio.get_running_loop()
 
-        return batcher.list_batches()
+        def _list_batches():
+            batcher = GitlabIssueBatcher(
+                gitlab_dir=self.gitlab_dir,
+                project=self.config.project,
+                project_dir=self.project_dir,
+            )
+            return batcher.list_batches()
+
+        return await loop.run_in_executor(None, _list_batches)

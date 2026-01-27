@@ -623,7 +623,9 @@ class MRContextGatherer:
                         relative_path_str = str(relative_path).replace("\\", "/")
 
                         # Don't include the file itself
-                        if relative_path_str == file_path:
+                        # Normalize file_path the same way for comparison
+                        file_path_normalized = file_path.replace("\\", "/")
+                        if relative_path_str == file_path_normalized:
                             continue
 
                         # Search for the pattern in the file
