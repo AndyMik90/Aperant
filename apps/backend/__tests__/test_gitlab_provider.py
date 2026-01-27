@@ -82,7 +82,7 @@ class TestGitLabProvider:
         assert pr.target_branch == "main"
         assert pr.provider.name == "GITLAB"
 
-    def test_fetch_prs_with_filters(self, provider):
+    def test_fetch_prs(self, provider):
         """Test fetching multiple MRs with filters."""
         provider._glab_client._fetch.return_value = [
             mock_mr_data(iid=100),
@@ -115,7 +115,7 @@ class TestGitLabProvider:
         assert issue.author == "jane_smith"
         assert issue.state == "opened"
 
-    def test_fetch_issues_with_filters(self, provider):
+    def test_fetch_issues(self, provider):
         """Test fetching issues with filters."""
         provider._glab_client._fetch.return_value = [
             mock_issue_data(iid=10),
@@ -183,8 +183,14 @@ class TestGitLabProvider:
 
         await_if_needed(provider.create_label(label))
 
-        # Verify call was made (checking that it didn't raise)
-        provider._glab_client._fetch.assert_called()
+        # Verify the label payload was sent correctly
+        call_args = provider._glab_client._fetch.call_args
+        assert call_args is not None
+        data = call_args[1].get("data") if call_args and len(call_args) > 1 else None
+        assert data is not None
+        assert data["name"] == "bug"
+        assert data["color"] == "ff0000"  # Without # prefix
+        assert data["description"] == "Bug report"
 
     def test_list_labels(self, provider):
         """Test listing labels."""

@@ -136,6 +136,13 @@ except (ImportError, ValueError, SystemError):
     except ImportError:
         safe_print = None  # type: ignore
 
+    # Fallback to built-in print if safe_print is not available
+    if safe_print is None:
+
+        def safe_print(*args, **kwargs):  # type: ignore
+            """Fallback to built-in print when safe_print is unavailable."""
+            print(*args, **kwargs)
+
 
 @dataclass
 class ProgressCallback:
@@ -180,6 +187,24 @@ class GitHubOrchestrator:
         config: GitHubRunnerConfig,
         progress_callback: Callable[[ProgressCallback], None] | None = None,
     ):
+        # Validate required dependencies are available
+        required_deps = {
+            "GHClient": GHClient,
+            "BotDetector": BotDetector,
+            "GitHubPermissionChecker": GitHubPermissionChecker,
+            "RateLimiter": RateLimiter,
+            "PRReviewEngine": PRReviewEngine,
+            "TriageEngine": TriageEngine,
+            "AutoFixProcessor": AutoFixProcessor,
+            "BatchProcessor": BatchProcessor,
+        }
+        missing = [name for name, dep in required_deps.items() if dep is None]
+        if missing:
+            raise ImportError(
+                f"Missing required dependencies for GitHubOrchestrator: {', '.join(missing)}. "
+                f"Please ensure all GitHub runner modules are available."
+            )
+
         self.project_dir = Path(project_dir)
         self.config = config
         self.progress_callback = progress_callback

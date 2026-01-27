@@ -7,9 +7,10 @@ Tests for GitLab client timeout, retry, and async operations.
 
 import asyncio
 from unittest.mock import Mock, patch
+from urllib.parse import urlparse
 
 import pytest
-from requests.exceptions import ConnectionError, Timeout
+from requests.exceptions import ConnectionError
 
 
 class TestGitLabClient:
@@ -608,8 +609,9 @@ class TestGitLabClientAuth:
             call_args = mock_urlopen.call_args[0]
             request = call_args[0]
 
-            # Use full URL match to avoid substring injection issues
-            assert request.full_url.startswith("https://gitlab.custom.com/")
+            # Parse URL and check hostname for security
+            parsed_url = urlparse(request.full_url)
+            assert parsed_url.hostname == "gitlab.custom.com"
 
 
 class TestGitLabClientConfig:

@@ -5,8 +5,6 @@ Tests for GitLab Triage Engine
 Tests for AI-driven issue triage and categorization.
 """
 
-from unittest.mock import patch
-
 import pytest
 
 try:

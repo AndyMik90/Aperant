@@ -143,6 +143,9 @@ class TestMREndToEnd:
                 mock_orchestrator.client.get_mr_async.return_value = mock_mr_data()
                 mock_orchestrator.client.get_mr_commits_async.return_value = []
 
+                # Set ci_checker directly so review_mr uses the mocked version
+                mock_orchestrator.ci_checker = mock_checker.return_value
+
                 with patch("runners.gitlab.services.MRReviewEngine") as mock_engine:
                     from runners.gitlab.models import MergeVerdict
 
