@@ -182,6 +182,29 @@ MOCK_GITLAB_CONFIG = {
 }
 
 
+def create_mock_client(project_dir=None):
+    """Create a mock GitLab client for testing.
+
+    Args:
+        project_dir: Optional project directory path (uses temp dir if None)
+
+    Returns:
+        Configured GitLabClient instance
+    """
+    import tempfile
+    from pathlib import Path
+
+    from runners.gitlab.glab_client import GitLabClient, GitLabConfig
+
+    if project_dir is None:
+        project_dir = Path(tempfile.mkdtemp())
+    else:
+        project_dir = Path(project_dir)
+
+    config = GitLabConfig(**MOCK_GITLAB_CONFIG)
+    return GitLabClient(project_dir=project_dir, config=config)
+
+
 def mock_mr_data(**overrides):
     """Create mock MR data with optional overrides."""
     import copy
