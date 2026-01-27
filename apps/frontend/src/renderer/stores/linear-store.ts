@@ -390,7 +390,36 @@ export async function validateLinearTicket(
 		if (!projectId) {
 			const errorMessage = "No project selected";
 			store.updateValidationResult(ticketId, {
-				...currentResult!,
+				...(currentResult || {
+					ticketId,
+					ticketIdentifier: "",
+					validationTimestamp: new Date().toISOString(),
+					cached: false,
+					contentAnalysis: {
+						title: "",
+						descriptionSummary: "",
+						requirements: [],
+					},
+					completenessValidation: {
+						isComplete: false,
+						missingFields: [],
+						feasibilityScore: 0,
+						feasibilityReasoning: "",
+					},
+					suggestedLabels: [],
+					versionRecommendation: {
+						recommendedVersion: "",
+						versionType: "patch",
+						reasoning: "",
+					},
+					taskProperties: {
+						category: "feature",
+						complexity: "medium",
+						impact: "medium",
+						priority: "medium",
+						rationale: "",
+					},
+				}),
 				status: "error",
 				error: errorMessage,
 			});
@@ -413,7 +442,36 @@ export async function validateLinearTicket(
 			return result.data;
 		} else {
 			store.updateValidationResult(ticketId, {
-				...currentResult!,
+				...(currentResult || {
+					ticketId,
+					ticketIdentifier: "",
+					validationTimestamp: new Date().toISOString(),
+					cached: false,
+					contentAnalysis: {
+						title: "",
+						descriptionSummary: "",
+						requirements: [],
+					},
+					completenessValidation: {
+						isComplete: false,
+						missingFields: [],
+						feasibilityScore: 0,
+						feasibilityReasoning: "",
+					},
+					suggestedLabels: [],
+					versionRecommendation: {
+						recommendedVersion: "",
+						versionType: "patch",
+						reasoning: "",
+					},
+					taskProperties: {
+						category: "feature",
+						complexity: "medium",
+						impact: "medium",
+						priority: "medium",
+						rationale: "",
+					},
+				}),
 				status: "error",
 				error: result.error || "Validation failed",
 			});
@@ -423,7 +481,36 @@ export async function validateLinearTicket(
 		const errorMessage =
 			error instanceof Error ? error.message : "Unknown error";
 		store.updateValidationResult(ticketId, {
-			...currentResult!,
+			...(currentResult || {
+				ticketId,
+				ticketIdentifier: "",
+				validationTimestamp: new Date().toISOString(),
+				cached: false,
+				contentAnalysis: {
+					title: "",
+					descriptionSummary: "",
+					requirements: [],
+				},
+				completenessValidation: {
+					isComplete: false,
+					missingFields: [],
+					feasibilityScore: 0,
+					feasibilityReasoning: "",
+				},
+				suggestedLabels: [],
+				versionRecommendation: {
+					recommendedVersion: "",
+					versionType: "patch",
+					reasoning: "",
+				},
+				taskProperties: {
+					category: "feature",
+					complexity: "medium",
+					impact: "medium",
+					priority: "medium",
+					rationale: "",
+				},
+			}),
 			status: "error",
 			error: errorMessage,
 		});
