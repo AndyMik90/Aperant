@@ -20,6 +20,10 @@ import type { SupportedTerminal } from '../../shared/types/settings';
  * Shutdown flag to prevent PTY handlers from accessing destroyed resources
  * (e.g., BrowserWindow.webContents) during app shutdown.
  * Follows the same pattern as isShuttingDown in pty-daemon-client.ts.
+ *
+ * Part of the shutdown guard pattern for GitHub issue #1469: without this flag,
+ * PTY onData/onExit callbacks can fire after BrowserWindow is destroyed,
+ * causing pty.node's native ThreadSafeFunction to SIGABRT.
  */
 let isShuttingDown = false;
 
@@ -206,7 +210,8 @@ export function setupPtyHandlers(
 
   // Handle data from terminal
   ptyProcess.onData((data) => {
-    // Skip processing during shutdown to avoid accessing destroyed resources
+    // Shutdown guard (GitHub #1469): skip processing to avoid accessing
+    // destroyed BrowserWindow.webContents, which triggers pty.node SIGABRT
     if (isShuttingDown) return;
 
     // Append to output buffer (limit to 100KB)
@@ -235,8 +240,8 @@ export function setupPtyHandlers(
       pendingExit.resolve();
     }
 
-    // During shutdown, skip accessing win.webContents and callbacks
-    // to avoid crashes from destroyed BrowserWindow resources
+    // Shutdown guard (GitHub #1469): skip accessing win.webContents and callbacks
+    // to avoid pty.node SIGABRT from destroyed BrowserWindow resources
     if (isShuttingDown) return;
 
     const win = getWindow();

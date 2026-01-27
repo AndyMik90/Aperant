@@ -302,12 +302,17 @@ const DESTROY_ALL_TIMEOUT = 3000;
  * Kill all terminal processes.
  * Sets the shutdown flag first to prevent PTY handlers from accessing destroyed
  * resources, then waits for all PTY processes to exit (with a global timeout).
+ *
+ * This is the core fix for GitHub issue #1469: by setting the shutdown flag and
+ * awaiting PTY exit before returning, we ensure pty.node's native callbacks
+ * don't fire after the JS environment tears down (which causes SIGABRT).
  */
 export async function destroyAllTerminals(
   terminals: Map<string, TerminalProcess>,
   saveTimer: NodeJS.Timeout | null
 ): Promise<NodeJS.Timeout | null> {
-  // Set shutdown flag first to prevent PTY handlers from accessing destroyed resources
+  // Set shutdown flag first — prevents PTY onData/onExit from accessing
+  // destroyed BrowserWindow.webContents (GitHub #1469 shutdown guard pattern)
   PtyManager.setShuttingDown(true);
 
   await SessionHandler.persistAllSessionsAsync(terminals);
@@ -317,7 +322,7 @@ export async function destroyAllTerminals(
     saveTimer = null;
   }
 
-  // Kill all terminals and wait for PTY exit to avoid node-pty crash on shutdown
+  // Kill all terminals and wait for PTY exit to avoid pty.node SIGABRT on shutdown (GitHub #1469)
   const killPromises: Promise<void>[] = [];
 
   terminals.forEach((terminal) => {
