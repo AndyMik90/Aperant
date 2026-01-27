@@ -531,7 +531,7 @@ class LinearValidationAgent:
                     or "does not exist" in error_msg.lower()
                 ):
                     raise TicketNotFoundError(issue_id)
-                raise NetworkError(f"Linear API error: {error_msg}")
+                raise NetworkError(issue_id, details=f"Linear API error: {error_msg}")
 
             issue_data = data.get("data", {}).get("issue")
             if not issue_data:
@@ -554,9 +554,9 @@ class LinearValidationAgent:
             }
 
         except requests.exceptions.Timeout:
-            raise NetworkError(f"Timeout fetching issue {issue_id} from Linear API")
+            raise NetworkError(issue_id, details="Timeout fetching from Linear API")
         except requests.exceptions.RequestException as e:
-            raise NetworkError(f"Network error fetching issue {issue_id}: {e}")
+            raise NetworkError(issue_id, details=f"Network error: {e}")
 
     async def validate_ticket(
         self,
@@ -879,12 +879,8 @@ Begin your analysis now.
         Raises:
             ValueError: If batch size exceeds maximum of 5 tickets
         """
-        MAX_BATCH_SIZE = 5
-        if len(issue_ids) > MAX_BATCH_SIZE:
-            raise ValueError(
-                f"Maximum {MAX_BATCH_SIZE} tickets allowed per batch. "
-                f"Got {len(issue_ids)} tickets."
-            )
+        # Delegate to module-level function
+        validate_batch_limit(issue_ids)
 
     async def validate_batch(
         self,
@@ -915,7 +911,8 @@ Begin your analysis now.
         Raises:
             ValueError: If batch size exceeds maximum
         """
-        issue_ids = [issue.get("id") for issue in issues]
+        # Filter out None values from issue IDs
+        issue_ids = [issue.get("id") for issue in issues if issue.get("id")]
         self.validate_batch_limit(issue_ids)
 
         # Semaphore to limit concurrent validations

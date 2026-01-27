@@ -73,7 +73,7 @@ export function LinearTicketList({
 	onSelectTicket,
 	onLoadMore,
 }: LinearTicketListProps) {
-	const { t } = useTranslation("common");
+	const { t } = useTranslation(["common", "linear"]);
 	const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 	const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(
 		null,
@@ -115,7 +115,7 @@ export function LinearTicketList({
 				role="status"
 				aria-live="polite"
 				aria-busy="true"
-				aria-label="Loading tickets"
+				aria-label={t("linear.loadingTickets")}
 			>
 				<div className="divide-y divide-border/40">
 					{/* Show 3 skeleton items as loading indicators */}
@@ -136,7 +136,7 @@ export function LinearTicketList({
 				aria-live="assertive"
 			>
 				<div className="text-center text-destructive">
-					<p className="text-sm">{error}</p>
+					<p className="text-sm">{t("linear.ticketLoadFailed", { error })}</p>
 				</div>
 			</div>
 		);
@@ -166,7 +166,7 @@ export function LinearTicketList({
 			<div
 				className="divide-y divide-border"
 				role="list"
-				aria-label="Linear tickets list"
+				aria-label={t("linear.ticketsList")}
 			>
 				{tickets.map((ticket) => {
 					const validationInfo = getValidationStateForTicket(ticket.id);
@@ -192,21 +192,21 @@ export function LinearTicketList({
 					{isLoadingMore ? (
 						<div className="flex items-center gap-2 text-muted-foreground">
 							<Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-							<span className="text-sm">{t("linear:loadingMore")}</span>
+							<span className="text-sm">{t("linear.loadingMore")}</span>
 						</div>
 					) : hasMore ? (
 						<span
 							className="text-xs text-muted-foreground opacity-50"
 							aria-live="polite"
 						>
-							{t("linear:scrollForMore")}
+							{t("linear.scrollForMore")}
 						</span>
 					) : tickets.length > 0 ? (
 						<span
 							className="text-xs text-muted-foreground opacity-50"
 							aria-live="polite"
 						>
-							{t("linear:allLoaded")}
+							{t("linear.allLoaded")}
 						</span>
 					) : null}
 				</div>

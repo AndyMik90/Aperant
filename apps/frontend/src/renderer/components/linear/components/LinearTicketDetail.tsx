@@ -131,7 +131,7 @@ export function LinearTicketDetail({
 			<div
 				className="flex flex-wrap gap-2"
 				role="list"
-				aria-label="Ticket metadata"
+				aria-label={t("linear.ticketMetadata")}
 			>
 				<div
 					className="px-2 py-1 rounded-md bg-secondary text-sm"
@@ -184,7 +184,7 @@ export function LinearTicketDetail({
 				<div
 					className="flex flex-wrap gap-1"
 					role="list"
-					aria-label="Ticket labels"
+					aria-label={t("linear.labels")}
 				>
 					{ticket.labels.map((label: { id: string; name: string; color: string }) => (
 						<span
@@ -194,7 +194,7 @@ export function LinearTicketDetail({
 								backgroundColor: label.color ? `${label.color}20` : undefined,
 							}}
 							role="listitem"
-							aria-label={`Label: ${label.name}`}
+							aria-label={t("linear.labelAriaLabel", { name: label.name })}
 						>
 							{label.name}
 						</span>

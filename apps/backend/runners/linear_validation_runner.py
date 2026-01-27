@@ -20,6 +20,7 @@ Usage:
 
 import asyncio
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -42,10 +43,77 @@ if env_file.exists():
 
 from agents.linear_validator import ValidationError, create_linear_validator
 
+logger = logging.getLogger(__name__)
+
 
 def output_result(result: dict) -> None:
     """Output result as JSON to stdout."""
     print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+def _serialize_validation_result(result: dict, ticket_id: str) -> dict:
+    """Convert validation result to JSON-serializable format.
+
+    Args:
+        result: Raw validation result from the agent
+        ticket_id: The ticket identifier for fallback
+
+    Returns:
+        Serialized validation result with all fields
+    """
+    analysis = result.get("analysis", {})
+    completeness = result.get("completeness", {})
+    labels = result.get("recommended_labels", [])
+    properties = result.get("properties", {})
+
+    return {
+        "ticketIdentifier": result.get("issue_id", ticket_id),
+        "validationTimestamp": result.get("validation_timestamp", ""),
+        "cached": result.get("cached", False),
+        "status": result.get("status", "complete"),
+        "confidence": result.get("confidence", 0.0),
+        "reasoning": result.get("reasoning", ""),
+        "contentAnalysis": {
+            "title": analysis.get("title", result.get("title", "")),
+            "descriptionSummary": analysis.get(
+                "description_summary", analysis.get("summary", "")
+            ),
+            "requirements": analysis.get("requirements", []),
+        },
+        "completenessValidation": {
+            "isComplete": completeness.get("title_clear", False)
+            and completeness.get("description_sufficient", False),
+            "score": completeness.get("feasibility_score", 0.0),
+            "missingFields": completeness.get("missing_info", []),
+            "validationNotes": completeness.get("feasibility", ""),
+        },
+        "suggestedLabels": [
+            {
+                "name": label.get("name", label) if isinstance(label, dict) else label,
+                "confidence": label.get("confidence", 0.0)
+                if isinstance(label, dict)
+                else 0.0,
+                "reason": label.get("reason", "") if isinstance(label, dict) else "",
+            }
+            for label in labels
+        ],
+        "versionRecommendation": {
+            "currentVersion": result.get("current_version", ""),
+            "recommendedVersion": result.get(
+                "version_label", result.get("recommended_version", "")
+            ),
+            "versionType": result.get("version_type", "patch"),
+            "reasoning": result.get("version_reasoning", ""),
+        },
+        "taskProperties": {
+            "category": properties.get("category", "feature"),
+            "complexity": properties.get("complexity", "medium"),
+            "impact": properties.get("impact", "medium"),
+            "priority": properties.get("priority", "normal"),
+            "rationale": result.get("reasoning", ""),
+            "acceptanceCriteria": analysis.get("requirements", []),
+        },
+    }
 
 
 async def validate_single_ticket(
@@ -71,66 +139,12 @@ async def validate_single_ticket(
             ticket_id, issue_data=None, skip_cache=skip_cache
         )
 
-        # Result is a dict, extract fields with fallbacks
-        analysis = result.get("analysis", {})
-        completeness = result.get("completeness", {})
-        labels = result.get("recommended_labels", [])
-        properties = result.get("properties", {})
-
+        # Use helper to serialize the result
         return {
             "success": True,
             "data": {
                 "ticketId": ticket_id,
-                "ticketIdentifier": result.get("issue_id", ticket_id),
-                "validationTimestamp": result.get("validation_timestamp", ""),
-                "cached": result.get("cached", False),
-                "status": result.get("status", "complete"),
-                "confidence": result.get("confidence", 0.0),
-                "reasoning": result.get("reasoning", ""),
-                "contentAnalysis": {
-                    "title": analysis.get("title", result.get("title", "")),
-                    "descriptionSummary": analysis.get(
-                        "description_summary", analysis.get("summary", "")
-                    ),
-                    "requirements": analysis.get("requirements", []),
-                },
-                "completenessValidation": {
-                    "isComplete": completeness.get("title_clear", False)
-                    and completeness.get("description_sufficient", False),
-                    "score": completeness.get("feasibility_score", 0.0),
-                    "missingFields": completeness.get("missing_info", []),
-                    "validationNotes": completeness.get("feasibility", ""),
-                },
-                "suggestedLabels": [
-                    {
-                        "name": label.get("name", label)
-                        if isinstance(label, dict)
-                        else label,
-                        "confidence": label.get("confidence", 0.0)
-                        if isinstance(label, dict)
-                        else 0.0,
-                        "reason": label.get("reason", "")
-                        if isinstance(label, dict)
-                        else "",
-                    }
-                    for label in labels
-                ],
-                "versionRecommendation": {
-                    "currentVersion": result.get("current_version", ""),
-                    "recommendedVersion": result.get(
-                        "version_label", result.get("recommended_version", "")
-                    ),
-                    "versionType": result.get("version_type", "patch"),
-                    "reasoning": result.get("version_reasoning", ""),
-                },
-                "taskProperties": {
-                    "category": properties.get("category", "feature"),
-                    "complexity": properties.get("complexity", "medium"),
-                    "impact": properties.get("impact", "medium"),
-                    "priority": properties.get("priority", "normal"),
-                    "rationale": result.get("reasoning", ""),
-                    "acceptanceCriteria": analysis.get("requirements", []),
-                },
+                **_serialize_validation_result(result, ticket_id),
             },
         }
     except ValidationError as e:
@@ -139,6 +153,7 @@ async def validate_single_ticket(
             "error": str(e),
         }
     except Exception as e:
+        logger.exception(f"Unexpected error validating ticket {ticket_id}")
         return {
             "success": False,
             "error": f"Validation failed: {e}",
@@ -168,75 +183,19 @@ async def validate_batch_tickets(
         # Since we now auto-fetch data, we can pass None for data
         issues = [{"id": ticket_id, "data": None} for ticket_id in ticket_ids]
 
-        results = await agent.validate_batch(issues, skip_cache=skip_cache)
+        # Remove skip_cache parameter - validate_batch doesn't accept it
+        results = await agent.validate_batch(issues)
 
         # Convert successful results to serializable format
         successful_results = []
         for result in results.get("successful", []):
             # Extract ticket_id from result
             ticket_id = result.get("ticketId") or result.get("issue_id", "")
-            analysis = result.get("analysis", {})
-            completeness = result.get("completeness", {})
-            labels = result.get("recommended_labels", [])
-            properties = result.get("properties", {})
-
+            # Use helper to serialize the result
             successful_results.append(
                 {
                     "ticketId": ticket_id,
-                    "result": {
-                        "ticketIdentifier": result.get("issue_id", ticket_id),
-                        "validationTimestamp": result.get("validation_timestamp", ""),
-                        "cached": result.get("cached", False),
-                        "status": result.get("status", "complete"),
-                        "confidence": result.get("confidence", 0.0),
-                        "reasoning": result.get("reasoning", ""),
-                        "contentAnalysis": {
-                            "title": analysis.get("title", result.get("title", "")),
-                            "descriptionSummary": analysis.get(
-                                "description_summary", analysis.get("summary", "")
-                            ),
-                            "requirements": analysis.get("requirements", []),
-                        },
-                        "completenessValidation": {
-                            "isComplete": completeness.get("title_clear", False)
-                            and completeness.get("description_sufficient", False),
-                            "score": completeness.get("feasibility_score", 0.0),
-                            "missingFields": completeness.get("missing_info", []),
-                            "validationNotes": completeness.get("feasibility", ""),
-                        },
-                        "suggestedLabels": [
-                            {
-                                "name": label.get("name", label)
-                                if isinstance(label, dict)
-                                else label,
-                                "confidence": label.get("confidence", 0.0)
-                                if isinstance(label, dict)
-                                else 0.0,
-                                "reason": label.get("reason", "")
-                                if isinstance(label, dict)
-                                else "",
-                            }
-                            for label in labels
-                        ],
-                        "versionRecommendation": {
-                            "currentVersion": result.get("current_version", ""),
-                            "recommendedVersion": result.get(
-                                "version_label", result.get("recommended_version", "")
-                            ),
-                            "versionType": result.get("version_type", "patch"),
-                            "reasoning": result.get("version_reasoning", ""),
-                        },
-                        "taskProperties": {
-                            "category": properties.get("category", "feature"),
-                            "complexity": properties.get("complexity", "medium"),
-                            "impact": properties.get("impact", "medium"),
-                            "priority": properties.get("priority", "normal"),
-                            "rationale": result.get(
-                                "rationale", result.get("reasoning", "")
-                            ),
-                            "acceptanceCriteria": analysis.get("requirements", []),
-                        },
-                    },
+                    "result": _serialize_validation_result(result, ticket_id),
                 }
             )
 
@@ -265,6 +224,7 @@ async def validate_batch_tickets(
             "error": str(e),
         }
     except Exception as e:
+        logger.exception(f"Unexpected error in batch validation")
         return {
             "success": False,
             "error": f"Batch validation failed: {e}",
@@ -326,7 +286,7 @@ async def main():
         sys.exit(0 if result["success"] else 1)
     elif args.ticket_ids:
         # Batch validation
-        ticket_ids = [t.strip() for t in args.ticket_ids.split(",")]
+        ticket_ids = [t.strip() for t in args.ticket_ids.split(",") if t.strip()]
         if len(ticket_ids) > 5:
             output_result(
                 {"success": False, "error": "Maximum 5 tickets allowed per batch"}

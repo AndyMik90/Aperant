@@ -265,8 +265,8 @@ export function LinearDashboard({
 				return;
 			}
 
-			// Ctrl/Cmd + Shift + C: Clear cache
-			if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "C") {
+			// Ctrl/Cmd + Shift + X: Clear cache (changed from C to avoid browser conflicts)
+			if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "X") {
 				e.preventDefault();
 				if (!isClearingCache) {
 					handleClearCache();
@@ -274,8 +274,8 @@ export function LinearDashboard({
 				return;
 			}
 
-			// Ctrl/Cmd + Shift + F: Clear filters
-			if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "F") {
+			// Ctrl/Cmd + Alt + F: Clear filters (changed from Shift+F to avoid editor conflicts)
+			if ((e.ctrlKey || e.metaKey) && e.altKey && e.key === "F") {
 				e.preventDefault();
 				if (hasActiveFilters) {
 					clearFilters();

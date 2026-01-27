@@ -380,12 +380,19 @@
 	},
 	"linear": {
 		"tickets": "Tickets",
+		"ticketsList": "Liste des tickets Linear",
+		"ticketMetadata": "Métadonnées du ticket",
+		"labelAriaLabel": "Label : {{name}}",
+		"ticketLoadFailed": "Échec du chargement des tickets : {{error}}",
+		"loadingTickets": "Chargement des tickets...",
+		"loadingMore": "Chargement de plus de tickets...",
+		"scrollForMore": "Défiler pour plus",
+		"allLoaded": "Tous les tickets chargés",
 		"open": "ouverts",
 		"notConnected": "Linear Non Connecté",
 		"connectPrompt": "Connectez votre compte Linear pour voir et valider les tickets.",
 		"openSettings": "Ouvrir les Paramètres",
 		"selectTicketToView": "Sélectionnez un ticket pour voir les détails",
-		"loadingTickets": "Chargement des tickets...",
 		"noOpenTickets": "Aucun ticket ouvert",
 		"runValidation": "Valider le Ticket",
 		"validationStarted": "Validation Démarrée",
@@ -429,7 +436,24 @@
 		"clearSearch": "Effacer la recherche",
 		"selectedCount": "{{count}} sélectionnés",
 		"noResultsFound": "Aucun résultat trouvé",
-		"reset": "Réinitialiser"
+		"reset": "Réinitialiser",
+		"shortcuts": {
+			"refresh": "Ctrl+R",
+			"clearCache": "Ctrl+Shift+X",
+			"clearFilters": "Ctrl+Alt+F",
+			"navigateUp": "↑",
+			"navigateDown": "↓",
+			"validate": "Entrée",
+			"deselect": "Esc"
+		},
+		"shortcutHints": {
+			"refresh": "Actualiser les tickets (Ctrl+R)",
+			"clearCache": "Vider le cache (Ctrl+Shift+X)",
+			"clearFilters": "Effacer les filtres (Ctrl+Alt+F)",
+			"navigate": "Naviguer avec ↑/↓",
+			"validate": "Valider (Entrée)",
+			"deselect": "Désélectionner (Esc)"
+		}
 	},
 	"downloads": {
 		"toggleExpand": "Afficher/masquer les détails",
