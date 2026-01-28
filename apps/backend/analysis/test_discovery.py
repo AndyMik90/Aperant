@@ -29,7 +29,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
@@ -334,7 +333,9 @@ class TestDiscovery:
             return "yarn"
         if _safe_exists(project_dir / "package-lock.json"):
             return "npm"
-        if _safe_exists(project_dir / "bun.lockb") or _safe_exists(project_dir / "bun.lock"):
+        if _safe_exists(project_dir / "bun.lockb") or _safe_exists(
+            project_dir / "bun.lock"
+        ):
             return "bun"
         if _safe_exists(project_dir / "uv.lock"):
             return "uv"
@@ -563,7 +564,9 @@ class TestDiscovery:
                     name="rspec",
                     type="all",
                     command="bundle exec rspec",
-                    config_file=".rspec" if _safe_exists(project_dir / ".rspec") else None,
+                    config_file=".rspec"
+                    if _safe_exists(project_dir / ".rspec")
+                    else None,
                 )
             )
         elif "minitest" in content:
