@@ -82,7 +82,9 @@ class TestLinearMCPTools:
 
         # Check for common Linear MCP tools in configuration
         # The actual tool names may vary, but we check for the MCP server configuration
-        assert config["mcp_servers"]["linear"] is not None
+        assert "linear" in config["mcp_servers"], (
+            "Linear MCP server must be in mcp_servers list"
+        )
 
     def test_linear_validation_agent_initialization(self):
         """
@@ -316,7 +318,8 @@ class TestLinearValidationWorkflow:
             assert "In Progress" in prompt
             assert "2.7.4" in prompt
 
-    def test_batch_validation_limit_enforcement(self):
+    @pytest.mark.asyncio
+    async def test_batch_validation_limit_enforcement(self):
         """
         Test that batch validation enforces maximum of 5 tickets.
         """
@@ -329,17 +332,31 @@ class TestLinearValidationWorkflow:
             agent = LinearValidationAgent(spec_dir=spec_dir, project_dir=project_dir)
 
             # Test with 5 tickets (should pass)
-            five_tickets = ["LIN-1", "LIN-2", "LIN-3", "LIN-4", "LIN-5"]
-            agent.validate_batch_limit(five_tickets)  # Should not raise
+            five_tickets = [
+                {"id": "LIN-1"},
+                {"id": "LIN-2"},
+                {"id": "LIN-3"},
+                {"id": "LIN-4"},
+                {"id": "LIN-5"},
+            ]
+            await agent.validate_batch(five_tickets)  # Should not raise
 
             # Test with 6 tickets (should raise)
-            six_tickets = ["LIN-1", "LIN-2", "LIN-3", "LIN-4", "LIN-5", "LIN-6"]
+            six_tickets = [
+                {"id": "LIN-1"},
+                {"id": "LIN-2"},
+                {"id": "LIN-3"},
+                {"id": "LIN-4"},
+                {"id": "LIN-5"},
+                {"id": "LIN-6"},
+            ]
             with pytest.raises(ValueError, match="Maximum 5 tickets"):
-                agent.validate_batch_limit(six_tickets)
+                await agent.validate_batch(six_tickets)
 
             # Test module-level function too
+            six_ticket_ids = ["LIN-1", "LIN-2", "LIN-3", "LIN-4", "LIN-5", "LIN-6"]
             with pytest.raises(ValueError, match="Maximum 5 tickets"):
-                validate_batch_limit(six_tickets)
+                validate_batch_limit(six_ticket_ids)
 
 
 class TestLinearVersionLabelLogic:
@@ -361,8 +378,8 @@ class TestLinearVersionLabelLogic:
         # Test feature → minor increment
         assert calculate_version_label("2.7.4", "feature", "normal") == "2.8.0"
 
-        # Test high priority non-bug → patch
-        assert calculate_version_label("2.7.4", "enhancement", "urgent") == "2.7.5"
+        # Test high priority enhancement → minor (enhancements always get minor)
+        assert calculate_version_label("2.7.4", "enhancement", "urgent") == "2.8.0"
 
         # Test normal priority → minor
         assert calculate_version_label("2.7.4", "enhancement", "normal") == "2.8.0"

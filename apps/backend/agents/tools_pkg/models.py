@@ -316,6 +316,15 @@ AGENT_CONFIGS = {
         "thinking_default": "low",
     },
     # ═══════════════════════════════════════════════════════════════════════
+    # LINEAR INTEGRATION
+    # ═══════════════════════════════════════════════════════════════════════
+    "linear_validator": {
+        "tools": BASE_READ_TOOLS + WEB_TOOLS,
+        "mcp_servers": ["context7", "linear"],
+        "auto_claude_tools": [],
+        "thinking_default": "medium",
+    },
+    # ═══════════════════════════════════════════════════════════════════════
     # ROADMAP & IDEATION
     # ═══════════════════════════════════════════════════════════════════════
     "roadmap_discovery": {
