@@ -98,6 +98,7 @@ describe("Linear Store", () => {
 			tickets: [],
 			filters: createTestFilters(),
 			validationResults: new Map(),
+			validationProgress: new Map(),
 			selectedTicketId: null,
 			teams: [],
 			projects: [],
@@ -397,6 +398,141 @@ describe("Linear Store", () => {
 				useLinearStore.getState().clearValidationResults();
 
 				expect(useLinearStore.getState().validationResults.size).toBe(0);
+			});
+		});
+	});
+
+	describe("Validation Progress State", () => {
+		describe("updateValidationProgress", () => {
+			it("should add progress for ticket", () => {
+				const progress = {
+					phase: "content_analysis",
+					step: 1,
+					total: 5,
+					message: "Analyzing content...",
+				};
+
+				useLinearStore.getState().updateValidationProgress("LIN-123", progress);
+
+				const storedProgress = useLinearStore
+					.getState()
+					.getValidationProgress("LIN-123");
+				expect(storedProgress).toEqual(progress);
+			});
+
+			it("should update existing progress for ticket", () => {
+				const initialProgress = {
+					phase: "content_analysis",
+					step: 1,
+					total: 5,
+					message: "Analyzing...",
+				};
+
+				const updatedProgress = {
+					phase: "completeness",
+					step: 2,
+					total: 5,
+					message: "Checking completeness...",
+				};
+
+				useLinearStore.getState().updateValidationProgress("LIN-123", initialProgress);
+				useLinearStore.getState().updateValidationProgress("LIN-123", updatedProgress);
+
+				const storedProgress = useLinearStore
+					.getState()
+					.getValidationProgress("LIN-123");
+				expect(storedProgress).toEqual(updatedProgress);
+			});
+
+			it("should add timestamp to progress", () => {
+				const progress = {
+					phase: "content_analysis",
+					step: 1,
+					total: 5,
+					message: "Analyzing...",
+				};
+
+				const beforeTimestamp = Date.now();
+				useLinearStore.getState().updateValidationProgress("LIN-123", progress);
+				const afterTimestamp = Date.now();
+
+				// Get raw progress from map (with timestamp)
+				const rawProgress = useLinearStore.getState().validationProgress.get("LIN-123");
+				expect(rawProgress?.timestamp).toBeGreaterThanOrEqual(beforeTimestamp);
+				expect(rawProgress?.timestamp).toBeLessThanOrEqual(afterTimestamp);
+			});
+		});
+
+		describe("clearValidationProgress", () => {
+			it("should clear progress for specific ticket", () => {
+				useLinearStore.getState().updateValidationProgress("LIN-123", {
+					phase: "content_analysis",
+					step: 1,
+					total: 5,
+					message: "Analyzing...",
+				});
+
+				expect(
+					useLinearStore.getState().getValidationProgress("LIN-123")
+				).toBeDefined();
+
+				useLinearStore.getState().clearValidationProgress("LIN-123");
+
+				expect(
+					useLinearStore.getState().getValidationProgress("LIN-123")
+				).toBeUndefined();
+			});
+
+			it("should not affect progress for other tickets", () => {
+				useLinearStore.getState().updateValidationProgress("LIN-123", {
+					phase: "content_analysis",
+					step: 1,
+					total: 5,
+					message: "Analyzing...",
+				});
+				useLinearStore.getState().updateValidationProgress("LIN-456", {
+					phase: "completeness",
+					step: 2,
+					total: 5,
+					message: "Checking...",
+				});
+
+				useLinearStore.getState().clearValidationProgress("LIN-123");
+
+				expect(
+					useLinearStore.getState().getValidationProgress("LIN-123")
+				).toBeUndefined();
+				expect(
+					useLinearStore.getState().getValidationProgress("LIN-456")
+				).toBeDefined();
+			});
+		});
+
+		describe("getValidationProgress", () => {
+			it("should return progress without timestamp", () => {
+				const progress = {
+					phase: "content_analysis",
+					step: 1,
+					total: 5,
+					message: "Analyzing...",
+				};
+
+				useLinearStore.getState().updateValidationProgress("LIN-123", progress);
+
+				const retrieved = useLinearStore
+					.getState()
+					.getValidationProgress("LIN-123");
+
+				// Should not include timestamp
+				expect(retrieved).toEqual(progress);
+				expect(retrieved).not.toHaveProperty("timestamp");
+			});
+
+			it("should return undefined for non-existent ticket", () => {
+				const progress = useLinearStore
+					.getState()
+					.getValidationProgress("non-existent");
+				expect(progress).toBeUndefined();
 			});
 		});
 	});

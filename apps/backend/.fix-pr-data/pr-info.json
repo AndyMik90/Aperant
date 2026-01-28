@@ -1,0 +1,16 @@
+{
+  "author": {
+    "id": "U_kgDOC3quTQ",
+    "is_bot": false,
+    "login": "StillKnotKnown",
+    "name": "StillKnotKnown"
+  },
+  "baseRefName": "develop",
+  "headRefName": "auto-claude/051-linear-integration-with-ai-powered-ticket-validati",
+  "number": 1416,
+  "reviewDecision": "CHANGES_REQUESTED",
+  "state": "OPEN",
+  "title": "feat: Complete Linear integration with AI-powered ticket validation",
+  "url": "https://github.com/AndyMik90/Auto-Claude/pull/1416",
+  "repo": "AndyMik90/Auto-Claude"
+}
