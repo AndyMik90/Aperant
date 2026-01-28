@@ -702,7 +702,9 @@ export function ValidationModal({
 					{validationProgress && validation?.status === "validating" && (
 						<div className="space-y-1">
 							<div className="flex justify-between text-xs text-muted-foreground">
-								<span>Progress</span>
+								<span>
+									{t("linear:progress", { defaultValue: "Progress" })}
+								</span>
 								<span>
 									{Math.round(
 										(validationProgress.step / validationProgress.total) * 100
