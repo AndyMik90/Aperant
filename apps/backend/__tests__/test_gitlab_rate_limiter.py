@@ -34,7 +34,7 @@ class TestTokenBucket:
         success = bucket.consume(1)
 
         assert success is True
-        assert bucket.tokens == 9
+        assert bucket.available() == 9
 
     def test_token_bucket_consume_multiple(self):
         """Test consuming multiple tokens."""
@@ -45,7 +45,7 @@ class TestTokenBucket:
         success = bucket.consume(5)
 
         assert success is True
-        assert bucket.tokens == 5
+        assert bucket.available() == 5
 
     def test_token_bucket_consume_insufficient(self):
         """Test consuming when insufficient tokens."""
@@ -57,7 +57,7 @@ class TestTokenBucket:
         success = bucket.consume(15)
 
         assert success is False
-        assert bucket.tokens == 10  # Should not change
+        assert bucket.available() == 10  # Should not change
 
     def test_token_bucket_refill(self):
         """Test token refill over time."""
@@ -67,13 +67,13 @@ class TestTokenBucket:
 
         # Consume all tokens
         bucket.consume(10)
-        assert bucket.tokens == 0
+        assert bucket.available() == 0
 
         # Wait for refill (0.1 seconds at 10 tokens/sec = 1 token)
         time.sleep(0.11)
 
-        # Check refill
-        available = bucket.tokens
+        # Check refill - use get_available() to trigger refill
+        available = bucket.get_available()
         assert available >= 1
 
     def test_token_bucket_refill_cap(self):
@@ -85,8 +85,8 @@ class TestTokenBucket:
         # Wait long time for refill
         time.sleep(0.2)
 
-        # Should not exceed capacity
-        assert bucket.tokens <= 10
+        # Should not exceed capacity - use available() to trigger refill
+        assert bucket.available() <= 10
 
     def test_token_bucket_wait_for_token(self):
         """Test waiting for token availability."""

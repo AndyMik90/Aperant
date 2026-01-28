@@ -139,10 +139,40 @@ class TokenBucket:
             wait_time = min(tokens_needed / self.refill_rate, 1.0)  # Max 1 second wait
             await asyncio.sleep(wait_time)
 
+    def consume(self, tokens: int = 1, wait: bool = False) -> bool:
+        """
+        Consume tokens from bucket (synchronous version).
+
+        Args:
+            tokens: Number of tokens to consume
+            wait: If True, wait for tokens to become available
+
+        Returns:
+            True if tokens consumed, False if insufficient
+        """
+        if not wait:
+            return self.try_acquire(tokens)
+        else:
+            # Calculate wait time needed
+            wait_time = self.time_until_available(tokens)
+            if wait_time > 0:
+                time.sleep(wait_time)
+            return self.try_acquire(tokens)
+
+    def reset(self) -> None:
+        """Reset bucket to full capacity."""
+        self._refill()
+        self.tokens = float(self.capacity)
+        self.last_refill = time.monotonic()
+
     def available(self) -> int:
         """Get number of available tokens."""
         self._refill()
         return int(self.tokens)
+
+    def get_available(self) -> int:
+        """Get number of available tokens (alias for available())."""
+        return self.available()
 
     def time_until_available(self, tokens: int = 1) -> float:
         """
@@ -360,6 +390,56 @@ class RateLimiter:
         """Reset singleton (for testing)."""
         cls._instance = None
         cls._initialized = False
+
+
+@dataclass
+class RateLimiterState:
+    """State snapshot for rate limiter persistence."""
+
+    available_tokens: float
+    last_refill_time: float
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert state to dictionary."""
+        return {
+            "available_tokens": self.available_tokens,
+            "last_refill_time": self.last_refill_time,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RateLimiterState:
+        """Load state from dictionary."""
+        return cls(
+            available_tokens=data["available_tokens"],
+            last_refill_time=data["last_refill_time"],
+        )
+
+
+def rate_limit(limiter):
+    """
+    Decorator for rate limiting function calls.
+
+    Args:
+        limiter: RateLimiter instance to use for rate limiting
+
+    Returns:
+        Decorated function with rate limiting
+    """
+
+    def decorator(func: F) -> F:
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            # Try to acquire token (wait by default)
+            acquired = await limiter.github_bucket.acquire(timeout=60.0)
+            if not acquired:
+                raise RateLimitExceeded("Rate limit exceeded")
+            return await func(*args, **kwargs)
+
+        return wrapper  # type: ignore
+
+    return decorator
+
+    # Example usage (protected under __name__ check)
 
     async def acquire_github(self, timeout: float | None = None) -> bool:
         """
