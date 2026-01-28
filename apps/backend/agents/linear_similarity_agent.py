@@ -10,8 +10,10 @@ This agent analyzes tickets to:
 3. Recommend actions (merge, link, or keep separate)
 """
 
+import json
 import logging
 import os
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -209,9 +211,6 @@ State: {ticket.get("state", {}).get("name", "Unknown")}
         Returns:
             Parsed similarity results dict
         """
-        import json
-        import re
-
         # Try to extract JSON from markdown code block
         json_match = re.search(r"```json\s*(\{.*?\})\s*```", response, re.DOTALL)
         if json_match:
