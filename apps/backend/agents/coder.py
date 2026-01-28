@@ -357,9 +357,8 @@ async def run_autonomous_agent(
                                 f"Found subtask {next_subtask.get('id')} after {delay}s delay",
                                 "success",
                             )
-                            # Update subtask_id and phase_name for use later in this iteration
-                            subtask_id = next_subtask.get("id")
-                            phase_name = next_subtask.get("phase_name")
+                            # Successfully found subtask after retry - break to continue processing
+                            # Note: next_subtask now has the updated values for use later
                             break
                         print_status(
                             f"Retry {retry_attempt + 1}/3: No subtask found yet...",
@@ -371,16 +370,18 @@ async def run_autonomous_agent(
                     break
 
             # Get attempt count for recovery context
-            attempt_count = recovery_manager.get_attempt_count(subtask_id)
+            # Extract subtask_id from next_subtask (which may have been updated by retry)
+            current_subtask_id = next_subtask.get("id") if next_subtask else subtask_id
+            attempt_count = recovery_manager.get_attempt_count(current_subtask_id)
             recovery_hints = (
-                recovery_manager.get_recovery_hints(subtask_id)
+                recovery_manager.get_recovery_hints(current_subtask_id)
                 if attempt_count > 0
                 else None
             )
 
             # Find the phase for this subtask
             plan = load_implementation_plan(spec_dir)
-            phase = find_phase_for_subtask(plan, subtask_id) if plan else {}
+            phase = find_phase_for_subtask(plan, current_subtask_id) if plan else {}
 
             # Generate focused, minimal prompt for this subtask
             prompt = generate_subtask_prompt(
