@@ -14,7 +14,7 @@ Tests the auto-claude/spec/complexity.py module functionality including:
 import json
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 

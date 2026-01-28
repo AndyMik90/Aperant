@@ -11,8 +11,6 @@ Tests the scan_secrets.py module functionality including:
 """
 
 from pathlib import Path
-
-import pytest
 from scan_secrets import (
     ALL_PATTERNS,
     BINARY_EXTENSIONS,
