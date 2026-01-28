@@ -16,7 +16,7 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import type { Project } from '../../../../shared/types';
-import type { AuthFailureInfo } from '../../../../shared/types/terminal';
+import type { AuthFailureInfo, BillingFailureInfo } from '../../../../shared/types/terminal';
 import { parsePythonCommand } from '../../../python-detector';
 import { detectAuthFailure } from '../../../rate-limit-detector';
 import { getClaudeProfileManager } from '../../../claude-profile-manager';
@@ -68,6 +68,8 @@ export interface SubprocessOptions {
   onError?: (error: string) => void;
   /** Callback when auth failure (401) is detected in output */
   onAuthFailure?: (authFailureInfo: AuthFailureInfo) => void;
+  /** Callback when billing/credit exhaustion failure is detected in output */
+  onBillingFailure?: (billingFailureInfo: BillingFailureInfo) => void;
   progressPattern?: RegExp;
   /** Additional environment variables to pass to the subprocess */
   env?: Record<string, string>;
