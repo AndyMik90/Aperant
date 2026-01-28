@@ -430,6 +430,7 @@ class WorktreeManager:
                         if os.path.samefile(resolved_path, current_path):
                             return line[len("branch refs/heads/") :]
                 except OSError:
+                    # samefile failed (e.g., race condition, permission issue) - fall back to string comparison
                     pass
                 # Fallback to normalized case comparison
                 if os.path.normcase(str(resolved_path)) == os.path.normcase(
@@ -510,6 +511,7 @@ class WorktreeManager:
                     if os.path.samefile(resolved_path, registered_path):
                         return True
             except OSError:
+                # samefile failed - fall back to normalized case comparison
                 pass
             # Fallback to normalized case comparison for non-existent paths
             if os.path.normcase(str(resolved_path)) == os.path.normcase(
