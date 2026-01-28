@@ -845,34 +845,17 @@ ${issue.description || "No description provided."}
 
 	/**
 	 * Clear validation cache
+	 * Note: The in-memory validation results are cleared by the frontend
+	 * via clearValidationResults(). The backend disk cache is stored
+	 * per-project at <spec_dir>/.cache/linear_validator and has
+	 * timestamp-based invalidation, so explicit clearing is not required.
 	 */
 	ipcMain.handle(
 		IPC_CHANNELS.LINEAR_CLEAR_CACHE,
 		async (_): Promise<IPCResult<void>> => {
-			try {
-				const cacheDir = path.join(
-					process.env.HOME || ".",
-					".auto-claude",
-					"specs",
-					".cache",
-					"linear_validator",
-				);
-
-				const fs = await import("fs/promises");
-				try {
-					await fs.rm(cacheDir, { recursive: true, force: true });
-				} catch {
-					// Cache dir might not exist, that's ok
-				}
-
-				return { success: true, data: undefined };
-			} catch (error) {
-				return {
-					success: false,
-					error:
-						error instanceof Error ? error.message : "Failed to clear cache",
-				};
-			}
+			// No-op - frontend clears in-memory cache via clearValidationResults()
+			// Backend disk cache is per-project with timestamp-based invalidation
+			return { success: true, data: undefined };
 		},
 	);
 }
