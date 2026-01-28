@@ -17,7 +17,7 @@ import asyncio
 import logging
 import os
 import random
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -94,7 +94,7 @@ def is_transient_error(error: Exception) -> bool:
 
 
 async def retry_with_exponential_backoff(
-    func: Callable[..., T],
+    func: Callable[..., Awaitable[T]],
     config: RetryConfig | None = None,
     context: str = "operation",
 ) -> T:
@@ -841,9 +841,8 @@ Begin your analysis now.
                                 return result
                             except json.JSONDecodeError:
                                 break
-            # Fallback to regex for simple cases
-            json_match = re.search(r"(\{.*?\})", response, re.DOTALL)
 
+        # If json_match is set (from code block), try to parse it
         if json_match:
             try:
                 result = json.loads(json_match.group(1))
