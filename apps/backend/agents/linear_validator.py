@@ -605,7 +605,7 @@ class LinearValidationAgent:
         # Fetch issue data from Linear API if not provided
         if issue_data is None:
             logger.info(f"Fetching issue data for {issue_id} from Linear API")
-            issue_data = self._fetch_linear_issue(issue_id)
+            issue_data = await asyncio.to_thread(self._fetch_linear_issue, issue_id)
 
         # Extract validation timestamp from issue data
         validation_timestamp = issue_data.get("updatedAt", "")

@@ -10,6 +10,7 @@ This agent analyzes tickets to:
 3. Recommend actions (merge, link, or keep separate)
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -339,16 +340,23 @@ async def _fetch_team_tickets(team_id: str, api_key: str) -> list[dict[str, Any]
     # OAuth tokens should use Bearer prefix
     authorization = api_key if api_key.startswith("lin_api_") else f"Bearer {api_key}"
 
-    try:
-        response = requests.post(
-            "https://api.linear.app/graphql",
-            json={"query": query, "variables": {"teamId": team_id}},
-            headers={"Authorization": authorization},
-            timeout=30,
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data.get("data", {}).get("team", {}).get("issues", {}).get("nodes", [])
-    except Exception as e:
-        logger.error(f"Failed to fetch team tickets: {e}")
-        return []
+    def _make_request() -> list[dict[str, Any]]:
+        """Synchronous request function to run in thread pool."""
+        try:
+            response = requests.post(
+                "https://api.linear.app/graphql",
+                json={"query": query, "variables": {"teamId": team_id}},
+                headers={"Authorization": authorization},
+                timeout=30,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return (
+                data.get("data", {}).get("team", {}).get("issues", {}).get("nodes", [])
+            )
+        except Exception as e:
+            logger.error(f"Failed to fetch team tickets: {e}")
+            return []
+
+    # Run blocking request in thread pool to avoid blocking event loop
+    return await asyncio.to_thread(_make_request)
