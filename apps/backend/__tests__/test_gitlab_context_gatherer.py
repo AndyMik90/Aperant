@@ -121,10 +121,15 @@ def tmp_project_dir(tmp_path):
 @pytest.fixture
 def gatherer(tmp_project_dir):
     """Create a context gatherer instance."""
+    # Create a proper config mock that returns strings
+    config = MagicMock()
+    config.project = "namespace/project"
+    config.token = "test-token"
+    config.instance_url = "https://gitlab.example.com"
     return MRContextGatherer(
         project_dir=tmp_project_dir,
         mr_iid=123,
-        config=MagicMock(project="namespace/project", token="test-token"),
+        config=config,
     )
 
 
@@ -201,10 +206,10 @@ class TestRelatedFilesFinding:
 
     def test_find_config_files(self, gatherer, tmp_project_dir):
         """Test finding config files in directory."""
-        directory = Path(tmp_project_dir)
-        configs = gatherer._find_config_files(directory)
+        # Pass empty path (project root) to get config files from root
+        configs = gatherer._find_config_files(Path(""))
 
-        # Should find config files in root
+        # Should find config files in root (relative paths)
         assert "package.json" in configs
         assert "tsconfig.json" in configs
         assert ".gitlab-ci.yml" in configs
@@ -307,8 +312,8 @@ class TestStaticMethods:
             project_root=tmp_project_dir,
         )
 
-        # Should find test file
-        assert "tests/test_helpers.py" in related
+        # Should find test file (created in same directory as source)
+        assert "src/utils/test_helpers.py" in related
         # Should not include the changed file itself
         assert "src/utils/helpers.py" not in related
 
@@ -318,20 +323,42 @@ class TestGatherIntegration:
     """Test the full gather method integration."""
 
     async def test_gather_with_enhancements(
-        self, gatherer, mock_client, sample_mr_data, sample_changes_data, sample_commits
+        self, tmp_project_dir, sample_mr_data, sample_changes_data, sample_commits
     ):
         """Test that gather includes repo structure and related files."""
-        # Setup mock responses
-        mock_client.get_mr_async.return_value = sample_mr_data
-        mock_client.get_mr_changes_async.return_value = sample_changes_data
-        mock_client.get_mr_commits_async.return_value = sample_commits
-        mock_client.get_mr_notes_async.return_value = []
-        mock_client.get_mr_pipeline_async.return_value = {
-            "id": 456,
-            "status": "success",
-        }
+        from unittest.mock import AsyncMock, MagicMock
 
-        result = await gatherer.gather()
+        # Create a proper config mock
+        config = MagicMock()
+        config.project = "namespace/project"
+        config.token = "test-token"
+        config.instance_url = "https://gitlab.example.com"
+
+        # Create a mock client with proper responses
+        mock_client = MagicMock()
+        mock_client.get_mr_async = AsyncMock(return_value=sample_mr_data)
+        mock_client.get_mr_changes_async = AsyncMock(return_value=sample_changes_data)
+        mock_client.get_mr_commits_async = AsyncMock(return_value=sample_commits)
+        mock_client.get_mr_notes_async = AsyncMock(return_value=[])
+        mock_client.get_mr_pipeline_async = AsyncMock(
+            return_value={
+                "id": 456,
+                "status": "success",
+            }
+        )
+
+        # Patch GitLabClient in the context_gatherer module
+        with patch(
+            "runners.gitlab.services.context_gatherer.GitLabClient",
+            return_value=mock_client,
+        ):
+            # Create gatherer after patching
+            gatherer = MRContextGatherer(
+                project_dir=tmp_project_dir,
+                mr_iid=123,
+                config=config,
+            )
+            result = await gatherer.gather()
 
         # Verify enhanced fields are populated
         assert result.mr_iid == 123
@@ -345,16 +372,37 @@ class TestGatherIntegration:
 
     @pytest.mark.asyncio
     async def test_gather_handles_missing_ci(
-        self, gatherer, mock_client, sample_mr_data, sample_changes_data, sample_commits
+        self, tmp_project_dir, sample_mr_data, sample_changes_data, sample_commits
     ):
         """Test that gather handles missing CI pipeline gracefully."""
-        mock_client.get_mr_async.return_value = sample_mr_data
-        mock_client.get_mr_changes_async.return_value = sample_changes_data
-        mock_client.get_mr_commits_async.return_value = sample_commits
-        mock_client.get_mr_notes_async.return_value = []
-        mock_client.get_mr_pipeline_async.return_value = None
+        from unittest.mock import AsyncMock, MagicMock
 
-        result = await gatherer.gather()
+        # Create a proper config mock
+        config = MagicMock()
+        config.project = "namespace/project"
+        config.token = "test-token"
+        config.instance_url = "https://gitlab.example.com"
+
+        # Create a mock client with proper responses
+        mock_client = MagicMock()
+        mock_client.get_mr_async = AsyncMock(return_value=sample_mr_data)
+        mock_client.get_mr_changes_async = AsyncMock(return_value=sample_changes_data)
+        mock_client.get_mr_commits_async = AsyncMock(return_value=sample_commits)
+        mock_client.get_mr_notes_async = AsyncMock(return_value=[])
+        mock_client.get_mr_pipeline_async = AsyncMock(return_value=None)
+
+        # Patch GitLabClient in the context_gatherer module
+        with patch(
+            "runners.gitlab.services.context_gatherer.GitLabClient",
+            return_value=mock_client,
+        ):
+            # Create gatherer after patching
+            gatherer = MRContextGatherer(
+                project_dir=tmp_project_dir,
+                mr_iid=123,
+                config=config,
+            )
+            result = await gatherer.gather()
 
         # Should not fail, CI fields should be None
         assert result.ci_status is None

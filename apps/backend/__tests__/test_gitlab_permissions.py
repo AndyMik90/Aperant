@@ -78,7 +78,8 @@ async def test_verify_token_scopes_project_not_found(
 @pytest.mark.asyncio
 async def test_check_label_adder_success(permission_checker, mock_glab_client):
     """Test successfully finding who added a label."""
-    mock_glab_client.get_project_members_async.return_value = [
+    # Mock the label events from the issue
+    mock_glab_client._fetch_async.return_value = [
         {
             "id": 1,
             "user": {"username": "alice"},
@@ -93,17 +94,13 @@ async def test_check_label_adder_success(permission_checker, mock_glab_client):
         },
     ]
 
+    # Mock get_user_role to return a specific role
+    permission_checker._role_cache = {"alice": "DEVELOPER"}
+
     username, role = await permission_checker.check_label_adder(123, "auto-fix")
 
     assert username == "alice"
-    assert role in [
-        "OWNER",
-        "MAINTAINER",
-        "DEVELOPER",
-        "REPORTER",
-        "GUEST",
-        "NONE",
-    ]
+    assert role == "DEVELOPER"
 
 
 @pytest.mark.asyncio
@@ -125,7 +122,8 @@ async def test_check_label_adder_label_not_found(permission_checker, mock_glab_c
 @pytest.mark.asyncio
 async def test_check_label_adder_no_username(permission_checker, mock_glab_client):
     """Test label event without username raises GitLabPermissionError."""
-    mock_glab_client.get_project_members_async.return_value = [
+    # Mock the label events from the issue (event without user field)
+    mock_glab_client._fetch_async.return_value = [
         {
             "id": 1,
             "action": "add",
@@ -133,7 +131,7 @@ async def test_check_label_adder_no_username(permission_checker, mock_glab_clien
         },
     ]
 
-    with pytest.raises(GitLabPermissionError, match="Could not determine who added"):
+    with pytest.raises(GitLabPermissionError, match="Could not verify label adder"):
         await permission_checker.check_label_adder(123, "auto-fix")
 
 
@@ -156,23 +154,34 @@ async def test_get_user_role_project_member(permission_checker, mock_glab_client
 @pytest.mark.asyncio
 async def test_get_user_role_owner_via_namespace(permission_checker, mock_glab_client):
     """Test getting OWNER role via namespace ownership."""
-    # Not a direct member
-    mock_glab_client._fetch_async.side_effect = [
-        [],  # No project members
-        {  # Project info
-            "id": 123,
-            "namespace": {
-                "full_path": "namespace",
+    import asyncio
+
+    # Create a fetch function that returns data based on the endpoint
+    async def mock_fetch(endpoint):
+        if "members" in endpoint:
+            return []  # No project members
+        elif endpoint.startswith("/projects/"):
+            return {  # Project info
+                "id": 123,
+                "namespace": {
+                    "full_path": "namespace",
+                    "owner_id": 999,
+                },
+            }
+        elif endpoint.startswith("/namespaces/"):
+            return {  # Namespace info
                 "owner_id": 999,
-            },
-        },
-        [  # User info matches owner
-            {
-                "id": 999,
-                "username": "alice",
-            },
-        ],
-    ]
+            }
+        elif "/users?" in endpoint:
+            return [  # User info matches owner
+                {
+                    "id": 999,
+                    "username": "alice",
+                },
+            ]
+        return None
+
+    mock_glab_client._fetch_async = mock_fetch
 
     role = await permission_checker.get_user_role("alice")
 
@@ -182,22 +191,33 @@ async def test_get_user_role_owner_via_namespace(permission_checker, mock_glab_c
 @pytest.mark.asyncio
 async def test_get_user_role_no_relationship(permission_checker, mock_glab_client):
     """Test getting role for user with no relationship."""
-    mock_glab_client._fetch_async.side_effect = [
-        [],  # No project members
-        {  # Project info
-            "id": 123,
-            "namespace": {
-                "full_path": "namespace",
+
+    # Create a fetch function that returns data based on the endpoint
+    async def mock_fetch(endpoint):
+        if "members" in endpoint:
+            return []  # No project members
+        elif endpoint.startswith("/projects/"):
+            return {  # Project info
+                "id": 123,
+                "namespace": {
+                    "full_path": "namespace",
+                    "owner_id": 999,
+                },
+            }
+        elif endpoint.startswith("/namespaces/"):
+            return {  # Namespace info
                 "owner_id": 999,
-            },
-        },
-        [  # User doesn't match owner
-            {
-                "id": 111,
-                "username": "alice",
-            },
-        ],
-    ]
+            }
+        elif "/users?" in endpoint:
+            return [  # User doesn't match owner
+                {
+                    "id": 111,
+                    "username": "alice",
+                },
+            ]
+        return None
+
+    mock_glab_client._fetch_async = mock_fetch
 
     role = await permission_checker.get_user_role("alice")
 
@@ -266,25 +286,38 @@ async def test_is_allowed_for_autofix_denied(permission_checker, mock_glab_clien
 @pytest.mark.asyncio
 async def test_verify_automation_trigger_allowed(permission_checker, mock_glab_client):
     """Test complete verification succeeds for allowed user."""
-    mock_glab_client._fetch_async.side_effect = [
-        # Label events
-        [
-            {
-                "id": 1,
-                "user": {"username": "alice"},
-                "action": "add",
-                "label": {"name": "auto-fix"},
-            },
-        ],
-        # User role check
-        [
+
+    # Create a fetch function that returns data based on the endpoint
+    async def mock_fetch(endpoint):
+        if "resource_label_events" in endpoint:
+            return [  # Label events
+                {
+                    "id": 1,
+                    "user": {"username": "alice"},
+                    "action": "add",
+                    "label": {"name": "auto-fix"},
+                },
+            ]
+        # For other endpoints, return appropriate empty data structures
+        if "projects/" in endpoint:
+            return {"namespace": {"full_path": "namespace"}}
+        if "namespaces/" in endpoint:
+            return {"owner_id": None}
+        if "/users?" in endpoint:
+            return []
+        return []
+
+    mock_glab_client._fetch_async = mock_fetch
+    # Also mock get_project_members_async to return alice as MAINTAINER
+    mock_glab_client.get_project_members_async = AsyncMock(
+        return_value=[
             {
                 "id": 1,
                 "username": "alice",
-                "access_level": 40,
+                "access_level": 40,  # MAINTAINER
             },
-        ],
-    ]
+        ]
+    )
 
     result = await permission_checker.verify_automation_trigger(123, "auto-fix")
 
@@ -296,34 +329,39 @@ async def test_verify_automation_trigger_denied_logs_warning(
     permission_checker, mock_glab_client, caplog
 ):
     """Test denial is logged with full context."""
-    mock_glab_client._fetch_async.side_effect = [
-        # Label events
-        [
-            {
-                "id": 1,
-                "user": {"username": "bob"},
-                "action": "add",
-                "label": {"name": "auto-fix"},
-            },
-        ],
-        # User role check
-        [
-            {
-                "id": 1,
-                "username": "bob",
-                "access_level": 20,  # REPORTER
-            },
-        ],
-    ]
 
-    result = await permission_checker.verify_automation_trigger(123, "auto-fix")
+    # Create a fetch function that returns data based on the endpoint
+    async def mock_fetch(endpoint):
+        if "resource_label_events" in endpoint:
+            return [  # Label events
+                {
+                    "id": 1,
+                    "user": {"username": "bob"},
+                    "action": "add",
+                    "label": {"name": "auto-fix"},
+                },
+            ]
+        elif "members" in endpoint:
+            return [  # Project members
+                {
+                    "id": 1,
+                    "username": "bob",
+                    "access_level": 20,  # REPORTER
+                },
+            ]
+        return None
+
+    mock_glab_client._fetch_async = mock_fetch
+
+    with caplog.at_level(logging.WARNING):
+        result = await permission_checker.verify_automation_trigger(123, "auto-fix")
 
     assert result.allowed is False
 
 
 def test_log_permission_denial(permission_checker, caplog):
     """Test permission denial logging includes full context."""
-    with caplog.at_level(logging.INFO):
+    with caplog.at_level(logging.WARNING):
         permission_checker.log_permission_denial(
             action="auto-fix",
             username="bob",
@@ -333,11 +371,14 @@ def test_log_permission_denial(permission_checker, caplog):
 
     # Check that the log contains all relevant info
     assert len(caplog.records) > 0
-    log_message = caplog.records[0].message
+    log_record = caplog.records[0]
+    log_message = log_record.message
     assert "auto-fix" in log_message
     assert "bob" in log_message
     assert "REPORTER" in log_message
-    assert "123" in log_message
+    # issue_iid is in the extra context, stored as an attribute on the log record
+    assert hasattr(log_record, "issue_iid")
+    assert log_record.issue_iid == 123
 
 
 def test_access_levels():

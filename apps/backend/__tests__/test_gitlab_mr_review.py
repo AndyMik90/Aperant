@@ -184,17 +184,16 @@ class TestAICommentTriage:
         from runners.gitlab.models import AICommentTriage
 
         triage = AICommentTriage(
-            comment_id=1001,
+            comment_id="1001",
             tool_name="CodeRabbit",
             original_comment="Consider adding error handling",
             triage_result="valid",
             reasoning="Good point about error handling",
             file="src/auth.py",
             line=50,
-            created_at="2025-01-14T10:00:00",
         )
 
-        assert triage.comment_id == 1001
+        assert triage.comment_id == "1001"
         assert triage.tool_name == "CodeRabbit"
         assert triage.triage_result == "valid"
 
