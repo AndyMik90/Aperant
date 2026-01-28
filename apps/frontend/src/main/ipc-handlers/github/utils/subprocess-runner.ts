@@ -18,7 +18,7 @@ const __dirname = path.dirname(__filename);
 import type { Project } from '../../../../shared/types';
 import type { AuthFailureInfo, BillingFailureInfo } from '../../../../shared/types/terminal';
 import { parsePythonCommand } from '../../../python-detector';
-import { detectAuthFailure } from '../../../rate-limit-detector';
+import { detectAuthFailure, detectBillingFailure } from '../../../rate-limit-detector';
 import { getClaudeProfileManager } from '../../../claude-profile-manager';
 import { isWindows, isMacOS } from '../../../platform';
 
@@ -132,6 +132,8 @@ export function runPythonSubprocess<T = unknown>(
     let stderr = '';
     let authFailureEmitted = false; // Track if we've already emitted an auth failure
     let killedDueToAuthFailure = false; // Track if subprocess was killed due to auth failure
+    let billingFailureEmitted = false; // Track if we've already emitted a billing failure
+    let killedDueToBillingFailure = false; // Track if subprocess was killed due to billing failure
 
     // Default progress pattern: [ 30%] message OR [30%] message
     const progressPattern = options.progressPattern ?? /\[\s*(\d+)%\]\s*(.+)/;
@@ -170,6 +172,65 @@ export function runPythonSubprocess<T = unknown>(
         killedDueToAuthFailure = true;
         // The process is stuck in a loop of 401 errors - no point continuing
         console.log('[SubprocessRunner] Killing subprocess due to auth failure, pid:', child.pid);
+
+        // Use process.kill with negative PID to kill the entire process group on Unix
+        // This ensures child processes (like the Claude SDK subprocess) are also killed
+        if (child.pid) {
+          try {
+            // On Unix, negative PID kills the process group
+            if (!isWindows()) {
+              process.kill(-child.pid, 'SIGKILL');
+            } else {
+              // On Windows, use taskkill to kill the process tree
+              execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
+                if (err) console.warn('[SubprocessRunner] taskkill error (process may have already exited):', err.message);
+              });
+            }
+          } catch (err) {
+            // Fallback to regular kill if process group kill fails
+            console.log('[SubprocessRunner] Process group kill failed, using regular kill:', err);
+            child.kill('SIGKILL');
+          }
+        } else {
+          child.kill('SIGKILL');
+        }
+      }
+    };
+
+    // Helper to check for billing/credit failures in output and emit once
+    const checkBillingFailure = (line: string) => {
+      if (billingFailureEmitted || !options.onBillingFailure) return;
+
+      const billingResult = detectBillingFailure(line);
+      if (billingResult.isBillingFailure) {
+        billingFailureEmitted = true;
+        console.log('[SubprocessRunner] Billing failure detected in real-time:', billingResult);
+
+        // Get profile info for display
+        const profileManager = getClaudeProfileManager();
+        const profile = billingResult.profileId
+          ? profileManager.getProfile(billingResult.profileId)
+          : profileManager.getActiveProfile();
+
+        const billingFailureInfo: BillingFailureInfo = {
+          profileId: billingResult.profileId || profile?.id || 'unknown',
+          profileName: profile?.name,
+          failureType: billingResult.failureType || 'unknown',
+          message: billingResult.message || 'Billing or credit error. Please check your account.',
+          originalError: billingResult.originalError,
+          detectedAt: new Date(),
+        };
+
+        try {
+          options.onBillingFailure(billingFailureInfo);
+        } catch (e) {
+          console.error('[SubprocessRunner] onBillingFailure callback threw:', e);
+        }
+
+        // Kill the subprocess to stop the billing failure spam
+        killedDueToBillingFailure = true;
+        // The process is stuck in billing errors - no point continuing
+        console.log('[SubprocessRunner] Killing subprocess due to billing failure, pid:', child.pid);
 
         // Use process.kill with negative PID to kill the entire process group on Unix
         // This ensures child processes (like the Claude SDK subprocess) are also killed
