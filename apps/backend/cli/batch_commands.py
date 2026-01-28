@@ -141,13 +141,13 @@ def handle_batch_status_command(project_dir: str) -> bool:
         req_file = spec_dir / "requirements.json"
 
         status = "unknown"
+        # Get title from requirements or use spec name as default
         title = spec_name
-
         if req_file.exists():
             try:
                 with open(req_file, encoding="utf-8") as f:
                     req = json.load(f)
-                    title = req.get("task_description", title)
+                    title = req.get("task_description") or title
             except json.JSONDecodeError:
                 pass
 

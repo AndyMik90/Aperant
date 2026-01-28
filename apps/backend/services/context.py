@@ -154,6 +154,7 @@ class ServiceContextGenerator:
                         [d for d in deps if d not in context.dependencies]
                     )
             except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                # package.json exists but is unreadable or malformed - skip dependency discovery
                 pass
 
     def _discover_api_patterns(self, service_path: Path, context: ServiceContext):
@@ -194,6 +195,7 @@ class ServiceContextGenerator:
                         if name in scripts:
                             context.common_commands[name] = f"npm run {name}"
             except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                # package.json exists but is unreadable or malformed - skip script discovery
                 pass
 
         # From Makefile

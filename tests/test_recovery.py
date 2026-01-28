@@ -128,10 +128,11 @@ def test_circular_fix_detection(test_env):
     assert is_circular, "Circular fix not detected"
 
     # Test with different approach
-    is_circular = manager.is_circular_fix("subtask-1", "Using completely different callback-based approach")
+    _is_circular = manager.is_circular_fix("subtask-1", "Using completely different callback-based approach")
 
     # This might be detected as circular if word overlap is high
     # But "callback-based" is sufficiently different from "async await"
+    # Note: Not asserting since result may vary based on word overlap algorithm
 
 
 def test_failure_classification(test_env):
@@ -468,7 +469,7 @@ def test_checkpoint_recovery_hints_restoration(test_env):
     assert "synchronous" in hint_text.lower() or "FAILED" in hint_text, "Previous approach not reflected in hints"
 
     # Check circular fix detection with restored data
-    is_circular = manager2.is_circular_fix("subtask-1", "Using async database with asyncio again")
+    _is_circular = manager2.is_circular_fix("subtask-1", "Using async database with asyncio again")
     # Note: May or may not detect as circular depending on word overlap
 
 
@@ -543,7 +544,7 @@ def run_all_tests():
     # Note: This manual runner is kept for backwards compatibility.
     # Prefer running tests with pytest: pytest tests/test_recovery.py -v
 
-    tests = [
+    _tests = [
         ("test_initialization", test_initialization),
         ("test_record_attempt", test_record_attempt),
         ("test_circular_fix_detection", test_circular_fix_detection),

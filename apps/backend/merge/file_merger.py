@@ -151,8 +151,6 @@ def combine_non_conflicting_changes(
                 other.append(change)
 
     # Apply in order: imports, then modifications, then functions, then other
-    ext = Path(file_path).suffix.lower()
-
     # Add imports
     if imports:
         # Content is already normalized to LF, so only check for \n

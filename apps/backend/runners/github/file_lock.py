@@ -250,6 +250,7 @@ def atomic_write(filepath: str | Path, mode: str = "w", encoding: str = "utf-8")
         try:
             os.unlink(tmp_path)
         except Exception:
+            # unlink failed - ignore to preserve original exception
             pass
         raise
 

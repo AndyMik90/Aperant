@@ -307,6 +307,7 @@ class TimelineGitHelper:
                     return upstream.split("/", 1)[1]
                 return upstream
         except Exception:
+            # git config failed - fall back to checking common branch names
             pass
 
         for branch in ["main", "master", "develop"]:
