@@ -25,9 +25,17 @@ class TestMREndToEnd:
     """End-to-end MR review lifecycle tests."""
 
     @pytest.fixture
-    def mock_orchestrator(self, tmp_path):
+    def mock_orchestrator(self, tmp_path, monkeypatch):
         """Create a mock orchestrator for testing."""
-        from runners.gitlab.models import GitLabRunnerConfig
+        from unittest.mock import AsyncMock, MagicMock
+
+        from runners.gitlab.models import (
+            GitLabRunnerConfig,
+            MergeVerdict,
+            MRReviewFinding,
+            ReviewCategory,
+            ReviewSeverity,
+        )
         from runners.gitlab.orchestrator import GitLabOrchestrator
 
         config = GitLabRunnerConfig(
@@ -37,22 +45,76 @@ class TestMREndToEnd:
             model="claude-sonnet-4-20250514",
         )
 
-        with patch("runners.gitlab.orchestrator.GitLabClient"):
-            orchestrator = GitLabOrchestrator(
-                project_dir=tmp_path,
-                config=config,
-                enable_bot_detection=False,
-                enable_ci_checking=False,
+        # Create a properly configured mock client class
+        class MockGitLabClient(MagicMock):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.get_mr = MagicMock(return_value=mock_mr_data())
+                self.get_mr_changes = MagicMock(return_value=mock_mr_changes())
+                self.get_mr_commits = MagicMock(return_value=mock_mr_commits())
+                self.get_mr_notes = MagicMock(return_value=[])
+                self.get_mr_pipelines = MagicMock(return_value=[])
+                self.get_mr_pipeline = MagicMock(return_value=None)
+
+                # Async methods should return coroutines
+                self.get_mr_async = AsyncMock(return_value=mock_mr_data())
+                self.get_mr_changes_async = AsyncMock(return_value=mock_mr_changes())
+                self.get_mr_commits_async = AsyncMock(return_value=mock_mr_commits())
+                self.get_mr_notes_async = AsyncMock(return_value=[])
+                self.get_mr_pipelines_async = AsyncMock(return_value=[])
+                self.get_mr_pipeline_async = AsyncMock(return_value=None)
+
+        # Replace GitLabClient in all relevant modules
+        monkeypatch.setattr("runners.gitlab.glab_client.GitLabClient", MockGitLabClient)
+        monkeypatch.setattr(
+            "runners.gitlab.orchestrator.GitLabClient", MockGitLabClient
+        )
+        monkeypatch.setattr(
+            "runners.gitlab.services.context_gatherer.GitLabClient", MockGitLabClient
+        )
+
+        # Create orchestrator first (so review_engine is initialized)
+        orchestrator = GitLabOrchestrator(
+            project_dir=tmp_path,
+            config=config,
+            enable_bot_detection=False,
+            enable_ci_checking=False,
+        )
+
+        # Now mock the review_engine's run_review method
+        findings = [
+            MRReviewFinding(
+                id="find-1",
+                severity=ReviewSeverity.MEDIUM,
+                category=ReviewCategory.QUALITY,
+                title="Code style",
+                description="Fix formatting",
+                file="file.py",
+                line=10,
             )
-            return orchestrator
+        ]
+        orchestrator.review_engine.run_review = AsyncMock(
+            return_value=(
+                findings,
+                MergeVerdict.MERGE_WITH_CHANGES,
+                "Consider the suggestions",
+                [],
+            )
+        )
+
+        return orchestrator
 
     @pytest.mark.asyncio
     async def test_full_mr_review_lifecycle(self, mock_orchestrator):
         """Test complete MR review from start to finish."""
-        # Mock MR data
-        mock_orchestrator.client.get_mr_async.return_value = mock_mr_data()
-        mock_orchestrator.client.get_mr_commits_async.return_value = mock_mr_commits()
-        mock_orchestrator.client.get_mr_changes_async.return_value = mock_mr_changes()
+        from runners.gitlab.models import MergeVerdict
+
+        result = await mock_orchestrator.review_mr(123)
+
+        assert result.success is True
+        assert result.mr_iid == 123
+        assert len(result.findings) == 1
+        assert result.verdict == MergeVerdict.MERGE_WITH_CHANGES
 
         # Mock review engine
         with patch(
@@ -110,53 +172,48 @@ class TestMREndToEnd:
     @pytest.mark.asyncio
     async def test_mr_review_with_ci_failure(self, mock_orchestrator):
         """Test MR review blocked by CI failure."""
+        from unittest.mock import AsyncMock
+
+        from runners.gitlab.models import MergeVerdict
         from runners.gitlab.services.ci_checker import PipelineInfo, PipelineStatus
 
-        # Setup CI failure
-        with patch("runners.gitlab.orchestrator.MRContextGatherer"):
-            with patch("runners.gitlab.services.ci_checker.CIChecker") as mock_checker:
-                pipeline_info = PipelineInfo(
-                    pipeline_id=1001,
-                    status=PipelineStatus.FAILED,
-                    ref="feature",
-                    sha="abc123",
-                    created_at="2025-01-14T10:00:00",
-                    updated_at="2025-01-14T10:05:00",
-                    failed_jobs=[
-                        Mock(
-                            status="failed",
-                            name="test",
-                            stage="test",
-                            failure_reason="Assert failed",
-                        )
-                    ],
+        # Setup CI failure mock
+        pipeline_info = PipelineInfo(
+            pipeline_id=1001,
+            status=PipelineStatus.FAILED,
+            ref="feature",
+            sha="abc123",
+            created_at="2025-01-14T10:00:00",
+            updated_at="2025-01-14T10:05:00",
+            failed_jobs=[
+                Mock(
+                    status="failed",
+                    name="test",
+                    stage="test",
+                    failure_reason="Assert failed",
                 )
+            ],
+        )
 
-                mock_checker.return_value.check_mr_pipeline.return_value = pipeline_info
-                mock_checker.return_value.get_blocking_reason.return_value = (
-                    "Test job failed"
-                )
-                mock_checker.return_value.format_pipeline_summary.return_value = (
-                    "CI Failed"
-                )
+        mock_checker = Mock()
+        mock_checker.check_mr_pipeline = AsyncMock(return_value=pipeline_info)
+        mock_checker.get_blocking_reason = Mock(return_value="Test job failed")
+        mock_checker.format_pipeline_summary = Mock(return_value="CI Failed")
 
-                mock_orchestrator.client.get_mr_async.return_value = mock_mr_data()
-                mock_orchestrator.client.get_mr_commits_async.return_value = []
+        # Set ci_checker directly so review_mr uses the mocked version
+        mock_orchestrator.ci_checker = mock_checker
 
-                # Set ci_checker directly so review_mr uses the mocked version
-                mock_orchestrator.ci_checker = mock_checker.return_value
+        # Also update the review engine mock for this test
+        mock_orchestrator.review_engine.run_review = AsyncMock(
+            return_value=(
+                [],
+                MergeVerdict.READY_TO_MERGE,
+                "Looks good",
+                [],
+            )
+        )
 
-                with patch("runners.gitlab.services.MRReviewEngine") as mock_engine:
-                    from runners.gitlab.models import MergeVerdict
-
-                    mock_engine.return_value.run_review.return_value = (
-                        [],
-                        MergeVerdict.READY_TO_MERGE,
-                        "Looks good",
-                        [],
-                    )
-
-                    result = await mock_orchestrator.review_mr(123)
+        result = await mock_orchestrator.review_mr(123)
 
         assert result.ci_status == "failed"
         assert result.ci_pipeline_id == 1001
@@ -165,16 +222,38 @@ class TestMREndToEnd:
     @pytest.mark.asyncio
     async def test_followup_review_lifecycle(self, mock_orchestrator):
         """Test follow-up review after initial review."""
-        from runners.gitlab.models import MergeVerdict, MRReviewResult
-
         # Create initial review
+        from runners.gitlab.models import (
+            MergeVerdict,
+            MRReviewFinding,
+            MRReviewResult,
+            ReviewCategory,
+            ReviewSeverity,
+        )
+
         initial_review = MRReviewResult(
             mr_iid=123,
             project="group/project",
             success=True,
             findings=[
-                Mock(id="find-1", title="Fix bug"),
-                Mock(id="find-2", title="Add tests"),
+                MRReviewFinding(
+                    id="find-1",
+                    title="Fix bug",
+                    severity=ReviewSeverity.HIGH,
+                    category=ReviewCategory.BUG,
+                    description="Fix the bug",
+                    file="file.py",
+                    line=10,
+                ),
+                MRReviewFinding(
+                    id="find-2",
+                    title="Add tests",
+                    severity=ReviewSeverity.MEDIUM,
+                    category=ReviewCategory.TESTING,
+                    description="Add unit tests",
+                    file="file.py",
+                    line=20,
+                ),
             ],
             reviewed_commit_sha="abc123",
             verdict=MergeVerdict.NEEDS_REVISION,
@@ -194,8 +273,12 @@ class TestMREndToEnd:
             }
         ]
 
-        mock_orchestrator.client.get_mr_async.return_value = mock_mr_data()
-        mock_orchestrator.client.get_mr_commits_async.return_value = new_commits
+        from unittest.mock import AsyncMock
+
+        mock_orchestrator.client.get_mr_async = AsyncMock(return_value=mock_mr_data())
+        mock_orchestrator.client.get_mr_commits_async = AsyncMock(
+            return_value=new_commits
+        )
 
         # Mock follow-up review
         with patch("runners.gitlab.orchestrator.MRContextGatherer"):
@@ -215,6 +298,8 @@ class TestMREndToEnd:
     @pytest.mark.asyncio
     async def test_bot_detection_skips_review(self, tmp_path):
         """Test bot detection skips bot-authored MRs."""
+        from unittest.mock import AsyncMock
+
         from runners.gitlab.models import GitLabRunnerConfig
         from runners.gitlab.orchestrator import GitLabOrchestrator
 
@@ -223,17 +308,21 @@ class TestMREndToEnd:
             project="group/project",
         )
 
-        with patch("runners.gitlab.orchestrator.GitLabClient"):
+        with patch("runners.gitlab.orchestrator.GitLabClient") as mock_client_class:
+            mock_client = MagicMock()
+            # Bot-authored MR
+            bot_mr = mock_mr_data(author="auto-claude-bot")
+            mock_client.get_mr = MagicMock(return_value=bot_mr)
+            mock_client.get_mr_commits = MagicMock(return_value=[])
+            mock_client.get_mr_async = AsyncMock(return_value=bot_mr)
+            mock_client.get_mr_commits_async = AsyncMock(return_value=[])
+            mock_client_class.return_value = mock_client
+
             orchestrator = GitLabOrchestrator(
                 project_dir=tmp_path,
                 config=config,
                 bot_username="auto-claude-bot",
             )
-
-            # Bot-authored MR
-            bot_mr = mock_mr_data(author="auto-claude-bot")
-            orchestrator.client.get_mr_async.return_value = bot_mr
-            orchestrator.client.get_mr_commits_async.return_value = []
 
             result = await orchestrator.review_mr(123)
 
@@ -243,6 +332,8 @@ class TestMREndToEnd:
     @pytest.mark.asyncio
     async def test_cooling_off_prevents_re_review(self, tmp_path):
         """Test cooling off period prevents immediate re-review."""
+        from unittest.mock import AsyncMock
+
         from runners.gitlab.models import GitLabRunnerConfig
         from runners.gitlab.orchestrator import GitLabOrchestrator
 
@@ -251,15 +342,18 @@ class TestMREndToEnd:
             project="group/project",
         )
 
-        with patch("runners.gitlab.orchestrator.GitLabClient"):
+        with patch("runners.gitlab.orchestrator.GitLabClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client.get_mr = MagicMock(return_value=mock_mr_data())
+            mock_client.get_mr_commits = MagicMock(return_value=mock_mr_commits())
+            mock_client.get_mr_async = AsyncMock(return_value=mock_mr_data())
+            mock_client.get_mr_commits_async = AsyncMock(return_value=mock_mr_commits())
+            mock_client_class.return_value = mock_client
+
             orchestrator = GitLabOrchestrator(
                 project_dir=tmp_path,
                 config=config,
             )
-
-            # First review
-            orchestrator.client.get_mr_async.return_value = mock_mr_data()
-            orchestrator.client.get_mr_commits_async.return_value = mock_mr_commits()
 
             with patch("runners.gitlab.orchestrator.MRContextGatherer"):
                 with patch("runners.gitlab.services.MRReviewEngine") as mock_engine:
@@ -369,7 +463,21 @@ class TestMRContextGatherer:
             instance_url="https://gitlab.example.com",
         )
 
-        with patch("runners.gitlab.services.context_gatherer.GitLabClient"):
+        with patch(
+            "runners.gitlab.services.context_gatherer.GitLabClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_client.get_mr = MagicMock(return_value=mock_mr_data())
+            mock_client.get_mr_changes = MagicMock(return_value=mock_mr_changes())
+            mock_client.get_mr_commits = MagicMock(return_value=mock_mr_commits())
+            mock_client.get_mr_notes = MagicMock(return_value=[])
+            mock_client.get_mr_async = AsyncMock(return_value=mock_mr_data())
+            mock_client.get_mr_changes_async = AsyncMock(return_value=mock_mr_changes())
+            mock_client.get_mr_commits_async = AsyncMock(return_value=mock_mr_commits())
+            mock_client.get_mr_notes_async = AsyncMock(return_value=[])
+            mock_client.get_mr_pipeline_async = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
+
             return MRContextGatherer(
                 project_dir=tmp_path,
                 mr_iid=123,
@@ -380,12 +488,6 @@ class TestMRContextGatherer:
     async def test_gather_context(self, gatherer):
         """Test gathering MR context."""
         from runners.gitlab.models import MRContext
-
-        # Mock client responses
-        gatherer.client.get_mr_async.return_value = mock_mr_data()
-        gatherer.client.get_mr_changes_async.return_value = mock_mr_changes()
-        gatherer.client.get_mr_commits_async.return_value = mock_mr_commits()
-        gatherer.client.get_mr_notes_async.return_value = []
 
         context = await gatherer.gather()
 
@@ -413,15 +515,11 @@ class TestMRContextGatherer:
             },
         ]
 
-        gatherer.client.get_mr_notes_async.return_value = ai_notes
+        gatherer.client.get_mr_notes = MagicMock(return_value=ai_notes)
+        gatherer.client.get_mr_notes_async = AsyncMock(return_value=ai_notes)
 
         # First call should parse comments
         from runners.gitlab.services.context_gatherer import AIBotComment
-
-        # Note: _fetch_ai_bot_comments is called internally during gather()
-        gatherer.client.get_mr_async.return_value = mock_mr_data()
-        gatherer.client.get_mr_changes_async.return_value = mock_mr_changes()
-        gatherer.client.get_mr_commits_async.return_value = mock_mr_commits()
 
         context = await gatherer.gather()
 
@@ -435,14 +533,28 @@ class TestFollowupContextGatherer:
     @pytest.fixture
     def previous_review(self):
         """Create a previous review for testing."""
-        from runners.gitlab.models import MergeVerdict, MRReviewResult
+        from runners.gitlab.models import (
+            MergeVerdict,
+            MRReviewFinding,
+            MRReviewResult,
+            ReviewCategory,
+            ReviewSeverity,
+        )
 
         return MRReviewResult(
             mr_iid=123,
             project="group/project",
             success=True,
             findings=[
-                Mock(id="find-1", title="Bug"),
+                MRReviewFinding(
+                    id="find-1",
+                    title="Bug",
+                    severity=ReviewSeverity.HIGH,
+                    category=ReviewCategory.BUG,
+                    description="Fix this bug",
+                    file="file.py",
+                    line=10,
+                ),
             ],
             reviewed_commit_sha="abc123",
             verdict=MergeVerdict.NEEDS_REVISION,
@@ -462,7 +574,18 @@ class TestFollowupContextGatherer:
             instance_url="https://gitlab.example.com",
         )
 
-        with patch("runners.gitlab.services.context_gatherer.GitLabClient"):
+        with patch(
+            "runners.gitlab.services.context_gatherer.GitLabClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_client.get_mr = MagicMock(return_value=mock_mr_data())
+            mock_client.get_mr_changes = MagicMock(return_value=mock_mr_changes())
+            mock_client.get_mr_commits = MagicMock(return_value=mock_mr_commits())
+            mock_client.get_mr_async = AsyncMock(return_value=mock_mr_data())
+            mock_client.get_mr_changes_async = AsyncMock(return_value=mock_mr_changes())
+            mock_client.get_mr_commits_async = AsyncMock(return_value=mock_mr_commits())
+            mock_client_class.return_value = mock_client
+
             return FollowupMRContextGatherer(
                 project_dir=tmp_path,
                 mr_iid=123,
@@ -484,9 +607,8 @@ class TestFollowupContextGatherer:
             }
         ]
 
-        gatherer.client.get_mr_async.return_value = mock_mr_data()
-        gatherer.client.get_mr_commits_async.return_value = new_commits
-        gatherer.client.get_mr_changes_async.return_value = mock_mr_changes()
+        gatherer.client.get_mr_commits = MagicMock(return_value=new_commits)
+        gatherer.client.get_mr_commits_async = AsyncMock(return_value=new_commits)
 
         context = await gatherer.gather()
 
@@ -502,10 +624,6 @@ class TestFollowupContextGatherer:
         from runners.gitlab.models import FollowupMRContext
 
         # Same commits as previous review
-        gatherer.client.get_mr_async.return_value = mock_mr_data()
-        gatherer.client.get_mr_commits_async.return_value = mock_mr_commits()
-        gatherer.client.get_mr_changes_async.return_value = mock_mr_changes()
-
         context = await gatherer.gather()
 
         assert context.current_commit_sha == "abc123"  # Same as previous
@@ -516,7 +634,10 @@ class TestAIBotComment:
 
     def test_parse_coderabbit_comment(self):
         """Test parsing CodeRabbit comment."""
-        from runners.gitlab.services.context_gatherer import AIBotComment
+        from runners.gitlab.services.context_gatherer import (
+            AIBotComment,
+            MRContextGatherer,
+        )
 
         note = {
             "id": 1001,
@@ -525,11 +646,9 @@ class TestAIBotComment:
             "created_at": "2025-01-14T10:00:00",
         }
 
-        from runners.gitlab.services.context_gatherer import MRContextGatherer
-
-        gatherer_class = MRContextGatherer.__class__
-
-        comment = gatherer_class._parse_ai_comment(None, note)
+        # Create a temporary gatherer instance to call the static method
+        # Note: _parse_ai_comment is a static method that doesn't use self
+        comment = MRContextGatherer._parse_ai_comment(None, note)
 
         assert comment is not None
         assert comment.tool_name == "CodeRabbit"
