@@ -24,6 +24,9 @@ from typing import TYPE_CHECKING, Any, TypeVar
 import diskcache
 import requests
 from core.client import create_client
+from task_logger import LogPhase
+
+from .session import run_agent_session
 
 if TYPE_CHECKING:
     from core.client import ClaudeSDKClient
@@ -621,10 +624,13 @@ class LinearValidationAgent:
                 """Run the validation session with retry and timeout support."""
                 # Wrap the session call with timeout
                 try:
-                    _, response = await asyncio.wait_for(
-                        client.create_agent_session(
-                            name=f"linear-validation-{issue_id}",
-                            starting_message=prompt,
+                    status, response = await asyncio.wait_for(
+                        run_agent_session(
+                            client,
+                            prompt,
+                            self.spec_dir,
+                            verbose=False,
+                            phase=LogPhase.CODING,
                         ),
                         timeout=self.session_timeout,
                     )
@@ -860,7 +866,7 @@ Begin your analysis now.
                 "title_clear": bool(issue_data.get("title")),
                 "description_sufficient": bool(issue_data.get("description")),
                 "missing_info": [],
-                "feasibility": "needs_clarification",
+                "feasibility_score": 0,
                 "rating": "needs_clarification",
             },
             "recommended_labels": [],
