@@ -54,8 +54,8 @@
       "anthropic": "Anthropic",
       "openrouter": "OpenRouter",
       "groq": "Groq",
-      "glmGlobal": "GLM (Global)",
-      "glmChina": "GLM (China)"
+      "zaiGlobal": "GLM (Global)",
+      "zaiChina": "GLM (China)"
     },
     "fields": {
       "name": "Name",
@@ -884,6 +884,47 @@
       "connected": "Connected",
       "checking": "Checking...",
       "error": "Error"
+    }
+  },
+  "terminalFonts": {
+    "fontConfig": {
+      "title": "Font Configuration",
+      "fontFamily": "Font Family",
+      "fontFamilyDescription": "Primary monospace font for terminal text",
+      "fontSize": "Font Size",
+      "fontWeight": "Font Weight",
+      "lineHeight": "Line Height",
+      "letterSpacing": "Letter Spacing",
+      "fontChain": "Font chain: {{chain}}",
+      "decreaseFontSize": "Decrease font size by {{step}}",
+      "increaseFontSize": "Increase font size by {{step}}",
+      "decreaseFontWeight": "Decrease font weight by {{step}}",
+      "increaseFontWeight": "Increase font weight by {{step}}"
+    },
+    "cursorConfig": {
+      "title": "Cursor Configuration",
+      "pickColor": "Click to pick a color",
+      "resetColor": "Reset to black"
+    },
+    "performanceConfig": {
+      "title": "Performance Settings",
+      "decreaseScrollback": "Decrease scrollback by {{step}}",
+      "increaseScrollback": "Increase scrollback by {{step}}"
+    },
+    "presets": {
+      "title": "Quick Presets",
+      "resetToOS": "Reset to OS defaults",
+      "savePreset": "Save current settings as preset",
+      "applyPreset": "Apply preset",
+      "deletePreset": "Delete preset",
+      "vscodeName": "VS Code",
+      "vscode": "Visual Studio Code default",
+      "intellijName": "IntelliJ IDEA",
+      "intellij": "IntelliJ IDEA default",
+      "macosName": "macOS Terminal",
+      "macos": "macOS Terminal default",
+      "ubuntuName": "Ubuntu Terminal",
+      "ubuntu": "Ubuntu Terminal default"
     }
   },
   "mcp": {

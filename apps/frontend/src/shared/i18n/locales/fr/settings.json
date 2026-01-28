@@ -54,8 +54,8 @@
       "anthropic": "Anthropic",
       "openrouter": "OpenRouter",
       "groq": "Groq",
-      "glmGlobal": "GLM (Global)",
-      "glmChina": "GLM (China)"
+      "zaiGlobal": "GLM (Global)",
+      "zaiChina": "GLM (China)"
     },
     "fields": {
       "name": "Nom",
@@ -884,6 +884,47 @@
       "connected": "Connecté",
       "checking": "Vérification...",
       "error": "Erreur"
+    }
+  },
+  "terminalFonts": {
+    "fontConfig": {
+      "title": "Configuration de la police",
+      "fontFamily": "Famille de police",
+      "fontFamilyDescription": "Police monospace principale pour le texte du terminal",
+      "fontSize": "Taille de police",
+      "fontWeight": "Graisse de police",
+      "lineHeight": "Hauteur de ligne",
+      "letterSpacing": "Espacement des lettres",
+      "fontChain": "Chaîne de police : {{chain}}",
+      "decreaseFontSize": "Diminuer la taille de police de {{step}}",
+      "increaseFontSize": "Augmenter la taille de police de {{step}}",
+      "decreaseFontWeight": "Diminuer la graisse de police de {{step}}",
+      "increaseFontWeight": "Augmenter la graisse de police de {{step}}"
+    },
+    "cursorConfig": {
+      "title": "Configuration du curseur",
+      "pickColor": "Cliquer pour choisir une couleur",
+      "resetColor": "Réinitialiser en noir"
+    },
+    "performanceConfig": {
+      "title": "Paramètres de performance",
+      "decreaseScrollback": "Diminuer le défilement de {{step}}",
+      "increaseScrollback": "Augmenter le défilement de {{step}}"
+    },
+    "presets": {
+      "title": "Préréglages rapides",
+      "resetToOS": "Réinitialiser aux paramètres par défaut du système d'exploitation",
+      "savePreset": "Enregistrer les paramètres actuels comme préréglage",
+      "applyPreset": "Appliquer le préréglage",
+      "deletePreset": "Supprimer le préréglage",
+      "vscodeName": "VS Code",
+      "vscode": "Visual Studio Code par défaut",
+      "intellijName": "IntelliJ IDEA",
+      "intellij": "IntelliJ IDEA par défaut",
+      "macosName": "Terminal macOS",
+      "macos": "Terminal macOS par défaut",
+      "ubuntuName": "Terminal Ubuntu",
+      "ubuntu": "Terminal Ubuntu par défaut"
     }
   },
   "mcp": {

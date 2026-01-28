@@ -12,44 +12,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { I18nextProvider } from 'react-i18next';
 import { OnboardingWizard } from './OnboardingWizard';
-
-// Mock react-i18next to avoid initialization issues
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => {
-      // Return the key itself or provide specific translations
-      // Keys are without namespace since component uses useTranslation('namespace')
-      const translations: Record<string, string> = {
-        'welcome.title': 'Welcome to Auto Claude',
-        'welcome.subtitle': 'AI-powered autonomous coding assistant',
-        'welcome.getStarted': 'Get Started',
-        'welcome.skip': 'Skip Setup',
-        'wizard.helpText': 'Let us help you get started with Auto Claude',
-        'welcome.features.aiPowered.title': 'AI-Powered',
-        'welcome.features.aiPowered.description': 'Powered by Claude',
-        'welcome.features.specDriven.title': 'Spec-Driven',
-        'welcome.features.specDriven.description': 'Create from specs',
-        'welcome.features.memory.title': 'Memory',
-        'welcome.features.memory.description': 'Remembers context',
-        'welcome.features.parallel.title': 'Parallel',
-        'welcome.features.parallel.description': 'Work in parallel',
-        'authChoice.title': 'Choose Your Authentication Method',
-        'authChoice.subtitle': 'Select how you want to authenticate',
-        'authChoice.oauthTitle': 'Sign in with Anthropic',
-        'authChoice.oauthDesc': 'OAuth authentication',
-        'authChoice.apiKeyTitle': 'Use Custom API Key',
-        'authChoice.apiKeyDesc': 'Enter your own API key',
-        'authChoice.skip': 'Skip for now',
-        // Common translations
-        'common:actions.close': 'Close'
-      };
-      return translations[key] || key;
-    },
-    i18n: { language: 'en' }
-  }),
-  Trans: ({ children }: { children: React.ReactNode }) => children
-}));
+import i18n from '../../../shared/i18n';
 
 // Mock the settings store
 const mockUpdateSettings = vi.fn();
@@ -87,6 +52,11 @@ Object.defineProperty(window, 'electronAPI', {
   writable: true
 });
 
+// Helper function to render with i18n provider
+function renderWithI18n(ui: React.ReactElement) {
+  return render(<I18nextProvider i18n={i18n}>{ui}</I18nextProvider>);
+}
+
 describe('OnboardingWizard Integration Tests', () => {
   const defaultProps = {
     open: true,
@@ -100,7 +70,7 @@ describe('OnboardingWizard Integration Tests', () => {
   describe('OAuth Path Navigation', () => {
     // Skipped: OAuth integration tests require full OAuth step mocking - not API Profile related
     it.skip('should navigate: welcome → auth-choice → oauth', async () => {
-      render(<OnboardingWizard {...defaultProps} />);
+      renderWithI18n(<OnboardingWizard {...defaultProps} />);
 
       // Start at welcome step
       expect(screen.getByText(/Welcome to Auto Claude/)).toBeInTheDocument();
@@ -126,7 +96,7 @@ describe('OnboardingWizard Integration Tests', () => {
 
     // Skipped: OAuth path test requires full OAuth step mocking
     it.skip('should show correct progress indicator for OAuth path', async () => {
-      render(<OnboardingWizard {...defaultProps} />);
+      renderWithI18n(<OnboardingWizard {...defaultProps} />);
 
       // Click through to auth-choice
       fireEvent.click(screen.getByRole('button', { name: /Get Started/ }));
@@ -143,7 +113,7 @@ describe('OnboardingWizard Integration Tests', () => {
   describe('API Key Path Navigation', () => {
     // Skipped: Test requires ProfileEditDialog integration mock
     it.skip('should skip oauth step when API key path chosen', async () => {
-      render(<OnboardingWizard {...defaultProps} />);
+      renderWithI18n(<OnboardingWizard {...defaultProps} />);
 
       // Start at welcome step
       expect(screen.getByText(/Welcome to Auto Claude/)).toBeInTheDocument();
@@ -171,7 +141,7 @@ describe('OnboardingWizard Integration Tests', () => {
     });
 
     it('should not show OAuth step text on auth-choice screen', async () => {
-      render(<OnboardingWizard {...defaultProps} />);
+      renderWithI18n(<OnboardingWizard {...defaultProps} />);
 
       // Navigate to auth-choice
       fireEvent.click(screen.getByRole('button', { name: /Get Started/ }));
@@ -190,7 +160,7 @@ describe('OnboardingWizard Integration Tests', () => {
 
   describe('Back Button Behavior After API Key Path', () => {
     it('should go back to auth-choice (not oauth) when coming from API key path', async () => {
-      render(<OnboardingWizard {...defaultProps} />);
+      renderWithI18n(<OnboardingWizard {...defaultProps} />);
 
       // This test verifies that when oauth is bypassed (API key path taken),
       // going back from graphiti returns to auth-choice, not oauth
@@ -211,7 +181,7 @@ describe('OnboardingWizard Integration Tests', () => {
 
   describe('First-Run Detection', () => {
     it('should show wizard for users with no auth configured', () => {
-      render(<OnboardingWizard {...defaultProps} open={true} />);
+      renderWithI18n(<OnboardingWizard {...defaultProps} open={true} />);
 
       // Wizard should be visible
       expect(screen.getByText(/Welcome to Auto Claude/)).toBeInTheDocument();
@@ -220,7 +190,7 @@ describe('OnboardingWizard Integration Tests', () => {
     it('should not show wizard for users with existing OAuth', () => {
       // This is tested in App.tsx integration tests
       // Here we verify the wizard can be closed
-      const { rerender } = render(<OnboardingWizard {...defaultProps} open={true} />);
+      const { rerender } = renderWithI18n(<OnboardingWizard {...defaultProps} open={true} />);
 
       expect(screen.getByText(/Welcome to Auto Claude/)).toBeInTheDocument();
 
@@ -234,7 +204,7 @@ describe('OnboardingWizard Integration Tests', () => {
     it('should not show wizard for users with existing API profiles', () => {
       // This is tested in App.tsx integration tests
       // The wizard respects the open prop
-      render(<OnboardingWizard {...defaultProps} open={false} />);
+      renderWithI18n(<OnboardingWizard {...defaultProps} open={false} />);
 
       expect(screen.queryByText(/Welcome to Auto Claude/)).not.toBeInTheDocument();
     });
@@ -242,7 +212,7 @@ describe('OnboardingWizard Integration Tests', () => {
 
   describe('Skip and Completion', () => {
     it('should complete wizard when skip is clicked', async () => {
-      render(<OnboardingWizard {...defaultProps} />);
+      renderWithI18n(<OnboardingWizard {...defaultProps} />);
 
       // Click skip on welcome step
       const skipButton = screen.getByRole('button', { name: /Skip Setup/ });
@@ -256,7 +226,7 @@ describe('OnboardingWizard Integration Tests', () => {
 
     it('should call onOpenChange when wizard is closed', async () => {
       const mockOnOpenChange = vi.fn();
-      render(<OnboardingWizard {...defaultProps} onOpenChange={mockOnOpenChange} />);
+      renderWithI18n(<OnboardingWizard {...defaultProps} onOpenChange={mockOnOpenChange} />);
 
       // Click skip to close wizard
       const skipButton = screen.getByRole('button', { name: /Skip Setup/ });
@@ -271,7 +241,7 @@ describe('OnboardingWizard Integration Tests', () => {
   describe('Step Progress Indicator', () => {
     // Skipped: Progress indicator tests require step-by-step CSS class inspection
     it.skip('should display progress indicator for non-welcome/completion steps', async () => {
-      render(<OnboardingWizard {...defaultProps} />);
+      renderWithI18n(<OnboardingWizard {...defaultProps} />);
 
       // On welcome step, no progress indicator shown
       expect(screen.queryByText(/Welcome/)).toBeInTheDocument();
@@ -292,7 +262,7 @@ describe('OnboardingWizard Integration Tests', () => {
 
     // Skipped: Step count test requires i18n step labels
     it.skip('should show correct number of steps (5 total)', async () => {
-      render(<OnboardingWizard {...defaultProps} />);
+      renderWithI18n(<OnboardingWizard {...defaultProps} />);
 
       // Navigate to auth-choice
       fireEvent.click(screen.getByRole('button', { name: /Get Started/ }));
@@ -317,7 +287,7 @@ describe('OnboardingWizard Integration Tests', () => {
 
   describe('AC Coverage', () => {
     it('AC1: First-run screen displays with two auth options', async () => {
-      render(<OnboardingWizard {...defaultProps} />);
+      renderWithI18n(<OnboardingWizard {...defaultProps} />);
 
       // Navigate to auth-choice
       fireEvent.click(screen.getByRole('button', { name: /Get Started/ }));
@@ -332,7 +302,7 @@ describe('OnboardingWizard Integration Tests', () => {
 
     // Skipped: OAuth path test requires full OAuth step mocking
     it.skip('AC2: OAuth path initiates existing OAuth flow', async () => {
-      render(<OnboardingWizard {...defaultProps} />);
+      renderWithI18n(<OnboardingWizard {...defaultProps} />);
 
       fireEvent.click(screen.getByText(/Get Started/));
       await waitFor(() => {
@@ -350,7 +320,7 @@ describe('OnboardingWizard Integration Tests', () => {
     });
 
     it('AC3: API Key path opens profile management dialog', async () => {
-      render(<OnboardingWizard {...defaultProps} />);
+      renderWithI18n(<OnboardingWizard {...defaultProps} />);
 
       fireEvent.click(screen.getByText(/Get Started/));
       await waitFor(() => {
@@ -368,7 +338,7 @@ describe('OnboardingWizard Integration Tests', () => {
 
     it('AC4: Existing auth skips wizard', () => {
       // Wizard with open=false simulates existing auth scenario
-      render(<OnboardingWizard {...defaultProps} open={false} />);
+      renderWithI18n(<OnboardingWizard {...defaultProps} open={false} />);
 
       // Wizard should not be visible
       expect(screen.queryByText(/Welcome to Auto Claude/)).not.toBeInTheDocument();
