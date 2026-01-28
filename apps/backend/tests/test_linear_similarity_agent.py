@@ -51,12 +51,12 @@ class TestAuthorizationHeader:
 
             from agents.linear_similarity_agent import _fetch_team_tickets
 
-            await _fetch_team_tickets("test-team-id", api_key="lin_api_1234567890")
+            await _fetch_team_tickets("test-team-id", api_key="lin_api_test_key_value")
 
             # Verify Authorization header does NOT include "Bearer " prefix
             call_args = mock_post.call_args
             headers = call_args.kwargs.get("headers", {})
-            assert headers["Authorization"] == "lin_api_1234567890"
+            assert headers["Authorization"] == "lin_api_test_key_value"
             assert not headers["Authorization"].startswith("Bearer ")
 
     @pytest.mark.asyncio
@@ -387,7 +387,7 @@ class TestFetchLinearIssue:
                 await asyncio.to_thread(agent._fetch_linear_issue, "LIN-123")
         finally:
             # Restore the API key if it existed
-            if original_key:
+            if original_key is not None:
                 os.environ["LINEAR_API_KEY"] = original_key
 
 
