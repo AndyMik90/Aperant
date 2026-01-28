@@ -251,7 +251,9 @@ export function LinearTicketDetail({
 								// Fix: Unwrap block-level elements from <p> tags to avoid invalid HTML nesting
 								p({ children }: any) {
 									// Check if children contain block-level elements
-									const hasBlockChild = (children as any[])?.some(
+									// Ensure children is an array before calling .some()
+									const childrenArray = Array.isArray(children) ? children : [children];
+									const hasBlockChild = childrenArray.some(
 										(child: any) =>
 											child?.type === 'pre' ||
 											child?.type === 'div' ||
