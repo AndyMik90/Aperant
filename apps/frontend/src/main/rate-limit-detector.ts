@@ -208,7 +208,6 @@ function getAuthFailureMessage(failureType: 'missing' | 'invalid' | 'expired' | 
       return 'Your Claude session has expired. Please re-authenticate in Settings > Claude Profiles.';
     case 'invalid':
       return 'Invalid Claude credentials. Please check your OAuth token or re-authenticate in Settings > Claude Profiles.';
-    case 'unknown':
     default:
       return 'Claude authentication failed. Please verify your authentication in Settings > Claude Profiles.';
   }

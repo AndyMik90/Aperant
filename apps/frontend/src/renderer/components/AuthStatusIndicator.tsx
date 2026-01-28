@@ -237,7 +237,6 @@ export function AuthStatusIndicator() {
 
               {/* Profile details for API profiles */}
               {!isOAuth && (
-                <>
                   <div className="pt-2 border-t space-y-2">
                     {/* Profile name with icon */}
                     <div className="flex items-center justify-between">
@@ -271,8 +270,7 @@ export function AuthStatusIndicator() {
                         </div>
                       </div>
                     )}
-                  </div>
-                </>
+                </div>
               )}
             </div>
           </TooltipContent>

@@ -446,25 +446,23 @@ export const TaskCard = memo(function TaskCard({
               </Badge>
             )}
              {/* Status badge - hide when execution phase badge is showing */}
-             {!hasActiveExecution && (
-               <>
-                  {task.status === 'done' ? (
-                    <Badge
-                      variant={getStatusBadgeVariant(task.status)}
-                      className="text-[10px] px-1.5 py-0.5"
-                    >
-                      {getStatusLabel(task.status)}
-                    </Badge>
-                  ) : (
-                   <Badge
-                     variant={isStuck ? 'warning' : isIncomplete ? 'warning' : getStatusBadgeVariant(task.status)}
-                     className="text-[10px] px-1.5 py-0.5"
-                   >
-                     {isStuck ? t('labels.needsRecovery') : isIncomplete ? t('labels.needsResume') : getStatusLabel(task.status)}
-                   </Badge>
-                 )}
-               </>
-             )}
+             {!hasActiveExecution &&
+               (task.status === 'done' ? (
+                 <Badge
+                   variant={getStatusBadgeVariant(task.status)}
+                   className="text-[10px] px-1.5 py-0.5"
+                 >
+                   {getStatusLabel(task.status)}
+                 </Badge>
+               ) : (
+                 <Badge
+                   variant={isStuck ? 'warning' : isIncomplete ? 'warning' : getStatusBadgeVariant(task.status)}
+                   className="text-[10px] px-1.5 py-0.5"
+                 >
+                   {isStuck ? t('labels.needsRecovery') : isIncomplete ? t('labels.needsResume') : getStatusLabel(task.status)}
+                 </Badge>
+               ))}
+             }
             {/* Review reason badge - explains why task needs human review */}
             {reviewReasonInfo && !isStuck && !isIncomplete && (
               <Badge

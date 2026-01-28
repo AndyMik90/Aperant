@@ -319,7 +319,7 @@ export function SDKRateLimitModal() {
               <>
                 <p className="text-sm text-muted-foreground mb-3">
                   {suggestedProfile ? (
-                    <>{t('rateLimit.sdk.recommendedLabel', { name: suggestedProfile.name })}</>
+                    <span>{t('rateLimit.sdk.recommendedLabel', { name: suggestedProfile.name })}</span>
                   ) : (
                     t('rateLimit.sdk.switchAccountAndRetry')
                   )}

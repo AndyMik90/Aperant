@@ -35,10 +35,6 @@ export class TaskLogService extends EventEmitter {
   // Poll interval for watching log changes (more reliable than fs.watch on some systems)
   private readonly POLL_INTERVAL_MS = 1000;
 
-  constructor() {
-    super();
-  }
-
   /**
    * Load task logs from a single spec directory
    * Returns cached logs if the file is corrupted (e.g., mid-write by Python backend)

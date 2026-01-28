@@ -24,10 +24,6 @@ import { refreshGitIndex } from './utils/git-isolation';
  * If a worktree exists for a task NOT in this release, it won't block the release.
  */
 export class ReleaseService extends EventEmitter {
-  constructor() {
-    super();
-  }
-
   /**
    * Parse CHANGELOG.md to extract releaseable versions.
    * Matches Keep-a-Changelog format: ## [x.y.z] - YYYY-MM-DD
