@@ -277,8 +277,12 @@ async function main() {
 // Run main() only when this file is executed directly (not when imported for testing)
 if (require.main === module) {
   main().catch((err) => {
-    // Sanitize error message to prevent log injection
-    const safeMessage = err.message.replace(/[\r\n]/g, ' ');
+    // Sanitize error message to prevent log injection and ANSI escape sequences
+    // Remove control characters (except space, 0x20) and limit length
+    const safeMessage = err.message
+      .replace(/[\x00-\x1F\x7F]/g, '')  // Remove control characters
+      .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '')  // Remove ANSI escape sequences
+      .slice(0, 500);  // Limit length to prevent log flooding
     console.error(`[package] Error: ${safeMessage}`);
     process.exitCode = 1;
   });
