@@ -8,12 +8,28 @@ import type {
 	LinearTeam,
 	ValidationResult,
 } from "../../../shared/types";
-import { invokeIpc } from "./ipc-utils";
+import { createIpcListener, invokeIpc, type IpcListenerCleanup } from "./ipc-utils";
+
+/**
+ * Validation progress event data
+ */
+export interface LinearValidationProgress {
+	ticketId: string;
+	phase: string;
+	step: number;
+	total: number;
+	message: string;
+}
 
 /**
  * Linear Integration API operations
  */
 export interface LinearAPI {
+	/** Listen for validation progress events */
+	onLinearValidationProgress: (
+		callback: (progress: LinearValidationProgress) => void
+	) => IpcListenerCleanup;
+
 	getLinearTeams: (projectId: string) => Promise<IPCResult<LinearTeam[]>>;
 	getLinearProjects: (
 		projectId: string,
@@ -53,6 +69,11 @@ export interface LinearAPI {
  * Creates the Linear Integration API implementation
  */
 export const createLinearAPI = (): LinearAPI => ({
+	// Progress event listener
+	onLinearValidationProgress: (
+		callback: (progress: LinearValidationProgress) => void
+	): IpcListenerCleanup =>
+		createIpcListener(IPC_CHANNELS.LINEAR_VALIDATE_PROGRESS, callback),
 	getLinearTeams: (projectId: string): Promise<IPCResult<LinearTeam[]>> =>
 		invokeIpc(IPC_CHANNELS.LINEAR_GET_TEAMS, projectId),
 

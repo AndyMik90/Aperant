@@ -304,6 +304,9 @@ const browserMockAPI: ElectronAPI = {
       success: true,
       data: true
     }),
+    onLinearValidationProgress: () => () => {
+      // Mock listener cleanup - no-op
+    },
     clearLinearCache: async () => ({ success: true, data: undefined as any })
   },
 

@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { IPC_CHANNELS } from "../../shared/constants";
 import { useLinearStore } from "../stores/linear-store";
 import { debugLog, debugWarn } from "@shared/utils/debug-logger";
 
@@ -28,14 +27,14 @@ export function useLinearValidationProgress(ticketId?: string): void {
 			return;
 		}
 
-		// Check if the IPC channel methods are available
-		if (!electronAPI.on || !electronAPI.removeListener) {
-			debugWarn("[useLinearValidationProgress] IPC methods not available on electronAPI");
+		// Check if the Linear API progress listener is available
+		if (!electronAPI.onLinearValidationProgress) {
+			debugWarn("[useLinearValidationProgress] onLinearValidationProgress method not available on electronAPI");
 			return;
 		}
 
 		// Handler for progress events
-		const handleProgress = (_event: unknown, data: {
+		const handleProgress = (data: {
 			ticketId: string;
 			phase: string;
 			step: number;
@@ -54,15 +53,12 @@ export function useLinearValidationProgress(ticketId?: string): void {
 			}
 		};
 
-		// Register listener
-		electronAPI.on(IPC_CHANNELS.LINEAR_VALIDATE_PROGRESS, handleProgress);
+		// Register listener - returns cleanup function
+		const cleanup = electronAPI.onLinearValidationProgress(handleProgress);
 
 		// Cleanup listener on unmount
 		return () => {
-			electronAPI.removeListener(
-				IPC_CHANNELS.LINEAR_VALIDATE_PROGRESS,
-				handleProgress
-			);
+			cleanup?.();
 		};
 	}, [ticketId, updateValidationProgress]);
 }
