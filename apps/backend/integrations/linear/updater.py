@@ -129,6 +129,13 @@ def _create_linear_client() -> ClaudeSDKClient:
 
     sdk_env = get_sdk_env_vars()
 
+    # Linear personal API keys (starting with lin_api_) should NOT use Bearer prefix
+    linear_auth = (
+        linear_api_key
+        if linear_api_key.startswith("lin_api_")
+        else f"Bearer {linear_api_key}"
+    )
+
     return ClaudeSDKClient(
         options=ClaudeAgentOptions(
             model=resolve_model_id("haiku"),  # Resolves via API Profile if configured
@@ -138,7 +145,7 @@ def _create_linear_client() -> ClaudeSDKClient:
                 "linear": {
                     "type": "http",
                     "url": "https://mcp.linear.app/mcp",
-                    "headers": {"Authorization": f"Bearer {linear_api_key}"},
+                    "headers": {"Authorization": linear_auth},
                 }
             },
             max_turns=10,  # Should complete in 1-3 turns

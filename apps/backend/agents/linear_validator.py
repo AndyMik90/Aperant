@@ -510,8 +510,14 @@ class LinearValidationAgent:
         }
         """
 
+        # Linear personal API keys (starting with lin_api_) should NOT use Bearer prefix
+        # OAuth tokens should use Bearer prefix
+        authorization = (
+            api_key if api_key.startswith("lin_api_") else f"Bearer {api_key}"
+        )
+
         headers = {
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": authorization,
             "Content-Type": "application/json",
         }
 

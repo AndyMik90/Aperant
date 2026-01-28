@@ -726,10 +726,16 @@ def create_client(
         }
 
     if "linear" in required_servers:
+        # Linear personal API keys (starting with lin_api_) should NOT use Bearer prefix
+        linear_auth = (
+            linear_api_key
+            if linear_api_key.startswith("lin_api_")
+            else f"Bearer {linear_api_key}"
+        )
         mcp_servers["linear"] = {
             "type": "http",
             "url": "https://mcp.linear.app/mcp",
-            "headers": {"Authorization": f"Bearer {linear_api_key}"},
+            "headers": {"Authorization": linear_auth},
         }
 
     # Graphiti MCP server for knowledge graph memory
