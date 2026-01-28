@@ -96,7 +96,7 @@ function updateTicketAtIndex(
 /**
  * Apply filters to tickets based on current filter state
  */
-function applyFilters(
+export function applyFilters(
 	tickets: LinearTicket[],
 	filters: LinearFilters,
 ): LinearTicket[] {

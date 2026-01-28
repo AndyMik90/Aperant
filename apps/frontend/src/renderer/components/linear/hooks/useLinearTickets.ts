@@ -7,6 +7,7 @@ import type {
 	ValidationResult,
 } from "../../../../shared/types/integrations";
 import {
+	applyFilters,
 	fetchLinearProjects,
 	fetchLinearTeams,
 	fetchLinearTicket,
@@ -96,7 +97,7 @@ export function useLinearTickets(
 
 	// Get state from the global Linear store
 	const tickets = useLinearStore((state) => state.tickets);
-	const filteredTickets = useLinearStore((state) => state.getFilteredTickets());
+	const filters = useLinearStore((state) => state.filters);
 	const teams = useLinearStore((state) => state.teams);
 	const projects = useLinearStore((state) => state.projects);
 	const selectedTicketId = useLinearStore((state) => state.selectedTicketId);
@@ -104,8 +105,16 @@ export function useLinearTickets(
 	const isLoading = useLinearStore((state) => state.isLoading);
 	const error = useLinearStore((state) => state.error);
 
-	// Get selected ticket from store
-	const selectedTicket = useLinearStore((state) => state.getSelectedTicket());
+	// Compute filtered tickets using useMemo to prevent infinite re-renders
+	// Import applyFilters function from linear-store
+	const filteredTickets = useMemo(() => {
+		return applyFilters(tickets, filters);
+	}, [tickets, filters]);
+
+	// Get selected ticket using useMemo to prevent infinite re-renders
+	const selectedTicket = useMemo(() => {
+		return tickets.find((t) => t.id === selectedTicketId) || null;
+	}, [tickets, selectedTicketId]);
 
 	// Get validation result for selected ticket
 	const selectedValidationResult = useMemo(() => {
