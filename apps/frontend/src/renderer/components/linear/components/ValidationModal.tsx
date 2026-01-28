@@ -699,7 +699,7 @@ export function ValidationModal({
 					</div>
 
 					{/* Progress Bar */}
-					{validationProgress && validation?.status === "validating" && (
+					{validationProgress && (validation?.status === "validating" || isInitialLoad) && (
 						<div className="space-y-1">
 							<div className="flex justify-between text-xs text-muted-foreground">
 								<span>
