@@ -444,6 +444,7 @@
 		"searchPlaceholder": "Search tickets...",
 		"filters": "Filters",
 		"clearFilters": "Clear",
+		"adjustFiltersHint": "Try adjusting your filters to show more tickets",
 		"clearSearch": "Clear search",
 		"selectedCount": "{{count}} selected",
 		"noResultsFound": "No results found",

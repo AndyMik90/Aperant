@@ -103,7 +103,18 @@ export function LinearTicketDetail({
 				</div>
 
 				{/* Validation Status Badge */}
-				{validation ? (
+				{isValidating ? (
+					<div
+						className="flex items-center gap-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-full"
+						role="status"
+						aria-live="polite"
+					>
+						<Loader2 className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin" aria-hidden="true" />
+						<span className="text-xs text-blue-700 dark:text-blue-300">
+							{t("linear:validatingTicket")}
+						</span>
+					</div>
+				) : validation?.status === "complete" ? (
 					<div
 						className="flex items-center gap-1 px-2 py-1 bg-green-50 dark:bg-green-900/20 rounded-full"
 						role="status"
@@ -115,6 +126,17 @@ export function LinearTicketDetail({
 						/>
 						<span className="text-xs text-green-700 dark:text-green-300">
 							{t("linear:validated")}
+						</span>
+					</div>
+				) : validation?.status === "error" ? (
+					<div
+						className="flex items-center gap-1 px-2 py-1 bg-red-50 dark:bg-red-900/20 rounded-full"
+						role="status"
+						aria-live="polite"
+					>
+						<Clock className="w-4 h-4 text-red-600 dark:text-red-400" aria-hidden="true" />
+						<span className="text-xs text-red-700 dark:text-red-300">
+							{t("linear:validationFailed")}
 						</span>
 					</div>
 				) : (
@@ -247,7 +269,7 @@ export function LinearTicketDetail({
 			</div>
 
 			{/* Validation Summary (if validated) */}
-			{validation && (
+			{!isValidating && validation?.status === "complete" && (
 				<div
 					className="p-4 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
 					role="region"
