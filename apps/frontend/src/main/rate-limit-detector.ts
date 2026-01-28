@@ -346,6 +346,48 @@ export function isAuthFailureError(output: string): boolean {
 }
 
 /**
+ * Detect billing failure from output (stdout + stderr combined)
+ */
+export function detectBillingFailure(
+  output: string,
+  profileId?: string
+): BillingFailureDetectionResult {
+  // First, make sure this isn't a rate limit or auth error (those should be handled separately)
+  if (detectRateLimit(output).isRateLimited) {
+    return { isBillingFailure: false };
+  }
+  if (detectAuthFailure(output).isAuthFailure) {
+    return { isBillingFailure: false };
+  }
+
+  // Check for billing failure patterns
+  for (const pattern of BILLING_FAILURE_PATTERNS) {
+    if (pattern.test(output)) {
+      const profileManager = getClaudeProfileManager();
+      const effectiveProfileId = profileId || profileManager.getActiveProfile().id;
+      const failureType = classifyBillingFailureType(output);
+
+      return {
+        isBillingFailure: true,
+        profileId: effectiveProfileId,
+        failureType,
+        message: getBillingFailureMessage(failureType),
+        originalError: output
+      };
+    }
+  }
+
+  return { isBillingFailure: false };
+}
+
+/**
+ * Check if output contains billing failure error
+ */
+export function isBillingFailureError(output: string): boolean {
+  return detectBillingFailure(output).isBillingFailure;
+}
+
+/**
  * Get environment variables for a specific Claude profile.
  *
  * IMPORTANT: Always uses CLAUDE_CONFIG_DIR to let Claude CLI read fresh tokens from Keychain.
