@@ -59,7 +59,7 @@ const AUTH_FAILURE_PATTERNS = [
  */
 const BILLING_FAILURE_PATTERNS = [
   // Credit balance patterns
-  /credit\s*balance\s*(is\s*)?(insufficient|low|empty|zero|exhausted)/i,
+  /credit\s*balance\s*(is\s+)?(too\s+)?(insufficient|low|empty|zero|exhausted)/i,
   /insufficient\s*credit(s)?/i,
   /no\s*(remaining\s*)?credit(s)?/i,
   /credit(s)?\s*(are\s*)?(exhausted|depleted|used\s*up)/i,
@@ -78,8 +78,11 @@ const BILLING_FAILURE_PATTERNS = [
   /["']?type["']?\s*:\s*["']?billing_error["']?/i,
   /["']?type["']?\s*:\s*["']?insufficient_credits["']?/i,
   /["']?error["']?\s*:\s*["']?insufficient_credits["']?/i,
-  // Match HTTP 402 Payment Required
-  /402\s*(payment\s*required)?/i,
+  // extra_usage patterns from Claude API
+  /extra_usage\s*(exceeded|limit|error)?/i,
+  // Match HTTP 402 Payment Required (require context to avoid false positives on "line 402" etc.)
+  /(?:HTTP|status|code|error)\s*:?\s*402\b/i,
+  /\b402\s+payment\s+required/i,
   /API\s*Error:\s*402/i,
   // Balance/funds patterns
   /insufficient\s*(funds|balance)/i,
@@ -274,8 +277,8 @@ function getAuthFailureMessage(failureType: 'missing' | 'invalid' | 'expired' | 
 function classifyBillingFailureType(output: string): 'insufficient_credits' | 'payment_required' | 'subscription_inactive' | 'unknown' {
   const lowerOutput = output.toLowerCase();
 
-  // Check for credit-related failures
-  if (/credit\s*(balance|s)?|insufficient\s*(credit|funds|balance)|out\s*of\s*credit|no\s*(remaining\s*)?credit/.test(lowerOutput)) {
+  // Check for credit-related failures (including extra_usage which indicates usage exhaustion)
+  if (/credit\s*(balance|s)?|insufficient\s*(credit|funds|balance)|out\s*of\s*credit|no\s*(remaining\s*)?credit|extra_usage/.test(lowerOutput)) {
     return 'insufficient_credits';
   }
   // Check for subscription-related failures
