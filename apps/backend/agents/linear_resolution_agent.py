@@ -8,14 +8,15 @@ This agent analyzes tickets to identify issues that have already been fixed
 or resolved in recent commits, releases, or code changes.
 """
 
+import json
 import logging
 import os
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import requests
-
+from .linear_utils import fetch_linear_ticket, format_labels
 from .session import run_agent_session
 
 if TYPE_CHECKING:
@@ -175,7 +176,7 @@ Analyze each ticket and return the JSON result.
 - Title: {ticket.get("title", "No title")}
 - Description: {ticket.get("description", "No description")[:500]}...
 - State: {ticket.get("state", {}).get("name", "Unknown")}
-- Labels: {self._format_labels(ticket.get("labels", {}))}
+- Labels: {format_labels(ticket.get("labels", {}))}
 """
             parts.append(part)
 
@@ -208,14 +209,6 @@ Analyze each ticket and return the JSON result.
 
         return "\n".join(parts)
 
-    def _format_labels(self, labels_obj: dict[str, Any]) -> str:
-        """Format labels object to string."""
-        if not labels_obj or "nodes" not in labels_obj:
-            return "None"
-
-        labels = [node.get("name", "") for node in labels_obj.get("nodes", [])]
-        return ", ".join(labels) if labels else "None"
-
     def _parse_resolution_response(self, response: str) -> dict[str, Any]:
         """
         Parse the AI response to extract resolution results.
@@ -226,9 +219,6 @@ Analyze each ticket and return the JSON result.
         Returns:
             Parsed resolution results dict
         """
-        import json
-        import re
-
         # Try to extract JSON from markdown code block
         json_match = re.search(r"```json\s*(\{.*?\})\s*```", response, re.DOTALL)
         if json_match:
@@ -291,7 +281,7 @@ async def check_tickets_resolution(
     # Fetch tickets
     tickets = []
     for tid in ticket_ids:
-        ticket = await _fetch_linear_ticket(tid, api_key)
+        ticket = await fetch_linear_ticket(tid, api_key)
         if ticket:
             tickets.append(ticket)
 
@@ -323,38 +313,6 @@ async def check_tickets_resolution(
         )
 
     return result
-
-
-async def _fetch_linear_ticket(ticket_id: str, api_key: str) -> dict[str, Any] | None:
-    """Fetch a single Linear ticket by ID."""
-    query = """
-    query($ticketId: String!) {
-        issue(id: $ticketId) {
-            id
-            identifier
-            title
-            description
-            state { id name type }
-            priority
-            labels { nodes { id name color } }
-            url
-        }
-    }
-    """
-
-    try:
-        response = requests.post(
-            "https://api.linear.app/graphql",
-            json={"query": query, "variables": {"ticketId": ticket_id}},
-            headers={"Authorization": api_key},
-            timeout=30,
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data.get("data", {}).get("issue")
-    except Exception as e:
-        logger.error(f"Failed to fetch ticket {ticket_id}: {e}")
-        return None
 
 
 async def _get_recent_commits(

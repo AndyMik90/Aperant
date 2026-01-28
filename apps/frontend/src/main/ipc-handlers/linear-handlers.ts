@@ -149,28 +149,6 @@ export function registerLinearHandlers(
 
 				if (data.teams.nodes.length > 0) {
 					teamName = data.teams.nodes[0].name;
-					// Note: These queries are kept as documentation for future API reference
-					const _countQuery = `
-            query($teamId: String!) {
-              team(id: $teamId) {
-                issues {
-                  totalCount: nodes { id }
-                }
-              }
-            }
-          `;
-					// Get approximate count
-					const _issuesQuery = `
-            query($teamId: ID!) {
-              issues(filter: { team: { id: { eq: $teamId } } }, first: 0) {
-                pageInfo {
-                  hasNextPage
-                }
-              }
-            }
-          `;
-					void _countQuery;
-					void _issuesQuery;
 
 					// Simple count estimation - get first 250 issues
 					const countData = (await linearGraphQL(

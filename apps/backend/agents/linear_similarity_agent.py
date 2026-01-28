@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 import requests
 
+from .linear_utils import fetch_linear_ticket, format_labels
 from .session import run_agent_session
 
 if TYPE_CHECKING:
@@ -139,7 +140,7 @@ Analyze each candidate and return the JSON result.
             target_identifier=target_ticket.get("identifier", ""),
             target_title=target_ticket.get("title", ""),
             target_description=target_ticket.get("description", "No description"),
-            target_labels=self._format_labels(target_ticket.get("labels", {})),
+            target_labels=format_labels(target_ticket.get("labels", {})),
             target_state=target_ticket.get("state", {}).get("name", "Unknown"),
             candidate_tickets_str=candidate_tickets_str,
         )
@@ -185,21 +186,13 @@ Analyze each candidate and return the JSON result.
 ID: {ticket.get("identifier", ticket.get("id", f"candidate-{i}"))}
 Title: {ticket.get("title", "No title")}
 Description: {ticket.get("description", "No description")[:500]}...
-Labels: {self._format_labels(ticket.get("labels", {}))}
+Labels: {format_labels(ticket.get("labels", {}))}
 State: {ticket.get("state", {}).get("name", "Unknown")}
 ```
 """
             parts.append(part)
 
         return "\n".join(parts)
-
-    def _format_labels(self, labels_obj: dict[str, Any]) -> str:
-        """Format labels object to string."""
-        if not labels_obj or "nodes" not in labels_obj:
-            return "None"
-
-        labels = [node.get("name", "") for node in labels_obj.get("nodes", [])]
-        return ", ".join(labels) if labels else "None"
 
     def _parse_similarity_response(self, response: str) -> dict[str, Any]:
         """
@@ -273,7 +266,7 @@ async def analyze_ticket_similarity(
         }
 
     # Fetch target ticket
-    target_ticket = await _fetch_linear_ticket(target_ticket_id, api_key)
+    target_ticket = await fetch_linear_ticket(target_ticket_id, api_key)
     if not target_ticket:
         return {
             "target_ticket_id": target_ticket_id,
@@ -293,7 +286,7 @@ async def analyze_ticket_similarity(
     else:
         candidate_tickets = []
         for cid in candidate_ticket_ids:
-            ticket = await _fetch_linear_ticket(cid, api_key)
+            ticket = await fetch_linear_ticket(cid, api_key)
             if ticket:
                 candidate_tickets.append(ticket)
 
@@ -320,40 +313,6 @@ async def analyze_ticket_similarity(
         )
 
     return result
-
-
-async def _fetch_linear_ticket(ticket_id: str, api_key: str) -> dict[str, Any] | None:
-    """Fetch a single Linear ticket by ID."""
-    query = """
-    query($ticketId: String!) {
-        issue(id: $ticketId) {
-            id
-            identifier
-            title
-            description
-            state { id name type }
-            priority
-            labels { nodes { id name color } }
-            team { id name }
-            project { id name }
-            url
-        }
-    }
-    """
-
-    try:
-        response = requests.post(
-            "https://api.linear.app/graphql",
-            json={"query": query, "variables": {"ticketId": ticket_id}},
-            headers={"Authorization": api_key},
-            timeout=30,
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data.get("data", {}).get("issue")
-    except Exception as e:
-        logger.error(f"Failed to fetch ticket {ticket_id}: {e}")
-        return None
 
 
 async def _fetch_team_tickets(team_id: str, api_key: str) -> list[dict[str, Any]]:
