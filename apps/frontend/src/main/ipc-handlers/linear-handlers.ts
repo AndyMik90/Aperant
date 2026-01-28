@@ -63,11 +63,16 @@ export function registerLinearHandlers(
 		query: string,
 		variables?: Record<string, unknown>,
 	): Promise<unknown> => {
+		// Linear API keys (starting with lin_api_) should NOT use Bearer prefix
+		// OAuth tokens should use Bearer prefix
+		const isPersonalApiKey = apiKey.startsWith("lin_api_");
+		const authorization = isPersonalApiKey ? apiKey : `Bearer ${apiKey}`;
+
 		const response = await fetch("https://api.linear.app/graphql", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				Authorization: `Bearer ${apiKey}`,
+				Authorization: authorization,
 			},
 			body: JSON.stringify({ query, variables }),
 		});
