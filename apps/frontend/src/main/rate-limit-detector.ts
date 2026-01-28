@@ -269,6 +269,44 @@ function getAuthFailureMessage(failureType: 'missing' | 'invalid' | 'expired' | 
 }
 
 /**
+ * Classify the type of billing failure based on the error message
+ */
+function classifyBillingFailureType(output: string): 'insufficient_credits' | 'payment_required' | 'subscription_inactive' | 'unknown' {
+  const lowerOutput = output.toLowerCase();
+
+  // Check for credit-related failures
+  if (/credit\s*(balance|s)?|insufficient\s*(credit|funds|balance)|out\s*of\s*credit|no\s*(remaining\s*)?credit/.test(lowerOutput)) {
+    return 'insufficient_credits';
+  }
+  // Check for subscription-related failures
+  if (/subscription\s*(expired|inactive|cancelled|canceled)|account\s*(suspended|inactive)/.test(lowerOutput)) {
+    return 'subscription_inactive';
+  }
+  // Check for payment-related failures
+  if (/payment\s*(required|failed)|402|billing\s*(error|issue|problem|failure)/.test(lowerOutput)) {
+    return 'payment_required';
+  }
+  return 'unknown';
+}
+
+/**
+ * Get a user-friendly message for the billing failure
+ */
+function getBillingFailureMessage(failureType: 'insufficient_credits' | 'payment_required' | 'subscription_inactive' | 'unknown'): string {
+  switch (failureType) {
+    case 'insufficient_credits':
+      return 'Your Claude API credit balance is too low. Please add credits to your account or switch to another profile in Settings > Claude Profiles.';
+    case 'payment_required':
+      return 'A billing error occurred with your Claude API account. Please check your payment method or switch to another profile in Settings > Claude Profiles.';
+    case 'subscription_inactive':
+      return 'Your Claude API subscription is inactive or expired. Please renew your subscription or switch to another profile in Settings > Claude Profiles.';
+    case 'unknown':
+    default:
+      return 'A billing issue was detected with your Claude API account. Please check your account status or switch to another profile in Settings > Claude Profiles.';
+  }
+}
+
+/**
  * Detect authentication failure from output (stdout + stderr combined)
  */
 export function detectAuthFailure(
