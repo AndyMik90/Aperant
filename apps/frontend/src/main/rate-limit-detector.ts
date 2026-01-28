@@ -52,6 +52,42 @@ const AUTH_FAILURE_PATTERNS = [
 ];
 
 /**
+ * Patterns that indicate billing/credit failures
+ * These patterns detect when Claude API fails due to insufficient credits or billing issues
+ */
+const BILLING_FAILURE_PATTERNS = [
+  // Credit balance patterns
+  /credit\s*balance\s*(is\s*)?(insufficient|low|empty|zero|exhausted)/i,
+  /insufficient\s*credit(s)?/i,
+  /no\s*(remaining\s*)?credit(s)?/i,
+  /credit(s)?\s*(are\s*)?(exhausted|depleted|used\s*up)/i,
+  /out\s*of\s*credit(s)?/i,
+  /credit\s*limit\s*(reached|exceeded)/i,
+  // Billing error patterns
+  /billing\s*(error|issue|problem|failure)/i,
+  /payment\s*(required|failed|issue|problem)/i,
+  /subscription\s*(expired|inactive|cancelled|canceled)/i,
+  /account\s*(suspended|inactive)\s*(due\s*to\s*billing)?/i,
+  // Usage limit patterns (billing-related, not rate limits)
+  /usage\s*quota\s*(exceeded|reached)/i,
+  /monthly\s*(usage\s*)?(limit|quota)\s*(exceeded|reached)/i,
+  /plan\s*(limit|quota)\s*(exceeded|reached)/i,
+  // API error patterns for billing
+  /["']?type["']?\s*:\s*["']?billing_error["']?/i,
+  /["']?type["']?\s*:\s*["']?insufficient_credits["']?/i,
+  /["']?error["']?\s*:\s*["']?insufficient_credits["']?/i,
+  // Match HTTP 402 Payment Required
+  /402\s*(payment\s*required)?/i,
+  /API\s*Error:\s*402/i,
+  // Balance/funds patterns
+  /insufficient\s*(funds|balance)/i,
+  /balance\s*(is\s*)?(zero|empty|insufficient)/i,
+  // Add funds/credits messages
+  /please\s*(add|purchase)\s*(more\s*)?(credits?|funds)/i,
+  /top\s*up\s*(your\s*)?(account|credits|balance)/i
+];
+
+/**
  * Result of rate limit detection
  */
 export interface RateLimitDetectionResult {
