@@ -28,6 +28,16 @@ import { projectStore } from "../project-store";
 import { parseEnvFile } from "./utils";
 
 /**
+ * Debug logging for Linear validation (enabled via DEBUG_LINEAR_VALIDATION env var)
+ */
+const DEBUG_LINEAR = process.env.DEBUG_LINEAR_VALIDATION === "true";
+const debugLog = (...args: unknown[]) => {
+	if (DEBUG_LINEAR) {
+		console.log("[LinearValidation]", ...args);
+	}
+};
+
+/**
  * Register all linear-related IPC handlers
  */
 export function registerLinearHandlers(
@@ -613,12 +623,17 @@ ${issue.description || "No description provided."}
 			ticketId: string,
 			skipCache: boolean,
 		): Promise<IPCResult<any>> => {
+			debugLog("Validation request started", { ticketId, skipCache, projectId });
+
 			const project = projectStore.getProject(projectId);
 			if (!project) {
+				debugLog("Validation failed: Project not found", { projectId });
 				return { success: false, error: "Project not found" };
 			}
 
 			try {
+				debugLog("Calling agentManager.validateLinearTicket", { ticketId, skipCache });
+
 				// Run the validation agent
 				const result = await agentManager.validateLinearTicket(
 					`linear-validation-${ticketId}`,
@@ -628,11 +643,17 @@ ${issue.description || "No description provided."}
 				);
 
 				if (!result || !result.success) {
+					debugLog("Validation failed", { ticketId, error: result?.error });
 					return { success: false, error: result?.error || "Validation failed" };
 				}
 
+				const hasCached = result.data?.cached ?? false;
+				const status = result.data?.status ?? "unknown";
+				debugLog("Validation response received", { ticketId, status, hasCached, skipCache });
+
 				return { success: true, data: result.data };
 			} catch (error) {
+				debugLog("Validation error", { ticketId, error });
 				return {
 					success: false,
 					error: error instanceof Error ? error.message : "Validation failed",
@@ -652,17 +673,23 @@ ${issue.description || "No description provided."}
 			ticketIds: string[],
 			skipCache: boolean,
 		): Promise<IPCResult<any>> => {
+			debugLog("Batch validation request started", { ticketIds, skipCache, projectId });
+
 			const project = projectStore.getProject(projectId);
 			if (!project) {
+				debugLog("Batch validation failed: Project not found", { projectId });
 				return { success: false, error: "Project not found" };
 			}
 
 			// Enforce max 5 tickets per batch
 			if (ticketIds.length > 5) {
+				debugLog("Batch validation failed: Too many tickets", { count: ticketIds.length });
 				return { success: false, error: "Maximum 5 tickets allowed per batch" };
 			}
 
 			try {
+				debugLog("Calling agentManager.validateLinearTicketBatch", { ticketIds, skipCache });
+
 				const results = await agentManager.validateLinearTicketBatch(
 					`linear-batch-${ticketIds.join("-")}`,
 					project.path,
@@ -671,14 +698,23 @@ ${issue.description || "No description provided."}
 				);
 
 				if (!results || !results.success) {
+					debugLog("Batch validation failed", { ticketIds, error: results?.error });
 					return {
 						success: false,
 						error: results?.error || "Batch validation failed",
 					};
 				}
 
+				const resultCount = results.data?.results?.length ?? 0;
+				debugLog("Batch validation response received", {
+					ticketIds,
+					resultCount,
+					skipCache,
+				});
+
 				return { success: true, data: results.data };
 			} catch (error) {
+				debugLog("Batch validation error", { ticketIds, error });
 				return {
 					success: false,
 					error:
@@ -699,13 +735,17 @@ ${issue.description || "No description provided."}
 			ticketId: string,
 			validation: any,
 		): Promise<IPCResult<any>> => {
+			debugLog("Update ticket with validation started", { ticketId, projectId });
+
 			const project = projectStore.getProject(projectId);
 			if (!project) {
+				debugLog("Update failed: Project not found", { projectId });
 				return { success: false, error: "Project not found" };
 			}
 
 			const apiKey = getLinearApiKey(project);
 			if (!apiKey) {
+				debugLog("Update failed: No Linear API key", { projectId });
 				return { success: false, error: "No Linear API key configured" };
 			}
 
@@ -717,6 +757,8 @@ ${issue.description || "No description provided."}
 
 				// Add validation label
 				labels.push("AI-Validated");
+
+				debugLog("Updating ticket labels", { ticketId, labels });
 
 				const mutation = `
           mutation($issueId: ID!, $labels: [String!]!) {
@@ -805,13 +847,17 @@ ${issue.description || "No description provided."}
 					.map((name) => labelIdMap.get(name))
 					.filter((id): id is string => id !== undefined);
 
+				debugLog("Applying label IDs to ticket", { ticketId, labelIds });
+
 				await linearGraphQL(apiKey, mutation, {
 					issueId: ticketId,
 					labels: labelIds,
 				});
 
+				debugLog("Ticket update complete", { ticketId });
 				return { success: true, data: { updated: true } };
 			} catch (error) {
+				debugLog("Ticket update error", { ticketId, error });
 				return {
 					success: false,
 					error:
@@ -831,6 +877,7 @@ ${issue.description || "No description provided."}
 	ipcMain.handle(
 		IPC_CHANNELS.LINEAR_CLEAR_CACHE,
 		async (_): Promise<IPCResult<void>> => {
+			debugLog("Clear cache requested");
 			// No-op - frontend clears in-memory cache via clearValidationResults()
 			// Backend disk cache is per-project with timestamp-based invalidation
 			return { success: true, data: undefined };

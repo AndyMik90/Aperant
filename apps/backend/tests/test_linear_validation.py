@@ -12,6 +12,7 @@ Tests for:
 
 import tempfile
 from pathlib import Path
+from unittest.mock import call
 
 import pytest
 from agents.linear_validator import (
@@ -499,3 +500,576 @@ class TestLabelExtraction:
         }
         labels = [label.get("name", "") for label in issue_data.get("labels", [])]
         assert labels == ["bug", "", "backend"]
+
+
+class TestValidationExceptions:
+    """Test Linear validation exception classes."""
+
+    def test_validation_error_base_class_instantiation(self):
+        """ValidationError base class should initialize with all parameters."""
+        from agents.linear_validator import ValidationError
+
+        error = ValidationError(
+            message="Base validation error",
+            issue_id="LIN-123",
+            details={"key": "value"},
+        )
+        assert str(error) == "[LIN-123] Base validation error"
+        assert error.issue_id == "LIN-123"
+        assert error.details == {"key": "value"}
+
+    def test_validation_error_without_issue_id(self):
+        """ValidationError should format correctly without issue_id."""
+        from agents.linear_validator import ValidationError
+
+        error = ValidationError(message="Base validation error")
+        assert str(error) == "Base validation error"
+        assert error.issue_id is None
+        assert error.details == {}
+
+    def test_validation_timeout_error_instantiation(self):
+        """ValidationTimeoutError should initialize with required parameters."""
+        from agents.linear_validator import ValidationTimeoutError
+
+        error = ValidationTimeoutError(issue_id="LIN-456", timeout_seconds=30.5)
+        assert error.issue_id == "LIN-456"
+        assert error.details == {"timeout_seconds": 30.5}
+        assert "timed out after 30 seconds" in str(error).lower()
+
+    def test_authentication_error_instantiation(self):
+        """AuthenticationError should initialize with message."""
+        from agents.linear_validator import AuthenticationError
+
+        error = AuthenticationError()
+        assert error.issue_id is None
+        assert error.details == {"error_type": "authentication"}
+        assert "LINEAR_API_KEY" in str(error)
+
+    def test_rate_limit_error_instantiation(self):
+        """RateLimitError should initialize with default message."""
+        from agents.linear_validator import RateLimitError
+
+        error = RateLimitError()
+        assert error.issue_id is None
+        assert error.details == {
+            "error_type": "rate_limit",
+            "retry_after": None,
+        }
+        assert "rate limit exceeded" in str(error).lower()
+
+    def test_rate_limit_error_with_retry_after(self):
+        """RateLimitError should include retry_after in message."""
+        from agents.linear_validator import RateLimitError
+
+        error = RateLimitError(retry_after=120.5)
+        assert "Retry after 120 seconds" in str(error)
+        assert error.details["retry_after"] == 120.5
+
+    def test_network_error_instantiation(self):
+        """NetworkError should initialize with issue_id."""
+        from agents.linear_validator import NetworkError
+
+        error = NetworkError(issue_id="LIN-999", details="Connection refused")
+        assert error.issue_id == "LIN-999"
+        assert error.details == {"error_type": "network"}
+        assert "internet connection" in str(error).lower()
+
+    def test_ticket_not_found_error_instantiation(self):
+        """TicketNotFoundError should initialize with issue_id."""
+        from agents.linear_validator import TicketNotFoundError
+
+        error = TicketNotFoundError(issue_id="LIN-404")
+        assert error.issue_id == "LIN-404"
+        assert error.details == {"error_type": "not_found"}
+
+    def test_invalid_response_error_instantiation(self):
+        """InvalidResponseError should initialize with issue_id."""
+        from agents.linear_validator import InvalidResponseError
+
+        error = InvalidResponseError(issue_id="LIN-500")
+        assert error.issue_id == "LIN-500"
+        assert error.details == {
+            "error_type": "invalid_response",
+            "reason": "",
+        }
+
+    def test_exception_hierarchy(self):
+        """All validation exceptions should inherit from ValidationError."""
+        from agents.linear_validator import (
+            AuthenticationError,
+            InvalidResponseError,
+            NetworkError,
+            RateLimitError,
+            TicketNotFoundError,
+            ValidationError,
+            ValidationTimeoutError,
+        )
+
+        assert issubclass(ValidationTimeoutError, ValidationError)
+        assert issubclass(AuthenticationError, ValidationError)
+        assert issubclass(RateLimitError, ValidationError)
+        assert issubclass(NetworkError, ValidationError)
+        assert issubclass(TicketNotFoundError, ValidationError)
+        assert issubclass(InvalidResponseError, ValidationError)
+
+
+class TestRetryWithExponentialBackoff:
+    """Test retry logic with exponential backoff."""
+
+    @pytest.mark.asyncio
+    async def test_success_on_first_attempt_no_retry(self):
+        """Successful execution on first attempt should not retry."""
+        from unittest.mock import AsyncMock
+
+        from agents.linear_validator import retry_with_exponential_backoff
+
+        async_func = AsyncMock(return_value="success")
+
+        result = await retry_with_exponential_backoff(async_func)
+
+        assert result == "success"
+        assert async_func.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_retry_on_timeout_transient_error(self):
+        """Should retry on timeout transient error."""
+        from unittest.mock import AsyncMock, patch
+
+        from agents.linear_validator import (
+            RetryConfig,
+            retry_with_exponential_backoff,
+        )
+
+        async_func = AsyncMock(
+            side_effect=[
+                Exception("Request timeout"),
+                Exception("Request timeout"),
+                "success",
+            ]
+        )
+
+        with patch("asyncio.sleep"):
+            result = await retry_with_exponential_backoff(
+                async_func,
+                config=RetryConfig(max_retries=3, base_delay=0.1),
+                context="test_timeout",
+            )
+
+        assert result == "success"
+        assert async_func.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_401_non_transient_error(self):
+        """Should NOT retry on HTTP 401 unauthorized error."""
+        from unittest.mock import AsyncMock, patch
+
+        from agents.linear_validator import (
+            RetryConfig,
+            retry_with_exponential_backoff,
+        )
+
+        async_func = AsyncMock(side_effect=Exception("HTTP 401: Unauthorized"))
+
+        with patch("asyncio.sleep"):
+            with pytest.raises(Exception, match="HTTP 401"):
+                await retry_with_exponential_backoff(
+                    async_func,
+                    config=RetryConfig(max_retries=3),
+                )
+
+        assert async_func.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_404_non_transient_error(self):
+        """Should NOT retry on HTTP 404 not found error."""
+        from unittest.mock import AsyncMock, patch
+
+        from agents.linear_validator import (
+            RetryConfig,
+            retry_with_exponential_backoff,
+        )
+
+        async_func = AsyncMock(side_effect=Exception("HTTP 404: Not Found"))
+
+        with patch("asyncio.sleep"):
+            with pytest.raises(Exception, match="HTTP 404"):
+                await retry_with_exponential_backoff(
+                    async_func,
+                    config=RetryConfig(max_retries=3),
+                )
+
+        assert async_func.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_exponential_backoff_delay_calculation(self):
+        """Delay should be calculated as base_delay * exponential_base^attempt."""
+        import asyncio
+        from unittest.mock import AsyncMock, call, patch
+
+        from agents.linear_validator import (
+            RetryConfig,
+            retry_with_exponential_backoff,
+        )
+
+        async_func = AsyncMock(
+            side_effect=[
+                Exception("timeout"),
+                Exception("timeout"),
+                Exception("timeout"),
+                "success",
+            ]
+        )
+
+        # With base_delay=2.0 and exponential_base=2.0:
+        # Attempt 0: delay = 2.0 * 2^0 = 2.0
+        # Attempt 1: delay = 2.0 * 2^1 = 4.0
+        # Attempt 2: delay = 2.0 * 2^2 = 8.0
+        sleep_mock = patch("asyncio.sleep")
+        with sleep_mock as mock_sleep:
+            result = await retry_with_exponential_backoff(
+                async_func,
+                config=RetryConfig(
+                    max_retries=3, base_delay=2.0, exponential_base=2.0, jitter=False
+                ),
+            )
+
+        assert result == "success"
+        assert async_func.call_count == 4
+        # Verify sleep was called 3 times with correct delays
+        assert mock_sleep.call_count == 3
+        mock_sleep.assert_has_calls([call(2.0), call(4.0), call(8.0)])
+
+    @pytest.mark.asyncio
+    async def test_jitter_application_when_enabled(self):
+        """Jitter should be applied when enabled, randomizing delay."""
+        from unittest.mock import AsyncMock, patch
+
+        from agents.linear_validator import (
+            RetryConfig,
+            retry_with_exponential_backoff,
+        )
+
+        async_func = AsyncMock(
+            side_effect=[
+                Exception("timeout"),
+                "success",
+            ]
+        )
+
+        # Patch random to return predictable value (0.75)
+        # With base_delay=1.0, jitter: delay = 1.0 * (0.5 + 0.75) = 1.25
+        with (
+            patch("random.random", return_value=0.75),
+            patch("asyncio.sleep") as mock_sleep,
+        ):
+            result = await retry_with_exponential_backoff(
+                async_func,
+                config=RetryConfig(max_retries=2, base_delay=1.0, jitter=True),
+            )
+
+        assert result == "success"
+        # Jitter should result in non-integer delay
+        mock_sleep.assert_called_once()
+        sleep_arg = mock_sleep.call_args[0][0]
+        # With 0.75 random, delay = 1.0 * (0.5 + 0.75) = 1.25
+        assert sleep_arg == 1.25
+
+    @pytest.mark.asyncio
+    async def test_no_jitter_when_disabled(self):
+        """Delay should be exact when jitter is disabled."""
+        from unittest.mock import AsyncMock, patch
+
+        from agents.linear_validator import (
+            RetryConfig,
+            retry_with_exponential_backoff,
+        )
+
+        async_func = AsyncMock(
+            side_effect=[
+                Exception("timeout"),
+                "success",
+            ]
+        )
+
+        # Without jitter, delay should be exactly base_delay * exponential_base^attempt
+        # Attempt 0: delay = 2.0 * 3^0 = 2.0
+        with patch("asyncio.sleep") as mock_sleep:
+            result = await retry_with_exponential_backoff(
+                async_func,
+                config=RetryConfig(
+                    max_retries=2,
+                    base_delay=2.0,
+                    exponential_base=3.0,
+                    jitter=False,
+                ),
+            )
+
+        assert result == "success"
+        mock_sleep.assert_called_once_with(2.0)
+
+    @pytest.mark.asyncio
+    async def test_max_delay_capping(self):
+        """Delay should be capped at max_delay value."""
+        from unittest.mock import AsyncMock, patch
+
+        from agents.linear_validator import (
+            RetryConfig,
+            retry_with_exponential_backoff,
+        )
+
+        async_func = AsyncMock(
+            side_effect=[
+                Exception("timeout"),
+                Exception("timeout"),
+                Exception("timeout"),
+                "success",
+            ]
+        )
+
+        # With base_delay=10, exponential_base=3:
+        # Attempt 0: 10 * 3^0 = 10 (capped to 15)
+        # Attempt 1: 10 * 3^1 = 30 (capped to 15)
+        # Attempt 2: 10 * 3^2 = 90 (capped to 15)
+        with patch("asyncio.sleep") as mock_sleep:
+            result = await retry_with_exponential_backoff(
+                async_func,
+                config=RetryConfig(
+                    max_retries=3,
+                    base_delay=10.0,
+                    max_delay=15.0,
+                    exponential_base=3.0,
+                    jitter=False,
+                ),
+            )
+
+        assert result == "success"
+        assert mock_sleep.call_count == 3
+        # All delays should be capped at 15.0
+        mock_sleep.assert_has_calls([call(10.0), call(15.0), call(15.0)])
+
+    @pytest.mark.asyncio
+    async def test_max_retries_exhaustion(self):
+        """Should raise last exception after max_retries exhausted."""
+        from unittest.mock import AsyncMock, patch
+
+        from agents.linear_validator import (
+            RetryConfig,
+            retry_with_exponential_backoff,
+        )
+
+        async_func = AsyncMock(side_effect=Exception("Connection timeout"))
+
+        with patch("asyncio.sleep"):
+            with pytest.raises(Exception, match="Connection timeout"):
+                await retry_with_exponential_backoff(
+                    async_func,
+                    config=RetryConfig(max_retries=2, base_delay=0.1),
+                )
+
+        # Should be called max_retries + 1 (initial + 2 retries = 3 total)
+        assert async_func.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_custom_retry_configuration(self):
+        """Should use custom retry configuration when provided."""
+        from unittest.mock import AsyncMock, patch
+
+        from agents.linear_validator import (
+            RetryConfig,
+            retry_with_exponential_backoff,
+        )
+
+        async_func = AsyncMock(
+            side_effect=[
+                Exception("timeout"),
+                Exception("timeout"),
+                Exception("timeout"),
+                Exception("timeout"),
+                Exception("timeout"),
+                "success",
+            ]
+        )
+
+        custom_config = RetryConfig(
+            max_retries=5,
+            base_delay=0.5,
+            max_delay=10.0,
+            exponential_base=2.0,
+            jitter=False,
+        )
+
+        with patch("asyncio.sleep") as mock_sleep:
+            result = await retry_with_exponential_backoff(
+                async_func,
+                config=custom_config,
+            )
+
+        assert result == "success"
+        assert async_func.call_count == 6
+        # Verify exponential delays: 0.5, 1.0, 2.0, 4.0, 8.0
+        mock_sleep.assert_has_calls(
+            [call(0.5), call(1.0), call(2.0), call(4.0), call(8.0)]
+        )
+
+
+class TestValidationResultParsing:
+    """Test parsing of AI validation result responses."""
+
+    def test_parse_valid_json_all_fields(self):
+        """Valid JSON response with all fields should parse correctly."""
+        import json
+
+        response_text = """{
+  "contentAnalysis": {
+    "title": "Fix login bug",
+    "descriptionSummary": "Users cannot login with SSO",
+    "requirements": ["Reproduce SSO login issue", "Fix OAuth flow"]
+  },
+  "completenessValidation": {
+    "isComplete": true,
+    "missingFields": [],
+    "feasibilityScore": 85,
+    "feasibilityReasoning": "Clear bug with known reproduction steps"
+  },
+  "suggestedLabels": ["bug", "auth", "high-priority"],
+  "versionRecommendation": {
+    "recommendedVersion": "2.7.5",
+    "versionType": "patch",
+    "reasoning": "Bug fix requires patch increment"
+  },
+  "taskProperties": {
+    "category": "bug",
+    "complexity": "medium",
+    "impact": "high",
+    "priority": "p2",
+    "rationale": "Affects user login functionality"
+  }
+}"""
+
+        parsed = json.loads(response_text)
+
+        assert parsed["contentAnalysis"]["title"] == "Fix login bug"
+        assert (
+            parsed["contentAnalysis"]["descriptionSummary"]
+            == "Users cannot login with SSO"
+        )
+        assert len(parsed["contentAnalysis"]["requirements"]) == 2
+        assert parsed["completenessValidation"]["isComplete"] is True
+        assert parsed["completenessValidation"]["feasibilityScore"] == 85
+        assert len(parsed["suggestedLabels"]) == 3
+        assert parsed["versionRecommendation"]["versionType"] == "patch"
+        assert parsed["taskProperties"]["category"] == "bug"
+
+    def test_parse_json_in_markdown_code_block(self):
+        """JSON wrapped in markdown code block should be extracted."""
+        import json
+        import re
+
+        response_text = """Here's my analysis:
+
+```json
+{
+  "contentAnalysis": {
+    "title": "Add user settings page",
+    "descriptionSummary": "Create settings UI for users",
+    "requirements": ["Design UI", "Implement form"]
+  },
+  "completenessValidation": {
+    "isComplete": false,
+    "missingFields": ["No mockups provided"],
+    "feasibilityScore": 70,
+    "feasibilityReasoning": "Standard CRUD but needs design"
+  },
+  "suggestedLabels": ["feature", "frontend"],
+  "versionRecommendation": {
+    "recommendedVersion": "2.8.0",
+    "versionType": "minor",
+    "reasoning": "New feature requires minor increment"
+  },
+  "taskProperties": {
+    "category": "feature",
+    "complexity": "medium",
+    "impact": "medium",
+    "priority": "p3",
+    "rationale": "Nice to have feature"
+  }
+}
+```
+
+I hope this helps!"""
+
+        # Extract JSON from markdown code block
+        match = re.search(r"```json\s*(.*?)\s*```", response_text, re.DOTALL)
+        assert match is not None
+        json_str = match.group(1)
+        parsed = json.loads(json_str)
+
+        assert parsed["contentAnalysis"]["title"] == "Add user settings page"
+        assert parsed["completenessValidation"]["isComplete"] is False
+        assert parsed["completenessValidation"]["missingFields"] == [
+            "No mockups provided"
+        ]
+
+    def test_parse_malformed_json_raises_error(self):
+        """Malformed JSON should raise JSON decode error."""
+        import json
+
+        response_text = """{
+  "contentAnalysis": {
+    "title": "Broken JSON"
+  },
+  # This is a comment - invalid JSON
+  "invalid": [
+}"""
+
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(response_text)
+
+    def test_parse_response_with_text_around_json(self):
+        """Response with explanatory text before/after JSON should extract JSON."""
+        import json
+        import re
+
+        response_text = """I've analyzed this ticket and here are my findings:
+
+The ticket is well-structured but missing some details.
+
+```json
+{
+  "contentAnalysis": {
+    "title": "API Rate Limiting",
+    "descriptionSummary": "Implement rate limiting on API endpoints",
+    "requirements": ["Add rate limiter middleware", "Configure limits"]
+  },
+  "completenessValidation": {
+    "isComplete": true,
+    "missingFields": [],
+    "feasibilityScore": 90,
+    "feasibilityReasoning": "Standard implementation pattern"
+  },
+  "suggestedLabels": ["feature", "backend", "api"],
+  "versionRecommendation": {
+    "recommendedVersion": "1.1.0",
+    "versionType": "minor",
+    "reasoning": "New feature"
+  },
+  "taskProperties": {
+    "category": "feature",
+    "complexity": "medium",
+    "impact": "medium",
+    "priority": "p3",
+    "rationale": "Infrastructure improvement"
+  }
+}
+```
+
+Let me know if you need more details!"""
+
+        # Extract JSON from markdown code block
+        match = re.search(r"```json\s*(.*?)\s*```", response_text, re.DOTALL)
+        assert match is not None
+        json_str = match.group(1)
+        parsed = json.loads(json_str)
+
+        assert parsed["contentAnalysis"]["title"] == "API Rate Limiting"
+        assert parsed["suggestedLabels"] == ["feature", "backend", "api"]

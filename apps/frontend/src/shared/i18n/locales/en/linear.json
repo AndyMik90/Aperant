@@ -20,6 +20,8 @@
 	"analysisInProgress": "AI Analysis in Progress...",
 	"analysisComplete": "Analysis Complete",
 	"validationInProgress": "Validation in Progress",
+	"startingValidation": "Starting validation...",
+	"validating": "Validating...",
 	"waitingForChanges": "Waiting for Changes",
 	"validationComplete": "Validation Complete",
 	"validationStatus": "Validation Status",

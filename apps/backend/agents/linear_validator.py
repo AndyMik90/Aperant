@@ -17,6 +17,7 @@ import asyncio
 import logging
 import os
 import random
+import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -32,6 +33,11 @@ if TYPE_CHECKING:
     from core.client import ClaudeSDKClient
 
 logger = logging.getLogger(__name__)
+
+# Debug flag for Linear validation (controlled by DEBUG_LINEAR_VALIDATION env var)
+DEBUG_LINEAR_VALIDATION = (
+    os.getenv("DEBUG_LINEAR_VALIDATION", "false").lower() == "true"
+)
 
 T = TypeVar("T")
 
@@ -611,17 +617,35 @@ class LinearValidationAgent:
         if cached_result is not None:
             return cached_result
 
+        # Debug logging for validation start
+        if DEBUG_LINEAR_VALIDATION:
+            logger.debug(f"[LINEAR_VALIDATION] Starting validation for {issue_id}")
+
         # Perform validation if not cached
         client = self.create_client()
 
         # Build validation prompt with 5-step workflow
         prompt = self._build_validation_prompt(issue_id, issue_data, current_version)
 
+        # Debug: Log prompt (truncated)
+        if DEBUG_LINEAR_VALIDATION:
+            prompt_preview = prompt[:500] + "..." if len(prompt) > 500 else prompt
+            logger.debug(
+                f"[LINEAR_VALIDATION] Prompt ({len(prompt)} chars): {prompt_preview}"
+            )
+
         # Run validation session with streaming and retry logic
         async with client:
 
             async def run_validation_session():
                 """Run the validation session with retry and timeout support."""
+                # Debug: Phase 1 start
+                if DEBUG_LINEAR_VALIDATION:
+                    logger.debug(
+                        "[LINEAR_VALIDATION] Phase 1: Content Analysis - starting"
+                    )
+                    phase_start_time = time.time()
+
                 # Wrap the session call with timeout
                 try:
                     status, response = await asyncio.wait_for(
@@ -634,6 +658,37 @@ class LinearValidationAgent:
                         ),
                         timeout=self.session_timeout,
                     )
+
+                    # Debug: Phase 1 complete, Phases 2-5 are handled by the AI in a single call
+                    if DEBUG_LINEAR_VALIDATION:
+                        phase_elapsed = time.time() - phase_start_time
+                        logger.debug(
+                            f"[LINEAR_VALIDATION] Phase 1: Content Analysis - complete ({phase_elapsed:.2f}s)"
+                        )
+                        logger.debug(
+                            "[LINEAR_VALIDATION] Phase 2: Completeness Validation - starting"
+                        )
+                        logger.debug(
+                            "[LINEAR_VALIDATION] Phase 3: Labels Selection - starting"
+                        )
+                        logger.debug(
+                            "[LINEAR_VALIDATION] Phase 4: Version Label - starting"
+                        )
+                        logger.debug(
+                            "[LINEAR_VALIDATION] Phase 5: Task Properties - starting"
+                        )
+
+                    # Debug: Log response (truncated)
+                    if DEBUG_LINEAR_VALIDATION:
+                        response_preview = (
+                            response[:1000] + "..."
+                            if len(response) > 1000
+                            else response
+                        )
+                        logger.debug(
+                            f"[LINEAR_VALIDATION] Raw AI response ({len(response)} chars): {response_preview}"
+                        )
+
                     return response
                 except asyncio.TimeoutError:
                     logger.error(
@@ -657,12 +712,30 @@ class LinearValidationAgent:
             )
 
         # Parse and structure the validation results
+        if DEBUG_LINEAR_VALIDATION:
+            logger.debug("[LINEAR_VALIDATION] Parsing validation result")
+            parse_start_time = time.time()
+
         result = self._parse_validation_result(
             issue_id, response, issue_data, current_version
         )
 
+        if DEBUG_LINEAR_VALIDATION:
+            parse_elapsed = time.time() - parse_start_time
+            logger.debug(
+                f"[LINEAR_VALIDATION] Phases 2-5: Completeness, Labels, Version, Properties - complete ({parse_elapsed:.2f}s)"
+            )
+            logger.debug(
+                f"[LINEAR_VALIDATION] Confidence: {result.get('confidence', 0):.2f}, "
+                f"Work Type: {result.get('analysis', {}).get('work_type', 'unknown')}, "
+                f"Recommended Labels: {result.get('recommended_labels', [])}"
+            )
+
         # Save to cache
         self._save_result(issue_id, validation_timestamp, result)
+
+        if DEBUG_LINEAR_VALIDATION:
+            logger.debug(f"[LINEAR_VALIDATION] Validation complete for {issue_id}")
 
         return result
 

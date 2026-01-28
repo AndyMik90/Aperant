@@ -19,6 +19,8 @@
 	"analysisInProgress": "Analyse IA en Cours...",
 	"analysisComplete": "Analyse Terminée",
 	"validationInProgress": "Validation en Cours",
+	"startingValidation": "Démarrage de la validation...",
+	"validating": "Validation...",
 	"waitingForChanges": "En Attente de Changements",
 	"validationComplete": "Validation Terminée",
 	"validationStatus": "Statut de Validation",

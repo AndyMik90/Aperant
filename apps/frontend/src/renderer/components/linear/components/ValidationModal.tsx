@@ -90,6 +90,16 @@ export function ValidationModal({
 	// UI state
 	const [isCreating, setIsCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [isInitialLoad, setIsInitialLoad] = useState(false);
+
+	// Track initial loading state when modal opens
+	useEffect(() => {
+		if (open && !validation) {
+			setIsInitialLoad(true);
+		} else if (validation) {
+			setIsInitialLoad(false);
+		}
+	}, [open, validation]);
 
 	// Initialize editable values when validation changes
 	useEffect(() => {
@@ -114,7 +124,7 @@ export function ValidationModal({
 			}),
 			status: validation?.contentAnalysis
 				? "complete"
-				: validation?.status === "validating"
+				: validation?.status === "validating" || isInitialLoad
 					? "in_progress"
 					: "pending",
 			icon: FileText,
@@ -126,7 +136,7 @@ export function ValidationModal({
 			}),
 			status: validation?.completenessValidation
 				? "complete"
-				: validation?.status === "validating"
+				: validation?.status === "validating" || isInitialLoad
 					? "in_progress"
 					: "pending",
 			icon: CheckCircle2,
@@ -138,7 +148,7 @@ export function ValidationModal({
 			}),
 			status: validation?.suggestedLabels?.length
 				? "complete"
-				: validation?.status === "validating"
+				: validation?.status === "validating" || isInitialLoad
 					? "in_progress"
 					: "pending",
 			icon: Tag,
@@ -150,7 +160,7 @@ export function ValidationModal({
 			}),
 			status: validation?.versionRecommendation
 				? "complete"
-				: validation?.status === "validating"
+				: validation?.status === "validating" || isInitialLoad
 					? "in_progress"
 					: "pending",
 			icon: TrendingUp,
@@ -162,7 +172,7 @@ export function ValidationModal({
 			}),
 			status: validation?.taskProperties
 				? "complete"
-				: validation?.status === "validating"
+				: validation?.status === "validating" || isInitialLoad
 					? "in_progress"
 					: "pending",
 			icon: Settings,
@@ -637,6 +647,18 @@ export function ValidationModal({
 				</DialogHeader>
 
 				<div className="flex-1 overflow-y-auto space-y-6 py-4">
+					{/* Initial loading indicator */}
+					{isInitialLoad && !validation && (
+						<div className="flex flex-col items-center justify-center py-12">
+							<Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+							<p className="text-sm text-muted-foreground">
+								{t("linear:startingValidation", {
+									defaultValue: "Starting validation...",
+								})}
+							</p>
+						</div>
+					)}
+
 					{/* Validation Steps */}
 					<div className="space-y-2">
 						<Label className="text-sm font-medium text-muted-foreground">
@@ -755,10 +777,19 @@ export function ValidationModal({
 					<Button
 						variant="outline"
 						onClick={() => onOpenChange(false)}
-						disabled={isCreating}
+						disabled={isCreating || (validation?.status === "validating" || isInitialLoad)}
 					>
 						{t("linear:cancel", { defaultValue: "Cancel" })}
 					</Button>
+
+					{/* Show loading button during validation */}
+					{(validation?.status === "validating" || isInitialLoad) && (
+						<Button disabled>
+							<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+							{t("linear:validating", { defaultValue: "Validating..." })}
+						</Button>
+					)}
+
 					{validation?.status === "complete" && (
 						<Button onClick={handleCreateTask} disabled={isCreating}>
 							{isCreating ? (
