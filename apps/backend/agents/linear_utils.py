@@ -58,11 +58,14 @@ async def fetch_linear_ticket(ticket_id: str, api_key: str) -> dict[str, Any] | 
     }
     """
 
+    # OAuth tokens should use Bearer prefix
+    authorization = api_key if api_key.startswith("lin_api_") else f"Bearer {api_key}"
+
     try:
         response = requests.post(
             "https://api.linear.app/graphql",
             json={"query": query, "variables": {"ticketId": ticket_id}},
-            headers={"Authorization": api_key},
+            headers={"Authorization": authorization},
             timeout=30,
         )
         response.raise_for_status()

@@ -336,11 +336,14 @@ async def _fetch_team_tickets(team_id: str, api_key: str) -> list[dict[str, Any]
     }
     """
 
+    # OAuth tokens should use Bearer prefix
+    authorization = api_key if api_key.startswith("lin_api_") else f"Bearer {api_key}"
+
     try:
         response = requests.post(
             "https://api.linear.app/graphql",
             json={"query": query, "variables": {"teamId": team_id}},
-            headers={"Authorization": api_key},
+            headers={"Authorization": authorization},
             timeout=30,
         )
         response.raise_for_status()
