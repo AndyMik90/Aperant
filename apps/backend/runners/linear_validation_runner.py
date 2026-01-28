@@ -46,6 +46,22 @@ from agents.linear_validator import ValidationError, create_linear_validator
 logger = logging.getLogger(__name__)
 
 
+def load_project_env(project_dir: Path) -> None:
+    """Load project-specific .env file (for LINEAR_API_KEY).
+
+    Args:
+        project_dir: Project directory path
+    """
+    # Try common auto-build paths
+    for auto_build_path in [".auto-claude", ".auto-claude-worktrees"]:
+        project_env_file = project_dir / auto_build_path / ".env"
+        if project_env_file.exists():
+            load_dotenv(project_env_file, override=True)
+            logger.info(f"Loaded project .env from {project_env_file}")
+            return
+    logger.warning(f"No project .env found in {project_dir}")
+
+
 def output_result(result: dict) -> None:
     """Output result as JSON to stdout."""
     print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -265,6 +281,9 @@ async def main():
     )
 
     args = parser.parse_args()
+
+    # Load project-specific .env file (for LINEAR_API_KEY)
+    load_project_env(args.project_dir)
 
     # Validate project directory
     project_dir = args.project_dir.resolve()
