@@ -269,6 +269,9 @@ export function runPythonSubprocess<T = unknown>(
           // Check for auth failures in real-time (only emit once)
           checkAuthFailure(line);
 
+          // Check for billing/credit failures in real-time (only emit once)
+          checkBillingFailure(line);
+
           // Parse progress updates
           const match = line.match(progressPattern);
           if (match && options.onProgress) {
@@ -291,6 +294,9 @@ export function runPythonSubprocess<T = unknown>(
 
           // Also check stderr for auth failures
           checkAuthFailure(line);
+
+          // Also check stderr for billing/credit failures
+          checkBillingFailure(line);
         }
       }
     });
@@ -319,6 +325,18 @@ export function runPythonSubprocess<T = unknown>(
           stdout,
           stderr,
           error: 'Authentication failed. Please re-authenticate.',
+        });
+        return;
+      }
+
+      // Check if subprocess was killed due to billing/credit failure
+      if (killedDueToBillingFailure) {
+        resolve({
+          success: false,
+          exitCode: exitCode,
+          stdout,
+          stderr,
+          error: 'Billing or credit error. Please check your account.',
         });
         return;
       }
