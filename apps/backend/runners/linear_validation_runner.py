@@ -85,7 +85,7 @@ def _serialize_validation_result(result: dict, ticket_id: str) -> dict:
             and completeness.get("description_sufficient", False),
             "feasibilityScore": completeness.get("feasibility_score", 0.0),
             "missingFields": completeness.get("missing_info", []),
-            "validationNotes": completeness.get("feasibility", ""),
+            "validationNotes": completeness.get("rating", ""),
         },
         "suggestedLabels": [
             {

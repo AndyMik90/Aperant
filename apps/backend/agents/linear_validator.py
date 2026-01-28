@@ -721,7 +721,7 @@ Please complete the following 5 steps and provide your results in a structured f
 - Check if title is clear and descriptive
 - Verify description provides sufficient context
 - Identify missing information (requirements, reproduction steps, etc.)
-- Assess technical feasibility
+- Assess technical feasibility as a score (0-100, where 100 = highly feasible)
 - Rate completeness: Complete, Needs Clarification, or Incomplete
 
 ### Step 3: Auto-Select Labels
@@ -762,7 +762,7 @@ Please provide your results in the following structured format:
     "title_clear": true|false,
     "description_sufficient": true|false,
     "missing_info": ["List of missing information"],
-    "feasibility": "feasible|needs_clarification|not_feasible",
+    "feasibility_score": 0-100,
     "rating": "complete|needs_clarification|incomplete"
   }},
   "recommended_labels": [
