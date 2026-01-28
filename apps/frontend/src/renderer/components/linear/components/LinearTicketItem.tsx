@@ -99,8 +99,6 @@ function ValidationStatusFlow({
 		flowState = "validated";
 	} else if (isValidating) {
 		flowState = "validating";
-	} else if (hasResult) {
-		flowState = "validated";
 	}
 
 	// Linear doesn't track changes after posting or blocking findings
