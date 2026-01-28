@@ -462,7 +462,7 @@ export function MemoryBackendSection({
                     graphitiProviderConfig: {
                       ...envConfig.graphitiProviderConfig,
                       embeddingProvider: 'ollama',
-                      ollamaEmbeddingDim: parseInt(e.target.value) || undefined,
+                      ollamaEmbeddingDim: parseInt(e.target.value, 10) || undefined,
                     }
                   })}
                 />

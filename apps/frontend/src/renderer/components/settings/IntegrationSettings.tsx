@@ -804,7 +804,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                           <select
                             className="w-full px-3 py-2 bg-background border border-input rounded-md text-sm"
                             value={autoSwitchSettings?.usageCheckInterval ?? 30000}
-                            onChange={(e) => handleUpdateAutoSwitch({ usageCheckInterval: parseInt(e.target.value) })}
+                            onChange={(e) => handleUpdateAutoSwitch({ usageCheckInterval: parseInt(e.target.value, 10) })}
                             disabled={isLoadingAutoSwitch}
                           >
                             <option value={15000}>{t('integrations.seconds15')}</option>
@@ -826,7 +826,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                             max="99"
                             step="1"
                             value={autoSwitchSettings?.sessionThreshold ?? 95}
-                            onChange={(e) => handleUpdateAutoSwitch({ sessionThreshold: parseInt(e.target.value) })}
+                            onChange={(e) => handleUpdateAutoSwitch({ sessionThreshold: parseInt(e.target.value, 10) })}
                             disabled={isLoadingAutoSwitch}
                             className="w-full"
                           />
@@ -847,7 +847,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                             max="99"
                             step="1"
                             value={autoSwitchSettings?.weeklyThreshold ?? 99}
-                            onChange={(e) => handleUpdateAutoSwitch({ weeklyThreshold: parseInt(e.target.value) })}
+                            onChange={(e) => handleUpdateAutoSwitch({ weeklyThreshold: parseInt(e.target.value, 10) })}
                             disabled={isLoadingAutoSwitch}
                             className="w-full"
                           />

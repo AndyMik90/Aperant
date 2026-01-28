@@ -372,12 +372,10 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                           {t('tasks:labels.stuck')}
                         </Badge>
                       ) : state.isIncomplete ? (
-                        <>
-                          <Badge variant="warning" className="text-xs flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            {t('tasks:labels.incomplete')}
-                          </Badge>
-                        </>
+                        <Badge variant="warning" className="text-xs flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          {t('tasks:labels.incomplete')}
+                        </Badge>
                       ) : (
                         <>
                            <Badge
