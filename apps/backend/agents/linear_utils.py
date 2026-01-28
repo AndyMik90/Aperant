@@ -5,6 +5,7 @@ Linear Utility Functions Module
 Shared utility functions for Linear integration agents.
 """
 
+import asyncio
 import logging
 from typing import Any
 
@@ -61,16 +62,21 @@ async def fetch_linear_ticket(ticket_id: str, api_key: str) -> dict[str, Any] | 
     # OAuth tokens should use Bearer prefix
     authorization = api_key if api_key.startswith("lin_api_") else f"Bearer {api_key}"
 
-    try:
-        response = requests.post(
-            "https://api.linear.app/graphql",
-            json={"query": query, "variables": {"ticketId": ticket_id}},
-            headers={"Authorization": authorization},
-            timeout=30,
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data.get("data", {}).get("issue")
-    except Exception as e:
-        logger.error(f"Failed to fetch ticket {ticket_id}: {e}")
-        return None
+    def _make_request() -> dict[str, Any] | None:
+        """Synchronous request function to run in thread pool."""
+        try:
+            response = requests.post(
+                "https://api.linear.app/graphql",
+                json={"query": query, "variables": {"ticketId": ticket_id}},
+                headers={"Authorization": authorization},
+                timeout=30,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get("data", {}).get("issue")
+        except Exception as e:
+            logger.error(f"Failed to fetch ticket {ticket_id}: {e}")
+            return None
+
+    # Run blocking request in thread pool to avoid blocking event loop
+    return await asyncio.to_thread(_make_request)
