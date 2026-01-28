@@ -158,6 +158,29 @@ export interface AuthFailureInfo {
 }
 
 /**
+ * Billing/credit exhaustion failure information for SDK/CLI operations.
+ * Emitted when Claude API returns billing-related errors (HTTP 400 with
+ * invalid_request_error), indicating the account has insufficient credits,
+ * exceeded usage limits, or has a billing configuration issue.
+ */
+export interface BillingFailureInfo {
+  /** The profile ID that has billing issues */
+  profileId: string;
+  /** The profile name for display */
+  profileName?: string;
+  /** Type of billing failure */
+  failureType: 'insufficient_credits' | 'payment_required' | 'subscription_inactive' | 'unknown';
+  /** User-friendly message describing the failure */
+  message: string;
+  /** Original error message from the process output */
+  originalError?: string;
+  /** Task ID if applicable (for task-related billing failures) */
+  taskId?: string;
+  /** When detected (Note: serialized as ISO string over IPC) */
+  detectedAt: Date;
+}
+
+/**
  * Request to retry a rate-limited operation with a different profile
  */
 export interface RetryWithProfileRequest {
