@@ -71,8 +71,7 @@ interface ValidationStatusFlowProps {
 	t: (key: string) => string;
 }
 
-type FlowState = "not_started" | "validating" | "validated" | "updated";
-type FinalStatus = "success" | "warning" | "followup";
+type FlowState = "not_started" | "validating" | "validated";
 
 function ValidationStatusFlow({
 	validationInfo,
@@ -100,9 +99,6 @@ function ValidationStatusFlow({
 	} else if (isValidating) {
 		flowState = "validating";
 	}
-
-	// Linear doesn't track changes after posting or blocking findings
-	const finalStatus: FinalStatus = "success";
 
 	// Dot styles based on state
 	const getDotStyle = (dotIndex: 0 | 1 | 2) => {
@@ -132,24 +128,6 @@ function ValidationStatusFlow({
 			return cn(baseClasses, "bg-muted-foreground/30");
 		}
 
-		// Updated - all dots filled with final status color
-		if (flowState === "updated") {
-			const statusColors = {
-				success: "bg-emerald-400",
-				warning: "bg-red-400",
-				followup: "bg-cyan-400",
-			};
-			// First two dots stay with their process colors
-			if (dotIndex === 0) {
-				return cn(baseClasses, "bg-amber-400");
-			}
-			if (dotIndex === 1) {
-				return cn(baseClasses, "bg-blue-400");
-			}
-			// Third dot shows final status
-			return cn(baseClasses, statusColors[finalStatus]);
-		}
-
 		return cn(baseClasses, "bg-muted-foreground/30");
 	};
 
@@ -170,23 +148,6 @@ function ValidationStatusFlow({
 				textColor: "text-blue-400",
 			};
 		}
-		if (flowState === "updated") {
-			const statusConfig = {
-				success: {
-					label: t("linear:analysisComplete"),
-					textColor: "text-emerald-400",
-				},
-				warning: {
-					label: t("linear:analysisComplete"),
-					textColor: "text-red-400",
-				},
-				followup: {
-					label: t("linear:oneNewChange"),
-					textColor: "text-cyan-400",
-				},
-			};
-			return statusConfig[finalStatus];
-		}
 		return null;
 	};
 
@@ -197,14 +158,6 @@ function ValidationStatusFlow({
 		if (flowState === "not_started") return t("linear:selectTicket");
 		if (flowState === "validating") return t("linear:validationInProgress");
 		if (flowState === "validated") return t("linear:validationComplete");
-		if (flowState === "updated") {
-			const statusConfig = {
-				success: t("linear:analysisComplete"),
-				warning: t("linear:analysisComplete"),
-				followup: t("linear:oneNewChange"),
-			};
-			return statusConfig[finalStatus];
-		}
 		return "";
 	};
 
