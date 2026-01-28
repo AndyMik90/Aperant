@@ -16,6 +16,7 @@ import {
 	validateLinearTicket,
 	validateLinearTicketBatch,
 } from "../../../stores/linear-store";
+import { debugLog, debugWarn, debugError } from "@shared/utils/debug-logger";
 
 // Re-export types for consumers
 export type {
@@ -262,14 +263,20 @@ export function useLinearTickets(
 			ticketId: string,
 			skipCache: boolean = false,
 		): Promise<ValidationResult | null> => {
-			if (!projectId) return null;
+			debugLog("[useLinearTickets] validateTicket called, ticketId:", ticketId, "projectId:", projectId);
+			if (!projectId) {
+				debugWarn("[useLinearTickets] No projectId available");
+				return null;
+			}
 
 			try {
 				const result = await validateLinearTicket(projectId, ticketId, skipCache);
+				debugLog("[useLinearTickets] Validation result:", result);
 				return result;
 			} catch (err) {
 				const errorMessage =
 					err instanceof Error ? err.message : "Validation failed";
+				debugError("[useLinearTickets] Validation error:", err);
 				useLinearStore.getState().setError(errorMessage);
 				return null;
 			}

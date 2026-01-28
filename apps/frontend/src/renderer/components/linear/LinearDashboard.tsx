@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { debugLog, debugWarn } from "@shared/utils/debug-logger";
 import { useToast } from "../../hooks/use-toast";
 import { useLinearStore } from "../../stores/linear-store";
 import { useProjectStore } from "../../stores/project-store";
@@ -153,10 +154,17 @@ export function LinearDashboard({
 	} = useLinearFiltering(tickets);
 
 	const handleRunValidation = useCallback(async () => {
-		if (selectedTicketId) {
-			await runValidation(selectedTicketId);
+		debugLog("[LinearDashboard] handleRunValidation called, selectedTicketId:", selectedTicketId, "selectedTicket:", selectedTicket);
+		// Use the Linear identifier (e.g., "LIN-123") instead of UUID
+		const linearIdentifier = selectedTicket?.identifier;
+		if (linearIdentifier) {
+			debugLog("[LinearDashboard] Running validation for Linear identifier:", linearIdentifier);
+			const result = await runValidation(linearIdentifier);
+			debugLog("[LinearDashboard] Validation result received:", result);
+		} else {
+			debugWarn("[LinearDashboard] No Linear identifier available for validation");
 		}
-	}, [selectedTicketId, runValidation]);
+	}, [selectedTicketId, selectedTicket, runValidation]);
 
 	const handleClearCache = useCallback(async () => {
 		setIsClearingCache(true);

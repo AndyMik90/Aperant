@@ -9,6 +9,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
 import { useTranslation } from "react-i18next";
+import { debugLog, debugError } from "@shared/utils/debug-logger";
 import type {
 	LinearTicket,
 	ValidationResult,
@@ -19,7 +20,7 @@ interface LinearTicketDetailProps {
 	ticket: LinearTicket | null;
 	validationResult: ValidationResult | null;
 	isValidating: boolean;
-	onRunValidation: () => void;
+	onRunValidation: () => Promise<void>;
 }
 
 export function LinearTicketDetail({
@@ -54,8 +55,14 @@ export function LinearTicketDetail({
 	}
 
 	const handleValidate = async () => {
-		await onRunValidation();
-		setShowValidationModal(true);
+		debugLog("[LinearTicketDetail] handleValidate called, ticket:", ticket?.id);
+		try {
+			await onRunValidation();
+			debugLog("[LinearTicketDetail] Validation completed, showing modal");
+			setShowValidationModal(true);
+		} catch (error) {
+			debugError("[LinearTicketDetail] Validation failed:", error);
+		}
 	};
 
 	const getPriorityBadgeClass = (priority: number) => {
@@ -365,11 +372,11 @@ export function LinearTicketDetail({
 			)}
 
 			{/* Validation Modal */}
-			{ticket.id && (
+			{ticket.identifier && (
 				<ValidationModal
 					open={showValidationModal}
 					onOpenChange={setShowValidationModal}
-					ticketId={ticket.id}
+					ticketId={ticket.identifier}
 					validation={validationResult}
 				/>
 			)}

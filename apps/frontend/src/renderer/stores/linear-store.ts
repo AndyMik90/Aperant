@@ -6,6 +6,7 @@ import type {
 	LinearTicket,
 	ValidationResult,
 } from "../../shared/types";
+import { debugLog, debugWarn } from "@shared/utils/debug-logger";
 
 interface LinearState {
 	// State
@@ -382,8 +383,9 @@ export async function validateLinearTicket(
 	});
 
 	try {
+		debugLog("[validateLinearTicket] Starting validation for ticket:", ticketId, "projectId:", projectId);
 		if (!window.electronAPI?.validateLinearTicket) {
-			console.warn("[validateLinearTicket] Linear API not available");
+			debugWarn("[validateLinearTicket] Linear API not available");
 			return null;
 		}
 
