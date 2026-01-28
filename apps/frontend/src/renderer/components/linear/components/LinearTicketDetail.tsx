@@ -5,6 +5,9 @@ import {
 	Loader2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
 import { useTranslation } from "react-i18next";
 import type {
 	LinearTicket,
@@ -45,7 +48,7 @@ export function LinearTicketDetail({
 				aria-live="polite"
 			>
 				<Clock className="w-5 h-5 mr-2" aria-hidden="true" />
-				<p>{t("linear.selectTicket")}</p>
+				<p>{t("linear:selectTicket")}</p>
 			</div>
 		);
 	}
@@ -157,7 +160,7 @@ export function LinearTicketDetail({
 			<div
 				className="flex flex-wrap gap-2"
 				role="list"
-				aria-label={t("linear.ticketMetadata")}
+				aria-label={t("linear:ticketMetadata")}
 			>
 				<div
 					className="px-2 py-1 rounded-md bg-secondary text-sm"
@@ -210,7 +213,7 @@ export function LinearTicketDetail({
 				<div
 					className="flex flex-wrap gap-1"
 					role="list"
-					aria-label={t("linear.labels")}
+					aria-label={t("linear:labels")}
 				>
 					{ticket.labels.map((label: { id: string; name: string; color: string }) => (
 						<span
@@ -220,7 +223,7 @@ export function LinearTicketDetail({
 								backgroundColor: label.color ? `${label.color}20` : undefined,
 							}}
 							role="listitem"
-							aria-label={t("linear.labelAriaLabel", { name: label.name })}
+							aria-label={t("linear:labelAriaLabel", { name: label.name })}
 						>
 							{label.name}
 						</span>
@@ -231,11 +234,61 @@ export function LinearTicketDetail({
 			{/* Description */}
 			<div className="flex-1">
 				<h3 className="text-sm font-medium mb-2">{t("linear:description")}</h3>
-				<div className="p-3 rounded-md bg-secondary/50">
+				<div className="p-3 rounded-md bg-secondary/50 text-sm text-foreground [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:mt-2 [&_h3]:mb-1 [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_blockquote]:my-2 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-muted [&_code]:text-xs [&_code]:font-mono [&_pre]:my-3 [&_pre]:p-3 [&_pre]:bg-muted [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_a]:text-primary [&_a]:hover:underline">
 					{ticket.description ? (
-						<p className="text-sm text-foreground whitespace-pre-wrap break-words">
+						<ReactMarkdown
+							remarkPlugins={[remarkGfm]}
+							rehypePlugins={[rehypeSanitize]}
+							skipHtml={false}
+							components={{
+								// Custom code component with syntax detection and styling
+								code({ inline, className, children, ...props }: any) {
+									const match = /language-(\w+)/.exec(className || '');
+									const hasLanguage = match && match[1];
+
+									// Inline code
+									if (inline) {
+										return (
+											<code
+												className="px-1 py-0.5 bg-muted dark:bg-muted/70 rounded text-xs font-mono text-foreground"
+											>
+												{children}
+											</code>
+										);
+									}
+
+									// Block code with language detection
+									return (
+										<div className="group relative my-3 not-prose">
+											{hasLanguage && (
+												<span className="absolute top-2 right-2 px-2 py-0.5 text-xs font-mono text-muted-foreground bg-muted/50 rounded select-none">
+													{match[1]}
+												</span>
+											)}
+											<pre className="bg-muted dark:bg-muted/80 p-3 rounded-lg overflow-x-auto text-sm border border-border/50">
+												<code className={className}>{children}</code>
+											</pre>
+										</div>
+									);
+								},
+								// Custom link component
+								a({ href, children, ...props }: any) {
+									return (
+										<a
+											href={href}
+											className="text-primary hover:underline inline-flex items-center gap-0.5"
+											target="_blank"
+											rel="noopener noreferrer"
+											{...props}
+										>
+											{children}
+										</a>
+									);
+								},
+							}}
+						>
 							{ticket.description}
-						</p>
+						</ReactMarkdown>
 					) : (
 						<p className="text-sm text-muted-foreground italic">
 							{t("linear:noDescription")}

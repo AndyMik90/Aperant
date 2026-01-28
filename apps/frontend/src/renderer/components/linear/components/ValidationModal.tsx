@@ -69,7 +69,7 @@ export function ValidationModal({
 	ticketId,
 	validation,
 }: ValidationModalProps) {
-	const { t } = useTranslation(["common", "tasks"]);
+	const { t } = useTranslation(["common", "tasks", "linear"]);
 
 	// Edit mode state for each section
 	const [editingLabels, setEditingLabels] = useState(false);
@@ -109,7 +109,7 @@ export function ValidationModal({
 	const validationSteps: ValidationStep[] = [
 		{
 			id: "analyze",
-			label: t("common:linear.validationSteps.analyze", {
+			label: t("linear:validationSteps.analyze", {
 				defaultValue: "Analyze Content",
 			}),
 			status: validation?.contentAnalysis
@@ -121,7 +121,7 @@ export function ValidationModal({
 		},
 		{
 			id: "completeness",
-			label: t("common:linear.validationSteps.completeness", {
+			label: t("linear:validationSteps.completeness", {
 				defaultValue: "Validate Completeness",
 			}),
 			status: validation?.completenessValidation
@@ -133,7 +133,7 @@ export function ValidationModal({
 		},
 		{
 			id: "labels",
-			label: t("common:linear.validationSteps.labels", {
+			label: t("linear:validationSteps.labels", {
 				defaultValue: "Auto-Select Labels",
 			}),
 			status: validation?.suggestedLabels?.length
@@ -145,7 +145,7 @@ export function ValidationModal({
 		},
 		{
 			id: "version",
-			label: t("common:linear.validationSteps.version", {
+			label: t("linear:validationSteps.version", {
 				defaultValue: "Determine Version",
 			}),
 			status: validation?.versionRecommendation
@@ -157,7 +157,7 @@ export function ValidationModal({
 		},
 		{
 			id: "properties",
-			label: t("common:linear.validationSteps.properties", {
+			label: t("linear:validationSteps.properties", {
 				defaultValue: "Recommend Properties",
 			}),
 			status: validation?.taskProperties
@@ -200,7 +200,7 @@ export function ValidationModal({
 			const errorMessage =
 				err instanceof Error
 					? err.message
-					: t("common:linear.createTaskFailed", {
+					: t("linear:createTaskFailed", {
 							defaultValue: "Failed to create task",
 						});
 			setError(errorMessage);
@@ -280,7 +280,7 @@ export function ValidationModal({
 				<div className="flex items-center justify-between">
 					<Label className="text-base font-semibold flex items-center gap-2">
 						<Tag className="h-4 w-4" />
-						{t("common:linear.labels", { defaultValue: "Labels" })}
+						{t("linear:labels", { defaultValue: "Labels" })}
 					</Label>
 					{!editingLabels && validation?.suggestedLabels?.length && (
 						<Button
@@ -289,7 +289,7 @@ export function ValidationModal({
 							onClick={() => setEditingLabels(true)}
 						>
 							<Edit2 className="h-3 w-3 mr-1" />
-							{t("common:actions.edit", { defaultValue: "Edit" })}
+							{t("linear:actions.edit", { defaultValue: "Edit" })}
 						</Button>
 					)}
 				</div>
@@ -335,7 +335,7 @@ export function ValidationModal({
 									]);
 								}}
 							>
-								{t("common:actions.add", { defaultValue: "Add" })}
+								{t("linear:actions.add", { defaultValue: "Add" })}
 							</Button>
 							<Button
 								variant="default"
@@ -343,7 +343,7 @@ export function ValidationModal({
 								onClick={() => setEditingLabels(false)}
 							>
 								<Save className="h-3 w-3 mr-1" />
-								{t("common:actions.save", { defaultValue: "Save" })}
+								{t("linear:actions.save", { defaultValue: "Save" })}
 							</Button>
 						</div>
 					</div>
@@ -377,7 +377,7 @@ export function ValidationModal({
 				<div className="flex items-center justify-between">
 					<Label className="text-base font-semibold flex items-center gap-2">
 						<TrendingUp className="h-4 w-4" />
-						{t("common:linear.validationSteps.version", {
+						{t("linear:validationSteps.version", {
 							defaultValue: "Version",
 						})}
 					</Label>
@@ -388,7 +388,7 @@ export function ValidationModal({
 							onClick={() => setEditingVersion(true)}
 						>
 							<Edit2 className="h-3 w-3 mr-1" />
-							{t("common:actions.edit", { defaultValue: "Edit" })}
+							{t("linear:actions.edit", { defaultValue: "Edit" })}
 						</Button>
 					)}
 				</div>
@@ -407,14 +407,14 @@ export function ValidationModal({
 							onClick={() => setEditingVersion(false)}
 						>
 							<Save className="h-3 w-3 mr-1" />
-							{t("common:actions.save", { defaultValue: "Save" })}
+							{t("linear:actions.save", { defaultValue: "Save" })}
 						</Button>
 					</div>
 				) : (
 					<div className="space-y-1">
 						<div className="text-sm">
 							<span className="font-medium">
-								{t("common:linear.recommendedVersion", {
+								{t("linear:recommendedVersion", {
 									defaultValue: "Recommended Version",
 								})}
 								:{" "}
@@ -443,7 +443,7 @@ export function ValidationModal({
 				<div className="flex items-center justify-between">
 					<Label className="text-base font-semibold flex items-center gap-2">
 						<Target className="h-4 w-4" />
-						{t("common:linear.taskProperties", {
+						{t("linear:taskProperties", {
 							defaultValue: "Task Properties",
 						})}
 					</Label>
@@ -454,7 +454,7 @@ export function ValidationModal({
 							onClick={() => setEditingProperties(true)}
 						>
 							<Edit2 className="h-3 w-3 mr-1" />
-							{t("common:actions.edit", { defaultValue: "Edit" })}
+							{t("linear:actions.edit", { defaultValue: "Edit" })}
 						</Button>
 					)}
 				</div>
@@ -576,7 +576,7 @@ export function ValidationModal({
 								onClick={() => setEditingProperties(false)}
 							>
 								<Save className="h-3 w-3 mr-1" />
-								{t("common:actions.save", { defaultValue: "Save" })}
+								{t("linear:actions.save", { defaultValue: "Save" })}
 							</Button>
 						</div>
 					</div>
@@ -619,18 +619,18 @@ export function ValidationModal({
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<Target className="h-5 w-5" />
-						{t("common:linear.validation", { defaultValue: "Validation" })}
+						{t("linear:validation", { defaultValue: "Validation" })}
 					</DialogTitle>
 					<DialogDescription>
 						{validation?.status === "validating"
-							? t("common:linear.validationInProgress", {
+							? t("linear:validationInProgress", {
 									defaultValue: "AI validation in progress...",
 								})
 							: validation?.status === "complete"
-								? t("common:linear.validationComplete", {
+								? t("linear:validationComplete", {
 										defaultValue: "Validation complete",
 									})
-								: t("common:linear.analysisInProgress", {
+								: t("linear:analysisInProgress", {
 										defaultValue: "Analyzing ticket...",
 									})}
 					</DialogDescription>
@@ -640,7 +640,7 @@ export function ValidationModal({
 					{/* Validation Steps */}
 					<div className="space-y-2">
 						<Label className="text-sm font-medium text-muted-foreground">
-							{t("common:linear.validationStatus", {
+							{t("linear:validationStatus", {
 								defaultValue: "Validation Status",
 							})}
 						</Label>
@@ -652,7 +652,7 @@ export function ValidationModal({
 						<div className="space-y-2">
 							<Label className="text-base font-semibold flex items-center gap-2">
 								<FileText className="h-4 w-4" />
-								{t("common:linear.contentAnalysis", {
+								{t("linear:contentAnalysis", {
 									defaultValue: "Content Analysis",
 								})}
 							</Label>
@@ -683,7 +683,7 @@ export function ValidationModal({
 						<div className="space-y-2">
 							<Label className="text-base font-semibold flex items-center gap-2">
 								<CheckCircle2 className="h-4 w-4" />
-								{t("common:linear.completenessValidation", {
+								{t("linear:completenessValidation", {
 									defaultValue: "Completeness Validation",
 								})}
 							</Label>
@@ -697,15 +697,15 @@ export function ValidationModal({
 										}
 									>
 										{validation.completenessValidation.isComplete
-											? t("common:linear.complete", {
+											? t("linear:complete", {
 													defaultValue: "Complete",
 												})
-											: t("common:linear.incomplete", {
+											: t("linear:incomplete", {
 													defaultValue: "Incomplete",
 												})}
 									</Badge>
 									<span className="text-muted-foreground">
-										{t("common:linear.feasibilityScore", {
+										{t("linear:feasibilityScore", {
 											defaultValue: "Feasibility",
 										})}
 										: {validation.completenessValidation.feasibilityScore}%
@@ -715,7 +715,7 @@ export function ValidationModal({
 									0 && (
 									<div>
 										<span className="font-medium">
-											{t("common:linear.missingFields", {
+											{t("linear:missingFields", {
 												defaultValue: "Missing Fields",
 											})}
 											:{" "}
@@ -757,19 +757,19 @@ export function ValidationModal({
 						onClick={() => onOpenChange(false)}
 						disabled={isCreating}
 					>
-						{t("common:linear.cancel", { defaultValue: "Cancel" })}
+						{t("linear:cancel", { defaultValue: "Cancel" })}
 					</Button>
 					{validation?.status === "complete" && (
 						<Button onClick={handleCreateTask} disabled={isCreating}>
 							{isCreating ? (
 								<>
 									<Loader2 className="h-4 w-4 mr-2 animate-spin" />
-									{t("common:linear.creating", { defaultValue: "Creating..." })}
+									{t("linear:creating", { defaultValue: "Creating..." })}
 								</>
 							) : (
 								<>
 									<Target className="h-4 w-4 mr-2" />
-									{t("common:linear.createTask", {
+									{t("linear:createTask", {
 										defaultValue: "Create Task",
 									})}
 								</>

@@ -1,7 +1,6 @@
 /**
- * Filter bar for Linear tickets list
- * Grid layout: Search | Team | Project | Status | Labels | Assignee | Priority
- * Multi-select dropdowns with visible chip selections
+ * Filter controls for Linear tickets
+ * Extracted from LinearFilterBar for use in header
  */
 
 import {
@@ -30,11 +29,8 @@ import {
 import { Input } from "../../ui/input";
 import { Separator } from "../../ui/separator";
 
-interface LinearFilterBarProps {
+interface LinearFilterControlsProps {
 	filters: LinearFilters;
-	searchQuery: string;
-	hasActiveFilters: boolean;
-	onSearchChange: (query: string) => void;
 	onTeamChange: (teamId: string | undefined) => void;
 	onProjectChange: (projectId: string | undefined) => void;
 	onStatusChange: (status: string | undefined) => void;
@@ -42,6 +38,8 @@ interface LinearFilterBarProps {
 	onAssigneeChange: (assigneeId: string | undefined) => void;
 	onPriorityChange: (priority: number | undefined) => void;
 	onClearFilters: () => void;
+	hasActiveFilters: boolean;
+	compact?: boolean;
 }
 
 // Priority options
@@ -441,11 +439,12 @@ function SingleSelectDropdown({
 	);
 }
 
-export function LinearFilterBar({
+/**
+ * Main filter controls component
+ * Can be used in compact mode (smaller buttons) or full mode
+ */
+export function LinearFilterControls({
 	filters,
-	searchQuery,
-	hasActiveFilters,
-	onSearchChange,
 	onTeamChange,
 	onProjectChange,
 	onStatusChange,
@@ -453,7 +452,9 @@ export function LinearFilterBar({
 	onAssigneeChange,
 	onPriorityChange,
 	onClearFilters,
-}: LinearFilterBarProps) {
+	hasActiveFilters,
+	compact = false,
+}: LinearFilterControlsProps) {
 	const { t } = useTranslation(["common", "linear"]);
 
 	// Get data from Linear store
@@ -518,163 +519,139 @@ export function LinearFilterBar({
 	const labels = uniqueLabels;
 	const assignees = uniqueAssignees;
 
+	const buttonClass = compact
+		? "flex-1 min-w-[100px] max-w-[140px]"
+		: "flex-1 min-w-[140px] max-w-[200px]";
+
 	return (
-		<div className="px-4 py-2 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-			<div className="flex items-center gap-2 h-9 overflow-x-auto">
-				{/* Search Input */}
-				<div className="relative flex-1 min-w-[200px] max-w-md">
-					<Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-					<Input
-						placeholder={t("linear:searchPlaceholder")}
-						value={searchQuery}
-						onChange={(e) => onSearchChange(e.target.value)}
-						className="h-8 pl-9 bg-background/50 focus:bg-background transition-colors"
-					/>
-					{searchQuery && (
-						<button
-							type="button"
-							onClick={() => onSearchChange("")}
-							className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-							aria-label={t("linear:clearSearch")}
-						>
-							<X className="h-3 w-3" />
-						</button>
-					)}
-				</div>
-
-				<Separator orientation="vertical" className="h-5 mx-1" />
-
-				{/* Team Filter - Single Select */}
-				<div className="flex-1 min-w-[140px] max-w-[200px]">
-					<SingleSelectDropdown
-						title={t("linear:allTeams")}
-						icon={Users}
-						items={teams}
-						selected={filters.teamId}
-						onChange={onTeamChange}
-						clearLabel={t("linear:clearFilters")}
-					/>
-				</div>
-
-				{/* Project Filter - Single Select */}
-				<div className="flex-1 min-w-[140px] max-w-[200px]">
-					<SingleSelectDropdown
-						title={t("linear:allProjects")}
-						icon={FolderKanban}
-						items={projects}
-						selected={filters.projectId}
-						onChange={onProjectChange}
-						clearLabel={t("linear:clearFilters")}
-					/>
-				</div>
-
-				{/* Status Filter - Single Select */}
-				<div className="flex-1 min-w-[140px] max-w-[200px]">
-					<SingleSelectDropdown
-						title={t("linear:allStatuses")}
-						icon={BadgeIcon}
-						items={statuses}
-						selected={filters.status}
-						onChange={onStatusChange}
-						clearLabel={t("linear:clearFilters")}
-					/>
-				</div>
-
-				{/* Labels Filter - Multi Select */}
-				<div className="flex-1 min-w-[140px] max-w-[200px]">
-					<FilterDropdown
-						title={t("linear:labels")}
-						icon={Tag}
-						items={labels}
-						selected={filters.labels || []}
-						onChange={onLabelsChange}
-						searchable={true}
-						searchPlaceholder={t("linear:searchPlaceholder")}
-						selectedCountLabel={t("linear:selectedCount", {
-							count: filters.labels?.length || 0,
-						})}
-						noResultsLabel={t("linear:noResultsFound")}
-						clearLabel={t("linear:clearFilters")}
-						renderItem={(label) => (
-							<div className="flex items-center gap-2">
-								<Tag className="h-3 w-3 text-muted-foreground" />
-								<span className="text-sm">{label}</span>
-							</div>
-						)}
-					/>
-				</div>
-
-				{/* Assignee Filter - Single Select */}
-				<div className="flex-1 min-w-[140px] max-w-[200px]">
-					<SingleSelectDropdown
-						title={t("linear:allAssignees")}
-						icon={User}
-						items={assignees}
-						selected={filters.assigneeId}
-						onChange={onAssigneeChange}
-						clearLabel={t("linear:clearFilters")}
-						renderItem={(item) => (
-							<div className="flex items-center gap-2">
-								<div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
-									<span className="text-[10px] font-medium text-primary">
-										{item.label.slice(0, 2).toUpperCase()}
-									</span>
-								</div>
-								<span className="text-sm">{item.label}</span>
-							</div>
-						)}
-					/>
-				</div>
-
-				{/* Priority Filter - Single Select */}
-				<div className="flex-1 min-w-[140px] max-w-[200px]">
-					<SingleSelectDropdown
-						title={t("linear:allPriorities")}
-						icon={Flag}
-						items={PRIORITY_OPTIONS.map((opt) => ({
-							value: opt.value.toString(),
-							label: opt.label,
-						}))}
-						selected={filters.priority?.toString()}
-						onChange={(value) =>
-							onPriorityChange(value ? parseInt(value, 10) : undefined)
-						}
-						clearLabel={t("linear:clearFilters")}
-						renderItem={(item) => {
-							const priority = parseInt(item.value, 10) as number;
-							const option = PRIORITY_OPTIONS.find(
-								(opt) => opt.value === priority,
-							);
-							if (!option) return null;
-							const Icon = option.icon;
-							return (
-								<div className="flex items-center gap-2">
-									<div className={cn("p-1 rounded-full", option.bgColor)}>
-										<Icon className={cn("h-3 w-3", option.color)} />
-									</div>
-									<span className="text-sm">{option.label}</span>
-								</div>
-							);
-						}}
-					/>
-				</div>
-
-				{/* Reset All */}
-				{hasActiveFilters && (
-					<>
-						<Separator orientation="vertical" className="h-5 mx-1" />
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={onClearFilters}
-							className="h-8 px-2 lg:px-3 text-muted-foreground hover:text-foreground"
-						>
-							<span className="hidden lg:inline mr-2">{t("linear:reset")}</span>
-							<X className="h-4 w-4" />
-						</Button>
-					</>
-				)}
+		<div className="flex items-center gap-2 flex-wrap">
+			{/* Team Filter - Single Select */}
+			<div className={buttonClass}>
+				<SingleSelectDropdown
+					title={t("linear:allTeams")}
+					icon={Users}
+					items={teams}
+					selected={filters.teamId}
+					onChange={onTeamChange}
+					clearLabel={t("linear:clearFilters")}
+				/>
 			</div>
+
+			{/* Project Filter - Single Select */}
+			<div className={buttonClass}>
+				<SingleSelectDropdown
+					title={t("linear:allProjects")}
+					icon={FolderKanban}
+					items={projects}
+					selected={filters.projectId}
+					onChange={onProjectChange}
+					clearLabel={t("linear:clearFilters")}
+				/>
+			</div>
+
+			{/* Status Filter - Single Select */}
+			<div className={buttonClass}>
+				<SingleSelectDropdown
+					title={t("linear:allStatuses")}
+					icon={BadgeIcon}
+					items={statuses}
+					selected={filters.status}
+					onChange={onStatusChange}
+					clearLabel={t("linear:clearFilters")}
+				/>
+			</div>
+
+			{/* Labels Filter - Multi Select */}
+			<div className={buttonClass}>
+				<FilterDropdown
+					title={t("linear:labels")}
+					icon={Tag}
+					items={labels}
+					selected={filters.labels || []}
+					onChange={onLabelsChange}
+					searchable={true}
+					searchPlaceholder={t("linear:searchPlaceholder")}
+					selectedCountLabel={t("linear:selectedCount", {
+						count: filters.labels?.length || 0,
+					})}
+					noResultsLabel={t("linear:noResultsFound")}
+					clearLabel={t("linear:clearFilters")}
+					renderItem={(label) => (
+						<div className="flex items-center gap-2">
+							<Tag className="h-3 w-3 text-muted-foreground" />
+							<span className="text-sm">{label}</span>
+						</div>
+					)}
+				/>
+			</div>
+
+			{/* Assignee Filter - Single Select */}
+			<div className={buttonClass}>
+				<SingleSelectDropdown
+					title={t("linear:allAssignees")}
+					icon={User}
+					items={assignees}
+					selected={filters.assigneeId}
+					onChange={onAssigneeChange}
+					clearLabel={t("linear:clearFilters")}
+					renderItem={(item) => (
+						<div className="flex items-center gap-2">
+							<div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
+								<span className="text-[10px] font-medium text-primary">
+									{item.label.slice(0, 2).toUpperCase()}
+								</span>
+							</div>
+							<span className="text-sm">{item.label}</span>
+						</div>
+					)}
+				/>
+			</div>
+
+			{/* Priority Filter - Single Select */}
+			<div className={buttonClass}>
+				<SingleSelectDropdown
+					title={t("linear:allPriorities")}
+					icon={Flag}
+					items={PRIORITY_OPTIONS.map((opt) => ({
+						value: opt.value.toString(),
+						label: opt.label,
+					}))}
+					selected={filters.priority?.toString()}
+					onChange={(value) =>
+						onPriorityChange(value ? parseInt(value, 10) : undefined)
+					}
+					clearLabel={t("linear:clearFilters")}
+					renderItem={(item) => {
+						const priority = parseInt(item.value, 10) as number;
+						const option = PRIORITY_OPTIONS.find(
+							(opt) => opt.value === priority,
+						);
+						if (!option) return null;
+						const Icon = option.icon;
+						return (
+							<div className="flex items-center gap-2">
+								<div className={cn("p-1 rounded-full", option.bgColor)}>
+									<Icon className={cn("h-3 w-3", option.color)} />
+								</div>
+								<span className="text-sm">{option.label}</span>
+							</div>
+						);
+					}}
+				/>
+			</div>
+
+			{/* Reset All */}
+			{hasActiveFilters && (
+				<Button
+					variant="ghost"
+					size="sm"
+					onClick={onClearFilters}
+					className="h-8 px-2 lg:px-3 text-muted-foreground hover:text-foreground"
+				>
+					<span className="hidden lg:inline mr-2">{t("linear:reset")}</span>
+					<X className="h-4 w-4" />
+				</Button>
+			)}
 		</div>
 	);
 }

@@ -20,7 +20,8 @@ import {
 	TooltipTrigger,
 } from "../ui/tooltip";
 import {
-	LinearFilterBar,
+	LinearFilterControls,
+	LinearSearchBar,
 	LinearTicketDetail,
 	LinearTicketList,
 } from "./components";
@@ -44,14 +45,14 @@ function NotConnectedState({
 		<div className="flex-1 flex items-center justify-center p-8">
 			<div className="text-center max-w-md">
 				<Ticket className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-				<h3 className="text-lg font-medium mb-2">{t("linear.notConnected")}</h3>
+				<h3 className="text-lg font-medium mb-2">{t("linear:notConnected")}</h3>
 				<p className="text-sm text-muted-foreground mb-4">
-					{error || t("linear.connectPrompt")}
+					{error || t("linear:connectPrompt")}
 				</p>
 				{onOpenSettings && (
 					<Button onClick={onOpenSettings} variant="outline">
 						<Settings className="h-4 w-4 mr-2" />
-						{t("linear.openSettings")}
+						{t("linear:openSettings")}
 					</Button>
 				)}
 			</div>
@@ -169,15 +170,15 @@ export function LinearDashboard({
 			}
 
 			toast({
-				title: t("linear.cacheCleared"),
-				description: t("linear.validationCacheClearedDesc"),
+				title: t("linear:cacheCleared"),
+				description: t("linear:validationCacheClearedDesc"),
 				variant: "default",
 			});
 		} catch (err) {
 			toast({
-				title: t("linear.cacheClearFailed"),
+				title: t("linear:cacheClearFailed"),
 				description:
-					err instanceof Error ? err.message : t("linear.cacheClearFailedDesc"),
+					err instanceof Error ? err.message : t("linear:cacheClearFailedDesc"),
 				variant: "destructive",
 			});
 		} finally {
@@ -304,15 +305,15 @@ export function LinearDashboard({
 
 	return (
 		<div className="flex-1 flex flex-col h-full">
-			{/* Header */}
+			{/* Header Row 1: Title, Actions */}
 			<div className="flex items-center justify-between px-4 py-3 border-b border-border">
 				<div className="flex items-center gap-3">
 					<h2 className="text-sm font-medium flex items-center gap-2">
 						<Ticket className="h-4 w-4" />
-						{t("linear.tickets")}
+						{t("linear:tickets")}
 					</h2>
 					<span className="text-xs text-muted-foreground">
-						{tickets.length} {t("linear.tickets")}
+						{tickets.length} {t("linear:tickets")}
 					</span>
 				</div>
 				<div className="flex items-center gap-2">
@@ -333,9 +334,9 @@ export function LinearDashboard({
 								</Button>
 							</TooltipTrigger>
 							<TooltipContent>
-								<p>{t("linear.clearCache")}</p>
+								<p>{t("linear:clearCache")}</p>
 								<p className="text-xs text-muted-foreground mt-1">
-									{t("linear.shortcutHints.clearCache")}
+									{t("linear:shortcutHints.clearCache")}
 								</p>
 							</TooltipContent>
 						</Tooltip>
@@ -357,15 +358,31 @@ export function LinearDashboard({
 							</TooltipTrigger>
 							<TooltipContent>
 								<p>
-									{isLoading ? t("common:loading") : t("linear:shortcutHints.refresh")}
+									{isLoading ? t("linear:loadingTickets") : t("linear:shortcutHints.refresh")}
 								</p>
 								<p className="text-xs text-muted-foreground mt-1">
-									{t("linear.shortcuts.refresh")}
+									{t("linear:shortcuts.refresh")}
 								</p>
 							</TooltipContent>
 						</Tooltip>
 					</TooltipProvider>
 				</div>
+			</div>
+
+			{/* Header Row 2: Filter Controls */}
+			<div className="flex items-center gap-2 px-4 py-2 border-b border-border/50 bg-muted/20 flex-wrap">
+				<LinearFilterControls
+					filters={filters}
+					onTeamChange={setTeamFilter}
+					onProjectChange={setProjectFilter}
+					onStatusChange={setStatusFilter}
+					onLabelsChange={setLabelsFilter}
+					onAssigneeChange={setAssigneeFilter}
+					onPriorityChange={setPriorityFilter}
+					onClearFilters={clearFilters}
+					hasActiveFilters={hasActiveFilters}
+					compact
+				/>
 			</div>
 
 			{/* Content - Resizable split panels */}
@@ -376,19 +393,14 @@ export function LinearDashboard({
 				storageKey="linear-dashboard-panel-width"
 				leftPanel={
 					<div className="flex flex-col h-full">
-						<LinearFilterBar
-							filters={filters}
-							searchQuery={searchQuery}
-							hasActiveFilters={hasActiveFilters}
-							onSearchChange={setSearchQuery}
-							onTeamChange={setTeamFilter}
-							onProjectChange={setProjectFilter}
-							onStatusChange={setStatusFilter}
-							onLabelsChange={setLabelsFilter}
-							onAssigneeChange={setAssigneeFilter}
-							onPriorityChange={setPriorityFilter}
-							onClearFilters={clearFilters}
-						/>
+						{/* Search Bar */}
+						<div className="p-3 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+							<LinearSearchBar
+								searchQuery={searchQuery}
+								onSearchChange={setSearchQuery}
+							/>
+						</div>
+						{/* Ticket List */}
 						<LinearTicketList
 							tickets={filteredTickets}
 							selectedTicketId={selectedTicketId}

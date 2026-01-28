@@ -162,28 +162,28 @@ function ValidationStatusFlow({
 		}
 		if (flowState === "validating") {
 			return {
-				label: t("linear.validationInProgress"),
+				label: t("linear:validationInProgress"),
 				textColor: "text-amber-400",
 			};
 		}
 		if (flowState === "validated") {
 			return {
-				label: t("linear.validationComplete"),
+				label: t("linear:validationComplete"),
 				textColor: "text-blue-400",
 			};
 		}
 		if (flowState === "updated") {
 			const statusConfig = {
 				success: {
-					label: t("linear.analysisComplete"),
+					label: t("linear:analysisComplete"),
 					textColor: "text-emerald-400",
 				},
 				warning: {
-					label: t("linear.analysisComplete"),
+					label: t("linear:analysisComplete"),
 					textColor: "text-red-400",
 				},
 				followup: {
-					label: t("linear.oneNewChange"),
+					label: t("linear:oneNewChange"),
 					textColor: "text-cyan-400",
 				},
 			};
@@ -196,14 +196,14 @@ function ValidationStatusFlow({
 
 	// Get screen reader text for validation status
 	const getValidationSrText = (): string => {
-		if (flowState === "not_started") return t("linear.selectTicket");
-		if (flowState === "validating") return t("linear.validationInProgress");
-		if (flowState === "validated") return t("linear.validationComplete");
+		if (flowState === "not_started") return t("linear:selectTicket");
+		if (flowState === "validating") return t("linear:validationInProgress");
+		if (flowState === "validated") return t("linear:validationComplete");
 		if (flowState === "updated") {
 			const statusConfig = {
-				success: t("linear.analysisComplete"),
-				warning: t("linear.analysisComplete"),
-				followup: t("linear.oneNewChange"),
+				success: t("linear:analysisComplete"),
+				warning: t("linear:analysisComplete"),
+				followup: t("linear:oneNewChange"),
 			};
 			return statusConfig[finalStatus];
 		}
@@ -263,7 +263,7 @@ export function LinearTicketItem({
 	onClick,
 	onToggleSelect,
 }: LinearTicketItemProps) {
-	const { t } = useTranslation("common");
+	const { t } = useTranslation(["common", "linear"]);
 
 	// Generate unique IDs for accessibility
 	const titleId = `ticket-title-${ticket.id}`;

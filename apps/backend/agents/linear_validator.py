@@ -775,6 +775,7 @@ Please provide your results in the following structured format:
     "description_sufficient": true|false,
     "missing_info": ["List of missing information"],
     "feasibility_score": 0-100,
+    "feasibility_reasoning": "Detailed explanation of why this feasibility score was given, including any technical concerns, dependencies, or risks that affect implementation",
     "rating": "complete|needs_clarification|incomplete"
   }},
   "recommended_labels": [

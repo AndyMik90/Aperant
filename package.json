@@ -45,7 +45,8 @@
     "jsdom": "^27.4.0"
   },
   "dependencies": {
-    "lucide-react": "^0.562.0"
+    "lucide-react": "^0.562.0",
+    "rehype-sanitize": "^6.0.0"
   },
   "overrides": {
     "@electron/rebuild": "4.0.2"
