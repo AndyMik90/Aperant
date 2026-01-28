@@ -882,19 +882,6 @@ Begin your analysis now.
             "raw_response": response,
         }
 
-    def validate_batch_limit(self, issue_ids: list[str]) -> None:
-        """
-        Validate that the batch size does not exceed the maximum.
-
-        Args:
-            issue_ids: List of issue IDs to validate
-
-        Raises:
-            ValueError: If batch size exceeds maximum of 5 tickets
-        """
-        # Delegate to module-level function
-        validate_batch_limit(issue_ids)
-
     async def validate_batch(
         self,
         issues: list[dict[str, Any]],
@@ -939,7 +926,8 @@ Begin your analysis now.
                 raise ValueError("All issues must include a non-empty 'id'")
             issue_ids.append(issue_id)
 
-        self.validate_batch_limit(issue_ids)
+        # Validate batch size limit (module-level function)
+        validate_batch_limit(issue_ids)
 
         # Semaphore to limit concurrent validations
         semaphore = asyncio.Semaphore(max_concurrent)
