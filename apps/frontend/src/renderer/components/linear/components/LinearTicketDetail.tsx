@@ -248,6 +248,22 @@ export function LinearTicketDetail({
 							rehypePlugins={[rehypeSanitize]}
 							skipHtml={false}
 							components={{
+								// Fix: Unwrap block-level elements from <p> tags to avoid invalid HTML nesting
+								p({ children }: any) {
+									// Check if children contain block-level elements
+									const hasBlockChild = (children as any[])?.some(
+										(child: any) =>
+											child?.type === 'pre' ||
+											child?.type === 'div' ||
+											child?.props?.className?.includes('not-prose')
+									);
+									// If yes, render children directly without <p> wrapper
+									if (hasBlockChild) {
+										return <>{children}</>;
+									}
+									// Otherwise, render normal paragraph
+									return <p className="my-2">{children}</p>;
+								},
 								// Custom code component with syntax detection and styling
 								code({ inline, className, children, ...props }: any) {
 									const match = /language-(\w+)/.exec(className || '');
