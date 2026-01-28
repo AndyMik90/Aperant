@@ -9,8 +9,6 @@ Tests for:
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 
 class TestAuthorizationHeaderConsistency:
     """Test that authorization header logic is consistent across files."""

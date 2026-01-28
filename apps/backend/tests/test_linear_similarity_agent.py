@@ -229,8 +229,6 @@ class TestAsyncNonBlocking:
     @pytest.mark.asyncio
     async def test_fetch_team_tickets_is_async(self):
         """_fetch_team_tickets should be callable as an async function."""
-        import asyncio
-
         # Verify the function is a coroutine function
         import inspect
 
@@ -241,7 +239,6 @@ class TestAsyncNonBlocking:
     @pytest.mark.asyncio
     async def test_multiple_fetches_run_concurrently(self):
         """Multiple _fetch_team_tickets calls should run concurrently."""
-        import asyncio
         from unittest.mock import Mock
 
         from agents.linear_similarity_agent import _fetch_team_tickets
@@ -250,8 +247,6 @@ class TestAsyncNonBlocking:
 
         # Use direct mock for requests.post inside the thread
         import requests
-
-        original_post = requests.post
 
         def mock_post_with_tracking(*args, **kwargs):
             fetch_count["count"] += 1
