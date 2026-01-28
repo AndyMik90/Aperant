@@ -560,5 +560,5 @@ class TestDataParsing:
 
             result = await _fetch_team_tickets("team-123", "lin_api_test")
 
-            # Should still return the data even with errors array
+            # Should return empty list when errors array is present
             assert result == []
