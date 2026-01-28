@@ -11,29 +11,28 @@ Tests the risk_classifier.py module functionality including:
 """
 
 import json
-import pytest
+import sys
 import tempfile
 from pathlib import Path
 
-import sys
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from risk_classifier import (
-    RiskClassifier,
-    RiskAssessment,
-    ValidationRecommendations,
+    AssessmentFlags,
     ComplexityAnalysis,
-    ScopeAnalysis,
-    IntegrationAnalysis,
     InfrastructureAnalysis,
+    IntegrationAnalysis,
     KnowledgeAnalysis,
     RiskAnalysis,
-    AssessmentFlags,
-    load_risk_assessment,
+    RiskAssessment,
+    RiskClassifier,
+    ScopeAnalysis,
+    ValidationRecommendations,
     get_validation_requirements,
+    load_risk_assessment,
 )
-
 
 # =============================================================================
 # FIXTURES

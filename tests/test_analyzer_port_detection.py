@@ -10,11 +10,11 @@ Tests the robust port detection across multiple sources:
 - Package.json scripts
 """
 
-import tempfile
-import shutil
-from pathlib import Path
-import sys
 import json
+import shutil
+import sys
+import tempfile
+from pathlib import Path
 
 # Add parent directory to path to import analyzer
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))

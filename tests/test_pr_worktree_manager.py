@@ -5,6 +5,8 @@ Tests for PR Worktree Manager
 Tests the worktree lifecycle management including cleanup policies.
 """
 
+# Import the module to test - use direct path to avoid package imports
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -13,9 +15,6 @@ import time
 from pathlib import Path
 
 import pytest
-
-# Import the module to test - use direct path to avoid package imports
-import importlib.util
 
 backend_path = Path(__file__).parent.parent / "apps" / "backend"
 module_path = backend_path / "runners" / "github" / "services" / "pr_worktree_manager.py"

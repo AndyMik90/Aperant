@@ -16,15 +16,14 @@ Covers:
 from datetime import datetime
 
 import pytest
-
 from merge import (
     ChangeType,
-    SemanticChange,
-    TaskSnapshot,
     ConflictRegion,
     ConflictSeverity,
-    MergeStrategy,
     MergeDecision,
+    MergeStrategy,
+    SemanticChange,
+    TaskSnapshot,
 )
 
 

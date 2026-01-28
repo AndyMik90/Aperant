@@ -16,7 +16,6 @@ from task_logger.capture import StreamingLogCapture
 from task_logger.logger import TaskLogger
 from task_logger.models import LogEntryType, LogPhase
 
-
 # ============================================================================
 # Unit Tests for strip_ansi_codes() Function
 # ============================================================================
@@ -323,16 +322,16 @@ class TestTaskLoggerPublicAPI:
     def test_public_api_exports(self):
         """All expected exports should be available."""
         from task_logger import (
-            LogPhase,
-            LogEntryType,
             LogEntry,
+            LogEntryType,
+            LogPhase,
+            StreamingLogCapture,
             TaskLogger,
-            load_task_logs,
+            clear_task_logger,
             get_active_phase,
             get_task_logger,
-            clear_task_logger,
-            update_task_logger_path,
+            load_task_logs,
             strip_ansi_codes,
-            StreamingLogCapture,
+            update_task_logger_path,
         )
         # If imports succeed, the test passes

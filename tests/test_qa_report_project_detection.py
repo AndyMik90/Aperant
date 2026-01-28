@@ -18,7 +18,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 
 # Setup mocks before importing auto-claude modules
-from qa_report_helpers import setup_qa_report_mocks, cleanup_qa_report_mocks
+from qa_report_helpers import cleanup_qa_report_mocks, setup_qa_report_mocks
 
 # Setup mocks
 setup_qa_report_mocks()
@@ -28,7 +28,6 @@ from qa.report import (
     check_test_discovery,
     is_no_test_project,
 )
-
 
 # =============================================================================
 # FIXTURES

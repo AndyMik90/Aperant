@@ -254,9 +254,8 @@ class SecurityScanner:
             src_dirs = []
             for candidate in ["src", "app", project_dir.name, "."]:
                 candidate_path = project_dir / candidate
-                if (
-                    _safe_exists(candidate_path)
-                    and _safe_exists(candidate_path / "__init__.py")
+                if _safe_exists(candidate_path) and _safe_exists(
+                    candidate_path / "__init__.py"
                 ):
                     src_dirs.append(str(candidate_path))
 

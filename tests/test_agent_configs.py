@@ -7,11 +7,12 @@ during each execution phase.
 """
 
 import os
-import pytest
 
 # Set up path for imports
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add backend to path
 backend_path = Path(__file__).parent.parent / "apps" / "backend"

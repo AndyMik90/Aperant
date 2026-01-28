@@ -881,8 +881,9 @@ class TestTokenDecryptionErrorHandling:
 
     def test_decrypt_token_valid_base64_characters_accepted(self):
         """Verify decrypt_token accepts standard and URL-safe base64 characters."""
-        from core.auth import decrypt_token
         from unittest.mock import patch
+
+        from core.auth import decrypt_token
 
         # Standard base64 includes +/=
         # URL-safe base64 includes -_

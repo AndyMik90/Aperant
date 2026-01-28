@@ -14,28 +14,27 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'apps', 'backend'))
 
 from core.platform import (
-    get_current_os,
-    is_windows,
-    is_macos,
-    is_linux,
-    is_unix,
-    get_path_delimiter,
-    get_executable_extension,
-    with_executable_extension,
+    OS,
+    build_windows_command,
+    find_executable,
     get_binary_directories,
-    get_homebrew_path,
     get_claude_detection_paths,
     get_claude_detection_paths_structured,
-    get_python_commands,
-    find_executable,
-    validate_cli_path,
-    requires_shell,
-    build_windows_command,
+    get_current_os,
     get_env_var,
+    get_executable_extension,
+    get_homebrew_path,
+    get_path_delimiter,
     get_platform_description,
-    OS
+    get_python_commands,
+    is_linux,
+    is_macos,
+    is_unix,
+    is_windows,
+    requires_shell,
+    validate_cli_path,
+    with_executable_extension,
 )
-
 
 # ============================================================================
 # Platform Detection Tests

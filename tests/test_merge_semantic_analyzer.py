@@ -26,8 +26,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from merge import ChangeType
 from test_fixtures import (
     SAMPLE_PYTHON_MODULE,
-    SAMPLE_PYTHON_WITH_NEW_IMPORT,
     SAMPLE_PYTHON_WITH_NEW_FUNCTION,
+    SAMPLE_PYTHON_WITH_NEW_IMPORT,
     SAMPLE_REACT_COMPONENT,
     SAMPLE_REACT_WITH_HOOK,
 )

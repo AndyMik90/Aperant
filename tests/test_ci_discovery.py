@@ -11,23 +11,24 @@ Tests cover:
 """
 
 import json
+
+# Add auto-claude to path for imports
+import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
-# Add auto-claude to path for imports
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from ci_discovery import (
-    CIConfig,
-    CIWorkflow,
-    CIDiscovery,
-    discover_ci,
-    get_ci_test_commands,
-    get_ci_system,
     HAS_YAML,
+    CIConfig,
+    CIDiscovery,
+    CIWorkflow,
+    discover_ci,
+    get_ci_system,
+    get_ci_test_commands,
 )
 
 # Skip tests that require YAML parsing when PyYAML is not installed

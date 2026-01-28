@@ -14,9 +14,9 @@ import json
 from pathlib import Path
 
 import pytest
+from review import REVIEW_STATE_FILE, ReviewState
 
-from review import ReviewState, REVIEW_STATE_FILE
-from tests.review_fixtures import review_spec_dir, complete_spec_dir
+from tests.review_fixtures import complete_spec_dir, review_spec_dir
 
 
 class TestFullReviewFlow:

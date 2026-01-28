@@ -1,15 +1,17 @@
-import pytest
 import json
-import time
 import sys
+import time
 from pathlib import Path
+
+import pytest
 
 # Ensure local apps/backend is in path
 sys.path.insert(0, str(Path(__file__).parents[1] / "apps" / "backend"))
 
-from security.profile import get_security_profile, reset_profile_cache
-from project.models import SecurityProfile
 from project.analyzer import ProjectAnalyzer
+from project.models import SecurityProfile
+from security.profile import get_security_profile, reset_profile_cache
+
 
 @pytest.fixture
 def mock_project_dir(tmp_path):

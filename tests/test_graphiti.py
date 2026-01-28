@@ -1,14 +1,16 @@
 """Tests for Graphiti memory integration."""
 import os
-import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 # Add auto-claude to path
 import sys
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
-from graphiti_config import is_graphiti_enabled, get_graphiti_status, GraphitiConfig
+from graphiti_config import GraphitiConfig, get_graphiti_status, is_graphiti_enabled
 
 
 class TestIsGraphitiEnabled:
@@ -344,7 +346,7 @@ class TestGraphitiProviders:
 
     def test_create_llm_client_unknown_provider(self):
         """create_llm_client raises ProviderError for unknown provider."""
-        from graphiti_providers import create_llm_client, ProviderError
+        from graphiti_providers import ProviderError, create_llm_client
 
         with patch.dict(os.environ, {
             "GRAPHITI_ENABLED": "true",
@@ -356,7 +358,7 @@ class TestGraphitiProviders:
 
     def test_create_embedder_unknown_provider(self):
         """create_embedder raises ProviderError for unknown provider."""
-        from graphiti_providers import create_embedder, ProviderError
+        from graphiti_providers import ProviderError, create_embedder
 
         with patch.dict(os.environ, {
             "GRAPHITI_ENABLED": "true",
@@ -368,7 +370,11 @@ class TestGraphitiProviders:
 
     def test_create_llm_client_missing_openai_key(self):
         """create_llm_client raises ProviderError when OpenAI key missing."""
-        from graphiti_providers import ProviderError, ProviderNotInstalled, create_llm_client
+        from graphiti_providers import (
+            ProviderError,
+            ProviderNotInstalled,
+            create_llm_client,
+        )
 
         with patch.dict(os.environ, {
             "GRAPHITI_ENABLED": "true",
@@ -387,7 +393,11 @@ class TestGraphitiProviders:
 
     def test_create_embedder_missing_ollama_model(self):
         """create_embedder raises ProviderError when Ollama model missing."""
-        from graphiti_providers import ProviderError, ProviderNotInstalled, create_embedder
+        from graphiti_providers import (
+            ProviderError,
+            ProviderNotInstalled,
+            create_embedder,
+        )
 
         with patch.dict(os.environ, {
             "GRAPHITI_ENABLED": "true",
@@ -407,7 +417,7 @@ class TestGraphitiProviders:
 
     def test_embedding_dimensions_lookup(self):
         """get_expected_embedding_dim returns correct dimensions."""
-        from graphiti_providers import get_expected_embedding_dim, EMBEDDING_DIMENSIONS
+        from graphiti_providers import EMBEDDING_DIMENSIONS, get_expected_embedding_dim
 
         # Test known models
         assert get_expected_embedding_dim("text-embedding-3-small") == 1536
@@ -450,8 +460,8 @@ class TestGraphitiProviders:
 
     def test_is_graphiti_enabled_reexport(self):
         """is_graphiti_enabled is re-exported from graphiti_providers."""
-        from graphiti_providers import is_graphiti_enabled as provider_is_enabled
         from graphiti_config import is_graphiti_enabled as config_is_enabled
+        from graphiti_providers import is_graphiti_enabled as provider_is_enabled
 
         # Both should return same result
         with patch.dict(os.environ, {

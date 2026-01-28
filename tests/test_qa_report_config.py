@@ -17,17 +17,16 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 
 # Setup mocks before importing auto-claude modules
-from qa_report_helpers import setup_qa_report_mocks, cleanup_qa_report_mocks
+from qa_report_helpers import cleanup_qa_report_mocks, setup_qa_report_mocks
 
 # Setup mocks
 setup_qa_report_mocks()
 
 # Import configuration constants after mocking
 from qa.report import (
-    RECURRING_ISSUE_THRESHOLD,
     ISSUE_SIMILARITY_THRESHOLD,
+    RECURRING_ISSUE_THRESHOLD,
 )
-
 
 # =============================================================================
 # FIXTURES

@@ -12,19 +12,19 @@ Tests the implementation_plan.py module functionality including:
 """
 
 import json
-import pytest
 from datetime import datetime
 from pathlib import Path
 
+import pytest
 from implementation_plan import (
     ImplementationPlan,
     Phase,
-    Subtask,
-    Verification,
-    WorkflowType,
     PhaseType,
+    Subtask,
     SubtaskStatus,
+    Verification,
     VerificationType,
+    WorkflowType,
     create_feature_plan,
     create_investigation_plan,
     create_refactor_plan,

@@ -28,18 +28,17 @@ if str(_github_dir) not in sys.path:
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
+from models import (
+    PRReviewFinding,
+    ReviewCategory,
+    ReviewSeverity,
+)
 from pydantic_models import (
-    FindingValidationResult,
     FindingValidationResponse,
+    FindingValidationResult,
     ParallelFollowupResponse,
     ResolutionVerification,
 )
-from models import (
-    PRReviewFinding,
-    ReviewSeverity,
-    ReviewCategory,
-)
-
 
 # ============================================================================
 # FindingValidationResult Model Tests

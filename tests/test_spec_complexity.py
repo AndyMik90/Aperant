@@ -12,10 +12,11 @@ Tests the auto-claude/spec/complexity.py module functionality including:
 """
 
 import json
-import pytest
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # Store original modules for cleanup
 _original_modules = {}
@@ -54,10 +55,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from spec.complexity import (
     Complexity,
-    ComplexityAssessment,
     ComplexityAnalyzer,
-    save_assessment,
+    ComplexityAssessment,
     run_ai_complexity_assessment,
+    save_assessment,
 )
 
 

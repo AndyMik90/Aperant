@@ -15,12 +15,11 @@ Covers:
 """
 
 import pytest
-
 from merge.prompts import (
-    parse_conflict_markers,
-    extract_conflict_resolutions,
-    reassemble_with_resolutions,
     build_conflict_only_prompt,
+    extract_conflict_resolutions,
+    parse_conflict_markers,
+    reassemble_with_resolutions,
 )
 
 

@@ -11,10 +11,11 @@ Tests the PhaseExecutor class in auto-claude/spec/phases.py covering:
 """
 
 import json
-import pytest
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # Store original modules before mocking (for cleanup)
 _original_modules = {}
@@ -63,7 +64,7 @@ mock_client.create_client = MagicMock()
 sys.modules['client'] = mock_client
 
 # Now import the phases module directly (bypasses __init__.py issues)
-from spec.phases import PhaseExecutor, PhaseResult, MAX_RETRIES
+from spec.phases import MAX_RETRIES, PhaseExecutor, PhaseResult
 
 
 # Cleanup fixture to restore original modules after all tests in this module
@@ -642,8 +643,8 @@ class TestPhaseSpecWriting:
         # First call returns invalid, subsequent calls return valid
         validator = mock_spec_validator(spec_valid=False)
 
-        from unittest.mock import MagicMock as Mock
         from dataclasses import dataclass
+        from unittest.mock import MagicMock as Mock
 
         @dataclass
         class MockResult:

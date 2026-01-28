@@ -27,12 +27,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from merge import (
     ChangeType,
-    SemanticChange,
-    TaskSnapshot,
     ConflictRegion,
     ConflictSeverity,
-    MergeStrategy,
     MergeDecision,
+    MergeStrategy,
+    SemanticChange,
+    TaskSnapshot,
 )
 from merge.auto_merger import MergeContext
 

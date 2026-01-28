@@ -28,7 +28,6 @@ from integrations.graphiti.queries_pkg.schema import (
 )
 from integrations.graphiti.queries_pkg.search import GraphitiSearch
 
-
 # =============================================================================
 # TEST FIXTURES
 # =============================================================================

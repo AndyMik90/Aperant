@@ -20,16 +20,15 @@ if str(_github_dir) not in sys.path:
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
-from models import (
-    PRReviewResult,
-    PRReviewFinding,
-    ReviewSeverity,
-    ReviewCategory,
-    MergeVerdict,
-    FollowupReviewContext,
-)
 from bot_detection import BotDetector
-
+from models import (
+    FollowupReviewContext,
+    MergeVerdict,
+    PRReviewFinding,
+    PRReviewResult,
+    ReviewCategory,
+    ReviewSeverity,
+)
 
 # ============================================================================
 # Fixtures

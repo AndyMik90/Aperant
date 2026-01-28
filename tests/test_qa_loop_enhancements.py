@@ -10,37 +10,37 @@ Tests cover:
 """
 
 import json
+
+# Add auto-claude to path for imports
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
-# Add auto-claude to path for imports
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from qa_loop import (
-    # Iteration tracking
-    get_iteration_history,
-    record_iteration,
-    # Recurring issue detection
-    _normalize_issue_key,
-    _issue_similarity,
-    has_recurring_issues,
-    get_recurring_issue_summary,
-    # No-test project handling
-    check_test_discovery,
-    is_no_test_project,
-    create_manual_test_plan,
+    ISSUE_SIMILARITY_THRESHOLD,
     # Configuration
     RECURRING_ISSUE_THRESHOLD,
-    ISSUE_SIMILARITY_THRESHOLD,
+    _issue_similarity,
+    # Recurring issue detection
+    _normalize_issue_key,
+    # No-test project handling
+    check_test_discovery,
+    create_manual_test_plan,
+    # Iteration tracking
+    get_iteration_history,
+    get_recurring_issue_summary,
+    has_recurring_issues,
+    is_no_test_project,
     # Implementation plan helpers
     load_implementation_plan,
+    record_iteration,
     save_implementation_plan,
 )
-
 
 # =============================================================================
 # FIXTURES

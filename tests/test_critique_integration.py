@@ -16,11 +16,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from critique import (
+    CritiqueResult,
+    format_critique_summary,
     generate_critique_prompt,
     parse_critique_response,
     should_proceed,
-    format_critique_summary,
-    CritiqueResult,
 )
 from implementation_plan import Subtask, SubtaskStatus, Verification, VerificationType
 

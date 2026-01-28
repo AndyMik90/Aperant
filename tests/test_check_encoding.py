@@ -1,10 +1,10 @@
 """Tests for the encoding check script."""
 
+# Import the checker
+import sys
 import tempfile
 from pathlib import Path
 
-# Import the checker
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 from check_encoding import EncodingChecker
 

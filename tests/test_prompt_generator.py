@@ -7,8 +7,10 @@ Tests for worktree detection and environment context generation.
 from pathlib import Path
 
 # Note: sys.path manipulation is handled by conftest.py line 46
-
-from prompts_pkg.prompt_generator import detect_worktree_mode, generate_environment_context
+from prompts_pkg.prompt_generator import (
+    detect_worktree_mode,
+    generate_environment_context,
+)
 
 
 class TestDetectWorktreeMode:

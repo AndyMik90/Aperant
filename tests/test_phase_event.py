@@ -339,6 +339,7 @@ class TestErrorHandling:
         monkeypatch.setenv("DEBUG", "true")
 
         import importlib
+
         from core import phase_event
 
         importlib.reload(phase_event)

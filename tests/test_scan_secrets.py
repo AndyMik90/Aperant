@@ -10,21 +10,21 @@ Tests the scan_secrets.py module functionality including:
 - Secret masking
 """
 
-import pytest
 from pathlib import Path
 
+import pytest
 from scan_secrets import (
+    ALL_PATTERNS,
+    BINARY_EXTENSIONS,
+    DEFAULT_IGNORE_PATTERNS,
+    SecretMatch,
+    get_staged_files,
+    is_false_positive,
+    load_secretsignore,
+    mask_secret,
     scan_content,
     scan_files,
-    is_false_positive,
     should_skip_file,
-    mask_secret,
-    load_secretsignore,
-    get_staged_files,
-    SecretMatch,
-    ALL_PATTERNS,
-    DEFAULT_IGNORE_PATTERNS,
-    BINARY_EXTENSIONS,
 )
 
 

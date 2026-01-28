@@ -29,7 +29,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from merge import MergeOrchestrator
 from merge.orchestrator import TaskMergeRequest
-
 from test_fixtures import (
     SAMPLE_PYTHON_MODULE,
     SAMPLE_PYTHON_WITH_NEW_FUNCTION,

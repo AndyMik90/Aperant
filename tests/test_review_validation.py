@@ -12,9 +12,9 @@ Tests for hash computation and spec change detection:
 from pathlib import Path
 
 import pytest
-
 from review import ReviewState
 from review.state import _compute_file_hash, _compute_spec_hash
+
 from tests.review_fixtures import review_spec_dir
 
 

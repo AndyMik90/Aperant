@@ -11,24 +11,24 @@ Tests cover:
 """
 
 import json
+
+# Add auto-claude to path for imports
+import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
-# Add auto-claude to path for imports
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from test_discovery import (
-    TestFramework,
-    TestDiscoveryResult,
     TestDiscovery,
+    TestDiscoveryResult,
+    TestFramework,
     discover_tests,
     get_test_command,
     get_test_frameworks,
 )
-
 
 # =============================================================================
 # FIXTURES

@@ -20,7 +20,7 @@ import pytest
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from recovery import RecoveryManager, FailureType
+from recovery import FailureType, RecoveryManager
 
 
 @pytest.fixture

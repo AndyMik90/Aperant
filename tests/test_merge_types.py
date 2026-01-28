@@ -25,8 +25,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from merge import (
     ChangeType,
-    SemanticChange,
     FileAnalysis,
+    SemanticChange,
     TaskSnapshot,
 )
 from merge.types import compute_content_hash, sanitize_path_for_storage

@@ -5,10 +5,11 @@ Tests for Output Validator Module
 Tests validation, filtering, and enhancement of PR review findings.
 """
 
-import pytest
+import sys
 from pathlib import Path
 
-import sys
+import pytest
+
 backend_path = Path(__file__).parent.parent / "apps" / "backend"
 sys.path.insert(0, str(backend_path))
 

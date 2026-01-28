@@ -11,26 +11,26 @@ Tests cover:
 """
 
 import json
-import tempfile
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
 
 # Add auto-claude to path for imports
 import sys
+import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from security_scanner import (
-    SecurityVulnerability,
-    SecurityScanResult,
-    SecurityScanner,
-    scan_for_security_issues,
-    has_security_issues,
-    scan_secrets_only,
     HAS_SECRETS_SCANNER,
+    SecurityScanner,
+    SecurityScanResult,
+    SecurityVulnerability,
+    has_security_issues,
+    scan_for_security_issues,
+    scan_secrets_only,
 )
-
 
 # =============================================================================
 # FIXTURES

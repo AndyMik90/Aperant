@@ -260,7 +260,6 @@ from tests.review_fixtures import (  # noqa: E402, F401
     review_spec_dir,
 )
 
-
 # =============================================================================
 # PROJECT STRUCTURE FIXTURES
 # =============================================================================
@@ -710,8 +709,8 @@ def mock_spec_validator():
             result = validator.validate_spec_document()
             assert result.valid
     """
-    from unittest.mock import MagicMock
     from dataclasses import dataclass
+    from unittest.mock import MagicMock
 
     @dataclass
     class MockValidationResult:
@@ -1047,11 +1046,11 @@ Add Google OAuth2 authentication to the application.
 # Removing these imports drops coverage from ~12% to ~4% (CodeQL: intentional)
 try:
     from merge import (  # noqa: F401
-        SemanticAnalyzer,
-        ConflictDetector,
-        AutoMerger,
-        FileEvolutionTracker,
         AIResolver,
+        AutoMerger,
+        ConflictDetector,
+        FileEvolutionTracker,
+        SemanticAnalyzer,
     )
 except ImportError:
     # Module will be available when tests run from correct directory
@@ -1119,7 +1118,7 @@ def temp_project(temp_git_repo: Path):
     - src/App.tsx (React component)
     - src/utils.py (Python module)
     """
-    from tests.test_fixtures import SAMPLE_REACT_COMPONENT, SAMPLE_PYTHON_MODULE
+    from tests.test_fixtures import SAMPLE_PYTHON_MODULE, SAMPLE_REACT_COMPONENT
 
     # Create src directory
     src_dir = temp_git_repo / "src"

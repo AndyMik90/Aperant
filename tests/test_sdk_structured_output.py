@@ -24,8 +24,9 @@ _pydantic_models_path = (
 )
 sys.path.insert(0, str(_pydantic_models_path))
 
-from pydantic import BaseModel, Field
 from typing import Literal
+
+from pydantic import BaseModel, Field
 
 
 # Simple test model
@@ -45,7 +46,7 @@ async def test_structured_output():
         print("ERROR: CLAUDE_CODE_OAUTH_TOKEN environment variable not set")
         return
 
-    from claude_agent_sdk import query, ClaudeAgentOptions
+    from claude_agent_sdk import ClaudeAgentOptions, query
 
     # Generate JSON schema from Pydantic model
     schema = SimpleReviewResponse.model_json_schema()
