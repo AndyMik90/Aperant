@@ -125,6 +125,22 @@ export interface AuthFailureDetectionResult {
 }
 
 /**
+ * Result of billing failure detection
+ */
+export interface BillingFailureDetectionResult {
+  /** Whether a billing failure was detected */
+  isBillingFailure: boolean;
+  /** The profile ID that has billing issues (if known) */
+  profileId?: string;
+  /** The type of billing failure detected */
+  failureType?: 'insufficient_credits' | 'payment_required' | 'subscription_inactive' | 'unknown';
+  /** User-friendly message describing the failure */
+  message?: string;
+  /** Original error message from the process output */
+  originalError?: string;
+}
+
+/**
  * Classify rate limit type based on reset time string
  */
 function classifyLimitType(resetTimeStr: string): 'session' | 'weekly' {
