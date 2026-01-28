@@ -265,7 +265,7 @@ export function useLinearTickets(
 			if (!projectId) return null;
 
 			try {
-				const result = await validateLinearTicket(ticketId, skipCache);
+				const result = await validateLinearTicket(projectId, ticketId, skipCache);
 				return result;
 			} catch (err) {
 				const errorMessage =
@@ -283,7 +283,7 @@ export function useLinearTickets(
 			if (!projectId) return new Map();
 
 			try {
-				const results = await validateLinearTicketBatch(ticketIds);
+				const results = await validateLinearTicketBatch(projectId, ticketIds);
 				return results;
 			} catch (err) {
 				const errorMessage =

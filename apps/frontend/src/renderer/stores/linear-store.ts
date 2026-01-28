@@ -338,6 +338,7 @@ export async function fetchLinearTicket(
  * Validate a single Linear ticket using AI
  */
 export async function validateLinearTicket(
+	projectId: string,
 	ticketId: string,
 	skipCache: boolean = false,
 ): Promise<ValidationResult | null> {
@@ -386,7 +387,6 @@ export async function validateLinearTicket(
 			return null;
 		}
 
-		const projectId = store.selectedProjectId;
 		if (!projectId) {
 			const errorMessage = "No project selected";
 			store.updateValidationResult(ticketId, {
@@ -523,6 +523,7 @@ export async function validateLinearTicket(
  * Validate multiple Linear tickets in batch (max 5)
  */
 export async function validateLinearTicketBatch(
+	projectId: string,
 	ticketIds: string[],
 ): Promise<Map<string, ValidationResult>> {
 	const store = useLinearStore.getState();
@@ -543,7 +544,6 @@ export async function validateLinearTicketBatch(
 			return results;
 		}
 
-		const projectId = store.selectedProjectId;
 		if (!projectId) {
 			store.setError("No project selected");
 			return results;
@@ -698,6 +698,7 @@ export async function fetchLinearProjects(projectId: string, teamId?: string): P
  * Update a Linear ticket with validation results
  */
 export async function updateLinearTicketWithValidation(
+	projectId: string,
 	ticketId: string,
 	validationResult: ValidationResult,
 ): Promise<boolean> {
@@ -711,7 +712,6 @@ export async function updateLinearTicketWithValidation(
 			return false;
 		}
 
-		const projectId = store.selectedProjectId;
 		if (!projectId) {
 			const errorMessage = "No project selected";
 			store.setError(errorMessage);
