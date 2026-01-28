@@ -1056,7 +1056,7 @@ def calculate_version_label(
             # Cannot parse, return current with note
             return f"{current_version} (version format unclear)"
 
-        # At this point, parts has at least 2 elements
+        # At this point, parts has at least 2 elements (guaranteed by early return above)
         major = int(parts[0])
         minor = int(parts[1])
         patch = int(parts[2]) if len(parts) > 2 else 0

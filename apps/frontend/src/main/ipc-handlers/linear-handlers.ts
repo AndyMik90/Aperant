@@ -7,7 +7,6 @@ import {
 	readFileSync,
 	writeFileSync,
 } from "fs";
-import path from "path";
 import {
 	AUTO_BUILD_PATHS,
 	getSpecsDir,
@@ -24,6 +23,7 @@ import type {
 	TaskMetadata,
 } from "../../shared/types";
 import type { AgentManager } from "../agent";
+import { joinPaths } from "../platform";
 import { projectStore } from "../project-store";
 import { parseEnvFile } from "./utils";
 
@@ -43,7 +43,7 @@ export function registerLinearHandlers(
 	 */
 	const getLinearApiKey = (project: Project): string | null => {
 		if (!project.autoBuildPath) return null;
-		const envPath = path.join(project.path, project.autoBuildPath, ".env");
+		const envPath = joinPaths(project.path, project.autoBuildPath, ".env");
 		if (!existsSync(envPath)) return null;
 
 		try {
@@ -496,7 +496,7 @@ export function registerLinearHandlers(
 
 				// Set up specs directory
 				const specsBaseDir = getSpecsDir(project.autoBuildPath);
-				const specsDir = path.join(project.path, specsBaseDir);
+				const specsDir = joinPaths(project.path, specsBaseDir);
 				if (!existsSync(specsDir)) {
 					mkdirSync(specsDir, { recursive: true });
 				}
@@ -542,7 +542,7 @@ ${issue.description || "No description provided."}
 						const specId = `${String(specNumber).padStart(3, "0")}-${slugifiedTitle}`;
 
 						// Create spec directory
-						const specDir = path.join(specsDir, specId);
+						const specDir = joinPaths(specsDir, specId);
 						mkdirSync(specDir, { recursive: true });
 
 						// Create initial implementation_plan.json
@@ -556,7 +556,7 @@ ${issue.description || "No description provided."}
 							phases: [],
 						};
 						writeFileSync(
-							path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
+							joinPaths(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
 							JSON.stringify(implementationPlan, null, 2),
 						);
 
@@ -566,7 +566,7 @@ ${issue.description || "No description provided."}
 							workflow_type: "feature",
 						};
 						writeFileSync(
-							path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS),
+							joinPaths(specDir, AUTO_BUILD_PATHS.REQUIREMENTS),
 							JSON.stringify(requirements, null, 2),
 						);
 
@@ -579,7 +579,7 @@ ${issue.description || "No description provided."}
 							category: "feature",
 						};
 						writeFileSync(
-							path.join(specDir, "task_metadata.json"),
+							joinPaths(specDir, "task_metadata.json"),
 							JSON.stringify(metadata, null, 2),
 						);
 
