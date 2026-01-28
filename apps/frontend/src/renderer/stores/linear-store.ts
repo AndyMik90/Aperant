@@ -13,6 +13,13 @@ interface LinearState {
 	tickets: LinearTicket[];
 	filters: LinearFilters;
 	validationResults: Map<string, ValidationResult>;
+	validationProgress: Map<string, {
+		phase: string;
+		step: number;
+		total: number;
+		message: string;
+		timestamp: number;
+	}>;
 	selectedTicketId: string | null;
 	selectedProjectId: string | null;
 	teams: LinearTeam[];
@@ -41,6 +48,15 @@ interface LinearState {
 	removeValidationResult: (ticketId: string) => void;
 	clearValidationResults: () => void;
 
+	// Validation progress actions
+	updateValidationProgress: (ticketId: string, progress: {
+		phase: string;
+		step: number;
+		total: number;
+		message: string;
+	}) => void;
+	clearValidationProgress: (ticketId: string) => void;
+
 	// Team/Project actions
 	setTeams: (teams: LinearTeam[]) => void;
 	setProjects: (projects: LinearProject[]) => void;
@@ -55,6 +71,12 @@ interface LinearState {
 	getSelectedTicket: () => LinearTicket | null;
 	getFilteredTickets: () => LinearTicket[];
 	getValidationResult: (ticketId: string) => ValidationResult | undefined;
+	getValidationProgress: (ticketId: string) => {
+		phase: string;
+		step: number;
+		total: number;
+		message: string;
+	} | undefined;
 	getTicketsByStatus: (status: string) => LinearTicket[];
 	getTicketsByPriority: (priority: number) => LinearTicket[];
 }
@@ -149,6 +171,7 @@ export const useLinearStore = create<LinearState>((set, get) => ({
 	tickets: [],
 	filters: {},
 	validationResults: new Map(),
+	validationProgress: new Map(),
 	selectedTicketId: null,
 	selectedProjectId: null,
 	teams: [],
@@ -225,6 +248,24 @@ export const useLinearStore = create<LinearState>((set, get) => ({
 
 	clearValidationResults: () => set({ validationResults: new Map() }),
 
+	// Validation progress actions
+	updateValidationProgress: (ticketId, progress) =>
+		set((state) => {
+			const newProgress = new Map(state.validationProgress);
+			newProgress.set(ticketId, {
+				...progress,
+				timestamp: Date.now()
+			});
+			return { validationProgress: newProgress };
+		}),
+
+	clearValidationProgress: (ticketId) =>
+		set((state) => {
+			const newProgress = new Map(state.validationProgress);
+			newProgress.delete(ticketId);
+			return { validationProgress: newProgress };
+		}),
+
 	// Team/Project actions
 	setTeams: (teams) => set({ teams }),
 
@@ -253,6 +294,15 @@ export const useLinearStore = create<LinearState>((set, get) => ({
 	getValidationResult: (ticketId) => {
 		const state = get();
 		return state.validationResults.get(ticketId);
+	},
+
+	getValidationProgress: (ticketId) => {
+		const state = get();
+		const progress = state.validationProgress.get(ticketId);
+		if (!progress) return undefined;
+		// Return progress without timestamp for cleaner API
+		const { timestamp, ...rest } = progress;
+		return rest;
 	},
 
 	getTicketsByStatus: (status) => {
@@ -441,6 +491,8 @@ export async function validateLinearTicket(
 				status: "complete",
 				cached: result.data.cached || false,
 			});
+			// Clear progress when validation completes
+			store.clearValidationProgress(ticketId);
 			return result.data;
 		} else {
 			store.updateValidationResult(ticketId, {
@@ -477,6 +529,8 @@ export async function validateLinearTicket(
 				status: "error",
 				error: result.error || "Validation failed",
 			});
+			// Clear progress on error
+			store.clearValidationProgress(ticketId);
 			return null;
 		}
 	} catch (error) {
@@ -517,6 +571,8 @@ export async function validateLinearTicket(
 			error: errorMessage,
 		});
 		store.setError(errorMessage);
+		// Clear progress on error
+		store.clearValidationProgress(ticketId);
 		return null;
 	}
 }

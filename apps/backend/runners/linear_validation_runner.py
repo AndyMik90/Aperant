@@ -62,6 +62,28 @@ def load_project_env(project_dir: Path) -> None:
     logger.warning(f"No project .env found in {project_dir}")
 
 
+def output_progress(phase: str, step: int, total: int, message: str) -> None:
+    """Output progress event as JSON to stdout.
+
+    Progress events are prefixed with "PROGRESS:" to distinguish them from the final result.
+
+    Args:
+        phase: Current validation phase (e.g., "content_analysis", "completeness")
+        step: Current step number (1-indexed)
+        total: Total number of steps
+        message: Human-readable progress message
+    """
+    progress_event = {
+        "type": "progress",
+        "phase": phase,
+        "step": step,
+        "total": total,
+        "message": message,
+    }
+    # Prefix with PROGRESS: so the agent manager can distinguish progress from final result
+    print(f"PROGRESS:{json.dumps(progress_event, ensure_ascii=False)}", flush=True)
+
+
 def output_result(result: dict) -> None:
     """Output result as JSON to stdout."""
     print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -148,8 +170,15 @@ async def validate_single_ticket(
         Dict with success status and either data or error
     """
     try:
+        # Create progress callback that outputs to stdout
+        def progress_callback(phase: str, step: int, total: int, message: str) -> None:
+            output_progress(phase, step, total, message)
+
         agent = create_linear_validator(
-            project_dir, project_dir, model="claude-opus-4-5-20251101"
+            project_dir,
+            project_dir,
+            model="claude-opus-4-5-20251101",
+            progress_callback=progress_callback,
         )
 
         # validate_ticket now auto-fetches issue data if not provided

@@ -32,7 +32,8 @@ import type {
 	ValidationResult,
 } from "../../../../shared/types";
 import { cn } from "../../../lib/utils";
-import { createTaskFromLinearTicket } from "../../../stores/linear-store";
+import { createTaskFromLinearTicket, useLinearStore } from "../../../stores/linear-store";
+import { useLinearValidationProgress } from "../../../hooks/useLinearValidationProgress";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import {
@@ -70,6 +71,14 @@ export function ValidationModal({
 	validation,
 }: ValidationModalProps) {
 	const { t } = useTranslation(["common", "tasks", "linear"]);
+
+	// Listen for validation progress events
+	useLinearValidationProgress(ticketId);
+
+	// Get validation progress from store
+	const validationProgress = useLinearStore((state) =>
+		state.getValidationProgress(ticketId)
+	);
 
 	// Edit mode state for each section
 	const [editingLabels, setEditingLabels] = useState(false);
@@ -115,18 +124,52 @@ export function ValidationModal({
 		}
 	}, [validation]);
 
-	// Compute validation steps based on validation status
+	// Helper to get step status from validation progress
+	const getStepStatus = (
+		stepId: string,
+		isComplete: boolean
+	): "pending" | "in_progress" | "complete" | "error" => {
+		if (isComplete) return "complete";
+
+		// If we have progress info, use it to determine status
+		if (validationProgress) {
+			const { phase, step, total } = validationProgress;
+
+			// Map progress phases to step IDs
+			const phaseToStepId: Record<string, string> = {
+				initialization: "analyze",
+				content_analysis: "analyze",
+				ai_analysis: "completeness",
+				parsing: "labels",
+			};
+
+			const currentStepId = phaseToStepId[phase] || "analyze";
+
+			// If this is the current step, show as in_progress
+			if (currentStepId === stepId) return "in_progress";
+
+			// If we're past this step, show as complete
+			const stepOrder = ["analyze", "completeness", "labels", "version", "properties"];
+			const currentIndex = stepOrder.indexOf(currentStepId);
+			const targetIndex = stepOrder.indexOf(stepId);
+
+			if (targetIndex < currentIndex) return "complete";
+		}
+
+		// Default to in_progress if validating, otherwise pending
+		return validation?.status === "validating" || isInitialLoad
+			? "in_progress"
+			: "pending";
+	};
+
+	// Compute validation steps based on validation status and progress
 	const validationSteps: ValidationStep[] = [
 		{
 			id: "analyze",
 			label: t("linear:validationSteps.analyze", {
 				defaultValue: "Analyze Content",
 			}),
-			status: validation?.contentAnalysis
-				? "complete"
-				: validation?.status === "validating" || isInitialLoad
-					? "in_progress"
-					: "pending",
+			status: getStepStatus("analyze", !!validation?.contentAnalysis),
 			icon: FileText,
 		},
 		{
@@ -134,11 +177,7 @@ export function ValidationModal({
 			label: t("linear:validationSteps.completeness", {
 				defaultValue: "Validate Completeness",
 			}),
-			status: validation?.completenessValidation
-				? "complete"
-				: validation?.status === "validating" || isInitialLoad
-					? "in_progress"
-					: "pending",
+			status: getStepStatus("completeness", !!validation?.completenessValidation),
 			icon: CheckCircle2,
 		},
 		{
@@ -146,11 +185,7 @@ export function ValidationModal({
 			label: t("linear:validationSteps.labels", {
 				defaultValue: "Auto-Select Labels",
 			}),
-			status: validation?.suggestedLabels?.length
-				? "complete"
-				: validation?.status === "validating" || isInitialLoad
-					? "in_progress"
-					: "pending",
+			status: getStepStatus("labels", (validation?.suggestedLabels?.length ?? 0) > 0),
 			icon: Tag,
 		},
 		{
@@ -158,11 +193,7 @@ export function ValidationModal({
 			label: t("linear:validationSteps.version", {
 				defaultValue: "Determine Version",
 			}),
-			status: validation?.versionRecommendation
-				? "complete"
-				: validation?.status === "validating" || isInitialLoad
-					? "in_progress"
-					: "pending",
+			status: getStepStatus("version", !!validation?.versionRecommendation),
 			icon: TrendingUp,
 		},
 		{
@@ -170,11 +201,7 @@ export function ValidationModal({
 			label: t("linear:validationSteps.properties", {
 				defaultValue: "Recommend Properties",
 			}),
-			status: validation?.taskProperties
-				? "complete"
-				: validation?.status === "validating" || isInitialLoad
-					? "in_progress"
-					: "pending",
+			status: getStepStatus("properties", !!validation?.taskProperties),
 			icon: Settings,
 		},
 	];
@@ -632,17 +659,19 @@ export function ValidationModal({
 						{t("linear:validation", { defaultValue: "Validation" })}
 					</DialogTitle>
 					<DialogDescription>
-						{validation?.status === "validating"
-							? t("linear:validationInProgress", {
-									defaultValue: "AI validation in progress...",
-								})
-							: validation?.status === "complete"
-								? t("linear:validationComplete", {
-										defaultValue: "Validation complete",
+						{validationProgress?.message
+							? validationProgress.message
+							: validation?.status === "validating"
+								? t("linear:validationInProgress", {
+										defaultValue: "AI validation in progress...",
 									})
-								: t("linear:analysisInProgress", {
-										defaultValue: "Analyzing ticket...",
-									})}
+								: validation?.status === "complete"
+									? t("linear:validationComplete", {
+											defaultValue: "Validation complete",
+										})
+									: t("linear:analysisInProgress", {
+											defaultValue: "Analyzing ticket...",
+										})}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -668,6 +697,28 @@ export function ValidationModal({
 						</Label>
 						{validationSteps.map(renderStep)}
 					</div>
+
+					{/* Progress Bar */}
+					{validationProgress && validation?.status === "validating" && (
+						<div className="space-y-1">
+							<div className="flex justify-between text-xs text-muted-foreground">
+								<span>Progress</span>
+								<span>
+									{Math.round(
+										(validationProgress.step / validationProgress.total) * 100
+									)}%
+								</span>
+							</div>
+							<div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+								<div
+									className="h-full bg-primary transition-all duration-300 ease-in-out"
+									style={{
+										width: `${(validationProgress.step / validationProgress.total) * 100}%`,
+									}}
+								/>
+							</div>
+						</div>
+					)}
 
 					{/* Content Analysis */}
 					{validation?.contentAnalysis && (

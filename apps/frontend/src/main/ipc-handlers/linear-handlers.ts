@@ -38,12 +38,44 @@ const debugLog = (...args: unknown[]) => {
 };
 
 /**
+ * Validation progress tracking for active validations
+ */
+const activeValidations = new Map<string, {
+	startTime: number;
+	lastProgress: number;
+}>();
+
+/**
  * Register all linear-related IPC handlers
  */
 export function registerLinearHandlers(
 	agentManager: AgentManager,
 	_getMainWindow: () => BrowserWindow | null,
 ): void {
+	// Listen for validation progress events from agent manager
+	agentManager.on("linear-validate-progress", (ticketId: string, progressEvent: {
+		phase: string;
+		step: number;
+		total: number;
+		message: string;
+	}) => {
+		debugLog("Validation progress event received:", { ticketId, progressEvent });
+
+		// Track progress to detect stuck validations
+		const tracking = activeValidations.get(ticketId);
+		if (tracking) {
+			tracking.lastProgress = Date.now();
+		}
+
+		// Forward progress to renderer
+		const mainWindow = _getMainWindow();
+		if (mainWindow && !mainWindow.isDestroyed()) {
+			mainWindow.webContents.send(IPC_CHANNELS.LINEAR_VALIDATE_PROGRESS, {
+				ticketId,
+				...progressEvent
+			});
+		}
+	});
 	// ============================================
 	// Linear Integration Operations
 	// ============================================
@@ -631,6 +663,12 @@ ${issue.description || "No description provided."}
 				return { success: false, error: "Project not found" };
 			}
 
+			// Track this validation
+			activeValidations.set(ticketId, {
+				startTime: Date.now(),
+				lastProgress: Date.now()
+			});
+
 			try {
 				debugLog("Calling agentManager.validateLinearTicket", { ticketId, skipCache });
 
@@ -641,6 +679,9 @@ ${issue.description || "No description provided."}
 					ticketId,
 					skipCache,
 				);
+
+				// Clean up tracking
+				activeValidations.delete(ticketId);
 
 				if (!result || !result.success) {
 					debugLog("Validation failed", { ticketId, error: result?.error });
@@ -653,6 +694,9 @@ ${issue.description || "No description provided."}
 
 				return { success: true, data: result.data };
 			} catch (error) {
+				// Clean up tracking on error
+				activeValidations.delete(ticketId);
+
 				debugLog("Validation error", { ticketId, error });
 				return {
 					success: false,

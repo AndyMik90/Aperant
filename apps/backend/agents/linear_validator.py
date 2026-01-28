@@ -324,6 +324,7 @@ class LinearValidationAgent:
         project_dir: Path,
         model: str = "claude-opus-4-5-20251101",
         session_timeout: float | None = None,
+        progress_callback: Callable[[str, int, int, str], None] | None = None,
     ):
         """
         Initialize the Linear validation agent.
@@ -333,6 +334,7 @@ class LinearValidationAgent:
             project_dir: Root directory for the project
             model: Claude model to use (default: Opus for best analysis)
             session_timeout: Timeout in seconds for validation sessions (default: 300s)
+            progress_callback: Optional callback for progress updates (phase, step, total, message)
         """
         self.spec_dir = Path(spec_dir)
         self.project_dir = Path(project_dir)
@@ -343,11 +345,24 @@ class LinearValidationAgent:
             else self.DEFAULT_SESSION_TIMEOUT
         )
         self._client = None
+        self._progress_callback = progress_callback
 
         # Initialize diskcache for validation results
         cache_dir = self.spec_dir / ".cache" / "linear_validator"
         cache_dir.mkdir(parents=True, exist_ok=True)
         self.cache = diskcache.Cache(str(cache_dir))
+
+    def _emit_progress(self, phase: str, step: int, total: int, message: str) -> None:
+        """Emit a progress update if a callback is registered.
+
+        Args:
+            phase: Current validation phase (e.g., "content_analysis", "completeness")
+            step: Current step number (1-indexed)
+            total: Total number of steps
+            message: Human-readable progress message
+        """
+        if self._progress_callback:
+            self._progress_callback(phase, step, total, message)
 
     def create_client(self) -> "ClaudeSDKClient":
         """
@@ -621,6 +636,11 @@ class LinearValidationAgent:
         if DEBUG_LINEAR_VALIDATION:
             logger.debug(f"[LINEAR_VALIDATION] Starting validation for {issue_id}")
 
+        # Emit initial progress: starting validation
+        self._emit_progress(
+            "initialization", 0, 5, f"Starting validation for {issue_id}"
+        )
+
         # Perform validation if not cached
         client = self.create_client()
 
@@ -639,6 +659,11 @@ class LinearValidationAgent:
 
             async def run_validation_session():
                 """Run the validation session with retry and timeout support."""
+                # Emit progress: Phase 1 starting
+                self._emit_progress(
+                    "content_analysis", 1, 5, "Analyzing ticket content..."
+                )
+
                 # Debug: Phase 1 start
                 if DEBUG_LINEAR_VALIDATION:
                     logger.debug(
@@ -677,6 +702,11 @@ class LinearValidationAgent:
                         logger.debug(
                             "[LINEAR_VALIDATION] Phase 5: Task Properties - starting"
                         )
+
+                    # Emit progress: AI analysis complete, parsing results
+                    self._emit_progress(
+                        "ai_analysis", 2, 5, "AI analysis complete, parsing results..."
+                    )
 
                     # Debug: Log response (truncated)
                     if DEBUG_LINEAR_VALIDATION:
@@ -1173,6 +1203,7 @@ def create_linear_validator(
     spec_dir: Path,
     project_dir: Path,
     model: str = "claude-opus-4-5-20251101",
+    progress_callback: Callable[[str, int, int, str], None] | None = None,
 ) -> LinearValidationAgent:
     """
     Factory function to create a Linear validation agent.
@@ -1181,8 +1212,11 @@ def create_linear_validator(
         spec_dir: Directory containing the spec
         project_dir: Root directory for the project
         model: Claude model to use (default: Opus)
+        progress_callback: Optional callback for progress updates (phase, step, total, message)
 
     Returns:
         Configured LinearValidationAgent instance
     """
-    return LinearValidationAgent(spec_dir, project_dir, model)
+    return LinearValidationAgent(
+        spec_dir, project_dir, model, progress_callback=progress_callback
+    )

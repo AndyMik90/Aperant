@@ -239,6 +239,9 @@ export const IPC_CHANNELS = {
   LINEAR_UPDATE_TICKET_WITH_VALIDATION: 'linear:updateTicketWithValidation',
   LINEAR_CLEAR_CACHE: 'linear:clearCache',
 
+  // Linear validation events (main -> renderer)
+  LINEAR_VALIDATE_PROGRESS: 'linear:validateProgress',
+
   // GitHub integration
   GITHUB_GET_REPOSITORIES: 'github:getRepositories',
   GITHUB_GET_ISSUES: 'github:getIssues',
