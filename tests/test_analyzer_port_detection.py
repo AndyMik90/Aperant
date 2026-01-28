@@ -11,12 +11,13 @@ Tests the robust port detection across multiple sources:
 """
 
 import json
-import shutil
-import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 # Add parent directory to path to import analyzer
+import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from analyzer import ServiceAnalyzer
@@ -65,7 +66,6 @@ if __name__ == "__main__":
 
         assert result["framework"] == "FastAPI"
         assert result["default_port"] == 8050, f"Expected 8050, got {result['default_port']}"
-        print("✓ Python entry point test passed (port=8050)")
 
 
 def test_port_in_env_file():
@@ -86,14 +86,13 @@ def test_port_in_env_file():
 
         assert result["framework"] == "Flask"
         assert result["default_port"] == 5001, f"Expected 5001, got {result['default_port']}"
-        print("✓ Environment file test passed (port=5001)")
 
 
+@pytest.mark.skip(reason="Docker Compose detection needs service name matching improvements")
 def test_port_in_docker_compose():
     """Test detecting port from docker-compose.yml."""
-    # Skip this test for now - docker compose detection needs more work
     # The logic is there but needs service name matching improvements
-    print("⊘ Docker Compose test skipped (needs service name matching improvements)")
+    pass
 
 
 def test_port_in_package_json_script():
@@ -121,7 +120,6 @@ def test_port_in_package_json_script():
 
         assert result["framework"] == "Next.js"
         assert result["default_port"] == 3001, f"Expected 3001, got {result['default_port']}"
-        print("✓ Package.json script test passed (port=3001)")
 
 
 def test_port_in_nodejs_entry_point():
@@ -153,7 +151,6 @@ app.listen(PORT, () => {
 
         assert result["framework"] == "Express"
         assert result["default_port"] == 4500, f"Expected 4500, got {result['default_port']}"
-        print("✓ Node.js entry point test passed (port=4500)")
 
 
 def test_fallback_to_default():
@@ -173,7 +170,6 @@ def test_fallback_to_default():
 
         assert result["framework"] == "FastAPI"
         assert result["default_port"] == 8000, f"Expected 8000 (default), got {result['default_port']}"
-        print("✓ Fallback to default test passed (port=8000)")
 
 
 def test_port_priority():
@@ -203,35 +199,3 @@ if __name__ == "__main__":
 
         assert result["framework"] == "FastAPI"
         assert result["default_port"] == 9000, f"Expected 9000 (from app.py), got {result['default_port']}"
-        print("✓ Port priority test passed (entry point > env file)")
-
-
-def run_all_tests():
-    """Run all port detection tests."""
-    print("\n" + "=" * 60)
-    print("  ANALYZER PORT DETECTION TESTS")
-    print("=" * 60 + "\n")
-
-    try:
-        test_port_in_python_entry_point()
-        test_port_in_env_file()
-        test_port_in_docker_compose()
-        test_port_in_package_json_script()
-        test_port_in_nodejs_entry_point()
-        test_fallback_to_default()
-        test_port_priority()
-
-        print("\n" + "=" * 60)
-        print("  ✓ ALL TESTS PASSED")
-        print("=" * 60 + "\n")
-
-    except AssertionError as e:
-        print(f"\n✗ TEST FAILED: {e}\n")
-        raise
-    except Exception as e:
-        print(f"\n✗ ERROR: {e}\n")
-        raise
-
-
-if __name__ == "__main__":
-    run_all_tests()
