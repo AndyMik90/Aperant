@@ -1,9 +1,63 @@
 """
-Auto-Fix Processor
-==================
+Auto-Fix Processor for GitLab Issues
+======================================
 
-Handles automatic issue fixing workflow including permissions and state management.
-Ported from GitHub with GitLab API adaptations.
+Handles the secure automatic issue fixing workflow with permission verification.
+
+Security Architecture:
+------------------------
+This module implements a defense-in-depth approach to automated code changes:
+
+1. **Permission Verification**: Before ANY automation is triggered:
+   - Validates token has required API scopes
+   - Verifies the user who triggered the automation (label-adder)
+   - Checks user's GitLab role (OWNER/MAINTAINER required)
+   - Optionally validates against allowed GitHub users (external contributors)
+
+2. **State Tracking**: Maintains ACID-compliant state:
+   - PENDING: Initial state, awaiting permission check
+   - APPROVED: Permission verified, ready to fix
+   - IN_PROGRESS: Currently applying fixes
+   - COMPLETED: Fixes applied successfully
+   - FAILED: Error occurred during processing
+
+3. **Audit Trail**: All permission decisions are logged with:
+   - Actor who triggered automation
+   - Actor's role and permission level
+   - Reason for approval/denial
+   - Issue IID for traceability
+
+Workflow:
+---------
+1. User adds "auto-fix" label to a GitLab issue/MR
+2. System verifies the label-adder has sufficient permissions
+3. If approved, creates an isolated git worktree
+4. Applies Claude AI-generated fixes
+5. Commits changes with standardized message
+6. Cleans up worktree
+
+Permission Model:
+------------------
+Roles and their capabilities:
+- OWNER: Full access, can approve automation for themselves and others
+- MAINTAINER: Can approve automation, has write access
+- DEVELOPER: Can trigger but may be blocked by policy
+- REPORTER/GUEST: Blocked from triggering automation
+
+External Contributors:
+-----------------------
+When `allow_external_contributors=False` (default):
+- Only project members (OWNER/MAINTAINER/DEVELOPER) can trigger automation
+- Users without project roles see "NONE" and are blocked
+- This prevents unauthorized users from automating changes to the codebase
+
+Rate Limiting:
+--------------
+The processor respects GitLab's rate limits:
+- 429 (Too Many Requests): Automatic retry with exponential backoff
+- 500, 502, 503, 504: Server errors - retry with backoff
+- Maximum retry attempts: 3
+- Backoff multiplier: 2x (2s, 4s, 6s delays)
 """
 
 from __future__ import annotations
@@ -20,7 +74,58 @@ except (ImportError, ValueError, SystemError):
 
 
 class AutoFixProcessor:
-    """Handles auto-fix workflow for GitLab issues."""
+    """
+    Manages the secure auto-fix workflow for GitLab issues and merge requests.
+
+    The processor implements a permission-first architecture where NO automation
+    occurs without explicit authorization from a trusted user. This prevents:
+    - Unauthorized code modifications
+    - CI/CD abuse through label automation
+    - Accidental triggers from well-meaning but unauthorized users
+
+    Attributes:
+        gitlab_dir: Working directory for git operations
+        config: GitLabRunnerConfig with project and API settings
+        permission_checker: GitLabPermissionChecker for authorization
+        progress_callback: Optional callback for UI progress updates
+
+    Permission Verification Flow:
+    ------------------------------
+    1. Extract username from the label event (who added "auto-fix" label)
+    2. Query GitLab API to determine user's role in the project
+    3. Check if role is in allowed_roles (default: OWNER, MAINTAINER)
+    4. If allow_external_contributors=False, reject users with NONE role
+    5. Log permission decision with full context for audit
+
+    Example Usage:
+    -------------
+        >>> from pathlib import Path
+        >>> from runners.gitlab.permissions import GitLabPermissionChecker
+        >>> from runners.gitlab.autofix_processor import AutoFixProcessor
+        >>> from runners.gitlab.models import GitLabRunnerConfig
+        >>>
+        >>> config = GitLabRunnerConfig(
+        ...     token="glpat-...",
+        ...     project="namespace/project",
+        ...     instance_url="https://gitlab.example.com"
+        ... )
+        >>> permission_checker = GitLabPermissionChecker(
+        ...     glab_client=client,
+        ...     project="namespace/project",
+        ...     allowed_roles=["OWNER", "MAINTAINER"],
+        ...     allow_external_contributors=False
+        ... )
+        >>> processor = AutoFixProcessor(gitlab_dir, config, permission_checker)
+        >>>
+        >>> # Verify automation trigger
+        >>> result = await processor.verify_automation_trigger(
+        ...     issue_iid=123,
+        ...     trigger_label="auto-fix"
+        ... )
+        >>> if result.allowed:
+        ...     # Proceed with auto-fix
+        ...     state = await processor.process_auto_fix(issue_iid)
+    """
 
     def __init__(
         self,
