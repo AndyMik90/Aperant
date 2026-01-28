@@ -141,7 +141,7 @@ export function useLinearTickets(
 			try {
 				// Check connection first
 				const connectionResult =
-					await window.electronAPI.linear.checkLinearConnection(projectId);
+					await window.electronAPI.checkLinearConnection(projectId);
 				if (connectionResult.success && connectionResult.data) {
 					setIsConnected(connectionResult.data.connected);
 

@@ -90,6 +90,23 @@ export const integrationMock = {
     }
   }),
 
+  validateLinearTicket: async () => ({
+    success: false,
+    error: 'Not available in browser mock'
+  }),
+
+  validateLinearTicketBatch: async () => ({
+    success: true,
+    data: { successful: [], failed: [] }
+  }),
+
+  updateLinearTicketWithValidation: async () => ({
+    success: true,
+    data: true
+  }),
+
+  clearLinearCache: async () => ({ success: true, data: undefined as any }),
+
   // GitHub Integration Operations
   getGitHubRepositories: async () => ({
     success: true,

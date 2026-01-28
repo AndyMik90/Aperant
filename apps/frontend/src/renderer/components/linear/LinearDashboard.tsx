@@ -164,8 +164,8 @@ export function LinearDashboard({
 			clearValidationResults();
 
 			// Call IPC to clear disk cache
-			if (window.electronAPI?.linear?.clearLinearCache) {
-				await window.electronAPI.linear.clearLinearCache();
+			if (window.electronAPI?.clearLinearCache) {
+				await window.electronAPI.clearLinearCache();
 			}
 
 			toast({
