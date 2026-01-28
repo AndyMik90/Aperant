@@ -11,6 +11,7 @@ or resolved in recent commits, releases, or code changes.
 import logging
 import os
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -139,8 +140,7 @@ Analyze each ticket and return the JSON result.
             status, response = await run_agent_session(
                 client,
                 prompt,
-                None,  # No spec_dir needed
-                max_iterations=1,
+                Path.cwd(),  # Use current working directory for logging
             )
 
             if status != "success":

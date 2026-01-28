@@ -12,6 +12,7 @@ This agent analyzes tickets to:
 
 import logging
 import os
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -146,8 +147,7 @@ Analyze each candidate and return the JSON result.
             status, response = await run_agent_session(
                 client,
                 prompt,
-                None,  # No spec_dir needed
-                max_iterations=1,
+                Path.cwd(),  # Use current working directory for logging
             )
 
             if status != "success":
