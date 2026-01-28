@@ -609,3 +609,392 @@ Please authenticate and try again.`;
     });
   });
 });
+
+describe('Billing Failure Detection', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('detectBillingFailure - spec appendix messages', () => {
+    it('should detect "Your credit balance is too low to access the Anthropic API"', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const result = detectBillingFailure('Your credit balance is too low to access the Anthropic API');
+
+      expect(result.isBillingFailure).toBe(true);
+      expect(result.failureType).toBe('insufficient_credits');
+      expect(result.message).toBeDefined();
+    });
+
+    it('should detect "insufficient credits"', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const result = detectBillingFailure('insufficient credits');
+
+      expect(result.isBillingFailure).toBe(true);
+      expect(result.failureType).toBe('insufficient_credits');
+    });
+
+    it('should detect "billing error"', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const result = detectBillingFailure('billing error');
+
+      expect(result.isBillingFailure).toBe(true);
+      expect(result.failureType).toBe('payment_required');
+    });
+
+    it('should detect "extra_usage exceeded"', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const result = detectBillingFailure('extra_usage exceeded');
+
+      expect(result.isBillingFailure).toBe(true);
+      expect(result.failureType).toBe('insufficient_credits');
+    });
+
+    it('should detect standalone "extra_usage"', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const result = detectBillingFailure('extra_usage');
+
+      expect(result.isBillingFailure).toBe(true);
+    });
+
+    it('should detect "payment required"', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const result = detectBillingFailure('payment required');
+
+      expect(result.isBillingFailure).toBe(true);
+      expect(result.failureType).toBe('payment_required');
+    });
+
+    it('should detect "subscription expired"', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const result = detectBillingFailure('subscription expired');
+
+      expect(result.isBillingFailure).toBe(true);
+      expect(result.failureType).toBe('subscription_inactive');
+    });
+
+    it('should detect credit balance variations', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const messages = [
+        'credit balance is insufficient',
+        'credit balance is empty',
+        'credit balance is zero',
+        'credit balance is exhausted',
+        'credit balance is too low',
+      ];
+
+      for (const msg of messages) {
+        const result = detectBillingFailure(msg);
+        expect(result.isBillingFailure).toBe(true);
+      }
+    });
+  });
+
+  describe('detectBillingFailure - negative cases', () => {
+    it('should return false for normal output', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const normalMessages = [
+        'Task completed successfully',
+        'Processing 100 files',
+        'Build succeeded',
+        'Deploying to production',
+        '',
+      ];
+
+      for (const msg of normalMessages) {
+        const result = detectBillingFailure(msg);
+        expect(result.isBillingFailure).toBe(false);
+      }
+    });
+
+    it('should NOT detect rate limit errors as billing failures', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const rateLimitMessages = [
+        'Limit reached · resets Dec 17 at 6am',
+        'rate limit exceeded',
+        'too many requests',
+      ];
+
+      for (const msg of rateLimitMessages) {
+        const result = detectBillingFailure(msg);
+        expect(result.isBillingFailure).toBe(false);
+      }
+    });
+
+    it('should NOT detect auth errors as billing failures', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const authMessages = [
+        'authentication required',
+        'not authenticated',
+        'unauthorized',
+        'invalid token',
+        'session expired',
+      ];
+
+      for (const msg of authMessages) {
+        const result = detectBillingFailure(msg);
+        expect(result.isBillingFailure).toBe(false);
+      }
+    });
+
+    it('should NOT match "line 402" as billing failure (false positive check)', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const falsePositives = [
+        'line 402',
+        'Processing line 402 of 1000',
+        'Found 4020 records',
+        'Error on line 402',
+        'The user has 402 files',
+      ];
+
+      for (const msg of falsePositives) {
+        const result = detectBillingFailure(msg);
+        expect(result.isBillingFailure).toBe(false);
+      }
+    });
+  });
+
+  describe('detectBillingFailure - 402 with proper context', () => {
+    it('should detect "HTTP 402 Payment Required"', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const result = detectBillingFailure('HTTP 402 Payment Required');
+
+      expect(result.isBillingFailure).toBe(true);
+    });
+
+    it('should detect "API Error: 402"', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const result = detectBillingFailure('API Error: 402');
+
+      expect(result.isBillingFailure).toBe(true);
+    });
+
+    it('should detect "status: 402"', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const result = detectBillingFailure('status: 402');
+
+      expect(result.isBillingFailure).toBe(true);
+    });
+
+    it('should detect "error 402"', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const result = detectBillingFailure('error 402');
+
+      expect(result.isBillingFailure).toBe(true);
+    });
+
+    it('should detect "402 payment required" (lowercase)', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const result = detectBillingFailure('402 payment required');
+
+      expect(result.isBillingFailure).toBe(true);
+    });
+  });
+
+  describe('isBillingFailureError', () => {
+    it('should return true for billing failure errors', async () => {
+      const { isBillingFailureError } = await import('../rate-limit-detector');
+
+      expect(isBillingFailureError('credit balance is too low')).toBe(true);
+      expect(isBillingFailureError('insufficient credits')).toBe(true);
+      expect(isBillingFailureError('billing error')).toBe(true);
+      expect(isBillingFailureError('extra_usage exceeded')).toBe(true);
+    });
+
+    it('should return false for non-billing errors', async () => {
+      const { isBillingFailureError } = await import('../rate-limit-detector');
+
+      expect(isBillingFailureError('Task completed')).toBe(false);
+      expect(isBillingFailureError('')).toBe(false);
+      expect(isBillingFailureError('rate limit exceeded')).toBe(false);
+    });
+  });
+
+  describe('classifyBillingFailureType via detectBillingFailure', () => {
+    it('should classify credit-related failures as insufficient_credits', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const creditMessages = [
+        'Your credit balance is too low',
+        'insufficient credits',
+        'out of credits',
+        'extra_usage exceeded',
+      ];
+
+      for (const msg of creditMessages) {
+        const result = detectBillingFailure(msg);
+        expect(result.isBillingFailure).toBe(true);
+        expect(result.failureType).toBe('insufficient_credits');
+      }
+    });
+
+    it('should classify payment failures as payment_required', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const paymentMessages = [
+        'payment required',
+        'billing error',
+        'billing failure',
+      ];
+
+      for (const msg of paymentMessages) {
+        const result = detectBillingFailure(msg);
+        expect(result.isBillingFailure).toBe(true);
+        expect(result.failureType).toBe('payment_required');
+      }
+    });
+
+    it('should classify subscription failures as subscription_inactive', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const subscriptionMessages = [
+        'subscription expired',
+        'subscription inactive',
+        'subscription cancelled',
+        'account suspended',
+      ];
+
+      for (const msg of subscriptionMessages) {
+        const result = detectBillingFailure(msg);
+        expect(result.isBillingFailure).toBe(true);
+        expect(result.failureType).toBe('subscription_inactive');
+      }
+    });
+  });
+
+  describe('detectBillingFailure - result structure', () => {
+    it('should include profile ID in result', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const result = detectBillingFailure('credit balance is too low', 'custom-profile');
+
+      expect(result.isBillingFailure).toBe(true);
+      expect(result.profileId).toBe('custom-profile');
+    });
+
+    it('should use active profile ID when not specified', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const result = detectBillingFailure('credit balance is too low');
+
+      expect(result.isBillingFailure).toBe(true);
+      expect(result.profileId).toBe('test-profile-id');
+    });
+
+    it('should include original error in result', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const output = 'Error: credit balance is too low to access the API';
+      const result = detectBillingFailure(output);
+
+      expect(result.isBillingFailure).toBe(true);
+      expect(result.originalError).toBe(output);
+    });
+
+    it('should include user-friendly message', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const result = detectBillingFailure('credit balance is too low');
+
+      expect(result.isBillingFailure).toBe(true);
+      expect(result.message).toContain('credit');
+      expect(result.message).toContain('Settings');
+    });
+  });
+
+  describe('cross-detection tests', () => {
+    it('should not detect billing errors as auth failures', async () => {
+      const { detectAuthFailure } = await import('../rate-limit-detector');
+
+      const billingMessages = [
+        'credit balance is too low',
+        'insufficient credits',
+        'billing error',
+        'extra_usage exceeded',
+        'payment required',
+      ];
+
+      for (const msg of billingMessages) {
+        const result = detectAuthFailure(msg);
+        expect(result.isAuthFailure).toBe(false);
+      }
+    });
+
+    it('should not detect billing errors as rate limits', async () => {
+      const { detectRateLimit } = await import('../rate-limit-detector');
+
+      const billingMessages = [
+        'credit balance is too low',
+        'insufficient credits',
+        'billing error',
+        'extra_usage exceeded',
+      ];
+
+      for (const msg of billingMessages) {
+        const result = detectRateLimit(msg);
+        expect(result.isRateLimited).toBe(false);
+      }
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should handle case-insensitive billing messages', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const testCases = [
+        'CREDIT BALANCE IS TOO LOW',
+        'Credit Balance Is Too Low',
+        'BILLING ERROR',
+        'Insufficient Credits',
+        'EXTRA_USAGE EXCEEDED',
+      ];
+
+      for (const output of testCases) {
+        const result = detectBillingFailure(output);
+        expect(result.isBillingFailure).toBe(true);
+      }
+    });
+
+    it('should handle multiline output with billing failure', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const output = `Starting API call...
+Processing request...
+Error: Your credit balance is too low to access the Anthropic API
+Please add credits to continue.`;
+
+      const result = detectBillingFailure(output);
+
+      expect(result.isBillingFailure).toBe(true);
+    });
+
+    it('should handle JSON error responses with billing failure', async () => {
+      const { detectBillingFailure } = await import('../rate-limit-detector');
+
+      const output = '{"type":"billing_error","message":"Insufficient credits"}';
+      const result = detectBillingFailure(output);
+
+      expect(result.isBillingFailure).toBe(true);
+    });
+  });
+});
