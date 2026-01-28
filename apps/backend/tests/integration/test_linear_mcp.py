@@ -16,10 +16,11 @@ Note: These tests require:
 These are integration tests that make real API calls to Linear.
 """
 
-import pytest
 import os
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
+import pytest
 
 
 class TestLinearMCPTools:
@@ -38,7 +39,7 @@ class TestLinearMCPTools:
 
         This is a documentation test - actual API calls would fail without API key.
         """
-        api_key = os.environ.get('LINEAR_API_KEY')
+        api_key = os.environ.get("LINEAR_API_KEY")
 
         if not api_key:
             # If no API key, test that we can detect this gracefully
@@ -57,13 +58,17 @@ class TestLinearMCPTools:
         from agents.tools_pkg.models import AGENT_CONFIGS
 
         # Verify linear_validator agent type exists
-        assert 'linear_validator' in AGENT_CONFIGS, "linear_validator agent type must exist in AGENT_CONFIGS"
+        assert "linear_validator" in AGENT_CONFIGS, (
+            "linear_validator agent type must exist in AGENT_CONFIGS"
+        )
 
-        config = AGENT_CONFIGS['linear_validator']
+        config = AGENT_CONFIGS["linear_validator"]
 
         # Verify Linear MCP server is enabled
-        assert 'mcp_servers' in config, "Agent config must have mcp_servers"
-        assert 'linear' in config['mcp_servers'], "Linear MCP server must be enabled for linear_validator"
+        assert "mcp_servers" in config, "Agent config must have mcp_servers"
+        assert "linear" in config["mcp_servers"], (
+            "Linear MCP server must be enabled for linear_validator"
+        )
 
     def test_linear_mcp_tools_available(self):
         """
@@ -73,11 +78,11 @@ class TestLinearMCPTools:
         """
         from agents.tools_pkg.models import AGENT_CONFIGS
 
-        config = AGENT_CONFIGS['linear_validator']
+        config = AGENT_CONFIGS["linear_validator"]
 
         # Check for common Linear MCP tools in configuration
         # The actual tool names may vary, but we check for the MCP server configuration
-        assert config['mcp_servers']['linear'] is not None
+        assert config["mcp_servers"]["linear"] is not None
 
     def test_linear_validation_agent_initialization(self):
         """
@@ -92,10 +97,7 @@ class TestLinearMCPTools:
             project_dir = Path(temp_dir)
 
             # Should not raise any errors
-            agent = LinearValidationAgent(
-                spec_dir=spec_dir,
-                project_dir=project_dir
-            )
+            agent = LinearValidationAgent(spec_dir=spec_dir, project_dir=project_dir)
 
             # Verify agent is initialized
             assert agent is not None
@@ -118,10 +120,7 @@ class TestLinearMCPTools:
             spec_dir = Path(temp_dir)
             project_dir = Path(temp_dir)
 
-            agent = LinearValidationAgent(
-                spec_dir=spec_dir,
-                project_dir=project_dir
-            )
+            agent = LinearValidationAgent(spec_dir=spec_dir, project_dir=project_dir)
 
             # Verify cache is initialized
             assert agent.cache is not None
@@ -147,10 +146,7 @@ class TestLinearMCPTools:
             spec_dir = Path(temp_dir)
             project_dir = Path(temp_dir)
 
-            agent = LinearValidationAgent(
-                spec_dir=spec_dir,
-                project_dir=project_dir
-            )
+            agent = LinearValidationAgent(spec_dir=spec_dir, project_dir=project_dir)
 
             # Create client (may fail if no API keys, but that's expected)
             try:
@@ -159,7 +155,9 @@ class TestLinearMCPTools:
             except Exception as e:
                 # Client creation may fail if no Claude API credentials
                 # That's expected in some environments
-                pytest.skip(f"Client creation failed (likely missing API credentials): {e}")
+                pytest.skip(
+                    f"Client creation failed (likely missing API credentials): {e}"
+                )
 
 
 class TestLinearCacheIntegration:
@@ -179,10 +177,7 @@ class TestLinearCacheIntegration:
             spec_dir = Path(temp_dir)
             project_dir = Path(temp_dir)
 
-            agent = LinearValidationAgent(
-                spec_dir=spec_dir,
-                project_dir=project_dir
-            )
+            agent = LinearValidationAgent(spec_dir=spec_dir, project_dir=project_dir)
 
             # Test data
             issue_id = "LIN-123"
@@ -190,14 +185,16 @@ class TestLinearCacheIntegration:
             result = {
                 "issue_id": issue_id,
                 "confidence": 0.95,
-                "suggested_labels": ["bug", "high-priority"]
+                "suggested_labels": ["bug", "high-priority"],
             }
 
             # Write to cache
             agent._save_result(issue_id, validation_timestamp, result)
 
             # Read from cache
-            cached = agent._get_cached_result(issue_id, validation_timestamp, skip_cache=False)
+            cached = agent._get_cached_result(
+                issue_id, validation_timestamp, skip_cache=False
+            )
 
             assert cached is not None
             assert cached["issue_id"] == issue_id
@@ -213,10 +210,7 @@ class TestLinearCacheIntegration:
             spec_dir = Path(temp_dir)
             project_dir = Path(temp_dir)
 
-            agent = LinearValidationAgent(
-                spec_dir=spec_dir,
-                project_dir=project_dir
-            )
+            agent = LinearValidationAgent(spec_dir=spec_dir, project_dir=project_dir)
 
             # Test cache key format (colons in timestamp are sanitized)
             key1 = agent._get_cache_key("LIN-123", "2024-01-18T10:00:00Z")
@@ -240,10 +234,7 @@ class TestLinearCacheIntegration:
             spec_dir = Path(temp_dir)
             project_dir = Path(temp_dir)
 
-            agent = LinearValidationAgent(
-                spec_dir=spec_dir,
-                project_dir=project_dir
-            )
+            agent = LinearValidationAgent(spec_dir=spec_dir, project_dir=project_dir)
 
             # Write to cache
             issue_id = "LIN-123"
@@ -253,11 +244,15 @@ class TestLinearCacheIntegration:
             agent._save_result(issue_id, validation_timestamp, result)
 
             # Read with skip_cache=False should return cached value
-            cached1 = agent._get_cached_result(issue_id, validation_timestamp, skip_cache=False)
+            cached1 = agent._get_cached_result(
+                issue_id, validation_timestamp, skip_cache=False
+            )
             assert cached1 is not None
 
             # Read with skip_cache=True should return None
-            cached2 = agent._get_cached_result(issue_id, validation_timestamp, skip_cache=True)
+            cached2 = agent._get_cached_result(
+                issue_id, validation_timestamp, skip_cache=True
+            )
             assert cached2 is None
 
     def test_cache_miss_returns_none(self):
@@ -270,13 +265,12 @@ class TestLinearCacheIntegration:
             spec_dir = Path(temp_dir)
             project_dir = Path(temp_dir)
 
-            agent = LinearValidationAgent(
-                spec_dir=spec_dir,
-                project_dir=project_dir
-            )
+            agent = LinearValidationAgent(spec_dir=spec_dir, project_dir=project_dir)
 
             # Try to read non-existent cache entry
-            cached = agent._get_cached_result("NON-EXISTENT", "2024-01-18T10:00:00Z", skip_cache=False)
+            cached = agent._get_cached_result(
+                "NON-EXISTENT", "2024-01-18T10:00:00Z", skip_cache=False
+            )
 
             assert cached is None
 
@@ -298,10 +292,7 @@ class TestLinearValidationWorkflow:
             spec_dir = Path(temp_dir)
             project_dir = Path(temp_dir)
 
-            agent = LinearValidationAgent(
-                spec_dir=spec_dir,
-                project_dir=project_dir
-            )
+            agent = LinearValidationAgent(spec_dir=spec_dir, project_dir=project_dir)
 
             # Test issue data
             issue_data = {
@@ -310,14 +301,12 @@ class TestLinearValidationWorkflow:
                 "state": {"name": "In Progress"},
                 "priority": 1,
                 "labels": [{"name": "bug"}],
-                "assignee": {"name": "John Doe"}
+                "assignee": {"name": "John Doe"},
             }
 
             # Build prompt
             prompt = agent._build_validation_prompt(
-                issue_id="LIN-123",
-                issue_data=issue_data,
-                current_version="2.7.4"
+                issue_id="LIN-123", issue_data=issue_data, current_version="2.7.4"
             )
 
             # Verify prompt contains key information
@@ -337,10 +326,7 @@ class TestLinearValidationWorkflow:
             spec_dir = Path(temp_dir)
             project_dir = Path(temp_dir)
 
-            agent = LinearValidationAgent(
-                spec_dir=spec_dir,
-                project_dir=project_dir
-            )
+            agent = LinearValidationAgent(spec_dir=spec_dir, project_dir=project_dir)
 
             # Test with 5 tickets (should pass)
             five_tickets = ["LIN-1", "LIN-2", "LIN-3", "LIN-4", "LIN-5"]
@@ -370,13 +356,13 @@ class TestLinearVersionLabelLogic:
         from agents.linear_validator import calculate_version_label
 
         # Test bug → patch increment
-        assert calculate_version_label('2.7.4', 'bug', 'critical') == '2.7.5'
+        assert calculate_version_label("2.7.4", "bug", "critical") == "2.7.5"
 
         # Test feature → minor increment
-        assert calculate_version_label('2.7.4', 'feature', 'normal') == '2.8.0'
+        assert calculate_version_label("2.7.4", "feature", "normal") == "2.8.0"
 
         # Test high priority non-bug → patch
-        assert calculate_version_label('2.7.4', 'enhancement', 'urgent') == '2.7.5'
+        assert calculate_version_label("2.7.4", "enhancement", "urgent") == "2.7.5"
 
         # Test normal priority → minor
-        assert calculate_version_label('2.7.4', 'enhancement', 'normal') == '2.8.0'
+        assert calculate_version_label("2.7.4", "enhancement", "normal") == "2.8.0"

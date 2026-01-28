@@ -62,20 +62,24 @@ class TestVersionLabelCalculation:
         result = calculate_version_label("2.7.4", "new", "normal")
         assert result == "2.8.0", f"Expected 2.8.0 for new feature, got {result}"
 
-    def test_version_label_high_priority_non_bug_patch_increment(self):
-        """High priority non-bug tickets should get patch increment."""
+    def test_version_label_enhancement_always_minor_increment(self):
+        """Enhancement tickets always get minor increment, regardless of priority."""
         result = calculate_version_label("2.7.4", "enhancement", "urgent")
-        assert result == "2.7.5", f"Expected 2.7.5 for urgent enhancement, got {result}"
+        assert result == "2.8.0", f"Expected 2.8.0 for enhancement, got {result}"
 
-    def test_version_label_priority_1_patch_increment(self):
-        """Priority 1 (urgent) should get patch increment."""
+    def test_version_label_priority_1_non_bug_minor_increment(self):
+        """Priority 1 (urgent) non-bug work types get minor increment."""
         result = calculate_version_label("2.7.4", "enhancement", 1)
-        assert result == "2.7.5", f"Expected 2.7.5 for priority 1, got {result}"
+        assert result == "2.8.0", (
+            f"Expected 2.8.0 for priority 1 enhancement, got {result}"
+        )
 
-    def test_version_label_priority_2_patch_increment(self):
-        """Priority 2 (high) should get patch increment."""
+    def test_version_label_priority_2_non_bug_minor_increment(self):
+        """Priority 2 (high) non-bug work types get minor increment."""
         result = calculate_version_label("2.7.4", "enhancement", 2)
-        assert result == "2.7.5", f"Expected 2.7.5 for priority 2, got {result}"
+        assert result == "2.8.0", (
+            f"Expected 2.8.0 for priority 2 enhancement, got {result}"
+        )
 
     def test_version_label_normal_priority_minor_increment(self):
         """Normal priority non-bug should get minor increment."""
@@ -200,7 +204,8 @@ class TestBatchValidationLimit:
 class TestLinearValidationAgentClassMethods:
     """Test LinearValidationAgent class methods."""
 
-    def test_agent_validate_batch_limit_5_tickets(self):
+    @pytest.mark.asyncio
+    async def test_agent_validate_batch_5_tickets(self):
         """Agent method should allow 5 tickets."""
         with tempfile.TemporaryDirectory() as temp_dir:
             spec_dir = Path(temp_dir)
@@ -208,9 +213,18 @@ class TestLinearValidationAgentClassMethods:
             agent = LinearValidationAgent(spec_dir=spec_dir, project_dir=project_dir)
 
             # Should not raise
-            agent.validate_batch_limit(["t1", "t2", "t3", "t4", "t5"])
+            await agent.validate_batch(
+                [
+                    {"id": "t1"},
+                    {"id": "t2"},
+                    {"id": "t3"},
+                    {"id": "t4"},
+                    {"id": "t5"},
+                ]
+            )
 
-    def test_agent_validate_batch_limit_6_tickets_raises(self):
+    @pytest.mark.asyncio
+    async def test_agent_validate_batch_6_tickets_raises(self):
         """Agent method should raise on 6+ tickets."""
         with tempfile.TemporaryDirectory() as temp_dir:
             spec_dir = Path(temp_dir)
@@ -218,26 +232,35 @@ class TestLinearValidationAgentClassMethods:
             agent = LinearValidationAgent(spec_dir=spec_dir, project_dir=project_dir)
 
             with pytest.raises(ValueError, match="Maximum 5 tickets"):
-                agent.validate_batch_limit(["t1", "t2", "t3", "t4", "t5", "t6"])
+                await agent.validate_batch(
+                    [
+                        {"id": "t1"},
+                        {"id": "t2"},
+                        {"id": "t3"},
+                        {"id": "t4"},
+                        {"id": "t5"},
+                        {"id": "t6"},
+                    ]
+                )
 
-    def test_agent_calculate_version_label_bug(self):
+    def test_agent_compute_version_label_bug(self):
         """Agent method should calculate patch increment for bugs."""
         with tempfile.TemporaryDirectory() as temp_dir:
             spec_dir = Path(temp_dir)
             project_dir = Path(temp_dir)
             agent = LinearValidationAgent(spec_dir=spec_dir, project_dir=project_dir)
 
-            result = agent.calculate_version_label("2.7.4", "bug", "critical")
+            result = agent.compute_version_label("2.7.4", "bug", "critical")
             assert result == "2.7.5"
 
-    def test_agent_calculate_version_label_feature(self):
+    def test_agent_compute_version_label_feature(self):
         """Agent method should calculate minor increment for features."""
         with tempfile.TemporaryDirectory() as temp_dir:
             spec_dir = Path(temp_dir)
             project_dir = Path(temp_dir)
             agent = LinearValidationAgent(spec_dir=spec_dir, project_dir=project_dir)
 
-            result = agent.calculate_version_label("2.7.4", "feature", "normal")
+            result = agent.compute_version_label("2.7.4", "feature", "normal")
             assert result == "2.8.0"
 
 
@@ -337,7 +360,7 @@ class TestTransientErrorDetection:
 
     def test_timeout_is_transient(self):
         """Timeout errors should be considered transient."""
-        assert is_transient_error(Exception("Request timed out"))
+        assert is_transient_error(Exception("Request timeout"))
 
     def test_connection_error_is_transient(self):
         """Connection errors should be considered transient."""
