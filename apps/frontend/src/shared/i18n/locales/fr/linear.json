@@ -148,5 +148,6 @@
 		"navigate": "Naviguer avec ↑/↓",
 		"validate": "Valider (Entrée)",
 		"deselect": "Désélectionner (Esc)"
-	}
+	},
+	"labelsOverflow": "+{{count}} autres"
 }

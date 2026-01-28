@@ -153,14 +153,6 @@ function ValidationStatusFlow({
 
 	const statusDisplay = getStatusDisplay();
 
-	// Get screen reader text for validation status
-	const getValidationSrText = (): string => {
-		if (flowState === "not_started") return t("linear:selectTicket");
-		if (flowState === "validating") return t("linear:validationInProgress");
-		if (flowState === "validated") return t("linear:validationComplete");
-		return "";
-	};
-
 	return (
 		<div
 			className="flex items-center gap-1.5"
@@ -176,12 +168,9 @@ function ValidationStatusFlow({
 			</div>
 			{/* Label */}
 			{statusDisplay && (
-				<>
-					<span className={cn("text-xs font-medium", statusDisplay.textColor)}>
-						{statusDisplay.label}
-					</span>
-					<SrOnly>{getValidationSrText()}</SrOnly>
-				</>
+				<span className={cn("text-xs font-medium", statusDisplay.textColor)}>
+					{statusDisplay.label}
+				</span>
 			)}
 		</div>
 	);
@@ -349,7 +338,7 @@ export function LinearTicketItem({
 							))}
 							{ticket.labels.length > 3 && (
 								<span className="text-xs text-muted-foreground">
-									+{ticket.labels.length - 3}
+									{t("linear:labelsOverflow", { count: ticket.labels.length - 3 })}
 								</span>
 							)}
 						</div>
