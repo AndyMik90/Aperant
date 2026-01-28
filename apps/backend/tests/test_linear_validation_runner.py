@@ -45,12 +45,12 @@ class TestAuthorizationHeaderConsistency:
         """Linear validator should use: api_key if starts with lin_api_ else f'Bearer {api_key}'"""
         # Check the source file contains the correct pattern
         source_file = Path(__file__).parent.parent / "agents" / "linear_validator.py"
-        if source_file.exists():
-            content = source_file.read_text(encoding="utf-8")
+        assert source_file.exists(), "linear_validator.py must exist for this test"
+        content = source_file.read_text(encoding="utf-8")
 
-            # Check for the authorization pattern
-            assert 'startswith("lin_api_")' in content
-            assert 'f"Bearer {api_key}"' in content
+        # Check for the authorization pattern
+        assert 'startswith("lin_api_")' in content
+        assert 'f"Bearer {api_key}"' in content
 
 
 class TestResultSerialization:
