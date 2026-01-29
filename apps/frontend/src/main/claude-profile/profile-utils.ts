@@ -95,6 +95,27 @@ export function isProfileAuthenticated(profile: ClaudeProfile): boolean {
           console.warn(`[profile-utils] Profile has .claude.json but no platform credentials for: ${configDir}`);
           return false;
         }
+
+        // REVIEW [Issue #1603]: CRITICAL BUG - Token expiration not checked
+        // ============================================================
+        // Problem: This only checks if token EXISTS, not if it's VALID (non-expired).
+        // When app restarts after being closed for hours, expired tokens cause auth failures.
+        //
+        // Suggested fix: Check platformCreds.expiresAt before returning true:
+        //
+        // if (platformCreds.expiresAt) {
+        //   const PROACTIVE_REFRESH_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+        //   const isExpiredOrNearExpiry = Date.now() >= (platformCreds.expiresAt - PROACTIVE_REFRESH_THRESHOLD_MS);
+        //   if (isExpiredOrNearExpiry) {
+        //     console.warn(`[profile-utils] Token expired or near expiry for: ${configDir}`);
+        //     return false;
+        //   }
+        // }
+        //
+        // Impact: hasValidAuth() will return false for expired tokens, triggering re-auth flow.
+        // Testing: Unit test with expired, near-expiry, and valid expiresAt timestamps.
+        // ============================================================
+
         return true;
       }
     } catch (error) {

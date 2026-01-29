@@ -406,6 +406,40 @@ app.whenReady().then(() => {
         usageMonitor.start();
         console.warn('[main] Usage monitor initialized and started (after profile load)');
 
+        // REVIEW [Issue #1603]: Add proactive token refresh at app startup
+        // ============================================================
+        // Problem: When app restarts after being closed for hours, tokens may be expired.
+        // UsageMonitor will eventually refresh them, but tasks might start before that.
+        //
+        // Suggested fix: Add after usageMonitor.start():
+        //
+        // (async () => {
+        //   const { ensureValidToken } = await import('./claude-profile/token-refresh');
+        //   const activeProfile = profileManager.getActiveProfile();
+        //   if (activeProfile.configDir) {
+        //     const expandedConfigDir = activeProfile.configDir.startsWith('~')
+        //       ? activeProfile.configDir.replace(/^~/, require('os').homedir())
+        //       : activeProfile.configDir;
+        //     const result = await ensureValidToken(expandedConfigDir);
+        //     if (result.wasRefreshed) {
+        //       console.log('[main] Active profile token refreshed at startup');
+        //     } else if (result.errorCode === 'invalid_grant') {
+        //       // Notify UI that re-auth is needed
+        //       const authFailureInfo = {
+        //         profileId: activeProfile.id,
+        //         profileName: activeProfile.name,
+        //         failureType: 'expired',
+        //         message: `Profile "${activeProfile.name}" session expired.`,
+        //         detectedAt: new Date()
+        //       };
+        //       mainWindow?.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+        //     }
+        //   }
+        // })().catch(err => console.error('[main] Startup token refresh failed:', err));
+        //
+        // Impact: May add ~500ms-2s to startup if refresh needed. Ensures ready for tasks.
+        // ============================================================
+
         // Check for migrated profiles that need re-authentication
         // These profiles were moved from shared ~/.claude to isolated directories
         // and need new credentials since they now use a different keychain entry

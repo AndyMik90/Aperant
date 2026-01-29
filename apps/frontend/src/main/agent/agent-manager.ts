@@ -105,6 +105,32 @@ export class AgentManager extends EventEmitter {
       this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
       return;
     }
+
+    // REVIEW [Issue #1603]: Add pre-flight token refresh before auth check
+    // ============================================================
+    // Problem: For scheduled tasks after app restart, tokens may be expired.
+    // hasValidAuth() should be preceded by ensureValidToken() to refresh if possible.
+    //
+    // Suggested fix:
+    // const { ensureValidToken } = await import('../claude-profile/token-refresh');
+    // const activeProfile = profileManager.getActiveProfile();
+    // if (activeProfile.configDir) {
+    //   const expandedConfigDir = activeProfile.configDir.startsWith('~')
+    //     ? activeProfile.configDir.replace(/^~/, require('os').homedir())
+    //     : activeProfile.configDir;
+    //   const tokenResult = await ensureValidToken(expandedConfigDir);
+    //   if (!tokenResult.token) {
+    //     const errorMsg = tokenResult.errorCode === 'invalid_grant'
+    //       ? 'Claude session expired. Please re-authenticate.'
+    //       : `Authentication failed: ${tokenResult.error}`;
+    //     this.emit('error', taskId, errorMsg);
+    //     return;
+    //   }
+    // }
+    //
+    // Note: Same pattern should be applied to startTaskExecution() below.
+    // ============================================================
+
     if (!profileManager.hasValidAuth()) {
       this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
       return;

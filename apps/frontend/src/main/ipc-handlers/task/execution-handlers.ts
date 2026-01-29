@@ -166,6 +166,36 @@ export function registerTaskExecutionHandlers(
         return;
       }
 
+      // REVIEW [Issue #1603]: Add pre-flight token refresh before auth check
+      // ============================================================
+      // Problem: hasValidAuth() only checks existence. For scheduled tasks after app restart,
+      // tokens may be expired. We should attempt refresh BEFORE failing.
+      //
+      // Suggested fix: Add before hasValidAuth() check:
+      //
+      // const { ensureValidToken } = await import('../../claude-profile/token-refresh');
+      // const activeProfile = profileManager.getActiveProfile();
+      // if (activeProfile.configDir) {
+      //   const expandedConfigDir = activeProfile.configDir.startsWith('~')
+      //     ? activeProfile.configDir.replace(/^~/, require('os').homedir())
+      //     : activeProfile.configDir;
+      //   const tokenResult = await ensureValidToken(expandedConfigDir);
+      //   if (tokenResult.error && tokenResult.errorCode === 'invalid_grant') {
+      //     mainWindow.webContents.send(IPC_CHANNELS.TASK_ERROR, taskId,
+      //       'Claude session expired. Please re-authenticate in Settings > Claude Profiles.');
+      //     return;
+      //   }
+      //   if (!tokenResult.token) {
+      //     mainWindow.webContents.send(IPC_CHANNELS.TASK_ERROR, taskId,
+      //       `Authentication failed: ${tokenResult.error || 'Please authenticate.'}`);
+      //     return;
+      //   }
+      // }
+      //
+      // Impact: Adds ~500ms-2s latency for refresh, but prevents auth failures for scheduled tasks.
+      // Note: Same pattern needed in TASK_UPDATE_STATUS (line 751) and TASK_RECOVER_STUCK (line 1105).
+      // ============================================================
+
       // Check authentication - Claude requires valid auth to run tasks
       if (!profileManager.hasValidAuth()) {
         console.warn('[TASK_START] No valid authentication for active profile');
