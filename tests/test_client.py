@@ -117,7 +117,7 @@ class TestClientTokenValidation:
 
         # Mock validate_token_not_encrypted to verify it's called
         with patch(
-            "core.client.validate_token_not_encrypted"
+            "core.auth.validate_token_not_encrypted"
         ) as mock_validate, patch("core.client.ClaudeSDKClient"):
             from core.client import create_client
 
@@ -134,7 +134,7 @@ class TestClientTokenValidation:
 
         # Mock validate_token_not_encrypted to verify it's called
         with patch(
-            "core.simple_client.validate_token_not_encrypted"
+            "core.auth.validate_token_not_encrypted"
         ) as mock_validate, patch("core.simple_client.ClaudeSDKClient"):
             from core.simple_client import create_simple_client
 
@@ -247,8 +247,8 @@ class TestAPIProfileAuthentication:
         # Mock the SDK client and OAuth functions to verify OAuth path is NOT taken
         mock_sdk_client = MagicMock()
         with patch("core.client.ClaudeSDKClient", return_value=mock_sdk_client), \
-             patch("core.client.require_auth_token") as mock_require, \
-             patch("core.client.validate_token_not_encrypted") as mock_validate:
+             patch("core.auth.require_auth_token") as mock_require, \
+             patch("core.auth.validate_token_not_encrypted") as mock_validate:
             from core.client import create_client
 
             client = create_client(tmp_path, tmp_path, "glm-4", "coder")
@@ -273,7 +273,7 @@ class TestAPIProfileAuthentication:
         monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
 
         # Mock require_auth_token to verify it's called (OAuth mode)
-        with patch("core.client.require_auth_token", return_value=oauth_token):
+        with patch("core.auth.require_auth_token", return_value=oauth_token):
             mock_sdk_client = MagicMock()
             with patch("core.client.ClaudeSDKClient", return_value=mock_sdk_client):
                 from core.client import create_client
@@ -283,31 +283,28 @@ class TestAPIProfileAuthentication:
                 # Verify SDK client was created
                 assert client is mock_sdk_client
 
-    def test_api_profile_with_various_endpoints(self, tmp_path, monkeypatch):
+    @pytest.mark.parametrize("endpoint", [
+        "https://api.z.ai/v1",
+        "https://api.example.com",
+        "http://localhost:8080/v1",
+        "https://custom-gateway.com/anthropic-proxy",
+    ])
+    def test_api_profile_with_various_endpoints(self, tmp_path, monkeypatch, endpoint):
         """API profile mode works with various endpoint formats."""
         api_token = "sk-api-test-token-123456"
 
-        test_endpoints = [
-            "https://api.z.ai/v1",
-            "https://api.example.com",
-            "http://localhost:8080/v1",
-            "https://custom-gateway.com/anthropic-proxy",
-        ]
+        monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", api_token)
+        monkeypatch.setenv("ANTHROPIC_BASE_URL", endpoint)
+        monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
 
-        for endpoint in test_endpoints:
-            # Clear and set fresh for each iteration
-            monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", api_token)
-            monkeypatch.setenv("ANTHROPIC_BASE_URL", endpoint)
-            monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+        mock_sdk_client = MagicMock()
+        with patch("core.client.ClaudeSDKClient", return_value=mock_sdk_client):
+            from core.client import create_client
 
-            mock_sdk_client = MagicMock()
-            with patch("core.client.ClaudeSDKClient", return_value=mock_sdk_client):
-                from core.client import create_client
+            client = create_client(tmp_path, tmp_path, "glm-4", "coder")
 
-                client = create_client(tmp_path, tmp_path, "glm-4", "coder")
-
-                assert client is mock_sdk_client
-                assert os.environ.get("ANTHROPIC_BASE_URL") == endpoint
+            assert client is mock_sdk_client
+            assert os.environ.get("ANTHROPIC_BASE_URL") == endpoint
 
     def test_oauth_mode_without_any_token_raises_error(self, tmp_path, monkeypatch):
         """OAuth mode raises ValueError when no OAuth token is available."""
@@ -562,8 +559,8 @@ class TestSimpleClientAPIProfileAuthentication:
         # Mock the SDK client and OAuth functions to verify OAuth path is NOT taken
         mock_sdk_client = MagicMock()
         with patch("core.simple_client.ClaudeSDKClient", return_value=mock_sdk_client), \
-             patch("core.simple_client.require_auth_token") as mock_require, \
-             patch("core.simple_client.validate_token_not_encrypted") as mock_validate:
+             patch("core.auth.require_auth_token") as mock_require, \
+             patch("core.auth.validate_token_not_encrypted") as mock_validate:
             from core.simple_client import create_simple_client
 
             client = create_simple_client(agent_type="merge_resolver")

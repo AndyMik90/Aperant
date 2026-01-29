@@ -28,9 +28,8 @@ from pathlib import Path
 from agents.tools_pkg import get_agent_config, get_default_thinking_level
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from core.auth import (
+    configure_sdk_authentication,
     get_sdk_env_vars,
-    require_auth_token,
-    validate_token_not_encrypted,
 )
 from core.platform import validate_cli_path
 from phase_config import get_thinking_budget
@@ -80,37 +79,8 @@ def create_simple_client(
     # CLAUDE_CONFIG_DIR enables per-profile Keychain entries with SHA256-hashed service names
     config_dir = sdk_env.get("CLAUDE_CONFIG_DIR")
 
-    # Authentication: Support both OAuth and API Profile modes
-    # API Profile mode: ANTHROPIC_BASE_URL indicates custom endpoint (e.g., z.ai)
-    # OAuth mode: CLAUDE_CODE_OAUTH_TOKEN for Claude Code subscription
-    api_profile_mode = bool(os.environ.get("ANTHROPIC_BASE_URL", "").strip())
-
-    if api_profile_mode:
-        # API profile mode: ensure ANTHROPIC_AUTH_TOKEN is present
-        if not os.environ.get("ANTHROPIC_AUTH_TOKEN"):
-            raise ValueError(
-                "API profile mode active (ANTHROPIC_BASE_URL is set) "
-                "but ANTHROPIC_AUTH_TOKEN is not set"
-            )
-        # Explicitly remove CLAUDE_CODE_OAUTH_TOKEN so SDK uses ANTHROPIC_AUTH_TOKEN
-        # SDK gives OAuth priority over API keys when both are present
-        os.environ.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
-        logger.info("Using API profile authentication")
-    else:
-        # OAuth mode: require and validate OAuth token
-        # Get OAuth token - uses profile-specific Keychain lookup when config_dir is set
-        # This correctly reads from "Claude Code-credentials-{hash}" for non-default profiles
-        oauth_token = require_auth_token(config_dir)
-
-        # Validate token is not encrypted before passing to SDK
-        # Encrypted tokens (enc:...) should have been decrypted by require_auth_token()
-        # If we still have an encrypted token here, it means decryption failed or was skipped
-        validate_token_not_encrypted(oauth_token)
-
-        # Ensure SDK can access it via its expected env var
-        # This is required because the SDK doesn't know about per-profile Keychain naming
-        os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
-        logger.info("Using OAuth authentication")
+    # Configure SDK authentication (OAuth or API profile mode)
+    configure_sdk_authentication(config_dir)
 
     # Get agent configuration (raises ValueError if unknown type)
     config = get_agent_config(agent_type)
