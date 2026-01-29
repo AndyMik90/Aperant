@@ -19,9 +19,12 @@ Usage:
 """
 
 import asyncio
+import io
 import json
 import logging
+import os
 import sys
+from contextlib import redirect_stdout
 from pathlib import Path
 
 # Add backend to path
@@ -205,9 +208,22 @@ async def validate_single_ticket(
 
         # validate_ticket now auto-fetches issue data if not provided
         print(f"[LINEAR_RUNNER] Calling validate_ticket for {ticket_id}...", flush=True)
-        result = await agent.validate_ticket(
-            ticket_id, issue_data=None, skip_cache=skip_cache
-        )
+
+        # Suppress stdout during validation to avoid SDK debug messages polluting JSON output
+        # The Claude Agent SDK outputs progress/cache messages that interfere with JSON parsing
+        stdout_capture = io.StringIO()
+        with redirect_stdout(stdout_capture):
+            result = await agent.validate_ticket(
+                ticket_id, issue_data=None, skip_cache=skip_cache
+            )
+
+        # Capture any suppressed output for debugging (write to stderr instead)
+        suppressed_output = stdout_capture.getvalue()
+        if suppressed_output:
+            sys.stderr.write(
+                f"[LINEAR_RUNNER] Suppressed SDK output:\n{suppressed_output}\n"
+            )
+
         print(f"[LINEAR_RUNNER] Validation completed for {ticket_id}", flush=True)
         print(f"[LINEAR_RUNNER] Result keys: {list(result.keys())}", flush=True)
 
@@ -278,7 +294,17 @@ async def validate_batch_tickets(
         # Since we now auto-fetch data, we can pass None for data
         issues = [{"id": ticket_id, "data": None} for ticket_id in ticket_ids]
 
-        results = await agent.validate_batch(issues, skip_cache=skip_cache)
+        # Suppress stdout during validation to avoid SDK debug messages polluting JSON output
+        stdout_capture = io.StringIO()
+        with redirect_stdout(stdout_capture):
+            results = await agent.validate_batch(issues, skip_cache=skip_cache)
+
+        # Capture any suppressed output for debugging (write to stderr instead)
+        suppressed_output = stdout_capture.getvalue()
+        if suppressed_output:
+            sys.stderr.write(
+                f"[LINEAR_RUNNER] Suppressed SDK output:\n{suppressed_output}\n"
+            )
 
         # Convert successful results to serializable format
         successful_results = []
@@ -328,7 +354,6 @@ async def validate_batch_tickets(
 async def main():
     """CLI entry point."""
     import argparse
-    import os
 
     parser = argparse.ArgumentParser(
         description="Validate Linear tickets using AI",
