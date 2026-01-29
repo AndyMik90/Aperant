@@ -365,11 +365,9 @@ async def main():
     load_project_env(args.project_dir)
 
     # Check if LINEAR_API_KEY is set
+    # Security: Only log boolean status, never log the actual key or any part of it
     linear_key = os.environ.get("LINEAR_API_KEY", "")
-    print(f"[LINEAR_RUNNER] LINEAR_API_KEY set: {bool(linear_key)}", flush=True)
-    if linear_key:
-        key_preview = linear_key[:10] + "..." if len(linear_key) > 10 else linear_key
-        print(f"[LINEAR_RUNNER] LINEAR_API_KEY preview: {key_preview}", flush=True)
+    print(f"[LINEAR_RUNNER] LINEAR_API_KEY configured: {bool(linear_key)}", flush=True)
 
     # Validate project directory
     project_dir = Path(args.project_dir).resolve()
