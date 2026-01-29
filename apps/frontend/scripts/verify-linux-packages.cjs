@@ -8,12 +8,10 @@
  * Usage: node scripts/verify-linux-packages.cjs [dist-dir]
  */
 
-import fs from 'fs';
-import path from 'path';
-import { spawnSync } from 'child_process';
-import { fileURLToPath } from 'url';
+const fs = require('fs');
+const path = require('path');
+const { spawnSync } = require('child_process');
 
-const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Critical Python packages that must be present
@@ -123,20 +121,20 @@ function verifyAppImage(appImagePath) {
   const files = result.stdout.split('\n');
 
   // Check for Python binary (in resources/)
-  const pythonBinFound = files.some(f => f.includes('resources/python') || f.includes('python'));
+  const pythonBinFound = files.some((f) => f.includes('resources/python') || f.includes('python'));
   if (!pythonBinFound) {
     issues.push('Python binary not found in AppImage');
   }
 
   // Check for backend directory (in resources/)
-  const backendFound = files.some(f => f.includes('resources/backend') || f.includes('backend'));
+  const backendFound = files.some((f) => f.includes('resources/backend') || f.includes('backend'));
   if (!backendFound) {
     issues.push('Backend directory not found in AppImage');
   }
 
   // Check for critical Python packages (in resources/python-site-packages/)
   for (const pkg of CRITICAL_PACKAGES) {
-    const found = files.some(f => f.includes(`python-site-packages/${pkg}`) || f.includes(pkg));
+    const found = files.some((f) => f.includes(`python-site-packages/${pkg}`) || f.includes(pkg));
     if (!found) {
       issues.push(`Python package not found: ${pkg}`);
     }
@@ -145,7 +143,7 @@ function verifyAppImage(appImagePath) {
   return {
     verified: issues.length === 0,
     issues,
-    fileCount: files.filter(f => f.trim()).length,
+    fileCount: files.filter((f) => f.trim()).length,
   };
 }
 
@@ -177,20 +175,20 @@ function verifyDeb(debPath) {
   const files = result.stdout.split('\n');
 
   // Check for Python binary (in resources/)
-  const pythonBinFound = files.some(f => f.includes('resources/python') || f.includes('/python'));
+  const pythonBinFound = files.some((f) => f.includes('resources/python') || f.includes('/python'));
   if (!pythonBinFound) {
     issues.push('Python binary not found in deb package');
   }
 
   // Check for backend directory (in resources/)
-  const backendFound = files.some(f => f.includes('resources/backend') || f.includes('/backend'));
+  const backendFound = files.some((f) => f.includes('resources/backend') || f.includes('/backend'));
   if (!backendFound) {
     issues.push('Backend directory not found in deb package');
   }
 
   // Check for critical Python packages (in resources/python-site-packages/)
   for (const pkg of CRITICAL_PACKAGES) {
-    const found = files.some(f => f.includes(`python-site-packages/${pkg}`) || f.includes(pkg));
+    const found = files.some((f) => f.includes(`python-site-packages/${pkg}`) || f.includes(pkg));
     if (!found) {
       issues.push(`Python package not found: ${pkg}`);
     }
@@ -199,7 +197,7 @@ function verifyDeb(debPath) {
   return {
     verified: issues.length === 0,
     issues,
-    fileCount: files.filter(f => f.trim()).length,
+    fileCount: files.filter((f) => f.trim()).length,
   };
 }
 
@@ -230,7 +228,8 @@ function verifyFlatpak(flatpakPath) {
 
   // Flatpak files are large OCI archives, so we just verify file size and basic structure
   // Detailed content inspection would require mounting or extracting the flatpak
-  if (stats.size < 50 * 1024 * 1024) { // Less than 50MB is suspicious
+  if (stats.size < 50 * 1024 * 1024) {
+    // Less than 50MB is suspicious
     issues.push(`Flatpak file seems too small (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
   }
 
