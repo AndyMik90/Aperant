@@ -4,34 +4,14 @@
 // which is only available in CommonJS. Without this, node-pty native module
 // loading fails with "ReferenceError: require is not defined".
 import { createRequire } from 'module';
-import { join as pathJoin } from 'path';
 const require = createRequire(import.meta.url);
 // Make require globally available for Sentry's require-in-the-middle hooks
 globalThis.require = require;
 
-// WORKTREE DETECTION: Must happen BEFORE any other imports
+// WORKTREE DETECTION: Must happen FIRST before any other imports
 // because many modules create singletons that initialize with the backend path.
-// Detect worktree and set global path so all modules use the correct backend.
-function detectWorktreeBackendSync(): string | undefined {
-  const currentPath = process.cwd();
-  if (currentPath.includes('/.auto-claude/worktrees/') || currentPath.includes('\\.auto-claude\\worktrees\\')) {
-    const worktreeRootMatch = currentPath.match(/(.*\/\.auto-claude\/worktrees\/.+)$/);
-    if (worktreeRootMatch) {
-      let worktreeRoot = worktreeRootMatch[1];
-      if (worktreeRoot.endsWith('/apps/frontend')) {
-        worktreeRoot = worktreeRoot.slice(0, -'/apps/frontend'.length);
-      }
-      const worktreeBackendPath = pathJoin(worktreeRoot, 'apps', 'backend');
-      console.log('[index] Worktree detected at startup, backend:', worktreeBackendPath);
-      return worktreeBackendPath;
-    }
-  }
-  return undefined;
-}
-
-// Set global worktree backend path BEFORE importing other modules
-// This allows TitleGenerator, TerminalNameGenerator, etc. to use the correct path
-(globalThis as any).WORKTREE_BACKEND_PATH = detectWorktreeBackendSync();
+// This module sets global WORKTREE_BACKEND_PATH if running from a worktree.
+import './worktree-backend.js';
 
 // Load .env file FIRST before any other imports that might use process.env
 import { config } from 'dotenv';
