@@ -66,7 +66,6 @@ const createMockProfileManager = (options: {
 describe('Token Refresh and Fallback', () => {
   beforeEach(() => {
     vi.resetModules();
-    vi.clearAllMocks();
     mockEnsureValidToken.mockReset();
     mockGetCredentialsFromKeychain.mockReset();
     mockGetFullCredentialsFromKeychain.mockReset();
