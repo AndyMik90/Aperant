@@ -361,10 +361,14 @@ app.whenReady().then(() => {
     // uses the worktree's code, not the main repo.
     const currentPath = process.cwd();
     if (currentPath.includes('/.auto-claude/worktrees/') || currentPath.includes('\\.auto-claude\\worktrees\\')) {
-      // We're in a worktree - use the worktree's backend
-      const worktreeBackendPath = join(currentPath, 'apps', 'backend');
-      console.warn('[main] Worktree detected, using worktree backend:', worktreeBackendPath);
-      validAutoBuildPath = worktreeBackendPath;
+      // We're in a worktree - find the worktree root and use its backend
+      // The worktree root contains /.auto-claude/worktrees/ in its path
+      const worktreeRootMatch = currentPath.match(/(.*\/\.auto-claude\/worktrees\/[^/]+)/);
+      if (worktreeRootMatch) {
+        const worktreeBackendPath = join(worktreeRootMatch[1], 'apps', 'backend');
+        console.warn('[main] Worktree detected, using worktree backend:', worktreeBackendPath);
+        validAutoBuildPath = worktreeBackendPath;
+      }
     }
 
     if (settings.pythonPath || validAutoBuildPath) {
