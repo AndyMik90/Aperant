@@ -249,70 +249,68 @@ const browserMockAPI: ElectronAPI = {
     onQueueBlockedNoProfiles: () => () => {}
   },
 
-  // Linear API
-  linear: {
-    checkLinearConnection: async () => ({
-      success: true,
-      data: { connected: false, error: 'Not configured' }
-    }),
-    getLinearTeams: async () => ({ success: true, data: [] }),
-    getLinearProjects: async () => ({ success: true, data: [] }),
-    getLinearIssues: async () => ({ success: true, data: [] }),
-    importLinearIssues: async () => ({
-      success: true,
-      data: { success: true, imported: 0, failed: 0, errors: [] }
-    }),
-    validateLinearTicket: async () => ({
-      success: true,
-      data: {
-        ticketId: '',
-        ticketIdentifier: '',
-        validationTimestamp: new Date().toISOString(),
-        cached: false,
-        status: 'complete' as const,
-        contentAnalysis: {
-          title: 'Mock',
-          descriptionSummary: 'Mock',
-          requirements: []
-        },
-        completenessValidation: {
-          isComplete: true,
-          missingFields: [],
-          feasibilityScore: 90,
-          feasibilityReasoning: 'Mock'
-        },
-        suggestedLabels: [],
-        versionRecommendation: {
-          recommendedVersion: '2.7.5',
-          versionType: 'patch' as const,
-          reasoning: 'Mock'
-        },
-        taskProperties: {
-          category: 'feature',
-          complexity: 'medium',
-          impact: 'medium',
-          priority: 'medium',
-          rationale: 'Mock'
-        }
+  // Linear API (at top level, not nested)
+  checkLinearConnection: async () => ({
+    success: true,
+    data: { connected: false, error: 'Not configured' }
+  }),
+  getLinearTeams: async () => ({ success: true, data: [] }),
+  getLinearProjects: async () => ({ success: true, data: [] }),
+  getLinearIssues: async () => ({ success: true, data: [] }),
+  importLinearIssues: async () => ({
+    success: true,
+    data: { success: true, imported: 0, failed: 0, errors: [] }
+  }),
+  validateLinearTicket: async () => ({
+    success: true,
+    data: {
+      ticketId: '',
+      ticketIdentifier: '',
+      validationTimestamp: new Date().toISOString(),
+      cached: false,
+      status: 'complete' as const,
+      contentAnalysis: {
+        title: 'Mock',
+        descriptionSummary: 'Mock',
+        requirements: []
+      },
+      completenessValidation: {
+        isComplete: true,
+        missingFields: [],
+        feasibilityScore: 90,
+        feasibilityReasoning: 'Mock'
+      },
+      suggestedLabels: [],
+      versionRecommendation: {
+        recommendedVersion: '2.7.5',
+        versionType: 'patch' as const,
+        reasoning: 'Mock'
+      },
+      taskProperties: {
+        category: 'feature',
+        complexity: 'medium',
+        impact: 'medium',
+        priority: 'medium',
+        rationale: 'Mock'
       }
-    }),
-    validateLinearTicketBatch: async () => ({
-      success: true,
-      data: { successful: [], failed: [] }
-    }),
-    cancelLinearValidation: async () => ({
-      success: true,
-      data: undefined
-    }),
-    updateLinearTicketWithValidation: async () => ({
-      success: true,
-      data: true
-    }),
-    onLinearValidationProgress: () => () => {
-      // Mock listener cleanup - no-op
-    },
-    clearLinearCache: async () => ({ success: true, data: undefined })
+    }
+  }),
+  validateLinearTicketBatch: async () => ({
+    success: true,
+    data: { successful: [], failed: [] }
+  }),
+  cancelLinearValidation: async () => ({
+    success: true,
+    data: undefined
+  }),
+  updateLinearTicketWithValidation: async () => ({
+    success: true,
+    data: true
+  }),
+  onLinearValidationProgress: () => () => {
+    // Mock listener cleanup - no-op
   },
+  clearLinearCache: async () => ({ success: true, data: undefined }),
 
   // Claude Code Operations
   checkClaudeCodeVersion: async () => ({

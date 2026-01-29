@@ -448,6 +448,14 @@ export interface ElectronAPI {
   cancelLinearValidation: (ticketId: string) => Promise<IPCResult<void>>;
   updateLinearTicketWithValidation: (projectId: string, ticketId: string, validation: ValidationResult) => Promise<IPCResult<any>>;
   clearLinearCache: () => Promise<IPCResult<void>>;
+  /** Listen for Linear validation progress events */
+  onLinearValidationProgress: (callback: (progress: {
+    ticketId: string;
+    phase: string;
+    step: number;
+    total: number;
+    message: string;
+  }) => void) => () => void;
 
   // GitHub integration operations
   getGitHubRepositories: (projectId: string) => Promise<IPCResult<GitHubRepository[]>>;
@@ -843,9 +851,6 @@ export interface ElectronAPI {
 
   // GitHub API (nested for organized access)
   github: import('../../preload/api/modules/github-api').GitHubAPI;
-
-  // Linear API (nested for organized access)
-  linear: import('../../preload/api/modules/linear-api').LinearAPI;
 
   // Claude Code CLI operations
   checkClaudeCodeVersion: () => Promise<IPCResult<import('./cli').ClaudeCodeVersionInfo>>;

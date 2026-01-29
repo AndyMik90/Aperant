@@ -28,15 +28,10 @@ export function useLinearValidationProgress(ticketId?: string): void {
 			return;
 		}
 
-		// Check if the Linear API is available
-		if (!electronAPI.linear) {
-			debugWarn("[useLinearValidationProgress] Linear API not available on electronAPI");
-			return;
-		}
-
 		// Check if the Linear API progress listener is available
-		if (!electronAPI.linear.onLinearValidationProgress) {
-			debugWarn("[useLinearValidationProgress] onLinearValidationProgress method not available on electronAPI.linear");
+		// Linear methods are at top level of electronAPI, not nested under 'linear'
+		if (!electronAPI.onLinearValidationProgress) {
+			debugWarn("[useLinearValidationProgress] onLinearValidationProgress method not available on electronAPI");
 			return;
 		}
 
@@ -60,7 +55,7 @@ export function useLinearValidationProgress(ticketId?: string): void {
 		};
 
 		// Register listener - returns cleanup function
-		const cleanup = electronAPI.linear.onLinearValidationProgress(handleProgress);
+		const cleanup = electronAPI.onLinearValidationProgress(handleProgress);
 
 		// Cleanup listener on unmount
 		return () => {
