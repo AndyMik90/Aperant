@@ -11,7 +11,8 @@ import type {
   InfrastructureStatus,
   GraphitiValidationResult,
   GraphitiConnectionTestResult,
-  GitStatus
+  GitStatus,
+  KanbanPreferences
 } from '../../shared/types';
 
 // Tab state interface (persisted in main process)
@@ -20,15 +21,6 @@ export interface TabState {
   activeProjectId: string | null;
   tabOrder: string[];
 }
-
-// Kanban column preference (persisted in main process per project)
-export interface KanbanColumnPreference {
-  width: number;
-  isCollapsed: boolean;
-  isLocked: boolean;
-}
-
-export type KanbanPreferences = Record<string, KanbanColumnPreference>;
 
 export interface ProjectAPI {
   // Project Management

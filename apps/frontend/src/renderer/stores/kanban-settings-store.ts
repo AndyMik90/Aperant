@@ -1,22 +1,14 @@
 import { create } from 'zustand';
 import type { TaskStatusColumn } from '../../shared/constants/task';
 import { TASK_STATUS_COLUMNS } from '../../shared/constants/task';
+import type { KanbanColumnPreference } from '../../shared/types/kanban';
 
 // ============================================
 // Types
 // ============================================
 
-/**
- * Column preferences for a single kanban column
- */
-export interface ColumnPreferences {
-  /** Column width in pixels (180-600px range) */
-  width: number;
-  /** Whether the column is collapsed (narrow vertical strip) */
-  isCollapsed: boolean;
-  /** Whether the column width is locked (prevents resize) */
-  isLocked: boolean;
-}
+// Re-export shared type for backwards compatibility
+export type ColumnPreferences = KanbanColumnPreference;
 
 /**
  * All column preferences keyed by status column
@@ -77,6 +69,9 @@ export const COLLAPSED_COLUMN_WIDTH = 48;
 // ============================================
 
 let saveKanbanPrefsTimeout: ReturnType<typeof setTimeout> | null = null;
+
+// Track the current project being loaded to detect stale IPC results
+let currentLoadingProjectId: string | null = null;
 
 // ============================================
 // Helper Functions
@@ -151,8 +146,15 @@ function clampWidth(width: number): number {
 /**
  * Save kanban preferences to main process via IPC (debounced)
  * Follows the saveTabStateToMain() pattern from project-store.ts
+ *
+ * NOTE: We capture columnPreferences at call time to avoid race conditions
+ * when the user switches projects during the debounce window.
  */
 function saveKanbanPreferencesToMain(projectId: string): void {
+  // Capture preferences at call time to avoid saving wrong project's data
+  const preferencesToSave = useKanbanSettingsStore.getState().columnPreferences;
+  if (!preferencesToSave) return;
+
   // Clear any pending save
   if (saveKanbanPrefsTimeout) {
     clearTimeout(saveKanbanPrefsTimeout);
@@ -160,13 +162,11 @@ function saveKanbanPreferencesToMain(projectId: string): void {
 
   // Debounce saves to avoid excessive IPC calls
   saveKanbanPrefsTimeout = setTimeout(async () => {
-    const store = useKanbanSettingsStore.getState();
-    if (!store.columnPreferences) return;
-
     try {
-      await window.electronAPI.saveKanbanPreferences(projectId, store.columnPreferences);
-    } catch {
+      await window.electronAPI.saveKanbanPreferences(projectId, preferencesToSave);
+    } catch (err) {
       // IPC save failed — localStorage sync cache is still available as fallback
+      console.debug('[KanbanSettings] IPC save failed, using localStorage fallback:', err);
     }
   }, 100);
 }
@@ -273,6 +273,15 @@ export const useKanbanSettingsStore = create<KanbanSettingsState>((set, get) => 
   },
 
   loadPreferences: (projectId) => {
+    // Clear any pending save from previous project to prevent cross-project contamination
+    if (saveKanbanPrefsTimeout) {
+      clearTimeout(saveKanbanPrefsTimeout);
+      saveKanbanPrefsTimeout = null;
+    }
+
+    // Track current project to detect stale IPC results
+    currentLoadingProjectId = projectId;
+
     // First, try loading from localStorage as immediate sync cache
     try {
       const key = getKanbanSettingsKey(projectId);
@@ -296,6 +305,11 @@ export const useKanbanSettingsStore = create<KanbanSettingsState>((set, get) => 
     (async () => {
       try {
         const result = await window.electronAPI.getKanbanPreferences(projectId);
+
+        // Check if project changed while IPC was in flight - discard stale result
+        if (currentLoadingProjectId !== projectId) {
+          return;
+        }
 
         if (result?.success && result.data) {
           if (validatePreferences(result.data)) {
