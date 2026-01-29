@@ -22,6 +22,14 @@
     "fileRenamesDetected": "{{count}} file rename detected - AI will handle the merge.",
     "fileRenamesDetected_other": "{{count}} file renames detected - AI will handle the merge.",
     "filesRenamedOrMoved": "Files may have been renamed or moved - AI will handle the merge.",
+    "alreadyMergedTitle": "Changes already in your branch",
+    "alreadyMergedDescription": "These changes appear to already exist in your current branch. You can safely mark this task as done.",
+    "alreadyMergedTooltip": "The task's changes are already present in your branch. Marking as done will clean up the worktree without merging.",
+    "matchingFiles": "Matching files",
+    "supersededTitle": "Changes superseded",
+    "supersededDescription": "Your current branch has a newer version of these changes. Consider discarding this task or viewing the comparison.",
+    "supersededCompareTooltip": "View a detailed comparison to see how the current branch differs from this task's changes.",
+    "supersededDiscardTooltip": "Remove this task's worktree since the changes are no longer needed.",
     "buttons": {
       "stageWithAIMerge": "Stage with AI Merge",
       "mergeWithAI": "Merge with AI",
@@ -29,7 +37,13 @@
       "mergeTo": "Merge to {{branch}}",
       "resolving": "Resolving...",
       "staging": "Staging...",
-      "merging": "Merging..."
+      "merging": "Merging...",
+      "completing": "Completing..."
+    },
+    "actions": {
+      "markAsDone": "Mark as Done",
+      "discardTask": "Discard Task",
+      "viewComparison": "View Comparison"
     }
   },
   "pr": {

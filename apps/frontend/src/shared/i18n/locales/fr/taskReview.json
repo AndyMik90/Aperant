@@ -22,6 +22,14 @@
     "fileRenamesDetected": "{{count}} renommage de fichier détecté - l'IA gérera la fusion.",
     "fileRenamesDetected_other": "{{count}} renommages de fichiers détectés - l'IA gérera la fusion.",
     "filesRenamedOrMoved": "Des fichiers ont peut-être été renommés ou déplacés - l'IA gérera la fusion.",
+    "alreadyMergedTitle": "Modifications déjà dans votre branche",
+    "alreadyMergedDescription": "Ces modifications semblent déjà exister dans votre branche actuelle. Vous pouvez marquer cette tâche comme terminée en toute sécurité.",
+    "alreadyMergedTooltip": "Les modifications de la tâche sont déjà présentes dans votre branche. Marquer comme terminé nettoiera le worktree sans fusionner.",
+    "matchingFiles": "Fichiers correspondants",
+    "supersededTitle": "Modifications remplacées",
+    "supersededDescription": "Votre branche actuelle a une version plus récente de ces modifications. Envisagez de supprimer cette tâche ou de voir la comparaison.",
+    "supersededCompareTooltip": "Voir une comparaison détaillée pour voir comment la branche actuelle diffère des modifications de cette tâche.",
+    "supersededDiscardTooltip": "Supprimer le worktree de cette tâche puisque les modifications ne sont plus nécessaires.",
     "buttons": {
       "stageWithAIMerge": "Préparer avec fusion IA",
       "mergeWithAI": "Fusionner avec IA",
@@ -29,7 +37,13 @@
       "mergeTo": "Fusionner vers {{branch}}",
       "resolving": "Résolution...",
       "staging": "Préparation...",
-      "merging": "Fusion..."
+      "merging": "Fusion...",
+      "completing": "Finalisation..."
+    },
+    "actions": {
+      "markAsDone": "Marquer comme terminé",
+      "discardTask": "Supprimer la tâche",
+      "viewComparison": "Voir la comparaison"
     }
   },
   "pr": {
