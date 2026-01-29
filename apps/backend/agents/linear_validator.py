@@ -638,7 +638,7 @@ class LinearValidationAgent:
 
         # Emit initial progress: starting validation
         self._emit_progress(
-            "initialization", 0, 7, f"Starting validation for {issue_id}"
+            "initialization", 0, 8, f"Starting validation for {issue_id}"
         )
 
         # Perform validation if not cached
@@ -673,11 +673,16 @@ class LinearValidationAgent:
 
                 # Create a heartbeat task that emits progress during the long AI call
                 heartbeat_steps = [
-                    ("ai_analysis_start", 2, "AI analysis in progress..."),
-                    ("completeness_check", 3, "Validating ticket completeness..."),
-                    ("labels_selection", 4, "Selecting appropriate labels..."),
-                    ("version_calculation", 5, "Calculating version label..."),
-                    ("properties_recommendation", 6, "Recommending task properties..."),
+                    (
+                        "codebase_search",
+                        2,
+                        "Searching codebase for related implementation...",
+                    ),
+                    ("ai_analysis_start", 3, "AI analysis in progress..."),
+                    ("completeness_check", 4, "Validating ticket completeness..."),
+                    ("labels_selection", 5, "Selecting appropriate labels..."),
+                    ("version_calculation", 6, "Calculating version label..."),
+                    ("properties_recommendation", 7, "Recommending task properties..."),
                 ]
                 heartbeat_index = 0
 
@@ -846,31 +851,73 @@ Version Label Rules:
 
 {version_context}
 
-## 5-Step Validation Workflow
+## Codebase-Aware Validation Workflow
 
-Please complete the following 5 steps and provide your results in a structured format:
+IMPORTANT: You have access to codebase search tools (Read, Grep, Glob). Use them to validate ticket claims against actual code.
 
-### Step 1: Analyze Ticket Content
+### Phase 1: Ticket Analysis (Steps 1-2)
+
+#### Step 1: Analyze Ticket Content
 - Summarize the ticket's main objective
 - Identify key requirements or acceptance criteria
 - Note any technical constraints or dependencies
 - Identify the type of work (bug, feature, enhancement, refactoring, etc.)
 
-### Step 2: Validate Completeness
+#### Step 2: Search Codebase for Related Implementation
+CRITICAL: Before assessing feasibility, you MUST search the codebase:
+
+1. **Use Grep to search for related code:**
+   - Search for function names, class names, or keywords from the ticket title/description
+   - Example: If ticket mentions "user authentication", search for patterns like "auth", "login", "authenticate"
+   - Use the Grep tool to find relevant files
+
+2. **Use Glob to find related files:**
+   - Search for files in relevant directories (e.g., "src/components/**/*auth*", "apps/backend/**/*user*")
+   - Look for test files, configuration files, or documentation
+
+3. **Use Read to examine source files:**
+   - Read relevant source files to understand current implementation
+   - Check if similar functionality already exists
+   - Identify code patterns, conventions, and dependencies
+
+4. **Document your findings:**
+   - List file paths you examined
+   - Note any existing implementations that relate to this ticket
+   - Identify potential conflicts or duplications
+   - Assess if the ticket's claims match the actual codebase
+
+### Phase 2: Completeness & Feasibility (Steps 3-4)
+
+#### Step 3: Validate Completeness
 - Check if title is clear and descriptive
 - Verify description provides sufficient context
 - Identify missing information (requirements, reproduction steps, etc.)
-- Assess technical feasibility as a score (0-100, where 100 = highly feasible)
-- Rate completeness: Complete, Needs Clarification, or Incomplete
+- Based on your codebase search, assess if technical claims are accurate
 
-### Step 3: Auto-Select Labels
-Based on the ticket content, recommend appropriate labels from these common categories:
+#### Step 4: Assess Feasibility (Codebase-Based)
+IMPORTANT: Base your feasibility assessment on ACTUAL code analysis:
+
+- **Feasibility Score (0-100):** Consider:
+  - Code complexity discovered through file analysis
+  - Dependencies identified in the codebase
+  - Existing patterns that can be leveraged
+  - Technical constraints found in source code
+  - Whether similar implementations already exist
+
+- **Provide evidence:** Reference specific files, functions, or code patterns you found
+
+### Phase 3: Recommendations (Step 5)
+
+#### Step 5: Generate Recommendations
+Based on BOTH ticket content AND codebase analysis:
+
+**Auto-Select Labels** (with codebase awareness):
 - **Type:** bug, feature, enhancement, refactor, documentation, testing, performance
 - **Component:** backend, frontend, database, api, ui/ux, infrastructure
-- **Complexity:** simple, medium, complex
-- **Impact:** low, medium, high, critical
+- **Complexity:** simple, medium, complex (based on actual code examined)
+- **Impact:** low, medium, high, critical (based on affected files)
 
-### Step 4: Determine Version Label
+**Determine Version Label:**
 {"Calculate the appropriate version label based on the current version and ticket type." if current_version else "Recommend whether this should be a patch or minor version increment."}
 
 Rules:
@@ -878,10 +925,9 @@ Rules:
 - New features/enhancements → Minor increment (middle number + 1, last = 0)
 - Use semantic versioning: MAJOR.MINOR.PATCH
 
-### Step 5: Recommend Task Properties
-Provide recommendations for:
+**Recommend Task Properties:**
 1. **Category:** backend, frontend, fullstack, devops, testing, documentation
-2. **Complexity:** simple (1-2 hours), medium (half day), complex (1-2 days)
+2. **Complexity:** simple (1-2 hours), medium (half day), complex (1-2 days) - BASED ON CODE ANALYZED
 3. **Impact:** low (internal), medium (user-visible), high (blocking), critical (production issue)
 4. **Priority:** urgent (1), high (2), normal (3), low (4)
 
@@ -897,12 +943,25 @@ Please provide your results in the following structured format:
     "dependencies": ["List of technical constraints or dependencies"],
     "work_type": "bug|feature|enhancement|refactor|documentation|testing|performance"
   }},
+  "codebase_verification": {{
+    "searched_files": ["path/to/file1.ts", "path/to/file2.py"],
+    "related_implementations": [
+      {{
+        "file": "path/to/existing/code.ts",
+        "description": "Brief description of what this code does",
+        "relevance": "similar|duplicate|conflicting|dependency"
+      }}
+    ],
+    "patterns_found": ["pattern1", "pattern2"],
+    "technical_constraints": ["constraint1 identified from code analysis"],
+    "existing_solutions": "Description of any existing solutions found"
+  }},
   "completeness": {{
     "title_clear": true|false,
     "description_sufficient": true|false,
     "missing_info": ["List of missing information"],
     "feasibility_score": 0-100,
-    "feasibility_reasoning": "Detailed explanation of why this feasibility score was given, including any technical concerns, dependencies, or risks that affect implementation",
+    "feasibility_reasoning": "Detailed explanation based on ACTUAL CODE ANALYSIS. Reference specific files examined.",
     "rating": "complete|needs_clarification|incomplete"
   }},
   "recommended_labels": [
@@ -918,11 +977,11 @@ Please provide your results in the following structured format:
     "priority": 1|2|3|4
   }},
   "confidence": 0.85,
-  "reasoning": "Detailed explanation of your recommendations and rationale"
+  "reasoning": "Detailed explanation including CODEBASE VERIFICATION RESULTS. Reference files examined and findings."
 }}
 ```
 
-Begin your analysis now.
+Begin your analysis with codebase search now.
 """
         return prompt
 

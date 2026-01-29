@@ -120,6 +120,7 @@
 	"suggested_close_reason": "Suggested close reason",
 	"validationSteps": {
 		"analyze": "Analyze Content",
+		"codebase": "Search Codebase",
 		"completeness": "Validate Completeness",
 		"labels": "Auto-Select Labels",
 		"version": "Determine Version",
@@ -128,6 +129,11 @@
 	"taskProperties": "Task Properties",
 	"contentAnalysis": "Content Analysis",
 	"completenessValidation": "Completeness Validation",
+	"codebaseVerification": "Codebase Verification",
+	"filesExamined": "Files Examined",
+	"relatedCode": "Related Code Found",
+	"constraints": "Technical Constraints",
+	"existingSolutions": "Existing Solutions",
 	"complete": "Complete",
 	"incomplete": "Incomplete",
 	"feasibilityScore": "Feasibility",
@@ -141,6 +147,7 @@
 	"progressPhases": {
 		"initialization": "Starting validation for {{ticketId}}",
 		"content_analysis": "Analyzing ticket content...",
+		"codebase_search": "Searching codebase for related implementation...",
 		"ai_analysis_start": "AI analysis in progress...",
 		"completeness_check": "Validating ticket completeness...",
 		"labels_selection": "Selecting appropriate labels...",

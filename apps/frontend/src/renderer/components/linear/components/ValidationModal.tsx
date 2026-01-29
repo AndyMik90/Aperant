@@ -16,6 +16,7 @@ import {
 	FileText,
 	Loader2,
 	Save,
+	Search,
 	Settings,
 	Tag,
 	Target,
@@ -158,11 +159,12 @@ export function ValidationModal({
 			const { phase } = validationProgress;
 
 			// Map progress phases to step IDs
-			// Backend now emits: initialization, content_analysis, ai_analysis_start,
+			// Backend now emits: initialization, content_analysis, codebase_search,
 			// completeness_check, labels_selection, version_calculation, properties_recommendation, ai_analysis_complete
 			const phaseToStepId: Record<string, string> = {
 				initialization: "analyze",
 				content_analysis: "analyze",
+				codebase_search: "codebase",
 				ai_analysis_start: "completeness",
 				completeness_check: "completeness",
 				labels_selection: "labels",
@@ -177,7 +179,7 @@ export function ValidationModal({
 			if (currentStepId === stepId) return "in_progress";
 
 			// If we're past this step, show as complete
-			const stepOrder = ["analyze", "completeness", "labels", "version", "properties"];
+			const stepOrder = ["analyze", "codebase", "completeness", "labels", "version", "properties"];
 			const currentIndex = stepOrder.indexOf(currentStepId);
 			const targetIndex = stepOrder.indexOf(stepId);
 
@@ -199,6 +201,17 @@ export function ValidationModal({
 			}),
 			status: getStepStatus("analyze", !!validation?.contentAnalysis),
 			icon: FileText,
+		},
+		{
+			id: "codebase",
+			label: t("linear:validationSteps.codebase", {
+				defaultValue: "Search Codebase",
+			}),
+			status: getStepStatus(
+				"codebase",
+				(validation?.codebaseVerification?.searchedFiles?.length ?? 0) > 0,
+			),
+			icon: Search,
 		},
 		{
 			id: "completeness",
@@ -845,6 +858,118 @@ export function ValidationModal({
 											),
 										)}
 									</ul>
+								)}
+							</div>
+						</div>
+					)}
+
+					{/* Codebase Verification */}
+					{validation?.codebaseVerification &&
+						validation.codebaseVerification.searchedFiles?.length > 0 && (
+						<div className="space-y-2">
+							<Label className="text-base font-semibold flex items-center gap-2">
+								<Target className="h-4 w-4" />
+								{t("linear:codebaseVerification", {
+									defaultValue: "Codebase Verification",
+								})}
+							</Label>
+							<div className="text-sm space-y-2">
+								{/* Searched Files */}
+								<div className="space-y-1">
+									<span className="font-medium">
+										{t("linear:filesExamined", {
+											defaultValue: "Files Examined",
+										})}
+										:
+									</span>
+									<div className="flex flex-wrap gap-1">
+										{validation.codebaseVerification.searchedFiles.map(
+											(file, index) => (
+												<Badge
+													key={index}
+													variant="outline"
+													className="text-xs font-mono"
+												>
+													{file}
+												</Badge>
+											),
+										)}
+									</div>
+								</div>
+
+								{/* Related Implementations */}
+								{validation.codebaseVerification.relatedImplementations
+									?.length > 0 && (
+									<div className="space-y-2">
+										<span className="font-medium">
+											{t("linear:relatedCode", {
+												defaultValue: "Related Code Found",
+											})}
+											:
+										</span>
+										{validation.codebaseVerification.relatedImplementations.map(
+											(impl, index) => (
+												<div
+													key={index}
+													className="p-2 rounded bg-secondary text-xs"
+												>
+													<div className="flex items-center gap-1">
+														<span className="font-mono">
+															{impl.file}
+														</span>
+														<Badge
+															variant={
+																impl.relevance === "duplicate"
+																	? "destructive"
+																	: impl.relevance === "similar"
+																		? "default"
+																		: "secondary"
+															}
+															className="text-[10px]"
+														>
+															{impl.relevance}
+														</Badge>
+													</div>
+													<p className="text-muted-foreground mt-1">
+														{impl.description}
+													</p>
+												</div>
+											),
+										)}
+									</div>
+								)}
+
+								{/* Technical Constraints */}
+								{validation.codebaseVerification.technicalConstraints
+									?.length > 0 && (
+									<div>
+										<span className="font-medium">
+											{t("linear:constraints", {
+												defaultValue: "Technical Constraints",
+											})}
+											:
+										</span>
+										<span className="text-muted-foreground">
+											{validation.codebaseVerification.technicalConstraints.join(
+												", ",
+											)}
+										</span>
+									</div>
+								)}
+
+								{/* Existing Solutions */}
+								{validation.codebaseVerification.existingSolutions && (
+									<div>
+										<span className="font-medium">
+											{t("linear:existingSolutions", {
+												defaultValue: "Existing Solutions",
+											})}
+											:
+										</span>
+										<p className="text-muted-foreground">
+											{validation.codebaseVerification.existingSolutions}
+										</p>
+									</div>
 								)}
 							</div>
 						</div>

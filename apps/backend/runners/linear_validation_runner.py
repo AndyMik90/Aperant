@@ -101,6 +101,7 @@ def _serialize_validation_result(result: dict, ticket_id: str) -> dict:
     """
     analysis = result.get("analysis", {})
     completeness = result.get("completeness", {})
+    codebase_verification = result.get("codebase_verification", {})
     labels = result.get("recommended_labels", [])
     properties = result.get("properties", {})
 
@@ -117,6 +118,17 @@ def _serialize_validation_result(result: dict, ticket_id: str) -> dict:
                 "description_summary", analysis.get("summary", "")
             ),
             "requirements": analysis.get("requirements", []),
+        },
+        "codebaseVerification": {
+            "searchedFiles": codebase_verification.get("searched_files", []),
+            "relatedImplementations": codebase_verification.get(
+                "related_implementations", []
+            ),
+            "patternsFound": codebase_verification.get("patterns_found", []),
+            "technicalConstraints": codebase_verification.get(
+                "technical_constraints", []
+            ),
+            "existingSolutions": codebase_verification.get("existing_solutions", ""),
         },
         "completenessValidation": {
             "isComplete": completeness.get("title_clear", False)

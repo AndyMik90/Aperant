@@ -66,6 +66,19 @@ export interface ValidationResult {
 		requirements: string[];
 	};
 
+	// Codebase verification (Step 2: Search & analyze actual code)
+	codebaseVerification?: {
+		searchedFiles: string[];
+		relatedImplementations: Array<{
+			file: string;
+			description: string;
+			relevance: "similar" | "duplicate" | "conflicting" | "dependency";
+		}>;
+		patternsFound: string[];
+		technicalConstraints: string[];
+		existingSolutions: string;
+	};
+
 	// Step 2: Completeness validation
 	completenessValidation: {
 		isComplete: boolean;
