@@ -52,6 +52,8 @@ export function registerLinearHandlers(
 	agentManager: AgentManager,
 	_getMainWindow: () => BrowserWindow | null,
 ): void {
+	console.warn('[Linear] Registering Linear integration handlers');
+
 	// Listen for validation progress events from agent manager
 	agentManager.on("linear-validate-progress", (ticketId: string, progressEvent: {
 		phase: string;
@@ -965,4 +967,6 @@ ${issue.description || "No description provided."}
 			return { success: true, data: undefined };
 		},
 	);
+
+	console.warn('[Linear] Linear integration handlers registered');
 }
