@@ -12,7 +12,7 @@ import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { ProcessType, ExecutionProgressData } from './types';
 import type { CompletablePhase } from '../../shared/constants/phase-protocol';
-import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv, detectAuthFailure } from '../rate-limit-detector';
+import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv, detectAuthFailure } from '../rate-limit-detector';
 import { getAPIProfileEnv } from '../services/profile';
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
@@ -24,7 +24,7 @@ import type { AppSettings } from '../../shared/types/settings';
 import { getOAuthModeClearVars } from './env-utils';
 import { getAugmentedEnv } from '../env-utils';
 import { getToolInfo, getClaudeCliPathForSdk } from '../cli-tool-manager';
-import { killProcessGracefully } from '../platform';
+import { killProcessGracefully, isWindows } from '../platform';
 
 /**
  * Type for supported CLI tools
@@ -42,7 +42,7 @@ const CLI_TOOL_ENV_MAP: Readonly<Record<CliTool, string>> = {
 
 
 function deriveGitBashPath(gitExePath: string): string | null {
-  if (process.platform !== 'win32') {
+  if (!isWindows()) {
     return null;
   }
 
@@ -173,7 +173,9 @@ export class AgentProcessManager {
   private setupProcessEnvironment(
     extraEnv: Record<string, string>
   ): NodeJS.ProcessEnv {
-    const profileEnv = getProfileEnv();
+    // Get best available Claude profile environment (automatically handles rate limits)
+    const profileResult = getBestAvailableProfileEnv();
+    const profileEnv = profileResult.env;
     // Use getAugmentedEnv() to ensure common tool paths (dotnet, homebrew, etc.)
     // are available even when app is launched from Finder/Dock
     const augmentedEnv = getAugmentedEnv();
@@ -181,7 +183,7 @@ export class AgentProcessManager {
     // On Windows, detect and pass git-bash path for Claude Code CLI
     // Electron can detect git via where.exe, but Python subprocess may not have the same PATH
     const gitBashEnv: Record<string, string> = {};
-    if (process.platform === 'win32' && !process.env.CLAUDE_CODE_GIT_BASH_PATH) {
+    if (isWindows() && !process.env.CLAUDE_CODE_GIT_BASH_PATH) {
       try {
         const gitInfo = getToolInfo('git');
         if (gitInfo.found && gitInfo.path) {
@@ -510,6 +512,18 @@ export class AgentProcessManager {
     this.killProcess(taskId);
 
     const spawnId = this.state.generateSpawnId();
+
+    // IMPORTANT: Add to tracking IMMEDIATELY, before async operations.
+    // This ensures getRunningTasks() returns the task right away, preventing
+    // flaky tests on slower Windows CI where async setup may take longer than
+    // vi.waitFor timeout (ACS-392).
+    this.state.addProcess(taskId, {
+      taskId,
+      process: null, // Will be set after spawn() call completes below
+      startedAt: new Date(),
+      spawnId
+    });
+
     const env = this.setupProcessEnvironment(extraEnv);
 
     // Get Python environment (PYTHONPATH for bundled packages, etc.)
@@ -529,22 +543,48 @@ export class AgentProcessManager {
 
     // Parse Python commandto handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
-    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
-      cwd,
-      env: {
-        ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
-        ...pythonEnv, // Include Python environment (PYTHONPATH for bundled packages)
-        ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
-        ...apiProfileEnv // Include active API profile config (highest priority for ANTHROPIC_* vars)
-      }
-    });
+    let childProcess;
+    try {
+      childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+        cwd,
+        env: {
+          ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
+          ...pythonEnv, // Include Python environment (PYTHONPATH for bundled packages)
+          ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
+          ...apiProfileEnv // Include active API profile config (highest priority for ANTHROPIC_* vars)
+        }
+      });
+    } catch (err) {
+      // spawn() failed synchronously (e.g., command not found, permission denied)
+      // Clean up tracking entry and propagate error
+      this.state.deleteProcess(taskId);
+      this.emitter.emit('error', taskId, err instanceof Error ? err.message : String(err));
+      throw err;
+    }
 
-    this.state.addProcess(taskId, {
-      taskId,
-      process: childProcess,
-      startedAt: new Date(),
-      spawnId
-    });
+    // Update the tracked process with the actual spawned ChildProcess
+    this.state.updateProcess(taskId, { process: childProcess });
+
+    // Check if this spawn was killed during async setup (before spawn() completed).
+    // If so, terminate the newly created process immediately to prevent orphaned processes.
+    // Note: wasSpawnKilled() is checked AFTER updateProcess() because killProcess()
+    // marks the spawn as killed before deleting the tracking entry.
+    //
+    // CRITICAL: The `?? spawnId` fallback is essential here because if killProcess()
+    // was called during the async setup window, the taskId entry may have been deleted
+    // from the process map. In that case, getProcess(taskId) returns undefined, so we
+    // fall back to the local spawnId variable to check if this specific spawn was killed.
+    const currentSpawnId = this.state.getProcess(taskId)?.spawnId ?? spawnId;
+    if (this.state.wasSpawnKilled(currentSpawnId)) {
+      console.log(`[AgentProcess] Task ${taskId} was killed during spawn setup. Terminating newly created process.`);
+      killProcessGracefully(childProcess, {
+        debugPrefix: '[AgentProcess]',
+        debug: process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development'
+      });
+      this.state.deleteProcess(taskId);
+      this.state.clearKilledSpawn(currentSpawnId);
+      return; // Do not proceed with this spawn
+    }
 
     let currentPhase: ExecutionProgressData['phase'] = isSpecRunner ? 'planning' : 'planning';
     let phaseProgress = 0;
@@ -666,11 +706,11 @@ export class AgentProcessManager {
     };
 
     childProcess.stdout?.on('data', (data: Buffer) => {
-      stdoutBuffer = processBufferedOutput(stdoutBuffer, data.toString('utf8'));
+      stdoutBuffer = processBufferedOutput(stdoutBuffer, data.toString('utf-8'));
     });
 
     childProcess.stderr?.on('data', (data: Buffer) => {
-      stderrBuffer = processBufferedOutput(stderrBuffer, data.toString('utf8'));
+      stderrBuffer = processBufferedOutput(stderrBuffer, data.toString('utf-8'));
     });
 
     childProcess.on('exit', (code: number | null) => {
@@ -741,6 +781,14 @@ export class AgentProcessManager {
     // Mark this specific spawn as killed so its exit handler knows to ignore
     this.state.markSpawnAsKilled(agentProcess.spawnId);
 
+    // If process hasn't been spawned yet (still in async setup phase, before spawn() returns),
+    // just remove from tracking. The spawn() call will still complete, but the spawned process
+    // will be terminated by the post-spawn wasSpawnKilled() check (see spawnProcess() after updateProcess).
+    if (!agentProcess.process) {
+      this.state.deleteProcess(taskId);
+      return true;
+    }
+
     // Use shared platform-aware kill utility
     killProcessGracefully(agentProcess.process, {
       debugPrefix: '[AgentProcess]',
@@ -762,6 +810,15 @@ export class AgentProcessManager {
         const agentProcess = this.state.getProcess(taskId);
 
         if (!agentProcess) {
+          resolve();
+          return;
+        }
+
+        // If process hasn't been spawned yet (still in async setup phase before spawn() returns),
+        // just resolve immediately. The spawn() call will still complete, but the spawned process
+        // will be terminated by the post-spawn wasSpawnKilled() check (see spawnProcess() after updateProcess).
+        if (!agentProcess.process) {
+          this.killProcess(taskId);
           resolve();
           return;
         }

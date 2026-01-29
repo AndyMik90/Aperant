@@ -11,6 +11,7 @@ import * as crypto from 'crypto';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
 import { getCredentialsFromKeychain, clearKeychainCache } from '../claude-profile/credential-utils';
+import { getUsageMonitor } from '../claude-profile/usage-monitor';
 import { getEmailFromConfigDir } from '../claude-profile/profile-utils';
 import * as OutputParser from './output-parser';
 import * as SessionHandler from './session-handler';
@@ -783,6 +784,41 @@ export function handleOnboardingComplete(
       profileId,
       detectedAt: new Date().toISOString()
     } as OnboardingCompleteEvent);
+  }
+
+  // Trigger immediate usage fetch after successful re-authentication
+  // This gives the user immediate feedback that their account is working
+  if (profileId) {
+    try {
+      const usageMonitor = getUsageMonitor();
+      if (usageMonitor) {
+        // Clear any auth failure status for this profile since they just re-authenticated
+        usageMonitor.clearAuthFailedProfile(profileId);
+
+        console.warn('[ClaudeIntegration] Triggering immediate usage fetch after re-authentication:', profileId);
+
+        // Switch to this profile if it's not already active, then fetch usage
+        const profileManager = getClaudeProfileManager();
+
+        // Also clear the migration flag if this profile was migrated to an isolated directory
+        // This prevents the auth failure modal from showing again on next startup
+        if (profileManager.isProfileMigrated(profileId)) {
+          profileManager.clearMigratedProfile(profileId);
+          console.warn('[ClaudeIntegration] Cleared migration flag for re-authenticated profile:', profileId);
+        }
+        const activeProfile = profileManager.getActiveProfile();
+        if (activeProfile?.id !== profileId) {
+          profileManager.setActiveProfile(profileId);
+        }
+
+        // Small delay to allow profile switch to settle, then trigger usage fetch
+        setTimeout(() => {
+          usageMonitor.checkNow();
+        }, 500);
+      }
+    } catch (error) {
+      console.error('[ClaudeIntegration] Failed to trigger post-auth usage fetch:', error);
+    }
   }
 }
 

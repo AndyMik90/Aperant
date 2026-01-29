@@ -14,6 +14,7 @@
 import { app } from 'electron';
 import { join } from 'path';
 import { mkdir } from 'fs/promises';
+import { homedir } from 'os';
 import type {
   ClaudeProfile,
   ClaudeProfileSettings,
@@ -42,8 +43,9 @@ import {
   shouldProactivelySwitch as shouldProactivelySwitchImpl,
   getProfilesSortedByAvailability as getProfilesSortedByAvailabilityImpl
 } from './claude-profile/profile-scorer';
+import { getCredentialsFromKeychain } from './claude-profile/credential-utils';
 import {
-  DEFAULT_CLAUDE_CONFIG_DIR,
+  CLAUDE_PROFILES_DIR,
   generateProfileId as generateProfileIdImpl,
   createProfileDirectory as createProfileDirectoryImpl,
   isProfileAuthenticated as isProfileAuthenticatedImpl,
@@ -165,21 +167,31 @@ export class ClaudeProfileManager {
 
   /**
    * Create default profile data
+   *
+   * IMPORTANT: New profiles use isolated directories (~/.claude-profiles/{name})
+   * to prevent interference with external Claude Code CLI usage.
+   * The profile name is used as the directory name (sanitized to lowercase).
    */
   private createDefaultData(): ProfileStoreData {
+    // Use an isolated directory for the initial profile
+    // This prevents interference with external Claude Code CLI which uses ~/.claude
+    const initialProfileName = 'Primary';
+    const sanitizedName = initialProfileName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const isolatedConfigDir = join(CLAUDE_PROFILES_DIR, sanitizedName);
+
     const defaultProfile: ClaudeProfile = {
-      id: 'default',
-      name: 'Default',
-      configDir: DEFAULT_CLAUDE_CONFIG_DIR,
-      isDefault: true,
-      description: 'Default Claude configuration (~/.claude)',
+      id: sanitizedName,  // Use sanitized name as ID (e.g., 'primary')
+      name: initialProfileName,
+      configDir: isolatedConfigDir,
+      isDefault: true,  // First profile is the default
+      description: 'Primary Claude account',
       createdAt: new Date()
     };
 
     return {
       version: 3,
       profiles: [defaultProfile],
-      activeProfileId: 'default',
+      activeProfileId: sanitizedName,
       autoSwitch: DEFAULT_AUTO_SWITCH_SETTINGS
     };
   }
@@ -482,21 +494,17 @@ export class ClaudeProfileManager {
     const profile = this.getActiveProfile();
     const env: Record<string, string> = {};
 
-    // Default profile: Claude CLI uses ~/.claude implicitly (no env var needed)
-    if (profile?.isDefault) {
-      console.warn('[ClaudeProfileManager] Using default profile (Claude CLI uses ~/.claude)');
-      return env;
-    }
-
-    // Non-default profiles: set CLAUDE_CONFIG_DIR to point Claude CLI to profile's config
-    // Claude CLI will read fresh tokens from Keychain, benefiting from auto-refresh
+    // All profiles now use explicit CLAUDE_CONFIG_DIR for isolation
+    // This prevents interference with external Claude Code CLI usage
     if (profile?.configDir) {
       // Expand ~ to home directory for the environment variable
       const expandedConfigDir = profile.configDir.startsWith('~')
-        ? profile.configDir.replace(/^~/, require('os').homedir())
+        ? profile.configDir.replace(/^~/, homedir())
         : profile.configDir;
       env.CLAUDE_CONFIG_DIR = expandedConfigDir;
-      console.warn('[ClaudeProfileManager] Using CLAUDE_CONFIG_DIR for profile:', profile.name, expandedConfigDir);
+      if (process.env.DEBUG === 'true') {
+        console.warn('[ClaudeProfileManager] Using CLAUDE_CONFIG_DIR for profile:', profile.name, expandedConfigDir);
+      }
     } else {
       console.warn('[ClaudeProfileManager] Profile has no configDir configured:', profile?.name);
     }
@@ -610,12 +618,19 @@ export class ClaudeProfileManager {
   }
 
   /**
-   * Get the best profile to switch to based on usage and rate limit status
+   * Get the best profile to switch to based on priority order and availability
    * Returns null if no good alternative is available
+   *
+   * Selection logic:
+   * 1. Respects user's configured account priority order
+   * 2. Filters by availability (authenticated, not rate-limited, below thresholds)
+   * 3. Returns first available profile in priority order
+   * 4. Falls back to "least bad" option if no profile meets all criteria
    */
   getBestAvailableProfile(excludeProfileId?: string): ClaudeProfile | null {
     const settings = this.getAutoSwitchSettings();
-    return getBestAvailableProfile(this.data.profiles, settings, excludeProfileId);
+    const priorityOrder = this.getAccountPriorityOrder();
+    return getBestAvailableProfile(this.data.profiles, settings, excludeProfileId, priorityOrder);
   }
 
   /**
@@ -628,7 +643,8 @@ export class ClaudeProfileManager {
     }
 
     const settings = this.getAutoSwitchSettings();
-    return shouldProactivelySwitchImpl(profile, this.data.profiles, settings);
+    const priorityOrder = this.getAccountPriorityOrder();
+    return shouldProactivelySwitchImpl(profile, this.data.profiles, settings, priorityOrder);
   }
 
   /**
@@ -682,7 +698,14 @@ export class ClaudeProfileManager {
   }
 
   /**
-   * Get environment variables for invoking Claude with a specific profile
+   * Get environment variables for invoking Claude with a specific profile.
+   *
+   * IMPORTANT: Always returns CLAUDE_CONFIG_DIR for the profile, even for the default profile.
+   * This ensures that when we switch to a specific profile for rate limit recovery,
+   * we use that profile's exact configDir credentials, not just whatever happens to be
+   * at ~/.claude (which might belong to a different profile).
+   *
+   * The ~ path is expanded to the full home directory path.
    */
   getProfileEnv(profileId: string): Record<string, string> {
     const profile = this.getProfile(profileId);
@@ -690,19 +713,47 @@ export class ClaudeProfileManager {
       return {};
     }
 
-    // Only set CLAUDE_CONFIG_DIR if not using default
-    if (profile.isDefault) {
-      return {};
-    }
-
-    // Only set CLAUDE_CONFIG_DIR if configDir is defined
+    // If no configDir is defined, fall back to default
     if (!profile.configDir) {
       return {};
     }
 
-    return {
-      CLAUDE_CONFIG_DIR: profile.configDir
+    // Expand ~ to home directory for the environment variable
+    const expandedConfigDir = profile.configDir.startsWith('~')
+      ? profile.configDir.replace(/^~/, require('os').homedir())
+      : profile.configDir;
+
+    if (process.env.DEBUG === 'true') {
+      console.warn('[ClaudeProfileManager] getProfileEnv:', {
+        profileId,
+        profileName: profile.name,
+        isDefault: profile.isDefault,
+        configDir: profile.configDir,
+        expandedConfigDir
+      });
+    }
+
+    // Retrieve OAuth token from Keychain and pass it to subprocess
+    // This ensures the backend Python agent can authenticate even when
+    // there's no .credentials.json file in the profile directory
+    const env: Record<string, string> = {
+      CLAUDE_CONFIG_DIR: expandedConfigDir
     };
+
+    try {
+      const credentials = getCredentialsFromKeychain(expandedConfigDir);
+      if (credentials.token) {
+        env.CLAUDE_CODE_OAUTH_TOKEN = credentials.token;
+        if (process.env.DEBUG === 'true') {
+          console.warn('[ClaudeProfileManager] Retrieved OAuth token from Keychain for profile:', profile.name);
+        }
+      }
+    } catch (error) {
+      console.error('[ClaudeProfileManager] Failed to retrieve credentials from Keychain:', error);
+      // Continue without token - backend will fall back to other auth methods
+    }
+
+    return env;
   }
 
   /**
@@ -721,6 +772,46 @@ export class ClaudeProfileManager {
    */
   getProfilesSortedByAvailability(): ClaudeProfile[] {
     return getProfilesSortedByAvailabilityImpl(this.data.profiles);
+  }
+
+  /**
+   * Get the list of profile IDs that were migrated from shared ~/.claude to isolated directories.
+   * These profiles need re-authentication since their credentials are in the old location.
+   */
+  getMigratedProfileIds(): string[] {
+    return this.data.migratedProfileIds || [];
+  }
+
+  /**
+   * Clear a profile from the migrated list after successful re-authentication.
+   * Called when the user completes re-authentication for a migrated profile.
+   *
+   * @param profileId - The profile ID to clear from the migrated list
+   */
+  clearMigratedProfile(profileId: string): void {
+    if (!this.data.migratedProfileIds) {
+      return;
+    }
+
+    this.data.migratedProfileIds = this.data.migratedProfileIds.filter(id => id !== profileId);
+
+    // If list is empty, remove the property entirely
+    if (this.data.migratedProfileIds.length === 0) {
+      delete this.data.migratedProfileIds;
+    }
+
+    this.save();
+    console.warn('[ClaudeProfileManager] Cleared migrated profile:', profileId);
+  }
+
+  /**
+   * Check if a profile was migrated and needs re-authentication.
+   *
+   * @param profileId - The profile ID to check
+   * @returns true if the profile was migrated and needs re-auth
+   */
+  isProfileMigrated(profileId: string): boolean {
+    return this.data.migratedProfileIds?.includes(profileId) ?? false;
   }
 }
 

@@ -16,6 +16,7 @@
 
 import * as path from 'path';
 import * as os from 'os';
+import { isLinux } from './platform';
 
 const APP_NAME = 'auto-claude';
 
@@ -76,7 +77,7 @@ export function getMemoriesDir(): string {
   const legacyPath = path.join(os.homedir(), '.auto-claude', 'memories');
 
   // On Linux with XDG variables set (AppImage, Flatpak, Snap), use XDG path
-  if (process.platform === 'linux' && (process.env.XDG_DATA_HOME || process.env.APPIMAGE || process.env.SNAP || process.env.FLATPAK_ID)) {
+  if (isLinux() && (process.env.XDG_DATA_HOME || process.env.APPIMAGE || process.env.SNAP || process.env.FLATPAK_ID)) {
     return path.join(getXdgDataHome(), APP_NAME, 'memories');
   }
 

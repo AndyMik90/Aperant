@@ -38,7 +38,7 @@ describe('provider-detection', () => {
 
     describe('ZHIPU provider', () => {
       it('should detect ZHIPU from open.bigmodel.cn', () => {
-        const result = detectProvider('https://open.bigmodel.cn/api/paas/v4');
+        const result = detectProvider('https://open.bigmodel.cn/api/anthropic');
         expect(result).toBe('zhipu');
       });
 

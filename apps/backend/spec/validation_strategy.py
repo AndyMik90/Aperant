@@ -11,7 +11,7 @@ The validation strategy is used by:
 - QA Agent: To determine what tests to create and run
 
 Usage:
-    from validation_strategy import ValidationStrategyBuilder
+    from spec.validation_strategy import ValidationStrategyBuilder
 
     builder = ValidationStrategyBuilder()
     strategy = builder.build_strategy(project_dir, spec_dir, "medium")

@@ -77,9 +77,22 @@
     "discard": "Discard",
     "switch": "Switch",
     "add": "Add",
+    "apply": "Apply",
     "gotIt": "Got it",
     "continue": "Continue",
     "saving": "Saving..."
+  },
+  "actions": {
+    "save": "Save",
+    "apply": "Apply",
+    "delete": "Delete",
+    "settings": "Settings"
+  },
+  "os": {
+    "windows": "Windows",
+    "macos": "macOS",
+    "linux": "Linux",
+    "unknown": "your OS"
   },
   "labels": {
     "loading": "Loading...",
@@ -339,9 +352,8 @@
     "updatingBranch": "Updating...",
     "branchUpdated": "Branch updated",
     "branchUpdateFailed": "Failed to update branch",
-    "loadingMore": "Loading more PRs...",
-    "scrollForMore": "Scroll for more",
     "allPRsLoaded": "All PRs loaded",
+    "maxPRsShown": "Showing first 100 PRs",
     "workflowsAwaitingApproval": "{{count}} Workflow Awaiting Approval",
     "workflowsAwaitingApproval_plural": "{{count}} Workflows Awaiting Approval",
     "blockedByWorkflows": "Blocked",
@@ -419,7 +431,11 @@
     "authenticationAriaLabel": "Authentication: {{provider}}",
     "authenticationDetails": "Authentication Details",
     "apiProfile": "API Profile",
+    "apiKey": "API Key",
     "oauth": "OAuth",
+    "claudeCode": "Claude Code",
+    "claudeCodeSubscription": "Claude Code subscription",
+    "subscription": "Subscription",
     "provider": "Provider",
     "providerAnthropic": "Anthropic",
     "providerZai": "z.ai",
@@ -448,6 +464,11 @@
     "weeklyLimitReached": "Weekly limit reached",
     "sessionLimitReached": "Session limit reached",
     "notAuthenticated": "Not authenticated",
+    "needsReauth": "Needs re-auth",
+    "reauthRequired": "Re-authentication required",
+    "reauthRequiredDescription": "Your session has expired. Re-authenticate to view usage and continue using this account.",
+    "reauthButton": "Re-authenticate",
+    "clickToOpenSettings": "Click to open Settings →",
     "sessionShort": "5-hour session usage",
     "weeklyShort": "7-day weekly usage",
     "swap": "Swap"
@@ -552,6 +573,41 @@
     "step3": "Click \"Authenticate\" to complete login",
     "footer": "The account will be available once you complete authentication."
   },
+  "roadmapGeneration": {
+    "progress": "Progress",
+    "elapsed": "Elapsed: {{time}}",
+    "stillWorking": "Still working...",
+    "stopping": "Stopping...",
+    "stop": "Stop",
+    "stopTooltip": "Stop generation",
+    "phases": {
+      "analyzing": {
+        "label": "Analyzing",
+        "description": "Analyzing project structure and codebase..."
+      },
+      "discovering": {
+        "label": "Discovering",
+        "description": "Discovering target audience and user needs..."
+      },
+      "generating": {
+        "label": "Generating",
+        "description": "Generating feature roadmap..."
+      },
+      "complete": {
+        "label": "Complete",
+        "description": "Roadmap generation complete!"
+      },
+      "error": {
+        "label": "Error",
+        "description": "Generation failed"
+      }
+    },
+    "steps": {
+      "analyze": "Analyze",
+      "discover": "Discover",
+      "generate": "Generate"
+    }
+  },
   "auth": {
     "failure": {
       "title": "Authentication Required",
@@ -566,5 +622,45 @@
       "technicalDetails": "Technical details",
       "goToSettings": "Go to Settings"
     }
+  },
+  "roadmapProgress": {
+    "elapsedTime": "Elapsed",
+    "lastActivity": "Last activity",
+    "staleWarning": "No activity for a while",
+    "staleWarningTooltip": "This task has had no activity for {{minutes}} minutes",
+    "phases": {
+      "analyzing": {
+        "label": "Analyzing",
+        "description": "Analyzing project structure and codebase..."
+      },
+      "discovering": {
+        "label": "Discovering",
+        "description": "Discovering target audience and user needs..."
+      },
+      "generating": {
+        "label": "Generating",
+        "description": "Generating feature roadmap..."
+      },
+      "complete": {
+        "label": "Complete",
+        "description": "Roadmap generation complete!"
+      },
+      "error": {
+        "label": "Error",
+        "description": "Generation failed"
+      }
+    },
+    "steps": {
+      "analyze": "Analyze",
+      "discover": "Discover",
+      "generate": "Generate"
+    },
+    "processing": "Processing",
+    "processActiveTooltip": "Process is actively running",
+    "stopGeneration": "Stop generation",
+    "stopping": "Stopping...",
+    "progress": "Progress",
+    "lastActivityPrefix": "last activity",
+    "lastProgressUpdateTooltip": "Last progress update received"
   }
 }

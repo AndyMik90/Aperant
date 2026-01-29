@@ -64,9 +64,10 @@ def update_codebase_map(spec_dir: Path, discoveries: dict[str, str]) -> None:
     # Also save to Graphiti if enabled
     if is_graphiti_memory_enabled() and discoveries:
         try:
-            graphiti = get_graphiti_memory(spec_dir)
+            graphiti = run_async(get_graphiti_memory(spec_dir))
             if graphiti:
                 run_async(graphiti.save_codebase_discoveries(discoveries))
+                run_async(graphiti.close())
                 logger.info("Codebase discoveries also saved to Graphiti")
         except Exception as e:
             logger.warning(f"Graphiti codebase save failed: {e}")

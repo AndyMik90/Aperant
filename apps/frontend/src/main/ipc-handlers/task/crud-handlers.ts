@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { ipcMain, nativeImage } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { IPCResult, Task, TaskMetadata } from '../../../shared/types';
 import path from 'path';
@@ -7,7 +7,8 @@ import { projectStore } from '../../project-store';
 import { titleGenerator } from '../../title-generator';
 import { AgentManager } from '../../agent';
 import { findTaskAndProject } from './shared';
-import { findAllSpecPaths } from '../../utils/spec-path-helpers';
+import { findAllSpecPaths, isValidTaskId } from '../../utils/spec-path-helpers';
+import { isPathWithinBase } from '../../worktree-paths';
 
 /**
  * Register task CRUD (Create, Read, Update, Delete) handlers
@@ -165,12 +166,12 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       };
 
       const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
-      writeFileSync(planPath, JSON.stringify(implementationPlan, null, 2));
+      writeFileSync(planPath, JSON.stringify(implementationPlan, null, 2), 'utf-8');
 
       // Save task metadata if provided
       if (taskMetadata) {
         const metadataPath = path.join(specDir, 'task_metadata.json');
-        writeFileSync(metadataPath, JSON.stringify(taskMetadata, null, 2));
+        writeFileSync(metadataPath, JSON.stringify(taskMetadata, null, 2), 'utf-8');
       }
 
       // Create requirements.json with attached images
@@ -189,7 +190,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       }
 
       const requirementsPath = path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS);
-      writeFileSync(requirementsPath, JSON.stringify(requirements, null, 2));
+      writeFileSync(requirementsPath, JSON.stringify(requirements, null, 2), 'utf-8');
 
       // Create the task object
       const task: Task = {
@@ -330,51 +331,53 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
 
         // Update implementation_plan.json
         const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
-        if (existsSync(planPath)) {
-          try {
-            const planContent = readFileSync(planPath, 'utf-8');
-            const plan = JSON.parse(planContent);
+        try {
+          const planContent = readFileSync(planPath, 'utf-8');
+          const plan = JSON.parse(planContent);
 
-            if (finalTitle !== undefined) {
-              plan.feature = finalTitle;
-            }
-            if (updates.description !== undefined) {
-              plan.description = updates.description;
-            }
-            plan.updated_at = new Date().toISOString();
+          if (finalTitle !== undefined) {
+            plan.feature = finalTitle;
+          }
+          if (updates.description !== undefined) {
+            plan.description = updates.description;
+          }
+          plan.updated_at = new Date().toISOString();
 
-            writeFileSync(planPath, JSON.stringify(plan, null, 2));
-          } catch {
-            // Plan file might not be valid JSON, continue anyway
+          writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+        } catch (planErr: unknown) {
+          // File missing or invalid JSON - continue anyway
+          if ((planErr as NodeJS.ErrnoException).code !== 'ENOENT') {
+            console.error('[TASK_UPDATE] Error updating implementation plan:', planErr);
           }
         }
 
         // Update spec.md if it exists
         const specPath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
-        if (existsSync(specPath)) {
-          try {
-            let specContent = readFileSync(specPath, 'utf-8');
+        try {
+          let specContent = readFileSync(specPath, 'utf-8');
 
-            // Update title (first # heading)
-            if (finalTitle !== undefined) {
-              specContent = specContent.replace(
-                /^#\s+.*$/m,
-                `# ${finalTitle}`
-              );
-            }
+          // Update title (first # heading)
+          if (finalTitle !== undefined) {
+            specContent = specContent.replace(
+              /^#\s+.*$/m,
+              `# ${finalTitle}`
+            );
+          }
 
-            // Update description (## Overview section content)
-            if (updates.description !== undefined) {
-              // Replace content between ## Overview and the next ## section
-              specContent = specContent.replace(
-                /(## Overview\n)([\s\S]*?)((?=\n## )|$)/,
-                `$1${updates.description}\n\n$3`
-              );
-            }
+          // Update description (## Overview section content)
+          if (updates.description !== undefined) {
+            // Replace content between ## Overview and the next ## section
+            specContent = specContent.replace(
+              /(## Overview\n)([\s\S]*?)((?=\n## )|$)/,
+              `$1${updates.description}\n\n$3`
+            );
+          }
 
-            writeFileSync(specPath, specContent);
-          } catch {
-            // Spec file update failed, continue anyway
+          writeFileSync(specPath, specContent, 'utf-8');
+        } catch (specErr: unknown) {
+          // File missing or update failed - continue anyway
+          if ((specErr as NodeJS.ErrnoException).code !== 'ENOENT') {
+            console.error('[TASK_UPDATE] Error updating spec.md:', specErr);
           }
         }
 
@@ -420,27 +423,27 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           // Update task_metadata.json
           const metadataPath = path.join(specDir, 'task_metadata.json');
           try {
-            writeFileSync(metadataPath, JSON.stringify(updatedMetadata, null, 2));
+            writeFileSync(metadataPath, JSON.stringify(updatedMetadata, null, 2), 'utf-8');
           } catch (err) {
             console.error('Failed to update task_metadata.json:', err);
           }
 
           // Update requirements.json if it exists
           const requirementsPath = path.join(specDir, 'requirements.json');
-          if (existsSync(requirementsPath)) {
-            try {
-              const requirementsContent = readFileSync(requirementsPath, 'utf-8');
-              const requirements = JSON.parse(requirementsContent);
+          try {
+            const requirementsContent = readFileSync(requirementsPath, 'utf-8');
+            const requirements = JSON.parse(requirementsContent);
 
-              if (updates.description !== undefined) {
-                requirements.task_description = updates.description;
-              }
-              if (updates.metadata.category) {
-                requirements.workflow_type = updates.metadata.category;
-              }
+            if (updates.description !== undefined) {
+              requirements.task_description = updates.description;
+            }
+            if (updates.metadata.category) {
+              requirements.workflow_type = updates.metadata.category;
+            }
 
-              writeFileSync(requirementsPath, JSON.stringify(requirements, null, 2));
-            } catch (err) {
+            writeFileSync(requirementsPath, JSON.stringify(requirements, null, 2), 'utf-8');
+          } catch (err) {
+            if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
               console.error('Failed to update requirements.json:', err);
             }
           }
@@ -463,6 +466,97 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
+  /**
+   * Load an image thumbnail from disk
+   * Used to load thumbnails for images that were saved without base64 data
+   * @param projectPath - The project root path
+   * @param specId - The spec ID
+   * @param imagePath - Relative path to the image (e.g., 'attachments/image.png')
+   * @returns Base64 data URL thumbnail
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_LOAD_IMAGE_THUMBNAIL,
+    async (
+      _,
+      projectPath: string,
+      specId: string,
+      imagePath: string
+    ): Promise<IPCResult<string>> => {
+      try {
+        // Validate specId to prevent path traversal attacks
+        if (!isValidTaskId(specId)) {
+          console.error(`[IPC] TASK_LOAD_IMAGE_THUMBNAIL: Invalid specId rejected: "${specId}"`);
+          return { success: false, error: 'Invalid spec ID' };
+        }
+
+        // Get project to determine auto-build path - validate projectPath exists
+        const projects = projectStore.getProjects();
+        const project = projects.find((p) => p.path === projectPath);
+        if (!project) {
+          console.error(`[IPC] TASK_LOAD_IMAGE_THUMBNAIL: Unknown project: "${projectPath}"`);
+          return { success: false, error: 'Unknown project' };
+        }
+        const autoBuildPath = project.autoBuildPath || '.auto-claude';
+
+        // Build full path to the image
+        const specsDir = getSpecsDir(autoBuildPath);
+        const fullImagePath = path.join(projectPath, specsDir, specId, imagePath);
+
+        // Validate path to prevent path traversal attacks
+        const expectedBase = path.resolve(path.join(projectPath, specsDir, specId));
+        const resolvedPath = path.resolve(fullImagePath);
+        if (!isPathWithinBase(resolvedPath, expectedBase)) {
+          console.error(`[IPC] Path traversal detected: imagePath "${imagePath}" resolves outside spec directory`);
+          return { success: false, error: 'Invalid image path' };
+        }
+
+        if (!existsSync(fullImagePath)) {
+          return { success: false, error: `Image not found: ${imagePath}` };
+        }
+
+        // Load image using nativeImage
+        const image = nativeImage.createFromPath(fullImagePath);
+        if (image.isEmpty()) {
+          return { success: false, error: 'Failed to load image' };
+        }
+
+        // Get original size
+        const size = image.getSize();
+        const maxSize = 200;
+
+        // Calculate thumbnail dimensions while maintaining aspect ratio
+        let width = size.width;
+        let height = size.height;
+        if (width > height) {
+          if (width > maxSize) {
+            height = Math.round((height * maxSize) / width);
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = Math.round((width * maxSize) / height);
+            height = maxSize;
+          }
+        }
+
+        // Resize to thumbnail
+        const thumbnail = image.resize({ width, height, quality: 'good' });
+
+        // Convert to base64 data URL
+        // Use JPEG for thumbnails (smaller size, good for previews)
+        const base64 = thumbnail.toJPEG(80).toString('base64');
+        const dataUrl = `data:image/jpeg;base64,${base64}`;
+
+        return { success: true, data: dataUrl };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error loading thumbnail'
         };
       }
     }

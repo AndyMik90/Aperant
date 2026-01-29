@@ -77,6 +77,8 @@ export interface ClaudeUsageSnapshot {
   weeklyUsageValue?: number;
   /** Weekly usage limit (total quota) */
   weeklyUsageLimit?: number;
+  /** True if profile has invalid refresh token and needs re-authentication */
+  needsReauthentication?: boolean;
 }
 
 /**
@@ -112,6 +114,8 @@ export interface ProfileUsageSummary {
   lastFetchedAt?: string;
   /** Error message if usage fetch failed */
   fetchError?: string;
+  /** True if profile has invalid refresh token and needs re-authentication */
+  needsReauthentication?: boolean;
 }
 
 /**
@@ -239,4 +243,37 @@ export interface TerminalProfileChangedEvent {
     /** Whether the session was successfully migrated to new profile */
     sessionMigrated?: boolean;
   }>;
+}
+
+// ============================================
+// Queue Routing Types (Rate Limit Recovery)
+// ============================================
+
+/**
+ * Reason for profile assignment to a task
+ */
+export type ProfileAssignmentReason = 'proactive' | 'reactive' | 'manual';
+
+/**
+ * Tracking of running tasks grouped by profile
+ */
+export interface RunningTasksByProfile {
+  /** Map of profileId → array of task IDs running on that profile */
+  byProfile: Record<string, string[]>;
+  /** Total number of running tasks across all profiles */
+  totalRunning: number;
+}
+
+/**
+ * Profile swap record for tracking history
+ */
+export interface ProfileSwapRecord {
+  fromProfileId: string;
+  fromProfileName: string;
+  toProfileId: string;
+  toProfileName: string;
+  swappedAt: string;
+  reason: 'capacity' | 'rate_limit' | 'manual' | 'recovery';
+  sessionId?: string;
+  sessionResumed: boolean;
 }

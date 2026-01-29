@@ -97,6 +97,7 @@ export const AUTO_BUILD_PATHS = {
   SPEC_FILE: 'spec.md',
   QA_REPORT: 'qa_report.md',
   BUILD_PROGRESS: 'build-progress.txt',
+  GENERATION_PROGRESS: 'generation_progress.json',
   CONTEXT: 'context.json',
   REQUIREMENTS: 'requirements.json',
   ROADMAP_FILE: 'roadmap.json',

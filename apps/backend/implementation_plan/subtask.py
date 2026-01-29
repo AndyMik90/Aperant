@@ -126,7 +126,3 @@ class Subtask:
         self.completed_at = None  # Clear to maintain consistency (failed != completed)
         if reason:
             self.actual_output = f"FAILED: {reason}"
-
-
-# Backwards compatibility alias
-Chunk = Subtask

@@ -161,6 +161,9 @@ export function spawnPtyProcess(
       ...profileEnv,
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
+      // Suppress zsh's partial line indicator (%) that appears when output
+      // doesn't end with a newline. This prevents rendering artifacts in the terminal.
+      PROMPT_EOL_MARK: '',
     },
   });
 

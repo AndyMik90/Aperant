@@ -4,6 +4,7 @@
  */
 
 import { getClaudeProfileManager } from './claude-profile-manager';
+import { getUsageMonitor } from './claude-profile/usage-monitor';
 
 /**
  * Regex pattern to detect Claude Code rate limit messages
@@ -34,7 +35,7 @@ const AUTH_FAILURE_PATTERNS = [
   /unauthorized/i,
   /please\s*(log\s*in|login|authenticate)/i,
   /invalid\s*(credentials|token|api\s*key)/i,
-  /auth(entication)?\s*(failed|error|failure)/i,
+  /auth(entication)?\s+(failed|error|failure)/i,
   /session\s*(expired|invalid)/i,
   /access\s*denied/i,
   /permission\s*denied/i,
@@ -277,6 +278,188 @@ export function getProfileEnv(profileId?: string): Record<string, string> {
     return profileManager.getProfileEnv(profileId);
   }
   return profileManager.getActiveProfileEnv();
+}
+
+/**
+ * Result of getting the best available profile environment
+ */
+export interface BestProfileEnvResult {
+  /** Environment variables for the selected profile */
+  env: Record<string, string>;
+  /** The profile ID that was selected */
+  profileId: string;
+  /** The profile name for logging/display */
+  profileName: string;
+  /** Whether a swap was performed (true if different from active profile) */
+  wasSwapped: boolean;
+  /** Reason for the swap if one occurred */
+  swapReason?: 'rate_limited' | 'at_capacity' | 'proactive';
+  /** The original active profile if a swap occurred */
+  originalProfile?: {
+    id: string;
+    name: string;
+  };
+}
+
+/**
+ * Get environment variables for the BEST available Claude profile and persist the profile swap.
+ *
+ * IMPORTANT: This function has the side effect of calling profileManager.setActiveProfile()
+ * when a better profile is found. This modifies global state and persists the profile swap.
+ *
+ * This is the preferred function for SDK operations that need profile environment.
+ * It automatically handles:
+ * 1. Checking if the active profile is explicitly rate-limited (received 429/rate limit error)
+ * 2. Checking if the active profile is at capacity (100% weekly usage)
+ * 3. Finding a better alternative profile if available
+ * 4. PERSISTING the swap by updating the active profile
+ *
+ * Use this instead of getProfileEnv() for any operation that will make Claude API calls.
+ *
+ * @returns Object containing env vars and metadata about which profile was selected
+ */
+export function getBestAvailableProfileEnv(): BestProfileEnvResult {
+  const profileManager = getClaudeProfileManager();
+  const activeProfile = profileManager.getActiveProfile();
+
+  // Check for explicit rate limit (from previous API errors)
+  const rateLimitStatus = profileManager.isProfileRateLimited(activeProfile.id);
+
+  // Check for capacity limit (100% weekly usage - will be rate limited on next request)
+  const isAtCapacity = activeProfile.usage?.weeklyUsagePercent !== undefined &&
+                       activeProfile.usage.weeklyUsagePercent >= 100;
+
+  // Determine if we need to find an alternative
+  const needsSwap = rateLimitStatus.limited || isAtCapacity;
+  const swapReason: BestProfileEnvResult['swapReason'] = rateLimitStatus.limited
+    ? 'rate_limited'
+    : isAtCapacity
+      ? 'at_capacity'
+      : undefined;
+
+  if (needsSwap) {
+    if (process.env.DEBUG === 'true') {
+      console.warn('[RateLimitDetector] Active profile needs swap:', {
+        activeProfile: activeProfile.name,
+        isRateLimited: rateLimitStatus.limited,
+        isAtCapacity,
+        weeklyUsage: activeProfile.usage?.weeklyUsagePercent,
+        limitType: rateLimitStatus.type,
+        resetAt: rateLimitStatus.resetAt
+      });
+    }
+
+    // Try to find a better profile
+    const bestProfile = profileManager.getBestAvailableProfile(activeProfile.id);
+
+    if (bestProfile) {
+      if (process.env.DEBUG === 'true') {
+        console.warn('[RateLimitDetector] Using alternative profile:', {
+          originalProfile: activeProfile.name,
+          alternativeProfile: bestProfile.name,
+          reason: swapReason
+        });
+      }
+
+      // Persist the swap by updating the active profile
+      // This ensures the UI reflects which account is actually being used
+      profileManager.setActiveProfile(bestProfile.id);
+      console.warn('[RateLimitDetector] Switched active profile:', {
+        from: activeProfile.name,
+        to: bestProfile.name,
+        reason: swapReason
+      });
+
+      // Trigger a usage refresh so the UI shows the new active profile
+      // This updates the UsageIndicator in the header
+      // We use fire-and-forget pattern to avoid making this function async
+      try {
+        const usageMonitor = getUsageMonitor();
+        // Force refresh all profiles usage data, which will emit 'all-profiles-usage-updated' event
+        // The UI components listen for this and will update automatically
+        usageMonitor.getAllProfilesUsage(true).then((allProfilesUsage) => {
+          if (allProfilesUsage) {
+            // Find the new active profile in allProfiles and emit its usage
+            // This ensures UsageIndicator.usage state also updates to show the new active account
+            const newActiveProfile = allProfilesUsage.allProfiles.find(p => p.isActive);
+            if (newActiveProfile) {
+              // Construct a ClaudeUsageSnapshot for the new active profile
+              const newActiveUsage = {
+                profileId: newActiveProfile.profileId,
+                profileName: newActiveProfile.profileName,
+                profileEmail: newActiveProfile.profileEmail,
+                sessionPercent: newActiveProfile.sessionPercent,
+                weeklyPercent: newActiveProfile.weeklyPercent,
+                sessionResetTimestamp: newActiveProfile.sessionResetTimestamp,
+                weeklyResetTimestamp: newActiveProfile.weeklyResetTimestamp,
+                fetchedAt: allProfilesUsage.fetchedAt,
+                needsReauthentication: newActiveProfile.needsReauthentication,
+              };
+              usageMonitor.emit('usage-updated', newActiveUsage);
+            }
+            // Also emit all-profiles-usage-updated for the other profiles list
+            usageMonitor.emit('all-profiles-usage-updated', allProfilesUsage);
+          }
+        }).catch((err) => {
+          console.warn('[RateLimitDetector] Failed to refresh usage after swap:', err);
+        });
+      } catch (err) {
+        // Usage monitor may not be initialized yet, that's OK
+        console.warn('[RateLimitDetector] Could not trigger usage refresh:', err);
+      }
+
+      const profileEnv = profileManager.getProfileEnv(bestProfile.id);
+
+      return {
+        env: ensureCleanProfileEnv(profileEnv),
+        profileId: bestProfile.id,
+        profileName: bestProfile.name,
+        wasSwapped: true,
+        swapReason,
+        originalProfile: {
+          id: activeProfile.id,
+          name: activeProfile.name
+        }
+      };
+    } else {
+      if (process.env.DEBUG === 'true') {
+        console.warn('[RateLimitDetector] No alternative profile available, using rate-limited/at-capacity profile');
+      }
+    }
+  }
+
+  // Use active profile (either it's fine, or no better alternative exists)
+  const activeEnv = profileManager.getActiveProfileEnv();
+  return {
+    env: ensureCleanProfileEnv(activeEnv),
+    profileId: activeProfile.id,
+    profileName: activeProfile.name,
+    wasSwapped: false
+  };
+}
+
+/**
+ * Ensure the profile environment is clean for subprocess invocation.
+ *
+ * When CLAUDE_CONFIG_DIR is set, we MUST clear CLAUDE_CODE_OAUTH_TOKEN to prevent
+ * the Claude Agent SDK from using a hardcoded/cached token (e.g., from .env file)
+ * instead of reading fresh credentials from the specified config directory.
+ *
+ * This is critical for multi-account switching: when switching from a rate-limited
+ * account to an available one, the subprocess must use the new account's credentials.
+ *
+ * @param env - Profile environment from getProfileEnv() or getActiveProfileEnv()
+ * @returns Environment with CLAUDE_CODE_OAUTH_TOKEN cleared if CLAUDE_CONFIG_DIR is set
+ */
+function ensureCleanProfileEnv(env: Record<string, string>): Record<string, string> {
+  if (env.CLAUDE_CONFIG_DIR) {
+    // Clear CLAUDE_CODE_OAUTH_TOKEN to ensure SDK uses credentials from CLAUDE_CONFIG_DIR
+    return {
+      ...env,
+      CLAUDE_CODE_OAUTH_TOKEN: ''
+    };
+  }
+  return env;
 }
 
 /**

@@ -62,8 +62,13 @@ function formatReleaseNotes(releaseNotes: UpdateInfo['releaseNotes']): string | 
   // It's an array of ReleaseNoteInfo objects
   // Format: [{ version: "1.0.0", note: "changes..." }, ...]
   if (Array.isArray(releaseNotes)) {
+    // Return undefined for empty arrays for consistency with null/undefined handling
+    if (releaseNotes.length === 0) {
+      return undefined;
+    }
+
     const formattedNotes = releaseNotes
-      .filter(item => item.note) // Only include entries with notes
+      .filter(item => item.note) // Filter out entries with null/undefined notes
       .map(item => {
         // Each item has version and note properties
         const versionHeader = item.version ? `## ${item.version}\n` : '';
@@ -363,7 +368,7 @@ async function fetchLatestStableRelease(): Promise<AppUpdateInfo | null> {
       }
 
       response.on('data', (chunk) => {
-        data += chunk.toString();
+        data += chunk.toString('utf-8');
       });
 
       response.on('end', () => {

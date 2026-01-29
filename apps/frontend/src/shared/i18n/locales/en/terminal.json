@@ -3,6 +3,10 @@
     "expand": "Expand terminal",
     "collapse": "Collapse terminal"
   },
+  "resume": {
+    "pending": "Resume Available",
+    "pendingTooltip": "Click to resume previous Claude session"
+  },
   "auth": {
     "terminalTitle": "Auth: {{profileName}}",
     "maxTerminalsReached": "Cannot open auth terminal: maximum terminals reached. Close a terminal first."

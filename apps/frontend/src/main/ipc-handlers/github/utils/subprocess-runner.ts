@@ -20,7 +20,7 @@ import type { AuthFailureInfo } from '../../../../shared/types/terminal';
 import { parsePythonCommand } from '../../../python-detector';
 import { detectAuthFailure } from '../../../rate-limit-detector';
 import { getClaudeProfileManager } from '../../../claude-profile-manager';
-import { isWindows } from '../../../platform';
+import { isWindows, isMacOS } from '../../../platform';
 
 const execAsync = promisify(exec);
 
@@ -194,7 +194,7 @@ export function runPythonSubprocess<T = unknown>(
     };
 
     child.stdout.on('data', (data: Buffer) => {
-      const text = data.toString();
+      const text = data.toString('utf-8');
       stdout += text;
 
       const lines = text.split('\n');
@@ -218,7 +218,7 @@ export function runPythonSubprocess<T = unknown>(
     });
 
     child.stderr.on('data', (data: Buffer) => {
-      const text = data.toString();
+      const text = data.toString('utf-8');
       stderr += text;
 
       const lines = text.split('\n');
@@ -451,9 +451,9 @@ export async function validateGitHubModule(project: Project): Promise<GitHubModu
     result.ghCliInstalled = true;
   } catch {
     result.ghCliInstalled = false;
-    const installInstructions = process.platform === 'win32'
+    const installInstructions = isWindows()
       ? 'winget install --id GitHub.cli'
-      : process.platform === 'darwin'
+      : isMacOS()
         ? 'brew install gh'
         : 'See https://cli.github.com/';
     result.error = `GitHub CLI (gh) is not installed. Install it with:\n  ${installInstructions}`;

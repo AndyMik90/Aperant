@@ -100,7 +100,14 @@
     "selectedCountOne": "{{count}} task selected",
     "selectedCountOther": "{{count}} tasks selected",
     "createPRs": "Create PRs",
-    "clearSelection": "Clear Selection"
+    "clearSelection": "Clear Selection",
+    "collapseColumn": "Collapse column",
+    "expandColumn": "Expand column",
+    "resizeColumn": "Resize column",
+    "lockColumn": "Lock column width",
+    "unlockColumn": "Unlock column width",
+    "columnLocked": "Column width is locked",
+    "expandAll": "Expand all columns"
   },
   "queue": {
     "limitReached": "Parallel task limit reached ({{current}}/{{max}}). Task moved to queue.",
@@ -163,6 +170,13 @@
   "images": {
     "removeImageAriaLabel": "Remove image {{filename}}",
     "pasteHint": "Tip: Paste screenshots directly with {{shortcut}} to add reference images."
+  },
+  "imagePreview": {
+    "close": "Close preview",
+    "unavailable": "Image unavailable",
+    "description": "Preview of {{filename}}",
+    "doubleClickHint": "Double-click to enlarge",
+    "lowResolution": "Low resolution preview"
   },
   "notifications": {
     "backgroundTaskTitle": "Task continues in background",
@@ -296,6 +310,11 @@
       "fetchSources": "Failed to fetch screenshot sources",
       "capture": "Failed to capture screenshot",
       "captureFailed": "Failed to capture screenshot"
+    },
+    "devMode": {
+      "title": "Screenshot capture unavailable",
+      "description": "Screen capture is not available in development mode due to system permission restrictions.",
+      "hint": "Use an external screenshot tool and paste directly into the task description with {{shortcut}}."
     }
   },
   "referenceImages": {

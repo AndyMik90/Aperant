@@ -19,7 +19,7 @@ import {
   DEFAULT_FEATURE_THINKING,
 } from "../../../shared/constants";
 import type { AuthFailureInfo } from "../../../shared/types/terminal";
-import { getGitHubConfig, githubFetch } from "./utils";
+import { getGitHubConfig, githubFetch, normalizeRepoReference } from "./utils";
 import { readSettingsFile } from "../../settings-utils";
 import { getAugmentedEnv } from "../../env-utils";
 import { getMemoryService, getDefaultDbPath } from "../../memory-service";
@@ -35,6 +35,105 @@ import {
   validateGitHubModule,
   buildRunnerArgs,
 } from "./utils/subprocess-runner";
+
+/**
+ * GraphQL response type for PR list query
+ * Note: repository can be null if the repo doesn't exist or user lacks access
+ */
+interface GraphQLPRListResponse {
+  data: {
+    repository: {
+      pullRequests: {
+        pageInfo: {
+          hasNextPage: boolean;
+          endCursor: string | null;
+        };
+        nodes: Array<{
+          number: number;
+          title: string;
+          body: string | null;
+          state: string;
+          author: { login: string } | null;
+          headRefName: string;
+          baseRefName: string;
+          additions: number;
+          deletions: number;
+          changedFiles: number;
+          assignees: { nodes: Array<{ login: string }> };
+          createdAt: string;
+          updatedAt: string;
+          url: string;
+        }>;
+      };
+    } | null;
+  };
+  errors?: Array<{ message: string }>;
+}
+
+/**
+ * Make a GraphQL request to GitHub API
+ */
+async function githubGraphQL<T>(
+  token: string,
+  query: string,
+  variables: Record<string, unknown> = {}
+): Promise<T> {
+  const response = await fetch("https://api.github.com/graphql", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "User-Agent": "Auto-Claude-UI",
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  if (!response.ok) {
+    // Log detailed error for debugging, throw generic message for safety
+    console.error(`GitHub GraphQL HTTP error: ${response.status} ${response.statusText}`);
+    throw new Error("Failed to connect to GitHub API");
+  }
+
+  const result = await response.json() as T & { errors?: Array<{ message: string }> };
+
+  // Check for GraphQL-level errors
+  if (result.errors && result.errors.length > 0) {
+    // Log detailed errors for debugging, throw generic message for safety
+    console.error(`GitHub GraphQL errors: ${result.errors.map(e => e.message).join(", ")}`);
+    throw new Error("GitHub API request failed");
+  }
+
+  return result;
+}
+
+/**
+ * GraphQL query to fetch PRs with diff stats
+ */
+const LIST_PRS_QUERY = `
+query($owner: String!, $repo: String!, $first: Int!, $after: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequests(states: OPEN, first: $first, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        number
+        title
+        body
+        state
+        author { login }
+        headRefName
+        baseRefName
+        additions
+        deletions
+        changedFiles
+        assignees(first: 10) { nodes { login } }
+        createdAt
+        updatedAt
+        url
+      }
+    }
+  }
+}
+`;
 
 /**
  * Sanitize network data before writing to file
@@ -380,6 +479,14 @@ export interface PRData {
   createdAt: string;
   updatedAt: string;
   htmlUrl: string;
+}
+
+/**
+ * PR list result with pagination info
+ */
+export interface PRListResult {
+  prs: PRData[];
+  hasNextPage: boolean; // True if more PRs exist beyond the 100 limit
 }
 
 /**
@@ -1231,66 +1338,78 @@ async function runPRReview(
 export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): void {
   debugLog("Registering PR handlers");
 
-  // List open PRs with pagination support
+  // List open PRs - fetches up to 100 open PRs at once, returns hasNextPage from API
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_PR_LIST,
-    async (_, projectId: string, page: number = 1): Promise<PRData[]> => {
-      debugLog("listPRs handler called", { projectId, page });
+    async (_, projectId: string): Promise<PRListResult> => {
+      debugLog("listPRs handler called", { projectId });
       const result = await withProjectOrNull(projectId, async (project) => {
         const config = getGitHubConfig(project);
         if (!config) {
           debugLog("No GitHub config found for project");
-          return [];
+          return { prs: [], hasNextPage: false };
         }
 
         try {
-          // Use pagination: per_page=100 (GitHub max), page=1,2,3...
-          const prs = (await githubFetch(
-            config.token,
-            `/repos/${config.repo}/pulls?state=open&per_page=100&page=${page}`
-          )) as Array<{
-            number: number;
-            title: string;
-            body?: string;
-            state: string;
-            user: { login: string };
-            head: { ref: string };
-            base: { ref: string };
-            additions: number;
-            deletions: number;
-            changed_files: number;
-            assignees?: Array<{ login: string }>;
-            created_at: string;
-            updated_at: string;
-            html_url: string;
-          }>;
+          // Parse owner/repo from config - must be exactly "owner/repo" format
+          const normalizedRepo = normalizeRepoReference(config.repo);
+          const repoParts = normalizedRepo.split("/");
+          if (repoParts.length !== 2 || !repoParts[0] || !repoParts[1]) {
+            debugLog("Invalid repo format - expected 'owner/repo'", { repo: config.repo, normalized: normalizedRepo });
+            return { prs: [], hasNextPage: false };
+          }
+          const [owner, repo] = repoParts;
 
-          debugLog("Fetched PRs", { count: prs.length, page, samplePr: prs[0] });
-          return prs.map((pr) => ({
-            number: pr.number,
-            title: pr.title,
-            body: pr.body ?? "",
-            state: pr.state,
-            author: { login: pr.user.login },
-            headRefName: pr.head.ref,
-            baseRefName: pr.base.ref,
-            additions: pr.additions ?? 0,
-            deletions: pr.deletions ?? 0,
-            changedFiles: pr.changed_files ?? 0,
-            assignees: pr.assignees?.map((a: { login: string }) => ({ login: a.login })) ?? [],
-            files: [],
-            createdAt: pr.created_at,
-            updatedAt: pr.updated_at,
-            htmlUrl: pr.html_url,
-          }));
+          // Use GraphQL API to get PRs with diff stats (REST list endpoint doesn't include them)
+          // Fetches up to 100 open PRs (GitHub GraphQL max per request)
+          const response = await githubGraphQL<GraphQLPRListResponse>(
+            config.token,
+            LIST_PRS_QUERY,
+            {
+              owner,
+              repo,
+              first: 100, // GitHub GraphQL max is 100
+              after: null, // Start from beginning
+            }
+          );
+
+          // Handle case where repository doesn't exist or user lacks access
+          if (!response.data.repository) {
+            debugLog("Repository not found or access denied", { owner, repo });
+            return { prs: [], hasNextPage: false };
+          }
+
+          const { nodes: prNodes, pageInfo } = response.data.repository.pullRequests;
+
+          debugLog("Fetched PRs via GraphQL", { count: prNodes.length, hasNextPage: pageInfo.hasNextPage });
+          return {
+            prs: prNodes.map((pr) => ({
+              number: pr.number,
+              title: pr.title,
+              body: pr.body ?? "",
+              state: pr.state.toLowerCase(),
+              author: { login: pr.author?.login ?? "unknown" },
+              headRefName: pr.headRefName,
+              baseRefName: pr.baseRefName,
+              additions: pr.additions,
+              deletions: pr.deletions,
+              changedFiles: pr.changedFiles,
+              assignees: pr.assignees.nodes.map((a) => ({ login: a.login })),
+              files: [],
+              createdAt: pr.createdAt,
+              updatedAt: pr.updatedAt,
+              htmlUrl: pr.url,
+            })),
+            hasNextPage: pageInfo.hasNextPage,
+          };
         } catch (error) {
           debugLog("Failed to fetch PRs", {
             error: error instanceof Error ? error.message : error,
           });
-          return [];
+          return { prs: [], hasNextPage: false };
         }
       });
-      return result ?? [];
+      return result ?? { prs: [], hasNextPage: false };
     }
   );
 

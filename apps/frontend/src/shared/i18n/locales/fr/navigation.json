@@ -21,7 +21,9 @@
   "actions": {
     "settings": "Paramètres",
     "help": "Aide & Feedback",
-    "newTask": "Nouvelle tâche"
+    "newTask": "Nouvelle tâche",
+    "collapseSidebar": "Réduire la barre latérale",
+    "expandSidebar": "Développer la barre latérale"
   },
   "tooltips": {
     "settings": "Paramètres de l'application",
@@ -42,6 +44,7 @@
   "claudeCode": {
     "checking": "Vérification de Claude Code...",
     "upToDate": "Claude Code est à jour",
+    "upToDateWithVersion": "Claude Code {{version}} installé",
     "updateAvailable": "Mise à jour Claude Code disponible",
     "notInstalled": "Claude Code non installé",
     "error": "Erreur de vérification de Claude Code",

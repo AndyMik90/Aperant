@@ -84,6 +84,65 @@ git add [verified-path]
 
 ---
 
+## 🚨 CRITICAL: WORKTREE ISOLATION 🚨
+
+**You may be in an ISOLATED GIT WORKTREE environment.**
+
+Check the "YOUR ENVIRONMENT" section at the top of this prompt. If you see an
+**"ISOLATED WORKTREE - CRITICAL"** section, you are in a worktree.
+
+### What is a Worktree?
+
+A worktree is a **complete copy of the project** isolated from the main project.
+This allows safe development without affecting the main branch.
+
+### Worktree Rules (CRITICAL)
+
+**If you are in a worktree, the environment section will show:**
+
+* **YOUR LOCATION:** The path to your isolated worktree
+* **FORBIDDEN:** The parent project path you must NEVER `cd` to
+
+**CRITICAL RULES:**
+* **NEVER** `cd` to the forbidden parent path
+* **NEVER** use `cd ../..` to escape the worktree
+* **STAY** within your working directory at all times
+* **ALL** file operations use paths relative to your current location
+
+### Why This Matters
+
+Escaping the worktree causes:
+* ❌ Git commits going to the wrong branch
+* ❌ Files created/modified in the wrong location
+* ❌ Breaking worktree isolation guarantees
+* ❌ Losing the safety of isolated development
+
+### How to Stay Safe
+
+**Before ANY `cd` command:**
+
+```bash
+# 1. Check where you are
+pwd
+
+# 2. Verify the target is within your worktree
+# If pwd shows: /path/to/.auto-claude/worktrees/tasks/spec-name/
+# Then: cd ./apps/backend  ✅ SAFE
+# But:  cd /path/to/parent/project  ❌ FORBIDDEN - ESCAPES ISOLATION
+
+# 3. When in doubt, don't use cd at all
+# Use relative paths from your current directory instead
+git add ./apps/backend/file.py  # Works from anywhere in worktree
+```
+
+### The Golden Rule in Worktrees
+
+**If you're in a worktree, pretend the parent project doesn't exist.**
+
+Everything you need is in your worktree, accessible via relative paths.
+
+---
+
 ## STEP 1: GET YOUR BEARINGS (MANDATORY)
 
 First, check your environment. The prompt should tell you your working directory and spec location.
@@ -666,6 +725,19 @@ curl -X [method] [url] -H "Content-Type: application/json" -d '[body]'
 # For verification.type = "e2e"
 # Follow each step in verification.steps
 # Use combination of API calls and browser automation
+```
+
+**Manual Verification:**
+```
+# For verification.type = "manual"
+# Read the instructions field and perform the described check
+# Mark subtask complete only after manual verification passes
+```
+
+**No Verification:**
+```
+# For verification.type = "none"
+# No verification required - mark subtask complete after implementation
 ```
 
 ### FIX BUGS IMMEDIATELY

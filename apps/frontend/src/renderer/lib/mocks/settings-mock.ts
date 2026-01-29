@@ -30,6 +30,12 @@ export const settingsMock = {
     }
   }),
 
+  // Claude Code onboarding status (mock - always returns false in browser mode)
+  getClaudeCodeOnboardingStatus: async () => ({
+    success: true,
+    data: { hasCompletedOnboarding: false }
+  }),
+
   // App Info
   getAppVersion: async () => '0.1.0-browser',
 

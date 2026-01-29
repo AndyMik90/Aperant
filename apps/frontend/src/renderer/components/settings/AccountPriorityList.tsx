@@ -102,6 +102,8 @@ export interface UnifiedAccount {
   isAuthenticated?: boolean;
   /** Set when this account has identical usage to another - may indicate same underlying account */
   isDuplicateUsage?: boolean;
+  /** Set when this account has an invalid refresh token and needs re-authentication */
+  needsReauthentication?: boolean;
 }
 
 interface SortableAccountItemProps {
@@ -278,6 +280,23 @@ function SortableAccountItem({ account, index }: SortableAccountItemProps) {
             </TooltipTrigger>
             <TooltipContent side="top" className="text-xs max-w-[250px]">
               {t('accounts.priority.duplicateUsageHint')}
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {/* Needs re-authentication warning - invalid refresh token */}
+        {account.type === 'oauth' && account.needsReauthentication && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1.5 mt-1.5 cursor-help">
+                <AlertCircle className="h-3 w-3 text-destructive" />
+                <span className="text-[10px] text-destructive">
+                  {t('accounts.priority.needsReauth')}
+                </span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs max-w-[250px]">
+              {t('accounts.priority.needsReauthHint')}
             </TooltipContent>
           </Tooltip>
         )}

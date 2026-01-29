@@ -149,6 +149,11 @@ export async function restoreTerminal(
     'Stored Claude mode:', storedIsClaudeMode,
     'Stored session ID:', storedClaudeSessionId);
 
+  // Debug: Log outputBuffer info from both passed and stored session
+  const passedBufferLen = session.outputBuffer?.length ?? 0;
+  const storedBufferLen = storedSession?.outputBuffer?.length ?? 0;
+  debugLog('[TerminalLifecycle] OutputBuffer info - passed session:', passedBufferLen, 'bytes, stored session:', storedBufferLen, 'bytes');
+
   // Validate cwd exists - if the directory was deleted (e.g., worktree removed),
   // fall back to project path to prevent shell exit with code 1
   let effectiveCwd = session.cwd;
@@ -234,6 +239,12 @@ export async function restoreTerminal(
       SessionHandler.persistSessionAsync(terminal);
     }
   }
+
+  // Debug: Log the outputBuffer being returned for replay
+  const returnBufferLen = session.outputBuffer?.length ?? 0;
+  debugLog('[TerminalLifecycle] Returning outputBuffer for terminal:', session.id,
+    'length:', returnBufferLen, 'bytes',
+    'hasContent:', returnBufferLen > 0);
 
   return {
     success: true,

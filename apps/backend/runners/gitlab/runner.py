@@ -61,10 +61,15 @@ def print_progress(callback: ProgressCallback) -> None:
 def get_config(args) -> GitLabRunnerConfig:
     """Build config from CLI args and environment."""
     token = args.token or os.environ.get("GITLAB_TOKEN", "")
-    project = args.project or os.environ.get("GITLAB_PROJECT", "")
     instance_url = args.instance or os.environ.get(
         "GITLAB_INSTANCE_URL", "https://gitlab.com"
     )
+
+    # Project detection priority:
+    # 1. Explicit --project flag (highest priority)
+    # 2. Auto-detect from .auto-claude/gitlab/config.json (primary for multi-project setups)
+    # 3. GITLAB_PROJECT env var (fallback only)
+    project = args.project  # Only use explicit CLI flag initially
 
     if not token:
         # Try to get from glab CLI
@@ -86,8 +91,8 @@ def get_config(args) -> GitLabRunnerConfig:
                     token = line.split("Token:")[-1].strip()
                     break
 
+    # Auto-detect from project config (takes priority over env var)
     if not project:
-        # Try to detect from .auto-claude/gitlab/config.json
         config_path = Path(args.project_dir) / ".auto-claude" / "gitlab" / "config.json"
         if config_path.exists():
             try:
@@ -99,6 +104,10 @@ def get_config(args) -> GitLabRunnerConfig:
                         token = data.get("token", "")
             except Exception as exc:
                 print(f"Warning: Failed to read GitLab config: {exc}", file=sys.stderr)
+
+    # Fall back to environment variable only if auto-detection failed
+    if not project:
+        project = os.environ.get("GITLAB_PROJECT", "")
 
     if not token:
         print(

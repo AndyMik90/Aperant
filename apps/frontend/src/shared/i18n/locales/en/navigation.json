@@ -21,7 +21,9 @@
   "actions": {
     "settings": "Settings",
     "help": "Help & Feedback",
-    "newTask": "New Task"
+    "newTask": "New Task",
+    "collapseSidebar": "Collapse Sidebar",
+    "expandSidebar": "Expand Sidebar"
   },
   "tooltips": {
     "settings": "Application Settings",
@@ -42,6 +44,7 @@
   "claudeCode": {
     "checking": "Checking Claude Code...",
     "upToDate": "Claude Code is up to date",
+    "upToDateWithVersion": "Claude Code {{version}} installed",
     "updateAvailable": "Claude Code update available",
     "notInstalled": "Claude Code not installed",
     "error": "Error checking Claude Code",

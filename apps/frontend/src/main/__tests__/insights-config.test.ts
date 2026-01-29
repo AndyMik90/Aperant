@@ -14,7 +14,12 @@ vi.mock('electron', () => ({
 }));
 
 vi.mock('../rate-limit-detector', () => ({
-  getProfileEnv: () => ({ CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token' })
+  getBestAvailableProfileEnv: () => ({
+    env: { CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token' },
+    profileId: 'default',
+    profileName: 'Default',
+    wasSwapped: false
+  })
 }));
 
 const mockGetApiProfileEnv = vi.fn();

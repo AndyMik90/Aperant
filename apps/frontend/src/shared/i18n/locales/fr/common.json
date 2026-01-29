@@ -77,9 +77,22 @@
     "discard": "Abandonner",
     "switch": "Changer",
     "add": "Ajouter",
+    "apply": "Appliquer",
     "gotIt": "Compris",
     "continue": "Continuer",
     "saving": "Enregistrement..."
+  },
+  "actions": {
+    "save": "Enregistrer",
+    "apply": "Appliquer",
+    "delete": "Supprimer",
+    "settings": "Paramètres"
+  },
+  "os": {
+    "windows": "Windows",
+    "macos": "macOS",
+    "linux": "Linux",
+    "unknown": "Inconnu"
   },
   "labels": {
     "loading": "Chargement...",
@@ -348,9 +361,8 @@
     "updatingBranch": "Mise à jour...",
     "branchUpdated": "Branche mise à jour",
     "branchUpdateFailed": "Échec de la mise à jour de la branche",
-    "loadingMore": "Chargement des PRs...",
-    "scrollForMore": "Défiler pour plus",
     "allPRsLoaded": "Tous les PRs chargés",
+    "maxPRsShown": "Affichage des 100 premières PRs",
     "workflowsAwaitingApproval": "{{count}} workflow en attente d'approbation",
     "workflowsAwaitingApproval_plural": "{{count}} workflows en attente d'approbation",
     "blockedByWorkflows": "Bloqué",
@@ -419,7 +431,11 @@
     "authenticationAriaLabel": "Authentification : {{provider}}",
     "authenticationDetails": "Détails de l'authentification",
     "apiProfile": "Profil API",
+    "apiKey": "Clé API",
     "oauth": "OAuth",
+    "claudeCode": "Claude Code",
+    "claudeCodeSubscription": "Abonnement Claude Code",
+    "subscription": "Abonnement",
     "provider": "Fournisseur",
     "providerAnthropic": "Anthropic",
     "providerZai": "z.ai",
@@ -448,6 +464,11 @@
     "weeklyLimitReached": "Limite hebdomadaire atteinte",
     "sessionLimitReached": "Limite de session atteinte",
     "notAuthenticated": "Non authentifié",
+    "needsReauth": "Réauth requise",
+    "reauthRequired": "Ré-authentification requise",
+    "reauthRequiredDescription": "Votre session a expiré. Ré-authentifiez-vous pour voir l'utilisation et continuer à utiliser ce compte.",
+    "reauthButton": "Ré-authentifier",
+    "clickToOpenSettings": "Cliquez pour ouvrir les Paramètres →",
     "sessionShort": "Utilisation session 5 heures",
     "weeklyShort": "Utilisation hebdomadaire 7 jours",
     "swap": "Changer"
@@ -552,6 +573,41 @@
     "step3": "Cliquez sur « Authentifier » pour terminer la connexion",
     "footer": "Le compte sera disponible une fois l'authentification terminée."
   },
+  "roadmapGeneration": {
+    "progress": "Progression",
+    "elapsed": "Écoulé : {{time}}",
+    "stillWorking": "Toujours en cours...",
+    "stopping": "Arrêt...",
+    "stop": "Arrêter",
+    "stopTooltip": "Arrêter la génération",
+    "phases": {
+      "analyzing": {
+        "label": "Analyse",
+        "description": "Analyse de la structure et du code du projet..."
+      },
+      "discovering": {
+        "label": "Découverte",
+        "description": "Découverte du public cible et des besoins des utilisateurs..."
+      },
+      "generating": {
+        "label": "Génération",
+        "description": "Génération de la feuille de route des fonctionnalités..."
+      },
+      "complete": {
+        "label": "Terminé",
+        "description": "Génération de la feuille de route terminée !"
+      },
+      "error": {
+        "label": "Erreur",
+        "description": "La génération a échoué"
+      }
+    },
+    "steps": {
+      "analyze": "Analyser",
+      "discover": "Découvrir",
+      "generate": "Générer"
+    }
+  },
   "auth": {
     "failure": {
       "title": "Authentification requise",
@@ -566,5 +622,45 @@
       "technicalDetails": "Détails techniques",
       "goToSettings": "Aller aux paramètres"
     }
+  },
+  "roadmapProgress": {
+    "elapsedTime": "Écoulé",
+    "lastActivity": "Dernière activité",
+    "staleWarning": "Aucune activité depuis un moment",
+    "staleWarningTooltip": "Cette tâche n'a eu aucune activité depuis {{minutes}} minutes",
+    "phases": {
+      "analyzing": {
+        "label": "Analyse",
+        "description": "Analyse de la structure du projet et du code..."
+      },
+      "discovering": {
+        "label": "Découverte",
+        "description": "Découverte du public cible et des besoins utilisateurs..."
+      },
+      "generating": {
+        "label": "Génération",
+        "description": "Génération de la feuille de route..."
+      },
+      "complete": {
+        "label": "Terminé",
+        "description": "Génération de la feuille de route terminée !"
+      },
+      "error": {
+        "label": "Erreur",
+        "description": "La génération a échoué"
+      }
+    },
+    "steps": {
+      "analyze": "Analyser",
+      "discover": "Découvrir",
+      "generate": "Générer"
+    },
+    "processing": "En cours",
+    "processActiveTooltip": "Le processus est en cours d'exécution",
+    "stopGeneration": "Arrêter la génération",
+    "stopping": "Arrêt...",
+    "progress": "Progression",
+    "lastActivityPrefix": "dernière activité",
+    "lastProgressUpdateTooltip": "Dernière mise à jour de progression reçue"
   }
 }

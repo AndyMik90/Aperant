@@ -44,6 +44,20 @@ describe('stripAnsiCodes', () => {
       const expected = 'Text';
       expect(stripAnsiCodes(input)).toBe(expected);
     });
+
+    it('should handle CSI bracketed paste sequences', () => {
+      // Bracketed paste start/end with non-alphabetic final byte (~)
+      const input = '\x1b[200~pasted text\x1b[201~';
+      const expected = 'pasted text';
+      expect(stripAnsiCodes(input)).toBe(expected);
+    });
+
+    it('should handle CSI with private mode parameters', () => {
+      // Private mode sequences use ?<>=
+      const input = '\x1b[?25lhide cursor\x1b[?25hshow cursor';
+      const expected = 'hide cursorshow cursor';
+      expect(stripAnsiCodes(input)).toBe(expected);
+    });
   });
 
   describe('OSC (Operating System Command) patterns', () => {

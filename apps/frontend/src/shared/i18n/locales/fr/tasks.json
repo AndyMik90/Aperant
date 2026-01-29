@@ -99,7 +99,14 @@
     "selectedCountOne": "{{count}} tâche sélectionnée",
     "selectedCountOther": "{{count}} tâches sélectionnées",
     "createPRs": "Créer les PRs",
-    "clearSelection": "Effacer la sélection"
+    "clearSelection": "Effacer la sélection",
+    "collapseColumn": "Réduire la colonne",
+    "expandColumn": "Développer la colonne",
+    "resizeColumn": "Redimensionner la colonne",
+    "lockColumn": "Verrouiller la largeur de la colonne",
+    "unlockColumn": "Déverrouiller la largeur de la colonne",
+    "columnLocked": "La largeur de la colonne est verrouillée",
+    "expandAll": "Développer toutes les colonnes"
   },
   "queue": {
     "limitReached": "Limite de tâches parallèles atteinte ({{current}}/{{max}}). Tâche déplacée vers la file d'attente.",
@@ -162,6 +169,13 @@
   "images": {
     "removeImageAriaLabel": "Supprimer l'image {{filename}}",
     "pasteHint": "Astuce : Collez des captures d'écran directement avec {{shortcut}} pour ajouter des images de référence."
+  },
+  "imagePreview": {
+    "close": "Fermer l'aperçu",
+    "unavailable": "Image indisponible",
+    "description": "Aperçu de {{filename}}",
+    "doubleClickHint": "Double-cliquez pour agrandir",
+    "lowResolution": "Aperçu basse résolution"
   },
   "notifications": {
     "backgroundTaskTitle": "La tâche continue en arrière-plan",
@@ -295,6 +309,11 @@
       "fetchSources": "Échec de la récupération des sources de capture d'écran",
       "capture": "Échec de la capture d'écran",
       "captureFailed": "Échec de la capture d'écran"
+    },
+    "devMode": {
+      "title": "Capture d'écran non disponible",
+      "description": "La capture d'écran n'est pas disponible en mode développement en raison des restrictions de permissions système.",
+      "hint": "Utilisez un outil de capture d'écran externe et collez directement dans la description de la tâche avec {{shortcut}}."
     }
   },
   "referenceImages": {

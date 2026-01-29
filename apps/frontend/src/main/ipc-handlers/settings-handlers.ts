@@ -161,7 +161,7 @@ export function registerSettingsHandlers(
       // Persist migration changes
       if (needsSave) {
         try {
-          writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+          writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
         } catch (error) {
           console.error('[SETTINGS_GET] Failed to persist migration:', error);
           // Continue anyway - settings will be migrated in-memory for this session
@@ -202,7 +202,7 @@ export function registerSettingsHandlers(
           }
         }
 
-        writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2));
+        writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), 'utf-8');
 
         // Apply Python path if changed
         if (settings.pythonPath || settings.autoBuildPath) {
@@ -275,6 +275,48 @@ export function registerSettingsHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to get CLI tools info',
+        };
+      }
+    }
+  );
+
+  /**
+   * Read ~/.claude.json to check if Claude Code onboarding is complete.
+   * This allows Auto-Claude to respect Claude Code's onboarding status and
+   * avoid showing the onboarding wizard to users who have already completed it.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.SETTINGS_CLAUDE_CODE_GET_ONBOARDING_STATUS,
+    async (): Promise<IPCResult<{ hasCompletedOnboarding: boolean }>> => {
+      try {
+        const homeDir = app.getPath('home');
+        const claudeJsonPath = path.join(homeDir, '.claude.json');
+
+        // If file doesn't exist, user hasn't completed Claude Code onboarding
+        if (!existsSync(claudeJsonPath)) {
+          return {
+            success: true,
+            data: { hasCompletedOnboarding: false }
+          };
+        }
+
+        const content = readFileSync(claudeJsonPath, 'utf-8');
+        const claudeConfig = JSON.parse(content);
+
+        // Check for hasCompletedOnboarding field
+        const hasCompletedOnboarding = claudeConfig.hasCompletedOnboarding === true;
+
+        return {
+          success: true,
+          data: { hasCompletedOnboarding }
+        };
+      } catch (error) {
+        // On error (parse error, read error, etc.), log and return false
+        // This ensures we don't block onboarding due to corrupted .claude.json
+        console.warn('[SETTINGS_CLAUDE_CODE_GET_ONBOARDING_STATUS] Error reading ~/.claude.json:', error);
+        return {
+          success: true,
+          data: { hasCompletedOnboarding: false }
         };
       }
     }
@@ -682,7 +724,7 @@ export function registerSettingsHandlers(
           }
         }
 
-        writeFileSync(envPath, lines.join('\n'));
+        writeFileSync(envPath, lines.join('\n'), 'utf-8');
 
         return { success: true };
       } catch (error) {

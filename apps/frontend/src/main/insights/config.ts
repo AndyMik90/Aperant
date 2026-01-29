@@ -1,12 +1,13 @@
 import path from 'path';
 import { existsSync, readFileSync } from 'fs';
-import { getProfileEnv } from '../rate-limit-detector';
+import { getBestAvailableProfileEnv } from '../rate-limit-detector';
 import { getAPIProfileEnv } from '../services/profile';
 import { getOAuthModeClearVars } from '../agent/env-utils';
 import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager';
 import { getValidatedPythonPath } from '../python-detector';
 import { getAugmentedEnv } from '../env-utils';
 import { getEffectiveSourcePath } from '../updater/path-resolver';
+import { isWindows } from '../platform';
 
 /**
  * Configuration manager for insights service
@@ -108,7 +109,9 @@ export class InsightsConfig {
    */
   async getProcessEnv(): Promise<Record<string, string>> {
     const autoBuildEnv = this.loadAutoBuildEnv();
-    const profileEnv = getProfileEnv();
+    // Get best available Claude profile environment (automatically handles rate limits)
+    const profileResult = getBestAvailableProfileEnv();
+    const profileEnv = profileResult.env;
     const apiProfileEnv = await getAPIProfileEnv();
     const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
     const pythonEnv = pythonEnvManager.getPythonEnv();
@@ -121,11 +124,11 @@ export class InsightsConfig {
 
     if (autoBuildSource) {
       const normalizedAutoBuildSource = path.resolve(autoBuildSource);
-      const autoBuildComparator = process.platform === 'win32'
+      const autoBuildComparator = isWindows()
         ? normalizedAutoBuildSource.toLowerCase()
         : normalizedAutoBuildSource;
       const hasAutoBuildSource = pythonPathParts.some((entry) => {
-        const candidate = process.platform === 'win32' ? entry.toLowerCase() : entry;
+        const candidate = isWindows() ? entry.toLowerCase() : entry;
         return candidate === autoBuildComparator;
       });
 

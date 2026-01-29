@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import type { BrowserWindow } from 'electron';
+import type { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult, TerminalCreateOptions, ClaudeProfile, ClaudeProfileSettings, ClaudeUsageSnapshot, AllProfilesUsage } from '../../shared/types';
 import { getClaudeProfileManager } from '../claude-profile-manager';
@@ -10,7 +10,7 @@ import { terminalNameGenerator } from '../terminal-name-generator';
 import { readSettingsFileAsync } from '../settings-utils';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { migrateSession } from '../claude-profile/session-utils';
-import { DEFAULT_CLAUDE_CONFIG_DIR, createProfileDirectory } from '../claude-profile/profile-utils';
+import { createProfileDirectory } from '../claude-profile/profile-utils';
 import { isValidConfigDir } from '../utils/config-path-validator';
 
 
@@ -242,12 +242,9 @@ export function registerTerminalHandlers(
           debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Terminals for profile change:', terminals.length);
 
           // Determine config directories for session migration
-          const sourceConfigDir = previousProfile.isDefault
-            ? DEFAULT_CLAUDE_CONFIG_DIR
-            : previousProfile.configDir;
-          const targetConfigDir = newProfile?.isDefault
-            ? DEFAULT_CLAUDE_CONFIG_DIR
-            : newProfile?.configDir;
+          // All profiles now have their own configDir (no special case for default)
+          const sourceConfigDir = previousProfile.configDir;
+          const targetConfigDir = newProfile?.configDir;
 
           // Build terminal refresh info for frontend
           const terminalsNeedingRefresh: Array<{
@@ -541,12 +538,13 @@ export function registerTerminalHandlers(
   );
 
   // Request all profiles usage immediately (for startup/refresh)
+  // Optional forceRefresh parameter bypasses cache to get fresh data
   ipcMain.handle(
     IPC_CHANNELS.ALL_PROFILES_USAGE_REQUEST,
-    async (): Promise<IPCResult<AllProfilesUsage | null>> => {
+    async (_event: IpcMainInvokeEvent, forceRefresh: boolean = false): Promise<IPCResult<AllProfilesUsage | null>> => {
       try {
         const monitor = getUsageMonitor();
-        const allProfilesUsage = await monitor.getAllProfilesUsage();
+        const allProfilesUsage = await monitor.getAllProfilesUsage(forceRefresh);
         return { success: true, data: allProfilesUsage };
       } catch (error) {
         return {

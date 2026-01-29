@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Download, RefreshCw, CheckCircle2, AlertCircle, ExternalLink } from "lucide-react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import {
@@ -16,64 +18,66 @@ import type { AppUpdateAvailableEvent, AppUpdateProgress } from "../../shared/ty
 const CLAUDE_CODE_CHANGELOG_URL =
   "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md";
 
-/**
- * Simple markdown renderer for release notes
- * Handles: headers, bold, lists, line breaks
- */
-function ReleaseNotesRenderer({ markdown }: { markdown: string }) {
-  const html = useMemo(() => {
-    const result = markdown
-      // Escape HTML
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      // Headers (### Header -> <h3>)
-      .replace(
-        /^### (.+)$/gm,
-        '<h4 class="text-sm font-semibold text-foreground mt-3 mb-1.5 first:mt-0">$1</h4>'
-      )
-      .replace(
-        /^## (.+)$/gm,
-        '<h3 class="text-sm font-semibold text-foreground mt-3 mb-1.5 first:mt-0">$1</h3>'
-      )
-      // Bold (**text** -> <strong>)
-      .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-foreground font-medium">$1</strong>')
-      // Inline code (`code` -> <code>)
-      .replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 bg-muted rounded text-xs">$1</code>')
-      // List items (- item -> <li>)
-      .replace(
-        /^- (.+)$/gm,
-        "<li class=\"ml-4 text-muted-foreground before:content-['•'] before:mr-2 before:text-muted-foreground/60\">$1</li>"
-      )
-      // Wrap consecutive list items
-      .replace(/(<li[^>]*>.*?<\/li>\n?)+/g, '<ul class="space-y-1 my-2">$&</ul>')
-      // Line breaks for remaining lines
-      .replace(/\n\n/g, '<div class="h-2"></div>')
-      .replace(/\n/g, "<br/>");
+// createSafeLink - factory function that creates a SafeLink component with i18n support
+const createSafeLink = (opensInNewWindowText: string) => {
+  return function SafeLink({
+    href,
+    children,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+    // Validate URL - only allow http, https, and relative links
+    const isValidUrl =
+      href &&
+      (href.startsWith("http://") ||
+        href.startsWith("https://") ||
+        href.startsWith("/") ||
+        href.startsWith("#"));
 
-    return result;
-  }, [markdown]);
+    if (!isValidUrl) {
+      // For invalid or potentially malicious URLs, render as plain text
+      return <span className="text-muted-foreground">{children}</span>;
+    }
 
-  return (
-    <div
-      className="text-sm text-muted-foreground leading-relaxed"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
-}
+    // External links get security attributes and accessibility indicator
+    const isExternal = href?.startsWith("http://") || href?.startsWith("https://");
+
+    return (
+      <a
+        href={href}
+        {...props}
+        {...(isExternal && {
+          target: "_blank",
+          rel: "noopener noreferrer",
+        })}
+        className="text-primary hover:underline"
+      >
+        {children}
+        {isExternal && <span className="sr-only"> {opensInNewWindowText}</span>}
+      </a>
+    );
+  };
+};
 
 /**
  * App Update Notification Dialog
  * Shows when a new app version is available and handles download/install workflow
  */
 export function AppUpdateNotification() {
-  const { t } = useTranslation(["dialogs"]);
+  const { t } = useTranslation(["dialogs", "common"]);
   const [isOpen, setIsOpen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<AppUpdateAvailableEvent | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<AppUpdateProgress | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  // Create markdown components with translated accessibility text
+  const markdownComponents: Components = useMemo(
+    () => ({
+      a: createSafeLink(t("common:accessibility.opensInNewWindow")),
+    }),
+    [t]
+  );
 
   // Listen for update available event
   useEffect(() => {
@@ -184,7 +188,11 @@ export function AppUpdateNotification() {
           {/* Release Notes */}
           {updateInfo.releaseNotes && (
             <div className="bg-background rounded-lg p-4 max-h-64 overflow-y-auto border border-border/50">
-              <ReleaseNotesRenderer markdown={updateInfo.releaseNotes} />
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                  {updateInfo.releaseNotes}
+                </ReactMarkdown>
+              </div>
             </div>
           )}
 

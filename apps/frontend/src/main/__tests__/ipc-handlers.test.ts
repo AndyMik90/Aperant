@@ -153,8 +153,9 @@ function cleanupTestDirs(): void {
   }
 }
 
-// Increase timeout for all tests in this file due to dynamic imports and setup overhead
-describe("IPC Handlers", { timeout: 15000 }, () => {
+// Increase timeout for all tests in this file due to dynamic imports and setup overhead.
+// Windows requires longer timeout due to slower file system operations and module loading.
+describe("IPC Handlers", { timeout: 30000 }, () => {
   let ipcMain: EventEmitter & {
     handlers: Map<string, Function>;
     invokeHandler: (channel: string, event: unknown, ...args: unknown[]) => Promise<unknown>;

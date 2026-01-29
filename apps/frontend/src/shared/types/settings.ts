@@ -245,6 +245,7 @@ export interface AppSettings {
   memoryOllamaEmbeddingModel?: string;
   memoryOllamaEmbeddingDim?: number;
   memoryVoyageApiKey?: string;
+  memoryVoyageEmbeddingModel?: string;
   memoryAzureApiKey?: string;
   memoryAzureBaseUrl?: string;
   memoryAzureEmbeddingDeployment?: string;
@@ -287,6 +288,8 @@ export interface AppSettings {
   autoNameClaudeTerminals?: boolean;
   // Track which version warnings have been shown (e.g., ["2.7.5"])
   seenVersionWarnings?: string[];
+  // Sidebar collapsed state (icons only when true)
+  sidebarCollapsed?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

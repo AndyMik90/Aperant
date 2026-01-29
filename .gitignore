@@ -57,6 +57,7 @@ lerna-debug.log*
 # ===========================
 .auto-claude/
 .planning/
+.planning-archive/
 .auto-build-security.json
 .auto-claude-security.json
 .auto-claude-status

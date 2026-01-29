@@ -36,7 +36,7 @@ export function getTaskWorktreePath(projectPath: string, specId: string): string
  * Validate that a resolved path is within the expected base directory
  * Protects against path traversal attacks (e.g., specId containing "..")
  */
-function isPathWithinBase(resolvedPath: string, basePath: string): boolean {
+export function isPathWithinBase(resolvedPath: string, basePath: string): boolean {
   const normalizedPath = path.resolve(resolvedPath);
   const normalizedBase = path.resolve(basePath);
   return normalizedPath.startsWith(normalizedBase + path.sep) || normalizedPath === normalizedBase;

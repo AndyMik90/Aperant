@@ -171,24 +171,105 @@ export class AgentEvents {
 
   /**
    * Parse roadmap progress from log output
+   * Provides granular progress updates (8+ intermediate points) for better UX feedback
    */
   parseRoadmapProgress(log: string, currentPhase: string, currentProgress: number): { phase: string; progress: number } {
+    // Define roadmap phase order to prevent regression
+    const ROADMAP_PHASE_ORDER: Record<string, number> = {
+      'idle': 0,
+      'analyzing': 1,
+      'discovering': 2,
+      'generating': 3,
+      'complete': 4,
+      'error': 5,
+    };
+
+    const wouldRoadmapPhaseRegress = (current: string, next: string): boolean => {
+      const currentOrder = ROADMAP_PHASE_ORDER[current] ?? -1;
+      const nextOrder = ROADMAP_PHASE_ORDER[next] ?? -1;
+      // Allow progression to error from any phase, but otherwise prevent regression
+      if (next === 'error') return false;
+      return nextOrder < currentOrder;
+    };
+
     let phase = currentPhase;
     let progress = currentProgress;
+    let detectedPhase = currentPhase;
 
+    // Phase 1: Project Analysis (10-25%)
     if (log.includes('PROJECT ANALYSIS')) {
-      phase = 'analyzing';
+      detectedPhase = 'analyzing';
+      progress = 10;
+    } else if (log.includes('Copied existing project_index')) {
+      detectedPhase = 'analyzing';
+      progress = 15;
+    } else if (log.includes('Running project analyzer')) {
+      detectedPhase = 'analyzing';
       progress = 20;
-    } else if (log.includes('PROJECT DISCOVERY')) {
-      phase = 'discovering';
+    } else if (log.includes('project_index.json already exists')) {
+      detectedPhase = 'analyzing';
+      progress = 22;
+    } else if (log.includes('Created project_index')) {
+      detectedPhase = 'analyzing';
+      progress = 25;
+    }
+
+    // Phase 2: Discovery (30-50%)
+    else if (log.includes('PROJECT DISCOVERY')) {
+      detectedPhase = 'discovering';
+      progress = 30;
+    } else if (log.includes('Analyzing project')) {
+      detectedPhase = 'discovering';
+      progress = 35;
+    } else if (log.includes('Running discovery agent')) {
+      detectedPhase = 'discovering';
       progress = 40;
-    } else if (log.includes('FEATURE GENERATION')) {
-      phase = 'generating';
-      progress = 70;
-    } else if (log.includes('ROADMAP GENERATED')) {
-      phase = 'complete';
+    } else if (log.includes('Discovery attempt')) {
+      detectedPhase = 'discovering';
+      progress = 45;
+    } else if (
+      log.includes('roadmap_discovery.json') &&
+      !log.toLowerCase().includes('failed') &&
+      !log.toLowerCase().includes('error')
+    ) {
+      detectedPhase = 'discovering';
+      progress = 50;
+    }
+
+    // Phase 3: Feature Generation (55-95%)
+    else if (log.includes('FEATURE GENERATION')) {
+      detectedPhase = 'generating';
+      progress = 55;
+    } else if (log.includes('Generating features')) {
+      detectedPhase = 'generating';
+      progress = 60;
+    } else if (log.includes('Features attempt')) {
+      detectedPhase = 'generating';
+      progress = 65;
+    } else if (log.includes('Prioritizing features')) {
+      detectedPhase = 'generating';
+      progress = 75;
+    } else if (log.includes('Creating roadmap file')) {
+      detectedPhase = 'generating';
+      progress = 85;
+    } else if (log.includes('Created valid roadmap')) {
+      detectedPhase = 'generating';
+      progress = 90;
+    }
+
+    // Complete
+    else if (log.includes('ROADMAP GENERATED')) {
+      detectedPhase = 'complete';
       progress = 100;
     }
+
+    // Apply phase only if it doesn't regress (prevents visual inconsistency)
+    if (!wouldRoadmapPhaseRegress(currentPhase, detectedPhase)) {
+      phase = detectedPhase;
+    }
+
+    // Ensure progress only moves forward (never backward) and stays within bounds (0-100)
+    progress = Math.min(100, Math.max(progress, currentProgress));
 
     return { phase, progress };
   }

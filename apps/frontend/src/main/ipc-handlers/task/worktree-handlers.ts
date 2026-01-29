@@ -9,7 +9,7 @@ import { homedir } from 'os';
 import { projectStore } from '../../project-store';
 import { getConfiguredPythonPath, PythonEnvManager, pythonEnvManager as pythonEnvManagerSingleton } from '../../python-env-manager';
 import { getEffectiveSourcePath } from '../../updater/path-resolver';
-import { getProfileEnv } from '../../rate-limit-detector';
+import { getBestAvailableProfileEnv } from '../../rate-limit-detector';
 import { findTaskAndProject } from './shared';
 import { parsePythonCommand } from '../../python-detector';
 import { getToolPath } from '../../cli-tool-manager';
@@ -19,8 +19,9 @@ import {
   findTaskWorktree,
 } from '../../worktree-paths';
 import { persistPlanStatus, updateTaskMetadataPrUrl } from './plan-file-utils';
-import { getIsolatedGitEnv } from '../../utils/git-isolation';
+import { getIsolatedGitEnv, detectWorktreeBranch, refreshGitIndex } from '../../utils/git-isolation';
 import { killProcessGracefully } from '../../platform';
+import { stripAnsiCodes } from '../../../shared/utils/ansi-sanitizer';
 
 // Regex pattern for validating git branch names
 const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
@@ -1963,7 +1964,8 @@ export function registerWorktreeHandlers(
         debug('Working directory:', sourcePath);
 
         // Get profile environment with OAuth token for AI merge resolution
-        const profileEnv = getProfileEnv();
+        const profileResult = getBestAvailableProfileEnv();
+        const profileEnv = profileResult.env;
         debug('Profile env for merge:', {
           hasOAuthToken: !!profileEnv.CLAUDE_CODE_OAUTH_TOKEN,
           hasConfigDir: !!profileEnv.CLAUDE_CONFIG_DIR
@@ -2041,13 +2043,13 @@ export function registerWorktreeHandlers(
           }, MERGE_TIMEOUT_MS);
 
           mergeProcess.stdout.on('data', (data: Buffer) => {
-            const chunk = data.toString();
+            const chunk = data.toString('utf-8');
             stdout += chunk;
             debug('STDOUT:', chunk);
           });
 
           mergeProcess.stderr.on('data', (data: Buffer) => {
-            const chunk = data.toString();
+            const chunk = data.toString('utf-8');
             stderr += chunk;
             debug('STDERR:', chunk);
           });
@@ -2241,7 +2243,7 @@ export function registerWorktreeHandlers(
                         plan.stagedAt = new Date().toISOString();
                         plan.stagedInMainProject = true;
                       }
-                      await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
+                      await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2), 'utf-8');
 
                       // Verify the write succeeded by reading back
                       const verifyContent = await fsPromises.readFile(planPath, 'utf-8');
@@ -2327,7 +2329,9 @@ export function registerWorktreeHandlers(
                 success: true,
                 data: {
                   success: false,
-                  message: hasConflicts ? 'Merge conflicts detected' : `Merge failed: ${stderr || stdout}`,
+                  message: hasConflicts
+                    ? 'Merge conflicts detected'
+                    : `Merge failed: ${stripAnsiCodes(stderr || stdout)}`,
                   conflictFiles: hasConflicts ? [] : undefined
                 }
               });
@@ -2402,6 +2406,8 @@ export function registerWorktreeHandlers(
         let uncommittedFiles: string[] = [];
         if (isGitWorkTree(project.path)) {
           try {
+            refreshGitIndex(project.path);
+
             const gitStatus = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
               cwd: project.path,
               encoding: 'utf-8'
@@ -2413,7 +2419,8 @@ export function registerWorktreeHandlers(
               uncommittedFiles = gitStatus
                 .split('\n')
                 .filter(line => line.trim())
-                .map(line => line.substring(3).trim()); // Skip 2 status chars + 1 space, trim any trailing whitespace
+                .map(line => line.substring(3).trim()) // Skip 2 status chars + 1 space, trim any trailing whitespace
+                .filter(file => file); // Remove empty strings from short/malformed status lines
 
               hasUncommittedChanges = uncommittedFiles.length > 0;
             }
@@ -2458,7 +2465,8 @@ export function registerWorktreeHandlers(
         console.warn('[IPC] Running merge preview:', pythonPath, args.join(' '));
 
         // Get profile environment for consistency
-        const previewProfileEnv = getProfileEnv();
+        const previewProfileResult = getBestAvailableProfileEnv();
+        const previewProfileEnv = previewProfileResult.env;
         // Get Python environment for bundled packages
         const previewPythonEnv = pythonEnvManagerSingleton.getPythonEnv();
 
@@ -2474,13 +2482,13 @@ export function registerWorktreeHandlers(
           let stderr = '';
 
           previewProcess.stdout.on('data', (data: Buffer) => {
-            const chunk = data.toString();
+            const chunk = data.toString('utf-8');
             stdout += chunk;
             console.warn('[IPC] merge-preview stdout:', chunk);
           });
 
           previewProcess.stderr.on('data', (data: Buffer) => {
-            const chunk = data.toString();
+            const chunk = data.toString('utf-8');
             stderr += chunk;
             console.warn('[IPC] merge-preview stderr:', chunk);
           });
@@ -2523,7 +2531,7 @@ export function registerWorktreeHandlers(
                 console.error('[IPC] stderr:', stderr);
                 resolve({
                   success: false,
-                  error: `Failed to parse preview result: ${stderr || stdout}`
+                  error: `Failed to parse preview result: ${stripAnsiCodes(stderr || stdout)}`
                 });
               }
             } else {
@@ -2532,7 +2540,7 @@ export function registerWorktreeHandlers(
               console.error('[IPC] stdout:', stdout);
               resolve({
                 success: false,
-                error: `Preview failed: ${stderr || stdout}`
+                error: `Preview failed: ${stripAnsiCodes(stderr || stdout)}`
               });
             }
           });
@@ -2583,25 +2591,37 @@ export function registerWorktreeHandlers(
 
         try {
           // Get the branch name before removing
-          const branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
-            cwd: worktreePath,
-            encoding: 'utf-8'
-          }).trim();
+          // Use shared utility to validate detected branch matches expected pattern
+          // This prevents deleting wrong branch when worktree is corrupted/orphaned
+          const { branch, usingFallback } = detectWorktreeBranch(
+            worktreePath,
+            task.specId,
+            { timeout: 30000, logPrefix: '[TASK_WORKTREE_DISCARD]' }
+          );
 
           // Remove the worktree
           execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
             cwd: project.path,
-            encoding: 'utf-8'
+            encoding: 'utf-8',
+            env: getIsolatedGitEnv(),
+            timeout: 30000
           });
 
           // Delete the branch
           try {
             execFileSync(getToolPath('git'), ['branch', '-D', branch], {
               cwd: project.path,
-              encoding: 'utf-8'
+              encoding: 'utf-8',
+              env: getIsolatedGitEnv(),
+              timeout: 30000
             });
-          } catch {
+          } catch (branchDeleteError) {
             // Branch might already be deleted or not exist
+            if (usingFallback) {
+              console.warn(`[TASK_WORKTREE_DISCARD] Could not delete branch ${branch} using fallback pattern. Actual branch may still exist and need manual cleanup.`, branchDeleteError);
+            } else {
+              console.warn(`[TASK_WORKTREE_DISCARD] Could not delete branch ${branch} (may not exist or be checked out elsewhere)`, branchDeleteError);
+            }
           }
 
           // Only send status change to backlog if not skipped
@@ -2640,101 +2660,149 @@ export function registerWorktreeHandlers(
   /**
    * List all spec worktrees for a project
    * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
+   *
+   * Options:
+   * - includeStats: When true, fetches commit count, files changed, additions, deletions per worktree.
+   *   When false (default), only fetches branch and base branch info for faster listing.
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_LIST_WORKTREES,
-    async (_, projectId: string): Promise<IPCResult<WorktreeListResult>> => {
+    async (_, projectId: string, options?: { includeStats?: boolean }): Promise<IPCResult<WorktreeListResult>> => {
       try {
         const project = projectStore.getProject(projectId);
         if (!project) {
           return { success: false, error: 'Project not found' };
         }
 
-        const worktrees: WorktreeListItem[] = [];
+        const includeStats = options?.includeStats ?? false;
         const worktreesDir = getTaskWorktreeDir(project.path);
+        const gitPath = getToolPath('git');
 
-        // Helper to process a single worktree entry
-        const processWorktreeEntry = (entry: string, entryPath: string) => {
+        // Detect the project's default branch once (main/master) instead of per-worktree
+        let projectDefaultBranch: string | undefined;
+        if (!project.settings?.mainBranch || !GIT_BRANCH_REGEX.test(project.settings.mainBranch)) {
+          for (const branch of ['main', 'master']) {
+            try {
+              await execFileAsync(gitPath, ['rev-parse', '--verify', branch], {
+                cwd: project.path,
+                encoding: 'utf-8',
+              });
+              projectDefaultBranch = branch;
+              break;
+            } catch {
+              // Branch doesn't exist, try next
+            }
+          }
+          if (!projectDefaultBranch) {
+            projectDefaultBranch = 'main'; // fallback
+          }
+        }
 
+        // Helper to get effective base branch using cached project default
+        const getBaseBranchForEntry = (entry: string): string => {
+          // 1. Try task metadata baseBranch
+          const specDir = path.join(project.path, '.auto-claude', 'specs', entry);
+          const taskBaseBranch = getTaskBaseBranch(specDir);
+          if (taskBaseBranch) return taskBaseBranch;
+
+          // 2. Try project settings mainBranch
+          if (project.settings?.mainBranch && GIT_BRANCH_REGEX.test(project.settings.mainBranch)) {
+            return project.settings.mainBranch;
+          }
+
+          // 3. Use pre-detected project default branch
+          return projectDefaultBranch || 'main';
+        };
+
+        // Async helper to process a single worktree entry
+        const processWorktreeEntryAsync = async (entry: string, entryPath: string): Promise<WorktreeListItem | null> => {
           try {
-            // Get branch info
-            const branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
+            // Get branch info (always needed)
+            const { stdout: branchOutput } = await execFileAsync(gitPath, ['rev-parse', '--abbrev-ref', 'HEAD'], {
               cwd: entryPath,
               encoding: 'utf-8'
-            }).trim();
+            });
+            const branch = branchOutput.trim();
 
-            // Get base branch using proper fallback chain:
-            // 1. Task metadata baseBranch, 2. Project settings mainBranch, 3. main/master detection
-            // Note: We do NOT use current HEAD as that may be a feature branch
-            const baseBranch = getEffectiveBaseBranch(project.path, entry, project.settings?.mainBranch);
+            const baseBranch = getBaseBranchForEntry(entry);
 
-            // Get commit count (cross-platform - no shell syntax)
-            let commitCount = 0;
-            try {
-              const countOutput = execFileSync(getToolPath('git'), ['rev-list', '--count', `${baseBranch}..HEAD`], {
-                cwd: entryPath,
-                encoding: 'utf-8',
-                stdio: ['pipe', 'pipe', 'pipe']
-              }).trim();
-              commitCount = parseInt(countOutput, 10) || 0;
-            } catch {
-              commitCount = 0;
-            }
-
-            // Get diff stats (cross-platform - no shell syntax)
-            let filesChanged = 0;
-            let additions = 0;
-            let deletions = 0;
-            let diffStat = '';
-
-            try {
-              diffStat = execFileSync(getToolPath('git'), ['diff', '--shortstat', `${baseBranch}...HEAD`], {
-                cwd: entryPath,
-                encoding: 'utf-8',
-                stdio: ['pipe', 'pipe', 'pipe']
-              }).trim();
-
-              const filesMatch = diffStat.match(/(\d+) files? changed/);
-              const addMatch = diffStat.match(/(\d+) insertions?/);
-              const delMatch = diffStat.match(/(\d+) deletions?/);
-
-              if (filesMatch) filesChanged = parseInt(filesMatch[1], 10) || 0;
-              if (addMatch) additions = parseInt(addMatch[1], 10) || 0;
-              if (delMatch) deletions = parseInt(delMatch[1], 10) || 0;
-            } catch {
-              // Ignore diff errors
-            }
-
-            worktrees.push({
+            const item: WorktreeListItem = {
               specName: entry,
               path: entryPath,
               branch,
               baseBranch,
-              commitCount,
-              filesChanged,
-              additions,
-              deletions
-            });
+            };
+
+            // Only fetch stats when requested
+            if (includeStats) {
+              // Run commit count and diff stats in parallel
+              const [countResult, diffResult] = await Promise.allSettled([
+                execFileAsync(gitPath, ['rev-list', '--count', `${baseBranch}..HEAD`], {
+                  cwd: entryPath,
+                  encoding: 'utf-8',
+                }),
+                execFileAsync(gitPath, ['diff', '--shortstat', `${baseBranch}...HEAD`], {
+                  cwd: entryPath,
+                  encoding: 'utf-8',
+                }),
+              ]);
+
+              if (countResult.status === 'fulfilled') {
+                item.commitCount = parseInt(countResult.value.stdout.trim(), 10) || 0;
+              } else {
+                item.commitCount = 0;
+              }
+
+              if (diffResult.status === 'fulfilled') {
+                const diffStat = diffResult.value.stdout.trim();
+                const filesMatch = diffStat.match(/(\d+) files? changed/);
+                const addMatch = diffStat.match(/(\d+) insertions?/);
+                const delMatch = diffStat.match(/(\d+) deletions?/);
+
+                item.filesChanged = filesMatch ? parseInt(filesMatch[1], 10) || 0 : 0;
+                item.additions = addMatch ? parseInt(addMatch[1], 10) || 0 : 0;
+                item.deletions = delMatch ? parseInt(delMatch[1], 10) || 0 : 0;
+              } else {
+                item.filesChanged = 0;
+                item.additions = 0;
+                item.deletions = 0;
+              }
+            }
+
+            return item;
           } catch (gitError) {
             console.error(`Error getting info for worktree ${entry}:`, gitError);
-            // Skip this worktree if we can't get git info
+            return null;
           }
         };
 
-        // Scan worktrees directory
+        // Scan worktrees directory and process all entries in parallel
+        let worktrees: WorktreeListItem[] = [];
         if (existsSync(worktreesDir)) {
           const entries = readdirSync(worktreesDir);
+          const dirEntries: Array<{ entry: string; entryPath: string }> = [];
+
           for (const entry of entries) {
             const entryPath = path.join(worktreesDir, entry);
             try {
               const stat = statSync(entryPath);
               if (stat.isDirectory()) {
-                processWorktreeEntry(entry, entryPath);
+                dirEntries.push({ entry, entryPath });
               }
             } catch {
               // Skip entries that can't be stat'd
             }
           }
+
+          // Process all worktrees in parallel
+          const results = await Promise.allSettled(
+            dirEntries.map(({ entry, entryPath }) => processWorktreeEntryAsync(entry, entryPath))
+          );
+
+          worktrees = results
+            .filter((r): r is PromiseFulfilledResult<WorktreeListItem | null> => r.status === 'fulfilled')
+            .map(r => r.value)
+            .filter((item): item is WorktreeListItem => item !== null);
         }
 
         return { success: true, data: { worktrees } };
@@ -2861,7 +2929,7 @@ export function registerWorktreeHandlers(
         delete plan.stagedAt;
         plan.updated_at = new Date().toISOString();
 
-        await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
+        await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2), 'utf-8');
 
         // Also update worktree plan if it exists
         const worktreePath = findTaskWorktree(project.path, task.specId);
@@ -2873,7 +2941,7 @@ export function registerWorktreeHandlers(
             delete worktreePlan.stagedInMainProject;
             delete worktreePlan.stagedAt;
             worktreePlan.updated_at = new Date().toISOString();
-            await fsPromises.writeFile(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
+            await fsPromises.writeFile(worktreePlanPath, JSON.stringify(worktreePlan, null, 2), 'utf-8');
           } catch (e) {
             // Non-fatal - worktree plan update is best-effort
             // ENOENT is expected when worktree has no plan file
@@ -2978,7 +3046,8 @@ export function registerWorktreeHandlers(
         debug('Working directory:', sourcePath);
 
         // Get profile environment with OAuth token
-        const profileEnv = getProfileEnv();
+        const profileResult = getBestAvailableProfileEnv();
+        const profileEnv = profileResult.env;
 
         return new Promise((resolve) => {
           let timeoutId: NodeJS.Timeout | null = null;
@@ -3028,13 +3097,13 @@ export function registerWorktreeHandlers(
           }, PR_CREATION_TIMEOUT_MS);
 
           createPRProcess.stdout.on('data', (data: Buffer) => {
-            const chunk = data.toString();
+            const chunk = data.toString('utf-8');
             stdout += chunk;
             debug('STDOUT:', chunk);
           });
 
           createPRProcess.stderr.on('data', (data: Buffer) => {
-            const chunk = data.toString();
+            const chunk = data.toString('utf-8');
             stderr += chunk;
             debug('STDERR:', chunk);
           });
@@ -3111,7 +3180,7 @@ export function registerWorktreeHandlers(
                 // Prefer stdout over stderr since stderr often contains debug messages
                 resolve({
                   success: false,
-                  error: stdout || stderr || 'Failed to create PR'
+                  error: stripAnsiCodes(stdout || stderr || 'Failed to create PR')
                 });
               }
             }

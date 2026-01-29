@@ -42,6 +42,9 @@ export interface InsightsAPI {
   onInsightsError: (
     callback: (projectId: string, error: string) => void
   ) => IpcListenerCleanup;
+  onInsightsSessionUpdated: (
+    callback: (projectId: string, session: InsightsSession) => void
+  ) => IpcListenerCleanup;
 }
 
 /**
@@ -98,5 +101,10 @@ export const createInsightsAPI = (): InsightsAPI => ({
   onInsightsError: (
     callback: (projectId: string, error: string) => void
   ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.INSIGHTS_ERROR, callback)
+    createIpcListener(IPC_CHANNELS.INSIGHTS_ERROR, callback),
+
+  onInsightsSessionUpdated: (
+    callback: (projectId: string, session: InsightsSession) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.INSIGHTS_SESSION_UPDATED, callback)
 });

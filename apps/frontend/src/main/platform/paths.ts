@@ -240,6 +240,71 @@ export function expandWindowsEnvVars(pathPattern: string): string {
 }
 
 /**
+ * Resolve Ollama executable paths
+ *
+ * Returns platform-specific paths where Ollama may be installed:
+ * - Windows: LocalAppData, Program Files
+ * - macOS: Homebrew paths, /usr/local/bin
+ * - Linux: /usr/local/bin, /usr/bin, ~/.local/bin
+ */
+export function getOllamaExecutablePaths(): string[] {
+  const homeDir = os.homedir();
+  const paths: string[] = [];
+
+  if (isWindows()) {
+    const localAppData = process.env.LOCALAPPDATA || joinPaths(homeDir, 'AppData', 'Local');
+    paths.push(
+      joinPaths(localAppData, 'Programs', 'Ollama', 'ollama.exe'),
+      joinPaths(localAppData, 'Ollama', 'ollama.exe'),
+      joinPaths('C:\\Program Files', 'Ollama', 'ollama.exe'),
+      joinPaths('C:\\Program Files (x86)', 'Ollama', 'ollama.exe')
+    );
+  } else if (isMacOS()) {
+    paths.push(
+      '/usr/local/bin/ollama',
+      '/opt/homebrew/bin/ollama',
+      joinPaths(homeDir, '.local', 'bin', 'ollama')
+    );
+  } else {
+    // Linux
+    paths.push(
+      '/usr/local/bin/ollama',
+      '/usr/bin/ollama',
+      joinPaths(homeDir, '.local', 'bin', 'ollama')
+    );
+  }
+
+  return paths;
+}
+
+/**
+ * Get the platform-specific install command for Ollama
+ *
+ * Windows: Uses winget (Windows Package Manager)
+ * macOS: Uses Homebrew
+ * Linux: Uses official install script
+ */
+export function getOllamaInstallCommand(): string {
+  if (isWindows()) {
+    return 'winget install --id Ollama.Ollama --accept-source-agreements';
+  } else if (isMacOS()) {
+    return 'brew install ollama';
+  } else {
+    return 'curl -fsSL https://ollama.com/install.sh | sh';
+  }
+}
+
+/**
+ * Get the command to find executables in PATH
+ *
+ * Windows: where.exe
+ * Unix: which
+ */
+export function getWhichCommand(): string {
+  return isWindows() ? 'where.exe' : 'which';
+}
+
+/**
  * Get Windows-specific installation paths for a tool
  *
  * @param toolName - Name of the tool (e.g., 'claude', 'python')

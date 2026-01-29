@@ -16,10 +16,9 @@ import { isWindows, GRACEFUL_KILL_TIMEOUT_MS } from '../platform';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const SOCKET_PATH =
-  process.platform === 'win32'
-    ? `\\\\.\\pipe\\auto-claude-pty-${process.getuid?.() || 'default'}`
-    : `/tmp/auto-claude-pty-${process.getuid?.() || 'default'}.sock`;
+const SOCKET_PATH = isWindows()
+  ? `\\\\.\\pipe\\auto-claude-pty-${process.getuid?.() || 'default'}`
+  : `/tmp/auto-claude-pty-${process.getuid?.() || 'default'}.sock`;
 
 interface DaemonResponseData {
   exitCode?: number;
@@ -155,7 +154,7 @@ class PtyDaemonClient {
     if (!this.socket) return;
 
     this.socket.on('data', (chunk) => {
-      this.buffer += chunk.toString();
+      this.buffer += chunk.toString('utf-8');
 
       // Handle newline-delimited JSON
       const lines = this.buffer.split('\n');

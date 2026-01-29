@@ -29,7 +29,7 @@ const possibleEnvPaths = [
 
 for (const envPath of possibleEnvPaths) {
   if (existsSync(envPath)) {
-    config({ path: envPath });
+    config({ path: envPath, quiet: true });
     console.log(`[dotenv] Loaded environment from: ${envPath}`);
     break;
   }
@@ -46,13 +46,14 @@ import { pythonEnvManager } from './python-env-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
 import { initializeUsageMonitorForwarding } from './ipc-handlers/terminal-handlers';
 import { initializeAppUpdater, stopPeriodicUpdates } from './app-updater';
-import { DEFAULT_APP_SETTINGS } from '../shared/constants';
+import { DEFAULT_APP_SETTINGS, IPC_CHANNELS } from '../shared/constants';
 import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import { preWarmToolCache } from './cli-tool-manager';
-import { initializeClaudeProfileManager } from './claude-profile-manager';
-import type { AppSettings } from '../shared/types';
+import { initializeClaudeProfileManager, getClaudeProfileManager } from './claude-profile-manager';
+import { isMacOS, isWindows } from './platform';
+import type { AppSettings, AuthFailureInfo } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Window sizing constants
@@ -121,10 +122,10 @@ function getIconPath(): string {
     : join(process.resourcesPath);
 
   let iconName: string;
-  if (process.platform === 'darwin') {
+  if (isMacOS()) {
     // Use PNG in dev mode (works better), ICNS in production
     iconName = is.dev ? 'icon-256.png' : 'icon.icns';
-  } else if (process.platform === 'win32') {
+  } else if (isWindows()) {
     iconName = 'icon.ico';
   } else {
     iconName = 'icon.png';
@@ -245,13 +246,13 @@ function createWindow(): void {
 
 // Set app name before ready (for dock tooltip on macOS in dev mode)
 app.setName('Auto Claude');
-if (process.platform === 'darwin') {
+if (isMacOS()) {
   // Force the name to appear in dock on macOS
   app.name = 'Auto Claude';
 }
 
 // Fix Windows GPU cache permission errors (0x5 Access Denied)
-if (process.platform === 'win32') {
+if (isWindows()) {
   app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
   app.commandLine.appendSwitch('disable-gpu-program-cache');
   console.log('[main] Applied Windows GPU cache fixes');
@@ -263,7 +264,7 @@ app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.autoclaude.ui');
 
   // Clear cache on Windows to prevent permission errors from stale cache
-  if (process.platform === 'win32') {
+  if (isWindows()) {
     session.defaultSession.clearCache()
       .then(() => console.log('[main] Cleared cache on startup'))
       .catch((err) => console.warn('[main] Failed to clear cache:', err));
@@ -274,7 +275,7 @@ app.whenReady().then(() => {
   cleanupStaleUpdateMetadata();
 
   // Set dock icon on macOS
-  if (process.platform === 'darwin') {
+  if (isMacOS()) {
     const iconPath = getIconPath();
     try {
       const icon = nativeImage.createFromPath(iconPath);
@@ -404,6 +405,36 @@ app.whenReady().then(() => {
         const usageMonitor = getUsageMonitor();
         usageMonitor.start();
         console.warn('[main] Usage monitor initialized and started (after profile load)');
+
+        // Check for migrated profiles that need re-authentication
+        // These profiles were moved from shared ~/.claude to isolated directories
+        // and need new credentials since they now use a different keychain entry
+        const profileManager = getClaudeProfileManager();
+        const migratedProfileIds = profileManager.getMigratedProfileIds();
+        const activeProfile = profileManager.getActiveProfile();
+
+        if (migratedProfileIds.length > 0) {
+          console.warn('[main] Found migrated profiles that need re-authentication:', migratedProfileIds);
+
+          // If the active profile was migrated, show auth failure modal immediately
+          if (migratedProfileIds.includes(activeProfile.id)) {
+            // Wait for renderer to be ready before sending the event
+            mainWindow.webContents.once('did-finish-load', () => {
+              // Small delay to ensure stores are initialized
+              setTimeout(() => {
+                const authFailureInfo: AuthFailureInfo = {
+                  profileId: activeProfile.id,
+                  profileName: activeProfile.name,
+                  failureType: 'missing',
+                  message: `Profile "${activeProfile.name}" was migrated to an isolated directory and needs re-authentication.`,
+                  detectedAt: new Date()
+                };
+                console.warn('[main] Sending auth failure for migrated active profile:', activeProfile.name);
+                mainWindow?.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+              }, 1000);
+            });
+          }
+        }
       }
     })
     .catch((error) => {
@@ -458,7 +489,7 @@ app.whenReady().then(() => {
 
 // Quit when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  if (!isMacOS()) {
     app.quit();
   }
 });

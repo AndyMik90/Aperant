@@ -11,9 +11,10 @@ import type {
 import { buildChangelogPrompt, buildGitPrompt, createGenerationScript } from './formatter';
 import { extractChangelog } from './parser';
 import { getCommits, getBranchDiffCommits } from './git-integration';
-import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-limit-detector';
+import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv } from '../rate-limit-detector';
 import { parsePythonCommand } from '../python-detector';
 import { getAugmentedEnv } from '../env-utils';
+import { isWindows } from '../platform';
 
 /**
  * Core changelog generation logic
@@ -155,7 +156,7 @@ export class ChangelogGenerator extends EventEmitter {
     let errorOutput = '';
 
     childProcess.stdout?.on('data', (data: Buffer) => {
-      const chunk = data.toString();
+      const chunk = data.toString('utf-8');
       output += chunk;
       this.debug('stdout chunk received', { chunkLength: chunk.length, totalOutput: output.length });
 
@@ -167,7 +168,7 @@ export class ChangelogGenerator extends EventEmitter {
     });
 
     childProcess.stderr?.on('data', (data: Buffer) => {
-      const chunk = data.toString();
+      const chunk = data.toString('utf-8');
       errorOutput += chunk;
       this.debug('stderr chunk received', { chunk: chunk.substring(0, 200) });
     });
@@ -245,18 +246,20 @@ export class ChangelogGenerator extends EventEmitter {
    */
   private buildSpawnEnvironment(): Record<string, string> {
     const homeDir = os.homedir();
-    const isWindows = process.platform === 'win32';
 
     // Use getAugmentedEnv() to ensure common tool paths are available
     // even when app is launched from Finder/Dock
     const augmentedEnv = getAugmentedEnv();
 
-    // Get active Claude profile environment (OAuth token preferred, falls back to CLAUDE_CONFIG_DIR)
-    const profileEnv = getProfileEnv();
+    // Get best available Claude profile environment (automatically handles rate limits)
+    const profileResult = getBestAvailableProfileEnv();
+    const profileEnv = profileResult.env;
     this.debug('Active profile environment', {
       hasOAuthToken: !!profileEnv.CLAUDE_CODE_OAUTH_TOKEN,
       hasConfigDir: !!profileEnv.CLAUDE_CONFIG_DIR,
-      authMethod: profileEnv.CLAUDE_CODE_OAUTH_TOKEN ? 'oauth-token' : (profileEnv.CLAUDE_CONFIG_DIR ? 'config-dir' : 'default')
+      authMethod: profileEnv.CLAUDE_CODE_OAUTH_TOKEN ? 'oauth-token' : (profileEnv.CLAUDE_CONFIG_DIR ? 'config-dir' : 'default'),
+      wasSwapped: profileResult.wasSwapped,
+      selectedProfile: profileResult.profileName
     });
 
     const spawnEnv: Record<string, string> = {
@@ -265,7 +268,7 @@ export class ChangelogGenerator extends EventEmitter {
       ...profileEnv, // Include active Claude profile config
       // Ensure critical env vars are set for claude CLI
       // Use USERPROFILE on Windows, HOME on Unix
-      ...(isWindows ? { USERPROFILE: homeDir } : { HOME: homeDir }),
+      ...(isWindows() ? { USERPROFILE: homeDir } : { HOME: homeDir }),
       USER: process.env.USER || process.env.USERNAME || 'user',
       PYTHONUNBUFFERED: '1',
       PYTHONIOENCODING: 'utf-8',
