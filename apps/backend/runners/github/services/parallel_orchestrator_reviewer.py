@@ -627,6 +627,9 @@ The SDK will run invoked agents in parallel automatically.
         # Extract cross_validated if present
         cross_validated = getattr(finding_data, "cross_validated", False)
 
+        # Extract is_impact_finding if present (for findings about callers/affected files)
+        is_impact_finding = getattr(finding_data, "is_impact_finding", False)
+
         return PRReviewFinding(
             id=finding_id,
             file=finding_data.file,
@@ -640,6 +643,7 @@ The SDK will run invoked agents in parallel automatically.
             evidence=evidence,
             source_agents=source_agents,
             cross_validated=cross_validated,
+            is_impact_finding=is_impact_finding,
         )
 
     async def _get_ci_status(self, pr_number: int) -> dict:

@@ -378,6 +378,11 @@ class PRReviewFinding:
         False  # Whether multiple agents agreed on this finding (signal, not filter)
     )
 
+    # Impact finding flag - indicates this finding is about code OUTSIDE the PR's changed files
+    # (e.g., callers affected by contract changes). Used by _is_finding_in_scope() to allow
+    # findings about related files that aren't directly in the PR diff.
+    is_impact_finding: bool = False
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,
@@ -402,6 +407,8 @@ class PRReviewFinding:
             "confidence": self.confidence,
             "source_agents": self.source_agents,
             "cross_validated": self.cross_validated,
+            # Impact finding flag
+            "is_impact_finding": self.is_impact_finding,
         }
 
     @classmethod
@@ -429,6 +436,8 @@ class PRReviewFinding:
             confidence=data.get("confidence", 0.5),
             source_agents=data.get("source_agents", []),
             cross_validated=data.get("cross_validated", False),
+            # Impact finding flag
+            is_impact_finding=data.get("is_impact_finding", False),
         )
 
 
