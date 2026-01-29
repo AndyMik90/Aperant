@@ -6,6 +6,7 @@
  * 3. Stateless async profile selection (no race conditions)
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { joinPaths } from '../platform';
 
 // Mock dependencies
 const mockEnsureValidToken = vi.fn();
@@ -33,6 +34,7 @@ vi.mock('../claude-profile/usage-monitor', () => ({
 }));
 
 // Default mock - healthy profile, no swap needed
+// Use joinPaths for platform-safe path construction
 const createMockProfileManager = (options: {
   weeklyUsagePercent?: number;
   isRateLimited?: boolean;
@@ -40,26 +42,26 @@ const createMockProfileManager = (options: {
   getActiveProfile: vi.fn(() => ({
     id: 'profile-1',
     name: 'Profile 1',
-    configDir: '~/.claude-profiles/profile-1',
+    configDir: joinPaths('~', '.claude-profiles', 'profile-1'),
     usage: { weeklyUsagePercent: options.weeklyUsagePercent ?? 50 }
   })),
   getProfile: vi.fn((id: string) => ({
     id,
     name: `Profile ${id}`,
-    configDir: `~/.claude-profiles/${id}`
+    configDir: joinPaths('~', '.claude-profiles', id)
   })),
   getBestAvailableProfile: vi.fn(() => ({
     id: 'profile-2',
     name: 'Profile 2',
-    configDir: '~/.claude-profiles/profile-2'
+    configDir: joinPaths('~', '.claude-profiles', 'profile-2')
   })),
   isProfileRateLimited: vi.fn(() => ({ limited: options.isRateLimited ?? false })),
   setActiveProfile: mockSetActiveProfile,
   getProfileEnv: vi.fn((id: string) => ({
-    CLAUDE_CONFIG_DIR: `~/.claude-profiles/${id}`
+    CLAUDE_CONFIG_DIR: joinPaths('~', '.claude-profiles', id)
   })),
   getActiveProfileEnv: vi.fn(() => ({
-    CLAUDE_CONFIG_DIR: '~/.claude-profiles/profile-1'
+    CLAUDE_CONFIG_DIR: joinPaths('~', '.claude-profiles', 'profile-1')
   }))
 });
 
@@ -132,21 +134,24 @@ describe('Token Refresh and Fallback', () => {
     it('should fall back to default keychain when profile token unavailable', async () => {
       // Profile token fails
       mockEnsureValidToken.mockResolvedValue({ token: null, error: 'Token expired' });
-      // Default keychain has token
-      mockGetCredentialsFromKeychain.mockReturnValue({ token: 'default-keychain-token' });
+      // Default keychain has valid, non-expired token
+      mockGetFullCredentialsFromKeychain.mockReturnValue({
+        token: 'default-keychain-token',
+        expiresAt: Date.now() + 3600000 // 1 hour from now
+      });
 
       const { getBestAvailableProfileEnvAsync } = await import('../rate-limit-detector');
       const result = await getBestAvailableProfileEnvAsync();
 
-      // Should have called getCredentialsFromKeychain with undefined (default keychain)
-      expect(mockGetCredentialsFromKeychain).toHaveBeenCalledWith(undefined, true);
+      // Should have called getFullCredentialsFromKeychain with undefined (default keychain)
+      expect(mockGetFullCredentialsFromKeychain).toHaveBeenCalledWith(undefined);
       expect(result.env.CLAUDE_CODE_OAUTH_TOKEN).toBe('default-keychain-token');
     });
 
     it('should set empty token when both profile and default keychain fail', async () => {
       // Both fail
       mockEnsureValidToken.mockResolvedValue({ token: null, error: 'Token expired' });
-      mockGetCredentialsFromKeychain.mockReturnValue({ token: null });
+      mockGetFullCredentialsFromKeychain.mockReturnValue({ token: null });
 
       const { getBestAvailableProfileEnvAsync } = await import('../rate-limit-detector');
       const result = await getBestAvailableProfileEnvAsync();
