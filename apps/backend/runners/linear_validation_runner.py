@@ -70,6 +70,10 @@ def output_progress(phase: str, step: int, total: int, message: str) -> None:
 
     Progress events are prefixed with "PROGRESS:" to distinguish them from the final result.
 
+    IMPORTANT: This writes directly to sys.stdout's file descriptor to bypass
+    any redirect_stdout() context managers. This ensures progress events always
+    reach the renderer even when SDK output is being suppressed.
+
     Args:
         phase: Current validation phase (e.g., "content_analysis", "completeness")
         step: Current step number (1-indexed)
@@ -84,12 +88,25 @@ def output_progress(phase: str, step: int, total: int, message: str) -> None:
         "message": message,
     }
     # Prefix with PROGRESS: so the agent manager can distinguish progress from final result
-    print(f"PROGRESS:{json.dumps(progress_event, ensure_ascii=False)}", flush=True)
+    progress_line = f"PROGRESS:{json.dumps(progress_event, ensure_ascii=False)}\n"
+    # Write directly to stdout's file descriptor to bypass redirect_stdout()
+    # This ensures progress events are always delivered to the renderer
+    sys.stdout.buffer.write(progress_line.encode("utf-8"))
+    sys.stdout.buffer.flush()
 
 
 def output_result(result: dict) -> None:
-    """Output result as JSON to stdout."""
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    """Output result as JSON to stdout.
+
+    IMPORTANT: This writes directly to sys.stdout's file descriptor to bypass
+    any redirect_stdout() context managers. This ensures the final result is
+    always delivered to the renderer even when SDK output is being suppressed.
+    """
+    result_json = json.dumps(result, ensure_ascii=False, indent=2)
+    # Write directly to stdout's file descriptor to bypass redirect_stdout()
+    sys.stdout.buffer.write(result_json.encode("utf-8"))
+    sys.stdout.buffer.write(b"\n")
+    sys.stdout.buffer.flush()
 
 
 def _serialize_validation_result(result: dict, ticket_id: str) -> dict:
@@ -184,30 +201,33 @@ async def validate_single_ticket(
     Returns:
         Dict with success status and either data or error
     """
-    print(f"[LINEAR_RUNNER] Starting validation for ticket {ticket_id}", flush=True)
-    print(f"[LINEAR_RUNNER] Project dir: {project_dir}", flush=True)
-    print(f"[LINEAR_RUNNER] Skip cache: {skip_cache}", flush=True)
+    sys.stderr.write(f"[LINEAR_RUNNER] Starting validation for ticket {ticket_id}\n")
+    sys.stderr.write(f"[LINEAR_RUNNER] Project dir: {project_dir}\n")
+    sys.stderr.write(f"[LINEAR_RUNNER] Skip cache: {skip_cache}\n")
 
     try:
         # Create progress callback that outputs to stdout
         def progress_callback(phase: str, step: int, total: int, message: str) -> None:
-            print(
-                f"[LINEAR_RUNNER] Progress: {phase} ({step}/{total}): {message}",
-                flush=True,
+            sys.stderr.write(
+                f"[LINEAR_RUNNER] Progress: {phase} ({step}/{total}): {message}\n"
             )
             output_progress(phase, step, total, message)
 
-        print("[LINEAR_RUNNER] Creating Linear validator agent...", flush=True)
+        sys.stderr.write(
+            "[LINEAR_RUNNER] Creating Linear validator agent...", flush=True
+        )
         agent = create_linear_validator(
             project_dir,
             project_dir,
             model="claude-opus-4-5-20251101",
             progress_callback=progress_callback,
         )
-        print("[LINEAR_RUNNER] Agent created successfully", flush=True)
+        sys.stderr.write("[LINEAR_RUNNER] Agent created successfully", flush=True)
 
         # validate_ticket now auto-fetches issue data if not provided
-        print(f"[LINEAR_RUNNER] Calling validate_ticket for {ticket_id}...", flush=True)
+        sys.stderr.write(
+            f"[LINEAR_RUNNER] Calling validate_ticket for {ticket_id}...", flush=True
+        )
 
         # Suppress stdout during validation to avoid SDK debug messages polluting JSON output
         # The Claude Agent SDK outputs progress/cache messages that interfere with JSON parsing
@@ -224,8 +244,12 @@ async def validate_single_ticket(
                 f"[LINEAR_RUNNER] Suppressed SDK output:\n{suppressed_output}\n"
             )
 
-        print(f"[LINEAR_RUNNER] Validation completed for {ticket_id}", flush=True)
-        print(f"[LINEAR_RUNNER] Result keys: {list(result.keys())}", flush=True)
+        sys.stderr.write(
+            f"[LINEAR_RUNNER] Validation completed for {ticket_id}", flush=True
+        )
+        sys.stderr.write(
+            f"[LINEAR_RUNNER] Result keys: {list(result.keys())}", flush=True
+        )
 
         # Use helper to serialize the result
         serialized = _serialize_validation_result(result, ticket_id)
@@ -242,7 +266,9 @@ async def validate_single_ticket(
             },
         }
     except ValidationError as e:
-        print(f"[LINEAR_RUNNER] ValidationError: {type(e).__name__}: {e}", flush=True)
+        sys.stderr.write(
+            f"[LINEAR_RUNNER] ValidationError: {type(e).__name__}: {e}", flush=True
+        )
         import traceback
 
         traceback.print_exc()
@@ -251,7 +277,9 @@ async def validate_single_ticket(
             "error": str(e),
         }
     except Exception as e:
-        print(f"[LINEAR_RUNNER] Unexpected error: {type(e).__name__}: {e}", flush=True)
+        sys.stderr.write(
+            f"[LINEAR_RUNNER] Unexpected error: {type(e).__name__}: {e}", flush=True
+        )
         import traceback
 
         traceback.print_exc()
@@ -383,8 +411,10 @@ async def main():
 
     args = parser.parse_args()
 
-    print("[LINEAR_RUNNER] === Linear Validation Runner Started ===", flush=True)
-    print(f"[LINEAR_RUNNER] Args: {vars(args)}", flush=True)
+    sys.stderr.write(
+        "[LINEAR_RUNNER] === Linear Validation Runner Started ===", flush=True
+    )
+    sys.stderr.write(f"[LINEAR_RUNNER] Args: {vars(args)}", flush=True)
 
     # Load project-specific .env file (for LINEAR_API_KEY)
     load_project_env(args.project_dir)
@@ -392,7 +422,9 @@ async def main():
     # Check if LINEAR_API_KEY is set
     # Security: Only log boolean status, never log the actual key or any part of it
     linear_key = os.environ.get("LINEAR_API_KEY", "")
-    print(f"[LINEAR_RUNNER] LINEAR_API_KEY configured: {bool(linear_key)}", flush=True)
+    sys.stderr.write(
+        f"[LINEAR_RUNNER] LINEAR_API_KEY configured: {bool(linear_key)}", flush=True
+    )
 
     # Validate project directory
     project_dir = Path(args.project_dir).resolve()
@@ -409,7 +441,9 @@ async def main():
         )
         sys.exit(1)
 
-    print(f"[LINEAR_RUNNER] Project directory validated: {project_dir}", flush=True)
+    sys.stderr.write(
+        f"[LINEAR_RUNNER] Project directory validated: {project_dir}", flush=True
+    )
 
     # Determine mode
     if args.ticket_id:
@@ -423,15 +457,21 @@ async def main():
             args.ticket_id,
             args.skip_cache,
         )
-        print(f"[LINEAR_RUNNER] Result success: {result.get('success')}", flush=True)
+        sys.stderr.write(
+            f"[LINEAR_RUNNER] Result success: {result.get('success')}", flush=True
+        )
         if not result.get("success"):
-            print(f"[LINEAR_RUNNER] Error: {result.get('error')}", flush=True)
+            sys.stderr.write(
+                f"[LINEAR_RUNNER] Error: {result.get('error')}", flush=True
+            )
         output_result(result)
         sys.exit(0 if result["success"] else 1)
     elif args.ticket_ids:
         # Batch validation
         ticket_ids = [t.strip() for t in args.ticket_ids.split(",") if t.strip()]
-        print(f"[LINEAR_RUNNER] Mode: Batch validation for {ticket_ids}", flush=True)
+        sys.stderr.write(
+            f"[LINEAR_RUNNER] Mode: Batch validation for {ticket_ids}", flush=True
+        )
         if len(ticket_ids) > 5:
             print(
                 f"[LINEAR_RUNNER] ERROR: Too many tickets ({len(ticket_ids)} > 5)",
@@ -447,13 +487,13 @@ async def main():
             ticket_ids,
             args.skip_cache,
         )
-        print(
-            f"[LINEAR_RUNNER] Batch result success: {result.get('success')}", flush=True
+        sys.stderr.write(
+            f"[LINEAR_RUNNER] Batch result success: {result.get('success')}\n"
         )
         output_result(result)
         sys.exit(0 if result["success"] else 1)
     else:
-        print("[LINEAR_RUNNER] ERROR: No ticket ID(s) provided", flush=True)
+        sys.stderr.write("[LINEAR_RUNNER] ERROR: No ticket ID(s) provided", flush=True)
         output_result(
             {
                 "success": False,
