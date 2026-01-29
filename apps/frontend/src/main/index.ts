@@ -356,6 +356,17 @@ app.whenReady().then(() => {
       }
     }
 
+    // WORKTREE DETECTION: If running from a worktree, use worktree's backend
+    // instead of the global settings path. This ensures development in worktrees
+    // uses the worktree's code, not the main repo.
+    const currentPath = process.cwd();
+    if (currentPath.includes('/.auto-claude/worktrees/') || currentPath.includes('\\.auto-claude\\worktrees\\')) {
+      // We're in a worktree - use the worktree's backend
+      const worktreeBackendPath = join(currentPath, 'apps', 'backend');
+      console.warn('[main] Worktree detected, using worktree backend:', worktreeBackendPath);
+      validAutoBuildPath = worktreeBackendPath;
+    }
+
     if (settings.pythonPath || validAutoBuildPath) {
       console.warn('[main] Configuring AgentManager with settings:', {
         pythonPath: settings.pythonPath,
