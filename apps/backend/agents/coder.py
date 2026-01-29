@@ -227,6 +227,13 @@ async def run_autonomous_agent(
         None  # Context to pass to agent after concurrency error
     )
 
+    def _reset_concurrency_state() -> None:
+        """Reset concurrency error tracking state after a successful session or non-concurrency error."""
+        nonlocal consecutive_concurrency_errors, current_retry_delay, concurrency_error_context
+        consecutive_concurrency_errors = 0
+        current_retry_delay = INITIAL_RETRY_DELAY_SECONDS
+        concurrency_error_context = None
+
     while True:
         iteration += 1
 
@@ -532,9 +539,7 @@ async def run_autonomous_agent(
             status_manager.update(state=BuildState.COMPLETE)
 
             # Reset error tracking on success
-            consecutive_concurrency_errors = 0
-            current_retry_delay = INITIAL_RETRY_DELAY_SECONDS
-            concurrency_error_context = None
+            _reset_concurrency_state()
 
             if task_logger:
                 task_logger.end_phase(
@@ -551,9 +556,7 @@ async def run_autonomous_agent(
 
         elif status == "continue":
             # Reset error tracking on successful session
-            consecutive_concurrency_errors = 0
-            current_retry_delay = INITIAL_RETRY_DELAY_SECONDS
-            concurrency_error_context = None
+            _reset_concurrency_state()
 
             print(
                 muted(
@@ -684,9 +687,7 @@ async def run_autonomous_agent(
                 await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
 
                 # Reset concurrency error tracking on non-concurrency errors
-                consecutive_concurrency_errors = 0
-                current_retry_delay = INITIAL_RETRY_DELAY_SECONDS
-                concurrency_error_context = None
+                _reset_concurrency_state()
 
         # Small delay between sessions
         if max_iterations is None or iteration < max_iterations:

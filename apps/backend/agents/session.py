@@ -357,7 +357,7 @@ async def run_agent_session(
         - error_info: Dict with error details (empty if no error):
             - "type": "tool_concurrency" or "other"
             - "message": Error message string
-            - "exception": Original exception object
+            - "exception_type": Exception class name string
     """
     debug_section("session", f"Agent Session - {phase.value}")
     debug(

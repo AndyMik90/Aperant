@@ -22,6 +22,7 @@ Example usage:
 """
 
 import logging
+import os
 from pathlib import Path
 
 from agents.tools_pkg import get_agent_config, get_default_thinking_level
@@ -72,8 +73,6 @@ def create_simple_client(
     Raises:
         ValueError: If agent_type is not found in AGENT_CONFIGS
     """
-    import os
-
     # Get environment variables for SDK (including CLAUDE_CONFIG_DIR if set)
     sdk_env = get_sdk_env_vars()
 
