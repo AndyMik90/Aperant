@@ -75,6 +75,14 @@ sys.modules['services.pydantic_models'] = pydantic_models_module
 pydantic_models_spec.loader.exec_module(pydantic_models_module)
 AgentAgreement = pydantic_models_module.AgentAgreement
 
+# Load agent_utils (shared utility for working directory injection)
+agent_utils_spec = importlib.util.spec_from_file_location(
+    "agent_utils",
+    backend_path / "runners" / "github" / "services" / "agent_utils.py"
+)
+agent_utils_module = importlib.util.module_from_spec(agent_utils_spec)
+sys.modules['services.agent_utils'] = agent_utils_module
+agent_utils_spec.loader.exec_module(agent_utils_module)
 
 # Load parallel_orchestrator_reviewer (contains _is_finding_in_scope and _cross_validate_findings)
 orchestrator_spec = importlib.util.spec_from_file_location(
@@ -416,8 +424,8 @@ class TestReverseDepDetection:
         # Should NOT include standalone.ts
         assert not any("standalone.ts" in d for d in dependents)
 
-    def test_skips_generic_names(self, tmp_path):
-        """Generic names (index, main, utils) should be skipped to reduce noise."""
+    def test_generic_names_not_skipped(self, tmp_path):
+        """Generic names (index, main, utils) are no longer skipped - LLM decides relevance."""
         src_dir = tmp_path / "src"
         src_dir.mkdir()
 
@@ -427,13 +435,12 @@ class TestReverseDepDetection:
 
         gatherer = PRContextGathererIsolated(tmp_path, pr_number=1)
 
-        # Generic names should return empty set (skipped)
+        # Generic names should NOT be skipped anymore (behavior changed in Phase 4)
+        # The LLM-driven system decides what's relevant based on PR context
         dependents_index = gatherer._find_dependents("src/index.ts")
-        dependents_main = gatherer._find_dependents("src/main.ts")
 
-        # These should be skipped due to generic names
-        assert len(dependents_index) == 0
-        assert len(dependents_main) == 0
+        # main.ts imports index, so it should be found as a dependent
+        assert "src/main.ts" in dependents_index
 
     def test_respects_file_limit(self, tmp_path):
         """Large repo search should stop after reaching file limit."""

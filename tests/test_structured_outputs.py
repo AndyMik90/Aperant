@@ -97,6 +97,11 @@ class TestFollowupFinding:
             "line": 42,
             "suggested_fix": "Use parameterized queries",
             "fixable": True,
+            "verification": {
+                "code_examined": "query = 'SELECT * FROM users WHERE id=' + user_input",
+                "line_range_examined": [42, 42],
+                "verification_method": "direct_code_inspection",
+            },
         }
         result = FollowupFinding.model_validate(data)
         assert result.id == "new-1"
@@ -114,6 +119,11 @@ class TestFollowupFinding:
             "title": "Missing docstring",
             "description": "Function lacks documentation",
             "file": "utils.py",
+            "verification": {
+                "code_examined": "def process_data(data):\n    return data",
+                "line_range_examined": [1, 2],
+                "verification_method": "direct_code_inspection",
+            },
         }
         result = FollowupFinding.model_validate(data)
         assert result.line == 0  # Default
@@ -167,6 +177,11 @@ class TestFollowupReviewResponse:
                     "description": "Complex method",
                     "file": "service.py",
                     "line": 100,
+                    "verification": {
+                        "code_examined": "def process(self, data):\n    # 50 lines of nested if statements",
+                        "line_range_examined": [100, 150],
+                        "verification_method": "direct_code_inspection",
+                    },
                 }
             ],
             "comment_findings": [],
@@ -237,6 +252,11 @@ class TestOrchestratorFinding:
             "severity": "medium",
             "suggestion": "Add error handling with proper logging",
             "evidence": "def handle_request(req):\n    result = db.query(req.id)  # no try-catch",
+            "verification": {
+                "code_examined": "def handle_request(req):\n    result = db.query(req.id)  # no try-catch",
+                "line_range_examined": [25, 26],
+                "verification_method": "direct_code_inspection",
+            },
         }
         result = OrchestratorFinding.model_validate(data)
         assert result.file == "src/api.py"
@@ -251,6 +271,11 @@ class TestOrchestratorFinding:
             "description": "Test finding",
             "category": "quality",
             "severity": "low",
+            "verification": {
+                "code_examined": "def test():\n    pass",
+                "line_range_examined": [1, 2],
+                "verification_method": "direct_code_inspection",
+            },
         }
         result = OrchestratorFinding.model_validate(data)
         assert result.evidence is None
@@ -273,6 +298,11 @@ class TestOrchestratorReviewResponse:
                     "category": "security",
                     "severity": "critical",
                     "evidence": "API_KEY = 'sk-prod-12345abcdef'",
+                    "verification": {
+                        "code_examined": "API_KEY = 'sk-prod-12345abcdef'",
+                        "line_range_examined": [10, 10],
+                        "verification_method": "direct_code_inspection",
+                    },
                 }
             ],
             "summary": "Found 1 critical security issue",

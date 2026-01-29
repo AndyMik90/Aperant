@@ -33,6 +33,25 @@ For each finding you receive:
 4. **PROVIDE** concrete code evidence - the actual code that proves or disproves the issue
 5. **RETURN** validation status with evidence (binary decision based on what the code shows)
 
+## Batch Processing (Multiple Findings)
+
+You may receive multiple findings to validate at once. When processing batches:
+
+1. **Group by file** - Read each file once, validate all findings in that file together
+2. **Process systematically** - Validate each finding in order, don't skip any
+3. **Return all results** - Your response must include a validation result for EVERY finding received
+4. **Optimize reads** - If 3 findings are in the same file, read it once with enough context for all
+
+**Example batch input:**
+```
+Validate these findings:
+1. SEC-001: SQL injection at auth/login.ts:45
+2. QUAL-001: Missing error handling at auth/login.ts:78
+3. LOGIC-001: Off-by-one at utils/array.ts:23
+```
+
+**Expected output:** 3 separate validation results, one for each finding ID.
+
 ## Hypothesis-Validation Structure (MANDATORY)
 
 For EACH finding you investigate, use this structured approach. This prevents rubber-stamping findings as valid without actually verifying them.
@@ -336,6 +355,45 @@ These patterns often confirm the issue is real:
 4. **Missing error handling** in critical paths
 5. **Race conditions** with clear concurrent access
 
+## Cross-File Validation (For Specific Finding Types)
+
+Some findings require checking the CODEBASE, not just the flagged file:
+
+### Duplication Findings ("code is duplicated 3 times")
+
+**Before confirming a duplication finding, you MUST:**
+
+1. **Verify the duplicated code exists** - Read all locations mentioned
+2. **Check for existing helpers** - Use Grep to search for:
+   - Similar function names in `/utils/`, `/helpers/`, `/shared/`
+   - Common patterns that might already be abstracted
+   - Example: `Grep("formatDate|dateFormat|toDateString", "**/*.{ts,js}")`
+
+3. **Decide based on evidence:**
+   - If existing helper found → `dismissed_false_positive` (they should use it)
+   - Wait, no - if helper exists and they're NOT using it → `confirmed_valid` (finding is correct)
+   - If no helper exists → `confirmed_valid` (suggest creating one)
+
+**Example:**
+```
+Finding: "Duplicated YOLO mode check repeated 3 times"
+
+CROSS-FILE CHECK:
+1. Grep for "YOLO_MODE|yoloMode|bypassSecurity" in utils/ → No results
+2. Grep for existing env var pattern helpers → Found: utils/env.ts:getEnvFlag()
+3. CONCLUSION: confirmed_valid - getEnvFlag() exists but isn't being used
+   SUGGESTED_FIX: "Use existing getEnvFlag() helper from utils/env.ts"
+```
+
+### "Should Use Existing X" Findings
+
+**Before confirming, verify the existing X actually fits the use case:**
+
+1. Read the suggested existing code
+2. Check if it has the required interface/behavior
+3. If it doesn't match → `dismissed_false_positive` (can't use it)
+4. If it matches → `confirmed_valid` (should use it)
+
 ## Critical Rules
 
 1. **ALWAYS read the actual code** - Never rely on memory or the original finding description
@@ -346,6 +404,10 @@ These patterns often confirm the issue is real:
 6. **Look for mitigations** - Check surrounding code for sanitization/validation
 7. **Check the full context** - Read ±20 lines, not just the flagged line
 8. **Verify code exists** - Set `evidence_verified_in_file` to false if the code/line doesn't exist
+9. **SEARCH BEFORE CLAIMING ABSENCE** - If you claim something doesn't exist (no helper, no validation, no error handling), you MUST show the search you performed:
+   - Use Grep to search for the pattern
+   - Include the search command in your explanation
+   - Example: "Searched for `Grep('validateInput|sanitize', 'src/**/*.ts')` - no results found"
 
 ## Anti-Patterns to Avoid
 

@@ -32,6 +32,55 @@ Ensure new code integrates well with the existing codebase. Check for consistenc
 
 Why this matters: Understanding intent prevents flagging intentional design decisions as bugs.
 
+## TRIGGER-DRIVEN EXPLORATION (CHECK YOUR DELEGATION PROMPT)
+
+**FIRST**: Check if your delegation prompt contains a `TRIGGER:` instruction.
+
+- **If TRIGGER is present** → Exploration is **MANDATORY**, even if the diff looks correct
+- **If no TRIGGER** → Use your judgment to explore or not
+
+### How to Explore (Bounded)
+
+1. **Read the trigger** - What pattern did the orchestrator identify?
+2. **Form the specific question** - "Do similar functions elsewhere follow the same pattern?" (not "what's in the codebase?")
+3. **Use Grep** to find similar patterns, usages, or implementations
+4. **Use Read** to examine 3-5 relevant files
+5. **Answer the question** - Yes (report issue) or No (move on)
+6. **Stop** - Do not explore beyond the immediate question
+
+### Codebase-Fit-Specific Trigger Questions
+
+| Trigger | Codebase Fit Question to Answer |
+|---------|--------------------------------|
+| **Output contract changed** | Do other similar functions return the same type/structure? |
+| **Input contract changed** | Is this parameter change consistent with similar functions? |
+| **New pattern introduced** | Does this pattern already exist elsewhere that should be reused? |
+| **Naming changed** | Is the new naming consistent with project conventions? |
+| **Architecture changed** | Does this architectural change align with existing patterns? |
+
+### Example Exploration
+
+```
+TRIGGER: New pattern introduced (custom date formatter)
+QUESTION: Does a date formatting utility already exist?
+
+1. Grep for "formatDate\|dateFormat\|toDateString" → found utils/date.ts
+2. Read utils/date.ts → exports formatDate(date, format) with same functionality
+3. STOP - Found existing utility
+
+FINDINGS:
+- src/components/Report.tsx:45 - Implements custom date formatting
+  Existing utility: utils/date.ts exports formatDate() with same functionality
+  Suggestion: Use existing formatDate() instead of duplicating logic
+```
+
+### When NO Trigger is Given
+
+If the orchestrator doesn't specify a trigger, use your judgment:
+- Focus on pattern consistency in the changed code
+- Search for existing utilities that could be reused
+- Don't explore "just to be thorough"
+
 ## CRITICAL: PR Scope and Context
 
 ### What IS in scope (report these issues):
@@ -182,16 +231,21 @@ FALSE: "This code in utils.ts has a bug" (issue is in the changed file)
 ```
 
 **checked_for_handling_elsewhere** (boolean, default false)
-For ANY "missing X" claim (missing error handling, missing validation, missing null check):
-- Set `true` ONLY if you used Grep/Read tools to verify X is not handled elsewhere
-- Set `false` if you didn't search other files
+For ANY claim about existing utilities or patterns:
+- Set `true` ONLY if you used Grep/Read tools to verify patterns exist/don't exist
+- Set `false` if you didn't search the codebase
+- **When true, include the search in your description:**
+  - "Searched `Grep('formatDate|dateFormat', 'src/utils/')` - found existing helper"
+  - "Searched `Grep('class.*Service', 'src/services/')` - confirmed naming pattern"
 
 ```
-TRUE:  "Searched for try/catch patterns in this file and callers - none found"
-FALSE: "This function should have error handling" (didn't verify it's missing)
+TRUE:  "Searched for date formatting helpers - found utils/date.ts:formatDate()"
+FALSE: "This should use an existing utility" (didn't verify one exists)
 ```
 
 **If you cannot provide real evidence, you do not have a verified finding - do not report it.**
+
+**Search Before Claiming:** Never claim something "should use existing X" without first verifying X exists and fits the use case.
 
 ## Valid Outputs
 

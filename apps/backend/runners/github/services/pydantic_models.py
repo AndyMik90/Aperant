@@ -202,6 +202,9 @@ class FollowupFinding(BaseModel):
     line: int = Field(0, description="Line number of the issue")
     suggested_fix: str | None = Field(None, description="How to fix this issue")
     fixable: bool = Field(False, description="Whether this can be auto-fixed")
+    verification: VerificationEvidence = Field(
+        description="Evidence that this finding was verified against actual code"
+    )
 
 
 class FollowupReviewResponse(BaseModel):
@@ -370,7 +373,10 @@ class OrchestratorFinding(BaseModel):
     suggestion: str | None = Field(None, description="How to fix this issue")
     evidence: str | None = Field(
         None,
-        description="Actual code snippet proving the issue exists. Required for validation.",
+        description="DEPRECATED: Use verification.code_examined instead. Will be removed in Phase 5.",
+    )
+    verification: VerificationEvidence = Field(
+        description="Evidence that this finding was verified against actual code"
     )
 
 
@@ -493,6 +499,44 @@ class AgentAgreement(BaseModel):
     )
 
 
+class DismissedFinding(BaseModel):
+    """A finding that was validated and dismissed as a false positive.
+
+    Included in output for transparency - users can see what was investigated and why it was dismissed.
+    """
+
+    id: str = Field(description="Original finding ID")
+    original_title: str = Field(description="Original finding title")
+    original_severity: Literal["critical", "high", "medium", "low"] = Field(
+        description="Original severity assigned by specialist"
+    )
+    original_file: str = Field(description="File where issue was claimed")
+    original_line: int = Field(0, description="Line where issue was claimed")
+    dismissal_reason: str = Field(
+        description="Why this finding was dismissed as a false positive"
+    )
+    validation_evidence: str = Field(
+        description="Actual code examined that disproved the finding"
+    )
+
+
+class ValidationSummary(BaseModel):
+    """Summary of validation results for transparency."""
+
+    total_findings_from_specialists: int = Field(
+        description="Total findings reported by all specialist agents"
+    )
+    confirmed_valid: int = Field(
+        description="Findings confirmed as real issues by validator"
+    )
+    dismissed_false_positive: int = Field(
+        description="Findings dismissed as false positives by validator"
+    )
+    needs_human_review: int = Field(
+        0, description="Findings that couldn't be definitively validated"
+    )
+
+
 class ParallelOrchestratorResponse(BaseModel):
     """Complete response schema for parallel orchestrator PR review."""
 
@@ -503,8 +547,20 @@ class ParallelOrchestratorResponse(BaseModel):
         default_factory=list,
         description="List of agent names that were invoked",
     )
+    validation_summary: ValidationSummary | None = Field(
+        None,
+        description="Summary of validation results (total, confirmed, dismissed, needs_review)",
+    )
     findings: list[ParallelOrchestratorFinding] = Field(
-        default_factory=list, description="All findings from synthesis"
+        default_factory=list,
+        description="Validated findings only (confirmed_valid or needs_human_review)",
+    )
+    dismissed_findings: list[DismissedFinding] = Field(
+        default_factory=list,
+        description=(
+            "Findings that were validated and dismissed as false positives. "
+            "Included for transparency - users can see what was investigated."
+        ),
     )
     agent_agreement: AgentAgreement = Field(
         default_factory=AgentAgreement,
@@ -560,7 +616,10 @@ class ParallelFollowupFinding(BaseModel):
     )
     evidence: str | None = Field(
         None,
-        description="Actual code snippet proving the issue exists. Required for validation.",
+        description="DEPRECATED: Use verification.code_examined instead. Will be removed in Phase 5.",
+    )
+    verification: VerificationEvidence = Field(
+        description="Evidence that this finding was verified against actual code"
     )
     suggested_fix: str | None = Field(None, description="How to fix this issue")
     fixable: bool = Field(False, description="Whether this can be auto-fixed")

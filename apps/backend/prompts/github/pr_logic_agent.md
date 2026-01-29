@@ -32,6 +32,57 @@ Verify that the code logic is correct, handles all edge cases, and doesn't intro
 
 Why this matters: Understanding intent prevents flagging intentional design decisions as bugs.
 
+## TRIGGER-DRIVEN EXPLORATION (CHECK YOUR DELEGATION PROMPT)
+
+**FIRST**: Check if your delegation prompt contains a `TRIGGER:` instruction.
+
+- **If TRIGGER is present** → Exploration is **MANDATORY**, even if the diff looks correct
+- **If no TRIGGER** → Use your judgment to explore or not
+
+### How to Explore (Bounded)
+
+1. **Read the trigger** - What pattern did the orchestrator identify?
+2. **Form the specific question** - "Do callers handle the new return type?" (not "what do callers do?")
+3. **Use Grep** to find call sites of the changed function/method
+4. **Use Read** to examine 3-5 callers
+5. **Answer the question** - Yes (report issue) or No (move on)
+6. **Stop** - Do not explore callers of callers (depth > 1)
+
+### Trigger-Specific Questions
+
+| Trigger | What to Check in Callers |
+|---------|-------------------------|
+| **Output contract changed** | Do callers assume the old return type/structure? |
+| **Input contract changed** | Do callers pass the old arguments/defaults? |
+| **Behavioral contract changed** | Does code after the call assume old ordering/timing? |
+| **Side effect removed** | Did callers depend on the removed effect? |
+| **Failure contract changed** | Can callers handle the new failure mode? |
+| **Null contract changed** | Do callers have explicit null checks or tri-state logic? |
+
+### Example Exploration
+
+```
+TRIGGER: Output contract changed (array → single object)
+QUESTION: Do callers use array methods?
+
+1. Grep for "getUserSettings(" → found 8 call sites
+2. Read dashboard.tsx:45 → uses .find() on result → ISSUE
+3. Read profile.tsx:23 → uses result.email directly → OK
+4. Read settings.tsx:67 → uses .map() on result → ISSUE
+5. STOP - Found 2 confirmed issues, pattern established
+
+FINDINGS:
+- dashboard.tsx:45 - uses .find() which doesn't exist on object
+- settings.tsx:67 - uses .map() which doesn't exist on object
+```
+
+### When NO Trigger is Given
+
+If the orchestrator doesn't specify a trigger, use your judgment:
+- Focus on the changed code first
+- Only explore callers if you suspect an issue from the diff
+- Don't explore "just to be thorough"
+
 ## CRITICAL: PR Scope and Context
 
 ### What IS in scope (report these issues):
@@ -203,16 +254,21 @@ FALSE: "This code in utils.ts has a bug" (issue is in the changed file)
 ```
 
 **checked_for_handling_elsewhere** (boolean, default false)
-For ANY "missing X" claim (missing error handling, missing validation, missing null check):
+For ANY "missing X" claim (missing null check, missing bounds check, missing edge case handling):
 - Set `true` ONLY if you used Grep/Read tools to verify X is not handled elsewhere
 - Set `false` if you didn't search other files
+- **When true, include the search in your description:**
+  - "Searched `Grep('if.*null|!= null|\?\?', 'src/utils/')` - no null check found"
+  - "Checked callers via `Grep('processArray\(', '**/*.ts')` - none validate input"
 
 ```
-TRUE:  "Searched for try/catch patterns in this file and callers - none found"
-FALSE: "This function should have error handling" (didn't verify it's missing)
+TRUE:  "Searched for null checks in this file and callers - none found"
+FALSE: "This function should check for null" (didn't verify it's missing)
 ```
 
 **If you cannot provide real evidence, you do not have a verified finding - do not report it.**
+
+**Search Before Claiming Absence:** Never claim a check is "missing" without searching for it first. Validation may exist in callers, guards, or type system constraints.
 
 ## Valid Outputs
 

@@ -32,6 +32,56 @@ Perform a thorough security review of the provided code changes, focusing ONLY o
 
 Why this matters: Understanding intent prevents flagging intentional design decisions as bugs.
 
+## TRIGGER-DRIVEN EXPLORATION (CHECK YOUR DELEGATION PROMPT)
+
+**FIRST**: Check if your delegation prompt contains a `TRIGGER:` instruction.
+
+- **If TRIGGER is present** → Exploration is **MANDATORY**, even if the diff looks correct
+- **If no TRIGGER** → Use your judgment to explore or not
+
+### How to Explore (Bounded)
+
+1. **Read the trigger** - What pattern did the orchestrator identify?
+2. **Form the specific question** - "Do callers validate input before passing it here?" (not "what do callers do?")
+3. **Use Grep** to find call sites of the changed function/method
+4. **Use Read** to examine 3-5 callers
+5. **Answer the question** - Yes (report issue) or No (move on)
+6. **Stop** - Do not explore callers of callers (depth > 1)
+
+### Security-Specific Trigger Questions
+
+| Trigger | Security Question to Answer |
+|---------|----------------------------|
+| **Output contract changed** | Does the new output expose sensitive data that was previously hidden? |
+| **Input contract changed** | Do callers now pass unvalidated input where validation was assumed? |
+| **Failure contract changed** | Does the new failure mode leak security information or bypass checks? |
+| **Side effect removed** | Was the removed effect a security control (logging, audit, cleanup)? |
+| **Auth/validation removed** | Do callers assume this function validates/authorizes? |
+
+### Example Exploration
+
+```
+TRIGGER: Failure contract changed (now throws instead of returning null)
+QUESTION: Do callers handle the new exception securely?
+
+1. Grep for "authenticateUser(" → found 5 call sites
+2. Read api/login.ts:34 → catches exception, logs full error to response → ISSUE (info leak)
+3. Read api/admin.ts:12 → catches exception, returns generic error → OK
+4. Read middleware/auth.ts:78 → no try/catch, exception propagates → ISSUE (500 with stack trace)
+5. STOP - Found 2 security issues
+
+FINDINGS:
+- api/login.ts:34 - Exception message leaked to client (information disclosure)
+- middleware/auth.ts:78 - Unhandled exception exposes stack trace in production
+```
+
+### When NO Trigger is Given
+
+If the orchestrator doesn't specify a trigger, use your judgment:
+- Focus on security issues in the changed code first
+- Only explore callers if you suspect a security boundary issue
+- Don't explore "just to be thorough"
+
 ## CRITICAL: PR Scope and Context
 
 ### What IS in scope (report these issues):
@@ -198,16 +248,21 @@ FALSE: "This code in utils.ts has a bug" (issue is in the changed file)
 ```
 
 **checked_for_handling_elsewhere** (boolean, default false)
-For ANY "missing X" claim (missing error handling, missing validation, missing null check):
+For ANY "missing X" claim (missing validation, missing sanitization, missing auth check):
 - Set `true` ONLY if you used Grep/Read tools to verify X is not handled elsewhere
 - Set `false` if you didn't search other files
+- **When true, include the search in your description:**
+  - "Searched `Grep('sanitize|escape|validate', 'src/api/')` - no input validation found"
+  - "Checked middleware via `Grep('authMiddleware|requireAuth', '**/*.ts')` - endpoint unprotected"
 
 ```
-TRUE:  "Searched for try/catch patterns in this file and callers - none found"
-FALSE: "This function should have error handling" (didn't verify it's missing)
+TRUE:  "Searched for sanitization in this file and callers - none found"
+FALSE: "This input should be sanitized" (didn't verify it's missing)
 ```
 
 **If you cannot provide real evidence, you do not have a verified finding - do not report it.**
+
+**Search Before Claiming Absence:** Never claim protection is "missing" without searching for it first. Validation may exist in middleware, callers, or framework-level code.
 
 ## Valid Outputs
 

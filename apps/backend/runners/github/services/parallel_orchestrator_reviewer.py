@@ -40,6 +40,7 @@ try:
         PRReviewResult,
         ReviewSeverity,
     )
+    from .agent_utils import create_working_dir_injector
     from .category_utils import map_category
     from .io_utils import safe_print
     from .pr_worktree_manager import PRWorktreeManager
@@ -63,6 +64,7 @@ except (ImportError, ValueError, SystemError):
         ReviewSeverity,
     )
     from phase_config import get_thinking_budget, resolve_model_id
+    from services.agent_utils import create_working_dir_injector
     from services.category_utils import map_category
     from services.io_utils import safe_print
     from services.pr_worktree_manager import PRWorktreeManager
@@ -214,18 +216,27 @@ class ParallelOrchestratorReviewer:
                 f"(orphaned={stats['orphaned']}, expired={stats['expired']}, excess={stats['excess']})"
             )
 
-    def _define_specialist_agents(self) -> dict[str, AgentDefinition]:
+    def _define_specialist_agents(
+        self, project_root: Path | None = None
+    ) -> dict[str, AgentDefinition]:
         """
         Define specialist agents for the SDK.
 
         Each agent has:
         - description: When the orchestrator should invoke this agent
-        - prompt: System prompt for the agent
+        - prompt: System prompt for the agent (includes working directory)
         - tools: Tools the agent can use (read-only for PR review)
         - model: "inherit" = use same model as orchestrator (user's choice)
 
+        Args:
+            project_root: Working directory for the agents (worktree path).
+                         If None, falls back to self.project_dir.
+
         Returns AgentDefinition dataclass instances as required by the SDK.
         """
+        # Use provided project_root or fall back to default
+        working_dir = project_root or self.project_dir
+
         # Load agent prompts from files
         security_prompt = self._load_prompt("pr_security_agent.md")
         quality_prompt = self._load_prompt("pr_quality_agent.md")
@@ -233,6 +244,10 @@ class ParallelOrchestratorReviewer:
         codebase_fit_prompt = self._load_prompt("pr_codebase_fit_agent.md")
         ai_triage_prompt = self._load_prompt("pr_ai_triage.md")
         validator_prompt = self._load_prompt("pr_finding_validator.md")
+
+        # CRITICAL: Inject working directory into all prompts
+        # Subagents don't inherit cwd from parent, so they need explicit path info
+        with_working_dir = create_working_dir_injector(working_dir)
 
         return {
             "security-reviewer": AgentDefinition(
@@ -244,8 +259,9 @@ class ParallelOrchestratorReviewer:
                     "PR context - callers may be affected by security changes, and tests "
                     "should verify security behavior."
                 ),
-                prompt=security_prompt
-                or "You are a security expert. Find vulnerabilities.",
+                prompt=with_working_dir(
+                    security_prompt, "You are a security expert. Find vulnerabilities."
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -257,8 +273,10 @@ class ParallelOrchestratorReviewer:
                     "related files for pattern consistency - if a pattern is changed, similar "
                     "code elsewhere should be updated too."
                 ),
-                prompt=quality_prompt
-                or "You are a code quality expert. Find quality issues.",
+                prompt=with_working_dir(
+                    quality_prompt,
+                    "You are a code quality expert. Find quality issues.",
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -270,8 +288,9 @@ class ParallelOrchestratorReviewer:
                     "IMPORTANT: Check callers and dependents in related files - logic changes "
                     "may break assumptions made by code that uses this file."
                 ),
-                prompt=logic_prompt
-                or "You are a logic expert. Find correctness issues.",
+                prompt=with_working_dir(
+                    logic_prompt, "You are a logic expert. Find correctness issues."
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -283,8 +302,10 @@ class ParallelOrchestratorReviewer:
                     "IMPORTANT: Use related files to understand existing patterns - new code "
                     "should match established conventions in the codebase."
                 ),
-                prompt=codebase_fit_prompt
-                or "You are a codebase expert. Check for consistency.",
+                prompt=with_working_dir(
+                    codebase_fit_prompt,
+                    "You are a codebase expert. Check for consistency.",
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -294,8 +315,10 @@ class ParallelOrchestratorReviewer:
                     "Gemini Code Assist, Cursor, Greptile, and other AI reviewers. "
                     "Invoke when PR has existing AI review comments that need validation."
                 ),
-                prompt=ai_triage_prompt
-                or "You are an AI triage expert. Validate AI comments.",
+                prompt=with_working_dir(
+                    ai_triage_prompt,
+                    "You are an AI triage expert. Validate AI comments.",
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -308,8 +331,9 @@ class ParallelOrchestratorReviewer:
                     "Can confirm findings as valid OR dismiss them as false positives. "
                     "Check related files for mitigations the original agent missed."
                 ),
-                prompt=validator_prompt
-                or "You validate whether findings are real issues.",
+                prompt=with_working_dir(
+                    validator_prompt, "You validate whether findings are real issues."
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -499,7 +523,7 @@ The SDK will run invoked agents in parallel automatically.
             model=model,
             agent_type="pr_orchestrator_parallel",
             max_thinking_tokens=thinking_budget,
-            agents=self._define_specialist_agents(),
+            agents=self._define_specialist_agents(project_root),
             output_format={
                 "type": "json_schema",
                 "schema": ParallelOrchestratorResponse.model_json_schema(),
@@ -586,17 +610,63 @@ The SDK will run invoked agents in parallel automatically.
         except ValueError:
             severity = ReviewSeverity.MEDIUM
 
+        # Extract evidence: prefer verification.code_examined, fallback to evidence field
+        evidence = finding_data.evidence
+        if hasattr(finding_data, "verification") and finding_data.verification:
+            # Structured verification has more detailed evidence
+            verification = finding_data.verification
+            if hasattr(verification, "code_examined") and verification.code_examined:
+                evidence = verification.code_examined
+
+        # Extract end_line if present
+        end_line = getattr(finding_data, "end_line", None)
+
+        # Extract source_agents if present
+        source_agents = getattr(finding_data, "source_agents", []) or []
+
+        # Extract cross_validated if present
+        cross_validated = getattr(finding_data, "cross_validated", False)
+
         return PRReviewFinding(
             id=finding_id,
             file=finding_data.file,
             line=finding_data.line,
+            end_line=end_line,
             title=finding_data.title,
             description=finding_data.description,
             category=category,
             severity=severity,
             suggested_fix=finding_data.suggested_fix or "",
-            evidence=finding_data.evidence,
+            evidence=evidence,
+            source_agents=source_agents,
+            cross_validated=cross_validated,
         )
+
+    async def _get_ci_status(self, pr_number: int) -> dict:
+        """Fetch CI status for the PR.
+
+        Args:
+            pr_number: PR number
+
+        Returns:
+            Dict with passing, failing, pending, failed_checks, awaiting_approval
+        """
+        try:
+            gh_client = GHClient(
+                project_dir=self.project_dir,
+                default_timeout=30.0,
+                repo=self.config.repo,
+            )
+            return await gh_client.get_pr_checks_comprehensive(pr_number)
+        except Exception as e:
+            logger.warning(f"[PRReview] Failed to get CI status: {e}")
+            return {
+                "passing": 0,
+                "failing": 0,
+                "pending": 0,
+                "failed_checks": [],
+                "awaiting_approval": 0,
+            }
 
     async def review(self, context: PRContext) -> PRReviewResult:
         """
@@ -738,6 +808,8 @@ The SDK will run invoked agents in parallel automatically.
 
             # Build orchestrator prompt AFTER worktree creation and related files rescan
             prompt = self._build_orchestrator_prompt(context)
+            # Capture agent definitions for debug logging (with worktree path)
+            agent_defs = self._define_specialist_agents(project_root)
 
             # Use model and thinking level from config (user settings)
             # Resolve model shorthand via environment variable override if configured
@@ -776,6 +848,8 @@ The SDK will run invoked agents in parallel automatically.
                     client=client,
                     context_name="ParallelOrchestrator",
                     model=model,
+                    system_prompt=prompt,
+                    agent_definitions=agent_defs,
                 )
 
                 # Check for stream processing errors
@@ -894,11 +968,19 @@ The SDK will run invoked agents in parallel automatically.
                 f"[ParallelOrchestrator] Review complete: {len(unique_findings)} findings"
             )
 
-            # Generate verdict (includes merge conflict check and branch-behind check)
+            # Fetch CI status for verdict consideration
+            ci_status = await self._get_ci_status(context.pr_number)
+            logger.info(
+                f"[PRReview] CI status: {ci_status.get('passing', 0)} passing, "
+                f"{ci_status.get('failing', 0)} failing, {ci_status.get('pending', 0)} pending"
+            )
+
+            # Generate verdict (includes merge conflict check, branch-behind check, and CI status)
             verdict, verdict_reasoning, blockers = self._generate_verdict(
                 unique_findings,
                 has_merge_conflicts=context.has_merge_conflicts,
                 merge_state_status=context.merge_state_status,
+                ci_status=ci_status,
             )
 
             # Generate summary
@@ -1407,6 +1489,7 @@ For EACH finding above:
                     client=validator_client,
                     context_name="FindingValidator",
                     model=model,
+                    system_prompt=prompt,
                 )
 
                 if stream_result.get("error"):
@@ -1488,10 +1571,40 @@ For EACH finding above:
         findings: list[PRReviewFinding],
         has_merge_conflicts: bool = False,
         merge_state_status: str = "",
+        ci_status: dict | None = None,
     ) -> tuple[MergeVerdict, str, list[str]]:
-        """Generate merge verdict based on findings, merge conflict status, and branch state."""
+        """Generate merge verdict based on findings, merge conflict status, branch state, and CI."""
         blockers = []
         is_branch_behind = merge_state_status == "BEHIND"
+
+        # Extract CI status
+        ci_status = ci_status or {}
+        ci_failing = ci_status.get("failing", 0)
+        ci_pending = ci_status.get("pending", 0)
+        ci_passing = ci_status.get("passing", 0)
+        ci_awaiting = ci_status.get("awaiting_approval", 0)
+        failed_checks = ci_status.get("failed_checks", [])
+
+        # Build CI status string for reasoning
+        ci_summary = ""
+        if ci_failing > 0:
+            ci_summary = f"CI: {ci_failing} failing ({', '.join(failed_checks[:3])})"
+            if len(failed_checks) > 3:
+                ci_summary += f" +{len(failed_checks) - 3} more"
+        elif ci_awaiting > 0:
+            ci_summary = f"CI: {ci_awaiting} workflow(s) awaiting approval"
+        elif ci_pending > 0:
+            ci_summary = f"CI: {ci_pending} check(s) pending"
+        elif ci_passing > 0:
+            ci_summary = f"CI: {ci_passing} check(s) passing"
+
+        # CRITICAL: CI failures block merging (highest priority after merge conflicts)
+        if ci_failing > 0:
+            blockers.append(f"CI Failing: {', '.join(failed_checks)}")
+        elif ci_awaiting > 0:
+            blockers.append(
+                f"CI Awaiting Approval: {ci_awaiting} workflow(s) need maintainer approval"
+            )
 
         # CRITICAL: Merge conflicts block merging - check first
         if has_merge_conflicts:
@@ -1510,51 +1623,63 @@ For EACH finding above:
         for f in critical:
             blockers.append(f"Critical: {f.title} ({f.file}:{f.line})")
 
-        if blockers:
-            # Merge conflicts are the highest priority blocker
-            if has_merge_conflicts:
-                verdict = MergeVerdict.BLOCKED
-                reasoning = (
-                    "Blocked: PR has merge conflicts with base branch. "
-                    "Resolve conflicts before merge."
+        # Determine verdict and reasoning
+        if ci_failing > 0:
+            # Failing CI always blocks
+            verdict = MergeVerdict.BLOCKED
+            reasoning = f"BLOCKED: {ci_summary}. Fix CI before merge."
+            if critical:
+                reasoning += f" Also {len(critical)} critical code issue(s)."
+            elif high or medium:
+                reasoning += (
+                    f" Also {len(high) + len(medium)} code issue(s) to address."
                 )
-            elif critical:
-                verdict = MergeVerdict.BLOCKED
-                reasoning = f"Blocked by {len(critical)} critical issue(s)"
-            # Branch behind is a soft blocker - NEEDS_REVISION, not BLOCKED
-            elif is_branch_behind:
+        elif ci_awaiting > 0:
+            # Awaiting approval blocks
+            verdict = MergeVerdict.BLOCKED
+            reasoning = f"BLOCKED: {ci_summary}. Maintainer must approve workflow runs for fork PRs."
+        elif has_merge_conflicts:
+            verdict = MergeVerdict.BLOCKED
+            reasoning = (
+                f"BLOCKED: PR has merge conflicts with base branch. "
+                f"Resolve conflicts before merge. {ci_summary}"
+            )
+        elif critical:
+            verdict = MergeVerdict.BLOCKED
+            reasoning = f"BLOCKED: {len(critical)} critical code issue(s). {ci_summary}"
+        elif ci_pending > 0:
+            # Pending CI prevents ready-to-merge but doesn't block
+            if high or medium:
                 verdict = MergeVerdict.NEEDS_REVISION
-                if high or medium:
-                    # Branch behind + code issues that need addressing
-                    total = len(high) + len(medium)
-                    reasoning = (
-                        f"{BRANCH_BEHIND_REASONING} "
-                        f"{total} issue(s) must be addressed ({len(high)} required, {len(medium)} recommended)."
-                    )
-                else:
-                    # Just branch behind, no code issues
-                    reasoning = BRANCH_BEHIND_REASONING
-                if low:
-                    reasoning += f" {len(low)} non-blocking suggestion(s) to consider."
+                total = len(high) + len(medium)
+                reasoning = f"NEEDS_REVISION: {total} code issue(s) + {ci_summary}"
             else:
-                verdict = MergeVerdict.BLOCKED
-                reasoning = f"Blocked by {len(blockers)} issue(s)"
+                verdict = MergeVerdict.NEEDS_REVISION
+                reasoning = f"NEEDS_REVISION: {ci_summary}. Wait for CI to complete."
+        elif is_branch_behind:
+            verdict = MergeVerdict.NEEDS_REVISION
+            if high or medium:
+                total = len(high) + len(medium)
+                reasoning = (
+                    f"NEEDS_REVISION: {BRANCH_BEHIND_REASONING} "
+                    f"{total} code issue(s). {ci_summary}"
+                )
+            else:
+                reasoning = f"NEEDS_REVISION: {BRANCH_BEHIND_REASONING} {ci_summary}"
+            if low:
+                reasoning += f" {len(low)} suggestion(s)."
         elif high or medium:
-            # High and Medium severity findings block merge
             verdict = MergeVerdict.NEEDS_REVISION
             total = len(high) + len(medium)
-            reasoning = f"{total} issue(s) must be addressed ({len(high)} required, {len(medium)} recommended)"
+            reasoning = f"NEEDS_REVISION: {total} code issue(s) ({len(high)} high, {len(medium)} medium). {ci_summary}"
             if low:
-                reasoning += f", {len(low)} suggestions"
+                reasoning += f" {len(low)} suggestion(s)."
         elif low:
-            # Only Low severity suggestions - safe to merge (non-blocking)
             verdict = MergeVerdict.READY_TO_MERGE
-            reasoning = (
-                f"No blocking issues. {len(low)} non-blocking suggestion(s) to consider"
-            )
+            reasoning = f"READY_TO_MERGE: No blocking issues. {len(low)} suggestion(s). {ci_summary}"
         else:
             verdict = MergeVerdict.READY_TO_MERGE
-            reasoning = "No blocking issues found"
+            reasoning = f"READY_TO_MERGE: No blocking issues. {ci_summary}"
 
         return verdict, reasoning, blockers
 
@@ -1566,7 +1691,7 @@ For EACH finding above:
         findings: list[PRReviewFinding],
         agents_invoked: list[str],
     ) -> str:
-        """Generate PR review summary."""
+        """Generate PR review summary with per-finding evidence details."""
         verdict_emoji = {
             MergeVerdict.READY_TO_MERGE: "✅",
             MergeVerdict.MERGE_WITH_CHANGES: "🟡",
@@ -1592,20 +1717,89 @@ For EACH finding above:
                 lines.append(f"- {blocker}")
             lines.append("")
 
-        # Findings summary
+        # Detailed findings with evidence
         if findings:
-            by_severity: dict[str, list] = {}
-            for f in findings:
-                severity = f.severity.value
-                if severity not in by_severity:
-                    by_severity[severity] = []
-                by_severity[severity].append(f)
+            severity_emoji = {
+                "critical": "🔴",
+                "high": "🟠",
+                "medium": "🟡",
+                "low": "🔵",
+            }
 
-            lines.append("### Findings Summary")
-            for severity in ["critical", "high", "medium", "low"]:
-                if severity in by_severity:
-                    count = len(by_severity[severity])
-                    lines.append(f"- **{severity.capitalize()}**: {count} issue(s)")
+            lines.append("### Findings")
+            lines.append("")
+
+            for f in findings:
+                sev = f.severity.value
+                emoji = severity_emoji.get(sev, "⚪")
+
+                # Finding header with location
+                line_range = f"L{f.line}"
+                if f.end_line and f.end_line != f.line:
+                    line_range = f"L{f.line}-L{f.end_line}"
+                lines.append(f"#### {emoji} [{sev.upper()}] {f.title}")
+                lines.append(f"**File:** `{f.file}` ({line_range})")
+
+                # Cross-validation badge
+                if f.cross_validated and f.source_agents:
+                    agents_str = ", ".join(f.source_agents)
+                    lines.append(
+                        f"**Cross-validated** by {len(f.source_agents)} agents: {agents_str}"
+                    )
+
+                # Description
+                lines.append("")
+                lines.append(f"{f.description}")
+
+                # Evidence from the finding itself
+                if f.evidence:
+                    lines.append("")
+                    lines.append("<details>")
+                    lines.append("<summary>Code evidence</summary>")
+                    lines.append("")
+                    lines.append("```")
+                    lines.append(f.evidence)
+                    lines.append("```")
+                    lines.append("</details>")
+
+                # Validation details (what the validator verified)
+                if f.validation_status:
+                    status_label = {
+                        "confirmed_valid": "Confirmed",
+                        "needs_human_review": "Needs human review",
+                    }.get(f.validation_status, f.validation_status)
+                    lines.append("")
+                    lines.append(f"**Validation:** {status_label}")
+                    if f.validation_evidence:
+                        lines.append("")
+                        lines.append("<details>")
+                        lines.append("<summary>Verification details</summary>")
+                        lines.append("")
+                        lines.append(f"{f.validation_evidence}")
+                        if f.validation_explanation:
+                            lines.append("")
+                            lines.append(f"**Reasoning:** {f.validation_explanation}")
+                        lines.append("</details>")
+
+                # Suggested fix
+                if f.suggested_fix:
+                    lines.append("")
+                    lines.append(f"**Suggested fix:** {f.suggested_fix}")
+
+                lines.append("")
+
+            # Findings count summary
+            by_severity: dict[str, int] = {}
+            for f in findings:
+                sev = f.severity.value
+                by_severity[sev] = by_severity.get(sev, 0) + 1
+            summary_parts = []
+            for sev in ["critical", "high", "medium", "low"]:
+                if sev in by_severity:
+                    summary_parts.append(f"{by_severity[sev]} {sev}")
+            lines.append(
+                f"**Total:** {len(findings)} finding(s) ({', '.join(summary_parts)})"
+            )
             lines.append("")
 
         lines.append("---")

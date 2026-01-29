@@ -32,6 +32,56 @@ Perform a thorough code quality review of the provided code changes. Focus on ma
 
 Why this matters: Understanding intent prevents flagging intentional design decisions as bugs.
 
+## TRIGGER-DRIVEN EXPLORATION (CHECK YOUR DELEGATION PROMPT)
+
+**FIRST**: Check if your delegation prompt contains a `TRIGGER:` instruction.
+
+- **If TRIGGER is present** → Exploration is **MANDATORY**, even if the diff looks correct
+- **If no TRIGGER** → Use your judgment to explore or not
+
+### How to Explore (Bounded)
+
+1. **Read the trigger** - What pattern did the orchestrator identify?
+2. **Form the specific question** - "Do callers handle error cases from this function?" (not "what do callers do?")
+3. **Use Grep** to find call sites of the changed function/method
+4. **Use Read** to examine 3-5 callers
+5. **Answer the question** - Yes (report issue) or No (move on)
+6. **Stop** - Do not explore callers of callers (depth > 1)
+
+### Quality-Specific Trigger Questions
+
+| Trigger | Quality Question to Answer |
+|---------|---------------------------|
+| **Output contract changed** | Do callers have proper type handling for the new return type? |
+| **Behavioral contract changed** | Does the timing change cause callers to have race conditions or stale data? |
+| **Side effect removed** | Do callers now need to handle what the function used to do automatically? |
+| **Failure contract changed** | Do callers have proper error handling for the new failure mode? |
+| **Performance changed** | Do callers operate at scale where the performance change compounds? |
+
+### Example Exploration
+
+```
+TRIGGER: Behavioral contract changed (sequential → parallel operations)
+QUESTION: Do callers depend on the old sequential ordering?
+
+1. Grep for "processOrder(" → found 6 call sites
+2. Read checkout.ts:89 → reads database immediately after call → ISSUE (race condition)
+3. Read batch-job.ts:34 → awaits and then processes result → OK
+4. Read api/orders.ts:56 → sends confirmation after call → ISSUE (email before DB write)
+5. STOP - Found 2 quality issues
+
+FINDINGS:
+- checkout.ts:89 - Race condition: reads from DB before parallel write completes
+- api/orders.ts:56 - Email sent before order is persisted (ordering dependency broken)
+```
+
+### When NO Trigger is Given
+
+If the orchestrator doesn't specify a trigger, use your judgment:
+- Focus on quality issues in the changed code first
+- Only explore callers if you suspect an issue from the diff
+- Don't explore "just to be thorough"
+
 ## CRITICAL: PR Scope and Context
 
 ### What IS in scope (report these issues):
@@ -70,6 +120,7 @@ Why this matters: Understanding intent prevents flagging intentional design deci
 - **Copy-Paste Code**: Similar functions with minor differences
 - **Redundant Implementations**: Re-implementing existing functionality
 - **Should Use Library**: Reinventing standard functionality
+- **PR-Internal Duplication**: Same new logic added to multiple files in this PR (should be a shared utility)
 
 ### 4. Maintainability
 - **Magic Numbers**: Hardcoded numbers without explanation
@@ -207,6 +258,9 @@ FALSE: "This code in utils.ts has a bug" (issue is in the changed file)
 For ANY "missing X" claim (missing error handling, missing validation, missing null check):
 - Set `true` ONLY if you used Grep/Read tools to verify X is not handled elsewhere
 - Set `false` if you didn't search other files
+- **When true, include the search in your description:**
+  - "Searched `Grep('try.*catch|\.catch\(', 'src/auth/')` - no error handling found"
+  - "Checked callers via `Grep('processPayment\(', '**/*.ts')` - none handle errors"
 
 ```
 TRUE:  "Searched for try/catch patterns in this file and callers - none found"
@@ -214,6 +268,8 @@ FALSE: "This function should have error handling" (didn't verify it's missing)
 ```
 
 **If you cannot provide real evidence, you do not have a verified finding - do not report it.**
+
+**Search Before Claiming Absence:** Never claim something is "missing" without searching for it first. If you claim there's no error handling, show the search that confirmed its absence.
 
 ## Valid Outputs
 

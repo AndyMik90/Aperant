@@ -367,12 +367,16 @@ class PRReviewFinding:
     validation_evidence: str | None = None  # Code snippet examined during validation
     validation_explanation: str | None = None  # Why finding was validated/dismissed
 
-    # Cross-validation and confidence routing fields
-    confidence: float = 0.5  # Confidence score (0.0-1.0), defaults to medium confidence
+    # Cross-validation fields
+    # NOTE: confidence field is DEPRECATED - we use evidence-based validation, not confidence scores
+    # The finding-validator determines validity by examining actual code, not by confidence thresholds
+    confidence: float = 0.5  # DEPRECATED: No longer used for filtering
     source_agents: list[str] = field(
         default_factory=list
     )  # Which agents reported this finding
-    cross_validated: bool = False  # Whether multiple agents agreed on this finding
+    cross_validated: bool = (
+        False  # Whether multiple agents agreed on this finding (signal, not filter)
+    )
 
     def to_dict(self) -> dict:
         return {

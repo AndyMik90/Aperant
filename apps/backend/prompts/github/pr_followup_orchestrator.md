@@ -51,7 +51,7 @@ You have access to these specialist agents via the Task tool:
 **Use for**: Verifying whether previous findings have been addressed
 - Analyzes diffs to determine if issues are truly fixed
 - Checks for incomplete or incorrect fixes
-- Provides confidence scores for each resolution
+- Provides evidence-based verification for each resolution
 - **Invoke when**: There are previous findings to verify
 
 ### 2. new-code-reviewer
@@ -112,14 +112,31 @@ This is CRITICAL to prevent false positives from persisting.
 - There are AI tool reviews to triage
 - Questions remain unanswered
 
-### Phase 3: Validate Unresolved Findings
-After resolution-verifier returns findings marked as unresolved:
-1. Pass ALL unresolved findings to finding-validator
+### Phase 3: Validate ALL Findings (MANDATORY)
+
+**⚠️ ABSOLUTE RULE: You MUST invoke finding-validator for EVERY finding, regardless of severity.**
+This includes unresolved findings from resolution-verifier AND any new findings from new-code-reviewer.
+- CRITICAL/HIGH/MEDIUM/LOW: ALL must be validated
+- There are NO exceptions — every finding the user sees must be independently verified
+
+After resolution-verifier and new-code-reviewer return their findings:
+1. **Batch findings for validation:**
+   - For ≤10 findings: Send all to finding-validator in one call
+   - For >10 findings: Group by file or category, invoke 2-4 validator calls in parallel
+   - This reduces overhead while maintaining thorough validation
+
 2. finding-validator will read the actual code at each location
 3. For each finding, it returns:
-   - `confirmed_valid`: Issue IS real → keep as unresolved
+   - `confirmed_valid`: Issue IS real → keep as finding
    - `dismissed_false_positive`: Original finding was WRONG → remove from findings
    - `needs_human_review`: Cannot determine → flag for human
+
+**Every finding in the final output MUST have:**
+- `validation_status`: One of "confirmed_valid" or "needs_human_review"
+- `validation_evidence`: The actual code snippet examined during validation
+- `validation_explanation`: Why the finding was confirmed or flagged
+
+**If any finding is missing validation_status in the final output, the review is INVALID.**
 
 ### Phase 4: Synthesize Results
 After all agents complete:
@@ -177,9 +194,10 @@ After all agents complete:
 ## Cross-Validation
 
 When multiple agents report on the same area:
-- **Agreement boosts confidence**: If resolution-verifier and new-code-reviewer both flag an issue, increase severity
+- **Agreement strengthens evidence**: If resolution-verifier and new-code-reviewer both flag an issue, this is strong signal
 - **Conflicts need resolution**: If agents disagree, investigate and document your reasoning
 - **Track consensus**: Note which findings have cross-agent validation
+- **Evidence-based, not confidence-based**: Multiple agents agreeing doesn't skip validation - all findings still verified
 
 ## Output Format
 
@@ -198,16 +216,14 @@ Provide your synthesis as a structured response matching the ParallelFollowupRes
       "validation_status": "confirmed_valid",
       "code_evidence": "const query = `SELECT * FROM users WHERE id = ${userId}`;",
       "line_range": [45, 45],
-      "explanation": "SQL injection is present - user input is concatenated...",
-      "confidence": 0.92
+      "explanation": "SQL injection is present - user input is concatenated directly into query"
     },
     {
       "finding_id": "QUAL-002",
       "validation_status": "dismissed_false_positive",
       "code_evidence": "const sanitized = DOMPurify.sanitize(data);",
       "line_range": [23, 26],
-      "explanation": "Original finding claimed XSS but code uses DOMPurify...",
-      "confidence": 0.88
+      "explanation": "Original finding claimed XSS but code uses DOMPurify for sanitization"
     }
   ],
   "new_findings": [...],
