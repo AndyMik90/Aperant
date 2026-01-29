@@ -18,6 +18,22 @@ import { formatRelativeTime } from "@shared/utils/format-time";
 import { ValidationModal } from "./ValidationModal";
 import { rehypeUnwrapP } from "@shared/lib/mdx/rehype-unwrap-p";
 
+/**
+ * TypeScript types for ReactMarkdown custom components
+ * Simplified types to avoid any usage
+ */
+interface MarkdownCodeProps {
+	inline?: boolean;
+	className?: string;
+	children?: React.ReactNode;
+}
+
+interface MarkdownAnchorProps {
+	href?: string;
+	children?: React.ReactNode;
+	[key: string]: any;
+}
+
 interface LinearTicketDetailProps {
 	ticket: LinearTicket | null;
 	validationResult: ValidationResult | null;
@@ -254,7 +270,7 @@ export function LinearTicketDetail({
 							skipHtml={false}
 							components={{
 								// Custom code component with syntax detection and styling
-								code({ inline, className, children }: any) {
+								code({ inline, className, children }: MarkdownCodeProps) {
 									const match = /language-(\w+)/.exec(className || '');
 									const hasLanguage = match && match[1];
 
@@ -284,7 +300,7 @@ export function LinearTicketDetail({
 									);
 								},
 								// Custom link component
-								a({ href, children, ...props }: any) {
+								a({ href, children, ...props }: MarkdownAnchorProps) {
 									return (
 										<a
 											href={href}
