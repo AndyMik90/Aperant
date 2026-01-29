@@ -16,6 +16,10 @@ export const IPC_CHANNELS = {
   TAB_STATE_GET: 'tabState:get',
   TAB_STATE_SAVE: 'tabState:save',
 
+  // Kanban preferences (per-project column collapse state)
+  KANBAN_PREFS_GET: 'kanbanPrefs:get',
+  KANBAN_PREFS_SAVE: 'kanbanPrefs:save',
+
   // Task operations
   TASK_LIST: 'task:list',
   TASK_CREATE: 'task:create',
