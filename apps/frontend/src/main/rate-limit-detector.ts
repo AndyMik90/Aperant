@@ -7,7 +7,7 @@ import { getClaudeProfileManager } from './claude-profile-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
 import { getCredentialsFromKeychain } from './claude-profile/credential-utils';
 import { ensureValidToken } from './claude-profile/token-refresh';
-import { homedir } from 'os';
+import { expandHomePath } from './claude-profile/profile-utils';
 
 /**
  * Regex pattern to detect Claude Code rate limit messages
@@ -279,10 +279,8 @@ async function getFreshValidToken(configDir: string | undefined): Promise<{
 }> {
   const isDebug = process.env.DEBUG === 'true';
 
-  // Expand ~ in configDir
-  const expandedConfigDir = configDir?.startsWith('~')
-    ? configDir.replace(/^~/, homedir())
-    : configDir;
+  // Expand ~ in configDir using shared helper
+  const expandedConfigDir = configDir ? expandHomePath(configDir) : configDir;
 
   if (isDebug) {
     console.warn('[RateLimitDetector:getFreshValidToken] Getting fresh token for configDir:', expandedConfigDir || 'default');
@@ -365,10 +363,8 @@ function getFreshValidTokenSync(configDir: string | undefined): {
 } {
   const isDebug = process.env.DEBUG === 'true';
 
-  // Expand ~ in configDir
-  const expandedConfigDir = configDir?.startsWith('~')
-    ? configDir.replace(/^~/, homedir())
-    : configDir;
+  // Expand ~ in configDir using shared helper
+  const expandedConfigDir = configDir ? expandHomePath(configDir) : configDir;
 
   // Try profile-specific credentials first (forceRefresh = true bypasses cache)
   if (expandedConfigDir) {
@@ -831,10 +827,8 @@ export async function getBestAvailableProfileEnvAsync(): Promise<BestProfileEnvR
   const selectedProfile = profileManager.getProfile(selectedProfileId);
   const configDir = selectedProfile?.configDir;
 
-  // Expand configDir
-  const expandedConfigDir = configDir?.startsWith('~')
-    ? configDir.replace(/^~/, homedir())
-    : configDir;
+  // Expand configDir using shared helper
+  const expandedConfigDir = configDir ? expandHomePath(configDir) : configDir;
 
   // Proactively refresh token with fallback
   const { token, usedFallback, wasRefreshed } = await getFreshValidToken(expandedConfigDir);
@@ -878,10 +872,8 @@ export async function refreshCurrentProfileToken(): Promise<string | null> {
   const activeProfile = profileManager.getActiveProfile();
   const configDir = activeProfile?.configDir;
 
-  // Expand configDir
-  const expandedConfigDir = configDir?.startsWith('~')
-    ? configDir.replace(/^~/, homedir())
-    : configDir;
+  // Expand configDir using shared helper
+  const expandedConfigDir = configDir ? expandHomePath(configDir) : configDir;
 
   // getFreshValidToken already uses forceRefresh = true internally
   const { token } = await getFreshValidToken(expandedConfigDir);
