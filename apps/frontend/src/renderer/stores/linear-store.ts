@@ -489,7 +489,19 @@ export async function validateLinearTicket(
 			skipCache,
 		);
 
+		console.log(`[LINEAR_STORE] Validation result for ${ticketId}:`, {
+			success: result.success,
+			hasData: !!result.data,
+			error: result.error,
+		});
+
 		if (result.success && result.data) {
+			console.log(`[LINEAR_STORE] Updating validation result with status: complete`, {
+				ticketId,
+				hasContentAnalysis: !!result.data.contentAnalysis,
+				hasCodebaseVerification: !!result.data.codebaseVerification,
+				hasCompleteness: !!result.data.completenessValidation,
+			});
 			store.updateValidationResult(ticketId, {
 				...result.data,
 				status: "complete",
@@ -499,6 +511,7 @@ export async function validateLinearTicket(
 			store.clearValidationProgress(ticketId);
 			return result.data;
 		} else {
+			console.error(`[LINEAR_STORE] Validation failed for ${ticketId}:`, result.error);
 			store.updateValidationResult(ticketId, {
 				...(currentResult || createDefaultValidationResult(ticketId)),
 				status: "error",

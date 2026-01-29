@@ -265,19 +265,28 @@ export function useLinearTickets(
 			skipCache: boolean = false,
 		): Promise<ValidationResult | null> => {
 			debugLog("[useLinearTickets] validateTicket called, ticketId:", ticketId, "projectId:", projectId);
+			console.log(`[LINEAR_HOOK] validateTicket START:`, { ticketId, skipCache, projectId });
 			if (!projectId) {
 				debugWarn("[useLinearTickets] No projectId available");
+				console.error("[LINEAR_HOOK] No projectId available");
 				return null;
 			}
 
 			try {
+				console.log(`[LINEAR_HOOK] Calling validateLinearTicket...`);
 				const result = await validateLinearTicket(projectId, ticketId, skipCache);
 				debugLog("[useLinearTickets] Validation result:", result);
+				console.log(`[LINEAR_HOOK] Validation result:`, {
+					hasContentAnalysis: !!result?.contentAnalysis,
+					hasCodebaseVerification: !!result?.codebaseVerification,
+					status: result?.status,
+				});
 				return result;
 			} catch (err) {
 				const errorMessage =
 					err instanceof Error ? err.message : "Validation failed";
 				debugError("[useLinearTickets] Validation error:", err);
+				console.error(`[LINEAR_HOOK] Validation error:`, err);
 				useLinearStore.getState().setError(errorMessage);
 				return null;
 			}

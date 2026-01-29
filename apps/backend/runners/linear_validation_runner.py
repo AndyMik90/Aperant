@@ -181,37 +181,64 @@ async def validate_single_ticket(
     Returns:
         Dict with success status and either data or error
     """
+    print(f"[LINEAR_RUNNER] Starting validation for ticket {ticket_id}", flush=True)
+    print(f"[LINEAR_RUNNER] Project dir: {project_dir}", flush=True)
+    print(f"[LINEAR_RUNNER] Skip cache: {skip_cache}", flush=True)
+
     try:
         # Create progress callback that outputs to stdout
         def progress_callback(phase: str, step: int, total: int, message: str) -> None:
+            print(
+                f"[LINEAR_RUNNER] Progress: {phase} ({step}/{total}): {message}",
+                flush=True,
+            )
             output_progress(phase, step, total, message)
 
+        print("[LINEAR_RUNNER] Creating Linear validator agent...", flush=True)
         agent = create_linear_validator(
             project_dir,
             project_dir,
             model="claude-opus-4-5-20251101",
             progress_callback=progress_callback,
         )
+        print("[LINEAR_RUNNER] Agent created successfully", flush=True)
 
         # validate_ticket now auto-fetches issue data if not provided
+        print(f"[LINEAR_RUNNER] Calling validate_ticket for {ticket_id}...", flush=True)
         result = await agent.validate_ticket(
             ticket_id, issue_data=None, skip_cache=skip_cache
         )
+        print(f"[LINEAR_RUNNER] Validation completed for {ticket_id}", flush=True)
+        print(f"[LINEAR_RUNNER] Result keys: {list(result.keys())}", flush=True)
 
         # Use helper to serialize the result
+        serialized = _serialize_validation_result(result, ticket_id)
+        print(
+            f"[LINEAR_RUNNER] Serialized result keys: {list(serialized.keys())}",
+            flush=True,
+        )
+
         return {
             "success": True,
             "data": {
                 "ticketId": ticket_id,
-                **_serialize_validation_result(result, ticket_id),
+                **serialized,
             },
         }
     except ValidationError as e:
+        print(f"[LINEAR_RUNNER] ValidationError: {type(e).__name__}: {e}", flush=True)
+        import traceback
+
+        traceback.print_exc()
         return {
             "success": False,
             "error": str(e),
         }
     except Exception as e:
+        print(f"[LINEAR_RUNNER] Unexpected error: {type(e).__name__}: {e}", flush=True)
+        import traceback
+
+        traceback.print_exc()
         logger.exception(f"Unexpected error validating ticket {ticket_id}")
         return {
             "success": False,
@@ -301,6 +328,7 @@ async def validate_batch_tickets(
 async def main():
     """CLI entry point."""
     import argparse
+    import os
 
     parser = argparse.ArgumentParser(
         description="Validate Linear tickets using AI",
@@ -330,12 +358,26 @@ async def main():
 
     args = parser.parse_args()
 
+    print("[LINEAR_RUNNER] === Linear Validation Runner Started ===", flush=True)
+    print(f"[LINEAR_RUNNER] Args: {vars(args)}", flush=True)
+
     # Load project-specific .env file (for LINEAR_API_KEY)
     load_project_env(args.project_dir)
+
+    # Check if LINEAR_API_KEY is set
+    linear_key = os.environ.get("LINEAR_API_KEY", "")
+    print(f"[LINEAR_RUNNER] LINEAR_API_KEY set: {bool(linear_key)}", flush=True)
+    if linear_key:
+        key_preview = linear_key[:10] + "..." if len(linear_key) > 10 else linear_key
+        print(f"[LINEAR_RUNNER] LINEAR_API_KEY preview: {key_preview}", flush=True)
 
     # Validate project directory
     project_dir = args.project_dir.resolve()
     if not project_dir.exists():
+        print(
+            f"[LINEAR_RUNNER] ERROR: Project directory does not exist: {project_dir}",
+            flush=True,
+        )
         output_result(
             {
                 "success": False,
@@ -344,20 +386,34 @@ async def main():
         )
         sys.exit(1)
 
+    print(f"[LINEAR_RUNNER] Project directory validated: {project_dir}", flush=True)
+
     # Determine mode
     if args.ticket_id:
         # Single ticket validation
+        print(
+            f"[LINEAR_RUNNER] Mode: Single ticket validation for {args.ticket_id}",
+            flush=True,
+        )
         result = await validate_single_ticket(
             project_dir,
             args.ticket_id,
             args.skip_cache,
         )
+        print(f"[LINEAR_RUNNER] Result success: {result.get('success')}", flush=True)
+        if not result.get("success"):
+            print(f"[LINEAR_RUNNER] Error: {result.get('error')}", flush=True)
         output_result(result)
         sys.exit(0 if result["success"] else 1)
     elif args.ticket_ids:
         # Batch validation
         ticket_ids = [t.strip() for t in args.ticket_ids.split(",") if t.strip()]
+        print(f"[LINEAR_RUNNER] Mode: Batch validation for {ticket_ids}", flush=True)
         if len(ticket_ids) > 5:
+            print(
+                f"[LINEAR_RUNNER] ERROR: Too many tickets ({len(ticket_ids)} > 5)",
+                flush=True,
+            )
             output_result(
                 {"success": False, "error": "Maximum 5 tickets allowed per batch"}
             )
@@ -368,9 +424,13 @@ async def main():
             ticket_ids,
             args.skip_cache,
         )
+        print(
+            f"[LINEAR_RUNNER] Batch result success: {result.get('success')}", flush=True
+        )
         output_result(result)
         sys.exit(0 if result["success"] else 1)
     else:
+        print("[LINEAR_RUNNER] ERROR: No ticket ID(s) provided", flush=True)
         output_result(
             {
                 "success": False,

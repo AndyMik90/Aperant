@@ -73,6 +73,23 @@ export function ValidationModal({
 }: ValidationModalProps) {
 	const { t } = useTranslation(["common", "tasks", "linear"]);
 
+	// Debug log when modal opens/closes
+	useEffect(() => {
+		console.log(`[VALIDATION_MODAL] Modal state changed:`, { open, ticketId });
+	}, [open, ticketId]);
+
+	// Debug log when validation changes
+	useEffect(() => {
+		console.log(`[VALIDATION_MODAL] Validation prop changed:`, {
+			ticketId,
+			hasValidation: !!validation,
+			status: validation?.status,
+			hasContentAnalysis: !!validation?.contentAnalysis,
+			hasCodebaseVerification: !!validation?.codebaseVerification,
+			hasError: !!validation?.error,
+		});
+	}, [validation, ticketId]);
+
 	// Listen for validation progress events
 	useLinearValidationProgress(ticketId);
 

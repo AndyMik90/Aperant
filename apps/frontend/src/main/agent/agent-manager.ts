@@ -539,6 +539,12 @@ export class AgentManager extends EventEmitter {
         // Split stdout into lines to parse progress events
         let stdoutBuffer = "";
 
+        console.log(`[LINEAR_IPC] Spawning validation process:`, {
+          pythonCommand,
+          args: args.slice(2), // Skip python and script path
+          cwd: autoBuildSource,
+        });
+
         const child = spawn(pythonCommand, args, {
           cwd: autoBuildSource,
           env: { ...process.env, ...combinedEnv },
@@ -554,11 +560,15 @@ export class AgentManager extends EventEmitter {
             if (line.startsWith("PROGRESS:")) {
               try {
                 const progressEvent = JSON.parse(line.slice("PROGRESS:".length));
+                console.log(`[LINEAR_IPC] Progress:`, progressEvent);
                 // Emit progress event via IPC
                 this.emit("linear-validate-progress", ticketId, progressEvent);
               } catch {
                 // Ignore invalid progress lines
               }
+            } else if (line.startsWith("[LINEAR_")) {
+              // Log our debug messages
+              console.log(line);
             } else {
               stdout += line + "\n";
             }
@@ -566,10 +576,13 @@ export class AgentManager extends EventEmitter {
         });
 
         child.stderr?.on("data", (data: Buffer) => {
-          stderr += data.toString();
+          const errStr = data.toString();
+          stderr += errStr;
+          console.error(`[LINEAR_IPC] stderr:`, errStr);
         });
 
         child.on("close", (code: number | null) => {
+          console.log(`[LINEAR_IPC] Process closed with code:`, code);
           // Add any remaining buffer content
           if (stdoutBuffer) {
             if (!stdoutBuffer.startsWith("PROGRESS:")) {
@@ -577,17 +590,34 @@ export class AgentManager extends EventEmitter {
             }
           }
 
+          console.log(`[LINEAR_IPC] stdout length:`, stdout.length);
+          if (stdout.length > 0) {
+            console.log(`[LINEAR_IPC] stdout preview:`, stdout.slice(0, 500));
+          }
+          console.log(`[LINEAR_IPC] stderr length:`, stderr.length);
+          if (stderr.length > 0) {
+            console.log(`[LINEAR_IPC] stderr:`, stderr.slice(0, 500));
+          }
+
           if (code === 0 && stdout) {
             try {
               const result = JSON.parse(stdout);
+              console.log(`[LINEAR_IPC] Result:`, {
+                success: result.success,
+                hasData: !!result.data,
+                error: result.error,
+              });
               resolve(result);
-            } catch {
+            } catch (parseError) {
+              console.error(`[LINEAR_IPC] Failed to parse output:`, parseError);
+              console.error(`[LINEAR_IPC] stdout was:`, stdout.slice(0, 1000));
               resolve({
                 success: false,
                 error: `Failed to parse validation output: ${stdout.slice(0, 200)}`,
               });
             }
           } else {
+            console.error(`[LINEAR_IPC] Process failed with code ${code}`);
             resolve({
               success: false,
               error: stderr || `Validation process exited with code ${code}`,
@@ -596,6 +626,7 @@ export class AgentManager extends EventEmitter {
         });
 
         child.on("error", (err: Error) => {
+          console.error(`[LINEAR_IPC] Process error:`, err);
           resolve({
             success: false,
             error: `Failed to spawn validation process: ${err.message}`,

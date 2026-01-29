@@ -386,34 +386,77 @@ class LinearValidationAgent:
         Returns:
             Configured ClaudeSDKClient instance (fresh each time, no caching)
         """
+        print("[LINEAR_VALIDATOR] create_client START", flush=True)
+        print(f"[LINEAR_VALIDATOR] project_dir: {self.project_dir}", flush=True)
+        print(f"[LINEAR_VALIDATOR] spec_dir: {self.spec_dir}", flush=True)
+
         # Resolve model from phase_config or use override
         if self._model_override:
             model = self._model_override
+            print(f"[LINEAR_VALIDATOR] Using model override: {model}", flush=True)
         else:
             # Use phase_config to resolve model for 'coding' phase (Linear validation is similar)
             try:
                 model = get_phase_model(self.spec_dir, "coding", cli_model=None)
-            except Exception:
+                print(
+                    f"[LINEAR_VALIDATOR] Resolved model from phase_config: {model}",
+                    flush=True,
+                )
+            except Exception as e:
                 # Fallback to Opus if phase_config fails
                 model = "claude-opus-4-5-20251101"
+                print(
+                    f"[LINEAR_VALIDATOR] phase_config failed, using fallback: {model}",
+                    flush=True,
+                )
+                print(
+                    f"[LINEAR_VALIDATOR] Exception was: {type(e).__name__}: {e}",
+                    flush=True,
+                )
 
         # Resolve thinking budget from phase_config
         try:
             max_thinking_tokens = get_phase_thinking_budget(
                 self.spec_dir, "coding", cli_thinking=None
             )
-        except Exception:
+            print(
+                f"[LINEAR_VALIDATOR] Thinking budget: {max_thinking_tokens}", flush=True
+            )
+        except Exception as e:
             # Fallback to 10000 tokens if phase_config fails
             max_thinking_tokens = 10000
+            print(
+                f"[LINEAR_VALIDATOR] Using fallback thinking budget: {max_thinking_tokens}",
+                flush=True,
+            )
+            print(
+                f"[LINEAR_VALIDATOR] Exception was: {type(e).__name__}: {e}", flush=True
+            )
 
         # Create a fresh client each time (no caching to avoid concurrency issues)
-        return create_client(
-            self.project_dir,
-            self.spec_dir,
-            model,
-            agent_type="linear_validator",
-            max_thinking_tokens=max_thinking_tokens,
+        print(
+            f"[LINEAR_VALIDATOR] Calling create_client with model={model}, agent_type=linear_validator...",
+            flush=True,
         )
+        try:
+            client = create_client(
+                self.project_dir,
+                self.spec_dir,
+                model,
+                agent_type="linear_validator",
+                max_thinking_tokens=max_thinking_tokens,
+            )
+            print("[LINEAR_VALIDATOR] create_client succeeded", flush=True)
+            return client
+        except Exception as e:
+            print(
+                f"[LINEAR_VALIDATOR] ERROR in create_client: {type(e).__name__}: {e}",
+                flush=True,
+            )
+            import traceback
+
+            traceback.print_exc()
+            raise
 
     def _get_cache_key(self, issue_id: str, validation_timestamp: str) -> str:
         """
@@ -526,6 +569,8 @@ class LinearValidationAgent:
         # Use the identifier as-is for GraphQL (Linear accepts LIN-123 or just 123)
         numeric_id = issue_id.replace("LIN-", "")
 
+        print(f"[LINEAR_VALIDATOR] _fetch_linear_issue START: {issue_id}", flush=True)
+
         # GraphQL query to fetch issue data
         query = """
         query IssueQuery($issueId: String!) {
@@ -565,7 +610,16 @@ class LinearValidationAgent:
         # Get correct Authorization header for Linear API
         # Linear personal API keys (starting with 'lin_api_') should NOT use Bearer prefix
         # OAuth tokens should use 'Bearer' prefix
-        authorization = get_linear_authorization_header(api_key)
+        print("[LINEAR_VALIDATOR] Getting Linear auth header...", flush=True)
+        try:
+            authorization = get_linear_authorization_header(api_key)
+            print(
+                f"[LINEAR_VALIDATOR] Auth header obtained (length: {len(authorization)})",
+                flush=True,
+            )
+        except ValueError as e:
+            print(f"[LINEAR_VALIDATOR] ERROR getting auth header: {e}", flush=True)
+            raise
 
         headers = {
             "Authorization": authorization,
@@ -573,17 +627,23 @@ class LinearValidationAgent:
         }
 
         try:
+            print("[LINEAR_VALIDATOR] Calling Linear API...", flush=True)
             response = requests.post(
                 "https://api.linear.app/graphql",
                 json={"query": query, "variables": {"issueId": numeric_id}},
                 headers=headers,
                 timeout=10,
             )
+            print(
+                f"[LINEAR_VALIDATOR] Linear API response status: {response.status_code}",
+                flush=True,
+            )
             response.raise_for_status()
             data = response.json()
 
             if "errors" in data:
                 error_msg = data["errors"][0].get("message", "Unknown error")
+                print(f"[LINEAR_VALIDATOR] Linear API error: {error_msg}", flush=True)
                 if (
                     "not found" in error_msg.lower()
                     or "does not exist" in error_msg.lower()
@@ -593,7 +653,13 @@ class LinearValidationAgent:
 
             issue_data = data.get("data", {}).get("issue")
             if not issue_data:
+                print("[LINEAR_VALIDATOR] ERROR: No issue data in response", flush=True)
                 raise TicketNotFoundError(issue_id)
+
+            print(
+                f"[LINEAR_VALIDATOR] Issue data fetched successfully: {issue_data.get('identifier')}",
+                flush=True,
+            )
 
             # Transform to the format expected by validate_ticket
             return {
@@ -644,20 +710,52 @@ class LinearValidationAgent:
             - confidence: Overall confidence score (0-1)
             - reasoning: Detailed explanation of recommendations
         """
+        print(f"[LINEAR_VALIDATOR] validate_ticket START: {issue_id}", flush=True)
+        print(
+            f"[LINEAR_VALIDATOR] issue_data provided: {issue_data is not None}",
+            flush=True,
+        )
+        print(f"[LINEAR_VALIDATOR] skip_cache: {skip_cache}", flush=True)
+
         # Fetch issue data from Linear API if not provided
         if issue_data is None:
+            print(
+                "[LINEAR_VALIDATOR] Fetching issue data from Linear API...", flush=True
+            )
             logger.info(f"Fetching issue data for {issue_id} from Linear API")
-            issue_data = await asyncio.to_thread(self._fetch_linear_issue, issue_id)
+            try:
+                issue_data = await asyncio.to_thread(self._fetch_linear_issue, issue_id)
+                print("[LINEAR_VALIDATOR] Issue data fetched successfully", flush=True)
+                print(
+                    f"[LINEAR_VALIDATOR] Issue title: {issue_data.get('title', 'N/A')}",
+                    flush=True,
+                )
+            except Exception as e:
+                print(
+                    f"[LINEAR_VALIDATOR] ERROR fetching issue: {type(e).__name__}: {e}",
+                    flush=True,
+                )
+                raise
 
         # Extract validation timestamp from issue data
         validation_timestamp = issue_data.get("updatedAt", "")
+        print(
+            f"[LINEAR_VALIDATOR] Validation timestamp: {validation_timestamp}",
+            flush=True,
+        )
 
         # Check cache first
+        print("[LINEAR_VALIDATOR] Checking cache...", flush=True)
         cached_result = self._get_cached_result(
             issue_id, validation_timestamp, skip_cache
         )
         if cached_result is not None:
+            print("[LINEAR_VALIDATOR] RETURNING cached result", flush=True)
             return cached_result
+        print(
+            "[LINEAR_VALIDATOR] No cached result, proceeding with validation",
+            flush=True,
+        )
 
         # Debug logging for validation start
         if DEBUG_LINEAR_VALIDATION:
@@ -669,10 +767,24 @@ class LinearValidationAgent:
         )
 
         # Perform validation if not cached
-        client = self.create_client()
+        print("[LINEAR_VALIDATOR] Creating SDK client...", flush=True)
+        try:
+            client = self.create_client()
+            print("[LINEAR_VALIDATOR] SDK client created successfully", flush=True)
+        except Exception as e:
+            print(
+                f"[LINEAR_VALIDATOR] ERROR creating client: {type(e).__name__}: {e}",
+                flush=True,
+            )
+            import traceback
+
+            traceback.print_exc()
+            raise
 
         # Build validation prompt with 5-step workflow
+        print("[LINEAR_VALIDATOR] Building validation prompt...", flush=True)
         prompt = self._build_validation_prompt(issue_id, issue_data, current_version)
+        print(f"[LINEAR_VALIDATOR] Prompt built: {len(prompt)} characters", flush=True)
 
         # Debug: Log prompt (truncated)
         if DEBUG_LINEAR_VALIDATION:
@@ -682,6 +794,7 @@ class LinearValidationAgent:
             )
 
         # Run validation session with streaming and retry logic
+        print("[LINEAR_VALIDATOR] Starting validation session...", flush=True)
         async with client:
 
             async def run_validation_session():
@@ -692,6 +805,11 @@ class LinearValidationAgent:
                 )
 
                 # Debug: Phase 1 start
+                phase_start_time = time.time() if DEBUG_LINEAR_VALIDATION else 0
+                if DEBUG_LINEAR_VALIDATION:
+                    logger.debug(
+                        "[LINEAR_VALIDATION] Phase 1: Content Analysis - starting"
+                    )
                 phase_start_time = time.time() if DEBUG_LINEAR_VALIDATION else 0
                 if DEBUG_LINEAR_VALIDATION:
                     logger.debug(
@@ -806,6 +924,15 @@ class LinearValidationAgent:
             issue_id, response, issue_data, current_version
         )
 
+        print("[LINEAR_VALIDATOR] Parsing complete", flush=True)
+        print(
+            f"[LINEAR_VALIDATOR] Result structure: analysis={bool(result.get('analysis'))}, "
+            f"codebase_verification={bool(result.get('codebase_verification'))}, "
+            f"completeness={bool(result.get('completeness'))}, "
+            f"labels={len(result.get('recommended_labels', []))}",
+            flush=True,
+        )
+
         if DEBUG_LINEAR_VALIDATION:
             parse_elapsed = time.time() - parse_start_time
             logger.debug(
@@ -818,11 +945,13 @@ class LinearValidationAgent:
             )
 
         # Save to cache
+        print("[LINEAR_VALIDATOR] Saving to cache...", flush=True)
         self._save_result(issue_id, validation_timestamp, result)
 
         if DEBUG_LINEAR_VALIDATION:
             logger.debug(f"[LINEAR_VALIDATION] Validation complete for {issue_id}")
 
+        print(f"[LINEAR_VALIDATOR] validate_ticket COMPLETE for {issue_id}", flush=True)
         return result
 
     def _build_validation_prompt(
@@ -1031,11 +1160,23 @@ Begin your analysis with codebase search now.
         Returns:
             Structured validation result dict
         """
+        print(
+            f"[LINEAR_VALIDATOR] _parse_validation_result START: {issue_id}", flush=True
+        )
+        print(
+            f"[LINEAR_VALIDATOR] Response length: {len(response)} characters",
+            flush=True,
+        )
+        print(f"[LINEAR_VALIDATOR] Response preview: {response[:500]}...", flush=True)
 
         # Try to extract JSON from the response (first from code blocks, then full text)
         json_match = re.search(r"```json\s*(\{[\s\S]*?\})\s*```", response, re.DOTALL)
 
         if not json_match:
+            print(
+                "[LINEAR_VALIDATOR] No JSON code block found, trying brace extraction...",
+                flush=True,
+            )
             # If no code block, try to extract balanced JSON by counting braces
             start = response.find("{")
             if start != -1:
@@ -1050,8 +1191,16 @@ Begin your analysis with codebase search now.
                                 result = json.loads(response[start : i + 1])
                                 result["issue_id"] = issue_id
                                 result["raw_response"] = response
+                                print(
+                                    "[LINEAR_VALIDATOR] Parsed JSON via brace extraction",
+                                    flush=True,
+                                )
                                 return result
                             except json.JSONDecodeError:
+                                print(
+                                    "[LINEAR_VALIDATOR] JSON decode error during brace extraction",
+                                    flush=True,
+                                )
                                 break
 
         # If json_match is set (from code block), try to parse it
@@ -1060,8 +1209,15 @@ Begin your analysis with codebase search now.
                 result = json.loads(json_match.group(1))
                 result["issue_id"] = issue_id
                 result["raw_response"] = response
+                print(
+                    "[LINEAR_VALIDATOR] Parsed JSON from code block successfully",
+                    flush=True,
+                )
+                print(
+                    f"[LINEAR_VALIDATOR] Result keys: {list(result.keys())}", flush=True
+                )
                 return result
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
                 logger.warning(f"Failed to parse JSON from response for {issue_id}")
 
         # Fallback: construct minimal result from issue data
