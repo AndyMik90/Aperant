@@ -12,6 +12,7 @@ import {
   RoadmapConfig
 } from './types';
 import type { IdeationConfig } from '../../shared/types';
+import { stripAnsiCodes } from '../../shared/utils/ansi-sanitizer';
 
 /**
  * Main AgentManager - orchestrates agent process lifecycle
@@ -578,7 +579,8 @@ export class AgentManager extends EventEmitter {
         child.stderr?.on("data", (data: Buffer) => {
           const errStr = data.toString();
           stderr += errStr;
-          console.error(`[LINEAR_IPC] stderr:`, errStr);
+          const sanitizedErr = stripAnsiCodes(errStr);
+          console.error(`[LINEAR_IPC] stderr:`, sanitizedErr);
         });
 
         child.on("close", (code: number | null) => {
@@ -596,7 +598,8 @@ export class AgentManager extends EventEmitter {
           }
           console.log(`[LINEAR_IPC] stderr length:`, stderr.length);
           if (stderr.length > 0) {
-            console.log(`[LINEAR_IPC] stderr:`, stderr.slice(0, 500));
+            const sanitizedStderr = stripAnsiCodes(stderr.slice(0, 500));
+            console.log(`[LINEAR_IPC] stderr:`, sanitizedStderr);
           }
 
           if (code === 0 && stdout) {
@@ -620,7 +623,7 @@ export class AgentManager extends EventEmitter {
             console.error(`[LINEAR_IPC] Process failed with code ${code}`);
             resolve({
               success: false,
-              error: stderr || `Validation process exited with code ${code}`,
+              error: stripAnsiCodes(stderr) || `Validation process exited with code ${code}`,
             });
           }
         });

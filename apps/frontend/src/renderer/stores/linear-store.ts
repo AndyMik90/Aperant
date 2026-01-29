@@ -7,6 +7,7 @@ import type {
 	ValidationResult,
 } from "../../shared/types";
 import { debugLog, debugWarn } from "@shared/utils/debug-logger";
+import { stripAnsiCodes } from "@shared/utils/ansi-sanitizer";
 
 /**
  * Factory function to create a default ValidationResult object
@@ -511,7 +512,7 @@ export async function validateLinearTicket(
 			store.clearValidationProgress(ticketId);
 			return result.data;
 		} else {
-			console.error(`[LINEAR_STORE] Validation failed for ${ticketId}:`, result.error);
+			console.error(`[LINEAR_STORE] Validation failed for ${ticketId}:`, stripAnsiCodes(result.error || ''));
 			store.updateValidationResult(ticketId, {
 				...(currentResult || createDefaultValidationResult(ticketId)),
 				status: "error",
