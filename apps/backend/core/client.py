@@ -500,7 +500,7 @@ def create_client(
     # Authentication: Support both OAuth and API Profile modes
     # API Profile mode: ANTHROPIC_BASE_URL indicates custom endpoint (e.g., z.ai)
     # OAuth mode: CLAUDE_CODE_OAUTH_TOKEN for Claude Code subscription
-    api_profile_mode = bool(os.environ.get("ANTHROPIC_BASE_URL"))
+    api_profile_mode = bool(os.environ.get("ANTHROPIC_BASE_URL", "").strip())
 
     if api_profile_mode:
         # API profile mode: ensure ANTHROPIC_AUTH_TOKEN is present
@@ -509,7 +509,9 @@ def create_client(
                 "API profile mode active (ANTHROPIC_BASE_URL is set) "
                 "but ANTHROPIC_AUTH_TOKEN is not set"
             )
-        # Do NOT set CLAUDE_CODE_OAUTH_TOKEN - SDK will use ANTHROPIC_AUTH_TOKEN
+        # Explicitly remove CLAUDE_CODE_OAUTH_TOKEN so SDK uses ANTHROPIC_AUTH_TOKEN
+        # SDK gives OAuth priority over API keys when both are present
+        os.environ.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
         logger.info("Using API profile authentication")
     else:
         # OAuth mode: require and validate OAuth token

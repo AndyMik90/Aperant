@@ -22,17 +22,23 @@ AUTH_TOKEN_ENV_VARS = [
 ]
 
 
+@pytest.fixture
+def clear_auth_env():
+    """Clear auth environment variables before and after each test."""
+    for var in AUTH_TOKEN_ENV_VARS:
+        os.environ.pop(var, None)
+    yield
+    for var in AUTH_TOKEN_ENV_VARS:
+        os.environ.pop(var, None)
+
+
 class TestClientTokenValidation:
     """Tests for client token validation."""
 
     @pytest.fixture(autouse=True)
-    def clear_env(self):
-        """Clear auth environment variables before and after each test."""
-        for var in AUTH_TOKEN_ENV_VARS:
-            os.environ.pop(var, None)
-        yield
-        for var in AUTH_TOKEN_ENV_VARS:
-            os.environ.pop(var, None)
+    def setup(self, clear_auth_env):
+        """Use shared clear_auth_env fixture."""
+        pass
 
     def test_create_client_rejects_encrypted_tokens(self, tmp_path, monkeypatch):
         """Verify create_client() rejects encrypted tokens."""
@@ -142,13 +148,9 @@ class TestAPIProfileAuthentication:
     """Tests for API Profile authentication mode (e.g., z.ai, custom endpoints)."""
 
     @pytest.fixture(autouse=True)
-    def clear_env(self):
-        """Clear auth environment variables before and after each test."""
-        for var in AUTH_TOKEN_ENV_VARS:
-            os.environ.pop(var, None)
-        yield
-        for var in AUTH_TOKEN_ENV_VARS:
-            os.environ.pop(var, None)
+    def setup(self, clear_auth_env):
+        """Use shared clear_auth_env fixture."""
+        pass
 
     def test_api_profile_mode_with_valid_token(self, tmp_path, monkeypatch):
         """API profile mode succeeds with ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN."""
@@ -227,7 +229,12 @@ class TestAPIProfileAuthentication:
             assert os.environ.get("CLAUDE_CODE_OAUTH_TOKEN") == oauth_token
 
     def test_api_profile_takes_precedence_over_oauth(self, tmp_path, monkeypatch):
-        """When both ANTHROPIC_BASE_URL and OAuth token are set, API profile mode wins."""
+        """
+        When both ANTHROPIC_BASE_URL and OAuth token are set, API profile mode wins.
+
+        create_client() explicitly removes CLAUDE_CODE_OAUTH_TOKEN in API profile mode
+        so the SDK uses ANTHROPIC_AUTH_TOKEN instead (SDK prioritizes OAuth over API keys).
+        """
         api_token = "sk-api-test-token-123456"
         api_endpoint = "https://api.z.ai/v1"
         oauth_token = "sk-ant-oat01-oauth-token"
@@ -247,13 +254,8 @@ class TestAPIProfileAuthentication:
             # Verify SDK client was created
             assert client is mock_sdk_client
 
-            # In API profile mode, CLAUDE_CODE_OAUTH_TOKEN should NOT be set in env
-            # (We delete it to ensure SDK uses ANTHROPIC_AUTH_TOKEN instead)
-            # Note: The original CLAUDE_CODE_OAUTH_TOKEN env var is still there,
-            # but create_client() should NOT copy it to os.environ after that point
-            # Actually, looking at the code more carefully - the env var set in line 502
-            # happens AFTER we check api_profile_mode, so if API profile mode is active,
-            # we skip setting CLAUDE_CODE_OAUTH_TOKEN in os.environ
+            # Verify CLAUDE_CODE_OAUTH_TOKEN was removed (API profile mode)
+            assert "CLAUDE_CODE_OAUTH_TOKEN" not in os.environ
 
     def test_empty_base_url_triggers_oauth_mode(self, tmp_path, monkeypatch):
         """Empty ANTHROPIC_BASE_URL should trigger OAuth mode, not API profile mode."""
@@ -321,13 +323,9 @@ class TestAPIProfileAuthenticationIntegration:
     """Integration tests verifying the complete auth flow behavior."""
 
     @pytest.fixture(autouse=True)
-    def clear_env(self):
-        """Clear auth environment variables before and after each test."""
-        for var in AUTH_TOKEN_ENV_VARS:
-            os.environ.pop(var, None)
-        yield
-        for var in AUTH_TOKEN_ENV_VARS:
-            os.environ.pop(var, None)
+    def setup(self, clear_auth_env):
+        """Use shared clear_auth_env fixture."""
+        pass
 
     def test_sdk_env_vars_includes_api_profile_vars(self, monkeypatch):
         """Verify get_sdk_env_vars() passes ANTHROPIC_AUTH_TOKEN and ANTHROPIC_BASE_URL."""
@@ -409,33 +407,29 @@ class TestAPIProfileAuthenticationEdgeCases:
     """Edge case tests for API profile authentication."""
 
     @pytest.fixture(autouse=True)
-    def clear_env(self):
-        """Clear auth environment variables before and after each test."""
-        for var in AUTH_TOKEN_ENV_VARS:
-            os.environ.pop(var, None)
-        yield
-        for var in AUTH_TOKEN_ENV_VARS:
-            os.environ.pop(var, None)
+    def setup(self, clear_auth_env):
+        """Use shared clear_auth_env fixture."""
+        pass
 
     def test_whitespace_base_url_treated_as_empty(self, tmp_path, monkeypatch):
-        """Whitespace-only ANTHROPIC_BASE_URL should trigger OAuth mode."""
+        """Whitespace-only ANTHROPIC_BASE_URL is trimmed and treated as empty (OAuth mode)."""
         oauth_token = "sk-ant-oat01-oauth-token"
 
-        # Set whitespace-only ANTHROPIC_BASE_URL
-        # Note: bool("   ") is True in Python, so this would be treated as API profile mode
-        # This test documents current behavior - if we want to trim whitespace, we'd need to add that
+        # Set whitespace-only ANTHROPIC_BASE_URL - should be trimmed to empty string
         monkeypatch.setenv("ANTHROPIC_BASE_URL", "   ")
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", oauth_token)
         monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
 
-        # Currently, any non-empty string (even whitespace) triggers API profile mode
-        # which will fail because ANTHROPIC_AUTH_TOKEN is not set
-        from core.client import create_client
+        # Mock the SDK client
+        mock_sdk_client = MagicMock()
+        with patch("core.client.ClaudeSDKClient", return_value=mock_sdk_client):
+            from core.client import create_client
 
-        # This should raise an error because API profile mode is detected
-        # but ANTHROPIC_AUTH_TOKEN is not set
-        with pytest.raises(ValueError, match="API profile mode active"):
-            create_client(tmp_path, tmp_path, "claude-sonnet-4", "coder")
+            # Should use OAuth mode (whitespace is trimmed)
+            client = create_client(tmp_path, tmp_path, "claude-sonnet-4", "coder")
+
+            # Verify SDK client was created successfully
+            assert client is mock_sdk_client
 
     def test_unicode_base_url(self, tmp_path, monkeypatch):
         """API profile mode works with Unicode characters in endpoint URL."""
