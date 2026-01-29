@@ -797,6 +797,13 @@ def get_sdk_env_vars() -> dict[str, str]:
     # The empty string ensures Python doesn't add any extra paths to sys.path.
     env["PYTHONPATH"] = ""
 
+    # Disable user's pre-commit hooks during Auto-Claude managed git operations
+    env["HUSKY"] = "0"
+
+    # NOTE: Git environment variable isolation (GIT_INDEX_FILE, GIT_DIR, etc.) is handled
+    # in client.py by deleting these vars from os.environ before SDK instantiation.
+    # We cannot set them to "" here because git interprets empty string as a path value.
+
     return env
 
 

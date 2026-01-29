@@ -23,6 +23,7 @@ import { readSettingsFile } from '../settings-utils';
 import type { AppSettings } from '../../shared/types/settings';
 import { getOAuthModeClearVars } from './env-utils';
 import { getAugmentedEnv } from '../env-utils';
+import { getIsolatedGitEnv } from '../utils/git-isolation';
 import { getToolInfo, getClaudeCliPathForSdk } from '../cli-tool-manager';
 import { killProcessGracefully, isWindows } from '../platform';
 
@@ -177,8 +178,11 @@ export class AgentProcessManager {
     const profileResult = getBestAvailableProfileEnv();
     const profileEnv = profileResult.env;
     // Use getAugmentedEnv() to ensure common tool paths (dotnet, homebrew, etc.)
-    // are available even when app is launched from Finder/Dock
-    const augmentedEnv = getAugmentedEnv();
+    // are available even when app is launched from Finder/Dock.
+    // Wrap with getIsolatedGitEnv() to clear GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE,
+    // and other git env vars that can contaminate worktree operations when inherited
+    // from parent processes (pre-commit hooks, IDE integrations, Electron app).
+    const augmentedEnv = getIsolatedGitEnv(getAugmentedEnv());
 
     // On Windows, detect and pass git-bash path for Claude Code CLI
     // Electron can detect git via where.exe, but Python subprocess may not have the same PATH

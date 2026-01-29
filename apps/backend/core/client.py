@@ -504,6 +504,17 @@ def create_client(
     # Collect env vars to pass to SDK (ANTHROPIC_BASE_URL, etc.)
     sdk_env = get_sdk_env_vars()
 
+    # CRITICAL: Clear git environment variables from os.environ BEFORE SDK instantiation.
+    # The SDK merges os.environ with our env dict, so contaminated git vars (GIT_INDEX_FILE,
+    # GIT_DIR, etc.) inherited from parent processes would leak through and cause
+    # git operation errors in worktree operations.
+    # We must DELETE these vars from os.environ, not set them to "" (empty string is a value
+    # that git interprets as "use empty path", which fails).
+    from core.git_executable import GIT_ENV_VARS_TO_CLEAR
+
+    for var in GIT_ENV_VARS_TO_CLEAR:
+        os.environ.pop(var, None)
+
     # Debug: Log git-bash path detection on Windows
     if "CLAUDE_CODE_GIT_BASH_PATH" in sdk_env:
         logger.info(f"Git Bash path found: {sdk_env['CLAUDE_CODE_GIT_BASH_PATH']}")
