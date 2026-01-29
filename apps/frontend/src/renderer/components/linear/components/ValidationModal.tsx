@@ -75,12 +75,15 @@ export function ValidationModal({
 	// Listen for validation progress events
 	useLinearValidationProgress(ticketId);
 
-	// Get validation progress - select the Map directly to avoid selector creating new objects
-	// The Map reference is stable and only changes when the store updates it
-	const progressMap = useLinearStore((state) => state.validationProgress);
-	// Get the specific ticket's progress - this will be null or the progress object
-	// We use the Map's get() method which returns the same object reference
-	const validationProgress = progressMap.get(ticketId);
+	// Get validation progress - subscribe to the counter which changes on every progress update
+	// Then get the actual progress value using the selector
+	const progressUpdateCounter = useLinearStore((state) => state.progressUpdateCounter);
+	const validationProgress = useLinearStore((state) => state.getValidationProgress(ticketId));
+	// Include counter in dependencies to force re-evaluation when progress updates
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	useEffect(() => {
+		// This effect runs when progressUpdateCounter changes, triggering component re-render
+	}, [progressUpdateCounter]);
 
 	// Edit mode state for each section
 	const [editingLabels, setEditingLabels] = useState(false);
@@ -311,7 +314,13 @@ export function ValidationModal({
 				useLinearStore.getState().clearValidationProgress(ticketId);
 				onOpenChange(false);
 			} else {
-				setError(result.error || "Failed to cancel validation");
+				// If task is no longer running, just close the modal
+				// This can happen if validation completes before user clicks cancel
+				if (result.error?.includes("No active validation")) {
+					onOpenChange(false);
+				} else {
+					setError(result.error || "Failed to cancel validation");
+				}
 			}
 		} catch (err) {
 			const errorMessage =

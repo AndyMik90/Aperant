@@ -20,6 +20,8 @@ interface LinearState {
 		message: string;
 		timestamp: number;
 	}>;
+	// Counter to force re-renders when progress updates
+	progressUpdateCounter: number;
 	selectedTicketId: string | null;
 	selectedProjectId: string | null;
 	teams: LinearTeam[];
@@ -172,6 +174,7 @@ export const useLinearStore = create<LinearState>((set, get) => ({
 	filters: {},
 	validationResults: new Map(),
 	validationProgress: new Map(),
+	progressUpdateCounter: 0,
 	selectedTicketId: null,
 	selectedProjectId: null,
 	teams: [],
@@ -256,14 +259,16 @@ export const useLinearStore = create<LinearState>((set, get) => ({
 				...progress,
 				timestamp: Date.now()
 			});
-			return { validationProgress: newProgress };
+			// Increment counter to force re-renders
+			return { validationProgress: newProgress, progressUpdateCounter: state.progressUpdateCounter + 1 };
 		}),
 
 	clearValidationProgress: (ticketId) =>
 		set((state) => {
 			const newProgress = new Map(state.validationProgress);
 			newProgress.delete(ticketId);
-			return { validationProgress: newProgress };
+			// Increment counter to force re-renders
+			return { validationProgress: newProgress, progressUpdateCounter: state.progressUpdateCounter + 1 };
 		}),
 
 	// Team/Project actions
