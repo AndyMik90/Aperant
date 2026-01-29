@@ -287,6 +287,44 @@ export function registerProjectHandlers(
   );
 
   // ============================================
+  // Kanban Preferences Operations (persisted in main process)
+  // ============================================
+
+  ipcMain.handle(
+    IPC_CHANNELS.KANBAN_PREFS_GET,
+    async (_, projectId: string): Promise<IPCResult<Record<string, { width: number; isCollapsed: boolean; isLocked: boolean }> | null>> => {
+      try {
+        const preferences = projectStore.getKanbanPreferences(projectId);
+        return { success: true, data: preferences };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.KANBAN_PREFS_SAVE,
+    async (
+      _,
+      projectId: string,
+      preferences: Record<string, { width: number; isCollapsed: boolean; isLocked: boolean }>
+    ): Promise<IPCResult> => {
+      try {
+        projectStore.saveKanbanPreferences(projectId, preferences);
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
+  // ============================================
   // Project Initialization Operations
   // ============================================
 
