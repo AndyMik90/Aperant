@@ -270,10 +270,10 @@ export function ValidationModal({
 
 	// Handle cancel validation
 	const handleCancel = useCallback(async () => {
-		if (!window.electronAPI?.cancelLinearValidation) return;
+		if (!window.electronAPI?.linear?.cancelLinearValidation) return;
 
 		try {
-			const result = await window.electronAPI.cancelLinearValidation(ticketId);
+			const result = await window.electronAPI.linear.cancelLinearValidation(ticketId);
 			if (result.success) {
 				// Update validation status to cancelled
 				useLinearStore.getState().updateValidationResult(ticketId, {

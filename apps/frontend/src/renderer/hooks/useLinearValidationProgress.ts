@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { useLinearStore } from "../stores/linear-store";
+import { useLinearStore } from "@/stores/linear-store";
 import { debugLog, debugWarn } from "@shared/utils/debug-logger";
-import type { ElectronAPI } from "../../shared/types";
+import type { ElectronAPI } from "@shared/types";
 
 /**
  * Hook to listen for Linear validation progress events from the main process.

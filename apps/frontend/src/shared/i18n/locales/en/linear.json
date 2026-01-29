@@ -21,6 +21,7 @@
 	"validationInProgress": "Validation in Progress",
 	"startingValidation": "Starting validation...",
 	"validating": "Validating...",
+	"validatingTicket": "Validating ticket...",
 	"cancelled": "Cancelled",
 	"waitingForChanges": "Waiting for Changes",
 	"validationComplete": "Validation Complete",
