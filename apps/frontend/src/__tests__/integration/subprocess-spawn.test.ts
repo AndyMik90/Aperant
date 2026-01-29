@@ -27,28 +27,51 @@ function initTestDirectories(): void {
 const DETECTED_PYTHON_CMD = findPythonCommand() || 'python';
 const [EXPECTED_PYTHON_COMMAND, EXPECTED_PYTHON_BASE_ARGS] = parsePythonCommand(DETECTED_PYTHON_CMD);
 
-// Mock child_process spawn
-const mockStdout = new EventEmitter();
-const mockStderr = new EventEmitter();
-const mockProcess = Object.assign(new EventEmitter(), {
-  stdout: mockStdout,
-  stderr: mockStderr,
-  pid: 12345,
-  killed: false,
-  kill: vi.fn(() => {
-    mockProcess.killed = true;
-    // Emit exit event synchronously to simulate process termination
-    // (needed for killAllProcesses wait - using nextTick for more predictable timing)
-    process.nextTick(() => mockProcess.emit('exit', 0, null));
-    return true;
-  })
-});
+// Mock child_process spawn - factory function to create unique process per spawn
+// This ensures each task is tracked independently and exit events clean up only the intended task
+// We keep track of all created processes and the last one for test access
+const mockProcesses: Array<ReturnType<typeof createMockProcess>> = [];
+let lastMockProcess: ReturnType<typeof createMockProcess> | null = null;
+
+function createMockProcess() {
+  const proc = Object.assign(new EventEmitter(), {
+    stdout: new EventEmitter(),
+    stderr: new EventEmitter(),
+    pid: Math.floor(Math.random() * 100000),
+    killed: false,
+    kill: vi.fn(() => {
+      (proc as { killed: boolean }).killed = true;
+      // Emit exit event asynchronously to simulate process termination
+      process.nextTick(() => proc.emit('exit', 0, null));
+      return true;
+    })
+  });
+  mockProcesses.push(proc);
+  lastMockProcess = proc;
+  return proc;
+}
+
+// Helper to get the last spawned mock process (for tests that need to emit events)
+function getLastMockProcess() {
+  return lastMockProcess;
+}
+
+// Helper to get all mock processes (for tests that spawn multiple)
+function getAllMockProcesses() {
+  return mockProcesses;
+}
+
+// Helper to reset mock process tracking between tests
+function resetMockProcesses() {
+  mockProcesses.length = 0;
+  lastMockProcess = null;
+}
 
 vi.mock('child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('child_process')>();
   return {
     ...actual,
-    spawn: vi.fn(() => mockProcess)
+    spawn: vi.fn(() => createMockProcess())
   };
 });
 
@@ -155,11 +178,8 @@ describe('Subprocess Spawn Integration', () => {
     cleanupTestDirs();
     setupTestDirs();
     vi.clearAllMocks();
-    // Reset mock process state
-    mockProcess.killed = false;
-    mockProcess.removeAllListeners();
-    mockStdout.removeAllListeners();
-    mockStderr.removeAllListeners();
+    // Reset mock process tracking for each test
+    resetMockProcesses();
   });
 
   afterEach(() => {
@@ -178,9 +198,11 @@ describe('Subprocess Spawn Integration', () => {
       // Start the async operation
       const promise = manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test task description');
 
-      // Wait for spawn to complete (ensures listeners are attached), then emit exit
-      await new Promise(resolve => setImmediate(resolve));
-      mockProcess.emit('exit', 0);
+      // Wait for spawn to complete (process must be created before emitting exit)
+      await vi.waitFor(() => {
+        expect(getLastMockProcess()).not.toBeNull();
+      }, { timeout: 5000 });
+      getLastMockProcess()!.emit('exit', 0);
       await promise;
 
       expect(spawn).toHaveBeenCalledWith(
@@ -210,9 +232,11 @@ describe('Subprocess Spawn Integration', () => {
       // Start the async operation
       const promise = manager.startTaskExecution('task-1', TEST_PROJECT_PATH, 'spec-001');
 
-      // Wait for spawn to complete (ensures listeners are attached), then emit exit
-      await new Promise(resolve => setImmediate(resolve));
-      mockProcess.emit('exit', 0);
+      // Wait for spawn to complete (process must be created before emitting exit)
+      await vi.waitFor(() => {
+        expect(getLastMockProcess()).not.toBeNull();
+      }, { timeout: 5000 });
+      getLastMockProcess()!.emit('exit', 0);
       await promise;
 
       expect(spawn).toHaveBeenCalledWith(
@@ -239,9 +263,11 @@ describe('Subprocess Spawn Integration', () => {
       // Start the async operation
       const promise = manager.startQAProcess('task-1', TEST_PROJECT_PATH, 'spec-001');
 
-      // Wait for spawn to complete (ensures listeners are attached), then emit exit
-      await new Promise(resolve => setImmediate(resolve));
-      mockProcess.emit('exit', 0);
+      // Wait for spawn to complete (process must be created before emitting exit)
+      await vi.waitFor(() => {
+        expect(getLastMockProcess()).not.toBeNull();
+      }, { timeout: 5000 });
+      getLastMockProcess()!.emit('exit', 0);
       await promise;
 
       expect(spawn).toHaveBeenCalledWith(
@@ -273,9 +299,11 @@ describe('Subprocess Spawn Integration', () => {
         workers: 4
       });
 
-      // Wait for spawn to complete (ensures listeners are attached), then emit exit
-      await new Promise(resolve => setImmediate(resolve));
-      mockProcess.emit('exit', 0);
+      // Wait for spawn to complete (process must be created before emitting exit)
+      await vi.waitFor(() => {
+        expect(getLastMockProcess()).not.toBeNull();
+      }, { timeout: 5000 });
+      getLastMockProcess()!.emit('exit', 0);
       await promise;
       // Should spawn normally - parallel options don't affect CLI args anymore
       expect(spawn).toHaveBeenCalledWith(
@@ -301,7 +329,7 @@ describe('Subprocess Spawn Integration', () => {
       await manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test');
 
       // Simulate stdout data (must include newline for buffered output processing)
-      mockStdout.emit('data', Buffer.from('Test log output\n'));
+      getLastMockProcess()!.stdout.emit('data', Buffer.from('Test log output\n'));
 
       expect(logHandler).toHaveBeenCalledWith('task-1', 'Test log output\n');
     }, 30000);  // Increase timeout for Windows CI (dynamic imports are slow)
@@ -317,7 +345,7 @@ describe('Subprocess Spawn Integration', () => {
       await manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test');
 
       // Simulate stderr data (must include newline for buffered output processing)
-      mockStderr.emit('data', Buffer.from('Progress: 50%\n'));
+      getLastMockProcess()!.stderr.emit('data', Buffer.from('Progress: 50%\n'));
 
       expect(logHandler).toHaveBeenCalledWith('task-1', 'Progress: 50%\n');
     }, 30000);  // Increase timeout for Windows CI (dynamic imports are slow)
@@ -333,7 +361,7 @@ describe('Subprocess Spawn Integration', () => {
       await manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test');
 
       // Simulate process exit
-      mockProcess.emit('exit', 0);
+      getLastMockProcess()!.emit('exit', 0);
 
       // Exit event includes taskId, exit code, and process type
       expect(exitHandler).toHaveBeenCalledWith('task-1', 0, expect.any(String));
@@ -350,7 +378,7 @@ describe('Subprocess Spawn Integration', () => {
       await manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test');
 
       // Simulate process error
-      mockProcess.emit('error', new Error('Spawn failed'));
+      getLastMockProcess()!.emit('error', new Error('Spawn failed'));
 
       expect(errorHandler).toHaveBeenCalledWith('task-1', 'Spawn failed');
     }, 30000);  // Increase timeout for Windows CI (dynamic imports are slow)
@@ -369,9 +397,9 @@ describe('Subprocess Spawn Integration', () => {
       expect(result).toBe(true);
       // On Windows, kill() is called without arguments; on Unix, kill('SIGTERM') is used
       if (isWindows()) {
-        expect(mockProcess.kill).toHaveBeenCalled();
+        expect(getLastMockProcess()!.kill).toHaveBeenCalled();
       } else {
-        expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM');
+        expect(getLastMockProcess()!.kill).toHaveBeenCalledWith('SIGTERM');
       }
       expect(manager.isRunning('task-1')).toBe(false);
     }, 30000);  // Increase timeout for Windows CI (dynamic imports are slow)
@@ -396,24 +424,26 @@ describe('Subprocess Spawn Integration', () => {
       const promise1 = manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test 1');
       const promise2 = manager.startTaskExecution('task-2', TEST_PROJECT_PATH, 'spec-001');
 
-      // Wait for both tasks to be tracked (spawn happens after async operations)
+      // Wait for both tasks to be tracked AND both processes to be created
       await vi.waitFor(() => {
         expect(manager.getRunningTasks()).toHaveLength(2);
+        expect(getAllMockProcesses()).toHaveLength(2);
       }, { timeout: 5000 });
 
-      // Wait for spawn to complete (ensures exit handlers are attached)
-      await new Promise(resolve => setImmediate(resolve));
+      // Get references to each specific mock process (each task spawns its own)
+      const processes = getAllMockProcesses();
 
-      // Emit exit for task-1 (first task's handler)
-      mockProcess.emit('exit', 0);
+      // Emit exit for each task's specific process
+      processes[0].emit('exit', 0);
+      processes[1].emit('exit', 0);
+
       await promise1;
-
-      // Emit exit for task-2 (second task's handler replaces first due to shared mock process)
-      mockProcess.emit('exit', 0);
       await promise2;
 
-      // Tasks should be removed from tracking after exit
-      expect(manager.getRunningTasks()).toHaveLength(0);
+      // Wait for async cleanup to complete - exit handlers remove tasks asynchronously
+      await vi.waitFor(() => {
+        expect(manager.getRunningTasks()).toHaveLength(0);
+      }, { timeout: 5000 });
     }, 15000);
 
     it('should use configured Python path', async () => {
@@ -442,12 +472,26 @@ describe('Subprocess Spawn Integration', () => {
       const promise1 = manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test 1');
       const promise2 = manager.startTaskExecution('task-2', TEST_PROJECT_PATH, 'spec-001');
 
-      // Wait for spawn to complete (ensures listeners are attached), then emit exit
-      await new Promise(resolve => setImmediate(resolve));
-      mockProcess.emit('exit', 0);
+      // Wait for both tasks to be tracked AND both processes to be created
+      await vi.waitFor(() => {
+        expect(manager.getRunningTasks()).toHaveLength(2);
+        expect(getAllMockProcesses()).toHaveLength(2);
+      }, { timeout: 5000 });
+
+      // Get references to each specific mock process
+      const processes = getAllMockProcesses();
+
+      // Emit exit for each task's specific process
+      processes[0].emit('exit', 0);
+      processes[1].emit('exit', 0);
+
       await promise1;
-      mockProcess.emit('exit', 0);
       await promise2;
+
+      // Wait for async cleanup to complete - exit handlers remove tasks asynchronously
+      await vi.waitFor(() => {
+        expect(manager.getRunningTasks()).toHaveLength(0);
+      }, { timeout: 5000 });
 
       await manager.killAll();
 
@@ -462,16 +506,21 @@ describe('Subprocess Spawn Integration', () => {
 
       // Start first operation
       const promise1 = manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test 1');
-      // Wait for spawn, then emit exit
-      await new Promise(resolve => setImmediate(resolve));
-      mockProcess.emit('exit', 0);
+      // Wait for spawn (process must be created before emitting exit)
+      await vi.waitFor(() => {
+        expect(getLastMockProcess()).not.toBeNull();
+      }, { timeout: 5000 });
+      getLastMockProcess()!.emit('exit', 0);
       await promise1;
 
       // Start another process for same task (first was already completed)
+      const initialProcessCount = getAllMockProcesses().length;
       const promise2 = manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test 2');
-      // Wait for spawn, then emit exit
-      await new Promise(resolve => setImmediate(resolve));
-      mockProcess.emit('exit', 0);
+      // Wait for new spawn (new process must be created)
+      await vi.waitFor(() => {
+        expect(getAllMockProcesses().length).toBeGreaterThan(initialProcessCount);
+      }, { timeout: 5000 });
+      getLastMockProcess()!.emit('exit', 0);
       await promise2;
 
       // Both processes completed successfully
