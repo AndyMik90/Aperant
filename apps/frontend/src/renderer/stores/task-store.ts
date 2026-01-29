@@ -214,11 +214,11 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
     // Skip if status is the same
     if (oldStatus === status) {
-      console.warn('[updateTaskStatus] Status unchanged, skipping:', { taskId, status });
+      debugLog('[updateTaskStatus] Status unchanged, skipping:', { taskId, status });
       return;
     }
 
-    console.warn('[updateTaskStatus] START:', {
+    debugLog('[updateTaskStatus] START:', {
       taskId,
       oldStatus,
       newStatus: status,
@@ -230,10 +230,6 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       const updatedTasks = updateTaskAtIndex(state.tasks, index, (t) => {
         // Determine execution progress based on status transition
         let executionProgress = t.executionProgress;
-
-        // Track status transition for debugging flip-flop issues
-        const previousStatus = t.status;
-        const statusChanged = previousStatus !== status;
 
         if (status === 'backlog') {
           // When status goes to backlog, reset execution progress to idle
@@ -248,7 +244,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         return { ...t, status, executionProgress, updatedAt: new Date() };
       });
 
-      console.warn('[updateTaskStatus] AFTER set():', {
+      debugLog('[updateTaskStatus] AFTER set():', {
         taskId,
         allInProgress: updatedTasks.filter((t: Task) => t.status === 'in_progress' && !t.metadata?.archivedAt).map(t => t.id)
       });
@@ -801,13 +797,13 @@ export async function persistTaskStatus(
     }
 
     // Only update local state after backend confirms success
-    console.warn(`[persistTaskStatus] BEFORE store.updateTaskStatus:`, {
+    debugLog(`[persistTaskStatus] BEFORE store.updateTaskStatus:`, {
       taskId,
       newStatus: status,
       currentStoreStatus: store.tasks.find(t => t.id === taskId)?.status
     });
     store.updateTaskStatus(taskId, status);
-    console.warn(`[persistTaskStatus] AFTER store.updateTaskStatus:`, {
+    debugLog(`[persistTaskStatus] AFTER store.updateTaskStatus:`, {
       taskId,
       updatedStoreStatus: store.tasks.find(t => t.id === taskId)?.status,
       allInProgress: store.tasks.filter(t => t.status === 'in_progress' && !t.metadata?.archivedAt).map(t => t.id)
