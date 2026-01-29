@@ -304,8 +304,9 @@ def format_validation_error(error: Exception, issue_id: str | None = None) -> st
     if "json" in error_message or "parse" in error_message:
         return "Failed to process the AI response. The ticket data may be malformed. Please try again."
 
-    # Generic fallback
-    return f"Validation failed: {error}"
+    # Generic fallback - log actual error for debugging, return safe message to user
+    logger.error(f"Unexpected validation error: {error}", exc_info=True)
+    return "Validation failed due to an unexpected error. Please try again."
 
 
 class LinearValidationAgent:
