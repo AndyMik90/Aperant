@@ -10,15 +10,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Mock dependencies
 const mockEnsureValidToken = vi.fn();
 const mockGetCredentialsFromKeychain = vi.fn();
+const mockGetFullCredentialsFromKeychain = vi.fn();
+const mockIsTokenExpiredOrNearExpiry = vi.fn();
 const mockSetActiveProfile = vi.fn();
 const mockGetAllProfilesUsage = vi.fn();
 
 vi.mock('../claude-profile/token-refresh', () => ({
-  ensureValidToken: (...args: unknown[]) => mockEnsureValidToken(...args)
+  ensureValidToken: (...args: unknown[]) => mockEnsureValidToken(...args),
+  isTokenExpiredOrNearExpiry: (...args: unknown[]) => mockIsTokenExpiredOrNearExpiry(...args)
 }));
 
 vi.mock('../claude-profile/credential-utils', () => ({
-  getCredentialsFromKeychain: (...args: unknown[]) => mockGetCredentialsFromKeychain(...args)
+  getCredentialsFromKeychain: (...args: unknown[]) => mockGetCredentialsFromKeychain(...args),
+  getFullCredentialsFromKeychain: (...args: unknown[]) => mockGetFullCredentialsFromKeychain(...args)
 }));
 
 vi.mock('../claude-profile/usage-monitor', () => ({
@@ -65,8 +69,12 @@ describe('Token Refresh and Fallback', () => {
     vi.clearAllMocks();
     mockEnsureValidToken.mockReset();
     mockGetCredentialsFromKeychain.mockReset();
+    mockGetFullCredentialsFromKeychain.mockReset();
+    mockIsTokenExpiredOrNearExpiry.mockReset();
     mockSetActiveProfile.mockReset();
     mockGetAllProfilesUsage.mockReset();
+    // Default: tokens are not expired
+    mockIsTokenExpiredOrNearExpiry.mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -167,8 +175,8 @@ describe('Token Refresh and Fallback', () => {
     });
 
     it('should set empty token when no valid token found (sync)', async () => {
-      // Both keychains fail
-      mockGetCredentialsFromKeychain.mockReturnValue({ token: null });
+      // Both keychains return no token
+      mockGetFullCredentialsFromKeychain.mockReturnValue({ token: null, expiresAt: null });
 
       const { getBestAvailableProfileEnv } = await import('../rate-limit-detector');
       const result = getBestAvailableProfileEnv();
@@ -178,12 +186,32 @@ describe('Token Refresh and Fallback', () => {
     });
 
     it('should use fresh token from keychain (sync)', async () => {
-      mockGetCredentialsFromKeychain.mockReturnValue({ token: 'fresh-sync-token' });
+      // Return valid token with future expiry
+      mockGetFullCredentialsFromKeychain.mockReturnValue({
+        token: 'fresh-sync-token',
+        expiresAt: Date.now() + 3600000 // 1 hour from now
+      });
+      mockIsTokenExpiredOrNearExpiry.mockReturnValue(false);
 
       const { getBestAvailableProfileEnv } = await import('../rate-limit-detector');
       const result = getBestAvailableProfileEnv();
 
       expect(result.env.CLAUDE_CODE_OAUTH_TOKEN).toBe('fresh-sync-token');
+    });
+
+    it('should reject expired tokens and return empty (sync)', async () => {
+      // Return expired token
+      mockGetFullCredentialsFromKeychain.mockReturnValue({
+        token: 'expired-token',
+        expiresAt: Date.now() - 1000 // expired
+      });
+      mockIsTokenExpiredOrNearExpiry.mockReturnValue(true);
+
+      const { getBestAvailableProfileEnv } = await import('../rate-limit-detector');
+      const result = getBestAvailableProfileEnv();
+
+      // Should reject expired token and return empty
+      expect(result.env.CLAUDE_CODE_OAUTH_TOKEN).toBe('');
     });
   });
 });

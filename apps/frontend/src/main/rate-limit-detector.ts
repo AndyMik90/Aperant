@@ -5,8 +5,8 @@
 
 import { getClaudeProfileManager } from './claude-profile-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
-import { getCredentialsFromKeychain } from './claude-profile/credential-utils';
-import { ensureValidToken } from './claude-profile/token-refresh';
+import { getCredentialsFromKeychain, getFullCredentialsFromKeychain } from './claude-profile/credential-utils';
+import { ensureValidToken, isTokenExpiredOrNearExpiry } from './claude-profile/token-refresh';
 import { expandHomePath } from './claude-profile/profile-utils';
 
 /**
@@ -354,6 +354,10 @@ async function getFreshValidToken(configDir: string | undefined): Promise<{
  * Synchronous version of getFreshValidToken for cases where async isn't possible.
  * This reads directly from keychain without attempting token refresh.
  *
+ * IMPORTANT: This function validates token expiry using getFullCredentialsFromKeychain
+ * and isTokenExpiredOrNearExpiry. Expired or near-expiry tokens are treated as missing,
+ * returning null so the subprocess can fall back to other auth methods.
+ *
  * @param configDir - The profile's config directory path
  * @returns Object with the token (or null) and whether it came from fallback
  */
@@ -366,22 +370,37 @@ function getFreshValidTokenSync(configDir: string | undefined): {
   // Expand ~ in configDir using shared helper
   const expandedConfigDir = configDir ? expandHomePath(configDir) : configDir;
 
-  // Try profile-specific credentials first (forceRefresh = true bypasses cache)
+  // Try profile-specific credentials first
   if (expandedConfigDir) {
-    const profileCredentials = getCredentialsFromKeychain(expandedConfigDir, true);
+    const profileCredentials = getFullCredentialsFromKeychain(expandedConfigDir);
     if (profileCredentials.token) {
-      if (isDebug) {
-        console.warn('[RateLimitDetector:getFreshValidTokenSync] Got token from profile keychain');
+      // Validate token expiry - reject expired or near-expiry tokens
+      if (isTokenExpiredOrNearExpiry(profileCredentials.expiresAt)) {
+        if (isDebug) {
+          console.warn('[RateLimitDetector:getFreshValidTokenSync] Profile token expired or near expiry, skipping');
+        }
+        // Don't return - fall through to try default keychain
+      } else {
+        if (isDebug) {
+          console.warn('[RateLimitDetector:getFreshValidTokenSync] Got valid token from profile keychain');
+        }
+        return { token: profileCredentials.token, usedFallback: false };
       }
-      return { token: profileCredentials.token, usedFallback: false };
     }
   }
 
-  // Fall back to default keychain (forceRefresh = true bypasses cache)
-  const defaultCredentials = getCredentialsFromKeychain(undefined, true);
+  // Fall back to default keychain
+  const defaultCredentials = getFullCredentialsFromKeychain(undefined);
   if (defaultCredentials.token) {
+    // Validate token expiry - reject expired or near-expiry tokens
+    if (isTokenExpiredOrNearExpiry(defaultCredentials.expiresAt)) {
+      if (isDebug) {
+        console.warn('[RateLimitDetector:getFreshValidTokenSync] Default keychain token expired or near expiry');
+      }
+      return { token: null, usedFallback: false };
+    }
     if (isDebug) {
-      console.warn('[RateLimitDetector:getFreshValidTokenSync] Got token from default keychain (fallback)');
+      console.warn('[RateLimitDetector:getFreshValidTokenSync] Got valid token from default keychain (fallback)');
     }
     return { token: defaultCredentials.token, usedFallback: true };
   }
