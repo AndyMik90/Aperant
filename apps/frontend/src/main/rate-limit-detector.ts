@@ -705,17 +705,77 @@ export function createSDKRateLimitInfo(
   };
 }
 
+/*
+ * ============================================================================
+ * PROFILE SELECTION STRATEGY - DOCUMENTATION
+ * ============================================================================
+ *
+ * There are TWO functions for getting profile environment variables:
+ *
+ * 1. getBestAvailableProfileEnv() [SYNC, WITH SIDE EFFECTS]
+ *    - Updates global activeProfileId via setActiveProfile()
+ *    - Triggers UI refresh (usage-updated, all-profiles-usage-updated events)
+ *    - USE FOR: Reactive handling after rate limit errors (handleRateLimitWithAutoSwap)
+ *    - WHEN: Single-threaded UI event handlers where UI sync is required
+ *
+ * 2. getBestAvailableProfileEnvAsync() [ASYNC, PURE/STATELESS]
+ *    - Does NOT update global activeProfileId
+ *    - Does NOT trigger UI refresh
+ *    - Returns env vars for best profile without side effects
+ *    - USE FOR: Subprocess spawning (agent-process.ts)
+ *    - WHEN: Concurrent operations where race conditions are possible
+ *
+ * WHY TWO VERSIONS?
+ * -----------------
+ * The async version is called concurrently by multiple subprocess spawns.
+ * If it modified global state (activeProfileId), a race condition would occur:
+ *   - Process A reads activeProfile=X, determines swap needed
+ *   - Process B reads activeProfile=X, determines swap needed
+ *   - Both call setActiveProfile() → last one wins → UI desync
+ *
+ * By keeping the async version stateless:
+ *   - Each subprocess gets correct credentials (no race)
+ *   - UI updates happen only through reactive handlers (after errors)
+ *   - Simpler mental model: spawning = read-only, error handling = write
+ *
+ * SCENARIOS AND WHICH FUNCTION TO USE:
+ * ------------------------------------
+ * | Scenario                          | Function                      | Why                           |
+ * |-----------------------------------|-------------------------------|-------------------------------|
+ * | Spawning subprocess               | getBestAvailableProfileEnvAsync | Concurrent, needs fresh token |
+ * | Rate limit error (reactive)       | getBestAvailableProfileEnv      | Single event, needs UI update |
+ * | Manual profile switch             | profileManager.setActiveProfile | Direct user action            |
+ * | Token refresh for running process | refreshCurrentProfileToken      | Just token, no profile change |
+ *
+ * TOKEN REFRESH STRATEGY:
+ * -----------------------
+ * The async version includes proactive token refresh:
+ * 1. Try ensureValidToken() for profile's configDir (refreshes if near expiry)
+ * 2. If that fails, fall back to default keychain (updated by external /login)
+ *
+ * This fallback is critical for recovery when:
+ * - User runs /login in external terminal
+ * - External /login updates DEFAULT keychain (for ~/.claude/)
+ * - Auto-Claude profiles use ISOLATED keychain entries (for ~/.claude-profiles/xxx/)
+ * - Fallback allows external /login to fix auth issues in Auto-Claude
+ *
+ * ============================================================================
+ */
+
 /**
  * Async version of getBestAvailableProfileEnv that performs proactive token refresh.
  *
- * This should be called before spawning subprocesses, especially during recovery
- * after an auth failure. It:
- * 1. Selects the best available profile (same as sync version)
- * 2. Proactively refreshes the token if it's near expiry
- * 3. Falls back to default keychain if profile-specific token is unavailable
+ * IMPORTANT: This function is STATELESS - it does NOT call setActiveProfile() or
+ * update the UI. This is intentional to prevent race conditions when multiple
+ * subprocesses are spawned concurrently. See documentation block above.
  *
- * The proactive refresh helps prevent 401 errors during long-running tasks by
- * ensuring tokens are refreshed BEFORE they expire, not after the failure.
+ * Use this for subprocess spawning. Use getBestAvailableProfileEnv() (sync) when
+ * you need to update global state and refresh the UI (e.g., after rate limit errors).
+ *
+ * Features:
+ * 1. Selects the best available profile (avoids rate-limited/at-capacity profiles)
+ * 2. Proactively refreshes token if near expiry (prevents 401 during long tasks)
+ * 3. Falls back to default keychain if profile-specific token unavailable
  *
  * @returns Promise resolving to object containing env vars and metadata
  */
@@ -747,45 +807,22 @@ export async function getBestAvailableProfileEnvAsync(): Promise<BestProfileEnvR
   if (needsSwap) {
     const bestProfile = profileManager.getBestAvailableProfile(activeProfile.id);
     if (bestProfile) {
-      profileManager.setActiveProfile(bestProfile.id);
+      // NOTE: We intentionally do NOT call setActiveProfile() here.
+      // This function is called concurrently by multiple subprocess spawns.
+      // Modifying global state would cause race conditions.
+      // UI updates happen through reactive handlers (handleRateLimitWithAutoSwap).
       selectedProfileId = bestProfile.id;
       selectedProfileName = bestProfile.name;
       wasSwapped = true;
       originalProfile = { id: activeProfile.id, name: activeProfile.name };
 
       if (isDebug) {
-        console.warn('[RateLimitDetector:Async] Switched to profile:', bestProfile.name, 'reason:', swapReason);
-      }
-
-      // Trigger a usage refresh so the UI shows the new active profile
-      // This updates the UsageIndicator in the header
-      // Same as sync version but can use await since we're already async
-      try {
-        const usageMonitor = getUsageMonitor();
-        const allProfilesUsage = await usageMonitor.getAllProfilesUsage(true);
-        if (allProfilesUsage) {
-          // Find the new active profile in allProfiles and emit its usage
-          const newActiveProfile = allProfilesUsage.allProfiles.find(p => p.isActive);
-          if (newActiveProfile) {
-            const newActiveUsage = {
-              profileId: newActiveProfile.profileId,
-              profileName: newActiveProfile.profileName,
-              profileEmail: newActiveProfile.profileEmail,
-              sessionPercent: newActiveProfile.sessionPercent,
-              weeklyPercent: newActiveProfile.weeklyPercent,
-              sessionResetTimestamp: newActiveProfile.sessionResetTimestamp,
-              weeklyResetTimestamp: newActiveProfile.weeklyResetTimestamp,
-              fetchedAt: allProfilesUsage.fetchedAt,
-              needsReauthentication: newActiveProfile.needsReauthentication,
-            };
-            usageMonitor.emit('usage-updated', newActiveUsage);
-          }
-          // Also emit all-profiles-usage-updated for the other profiles list
-          usageMonitor.emit('all-profiles-usage-updated', allProfilesUsage);
-        }
-      } catch (err) {
-        // Usage monitor may not be initialized yet, that's OK
-        console.warn('[RateLimitDetector:Async] Could not trigger usage refresh:', err);
+        console.warn('[RateLimitDetector:Async] Selected alternative profile (stateless):', {
+          from: activeProfile.name,
+          to: bestProfile.name,
+          reason: swapReason,
+          note: 'Global activeProfileId NOT updated - this is intentional'
+        });
       }
     }
   }
