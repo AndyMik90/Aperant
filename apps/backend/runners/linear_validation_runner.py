@@ -223,8 +223,15 @@ async def validate_batch_tickets(
         Dict with successful and failed results
     """
     try:
+        # Create progress callback that outputs to stdout
+        def progress_callback(phase: str, step: int, total: int, message: str) -> None:
+            output_progress(phase, step, total, message)
+
         agent = create_linear_validator(
-            project_dir, project_dir, model="claude-opus-4-5-20251101"
+            project_dir,
+            project_dir,
+            model="claude-opus-4-5-20251101",
+            progress_callback=progress_callback,
         )
 
         # Convert ticket IDs to the format expected by validate_batch

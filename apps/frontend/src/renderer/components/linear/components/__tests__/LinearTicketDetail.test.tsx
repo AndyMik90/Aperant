@@ -7,10 +7,10 @@
  * @vitest-environment jsdom
  */
 
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { LinearTicketDetail } from "../LinearTicketDetail";
-import type { ValidationResult } from "../../../../../shared/types";
+import type { ValidationResult } from "@shared/types/integrations";
 
 // Mock useLinearValidationProgress hook
 vi.mock("../../../hooks/useLinearValidationProgress", () => ({
@@ -89,17 +89,17 @@ describe("LinearTicketDetail - Immediate Modal Opening", () => {
 		const validateButton = screen.getByRole("button");
 		fireEvent.click(validateButton);
 
-		// Wait a moment for React state to update
-		await new Promise(resolve => setTimeout(resolve, 10));
+		// Wait for React state to update
+		await waitFor(() => {
+			// CRITICAL ASSERTIONS:
+			// 1. Validation should have been triggered
+			expect(mockOnRunValidation).toHaveBeenCalled();
 
-		// CRITICAL ASSERTIONS:
-		// 1. Validation should have been triggered
-		expect(mockOnRunValidation).toHaveBeenCalled();
-
-		// 2. Modal should still be in DOM (component rendered it)
-		// In actual usage, setShowValidationModal(true) would be called
-		// The test verifies the modal exists and validation started
-		expect(screen.getByTestId("validation-modal")).toBeDefined();
+			// 2. Modal should now be open (data-open flips to "true")
+			// This verifies that setShowValidationModal(true) was called immediately
+			const modalAfter = screen.getByTestId("validation-modal");
+			expect(modalAfter.getAttribute("data-open")).toBe("true");
+		});
 
 		// Complete validation
 		validationResolve();

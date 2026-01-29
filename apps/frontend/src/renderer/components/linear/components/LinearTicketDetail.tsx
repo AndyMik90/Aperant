@@ -13,9 +13,9 @@ import { debugLog, debugError } from "@shared/utils/debug-logger";
 import type {
 	LinearTicket,
 	ValidationResult,
-} from "../../../../shared/types";
+} from "@shared/types";
 import { ValidationModal } from "./ValidationModal";
-import { rehypeUnwrapP } from "../../../../shared/lib/mdx/rehype-unwrap-p";
+import { rehypeUnwrapP } from "@shared/lib/mdx/rehype-unwrap-p";
 
 interface LinearTicketDetailProps {
 	ticket: LinearTicket | null;
