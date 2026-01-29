@@ -337,7 +337,7 @@ export async function fetchLinearTickets(
 	store.setError(null);
 
 	try {
-		if (!window.electronAPI?.getLinearIssues) {
+		if (!window.electronAPI?.linear?.getLinearIssues) {
 			console.warn("[fetchLinearTickets] Linear API not available");
 			return;
 		}
@@ -614,7 +614,7 @@ export async function validateLinearTicketBatch(
 	store.setError(null);
 
 	try {
-		if (!window.electronAPI?.validateLinearTicketBatch) {
+		if (!window.electronAPI?.linear?.validateLinearTicketBatch) {
 			console.warn("[validateLinearTicketBatch] Linear API not available");
 			return results;
 		}
@@ -713,7 +713,7 @@ export async function fetchLinearTeams(projectId: string): Promise<void> {
 	store.setError(null);
 
 	try {
-		if (!window.electronAPI?.getLinearTeams) {
+		if (!window.electronAPI?.linear?.getLinearTeams) {
 			console.warn("[fetchLinearTeams] Linear API not available");
 			return;
 		}
@@ -743,7 +743,7 @@ export async function fetchLinearProjects(projectId: string, teamId?: string): P
 	store.setError(null);
 
 	try {
-		if (!window.electronAPI?.getLinearProjects) {
+		if (!window.electronAPI?.linear?.getLinearProjects) {
 			console.warn("[fetchLinearProjects] Linear API not available");
 			return;
 		}
@@ -780,7 +780,7 @@ export async function updateLinearTicketWithValidation(
 	const store = useLinearStore.getState();
 
 	try {
-		if (!window.electronAPI?.updateLinearTicketWithValidation) {
+		if (!window.electronAPI?.linear?.updateLinearTicketWithValidation) {
 			console.warn(
 				"[updateLinearTicketWithValidation] Linear API not available",
 			);
