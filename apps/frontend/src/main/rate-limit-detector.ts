@@ -881,8 +881,12 @@ export async function getBestAvailableProfileEnvAsync(): Promise<BestProfileEnvR
     });
   }
 
-  // Build environment
-  const env: Record<string, string> = {};
+  // Build environment starting from profile's base env (aligns with sync path)
+  // This preserves any future profile env vars while overriding specific values
+  const baseEnv = profileManager.getProfileEnv(selectedProfileId);
+  const env: Record<string, string> = { ...baseEnv };
+
+  // Override CLAUDE_CONFIG_DIR with expanded path (handles ~ expansion)
   if (expandedConfigDir) {
     env.CLAUDE_CONFIG_DIR = expandedConfigDir;
   }
