@@ -567,7 +567,15 @@ export class AgentProcessManager {
     // 1. Refreshing tokens before they expire (prevents 401 during long tasks)
     // 2. Falling back to default keychain when profile token is unavailable
     //    (allows recovery via external /login command)
-    const env = await this.setupProcessEnvironment(extraEnv);
+    let env: NodeJS.ProcessEnv;
+    try {
+      env = await this.setupProcessEnvironment(extraEnv);
+    } catch (err) {
+      // Async environment setup failed - clean up tracking and propagate error
+      this.state.deleteProcess(taskId);
+      this.emitter.emit('error', taskId, err instanceof Error ? err.message : String(err));
+      throw err;
+    }
 
     // Get Python environment (PYTHONPATH for bundled packages, etc.)
     const pythonEnv = pythonEnvManager.getPythonEnv();
