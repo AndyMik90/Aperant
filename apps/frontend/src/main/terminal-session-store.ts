@@ -140,7 +140,7 @@ export class TerminalSessionStore {
         console.warn('[TerminalSessionStore] Successfully recovered from backup!');
         // Immediately save the recovered data to main file
         try {
-          writeFileSync(this.storePath, JSON.stringify(backupResult.data, null, 2));
+          writeFileSync(this.storePath, JSON.stringify(backupResult.data, null, 2), 'utf-8');
           console.warn('[TerminalSessionStore] Restored main file from backup');
         } catch (writeError) {
           console.error('[TerminalSessionStore] Failed to restore main file:', writeError);
@@ -201,7 +201,7 @@ export class TerminalSessionStore {
       const content = JSON.stringify(this.data, null, 2);
 
       // Step 1: Write to temp file
-      writeFileSync(this.tempPath, content);
+      writeFileSync(this.tempPath, content, 'utf-8');
 
       // Step 2: Rotate current file to backup (if it exists and is valid)
       if (existsSync(this.storePath)) {
@@ -267,7 +267,7 @@ export class TerminalSessionStore {
       const content = JSON.stringify(this.data, null, 2);
 
       // Step 1: Write to temp file
-      await fsPromises.writeFile(this.tempPath, content);
+      await fsPromises.writeFile(this.tempPath, content, 'utf-8');
 
       // Step 2: Rotate current file to backup (if it exists and is valid)
       if (await this.fileExists(this.storePath)) {

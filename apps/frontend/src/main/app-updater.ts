@@ -368,7 +368,7 @@ async function fetchLatestStableRelease(): Promise<AppUpdateInfo | null> {
       }
 
       response.on('data', (chunk) => {
-        data += chunk.toString();
+        data += chunk.toString('utf-8');
       });
 
       response.on('end', () => {

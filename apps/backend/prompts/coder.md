@@ -768,6 +768,19 @@ curl -X [method] [url] -H "Content-Type: application/json" -d '[body]'
 # Use combination of API calls and browser automation
 ```
 
+**Manual Verification:**
+```
+# For verification.type = "manual"
+# Read the instructions field and perform the described check
+# Mark subtask complete only after manual verification passes
+```
+
+**No Verification:**
+```
+# For verification.type = "none"
+# No verification required - mark subtask complete after implementation
+```
+
 ### FIX BUGS IMMEDIATELY
 
 **If verification fails: FIX IT NOW.**

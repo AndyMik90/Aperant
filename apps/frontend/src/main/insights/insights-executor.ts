@@ -133,7 +133,7 @@ export class InsightsExecutor extends EventEmitter {
       let stderrOutput = '';
 
       proc.stdout?.on('data', (data: Buffer) => {
-        const text = data.toString();
+        const text = data.toString('utf-8');
         // Collect output for rate limit detection (keep last 10KB)
         allInsightsOutput = (allInsightsOutput + text).slice(-10000);
 
@@ -159,7 +159,7 @@ export class InsightsExecutor extends EventEmitter {
       });
 
       proc.stderr?.on('data', (data: Buffer) => {
-        const text = data.toString();
+        const text = data.toString('utf-8');
         // Collect stderr for rate limit detection and error reporting
         allInsightsOutput = (allInsightsOutput + text).slice(-10000);
         stderrOutput = (stderrOutput + text).slice(-2000);

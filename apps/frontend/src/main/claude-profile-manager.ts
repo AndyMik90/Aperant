@@ -43,6 +43,7 @@ import {
   shouldProactivelySwitch as shouldProactivelySwitchImpl,
   getProfilesSortedByAvailability as getProfilesSortedByAvailabilityImpl
 } from './claude-profile/profile-scorer';
+import { getCredentialsFromKeychain } from './claude-profile/credential-utils';
 import {
   CLAUDE_PROFILES_DIR,
   generateProfileId as generateProfileIdImpl,
@@ -732,9 +733,27 @@ export class ClaudeProfileManager {
       });
     }
 
-    return {
+    // Retrieve OAuth token from Keychain and pass it to subprocess
+    // This ensures the backend Python agent can authenticate even when
+    // there's no .credentials.json file in the profile directory
+    const env: Record<string, string> = {
       CLAUDE_CONFIG_DIR: expandedConfigDir
     };
+
+    try {
+      const credentials = getCredentialsFromKeychain(expandedConfigDir);
+      if (credentials.token) {
+        env.CLAUDE_CODE_OAUTH_TOKEN = credentials.token;
+        if (process.env.DEBUG === 'true') {
+          console.warn('[ClaudeProfileManager] Retrieved OAuth token from Keychain for profile:', profile.name);
+        }
+      }
+    } catch (error) {
+      console.error('[ClaudeProfileManager] Failed to retrieve credentials from Keychain:', error);
+      // Continue without token - backend will fall back to other auth methods
+    }
+
+    return env;
   }
 
   /**

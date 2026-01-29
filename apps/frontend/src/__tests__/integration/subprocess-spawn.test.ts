@@ -398,11 +398,12 @@ describe('Subprocess Spawn Integration', () => {
       // Wait for spawn to complete (ensures exit handlers are attached)
       await new Promise(resolve => setImmediate(resolve));
 
-      // Both tasks share the same mock process, so emit exit once triggers both handlers
+      // Emit exit for task-1 (first task's handler)
       mockProcess.emit('exit', 0);
-
-      // Wait for both promises to resolve
       await promise1;
+
+      // Emit exit for task-2 (second task's handler replaces first due to shared mock process)
+      mockProcess.emit('exit', 0);
       await promise2;
 
       // Tasks should be removed from tracking after exit

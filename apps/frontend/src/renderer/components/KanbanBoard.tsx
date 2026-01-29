@@ -597,7 +597,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
             "absolute right-0 top-0 bottom-0 w-1 touch-none z-10",
             "transition-colors duration-150",
             isLocked
-              ? "cursor-not-allowed bg-amber-500/20 hover:bg-amber-500/30"
+              ? "cursor-not-allowed bg-transparent"
               : "cursor-col-resize hover:bg-primary/40",
             isResizing && !isLocked && "bg-primary/60"
           )}

@@ -253,7 +253,7 @@ export function registerStartGlabAuth(): void {
           let browserOpened = false;
 
           glabProcess.stdout?.on('data', (data) => {
-            const chunk = data.toString();
+            const chunk = data.toString('utf-8');
             output += chunk;
             debugLog('glab stdout:', chunk);
 
@@ -268,7 +268,7 @@ export function registerStartGlabAuth(): void {
           });
 
           glabProcess.stderr?.on('data', (data) => {
-            const chunk = data.toString();
+            const chunk = data.toString('utf-8');
             errorOutput += chunk;
             debugLog('glab stderr:', chunk);
           });

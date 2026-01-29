@@ -154,7 +154,7 @@ class PtyDaemonClient {
     if (!this.socket) return;
 
     this.socket.on('data', (chunk) => {
-      this.buffer += chunk.toString();
+      this.buffer += chunk.toString('utf-8');
 
       // Handle newline-delimited JSON
       const lines = this.buffer.split('\n');

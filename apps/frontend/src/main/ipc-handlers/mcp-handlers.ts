@@ -461,7 +461,7 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
     proc.stdin.write(initRequest);
 
     proc.stdout.on('data', (data) => {
-      stdout += data.toString();
+      stdout += data.toString('utf-8');
 
       // Try to parse JSON response
       try {
@@ -490,7 +490,7 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
     });
 
     proc.stderr.on('data', (data) => {
-      stderr += data.toString();
+      stderr += data.toString('utf-8');
     });
 
     proc.on('error', (error) => {

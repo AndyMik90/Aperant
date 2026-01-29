@@ -29,7 +29,7 @@ const possibleEnvPaths = [
 
 for (const envPath of possibleEnvPaths) {
   if (existsSync(envPath)) {
-    config({ path: envPath });
+    config({ path: envPath, quiet: true });
     console.log(`[dotenv] Loaded environment from: ${envPath}`);
     break;
   }

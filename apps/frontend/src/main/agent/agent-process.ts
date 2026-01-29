@@ -706,11 +706,11 @@ export class AgentProcessManager {
     };
 
     childProcess.stdout?.on('data', (data: Buffer) => {
-      stdoutBuffer = processBufferedOutput(stdoutBuffer, data.toString('utf8'));
+      stdoutBuffer = processBufferedOutput(stdoutBuffer, data.toString('utf-8'));
     });
 
     childProcess.stderr?.on('data', (data: Buffer) => {
-      stderrBuffer = processBufferedOutput(stderrBuffer, data.toString('utf8'));
+      stderrBuffer = processBufferedOutput(stderrBuffer, data.toString('utf-8'));
     });
 
     childProcess.on('exit', (code: number | null) => {

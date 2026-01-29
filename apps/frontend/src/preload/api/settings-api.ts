@@ -21,6 +21,9 @@ export interface SettingsAPI {
     claude: ToolDetectionResult;
   }>>;
 
+  // Claude Code onboarding status
+  getClaudeCodeOnboardingStatus: () => Promise<IPCResult<{ hasCompletedOnboarding: boolean }>>;
+
   // App Info
   getAppVersion: () => Promise<string>;
 
@@ -51,6 +54,10 @@ export const createSettingsAPI = (): SettingsAPI => ({
     claude: ToolDetectionResult;
   }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET_CLI_TOOLS_INFO),
+
+  // Claude Code onboarding status
+  getClaudeCodeOnboardingStatus: (): Promise<IPCResult<{ hasCompletedOnboarding: boolean }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_CLAUDE_CODE_GET_ONBOARDING_STATUS),
 
   // App Info
   getAppVersion: (): Promise<string> =>

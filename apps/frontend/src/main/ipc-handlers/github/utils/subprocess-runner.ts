@@ -194,7 +194,7 @@ export function runPythonSubprocess<T = unknown>(
     };
 
     child.stdout.on('data', (data: Buffer) => {
-      const text = data.toString();
+      const text = data.toString('utf-8');
       stdout += text;
 
       const lines = text.split('\n');
@@ -218,7 +218,7 @@ export function runPythonSubprocess<T = unknown>(
     });
 
     child.stderr.on('data', (data: Buffer) => {
-      const text = data.toString();
+      const text = data.toString('utf-8');
       stderr += text;
 
       const lines = text.split('\n');
