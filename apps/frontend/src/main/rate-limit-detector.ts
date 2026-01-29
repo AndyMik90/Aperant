@@ -292,7 +292,8 @@ async function getFreshValidToken(configDir: string | undefined): Promise<{
     try {
       const result = await ensureValidToken(expandedConfigDir);
 
-      if (result.token) {
+      // Only accept token if no error occurred during validation/refresh
+      if (result.token && !result.error) {
         if (isDebug) {
           console.warn('[RateLimitDetector:getFreshValidToken] Got valid token from profile configDir', {
             wasRefreshed: result.wasRefreshed,
@@ -308,7 +309,10 @@ async function getFreshValidToken(configDir: string | undefined): Promise<{
 
       // Token refresh failed or no token available
       if (isDebug) {
-        console.warn('[RateLimitDetector:getFreshValidToken] Profile token unavailable or refresh failed:', result.error);
+        console.warn('[RateLimitDetector:getFreshValidToken] Profile token rejected:', {
+          hasToken: !!result.token,
+          error: result.error || 'no token returned'
+        });
       }
     } catch (error) {
       if (isDebug) {
@@ -323,20 +327,36 @@ async function getFreshValidToken(configDir: string | undefined): Promise<{
     console.warn('[RateLimitDetector:getFreshValidToken] Falling back to default keychain entry');
   }
 
-  // forceRefresh = true bypasses the cache to get the freshest credentials
-  const defaultCredentials = getCredentialsFromKeychain(undefined, true);
+  // Use getFullCredentialsFromKeychain to get expiry info for validation
+  // This always reads fresh from keychain (no caching for full credentials)
+  const fullCredentials = getFullCredentialsFromKeychain(undefined);
 
-  if (defaultCredentials.token) {
-    if (isDebug) {
-      console.warn('[RateLimitDetector:getFreshValidToken] Got valid token from default keychain (fallback)', {
-        tokenFingerprint: defaultCredentials.token.slice(0, 8) + '...'
-      });
+  if (fullCredentials.token) {
+    // Validate the fallback token isn't expired or near expiry
+    // Pass the expiry time to isTokenExpiredOrNearExpiry for validation
+    const isExpired = isTokenExpiredOrNearExpiry(fullCredentials.expiresAt);
+
+    if (isExpired) {
+      if (isDebug) {
+        console.warn('[RateLimitDetector:getFreshValidToken] Default keychain token is expired or near expiry', {
+          expiresAt: fullCredentials.expiresAt,
+          tokenFingerprint: fullCredentials.token.slice(0, 8) + '...'
+        });
+      }
+      // Don't return expired token - fall through to return null
+    } else {
+      if (isDebug) {
+        console.warn('[RateLimitDetector:getFreshValidToken] Got valid token from default keychain (fallback)', {
+          tokenFingerprint: fullCredentials.token.slice(0, 8) + '...',
+          expiresAt: fullCredentials.expiresAt
+        });
+      }
+      return {
+        token: fullCredentials.token,
+        usedFallback: true,
+        wasRefreshed: false
+      };
     }
-    return {
-      token: defaultCredentials.token,
-      usedFallback: true,
-      wasRefreshed: false
-    };
   }
 
   if (isDebug) {
