@@ -355,7 +355,7 @@ describe("Linear Validation Progress", () => {
 	});
 
 	describe("Progress Phase Mapping", () => {
-		it("should track all 7 validation phases", () => {
+		it("should track all 8 validation phases", () => {
 			const phases = [
 				"initialization",
 				"content_analysis",
@@ -371,7 +371,7 @@ describe("Linear Validation Progress", () => {
 				useLinearStore.getState().updateValidationProgress("LIN-123", {
 					phase,
 					step: index,
-					total: 7,
+					total: 8,
 					message: `Phase ${phase}`,
 				});
 			});

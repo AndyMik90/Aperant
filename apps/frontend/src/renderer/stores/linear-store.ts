@@ -342,7 +342,7 @@ export async function fetchLinearTickets(
 			return;
 		}
 
-		const result = await window.electronAPI.getLinearIssues(
+		const result = await window.electronAPI.linear.getLinearIssues(
 			projectId,
 			filters?.teamId,
 			filters?.projectId || undefined,
@@ -370,7 +370,7 @@ export async function fetchLinearTicket(
 
 	try {
 		// TODO: Implement IPC handler in main process
-		// const result = await window.electronAPI.getLinearTicket(ticketId);
+		// const result = await window.electronAPI.linear.getLinearTicket(ticketId);
 		// if (result.success && result.data) {
 		//   store.updateTicket(ticketId, result.data);
 		//   return result.data;
@@ -447,8 +447,10 @@ export async function validateLinearTicket(
 
 	try {
 		debugLog("[validateLinearTicket] Starting validation for ticket:", ticketId, "projectId:", projectId);
-		if (!window.electronAPI?.validateLinearTicket) {
+		if (!window.electronAPI?.linear) {
 			debugWarn("[validateLinearTicket] Linear API not available");
+			// Clear progress when API is not available
+			store.clearValidationProgress(ticketId);
 			return null;
 		}
 
@@ -489,10 +491,12 @@ export async function validateLinearTicket(
 				error: errorMessage,
 			});
 			store.setError(errorMessage);
+			// Clear progress when validation fails due to missing project
+			store.clearValidationProgress(ticketId);
 			return null;
 		}
 
-		const result = await window.electronAPI.validateLinearTicket(
+		const result = await window.electronAPI.linear.validateLinearTicket(
 			projectId,
 			ticketId,
 			skipCache,
@@ -620,7 +624,7 @@ export async function validateLinearTicketBatch(
 			return results;
 		}
 
-		const result = await window.electronAPI.validateLinearTicketBatch(
+		const result = await window.electronAPI.linear.validateLinearTicketBatch(
 			projectId,
 			ticketIds,
 			false,
@@ -714,7 +718,7 @@ export async function fetchLinearTeams(projectId: string): Promise<void> {
 			return;
 		}
 
-		const result = await window.electronAPI.getLinearTeams(projectId);
+		const result = await window.electronAPI.linear.getLinearTeams(projectId);
 
 		if (result.success && result.data) {
 			store.setTeams(result.data);
@@ -749,7 +753,7 @@ export async function fetchLinearProjects(projectId: string, teamId?: string): P
 			return;
 		}
 
-		const result = await window.electronAPI.getLinearProjects(projectId, teamId);
+		const result = await window.electronAPI.linear.getLinearProjects(projectId, teamId);
 
 		if (result.success && result.data) {
 			store.setProjects(result.data);
@@ -790,7 +794,7 @@ export async function updateLinearTicketWithValidation(
 		}
 
 		const result =
-			await window.electronAPI.updateLinearTicketWithValidation(
+			await window.electronAPI.linear.updateLinearTicketWithValidation(
 				projectId,
 				ticketId,
 				validationResult,

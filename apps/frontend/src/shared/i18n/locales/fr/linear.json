@@ -44,6 +44,8 @@
 	"previousValidation": "Validation Précédente",
 	"followupInProgress": "Analyse de Suivi en Cours...",
 	"cancel": "Annuler",
+	"cancelFailed": "Échec de l'annulation de la validation",
+	"validationCancelled": "Validation a été annulée",
 	"updateTicket": "Mettre à Jour le Ticket",
 	"createTask": "Créer une Tâche",
 	"updating": "Mise à jour...",

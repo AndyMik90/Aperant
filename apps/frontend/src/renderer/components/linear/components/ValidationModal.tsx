@@ -308,7 +308,7 @@ export function ValidationModal({
 						},
 					}),
 					status: "cancelled",
-					error: "Validation was cancelled",
+					error: t("linear:validationCancelled"),
 				});
 				// Clear progress
 				useLinearStore.getState().clearValidationProgress(ticketId);
@@ -319,15 +319,15 @@ export function ValidationModal({
 				if (result.error?.includes("No active validation")) {
 					onOpenChange(false);
 				} else {
-					setError(result.error || "Failed to cancel validation");
+					setError(result.error || t("linear:cancelFailed"));
 				}
 			}
 		} catch (err) {
 			const errorMessage =
-				err instanceof Error ? err.message : "Failed to cancel validation";
+				err instanceof Error ? err.message : t("linear:cancelFailed");
 			setError(errorMessage);
 		}
-	}, [ticketId, validation, onOpenChange]);
+	}, [ticketId, validation, onOpenChange, t]);
 
 	// Render validation step with icon
 	const renderStep = (step: ValidationStep) => {

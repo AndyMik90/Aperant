@@ -33,6 +33,8 @@
 	"followupInProgress": "Follow-up Analysis in Progress...",
 	"cancel": "Cancel",
 	"close": "Close",
+	"cancelFailed": "Failed to cancel validation",
+	"validationCancelled": "Validation was cancelled",
 	"updateTicket": "Update Ticket",
 	"createTask": "Create Task",
 	"updating": "Updating...",

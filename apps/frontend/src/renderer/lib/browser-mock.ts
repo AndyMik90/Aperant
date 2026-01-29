@@ -302,7 +302,7 @@ const browserMockAPI: ElectronAPI = {
     }),
     cancelLinearValidation: async () => ({
       success: true,
-      data: undefined as any
+      data: undefined
     }),
     updateLinearTicketWithValidation: async () => ({
       success: true,
@@ -311,7 +311,7 @@ const browserMockAPI: ElectronAPI = {
     onLinearValidationProgress: () => () => {
       // Mock listener cleanup - no-op
     },
-    clearLinearCache: async () => ({ success: true, data: undefined as any })
+    clearLinearCache: async () => ({ success: true, data: undefined })
   },
 
   // Claude Code Operations

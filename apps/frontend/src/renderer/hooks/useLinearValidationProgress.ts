@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLinearStore } from "../stores/linear-store";
 import { debugLog, debugWarn } from "@shared/utils/debug-logger";
+import type { ElectronAPI } from "../../shared/types";
 
 /**
  * Hook to listen for Linear validation progress events from the main process.
@@ -21,15 +22,21 @@ export function useLinearValidationProgress(ticketId?: string): void {
 
 	useEffect(() => {
 		// Get the electronAPI from window
-		const electronAPI = (window as any).electronAPI;
+		const electronAPI = (window as Window & { electronAPI?: ElectronAPI }).electronAPI;
 		if (!electronAPI) {
 			debugWarn("[useLinearValidationProgress] electronAPI not available");
 			return;
 		}
 
+		// Check if the Linear API is available
+		if (!electronAPI.linear) {
+			debugWarn("[useLinearValidationProgress] Linear API not available on electronAPI");
+			return;
+		}
+
 		// Check if the Linear API progress listener is available
-		if (!electronAPI.onLinearValidationProgress) {
-			debugWarn("[useLinearValidationProgress] onLinearValidationProgress method not available on electronAPI");
+		if (!electronAPI.linear.onLinearValidationProgress) {
+			debugWarn("[useLinearValidationProgress] onLinearValidationProgress method not available on electronAPI.linear");
 			return;
 		}
 
@@ -53,7 +60,7 @@ export function useLinearValidationProgress(ticketId?: string): void {
 		};
 
 		// Register listener - returns cleanup function
-		const cleanup = electronAPI.onLinearValidationProgress(handleProgress);
+		const cleanup = electronAPI.linear.onLinearValidationProgress(handleProgress);
 
 		// Cleanup listener on unmount
 		return () => {
