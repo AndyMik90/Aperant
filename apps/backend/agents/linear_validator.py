@@ -26,6 +26,7 @@ import diskcache
 import requests
 from core.client import create_client
 from integrations.linear.linear_utils import get_linear_authorization_header
+from phase_config import get_phase_model, get_phase_thinking_budget
 from task_logger import LogPhase
 
 from .session import run_agent_session
@@ -324,7 +325,7 @@ class LinearValidationAgent:
         self,
         spec_dir: Path,
         project_dir: Path,
-        model: str = "claude-opus-4-5-20251101",
+        model: str | None = None,
         session_timeout: float | None = None,
         progress_callback: Callable[[str, int, int, str], None] | None = None,
     ):
@@ -334,19 +335,18 @@ class LinearValidationAgent:
         Args:
             spec_dir: Directory containing the spec (for context)
             project_dir: Root directory for the project
-            model: Claude model to use (default: Opus for best analysis)
+            model: Claude model override (optional, will use phase_config if None)
             session_timeout: Timeout in seconds for validation sessions (default: 300s)
             progress_callback: Optional callback for progress updates (phase, step, total, message)
         """
         self.spec_dir = Path(spec_dir)
         self.project_dir = Path(project_dir)
-        self.model = model
+        self._model_override = model
         self.session_timeout = (
             session_timeout
             if session_timeout is not None
             else self.DEFAULT_SESSION_TIMEOUT
         )
-        self._client = None
         self._progress_callback = progress_callback
 
         # Initialize diskcache for validation results
@@ -376,17 +376,42 @@ class LinearValidationAgent:
         - Context7 for documentation lookup
         - Auto-claude tools for progress tracking
 
+        Model and thinking budget are resolved from phase_config:
+        - Uses get_phase_model() to get the model from user settings
+        - Uses get_phase_thinking_budget() to get the thinking budget
+        - Falls back to Opus with 10000 tokens if phase_config unavailable
+
         Returns:
-            Configured ClaudeSDKClient instance
+            Configured ClaudeSDKClient instance (fresh each time, no caching)
         """
-        if self._client is None:
-            self._client = create_client(
-                self.project_dir,
-                self.spec_dir,
-                self.model,
-                agent_type="linear_validator",
-                max_thinking_tokens=10000,  # High thinking for complex analysis
+        # Resolve model from phase_config or use override
+        if self._model_override:
+            model = self._model_override
+        else:
+            # Use phase_config to resolve model for 'coding' phase (Linear validation is similar)
+            try:
+                model = get_phase_model(self.spec_dir, "coding", cli_model=None)
+            except Exception:
+                # Fallback to Opus if phase_config fails
+                model = "claude-opus-4-5-20251101"
+
+        # Resolve thinking budget from phase_config
+        try:
+            max_thinking_tokens = get_phase_thinking_budget(
+                self.spec_dir, "coding", cli_thinking=None
             )
+        except Exception:
+            # Fallback to 10000 tokens if phase_config fails
+            max_thinking_tokens = 10000
+
+        # Create a fresh client each time (no caching to avoid concurrency issues)
+        return create_client(
+            self.project_dir,
+            self.spec_dir,
+            model,
+            agent_type="linear_validator",
+            max_thinking_tokens=max_thinking_tokens,
+        )
         return self._client
 
     def _get_cache_key(self, issue_id: str, validation_timestamp: str) -> str:
