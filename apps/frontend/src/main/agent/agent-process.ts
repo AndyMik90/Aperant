@@ -12,7 +12,7 @@ import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { ProcessType, ExecutionProgressData } from './types';
 import type { CompletablePhase } from '../../shared/constants/phase-protocol';
-import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv, detectAuthFailure } from '../rate-limit-detector';
+import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnvAsync, detectAuthFailure } from '../rate-limit-detector';
 import { getAPIProfileEnv } from '../services/profile';
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
@@ -170,12 +170,16 @@ export class AgentProcessManager {
     return env;
   }
 
-  private setupProcessEnvironment(
-    extraEnv: Record<string, string>
-  ): NodeJS.ProcessEnv {
-    // Get best available Claude profile environment (automatically handles rate limits)
-    const profileResult = getBestAvailableProfileEnv();
-    const profileEnv = profileResult.env;
+  /**
+   * Build common environment variables (paths, git-bash, CLI tools).
+   * Shared by both sync and async setup methods.
+   */
+  private buildCommonEnv(): {
+    augmentedEnv: Record<string, string>;
+    gitBashEnv: Record<string, string>;
+    claudeCliEnv: Record<string, string>;
+    ghCliEnv: Record<string, string>;
+  } {
     // Use getAugmentedEnv() to ensure common tool paths (dotnet, homebrew, etc.)
     // are available even when app is launched from Finder/Dock
     const augmentedEnv = getAugmentedEnv();
@@ -201,6 +205,40 @@ export class AgentProcessManager {
     // Detect and pass CLI tool paths to Python backend
     const claudeCliEnv = this.detectAndSetCliPath('claude');
     const ghCliEnv = this.detectAndSetCliPath('gh');
+
+    return { augmentedEnv, gitBashEnv, claudeCliEnv, ghCliEnv };
+  }
+
+  /**
+   * Set up the process environment with proactive token refresh.
+   *
+   * This should be used when spawning subprocesses, especially during recovery
+   * after an auth failure. It proactively refreshes tokens that are near expiry,
+   * preventing 401 errors during long-running tasks.
+   *
+   * Also falls back to the default keychain (updated by external `/login` commands)
+   * when the profile-specific token is unavailable or expired.
+   */
+  private async setupProcessEnvironment(
+    extraEnv: Record<string, string>
+  ): Promise<NodeJS.ProcessEnv> {
+    // Get best available Claude profile environment with proactive token refresh
+    // This is the key improvement: it refreshes tokens BEFORE they expire and
+    // falls back to default keychain if the profile-specific token is unavailable
+    const profileResult = await getBestAvailableProfileEnvAsync();
+    const profileEnv = profileResult.env;
+
+    if (process.env.DEBUG === 'true') {
+      console.warn('[AgentProcess] Async profile env result:', {
+        profileId: profileResult.profileId,
+        profileName: profileResult.profileName,
+        wasSwapped: profileResult.wasSwapped,
+        hasToken: !!profileEnv.CLAUDE_CODE_OAUTH_TOKEN,
+        hasConfigDir: !!profileEnv.CLAUDE_CONFIG_DIR
+      });
+    }
+
+    const { augmentedEnv, gitBashEnv, claudeCliEnv, ghCliEnv } = this.buildCommonEnv();
 
     return {
       ...augmentedEnv,
@@ -524,7 +562,12 @@ export class AgentProcessManager {
       spawnId
     });
 
-    const env = this.setupProcessEnvironment(extraEnv);
+    // Use async environment setup with proactive token refresh.
+    // This is critical for:
+    // 1. Refreshing tokens before they expire (prevents 401 during long tasks)
+    // 2. Falling back to default keychain when profile token is unavailable
+    //    (allows recovery via external /login command)
+    const env = await this.setupProcessEnvironment(extraEnv);
 
     // Get Python environment (PYTHONPATH for bundled packages, etc.)
     const pythonEnv = pythonEnvManager.getPythonEnv();

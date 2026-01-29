@@ -105,6 +105,12 @@ vi.mock('../../main/rate-limit-detector', () => ({
     profileName: 'Default',
     wasSwapped: false
   })),
+  getBestAvailableProfileEnvAsync: vi.fn(() => Promise.resolve({
+    env: {},
+    profileId: 'default',
+    profileName: 'Default',
+    wasSwapped: false
+  })),
   getProfileEnv: vi.fn(() => ({})),
   detectRateLimit: vi.fn(() => ({ isRateLimited: false })),
   detectAuthFailure: vi.fn(() => ({ isAuthFailure: false }))

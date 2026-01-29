@@ -90,6 +90,12 @@ vi.mock('../rate-limit-detector', () => ({
     profileName: 'Default',
     wasSwapped: false
   })),
+  getBestAvailableProfileEnvAsync: vi.fn(() => Promise.resolve({
+    env: {},
+    profileId: 'default',
+    profileName: 'Default',
+    wasSwapped: false
+  })),
   detectRateLimit: vi.fn(() => ({ isRateLimited: false })),
   createSDKRateLimitInfo: vi.fn(),
   detectAuthFailure: vi.fn(() => ({ isAuthFailure: false }))
@@ -292,12 +298,14 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
 
       // Set OAuth token via getProfileEnv (existing flow)
-      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+      const profileEnvResult = {
         env: { CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-123' },
         profileId: 'default',
         profileName: 'Default',
         wasSwapped: false
-      });
+      };
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue(profileEnvResult);
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnvAsync).mockResolvedValue(profileEnvResult);
 
       await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
 
@@ -327,12 +335,14 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
 
       // Set OAuth token
-      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+      const profileEnvResult = {
         env: { CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-456' },
         profileId: 'default',
         profileName: 'Default',
         wasSwapped: false
-      });
+      };
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue(profileEnvResult);
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnvAsync).mockResolvedValue(profileEnvResult);
 
       await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
 
@@ -354,12 +364,14 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
 
       // OAuth mode
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
-      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+      const profileEnvResult = {
         env: { CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-789' },
         profileId: 'default',
         profileName: 'Default',
         wasSwapped: false
-      });
+      };
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue(profileEnvResult);
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnvAsync).mockResolvedValue(profileEnvResult);
 
       await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
 
@@ -512,12 +524,14 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
         ANTHROPIC_BASE_URL: 'https://api-profile.com'
       };
 
-      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+      const profileEnvResult = {
         env: profileEnv,
         profileId: 'default',
         profileName: 'Default',
         wasSwapped: false
-      });
+      };
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue(profileEnvResult);
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnvAsync).mockResolvedValue(profileEnvResult);
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue(apiProfileEnv);
 
       await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], extraEnv, 'task-execution');

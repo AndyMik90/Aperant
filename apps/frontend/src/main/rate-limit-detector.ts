@@ -5,6 +5,9 @@
 
 import { getClaudeProfileManager } from './claude-profile-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
+import { getCredentialsFromKeychain } from './claude-profile/credential-utils';
+import { ensureValidToken } from './claude-profile/token-refresh';
+import { homedir } from 'os';
 
 /**
  * Regex pattern to detect Claude Code rate limit messages
@@ -254,6 +257,143 @@ export function isAuthFailureError(output: string): boolean {
 }
 
 /**
+ * Get a fresh, validated OAuth token for a profile's config directory.
+ *
+ * This function implements a robust token acquisition strategy:
+ * 1. Try to ensure a valid token for the profile's configDir (proactive refresh if needed)
+ * 2. If the profile-specific token is expired and can't be refreshed, fall back to
+ *    the system's default keychain entry (the one updated by external `/login` commands)
+ *
+ * This fallback is critical because:
+ * - Auto-Claude uses isolated profile directories (~/.claude-profiles/xxx/)
+ * - External `/login` updates the DEFAULT keychain entry (for ~/.claude/)
+ * - Without fallback, users can't recover by doing `/login` in an external terminal
+ *
+ * @param configDir - The profile's config directory path
+ * @returns Object with the fresh token (or null) and whether it came from fallback
+ */
+async function getFreshValidToken(configDir: string | undefined): Promise<{
+  token: string | null;
+  usedFallback: boolean;
+  wasRefreshed: boolean;
+}> {
+  const isDebug = process.env.DEBUG === 'true';
+
+  // Expand ~ in configDir
+  const expandedConfigDir = configDir?.startsWith('~')
+    ? configDir.replace(/^~/, homedir())
+    : configDir;
+
+  if (isDebug) {
+    console.warn('[RateLimitDetector:getFreshValidToken] Getting fresh token for configDir:', expandedConfigDir || 'default');
+  }
+
+  // Step 1: Try to get a valid token for the profile's configDir
+  // This will proactively refresh if the token is near expiry
+  if (expandedConfigDir) {
+    try {
+      const result = await ensureValidToken(expandedConfigDir);
+
+      if (result.token) {
+        if (isDebug) {
+          console.warn('[RateLimitDetector:getFreshValidToken] Got valid token from profile configDir', {
+            wasRefreshed: result.wasRefreshed,
+            tokenFingerprint: result.token.slice(0, 8) + '...'
+          });
+        }
+        return {
+          token: result.token,
+          usedFallback: false,
+          wasRefreshed: result.wasRefreshed
+        };
+      }
+
+      // Token refresh failed or no token available
+      if (isDebug) {
+        console.warn('[RateLimitDetector:getFreshValidToken] Profile token unavailable or refresh failed:', result.error);
+      }
+    } catch (error) {
+      if (isDebug) {
+        console.warn('[RateLimitDetector:getFreshValidToken] Error during profile token validation:', error);
+      }
+    }
+  }
+
+  // Step 2: Fall back to the DEFAULT keychain entry (no configDir hash)
+  // This is the entry that external `/login` commands update
+  if (isDebug) {
+    console.warn('[RateLimitDetector:getFreshValidToken] Falling back to default keychain entry');
+  }
+
+  // forceRefresh = true bypasses the cache to get the freshest credentials
+  const defaultCredentials = getCredentialsFromKeychain(undefined, true);
+
+  if (defaultCredentials.token) {
+    if (isDebug) {
+      console.warn('[RateLimitDetector:getFreshValidToken] Got valid token from default keychain (fallback)', {
+        tokenFingerprint: defaultCredentials.token.slice(0, 8) + '...'
+      });
+    }
+    return {
+      token: defaultCredentials.token,
+      usedFallback: true,
+      wasRefreshed: false
+    };
+  }
+
+  if (isDebug) {
+    console.warn('[RateLimitDetector:getFreshValidToken] No valid token found in either profile or default keychain');
+  }
+
+  return {
+    token: null,
+    usedFallback: false,
+    wasRefreshed: false
+  };
+}
+
+/**
+ * Synchronous version of getFreshValidToken for cases where async isn't possible.
+ * This reads directly from keychain without attempting token refresh.
+ *
+ * @param configDir - The profile's config directory path
+ * @returns Object with the token (or null) and whether it came from fallback
+ */
+function getFreshValidTokenSync(configDir: string | undefined): {
+  token: string | null;
+  usedFallback: boolean;
+} {
+  const isDebug = process.env.DEBUG === 'true';
+
+  // Expand ~ in configDir
+  const expandedConfigDir = configDir?.startsWith('~')
+    ? configDir.replace(/^~/, homedir())
+    : configDir;
+
+  // Try profile-specific credentials first (forceRefresh = true bypasses cache)
+  if (expandedConfigDir) {
+    const profileCredentials = getCredentialsFromKeychain(expandedConfigDir, true);
+    if (profileCredentials.token) {
+      if (isDebug) {
+        console.warn('[RateLimitDetector:getFreshValidTokenSync] Got token from profile keychain');
+      }
+      return { token: profileCredentials.token, usedFallback: false };
+    }
+  }
+
+  // Fall back to default keychain (forceRefresh = true bypasses cache)
+  const defaultCredentials = getCredentialsFromKeychain(undefined, true);
+  if (defaultCredentials.token) {
+    if (isDebug) {
+      console.warn('[RateLimitDetector:getFreshValidTokenSync] Got token from default keychain (fallback)');
+    }
+    return { token: defaultCredentials.token, usedFallback: true };
+  }
+
+  return { token: null, usedFallback: false };
+}
+
+/**
  * Get environment variables for a specific Claude profile.
  *
  * IMPORTANT: Always uses CLAUDE_CONFIG_DIR to let Claude CLI read fresh tokens from Keychain.
@@ -439,26 +579,52 @@ export function getBestAvailableProfileEnv(): BestProfileEnvResult {
 }
 
 /**
- * Ensure the profile environment is clean for subprocess invocation.
+ * Ensure the profile environment has a fresh, valid token for subprocess invocation.
  *
- * When CLAUDE_CONFIG_DIR is set, we MUST clear CLAUDE_CODE_OAUTH_TOKEN to prevent
- * the Claude Agent SDK from using a hardcoded/cached token (e.g., from .env file)
- * instead of reading fresh credentials from the specified config directory.
+ * This function replaces the old approach of clearing CLAUDE_CODE_OAUTH_TOKEN.
+ * Instead, we now:
+ * 1. Read fresh credentials from keychain (profile-specific first, then default fallback)
+ * 2. Pass the validated token explicitly in CLAUDE_CODE_OAUTH_TOKEN
  *
- * This is critical for multi-account switching: when switching from a rate-limited
- * account to an available one, the subprocess must use the new account's credentials.
+ * The fallback to default keychain is critical for recovery scenarios:
+ * - Auto-Claude profiles use isolated keychain entries (Claude Code-credentials-<hash>)
+ * - External `/login` commands update the DEFAULT keychain entry (for ~/.claude/)
+ * - Without fallback, users can't recover by doing `/login` in external terminal
  *
  * @param env - Profile environment from getProfileEnv() or getActiveProfileEnv()
- * @returns Environment with CLAUDE_CODE_OAUTH_TOKEN cleared if CLAUDE_CONFIG_DIR is set
+ * @returns Environment with fresh CLAUDE_CODE_OAUTH_TOKEN (or empty if no valid token found)
  */
 function ensureCleanProfileEnv(env: Record<string, string>): Record<string, string> {
+  const isDebug = process.env.DEBUG === 'true';
+
   if (env.CLAUDE_CONFIG_DIR) {
-    // Clear CLAUDE_CODE_OAUTH_TOKEN to ensure SDK uses credentials from CLAUDE_CONFIG_DIR
+    // Get fresh token with fallback to default keychain
+    const { token, usedFallback } = getFreshValidTokenSync(env.CLAUDE_CONFIG_DIR);
+
+    if (token) {
+      if (isDebug) {
+        console.warn('[RateLimitDetector:ensureCleanProfileEnv] Setting fresh token', {
+          usedFallback,
+          configDir: env.CLAUDE_CONFIG_DIR,
+          tokenFingerprint: token.slice(0, 8) + '...'
+        });
+      }
+      return {
+        ...env,
+        CLAUDE_CODE_OAUTH_TOKEN: token
+      };
+    }
+
+    // No valid token found - set empty to let subprocess try other auth methods
+    if (isDebug) {
+      console.warn('[RateLimitDetector:ensureCleanProfileEnv] No valid token found, setting empty');
+    }
     return {
       ...env,
       CLAUDE_CODE_OAUTH_TOKEN: ''
     };
   }
+
   return env;
 }
 
@@ -537,4 +703,150 @@ export function createSDKRateLimitInfo(
     detectedAt: new Date(),
     originalError: detection.originalError
   };
+}
+
+/**
+ * Async version of getBestAvailableProfileEnv that performs proactive token refresh.
+ *
+ * This should be called before spawning subprocesses, especially during recovery
+ * after an auth failure. It:
+ * 1. Selects the best available profile (same as sync version)
+ * 2. Proactively refreshes the token if it's near expiry
+ * 3. Falls back to default keychain if profile-specific token is unavailable
+ *
+ * The proactive refresh helps prevent 401 errors during long-running tasks by
+ * ensuring tokens are refreshed BEFORE they expire, not after the failure.
+ *
+ * @returns Promise resolving to object containing env vars and metadata
+ */
+export async function getBestAvailableProfileEnvAsync(): Promise<BestProfileEnvResult> {
+  const isDebug = process.env.DEBUG === 'true';
+  const profileManager = getClaudeProfileManager();
+  const activeProfile = profileManager.getActiveProfile();
+
+  // Check for explicit rate limit (from previous API errors)
+  const rateLimitStatus = profileManager.isProfileRateLimited(activeProfile.id);
+
+  // Check for capacity limit (100% weekly usage - will be rate limited on next request)
+  const isAtCapacity = activeProfile.usage?.weeklyUsagePercent !== undefined &&
+                       activeProfile.usage.weeklyUsagePercent >= 100;
+
+  // Determine if we need to find an alternative
+  const needsSwap = rateLimitStatus.limited || isAtCapacity;
+  const swapReason: BestProfileEnvResult['swapReason'] = rateLimitStatus.limited
+    ? 'rate_limited'
+    : isAtCapacity
+      ? 'at_capacity'
+      : undefined;
+
+  let selectedProfileId = activeProfile.id;
+  let selectedProfileName = activeProfile.name;
+  let wasSwapped = false;
+  let originalProfile: { id: string; name: string } | undefined;
+
+  if (needsSwap) {
+    const bestProfile = profileManager.getBestAvailableProfile(activeProfile.id);
+    if (bestProfile) {
+      profileManager.setActiveProfile(bestProfile.id);
+      selectedProfileId = bestProfile.id;
+      selectedProfileName = bestProfile.name;
+      wasSwapped = true;
+      originalProfile = { id: activeProfile.id, name: activeProfile.name };
+
+      if (isDebug) {
+        console.warn('[RateLimitDetector:Async] Switched to profile:', bestProfile.name, 'reason:', swapReason);
+      }
+
+      // Trigger a usage refresh so the UI shows the new active profile
+      // This updates the UsageIndicator in the header
+      // Same as sync version but can use await since we're already async
+      try {
+        const usageMonitor = getUsageMonitor();
+        const allProfilesUsage = await usageMonitor.getAllProfilesUsage(true);
+        if (allProfilesUsage) {
+          // Find the new active profile in allProfiles and emit its usage
+          const newActiveProfile = allProfilesUsage.allProfiles.find(p => p.isActive);
+          if (newActiveProfile) {
+            const newActiveUsage = {
+              profileId: newActiveProfile.profileId,
+              profileName: newActiveProfile.profileName,
+              profileEmail: newActiveProfile.profileEmail,
+              sessionPercent: newActiveProfile.sessionPercent,
+              weeklyPercent: newActiveProfile.weeklyPercent,
+              sessionResetTimestamp: newActiveProfile.sessionResetTimestamp,
+              weeklyResetTimestamp: newActiveProfile.weeklyResetTimestamp,
+              fetchedAt: allProfilesUsage.fetchedAt,
+              needsReauthentication: newActiveProfile.needsReauthentication,
+            };
+            usageMonitor.emit('usage-updated', newActiveUsage);
+          }
+          // Also emit all-profiles-usage-updated for the other profiles list
+          usageMonitor.emit('all-profiles-usage-updated', allProfilesUsage);
+        }
+      } catch (err) {
+        // Usage monitor may not be initialized yet, that's OK
+        console.warn('[RateLimitDetector:Async] Could not trigger usage refresh:', err);
+      }
+    }
+  }
+
+  // Get the profile's configDir
+  const selectedProfile = profileManager.getProfile(selectedProfileId);
+  const configDir = selectedProfile?.configDir;
+
+  // Expand configDir
+  const expandedConfigDir = configDir?.startsWith('~')
+    ? configDir.replace(/^~/, homedir())
+    : configDir;
+
+  // Proactively refresh token with fallback
+  const { token, usedFallback, wasRefreshed } = await getFreshValidToken(expandedConfigDir);
+
+  if (isDebug) {
+    console.warn('[RateLimitDetector:Async] Token acquisition result:', {
+      hasToken: !!token,
+      usedFallback,
+      wasRefreshed,
+      configDir: expandedConfigDir
+    });
+  }
+
+  // Build environment
+  const env: Record<string, string> = {};
+  if (expandedConfigDir) {
+    env.CLAUDE_CONFIG_DIR = expandedConfigDir;
+  }
+  // Always set CLAUDE_CODE_OAUTH_TOKEN to align with sync behavior:
+  // use the token when present, or an empty string when no valid token is available.
+  env.CLAUDE_CODE_OAUTH_TOKEN = token ?? '';
+
+  return {
+    env,
+    profileId: selectedProfileId,
+    profileName: selectedProfileName,
+    wasSwapped,
+    swapReason,
+    originalProfile
+  };
+}
+
+/**
+ * Refresh credentials for the current profile and return a fresh token.
+ * Useful for explicit refresh operations (e.g., after user re-authenticates externally).
+ *
+ * @returns Promise resolving to the fresh token or null
+ */
+export async function refreshCurrentProfileToken(): Promise<string | null> {
+  const profileManager = getClaudeProfileManager();
+  const activeProfile = profileManager.getActiveProfile();
+  const configDir = activeProfile?.configDir;
+
+  // Expand configDir
+  const expandedConfigDir = configDir?.startsWith('~')
+    ? configDir.replace(/^~/, homedir())
+    : configDir;
+
+  // getFreshValidToken already uses forceRefresh = true internally
+  const { token } = await getFreshValidToken(expandedConfigDir);
+  return token;
 }
