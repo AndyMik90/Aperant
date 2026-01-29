@@ -199,11 +199,11 @@
       ],
       "extraResources": [
         {
-          "from": "python-runtime/darwin-${arch}/python",
+          "from": "python-runtime/${os}-${arch}/python",
           "to": "python"
         },
         {
-          "from": "python-runtime/darwin-${arch}/site-packages",
+          "from": "python-runtime/${os}-${arch}/site-packages",
           "to": "python-site-packages"
         }
       ]
@@ -216,11 +216,11 @@
       ],
       "extraResources": [
         {
-          "from": "python-runtime/win32-${arch}/python",
+          "from": "python-runtime/${os}-${arch}/python",
           "to": "python"
         },
         {
-          "from": "python-runtime/win32-${arch}/site-packages",
+          "from": "python-runtime/${os}-${arch}/site-packages",
           "to": "python-site-packages"
         }
       ]
@@ -235,11 +235,11 @@
       "category": "Development",
       "extraResources": [
         {
-          "from": "python-runtime/linux-${arch}/python",
+          "from": "python-runtime/${os}-${arch}/python",
           "to": "python"
         },
         {
-          "from": "python-runtime/linux-${arch}/site-packages",
+          "from": "python-runtime/${os}-${arch}/site-packages",
           "to": "python-site-packages"
         }
       ]
