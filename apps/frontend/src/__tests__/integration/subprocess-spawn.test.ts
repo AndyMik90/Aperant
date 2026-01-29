@@ -30,17 +30,27 @@ const [EXPECTED_PYTHON_COMMAND, EXPECTED_PYTHON_BASE_ARGS] = parsePythonCommand(
 // Mock child_process spawn - factory function to create unique process per spawn
 // This ensures each task is tracked independently and exit events clean up only the intended task
 // We keep track of all created processes and the last one for test access
-const mockProcesses: Array<ReturnType<typeof createMockProcess>> = [];
-let lastMockProcess: ReturnType<typeof createMockProcess> | null = null;
 
-function createMockProcess() {
-  const proc = Object.assign(new EventEmitter(), {
+// Define explicit type to avoid circular reference between mockProcesses and createMockProcess
+type MockProcess = EventEmitter & {
+  stdout: EventEmitter;
+  stderr: EventEmitter;
+  pid: number;
+  killed: boolean;
+  kill: ReturnType<typeof vi.fn>;
+};
+
+const mockProcesses: MockProcess[] = [];
+let lastMockProcess: MockProcess | null = null;
+
+function createMockProcess(): MockProcess {
+  const proc: MockProcess = Object.assign(new EventEmitter(), {
     stdout: new EventEmitter(),
     stderr: new EventEmitter(),
     pid: Math.floor(Math.random() * 100000),
     killed: false,
     kill: vi.fn(() => {
-      (proc as { killed: boolean }).killed = true;
+      proc.killed = true;
       // Emit exit event asynchronously to simulate process termination
       process.nextTick(() => proc.emit('exit', 0, null));
       return true;
