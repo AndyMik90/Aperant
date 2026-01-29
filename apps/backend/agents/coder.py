@@ -229,7 +229,10 @@ async def run_autonomous_agent(
 
     def _reset_concurrency_state() -> None:
         """Reset concurrency error tracking state after a successful session or non-concurrency error."""
-        nonlocal consecutive_concurrency_errors, current_retry_delay, concurrency_error_context
+        nonlocal \
+            consecutive_concurrency_errors, \
+            current_retry_delay, \
+            concurrency_error_context
         consecutive_concurrency_errors = 0
         current_retry_delay = INITIAL_RETRY_DELAY_SECONDS
         concurrency_error_context = None
