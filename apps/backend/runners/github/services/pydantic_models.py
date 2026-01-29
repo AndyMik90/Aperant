@@ -629,6 +629,14 @@ class ParallelFollowupFinding(BaseModel):
     related_to_previous: str | None = Field(
         None, description="ID of related previous finding if this is a regression"
     )
+    is_impact_finding: bool = Field(
+        False,
+        description=(
+            "True if this finding is about impact on OTHER files (callers, dependents) "
+            "outside the PR's changed files. Used by _is_finding_in_scope() to allow "
+            "findings about related files that aren't directly in the PR diff."
+        ),
+    )
 
 
 class CommentAnalysis(BaseModel):

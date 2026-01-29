@@ -911,6 +911,7 @@ The SDK will run invoked agents in parallel automatically.
                                     validation_status=validation_status,
                                     validation_evidence=validation_evidence,
                                     validation_explanation=validation_explanation,
+                                    is_impact_finding=original.is_impact_finding,
                                 )
                             )
 
@@ -931,6 +932,7 @@ The SDK will run invoked agents in parallel automatically.
                         line=nf.line,
                         suggested_fix=nf.suggested_fix,
                         fixable=nf.fixable,
+                        is_impact_finding=getattr(nf, "is_impact_finding", False),
                     )
                 )
 
