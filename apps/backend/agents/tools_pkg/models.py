@@ -324,6 +324,18 @@ AGENT_CONFIGS = {
         "auto_claude_tools": [],
         "thinking_default": "medium",
     },
+    "linear_resolution": {
+        "tools": BASE_READ_TOOLS + WEB_TOOLS,
+        "mcp_servers": ["context7", "linear"],
+        "auto_claude_tools": [],
+        "thinking_default": "medium",
+    },
+    "linear_similarity": {
+        "tools": BASE_READ_TOOLS + WEB_TOOLS,
+        "mcp_servers": ["context7", "linear"],
+        "auto_claude_tools": [],
+        "thinking_default": "medium",
+    },
     # ═══════════════════════════════════════════════════════════════════════
     # ROADMAP & IDEATION
     # ═══════════════════════════════════════════════════════════════════════

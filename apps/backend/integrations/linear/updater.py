@@ -29,6 +29,8 @@ from typing import Optional
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
+from .linear_utils import get_linear_authorization_header
+
 # Linear status constants (matching Valma AI team setup)
 STATUS_TODO = "Todo"
 STATUS_IN_PROGRESS = "In Progress"
@@ -129,12 +131,10 @@ def _create_linear_client() -> ClaudeSDKClient:
 
     sdk_env = get_sdk_env_vars()
 
-    # Linear personal API keys (starting with lin_api_) should NOT use Bearer prefix
-    linear_auth = (
-        linear_api_key
-        if linear_api_key.startswith("lin_api_")
-        else f"Bearer {linear_api_key}"
-    )
+    # Get correct Authorization header for Linear API
+    # Linear personal API keys (starting with 'lin_api_') should NOT use Bearer prefix
+    # OAuth tokens should use 'Bearer' prefix
+    linear_auth = get_linear_authorization_header(linear_api_key)
 
     return ClaudeSDKClient(
         options=ClaudeAgentOptions(

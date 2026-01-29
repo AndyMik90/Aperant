@@ -201,3 +201,44 @@ export function formatTimeRemainingSimple(timestamp: string | undefined): string
     return 'Unknown';
   }
 }
+
+/**
+ * Format a date string as a relative time string (e.g., "2h ago", "3d ago", "yesterday")
+ *
+ * Calculates the time difference between the given date and now,
+ * then formats it as a human-readable relative time string.
+ *
+ * @param dateString - ISO date string to format
+ * @returns Formatted relative time string
+ *
+ * @example
+ * formatRelativeTime('2025-01-20T15:00:00Z') // Assuming current time is 2 hours later
+ * // Returns: "2h ago"
+ *
+ * @example
+ * formatRelativeTime('2025-01-20T15:00:00Z') // Assuming current time is 1 day later
+ * // Returns: "yesterday"
+ *
+ * @example
+ * formatRelativeTime('2025-01-20T15:00:00Z') // Assuming current time is 10 days later
+ * // Returns: "1w ago"
+ */
+export function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (diffHours === 0) {
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      return `${diffMins}m ago`;
+    }
+    return `${diffHours}h ago`;
+  }
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  return date.toLocaleDateString();
+}

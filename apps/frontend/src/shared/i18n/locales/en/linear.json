@@ -117,7 +117,14 @@
 	"keepOpen": "Keep Open",
 	"investigate": "Investigate",
 	"closeTicket": "Close Ticket",
-	"suggested_close_reason": "Suggested close reason",
+	"suggestedCloseReason": "Suggested close reason",
+	"priorities": {
+		"noPriority": "No priority",
+		"urgent": "Urgent",
+		"high": "High",
+		"medium": "Medium",
+		"low": "Low"
+	},
 	"validationSteps": {
 		"analyze": "Analyze Content",
 		"codebase": "Search Codebase",

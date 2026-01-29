@@ -816,16 +816,23 @@ export function ValidationModal({
 									{t("linear:progress", { defaultValue: "Progress" })}
 								</span>
 								<span>
-									{Math.round(
-										(validationProgress.step / validationProgress.total) * 100
-									)}%
+									{validationProgress.total > 0
+										? Math.round(
+												(validationProgress.step / validationProgress.total) * 100
+											)
+										: 0}
+									%
 								</span>
 							</div>
 							<div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
 								<div
 									className="h-full bg-primary transition-all duration-300 ease-in-out"
 									style={{
-										width: `${(validationProgress.step / validationProgress.total) * 100}%`,
+										width: `${
+											validationProgress.total > 0
+												? (validationProgress.step / validationProgress.total) * 100
+												: 0
+										}%`,
 									}}
 								/>
 							</div>

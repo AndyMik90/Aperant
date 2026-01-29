@@ -21,11 +21,25 @@ import type {
 	LinearTeam,
 	Project,
 	TaskMetadata,
+	ValidationResult,
 } from "../../shared/types";
 import type { AgentManager } from "../agent";
 import { joinPaths } from "../platform";
 import { projectStore } from "../project-store";
 import { parseEnvFile } from "./utils";
+
+/**
+ * Batch validation result type
+ */
+interface BatchValidationResult {
+	successful: Array<{ ticketId: string; result: ValidationResult }>;
+	failed: Array<{ ticketId: string; error: string }>;
+	summary: {
+		total: number;
+		succeeded: number;
+		failed: number;
+	};
+}
 
 /**
  * Debug logging for Linear validation (enabled via DEBUG_LINEAR_VALIDATION env var)
@@ -656,7 +670,7 @@ ${issue.description || "No description provided."}
 			projectId: string,
 			ticketId: string,
 			skipCache: boolean,
-		): Promise<IPCResult<any>> => {
+		): Promise<IPCResult<ValidationResult>> => {
 			debugLog("Validation request started", { ticketId, skipCache, projectId });
 
 			const project = projectStore.getProject(projectId);
@@ -718,7 +732,7 @@ ${issue.description || "No description provided."}
 			projectId: string,
 			ticketIds: string[],
 			skipCache: boolean,
-		): Promise<IPCResult<any>> => {
+		): Promise<IPCResult<BatchValidationResult>> => {
 			debugLog("Batch validation request started", { ticketIds, skipCache, projectId });
 
 			const project = projectStore.getProject(projectId);
@@ -817,8 +831,8 @@ ${issue.description || "No description provided."}
 			_,
 			projectId: string,
 			ticketId: string,
-			validation: any,
-		): Promise<IPCResult<any>> => {
+			validation: ValidationResult,
+		): Promise<IPCResult<void>> => {
 			debugLog("Update ticket with validation started", { ticketId, projectId });
 
 			const project = projectStore.getProject(projectId);
@@ -939,7 +953,7 @@ ${issue.description || "No description provided."}
 				});
 
 				debugLog("Ticket update complete", { ticketId });
-				return { success: true, data: { updated: true } };
+				return { success: true };
 			} catch (error) {
 				debugLog("Ticket update error", { ticketId, error });
 				return {

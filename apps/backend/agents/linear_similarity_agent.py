@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import requests
+from integrations.linear.linear_utils import get_linear_authorization_header
 
 from .linear_utils import fetch_linear_ticket, format_labels
 from .session import run_agent_session
@@ -337,8 +338,9 @@ async def _fetch_team_tickets(team_id: str, api_key: str) -> list[dict[str, Any]
     }
     """
 
-    # OAuth tokens should use Bearer prefix
-    authorization = api_key if api_key.startswith("lin_api_") else f"Bearer {api_key}"
+    # Get correct Authorization header for Linear API
+    # OAuth tokens should use Bearer prefix, personal API keys used directly
+    authorization = get_linear_authorization_header(api_key)
 
     def _make_request() -> list[dict[str, Any]]:
         """Synchronous request function to run in thread pool."""

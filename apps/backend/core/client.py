@@ -25,6 +25,7 @@ from core.platform import (
     is_windows,
     validate_cli_path,
 )
+from integrations.linear.linear_utils import get_linear_authorization_header
 
 logger = logging.getLogger(__name__)
 
@@ -726,12 +727,10 @@ def create_client(
         }
 
     if "linear" in required_servers:
-        # Linear personal API keys (starting with lin_api_) should NOT use Bearer prefix
-        linear_auth = (
-            linear_api_key
-            if linear_api_key.startswith("lin_api_")
-            else f"Bearer {linear_api_key}"
-        )
+        # Get correct Authorization header for Linear API
+        # Linear personal API keys (starting with 'lin_api_') should NOT use Bearer prefix
+        # OAuth tokens should use 'Bearer' prefix
+        linear_auth = get_linear_authorization_header(linear_api_key)
         mcp_servers["linear"] = {
             "type": "http",
             "url": "https://mcp.linear.app/mcp",

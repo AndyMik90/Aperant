@@ -44,51 +44,6 @@ interface LinearFilterBarProps {
 	onClearFilters: () => void;
 }
 
-// Priority options
-const PRIORITY_OPTIONS: Array<{
-	value: number;
-	label: string;
-	icon: typeof Flag;
-	color: string;
-	bgColor: string;
-}> = [
-	{
-		value: 0,
-		label: "No priority",
-		icon: Flag,
-		color: "text-slate-400",
-		bgColor: "bg-slate-500/20",
-	},
-	{
-		value: 1,
-		label: "Urgent",
-		icon: Flag,
-		color: "text-red-400",
-		bgColor: "bg-red-500/20",
-	},
-	{
-		value: 2,
-		label: "High",
-		icon: Flag,
-		color: "text-orange-400",
-		bgColor: "bg-orange-500/20",
-	},
-	{
-		value: 3,
-		label: "Medium",
-		icon: Flag,
-		color: "text-yellow-400",
-		bgColor: "bg-yellow-500/20",
-	},
-	{
-		value: 4,
-		label: "Low",
-		icon: Flag,
-		color: "text-blue-400",
-		bgColor: "bg-blue-500/20",
-	},
-];
-
 interface FilterDropdownProps<T extends string> {
 	title: string;
 	icon: typeof Users;
@@ -518,6 +473,48 @@ export function LinearFilterBar({
 	const labels = uniqueLabels;
 	const assignees = uniqueAssignees;
 
+	// Priority options with i18n labels
+	const priorityOptions = useMemo(
+		() => [
+			{
+				value: 0,
+				label: t("linear:priorities.noPriority"),
+				icon: Flag,
+				color: "text-slate-400",
+				bgColor: "bg-slate-500/20",
+			},
+			{
+				value: 1,
+				label: t("linear:priorities.urgent"),
+				icon: Flag,
+				color: "text-red-400",
+				bgColor: "bg-red-500/20",
+			},
+			{
+				value: 2,
+				label: t("linear:priorities.high"),
+				icon: Flag,
+				color: "text-orange-400",
+				bgColor: "bg-orange-500/20",
+			},
+			{
+				value: 3,
+				label: t("linear:priorities.medium"),
+				icon: Flag,
+				color: "text-yellow-400",
+				bgColor: "bg-yellow-500/20",
+			},
+			{
+				value: 4,
+				label: t("linear:priorities.low"),
+				icon: Flag,
+				color: "text-blue-400",
+				bgColor: "bg-blue-500/20",
+			},
+		],
+		[t],
+	);
+
 	return (
 		<div className="px-4 py-2 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
 			<div className="flex items-center gap-2 h-9 overflow-x-auto">
@@ -631,7 +628,7 @@ export function LinearFilterBar({
 					<SingleSelectDropdown
 						title={t("linear:allPriorities")}
 						icon={Flag}
-						items={PRIORITY_OPTIONS.map((opt) => ({
+						items={priorityOptions.map((opt) => ({
 							value: opt.value.toString(),
 							label: opt.label,
 						}))}
@@ -642,7 +639,7 @@ export function LinearFilterBar({
 						clearLabel={t("linear:clearFilters")}
 						renderItem={(item) => {
 							const priority = parseInt(item.value, 10) as number;
-							const option = PRIORITY_OPTIONS.find(
+							const option = priorityOptions.find(
 								(opt) => opt.value === priority,
 							);
 							if (!option) return null;

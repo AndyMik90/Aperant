@@ -30,7 +30,7 @@ export interface ResolutionTicketResult {
 	evidence: ResolutionEvidence[];
 	reasoning: string;
 	recommended_action: "close" | "keep_open" | "investigate";
-	suggested_close_reason?: string;
+	suggestedCloseReason?: string;
 }
 
 interface ResolutionCheckDialogProps {
@@ -86,7 +86,7 @@ export function ResolutionCheckDialog({
 		if (!onCloseTickets) return;
 		const toClose = [...alreadyFixed, ...potentiallyFixed];
 		const reasons = toClose.map(
-			(t) => t.suggested_close_reason || t.reasoning,
+			(t) => t.suggestedCloseReason || t.reasoning,
 		);
 		const combinedReason = `Closed as resolved: ${reasons.join("; ")}`;
 		onCloseTickets(toClose.map((t) => t.ticket_id), combinedReason);
@@ -158,11 +158,11 @@ export function ResolutionCheckDialog({
 													<p className="text-sm text-muted-foreground mb-2">
 														{ticket.reasoning}
 													</p>
-													{ticket.suggested_close_reason && (
+													{ticket.suggestedCloseReason && (
 														<p className="text-xs text-muted-foreground italic">
-															{t("linear:suggested_close_reason")}:{" "}
+															{t("linear:suggestedCloseReason")}:{" "}
 															{
-																ticket.suggested_close_reason
+																ticket.suggestedCloseReason
 															}
 														</p>
 													)}
@@ -244,11 +244,11 @@ export function ResolutionCheckDialog({
 														onClick={() => {
 															if (
 																onCloseTickets &&
-																ticket.suggested_close_reason
+																ticket.suggestedCloseReason
 															) {
 																onCloseTickets(
 																	[ticket.ticket_id],
-																	ticket.suggested_close_reason,
+																	ticket.suggestedCloseReason,
 																);
 															}
 														}}

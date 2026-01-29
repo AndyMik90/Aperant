@@ -128,7 +128,7 @@
 	"keepOpen": "Garder Ouvert",
 	"investigate": "Enquêter",
 	"closeTicket": "Fermer le Ticket",
-	"suggested_close_reason": "Raison suggérée de fermeture",
+	"suggestedCloseReason": "Raison suggérée de fermeture",
 	"validationSteps": {
 		"analyze": "Analyser le Contenu",
 		"completeness": "Valider la Complétude",

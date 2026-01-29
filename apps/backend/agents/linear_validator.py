@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 import diskcache
 import requests
 from core.client import create_client
+from integrations.linear.linear_utils import get_linear_authorization_header
 from task_logger import LogPhase
 
 from .session import run_agent_session
@@ -534,11 +535,10 @@ class LinearValidationAgent:
         }
         """
 
-        # Linear personal API keys (starting with lin_api_) should NOT use Bearer prefix
-        # OAuth tokens should use Bearer prefix
-        authorization = (
-            api_key if api_key.startswith("lin_api_") else f"Bearer {api_key}"
-        )
+        # Get correct Authorization header for Linear API
+        # Linear personal API keys (starting with 'lin_api_') should NOT use Bearer prefix
+        # OAuth tokens should use 'Bearer' prefix
+        authorization = get_linear_authorization_header(api_key)
 
         headers = {
             "Authorization": authorization,

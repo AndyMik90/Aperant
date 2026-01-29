@@ -2,6 +2,7 @@ import { Clock, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { LinearTicket } from "../../../../shared/types/integrations";
 import { cn } from "../../../lib/utils";
+import { formatRelativeTime } from "../../../../shared/utils/format-time";
 import { Badge } from "../../ui/badge";
 
 /**
@@ -176,26 +177,6 @@ function ValidationStatusFlow({
 	);
 }
 
-function formatDate(dateString: string): string {
-	const date = new Date(dateString);
-	const now = new Date();
-	const diffMs = now.getTime() - date.getTime();
-	const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-	if (diffDays === 0) {
-		const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-		if (diffHours === 0) {
-			const diffMins = Math.floor(diffMs / (1000 * 60));
-			return `${diffMins}m ago`;
-		}
-		return `${diffHours}h ago`;
-	}
-	if (diffDays === 1) return "yesterday";
-	if (diffDays < 7) return `${diffDays}d ago`;
-	if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-	return date.toLocaleDateString();
-}
-
 export function LinearTicketItem({
 	ticket,
 	isSelected,
@@ -316,7 +297,7 @@ export function LinearTicketItem({
 						<span className="flex items-center gap-1">
 							<Clock className="h-3 w-3" aria-hidden="true" />
 							<SrOnly>Last updated </SrOnly>
-							{formatDate(ticket.updatedAt)}
+							{formatRelativeTime(ticket.updatedAt)}
 						</span>
 					</div>
 
