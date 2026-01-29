@@ -63,6 +63,30 @@
       "prTitle": "Laissez vide pour utiliser le titre de la tâche"
     }
   },
+  "mergeProgress": {
+    "stages": {
+      "analyzing": "Analyse des modifications",
+      "detectingConflicts": "Détection des conflits",
+      "resolving": "Résolution des conflits",
+      "validating": "Validation de la fusion",
+      "complete": "Fusion terminée",
+      "error": "Échec de la fusion",
+      "stalled": "Fusion bloquée"
+    },
+    "conflictCounter": "{{found}} trouvés, {{resolved}} résolus",
+    "currentFile": "Fichier actuel",
+    "viewLogs": "Voir les logs",
+    "hideLogs": "Masquer les logs",
+    "logTypes": {
+      "info": "Info",
+      "warning": "Avertissement",
+      "error": "Erreur",
+      "conflict": "Conflit",
+      "resolution": "Résolution"
+    },
+    "completionMessage": "Toutes les modifications ont été fusionnées avec succès.",
+    "errorMessage": "Une erreur s'est produite pendant le processus de fusion."
+  },
   "bulkPR": {
     "title": "Créer des Pull Requests",
     "description": "Créer des pull requests pour {{count}} tâches sélectionnées",

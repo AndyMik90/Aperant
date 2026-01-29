@@ -63,6 +63,30 @@
       "prTitle": "Leave empty to use the task title"
     }
   },
+  "mergeProgress": {
+    "stages": {
+      "analyzing": "Analyzing changes",
+      "detectingConflicts": "Detecting conflicts",
+      "resolving": "Resolving conflicts",
+      "validating": "Validating merge",
+      "complete": "Merge complete",
+      "error": "Merge failed",
+      "stalled": "Merge stalled"
+    },
+    "conflictCounter": "{{found}} found, {{resolved}} resolved",
+    "currentFile": "Current file",
+    "viewLogs": "View logs",
+    "hideLogs": "Hide logs",
+    "logTypes": {
+      "info": "Info",
+      "warning": "Warning",
+      "error": "Error",
+      "conflict": "Conflict",
+      "resolution": "Resolution"
+    },
+    "completionMessage": "All changes have been merged successfully.",
+    "errorMessage": "An error occurred during the merge process."
+  },
   "bulkPR": {
     "title": "Create Pull Requests",
     "description": "Create pull requests for {{count}} selected tasks",

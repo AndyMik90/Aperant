@@ -2009,6 +2009,18 @@ export function registerWorktreeHandlers(
               debug('TIMEOUT: Merge process exceeded', MERGE_TIMEOUT_MS, 'ms, killing...');
               resolved = true;
 
+              // Send timeout error progress event to the renderer
+              const mainWindow = getMainWindow();
+              if (mainWindow) {
+                mainWindow.webContents.send(IPC_CHANNELS.TASK_MERGE_PROGRESS, taskId, {
+                  type: 'progress',
+                  stage: 'error',
+                  percent: 0,
+                  message: 'Merge process timed out after 10 minutes',
+                  details: {}
+                });
+              }
+
               // Platform-specific process termination with fallback
               killProcessGracefully(mergeProcess, {
                 debugPrefix: '[MERGE]',
@@ -2042,10 +2054,40 @@ export function registerWorktreeHandlers(
             }
           }, MERGE_TIMEOUT_MS);
 
+          let lineBuffer = ''; // Buffer for partial JSON lines spanning data chunks
+
           mergeProcess.stdout.on('data', (data: Buffer) => {
             const chunk = data.toString('utf-8');
-            stdout += chunk;
             debug('STDOUT:', chunk);
+
+            // Prepend any buffered partial line from previous chunk
+            const combined = lineBuffer + chunk;
+            const lines = combined.split('\n');
+
+            // Last element may be a partial line - buffer it for next chunk
+            lineBuffer = lines.pop() || '';
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed) continue;
+
+              try {
+                const parsed = JSON.parse(trimmed);
+                if (parsed && parsed.type === 'progress') {
+                  const mainWindow = getMainWindow();
+                  if (mainWindow) {
+                    mainWindow.webContents.send(IPC_CHANNELS.TASK_MERGE_PROGRESS, taskId, parsed);
+                  }
+                  // Don't accumulate progress lines in stdout - they are not part of the final result
+                  continue;
+                }
+              } catch {
+                // Not valid JSON - treat as regular output
+              }
+
+              // Accumulate non-progress lines for final result parsing
+              stdout += line + '\n';
+            }
           });
 
           mergeProcess.stderr.on('data', (data: Buffer) => {
@@ -2059,6 +2101,24 @@ export function registerWorktreeHandlers(
             if (resolved) return; // Prevent double-resolution
             resolved = true;
             if (timeoutId) clearTimeout(timeoutId);
+
+            // Flush any remaining buffered line
+            if (lineBuffer.trim()) {
+              try {
+                const parsed = JSON.parse(lineBuffer.trim());
+                if (parsed && parsed.type === 'progress') {
+                  const mainWindow = getMainWindow();
+                  if (mainWindow) {
+                    mainWindow.webContents.send(IPC_CHANNELS.TASK_MERGE_PROGRESS, taskId, parsed);
+                  }
+                } else {
+                  stdout += lineBuffer;
+                }
+              } catch {
+                stdout += lineBuffer;
+              }
+              lineBuffer = '';
+            }
 
             debug('Process exited with code:', code, 'signal:', signal);
             debug('Full stdout:', stdout);
@@ -2353,6 +2413,19 @@ export function registerWorktreeHandlers(
             resolved = true;
             if (timeoutId) clearTimeout(timeoutId);
             console.error('[MERGE] Process spawn error:', err);
+
+            // Send error progress event to the renderer
+            const mainWindow = getMainWindow();
+            if (mainWindow) {
+              mainWindow.webContents.send(IPC_CHANNELS.TASK_MERGE_PROGRESS, taskId, {
+                type: 'progress',
+                stage: 'error',
+                percent: 0,
+                message: `Merge process crashed: ${err.message}`,
+                details: {}
+              });
+            }
+
             resolve({
               success: false,
               error: `Failed to run merge: ${err.message}`
@@ -2660,149 +2733,101 @@ export function registerWorktreeHandlers(
   /**
    * List all spec worktrees for a project
    * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
-   *
-   * Options:
-   * - includeStats: When true, fetches commit count, files changed, additions, deletions per worktree.
-   *   When false (default), only fetches branch and base branch info for faster listing.
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_LIST_WORKTREES,
-    async (_, projectId: string, options?: { includeStats?: boolean }): Promise<IPCResult<WorktreeListResult>> => {
+    async (_, projectId: string): Promise<IPCResult<WorktreeListResult>> => {
       try {
         const project = projectStore.getProject(projectId);
         if (!project) {
           return { success: false, error: 'Project not found' };
         }
 
-        const includeStats = options?.includeStats ?? false;
+        const worktrees: WorktreeListItem[] = [];
         const worktreesDir = getTaskWorktreeDir(project.path);
-        const gitPath = getToolPath('git');
 
-        // Detect the project's default branch once (main/master) instead of per-worktree
-        let projectDefaultBranch: string | undefined;
-        if (!project.settings?.mainBranch || !GIT_BRANCH_REGEX.test(project.settings.mainBranch)) {
-          for (const branch of ['main', 'master']) {
-            try {
-              await execFileAsync(gitPath, ['rev-parse', '--verify', branch], {
-                cwd: project.path,
-                encoding: 'utf-8',
-              });
-              projectDefaultBranch = branch;
-              break;
-            } catch {
-              // Branch doesn't exist, try next
-            }
-          }
-          if (!projectDefaultBranch) {
-            projectDefaultBranch = 'main'; // fallback
-          }
-        }
+        // Helper to process a single worktree entry
+        const processWorktreeEntry = (entry: string, entryPath: string) => {
 
-        // Helper to get effective base branch using cached project default
-        const getBaseBranchForEntry = (entry: string): string => {
-          // 1. Try task metadata baseBranch
-          const specDir = path.join(project.path, '.auto-claude', 'specs', entry);
-          const taskBaseBranch = getTaskBaseBranch(specDir);
-          if (taskBaseBranch) return taskBaseBranch;
-
-          // 2. Try project settings mainBranch
-          if (project.settings?.mainBranch && GIT_BRANCH_REGEX.test(project.settings.mainBranch)) {
-            return project.settings.mainBranch;
-          }
-
-          // 3. Use pre-detected project default branch
-          return projectDefaultBranch || 'main';
-        };
-
-        // Async helper to process a single worktree entry
-        const processWorktreeEntryAsync = async (entry: string, entryPath: string): Promise<WorktreeListItem | null> => {
           try {
-            // Get branch info (always needed)
-            const { stdout: branchOutput } = await execFileAsync(gitPath, ['rev-parse', '--abbrev-ref', 'HEAD'], {
+            // Get branch info
+            const branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
               cwd: entryPath,
               encoding: 'utf-8'
-            });
-            const branch = branchOutput.trim();
+            }).trim();
 
-            const baseBranch = getBaseBranchForEntry(entry);
+            // Get base branch using proper fallback chain:
+            // 1. Task metadata baseBranch, 2. Project settings mainBranch, 3. main/master detection
+            // Note: We do NOT use current HEAD as that may be a feature branch
+            const baseBranch = getEffectiveBaseBranch(project.path, entry, project.settings?.mainBranch);
 
-            const item: WorktreeListItem = {
+            // Get commit count (cross-platform - no shell syntax)
+            let commitCount = 0;
+            try {
+              const countOutput = execFileSync(getToolPath('git'), ['rev-list', '--count', `${baseBranch}..HEAD`], {
+                cwd: entryPath,
+                encoding: 'utf-8',
+                stdio: ['pipe', 'pipe', 'pipe']
+              }).trim();
+              commitCount = parseInt(countOutput, 10) || 0;
+            } catch {
+              commitCount = 0;
+            }
+
+            // Get diff stats (cross-platform - no shell syntax)
+            let filesChanged = 0;
+            let additions = 0;
+            let deletions = 0;
+            let diffStat = '';
+
+            try {
+              diffStat = execFileSync(getToolPath('git'), ['diff', '--shortstat', `${baseBranch}...HEAD`], {
+                cwd: entryPath,
+                encoding: 'utf-8',
+                stdio: ['pipe', 'pipe', 'pipe']
+              }).trim();
+
+              const filesMatch = diffStat.match(/(\d+) files? changed/);
+              const addMatch = diffStat.match(/(\d+) insertions?/);
+              const delMatch = diffStat.match(/(\d+) deletions?/);
+
+              if (filesMatch) filesChanged = parseInt(filesMatch[1], 10) || 0;
+              if (addMatch) additions = parseInt(addMatch[1], 10) || 0;
+              if (delMatch) deletions = parseInt(delMatch[1], 10) || 0;
+            } catch {
+              // Ignore diff errors
+            }
+
+            worktrees.push({
               specName: entry,
               path: entryPath,
               branch,
               baseBranch,
-            };
-
-            // Only fetch stats when requested
-            if (includeStats) {
-              // Run commit count and diff stats in parallel
-              const [countResult, diffResult] = await Promise.allSettled([
-                execFileAsync(gitPath, ['rev-list', '--count', `${baseBranch}..HEAD`], {
-                  cwd: entryPath,
-                  encoding: 'utf-8',
-                }),
-                execFileAsync(gitPath, ['diff', '--shortstat', `${baseBranch}...HEAD`], {
-                  cwd: entryPath,
-                  encoding: 'utf-8',
-                }),
-              ]);
-
-              if (countResult.status === 'fulfilled') {
-                item.commitCount = parseInt(countResult.value.stdout.trim(), 10) || 0;
-              } else {
-                item.commitCount = 0;
-              }
-
-              if (diffResult.status === 'fulfilled') {
-                const diffStat = diffResult.value.stdout.trim();
-                const filesMatch = diffStat.match(/(\d+) files? changed/);
-                const addMatch = diffStat.match(/(\d+) insertions?/);
-                const delMatch = diffStat.match(/(\d+) deletions?/);
-
-                item.filesChanged = filesMatch ? parseInt(filesMatch[1], 10) || 0 : 0;
-                item.additions = addMatch ? parseInt(addMatch[1], 10) || 0 : 0;
-                item.deletions = delMatch ? parseInt(delMatch[1], 10) || 0 : 0;
-              } else {
-                item.filesChanged = 0;
-                item.additions = 0;
-                item.deletions = 0;
-              }
-            }
-
-            return item;
+              commitCount,
+              filesChanged,
+              additions,
+              deletions
+            });
           } catch (gitError) {
             console.error(`Error getting info for worktree ${entry}:`, gitError);
-            return null;
+            // Skip this worktree if we can't get git info
           }
         };
 
-        // Scan worktrees directory and process all entries in parallel
-        let worktrees: WorktreeListItem[] = [];
+        // Scan worktrees directory
         if (existsSync(worktreesDir)) {
           const entries = readdirSync(worktreesDir);
-          const dirEntries: Array<{ entry: string; entryPath: string }> = [];
-
           for (const entry of entries) {
             const entryPath = path.join(worktreesDir, entry);
             try {
               const stat = statSync(entryPath);
               if (stat.isDirectory()) {
-                dirEntries.push({ entry, entryPath });
+                processWorktreeEntry(entry, entryPath);
               }
             } catch {
               // Skip entries that can't be stat'd
             }
           }
-
-          // Process all worktrees in parallel
-          const results = await Promise.allSettled(
-            dirEntries.map(({ entry, entryPath }) => processWorktreeEntryAsync(entry, entryPath))
-          );
-
-          worktrees = results
-            .filter((r): r is PromiseFulfilledResult<WorktreeListItem | null> => r.status === 'fulfilled')
-            .map(r => r.value)
-            .filter((item): item is WorktreeListItem => item !== null);
         }
 
         return { success: true, data: { worktrees } };

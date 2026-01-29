@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 import {
   GitBranch,
   FileCode,
@@ -20,7 +21,8 @@ import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip';
 import { cn } from '../../../lib/utils';
-import type { WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo, SupportedIDE, SupportedTerminal } from '../../../../shared/types';
+import { MergeProgressOverlay } from './MergeProgressOverlay';
+import type { WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo, SupportedIDE, SupportedTerminal, MergeProgress, MergeLogEntry, MergeLogEntryType } from '../../../../shared/types';
 import { useSettingsStore } from '../../../stores/settings-store';
 
 interface WorkspaceStatusProps {
@@ -105,6 +107,97 @@ export function WorkspaceStatus({
   const { settings } = useSettingsStore();
   const preferredIDE = settings.preferredIDE || 'vscode';
   const preferredTerminal = settings.preferredTerminal || 'system';
+
+  // Merge progress state
+  const [mergeProgress, setMergeProgress] = useState<MergeProgress | null>(null);
+  const [logEntries, setLogEntries] = useState<MergeLogEntry[]>([]);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const prevIsMergingRef = useRef(isMerging);
+  const mergeStartTimeRef = useRef<number | null>(null);
+  const minDisplayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ipcCleanupRef = useRef<(() => void) | null>(null);
+
+  // Reset state when isMerging transitions from false → true
+  useEffect(() => {
+    if (isMerging && !prevIsMergingRef.current) {
+      setMergeProgress(null);
+      setLogEntries([]);
+      setShowOverlay(true);
+      mergeStartTimeRef.current = Date.now();
+    }
+    prevIsMergingRef.current = isMerging;
+  }, [isMerging]);
+
+  // Minimum display time: keep overlay visible for at least 500ms after merge ends
+  useEffect(() => {
+    if (!isMerging && showOverlay && mergeStartTimeRef.current !== null) {
+      const elapsed = Date.now() - mergeStartTimeRef.current;
+      const MIN_DISPLAY_MS = 500;
+      const remaining = Math.max(0, MIN_DISPLAY_MS - elapsed);
+
+      if (remaining > 0) {
+        minDisplayTimerRef.current = setTimeout(() => {
+          setShowOverlay(false);
+          mergeStartTimeRef.current = null;
+        }, remaining);
+      } else {
+        setShowOverlay(false);
+        mergeStartTimeRef.current = null;
+      }
+    }
+
+    return () => {
+      if (minDisplayTimerRef.current) {
+        clearTimeout(minDisplayTimerRef.current);
+        minDisplayTimerRef.current = null;
+      }
+    };
+  }, [isMerging, showOverlay]);
+
+  // Subscribe to merge progress IPC events
+  useEffect(() => {
+    if (!isMerging) return;
+
+    const stageToLogType = (stage: string): MergeLogEntryType => {
+      switch (stage) {
+        case 'complete': return 'success';
+        case 'error': return 'error';
+        case 'resolving': return 'warning';
+        default: return 'info';
+      }
+    };
+
+    const cleanup = window.electronAPI.onMergeProgress((_taskId: string, progress: MergeProgress) => {
+      setMergeProgress(progress);
+      setLogEntries(prev => [
+        ...prev,
+        {
+          timestamp: new Date().toISOString(),
+          type: stageToLogType(progress.stage),
+          message: progress.message,
+          details: progress.details?.current_file,
+        }
+      ]);
+    });
+
+    // Store cleanup ref so we can call it on unmount even if isMerging changes
+    ipcCleanupRef.current = cleanup;
+
+    return cleanup;
+  }, [isMerging]);
+
+  // Ensure IPC listener cleanup on unmount during active merge
+  useEffect(() => {
+    return () => {
+      if (ipcCleanupRef.current) {
+        ipcCleanupRef.current();
+        ipcCleanupRef.current = null;
+      }
+      if (minDisplayTimerRef.current) {
+        clearTimeout(minDisplayTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleOpenInIDE = async () => {
     if (!worktreeStatus.worktreePath) return;
@@ -372,6 +465,11 @@ export function WorkspaceStatus({
           </div>
         )}
       </div>
+
+      {/* Merge Progress Overlay — shown during merge and for minimum display time after */}
+      {(isMerging || showOverlay) && (
+        <MergeProgressOverlay mergeProgress={mergeProgress} logEntries={logEntries} />
+      )}
 
       {/* Actions Footer */}
       <div className="px-4 py-3 bg-muted/20 border-t border-border space-y-3">
