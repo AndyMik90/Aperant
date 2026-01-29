@@ -16,6 +16,7 @@ import copy
 import json
 import logging
 import os
+import sys
 import threading
 import time
 from pathlib import Path
@@ -64,15 +65,15 @@ def _get_cached_project_data(
             cache_age = now - cached_time
             if cache_age < _CACHE_TTL_SECONDS:
                 if debug:
-                    print(
-                        f"[ClientCache] Cache HIT for project index (age: {cache_age:.1f}s / TTL: {_CACHE_TTL_SECONDS}s)"
+                    sys.stderr.write(
+                        f"[ClientCache] Cache HIT for project index (age: {cache_age:.1f}s / TTL: {_CACHE_TTL_SECONDS}s)\n"
                     )
                 logger.debug(f"Using cached project index for {project_dir}")
                 # Return deep copies to prevent callers from corrupting the cache
                 return copy.deepcopy(cached_index), copy.deepcopy(cached_capabilities)
             elif debug:
-                print(
-                    f"[ClientCache] Cache EXPIRED for project index (age: {cache_age:.1f}s > TTL: {_CACHE_TTL_SECONDS}s)"
+                sys.stderr.write(
+                    f"[ClientCache] Cache EXPIRED for project index (age: {cache_age:.1f}s > TTL: {_CACHE_TTL_SECONDS}s)\n"
                 )
 
     # Cache miss or expired - load fresh data (outside lock to avoid blocking)
@@ -83,8 +84,8 @@ def _get_cached_project_data(
 
     if debug:
         load_duration = (time.time() - load_start) * 1000
-        print(
-            f"[ClientCache] Cache MISS - loaded project index in {load_duration:.1f}ms"
+        sys.stderr.write(
+            f"[ClientCache] Cache MISS - loaded project index in {load_duration:.1f}ms\n"
         )
 
     # Store in cache with lock - use double-checked locking pattern
@@ -96,8 +97,8 @@ def _get_cached_project_data(
             if cache_age < _CACHE_TTL_SECONDS:
                 # Another thread already cached valid data while we were loading
                 if debug:
-                    print(
-                        "[ClientCache] Cache was populated by another thread, using cached data"
+                    sys.stderr.write(
+                        "[ClientCache] Cache was populated by another thread, using cached data\n"
                     )
                 # Return deep copies to prevent callers from corrupting the cache
                 return copy.deepcopy(cached_index), copy.deepcopy(cached_capabilities)
@@ -659,16 +660,18 @@ def create_client(
     with open(settings_file, "w", encoding="utf-8") as f:
         json.dump(security_settings, f, indent=2)
 
-    print(f"Security settings: {settings_file}")
-    print("   - Sandbox enabled (OS-level bash isolation)")
-    print(f"   - Filesystem restricted to: {project_dir.resolve()}")
+    sys.stderr.write(f"Security settings: {settings_file}\n")
+    sys.stderr.write("   - Sandbox enabled (OS-level bash isolation)\n")
+    sys.stderr.write(f"   - Filesystem restricted to: {project_dir.resolve()}\n")
     if original_project_permissions:
-        print("   - Worktree permissions: granted for original project directories")
-    print("   - Bash commands restricted to allowlist")
+        sys.stderr.write(
+            "   - Worktree permissions: granted for original project directories\n"
+        )
+    sys.stderr.write("   - Bash commands restricted to allowlist\n")
     if max_thinking_tokens:
-        print(f"   - Extended thinking: {max_thinking_tokens:,} tokens")
+        sys.stderr.write(f"   - Extended thinking: {max_thinking_tokens:,} tokens\n")
     else:
-        print("   - Extended thinking: disabled")
+        sys.stderr.write("   - Extended thinking: disabled\n")
 
     # Build list of MCP servers for display based on required_servers
     mcp_servers_list = []
@@ -687,9 +690,9 @@ def create_client(
     if "auto-claude" in required_servers and auto_claude_tools_enabled:
         mcp_servers_list.append(f"auto-claude ({agent_type} tools)")
     if mcp_servers_list:
-        print(f"   - MCP servers: {', '.join(mcp_servers_list)}")
+        sys.stderr.write(f"   - MCP servers: {', '.join(mcp_servers_list)}\n")
     else:
-        print("   - MCP servers: none (minimal configuration)")
+        sys.stderr.write("   - MCP servers: none (minimal configuration)\n")
 
     # Show detected project capabilities for QA agents
     if agent_type in ("qa_reviewer", "qa_fixer") and any(project_capabilities.values()):
@@ -698,8 +701,8 @@ def create_client(
             for k, v in project_capabilities.items()
             if v
         ]
-        print(f"   - Project capabilities: {', '.join(caps)}")
-    print()
+        sys.stderr.write(f"   - Project capabilities: {', '.join(caps)}\n")
+    sys.stderr.write("\n")
 
     # Configure MCP servers - ONLY start servers that are required
     # This is the key optimization to reduce context bloat and startup latency
@@ -791,12 +794,12 @@ def create_client(
         claude_md_content = load_claude_md(project_dir)
         if claude_md_content:
             base_prompt = f"{base_prompt}\n\n# Project Instructions (from CLAUDE.md)\n\n{claude_md_content}"
-            print("   - CLAUDE.md: included in system prompt")
+            sys.stderr.write("   - CLAUDE.md: included in system prompt\n")
         else:
-            print("   - CLAUDE.md: not found in project root")
+            sys.stderr.write("   - CLAUDE.md: not found in project root\n")
     else:
-        print("   - CLAUDE.md: disabled by project settings")
-    print()
+        sys.stderr.write("   - CLAUDE.md: disabled by project settings\n")
+    sys.stderr.write("\n")
 
     # Build options dict, conditionally including output_format
     options_kwargs: dict[str, Any] = {
