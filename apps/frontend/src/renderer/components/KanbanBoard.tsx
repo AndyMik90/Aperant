@@ -1037,15 +1037,20 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       let iteration = 0;
       while (true) {
         iteration++;
+        // Calculate total in-progress count: tasks that were already in progress + tasks promoted in this call
+        const totalInProgressCount = initialInProgress.length + promotedInThisCall;
+
         console.warn(`[Queue] --- Iteration ${iteration} ---`, {
+          initialInProgressCount: initialInProgress.length,
           promotedInThisCall,
-          capacityCheck: promotedInThisCall >= maxParallelTasks,
+          totalInProgressCount,
+          capacityCheck: totalInProgressCount >= maxParallelTasks,
           processedCount: processedTaskIds.size
         });
 
-        // Stop if no capacity (including tasks we've promoted in this call)
-        if (promotedInThisCall >= maxParallelTasks) {
-          console.log(`[Queue] Capacity reached (${promotedInThisCall}/${maxParallelTasks}), stopping queue processing`);
+        // Stop if no capacity (initial in-progress + promoted in this call)
+        if (totalInProgressCount >= maxParallelTasks) {
+          console.log(`[Queue] Capacity reached (${totalInProgressCount}/${maxParallelTasks}), stopping queue processing`);
           break;
         }
 
@@ -1128,10 +1133,17 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         tasksPromoted: promotedInThisCall,
         processedIds: Array.from(processedTaskIds)
       });
+
+      // Trigger UI refresh if tasks were promoted to ensure UI reflects all changes
+      // This handles the case where store updates are batched/delayed via IPC events
+      if (promotedInThisCall > 0 && onRefresh) {
+        console.log('[Queue] Triggering UI refresh after queue promotion');
+        onRefresh();
+      }
     } finally {
       isProcessingQueueRef.current = false;
     }
-  }, [maxParallelTasks, projectId]);
+  }, [maxParallelTasks, projectId, onRefresh]);
 
   // Register task status change listener for queue auto-promotion
   // This ensures processQueue() is called whenever a task leaves in_progress
