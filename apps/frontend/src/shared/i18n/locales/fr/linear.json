@@ -129,6 +129,11 @@
 	"investigate": "Enquêter",
 	"closeTicket": "Fermer le Ticket",
 	"suggestedCloseReason": "Raison suggérée de fermeture",
+	"confidence": {
+		"high": "Élevée",
+		"medium": "Moyenne",
+		"low": "Faible"
+	},
 	"validationSteps": {
 		"analyze": "Analyser le Contenu",
 		"completeness": "Valider la Complétude",

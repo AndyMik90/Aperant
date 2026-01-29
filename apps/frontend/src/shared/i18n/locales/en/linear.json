@@ -118,6 +118,11 @@
 	"investigate": "Investigate",
 	"closeTicket": "Close Ticket",
 	"suggestedCloseReason": "Suggested close reason",
+	"confidence": {
+		"high": "High",
+		"medium": "Medium",
+		"low": "Low"
+	},
 	"priorities": {
 		"noPriority": "No priority",
 		"urgent": "Urgent",

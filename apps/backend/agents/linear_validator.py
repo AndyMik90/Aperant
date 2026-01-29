@@ -14,9 +14,11 @@ This agent implements a 5-step validation workflow:
 """
 
 import asyncio
+import json
 import logging
 import os
 import random
+import re
 import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -412,7 +414,6 @@ class LinearValidationAgent:
             agent_type="linear_validator",
             max_thinking_tokens=max_thinking_tokens,
         )
-        return self._client
 
     def _get_cache_key(self, issue_id: str, validation_timestamp: str) -> str:
         """
@@ -1030,8 +1031,6 @@ Begin your analysis with codebase search now.
         Returns:
             Structured validation result dict
         """
-        import json
-        import re
 
         # Try to extract JSON from the response (first from code blocks, then full text)
         json_match = re.search(r"```json\s*(\{[\s\S]*?\})\s*```", response, re.DOTALL)

@@ -17,18 +17,18 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { LinearFilters } from "../../../../shared/types/integrations";
-import { cn } from "../../../lib/utils";
-import { useLinearStore } from "../../../stores/linear-store";
-import { Badge } from "../../ui/badge";
-import { Button } from "../../ui/button";
+import type { LinearFilters } from "@shared/types/integrations";
+import { cn } from "@/lib/utils";
+import { useLinearStore } from "@/stores/linear-store";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuTrigger,
-} from "../../ui/dropdown-menu";
-import { Input } from "../../ui/input";
-import { Separator } from "../../ui/separator";
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 
 interface LinearFilterBarProps {
 	filters: LinearFilters;

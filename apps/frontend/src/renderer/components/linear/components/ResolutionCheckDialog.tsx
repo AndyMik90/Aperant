@@ -152,7 +152,7 @@ export function ResolutionCheckDialog({
 																ticket.confidence,
 															)}
 														>
-															{ticket.confidence.toUpperCase()}
+															{t(`linear:confidence.${ticket.confidence}`)}
 														</Badge>
 													</div>
 													<p className="text-sm text-muted-foreground mb-2">
@@ -231,7 +231,7 @@ export function ResolutionCheckDialog({
 																ticket.confidence,
 															)}
 														>
-															{ticket.confidence.toUpperCase()}
+															{t(`linear:confidence.${ticket.confidence}`)}
 														</Badge>
 													</div>
 													<p className="text-sm text-muted-foreground mb-2">
@@ -241,6 +241,10 @@ export function ResolutionCheckDialog({
 														variant="outline"
 														size="sm"
 														className="text-xs"
+														disabled={
+															!onCloseTickets ||
+															!ticket.suggestedCloseReason
+														}
 														onClick={() => {
 															if (
 																onCloseTickets &&
