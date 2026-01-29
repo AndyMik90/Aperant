@@ -665,11 +665,11 @@ class LinearValidationAgent:
                 )
 
                 # Debug: Phase 1 start
+                phase_start_time = time.time() if DEBUG_LINEAR_VALIDATION else 0
                 if DEBUG_LINEAR_VALIDATION:
                     logger.debug(
                         "[LINEAR_VALIDATION] Phase 1: Content Analysis - starting"
                     )
-                    phase_start_time = time.time()
 
                 # Create a heartbeat task that emits progress during the long AI call
                 heartbeat_steps = [
@@ -710,6 +710,7 @@ class LinearValidationAgent:
                     try:
                         await heartbeat
                     except asyncio.CancelledError:
+                        # Expected when cancelling the heartbeat task - ignore
                         pass
 
                     # Debug: Phase 1 complete, Phases 2-5 are handled by the AI in a single call
@@ -765,9 +766,9 @@ class LinearValidationAgent:
             )
 
         # Parse and structure the validation results
+        parse_start_time = time.time() if DEBUG_LINEAR_VALIDATION else 0
         if DEBUG_LINEAR_VALIDATION:
             logger.debug("[LINEAR_VALIDATION] Parsing validation result")
-            parse_start_time = time.time()
 
         result = self._parse_validation_result(
             issue_id, response, issue_data, current_version

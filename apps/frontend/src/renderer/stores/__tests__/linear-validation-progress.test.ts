@@ -5,7 +5,6 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { useLinearStore } from "../linear-store";
-import { IPC_CHANNELS } from "../../../shared/constants";
 
 // Define window globally for tests (node environment)
 (global as any).window = (global as any).window || {};

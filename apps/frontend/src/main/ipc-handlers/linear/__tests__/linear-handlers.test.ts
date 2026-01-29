@@ -156,7 +156,6 @@ describe('Linear IPC Handlers', () => {
 
 		it('should handle exceptions during cancel', async () => {
 			const ticketId = 'LIN-123';
-			const taskId = `linear-validation-${ticketId}`;
 
 			// Mock agent manager to throw exception
 			(mockAgentManager.isRunning as any).mockImplementation(() => {

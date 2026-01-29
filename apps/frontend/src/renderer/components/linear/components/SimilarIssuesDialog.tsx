@@ -2,7 +2,7 @@
  * Dialog for displaying and managing similar Linear tickets
  */
 
-import { Link2, Merge, X } from "lucide-react";
+import { Link2, Merge } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
 	Dialog,
