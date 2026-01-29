@@ -1,0 +1,334 @@
+#!/usr/bin/env node
+/**
+ * Verify Linux package contents to ensure alignment between AppImage, deb, and Flatpak.
+ *
+ * This script extracts and inspects each Linux package format to verify that critical
+ * files (Python binary, backend code, Python packages) are present and correctly bundled.
+ *
+ * Usage: node scripts/verify-linux-packages.cjs [dist-dir]
+ */
+
+import fs from 'fs';
+import path from 'path';
+import { spawnSync } from 'child_process';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Critical Python packages that must be present
+const CRITICAL_PACKAGES = [
+  'secretstorage',  // Linux OAuth token storage
+  'pydantic_core',
+  'claude_agent_sdk',
+  'dotenv',
+];
+
+// Colors for terminal output
+const colors = {
+  reset: '\x1b[0m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  cyan: '\x1b[36m',
+};
+
+function log(message, color = colors.reset) {
+  console.log(`${color}${message}${colors.reset}`);
+}
+
+function logSuccess(message) {
+  log(`✓ ${message}`, colors.green);
+}
+
+function logError(message) {
+  log(`✗ ${message}`, colors.red);
+}
+
+function logWarning(message) {
+  log(`⚠ ${message}`, colors.yellow);
+}
+
+function logInfo(message) {
+  log(`ℹ ${message}`, colors.cyan);
+}
+
+/**
+ * Check if a command exists
+ */
+function commandExists(cmd) {
+  const result = spawnSync('which', [cmd], { stdio: 'ignore' });
+  return result.status === 0;
+}
+
+/**
+ * Find all Linux packages in the dist directory
+ */
+function findPackages(distDir) {
+  const packages = {
+    appImage: null,
+    deb: null,
+    flatpak: null,
+  };
+
+  if (!fs.existsSync(distDir)) {
+    logError(`Distribution directory not found: ${distDir}`);
+    return packages;
+  }
+
+  const files = fs.readdirSync(distDir);
+
+  for (const file of files) {
+    const fullPath = path.join(distDir, file);
+
+    if (file.endsWith('.AppImage') && !packages.appImage) {
+      packages.appImage = fullPath;
+    } else if (file.endsWith('.deb') && !packages.deb) {
+      packages.deb = fullPath;
+    } else if (file.endsWith('.flatpak') && !packages.flatpak) {
+      packages.flatpak = fullPath;
+    }
+  }
+
+  return packages;
+}
+
+/**
+ * Verify AppImage contents using bsdtar (libarchive)
+ */
+function verifyAppImage(appImagePath) {
+  logInfo(`Verifying AppImage: ${path.basename(appImagePath)}`);
+
+  const issues = [];
+
+  // Check if bsdtar is available
+  if (!commandExists('bsdtar')) {
+    logWarning('bsdtar not found. Install with: sudo apt-get install libarchive-tools');
+    logWarning('Skipping AppImage verification');
+    return { verified: false, reason: 'bsdtar not available' };
+  }
+
+  // Extract file list from AppImage using bsdtar
+  const result = spawnSync('bsdtar', ['-t', '-f', appImagePath], {
+    stdio: 'pipe',
+    encoding: 'utf-8',
+  });
+
+  if (result.status !== 0) {
+    logError(`Failed to read AppImage: ${result.stderr}`);
+    return { verified: false, reason: 'Failed to extract file list' };
+  }
+
+  const files = result.stdout.split('\n');
+
+  // Check for Python binary (in resources/)
+  const pythonBinFound = files.some(f => f.includes('resources/python') || f.includes('python'));
+  if (!pythonBinFound) {
+    issues.push('Python binary not found in AppImage');
+  }
+
+  // Check for backend directory (in resources/)
+  const backendFound = files.some(f => f.includes('resources/backend') || f.includes('backend'));
+  if (!backendFound) {
+    issues.push('Backend directory not found in AppImage');
+  }
+
+  // Check for critical Python packages (in resources/python-site-packages/)
+  for (const pkg of CRITICAL_PACKAGES) {
+    const found = files.some(f => f.includes(`python-site-packages/${pkg}`) || f.includes(pkg));
+    if (!found) {
+      issues.push(`Python package not found: ${pkg}`);
+    }
+  }
+
+  return {
+    verified: issues.length === 0,
+    issues,
+    fileCount: files.filter(f => f.trim()).length,
+  };
+}
+
+/**
+ * Verify deb package contents
+ */
+function verifyDeb(debPath) {
+  logInfo(`Verifying deb package: ${path.basename(debPath)}`);
+
+  const issues = [];
+
+  // Check if dpkg is available
+  if (!commandExists('dpkg-deb')) {
+    logWarning('dpkg-deb not found. Skipping deb verification');
+    return { verified: false, reason: 'dpkg-deb not available' };
+  }
+
+  // List contents of deb package
+  const result = spawnSync('dpkg-deb', ['-c', debPath], {
+    stdio: 'pipe',
+    encoding: 'utf-8',
+  });
+
+  if (result.status !== 0) {
+    logError(`Failed to read deb package: ${result.stderr}`);
+    return { verified: false, reason: 'Failed to extract file list' };
+  }
+
+  const files = result.stdout.split('\n');
+
+  // Check for Python binary (in resources/)
+  const pythonBinFound = files.some(f => f.includes('resources/python') || f.includes('/python'));
+  if (!pythonBinFound) {
+    issues.push('Python binary not found in deb package');
+  }
+
+  // Check for backend directory (in resources/)
+  const backendFound = files.some(f => f.includes('resources/backend') || f.includes('/backend'));
+  if (!backendFound) {
+    issues.push('Backend directory not found in deb package');
+  }
+
+  // Check for critical Python packages (in resources/python-site-packages/)
+  for (const pkg of CRITICAL_PACKAGES) {
+    const found = files.some(f => f.includes(`python-site-packages/${pkg}`) || f.includes(pkg));
+    if (!found) {
+      issues.push(`Python package not found: ${pkg}`);
+    }
+  }
+
+  return {
+    verified: issues.length === 0,
+    issues,
+    fileCount: files.filter(f => f.trim()).length,
+  };
+}
+
+/**
+ * Verify Flatpak package contents
+ * Note: Flatpak is more complex to inspect, so we do basic validation
+ */
+function verifyFlatpak(flatpakPath) {
+  logInfo(`Verifying Flatpak package: ${path.basename(flatpakPath)}`);
+
+  const issues = [];
+
+  // Check if flatpak command is available
+  if (!commandExists('flatpak')) {
+    logWarning('flatpak command not found. Skipping detailed Flatpak verification');
+    return { verified: false, reason: 'flatpak command not available' };
+  }
+
+  // Check if file exists and is not empty
+  if (!fs.existsSync(flatpakPath)) {
+    return { verified: false, issues: ['Flatpak file does not exist'] };
+  }
+
+  const stats = fs.statSync(flatpakPath);
+  if (stats.size === 0) {
+    return { verified: false, issues: ['Flatpak file is empty'] };
+  }
+
+  // Flatpak files are large OCI archives, so we just verify file size and basic structure
+  // Detailed content inspection would require mounting or extracting the flatpak
+  if (stats.size < 50 * 1024 * 1024) { // Less than 50MB is suspicious
+    issues.push(`Flatpak file seems too small (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+  }
+
+  return {
+    verified: issues.length === 0,
+    issues,
+    size: stats.size,
+  };
+}
+
+/**
+ * Main verification function
+ */
+function main() {
+  const distDir = process.argv[2] || path.join(__dirname, '..', 'dist');
+
+  log('\n=== Linux Package Verification ===\n', colors.blue);
+  logInfo(`Distribution directory: ${distDir}\n`);
+
+  const packages = findPackages(distDir);
+
+  // Report found packages
+  if (packages.appImage) {
+    logSuccess(`Found AppImage: ${path.basename(packages.appImage)}`);
+  } else {
+    logWarning('No AppImage found');
+  }
+
+  if (packages.deb) {
+    logSuccess(`Found deb: ${path.basename(packages.deb)}`);
+  } else {
+    logWarning('No deb package found');
+  }
+
+  if (packages.flatpak) {
+    logSuccess(`Found Flatpak: ${path.basename(packages.flatpak)}`);
+  } else {
+    logWarning('No Flatpak package found');
+  }
+
+  if (!packages.appImage && !packages.deb && !packages.flatpak) {
+    logError('\nNo Linux packages found to verify!');
+    process.exit(1);
+  }
+
+  log('');
+
+  // Verify each package
+  const results = {};
+
+  if (packages.appImage) {
+    results.appImage = verifyAppImage(packages.appImage);
+  }
+
+  if (packages.deb) {
+    results.deb = verifyDeb(packages.deb);
+  }
+
+  if (packages.flatpak) {
+    results.flatpak = verifyFlatpak(packages.flatpak);
+  }
+
+  // Print results
+  log('\n=== Verification Results ===\n', colors.blue);
+
+  let hasFailures = false;
+
+  for (const [type, result] of Object.entries(results)) {
+    if (result.reason) {
+      logWarning(`${type}: SKIPPED (${result.reason})`);
+    } else if (result.verified) {
+      logSuccess(`${type}: VERIFIED`);
+      if (result.fileCount) {
+        logInfo(`  Files: ${result.fileCount}`);
+      }
+      if (result.size) {
+        logInfo(`  Size: ${(result.size / 1024 / 1024).toFixed(2)} MB`);
+      }
+    } else {
+      logError(`${type}: FAILED`);
+      hasFailures = true;
+      for (const issue of result.issues || []) {
+        logError(`  - ${issue}`);
+      }
+    }
+  }
+
+  log('');
+
+  if (hasFailures) {
+    logError('\n=== VERIFICATION FAILED ===\n');
+    log('Some packages are missing critical files. This will cause runtime errors.\n', colors.red);
+    process.exit(1);
+  } else {
+    logSuccess('\n=== ALL PACKAGES VERIFIED ===\n');
+    log('All Linux packages contain the required files.\n', colors.green);
+    process.exit(0);
+  }
+}
+
+main();

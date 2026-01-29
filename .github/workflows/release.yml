@@ -383,6 +383,9 @@ jobs:
           SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
           SENTRY_PROFILES_SAMPLE_RATE: ${{ secrets.SENTRY_PROFILES_SAMPLE_RATE }}
 
+      - name: Verify Linux packages
+        run: cd apps/frontend && npm run verify:linux
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
