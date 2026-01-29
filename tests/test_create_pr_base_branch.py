@@ -36,10 +36,14 @@ class TestCreatePRBaseBranch:
         return mock
 
     @pytest.fixture
-    def temp_project_with_worktree(self, temp_project_dir: Path) -> Path:
-        """Create a project dir with a fake worktree for the spec."""
+    def temp_project_with_worktree(self, temp_dir: Path) -> tuple[Path, str]:
+        """Create a project dir with a fake worktree for the spec.
+
+        Returns:
+            Tuple of (project_dir, spec_name)
+        """
         # Create the .auto-claude directory structure
-        auto_claude_dir = temp_project_dir / ".auto-claude"
+        auto_claude_dir = temp_dir / ".auto-claude"
         auto_claude_dir.mkdir(exist_ok=True)
         (auto_claude_dir / "specs").mkdir(exist_ok=True)
         worktrees_dir = auto_claude_dir / "worktrees" / "tasks"
@@ -51,17 +55,17 @@ class TestCreatePRBaseBranch:
         worktree_path.mkdir()
         (worktree_path / ".git").write_text("")  # Fake .git marker
 
-        return temp_project_dir
+        return temp_dir, spec_name
 
     def test_base_branch_passed_to_worktree_manager(
-        self, temp_project_with_worktree: Path, mock_worktree_manager: MagicMock
+        self, temp_project_with_worktree: tuple[Path, str], mock_worktree_manager: MagicMock
     ):
         """Verify base_branch parameter is passed to WorktreeManager constructor."""
-        spec_name = "001-test-feature"
+        project_dir, spec_name = temp_project_with_worktree
         custom_base = "feature/streaming-http-mcp"
 
         worktree_path = (
-            temp_project_with_worktree
+            project_dir
             / ".auto-claude"
             / "worktrees"
             / "tasks"
@@ -81,7 +85,7 @@ class TestCreatePRBaseBranch:
             MockWorktreeManager.return_value = mock_worktree_manager
 
             result = workspace_commands_module.handle_create_pr_command(
-                project_dir=temp_project_with_worktree,
+                project_dir=project_dir,
                 spec_name=spec_name,
                 target_branch=None,
                 title=None,
@@ -89,19 +93,23 @@ class TestCreatePRBaseBranch:
                 base_branch=custom_base,
             )
 
+            # Verify the command succeeded
+            assert result["success"] is True
+            assert result["pr_url"] == "https://github.com/test/repo/pull/1"
+
             # Verify WorktreeManager was created with the custom base_branch
             MockWorktreeManager.assert_called_once_with(
-                temp_project_with_worktree, base_branch=custom_base
+                project_dir, base_branch=custom_base
             )
 
     def test_base_branch_none_uses_auto_detection(
-        self, temp_project_with_worktree: Path, mock_worktree_manager: MagicMock
+        self, temp_project_with_worktree: tuple[Path, str], mock_worktree_manager: MagicMock
     ):
         """Verify that base_branch=None lets WorktreeManager auto-detect."""
-        spec_name = "001-test-feature"
+        project_dir, spec_name = temp_project_with_worktree
 
         worktree_path = (
-            temp_project_with_worktree
+            project_dir
             / ".auto-claude"
             / "worktrees"
             / "tasks"
@@ -120,7 +128,7 @@ class TestCreatePRBaseBranch:
             MockWorktreeManager.return_value = mock_worktree_manager
 
             result = workspace_commands_module.handle_create_pr_command(
-                project_dir=temp_project_with_worktree,
+                project_dir=project_dir,
                 spec_name=spec_name,
                 target_branch=None,
                 title=None,
@@ -128,25 +136,29 @@ class TestCreatePRBaseBranch:
                 base_branch=None,
             )
 
+            # Verify the command succeeded
+            assert result["success"] is True
+            assert result["pr_url"] == "https://github.com/test/repo/pull/1"
+
             # Verify WorktreeManager was created with base_branch=None
             MockWorktreeManager.assert_called_once_with(
-                temp_project_with_worktree, base_branch=None
+                project_dir, base_branch=None
             )
 
     def test_target_branch_and_base_branch_independent(
-        self, temp_project_with_worktree: Path, mock_worktree_manager: MagicMock
+        self, temp_project_with_worktree: tuple[Path, str], mock_worktree_manager: MagicMock
     ):
         """Verify target_branch and base_branch are handled independently.
 
         target_branch: Where the PR should be merged TO
         base_branch: What branch the worktree was created FROM
         """
-        spec_name = "001-test-feature"
+        project_dir, spec_name = temp_project_with_worktree
         custom_base = "feature/parent-feature"
         target = "develop"
 
         worktree_path = (
-            temp_project_with_worktree
+            project_dir
             / ".auto-claude"
             / "worktrees"
             / "tasks"
@@ -165,7 +177,7 @@ class TestCreatePRBaseBranch:
             MockWorktreeManager.return_value = mock_worktree_manager
 
             result = workspace_commands_module.handle_create_pr_command(
-                project_dir=temp_project_with_worktree,
+                project_dir=project_dir,
                 spec_name=spec_name,
                 target_branch=target,
                 title=None,
@@ -173,9 +185,13 @@ class TestCreatePRBaseBranch:
                 base_branch=custom_base,
             )
 
+            # Verify the command succeeded
+            assert result["success"] is True
+            assert result["pr_url"] == "https://github.com/test/repo/pull/1"
+
             # WorktreeManager should be created with base_branch, not target_branch
             MockWorktreeManager.assert_called_once_with(
-                temp_project_with_worktree, base_branch=custom_base
+                project_dir, base_branch=custom_base
             )
 
             # push_and_create_pr should receive target_branch
@@ -190,39 +206,30 @@ class TestCreatePRBaseBranch:
 class TestCLIArgumentParsing:
     """Tests for CLI argument parsing of --base-branch."""
 
-    def test_base_branch_argument_parsed(self):
+    def test_base_branch_argument_parsed(self, monkeypatch):
         """Verify --base-branch argument is correctly parsed."""
         from cli.main import parse_args
 
-        # Save and restore sys.argv
-        orig_argv = sys.argv
-        try:
-            sys.argv = [
-                "run.py",
-                "--spec",
-                "001",
-                "--create-pr",
-                "--base-branch",
-                "feature/my-base",
-            ]
-            args = parse_args()
+        monkeypatch.setattr(sys, "argv", [
+            "run.py",
+            "--spec",
+            "001",
+            "--create-pr",
+            "--base-branch",
+            "feature/my-base",
+        ])
+        args = parse_args()
 
-            assert args.base_branch == "feature/my-base"
-            assert args.create_pr is True
-            assert args.spec == "001"
-        finally:
-            sys.argv = orig_argv
+        assert args.base_branch == "feature/my-base"
+        assert args.create_pr is True
+        assert args.spec == "001"
 
-    def test_base_branch_argument_optional(self):
+    def test_base_branch_argument_optional(self, monkeypatch):
         """Verify --base-branch is optional and defaults to None."""
         from cli.main import parse_args
 
-        orig_argv = sys.argv
-        try:
-            sys.argv = ["run.py", "--spec", "001", "--create-pr"]
-            args = parse_args()
+        monkeypatch.setattr(sys, "argv", ["run.py", "--spec", "001", "--create-pr"])
+        args = parse_args()
 
-            assert args.base_branch is None
-            assert args.create_pr is True
-        finally:
-            sys.argv = orig_argv
+        assert args.base_branch is None
+        assert args.create_pr is True
