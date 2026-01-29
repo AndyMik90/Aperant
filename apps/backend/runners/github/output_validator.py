@@ -22,30 +22,6 @@ except (ImportError, ValueError, SystemError):
 class FindingValidator:
     """Validates and filters AI-generated PR review findings."""
 
-    # Vague patterns that indicate low-quality findings
-    VAGUE_PATTERNS = [
-        "could be improved",
-        "consider using",
-        "might want to",
-        "you may want",
-        "it would be better",
-        "possibly consider",
-        "perhaps use",
-        "potentially add",
-        "you should consider",
-        "it might be good",
-    ]
-
-    # Generic suggestions without specifics
-    GENERIC_PATTERNS = [
-        "improve this",
-        "fix this",
-        "change this",
-        "update this",
-        "refactor this",
-        "review this",
-    ]
-
     # Minimum lengths for quality checks
     MIN_DESCRIPTION_LENGTH = 30
     MIN_SUGGESTED_FIX_LENGTH = 20
@@ -122,10 +98,6 @@ class FindingValidator:
                 return False
             # Update the finding with corrected line
             finding.line = corrected.line
-
-        # Check for false positives
-        if self._is_false_positive(finding):
-            return False
 
         # Check confidence threshold
         if not self._meets_confidence_threshold(finding):
@@ -293,51 +265,6 @@ class FindingValidator:
             finding.line = best_match_line
 
         return finding
-
-    def _is_false_positive(self, finding: PRReviewFinding) -> bool:
-        """
-        Detect likely false positives.
-
-        Args:
-            finding: Finding to check
-
-        Returns:
-            True if likely a false positive, False otherwise
-        """
-        description_lower = finding.description.lower()
-
-        # Check for vague descriptions
-        for pattern in self.VAGUE_PATTERNS:
-            if pattern in description_lower:
-                # Vague low/medium findings are likely FPs
-                if finding.severity in [ReviewSeverity.LOW, ReviewSeverity.MEDIUM]:
-                    return True
-
-        # Check for generic suggestions
-        for pattern in self.GENERIC_PATTERNS:
-            if pattern in description_lower:
-                if finding.severity == ReviewSeverity.LOW:
-                    return True
-
-        # Check for generic suggestions without specifics
-        if (
-            not finding.suggested_fix
-            or len(finding.suggested_fix) < self.MIN_SUGGESTED_FIX_LENGTH
-        ):
-            if finding.severity == ReviewSeverity.LOW:
-                return True
-
-        # Check for style findings without clear justification
-        if finding.category.value == "style":
-            # Style findings should have good suggestions
-            if not finding.suggested_fix or len(finding.suggested_fix) < 30:
-                return True
-
-        # Check for overly short descriptions
-        if len(finding.description) < 50 and finding.severity == ReviewSeverity.LOW:
-            return True
-
-        return False
 
     def _score_actionability(self, finding: PRReviewFinding) -> float:
         """

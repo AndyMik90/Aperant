@@ -1,5 +1,7 @@
 # Auto-Build Framework Dependencies
-claude-agent-sdk>=0.1.19
+# SDK 0.1.22+ required for custom subagent support (bundles CLI 2.1.19+)
+# Earlier versions bundled CLI 2.1.9 which didn't properly register --agents flag
+claude-agent-sdk>=0.1.22
 python-dotenv>=1.0.0
 
 # TOML parsing fallback for Python < 3.11
