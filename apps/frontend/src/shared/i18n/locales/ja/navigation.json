@@ -21,7 +21,9 @@
   "actions": {
     "settings": "設定",
     "help": "ヘルプとフィードバック",
-    "newTask": "新規タスク"
+    "newTask": "新規タスク",
+    "collapseSidebar": "サイドバーを折りたたむ",
+    "expandSidebar": "サイドバーを展開"
   },
   "tooltips": {
     "settings": "アプリケーション設定",
@@ -42,6 +44,7 @@
   "claudeCode": {
     "checking": "Claude Codeを確認中...",
     "upToDate": "Claude Codeは最新です",
+    "upToDateWithVersion": "Claude Code {{version}} がインストールされています",
     "updateAvailable": "Claude Codeの更新が利用可能です",
     "notInstalled": "Claude Codeがインストールされていません",
     "error": "Claude Codeの確認中にエラーが発生しました",
@@ -58,7 +61,8 @@
     "viewChangelogAriaLabel": "Claude Codeの変更履歴を表示（新しいウィンドウで開きます）",
     "updateWarningTitle": "Claude Codeを更新しますか？",
     "updateWarningDescription": "更新すると、実行中のすべてのClaude Codeセッションが閉じられます。保存されていない作業は失われる可能性があります。続行する前に作業を保存してください。",
-    "updateAnyway": "更新を続行",
+    "updateWarningTerminalNote": "ターミナルウィンドウが開き、インストールコマンドが実行されます。続行する前にインストールが完了するまでお待ちください。",
+    "updateAnyway": "ターミナルを開いて更新",
     "switchVersion": "バージョンを切り替え",
     "selectVersion": "バージョンを選択",
     "loadingVersions": "バージョンを読み込み中...",
@@ -66,7 +70,8 @@
     "installingVersion": "バージョン {{version}} をインストール中...",
     "rollbackWarningTitle": "バージョン {{version}} に切り替えますか？",
     "rollbackWarningDescription": "バージョンを切り替えると、実行中のすべてのClaude Codeセッションが閉じられます。保存されていない作業は失われる可能性があります。続行する前に作業を保存してください。",
-    "switchAnyway": "切り替えを続行",
+    "rollbackWarningTerminalNote": "ターミナルウィンドウが開き、インストールコマンドが実行されます。続行する前にインストールが完了するまでお待ちください。",
+    "switchAnyway": "ターミナルを開いて切り替え",
     "currentVersion": "現在",
     "switchInstallation": "インストールを切り替え",
     "selectInstallation": "インストールを選択",

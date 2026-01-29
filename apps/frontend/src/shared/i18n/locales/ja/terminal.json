@@ -3,6 +3,10 @@
     "expand": "ターミナルを展開",
     "collapse": "ターミナルを折りたたむ"
   },
+  "resume": {
+    "pending": "再開可能",
+    "pendingTooltip": "クリックして前回のClaudeセッションを再開"
+  },
   "auth": {
     "terminalTitle": "認証: {{profileName}}",
     "maxTerminalsReached": "認証ターミナルを開けません: ターミナルの最大数に達しています。先にターミナルを閉じてください。"

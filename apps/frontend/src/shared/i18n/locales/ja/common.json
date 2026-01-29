@@ -77,9 +77,22 @@
     "discard": "破棄",
     "switch": "切り替え",
     "add": "追加",
+    "apply": "適用",
     "gotIt": "了解",
     "continue": "続ける",
     "saving": "保存中..."
+  },
+  "actions": {
+    "save": "保存",
+    "apply": "適用",
+    "delete": "削除",
+    "settings": "設定"
+  },
+  "os": {
+    "windows": "Windows",
+    "macos": "macOS",
+    "linux": "Linux",
+    "unknown": "お使いのOS"
   },
   "labels": {
     "loading": "読み込み中...",
@@ -91,7 +104,17 @@
     "noData": "データなし",
     "optional": "任意",
     "required": "必須",
-    "dismiss": "却下"
+    "dismiss": "却下",
+    "important": "重要"
+  },
+  "selection": {
+    "select": "選択",
+    "done": "完了",
+    "selected": "{{count}}件選択",
+    "selectAll": "すべて選択",
+    "clearSelection": "選択をクリア",
+    "deleteSelected": "選択した項目を削除",
+    "selectedOfTotal": "{{total}}件中{{selected}}件選択"
   },
   "time": {
     "justNow": "たった今",
@@ -105,7 +128,12 @@
     "operationFailed": "操作に失敗しました",
     "networkError": "ネットワークエラー",
     "notFound": "見つかりません",
-    "unauthorized": "認証されていません"
+    "unauthorized": "認証されていません",
+    "bulkDeletePartialFailure": "一部のワークツリーを削除できませんでした：",
+    "taskNotFoundForWorktree": "ワークツリーのタスクが見つかりません：{{specName}}",
+    "failedToDeleteTaskWorktree": "タスクワークツリーの削除に失敗しました：{{specName}}",
+    "terminalWorktreeNotFound": "ターミナルワークツリーが見つかりません：{{name}}",
+    "failedToDeleteTerminalWorktree": "ターミナルワークツリーの削除に失敗しました：{{name}}"
   },
   "notification": {
     "accountSwitched": "アカウントを切り替えました",
@@ -303,6 +331,52 @@
     "blockingIssues": "ブロッキング問題",
     "blockingIssuesDesc": "{{resolved}}件解決済み、{{unresolved}}件のブロッキング問題がまだ未解決です。",
     "blockingIssuesDesc_plural": "{{resolved}}件解決済み、{{unresolved}}件のブロッキング問題がまだ未解決です。",
+    "newCommitsSinceReview": "レビュー以降{{count}}件の新しいコミット。問題が解決されたかを確認するためにフォローアップを実行してください。",
+    "newCommitsSinceReview_plural": "レビュー以降{{count}}件の新しいコミット。問題が解決されたかを確認するためにフォローアップを実行してください。",
+    "noBlockingIssues": "ブロッキング問題は見つかりませんでした。このPRはマージできます。",
+    "findingsPostedWaiting": "{{count}}件の指摘を投稿しました。貢献者が問題に対処するのを待っています。",
+    "findingsPostedWaiting_plural": "{{count}}件の指摘を投稿しました。貢献者が問題に対処するのを待っています。",
+    "findingsPostedNoBlockers": "{{count}}件の指摘を投稿しました。ブロッキング問題は残っていません。",
+    "findingsPostedNoBlockers_plural": "{{count}}件の指摘を投稿しました。ブロッキング問題は残っていません。",
+    "needsAttention": "注意が必要",
+    "findingsNeedPosting": "{{count}}件の指摘をGitHubに投稿する必要があります。",
+    "findingsNeedPosting_plural": "{{count}}件の指摘をGitHubに投稿する必要があります。",
+    "findingsFoundSelectPost": "{{count}}件の指摘が見つかりました。選択してGitHubに投稿してください。",
+    "findingsFoundSelectPost_plural": "{{count}}件の指摘が見つかりました。選択してGitHubに投稿してください。",
+    "reviewLogs": "レビューログ",
+    "followup": "フォローアップ",
+    "initial": "初回",
+    "rerunFollowup": "フォローアップレビューを再実行",
+    "rerunReview": "レビューを再実行",
+    "updateBranch": "ブランチを更新",
+    "updatingBranch": "更新中...",
+    "branchUpdated": "ブランチを更新しました",
+    "branchUpdateFailed": "ブランチの更新に失敗しました",
+    "allPRsLoaded": "すべてのPRを読み込みました",
+    "maxPRsShown": "最初の100個のPRを表示中",
+    "workflowsAwaitingApproval": "{{count}}個のワークフローが承認待ち",
+    "workflowsAwaitingApproval_plural": "{{count}}個のワークフローが承認待ち",
+    "blockedByWorkflows": "ブロック中",
+    "workflowsAwaitingDescription": "このPRはフォークからのものであり、CIチェックを実行する前にワークフローの承認が必要です。ワークフローを承認して続行してください。",
+    "viewOnGitHub": "表示",
+    "approveWorkflow": "承認",
+    "approveAllWorkflows": "すべてのワークフローを承認",
+    "postCleanReview": "クリーンレビューを投稿",
+    "postingCleanReview": "投稿中...",
+    "cleanReviewPosted": "クリーンレビューを投稿しました",
+    "cleanReviewMessageTitle": "## ✅ Auto Claude PRレビュー - 合格",
+    "cleanReviewMessageStatus": "**ステータス：** すべてのコードは良好です",
+    "cleanReviewMessageFooter": "*この自動レビューでは問題は見つかりませんでした。Auto Claudeにより生成されました。*",
+    "failedPostCleanReview": "クリーンレビューの投稿に失敗しました",
+    "viewErrorDetails": "詳細を表示",
+    "hideErrorDetails": "詳細を非表示",
+    "postBlockedStatus": "ステータスを投稿",
+    "postingBlockedStatus": "投稿中...",
+    "nonBlockingSuggestions": "{{resolved}}件解決済み。{{suggestions}}件の非ブロッキング提案が残っています。",
+    "nonBlockingSuggestions_plural": "{{resolved}}件解決済み。{{suggestions}}件の非ブロッキング提案が残っています。",
+    "blockingIssues": "ブロッキング問題",
+    "blockingIssuesDesc": "{{resolved}}件解決済み、{{unresolved}}件のブロッキング問題がまだ未解決です。",
+    "blockingIssuesDesc_plural": "{{resolved}}件解決済み、{{unresolved}}件のブロッキング問題がまだ未解決です。",
     "newCommitsSinceReview": "レビュー以降{{count}}件の新しいコミット。フォローアップを実行して問題が解決されたか確認してください。",
     "newCommitsSinceReview_plural": "レビュー以降{{count}}件の新しいコミット。フォローアップを実行して問題が解決されたか確認してください。",
     "noBlockingIssues": "ブロッキング問題は見つかりませんでした。このPRはマージできます。",
@@ -320,8 +394,6 @@
     "initial": "初回",
     "rerunFollowup": "フォローアップレビューを再実行",
     "rerunReview": "レビューを再実行",
-    "loadingMore": "さらにPRを読み込み中...",
-    "scrollForMore": "スクロールしてさらに表示",
     "allPRsLoaded": "すべてのPRを読み込みました",
     "workflowsAwaitingApproval": "{{count}}個のワークフローが承認待ち",
     "workflowsAwaitingApproval_plural": "{{count}}個のワークフローが承認待ち",
@@ -389,5 +461,247 @@
     "loadingMore": "さらに読み込み中...",
     "scrollForMore": "スクロールしてさらに表示",
     "allLoaded": "すべてのIssueを読み込みました"
+  },
+  "usage": {
+    "dataUnavailable": "使用状況データが利用できません",
+    "dataUnavailableDescription": "このプロバイダーの使用状況監視エンドポイントは利用できないか、サポートされていません。",
+    "activeAccount": "アクティブアカウント",
+    "usageAlert": "使用状況アラート",
+    "accountExceedsThreshold": "アカウント使用量が90%のしきい値を超えています",
+    "authentication": "認証",
+    "authenticationAriaLabel": "認証：{{provider}}",
+    "authenticationDetails": "認証詳細",
+    "apiProfile": "APIプロファイル",
+    "apiKey": "APIキー",
+    "oauth": "OAuth",
+    "claudeCode": "Claude Code",
+    "claudeCodeSubscription": "Claude Codeサブスクリプション",
+    "subscription": "サブスクリプション",
+    "provider": "プロバイダー",
+    "providerAnthropic": "Anthropic",
+    "providerZai": "z.ai",
+    "providerZhipu": "ZHIPU AI",
+    "providerUnknown": "不明",
+    "profile": "プロファイル",
+    "id": "ID",
+    "created": "作成日",
+    "apiEndpoint": "APIエンドポイント",
+    "sessionQuota": "セッションクォータ",
+    "notAvailable": "N/A",
+    "usageStatusAriaLabel": "使用状況",
+    "usageBreakdown": "使用状況の内訳",
+    "used": "使用済み",
+    "loading": "読み込み中...",
+    "sessionDefault": "セッション",
+    "weeklyDefault": "週次",
+    "resetsInHours": "{{hours}}時間{{minutes}}分後にリセット",
+    "resetsInDays": "{{days}}日{{hours}}時間後にリセット",
+    "window5Hour": "5時間ウィンドウ",
+    "window7Day": "7日間ウィンドウ",
+    "window5HoursQuota": "5時間クォータ",
+    "windowMonthlyToolsQuota": "月次ツールクォータ",
+    "otherAccounts": "その他のアカウント",
+    "next": "次",
+    "weeklyLimitReached": "週次制限に達しました",
+    "sessionLimitReached": "セッション制限に達しました",
+    "notAuthenticated": "認証されていません",
+    "needsReauth": "再認証が必要",
+    "reauthRequired": "再認証が必要です",
+    "reauthRequiredDescription": "セッションが期限切れです。使用状況を表示してこのアカウントを使用し続けるには、再認証してください。",
+    "reauthButton": "再認証",
+    "clickToOpenSettings": "設定を開くにはクリック →",
+    "sessionShort": "5時間セッション使用量",
+    "weeklyShort": "7日間週次使用量",
+    "swap": "切り替え"
+  },
+  "oauth": {
+    "enterCode": "手動コード入力（フォールバック）",
+    "enterCodeDescription": "このダイアログは、ブラウザが自動的にリダイレクトしなかった場合にのみ必要です。ブラウザで認証が既に完了している場合は、このダイアログを閉じることができます。",
+    "fallbackNote": "ブラウザに「Claude Codeに貼り付けてください」というページが表示されている場合にのみ使用してください。",
+    "step1": "ブラウザで認証を完了してください",
+    "step2": "コードページが表示されたら、表示されているコードをコピーしてください",
+    "step3": "以下にコードを貼り付けて、送信をクリックしてください",
+    "codeLabel": "認証コード",
+    "codePlaceholder": "コードをここに貼り付けてください（必要な場合のみ）...",
+    "codeHint": "コードは、自動リダイレクトが失敗した場合にのみ表示される長い文字列です",
+    "submit": "送信",
+    "submitting": "送信中...",
+    "codeSubmitted": "コードを送信しました",
+    "codeSubmittedDescription": "認証は間もなく完了します。ターミナルで確認してください。",
+    "codeSubmitFailed": "コードの送信に失敗しました",
+    "codeSubmitFailedDescription": "もう一度お試しいただくか、コードをターミナルに手動でコピーしてください。",
+    "authenticateTitle": "Claudeで認証",
+    "authenticateDescription": "Auto Claudeは、ロードマップ生成、タスク自動化、アイデア創出などのAI駆動機能にClaude AI認証を必要とします。",
+    "authenticateTerminalInfo": "これにより、Claude CLIでターミナルが開き、認証できます。認証情報は安全に保存され、1年間有効です。",
+    "completeAuthTitle": "認証を完了",
+    "terminalOpened": "Claude CLIでターミナルウィンドウが開きました。",
+    "completeStepsTitle": "ターミナルで以下の手順を完了してください：",
+    "stepTypeLogin": "<code>/login</code>と入力してEnterを押してください",
+    "stepBrowserOpen": "Claude認証のためにブラウザが開きます",
+    "stepCompleteOAuth": "ブラウザでOAuthフローを完了してください",
+    "stepReturnAndVerify": "ここに戻って<strong>認証を確認</strong>をクリックしてください",
+    "verifyAuth": "認証を確認",
+    "verifyingAuth": "認証を確認中...",
+    "checkingCredentials": "Claudeの認証情報を確認しています。",
+    "successTitle": "認証に成功しました！",
+    "connectedAs": "{{email}}として接続されました",
+    "credentialsSaved": "Claudeの認証情報が保存されました",
+    "canUseFeatures": "すべてのAuto Claude AI機能を使用できるようになりました",
+    "authFailed": "認証に失敗しました",
+    "skipForNow": "今はスキップ",
+    "manualTokenEntry": "トークンの手動入力",
+    "tokenCommandHint": "<code>claude setup-token</code>を実行してトークンを取得してください",
+    "emailOptionalPlaceholder": "メールアドレス（オプション、表示用）",
+    "saveToken": "トークンを保存",
+    "accountNamePlaceholder": "アカウント名（例：仕事用、個人用）",
+    "hasAuthenticatedAccount": "認証済みのClaudeアカウントが少なくとも1つあります。次のステップに進むことができます。",
+    "authNotDetected": "認証が検出されませんでした。最初にターミナルで/loginを完了してください。",
+    "noProfileSelected": "確認用のプロファイルが選択されていません",
+    "alerts": {
+      "profileCreatedAuthFailed": "プロファイルは作成されましたが、認証の開始に失敗しました：{{error}}",
+      "authPrepareFailed": "認証の準備に失敗しました：{{error}}",
+      "authStartFailedMessage": "認証の開始に失敗しました。もう一度お試しください。"
+    },
+    "badges": {
+      "default": "デフォルト",
+      "active": "アクティブ",
+      "authenticated": "認証済み",
+      "needsAuth": "認証が必要"
+    },
+    "buttons": {
+      "authenticate": "認証",
+      "setActive": "アクティブに設定",
+      "back": "戻る",
+      "skip": "スキップ",
+      "continue": "続ける"
+    },
+    "toast": {
+      "tokenSaved": "トークンを保存しました",
+      "tokenSavedDescription": "Claudeトークンが安全に保存されました。",
+      "tokenSaveFailed": "トークンの保存に失敗しました",
+      "addProfileFailed": "プロファイルの追加に失敗しました",
+      "tryAgain": "もう一度お試しください。"
+    },
+    "configureTitle": "Claudeアカウントを設定",
+    "addAccountsDesc": "Claudeアカウントを追加して認証し、AI機能を使用します。",
+    "multiAccountInfo": "複数のClaudeアカウントを追加できます。アクティブなアカウントがAI機能に使用されます。いつでもアカウントを切り替えることができます。",
+    "keychainTitle": "セキュアストレージ",
+    "keychainDescription": "認証トークンはmacOS Keychainに安全に保存されます。",
+    "noAccountsYet": "アカウントがまだ追加されていません。以下から最初のClaudeアカウントを追加してください。"
+  },
+  "authTerminal": {
+    "failedToCreate": "ターミナルの作成に失敗しました",
+    "unknownError": "不明なエラー",
+    "instructionTitle": "Claude認証",
+    "step1": "Enterを押して認証を開始してください",
+    "step2": "ブラウザで認証を完了してください",
+    "step3": "ここに戻ってください - 認証は自動的に検出されます",
+    "authFailed": "認証に失敗しました",
+    "connecting": "接続中...",
+    "authenticate": "認証：{{profileName}}",
+    "completeSetup": "セットアップを完了：{{profileName}}",
+    "authenticatedAs": "{{email}}として認証されました",
+    "authenticated": "認証されました！",
+    "authError": "認証エラー",
+    "onboardingMessage": "トークンを受信しました！以下のClaude Codeセットアップを完了してください - このウィンドウは完了時に自動的に閉じます。",
+    "successMessage": "認証に成功しました！閉じています..."
+  },
+  "profileCreated": {
+    "title": "プロファイル「{{profileName}}」が作成されました。",
+    "instructions": "このプロファイルを認証するには：",
+    "step1": "設定 > 連携に移動",
+    "step2": "Claudeアカウントセクションでプロファイルを見つけます",
+    "step3": "「認証」をクリックしてログインを完了します",
+    "footer": "認証を完了すると、アカウントが利用可能になります。"
+  },
+  "roadmapGeneration": {
+    "progress": "進捗",
+    "elapsed": "経過時間：{{time}}",
+    "stillWorking": "まだ作業中...",
+    "stopping": "停止中...",
+    "stop": "停止",
+    "stopTooltip": "生成を停止",
+    "phases": {
+      "analyzing": {
+        "label": "分析中",
+        "description": "プロジェクト構造とコードベースを分析中..."
+      },
+      "discovering": {
+        "label": "発見中",
+        "description": "対象ユーザーとユーザーニーズを発見中..."
+      },
+      "generating": {
+        "label": "生成中",
+        "description": "機能ロードマップを生成中..."
+      },
+      "complete": {
+        "label": "完了",
+        "description": "ロードマップの生成が完了しました！"
+      },
+      "error": {
+        "label": "エラー",
+        "description": "生成に失敗しました"
+      }
+    },
+    "steps": {
+      "analyze": "分析",
+      "discover": "発見",
+      "generate": "生成"
+    }
+  },
+  "auth": {
+    "failure": {
+      "title": "認証が必要です",
+      "profileLabel": "プロファイル",
+      "unknownProfile": "不明なプロファイル",
+      "tokenExpired": "認証トークンの有効期限が切れています。",
+      "tokenInvalid": "認証トークンが無効です。",
+      "tokenMissing": "認証トークンが見つかりません。",
+      "authFailed": "認証に失敗しました。",
+      "description": "Auto Claudeを引き続き使用するには、Claudeプロファイルを再認証してください。",
+      "taskAffected": "影響を受けるタスク",
+      "technicalDetails": "技術的な詳細",
+      "goToSettings": "設定に移動"
+    }
+  },
+  "roadmapProgress": {
+    "elapsedTime": "経過時間",
+    "lastActivity": "最終アクティビティ",
+    "staleWarning": "しばらくアクティビティがありません",
+    "staleWarningTooltip": "このタスクは{{minutes}}分間アクティビティがありません",
+    "phases": {
+      "analyzing": {
+        "label": "分析中",
+        "description": "プロジェクト構造とコードベースを分析中..."
+      },
+      "discovering": {
+        "label": "発見中",
+        "description": "対象ユーザーとユーザーニーズを発見中..."
+      },
+      "generating": {
+        "label": "生成中",
+        "description": "機能ロードマップを生成中..."
+      },
+      "complete": {
+        "label": "完了",
+        "description": "ロードマップの生成が完了しました！"
+      },
+      "error": {
+        "label": "エラー",
+        "description": "生成に失敗しました"
+      }
+    },
+    "steps": {
+      "analyze": "分析",
+      "discover": "発見",
+      "generate": "生成"
+    },
+    "processing": "処理中",
+    "processActiveTooltip": "プロセスはアクティブに実行中です",
+    "stopGeneration": "生成を停止",
+    "stopping": "停止中...",
+    "progress": "進捗",
+    "lastActivityPrefix": "最終アクティビティ",
+    "lastProgressUpdateTooltip": "最後に受信した進捗更新"
   }
 }

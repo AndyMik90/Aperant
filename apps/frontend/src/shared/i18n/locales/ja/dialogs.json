@@ -54,7 +54,11 @@
     "merge": "ワークツリーをマージ",
     "mergeDescription": "このワークツリーの変更をベースブランチにマージします。",
     "delete": "ワークツリーを削除しますか？",
-    "deleteDescription": "これにより、ワークツリーとコミットされていないすべての変更が完全に削除されます。この操作は元に戻せません。"
+    "deleteDescription": "これにより、ワークツリーとコミットされていないすべての変更が完全に削除されます。この操作は元に戻せません。",
+    "bulkDeleteTitle": "{{count}}個のワークツリーを削除しますか？",
+    "bulkDeleteDescription": "これにより、選択されたワークツリーとそのコミットされていないすべての変更が完全に削除されます。この操作は元に戻せません。",
+    "deleting": "削除中...",
+    "deleteSelected": "選択した項目を削除"
   },
   "worktreeCleanup": {
     "title": "タスクを完了",
@@ -159,5 +163,16 @@
     "downloadError": "更新のダウンロードに失敗しました",
     "claudeCodeChangelog": "Claude Code変更ログを見る",
     "claudeCodeChangelogAriaLabel": "Claude Code変更ログを見る（新しいウィンドウで開きます）"
+  },
+  "versionWarning": {
+    "title": "アクション必要",
+    "subtitle": "バージョン2.7.5アップデート",
+    "description": "このバージョンの認証変更により、Claudeプロファイルを再認証する必要があります。",
+    "instructions": "再認証するには：",
+    "step1": "設定に移動",
+    "step2": "アプリ設定 > 連携に移動",
+    "step3": "プロファイルで「再認証」をクリック",
+    "gotIt": "了解",
+    "goToSettings": "設定に移動"
   }
 }

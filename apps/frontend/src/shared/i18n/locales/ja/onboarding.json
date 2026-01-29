@@ -74,6 +74,11 @@
       "tokenSavedDescription": "トークンが正常に保存されました。",
       "tokenSaveFailed": "トークンの保存に失敗しました",
       "tryAgain": "もう一度お試しください。"
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "プロファイルは作成されましたが、認証の準備に失敗しました：{{error}}",
+      "authPrepareFailed": "認証の準備に失敗しました：{{error}}",
+      "authStartFailedMessage": "認証の開始に失敗しました。もう一度お試しください。"
     }
   },
   "memory": {
@@ -113,7 +118,17 @@
       "voyage": "Voyage AI",
       "google": "Google AI",
       "azure": "Azure OpenAI"
-    }
+    },
+    "voyageEmbeddingModel": "埋め込みモデル",
+    "ollamaConfig": "Ollama設定",
+    "checking": "確認中...",
+    "connected": "接続済み",
+    "notRunning": "実行されていません",
+    "baseUrl": "ベースURL",
+    "embeddingModel": "埋め込みモデル",
+    "embeddingDim": "埋め込み次元",
+    "embeddingDimDescription": "Ollama埋め込みに必要（例：nomic-embed-textの場合は768）",
+    "modelRecommendation": "推奨：qwen3-embedding:4b（バランス型）、:8b（品質重視）、:0.6b（高速）"
   },
   "completion": {
     "title": "準備完了です!",

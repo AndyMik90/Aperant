@@ -2,6 +2,7 @@
   "refreshTasks": "タスクを更新",
   "status": {
     "backlog": "バックログ",
+    "queue": "キュー",
     "todo": "未着手",
     "in_progress": "進行中",
     "review": "レビュー",
@@ -19,7 +20,8 @@
     "view": "詳細を見る",
     "viewPR": "PRを見る",
     "moveTo": "移動",
-    "taskActions": "タスク操作"
+    "taskActions": "タスク操作",
+    "selectTask": "タスクを選択：{{title}}"
   },
   "labels": {
     "running": "実行中",
@@ -54,17 +56,21 @@
   },
   "columns": {
     "backlog": "計画中",
+    "queue": "キュー",
     "in_progress": "進行中",
     "ai_review": "AIレビュー",
     "human_review": "人間レビュー",
     "done": "完了",
-    "pr_created": "PR作成済み"
+    "pr_created": "PR作成済み",
+    "error": "エラー"
   },
   "kanban": {
     "emptyBacklog": "計画されたタスクなし",
     "emptyBacklogHint": "タスクを追加して開始しましょう",
+    "emptyQueue": "キューは空です",
+    "emptyQueueHint": "並列タスク制限に達すると、タスクはここで待機します",
     "emptyInProgress": "実行中のタスクなし",
-    "emptyInProgressHint": "バックログからタスクを開始",
+    "emptyInProgressHint": "計画中からタスクを開始",
     "emptyAiReview": "レビュー中のタスクなし",
     "emptyAiReviewHint": "AIが完了したタスクをレビューします",
     "emptyHumanReview": "レビューするタスクなし",
@@ -75,6 +81,7 @@
     "dropHere": "ここにドロップ",
     "showArchived": "アーカイブを表示",
     "addTaskAriaLabel": "バックログに新しいタスクを追加",
+    "queueAllAriaLabel": "すべてのタスクをキューに移動",
     "closeTaskDetailsAriaLabel": "タスク詳細を閉じる",
     "editTask": "タスクを編集",
     "cannotEditWhileRunning": "タスク実行中は編集できません",
@@ -83,7 +90,24 @@
     "worktreeCleanupNotStaged": "このタスクには、マージされていない変更を含むワークツリーがあります。完了としてマークするにはワークツリーを削除するか、キャンセルして最初に変更をレビューしてください。",
     "keepWorktree": "ワークツリーを保持",
     "deleteWorktree": "ワークツリーを削除して完了にする",
-    "refreshTasks": "タスクを更新"
+    "refreshTasks": "タスクを更新",
+    "queueSettings": "キュー設定",
+    "orderSaveFailedTitle": "並べ替えが保存されませんでした",
+    "orderSaveFailedDescription": "タスクの順序変更は適用されましたが、ストレージに保存できませんでした。更新すると失われます。",
+    "selectAll": "すべて選択",
+    "deselectAll": "すべて選択解除",
+    "selectedCount": "{{count}}件選択",
+    "selectedCountOne": "{{count}}個のタスクを選択",
+    "selectedCountOther": "{{count}}個のタスクを選択",
+    "createPRs": "PRを作成",
+    "clearSelection": "選択をクリア",
+    "collapseColumn": "列を折りたたむ",
+    "expandColumn": "列を展開",
+    "resizeColumn": "列のサイズを変更",
+    "lockColumn": "列幅を固定",
+    "unlockColumn": "列幅の固定を解除",
+    "columnLocked": "列幅が固定されています",
+    "expandAll": "すべての列を展開"
   },
   "execution": {
     "phases": {
@@ -237,5 +261,91 @@
   },
   "subtasks": {
     "untitled": "無題のサブタスク"
+  },
+  "queue": {
+    "limitReached": "並列タスク制限に達しました（{{current}}/{{max}}）。タスクをキューに移動しました。",
+    "movedToQueue": "タスクをキューに移動しました。",
+    "autoPromoted": "タスクがキューから進行中に自動昇格されました。",
+    "capacityAvailable": "進行中で{{count}}スロット利用可能です。",
+    "queueAll": "すべてキューに追加",
+    "queueAllSuccess": "{{count}}個のタスクをキューに移動しました。",
+    "settings": {
+      "title": "キュー設定",
+      "description": "「進行中」ボードで並列実行できるタスクの最大数を設定",
+      "maxParallelLabel": "最大並列タスク数",
+      "minValueError": "少なくとも1以上である必要があります",
+      "maxValueError": "10を超えることはできません",
+      "hint": "この制限に達すると、新しいタスクは「進行中」に移動する前にキューで待機します",
+      "saved": "キュー設定を保存しました",
+      "saveFailed": "キュー設定の保存に失敗しました",
+      "retry": "もう一度お試しください"
+    }
+  },
+  "imagePreview": {
+    "close": "プレビューを閉じる",
+    "unavailable": "画像が利用できません",
+    "description": "{{filename}}のプレビュー",
+    "doubleClickHint": "ダブルクリックで拡大",
+    "lowResolution": "低解像度プレビュー"
+  },
+  "wizard": {
+    "createTitle": "新規タスクを作成",
+    "createDescription": "構築したい内容を説明してください。AIがリクエストを分析し、詳細な仕様を作成します。",
+    "descriptionPlaceholder": "実装したい機能、バグ修正、または改善について説明してください。要件、制約、期待される動作について可能な限り具体的に記述してください。@を入力してファイルを参照できます。",
+    "draftRestored": "下書きを復元しました",
+    "startFresh": "最初から始める",
+    "hideFiles": "ファイルを非表示",
+    "browseFiles": "ファイルを参照",
+    "creating": "作成中...",
+    "createTask": "タスクを作成",
+    "worktreeNotice": {
+      "title": "分離されたワークスペース",
+      "description": "このタスクは分離された git ワークツリーで実行されます。マージを選択するまでメインブランチは安全に保たれます。"
+    },
+    "gitOptions": {
+      "title": "Gitオプション（オプション）",
+      "baseBranchLabel": "ベースブランチ（オプション）",
+      "useProjectDefault": "プロジェクトのデフォルトを使用",
+      "useProjectDefaultWithBranch": "プロジェクトのデフォルト（{{branch}}）を使用",
+      "searchBranches": "ブランチを検索...",
+      "noBranchesFound": "ブランチが見つかりません",
+      "helpText": "このタスクのワークツリーの作成元となるブランチを上書きします。空欄にするとプロジェクトで設定されたデフォルトブランチが使用されます。",
+      "useWorktreeLabel": "分離されたワークスペースを使用（推奨）",
+      "useWorktreeDescription": "安全にレビューしてからマージするために、別のgitワークツリーに変更を作成します。無効にすると、プロジェクトで直接ビルドします（高速ですがリスクあり）。"
+    },
+    "errors": {
+      "createFailed": "タスクの作成に失敗しました。もう一度お試しください。"
+    }
+  },
+  "bulkPR": {
+    "selectAllInColumn": "列内のすべてのタスクを選択",
+    "deselectAllInColumn": "すべてのタスクの選択を解除",
+    "selectionMode": "選択モードが有効です",
+    "exitSelectionMode": "選択モードを終了",
+    "noTasksToSelect": "選択可能なタスクがありません",
+    "confirmBulkAction": "{{count}}個のタスクの一括操作を確認",
+    "processingTasks": "選択されたタスクを処理中..."
+  },
+  "screenshot": {
+    "title": "スクリーンショットをキャプチャ",
+    "description": "参照画像としてキャプチャする画面またはウィンドウを選択",
+    "capture": "キャプチャ",
+    "capturing": "キャプチャ中...",
+    "noSources": "画面またはウィンドウが見つかりません",
+    "errors": {
+      "getSources": "スクリーンショットのソースの取得に失敗しました",
+      "fetchSources": "スクリーンショットのソースの取得に失敗しました",
+      "capture": "スクリーンショットのキャプチャに失敗しました",
+      "captureFailed": "スクリーンショットのキャプチャに失敗しました"
+    },
+    "devMode": {
+      "title": "スクリーンショットキャプチャは利用できません",
+      "description": "システムの権限制限により、開発モードでは画面キャプチャが利用できません。",
+      "hint": "外部のスクリーンショットツールを使用し、{{shortcut}}でタスクの説明に直接貼り付けてください。"
+    }
+  },
+  "referenceImages": {
+    "title": "参照画像（オプション）",
+    "description": "スクリーンショットやデザインなどの視覚的な参照を追加して、AIが要件を理解するのを助けます。"
   }
 }

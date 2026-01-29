@@ -29,13 +29,13 @@
       "title": "パス",
       "description": "CLIツールとフレームワークのパス"
     },
-    "integrations": {
-      "title": "連携",
-      "description": "APIキーとClaudeアカウント"
+    "accounts": {
+      "title": "アカウント",
+      "description": "ClaudeアカウントとAPIエンドポイント"
     },
-    "api-profiles": {
-      "title": "APIプロファイル",
-      "description": "カスタムAPIエンドポイントプロファイル"
+    "terminal-fonts": {
+      "title": "ターミナルフォント",
+      "description": "ターミナルフォントの外観をカスタマイズ"
     },
     "updates": {
       "title": "アップデート",
@@ -58,8 +58,8 @@
       "anthropic": "Anthropic",
       "openrouter": "OpenRouter",
       "groq": "Groq",
-      "glmGlobal": "GLM (Global)",
-      "glmChina": "GLM (China)"
+      "zaiGlobal": "z.ai (Global)",
+      "zaiChina": "z.ai (China)"
     },
     "fields": {
       "name": "名前",
@@ -241,9 +241,11 @@
   },
   "devtools": {
     "title": "開発ツール",
-    "description": "ワークツリーで使用するIDEとターミナルを設定",
+    "description": "優先IDE、ターミナル、ターミナルフォント設定を構成",
     "detecting": "インストール済みツールを検出中...",
     "detectAgain": "再検出",
+    "tabTools": "ツール",
+    "tabTerminalFonts": "ターミナルフォント",
     "ide": {
       "label": "優先IDE",
       "description": "Auto Claudeはワークツリーをこのエディターで開きます",
@@ -262,6 +264,10 @@
     "notInstalled": "インストールされていません",
     "detectedSummary": "システムで検出されたツール:",
     "noToolsDetected": "追加ツールは検出されませんでした（VS Codeとシステムターミナルが使用されます）",
+    "autoNameClaude": {
+      "label": "Claudeターミナルを自動命名",
+      "description": "最初のメッセージに基づいてClaudeターミナルの説明的な名前をAIで生成"
+    },
     "yoloMode": {
       "label": "YOLOモード",
       "description": "Claudeを--dangerously-skip-permissionsフラグで起動し、すべてのセーフティプロンプトをバイパスします。極端に注意して使用してください。",
@@ -442,6 +448,8 @@
     "apiKeysInfo": "ここで設定されたキーはデフォルトとして使用されます。個々のプロジェクトは設定でこれらを上書きできます。",
     "openaiKey": "OpenAI APIキー",
     "openaiKeyDescription": "Graphitiメモリバックエンド (埋め込み) に必要",
+    "authenticating": "認証中...",
+    "claudeAccountsWarning": "下記のClaudeアカウントは、タスクを実行するために使用されます。アクティブなアカウントがプライマリアカウントとして使用されます。",
     "toast": {
       "authSuccess": "プロファイルの認証に成功しました",
       "authSuccessWithEmail": "{{email}}として接続されました",
@@ -452,7 +460,145 @@
       "tokenSavedDescription": "トークンが正常に保存されました。",
       "tokenSaveFailed": "トークンの保存に失敗しました",
       "settingsUpdateFailed": "設定の更新に失敗しました",
+      "tryAgain": "もう一度お試しください。",
+      "loadProfilesFailed": "プロファイルの読み込みに失敗しました",
+      "deleteProfileFailed": "プロファイルの削除に失敗しました",
+      "renameProfileFailed": "プロファイル名の変更に失敗しました",
+      "setActiveProfileFailed": "アクティブプロファイルの設定に失敗しました",
+      "authProcessFailed": "認証プロセスに失敗しました",
+      "authProcessFailedDescription": "認証の開始中にエラーが発生しました。",
+      "profileCreatedAuthFailed": "プロファイルを作成しましたが認証に失敗しました",
+      "profileCreatedAuthFailedDescription": "プロファイルは作成されましたが、認証を開始できませんでした。",
+      "terminalCreationFailed": "認証ターミナルの作成に失敗しました",
+      "terminalCreationFailedDescription": "認証プロセスを開始できませんでした。{{error}}",
+      "maxTerminalsReached": "最大ターミナル数に達しました",
+      "maxTerminalsReachedDescription": "ターミナルをいくつか閉じてから再試行してください。最大12個のターミナルを開くことができます。",
+      "terminalError": "ターミナルエラー",
+      "terminalErrorDescription": "ターミナルの作成に失敗しました：{{error}}"
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "プロファイルは作成されましたが、認証の準備に失敗しました：{{error}}",
+      "authPrepareFailed": "認証の準備に失敗しました：{{error}}",
+      "authStartFailedMessage": "認証の開始に失敗しました。もう一度お試しください。"
+    }
+  },
+  "accounts": {
+    "title": "アカウント",
+    "description": "Claudeアカウントと APIエンドポイントを管理",
+    "tabs": {
+      "claudeCode": "Claude Code",
+      "customEndpoints": "カスタムエンドポイント"
+    },
+    "claudeCode": {
+      "description": "レート制限に達したときに自動的に切り替えるために、複数のClaudeサブスクリプションを追加してください。",
+      "noAccountsYet": "アカウントがまだ設定されていません",
+      "default": "デフォルト",
+      "active": "アクティブ",
+      "authenticated": "認証済み",
+      "needsAuth": "認証が必要",
+      "authenticate": "認証",
+      "authenticating": "認証中...",
+      "setActive": "アクティブに設定",
+      "manualTokenEntry": "トークンの手動入力",
+      "runSetupToken": "claudeを実行して/loginと入力して認証してください",
+      "tokenPlaceholder": "sk-ant-oat01-...",
+      "emailPlaceholder": "メールアドレス（オプション、表示用）",
+      "saveToken": "トークンを保存",
+      "accountNamePlaceholder": "アカウント名（例：仕事用、個人用）"
+    },
+    "customEndpoints": {
+      "description": "Anthropic互換のカスタムAPIエンドポイントを設定",
+      "addButton": "プロファイルを追加",
+      "activeBadge": "アクティブ",
+      "customModels": "カスタムモデル：{{models}}",
+      "setActive": {
+        "label": "アクティブに設定",
+        "loading": "設定中..."
+      },
+      "switchToOauth": {
+        "label": "Claude Codeを使用",
+        "loading": "切り替え中..."
+      },
+      "tooltips": {
+        "edit": "プロファイルを編集",
+        "deleteActive": "アクティブなプロファイルは削除できません",
+        "deleteInactive": "プロファイルを削除"
+      },
+      "empty": {
+        "title": "カスタムエンドポイントなし",
+        "description": "代替プロバイダーを使用するために、Anthropic互換のカスタムAPIエンドポイントを設定してください。",
+        "action": "プロファイルを追加"
+      },
+      "dialog": {
+        "deleteTitle": "プロファイルを削除",
+        "deleteDescription": "「{{name}}」を削除してもよろしいですか？この操作は元に戻せません。",
+        "cancel": "キャンセル",
+        "delete": "削除",
+        "deleting": "削除中..."
+      }
+    },
+    "autoSwitching": {
+      "title": "アカウントの自動切り替え",
+      "description": "中断を避けるために、アカウント間で自動的に切り替えます。制限に達する前に切り替えるよう、プロアクティブな監視を設定してください。",
+      "enableAutoSwitching": "自動切り替えを有効化",
+      "masterSwitch": "すべての自動切り替え機能のマスタースイッチ",
+      "proactiveMonitoring": "プロアクティブ監視",
+      "proactiveDescription": "使用量を定期的にチェックし、制限に達する前に切り替え",
+      "sessionThreshold": "セッション使用量のしきい値",
+      "sessionThresholdDescription": "セッション使用量がこのレベルに達したときに切り替え（推奨：95%）",
+      "weeklyThreshold": "週間使用量のしきい値",
+      "weeklyThresholdDescription": "週間使用量がこのレベルに達したときに切り替え（推奨：99%）",
+      "reactiveRecovery": "リアクティブリカバリ",
+      "reactiveDescription": "予期しないレート制限に達したときに自動切り替え"
+    },
+    "priority": {
+      "title": "アカウントの優先順位",
+      "description": "ドラッグして並べ替えます。システムは順番に次の利用可能なアカウントに切り替えます。",
+      "noAccounts": "アカウントが設定されていません。上記でアカウントを追加して優先順位を設定してください。",
+      "noEmail": "メールなし",
+      "active": "アクティブ",
+      "inUse": "使用中",
+      "next": "次",
+      "unlimited": "無制限",
+      "unavailable": "利用不可",
+      "typeOAuth": "OAuth",
+      "typeAPI": "API",
+      "payPerUse": "従量課金",
+      "needsAuth": "認証されていません",
+      "duplicateUsage": "重複使用が検出されました",
+      "duplicateUsageHint": "このプロファイルは別のプロファイルと同じ使用量を持っており、同じAnthropicアカウントで認証されている可能性があります。別のアカウントで再認証して修正してください。",
+      "needsReauth": "再認証が必要",
+      "needsReauthHint": "このプロファイルのリフレッシュトークンが無効です。クリックして再認証してください。",
+      "sessionUsage": "セッション使用量（5時間ウィンドウ）",
+      "weeklyUsage": "週間使用量（7日間ウィンドウ）",
+      "oauthSection": "Claudeアカウント（最初に循環）",
+      "apiSection": "フォールバックエンドポイント（すべてのアカウントが使い果たされたとき）",
+      "tipTitle": "優先順位の仕組み",
+      "tipDescription": "Claudeアカウントはサブスクリプションに含まれており、最初に循環されます。APIエンドポイントはリクエストごとに課金され、すべてのClaudeアカウントが制限に達したときにフォールバックとして使用されます。",
+      "status": {
+        "healthy": "健全",
+        "moderate": "適度",
+        "highUsage": "高使用量",
+        "nearLimit": "制限近く",
+        "rateLimited": "レート制限"
+      }
+    },
+    "toast": {
+      "loadProfilesFailed": "プロファイルの読み込みに失敗しました",
+      "addProfileFailed": "プロファイルの追加に失敗しました",
+      "deleteProfileFailed": "プロファイルの削除に失敗しました",
+      "renameProfileFailed": "プロファイル名の変更に失敗しました",
+      "setActiveProfileFailed": "アクティブプロファイルの設定に失敗しました",
+      "tokenSaved": "トークンを保存しました",
+      "tokenSavedDescription": "トークンが正常に保存されました。",
+      "tokenSaveFailed": "トークンの保存に失敗しました",
+      "settingsUpdateFailed": "設定の更新に失敗しました",
       "tryAgain": "もう一度お試しください。"
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "プロファイルは作成されましたが、認証の準備に失敗しました：{{error}}",
+      "authPrepareFailed": "認証の準備に失敗しました：{{error}}",
+      "authStartFailedMessage": "認証の開始に失敗しました。もう一度お試しください。"
     }
   },
   "debug": {
@@ -576,6 +722,141 @@
       "createAnthropicKey": "Anthropic APIキーを作成",
       "openai": "これはOpenAI APIのようです。APIキーが必要です。",
       "createOpenaiKey": "OpenAI APIキーを作成"
+    }
+  },
+  "terminalFonts": {
+    "title": "ターミナルフォント",
+    "description": "ターミナルフォントの外観と動作をカスタマイズ",
+    "configActions": "設定：",
+    "export": "JSONをエクスポート",
+    "import": "JSONをインポート",
+    "copy": "クリップボードにコピー",
+    "fontConfig": {
+      "title": "フォント設定",
+      "description": "フォントファミリー、サイズ、太さ、行の高さ、文字間隔をカスタマイズ",
+      "fontFamily": "フォントファミリー",
+      "fontFamilyDescription": "ターミナルテキストの主要な等幅フォント",
+      "selectFont": "フォントを選択...",
+      "searchFont": "フォントを検索...",
+      "noFonts": "フォントが見つかりません",
+      "fontChain": "フォントチェーン：",
+      "fontSize": "フォントサイズ",
+      "fontSizeDescription": "ベースフォントサイズ（ピクセル単位、10-24px）",
+      "decreaseFontSize": "フォントサイズを{{step}}px減らす",
+      "increaseFontSize": "フォントサイズを{{step}}px増やす",
+      "pixels": "ピクセル",
+      "fontWeight": "フォントの太さ",
+      "fontWeightDescription": "フォントの太さ（100（細い）から900（太い）まで、100刻み）",
+      "commonWeights": "一般的：400（通常）、600（セミボールド）、700（ボールド）",
+      "decreaseFontWeight": "フォントの太さを{{step}}減らす",
+      "increaseFontWeight": "フォントの太さを{{step}}増やす",
+      "lineHeight": "行の高さ",
+      "lineHeightDescription": "フォントサイズの倍数として行の高さ（1.0-2.0）",
+      "letterSpacing": "文字間隔",
+      "letterSpacingDescription": "文字間の水平方向の間隔（-2～5px）"
+    },
+    "cursorConfig": {
+      "title": "カーソル設定",
+      "description": "カーソルのスタイル、点滅動作、アクセントカラーをカスタマイズ",
+      "cursorStyle": "カーソルスタイル",
+      "cursorStyleDescription": "ターミナルカーソルの外観を選択",
+      "selectStyle": "カーソルスタイルを選択...",
+      "currentStyle": "現在：",
+      "styleBlock": "ブロック",
+      "styleBlockDescription": "フルブロックカーソル",
+      "styleUnderline": "アンダーライン",
+      "styleUnderlineDescription": "アンダーラインカーソル",
+      "styleBar": "バー",
+      "styleBarDescription": "垂直バーカーソル",
+      "cursorBlink": "カーソルの点滅",
+      "cursorBlinkDescription": "カーソルの点滅アニメーションを有効または無効にする",
+      "blinkStatus": "ステータス：",
+      "enabled": "有効",
+      "disabled": "無効",
+      "cursorAccentColor": "カーソルアクセントカラー",
+      "cursorAccentColorDescription": "ターミナルカーソルの色を選択",
+      "cursorColorLabel": "カーソルアクセントカラー",
+      "cursorColorDescription": "現在の色：{{color}}",
+      "pickColor": "クリックして色を選択",
+      "resetColor": "黒にリセット",
+      "reset": "リセット",
+      "preview": "プレビュー："
+    },
+    "performanceConfig": {
+      "title": "パフォーマンス設定",
+      "description": "スクロールバック制限とその他のパフォーマンス関連設定を調整",
+      "presets": "クイックプリセット",
+      "presetsDescription": "さまざまなユースケースに対応する一般的なスクロールバック制限",
+      "scrollback": "スクロールバック制限",
+      "scrollbackDescription": "ターミナル履歴に保持する最大行数",
+      "scrollbackPresets": "クイックプリセット",
+      "presetMinimal": "最小限",
+      "presetMinimalDescription": "最小限の履歴（1K行）",
+      "presetStandard": "標準",
+      "presetStandardDescription": "標準の履歴（10K行）",
+      "presetExtended": "拡張",
+      "presetExtendedDescription": "拡張履歴（50K行）",
+      "presetMaximum": "最大",
+      "presetMaximumDescription": "最大履歴（100K行）",
+      "decreaseScrollback": "スクロールバックを{{step}}減らす",
+      "increaseScrollback": "スクロールバックを{{step}}増やす",
+      "lines": "行",
+      "kValue": "{{value}}K",
+      "scrollbackValue": "{{value}}行"
+    },
+    "presets": {
+      "title": "クイックプリセット",
+      "description": "事前設定されたターミナルフォント設定を適用するか、独自の設定を保存",
+      "builtin": "組み込みプリセット",
+      "builtinDescription": "クリックして事前設定されたプリセットを適用",
+      "vscode": "Consolas 14px、ブロックカーソル",
+      "vscodeName": "VS Code",
+      "intellij": "JetBrains Mono 13px、ブロックカーソル",
+      "intellijName": "IntelliJ IDEA",
+      "macos": "SF Mono 13px、ブロックカーソル",
+      "macosName": "macOSターミナル",
+      "ubuntu": "Ubuntu Mono 13px、ブロックカーソル",
+      "ubuntuName": "Ubuntuターミナル",
+      "reset": "デフォルトにリセット",
+      "resetDescription": "オペレーティングシステムのデフォルト設定に復元",
+      "resetToOS": "{{os}}のデフォルトにリセット",
+      "resetButton": "OSデフォルトにリセット",
+      "custom": "カスタムプリセット",
+      "customDescription": "現在の設定をカスタムプリセットとして保存",
+      "presetNamePlaceholder": "プリセット名...",
+      "savePreset": "現在の設定をプリセットとして保存",
+      "applyPreset": "このプリセットを適用",
+      "deletePreset": "このプリセットを削除",
+      "noCustomPresets": "カスタムプリセットはまだありません。現在の設定を保存して始めましょう。",
+      "duplicateName": "この名前のプリセットは既に存在します",
+      "saved": "プリセット「{{name}}」を保存しました",
+      "deleted": "プリセット「{{name}}」を削除しました",
+      "unknownFont": "不明",
+      "applyFailed": "プリセット「{{name}}」の適用に失敗しました",
+      "presetNameLabel": "プリセット名",
+      "summary": "{{font}}、{{size}}px、{{cursor}}カーソル"
+    },
+    "preview": {
+      "title": "ライブプレビュー",
+      "description": "ターミナル設定をリアルタイムでプレビュー（変更後300ms以内に更新）",
+      "ariaLabel": "ターミナルフォントプレビュー",
+      "infoText": "このプレビューは、変更後300ms以内に更新され、実際のターミナルでの表示を示します。"
+    },
+    "importExport": {
+      "exportSuccess": "設定をエクスポートしました",
+      "exportFailed": "設定のエクスポートに失敗しました",
+      "importSuccess": "設定をインポートしました",
+      "importFailed": "設定のインポートに失敗しました：無効なJSON形式",
+      "importFailedRange": "設定のインポートに失敗しました：値が有効範囲外です",
+      "copySuccess": "設定をクリップボードにコピーしました",
+      "copyFailed": "クリップボードへのコピーに失敗しました",
+      "fileTooLarge": "インポートファイルが大きすぎます（最大10KB）",
+      "readError": "ファイルの読み込みに失敗しました"
+    },
+    "slider": {
+      "decrease": "{{label}}を{{step}}減らす",
+      "increase": "{{label}}を{{step}}増やす",
+      "currentValue": "現在の値：{{value}}"
     }
   }
 }

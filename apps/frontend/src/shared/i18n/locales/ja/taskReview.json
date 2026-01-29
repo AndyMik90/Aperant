@@ -62,5 +62,22 @@
       "targetBranch": "空のままにするとデフォルトブランチを使用します",
       "prTitle": "空のままにするとタスクタイトルを使用します"
     }
+  },
+  "bulkPR": {
+    "title": "プルリクエストを作成",
+    "description": "選択された{{count}}個のタスクのプルリクエストを作成",
+    "creating": "PR {{current}}/{{total}}を作成中...",
+    "creatingPR": "PR {{current}}/{{total}}を作成中",
+    "resultsDescription": "{{success}}件成功、{{failed}}件失敗",
+    "tasksToProcess": "処理するタスク",
+    "targetBranchHint": "空のままにすると各タスクのデフォルトブランチを使用します。これはすべてのPRに適用されます。",
+    "createAll": "{{count}}個のPRを作成",
+    "completed": "完了",
+    "succeeded": "成功",
+    "failed": "失敗",
+    "skipped": "スキップ",
+    "alreadyExisted": "既に存在",
+    "noWorktree": "このタスクのワークツリーが見つかりません",
+    "resultsDescriptionWithSkipped": "{{success}}件成功、{{skipped}}件スキップ、{{failed}}件失敗"
   }
 }
