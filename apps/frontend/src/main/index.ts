@@ -363,7 +363,8 @@ app.whenReady().then(() => {
     if (currentPath.includes('/.auto-claude/worktrees/') || currentPath.includes('\\.auto-claude\\worktrees\\')) {
       // We're in a worktree - find the worktree root and use its backend
       // The worktree root contains /.auto-claude/worktrees/ in its path
-      const worktreeRootMatch = currentPath.match(/(.*\/\.auto-claude\/worktrees\/[^/]+)/);
+      // Match: /.auto-claude/worktrees/ followed by any path segments (e.g., tasks/task-name)
+      const worktreeRootMatch = currentPath.match(/(.*\/\.auto-claude\/worktrees\/.+)$/);
       if (worktreeRootMatch) {
         const worktreeBackendPath = join(worktreeRootMatch[1], 'apps', 'backend');
         console.warn('[main] Worktree detected, using worktree backend:', worktreeBackendPath);
