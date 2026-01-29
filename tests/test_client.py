@@ -244,9 +244,11 @@ class TestAPIProfileAuthentication:
         monkeypatch.setenv("ANTHROPIC_BASE_URL", api_endpoint)
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", oauth_token)
 
-        # Mock the SDK client
+        # Mock the SDK client and OAuth functions to verify OAuth path is NOT taken
         mock_sdk_client = MagicMock()
-        with patch("core.client.ClaudeSDKClient", return_value=mock_sdk_client):
+        with patch("core.client.ClaudeSDKClient", return_value=mock_sdk_client), \
+             patch("core.client.require_auth_token") as mock_require, \
+             patch("core.client.validate_token_not_encrypted") as mock_validate:
             from core.client import create_client
 
             client = create_client(tmp_path, tmp_path, "glm-4", "coder")
@@ -256,6 +258,10 @@ class TestAPIProfileAuthentication:
 
             # Verify CLAUDE_CODE_OAUTH_TOKEN was removed (API profile mode)
             assert "CLAUDE_CODE_OAUTH_TOKEN" not in os.environ
+
+            # Ensure OAuth flow was NOT used (this proves API profile path was taken)
+            mock_require.assert_not_called()
+            mock_validate.assert_not_called()
 
     def test_empty_base_url_triggers_oauth_mode(self, tmp_path, monkeypatch):
         """Empty ANTHROPIC_BASE_URL should trigger OAuth mode, not API profile mode."""
