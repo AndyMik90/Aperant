@@ -786,6 +786,29 @@ export function ValidationModal({
 				</DialogHeader>
 
 				<div className="flex-1 overflow-y-auto space-y-6 py-4">
+					{/* Validation Error Display */}
+					{validation?.status === "error" && (
+						<div className="p-4 bg-destructive/10 border border-destructive rounded-lg">
+							<div className="flex items-start gap-3">
+								<AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+								<div className="flex-1 space-y-1">
+									<h4 className="text-sm font-semibold text-destructive">
+										{t("linear:validationFailed", {
+											defaultValue: "Validation Failed",
+										})}
+									</h4>
+									<p className="text-sm text-destructive/80">
+										{validation?.error ||
+											t("linear:validationFailedDesc", {
+												defaultValue:
+													"Failed to validate the ticket. Please try again.",
+											})}
+									</p>
+								</div>
+							</div>
+						</div>
+					)}
+
 					{/* Initial loading indicator */}
 					{isInitialLoad && !validation && (
 						<div className="flex flex-col items-center justify-center py-12">
@@ -867,6 +890,22 @@ export function ValidationModal({
 									</ul>
 								)}
 							</div>
+						</div>
+					)}
+
+					{/* No Content Available Message */}
+					{validation?.status === "complete" &&
+						!validation?.contentAnalysis &&
+						!validation?.codebaseVerification &&
+						!validation?.completenessValidation && (
+						<div className="p-4 bg-muted/50 rounded-lg text-center">
+							<AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+							<p className="text-sm text-muted-foreground">
+								{t("linear:validationIncomplete", {
+									defaultValue:
+										"Validation completed but no results were returned. This may indicate an issue with the AI response. Please try again.",
+								})}
+							</p>
 						</div>
 					)}
 

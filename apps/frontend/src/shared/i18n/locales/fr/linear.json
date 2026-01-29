@@ -85,6 +85,7 @@
 	"noResultsFound": "Aucun résultat trouvé",
 	"reset": "Réinitialiser",
 	"selectTicket": "Sélectionnez un ticket pour voir les détails",
+	"validationIncomplete": "Validation terminée mais aucun résultat retourné. Cela peut indiquer un problème avec la réponse de l'IA. Veuillez réessayer.",
 	"validationFailed": "Échec de la Validation",
 	"validationFailedDesc": "Échec de la validation du ticket. Veuillez réessayer.",
 	"ticketValidated": "{{identifier}} a été validé avec succès",

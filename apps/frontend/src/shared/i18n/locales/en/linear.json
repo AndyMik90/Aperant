@@ -74,6 +74,7 @@
 	"noResultsFound": "No results found",
 	"reset": "Reset",
 	"selectTicket": "Select a ticket to view details",
+	"validationIncomplete": "Validation completed but no results were returned. This may indicate an issue with the AI response. Please try again.",
 	"validationFailed": "Validation Failed",
 	"validationFailedDesc": "Failed to validate the ticket. Please try again.",
 	"ticketValidated": "{{identifier}} has been validated successfully",
