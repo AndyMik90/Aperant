@@ -216,8 +216,8 @@
       ],
       "extraResources": [
         {
-          "from": "python-runtime/win32-${arch}/python.exe",
-          "to": "python.exe"
+          "from": "python-runtime/win32-${arch}/python",
+          "to": "python"
         },
         {
           "from": "python-runtime/win32-${arch}/site-packages",
@@ -232,21 +232,7 @@
         "deb",
         "flatpak"
       ],
-      "category": "Development"
-    },
-    "appImage": {
-      "extraResources": [
-        {
-          "from": "python-runtime/linux-${arch}/python",
-          "to": "python"
-        },
-        {
-          "from": "python-runtime/linux-${arch}/site-packages",
-          "to": "python-site-packages"
-        }
-      ]
-    },
-    "deb": {
+      "category": "Development",
       "extraResources": [
         {
           "from": "python-runtime/linux-${arch}/python",
@@ -272,16 +258,6 @@
         "--device=dri",
         "--filesystem=home",
         "--talk-name=org.freedesktop.Notifications"
-      ],
-      "extraResources": [
-        {
-          "from": "python-runtime/linux-${arch}/python",
-          "to": "python"
-        },
-        {
-          "from": "python-runtime/linux-${arch}/site-packages",
-          "to": "python-site-packages"
-        }
       ]
     }
   },

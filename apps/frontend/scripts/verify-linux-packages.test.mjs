@@ -6,6 +6,10 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { CRITICAL_PACKAGES } = require('./verify-linux-packages.cjs');
 
 describe('verify-linux-packages', () => {
   describe('package finding logic', () => {
@@ -45,14 +49,6 @@ describe('verify-linux-packages', () => {
 
   describe('critical packages list', () => {
     it('should contain all required Linux packages', () => {
-      // Verify the list of critical Python packages
-      const CRITICAL_PACKAGES = [
-        'secretstorage',
-        'pydantic_core',
-        'claude_agent_sdk',
-        'dotenv',
-      ];
-
       assert.ok(CRITICAL_PACKAGES.includes('secretstorage'), 'secretstorage must be present for Linux OAuth');
       assert.ok(CRITICAL_PACKAGES.includes('pydantic_core'), 'pydantic_core must be present');
       assert.ok(CRITICAL_PACKAGES.includes('claude_agent_sdk'), 'claude_agent_sdk must be present');
