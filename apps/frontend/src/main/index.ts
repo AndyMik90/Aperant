@@ -4,9 +4,34 @@
 // which is only available in CommonJS. Without this, node-pty native module
 // loading fails with "ReferenceError: require is not defined".
 import { createRequire } from 'module';
+import { join as pathJoin } from 'path';
 const require = createRequire(import.meta.url);
 // Make require globally available for Sentry's require-in-the-middle hooks
 globalThis.require = require;
+
+// WORKTREE DETECTION: Must happen BEFORE any other imports
+// because many modules create singletons that initialize with the backend path.
+// Detect worktree and set global path so all modules use the correct backend.
+function detectWorktreeBackendSync(): string | undefined {
+  const currentPath = process.cwd();
+  if (currentPath.includes('/.auto-claude/worktrees/') || currentPath.includes('\\.auto-claude\\worktrees\\')) {
+    const worktreeRootMatch = currentPath.match(/(.*\/\.auto-claude\/worktrees\/.+)$/);
+    if (worktreeRootMatch) {
+      let worktreeRoot = worktreeRootMatch[1];
+      if (worktreeRoot.endsWith('/apps/frontend')) {
+        worktreeRoot = worktreeRoot.slice(0, -'/apps/frontend'.length);
+      }
+      const worktreeBackendPath = pathJoin(worktreeRoot, 'apps', 'backend');
+      console.log('[index] Worktree detected at startup, backend:', worktreeBackendPath);
+      return worktreeBackendPath;
+    }
+  }
+  return undefined;
+}
+
+// Set global worktree backend path BEFORE importing other modules
+// This allows TitleGenerator, TerminalNameGenerator, etc. to use the correct path
+(globalThis as any).WORKTREE_BACKEND_PATH = detectWorktreeBackendSync();
 
 // Load .env file FIRST before any other imports that might use process.env
 import { config } from 'dotenv';
@@ -293,6 +318,36 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window);
   });
 
+  // WORKTREE DETECTION: Must happen BEFORE initializing AgentManager or PythonEnvManager
+  // because these components cache the backend path on first initialization.
+  //
+  // When running from a worktree, we need to use the worktree's backend instead of
+  // the main repo's backend. This is critical for development isolation.
+  function detectWorktreeBackend(): string | undefined {
+    const currentPath = process.cwd();
+    if (currentPath.includes('/.auto-claude/worktrees/') || currentPath.includes('\\.auto-claude\\worktrees\\')) {
+      // We're in a worktree - find the worktree root and use its backend
+      // The worktree root contains /.auto-claude/worktrees/ in its path
+      // Match: /.auto-claude/worktrees/ followed by any path segments (e.g., tasks/task-name)
+      const worktreeRootMatch = currentPath.match(/(.*\/\.auto-claude\/worktrees\/.+)$/);
+      if (worktreeRootMatch) {
+        // If process.cwd() is inside apps/frontend, we need to go up to the worktree root
+        // before joining with apps/backend
+        let worktreeRoot = worktreeRootMatch[1];
+        if (worktreeRoot.endsWith('/apps/frontend')) {
+          worktreeRoot = worktreeRoot.slice(0, -'/apps/frontend'.length);
+        }
+        const worktreeBackendPath = join(worktreeRoot, 'apps', 'backend');
+        console.warn('[main] Worktree detected, using worktree backend:', worktreeBackendPath);
+        return worktreeBackendPath;
+      }
+    }
+    return undefined;
+  }
+
+  // Detect worktree backend FIRST before any initialization
+  const worktreeBackend = detectWorktreeBackend();
+
   // Initialize agent manager
   agentManager = new AgentManager();
 
@@ -356,26 +411,9 @@ app.whenReady().then(() => {
       }
     }
 
-    // WORKTREE DETECTION: If running from a worktree, use worktree's backend
-    // instead of the global settings path. This ensures development in worktrees
-    // uses the worktree's code, not the main repo.
-    const currentPath = process.cwd();
-    if (currentPath.includes('/.auto-claude/worktrees/') || currentPath.includes('\\.auto-claude\\worktrees\\')) {
-      // We're in a worktree - find the worktree root and use its backend
-      // The worktree root contains /.auto-claude/worktrees/ in its path
-      // Match: /.auto-claude/worktrees/ followed by any path segments (e.g., tasks/task-name)
-      const worktreeRootMatch = currentPath.match(/(.*\/\.auto-claude\/worktrees\/.+)$/);
-      if (worktreeRootMatch) {
-        // If process.cwd() is inside apps/frontend, we need to go up to the worktree root
-        // before joining with apps/backend
-        let worktreeRoot = worktreeRootMatch[1];
-        if (worktreeRoot.endsWith('/apps/frontend')) {
-          worktreeRoot = worktreeRoot.slice(0, -'/apps/frontend'.length);
-        }
-        const worktreeBackendPath = join(worktreeRoot, 'apps', 'backend');
-        console.warn('[main] Worktree detected, using worktree backend:', worktreeBackendPath);
-        validAutoBuildPath = worktreeBackendPath;
-      }
+    // Worktree backend takes priority over settings
+    if (worktreeBackend) {
+      validAutoBuildPath = worktreeBackend;
     }
 
     if (settings.pythonPath || validAutoBuildPath) {
@@ -385,10 +423,42 @@ app.whenReady().then(() => {
       });
       agentManager.configure(settings.pythonPath, validAutoBuildPath);
     }
+
+    // IMPORTANT: Pre-initialize PythonEnvManager with the correct backend path
+    // This must happen synchronously to prevent other code (like TerminalNameGenerator)
+    // from initializing it with the wrong path first.
+    if (validAutoBuildPath && !pythonEnvManager.isEnvReady()) {
+      console.warn('[main] Pre-initializing PythonEnvManager with backend:', validAutoBuildPath);
+      // Initialize synchronously in the background - don't await, just schedule it
+      setImmediate(() => {
+        pythonEnvManager.initialize(validAutoBuildPath!).then((status) => {
+          if (!status.ready) {
+            console.error('[main] Failed to initialize PythonEnvManager:', status.error);
+          } else {
+            console.warn('[main] PythonEnvManager initialized successfully');
+          }
+        });
+      });
+    }
   } catch (error: unknown) {
     // ENOENT means no settings file yet - that's fine, use defaults
     if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
       // No settings file, use defaults - this is expected on first run
+      // Still try to use worktree backend if detected
+      if (worktreeBackend) {
+        console.warn('[main] No settings file, using worktree backend:', worktreeBackend);
+        agentManager.configure(undefined, worktreeBackend);
+        // Pre-initialize PythonEnvManager with worktree backend
+        setImmediate(() => {
+          pythonEnvManager.initialize(worktreeBackend!).then((status) => {
+            if (!status.ready) {
+              console.error('[main] Failed to initialize PythonEnvManager:', status.error);
+            } else {
+              console.warn('[main] PythonEnvManager initialized successfully with worktree backend');
+            }
+          });
+        });
+      }
     } else {
       console.warn('[main] Failed to load settings for agent configuration:', error);
     }

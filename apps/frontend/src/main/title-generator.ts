@@ -67,6 +67,14 @@ export class TitleGenerator extends EventEmitter {
       return this.autoBuildSourcePath;
     }
 
+    // Check global worktree backend path first (set by index.ts before module imports)
+    // This ensures worktrees use their own backend instead of the main repo
+    const globalWorktreePath = (globalThis as any).WORKTREE_BACKEND_PATH as string | undefined;
+    if (globalWorktreePath && existsSync(globalWorktreePath) && existsSync(path.join(globalWorktreePath, 'runners', 'spec_runner.py'))) {
+      debug('Using global worktree backend:', globalWorktreePath);
+      return globalWorktreePath;
+    }
+
     const possiblePaths = [
       // Apps structure: from out/main -> apps/backend
       path.resolve(__dirname, '..', '..', '..', 'backend'),
