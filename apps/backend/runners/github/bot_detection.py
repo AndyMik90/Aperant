@@ -27,6 +27,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -35,6 +36,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from core.gh_executable import get_gh_executable
+
+logger = logging.getLogger(__name__)
 
 try:
     from .file_lock import FileLock, atomic_write
@@ -374,7 +377,7 @@ class BotDetector:
         # Save state
         self.state.save(self.state_dir)
 
-        print(
+        logger.info(
             f"[BotDetector] Marked PR #{pr_number} as reviewed at {commit_sha[:8]} "
             f"({len(self.state.reviewed_commits[pr_key])} total commits reviewed)"
         )
