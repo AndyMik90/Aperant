@@ -21,6 +21,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+# Git environment isolation - prevents worktree operation failures from inherited env vars
+from core.git_executable import GIT_ENV_VARS_TO_CLEAR
 from core.platform import (
     is_windows,
     validate_cli_path,
@@ -510,8 +512,6 @@ def create_client(
     # git operation errors in worktree operations.
     # We must DELETE these vars from os.environ, not set them to "" (empty string is a value
     # that git interprets as "use empty path", which fails).
-    from core.git_executable import GIT_ENV_VARS_TO_CLEAR
-
     for var in GIT_ENV_VARS_TO_CLEAR:
         os.environ.pop(var, None)
 
