@@ -372,7 +372,7 @@ async def main():
         print(f"[LINEAR_RUNNER] LINEAR_API_KEY preview: {key_preview}", flush=True)
 
     # Validate project directory
-    project_dir = args.project_dir.resolve()
+    project_dir = Path(args.project_dir).resolve()
     if not project_dir.exists():
         print(
             f"[LINEAR_RUNNER] ERROR: Project directory does not exist: {project_dir}",
