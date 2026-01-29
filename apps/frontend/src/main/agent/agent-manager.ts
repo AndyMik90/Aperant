@@ -669,6 +669,8 @@ export class AgentManager extends EventEmitter {
         const pythonCommand = this.processManager.getPythonPath();
         let stdout = "";
         let stderr = "";
+        // Split stdout into lines to parse progress events
+        let stdoutBuffer = "";
 
         const child = spawn(pythonCommand, args, {
           cwd: autoBuildSource,
@@ -676,7 +678,25 @@ export class AgentManager extends EventEmitter {
         });
 
         child.stdout?.on("data", (data: Buffer) => {
-          stdout += data.toString();
+          stdoutBuffer += data.toString();
+          const lines = stdoutBuffer.split("\n");
+          // Keep the last potentially incomplete line in the buffer
+          stdoutBuffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (line.startsWith("PROGRESS:")) {
+              try {
+                const progressEvent = JSON.parse(line.slice("PROGRESS:".length));
+                // For batch validation, we don't have a single ticket ID
+                // Emit with a special batch identifier
+                this.emit("linear-validate-progress", "batch", progressEvent);
+              } catch {
+                // Ignore invalid progress lines
+              }
+            } else {
+              stdout += line + "\n";
+            }
+          }
         });
 
         child.stderr?.on("data", (data: Buffer) => {
@@ -684,6 +704,13 @@ export class AgentManager extends EventEmitter {
         });
 
         child.on("close", (code: number | null) => {
+          // Add any remaining buffer content
+          if (stdoutBuffer) {
+            if (!stdoutBuffer.startsWith("PROGRESS:")) {
+              stdout += stdoutBuffer;
+            }
+          }
+
           if (code === 0 && stdout) {
             try {
               const result = JSON.parse(stdout);

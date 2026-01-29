@@ -57,6 +57,9 @@ export interface LinearAPI {
 		ticketIds: string[],
 		skipCache?: boolean,
 	) => Promise<IPCResult<any>>;
+	cancelLinearValidation: (
+		ticketId: string,
+	) => Promise<IPCResult<void>>;
 	updateLinearTicketWithValidation: (
 		projectId: string,
 		ticketId: string,
@@ -129,6 +132,9 @@ export const createLinearAPI = (): LinearAPI => ({
 			ticketIds,
 			skipCache,
 		),
+
+	cancelLinearValidation: (ticketId: string): Promise<IPCResult<void>> =>
+		invokeIpc(IPC_CHANNELS.LINEAR_CANCEL_VALIDATION, ticketId),
 
 	updateLinearTicketWithValidation: (
 		projectId: string,

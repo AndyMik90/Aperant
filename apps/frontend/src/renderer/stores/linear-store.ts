@@ -432,6 +432,14 @@ export async function validateLinearTicket(
 		error: undefined,
 	});
 
+	// Set initial progress to show loading state
+	store.updateValidationProgress(ticketId, {
+		phase: "initialization",
+		step: 0,
+		total: 7,
+		message: "Starting validation...",
+	});
+
 	try {
 		debugLog("[validateLinearTicket] Starting validation for ticket:", ticketId, "projectId:", projectId);
 		if (!window.electronAPI?.validateLinearTicket) {

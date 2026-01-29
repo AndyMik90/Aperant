@@ -445,6 +445,7 @@ export interface ElectronAPI {
   checkLinearConnection: (projectId: string) => Promise<IPCResult<LinearSyncStatus>>;
   validateLinearTicket: (projectId: string, ticketId: string, skipCache?: boolean) => Promise<IPCResult<ValidationResult>>;
   validateLinearTicketBatch: (projectId: string, ticketIds: string[], skipCache?: boolean) => Promise<IPCResult<any>>;
+  cancelLinearValidation: (ticketId: string) => Promise<IPCResult<void>>;
   updateLinearTicketWithValidation: (projectId: string, ticketId: string, validation: ValidationResult) => Promise<IPCResult<any>>;
   clearLinearCache: () => Promise<IPCResult<void>>;
 

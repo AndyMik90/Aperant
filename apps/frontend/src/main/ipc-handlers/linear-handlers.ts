@@ -769,6 +769,44 @@ ${issue.description || "No description provided."}
 	);
 
 	/**
+	 * Cancel an ongoing validation
+	 */
+	ipcMain.handle(
+		IPC_CHANNELS.LINEAR_CANCEL_VALIDATION,
+		async (_, ticketId: string): Promise<IPCResult<void>> => {
+			debugLog("Cancel validation requested", { ticketId });
+
+			try {
+				// Find and kill the running validation task
+				// The task ID format is "linear-validation-{ticketId}"
+				const taskId = `linear-validation-${ticketId}`;
+
+				if (agentManager.isRunning(taskId)) {
+					const killed = agentManager.killTask(taskId);
+					if (killed) {
+						debugLog("Validation cancelled successfully", { ticketId });
+						// Clean up tracking
+						activeValidations.delete(ticketId);
+						return { success: true };
+					} else {
+						debugLog("Failed to cancel validation", { ticketId });
+						return { success: false, error: "Failed to cancel validation" };
+					}
+				} else {
+					debugLog("No active validation to cancel", { ticketId });
+					return { success: false, error: "No active validation found" };
+				}
+			} catch (error) {
+				debugLog("Cancel validation error", { ticketId, error });
+				return {
+					success: false,
+					error: error instanceof Error ? error.message : "Failed to cancel validation",
+				};
+			}
+		},
+	);
+
+	/**
 	 * Update a Linear ticket with validation results
 	 */
 	ipcMain.handle(

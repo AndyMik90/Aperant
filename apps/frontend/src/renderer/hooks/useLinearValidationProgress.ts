@@ -46,8 +46,7 @@ export function useLinearValidationProgress(ticketId?: string): void {
 			// Only update if this is the ticket we're tracking, or if we're tracking all tickets
 			if (!ticketId || progressTicketId === ticketId) {
 				debugLog(
-					`[useLinearValidationProgress] Progress update for ${progressTicketId}:`,
-					progress
+					`[useLinearValidationProgress] Progress update for ${progressTicketId}: phase=${progress.phase}, step=${progress.step}/${progress.total}, message="${progress.message}"`
 				);
 				updateValidationProgress(progressTicketId, progress);
 			}

@@ -42,7 +42,7 @@ describe("Linear Validation Progress", () => {
 			const progress = {
 				phase: "content_analysis",
 				step: 1,
-				total: 5,
+				total: 7,
 				message: "Analyzing content...",
 			};
 
@@ -58,14 +58,14 @@ describe("Linear Validation Progress", () => {
 			const initialProgress = {
 				phase: "content_analysis",
 				step: 1,
-				total: 5,
+				total: 7,
 				message: "Analyzing...",
 			};
 
 			const updatedProgress = {
 				phase: "completeness",
 				step: 2,
-				total: 5,
+				total: 7,
 				message: "Checking completeness...",
 			};
 
@@ -82,7 +82,7 @@ describe("Linear Validation Progress", () => {
 			const progress = {
 				phase: "content_analysis",
 				step: 1,
-				total: 5,
+				total: 7,
 				message: "Analyzing...",
 			};
 
@@ -100,7 +100,7 @@ describe("Linear Validation Progress", () => {
 			useLinearStore.getState().updateValidationProgress("LIN-123", {
 				phase: "content_analysis",
 				step: 1,
-				total: 5,
+				total: 7,
 				message: "Analyzing...",
 			});
 
@@ -119,13 +119,13 @@ describe("Linear Validation Progress", () => {
 			useLinearStore.getState().updateValidationProgress("LIN-123", {
 				phase: "content_analysis",
 				step: 1,
-				total: 5,
+				total: 7,
 				message: "Analyzing...",
 			});
 			useLinearStore.getState().updateValidationProgress("LIN-456", {
 				phase: "completeness",
 				step: 2,
-				total: 5,
+				total: 7,
 				message: "Checking...",
 			});
 
@@ -143,7 +143,7 @@ describe("Linear Validation Progress", () => {
 			const progress = {
 				phase: "content_analysis",
 				step: 1,
-				total: 5,
+				total: 7,
 				message: "Analyzing...",
 			};
 
@@ -171,7 +171,7 @@ describe("Linear Validation Progress", () => {
 				ticketId: "LIN-123",
 				phase: "content_analysis",
 				step: 1,
-				total: 5,
+				total: 7,
 				message: "Analyzing ticket content...",
 			};
 
@@ -187,19 +187,20 @@ describe("Linear Validation Progress", () => {
 			expect(storedProgress).toEqual({
 				phase: "content_analysis",
 				step: 1,
-				total: 5,
+				total: 7,
 				message: "Analyzing ticket content...",
 			});
 		});
 
 		it("should handle multiple progress updates for same ticket", () => {
 			const progressUpdates = [
-				{ phase: "initialization", step: 0, total: 5, message: "Starting..." },
-				{ phase: "content_analysis", step: 1, total: 5, message: "Analyzing..." },
-				{ phase: "completeness", step: 2, total: 5, message: "Checking..." },
-				{ phase: "labels", step: 3, total: 5, message: "Suggesting..." },
-				{ phase: "version", step: 4, total: 5, message: "Determining..." },
-				{ phase: "properties", step: 5, total: 5, message: "Recommending..." },
+				{ phase: "initialization", step: 0, total: 7, message: "Starting..." },
+				{ phase: "content_analysis", step: 1, total: 7, message: "Analyzing..." },
+				{ phase: "ai_analysis_start", step: 2, total: 7, message: "AI analysis..." },
+				{ phase: "completeness_check", step: 3, total: 7, message: "Checking..." },
+				{ phase: "labels_selection", step: 4, total: 7, message: "Selecting..." },
+				{ phase: "version_calculation", step: 5, total: 7, message: "Calculating..." },
+				{ phase: "properties_recommendation", step: 6, total: 7, message: "Recommending..." },
 			];
 
 			progressUpdates.forEach((update) => {
@@ -211,9 +212,9 @@ describe("Linear Validation Progress", () => {
 				.getState()
 				.getValidationProgress("LIN-123");
 			expect(finalProgress).toEqual({
-				phase: "properties",
-				step: 5,
-				total: 5,
+				phase: "properties_recommendation",
+				step: 6,
+				total: 7,
 				message: "Recommending...",
 			});
 		});
@@ -223,14 +224,14 @@ describe("Linear Validation Progress", () => {
 			useLinearStore.getState().updateValidationProgress("LIN-123", {
 				phase: "content_analysis",
 				step: 1,
-				total: 5,
+				total: 7,
 				message: "Analyzing LIN-123...",
 			});
 
 			useLinearStore.getState().updateValidationProgress("LIN-456", {
 				phase: "completeness",
 				step: 2,
-				total: 5,
+				total: 7,
 				message: "Checking LIN-456...",
 			});
 
@@ -240,6 +241,161 @@ describe("Linear Validation Progress", () => {
 
 			expect(progress123?.phase).toBe("content_analysis");
 			expect(progress456?.phase).toBe("completeness");
+		});
+	});
+
+	describe("Cancelled Status", () => {
+		it("should update validation result to cancelled status", () => {
+			const initialResult = {
+				ticketId: "LIN-123",
+				ticketIdentifier: "LIN-123",
+				validationTimestamp: new Date().toISOString(),
+				cached: false,
+				status: "validating" as const,
+				contentAnalysis: {
+					title: "Test",
+					descriptionSummary: "Test",
+					requirements: [],
+				},
+				completenessValidation: {
+					isComplete: false,
+					missingFields: [],
+					feasibilityScore: 0,
+					feasibilityReasoning: "",
+				},
+				suggestedLabels: [],
+				versionRecommendation: {
+					recommendedVersion: "1.0.0",
+					versionType: "patch" as const,
+					reasoning: "",
+				},
+				taskProperties: {
+					category: "feature" as const,
+					complexity: "medium" as const,
+					impact: "medium" as const,
+					priority: "medium" as const,
+					rationale: "",
+				},
+			};
+
+			useLinearStore.getState().updateValidationResult("LIN-123", initialResult);
+
+			// Get current result and update it (following the pattern used in the store)
+			const currentResult = useLinearStore.getState().getValidationResult("LIN-123");
+			useLinearStore.getState().updateValidationResult("LIN-123", {
+				...currentResult!,
+				status: "cancelled" as const,
+				error: "Validation was cancelled",
+			});
+
+			const result = useLinearStore.getState().getValidationResult("LIN-123");
+			expect(result?.status).toBe("cancelled");
+			expect(result?.error).toBe("Validation was cancelled");
+		});
+
+		it("should clear progress when validation is cancelled", () => {
+			useLinearStore.getState().updateValidationProgress("LIN-123", {
+				phase: "ai_analysis_start",
+				step: 2,
+				total: 7,
+				message: "AI analysis in progress...",
+			});
+
+			expect(
+				useLinearStore.getState().getValidationProgress("LIN-123")
+			).toBeDefined();
+
+			// Simulate cancel - set validation result to cancelled
+			const initialResult = {
+				ticketId: "LIN-123",
+				ticketIdentifier: "LIN-123",
+				validationTimestamp: new Date().toISOString(),
+				cached: false,
+				status: "validating" as const,
+				contentAnalysis: {
+					title: "Test",
+					descriptionSummary: "Test",
+					requirements: [],
+				},
+				completenessValidation: {
+					isComplete: false,
+					missingFields: [],
+					feasibilityScore: 0,
+					feasibilityReasoning: "",
+				},
+				suggestedLabels: [],
+				versionRecommendation: {
+					recommendedVersion: "1.0.0",
+					versionType: "patch" as const,
+					reasoning: "",
+				},
+				taskProperties: {
+					category: "feature" as const,
+					complexity: "medium" as const,
+					impact: "medium" as const,
+					priority: "medium" as const,
+					rationale: "",
+				},
+			};
+
+			useLinearStore.getState().updateValidationResult("LIN-123", initialResult);
+			const currentResult = useLinearStore.getState().getValidationResult("LIN-123");
+			useLinearStore.getState().updateValidationResult("LIN-123", {
+				...currentResult!,
+				status: "cancelled" as const,
+				error: "Validation was cancelled",
+			});
+			useLinearStore.getState().clearValidationProgress("LIN-123");
+
+			expect(
+				useLinearStore.getState().getValidationProgress("LIN-123")
+			).toBeUndefined();
+			const result = useLinearStore.getState().getValidationResult("LIN-123");
+			expect(result?.status).toBe("cancelled");
+		});
+	});
+
+	describe("Progress Phase Mapping", () => {
+		it("should track all 7 validation phases", () => {
+			const phases = [
+				"initialization",
+				"content_analysis",
+				"ai_analysis_start",
+				"completeness_check",
+				"labels_selection",
+				"version_calculation",
+				"properties_recommendation",
+				"ai_analysis_complete",
+			];
+
+			phases.forEach((phase, index) => {
+				useLinearStore.getState().updateValidationProgress("LIN-123", {
+					phase,
+					step: index,
+					total: 7,
+					message: `Phase ${phase}`,
+				});
+			});
+
+			// Should track the final phase
+			const finalProgress = useLinearStore
+				.getState()
+				.getValidationProgress("LIN-123");
+			expect(finalProgress?.phase).toBe("ai_analysis_complete");
+		});
+
+		it("should handle ai_analysis_complete phase (step 7/7)", () => {
+			useLinearStore.getState().updateValidationProgress("LIN-123", {
+				phase: "ai_analysis_complete",
+				step: 7,
+				total: 7,
+				message: "AI analysis complete, parsing results...",
+			});
+
+			const progress = useLinearStore.getState().getValidationProgress("LIN-123");
+			expect(progress?.step).toBe(7);
+			expect(progress?.total).toBe(7);
+			expect(progress?.phase).toBe("ai_analysis_complete");
 		});
 	});
 });

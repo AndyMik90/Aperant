@@ -75,10 +75,12 @@ export function ValidationModal({
 	// Listen for validation progress events
 	useLinearValidationProgress(ticketId);
 
-	// Get validation progress from store
-	const validationProgress = useLinearStore((state) =>
-		state.getValidationProgress(ticketId)
-	);
+	// Get validation progress - select the Map directly to avoid selector creating new objects
+	// The Map reference is stable and only changes when the store updates it
+	const progressMap = useLinearStore((state) => state.validationProgress);
+	// Get the specific ticket's progress - this will be null or the progress object
+	// We use the Map's get() method which returns the same object reference
+	const validationProgress = progressMap.get(ticketId);
 
 	// Edit mode state for each section
 	const [editingLabels, setEditingLabels] = useState(false);
@@ -133,14 +135,20 @@ export function ValidationModal({
 
 		// If we have progress info, use it to determine status
 		if (validationProgress) {
-			const { phase, step, total } = validationProgress;
+			const { phase } = validationProgress;
 
 			// Map progress phases to step IDs
+			// Backend now emits: initialization, content_analysis, ai_analysis_start,
+			// completeness_check, labels_selection, version_calculation, properties_recommendation, ai_analysis_complete
 			const phaseToStepId: Record<string, string> = {
 				initialization: "analyze",
 				content_analysis: "analyze",
-				ai_analysis: "completeness",
-				parsing: "labels",
+				ai_analysis_start: "completeness",
+				completeness_check: "completeness",
+				labels_selection: "labels",
+				version_calculation: "version",
+				properties_recommendation: "properties",
+				ai_analysis_complete: "properties",
 			};
 
 			const currentStepId = phaseToStepId[phase] || "analyze";
@@ -256,6 +264,61 @@ export function ValidationModal({
 		onOpenChange,
 		t,
 	]);
+
+	// Handle cancel validation
+	const handleCancel = useCallback(async () => {
+		if (!window.electronAPI?.cancelLinearValidation) return;
+
+		try {
+			const result = await window.electronAPI.cancelLinearValidation(ticketId);
+			if (result.success) {
+				// Update validation status to cancelled
+				useLinearStore.getState().updateValidationResult(ticketId, {
+					...(validation || {
+						ticketId,
+						ticketIdentifier: "",
+						validationTimestamp: new Date().toISOString(),
+						cached: false,
+						contentAnalysis: {
+							title: "",
+							descriptionSummary: "",
+							requirements: [],
+						},
+						completenessValidation: {
+							isComplete: false,
+							missingFields: [],
+							feasibilityScore: 0,
+							feasibilityReasoning: "",
+						},
+						suggestedLabels: [],
+						versionRecommendation: {
+							recommendedVersion: "",
+							versionType: "patch",
+							reasoning: "",
+						},
+						taskProperties: {
+							category: "feature",
+							complexity: "medium",
+							impact: "medium",
+							priority: "medium",
+							rationale: "",
+						},
+					}),
+					status: "cancelled",
+					error: "Validation was cancelled",
+				});
+				// Clear progress
+				useLinearStore.getState().clearValidationProgress(ticketId);
+				onOpenChange(false);
+			} else {
+				setError(result.error || "Failed to cancel validation");
+			}
+		} catch (err) {
+			const errorMessage =
+				err instanceof Error ? err.message : "Failed to cancel validation";
+			setError(errorMessage);
+		}
+	}, [ticketId, validation, onOpenChange]);
 
 	// Render validation step with icon
 	const renderStep = (step: ValidationStep) => {
@@ -659,8 +722,11 @@ export function ValidationModal({
 						{t("linear:validation", { defaultValue: "Validation" })}
 					</DialogTitle>
 					<DialogDescription>
-						{validationProgress?.message
-							? validationProgress.message
+						{validationProgress?.phase
+							? t(`linear:progressPhases.${validationProgress.phase}`, {
+									defaultValue: validationProgress.message || t("linear:validationInProgress", { defaultValue: "AI validation in progress..." }),
+									ticketId,
+								})
 							: validation?.status === "validating"
 								? t("linear:validationInProgress", {
 										defaultValue: "AI validation in progress...",
@@ -672,6 +738,11 @@ export function ValidationModal({
 									: t("linear:analysisInProgress", {
 											defaultValue: "Analyzing ticket...",
 										})}
+						{validationProgress && (
+							<span className="ml-2 text-muted-foreground">
+								({Math.round((validationProgress.step / validationProgress.total) * 100)}%)
+							</span>
+						)}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -699,7 +770,7 @@ export function ValidationModal({
 					</div>
 
 					{/* Progress Bar */}
-					{validationProgress && (validation?.status === "validating" || isInitialLoad) && (
+					{validationProgress && (
 						<div className="space-y-1">
 							<div className="flex justify-between text-xs text-muted-foreground">
 								<span>
@@ -829,10 +900,18 @@ export function ValidationModal({
 				<DialogFooter>
 					<Button
 						variant="outline"
-						onClick={() => onOpenChange(false)}
-						disabled={isCreating || (validation?.status === "validating" || isInitialLoad)}
+						onClick={() => {
+							if (validation?.status === "validating" || isInitialLoad) {
+								handleCancel();
+							} else {
+								onOpenChange(false);
+							}
+						}}
+						disabled={isCreating}
 					>
-						{t("linear:cancel", { defaultValue: "Cancel" })}
+						{validation?.status === "validating" || isInitialLoad
+							? t("linear:cancel", { defaultValue: "Cancel" })
+							: t("common:close", { defaultValue: "Close" })}
 					</Button>
 
 					{/* Show loading button during validation */}

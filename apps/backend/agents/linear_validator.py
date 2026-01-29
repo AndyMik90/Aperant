@@ -638,7 +638,7 @@ class LinearValidationAgent:
 
         # Emit initial progress: starting validation
         self._emit_progress(
-            "initialization", 0, 5, f"Starting validation for {issue_id}"
+            "initialization", 0, 7, f"Starting validation for {issue_id}"
         )
 
         # Perform validation if not cached
@@ -661,7 +661,7 @@ class LinearValidationAgent:
                 """Run the validation session with retry and timeout support."""
                 # Emit progress: Phase 1 starting
                 self._emit_progress(
-                    "content_analysis", 1, 5, "Analyzing ticket content..."
+                    "content_analysis", 1, 7, "Analyzing ticket content..."
                 )
 
                 # Debug: Phase 1 start
@@ -670,6 +670,27 @@ class LinearValidationAgent:
                         "[LINEAR_VALIDATION] Phase 1: Content Analysis - starting"
                     )
                     phase_start_time = time.time()
+
+                # Create a heartbeat task that emits progress during the long AI call
+                heartbeat_steps = [
+                    ("ai_analysis_start", 2, "AI analysis in progress..."),
+                    ("completeness_check", 3, "Validating ticket completeness..."),
+                    ("labels_selection", 4, "Selecting appropriate labels..."),
+                    ("version_calculation", 5, "Calculating version label..."),
+                    ("properties_recommendation", 6, "Recommending task properties..."),
+                ]
+                heartbeat_index = 0
+
+                async def heartbeat_task():
+                    """Emit heartbeat progress updates during AI processing."""
+                    nonlocal heartbeat_index
+                    for phase, step, message in heartbeat_steps:
+                        await asyncio.sleep(2)  # Wait 2 seconds between updates
+                        self._emit_progress(phase, step, 7, message)
+                        heartbeat_index += 1
+
+                # Start heartbeat task
+                heartbeat = asyncio.create_task(heartbeat_task())
 
                 # Wrap the session call with timeout
                 try:
@@ -684,28 +705,26 @@ class LinearValidationAgent:
                         timeout=self.session_timeout,
                     )
 
+                    # Cancel heartbeat as we're done
+                    heartbeat.cancel()
+                    try:
+                        await heartbeat
+                    except asyncio.CancelledError:
+                        pass
+
                     # Debug: Phase 1 complete, Phases 2-5 are handled by the AI in a single call
                     if DEBUG_LINEAR_VALIDATION:
                         phase_elapsed = time.time() - phase_start_time
                         logger.debug(
                             f"[LINEAR_VALIDATION] Phase 1: Content Analysis - complete ({phase_elapsed:.2f}s)"
                         )
-                        logger.debug(
-                            "[LINEAR_VALIDATION] Phase 2: Completeness Validation - starting"
-                        )
-                        logger.debug(
-                            "[LINEAR_VALIDATION] Phase 3: Labels Selection - starting"
-                        )
-                        logger.debug(
-                            "[LINEAR_VALIDATION] Phase 4: Version Label - starting"
-                        )
-                        logger.debug(
-                            "[LINEAR_VALIDATION] Phase 5: Task Properties - starting"
-                        )
 
                     # Emit progress: AI analysis complete, parsing results
                     self._emit_progress(
-                        "ai_analysis", 2, 5, "AI analysis complete, parsing results..."
+                        "ai_analysis_complete",
+                        7,
+                        7,
+                        "AI analysis complete, parsing results...",
                     )
 
                     # Debug: Log response (truncated)
@@ -721,10 +740,14 @@ class LinearValidationAgent:
 
                     return response
                 except asyncio.TimeoutError:
+                    heartbeat.cancel()
                     logger.error(
                         f"Validation session for {issue_id} timed out after {self.session_timeout}s"
                     )
                     raise ValidationTimeoutError(issue_id, self.session_timeout)
+                except Exception:
+                    heartbeat.cancel()
+                    raise
 
             # Configure retry with exponential backoff for transient errors
             retry_config = RetryConfig(

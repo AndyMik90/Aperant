@@ -300,6 +300,10 @@ const browserMockAPI: ElectronAPI = {
       success: true,
       data: { successful: [], failed: [] }
     }),
+    cancelLinearValidation: async () => ({
+      success: true,
+      data: undefined as any
+    }),
     updateLinearTicketWithValidation: async () => ({
       success: true,
       data: true

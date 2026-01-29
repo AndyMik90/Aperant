@@ -99,7 +99,7 @@ export interface ValidationResult {
 	};
 
 	// Validation status
-	status: "pending" | "validating" | "complete" | "error";
+	status: "pending" | "validating" | "complete" | "error" | "cancelled";
 	error?: string;
 }
 
