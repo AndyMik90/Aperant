@@ -10,7 +10,6 @@ import { joinPaths } from '../platform';
 
 // Mock dependencies
 const mockEnsureValidToken = vi.fn();
-const mockGetCredentialsFromKeychain = vi.fn();
 const mockGetFullCredentialsFromKeychain = vi.fn();
 const mockIsTokenExpiredOrNearExpiry = vi.fn();
 const mockSetActiveProfile = vi.fn();
@@ -22,7 +21,6 @@ vi.mock('../claude-profile/token-refresh', () => ({
 }));
 
 vi.mock('../claude-profile/credential-utils', () => ({
-  getCredentialsFromKeychain: (...args: unknown[]) => mockGetCredentialsFromKeychain(...args),
   getFullCredentialsFromKeychain: (...args: unknown[]) => mockGetFullCredentialsFromKeychain(...args)
 }));
 
@@ -69,7 +67,6 @@ describe('Token Refresh and Fallback', () => {
   beforeEach(() => {
     vi.resetModules();
     mockEnsureValidToken.mockReset();
-    mockGetCredentialsFromKeychain.mockReset();
     mockGetFullCredentialsFromKeychain.mockReset();
     mockIsTokenExpiredOrNearExpiry.mockReset();
     mockSetActiveProfile.mockReset();

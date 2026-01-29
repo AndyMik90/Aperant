@@ -5,7 +5,7 @@
 
 import { getClaudeProfileManager } from './claude-profile-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
-import { getCredentialsFromKeychain, getFullCredentialsFromKeychain } from './claude-profile/credential-utils';
+import { getFullCredentialsFromKeychain } from './claude-profile/credential-utils';
 import { ensureValidToken, isTokenExpiredOrNearExpiry } from './claude-profile/token-refresh';
 import { expandHomePath } from './claude-profile/profile-utils';
 
