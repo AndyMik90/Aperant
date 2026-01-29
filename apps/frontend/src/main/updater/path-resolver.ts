@@ -55,6 +55,17 @@ export function getUpdateCachePath(): string {
  * Get the effective source path (considers override from updates and settings)
  */
 export function getEffectiveSourcePath(): string {
+  // CRITICAL: Check global worktree backend path FIRST
+  // This is set by worktree-backend.ts before any other modules are imported
+  // When running from a worktree, we must use the worktree's backend
+  const globalWorktreePath = (globalThis as any).WORKTREE_BACKEND_PATH as string | undefined;
+  if (globalWorktreePath && existsSync(globalWorktreePath)) {
+    const markerPath = path.join(globalWorktreePath, 'runners', 'spec_runner.py');
+    if (existsSync(markerPath)) {
+      return globalWorktreePath;
+    }
+  }
+
   // First, check user settings for configured autoBuildPath
   try {
     const settingsPath = path.join(app.getPath('userData'), 'settings.json');
