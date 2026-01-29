@@ -366,7 +366,13 @@ app.whenReady().then(() => {
       // Match: /.auto-claude/worktrees/ followed by any path segments (e.g., tasks/task-name)
       const worktreeRootMatch = currentPath.match(/(.*\/\.auto-claude\/worktrees\/.+)$/);
       if (worktreeRootMatch) {
-        const worktreeBackendPath = join(worktreeRootMatch[1], 'apps', 'backend');
+        // If process.cwd() is inside apps/frontend, we need to go up to the worktree root
+        // before joining with apps/backend
+        let worktreeRoot = worktreeRootMatch[1];
+        if (worktreeRoot.endsWith('/apps/frontend')) {
+          worktreeRoot = worktreeRoot.slice(0, -'/apps/frontend'.length);
+        }
+        const worktreeBackendPath = join(worktreeRoot, 'apps', 'backend');
         console.warn('[main] Worktree detected, using worktree backend:', worktreeBackendPath);
         validAutoBuildPath = worktreeBackendPath;
       }
