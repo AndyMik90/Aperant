@@ -25,6 +25,243 @@ logger = logging.getLogger(__name__)
 # Check if debug mode is enabled
 DEBUG_MODE = os.environ.get("DEBUG", "").lower() in ("true", "1", "yes")
 
+# ── TEMPORARY: Per-PR full agent communication logger (v2) ────────────
+# Writes every message to .auto-claude/github/pr/debug_logs/<context>_<ts>.log
+# Remove after measurement phase is complete.
+import datetime as _dt
+import json as _json
+from pathlib import Path as _Path
+
+# Derive project root dynamically from this file's location
+# sdk_utils.py is at: apps/backend/runners/github/services/sdk_utils.py
+# So project root is 5 levels up
+_PROJECT_ROOT = _Path(__file__).resolve().parent.parent.parent.parent.parent
+_PR_LOG_DIR = _PROJECT_ROOT / ".auto-claude" / "github" / "pr" / "debug_logs"
+
+
+class _PRDebugLogger:
+    """Writes full agent communication to a log file for review.
+
+    Improvements (v2):
+    - System prompt and agent definitions logged at session start
+    - No truncation on thinking, text, tool input, or tool results
+    - No duplicate logging (single structured dump per message)
+    - Empty/whitespace content shown via repr()
+    - Agent attribution via subagent_tool_ids mapping
+    """
+
+    def __init__(self, context_name: str, model: str | None = None):
+        self._f = None
+        self._subagent_tool_ids: dict[str, str] = {}  # tool_id -> agent_name
+
+        try:
+            _PR_LOG_DIR.mkdir(parents=True, exist_ok=True)
+            ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.path = _PR_LOG_DIR / f"{context_name}_{ts}.log"
+            self._f = open(self.path, "w", encoding="utf-8")
+            self._write(
+                f"=== {context_name} Session Started at {_dt.datetime.now().isoformat()} ==="
+            )
+            if model:
+                self._write(f"Model: {model}")
+            self._write("")
+        except OSError as e:
+            # Failed to create directory or open file - logging disabled
+            logger.warning(f"PR debug logger disabled: {e}")
+            self.path = None
+
+    def _write(self, text: str):
+        # Skip logging if file handle was not created successfully
+        if self._f is None:
+            return
+        try:
+            self._f.write(text + "\n")
+            self._f.flush()
+        except (OSError, ValueError) as e:
+            # File write failed (file closed, disk full, etc.) - disable logging
+            logger.warning(f"PR debug logger write failed: {e}")
+            self._f = None
+
+    # ── Session preamble loggers ──────────────────────────────────────
+
+    def log_system_prompt(self, prompt: str):
+        """Log the full system prompt (no truncation)."""
+        self._write(f"\n{'#' * 80}")
+        self._write("# SYSTEM PROMPT (full orchestrator instructions + PR context)")
+        self._write(f"# Length: {len(prompt)} chars")
+        self._write(f"{'#' * 80}")
+        self._write(prompt)
+        self._write(f"{'#' * 80}\n")
+
+    def log_agent_definitions(self, agents: dict):
+        """Log all specialist agent definitions (prompts, tools, descriptions)."""
+        self._write(f"\n{'#' * 80}")
+        self._write(f"# AGENT DEFINITIONS ({len(agents)} specialists)")
+        self._write(f"{'#' * 80}")
+        for name, defn in agents.items():
+            self._write(f"\n--- Agent: {name} ---")
+            self._write(f"  description: {getattr(defn, 'description', 'N/A')}")
+            self._write(f"  model: {getattr(defn, 'model', 'N/A')}")
+            self._write(f"  tools: {getattr(defn, 'tools', 'N/A')}")
+            prompt = getattr(defn, "prompt", "")
+            self._write(f"  prompt ({len(prompt)} chars):")
+            self._write(prompt)
+        self._write(f"{'#' * 80}\n")
+
+    # ── Agent attribution ─────────────────────────────────────────────
+
+    def set_subagent_mapping(self, mapping: dict[str, str]):
+        """Update the tool_id -> agent_name mapping for attribution."""
+        self._subagent_tool_ids = mapping
+
+    def _get_agent_label(self, tool_id: str) -> str:
+        """Return agent label if this tool_id belongs to a known subagent."""
+        agent = self._subagent_tool_ids.get(tool_id)
+        return f" [Agent:{agent}]" if agent else ""
+
+    # ── Per-message logger (single structured dump) ───────────────────
+
+    def log_message(self, msg_count: int, msg_type: str, msg: object):
+        self._write(f"\n{'=' * 80}")
+        self._write(f"--- Message #{msg_count} [{msg_type}] ---")
+        self._write(f"{'=' * 80}")
+        self._dump_raw(msg)
+
+    def _dump_raw(self, msg: object, indent: int = 0):
+        """Dump full raw message content recursively — NO truncation."""
+        prefix = "  " * indent
+        # Content blocks
+        if hasattr(msg, "content"):
+            content = msg.content
+            if isinstance(content, list):
+                self._write(f"{prefix}[content] ({len(content)} blocks):")
+                for i, block in enumerate(content):
+                    block_type = type(block).__name__
+                    self._write(f"{prefix}  [{i}] {block_type}:")
+                    self._dump_block(block, indent + 2)
+            elif isinstance(content, str):
+                if not content or content.isspace():
+                    self._write(
+                        f"{prefix}[content] (string, {len(content)} chars): {repr(content)}"
+                    )
+                else:
+                    self._write(f"{prefix}[content] (string, {len(content)} chars):")
+                    self._write(content)
+            else:
+                self._write(f"{prefix}[content] ({type(content).__name__}):")
+                self._write(f"{prefix}  {str(content)}")
+
+        # Role / type
+        if hasattr(msg, "role"):
+            self._write(f"{prefix}[role] {msg.role}")
+        if hasattr(msg, "type") and not hasattr(msg, "content"):
+            self._write(f"{prefix}[type] {msg.type}")
+
+        # Structured output
+        if hasattr(msg, "structured_output") and msg.structured_output:
+            self._write(f"{prefix}[structured_output]:")
+            try:
+                self._write(_json.dumps(msg.structured_output, indent=2, default=str))
+            except Exception:
+                self._write(f"{prefix}  {str(msg.structured_output)}")
+
+        # Result message fields
+        if hasattr(msg, "subtype"):
+            self._write(f"{prefix}[subtype] {msg.subtype}")
+        if hasattr(msg, "is_error"):
+            self._write(f"{prefix}[is_error] {msg.is_error}")
+        if hasattr(msg, "duration_ms"):
+            self._write(f"{prefix}[duration_ms] {msg.duration_ms}")
+        if hasattr(msg, "session_id"):
+            self._write(f"{prefix}[session_id] {msg.session_id}")
+
+        # Catch-all for messages without content blocks
+        for attr in ("text", "thinking", "name", "id", "input", "tool_use_id"):
+            if hasattr(msg, attr) and not hasattr(msg, "content"):
+                val = getattr(msg, attr)
+                if val is not None:
+                    self._write(f"{prefix}[{attr}] {str(val)}")
+
+    def _dump_block(self, block: object, indent: int = 0):
+        """Dump a single content block — NO truncation."""
+        prefix = "  " * indent
+        block_type = getattr(block, "type", type(block).__name__)
+
+        if block_type in ("text", "TextBlock") and hasattr(block, "text"):
+            text = block.text
+            if not text or text.isspace():
+                self._write(f"{prefix}[text] ({len(text)} chars): {repr(text)}")
+            else:
+                self._write(f"{prefix}[text] ({len(text)} chars):")
+                self._write(text)
+
+        elif block_type in ("thinking", "ThinkingBlock") and hasattr(block, "thinking"):
+            text = block.thinking or getattr(block, "text", "")
+            self._write(f"{prefix}[thinking] ({len(text)} chars):")
+            self._write(text)
+
+        elif block_type in ("tool_use", "ToolUseBlock"):
+            tool_name = getattr(block, "name", "unknown")
+            tool_id = getattr(block, "id", "unknown")
+            tool_input = getattr(block, "input", {})
+            agent_label = self._get_agent_label(tool_id)
+            self._write(f"{prefix}[tool_use] {tool_name} (id={tool_id}){agent_label}")
+            try:
+                self._write(_json.dumps(tool_input, indent=2, default=str))
+            except Exception:
+                self._write(str(tool_input))
+
+        elif block_type in ("tool_result", "ToolResultBlock"):
+            tool_id = getattr(block, "tool_use_id", "unknown")
+            is_error = getattr(block, "is_error", False)
+            result = getattr(block, "content", "")
+            if isinstance(result, list):
+                result = " ".join(str(getattr(c, "text", c)) for c in result)
+            status = "ERROR" if is_error else "OK"
+            agent_label = self._get_agent_label(tool_id)
+            self._write(
+                f"{prefix}[tool_result] (tool_id={tool_id}) {status}{agent_label}"
+            )
+            self._write(str(result))
+
+        else:
+            # Unknown block type — dump everything we can
+            self._write(f"{prefix}[{block_type}] (raw dump):")
+            for attr in dir(block):
+                if not attr.startswith("_"):
+                    try:
+                        val = getattr(block, attr)
+                        if not callable(val):
+                            self._write(f"{prefix}  {attr}: {str(val)}")
+                    except Exception:
+                        pass
+
+    # ── Structured output (standalone, for final result) ──────────────
+
+    def log_structured_output(self, output: dict):
+        self._write("[STRUCTURED_OUTPUT]")
+        try:
+            self._write(_json.dumps(output, indent=2, default=str))
+        except Exception:
+            self._write(str(output))
+
+    # ── Session close ─────────────────────────────────────────────────
+
+    def close(self, summary: dict):
+        self._write("\n=== Session Ended ===")
+        self._write(f"Messages: {summary.get('msg_count', '?')}")
+        self._write(f"Agents invoked: {summary.get('agents_invoked', [])}")
+        self._write(f"Error: {summary.get('error')}")
+        self._write(f"Log file: {self.path}")
+        if self._f is not None:
+            try:
+                self._f.close()
+            except OSError as e:
+                logger.warning(f"PR debug logger close failed: {e}")
+
+
+# ── END TEMPORARY ──────────────────────────────────────────────────────
+
 
 def _short_model_name(model: str | None) -> str:
     """Convert full model name to a short display name for logs.
@@ -133,6 +370,8 @@ async def process_sdk_stream(
     on_structured_output: Callable[[dict[str, Any]], None] | None = None,
     context_name: str = "SDK",
     model: str | None = None,
+    system_prompt: str | None = None,
+    agent_definitions: dict | None = None,
 ) -> dict[str, Any]:
     """
     Process SDK response stream with customizable callbacks.
@@ -153,6 +392,8 @@ async def process_sdk_stream(
         on_structured_output: Callback for structured output - receives dict
         context_name: Name for logging (e.g., "ParallelOrchestrator", "ParallelFollowup")
         model: Model name for logging (e.g., "claude-sonnet-4-5-20250929")
+        system_prompt: Full system prompt sent to the agent (logged at session start)
+        agent_definitions: Dict of agent name -> AgentDefinition (logged at session start)
 
     Returns:
         Dictionary with:
@@ -172,6 +413,15 @@ async def process_sdk_stream(
     subagent_tool_ids: dict[str, str] = {}  # tool_id -> agent_name
     completed_agent_tool_ids: set[str] = set()  # tool_ids of completed agents
 
+    # TEMPORARY: per-PR debug file logger
+    _dbg = _PRDebugLogger(context_name, model=model)
+
+    # Log session preamble: system prompt and agent definitions
+    if system_prompt:
+        _dbg.log_system_prompt(system_prompt)
+    if agent_definitions:
+        _dbg.log_agent_definitions(agent_definitions)
+
     safe_print(f"[{context_name}] Processing SDK stream...")
     if DEBUG_MODE:
         safe_print(f"[DEBUG {context_name}] Awaiting response stream...")
@@ -185,6 +435,7 @@ async def process_sdk_stream(
             try:
                 msg_type = type(msg).__name__
                 msg_count += 1
+                _dbg.log_message(msg_count, msg_type, msg)
 
                 # Log progress periodically so user knows AI is working
                 if msg_count - last_progress_log >= PROGRESS_LOG_INTERVAL:
@@ -253,11 +504,22 @@ async def process_sdk_stream(
                         agents_invoked.append(agent_name)
                         # Track this tool ID to log its result later
                         subagent_tool_ids[tool_id] = agent_name
+                        _dbg.set_subagent_mapping(subagent_tool_ids)
                         # Log with model info if available
                         model_info = f" [{_short_model_name(model)}]" if model else ""
                         safe_print(
                             f"[{context_name}] Invoking agent: {agent_name}{model_info}"
                         )
+                        # Log delegation prompt for debugging trigger system
+                        delegation_prompt = tool_input.get("prompt", "")
+                        if delegation_prompt:
+                            # Show first 300 chars of delegation prompt
+                            prompt_preview = delegation_prompt[:300]
+                            if len(delegation_prompt) > 300:
+                                prompt_preview += "..."
+                            safe_print(
+                                f"[{context_name}] Delegation prompt for {agent_name}: {prompt_preview}"
+                            )
                     elif tool_name != "StructuredOutput":
                         # Log meaningful tool info (not just tool name)
                         tool_detail = _get_tool_detail(tool_name, tool_input)
@@ -393,6 +655,7 @@ async def process_sdk_stream(
                     # Only capture if we don't already have it (avoid duplicates)
                     if structured_output is None:
                         structured_output = msg.structured_output
+                        _dbg.log_structured_output(msg.structured_output)
                         safe_print(f"[{context_name}] Received structured output")
                         if on_structured_output:
                             on_structured_output(msg.structured_output)
@@ -465,7 +728,7 @@ async def process_sdk_stream(
 
     safe_print(f"[{context_name}] Session ended. Total messages: {msg_count}")
 
-    return {
+    result = {
         "result_text": result_text,
         "structured_output": structured_output,
         "agents_invoked": agents_invoked,
@@ -473,3 +736,6 @@ async def process_sdk_stream(
         "subagent_tool_ids": subagent_tool_ids,
         "error": stream_error,
     }
+    _dbg.close(result)
+    safe_print(f"[{context_name}] Full debug log: {_dbg.path}")
+    return result

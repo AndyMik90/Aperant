@@ -8,7 +8,7 @@ import { app } from 'electron';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { AUTO_BUILD_PATHS, DEFAULT_CHANGELOG_PATH } from '../../shared/constants';
-import { getToolPath } from '../cli-tool-manager';
+import { getToolPath, getToolInfo } from '../cli-tool-manager';
 import type {
   ChangelogTask,
   TaskSpecContent,
@@ -176,25 +176,39 @@ export class ChangelogService extends EventEmitter {
   }
 
   /**
+   * Ensure prerequisites are met for changelog generation
+   * Validates auto-build source path and Claude CLI availability
+   * Returns the resolved Claude CLI path to ensure we use the freshly validated path
+   */
+  private ensurePrerequisites(): { autoBuildSource: string; claudePath: string } {
+    const autoBuildSource = this.getAutoBuildSourcePath();
+    if (!autoBuildSource) {
+      throw new Error('Auto-build source path not found');
+    }
+
+    const claudeInfo = getToolInfo('claude');
+    if (!claudeInfo.found || !claudeInfo.path) {
+      // Use claudeInfo.message directly to avoid redundant text
+      throw new Error(claudeInfo.message || 'Claude CLI not found. Install from https://claude.ai/download');
+    }
+
+    // Update cached path with freshly resolved value
+    this.claudePath = claudeInfo.path;
+    return { autoBuildSource, claudePath: claudeInfo.path };
+  }
+
+  /**
    * Get or create the generator instance
    */
   private getGenerator(): ChangelogGenerator {
     if (!this.generator) {
-      const autoBuildSource = this.getAutoBuildSourcePath();
-      if (!autoBuildSource) {
-        throw new Error('Auto-build source path not found');
-      }
-
-      // Verify claude CLI is available
-      if (this.claudePath !== 'claude' && !existsSync(this.claudePath)) {
-        throw new Error(`Claude CLI not found. Please ensure Claude Code is installed. Looked for: ${this.claudePath}`);
-      }
+      const { autoBuildSource, claudePath } = this.ensurePrerequisites();
 
       const autoBuildEnv = this.loadAutoBuildEnv();
 
       this.generator = new ChangelogGenerator(
         this.pythonPath,
-        this.claudePath,
+        claudePath,
         autoBuildSource,
         autoBuildEnv,
         this.isDebugEnabled()
@@ -226,19 +240,11 @@ export class ChangelogService extends EventEmitter {
    */
   private getVersionSuggester(): VersionSuggester {
     if (!this.versionSuggester) {
-      const autoBuildSource = this.getAutoBuildSourcePath();
-      if (!autoBuildSource) {
-        throw new Error('Auto-build source path not found');
-      }
-
-      // Verify claude CLI is available
-      if (this.claudePath !== 'claude' && !existsSync(this.claudePath)) {
-        throw new Error(`Claude CLI not found. Please ensure Claude Code is installed. Looked for: ${this.claudePath}`);
-      }
+      const { autoBuildSource, claudePath } = this.ensurePrerequisites();
 
       this.versionSuggester = new VersionSuggester(
         this.pythonPath,
-        this.claudePath,
+        claudePath,
         autoBuildSource,
         this.isDebugEnabled()
       );
