@@ -22,7 +22,7 @@ import {
 	TrendingUp,
 	X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
 	TaskCategory,
@@ -75,15 +75,32 @@ export function ValidationModal({
 	// Listen for validation progress events
 	useLinearValidationProgress(ticketId);
 
-	// Get validation progress - subscribe to the counter which changes on every progress update
-	// Then get the actual progress value using the selector
+	// Get validation progress using individual selectors to prevent infinite re-renders
+	// Using separate selectors avoids the object reference comparison issue
 	const progressUpdateCounter = useLinearStore((state) => state.progressUpdateCounter);
-	const validationProgress = useLinearStore((state) => state.getValidationProgress(ticketId));
-	// Include counter in dependencies to force re-evaluation when progress updates
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	useEffect(() => {
-		// This effect runs when progressUpdateCounter changes, triggering component re-render
-	}, [progressUpdateCounter]);
+	const progressPhase = useLinearStore((state) => state.validationProgress.get(ticketId)?.phase);
+	const progressStep = useLinearStore((state) => state.validationProgress.get(ticketId)?.step);
+	const progressTotal = useLinearStore((state) => state.validationProgress.get(ticketId)?.total);
+	const progressMessage = useLinearStore((state) => state.validationProgress.get(ticketId)?.message);
+
+	// Memoize the progress object to prevent unnecessary re-renders
+	// Include progressUpdateCounter in dependencies to force re-evaluation when progress updates
+	const validationProgress: {
+		phase: string;
+		step: number;
+		total: number;
+		message: string;
+	} | undefined = useMemo(() => {
+		if (!progressPhase || progressStep === undefined || progressTotal === undefined) {
+			return undefined;
+		}
+		return {
+			phase: progressPhase,
+			step: progressStep,
+			total: progressTotal,
+			message: progressMessage || "",
+		};
+	}, [progressPhase, progressStep, progressTotal, progressMessage, progressUpdateCounter]);
 
 	// Edit mode state for each section
 	const [editingLabels, setEditingLabels] = useState(false);
