@@ -1377,12 +1377,14 @@ export function registerClaudeCodeHandlers(): void {
           clearKeychainCache(expandedConfigDir);
           console.warn('[Claude Code] Cleared keychain cache for profile after re-authentication:', profileId);
 
-          // CRITICAL: Also clear the UsageMonitor's usage cache for this profile
-          // This ensures fresh usage data is fetched from the API instead of using stale cached data
-          // The keychain cache clear alone is not enough - we also need to clear the usage cache
+          // CRITICAL: Clear auth failure status and usage cache for this profile
+          // This ensures:
+          // 1. The "needs re-authentication" flag is cleared in the UI
+          // 2. Fresh usage data is fetched from the API instead of using stale cached data
+          // The keychain cache clear alone is not enough - we also need to clear auth status and usage cache
           const usageMonitor = getUsageMonitor();
-          usageMonitor.clearProfileUsageCache(profileId);
-          console.warn('[Claude Code] Cleared usage cache for profile after re-authentication:', profileId);
+          usageMonitor.clearAuthFailedProfile(profileId);
+          console.warn('[Claude Code] Cleared auth failure status and usage cache for profile after re-authentication:', profileId);
 
           // Clean up backup file after successful authentication
           if (existsSync(claudeJsonBakPath)) {

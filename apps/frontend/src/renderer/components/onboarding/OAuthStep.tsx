@@ -233,13 +233,26 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
   const handleAuthTerminalSuccess = useCallback(async (email?: string) => {
     console.warn('[OAuthStep] Auth success:', email);
 
+    // Capture profileId before clearing state
+    const profileId = authTerminal?.profileId;
+
     // Close terminal immediately
     setAuthTerminal(null);
     setAuthenticatingProfileId(null);
 
+    // Verify auth and clear the "needs re-authentication" flag in UsageMonitor
+    // This is critical: without this call, the reauth flag would persist even after successful auth
+    if (profileId) {
+      try {
+        await window.electronAPI.verifyClaudeProfileAuth(profileId);
+      } catch (error) {
+        console.warn('[OAuthStep] Failed to verify auth after success:', error);
+      }
+    }
+
     // Reload profiles to get updated auth state
     await loadClaudeProfiles();
-  }, []);
+  }, [authTerminal?.profileId]);
 
   // Handle auth terminal error
   const handleAuthTerminalError = useCallback((error: string) => {

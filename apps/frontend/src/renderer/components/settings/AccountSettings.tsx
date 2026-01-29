@@ -484,10 +484,26 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
   }, []);
 
   const handleAuthTerminalSuccess = useCallback(async () => {
+    // Capture profileId before clearing state
+    const profileId = authTerminal?.profileId;
+
     setAuthTerminal(null);
     setAuthenticatingProfileId(null);
+
+    // Verify auth and clear the "needs re-authentication" flag in UsageMonitor
+    // This is critical: without this call, the reauth flag would persist even after successful auth
+    if (profileId) {
+      try {
+        await window.electronAPI.verifyClaudeProfileAuth(profileId);
+      } catch (error) {
+        console.warn('[AccountSettings] Failed to verify auth after success:', error);
+      }
+    }
+
     await loadClaudeProfiles();
-  }, []);
+    // Force refresh usage data to reflect the updated auth status
+    await loadProfileUsageData(true);
+  }, [authTerminal?.profileId, loadProfileUsageData]);
 
   const handleAuthTerminalError = useCallback(() => {
     // Don't auto-close on error
