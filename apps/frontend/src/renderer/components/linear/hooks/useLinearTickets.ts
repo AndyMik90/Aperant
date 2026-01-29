@@ -118,10 +118,11 @@ export function useLinearTickets(
 	}, [tickets, selectedTicketId]);
 
 	// Get validation result for selected ticket
+	// Note: Validation results are stored using ticket.identifier (e.g., "LIN-123"), not ticket.id (UUID)
 	const selectedValidationResult = useMemo(() => {
-		if (!selectedTicketId) return null;
-		return validationResults.get(selectedTicketId) || null;
-	}, [selectedTicketId, validationResults]);
+		if (!selectedTicket) return null;
+		return validationResults.get(selectedTicket.identifier) || null;
+	}, [selectedTicket, validationResults]);
 
 	// Check if any validation is in progress
 	const isValidating = useMemo(() => {

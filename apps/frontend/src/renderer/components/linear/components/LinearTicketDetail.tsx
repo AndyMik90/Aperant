@@ -57,12 +57,15 @@ export function LinearTicketDetail({
 
 	const handleValidate = async () => {
 		debugLog("[LinearTicketDetail] handleValidate called, ticket:", ticket?.id);
+		// Open modal immediately to show streaming progress
+		setShowValidationModal(true);
 		try {
 			await onRunValidation();
-			debugLog("[LinearTicketDetail] Validation completed, showing modal");
-			setShowValidationModal(true);
+			debugLog("[LinearTicketDetail] Validation completed");
+			// Modal remains open to display results
 		} catch (error) {
 			debugError("[LinearTicketDetail] Validation failed:", error);
+			// Modal remains open to show error state
 		}
 	};
 
