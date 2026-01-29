@@ -479,3 +479,120 @@ class TestAPIProfileAuthenticationEdgeCases:
 
                 assert client is mock_sdk_client
                 assert os.environ.get("ANTHROPIC_AUTH_TOKEN") == token
+
+
+class TestSimpleClientAPIProfileAuthentication:
+    """Tests for API Profile authentication mode in create_simple_client()."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, clear_auth_env):
+        """Use shared clear_auth_env fixture."""
+        pass
+
+    def test_simple_client_api_profile_mode_with_valid_token(self, monkeypatch):
+        """create_simple_client() works with API profile mode."""
+        api_token = "sk-api-test-token-123456"
+        api_endpoint = "https://api.z.ai/v1"
+
+        monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", api_token)
+        monkeypatch.setenv("ANTHROPIC_BASE_URL", api_endpoint)
+        monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+
+        mock_sdk_client = MagicMock()
+        with patch("core.simple_client.ClaudeSDKClient", return_value=mock_sdk_client):
+            from core.simple_client import create_simple_client
+
+            client = create_simple_client(agent_type="merge_resolver")
+
+            # Verify SDK client was created
+            assert client is mock_sdk_client
+
+            # Verify CLAUDE_CODE_OAUTH_TOKEN was NOT set (API profile mode)
+            assert "CLAUDE_CODE_OAUTH_TOKEN" not in os.environ
+
+    def test_simple_client_api_profile_mode_missing_token_raises_error(self, monkeypatch):
+        """create_simple_client() raises ValueError when API profile mode but no token."""
+        api_endpoint = "https://api.z.ai/v1"
+
+        monkeypatch.setenv("ANTHROPIC_BASE_URL", api_endpoint)
+        monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+        monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+
+        from core.simple_client import create_simple_client
+
+        with pytest.raises(ValueError, match=r"API profile mode active.*ANTHROPIC_AUTH_TOKEN is not set"):
+            create_simple_client(agent_type="merge_resolver")
+
+    def test_simple_client_oauth_mode_without_base_url(self, monkeypatch):
+        """create_simple_client() uses OAuth mode when ANTHROPIC_BASE_URL is not set."""
+        oauth_token = "sk-ant-oat01-oauth-token"
+
+        monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", oauth_token)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+
+        mock_sdk_client = MagicMock()
+        with patch("core.simple_client.ClaudeSDKClient", return_value=mock_sdk_client):
+            from core.simple_client import create_simple_client
+
+            client = create_simple_client(agent_type="merge_resolver")
+
+            # Verify SDK client was created
+            assert client is mock_sdk_client
+
+            # Verify CLAUDE_CODE_OAUTH_TOKEN was set (OAuth mode)
+            assert os.environ.get("CLAUDE_CODE_OAUTH_TOKEN") == oauth_token
+
+    def test_simple_client_api_profile_takes_precedence_over_oauth(self, monkeypatch):
+        """
+        When both ANTHROPIC_BASE_URL and OAuth token are set, API profile mode wins.
+
+        create_simple_client() explicitly removes CLAUDE_CODE_OAUTH_TOKEN in API profile mode
+        so the SDK uses ANTHROPIC_AUTH_TOKEN instead (SDK prioritizes OAuth over API keys).
+        """
+        api_token = "sk-api-test-token-123456"
+        api_endpoint = "https://api.z.ai/v1"
+        oauth_token = "sk-ant-oat01-oauth-token"
+
+        # Set both API profile and OAuth
+        monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", api_token)
+        monkeypatch.setenv("ANTHROPIC_BASE_URL", api_endpoint)
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", oauth_token)
+
+        # Mock the SDK client and OAuth functions to verify OAuth path is NOT taken
+        mock_sdk_client = MagicMock()
+        with patch("core.simple_client.ClaudeSDKClient", return_value=mock_sdk_client), \
+             patch("core.simple_client.require_auth_token") as mock_require, \
+             patch("core.simple_client.validate_token_not_encrypted") as mock_validate:
+            from core.simple_client import create_simple_client
+
+            client = create_simple_client(agent_type="merge_resolver")
+
+            # Verify SDK client was created
+            assert client is mock_sdk_client
+
+            # Verify CLAUDE_CODE_OAUTH_TOKEN was removed (API profile mode)
+            assert "CLAUDE_CODE_OAUTH_TOKEN" not in os.environ
+
+            # Ensure OAuth flow was NOT used (this proves API profile path was taken)
+            mock_require.assert_not_called()
+            mock_validate.assert_not_called()
+
+    def test_simple_client_whitespace_base_url_triggers_oauth_mode(self, monkeypatch):
+        """Whitespace-only ANTHROPIC_BASE_URL is trimmed and treated as empty (OAuth mode)."""
+        oauth_token = "sk-ant-oat01-oauth-token"
+
+        # Set whitespace-only ANTHROPIC_BASE_URL - should be trimmed to empty string
+        monkeypatch.setenv("ANTHROPIC_BASE_URL", "   ")
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", oauth_token)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+
+        mock_sdk_client = MagicMock()
+        with patch("core.simple_client.ClaudeSDKClient", return_value=mock_sdk_client):
+            from core.simple_client import create_simple_client
+
+            # Should use OAuth mode (whitespace is trimmed)
+            client = create_simple_client(agent_type="merge_resolver")
+
+            # Verify SDK client was created successfully
+            assert client is mock_sdk_client

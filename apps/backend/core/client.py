@@ -527,6 +527,7 @@ def create_client(
         # Ensure SDK can access it via its expected env var
         # This is required because the SDK doesn't know about per-profile Keychain naming
         os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
+        logger.info("Using OAuth authentication")
 
     if config_dir:
         logger.info(f"Using CLAUDE_CONFIG_DIR for profile: {config_dir}")
