@@ -430,6 +430,7 @@ def _run_cli() -> None:
             target_branch=args.pr_target,
             title=args.pr_title,
             draft=args.pr_draft,
+            base_branch=args.base_branch,
         )
         # JSON output is already printed by handle_create_pr_command
         if not result.get("success"):

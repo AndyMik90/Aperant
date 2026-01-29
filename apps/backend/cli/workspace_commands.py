@@ -1009,6 +1009,7 @@ def handle_create_pr_command(
     target_branch: str | None = None,
     title: str | None = None,
     draft: bool = False,
+    base_branch: str | None = None,
 ) -> CreatePRResult:
     """
     Handle the --create-pr command: push branch and create a GitHub PR.
@@ -1019,6 +1020,7 @@ def handle_create_pr_command(
         target_branch: Target branch for PR (defaults to base branch)
         title: Custom PR title (defaults to spec name)
         draft: Whether to create as draft PR
+        base_branch: Base branch the worktree was created from (for correct branch detection)
 
     Returns:
         CreatePRResult with success status, pr_url, and any errors
@@ -1043,7 +1045,7 @@ def handle_create_pr_command(
         return error_result
 
     # Create worktree manager
-    manager = WorktreeManager(project_dir, base_branch=target_branch)
+    manager = WorktreeManager(project_dir, base_branch=base_branch)
 
     print(f"\n{icon(Icons.BRANCH)} Pushing branch and creating PR...")
     print(f"   Spec: {spec_name}")
