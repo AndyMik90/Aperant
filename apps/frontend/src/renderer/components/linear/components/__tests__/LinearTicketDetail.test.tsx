@@ -2,7 +2,7 @@
  * Tests for LinearTicketDetail component
  *
  * Tests the component that displays ticket details and triggers validation.
- * Key test: Modal opens immediately when validation starts (not after completion).
+ * Key test: Progress modal opens immediately when validation starts.
  *
  * @vitest-environment jsdom
  */
@@ -17,22 +17,41 @@ vi.mock("../../../hooks/useLinearValidationProgress", () => ({
 	useLinearValidationProgress: vi.fn(),
 }));
 
-// Mock ValidationModal component - tracks open state
-vi.mock("../ValidationModal", () => ({
-	ValidationModal: ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) => {
-		return (
-			<div data-testid="validation-modal" data-open={open} style={{ display: open ? "block" : "none" }}>
-				<div>Validation Modal Content</div>
-				<button onClick={() => onOpenChange(false)}>Close</button>
-			</div>
-		);
-	},
+// Mock LinearValidationProgress component - tracks open state
+vi.mock("../LinearValidationProgress", () => ({
+	LinearValidationProgress: ({ onStop }: { onStop?: () => void }) => (
+		<div data-testid="validation-progress-modal">
+			<div>Validation Progress Content</div>
+			{onStop && <button onClick={onStop}>Stop</button>}
+		</div>
+	),
+}));
+
+// Mock ValidationResults component - tracks open state
+vi.mock("../ValidationResults", () => ({
+	ValidationResults: ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) => (
+		<div data-testid="validation-results-modal" data-open={open} style={{ display: open ? "block" : "none" }}>
+			<div>Validation Results Content</div>
+			<button onClick={() => onOpenChange(false)}>Close</button>
+		</div>
+	),
 }));
 
 // Mock i18next
 vi.mock("react-i18next", () => ({
 	useTranslation: () => ({
 		t: (key: string) => key,
+	}),
+}));
+
+// Mock linear store
+vi.mock("../../../stores/linear-store", () => ({
+	useLinearStore: () => vi.fn((selector) => {
+		// Mock store implementation that returns undefined for most selectors
+		const mockState = {
+			validationProgress: new Map(),
+		};
+		return selector(mockState);
 	}),
 }));
 
@@ -56,13 +75,13 @@ describe("LinearTicketDetail - Immediate Modal Opening", () => {
 	});
 
 	/**
-	 * CRITICAL TEST: Verifies that the validation modal opens IMMEDIATELY
+	 * CRITICAL TEST: Verifies that the validation progress modal opens IMMEDIATELY
 	 * when validation starts, not after it completes.
 	 *
 	 * This tests the fix for the bug where the modal opened only after
 	 * validation completed, causing the progress bar to never be visible.
 	 */
-	it("should open validation modal immediately when validation starts", async () => {
+	it("should open validation progress modal immediately when validation starts", async () => {
 		// Mock validation that resolves after a delay
 		let validationResolve: () => void = () => {};
 		const validationPromise = new Promise<void>((resolve) => {
@@ -80,26 +99,23 @@ describe("LinearTicketDetail - Immediate Modal Opening", () => {
 			/>,
 		);
 
-		// Modal is rendered but closed initially (hidden with display: none)
-		const modalBefore = screen.queryByTestId("validation-modal");
-		expect(modalBefore).toBeDefined();
-		expect(modalBefore?.getAttribute("data-open")).toBe("false");
+		// Progress modal should not be visible initially
+		const progressModalBefore = screen.queryByTestId("validation-progress-modal");
+		expect(progressModalBefore).toBeNull();
 
 		// Click the "Run Validation" button
 		const validateButton = screen.getByRole("button");
 		fireEvent.click(validateButton);
 
-		// Wait for React state to update
+		// First check that validation was triggered
 		await waitFor(() => {
-			// CRITICAL ASSERTIONS:
-			// 1. Validation should have been triggered
 			expect(mockOnRunValidation).toHaveBeenCalled();
-
-			// 2. Modal should now be open (data-open flips to "true")
-			// This verifies that setShowValidationModal(true) was called immediately
-			const modalAfter = screen.getByTestId("validation-modal");
-			expect(modalAfter.getAttribute("data-open")).toBe("true");
 		});
+
+		// Then check that the progress modal appeared (use getByTestId since it's in DOM)
+		// The modal is rendered with fixed positioning so it should be in the document
+		const progressModal = screen.getByTestId("validation-progress-modal");
+		expect(progressModal).toBeDefined();
 
 		// Complete validation
 		validationResolve();
@@ -126,6 +142,60 @@ describe("LinearTicketDetail - Immediate Modal Opening", () => {
 		// Button should be disabled while validating
 		const validateButton = screen.getByRole("button");
 		expect(validateButton.getAttribute("disabled")).not.toBeNull();
+	});
+
+	/**
+	 * Test that results modal opens when validation completes
+	 */
+	it("should open results modal when validation completes", async () => {
+		const mockValidationResult: ValidationResult = {
+			ticketId: "LIN-123",
+			ticketIdentifier: "LIN-123",
+			validationTimestamp: "2024-01-01T00:00:00.000Z",
+			cached: false,
+			status: "complete",
+			contentAnalysis: {
+				title: "Test",
+				descriptionSummary: "Test",
+				requirements: [],
+			},
+			completenessValidation: {
+				isComplete: true,
+				missingFields: [],
+				feasibilityScore: 100,
+				feasibilityReasoning: "",
+			},
+			suggestedLabels: [],
+			versionRecommendation: {
+				recommendedVersion: "1.0.0",
+				versionType: "patch",
+				reasoning: "",
+			},
+			taskProperties: {
+				category: "feature",
+				complexity: "medium",
+				impact: "medium",
+				priority: "medium",
+				rationale: "",
+			},
+		};
+
+		const mockOnRunValidation = vi.fn(() => Promise.resolve());
+
+		render(
+			<LinearTicketDetail
+				ticket={mockTicket}
+				validationResult={mockValidationResult}
+				isValidating={false}
+				onRunValidation={mockOnRunValidation}
+			/>,
+		);
+
+		// Results modal should be open when validation is complete
+		await waitFor(() => {
+			const resultsModal = screen.getByTestId("validation-results-modal");
+			expect(resultsModal.getAttribute("data-open")).toBe("true");
+		});
 	});
 });
 

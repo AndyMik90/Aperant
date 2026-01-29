@@ -15,8 +15,11 @@ import type {
 	ValidationResult,
 } from "@shared/types";
 import { formatRelativeTime } from "@shared/utils/format-time";
-import { ValidationModal } from "./ValidationModal";
 import { rehypeUnwrapP } from "@shared/lib/mdx/rehype-unwrap-p";
+import { useLinearStore } from "../../../stores/linear-store";
+import { useLinearValidationProgress } from "../../../hooks/useLinearValidationProgress";
+import { LinearValidationProgress } from "./LinearValidationProgress";
+import { ValidationResults } from "./ValidationResults";
 
 /**
  * TypeScript types for ReactMarkdown custom components
@@ -48,9 +51,36 @@ export function LinearTicketDetail({
 	onRunValidation,
 }: LinearTicketDetailProps) {
 	const { t } = useTranslation(["common", "linear"]);
-	const [showValidationModal, setShowValidationModal] = useState(false);
-	const validation = validationResult;
+	const [showProgressModal, setShowProgressModal] = useState(false);
+	const [showResultsModal, setShowResultsModal] = useState(false);
 	const detailRef = useRef<HTMLDivElement>(null);
+
+	// Listen for validation progress events for this ticket
+	useLinearValidationProgress(ticket?.id);
+
+	// Get validation progress from store
+	const progressPhase = useLinearStore((state) =>
+		ticket ? state.validationProgress.get(ticket.id)?.phase : undefined
+	);
+	const progressStep = useLinearStore((state) =>
+		ticket ? state.validationProgress.get(ticket.id)?.step : undefined
+	);
+	const progressTotal = useLinearStore((state) =>
+		ticket ? state.validationProgress.get(ticket.id)?.total : undefined
+	);
+	const progressMessage = useLinearStore((state) =>
+		ticket ? state.validationProgress.get(ticket.id)?.message : undefined
+	);
+	const progressTimestamp = useLinearStore((state) =>
+		ticket ? state.validationProgress.get(ticket.id)?.timestamp : undefined
+	);
+
+	// Calculate progress percentage and timestamps
+	const progress = progressStep && progressTotal ? (progressStep / progressTotal) * 100 : 0;
+	const startedAt = progressTimestamp ? new Date(progressTimestamp - 60000) : undefined; // Approximate start time
+	const lastActivityAt = progressTimestamp ? new Date(progressTimestamp) : undefined;
+
+	const validation = validationResult;
 
 	// Scroll to top when ticket changes
 	useEffect(() => {
@@ -59,30 +89,43 @@ export function LinearTicketDetail({
 		}
 	}, [ticket?.id]);
 
-	if (!ticket) {
-		return (
-			<div
-				className="flex items-center justify-center h-full text-muted-foreground"
-				role="status"
-				aria-live="polite"
-			>
-				<Clock className="w-5 h-5 mr-2" aria-hidden="true" />
-				<p>{t("linear:selectTicket")}</p>
-			</div>
-		);
-	}
+	// Auto-show results modal when validation completes
+	useEffect(() => {
+		if (validation?.status === "complete" && !isValidating) {
+			setShowResultsModal(true);
+		}
+	}, [validation?.status, isValidating]);
+
+	// Auto-close progress modal when validation completes
+	useEffect(() => {
+		if (validation?.status === "complete" || validation?.status === "error" || progressPhase === "complete" || progressPhase === "error") {
+			setShowProgressModal(false);
+		}
+	}, [validation?.status, progressPhase]);
 
 	const handleValidate = async () => {
 		debugLog("[LinearTicketDetail] handleValidate called, ticket:", ticket?.id);
-		// Open modal immediately to show streaming progress
-		setShowValidationModal(true);
+		// Open progress modal immediately to show streaming progress
+		setShowProgressModal(true);
 		try {
 			await onRunValidation();
 			debugLog("[LinearTicketDetail] Validation completed");
-			// Modal remains open to display results
 		} catch (error) {
 			debugError("[LinearTicketDetail] Validation failed:", error);
-			// Modal remains open to show error state
+		}
+	};
+
+	// Handle cancel validation
+	const handleCancel = async () => {
+		if (!window.electronAPI?.cancelLinearValidation || !ticket) return;
+
+		try {
+			const result = await window.electronAPI.cancelLinearValidation(ticket.id);
+			if (result.success) {
+				setShowProgressModal(false);
+			}
+		} catch (err) {
+			console.error("Failed to cancel validation:", err);
 		}
 	};
 
@@ -108,299 +151,348 @@ export function LinearTicketDetail({
 		return colors[stateType] || "text-gray-500";
 	};
 
-	return (
-		<div
-			ref={detailRef}
-			className="flex flex-col h-full gap-4 p-4 overflow-y-auto"
-			role="region"
-			aria-label={t("linear:ticketDetailsFor", { identifier: ticket.identifier })}
-		>
-			{/* Header */}
-			<div className="flex items-start justify-between gap-4">
-				<div className="flex-1 min-w-0">
-					<div className="flex items-center gap-2 flex-wrap">
-						<h2 className="text-xl font-semibold truncate">{ticket.title}</h2>
-						<a
-							href={ticket.url}
-							target="_blank"
-							rel="noopener noreferrer"
-							className="text-muted-foreground hover:text-foreground transition-colors"
-							aria-label={t("linear:viewOnLinear")}
-						>
-							<ExternalLink className="w-4 h-4 flex-shrink-0" />
-						</a>
-					</div>
-					<p className="text-sm text-muted-foreground">{ticket.identifier}</p>
-				</div>
-
-				{/* Validation Status Badge */}
-				{isValidating ? (
-					<div
-						className="flex items-center gap-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-full"
-						role="status"
-						aria-live="polite"
-					>
-						<Loader2 className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin" aria-hidden="true" />
-						<span className="text-xs text-blue-700 dark:text-blue-300">
-							{t("linear:validatingTicket")}
-						</span>
-					</div>
-				) : validation?.status === "complete" ? (
-					<div
-						className="flex items-center gap-1 px-2 py-1 bg-green-50 dark:bg-green-900/20 rounded-full"
-						role="status"
-						aria-live="polite"
-					>
-						<CheckCircle2
-							className="w-4 h-4 text-green-600 dark:text-green-400"
-							aria-hidden="true"
-						/>
-						<span className="text-xs text-green-700 dark:text-green-300">
-							{t("linear:validated")}
-						</span>
-					</div>
-				) : validation?.status === "error" ? (
-					<div
-						className="flex items-center gap-1 px-2 py-1 bg-red-50 dark:bg-red-900/20 rounded-full"
-						role="status"
-						aria-live="polite"
-					>
-						<Clock className="w-4 h-4 text-red-600 dark:text-red-400" aria-hidden="true" />
-						<span className="text-xs text-red-700 dark:text-red-300">
-							{t("linear:validationFailed")}
-						</span>
-					</div>
-				) : (
-					<div
-						className="flex items-center gap-1 px-2 py-1 bg-gray-50 dark:bg-gray-800 rounded-full"
-						role="status"
-						aria-live="polite"
-					>
-						<Clock className="w-4 h-4 text-gray-400" aria-hidden="true" />
-						<span className="text-xs text-gray-500">
-							{t("linear:notValidated")}
-						</span>
-					</div>
-				)}
-			</div>
-
-			{/* Metadata Badges */}
+	if (!ticket) {
+		return (
 			<div
-				className="flex flex-wrap gap-2"
-				role="list"
-				aria-label={t("linear:ticketMetadata")}
+				className="flex items-center justify-center h-full text-muted-foreground"
+				role="status"
+				aria-live="polite"
 			>
-				<div
-					className="px-2 py-1 rounded-md bg-secondary text-sm"
-					role="listitem"
-				>
-					<span className="text-muted-foreground">{t("linear:status")}:</span>{" "}
-					<span className={getStatusColor(ticket.state.type)}>
-						{ticket.state.name}
-					</span>
-				</div>
-				<div
-					className={`px-2 py-1 rounded-md text-sm ${getPriorityBadgeClass(ticket.priority)}`}
-					role="listitem"
-				>
-					<span className="text-muted-foreground">{t("linear:priority")}:</span>{" "}
-					{ticket.priorityLabel}
-				</div>
-				{ticket.assignee && (
-					<div
-						className="px-2 py-1 rounded-md bg-secondary text-sm"
-						role="listitem"
-					>
-						<span className="text-muted-foreground">
-							{t("linear:assignee")}:
-						</span>{" "}
-						{ticket.assignee.name}
-					</div>
-				)}
-				{ticket.project && (
-					<div
-						className="px-2 py-1 rounded-md bg-secondary text-sm"
-						role="listitem"
-					>
-						<span className="text-muted-foreground">
-							{t("linear:project")}:
-						</span>{" "}
-						{ticket.project.name}
-					</div>
-				)}
-				<div
-					className="px-2 py-1 rounded-md bg-secondary text-sm text-muted-foreground"
-					role="listitem"
-				>
-					{formatRelativeTime(ticket.createdAt)}
-				</div>
+				<Clock className="w-5 h-5 mr-2" aria-hidden="true" />
+				<p>{t("linear:selectTicket")}</p>
 			</div>
+		);
+	}
 
-			{/* Labels */}
-			{ticket.labels && ticket.labels.length > 0 && (
-				<div
-					className="flex flex-wrap gap-1"
-					role="list"
-					aria-label={t("linear:labels")}
-				>
-					{ticket.labels.map((label: { id: string; name: string; color: string }) => (
-						<span
-							key={label.id}
-							className="px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium"
-							style={{
-								backgroundColor: label.color ? `${label.color}20` : undefined,
-							}}
-							role="listitem"
-							aria-label={t("linear:labelAriaLabel", { name: label.name })}
+	// Compute validation phase for progress display
+	const validationPhase = progressPhase || (isValidating ? "initialization" : validation?.status === "complete" ? "complete" : validation?.status === "error" ? "error" : "idle");
+	const validationError = validation?.error;
+
+	return (
+		<>
+			<div
+				ref={detailRef}
+				className="flex flex-col h-full gap-4 p-4 overflow-y-auto"
+				role="region"
+				aria-label={t("linear:ticketDetailsFor", { identifier: ticket.identifier })}
+			>
+				{/* Header */}
+				<div className="flex items-start justify-between gap-4">
+					<div className="flex-1 min-w-0">
+						<div className="flex items-center gap-2 flex-wrap">
+							<h2 className="text-xl font-semibold truncate">{ticket.title}</h2>
+							<a
+								href={ticket.url}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="text-muted-foreground hover:text-foreground transition-colors"
+								aria-label={t("linear:viewOnLinear")}
+							>
+								<ExternalLink className="w-4 h-4 flex-shrink-0" />
+							</a>
+						</div>
+						<p className="text-sm text-muted-foreground">{ticket.identifier}</p>
+					</div>
+
+					{/* Top Right Actions */}
+					<div className="flex items-center gap-2">
+						{/* Validation Status Badge */}
+						{isValidating ? (
+							<div
+								className="flex items-center gap-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-full"
+								role="status"
+								aria-live="polite"
+							>
+								<Loader2 className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin" aria-hidden="true" />
+								<span className="text-xs text-blue-700 dark:text-blue-300">
+									{t("linear:validatingTicket")}
+								</span>
+							</div>
+						) : validation?.status === "complete" ? (
+							<div
+								className="flex items-center gap-1 px-2 py-1 bg-green-50 dark:bg-green-900/20 rounded-full"
+								role="status"
+								aria-live="polite"
+							>
+								<CheckCircle2
+									className="w-4 w-4 text-green-600 dark:text-green-400"
+									aria-hidden="true"
+								/>
+								<span className="text-xs text-green-700 dark:text-green-300">
+									{t("linear:validated")}
+								</span>
+							</div>
+						) : validation?.status === "error" ? (
+							<div
+								className="flex items-center gap-1 px-2 py-1 bg-red-50 dark:bg-red-900/20 rounded-full"
+								role="status"
+								aria-live="polite"
+							>
+								<Clock className="w-4 w-4 text-red-600 dark:text-red-400" aria-hidden="true" />
+								<span className="text-xs text-red-700 dark:text-red-300">
+									{t("linear:validationFailed")}
+								</span>
+							</div>
+						) : (
+							<div
+								className="flex items-center gap-1 px-2 py-1 bg-gray-50 dark:bg-gray-800 rounded-full"
+								role="status"
+								aria-live="polite"
+							>
+								<Clock className="w-4 w-4 text-gray-400" aria-hidden="true" />
+								<span className="text-xs text-gray-500">
+									{t("linear:notValidated")}
+								</span>
+							</div>
+						)}
+
+						{/* Validate Button */}
+						<button
+							type="button"
+							onClick={handleValidate}
+							disabled={isValidating}
+							className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 text-sm"
+							aria-label={t("linear:runValidation")}
+							aria-busy={isValidating}
 						>
-							{label.name}
-						</span>
-					))}
+							{isValidating ? (
+								<>
+									<Loader2 className="w-3.5 h-3.5 animate-spin" />
+									<span className="hidden sm:inline">{t("linear:validatingTicket")}</span>
+								</>
+							) : (
+								<>
+									<CheckCircle2 className="w-3.5 h-3.5" />
+									<span>{t("linear:runValidation")}</span>
+								</>
+							)}
+						</button>
+					</div>
 				</div>
-			)}
 
-			{/* Description */}
-			<div className="flex-1">
-				<h3 className="text-sm font-medium mb-2">{t("linear:description")}</h3>
-				<div className="p-3 rounded-md bg-secondary/50 text-sm text-foreground [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:mt-2 [&_h3]:mb-1 [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_blockquote]:my-2 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-muted [&_code]:text-xs [&_code]:font-mono [&_pre]:my-3 [&_pre]:p-3 [&_pre]:bg-muted [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_a]:text-primary [&_a]:hover:underline">
-					{ticket.description ? (
-						<ReactMarkdown
-							remarkPlugins={[remarkGfm]}
-							rehypePlugins={[rehypeSanitize, rehypeUnwrapP]}
-							skipHtml={false}
-							components={{
-								// Custom code component with syntax detection and styling
-								code({ inline, className, children }: MarkdownCodeProps) {
-									const match = /language-(\w+)/.exec(className || '');
-									const hasLanguage = match && match[1];
+				{/* Metadata Badges */}
+				<div
+					className="flex flex-wrap gap-2"
+					role="list"
+					aria-label={t("linear:ticketMetadata")}
+				>
+					<div
+						className="px-2 py-1 rounded-md bg-secondary text-sm"
+						role="listitem"
+					>
+						<span className="text-muted-foreground">{t("linear:status")}:</span>{" "}
+						<span className={getStatusColor(ticket.state.type)}>
+							{ticket.state.name}
+						</span>
+					</div>
+					<div
+						className={`px-2 py-1 rounded-md text-sm ${getPriorityBadgeClass(ticket.priority)}`}
+						role="listitem"
+					>
+						<span className="text-muted-foreground">{t("linear:priority")}:</span>{" "}
+						{ticket.priorityLabel}
+					</div>
+					{ticket.assignee && (
+						<div
+							className="px-2 py-1 rounded-md bg-secondary text-sm"
+							role="listitem"
+						>
+							<span className="text-muted-foreground">
+								{t("linear:assignee")}:
+							</span>{" "}
+							{ticket.assignee.name}
+						</div>
+					)}
+					{ticket.project && (
+						<div
+							className="px-2 py-1 rounded-md bg-secondary text-sm"
+							role="listitem"
+						>
+							<span className="text-muted-foreground">
+								{t("linear:project")}:
+							</span>{" "}
+							{ticket.project.name}
+						</div>
+					)}
+					<div
+						className="px-2 py-1 rounded-md bg-secondary text-sm text-muted-foreground"
+						role="listitem"
+					>
+						{formatRelativeTime(ticket.createdAt)}
+					</div>
+				</div>
 
-									// Inline code
-									if (inline) {
+				{/* Labels */}
+				{ticket.labels && ticket.labels.length > 0 && (
+					<div
+						className="flex flex-wrap gap-1"
+						role="list"
+						aria-label={t("linear:labels")}
+					>
+						{ticket.labels.map((label: { id: string; name: string; color: string }) => (
+							<span
+								key={label.id}
+								className="px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium"
+								style={{
+									backgroundColor: label.color ? `${label.color}20` : undefined,
+								}}
+								role="listitem"
+								aria-label={t("linear:labelAriaLabel", { name: label.name })}
+							>
+								{label.name}
+							</span>
+						))}
+					</div>
+				)}
+
+				{/* Description */}
+				<div className="flex-1">
+					<h3 className="text-sm font-medium mb-2">{t("linear:description")}</h3>
+					<div className="p-3 rounded-md bg-secondary/50 text-sm text-foreground [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:mt-2 [&_h3]:mb-1 [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_blockquote]:my-2 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-muted [&_code]:text-xs [&_code]:font-mono [&_pre]:my-3 [&_pre]:p-3 [&_pre]:bg-muted [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_a]:text-primary [&_a]:hover:underline">
+						{ticket.description ? (
+							<ReactMarkdown
+								remarkPlugins={[remarkGfm]}
+								rehypePlugins={[rehypeSanitize, rehypeUnwrapP]}
+								skipHtml={false}
+								components={{
+									// Custom code component with syntax detection and styling
+									code({ inline, className, children }: MarkdownCodeProps) {
+										const match = /language-(\w+)/.exec(className || '');
+										const hasLanguage = match && match[1];
+
+										// Inline code
+										if (inline) {
+											return (
+												<code
+													className="px-1 py-0.5 bg-muted dark:bg-muted/70 rounded text-xs font-mono text-foreground"
+												>
+													{children}
+												</code>
+											);
+										}
+
+										// Block code with language detection
 										return (
-											<code
-												className="px-1 py-0.5 bg-muted dark:bg-muted/70 rounded text-xs font-mono text-foreground"
+											<div className="group relative my-3 not-prose">
+												{hasLanguage && (
+													<span className="absolute top-2 right-2 px-2 py-0.5 text-xs font-mono text-muted-foreground bg-muted/50 rounded select-none">
+														{match[1]}
+													</span>
+												)}
+												<pre className="bg-muted dark:bg-muted/80 p-3 rounded-lg overflow-x-auto text-sm border border-border/50">
+													<code className={className}>{children}</code>
+												</pre>
+											</div>
+										);
+									},
+									// Custom link component
+									a({ href, children, ...props }: MarkdownAnchorProps) {
+										return (
+											<a
+												href={href}
+												className="text-primary hover:underline inline-flex items-center gap-0.5"
+												target="_blank"
+												rel="noopener noreferrer"
+												{...props}
 											>
 												{children}
-											</code>
+											</a>
 										);
-									}
+									},
+								}}
+							>
+								{ticket.description}
+							</ReactMarkdown>
+						) : (
+							<p className="text-sm text-muted-foreground italic">
+								{t("linear:noDescription")}
+							</p>
+						)}
+					</div>
+				</div>
 
-									// Block code with language detection
-									return (
-										<div className="group relative my-3 not-prose">
-											{hasLanguage && (
-												<span className="absolute top-2 right-2 px-2 py-0.5 text-xs font-mono text-muted-foreground bg-muted/50 rounded select-none">
-													{match[1]}
-												</span>
-											)}
-											<pre className="bg-muted dark:bg-muted/80 p-3 rounded-lg overflow-x-auto text-sm border border-border/50">
-												<code className={className}>{children}</code>
-											</pre>
-										</div>
-									);
-								},
-								// Custom link component
-								a({ href, children, ...props }: MarkdownAnchorProps) {
-									return (
-										<a
-											href={href}
-											className="text-primary hover:underline inline-flex items-center gap-0.5"
-											target="_blank"
-											rel="noopener noreferrer"
-											{...props}
-										>
-											{children}
-										</a>
-									);
-								},
+				{/* Validation Summary (if validated) - Click to open results modal */}
+				{!isValidating && validation?.status === "complete" && (
+					<div
+						className="p-4 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+						role="button"
+						tabIndex={0}
+						onClick={() => setShowResultsModal(true)}
+						onKeyDown={(e) => {
+							if (e.key === "Enter" || e.key === " ") {
+								e.preventDefault();
+								setShowResultsModal(true);
+							}
+						}}
+						aria-label={t("linear:validationResults")}
+					>
+						<div className="flex items-center gap-2 mb-2">
+							<CheckCircle2
+								className="w-5 h-5 text-green-600 dark:text-green-400"
+								aria-hidden="true"
+							/>
+							<h4 className="font-medium text-green-900 dark:text-green-100">
+								{t("linear:validationComplete")}
+							</h4>
+						</div>
+						<div className="text-sm text-green-800 dark:text-green-200 space-y-1">
+							{validation.versionRecommendation && (
+								<div>
+									<span className="font-medium">
+										{t("linear:recommendedVersion")}:
+									</span>{" "}
+									{validation.versionRecommendation.recommendedVersion}
+								</div>
+							)}
+							{validation.taskProperties && (
+								<div>
+									<span className="font-medium">{t("linear:category")}:</span>{" "}
+									{validation.taskProperties.category}
+								</div>
+							)}
+						</div>
+						<button
+							type="button"
+							className="mt-3 text-sm text-green-700 dark:text-green-300 underline hover:no-underline"
+							onClick={(e) => {
+								e.stopPropagation();
+								setShowResultsModal(true);
 							}}
 						>
-							{ticket.description}
-						</ReactMarkdown>
-					) : (
-						<p className="text-sm text-muted-foreground italic">
-							{t("linear:noDescription")}
-						</p>
-					)}
-				</div>
+							{t("linear:viewFullValidation")}
+						</button>
+					</div>
+				)}
 			</div>
 
-			{/* Actions */}
-			<div className="flex gap-2">
-				<button
-					type="button"
-					onClick={handleValidate}
-					disabled={isValidating}
-					className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-					aria-label={t("linear:runValidation")}
-					aria-busy={isValidating}
-				>
-					{isValidating ? (
-						<>
-							<Loader2 className="w-4 h-4 animate-spin" />
-							{t("linear:validatingTicket")}
-						</>
-					) : (
-						<>
-							<CheckCircle2 className="w-4 h-4" />
-							{t("linear:runValidation")}
-						</>
-					)}
-				</button>
-			</div>
-
-			{/* Validation Summary (if validated) */}
-			{!isValidating && validation?.status === "complete" && (
-				<div
-					className="p-4 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
-					role="region"
-					aria-live="polite"
-					aria-label={t("linear:validationResults")}
-				>
-					<div className="flex items-center gap-2 mb-2">
-						<CheckCircle2
-							className="w-5 h-5 text-green-600 dark:text-green-400"
-							aria-hidden="true"
+			{/* Progress Modal */}
+			{showProgressModal && ticket && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+					<div className="bg-card rounded-xl shadow-lg max-w-lg w-full">
+						<LinearValidationProgress
+							phase={validationPhase}
+							progress={progress}
+							message={progressMessage || t("linear:validationInProgress")}
+							error={validationError}
+							startedAt={startedAt}
+							lastActivityAt={lastActivityAt}
+							totalSteps={progressTotal}
+							currentStep={progressStep}
+							onStop={handleCancel}
 						/>
-						<h4 className="font-medium text-green-900 dark:text-green-100">
-							{t("linear:validationComplete")}
-						</h4>
 					</div>
-					<div className="text-sm text-green-800 dark:text-green-200 space-y-1">
-						{validation.versionRecommendation && (
-							<div>
-								<span className="font-medium">
-									{t("linear:recommendedVersion")}:
-								</span>{" "}
-								{validation.versionRecommendation.recommendedVersion}
-							</div>
-						)}
-						{validation.taskProperties && (
-							<div>
-								<span className="font-medium">{t("linear:category")}:</span>{" "}
-								{validation.taskProperties.category}
-							</div>
-						)}
-					</div>
-					<button
-						type="button"
-						onClick={() => setShowValidationModal(true)}
-						className="mt-3 text-sm text-green-700 dark:text-green-300 underline hover:no-underline"
-					>
-						{t("linear:viewFullValidation")}
-					</button>
 				</div>
 			)}
 
-			{/* Validation Modal */}
-			{ticket.identifier && (
-				<ValidationModal
-					open={showValidationModal}
-					onOpenChange={setShowValidationModal}
-					ticketId={ticket.identifier}
-					validation={validationResult}
+			{/* Results Modal */}
+			{ticket && validation && validation.status === "complete" && (
+				<ValidationResults
+					open={showResultsModal}
+					onOpenChange={setShowResultsModal}
+					ticket={ticket}
+					validation={validation}
 				/>
 			)}
-		</div>
+		</>
 	);
 }
