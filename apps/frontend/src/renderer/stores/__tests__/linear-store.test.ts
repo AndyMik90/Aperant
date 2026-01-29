@@ -10,7 +10,7 @@ import type {
 	LinearTicket,
 	ValidationResult,
 } from "../../../shared/types";
-import { useLinearStore } from "../linear-store";
+import { useLinearStore, fetchLinearTicket, fetchLinearTickets, fetchLinearTeams, fetchLinearProjects } from "../linear-store";
 
 // Helper to create test tickets
 function createTestTicket(overrides: Partial<LinearTicket> = {}): LinearTicket {
@@ -91,6 +91,9 @@ function createTestFilters(
 	};
 }
 
+// Save original window.electronAPI
+const originalElectronAPI = (globalThis as any).window?.electronAPI;
+
 describe("Linear Store", () => {
 	beforeEach(() => {
 		// Reset store to initial state before each test
@@ -105,10 +108,36 @@ describe("Linear Store", () => {
 			isLoading: false,
 			error: null,
 		});
+
+		// Setup default mock for window.electronAPI
+		(globalThis as any).window = {
+			electronAPI: {
+				linear: {
+					getLinearIssues: vi.fn().mockResolvedValue({
+						success: true,
+						data: [],
+					}),
+					getLinearTeams: vi.fn().mockResolvedValue({
+						success: true,
+						data: [],
+					}),
+					getLinearProjects: vi.fn().mockResolvedValue({
+						success: true,
+						data: [],
+					}),
+				},
+			},
+		};
 	});
 
 	afterEach(() => {
 		vi.clearAllMocks();
+		// Restore original electronAPI
+		if (originalElectronAPI) {
+			(globalThis as any).window.electronAPI = originalElectronAPI;
+		} else {
+			delete (globalThis as any).window;
+		}
 	});
 
 	describe("Ticket State", () => {
@@ -755,6 +784,109 @@ describe("Linear Store", () => {
 				expect(useLinearStore.getState().projects).toHaveLength(2);
 				expect(useLinearStore.getState().projects[0].name).toBe("Mobile App");
 			});
+		});
+	});
+
+	describe("Fetch Functions Error Handling", () => {
+		describe("fetchLinearTickets", () => {
+			it("should set error and clear loading when Linear API unavailable", async () => {
+				// Remove linear API from mock
+				(globalThis as any).window.electronAPI.linear = undefined;
+
+				await fetchLinearTickets("project-123");
+
+				expect(useLinearStore.getState().error).toBe(
+					"Linear integration is not available",
+				);
+				expect(useLinearStore.getState().isLoading).toBe(false);
+
+				// Cleanup
+				useLinearStore.getState().setError(null);
+				// Restore linear API mock
+				(globalThis as any).window.electronAPI.linear = {
+					getLinearIssues: vi.fn().mockResolvedValue({
+						success: true,
+						data: [],
+					}),
+				};
+			});
+		});
+
+		describe("fetchLinearTeams", () => {
+			it("should set error and clear loading when Linear API unavailable", async () => {
+				// Remove linear API from mock
+				(globalThis as any).window.electronAPI.linear = undefined;
+
+				await fetchLinearTeams("project-123");
+
+				expect(useLinearStore.getState().error).toBe(
+					"Linear integration is not available",
+				);
+				expect(useLinearStore.getState().isLoading).toBe(false);
+
+				// Cleanup
+				useLinearStore.getState().setError(null);
+				// Restore linear API mock
+				(globalThis as any).window.electronAPI.linear = {
+					getLinearTeams: vi.fn().mockResolvedValue({
+						success: true,
+						data: [],
+					}),
+				};
+			});
+		});
+
+		describe("fetchLinearProjects", () => {
+			it("should set error and clear loading when Linear API unavailable", async () => {
+				// Remove linear API from mock
+				(globalThis as any).window.electronAPI.linear = undefined;
+
+				await fetchLinearProjects("project-123");
+
+				expect(useLinearStore.getState().error).toBe(
+					"Linear integration is not available",
+				);
+				expect(useLinearStore.getState().isLoading).toBe(false);
+
+				// Cleanup
+				useLinearStore.getState().setError(null);
+				// Restore linear API mock
+				(globalThis as any).window.electronAPI.linear = {
+					getLinearProjects: vi.fn().mockResolvedValue({
+						success: true,
+						data: [],
+					}),
+				};
+			});
+		});
+	});
+
+	describe("fetchLinearTicket", () => {
+		it("should return existing ticket from store when available", async () => {
+			const ticket = createTestTicket({ id: "ticket-1", identifier: "LIN-1" });
+			useLinearStore.getState().setTickets([ticket]);
+
+			const result = await fetchLinearTicket("ticket-1");
+
+			expect(result).toEqual(ticket);
+		});
+
+		it("should return null when ticket not in store", async () => {
+			const result = await fetchLinearTicket("non-existent");
+
+			expect(result).toBeNull();
+		});
+
+		it("should return null when Linear API unavailable", async () => {
+			// Remove linear API from mock
+			(globalThis as any).window.electronAPI.linear = undefined;
+
+			const result = await fetchLinearTicket("ticket-1");
+
+			expect(result).toBeNull();
+
+			// Restore linear API mock
+			(globalThis as any).window.electronAPI.linear = {};
 		});
 	});
 });

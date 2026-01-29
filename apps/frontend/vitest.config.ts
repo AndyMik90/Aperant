@@ -24,10 +24,13 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
-      '@main': resolve(__dirname, 'src/main'),
-      '@renderer': resolve(__dirname, 'src/renderer'),
-      '@shared': resolve(__dirname, 'src/shared')
+      '@': resolve(__dirname, 'src/renderer'),
+      '@shared': resolve(__dirname, 'src/shared'),
+      '@preload': resolve(__dirname, 'src/preload'),
+      '@features': resolve(__dirname, 'src/renderer/features'),
+      '@components': resolve(__dirname, 'src/renderer/shared/components'),
+      '@hooks': resolve(__dirname, 'src/renderer/shared/hooks'),
+      '@lib': resolve(__dirname, 'src/renderer/shared/lib')
     }
   }
 });

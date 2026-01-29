@@ -339,6 +339,8 @@ export async function fetchLinearTickets(
 	try {
 		if (!window.electronAPI?.linear?.getLinearIssues) {
 			console.warn("[fetchLinearTickets] Linear API not available");
+			store.setError("Linear integration is not available");
+			store.setLoading(false);
 			return;
 		}
 
@@ -369,18 +371,18 @@ export async function fetchLinearTicket(
 	const store = useLinearStore.getState();
 
 	try {
-		// TODO: Implement IPC handler in main process
-		// const result = await window.electronAPI.linear.getLinearTicket(ticketId);
-		// if (result.success && result.data) {
-		//   store.updateTicket(ticketId, result.data);
-		//   return result.data;
-		// } else {
-		//   store.setError(result.error || 'Failed to fetch Linear ticket');
-		//   return null;
-		// }
+		if (!window.electronAPI?.linear) {
+			console.warn("[fetchLinearTicket] Linear API not available");
+			return null;
+		}
 
-		// Placeholder for now
-		console.warn("[fetchLinearTicket] IPC handler not yet implemented");
+		// Try to find the ticket in the existing tickets list
+		// TODO: Implement IPC handler for fetching individual tickets
+		const existingTicket = store.tickets.find((t) => t.id === ticketId);
+		if (existingTicket) {
+			return existingTicket;
+		}
+
 		return null;
 	} catch (error) {
 		const errorMessage =
@@ -715,6 +717,8 @@ export async function fetchLinearTeams(projectId: string): Promise<void> {
 	try {
 		if (!window.electronAPI?.linear?.getLinearTeams) {
 			console.warn("[fetchLinearTeams] Linear API not available");
+			store.setError("Linear integration is not available");
+			store.setLoading(false);
 			return;
 		}
 
@@ -745,6 +749,8 @@ export async function fetchLinearProjects(projectId: string, teamId?: string): P
 	try {
 		if (!window.electronAPI?.linear?.getLinearProjects) {
 			console.warn("[fetchLinearProjects] Linear API not available");
+			store.setError("Linear integration is not available");
+			store.setLoading(false);
 			return;
 		}
 
