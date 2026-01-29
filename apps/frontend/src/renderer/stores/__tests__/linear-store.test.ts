@@ -110,22 +110,21 @@ describe("Linear Store", () => {
 		});
 
 		// Setup default mock for window.electronAPI
+		// Linear API methods are at the top level of electronAPI, not nested under linear
 		(globalThis as any).window = {
 			electronAPI: {
-				linear: {
-					getLinearIssues: vi.fn().mockResolvedValue({
-						success: true,
-						data: [],
-					}),
-					getLinearTeams: vi.fn().mockResolvedValue({
-						success: true,
-						data: [],
-					}),
-					getLinearProjects: vi.fn().mockResolvedValue({
-						success: true,
-						data: [],
-					}),
-				},
+				getLinearIssues: vi.fn().mockResolvedValue({
+					success: true,
+					data: [],
+				}),
+				getLinearTeams: vi.fn().mockResolvedValue({
+					success: true,
+					data: [],
+				}),
+				getLinearProjects: vi.fn().mockResolvedValue({
+					success: true,
+					data: [],
+				}),
 			},
 		};
 	});
@@ -790,8 +789,8 @@ describe("Linear Store", () => {
 	describe("Fetch Functions Error Handling", () => {
 		describe("fetchLinearTickets", () => {
 			it("should set error and clear loading when Linear API unavailable", async () => {
-				// Remove linear API from mock
-				(globalThis as any).window.electronAPI.linear = undefined;
+				// Remove getLinearIssues from mock
+				(globalThis as any).window.electronAPI.getLinearIssues = undefined;
 
 				await fetchLinearTickets("project-123");
 
@@ -803,19 +802,17 @@ describe("Linear Store", () => {
 				// Cleanup
 				useLinearStore.getState().setError(null);
 				// Restore linear API mock
-				(globalThis as any).window.electronAPI.linear = {
-					getLinearIssues: vi.fn().mockResolvedValue({
-						success: true,
-						data: [],
-					}),
-				};
+				(globalThis as any).window.electronAPI.getLinearIssues = vi.fn().mockResolvedValue({
+					success: true,
+					data: [],
+				});
 			});
 		});
 
 		describe("fetchLinearTeams", () => {
 			it("should set error and clear loading when Linear API unavailable", async () => {
-				// Remove linear API from mock
-				(globalThis as any).window.electronAPI.linear = undefined;
+				// Remove getLinearTeams from mock
+				(globalThis as any).window.electronAPI.getLinearTeams = undefined;
 
 				await fetchLinearTeams("project-123");
 
@@ -827,19 +824,17 @@ describe("Linear Store", () => {
 				// Cleanup
 				useLinearStore.getState().setError(null);
 				// Restore linear API mock
-				(globalThis as any).window.electronAPI.linear = {
-					getLinearTeams: vi.fn().mockResolvedValue({
-						success: true,
-						data: [],
-					}),
-				};
+				(globalThis as any).window.electronAPI.getLinearTeams = vi.fn().mockResolvedValue({
+					success: true,
+					data: [],
+				});
 			});
 		});
 
 		describe("fetchLinearProjects", () => {
 			it("should set error and clear loading when Linear API unavailable", async () => {
-				// Remove linear API from mock
-				(globalThis as any).window.electronAPI.linear = undefined;
+				// Remove getLinearProjects from mock
+				(globalThis as any).window.electronAPI.getLinearProjects = undefined;
 
 				await fetchLinearProjects("project-123");
 
@@ -851,12 +846,10 @@ describe("Linear Store", () => {
 				// Cleanup
 				useLinearStore.getState().setError(null);
 				// Restore linear API mock
-				(globalThis as any).window.electronAPI.linear = {
-					getLinearProjects: vi.fn().mockResolvedValue({
-						success: true,
-						data: [],
-					}),
-				};
+				(globalThis as any).window.electronAPI.getLinearProjects = vi.fn().mockResolvedValue({
+					success: true,
+					data: [],
+				});
 			});
 		});
 	});
@@ -878,15 +871,18 @@ describe("Linear Store", () => {
 		});
 
 		it("should return null when Linear API unavailable", async () => {
-			// Remove linear API from mock
-			(globalThis as any).window.electronAPI.linear = undefined;
+			// Remove getLinearIssues from mock
+			(globalThis as any).window.electronAPI.getLinearIssues = undefined;
 
 			const result = await fetchLinearTicket("ticket-1");
 
 			expect(result).toBeNull();
 
 			// Restore linear API mock
-			(globalThis as any).window.electronAPI.linear = {};
+			(globalThis as any).window.electronAPI.getLinearIssues = vi.fn().mockResolvedValue({
+				success: true,
+				data: [],
+			});
 		});
 	});
 });

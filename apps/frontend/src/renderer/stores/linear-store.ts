@@ -337,14 +337,14 @@ export async function fetchLinearTickets(
 	store.setError(null);
 
 	try {
-		if (!window.electronAPI?.linear?.getLinearIssues) {
+		if (!window.electronAPI?.getLinearIssues) {
 			console.warn("[fetchLinearTickets] Linear API not available");
 			store.setError("Linear integration is not available");
 			store.setLoading(false);
 			return;
 		}
 
-		const result = await window.electronAPI.linear.getLinearIssues(
+		const result = await window.electronAPI.getLinearIssues(
 			projectId,
 			filters?.teamId,
 			filters?.projectId || undefined,
@@ -371,7 +371,7 @@ export async function fetchLinearTicket(
 	const store = useLinearStore.getState();
 
 	try {
-		if (!window.electronAPI?.linear) {
+		if (!window.electronAPI?.getLinearIssues) {
 			console.warn("[fetchLinearTicket] Linear API not available");
 			return null;
 		}
@@ -449,7 +449,7 @@ export async function validateLinearTicket(
 
 	try {
 		debugLog("[validateLinearTicket] Starting validation for ticket:", ticketId, "projectId:", projectId);
-		if (!window.electronAPI?.linear) {
+		if (!window.electronAPI?.validateLinearTicket) {
 			debugWarn("[validateLinearTicket] Linear API not available");
 			// Clear progress when API is not available
 			store.clearValidationProgress(ticketId);
@@ -498,7 +498,7 @@ export async function validateLinearTicket(
 			return null;
 		}
 
-		const result = await window.electronAPI.linear.validateLinearTicket(
+		const result = await window.electronAPI.validateLinearTicket(
 			projectId,
 			ticketId,
 			skipCache,
@@ -616,7 +616,7 @@ export async function validateLinearTicketBatch(
 	store.setError(null);
 
 	try {
-		if (!window.electronAPI?.linear?.validateLinearTicketBatch) {
+		if (!window.electronAPI?.validateLinearTicketBatch) {
 			console.warn("[validateLinearTicketBatch] Linear API not available");
 			return results;
 		}
@@ -626,7 +626,7 @@ export async function validateLinearTicketBatch(
 			return results;
 		}
 
-		const result = await window.electronAPI.linear.validateLinearTicketBatch(
+		const result = await window.electronAPI.validateLinearTicketBatch(
 			projectId,
 			ticketIds,
 			false,
@@ -715,14 +715,14 @@ export async function fetchLinearTeams(projectId: string): Promise<void> {
 	store.setError(null);
 
 	try {
-		if (!window.electronAPI?.linear?.getLinearTeams) {
+		if (!window.electronAPI?.getLinearTeams) {
 			console.warn("[fetchLinearTeams] Linear API not available");
 			store.setError("Linear integration is not available");
 			store.setLoading(false);
 			return;
 		}
 
-		const result = await window.electronAPI.linear.getLinearTeams(projectId);
+		const result = await window.electronAPI.getLinearTeams(projectId);
 
 		if (result.success && result.data) {
 			store.setTeams(result.data);
@@ -747,7 +747,7 @@ export async function fetchLinearProjects(projectId: string, teamId?: string): P
 	store.setError(null);
 
 	try {
-		if (!window.electronAPI?.linear?.getLinearProjects) {
+		if (!window.electronAPI?.getLinearProjects) {
 			console.warn("[fetchLinearProjects] Linear API not available");
 			store.setError("Linear integration is not available");
 			store.setLoading(false);
@@ -759,7 +759,7 @@ export async function fetchLinearProjects(projectId: string, teamId?: string): P
 			return;
 		}
 
-		const result = await window.electronAPI.linear.getLinearProjects(projectId, teamId);
+		const result = await window.electronAPI.getLinearProjects(projectId, teamId);
 
 		if (result.success && result.data) {
 			store.setProjects(result.data);
@@ -786,7 +786,7 @@ export async function updateLinearTicketWithValidation(
 	const store = useLinearStore.getState();
 
 	try {
-		if (!window.electronAPI?.linear?.updateLinearTicketWithValidation) {
+		if (!window.electronAPI?.updateLinearTicketWithValidation) {
 			console.warn(
 				"[updateLinearTicketWithValidation] Linear API not available",
 			);
@@ -800,7 +800,7 @@ export async function updateLinearTicketWithValidation(
 		}
 
 		const result =
-			await window.electronAPI.linear.updateLinearTicketWithValidation(
+			await window.electronAPI.updateLinearTicketWithValidation(
 				projectId,
 				ticketId,
 				validationResult,
