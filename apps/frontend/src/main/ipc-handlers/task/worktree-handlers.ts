@@ -3,7 +3,7 @@ import { IPC_CHANNELS, AUTO_BUILD_PATHS, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_M
 import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, WorktreeCreatePROptions, WorktreeCreatePRResult, SupportedIDE, SupportedTerminal, AppSettings } from '../../../shared/types';
 import path from 'path';
 import { minimatch } from 'minimatch';
-import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
+import { existsSync, readdirSync, statSync, readFileSync, promises as fsPromises } from 'fs';
 import { execSync, execFileSync, spawn, spawnSync, exec, execFile } from 'child_process';
 import { homedir } from 'os';
 import { projectStore } from '../../project-store';
@@ -2730,6 +2730,9 @@ export function registerWorktreeHandlers(
     }
   );
 
+  // Promisified execFile for async git operations
+  const execFileAsync = promisify(execFile);
+
   /**
    * List all spec worktrees for a project
    * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
@@ -2743,49 +2746,46 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Project not found' };
         }
 
-        const worktrees: WorktreeListItem[] = [];
         const worktreesDir = getTaskWorktreeDir(project.path);
 
-        // Helper to process a single worktree entry
-        const processWorktreeEntry = (entry: string, entryPath: string) => {
-
+        // Helper to process a single worktree entry (async)
+        const processWorktreeEntry = async (entry: string, entryPath: string): Promise<WorktreeListItem | null> => {
           try {
-            // Get branch info
-            const branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
+            // Get branch info (async)
+            const branchResult = await execFileAsync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
               cwd: entryPath,
               encoding: 'utf-8'
-            }).trim();
+            });
+            const branch = (branchResult.stdout as string).trim();
 
             // Get base branch using proper fallback chain:
             // 1. Task metadata baseBranch, 2. Project settings mainBranch, 3. main/master detection
             // Note: We do NOT use current HEAD as that may be a feature branch
             const baseBranch = getEffectiveBaseBranch(project.path, entry, project.settings?.mainBranch);
 
-            // Get commit count (cross-platform - no shell syntax)
+            // Get commit count (async, cross-platform - no shell syntax)
             let commitCount = 0;
             try {
-              const countOutput = execFileSync(getToolPath('git'), ['rev-list', '--count', `${baseBranch}..HEAD`], {
+              const countResult = await execFileAsync(getToolPath('git'), ['rev-list', '--count', `${baseBranch}..HEAD`], {
                 cwd: entryPath,
-                encoding: 'utf-8',
-                stdio: ['pipe', 'pipe', 'pipe']
-              }).trim();
-              commitCount = parseInt(countOutput, 10) || 0;
+                encoding: 'utf-8'
+              });
+              commitCount = parseInt((countResult.stdout as string).trim(), 10) || 0;
             } catch {
               commitCount = 0;
             }
 
-            // Get diff stats (cross-platform - no shell syntax)
+            // Get diff stats (async, cross-platform - no shell syntax)
             let filesChanged = 0;
             let additions = 0;
             let deletions = 0;
-            let diffStat = '';
 
             try {
-              diffStat = execFileSync(getToolPath('git'), ['diff', '--shortstat', `${baseBranch}...HEAD`], {
+              const diffResult = await execFileAsync(getToolPath('git'), ['diff', '--shortstat', `${baseBranch}...HEAD`], {
                 cwd: entryPath,
-                encoding: 'utf-8',
-                stdio: ['pipe', 'pipe', 'pipe']
-              }).trim();
+                encoding: 'utf-8'
+              });
+              const diffStat = (diffResult.stdout as string).trim();
 
               const filesMatch = diffStat.match(/(\d+) files? changed/);
               const addMatch = diffStat.match(/(\d+) insertions?/);
@@ -2798,7 +2798,7 @@ export function registerWorktreeHandlers(
               // Ignore diff errors
             }
 
-            worktrees.push({
+            return {
               specName: entry,
               path: entryPath,
               branch,
@@ -2807,28 +2807,37 @@ export function registerWorktreeHandlers(
               filesChanged,
               additions,
               deletions
-            });
+            };
           } catch (gitError) {
             console.error(`Error getting info for worktree ${entry}:`, gitError);
             // Skip this worktree if we can't get git info
+            return null;
           }
         };
 
-        // Scan worktrees directory
-        if (existsSync(worktreesDir)) {
-          const entries = readdirSync(worktreesDir);
-          for (const entry of entries) {
-            const entryPath = path.join(worktreesDir, entry);
-            try {
-              const stat = statSync(entryPath);
-              if (stat.isDirectory()) {
-                processWorktreeEntry(entry, entryPath);
-              }
-            } catch {
-              // Skip entries that can't be stat'd
-            }
-          }
+        // Scan worktrees directory (async)
+        if (!existsSync(worktreesDir)) {
+          return { success: true, data: { worktrees: [] } };
         }
+
+        const entries = await fsPromises.readdir(worktreesDir);
+
+        // Process all worktrees in parallel for better performance
+        const worktreePromises = entries.map(async (entry) => {
+          const entryPath = path.join(worktreesDir, entry);
+          try {
+            const stat = await fsPromises.stat(entryPath);
+            if (stat.isDirectory()) {
+              return processWorktreeEntry(entry, entryPath);
+            }
+          } catch {
+            // Skip entries that can't be stat'd
+          }
+          return null;
+        });
+
+        const results = await Promise.all(worktreePromises);
+        const worktrees = results.filter((w): w is WorktreeListItem => w !== null);
 
         return { success: true, data: { worktrees } };
       } catch (error) {

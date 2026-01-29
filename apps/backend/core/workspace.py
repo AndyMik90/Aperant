@@ -695,7 +695,14 @@ def _try_smart_merge_inner(
                     stderr=merge_result.stderr[:500] if merge_result.stderr else "",
                 )
                 # Abort the merge to restore clean state
-                run_git(["merge", "--abort"], cwd=project_dir)
+                abort_result = run_git(["merge", "--abort"], cwd=project_dir)
+                if abort_result.returncode != 0:
+                    debug_error(
+                        MODULE,
+                        "Failed to abort merge - repo may be in inconsistent state",
+                        stderr=abort_result.stderr,
+                    )
+                    return None  # Trigger fallback to avoid operating on inconsistent state
                 print(
                     warning(
                         "  Git merge failed unexpectedly, falling back to semantic analysis..."
