@@ -222,12 +222,14 @@ async def validate_single_ticket(
             model="claude-opus-4-5-20251101",
             progress_callback=progress_callback,
         )
-        sys.stderr.write("[LINEAR_RUNNER] Agent created successfully", flush=True)
+        sys.stderr.write("[LINEAR_RUNNER] Agent created successfully\n")
+        sys.stderr.flush()
 
         # validate_ticket now auto-fetches issue data if not provided
         sys.stderr.write(
-            f"[LINEAR_RUNNER] Calling validate_ticket for {ticket_id}...", flush=True
+            f"[LINEAR_RUNNER] Calling validate_ticket for {ticket_id}...\n"
         )
+        sys.stderr.flush()
 
         # Suppress stdout during validation to avoid SDK debug messages polluting JSON output
         # The Claude Agent SDK outputs progress/cache messages that interfere with JSON parsing
@@ -411,10 +413,9 @@ async def main():
 
     args = parser.parse_args()
 
-    sys.stderr.write(
-        "[LINEAR_RUNNER] === Linear Validation Runner Started ===", flush=True
-    )
-    sys.stderr.write(f"[LINEAR_RUNNER] Args: {vars(args)}", flush=True)
+    sys.stderr.write("[LINEAR_RUNNER] === Linear Validation Runner Started ===\n")
+    sys.stderr.write(f"[LINEAR_RUNNER] Args: {vars(args)}\n")
+    sys.stderr.flush()
 
     # Load project-specific .env file (for LINEAR_API_KEY)
     load_project_env(args.project_dir)
@@ -493,7 +494,8 @@ async def main():
         output_result(result)
         sys.exit(0 if result["success"] else 1)
     else:
-        sys.stderr.write("[LINEAR_RUNNER] ERROR: No ticket ID(s) provided", flush=True)
+        sys.stderr.write("[LINEAR_RUNNER] ERROR: No ticket ID(s) provided\n")
+        sys.stderr.flush()
         output_result(
             {
                 "success": False,
