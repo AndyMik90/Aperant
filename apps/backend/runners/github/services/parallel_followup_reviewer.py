@@ -43,6 +43,7 @@ try:
         PRReviewResult,
         ReviewSeverity,
     )
+    from .agent_utils import create_working_dir_injector
     from .category_utils import map_category
     from .io_utils import safe_print
     from .pr_worktree_manager import PRWorktreeManager
@@ -62,6 +63,7 @@ except (ImportError, ValueError, SystemError):
         ReviewSeverity,
     )
     from phase_config import get_thinking_budget, resolve_model_id
+    from services.agent_utils import create_working_dir_injector
     from services.category_utils import map_category
     from services.io_utils import safe_print
     from services.pr_worktree_manager import PRWorktreeManager
@@ -183,21 +185,34 @@ class ParallelFollowupReviewer:
         """
         self.worktree_manager.remove_worktree(worktree_path)
 
-    def _define_specialist_agents(self) -> dict[str, AgentDefinition]:
+    def _define_specialist_agents(
+        self, project_root: Path | None = None
+    ) -> dict[str, AgentDefinition]:
         """
         Define specialist agents for follow-up review.
 
         Each agent has:
         - description: When the orchestrator should invoke this agent
-        - prompt: System prompt for the agent
+        - prompt: System prompt for the agent (includes working directory)
         - tools: Tools the agent can use (read-only for PR review)
         - model: "inherit" = use same model as orchestrator (user's choice)
+
+        Args:
+            project_root: Working directory for the agents (worktree path).
+                         If None, falls back to self.project_dir.
         """
+        # Use provided project_root or fall back to default
+        working_dir = project_root or self.project_dir
+
         # Load agent prompts from files
         resolution_prompt = self._load_prompt("pr_followup_resolution_agent.md")
         newcode_prompt = self._load_prompt("pr_followup_newcode_agent.md")
         comment_prompt = self._load_prompt("pr_followup_comment_agent.md")
         validator_prompt = self._load_prompt("pr_finding_validator.md")
+
+        # CRITICAL: Inject working directory into all prompts
+        # Subagents don't inherit cwd from parent, so they need explicit path info
+        with_working_dir = create_working_dir_injector(working_dir)
 
         return {
             "resolution-verifier": AgentDefinition(
@@ -207,8 +222,10 @@ class ParallelFollowupReviewer:
                     "are truly fixed, partially fixed, or still unresolved. "
                     "Invoke when: There are previous findings to verify."
                 ),
-                prompt=resolution_prompt
-                or "You verify whether previous findings are resolved.",
+                prompt=with_working_dir(
+                    resolution_prompt,
+                    "You verify whether previous findings are resolved.",
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -219,7 +236,9 @@ class ParallelFollowupReviewer:
                     "Invoke when: There are substantial code changes (>50 lines diff) or "
                     "changes to security-sensitive areas."
                 ),
-                prompt=newcode_prompt or "You review new code for issues.",
+                prompt=with_working_dir(
+                    newcode_prompt, "You review new code for issues."
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -230,7 +249,9 @@ class ParallelFollowupReviewer:
                     "unanswered questions and valid concerns. "
                     "Invoke when: There are comments or formal reviews since last review."
                 ),
-                prompt=comment_prompt or "You analyze comments and feedback.",
+                prompt=with_working_dir(
+                    comment_prompt, "You analyze comments and feedback."
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -243,8 +264,10 @@ class ParallelFollowupReviewer:
                     "CRITICAL: Invoke for ALL unresolved findings after resolution-verifier runs. "
                     "Invoke when: There are findings marked as unresolved that need validation."
                 ),
-                prompt=validator_prompt
-                or "You validate whether unresolved findings are real issues.",
+                prompt=with_working_dir(
+                    validator_prompt,
+                    "You validate whether unresolved findings are real issues.",
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -487,6 +510,9 @@ The SDK will run invoked agents in parallel automatically.
                     "using local checkout"
                 )
 
+            # Capture agent definitions for debug logging (AFTER worktree creation)
+            agent_defs = self._define_specialist_agents(project_root)
+
             # Use model and thinking level from config (user settings)
             # Resolve model shorthand via environment variable override if configured
             model_shorthand = self.config.model or "sonnet"
@@ -499,14 +525,14 @@ The SDK will run invoked agents in parallel automatically.
                 f"thinking_level={thinking_level}, thinking_budget={thinking_budget}"
             )
 
-            # Create client with subagents defined
+            # Create client with subagents defined (using worktree path)
             client = create_client(
                 project_dir=project_root,
                 spec_dir=self.github_dir,
                 model=model,
                 agent_type="pr_followup_parallel",
                 max_thinking_tokens=thinking_budget,
-                agents=self._define_specialist_agents(),
+                agents=self._define_specialist_agents(project_root),
                 output_format={
                     "type": "json_schema",
                     "schema": ParallelFollowupResponse.model_json_schema(),
@@ -534,6 +560,8 @@ The SDK will run invoked agents in parallel automatically.
                     client=client,
                     context_name="ParallelFollowup",
                     model=model,
+                    system_prompt=prompt,
+                    agent_definitions=agent_defs,
                 )
 
                 # Check for stream processing errors
@@ -883,6 +911,7 @@ The SDK will run invoked agents in parallel automatically.
                                     validation_status=validation_status,
                                     validation_evidence=validation_evidence,
                                     validation_explanation=validation_explanation,
+                                    is_impact_finding=original.is_impact_finding,
                                 )
                             )
 
@@ -903,6 +932,7 @@ The SDK will run invoked agents in parallel automatically.
                         line=nf.line,
                         suggested_fix=nf.suggested_fix,
                         fixable=nf.fixable,
+                        is_impact_finding=getattr(nf, "is_impact_finding", False),
                     )
                 )
 
