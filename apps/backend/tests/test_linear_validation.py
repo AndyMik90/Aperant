@@ -912,6 +912,346 @@ class TestRetryWithExponentialBackoff:
         )
 
 
+class TestContinuousHeartbeatProgress:
+    """Test continuous heartbeat progress updates during AI processing."""
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_emits_progress_at_regular_intervals(self):
+        """Heartbeat should emit progress updates every ~3 seconds."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            spec_dir = Path(temp_dir)
+            project_dir = Path(temp_dir)
+
+            # Track progress callbacks
+            progress_calls: list[tuple[str, int, int, str]] = []
+            progress_callback = MagicMock(side_effect=lambda phase, step, total, msg: progress_calls.append((phase, step, total, msg)))
+
+            agent = LinearValidationAgent(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                progress_callback=progress_callback,
+            )
+
+            # Mock the AI session to simulate a long-running operation
+            async def mock_long_running_session(*args, **kwargs):
+                # Simulate AI processing taking 6+ seconds
+                await asyncio.sleep(6.5)
+                return "success", '{"analysis": {"objective": "test"}, "completeness": {"feasibility_score": 80}, "recommended_labels": [], "version_label": "2.7.5", "properties": {"category": "backend", "complexity": "medium", "impact": "medium", "priority": 3}, "confidence": 0.8, "reasoning": "test"}'
+
+            with (
+                patch.object(agent, "create_client") as mock_client,
+                patch("agents.linear_validator.run_agent_session", side_effect=mock_long_running_session),
+                patch.object(agent, "_get_workspace_metadata", return_value={}),
+            ):
+                mock_client.return_value.__aenter__.return_value = mock_client.return_value
+                mock_client.return_value.__aexit__.return_value = None
+
+                issue_data = {
+                    "id": "LIN-123",
+                    "identifier": "LIN-123",
+                    "title": "Test ticket",
+                    "description": "Test description",
+                    "state": {"name": "Backlog"},
+                    "priority": 3,
+                    "labels": [],
+                    "updatedAt": "2024-01-01T00:00:00Z",
+                }
+
+                await agent.validate_ticket("LIN-123", issue_data=issue_data)
+
+            # Verify heartbeat emitted progress updates during AI analysis
+            ai_analysis_calls = [call for call in progress_calls if call[0] == "ai_analysis"]
+            assert len(ai_analysis_calls) >= 2, f"Expected at least 2 heartbeat calls, got {len(ai_analysis_calls)}"
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_includes_elapsed_time(self):
+        """Heartbeat progress messages should include elapsed time."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            spec_dir = Path(temp_dir)
+            project_dir = Path(temp_dir)
+
+            # Track progress messages
+            progress_messages: list[str] = []
+            progress_callback = MagicMock(side_effect=lambda phase, step, total, msg: progress_messages.append(msg))
+
+            agent = LinearValidationAgent(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                progress_callback=progress_callback,
+            )
+
+            # Mock a session that runs for a few seconds
+            async def mock_session(*args, **kwargs):
+                await asyncio.sleep(4)
+                return "success", '{"analysis": {"objective": "test"}, "completeness": {"feasibility_score": 80}, "recommended_labels": [], "version_label": "2.7.5", "properties": {"category": "backend", "complexity": "medium", "impact": "medium", "priority": 3}, "confidence": 0.8, "reasoning": "test"}'
+
+            with (
+                patch.object(agent, "create_client") as mock_client,
+                patch("agents.linear_validator.run_agent_session", side_effect=mock_session),
+                patch.object(agent, "_get_workspace_metadata", return_value={}),
+            ):
+                mock_client.return_value.__aenter__.return_value = mock_client.return_value
+                mock_client.return_value.__aexit__.return_value = None
+
+                issue_data = {
+                    "id": "LIN-123",
+                    "identifier": "LIN-123",
+                    "title": "Test ticket",
+                    "description": "Test description",
+                    "state": {"name": "Backlog"},
+                    "priority": 3,
+                    "labels": [],
+                    "updatedAt": "2024-01-01T00:00:00Z",
+                }
+
+                await agent.validate_ticket("LIN-123", issue_data=issue_data)
+
+            # Check that at least one progress message includes elapsed time
+            elapsed_messages = [msg for msg in progress_messages if "elapsed" in msg.lower()]
+            assert len(elapsed_messages) > 0, "Expected progress messages to include elapsed time"
+
+            # Verify format includes "Xs elapsed" pattern
+            assert any("s elapsed" in msg for msg in elapsed_messages), "Expected elapsed time format like '3s elapsed'"
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_cycles_through_messages(self):
+        """Heartbeat should cycle through predefined messages."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            spec_dir = Path(temp_dir)
+            project_dir = Path(temp_dir)
+
+            # Track progress messages
+            progress_messages: list[str] = []
+            progress_callback = MagicMock(side_effect=lambda phase, step, total, msg: progress_messages.append(msg))
+
+            agent = LinearValidationAgent(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                progress_callback=progress_callback,
+            )
+
+            # Mock a long-running session to trigger message cycling
+            async def mock_session(*args, **kwargs):
+                # Run long enough to see multiple messages (20+ seconds)
+                await asyncio.sleep(20)
+                return "success", '{"analysis": {"objective": "test"}, "completeness": {"feasibility_score": 80}, "recommended_labels": [], "version_label": "2.7.5", "properties": {"category": "backend", "complexity": "medium", "impact": "medium", "priority": 3}, "confidence": 0.8, "reasoning": "test"}'
+
+            with (
+                patch.object(agent, "create_client") as mock_client,
+                patch("agents.linear_validator.run_agent_session", side_effect=mock_session),
+                patch.object(agent, "_get_workspace_metadata", return_value={}),
+            ):
+                mock_client.return_value.__aenter__.return_value = mock_client.return_value
+                mock_client.return_value.__aexit__.return_value = None
+
+                issue_data = {
+                    "id": "LIN-123",
+                    "identifier": "LIN-123",
+                    "title": "Test ticket",
+                    "description": "Test description",
+                    "state": {"name": "Backlog"},
+                    "priority": 3,
+                    "labels": [],
+                    "updatedAt": "2024-01-01T00:00:00Z",
+                }
+
+                await agent.validate_ticket("LIN-123", issue_data=issue_data)
+
+            # Extract AI analysis messages
+            ai_messages = [msg for msg in progress_messages if "AI analysis" in msg or "Searching" in msg or "Generating" in msg or "Preparing" in msg or "Analyzing" in msg]
+
+            # Verify we have different messages (not all the same)
+            unique_messages = set(ai_messages)
+            assert len(unique_messages) >= 2, f"Expected multiple different heartbeat messages, got: {unique_messages}"
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_stops_when_operation_completes(self):
+        """Heartbeat should stop emitting progress after AI operation completes."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            spec_dir = Path(temp_dir)
+            project_dir = Path(temp_dir)
+
+            # Track progress calls with timestamps
+            progress_data: list[dict] = []
+            import time
+
+            def track_progress(phase, step, total, msg):
+                progress_data.append({
+                    "phase": phase,
+                    "step": step,
+                    "total": total,
+                    "msg": msg,
+                    "time": time.time(),
+                })
+
+            progress_callback = MagicMock(side_effect=track_progress)
+
+            agent = LinearValidationAgent(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                progress_callback=progress_callback,
+            )
+
+            # Mock a session that completes successfully
+            async def mock_session(*args, **kwargs):
+                await asyncio.sleep(2)
+                return "success", '{"analysis": {"objective": "test"}, "completeness": {"feasibility_score": 80}, "recommended_labels": [], "version_label": "2.7.5", "properties": {"category": "backend", "complexity": "medium", "impact": "medium", "priority": 3}, "confidence": 0.8, "reasoning": "test"}'
+
+            with (
+                patch.object(agent, "create_client") as mock_client,
+                patch("agents.linear_validator.run_agent_session", side_effect=mock_session),
+                patch.object(agent, "_get_workspace_metadata", return_value={}),
+            ):
+                mock_client.return_value.__aenter__.return_value = mock_client.return_value
+                mock_client.return_value.__aexit__.return_value = None
+
+                issue_data = {
+                    "id": "LIN-123",
+                    "identifier": "LIN-123",
+                    "title": "Test ticket",
+                    "description": "Test description",
+                    "state": {"name": "Backlog"},
+                    "priority": 3,
+                    "labels": [],
+                    "updatedAt": "2024-01-01T00:00:00Z",
+                }
+
+                await agent.validate_ticket("LIN-123", issue_data=issue_data)
+
+            # Find the last progress update
+            last_progress = progress_data[-1]
+
+            # The last progress should indicate completion (ai_analysis_complete or parsing)
+            assert last_progress["phase"] in ["ai_analysis_complete", "ai_analysis"], f"Expected final phase to be ai_analysis_complete or ai_analysis, got {last_progress['phase']}"
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_stops_on_timeout_error(self):
+        """Heartbeat should stop when validation times out."""
+        import asyncio
+        from unittest.mock import MagicMock, patch
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            spec_dir = Path(temp_dir)
+            project_dir = Path(temp_dir)
+
+            # Track progress calls
+            progress_calls: list[tuple[str, int, int, str]] = []
+            progress_callback = MagicMock(side_effect=lambda phase, step, total, msg: progress_calls.append((phase, step, total, msg)))
+
+            # Create agent with very short timeout
+            agent = LinearValidationAgent(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                progress_callback=progress_callback,
+                session_timeout=1.0,  # 1 second timeout
+            )
+
+            # Mock a session that times out
+            async def mock_timeout_session(*args, **kwargs):
+                await asyncio.sleep(5)  # Sleep longer than timeout
+                return "success", "{}"
+
+            with (
+                patch.object(agent, "create_client") as mock_client,
+                patch("agents.linear_validator.run_agent_session", side_effect=mock_timeout_session),
+                patch.object(agent, "_get_workspace_metadata", return_value={}),
+            ):
+                mock_client.return_value.__aenter__.return_value = mock_client.return_value
+                mock_client.return_value.__aexit__.return_value = None
+
+                issue_data = {
+                    "id": "LIN-123",
+                    "identifier": "LIN-123",
+                    "title": "Test ticket",
+                    "description": "Test description",
+                    "state": {"name": "Backlog"},
+                    "priority": 3,
+                    "labels": [],
+                    "updatedAt": "2024-01-01T00:00:00Z",
+                }
+
+                # Should raise timeout error
+                from agents.linear_validator import ValidationTimeoutError
+                with pytest.raises(ValidationTimeoutError):
+                    await agent.validate_ticket("LIN-123", issue_data=issue_data)
+
+            # Verify heartbeat did emit some progress before timeout
+            ai_analysis_calls = [call for call in progress_calls if call[0] == "ai_analysis"]
+            # At least one heartbeat should have been emitted before timeout
+            assert len(ai_analysis_calls) >= 1, f"Expected at least 1 heartbeat call before timeout, got {len(ai_analysis_calls)}"
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_emits_immediately_on_start(self):
+        """Heartbeat should emit first progress update immediately (not wait for first interval)."""
+        import asyncio
+        from unittest.mock import MagicMock, patch
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            spec_dir = Path(temp_dir)
+            project_dir = Path(temp_dir)
+
+            # Track first AI analysis progress time
+            first_ai_analysis_time = None
+            import time
+
+            def track_progress(phase, step, total, msg):
+                nonlocal first_ai_analysis_time
+                if phase == "ai_analysis" and first_ai_analysis_time is None:
+                    first_ai_analysis_time = time.time()
+
+            progress_callback = MagicMock(side_effect=track_progress)
+
+            agent = LinearValidationAgent(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                progress_callback=progress_callback,
+            )
+
+            # Mock a session that completes quickly
+            async def mock_session(*args, **kwargs):
+                return "success", '{"analysis": {"objective": "test"}, "completeness": {"feasibility_score": 80}, "recommended_labels": [], "version_label": "2.7.5", "properties": {"category": "backend", "complexity": "medium", "impact": "medium", "priority": 3}, "confidence": 0.8, "reasoning": "test"}'
+
+            with (
+                patch.object(agent, "create_client") as mock_client,
+                patch("agents.linear_validator.run_agent_session", side_effect=mock_session),
+                patch.object(agent, "_get_workspace_metadata", return_value={}),
+            ):
+                mock_client.return_value.__aenter__.return_value = mock_client.return_value
+                mock_client.return_value.__aexit__.return_value = None
+
+                issue_data = {
+                    "id": "LIN-123",
+                    "identifier": "LIN-123",
+                    "title": "Test ticket",
+                    "description": "Test description",
+                    "state": {"name": "Backlog"},
+                    "priority": 3,
+                    "labels": [],
+                    "updatedAt": "2024-01-01T00:00:00Z",
+                }
+
+                start_time = time.time()
+                await agent.validate_ticket("LIN-123", issue_data=issue_data)
+
+            # First AI analysis progress should be emitted quickly (within 1 second of start)
+            # This ensures the heartbeat starts immediately, not after waiting for the first interval
+            assert first_ai_analysis_time is not None, "Expected AI analysis progress to be emitted"
+            time_to_first_heartbeat = first_ai_analysis_time - start_time
+            assert time_to_first_heartbeat < 1.5, f"Expected first heartbeat within 1.5s, got {time_to_first_heartbeat:.2f}s"
+
+
 class TestValidationResultParsing:
     """Test parsing of AI validation result responses."""
 

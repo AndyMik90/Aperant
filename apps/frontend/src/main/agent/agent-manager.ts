@@ -37,6 +37,10 @@ export class AgentManager extends EventEmitter {
     swapCount: number;
   }> = new Map();
 
+  // Track linear validation child processes for cancellation
+  // These are spawned directly (not via processManager) so we need custom tracking
+  private linearValidationProcesses: Map<string, import('child_process').ChildProcess> = new Map();
+
   constructor() {
     super();
 
@@ -326,6 +330,20 @@ export class AgentManager extends EventEmitter {
    * Kill a specific task's process
    */
   killTask(taskId: string): boolean {
+    // Check if this is a linear validation process (tracked separately)
+    const linearProcess = this.linearValidationProcesses.get(taskId);
+    if (linearProcess) {
+      console.log(`[AgentManager] Killing linear validation process: ${taskId}`);
+      // Kill the process using platform-aware kill utility
+      const { killProcessGracefully } = require('../platform');
+      killProcessGracefully(linearProcess, {
+        debugPrefix: '[AgentManager]',
+        debug: process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development'
+      });
+      // Remove from tracking
+      this.linearValidationProcesses.delete(taskId);
+      return true;
+    }
     return this.processManager.killProcess(taskId);
   }
 
@@ -361,6 +379,17 @@ export class AgentManager extends EventEmitter {
    * Kill all running processes
    */
   async killAll(): Promise<void> {
+    // Kill all linear validation processes first
+    for (const [taskId, process] of this.linearValidationProcesses.entries()) {
+      console.log(`[AgentManager] Killing linear validation process: ${taskId}`);
+      const { killProcessGracefully } = require('../platform');
+      killProcessGracefully(process, {
+        debugPrefix: '[AgentManager]',
+        debug: process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development'
+      });
+    }
+    this.linearValidationProcesses.clear();
+
     await this.processManager.killAllProcesses();
   }
 
@@ -368,7 +397,8 @@ export class AgentManager extends EventEmitter {
    * Check if a task is running
    */
   isRunning(taskId: string): boolean {
-    return this.state.hasProcess(taskId);
+    // Check both processManager state and linear validation processes
+    return this.state.hasProcess(taskId) || this.linearValidationProcesses.has(taskId);
   }
 
   /**
@@ -557,6 +587,10 @@ export class AgentManager extends EventEmitter {
           env: { ...process.env, ...combinedEnv, ...oauthModeClearVars, ...apiProfileEnv },
         });
 
+        // Track this process for cancellation
+        this.linearValidationProcesses.set(taskId, child);
+        console.log(`[LINEAR_IPC] Tracking linear validation process: ${taskId}`);
+
         child.stdout?.on("data", (data: Buffer) => {
           stdoutBuffer += data.toString();
           const lines = stdoutBuffer.split("\n");
@@ -591,6 +625,8 @@ export class AgentManager extends EventEmitter {
 
         child.on("close", (code: number | null) => {
           console.log(`[LINEAR_IPC] Process closed with code:`, code);
+          // Clean up tracking
+          this.linearValidationProcesses.delete(taskId);
           // Add any remaining buffer content
           if (stdoutBuffer) {
             if (!stdoutBuffer.startsWith("PROGRESS:")) {
@@ -636,6 +672,8 @@ export class AgentManager extends EventEmitter {
 
         child.on("error", (err: Error) => {
           console.error(`[LINEAR_IPC] Process error:`, err);
+          // Clean up tracking
+          this.linearValidationProcesses.delete(taskId);
           resolve({
             success: false,
             error: `Failed to spawn validation process: ${err.message}`,
@@ -721,6 +759,10 @@ export class AgentManager extends EventEmitter {
           env: { ...process.env, ...combinedEnv, ...oauthModeClearVars, ...apiProfileEnv },
         });
 
+        // Track this process for cancellation
+        this.linearValidationProcesses.set(taskId, child);
+        console.log(`[LINEAR_IPC] Tracking linear batch validation process: ${taskId}`);
+
         child.stdout?.on("data", (data: Buffer) => {
           stdoutBuffer += data.toString();
           const lines = stdoutBuffer.split("\n");
@@ -748,6 +790,8 @@ export class AgentManager extends EventEmitter {
         });
 
         child.on("close", (code: number | null) => {
+          // Clean up tracking
+          this.linearValidationProcesses.delete(taskId);
           // Add any remaining buffer content
           if (stdoutBuffer) {
             if (!stdoutBuffer.startsWith("PROGRESS:")) {
@@ -774,6 +818,8 @@ export class AgentManager extends EventEmitter {
         });
 
         child.on("error", (err: Error) => {
+          // Clean up tracking
+          this.linearValidationProcesses.delete(taskId);
           resolve({
             success: false,
             error: `Failed to spawn validation process: ${err.message}`,

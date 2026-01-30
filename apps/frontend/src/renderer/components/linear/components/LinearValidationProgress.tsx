@@ -234,6 +234,7 @@ function ValidationStepsIndicator({
 		content_analysis: 0,
 		codebase_search: 1,
 		ai_analysis_start: 1,
+		ai_analysis: 2, // Active AI processing phase - maps to completeness step
 		completeness_check: 2,
 		labels_selection: 3,
 		version_calculation: 4,
