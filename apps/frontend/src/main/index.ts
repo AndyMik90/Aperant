@@ -52,7 +52,9 @@ import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import { preWarmToolCache } from './cli-tool-manager';
 import { initializeClaudeProfileManager, getClaudeProfileManager } from './claude-profile-manager';
+import { isProfileAuthenticated } from './claude-profile/profile-utils';
 import { isMacOS, isWindows } from './platform';
+import { ptyDaemonClient } from './terminal/pty-daemon-client';
 import type { AppSettings, AuthFailureInfo } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -139,6 +141,12 @@ function getIconPath(): string {
 let mainWindow: BrowserWindow | null = null;
 let agentManager: AgentManager | null = null;
 let terminalManager: TerminalManager | null = null;
+
+// Re-entrancy guard for before-quit handler.
+// The first before-quit call pauses quit for async cleanup, then calls app.quit() again.
+// The second call sees isQuitting=true and allows quit to proceed immediately.
+// Fixes: pty.node SIGABRT crash caused by environment teardown before PTY cleanup (GitHub #1469)
+let isQuitting = false;
 
 function createWindow(): void {
   // Get the primary display's work area (accounts for taskbar, dock, etc.)
@@ -416,9 +424,22 @@ app.whenReady().then(() => {
         if (migratedProfileIds.length > 0) {
           console.warn('[main] Found migrated profiles that need re-authentication:', migratedProfileIds);
 
-          // If the active profile was migrated, show auth failure modal immediately
-          if (migratedProfileIds.includes(activeProfile.id)) {
-            // Wait for renderer to be ready before sending the event
+          // Check ALL migrated profiles for valid credentials, not just the active one
+          // This prevents stale migrated flags from triggering unnecessary re-auth prompts
+          // when the user switches to a different profile later
+          for (const profileId of migratedProfileIds) {
+            const profile = profileManager.getProfile(profileId);
+            if (profile && isProfileAuthenticated(profile)) {
+              // Credentials are valid - clear the migrated flag
+              console.warn('[main] Migrated profile has valid credentials via file fallback, clearing migrated flag:', profile.name);
+              profileManager.clearMigratedProfile(profileId);
+            }
+          }
+
+          // Re-check if the active profile still needs re-auth after clearing valid ones
+          const remainingMigratedIds = profileManager.getMigratedProfileIds();
+          if (remainingMigratedIds.includes(activeProfile.id)) {
+            // Active profile still needs re-auth - show the modal
             mainWindow.webContents.once('did-finish-load', () => {
               // Small delay to ensure stores are initialized
               setTimeout(() => {
@@ -494,24 +515,50 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Cleanup before quit
-app.on('before-quit', async () => {
-  // Stop periodic update checks
+// Cleanup before quit — uses event.preventDefault() to allow async PTY cleanup
+// before the JS environment tears down. Without this, pty.node's native
+// ThreadSafeFunction callbacks fire after teardown, causing SIGABRT (GitHub #1469).
+app.on('before-quit', (event) => {
+  // Re-entrancy guard: the second app.quit() call (after cleanup) must pass through
+  if (isQuitting) {
+    return;
+  }
+  isQuitting = true;
+
+  // Pause quit to perform async cleanup
+  event.preventDefault();
+
+  // Stop synchronous services immediately
   stopPeriodicUpdates();
 
-  // Stop usage monitor
   const usageMonitor = getUsageMonitor();
   usageMonitor.stop();
   console.warn('[main] Usage monitor stopped');
 
-  // Kill all running agent processes
-  if (agentManager) {
-    await agentManager.killAll();
-  }
-  // Kill all terminal processes
-  if (terminalManager) {
-    await terminalManager.killAll();
-  }
+  // Perform async cleanup, then allow quit to proceed
+  (async () => {
+    try {
+      // Kill all running agent processes
+      if (agentManager) {
+        await agentManager.killAll();
+      }
+
+      // Kill all terminal processes — waits for PTY exit with bounded timeout
+      if (terminalManager) {
+        await terminalManager.killAll();
+      }
+
+      // Shut down PTY daemon client AFTER terminal cleanup completes,
+      // ensuring all kill commands reach PTY processes before the daemon disconnects
+      ptyDaemonClient.shutdown();
+      console.warn('[main] PTY daemon client shutdown complete');
+    } catch (error) {
+      console.error('[main] Error during pre-quit cleanup:', error);
+    } finally {
+      // Always allow quit to proceed, even if cleanup fails
+      app.quit();
+    }
+  })();
 });
 
 // Note: Uncaught exceptions and unhandled rejections are now
