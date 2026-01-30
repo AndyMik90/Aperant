@@ -562,7 +562,11 @@ def _try_smart_merge_inner(
                     MergeProgressStage.RESOLVING,
                     50,
                     f"Resolving {len(git_conflicts.get('conflicting_files', []))} conflicting files with AI",
-                    {"conflicts_found": len(git_conflicts.get("conflicting_files", []))},
+                    {
+                        "conflicts_found": len(
+                            git_conflicts.get("conflicting_files", [])
+                        )
+                    },
                 )
 
             # Try to resolve git conflicts with AI
@@ -585,12 +589,15 @@ def _try_smart_merge_inner(
 
                 if progress_callback is not None:
                     stats = resolution_result.get("stats", {})
+                    original_conflict_count = len(
+                        git_conflicts.get("conflicting_files", [])
+                    )
                     progress_callback(
                         MergeProgressStage.COMPLETE,
                         100,
                         "Merge complete",
                         {
-                            "conflicts_found": stats.get("conflicts_resolved", 0),
+                            "conflicts_found": original_conflict_count,
                             "conflicts_resolved": stats.get("conflicts_resolved", 0),
                         },
                     )
@@ -609,14 +616,21 @@ def _try_smart_merge_inner(
                 )
 
                 if progress_callback is not None:
+                    original_conflict_count = len(
+                        git_conflicts.get("conflicting_files", [])
+                    )
+                    remaining_count = len(
+                        resolution_result.get("remaining_conflicts", [])
+                    )
                     progress_callback(
                         MergeProgressStage.ERROR,
                         0,
                         "Some conflicts could not be resolved",
                         {
-                            "conflicts_found": len(
-                                resolution_result.get("remaining_conflicts", [])
-                            ),
+                            "conflicts_found": original_conflict_count,
+                            "conflicts_resolved": original_conflict_count
+                            - remaining_count,
+                            "conflicts_remaining": remaining_count,
                         },
                     )
 
@@ -683,33 +697,6 @@ def _try_smart_merge_inner(
                         "git_merge": True,  # Flag indicating git merge was used
                     },
                 }
-
-                if progress_callback is not None:
-                    if len(skipped_files) == 0:
-                        progress_callback(
-                            MergeProgressStage.COMPLETE,
-                            100,
-                            f"Direct copy complete ({len(resolved_files)} files)",
-                        )
-                    else:
-                        progress_callback(
-                            MergeProgressStage.ERROR,
-                            0,
-                            f"{len(skipped_files)} file(s) could not be copied",
-                        )
-                if skipped_files:
-                    result["skipped_files"] = skipped_files
-                    result["partial_success"] = len(resolved_files) > 0
-                    print()
-                    print(
-                        warning(
-                            f"  ⚠ {len(skipped_files)} file(s) could not be retrieved:"
-                        )
-                    )
-                    for skipped_file in skipped_files:
-                        print(muted(f"    - {skipped_file}"))
-                    print(muted("  These files may need manual review."))
-                return result
             else:
                 # Merge failed unexpectedly - abort and fall back to semantic analysis
                 debug_warning(
