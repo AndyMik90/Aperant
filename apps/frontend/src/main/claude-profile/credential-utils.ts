@@ -158,6 +158,22 @@ export function calculateConfigDirHash(configDir: string): string {
 }
 
 /**
+ * Normalize Windows path separators for hash consistency with Claude CLI.
+ *
+ * Claude CLI on Windows uses backslashes, so we must too for hash consistency.
+ * Mixed slashes (C:\Users\bill/.claude-profiles) produce different hashes than
+ * consistent slashes (C:\Users\bill\.claude-profiles).
+ *
+ * @param path - The path to normalize
+ * @returns The path with forward slashes replaced by backslashes on Windows
+ */
+export function normalizeWindowsPath(path: string): string {
+  if (!isWindows()) return path;
+  if (!/^[A-Za-z]:|\\/.test(path)) return path;
+  return path.replace(/\//g, '\\');
+}
+
+/**
  * Get the Keychain service name for a config directory (macOS).
  *
  * All profiles use hash-based keychain entries for isolation.
@@ -176,18 +192,11 @@ export function getKeychainServiceName(configDir?: string): string {
   }
 
   // Normalize the configDir: expand ~ and resolve to absolute path
-  let normalizedConfigDir = configDir.startsWith('~')
-    ? join(homedir(), configDir.slice(1))
-    : configDir;
-
-  // CRITICAL: Normalize path separators to match Claude CLI behavior on Windows
-  // Claude CLI on Windows uses backslashes, so we must too for hash consistency
-  // Mixed slashes (C:\Users\bill/.claude-profiles) produce different hashes than
-  // consistent slashes (C:\Users\bill\.claude-profiles)
-  // Only normalize if this looks like a Windows path (has drive letter or backslashes)
-  if (process.platform === 'win32' && /^[A-Za-z]:|\\/.test(normalizedConfigDir)) {
-    normalizedConfigDir = normalizedConfigDir.replace(/\//g, '\\');
-  }
+  const normalizedConfigDir = normalizeWindowsPath(
+    configDir.startsWith('~')
+      ? join(homedir(), configDir.slice(1))
+      : configDir
+  );
 
   // ALL profiles now use hash-based keychain entries for isolation
   // This prevents interference with external Claude Code CLI
@@ -1111,8 +1120,8 @@ function getCredentialsFromWindows(configDir?: string, forceRefresh = false): Pl
  * secure storage.
  *
  * - macOS: Reads from Keychain
- * - Linux: Reads from .credentials.json file
- * - Windows: Reads from Windows Credential Manager
+ * - Linux: Tries Secret Service (via secret-tool), falls back to .credentials.json
+ * - Windows: Checks both .credentials.json and Credential Manager, prefers file
  *
  * For default profile: reads from "Claude Code-credentials" or default config dir
  * For custom profiles: uses SHA256(configDir).slice(0,8) hash suffix
@@ -1502,8 +1511,8 @@ function getFullCredentialsFromWindows(configDir?: string): FullOAuthCredentials
   }
 
   // Both have tokens - compare expiry times to find the most recent one
-  const fileExpiry = fileResult.expiresAt ? new Date(fileResult.expiresAt).getTime() : 0;
-  const credManagerExpiry = credManagerResult.expiresAt ? new Date(credManagerResult.expiresAt).getTime() : 0;
+  const fileExpiry = fileResult.expiresAt || 0;
+  const credManagerExpiry = credManagerResult.expiresAt || 0;
 
   if (isDebug) {
     console.warn('[CredentialUtils:Windows:Full] Comparing token expiry times:', {

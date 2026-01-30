@@ -43,7 +43,7 @@ import {
   shouldProactivelySwitch as shouldProactivelySwitchImpl,
   getProfilesSortedByAvailability as getProfilesSortedByAvailabilityImpl
 } from './claude-profile/profile-scorer';
-import { getCredentialsFromKeychain } from './claude-profile/credential-utils';
+import { getCredentialsFromKeychain, normalizeWindowsPath } from './claude-profile/credential-utils';
 import {
   CLAUDE_PROFILES_DIR,
   generateProfileId as generateProfileIdImpl,
@@ -498,18 +498,11 @@ export class ClaudeProfileManager {
     // This prevents interference with external Claude Code CLI usage
     if (profile?.configDir) {
       // Expand ~ to home directory for the environment variable
-      let expandedConfigDir = profile.configDir.startsWith('~')
-        ? profile.configDir.replace(/^~/, homedir())
-        : profile.configDir;
-
-      // CRITICAL: Normalize path separators to match Claude CLI behavior on Windows
-      // Claude CLI on Windows uses backslashes, so we must too for hash consistency
-      // Mixed slashes (C:\Users\bill/.claude-profiles) produce different hashes than
-      // consistent slashes (C:\Users\bill\.claude-profiles)
-      // Only normalize if this looks like a Windows path (has drive letter or backslashes)
-      if (process.platform === 'win32' && /^[A-Za-z]:|\\/.test(expandedConfigDir)) {
-        expandedConfigDir = expandedConfigDir.replace(/\//g, '\\');
-      }
+      const expandedConfigDir = normalizeWindowsPath(
+        profile.configDir.startsWith('~')
+          ? profile.configDir.replace(/^~/, homedir())
+          : profile.configDir
+      );
 
       env.CLAUDE_CONFIG_DIR = expandedConfigDir;
       if (process.env.DEBUG === 'true') {
@@ -729,18 +722,11 @@ export class ClaudeProfileManager {
     }
 
     // Expand ~ to home directory for the environment variable
-    let expandedConfigDir = profile.configDir.startsWith('~')
-      ? profile.configDir.replace(/^~/, require('os').homedir())
-      : profile.configDir;
-
-    // CRITICAL: Normalize path separators to match Claude CLI behavior on Windows
-    // Claude CLI on Windows uses backslashes, so we must too for hash consistency
-    // Mixed slashes (C:\Users\bill/.claude-profiles) produce different hashes than
-    // consistent slashes (C:\Users\bill\.claude-profiles)
-    // Only normalize if this looks like a Windows path (has drive letter or backslashes)
-    if (process.platform === 'win32' && /^[A-Za-z]:|\\/.test(expandedConfigDir)) {
-      expandedConfigDir = expandedConfigDir.replace(/\//g, '\\');
-    }
+    const expandedConfigDir = normalizeWindowsPath(
+      profile.configDir.startsWith('~')
+        ? profile.configDir.replace(/^~/, require('os').homedir())
+        : profile.configDir
+    );
 
     if (process.env.DEBUG === 'true') {
       console.warn('[ClaudeProfileManager] getProfileEnv:', {
