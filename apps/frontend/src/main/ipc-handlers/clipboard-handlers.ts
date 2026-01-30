@@ -43,14 +43,33 @@ export function registerClipboardHandlers(): void {
         images: []
       };
 
-      // Extract text if available
+      // Extract text content
       if (formats.includes('text/plain')) {
         result.text = clipboard.readText();
         console.warn('[Clipboard] Text content length:', result.text.length, 'chars');
         console.warn('[Clipboard] Text preview:', result.text.substring(0, 200));
       }
 
-      // Extract images if available
+      // Check for HTML format (Facebook posts often copy as HTML with img tags)
+      if (formats.includes('text/html')) {
+        const htmlContent = clipboard.readHTML();
+        console.warn('[Clipboard] HTML content detected, length:', htmlContent.length);
+
+        // Check for HTML img tags that might contain images
+        const imgMatches = htmlContent.match(/<img[^>]+src=["']([^"']+)["']/gi);
+        if (imgMatches && imgMatches.length > 0) {
+          console.warn('[Clipboard] Found', imgMatches.length, 'img tags in HTML content');
+          imgMatches.forEach((match, i) => {
+            const src = match.match(/src=["']([^"']+)["']/)?.[1];
+            if (src) {
+              console.warn(`[Clipboard]   [${i + 1}] src:`, src.substring(0, 150));
+              // TODO: Could potentially fetch images from URLs if they're not data URLs
+            }
+          });
+        }
+      }
+
+      // Extract images if available (single image from clipboard)
       if (formats.includes('image/png') || formats.includes('image/jpeg')) {
         console.warn('[Clipboard] Image format detected in clipboard');
 
