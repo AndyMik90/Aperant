@@ -172,6 +172,7 @@
 	},
 	"processing": "Processing",
 	"processActiveTooltip": "Validation is running",
+	"currentTool": "Currently",
 	"stopValidation": "Stop validation",
 	"stopping": "Stopping...",
 	"lastProgressUpdateTooltip": "Last progress update",

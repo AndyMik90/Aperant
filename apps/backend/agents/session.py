@@ -7,6 +7,7 @@ memory updates, recovery tracking, and Linear integration.
 """
 
 import logging
+import sys
 from pathlib import Path
 
 from claude_agent_sdk import ClaudeSDKClient
@@ -79,6 +80,7 @@ async def post_session_processing(
     linear_enabled: bool = False,
     status_manager: StatusManager | None = None,
     source_spec_dir: Path | None = None,
+    verbose: bool = False,
 ) -> bool:
     """
     Process session results and update memory automatically.
@@ -100,8 +102,9 @@ async def post_session_processing(
     Returns:
         True if subtask was completed successfully
     """
-    print()
-    print(muted("--- Post-Session Processing ---"))
+    if verbose:
+        print()
+        print(muted("--- Post-Session Processing ---"))
 
     # Sync implementation plan back to source (for worktree mode)
     if sync_spec_to_source(spec_dir, source_spec_dir):
@@ -110,12 +113,14 @@ async def post_session_processing(
     # Check if implementation plan was updated
     plan = load_implementation_plan(spec_dir)
     if not plan:
-        print("  Warning: Could not load implementation plan")
+        if verbose:
+            print("  Warning: Could not load implementation plan")
         return False
 
     subtask = find_subtask_in_plan(plan, subtask_id)
     if not subtask:
-        print(f"  Warning: Subtask {subtask_id} not found in plan")
+        if verbose:
+            print(f"  Warning: Subtask {subtask_id} not found in plan")
         return False
 
     subtask_status = subtask.get("status", "pending")
@@ -368,7 +373,7 @@ async def run_agent_session(
         prompt_length=len(message),
         prompt_preview=message[:200] + "..." if len(message) > 200 else message,
     )
-    print("Sending prompt to Claude Agent SDK...\n")
+    sys.stderr.write("Sending prompt to Claude Agent SDK...\n")
 
     # Get task logger for this spec
     task_logger = get_task_logger(spec_dir)
@@ -401,7 +406,9 @@ async def run_agent_session(
 
                     if block_type == "TextBlock" and hasattr(block, "text"):
                         response_text += block.text
-                        print(block.text, end="", flush=True)
+                        # Only print to stdout if verbose mode is enabled
+                        if verbose:
+                            print(block.text, end="", flush=True)
                         # Log text to task logger (persist without double-printing)
                         if task_logger and block.text.strip():
                             task_logger.log(
@@ -450,7 +457,7 @@ async def run_agent_session(
                                 phase,
                                 print_to_console=True,
                             )
-                        else:
+                        elif verbose:
                             print(f"\n[Tool: {tool_name}]", flush=True)
 
                         if verbose and hasattr(block, "input"):
@@ -478,7 +485,8 @@ async def run_agent_session(
                                 f"Tool BLOCKED: {current_tool}",
                                 result=str(result_content)[:300],
                             )
-                            print(f"   [BLOCKED] {result_content}", flush=True)
+                            if verbose:
+                                print(f"   [BLOCKED] {result_content}", flush=True)
                             if task_logger and current_tool:
                                 task_logger.tool_end(
                                     current_tool,
@@ -495,7 +503,8 @@ async def run_agent_session(
                                 f"Tool error: {current_tool}",
                                 error=error_str[:200],
                             )
-                            print(f"   [Error] {error_str}", flush=True)
+                            if verbose:
+                                print(f"   [Error] {error_str}", flush=True)
                             if task_logger and current_tool:
                                 # Store full error in detail for expandable view
                                 task_logger.tool_end(
@@ -515,7 +524,7 @@ async def run_agent_session(
                             if verbose:
                                 result_str = str(result_content)[:200]
                                 print(f"   [Done] {result_str}", flush=True)
-                            else:
+                            elif verbose:
                                 print("   [Done]", flush=True)
                             if task_logger and current_tool:
                                 # Store full result in detail for expandable view (only for certain tools)
@@ -543,7 +552,8 @@ async def run_agent_session(
 
                         current_tool = None
 
-        print("\n" + "-" * 70 + "\n")
+        if verbose:
+            print("\n" + "-" * 70 + "\n")
 
         # Check if build is complete
         if is_build_complete(spec_dir):
@@ -581,10 +591,11 @@ async def run_agent_session(
 
         # Log concurrency errors prominently
         if is_concurrency:
-            print("\n⚠️  Tool concurrency limit reached (400 error)")
-            print("   Claude API limits concurrent tool use in a single request")
-            print(f"   Error: {str(e)[:200]}\n")
-        else:
+            if verbose:
+                print("\n⚠️  Tool concurrency limit reached (400 error)")
+                print("   Claude API limits concurrent tool use in a single request")
+                print(f"   Error: {str(e)[:200]}\n")
+        elif verbose:
             print(f"Error during agent session: {e}")
 
         if task_logger:

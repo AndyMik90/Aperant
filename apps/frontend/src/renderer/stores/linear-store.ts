@@ -63,6 +63,8 @@ interface LinearState {
 		total: number;
 		message: string;
 		timestamp: number;
+		currentTool?: string;
+		toolStatus?: 'running' | 'complete' | 'error';
 	}>;
 	// Counter to force re-renders when progress updates
 	progressUpdateCounter: number;
@@ -100,6 +102,8 @@ interface LinearState {
 		step: number;
 		total: number;
 		message: string;
+		currentTool?: string;
+		toolStatus?: 'running' | 'complete' | 'error';
 	}) => void;
 	clearValidationProgress: (ticketId: string) => void;
 
@@ -122,6 +126,8 @@ interface LinearState {
 		step: number;
 		total: number;
 		message: string;
+		currentTool?: string;
+		toolStatus?: 'running' | 'complete' | 'error';
 	} | undefined;
 	getTicketsByStatus: (status: string) => LinearTicket[];
 	getTicketsByPriority: (priority: number) => LinearTicket[];

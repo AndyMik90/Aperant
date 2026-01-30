@@ -362,7 +362,14 @@ class LinearValidationAgent:
         # Workspace metadata (fetched on demand)
         self._workspace_metadata: dict[str, Any] | None = None
 
-    def _emit_progress(self, phase: str, step: int, total: int, message: str) -> None:
+    def _emit_progress(
+        self,
+        phase: str,
+        step: int,
+        total: int,
+        message: str,
+        current_tool: str | None = None,
+    ) -> None:
         """Emit a progress update if a callback is registered.
 
         Args:
@@ -370,9 +377,16 @@ class LinearValidationAgent:
             step: Current step number (1-indexed)
             total: Total number of steps
             message: Human-readable progress message
+            current_tool: Optional name of tool currently being executed
         """
         if self._progress_callback:
-            self._progress_callback(phase, step, total, message)
+            # Check if callback accepts tool parameter (new format) or just phase/step/total/message (old format)
+            try:
+                # Try new format with tool parameter
+                self._progress_callback(phase, step, total, message, current_tool)
+            except TypeError:
+                # Fall back to old format
+                self._progress_callback(phase, step, total, message)
 
     def create_client(self) -> "ClaudeSDKClient":
         """
@@ -873,7 +887,10 @@ class LinearValidationAgent:
 
                 # Emit progress: Step 2 - Codebase Search (about to start AI analysis)
                 self._emit_progress(
-                    "codebase_search", 2, 7, "Searching codebase for related implementation..."
+                    "codebase_search",
+                    2,
+                    7,
+                    "Searching codebase for related implementation...",
                 )
 
                 # Create a continuous heartbeat task that emits progress during the long AI call
@@ -887,10 +904,25 @@ class LinearValidationAgent:
                     # Define the phases that will be cycled through as AI progresses
                     # Each phase advances the step number to show forward progress
                     phases = [
-                        ("completeness_check", 3, 7, "Validating completeness and feasibility..."),
+                        (
+                            "completeness_check",
+                            3,
+                            7,
+                            "Validating completeness and feasibility...",
+                        ),
                         ("labels_selection", 4, 7, "Selecting appropriate labels..."),
-                        ("version_calculation", 5, 7, "Calculating version recommendation..."),
-                        ("properties_recommendation", 6, 7, "Determining task properties..."),
+                        (
+                            "version_calculation",
+                            5,
+                            7,
+                            "Calculating version recommendation...",
+                        ),
+                        (
+                            "properties_recommendation",
+                            6,
+                            7,
+                            "Determining task properties...",
+                        ),
                     ]
 
                     phase_index = 0
@@ -899,11 +931,15 @@ class LinearValidationAgent:
                     while not stop_event.is_set():
                         # Check if we need to update (every 5 seconds or immediately for first update)
                         current_time = time.time()
-                        should_update = (current_time - last_emit_time) >= update_interval or last_emit_time == 0
+                        should_update = (
+                            current_time - last_emit_time
+                        ) >= update_interval or last_emit_time == 0
 
                         if should_update:
                             # Get current phase info
-                            phase, step, total, message = phases[min(phase_index, len(phases) - 1)]
+                            phase, step, total, message = phases[
+                                min(phase_index, len(phases) - 1)
+                            ]
                             self._emit_progress(phase, step, total, message)
 
                             # Move to next phase after interval, but stay on last phase
@@ -920,7 +956,9 @@ class LinearValidationAgent:
                 stop_heartbeat = asyncio.Event()
 
                 # Start continuous heartbeat task
-                heartbeat = asyncio.create_task(continuous_heartbeat_task(stop_heartbeat))
+                heartbeat = asyncio.create_task(
+                    continuous_heartbeat_task(stop_heartbeat)
+                )
 
                 # Wrap the session call with timeout
                 try:

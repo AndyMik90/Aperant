@@ -506,6 +506,7 @@ async def run_autonomous_agent(
                 linear_enabled=linear_is_enabled,
                 status_manager=status_manager,
                 source_spec_dir=source_spec_dir,
+                verbose=verbose,
             )
 
             # Check for stuck subtasks

@@ -22,6 +22,7 @@
 	},
 	"processing": "Traitement",
 	"processActiveTooltip": "La validation est en cours",
+	"currentTool": "Actuellement",
 	"stopValidation": "Arrêter la validation",
 	"stopping": "Arrêt...",
 	"lastProgressUpdateTooltip": "Dernière mise à jour de progression",

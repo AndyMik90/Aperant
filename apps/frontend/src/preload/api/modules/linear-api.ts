@@ -19,6 +19,10 @@ export interface LinearValidationProgress {
 	step: number;
 	total: number;
 	message: string;
+	/** Current tool being executed (e.g., "Grep", "Read", "Glob") */
+	currentTool?: string;
+	/** Status of the current tool (e.g., "running", "complete") */
+	toolStatus?: 'running' | 'complete' | 'error';
 }
 
 /**

@@ -23,6 +23,10 @@ interface LinearValidationProgressProps {
 	totalSteps?: number;
 	/** Current step number */
 	currentStep?: number;
+	/** Current tool being executed (e.g., "Grep", "Read") */
+	currentTool?: string;
+	/** Status of current tool (running, complete, error) */
+	toolStatus?: 'running' | 'complete' | 'error';
 	/** Callback for stop/cancel button */
 	onStop?: () => void | Promise<void>;
 }
@@ -332,6 +336,8 @@ export function LinearValidationProgress({
 	lastActivityAt,
 	totalSteps = 7,
 	currentStep = 0,
+	currentTool,
+	toolStatus,
 	onStop,
 }: LinearValidationProgressProps) {
 	const { t } = useTranslation(['linear', 'common']);
@@ -562,6 +568,19 @@ export function LinearValidationProgress({
 							/>
 						)}
 					</div>
+				</div>
+			)}
+
+			{/* Current tool activity display */}
+			{isActive && currentTool && (
+				<div className="flex items-center gap-2 text-xs text-muted-foreground px-3 py-1.5 bg-muted/50 rounded-md">
+					<span>{t('linear:currentTool')}:</span>
+					<span className="font-medium text-foreground">{currentTool}</span>
+					{toolStatus === 'running' && (
+						<span className="ml-2 inline-flex items-center">
+							<span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+						</span>
+					)}
 				</div>
 			)}
 

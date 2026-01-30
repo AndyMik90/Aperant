@@ -12,6 +12,8 @@ import type { ElectronAPI } from "@shared/types";
  * - step: Current step number (1-indexed)
  * - total: Total number of steps
  * - message: Human-readable progress message
+ * - currentTool: Current tool being executed (e.g., "Grep", "Read")
+ * - toolStatus: Status of the current tool ("running", "complete", "error")
  *
  * @param ticketId - The Linear ticket ID to listen for progress events (optional, listens to all if not provided)
  */
@@ -42,6 +44,8 @@ export function useLinearValidationProgress(ticketId?: string): void {
 			step: number;
 			total: number;
 			message: string;
+			currentTool?: string;
+			toolStatus?: 'running' | 'complete' | 'error';
 		}) => {
 			const { ticketId: progressTicketId, ...progress } = data;
 

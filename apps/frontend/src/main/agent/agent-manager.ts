@@ -380,10 +380,10 @@ export class AgentManager extends EventEmitter {
    */
   async killAll(): Promise<void> {
     // Kill all linear validation processes first
-    for (const [taskId, process] of this.linearValidationProcesses.entries()) {
+    for (const [taskId, proc] of this.linearValidationProcesses.entries()) {
       console.log(`[AgentManager] Killing linear validation process: ${taskId}`);
       const { killProcessGracefully } = require('../platform');
-      killProcessGracefully(process, {
+      killProcessGracefully(proc, {
         debugPrefix: '[AgentManager]',
         debug: process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development'
       });
@@ -575,6 +575,10 @@ export class AgentManager extends EventEmitter {
         let stderr = "";
         // Split stdout into lines to parse progress events
         let stdoutBuffer = "";
+        // Split stderr into lines to parse tool activity
+        let stderrBuffer = "";
+        // Track which stderr lines we've already processed to avoid duplicates
+        const processedStderrLines = new Set<string>();
 
         console.log(`[LINEAR_IPC] Spawning validation process:`, {
           pythonCommand,
@@ -610,6 +614,8 @@ export class AgentManager extends EventEmitter {
             } else if (line.startsWith("[LINEAR_")) {
               // Log our debug messages
               console.log(line);
+            } else if (line.startsWith("__TASK_LOG")) {
+            } else if (line.startsWith("[Tool:") || line.trim() === "") {
             } else {
               stdout += line + "\n";
             }
@@ -617,10 +623,79 @@ export class AgentManager extends EventEmitter {
         });
 
         child.stderr?.on("data", (data: Buffer) => {
-          const errStr = data.toString();
-          stderr += errStr;
-          const sanitizedErr = stripAnsiCodes(errStr);
-          console.error(`[LINEAR_IPC] stderr:`, sanitizedErr);
+          stderrBuffer += data.toString();
+          const lines = stderrBuffer.split("\n");
+          // Keep the last potentially incomplete line in the buffer
+          stderrBuffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+
+            // Add to stderr for final output
+            stderr += line + "\n";
+
+            // Log to console
+            const sanitizedErr = stripAnsiCodes(line);
+            console.error(`[LINEAR_IPC] stderr:`, sanitizedErr);
+
+            // Skip already processed lines
+            const lineKey = line.trim();
+            if (processedStderrLines.has(lineKey)) continue;
+            processedStderrLines.add(lineKey);
+
+            // Pattern 1: Tool call - "[DEBUG] [session] Tool call #1: Grep"
+            const toolCallMatch = line.match(/\[DEBUG\] \[session\] Tool call #\d+:\s+(\w+)/);
+            if (toolCallMatch) {
+              const toolName = toolCallMatch[1];
+              console.log(`[LINEAR_IPC] Tool started:`, toolName);
+              // Emit progress with current tool information
+              this.emit("linear-validate-progress", ticketId, {
+                type: "progress",
+                phase: "codebase_search",
+                step: 2,
+                total: 7,
+                message: `Running ${toolName}...`,
+                currentTool: toolName,
+                toolStatus: "running",
+              });
+            }
+
+            // Pattern 2: Tool completed - "[DEBUG] [task_logger] [coding][Glob] Done"
+            const toolDoneMatch = line.match(/\[DEBUG\] \[task_logger\] \[.*?\]\s*\[(\w+)\]\s*\[Done\]/);
+            if (toolDoneMatch) {
+              const toolName = toolDoneMatch[1];
+              console.log(`[LINEAR_IPC] Tool completed:`, toolName);
+              // Emit progress with tool complete status
+              this.emit("linear-validate-progress", ticketId, {
+                type: "progress",
+                phase: "codebase_search",
+                step: 2,
+                total: 7,
+                message: `Completed ${toolName}`,
+                currentTool: toolName,
+                toolStatus: "complete",
+              });
+            }
+
+            // Pattern 3: Task logger message - "[DEBUG] [task_logger] [coding] Let me check..."
+            const taskLoggerMessageMatch = line.match(/\[DEBUG\] \[task_logger\] \[(?:coding|planning|qa_reviewer|qa_fixer)\]\s+(.+)/);
+            if (taskLoggerMessageMatch) {
+              const message = taskLoggerMessageMatch[1];
+              // Truncate very long messages
+              const truncatedMessage = message.length > 100 ? message.substring(0, 97) + "..." : message;
+              console.log(`[LINEAR_IPC] Task logger:`, truncatedMessage);
+              // Emit progress with the task logger message
+              this.emit("linear-validate-progress", ticketId, {
+                type: "progress",
+                phase: "ai_analysis",
+                step: 3,
+                total: 7,
+                message: truncatedMessage,
+                currentTool: undefined,
+                toolStatus: undefined,
+              });
+            }
+          }
         });
 
         child.on("close", (code: number | null) => {
