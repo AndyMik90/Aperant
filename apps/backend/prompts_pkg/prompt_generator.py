@@ -112,37 +112,6 @@ convert them to relative paths from YOUR current location.
 """
 
 
-def detect_worktree_mode(spec_dir: Path) -> tuple[bool, str | None]:
-    """
-    Detect if running in isolated worktree mode.
-
-    Args:
-        spec_dir: Absolute path to spec directory
-
-    Returns:
-        (is_worktree, forbidden_parent_path) tuple:
-        - is_worktree: True if running in a worktree
-        - forbidden_parent_path: The parent project path to forbid, or None
-    """
-    # Check if spec_dir contains worktree path patterns
-    # Normalize path separators to forward slashes for consistent matching
-    spec_str = str(spec_dir).replace("\\", "/")
-
-    # New worktree location: .auto-claude/worktrees/tasks/{spec-name}/
-    new_worktree_marker = "/.auto-claude/worktrees/tasks/"
-    if new_worktree_marker in spec_str:
-        parent_path = spec_str.split(new_worktree_marker, 1)[0]
-        return True, parent_path
-
-    # Legacy worktree location: .worktrees/{spec-name}/
-    legacy_worktree_marker = "/.worktrees/"
-    if legacy_worktree_marker in spec_str:
-        parent_path = spec_str.split(legacy_worktree_marker, 1)[0]
-        return True, parent_path
-
-    return False, None
-
-
 def get_relative_spec_path(spec_dir: Path, project_dir: Path) -> str:
     """
     Get the spec directory path relative to the project/working directory.

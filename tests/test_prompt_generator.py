@@ -9,7 +9,6 @@ from pathlib import Path
 # Note: sys.path manipulation is handled by conftest.py line 46
 from prompts_pkg.prompt_generator import (
     detect_worktree_isolation,
-    detect_worktree_mode,
     generate_environment_context,
 )
 
@@ -103,74 +102,6 @@ class TestDetectWorktreeIsolation:
 
         assert is_worktree is False
         assert parent_path is None
-
-
-class TestDetectWorktreeMode:
-    """Tests for detect_worktree_mode function."""
-
-    def test_new_worktree_unix_path(self):
-        """Test detection of new worktree location on Unix."""
-        # New worktree: /project/.auto-claude/worktrees/tasks/spec-name/.auto-claude/specs/spec/
-        spec_dir = Path("/opt/dev/project/.auto-claude/worktrees/tasks/001-feature/.auto-claude/specs/001-feature")
-        project_dir = Path("/opt/dev/project/.auto-claude/worktrees/tasks/001-feature")
-
-        is_worktree, forbidden = detect_worktree_mode(spec_dir)
-
-        assert is_worktree is True
-        assert forbidden == "/opt/dev/project"
-
-    def test_new_worktree_windows_path(self):
-        """Test detection of new worktree location on Windows."""
-        # Windows path with backslashes
-        spec_dir = Path("E:/projects/x/.auto-claude/worktrees/tasks/009-audit/.auto-claude/specs/009-audit")
-        project_dir = Path("E:/projects/x/.auto-claude/worktrees/tasks/009-audit")
-
-        is_worktree, forbidden = detect_worktree_mode(spec_dir)
-
-        assert is_worktree is True
-        assert forbidden == "E:/projects/x"
-
-    def test_legacy_worktree_unix_path(self):
-        """Test detection of legacy worktree location on Unix."""
-        # Legacy worktree: /project/.worktrees/spec-name/.auto-claude/specs/spec/
-        spec_dir = Path("/opt/dev/project/.worktrees/001-feature/.auto-claude/specs/001-feature")
-        project_dir = Path("/opt/dev/project/.worktrees/001-feature")
-
-        is_worktree, forbidden = detect_worktree_mode(spec_dir)
-
-        assert is_worktree is True
-        assert forbidden == "/opt/dev/project"
-
-    def test_legacy_worktree_windows_path(self):
-        """Test detection of legacy worktree location on Windows."""
-        spec_dir = Path("C:/projects/x/.worktrees/009-audit/.auto-claude/specs/009-audit")
-        project_dir = Path("C:/projects/x/.worktrees/009-audit")
-
-        is_worktree, forbidden = detect_worktree_mode(spec_dir)
-
-        assert is_worktree is True
-        assert forbidden == "C:/projects/x"
-
-    def test_not_in_worktree(self):
-        """Test when not in a worktree (direct mode)."""
-        # Direct mode: /project/.auto-claude/specs/spec/
-        spec_dir = Path("/opt/dev/project/.auto-claude/specs/001-feature")
-        project_dir = Path("/opt/dev/project")
-
-        is_worktree, forbidden = detect_worktree_mode(spec_dir)
-
-        assert is_worktree is False
-        assert forbidden is None
-
-    def test_deeply_nested_worktree(self):
-        """Test worktree detection with deeply nested spec directory."""
-        spec_dir = Path("/opt/dev/project/.auto-claude/worktrees/tasks/009-very-long-spec-name-for-testing/.auto-claude/specs/009-very-long-spec-name-for-testing")
-        project_dir = Path("/opt/dev/project/.auto-claude/worktrees/tasks/009-very-long-spec-name-for-testing")
-
-        is_worktree, forbidden = detect_worktree_mode(spec_dir)
-
-        assert is_worktree is True
-        assert forbidden == "/opt/dev/project"
 
 
 class TestGenerateEnvironmentContext:
