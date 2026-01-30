@@ -96,7 +96,7 @@ function delay(ms: number): Promise<void> {
  * Deletes a directory with retry logic for Windows file locking issues
  *
  * On Windows, files can be locked by other processes (IDE, build tools, etc.)
- * which causes immediate deletion to fail. This function retries with exponential
+ * which causes immediate deletion to fail. This function retries with linear
  * backoff to handle transient file locks.
  */
 async function deleteDirectoryWithRetry(
@@ -115,7 +115,7 @@ async function deleteDirectoryWithRetry(
       lastError = error instanceof Error ? error : new Error(String(error));
 
       if (attempt < maxRetries) {
-        const waitTime = retryDelay * attempt; // Exponential backoff
+        const waitTime = retryDelay * attempt; // Linear backoff
         console.warn(
           `${logPrefix} Directory deletion attempt ${attempt}/${maxRetries} failed, ` +
           `retrying in ${waitTime}ms: ${lastError.message}`

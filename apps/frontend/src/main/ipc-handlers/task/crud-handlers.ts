@@ -6,7 +6,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, Dirent
 import { projectStore } from '../../project-store';
 import { titleGenerator } from '../../title-generator';
 import { AgentManager } from '../../agent';
-import { findTaskAndProject, forceDeleteWorktree } from './shared';
+import { findTaskAndProject } from './shared';
 import { findAllSpecPaths, isValidTaskId } from '../../utils/spec-path-helpers';
 import { isPathWithinBase, findTaskWorktree } from '../../worktree-paths';
 import { cleanupWorktree } from '../../utils/worktree-cleanup';

@@ -9,9 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-
-// Regex pattern for validating git branch names (matches worktree-handlers.ts)
-const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
+import { GIT_BRANCH_REGEX } from '../worktree-handlers';
 
 /**
  * Validates a detected branch name and returns the safe branch to delete.
