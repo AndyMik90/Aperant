@@ -723,6 +723,53 @@ ${issue.description || "No description provided."}
 	);
 
 	/**
+	 * Get cached validation result for a ticket (without running validation)
+	 * Returns cached result if exists, or success:false with cached:false
+	 */
+	ipcMain.handle(
+		IPC_CHANNELS.LINEAR_GET_CACHED_VALIDATION,
+		async (
+			_,
+			projectId: string,
+			ticketId: string,
+		): Promise<IPCResult<ValidationResult>> => {
+			debugLog("Get cached validation requested", { ticketId, projectId });
+
+			const project = projectStore.getProject(projectId);
+			if (!project) {
+				debugLog("Get cached validation failed: Project not found", { projectId });
+				return { success: false, error: "Project not found" };
+			}
+
+			try {
+				const result = await agentManager.validateLinearTicket(
+					`linear-cache-check-${ticketId}`,
+					project.path,
+					ticketId,
+					false, // skipCache - not relevant for cache check
+					true, // checkCacheOnly - NEW parameter
+				);
+
+				if (!result || !result.success) {
+					// If no cached result, return success:false with cached flag
+					if (result?.cached === false) {
+						return { success: false, data: { cached: false } as any };
+					}
+					return { success: false, error: result?.error || "Failed to check cache" };
+				}
+
+				return { success: true, data: result.data };
+			} catch (error) {
+				debugLog("Get cached validation error", { ticketId, error });
+				return {
+					success: false,
+					error: error instanceof Error ? error.message : "Failed to check cached validation",
+				};
+			}
+		},
+	);
+
+	/**
 	 * Validate multiple Linear tickets in batch (max 5)
 	 */
 	ipcMain.handle(
@@ -1088,24 +1135,43 @@ ${issue.description || "No description provided."}
 
 	/**
 	 * Fetch comments for an issue (to find GitHub threads for reply)
+	 * Note: projectId is optional - if not provided, will look for any project with Linear API key
 	 */
 	ipcMain.handle(
 		IPC_CHANNELS.LINEAR_GET_COMMENTS,
 		async (
 			_,
-			projectId: string,
+			projectId: string | null,
 			ticketId: string,
 		): Promise<IPCResult<Array<{ id: string; body: string; parentId: string | null; user: { name: string } }>>> => {
 			debugLog("Get comments requested", { ticketId, projectId });
 
-			const project = projectStore.getProject(projectId);
-			if (!project) {
-				return { success: false, error: "Project not found" };
+			let apiKey: string | null = null;
+
+			// If projectId provided, get API key from that project
+			if (projectId) {
+				const project = projectStore.getProject(projectId);
+				if (project) {
+					apiKey = getLinearApiKey(project);
+				}
 			}
 
-			const apiKey = getLinearApiKey(project);
+			// If no API key yet, search for any project with Linear API key configured
 			if (!apiKey) {
-				return { success: false, error: "No Linear API key configured" };
+				const allProjects = projectStore.getProjects();
+				for (const project of allProjects) {
+					const key = getLinearApiKey(project);
+					if (key) {
+						apiKey = key;
+						debugLog("Found Linear API key from project", { projectId: project.id });
+						break;
+					}
+				}
+			}
+
+			if (!apiKey) {
+				debugLog("Get comments failed: No Linear API key configured");
+				return { success: false, error: "No Linear API key configured. Please connect your Linear account in settings." };
 			}
 
 			try {

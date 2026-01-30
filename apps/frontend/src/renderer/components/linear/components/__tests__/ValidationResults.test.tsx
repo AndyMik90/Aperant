@@ -715,13 +715,8 @@ describe('ValidationResults', () => {
 
 			// Mock the electronAPI
 			const mockPostLinearComment = vi.fn().mockResolvedValue({ success: true });
-			const mockGetLinearComments = vi.fn().mockResolvedValue({
-				success: true,
-				data: [{ id: 'comment-1', body: 'GitHub comment', parentId: null, user: { name: 'GitHub User' } }],
-			});
 			global.window.electronAPI = {
 				postLinearComment: mockPostLinearComment,
-				getLinearComments: mockGetLinearComments,
 			} as any;
 
 			const mockOnOpenChange = vi.fn();
@@ -741,12 +736,21 @@ describe('ValidationResults', () => {
 
 			// Wait for async operations
 			await waitFor(() => {
-				// Should have called postLinearComment twice
+				// Should have called postLinearComment twice:
+				// 1. Feedback comment (full validation results)
+				// 2. Clarification comment (new GitHub thread for missing info)
 				expect(mockPostLinearComment).toHaveBeenCalledTimes(2);
 			});
 
-			// Verify getLinearComments was called to find GitHub thread
-			expect(mockGetLinearComments).toHaveBeenCalledWith('project-123', 'ticket-123');
+			// Verify first two calls have correct projectId and ticketId
+			const firstCall = mockPostLinearComment.mock.calls[0];
+			const secondCall = mockPostLinearComment.mock.calls[1];
+			expect(firstCall[0]).toBe('project-123'); // projectId
+			expect(firstCall[1]).toBe('ticket-123'); // ticketId
+			expect(secondCall[0]).toBe('project-123'); // projectId
+			expect(secondCall[1]).toBe('ticket-123'); // ticketId
+			// Second call should have null as 4th arg (no parentId for new thread)
+			expect(secondCall[3]).toBeNull();
 
 			// Modal should close on success
 			await waitFor(() => {

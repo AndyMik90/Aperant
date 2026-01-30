@@ -186,6 +186,7 @@ async def validate_single_ticket(
     project_dir: Path,
     ticket_id: str,
     skip_cache: bool = False,
+    check_cache_only: bool = False,
 ) -> dict:
     """Validate a single Linear ticket.
 
@@ -193,6 +194,7 @@ async def validate_single_ticket(
         project_dir: Project directory path
         ticket_id: Linear ticket identifier (e.g., LIN-123)
         skip_cache: Whether to skip cache and force re-validation
+        check_cache_only: If True, only check for cached result without running validation
 
     Returns:
         Dict with success status and either data or error
@@ -200,6 +202,7 @@ async def validate_single_ticket(
     print(f"[LINEAR_RUNNER] Starting validation for ticket {ticket_id}", flush=True)
     print(f"[LINEAR_RUNNER] Project dir: {project_dir}", flush=True)
     print(f"[LINEAR_RUNNER] Skip cache: {skip_cache}", flush=True)
+    print(f"[LINEAR_RUNNER] Check cache only: {check_cache_only}", flush=True)
 
     try:
         # Create progress callback that outputs to stdout
@@ -218,6 +221,42 @@ async def validate_single_ticket(
             progress_callback=progress_callback,
         )
         print("[LINEAR_RUNNER] Agent created successfully", flush=True)
+
+        # If check_cache_only, just check for cached result and return
+        if check_cache_only:
+            print(f"[LINEAR_RUNNER] Checking cache for {ticket_id}...", flush=True)
+            # Fetch ticket to get updatedAt timestamp for cache key
+            try:
+                issue_data = await agent._fetch_linear_issue(ticket_id)
+                validation_timestamp = issue_data.get("updatedAt", "")
+                print(f"[LINEAR_RUNNER] Ticket updatedAt: {validation_timestamp}", flush=True)
+
+                # Check cache
+                cached_result = agent._get_cached_result(ticket_id, validation_timestamp, skip_cache=False)
+                if cached_result:
+                    print(f"[LINEAR_RUNNER] Cache hit for {ticket_id}", flush=True)
+                    serialized = _serialize_validation_result(cached_result, ticket_id)
+                    return {
+                        "success": True,
+                        "data": {
+                            "ticketId": ticket_id,
+                            **serialized,
+                            "cached": True,
+                        },
+                    }
+                else:
+                    print(f"[LINEAR_RUNNER] No cached result for {ticket_id}", flush=True)
+                    return {
+                        "success": False,
+                        "cached": False,
+                        "error": "No cached validation found",
+                    }
+            except Exception as e:
+                print(f"[LINEAR_RUNNER] Error checking cache: {e}", flush=True)
+                return {
+                    "success": False,
+                    "error": f"Failed to check cache: {e}",
+                }
 
         # validate_ticket now auto-fetches issue data if not provided
         print(f"[LINEAR_RUNNER] Calling validate_ticket for {ticket_id}...", flush=True)
@@ -371,6 +410,11 @@ async def main():
         action="store_true",
         help="Skip cache and force re-validation",
     )
+    parser.add_argument(
+        "--check-cache-only",
+        action="store_true",
+        help="Only check for cached result without running validation",
+    )
 
     args = parser.parse_args()
 
@@ -413,6 +457,7 @@ async def main():
             project_dir,
             args.ticket_id,
             args.skip_cache,
+            args.check_cache_only,
         )
         print(f"[LINEAR_RUNNER] Result success: {result.get('success')}", flush=True)
         if not result.get("success"):

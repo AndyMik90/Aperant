@@ -519,6 +519,7 @@ export class AgentManager extends EventEmitter {
    * @param projectPath - Project directory path
    * @param ticketId - Linear ticket identifier (e.g., LIN-123)
    * @param skipCache - Whether to skip cache and force re-validation
+   * @param checkCacheOnly - If true, only check for cached result without running validation
    * @returns Promise resolving to validation result or null on failure
    */
   async validateLinearTicket(
@@ -526,7 +527,8 @@ export class AgentManager extends EventEmitter {
     projectPath: string,
     ticketId: string,
     skipCache: boolean = false,
-  ): Promise<{ success: boolean; data?: any; error?: string } | null> {
+    checkCacheOnly: boolean = false,
+  ): Promise<{ success: boolean; data?: any; error?: string; cached?: boolean } | null> {
     try {
       const autoBuildSource = this.processManager.getAutoBuildSourcePath();
       if (!autoBuildSource) {
@@ -566,6 +568,9 @@ export class AgentManager extends EventEmitter {
       ];
       if (skipCache) {
         args.push("--skip-cache");
+      }
+      if (checkCacheOnly) {
+        args.push("--check-cache-only");
       }
 
       return new Promise((resolve) => {

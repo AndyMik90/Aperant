@@ -241,6 +241,7 @@ export const IPC_CHANNELS = {
   LINEAR_CLEAR_CACHE: 'linear:clearCache',
   LINEAR_POST_COMMENT: 'linear:postComment',
   LINEAR_GET_COMMENTS: 'linear:getComments',
+  LINEAR_GET_CACHED_VALIDATION: 'linear:getCachedValidation',
 
   // Linear validation events (main -> renderer)
   LINEAR_VALIDATE_PROGRESS: 'linear:validateProgress',

@@ -77,7 +77,7 @@ export interface LinearAPI {
 		parentId?: string | null,
 	) => Promise<IPCResult<void>>;
 	getLinearComments: (
-		projectId: string,
+		projectId: string | null,
 		ticketId: string,
 	) => Promise<IPCResult<Array<{ id: string; body: string; parentId: string | null; user: { name: string } }>>>;
 }
@@ -180,12 +180,12 @@ export const createLinearAPI = (): LinearAPI => ({
 		),
 
 	getLinearComments: (
-		projectId: string,
+		projectId: string | null,
 		ticketId: string,
 	): Promise<IPCResult<Array<{ id: string; body: string; parentId: string | null; user: { name: string } }>>> =>
 		invokeIpc(
 			IPC_CHANNELS.LINEAR_GET_COMMENTS,
-			projectId,
+			projectId ?? null,
 			ticketId,
 		),
 });
