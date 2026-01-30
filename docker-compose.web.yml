@@ -1,0 +1,38 @@
+# Auto Claude Web - Docker Compose
+#
+# Usage:
+#   docker-compose -f docker-compose.web.yml up -d
+#
+# This will start the Auto Claude web server on port 3456.
+
+version: '3.8'
+
+services:
+  auto-claude-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: auto-claude-web
+    restart: unless-stopped
+    ports:
+      - "3456:3456"
+    volumes:
+      # Persist data (settings, projects list)
+      - auto-claude-data:/data
+      # Mount your projects directory
+      - ${PROJECTS_DIR:-./projects}:/projects
+    environment:
+      - NODE_ENV=production
+      - PORT=3456
+      # Optional: Set Anthropic API key for backend
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3456/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  auto-claude-data:
+    driver: local

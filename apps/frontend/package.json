@@ -46,7 +46,10 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:web": "vite --config vite.web.config.ts",
+    "build:web": "vite build --config vite.web.config.ts",
+    "preview:web": "vite preview --config vite.web.config.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
@@ -96,6 +99,7 @@
     "react-resizable-panels": "^4.2.0",
     "remark-gfm": "^4.0.1",
     "semver": "^7.7.3",
+    "socket.io-client": "^4.8.1",
     "tailwind-merge": "^3.4.0",
     "uuid": "^13.0.0",
     "zod": "^4.2.1",

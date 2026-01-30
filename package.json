@@ -23,7 +23,12 @@
     "package": "cd apps/frontend && npm run package",
     "package:mac": "cd apps/frontend && npm run package:mac",
     "package:win": "cd apps/frontend && npm run package:win",
-    "package:linux": "cd apps/frontend && npm run package:linux"
+    "package:linux": "cd apps/frontend && npm run package:linux",
+    "install:web": "cd apps/web-server && npm install",
+    "dev:web": "cd apps/frontend && npm run dev:web",
+    "build:web": "cd apps/frontend && npm run build:web",
+    "start:web": "cd apps/web-server && npm run dev",
+    "web": "npm run build:web && npm run start:web"
   },
   "engines": {
     "node": ">=24.0.0",

@@ -1,0 +1,33 @@
+{
+  "name": "auto-claude-web-server",
+  "version": "2.7.5",
+  "type": "module",
+  "description": "Web server for Auto Claude - replaces Electron main process",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lydell/node-pty": "^1.1.0",
+    "chokidar": "^5.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "proper-lockfile": "^4.1.2",
+    "socket.io": "^4.8.1",
+    "uuid": "^13.0.0",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.8",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^25.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3"
+  }
+}

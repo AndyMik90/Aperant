@@ -1,0 +1,118 @@
+# Auto Claude Web Server Dockerfile
+#
+# This Dockerfile builds a containerized version of Auto Claude
+# that can be deployed to any server.
+#
+# Usage:
+#   docker build -f Dockerfile.web -t auto-claude-web .
+#   docker run -p 3456:3456 -v /path/to/projects:/projects auto-claude-web
+#
+# Environment variables:
+#   PORT - Server port (default: 3456)
+#   DATA_DIR - Data directory for settings/projects (default: /data)
+#   PROJECTS_DIR - Directory containing user projects (default: /projects)
+
+# Stage 1: Build frontend
+FROM node:24-bookworm-slim AS frontend-builder
+
+WORKDIR /app
+
+# Copy package files for frontend
+COPY package.json package-lock.json* ./
+COPY apps/frontend/package.json apps/frontend/
+COPY apps/web-server/package.json apps/web-server/
+
+# Install dependencies (skip electron-specific modules)
+RUN cd apps/frontend && npm install --ignore-scripts --omit=optional
+
+# Copy frontend source
+COPY apps/frontend/src apps/frontend/src
+COPY apps/frontend/vite.web.config.ts apps/frontend/
+COPY apps/frontend/tsconfig.json apps/frontend/
+COPY apps/frontend/tailwind.config.js apps/frontend/
+COPY apps/frontend/postcss.config.js apps/frontend/
+
+# Build frontend for web
+RUN cd apps/frontend && npm run build:web
+
+# Stage 2: Build web server
+FROM node:24-bookworm-slim AS server-builder
+
+WORKDIR /app
+
+# Copy web server package files
+COPY apps/web-server/package.json apps/web-server/
+COPY apps/web-server/tsconfig.json apps/web-server/
+
+# Install server dependencies
+RUN cd apps/web-server && npm install
+
+# Copy server source
+COPY apps/web-server/src apps/web-server/src
+
+# Build server
+RUN cd apps/web-server && npm run build
+
+# Stage 3: Python backend
+FROM python:3.12-slim-bookworm AS python-builder
+
+WORKDIR /app
+
+# Install git and other dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy backend
+COPY apps/backend apps/backend
+
+# Install Python dependencies
+RUN cd apps/backend && \
+    python -m pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Stage 4: Final runtime image
+FROM node:24-bookworm-slim
+
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy built frontend
+COPY --from=frontend-builder /app/apps/frontend/dist /app/apps/frontend/dist
+
+# Copy built server
+COPY --from=server-builder /app/apps/web-server/dist /app/apps/web-server/dist
+COPY --from=server-builder /app/apps/web-server/node_modules /app/apps/web-server/node_modules
+COPY apps/web-server/package.json /app/apps/web-server/
+
+# Copy Python backend and dependencies
+COPY --from=python-builder /app/apps/backend /app/apps/backend
+COPY --from=python-builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+
+# Create data and projects directories
+RUN mkdir -p /data /projects
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=3456
+ENV HOST=0.0.0.0
+ENV STATIC_DIR=/app/apps/frontend/dist
+ENV BACKEND_DIR=/app/apps/backend
+ENV DATA_DIR=/data
+ENV PROJECTS_DIR=/projects
+
+# Expose port
+EXPOSE 3456
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3456/api/health || exit 1
+
+# Start server
+CMD ["node", "/app/apps/web-server/dist/index.js"]
