@@ -464,8 +464,3 @@ class PtyDaemonClient {
 
 // Singleton instance
 export const ptyDaemonClient = new PtyDaemonClient();
-
-// Cleanup on app quit
-app.on('before-quit', () => {
-  ptyDaemonClient.shutdown();
-});

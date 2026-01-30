@@ -327,8 +327,8 @@ export async function destroyAllTerminals(
 
   terminals.forEach((terminal) => {
     killPromises.push(
-      PtyManager.killPty(terminal, true).catch(() => {
-        // Ignore errors during cleanup
+      PtyManager.killPty(terminal, true).catch((error) => {
+        console.warn('[TerminalLifecycle] Error during PTY cleanup:', error);
       })
     );
   });
