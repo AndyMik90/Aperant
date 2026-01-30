@@ -255,7 +255,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
       // This bypasses the 1-minute cache to ensure accurate duplicate detection
       loadProfileUsageData(true);
     }
-  }, [isOpen, loadProfileUsageData]);
+  }, [isOpen, loadProfileUsageData, loadAutoSwitchSettings, loadClaudeProfiles, loadPriorityOrder]);
 
   // Subscribe to usage updates for real-time data
   useEffect(() => {
@@ -339,7 +339,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           });
         }
       }
-    } catch (err) {
+    } catch (_err) {
       toast({
         variant: 'destructive',
         title: t('accounts.toast.addProfileFailed'),
@@ -369,7 +369,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           description: result.error || t('accounts.toast.tryAgain'),
         });
       }
-    } catch (err) {
+    } catch (_err) {
       toast({
         variant: 'destructive',
         title: t('accounts.toast.deleteProfileFailed'),
@@ -404,7 +404,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           description: result.error || t('accounts.toast.tryAgain'),
         });
       }
-    } catch (err) {
+    } catch (_err) {
       toast({
         variant: 'destructive',
         title: t('accounts.toast.renameProfileFailed'),
@@ -435,7 +435,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           description: result.error || t('accounts.toast.tryAgain'),
         });
       }
-    } catch (err) {
+    } catch (_err) {
       toast({
         variant: 'destructive',
         title: t('accounts.toast.setActiveProfileFailed'),
@@ -487,7 +487,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
     setAuthTerminal(null);
     setAuthenticatingProfileId(null);
     await loadClaudeProfiles();
-  }, []);
+  }, [loadClaudeProfiles]);
 
   const handleAuthTerminalError = useCallback(() => {
     // Don't auto-close on error
@@ -534,7 +534,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           description: result.error || t('accounts.toast.tryAgain'),
         });
       }
-    } catch (err) {
+    } catch (_err) {
       toast({
         variant: 'destructive',
         title: t('accounts.toast.tokenSaveFailed'),
@@ -645,7 +645,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           description: result.error || t('accounts.toast.tryAgain'),
         });
       }
-    } catch (err) {
+    } catch (_err) {
       toast({
         variant: 'destructive',
         title: t('accounts.toast.settingsUpdateFailed'),
@@ -1332,7 +1332,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                             max="99"
                             step="1"
                             value={autoSwitchSettings?.sessionThreshold ?? 95}
-                            onChange={(e) => handleUpdateAutoSwitch({ sessionThreshold: parseInt(e.target.value) })}
+                            onChange={(e) => handleUpdateAutoSwitch({ sessionThreshold: parseInt(e.target.value, 10) })}
                             disabled={isLoadingAutoSwitch}
                             className="w-full"
                             aria-describedby="session-threshold-description"
@@ -1355,7 +1355,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                             max="99"
                             step="1"
                             value={autoSwitchSettings?.weeklyThreshold ?? 99}
-                            onChange={(e) => handleUpdateAutoSwitch({ weeklyThreshold: parseInt(e.target.value) })}
+                            onChange={(e) => handleUpdateAutoSwitch({ weeklyThreshold: parseInt(e.target.value, 10) })}
                             disabled={isLoadingAutoSwitch}
                             className="w-full"
                             aria-describedby="weekly-threshold-description"

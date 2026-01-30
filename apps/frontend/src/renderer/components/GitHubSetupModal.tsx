@@ -6,7 +6,6 @@ import {
   Key,
   Loader2,
   CheckCircle2,
-  AlertCircle,
   ChevronRight,
   Sparkles,
   Plus,
@@ -36,7 +35,7 @@ import {
 } from './ui/select';
 import { GitHubOAuthFlow } from './project-settings/GitHubOAuthFlow';
 import { ClaudeOAuthFlow } from './project-settings/ClaudeOAuthFlow';
-import type { Project, ProjectSettings } from '../../shared/types';
+import type { Project, } from '../../shared/types';
 
 interface GitHubSetupModalProps {
   open: boolean;
@@ -124,7 +123,7 @@ export function GitHubSetupModal({
           let hasClaudeAuth = false;
           if (profilesResult.success && profilesResult.data) {
             const activeProfile = profilesResult.data.profiles.find(
-              (p) => p.id === profilesResult.data!.activeProfileId
+              (p) => p.id === profilesResult.data?.activeProfileId
             );
             hasClaudeAuth = !!(activeProfile?.oauthToken || (activeProfile?.isDefault && activeProfile?.configDir));
           }
@@ -132,13 +131,13 @@ export function GitHubSetupModal({
           // Determine starting step based on existing auth
           if (hasGitHubAuth && hasClaudeAuth) {
             // Both authenticated, go directly to repo detection
-            setGithubToken(ghTokenResult.data!.token);
+            setGithubToken(ghTokenResult.data?.token);
             // detectRepository will be called and set the step
             setStep('repo'); // Temporary, detectRepository will update
             await detectRepository();
           } else if (hasGitHubAuth) {
             // Only GitHub authenticated, go to Claude auth
-            setGithubToken(ghTokenResult.data!.token);
+            setGithubToken(ghTokenResult.data?.token);
             setStep('claude-auth');
           } else {
             // No auth, start from beginning
@@ -153,7 +152,7 @@ export function GitHubSetupModal({
 
       checkExistingAuth();
     }
-  }, [open]);
+  }, [open, detectRepository, project.name.replace]);
 
   // Load user info and organizations
   const loadUserAndOrgs = async () => {
@@ -250,7 +249,7 @@ export function GitHubSetupModal({
       const profilesResult = await window.electronAPI.getClaudeProfiles();
       if (profilesResult.success && profilesResult.data) {
         const activeProfile = profilesResult.data.profiles.find(
-          (p) => p.id === profilesResult.data!.activeProfileId
+          (p) => p.id === profilesResult.data?.activeProfileId
         );
         // Check if active profile has authentication (oauthToken or default with configDir)
         if (activeProfile?.oauthToken || (activeProfile?.isDefault && activeProfile?.configDir)) {

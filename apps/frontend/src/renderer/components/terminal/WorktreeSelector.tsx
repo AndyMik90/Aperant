@@ -137,7 +137,7 @@ export function WorktreeSelector({
     if (isOpen && projectPath) {
       fetchWorktrees();
     }
-  }, [isOpen, projectPath, currentWorktree, project?.id]);
+  }, [isOpen, projectPath, fetchWorktrees]);
 
   // Handle delete worktree
   const handleDeleteWorktree = async () => {

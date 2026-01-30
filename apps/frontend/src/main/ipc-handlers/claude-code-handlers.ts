@@ -881,7 +881,7 @@ function checkProfileAuthentication(configDir: string): AuthCheckResult {
       const data = JSON.parse(content);
 
       // Check for oauthAccount with emailAddress
-      if (data.oauthAccount && data.oauthAccount.emailAddress) {
+      if (data.oauthAccount?.emailAddress) {
         return {
           authenticated: true,
           email: data.oauthAccount.emailAddress,
@@ -907,7 +907,7 @@ function checkProfileAuthentication(configDir: string): AuthCheckResult {
         };
       }
 
-      if (data.oauthAccount && data.oauthAccount.emailAddress) {
+      if (data.oauthAccount?.emailAddress) {
         return {
           authenticated: true,
           email: data.oauthAccount.emailAddress,

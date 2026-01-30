@@ -71,7 +71,7 @@ function sendError(
  * Register investigation handler
  */
 export function registerInvestigateIssue(
-  agentManager: AgentManager,
+  _agentManager: AgentManager,
   getMainWindow: () => BrowserWindow | null
 ): void {
   ipcMain.on(
@@ -130,13 +130,13 @@ export function registerInvestigateIssue(
         });
 
         // Build context for investigation
-        let context = buildIssueContext(issue, config.project, config.instanceUrl);
+        let _context = buildIssueContext(issue, config.project, config.instanceUrl);
 
         if (selectedNotes.length > 0) {
-          context += '\n\n## Selected Comments\n';
+          _context += '\n\n## Selected Comments\n';
           for (const note of selectedNotes) {
-            context += `\n### Comment by ${note.author.username} (${new Date(note.created_at).toLocaleDateString()})\n`;
-            context += note.body + '\n';
+            _context += `\n### Comment by ${note.author.username} (${new Date(note.created_at).toLocaleDateString()})\n`;
+            _context += note.body + '\n';
           }
         }
 

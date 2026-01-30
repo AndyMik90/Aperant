@@ -775,7 +775,7 @@ export class UsageMonitor extends EventEmitter {
         const activeProfile = profilesFile.profiles.find(
           (p) => p.id === profilesFile.activeProfileId
         );
-        if (activeProfile && activeProfile.apiKey) {
+        if (activeProfile?.apiKey) {
           this.debugLog('[UsageMonitor:TRACE] Using API profile credential: ' + activeProfile.name);
           return activeProfile.apiKey;
         }
@@ -1333,7 +1333,7 @@ export class UsageMonitor extends EventEmitter {
       let baseUrl: string;
       let provider: ApiProvider;
 
-      if (activeProfile && activeProfile.isAPIProfile) {
+      if (activeProfile?.isAPIProfile) {
         // Use the pre-determined profile to avoid race conditions
         // Trust the activeProfile data and use baseUrl directly
         baseUrl = activeProfile.baseUrl;
@@ -1347,7 +1347,7 @@ export class UsageMonitor extends EventEmitter {
         const profilesFile = await loadProfilesFile();
         apiProfile = profilesFile.profiles.find(p => p.id === profileId);
 
-        if (apiProfile && apiProfile.apiKey) {
+        if (apiProfile?.apiKey) {
           // API profile found
           baseUrl = apiProfile.baseUrl;
           provider = detectProvider(baseUrl);

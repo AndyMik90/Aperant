@@ -369,7 +369,7 @@ export function useIpcListeners(): void {
       cleanupSDKRateLimit();
       cleanupAuthFailure();
     };
-  }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, batchAppendLogs, setError]);
+  }, [appendLog, setError]);
 }
 
 /**

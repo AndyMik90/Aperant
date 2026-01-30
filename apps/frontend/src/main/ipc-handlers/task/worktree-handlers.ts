@@ -4,7 +4,7 @@ import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, Worktre
 import path from 'path';
 import { minimatch } from 'minimatch';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
-import { execSync, execFileSync, spawn, spawnSync, exec, execFile } from 'child_process';
+import { execFileSync, spawn, spawnSync, exec, execFile } from 'child_process';
 import { homedir } from 'os';
 import { projectStore } from '../../project-store';
 import { getConfiguredPythonPath, PythonEnvManager, pythonEnvManager as pythonEnvManagerSingleton } from '../../python-env-manager';
@@ -1010,7 +1010,7 @@ async function detectLinuxApps(): Promise<Set<string>> {
 function isAppInstalled(
   appNames: string[],
   specificPaths: string[],
-  platform: string
+  _platform: string
 ): { installed: boolean; foundPath: string } {
   // First, check the cached app list (fast)
   for (const name of appNames) {
@@ -2413,7 +2413,7 @@ export function registerWorktreeHandlers(
               encoding: 'utf-8'
             });
 
-            if (gitStatus && gitStatus.trim()) {
+            if (gitStatus?.trim()) {
               // Parse the status output to get file names
               // Format: XY filename (where X and Y are status chars, then space, then filename)
               uncommittedFiles = gitStatus

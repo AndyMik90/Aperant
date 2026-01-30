@@ -157,7 +157,7 @@ export function Insights({ projectId }: InsightsProps) {
         cancelAnimationFrame(rafId);
       }
     };
-  }, [session?.messages, streamingContent]);
+  }, [streamingContent]);
 
   // Focus textarea on mount
   useEffect(() => {
@@ -167,7 +167,7 @@ export function Insights({ projectId }: InsightsProps) {
   // Reset taskCreated when switching sessions
   useEffect(() => {
     setTaskCreated(new Set());
-  }, [session?.id]);
+  }, []);
 
   // Stable callback for viewport ref to avoid creating new function on each render
   const handleViewportRef = useCallback((ref: HTMLDivElement | null) => {

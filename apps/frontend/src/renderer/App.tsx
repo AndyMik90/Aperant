@@ -242,7 +242,7 @@ export function App() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- projectTabs is intentionally omitted to avoid infinite re-render (computed array creates new reference each render)
-  }, [projects, activeProjectId, selectedProjectId, openProjectIds, openProjectTab, setActiveProject]);
+  }, [projects, activeProjectId, selectedProjectId, openProjectIds, openProjectTab, setActiveProject, projectTabs.length, projectTabs.map]);
 
   // Track if settings have been loaded at least once
   const [settingsHaveLoaded, setSettingsHaveLoaded] = useState(false);
@@ -350,7 +350,7 @@ export function App() {
   useEffect(() => {
     setInitSuccess(false);
     setInitError(null);
-  }, [selectedProjectId]);
+  }, []);
 
   // Check if selected project needs initialization (e.g., .auto-claude folder was deleted)
   useEffect(() => {
@@ -427,7 +427,7 @@ export function App() {
         console.error('[App] Failed to restore sessions:', err);
       });
     }
-  }, [activeProjectId, selectedProjectId, selectedProject?.path, selectedProject?.name]);
+  }, [activeProjectId, selectedProjectId, selectedProject?.path]);
 
   // Apply theme on load
   useEffect(() => {
@@ -569,7 +569,7 @@ export function App() {
       setSelectedTask(updatedTask);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally omit selectedTask object to prevent infinite re-render loop
-  }, [tasks, selectedTask?.id, selectedTask?.specId]);
+  }, [tasks, selectedTask?.id, selectedTask?.specId, selectedTask]);
 
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);

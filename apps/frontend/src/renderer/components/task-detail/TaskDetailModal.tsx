@@ -303,7 +303,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
            {task.metadata?.prUrl && (
              <button
                type="button"
-               onClick={() => window.electronAPI?.openExternal(task.metadata!.prUrl!)}
+               onClick={() => window.electronAPI?.openExternal(task.metadata?.prUrl!)}
                className="completion-state text-sm flex items-center gap-2 text-info cursor-pointer hover:underline bg-transparent border-none p-0"
              >
               <GitPullRequest className="h-5 w-5" />
@@ -372,12 +372,10 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                           Stuck
                         </Badge>
                       ) : state.isIncomplete ? (
-                        <>
-                          <Badge variant="warning" className="text-xs flex items-center gap-1">
+                        <Badge variant="warning" className="text-xs flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3" />
                             Incomplete
                           </Badge>
-                        </>
                       ) : (
                         <>
                            <Badge

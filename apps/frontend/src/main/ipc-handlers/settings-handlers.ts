@@ -505,7 +505,7 @@ export function registerSettingsHandlers(
               error: `Path is not a directory: ${resolvedPath}`
             };
           }
-        } catch (statError) {
+        } catch (_statError) {
           return {
             success: false,
             error: `Cannot access path: ${resolvedPath}`

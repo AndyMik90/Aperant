@@ -37,7 +37,6 @@ export class PythonEnvManager extends EventEmitter {
   private pythonPath: string | null = null;
   private sitePackagesPath: string | null = null;
   private usingBundledPackages = false;
-  private isInitializing = false;
   private isReady = false;
   private initializationPromise: Promise<PythonEnvStatus> | null = null;
   private activeProcesses: Set<ChildProcess> = new Set();
@@ -74,15 +73,6 @@ export class PythonEnvManager extends EventEmitter {
         : path.join(venvPath, 'bin', 'python');
 
     return venvPython;
-  }
-
-  /**
-   * Get the path to pip in the venv
-   * Returns null - we use python -m pip instead for better compatibility
-   * @deprecated Use getVenvPythonPath() with -m pip instead
-   */
-  private getVenvPipPath(): string | null {
-    return null; // Not used - we use python -m pip
   }
 
   /**

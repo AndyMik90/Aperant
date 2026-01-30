@@ -62,7 +62,7 @@ export function useIdeationAuth() {
     };
 
     performCheck();
-  }, [activeProfileId]);
+  }, [activeProfileId, resolveHasAPIProfile]);
 
   // Expose checkAuth for manual re-checks
   const checkAuth = async () => {

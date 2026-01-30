@@ -49,7 +49,7 @@ export function RateLimitModal() {
         setSelectedProfileId(rateLimitInfo.suggestedProfileId);
       }
     }
-  }, [isModalOpen, rateLimitInfo?.suggestedProfileId]);
+  }, [isModalOpen, rateLimitInfo?.suggestedProfileId, loadAutoSwitchSettings]);
 
   // Reset selection when modal closes
   useEffect(() => {

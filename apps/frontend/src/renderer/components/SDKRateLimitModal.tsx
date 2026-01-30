@@ -94,7 +94,7 @@ export function SDKRateLimitModal() {
         });
       }
     }
-  }, [isSDKModalOpen, sdkRateLimitInfo, profiles]);
+  }, [isSDKModalOpen, sdkRateLimitInfo, profiles, loadAutoSwitchSettings]);
 
   // Reset selection when modal closes
   useEffect(() => {

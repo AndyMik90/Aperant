@@ -270,7 +270,7 @@ class PtyDaemonClient {
         }
       });
 
-      this.socket!.write(JSON.stringify({ ...msg, requestId }) + '\n');
+      this.socket?.write(JSON.stringify({ ...msg, requestId }) + '\n');
     });
   }
 
@@ -404,7 +404,7 @@ class PtyDaemonClient {
     this.isShuttingDown = true;
 
     // Kill the daemon process if we spawned it
-    if (this.daemonProcess && this.daemonProcess.pid) {
+    if (this.daemonProcess?.pid) {
       try {
         if (isWindows()) {
           // Windows: use taskkill to force kill process tree

@@ -1,5 +1,4 @@
 import { ChildProcess } from 'child_process';
-import type { IdeationConfig } from '../../shared/types';
 import type { CompletablePhase } from '../../shared/constants/phase-protocol';
 
 /**
