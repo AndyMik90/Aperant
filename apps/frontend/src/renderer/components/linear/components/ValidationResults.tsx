@@ -39,9 +39,48 @@ interface ValidationResultsProps {
 }
 
 /**
+ * Build a simple clarification comment for missing required fields.
+ * This posts to Linear (which syncs to GitHub) to request information from the reporter.
+ */
+export function buildClarificationComment(
+	ticket: LinearTicket,
+	validation: ValidationResult,
+	t: (key: string, params?: Record<string, string | number>) => string
+): string {
+	const lines: string[] = [];
+
+	// Simple header
+	lines.push(`## 📝 Clarification Needed: ${ticket.identifier}`);
+	lines.push('');
+	lines.push(`This ticket requires additional information to proceed with implementation.`);
+	lines.push('');
+
+	// Missing fields
+	if (validation.completenessValidation?.missingFields?.length > 0) {
+		lines.push(`### ❌ Missing Information`);
+		lines.push('');
+		lines.push(`Please provide details for the following required fields:`);
+		lines.push('');
+		validation.completenessValidation.missingFields.forEach((field) => {
+			lines.push(`- **${field}**`);
+		});
+		lines.push('');
+	}
+
+	// Call to action
+	lines.push(`---`);
+	lines.push('');
+	lines.push(`Once you've provided the missing information, the ticket can be re-validated.`);
+	lines.push('');
+	lines.push(`*Posted by Auto-Claude validation system*`);
+
+	return lines.join('\n');
+}
+
+/**
  * Build a formatted comment content from validation results for posting to Linear.
  */
-function buildFeedbackComment(
+export function buildFeedbackComment(
 	ticket: LinearTicket,
 	validation: ValidationResult,
 	t: (key: string, params?: Record<string, string | number>) => string
@@ -251,6 +290,7 @@ export function ValidationResults({
 	}, [ticket, validation, onOpenChange, t]);
 
 	// Handle post feedback to Linear (for incomplete validations)
+	// Posts both: 1) Full validation results, 2) Clarification comment for GitHub reporter
 	const handlePostFeedback = useCallback(async () => {
 		setIsPosting(true);
 		setError(null);
@@ -260,14 +300,30 @@ export function ValidationResults({
 			// The backend will handle finding an API key if projectId is null
 			const projectId = ticket.project?.id || useLinearStore.getState().selectedProjectId || null;
 
-			// Build the comment content from validation results
-			const commentContent = buildFeedbackComment(ticket, validation, t);
+			// 1. Post the full validation results comment
+			const feedbackComment = buildFeedbackComment(ticket, validation, t);
+			const feedbackResult = await window.electronAPI.postLinearComment(projectId, ticket.id, feedbackComment);
 
-			// Call the Linear API to post the comment
-			const result = await window.electronAPI.postLinearComment(projectId, ticket.id, commentContent);
+			if (!feedbackResult.success) {
+				throw new Error(feedbackResult.error || 'Failed to post feedback comment');
+			}
 
-			if (!result.success) {
-				throw new Error(result.error || 'Failed to post comment');
+			// 2. If there are missing fields, also post a clarification comment
+			// This will sync to GitHub via Linear's integration to request information from the reporter
+			const isComplete = validation.completenessValidation?.isComplete ?? false;
+			const hasMissingFields = validation.completenessValidation?.missingFields?.length > 0;
+
+			if (!isComplete && hasMissingFields) {
+				const clarificationComment = buildClarificationComment(ticket, validation, t);
+				const clarificationResult = await window.electronAPI.postLinearComment(
+					projectId,
+					ticket.id,
+					clarificationComment
+				);
+
+				if (!clarificationResult.success) {
+					throw new Error(clarificationResult.error || 'Failed to post clarification comment');
+				}
 			}
 
 			// Close the modal on success

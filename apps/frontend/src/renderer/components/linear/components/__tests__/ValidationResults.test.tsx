@@ -13,7 +13,7 @@ import { I18nextProvider } from 'react-i18next';
 import type { LinearTicket, ValidationResult } from '@shared/types';
 import i18n from '@shared/i18n';
 
-import { ValidationResults } from '../ValidationResults';
+import { ValidationResults, buildFeedbackComment, buildClarificationComment } from '../ValidationResults';
 
 // Initialize i18n before running tests
 beforeAll(async () => {
@@ -507,6 +507,351 @@ describe('ValidationResults', () => {
 
 			// The mock i18n returns the key itself, so we check for the key
 			expect(screen.getByText('Category')).toBeInTheDocument();
+		});
+	});
+
+	describe('buildFeedbackComment', () => {
+		it('should build comment with complete validation status', () => {
+			const ticket = createMockTicket();
+			const validation = createMockValidation({
+				completenessValidation: {
+					isComplete: true,
+					missingFields: [],
+					feasibilityScore: 85,
+					feasibilityReasoning: 'Good feasibility',
+				},
+			});
+
+			const comment = buildFeedbackComment(ticket, validation, (key) => key);
+
+			expect(comment).toContain('## 🔍 Validation Results: ACS-441');
+			expect(comment).toContain('[Test ticket](https://linear.app/issue/ACS-441)');
+			expect(comment).toContain('### ✅ Ready to Implement');
+			expect(comment).toContain('**Feasibility Score:** 85%');
+			expect(comment).toContain('### 📋 Analysis');
+			expect(comment).toContain('### 🏷️ Suggested Labels');
+			expect(comment).toContain('### ⚙️ Task Properties');
+			expect(comment).toContain('### 📦 Version Recommendation');
+			expect(comment).toContain('*Posted by Auto-Claude validation system*');
+		});
+
+		it('should build comment with incomplete validation status', () => {
+			const ticket = createMockTicket();
+			const validation = createMockValidation({
+				completenessValidation: {
+					isComplete: false,
+					missingFields: ['Reproduction steps', 'Acceptance criteria'],
+					feasibilityScore: 60,
+					feasibilityReasoning: 'Missing information',
+				},
+			});
+
+			const comment = buildFeedbackComment(ticket, validation, (key) => key);
+
+			expect(comment).toContain('### ⚠️ Needs Clarification');
+			expect(comment).toContain('**Feasibility Score:** 60%');
+			expect(comment).toContain('### ❌ Missing Information');
+			expect(comment).toContain('- `Reproduction steps`');
+			expect(comment).toContain('- `Acceptance criteria`');
+		});
+
+		it('should include codebase verification when available', () => {
+			const ticket = createMockTicket();
+			const validation = createMockValidation({
+				codebaseVerification: {
+					searchedFiles: ['src/auth/login.ts', 'src/auth/auth.service.ts'],
+					relatedImplementations: [
+						{
+							file: 'src/auth/login.ts',
+							description: 'Login component',
+							relevance: 'similar',
+						},
+					],
+					patternsFound: ['useAuth hook', 'AuthService class'],
+					technicalConstraints: ['Must support OAuth'],
+					existingSolutions: 'AuthService already handles this',
+				},
+			});
+
+			const comment = buildFeedbackComment(ticket, validation, (key) => key);
+
+			expect(comment).toContain('### 🔍 Codebase Verification');
+			expect(comment).toContain('**Files Examined:** 2');
+			expect(comment).toContain('**Related Code Found:** 1');
+			expect(comment).toContain('**Technical Constraints:**');
+			expect(comment).toContain('- Must support OAuth');
+			expect(comment).toContain('**Existing Solutions:**');
+			expect(comment).toContain('AuthService already handles this');
+		});
+
+		it('should include labels with confidence percentages', () => {
+			const ticket = createMockTicket();
+			const validation = createMockValidation({
+				suggestedLabels: [
+					{ name: 'bug', confidence: 95, reason: 'Bug fix' },
+					{ name: 'ui_ux', confidence: 88, reason: 'UI/UX work' },
+				],
+			});
+
+			const comment = buildFeedbackComment(ticket, validation, (key) => key);
+
+			expect(comment).toContain('- `bug` (95% confidence)');
+			expect(comment).toContain('- `ui_ux` (88% confidence)');
+		});
+
+		it('should include task properties as markdown table', () => {
+			const ticket = createMockTicket();
+			const validation = createMockValidation({
+				taskProperties: {
+					category: 'ui_ux',
+					complexity: 'medium',
+					impact: 'medium',
+					priority: 'high',
+					rationale: 'Medium complexity UI/UX task',
+				},
+			});
+
+			const comment = buildFeedbackComment(ticket, validation, (key) => key);
+
+			expect(comment).toContain('| **Category** | `ui_ux` |');
+			expect(comment).toContain('| **Complexity** | `medium` |');
+			expect(comment).toContain('| **Impact** | `medium` |');
+			expect(comment).toContain('| **Priority** | `high` |');
+			expect(comment).toContain('**Rationale:** Medium complexity UI/UX task');
+		});
+
+		it('should include version recommendation with reasoning', () => {
+			const ticket = createMockTicket();
+			const validation = createMockValidation({
+				versionRecommendation: {
+					recommendedVersion: 'v2.7.6',
+					versionType: 'patch',
+					reasoning: 'Patch version for bug fix',
+				},
+			});
+
+			const comment = buildFeedbackComment(ticket, validation, (key) => key);
+
+			expect(comment).toContain('**Recommended Version:** `v2.7.6`');
+			expect(comment).toContain('**Type:** `patch`');
+			expect(comment).toContain('**Reasoning:** Patch version for bug fix');
+		});
+	});
+
+	describe('buildClarificationComment', () => {
+		it('should build clarification comment with missing fields', () => {
+			const ticket = createMockTicket();
+			const validation = createMockValidation({
+				completenessValidation: {
+					isComplete: false,
+					missingFields: ['Reproduction steps', 'Acceptance criteria', 'Expected behavior'],
+					feasibilityScore: 60,
+					feasibilityReasoning: 'Missing information',
+				},
+			});
+
+			const comment = buildClarificationComment(ticket, validation, (key) => key);
+
+			expect(comment).toContain('## 📝 Clarification Needed: ACS-441');
+			expect(comment).toContain('This ticket requires additional information to proceed with implementation.');
+			expect(comment).toContain('### ❌ Missing Information');
+			expect(comment).toContain('Please provide details for the following required fields:');
+			expect(comment).toContain('- **Reproduction steps**');
+			expect(comment).toContain('- **Acceptance criteria**');
+			expect(comment).toContain('- **Expected behavior**');
+			expect(comment).toContain("Once you've provided the missing information, the ticket can be re-validated.");
+			expect(comment).toContain('*Posted by Auto-Claude validation system*');
+		});
+
+		it('should include call to action for re-validation', () => {
+			const ticket = createMockTicket();
+			const validation = createMockValidation({
+				completenessValidation: {
+					isComplete: false,
+					missingFields: ['Steps to reproduce'],
+					feasibilityScore: 50,
+					feasibilityReasoning: 'Missing critical information',
+				},
+			});
+
+			const comment = buildClarificationComment(ticket, validation, (key) => key);
+
+			expect(comment).toContain('---');
+			expect(comment).toContain("Once you've provided the missing information, the ticket can be re-validated.");
+		});
+
+		it('should handle empty missing fields array', () => {
+			const ticket = createMockTicket();
+			const validation = createMockValidation({
+				completenessValidation: {
+					isComplete: false,
+					missingFields: [],
+					feasibilityScore: 60,
+					feasibilityReasoning: 'Needs more details',
+				},
+			});
+
+			const comment = buildClarificationComment(ticket, validation, (key) => key);
+
+			// Should not show missing information section
+			expect(comment).not.toContain('### ❌ Missing Information');
+			// Should still have header and footer
+			expect(comment).toContain('## 📝 Clarification Needed: ACS-441');
+			expect(comment).toContain('*Posted by Auto-Claude validation system*');
+		});
+	});
+
+	describe('Post Feedback Behavior', () => {
+		it('should post both feedback and clarification comments when missing fields exist', async () => {
+			const ticket = createMockTicket();
+			const validation = createMockValidation({
+				completenessValidation: {
+					isComplete: false,
+					missingFields: ['Reproduction steps', 'Acceptance criteria'],
+					feasibilityScore: 60,
+					feasibilityReasoning: 'Missing information',
+				},
+			});
+
+			// Mock the electronAPI
+			const mockPostLinearComment = vi.fn().mockResolvedValue({ success: true });
+			global.window.electronAPI = {
+				postLinearComment: mockPostLinearComment,
+			} as any;
+
+			const mockOnOpenChange = vi.fn();
+
+			renderWithI18n(
+				<ValidationResults
+					open={true}
+					onOpenChange={mockOnOpenChange}
+					ticket={ticket}
+					validation={validation}
+				/>
+			);
+
+			// Click the Post Feedback button
+			const postButton = screen.getByRole('button', { name: /post feedback/i });
+			postButton.click();
+
+			// Wait for async operations
+			await waitFor(() => {
+				// Should have called postLinearComment twice:
+				// 1. For the full feedback comment
+				// 2. For the clarification comment
+				expect(mockPostLinearComment).toHaveBeenCalledTimes(2);
+			});
+
+			// Verify first call was for feedback comment
+			expect(mockPostLinearComment).toHaveBeenNthCalledWith(
+				1,
+				null,
+				'ticket-123',
+				expect.stringContaining('## 🔍 Validation Results')
+			);
+
+			// Verify second call was for clarification comment
+			expect(mockPostLinearComment).toHaveBeenNthCalledWith(
+				2,
+				null,
+				'ticket-123',
+				expect.stringContaining('## 📝 Clarification Needed')
+			);
+
+			// Modal should close on success
+			await waitFor(() => {
+				expect(mockOnOpenChange).toHaveBeenCalledWith(false);
+			});
+		});
+
+		it('should post only feedback comment when no missing fields', async () => {
+			const ticket = createMockTicket();
+			const validation = createMockValidation({
+				completenessValidation: {
+					isComplete: false,
+					missingFields: [],
+					feasibilityScore: 60,
+					feasibilityReasoning: 'Needs more details',
+				},
+			});
+
+			// Mock the electronAPI
+			const mockPostLinearComment = vi.fn().mockResolvedValue({ success: true });
+			global.window.electronAPI = {
+				postLinearComment: mockPostLinearComment,
+			} as any;
+
+			const mockOnOpenChange = vi.fn();
+
+			renderWithI18n(
+				<ValidationResults
+					open={true}
+					onOpenChange={mockOnOpenChange}
+					ticket={ticket}
+					validation={validation}
+				/>
+			);
+
+			// Click the Post Feedback button
+			const postButton = screen.getByRole('button', { name: /post feedback/i });
+			postButton.click();
+
+			// Wait for async operations
+			await waitFor(() => {
+				// Should have called postLinearComment only once for feedback
+				expect(mockPostLinearComment).toHaveBeenCalledTimes(1);
+			});
+
+			// Verify it was for feedback comment (not clarification)
+			expect(mockPostLinearComment).toHaveBeenCalledWith(
+				null,
+				'ticket-123',
+				expect.stringContaining('## 🔍 Validation Results')
+			);
+		});
+
+		it('should show error when postLinearComment fails', async () => {
+			const ticket = createMockTicket();
+			const validation = createMockValidation({
+				completenessValidation: {
+					isComplete: false,
+					missingFields: ['Reproduction steps'],
+					feasibilityScore: 60,
+					feasibilityReasoning: 'Missing information',
+				},
+			});
+
+			// Mock the electronAPI to fail
+			const mockPostLinearComment = vi.fn().mockResolvedValue({
+				success: false,
+				error: 'API rate limit exceeded',
+			});
+			global.window.electronAPI = {
+				postLinearComment: mockPostLinearComment,
+			} as any;
+
+			const mockOnOpenChange = vi.fn();
+
+			renderWithI18n(
+				<ValidationResults
+					open={true}
+					onOpenChange={mockOnOpenChange}
+					ticket={ticket}
+					validation={validation}
+				/>
+			);
+
+			// Click the Post Feedback button
+			const postButton = screen.getByRole('button', { name: /post feedback/i });
+			postButton.click();
+
+			// Wait for error message to appear
+			await waitFor(() => {
+				expect(screen.getByText('API rate limit exceeded')).toBeInTheDocument();
+			});
+
+			// Modal should NOT close on error
+			expect(mockOnOpenChange).not.toHaveBeenCalled();
 		});
 	});
 });
