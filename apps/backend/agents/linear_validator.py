@@ -903,9 +903,10 @@ class LinearValidationAgent:
                             message = messages[min(message_index, len(messages) - 1)]
                             self._emit_progress("ai_analysis", 5, 7, message)
 
-                            # Cycle through messages for variety
+                            # Cycle through messages for variety, but don't wrap back to start
+                            # Once we've shown all messages, stay on the last one to avoid looping
                             if elapsed >= 15:  # After 15s, change message
-                                message_index = (message_index + 1) % len(messages)
+                                message_index = min(message_index + 1, len(messages) - 1)
 
                             last_emit_time = current_time
 
