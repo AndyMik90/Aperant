@@ -164,6 +164,7 @@ export function AuthChoiceStep({ onNext, onBack, onSkip, onAPIKeyPathComplete }:
       <ProfileEditDialog
         open={isProfileDialogOpen}
         onOpenChange={handleProfileDialogClose}
+        onSaved={onAPIKeyPathComplete}
         // No profile prop = create mode
       />
     </>
