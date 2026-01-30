@@ -195,17 +195,22 @@ export class TaskStateManager {
    * Clear all task state. Called by TASK_LIST handler when forceRefresh is true.
    * This ensures actors are recreated with fresh task data when the user
    * triggers a manual refresh from the UI.
+   *
+   * Note: lastSequenceByTask is preserved to prevent duplicate event processing
+   * if backend events arrive during the refresh window. Sequence numbers are
+   * specific to task execution sessions and should remain valid across UI refreshes.
    */
   clearAllTasks(): void {
-    for (const [taskId, actor] of this.actors) {
+    for (const [_taskId, actor] of this.actors) {
       actor.stop();
     }
     this.actors.clear();
-    this.lastSequenceByTask.clear();
+    // Preserve lastSequenceByTask to prevent duplicate event processing during refresh
+    // Only clear state that needs to be rebuilt from fresh task data
     this.lastStateByTask.clear();
     this.terminalEventSeen.clear();
     this.taskContextById.clear();
-    console.log('[TaskStateManager] Cleared all task state for refresh');
+    console.log('[TaskStateManager] Cleared task actors and state for refresh (preserved sequence tracking)');
   }
 
   private setTaskContext(taskId: string, task: Task, project: Project): void {
@@ -256,6 +261,7 @@ export class TaskStateManager {
 
       const contextEntry = this.taskContextById.get(taskId);
       if (!contextEntry) {
+        console.debug(`[TaskStateManager] No context for task ${taskId} during state transition to ${stateValue} - skipping emit (may occur after clearTask during event processing)`);
         return;
       }
       const { task, project } = contextEntry;
