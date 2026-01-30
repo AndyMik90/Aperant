@@ -875,31 +875,49 @@ class LinearValidationAgent:
                         "[LINEAR_VALIDATION] Phase 1: Content Analysis - starting"
                     )
 
-                # Create a heartbeat task that emits progress during the long AI call
-                heartbeat_steps = [
-                    (
-                        "codebase_search",
-                        2,
+                # Create a continuous heartbeat task that emits progress during the long AI call
+                # This keeps running while the AI processes (which can take 30+ seconds), preventing the "hanging" feeling
+                # Updates every 3 seconds with elapsed time to show activity
+                async def continuous_heartbeat_task(stop_event: asyncio.Event):
+                    """Emit continuous heartbeat progress updates during AI processing."""
+                    elapsed = 0
+                    update_interval = 3  # Update every 3 seconds
+
+                    messages = [
                         "Searching codebase for related implementation...",
-                    ),
-                    ("ai_analysis_start", 3, "AI analysis in progress..."),
-                    ("completeness_check", 4, "Validating ticket completeness..."),
-                    ("labels_selection", 5, "Selecting appropriate labels..."),
-                    ("version_calculation", 6, "Calculating version label..."),
-                    ("properties_recommendation", 7, "Recommending task properties..."),
-                ]
-                heartbeat_index = 0
+                        "AI analysis in progress...",
+                        "Analyzing ticket requirements...",
+                        "Generating validation recommendations...",
+                        "Preparing final results...",
+                    ]
 
-                async def heartbeat_task():
-                    """Emit heartbeat progress updates during AI processing."""
-                    nonlocal heartbeat_index
-                    for phase, step, message in heartbeat_steps:
-                        await asyncio.sleep(2)  # Wait 2 seconds between updates
-                        self._emit_progress(phase, step, 7, message)
-                        heartbeat_index += 1
+                    message_index = 0
+                    last_emit_time = 0
 
-                # Start heartbeat task
-                heartbeat = asyncio.create_task(heartbeat_task())
+                    while not stop_event.is_set():
+                        # Check if we need to update (every 3 seconds or immediately for first update)
+                        current_time = time.time()
+                        should_update = (current_time - last_emit_time) >= update_interval or last_emit_time == 0
+
+                        if should_update:
+                            message = messages[min(message_index, len(messages) - 1)]
+                            self._emit_progress("ai_analysis", 5, 7, f"{message} ({elapsed}s elapsed)")
+
+                            # Cycle through messages for variety
+                            if elapsed >= 15:  # After 15s, change message
+                                message_index = (message_index + 1) % len(messages)
+
+                            last_emit_time = current_time
+
+                        # Wait a bit before checking again
+                        await asyncio.sleep(0.5)
+                        elapsed += 0.5
+
+                # Create stop event for the heartbeat
+                stop_heartbeat = asyncio.Event()
+
+                # Start continuous heartbeat task
+                heartbeat = asyncio.create_task(continuous_heartbeat_task(stop_heartbeat))
 
                 # Wrap the session call with timeout
                 try:
@@ -914,12 +932,14 @@ class LinearValidationAgent:
                         timeout=self.session_timeout,
                     )
 
-                    # Cancel heartbeat as we're done
-                    heartbeat.cancel()
+                    # Signal heartbeat to stop
+                    stop_heartbeat.set()
+
+                    # Wait for heartbeat task to finish
                     try:
                         await heartbeat
                     except asyncio.CancelledError:
-                        # Expected when cancelling the heartbeat task - ignore
+                        # Expected when cancelling - ignore
                         pass
 
                     # Debug: Phase 1 complete, Phases 2-5 are handled by the AI in a single call
@@ -950,13 +970,13 @@ class LinearValidationAgent:
 
                     return response
                 except asyncio.TimeoutError:
-                    heartbeat.cancel()
+                    stop_heartbeat.set()
                     logger.error(
                         f"Validation session for {issue_id} timed out after {self.session_timeout}s"
                     )
                     raise ValidationTimeoutError(issue_id, self.session_timeout)
                 except Exception:
-                    heartbeat.cancel()
+                    stop_heartbeat.set()
                     raise
 
             # Configure retry with exponential backoff for transient errors
