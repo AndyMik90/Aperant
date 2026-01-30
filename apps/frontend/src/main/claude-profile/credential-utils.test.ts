@@ -34,6 +34,7 @@ import {
   getKeychainServiceName,
   getWindowsCredentialTarget,
   getCredentialsFromKeychain,
+  getFullCredentialsFromKeychain,
   getCredentials,
   clearKeychainCache,
   clearCredentialCache,
@@ -460,6 +461,100 @@ describe('credential-utils', () => {
       // Should prefer file since Claude CLI writes there after login
       expect(result.token).toBe('sk-ant-windows-file-token');
       expect(result.email).toBe('windowsfile@example.com');
+    });
+  });
+
+  describe('getFullCredentialsFromKeychain (Windows)', () => {
+    beforeEach(() => {
+      vi.mocked(isMacOS).mockReturnValue(false);
+      vi.mocked(isWindows).mockReturnValue(true);
+      vi.mocked(isLinux).mockReturnValue(false);
+      vi.mocked(homedir).mockReturnValue('C:\\Users\\TestUser');
+      clearCredentialCache();
+    });
+
+    it('should return full credentials from file when available', () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
+        claudeAiOauth: {
+          accessToken: 'sk-ant-full-creds-token',
+          refreshToken: 'refresh-token-123',
+          expiresAt: 1700000000000,
+          email: 'full@example.com',
+          scopes: ['user:read', 'user:write'],
+        },
+      }));
+      vi.mocked(execFileSync).mockReturnValue(''); // Credential Manager empty
+
+      const result = getFullCredentialsFromKeychain();
+
+      expect(result.token).toBe('sk-ant-full-creds-token');
+      expect(result.refreshToken).toBe('refresh-token-123');
+      expect(result.expiresAt).toBe(1700000000000);
+      expect(result.email).toBe('full@example.com');
+      expect(result.scopes).toEqual(['user:read', 'user:write']);
+    });
+
+    it('should return credentials from Credential Manager when file is empty', () => {
+      vi.mocked(existsSync).mockImplementation((path: unknown) => {
+        const pathStr = String(path);
+        return pathStr.includes('PowerShell') || pathStr.includes('powershell');
+      });
+      vi.mocked(execFileSync).mockReturnValue(JSON.stringify({
+        claudeAiOauth: {
+          accessToken: 'sk-ant-credman-full-token',
+          refreshToken: 'credman-refresh',
+          expiresAt: 1700000000000,
+          email: 'credman@example.com',
+        },
+      }));
+
+      const result = getFullCredentialsFromKeychain();
+
+      expect(result.token).toBe('sk-ant-credman-full-token');
+      expect(result.refreshToken).toBe('credman-refresh');
+      expect(result.email).toBe('credman@example.com');
+    });
+
+    it('should prefer file credentials when both sources have tokens (consistent with basic API)', () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
+        claudeAiOauth: {
+          accessToken: 'sk-ant-file-full-token',
+          refreshToken: 'file-refresh',
+          expiresAt: 1700000000000,
+          email: 'file@example.com',
+        },
+      }));
+      vi.mocked(execFileSync).mockReturnValue(JSON.stringify({
+        claudeAiOauth: {
+          accessToken: 'sk-ant-credman-full-token',
+          refreshToken: 'credman-refresh',
+          expiresAt: 1800000000000, // Later expiry
+          email: 'credman@example.com',
+        },
+      }));
+
+      const result = getFullCredentialsFromKeychain();
+
+      // Should prefer file since Claude CLI writes there after login
+      // This is consistent with getCredentialsFromKeychain behavior
+      expect(result.token).toBe('sk-ant-file-full-token');
+      expect(result.refreshToken).toBe('file-refresh');
+      expect(result.email).toBe('file@example.com');
+    });
+
+    it('should return null when both sources have no credentials', () => {
+      vi.mocked(existsSync).mockImplementation((path: unknown) => {
+        const pathStr = String(path);
+        return pathStr.includes('PowerShell') || pathStr.includes('powershell');
+      });
+      vi.mocked(execFileSync).mockReturnValue('');
+
+      const result = getFullCredentialsFromKeychain();
+
+      expect(result.token).toBeNull();
+      expect(result.refreshToken).toBeNull();
     });
   });
 

@@ -164,12 +164,18 @@ export function calculateConfigDirHash(configDir: string): string {
  * Mixed slashes (C:\Users\bill/.claude-profiles) produce different hashes than
  * consistent slashes (C:\Users\bill\.claude-profiles).
  *
+ * Supports:
+ * - Drive letter paths: C:\Users\...
+ * - UNC paths with backslashes: \\server\share
+ * - UNC paths with forward slashes: //server/share (normalized to \\server\share)
+ *
  * @param path - The path to normalize
  * @returns The path with forward slashes replaced by backslashes on Windows
  */
 export function normalizeWindowsPath(path: string): string {
   if (!isWindows()) return path;
-  if (!/^[A-Za-z]:|\\/.test(path)) return path;
+  // Match: drive letter (C:), UNC with backslashes (\\), or UNC with forward slashes (//)
+  if (!/^[A-Za-z]:|^[\\/]{2}/.test(path)) return path;
   return path.replace(/\//g, '\\');
 }
 
@@ -1510,24 +1516,14 @@ function getFullCredentialsFromWindows(configDir?: string): FullOAuthCredentials
     return fileResult;
   }
 
-  // Both have tokens - compare expiry times to find the most recent one
-  const fileExpiry = fileResult.expiresAt || 0;
-  const credManagerExpiry = credManagerResult.expiresAt || 0;
-
+  // Both have tokens - prefer file since Claude CLI writes there after login
+  // This is consistent with getCredentialsFromWindows() which also prefers file.
+  // Using file as primary ensures consistency: the same token is returned whether
+  // calling getCredentialsFromKeychain() or getFullCredentialsFromKeychain().
   if (isDebug) {
-    console.warn('[CredentialUtils:Windows:Full] Comparing token expiry times:', {
-      fileExpiry: fileResult.expiresAt,
-      credManagerExpiry: credManagerResult.expiresAt,
-      preferring: fileExpiry >= credManagerExpiry ? 'file' : 'credManager'
-    });
+    console.warn('[CredentialUtils:Windows:Full] Both sources have tokens, preferring file (Claude CLI primary storage)');
   }
-
-  // Return the one with the later expiry (more recently refreshed)
-  // If equal or file is newer, prefer file (Claude CLI primary storage)
-  if (fileExpiry >= credManagerExpiry) {
-    return fileResult;
-  }
-  return credManagerResult;
+  return fileResult;
 }
 
 /**
@@ -2060,10 +2056,12 @@ function updateWindowsFileCredentials(
 
     const credentialsJson = JSON.stringify(newCredentialData, null, 2);
 
-    // Ensure directory exists
+    // Ensure directory exists with secure permissions
     const dirPath = dirname(credentialsPath);
     if (!existsSync(dirPath)) {
       mkdirSync(dirPath, { recursive: true });
+      // Restrict directory permissions to current user only (mimics Unix 0700)
+      restrictWindowsFilePermissions(dirPath);
     }
 
     // Write to file
