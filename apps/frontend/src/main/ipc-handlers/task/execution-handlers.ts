@@ -19,6 +19,7 @@ import {
 import { findTaskWorktree } from '../../worktree-paths';
 import { projectStore } from '../../project-store';
 import { getIsolatedGitEnv, detectWorktreeBranch } from '../../utils/git-isolation';
+import { hasValidAPIProfile } from '../../services/utils/auth-utils';
 
 /**
  * Atomic file write to prevent TOCTOU race conditions.

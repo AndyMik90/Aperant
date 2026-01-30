@@ -6,7 +6,7 @@ import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { AgentQueueManager } from './agent-queue';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
-import { loadProfilesFile } from '../services/profile/profile-manager';
+import { hasValidAPIProfile } from '../services/utils/auth-utils';
 import {
   SpecCreationMetadata,
   TaskExecutionOptions,
@@ -86,30 +86,6 @@ export class AgentManager extends EventEmitter {
   }
 
   /**
-   * Check if there's an active API profile configured
-   *
-   * API profiles (custom API keys) are stored separately from OAuth profiles.
-   * This function checks if an API profile is active and has valid credentials.
-   *
-   * @returns true if an active API profile exists, false otherwise
-   */
-  private async hasValidAPIProfile(): Promise<boolean> {
-    try {
-      const file = await loadProfilesFile();
-      // Check if there's an active profile ID set
-      if (!file.activeProfileId || file.activeProfileId === '') {
-        return false;
-      }
-      // Verify the active profile exists in the profiles list
-      const activeProfile = file.profiles.find((p) => p.id === file.activeProfileId);
-      return !!activeProfile;
-    } catch (error) {
-      console.error('[AgentManager] Error checking API profile:', error);
-      return false;
-    }
-  }
-
-  /**
    * Start spec creation process
    */
   async startSpecCreation(
@@ -121,6 +97,7 @@ export class AgentManager extends EventEmitter {
     baseBranch?: string
   ): Promise<void> {
     // Pre-flight auth check: Verify active profile has valid authentication
+    // Supports both OAuth and API profile authentication
     // Ensure profile manager is initialized to prevent race condition
     let profileManager;
     try {
@@ -131,7 +108,7 @@ export class AgentManager extends EventEmitter {
       return;
     }
     const hasOAuthAuth = profileManager.hasValidAuth();
-    const hasAPIAuth = await this.hasValidAPIProfile();
+    const hasAPIAuth = await hasValidAPIProfile();
 
     if (!hasOAuthAuth && !hasAPIAuth) {
       this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
@@ -217,6 +194,7 @@ export class AgentManager extends EventEmitter {
     options: TaskExecutionOptions = {}
   ): Promise<void> {
     // Pre-flight auth check: Verify active profile has valid authentication
+    // Supports both OAuth and API profile authentication
     // Ensure profile manager is initialized to prevent race condition
     let profileManager;
     try {
@@ -227,7 +205,7 @@ export class AgentManager extends EventEmitter {
       return;
     }
     const hasOAuthAuth = profileManager.hasValidAuth();
-    const hasAPIAuth = await this.hasValidAPIProfile();
+    const hasAPIAuth = await hasValidAPIProfile();
 
     if (!hasOAuthAuth && !hasAPIAuth) {
       this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');

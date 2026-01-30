@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { LogIn, Key, Shield } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { ProfileEditDialog } from '../settings/ProfileEditDialog';
-import { useSettingsStore } from '../../stores/settings-store';
 
 interface AuthChoiceStepProps {
   onNext: () => void;
@@ -63,19 +62,6 @@ function AuthOptionCard({ icon, title, description, onClick, variant = 'default'
  */
 export function AuthChoiceStep({ onNext, onBack, onSkip, onAPIKeyPathComplete }: AuthChoiceStepProps) {
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
-  const profiles = useSettingsStore((state) => state.profiles);
-
-  // Track initial profiles length to detect new profile creation
-  const initialProfilesLengthRef = useRef(profiles.length);
-
-  // Update the ref when profiles change (to track the initial state before dialog opened)
-  useEffect(() => {
-    // Only update the ref when dialog is NOT open
-    // This captures the state before user opens the dialog
-    if (!isProfileDialogOpen) {
-      initialProfilesLengthRef.current = profiles.length;
-    }
-  }, [profiles.length, isProfileDialogOpen]);
 
   // OAuth button handler - proceeds to OAuth step
   const handleOAuthChoice = () => {
@@ -87,16 +73,18 @@ export function AuthChoiceStep({ onNext, onBack, onSkip, onAPIKeyPathComplete }:
     setIsProfileDialogOpen(true);
   };
 
-  // Profile dialog close handler - detects profile creation and skips oauth step
+  // Profile dialog close handler - only handles opening/closing the dialog
   const handleProfileDialogClose = (open: boolean) => {
-    const wasEmpty = initialProfilesLengthRef.current === 0;
-    const hasProfilesNow = profiles.length > 0;
-
     setIsProfileDialogOpen(open);
+  };
 
-    // If dialog closed and profile was created (was empty, now has profiles), skip to graphiti step
-    if (!open && wasEmpty && hasProfilesNow && onAPIKeyPathComplete) {
-      // Call the callback to skip oauth and go directly to graphiti
+  // Profile saved handler - closes dialog then advances wizard
+  const handleProfileSaved = () => {
+    // Close the dialog
+    setIsProfileDialogOpen(false);
+
+    // Skip oauth step and go directly to graphiti
+    if (onAPIKeyPathComplete) {
       onAPIKeyPathComplete();
     }
   };
@@ -164,7 +152,7 @@ export function AuthChoiceStep({ onNext, onBack, onSkip, onAPIKeyPathComplete }:
       <ProfileEditDialog
         open={isProfileDialogOpen}
         onOpenChange={handleProfileDialogClose}
-        onSaved={onAPIKeyPathComplete}
+        onSaved={handleProfileSaved}
         // No profile prop = create mode
       />
     </>
