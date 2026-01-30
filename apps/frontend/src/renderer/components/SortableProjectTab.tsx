@@ -55,7 +55,7 @@ export function SortableProjectTab({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group relative flex items-center min-w-0',
+        'group relative flex items-center flex-shrink-0',
         // Allow tabs to expand to show full title, no max-width constraint
         'border-r border-border last:border-r-0',
         'touch-none transition-all duration-200',
