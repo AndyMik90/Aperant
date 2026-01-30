@@ -29,6 +29,7 @@ export const settingsMock = {
       python: { found: false, source: 'fallback' as const, message: 'Not available in browser mode' },
       git: { found: false, source: 'fallback' as const, message: 'Not available in browser mode' },
       gh: { found: false, source: 'fallback' as const, message: 'Not available in browser mode' },
+      glab: { found: false, source: 'fallback' as const, message: 'Not available in browser mode' },
       claude: { found: false, source: 'fallback' as const, message: 'Not available in browser mode' }
     }
   }),

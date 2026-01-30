@@ -42,7 +42,7 @@ export function GitLabMergeRequests({ projectId, onOpenSettings }: GitLabMergeRe
     mergeMR,
     assignMR,
     approveMR,
-  } = useGitLabMRs(projectId);
+  } = useGitLabMRs(projectId, { stateFilter });
 
   const handleCreateSuccess = async (mrIid: number) => {
     // Refresh the list and select the newly created MR
