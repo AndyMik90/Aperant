@@ -306,16 +306,6 @@ export function AITaskSplitterModal({
 
             <ScrollArea className="h-[400px] pr-4">
               <div className="space-y-4">
-                {/* Show attached images notice if any images were pasted */}
-                {clipboardImages.length > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span>{clipboardImages.length} {clipboardImages.length === 1 ? 'image' : 'images'} will be attached to all created tasks</span>
-                  </div>
-                )}
-
                 {splitTasks.map((task, index) => (
                   <div
                     key={index}
@@ -348,6 +338,28 @@ export function AITaskSplitterModal({
                             rows={3}
                           />
                         </div>
+                        {/* Attached images gallery */}
+                        {task.attachedImages && task.attachedImages.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">
+                              {t('tasks:aiSplitter.attachedImages', { count: task.attachedImages.length })}
+                            </Label>
+                            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                              {task.attachedImages.map((image) => (
+                                <div
+                                  key={image.id}
+                                  className="relative shrink-0 group"
+                                >
+                                  <img
+                                    src={image.thumbnail || `data:${image.mimeType};base64,placeholder`}
+                                    alt="Task reference image"
+                                    className="h-16 w-auto rounded-md border border-border object-cover"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <Button
                         variant="ghost"

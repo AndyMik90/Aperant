@@ -29,19 +29,33 @@ export const taskMock = {
 
   deleteTask: async () => ({ success: true }),
 
-  splitIntoTasks: async (_projectId: string, text: string, _promptTemplate?: string, _images?: import('../../../shared/types/screenshot').ClipboardImage[]) => ({
-    success: true,
-    data: [
-      {
-        title: 'Sample Task 1',
-        description: text.substring(0, 100)
-      },
-      {
-        title: 'Sample Task 2',
-        description: text.substring(0, 100)
-      }
-    ]
-  }),
+  splitIntoTasks: async (_projectId: string, text: string, _promptTemplate?: string, images?: import('../../../shared/types/screenshot').ClipboardImage[]) => {
+    // Convert ClipboardImage to ImageAttachment for mock response
+    const attachedImages = images?.map(img => ({
+      id: img.id,
+      filename: `clipboard-${img.id}.${img.mimeType.split('/')[1]}`,
+      mimeType: img.mimeType,
+      size: img.size,
+      path: `/mock/path/${img.id}.${img.mimeType.split('/')[1]}`,
+      thumbnail: img.dataUrl
+    })) || [];
+
+    return {
+      success: true,
+      data: [
+        {
+          title: 'Sample Task 1',
+          description: text.substring(0, 100),
+          attachedImages
+        },
+        {
+          title: 'Sample Task 2',
+          description: text.substring(0, 100),
+          attachedImages
+        }
+      ]
+    };
+  },
 
   updateTask: async (_taskId: string, updates: { title?: string; description?: string }) => ({
     success: true,

@@ -571,7 +571,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_SPLIT_INTO_TASKS,
-    async (_, projectId: string, text: string, promptTemplate?: string, images?: import('../../../shared/types/screenshot').ClipboardImage[]): Promise<IPCResult<Array<{ title: string; description: string }>>> => {
+    async (_, projectId: string, text: string, promptTemplate?: string, images?: import('../../../shared/types/screenshot').ClipboardImage[]): Promise<IPCResult<Array<{ title: string; description: string; attachedImages?: import('../../../shared/types/task').ImageAttachment[] }>>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
         return { success: false, error: 'Project not found' };
@@ -685,11 +685,12 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
 /**
  * Split text into multiple tasks using Claude AI
  */
-async function splitTextIntoTasks(text: string, promptTemplate?: string, images?: import('../../../shared/types/screenshot').ClipboardImage[]): Promise<Array<{ title: string; description: string }>> {
+async function splitTextIntoTasks(text: string, promptTemplate?: string, images?: import('../../../shared/types/screenshot').ClipboardImage[]): Promise<Array<{ title: string; description: string; attachedImages?: import('../../../shared/types/task').ImageAttachment[] }>> {
   const { spawn } = await import('child_process');
   const path = await import('path');
   const { app } = await import('electron');
-  const { existsSync, readFileSync } = await import('fs');
+  const { existsSync, readFileSync, mkdirSync, writeFileSync } = await import('fs');
+  const { randomUUID } = await import('crypto');
 
   // Find the auto-claude backend path
   const possiblePaths = [
@@ -708,6 +709,46 @@ async function splitTextIntoTasks(text: string, promptTemplate?: string, images?
   if (!autoBuildSource) {
     console.error('[splitTextIntoTasks] Auto-claude source path not found');
     return [];
+  }
+
+  // Create temp directory for clipboard images
+  const tempDir = path.join(autoBuildSource, '.auto-claude', '.temp', 'clipboard-images', Date.now().toString());
+  const savedImages: import('../../../shared/types/task').ImageAttachment[] = [];
+
+  if (images && images.length > 0) {
+    try {
+      mkdirSync(tempDir, { recursive: true });
+
+      for (const img of images) {
+        try {
+          // Generate filename from ID and extension from MIME type
+          const ext = img.mimeType.split('/')[1] || 'png';
+          const filename = `clipboard-${img.id}.${ext}`;
+          const imagePath = path.join(tempDir, filename);
+
+          // Extract base64 data from data URL and save to file
+          const base64Data = img.dataUrl.split(',')[1];
+          const buffer = Buffer.from(base64Data, 'base64');
+          writeFileSync(imagePath, buffer);
+
+          // Create thumbnail (resize to max 200px width/height for display)
+          const thumbnailBase64 = img.dataUrl; // Use full image as thumbnail for now
+
+          savedImages.push({
+            id: img.id,
+            filename,
+            mimeType: img.mimeType,
+            size: img.size,
+            path: imagePath, // Absolute path for AI reference
+            thumbnail: thumbnailBase64
+          });
+        } catch (err) {
+          console.error(`[splitTextIntoTasks] Failed to save image ${img.id}:`, err);
+        }
+      }
+    } catch (err) {
+      console.error('[splitTextIntoTasks] Failed to create temp directory for images:', err);
+    }
   }
 
   // Load environment variables
@@ -734,19 +775,19 @@ async function splitTextIntoTasks(text: string, promptTemplate?: string, images?
   // Create the Python script for task splitting
   const escapedText = JSON.stringify(text);
 
-  // Build the images section for the prompt
+  // Build the images section for the prompt - use file paths instead of base64
   let imagesPrompt = '';
-  if (images && images.length > 0) {
-    imagesPrompt = `\n\nATTACHED IMAGES (${images.length}):\n`;
-    imagesPrompt += 'The following images are provided as reference. Analyze them and use the information to create appropriate tasks.\n';
-    imagesPrompt += 'Images are provided as base64 data URLs:\n\n';
+  if (savedImages.length > 0) {
+    imagesPrompt = `\n\nATTACHED IMAGES (${savedImages.length}):\n`;
+    imagesPrompt += 'The following images are provided as reference files. Analyze them and use the information to create appropriate tasks.\n';
+    imagesPrompt += 'Image file paths:\n\n';
 
-    for (let i = 0; i < images.length; i++) {
-      const img = images[i];
+    for (let i = 0; i < savedImages.length; i++) {
+      const img = savedImages[i];
       imagesPrompt += `[Image ${i + 1}]\n`;
+      imagesPrompt += `- File: ${img.path}\n`;
       imagesPrompt += `- Type: ${img.mimeType}\n`;
-      imagesPrompt += `- Size: ${img.size} bytes\n`;
-      imagesPrompt += `- Data URL: ${img.dataUrl.substring(0, 100)}... (truncated)\n\n`;
+      imagesPrompt += `- Size: ${img.size} bytes\n\n`;
     }
 
     imagesPrompt += '\nIMPORTANT: These images contain context that should be used to inform the tasks being created. ';
@@ -931,7 +972,14 @@ asyncio.run(split_into_tasks())
           try {
             const tasks = JSON.parse(output.trim());
             console.log('[splitTextIntoTasks] Successfully split into', tasks.length, 'tasks');
-            resolve(tasks);
+
+            // Attach saved images to each task
+            const tasksWithImages = tasks.map((task: { title: string; description: string }) => ({
+              ...task,
+              attachedImages: savedImages
+            }));
+
+            resolve(tasksWithImages);
           } catch (e) {
             console.error('[splitTextIntoTasks] Failed to parse response:', output.substring(0, 500));
             resolve([]);

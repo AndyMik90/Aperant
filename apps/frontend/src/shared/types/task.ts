@@ -169,6 +169,7 @@ export type ModelType = 'haiku' | 'sonnet' | 'opus';
 export interface SplitTask {
   title: string;
   description: string;
+  attachedImages?: ImageAttachment[];  // Images saved as files (with thumbnails for display)
 }
 export type TaskCategory =
   | 'feature'
