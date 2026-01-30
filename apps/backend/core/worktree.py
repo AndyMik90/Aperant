@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import TypedDict, TypeVar
 
 from core.gh_executable import get_gh_executable, invalidate_gh_cache
+from core.model_config import get_utility_model_config
 from core.git_executable import get_git_executable, get_isolated_git_env, run_git
 from debug import debug_warning
 
@@ -1349,7 +1350,7 @@ class WorktreeManager:
         info = self.get_worktree_info(spec_name)
         branch = info.branch if info else self.get_branch_name(spec_name)
 
-        # Get diff summary (stat + short diff)
+        # Get diff summary (stat for overview)
         diff_result = self._run_git(
             ["diff", "--stat", f"{target_branch}...{branch}"],
             cwd=worktree_path,
@@ -1357,14 +1358,32 @@ class WorktreeManager:
         )
         diff_summary = diff_result.stdout.strip() if diff_result.returncode == 0 else ""
 
-        # Also get a condensed patch for more context
-        patch_result = self._run_git(
+        # Get shortstat for quick summary
+        shortstat_result = self._run_git(
             ["diff", "--shortstat", f"{target_branch}...{branch}"],
             cwd=worktree_path,
             timeout=30,
         )
+        if shortstat_result.returncode == 0 and shortstat_result.stdout.strip():
+            diff_summary += "\n\n" + shortstat_result.stdout.strip()
+
+        # Get actual code changes (patch format) for better AI context
+        # Truncate to 30k chars to avoid token limits while still providing meaningful context
+        patch_result = self._run_git(
+            ["diff", "-p", "--stat-width=999", f"{target_branch}...{branch}"],
+            cwd=worktree_path,
+            timeout=30,
+        )
         if patch_result.returncode == 0 and patch_result.stdout.strip():
-            diff_summary += "\n\n" + patch_result.stdout.strip()
+            patch_content = patch_result.stdout.strip()
+            MAX_DIFF_CHARS = 30_000
+
+            if len(patch_content) > MAX_DIFF_CHARS:
+                # Truncate patch and add notice
+                truncated_patch = patch_content[:MAX_DIFF_CHARS]
+                diff_summary += "\n\n" + truncated_patch + "\n\n(... diff truncated due to size)"
+            else:
+                diff_summary += "\n\n" + patch_content
 
         # Get commit log
         log_result = self._run_git(
@@ -1426,14 +1445,17 @@ class WorktreeManager:
                 logger.warning("Spec directory not found for AI PR body generation")
                 return None
 
+        # Get model configuration from environment (respects user settings)
+        model, thinking_budget = get_utility_model_config()
+
         async def _run_with_timeout() -> str | None:
             try:
                 return await asyncio.wait_for(
                     run_pr_template_filler(
                         project_dir=self.project_dir,
                         spec_dir=spec_dir,
-                        model="sonnet",
-                        thinking_budget=None,
+                        model=model,
+                        thinking_budget=thinking_budget,
                         branch_name=branch_name,
                         target_branch=target_branch,
                         diff_summary=diff_summary,
