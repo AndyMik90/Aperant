@@ -339,9 +339,10 @@ describe('TaskStateManager', () => {
       // Clear all
       manager.clearAllTasks();
 
-      // Verify all cleared
-      expect(manager.getLastSequence('task-1')).toBeUndefined();
-      expect(manager.getLastSequence('task-2')).toBeUndefined();
+      // Verify actors and state are cleared, but sequence tracking is preserved
+      // (to prevent duplicate event processing during refresh window)
+      expect(manager.getLastSequence('task-1')).toBe(10);
+      expect(manager.getLastSequence('task-2')).toBe(20);
     });
   });
 
