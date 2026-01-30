@@ -56,10 +56,7 @@ export function SortableProjectTab({
       style={style}
       className={cn(
         'group relative flex items-center min-w-0',
-        // Responsive max-widths: smaller on mobile, larger on desktop
-        isActive
-          ? 'max-w-[180px] sm:max-w-[220px] md:max-w-[280px]'
-          : 'max-w-[120px] sm:max-w-[160px] md:max-w-[200px]',
+        // Allow tabs to expand to show full title, no max-width constraint
         'border-r border-border last:border-r-0',
         'touch-none transition-all duration-200',
         isDragging && 'opacity-60 scale-[0.98] shadow-lg'

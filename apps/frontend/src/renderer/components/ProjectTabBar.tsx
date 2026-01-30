@@ -90,7 +90,7 @@ export function ProjectTabBar({
       'overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent',
       className
     )}>
-      <div className="flex items-center flex-1 min-w-0">
+      <div className="flex items-center flex-1 min-w-0 overflow-x-auto">
         {projects.map((project, index) => {
           const isActiveTab = activeProjectId === project.id;
           return (
