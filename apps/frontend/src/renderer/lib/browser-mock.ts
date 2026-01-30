@@ -346,6 +346,15 @@ const browserMockAPI: ElectronAPI = {
     error: 'Screenshot capture not available in browser mode'
   }),
 
+  // Clipboard operations
+  readClipboardWithImages: async () => ({
+    success: true,
+    data: {
+      text: '',
+      images: []
+    }
+  }),
+
   // Debug Operations
   getDebugInfo: async () => ({
     systemInfo: {

@@ -563,6 +563,9 @@ export const IPC_CHANNELS = {
   SCREENSHOT_GET_SOURCES: 'screenshot:getSources',  // Get available screens/windows
   SCREENSHOT_CAPTURE: 'screenshot:capture',          // Capture screenshot from source
 
+  // Clipboard operations
+  CLIPBOARD_READ_WITH_IMAGES: 'clipboard:readWithImages',  // Read clipboard content (text + images)
+
   // Queue routing (rate limit recovery)
   QUEUE_GET_RUNNING_TASKS_BY_PROFILE: 'queue:getRunningTasksByProfile',
   QUEUE_GET_BEST_PROFILE_FOR_TASK: 'queue:getBestProfileForTask',

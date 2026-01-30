@@ -7,11 +7,12 @@
  */
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Sparkles, X, Plus, Trash2, ChevronLeft, Check } from 'lucide-react';
+import { Loader2, Sparkles, X, Plus, Trash2, ChevronLeft, Check, Clipboard } from 'lucide-react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
+import type { ClipboardImage } from '../../shared/types/screenshot';
 import {
   Dialog,
   DialogContent,
@@ -55,6 +56,8 @@ export function AITaskSplitterModal({
   const [error, setError] = useState<string | null>(null);
   const [splitTasks, setSplitTasks] = useState<SplitTask[]>([]);
   const [selectedPromptTemplateId, setSelectedPromptTemplateId] = useState<string>('default');
+  const [clipboardImages, setClipboardImages] = useState<ClipboardImage[]>([]);
+  const [isPasting, setIsPasting] = useState(false);
 
   // Initialize selected template from settings
   useEffect(() => {
@@ -118,9 +121,42 @@ export function AITaskSplitterModal({
   const handleClose = () => {
     setInputText('');
     setSplitTasks([]);
+    setClipboardImages([]);
     setError(null);
     setStep('input');
     onOpenChange(false);
+  };
+
+  const handlePasteFromClipboard = async () => {
+    setIsPasting(true);
+    setError(null);
+
+    try {
+      const result = await window.electronAPI.readClipboardWithImages();
+
+      if (result.success && result.data) {
+        const { text, images } = result.data;
+
+        // Set the text content
+        if (text) {
+          setInputText(text);
+        }
+
+        // Set the images
+        setClipboardImages(images);
+      } else {
+        setError(result.error || t('tasks:aiSplitter.errors.clipboardFailed'));
+      }
+    } catch (err) {
+      console.error('Failed to paste from clipboard:', err);
+      setError(t('tasks:aiSplitter.errors.clipboardFailed'));
+    } finally {
+      setIsPasting(false);
+    }
+  };
+
+  const removeImage = (imageId: string) => {
+    setClipboardImages(clipboardImages.filter(img => img.id !== imageId));
   };
 
   const updateTask = (index: number, field: keyof SplitTask, value: string) => {
@@ -173,6 +209,52 @@ export function AITaskSplitterModal({
               onChange={setSelectedPromptTemplateId}
               disabled={isSplitting}
             />
+
+            {/* Paste from clipboard button */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePasteFromClipboard}
+                disabled={isPasting || isSplitting}
+                className="gap-2"
+              >
+                <Clipboard className="h-4 w-4" />
+                {isPasting ? t('tasks:aiSplitter.pasting') : t('tasks:aiSplitter.pasteFromClipboard')}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                {t('tasks:aiSplitter.clipboardHint')}
+              </p>
+            </div>
+
+            {/* Clipboard images gallery */}
+            {clipboardImages.length > 0 && (
+              <div className="space-y-2">
+                <Label>{t('tasks:aiSplitter.attachedImages', { count: clipboardImages.length })}</Label>
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                  {clipboardImages.map((image) => (
+                    <div
+                      key={image.id}
+                      className="relative shrink-0 group"
+                    >
+                      <img
+                        src={image.dataUrl}
+                        alt="Clipboard image"
+                        className="h-24 w-auto rounded-lg border border-border object-cover"
+                      />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => removeImage(image.id)}
+                        className="absolute -top-2 -right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="task-input">{t('tasks:aiSplitter.inputLabel')}</Label>

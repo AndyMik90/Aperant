@@ -351,9 +351,14 @@
     "bulkCreate_plural": "Créer {{count}} tâches",
     "buttonLabel": "Fractionnement IA",
     "buttonAriaLabel": "Utiliser l'IA pour fractionner le texte en plusieurs tâches",
+    "pasteFromClipboard": "Coller depuis le presse-papiers",
+    "pasting": "Collage...",
+    "attachedImages": "Images jointes ({{count}})",
+    "clipboardHint": "Collez du texte et des images depuis votre presse-papiers",
     "errors": {
       "emptyInput": "Veuillez entrer du texte à fractionner",
-      "splitFailed": "Échec du fractionnement des tâches. Veuillez réessayer."
+      "splitFailed": "Échec du fractionnement des tâches. Veuillez réessayer.",
+      "clipboardFailed": "Échec de la lecture du presse-papiers. Veuillez réessayer."
     },
     "success": "Fractionné {{count}} tâche avec succès",
     "success_plural": "Fractionné {{count}} tâches avec succès",

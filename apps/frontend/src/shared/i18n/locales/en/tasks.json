@@ -352,9 +352,14 @@
     "bulkCreate_plural": "Create {{count}} Tasks",
     "buttonLabel": "AI Split",
     "buttonAriaLabel": "Use AI to split text into multiple tasks",
+    "pasteFromClipboard": "Paste from Clipboard",
+    "pasting": "Pasting...",
+    "attachedImages": "Attached Images ({{count}})",
+    "clipboardHint": "Paste text and images from your clipboard",
     "errors": {
       "emptyInput": "Please enter some text to split",
-      "splitFailed": "Failed to split tasks. Please try again."
+      "splitFailed": "Failed to split tasks. Please try again.",
+      "clipboardFailed": "Failed to read clipboard. Please try again."
     },
     "success": "Split {{count}} task successfully",
     "success_plural": "Split {{count}} tasks successfully",

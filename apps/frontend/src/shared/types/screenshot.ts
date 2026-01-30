@@ -24,3 +24,27 @@ export interface ScreenshotCaptureOptions {
   sourceId: string;
 }
 
+/**
+ * Represents an image extracted from the clipboard
+ */
+export interface ClipboardImage {
+  /** Unique identifier for the clipboard image */
+  id: string;
+  /** Base64 encoded data URL (data:image/png;base64,... or data:image/jpeg;base64,...) */
+  dataUrl: string;
+  /** MIME type of the image (image/png or image/jpeg) */
+  mimeType: string;
+  /** Size of the image data in bytes */
+  size: number;
+}
+
+/**
+ * Represents clipboard content (text + images)
+ */
+export interface ClipboardContent {
+  /** Plain text content from clipboard */
+  text: string;
+  /** Array of images extracted from clipboard */
+  images: ClipboardImage[];
+}
+

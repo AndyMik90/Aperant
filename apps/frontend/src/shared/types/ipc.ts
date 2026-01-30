@@ -882,6 +882,9 @@ export interface ElectronAPI {
   getSources: () => Promise<IPCResult<ScreenshotSource[]> & { devMode?: boolean }>;
   capture: (options: { sourceId: string }) => Promise<IPCResult<string>>;
 
+  // Clipboard operations
+  readClipboardWithImages: () => Promise<IPCResult<import('./screenshot').ClipboardContent>>;
+
   // Queue Routing API (rate limit recovery)
   queue: import('../../preload/api/queue-api').QueueAPI;
 }

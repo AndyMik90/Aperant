@@ -33,6 +33,7 @@ import { registerClaudeCodeHandlers } from './claude-code-handlers';
 import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerScreenshotHandlers } from './screenshot-handlers';
+import { registerClipboardHandlers } from './clipboard-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { notificationService } from '../notification-service';
 
@@ -122,6 +123,9 @@ export function setupIpcHandlers(
   // Screenshot capture handlers
   registerScreenshotHandlers();
 
+  // Clipboard handlers
+  registerClipboardHandlers();
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -149,5 +153,6 @@ export {
   registerClaudeCodeHandlers,
   registerMcpHandlers,
   registerProfileHandlers,
-  registerScreenshotHandlers
+  registerScreenshotHandlers,
+  registerClipboardHandlers
 };
