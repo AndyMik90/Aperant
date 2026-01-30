@@ -1425,7 +1425,10 @@ class WorktreeManager:
             The AI-generated PR body string, or None if unavailable.
         """
         try:
-            from agents.pr_template_filler import detect_pr_template, run_pr_template_filler
+            from agents.pr_template_filler import (
+                detect_pr_template,
+                run_pr_template_filler,
+            )
         except ImportError:
             logger.warning("PR template filler module not available, skipping AI PR body")
             return None
