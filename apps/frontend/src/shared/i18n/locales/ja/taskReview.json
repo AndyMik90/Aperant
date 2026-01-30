@@ -27,9 +27,9 @@
       "mergeWithAI": "AIでマージ",
       "stageTo": "{{branch}}にステージ",
       "mergeTo": "{{branch}}にマージ",
-      "resolving": "解決中...",
-      "staging": "ステージ中...",
-      "merging": "マージ中..."
+      "resolving": "解決中…",
+      "staging": "ステージ中…",
+      "merging": "マージ中…"
     }
   },
   "pr": {
@@ -41,12 +41,12 @@
       "emptyTitle": "プルリクエストのタイトルは空にできません。"
     },
     "success": {
-      "created": "プルリクエストが正常に作成されました!",
+      "created": "プルリクエストが正常に作成されました！",
       "alreadyExists": "このブランチのプルリクエストは既に存在します"
     },
     "actions": {
       "retry": "再試行",
-      "creating": "PRを作成中...",
+      "creating": "PRを作成中…",
       "create": "プルリクエストを作成"
     },
     "labels": {
@@ -66,7 +66,7 @@
   "bulkPR": {
     "title": "プルリクエストを作成",
     "description": "選択された{{count}}個のタスクのプルリクエストを作成",
-    "creating": "PR {{current}}/{{total}}を作成中...",
+    "creating": "PR {{current}}/{{total}}を作成中…",
     "creatingPR": "PR {{current}}/{{total}}を作成中",
     "resultsDescription": "{{success}}件成功、{{failed}}件失敗",
     "tasksToProcess": "処理するタスク",

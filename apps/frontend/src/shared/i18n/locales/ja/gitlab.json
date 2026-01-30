@@ -11,7 +11,7 @@
   },
   "header": {
     "open": "オープン",
-    "searchPlaceholder": "Issueを検索..."
+    "searchPlaceholder": "イシューを検索..."
   },
   "filters": {
     "opened": "オープン",
@@ -19,12 +19,12 @@
     "all": "すべて"
   },
   "empty": {
-    "noMatch": "検索に一致するIssueがありません",
-    "selectIssue": "Issueを選択して詳細を表示"
+    "noMatch": "検索に一致するイシューがありません",
+    "selectIssue": "イシューを選択して詳細を表示"
   },
   "notConnected": {
     "title": "GitLabが接続されていません",
-    "description": "プロジェクト設定でGitLabトークンとプロジェクトを設定して、Issueを同期してください。",
+    "description": "プロジェクト設定でGitLabトークンとプロジェクトを設定して、イシューを同期してください。",
     "openSettings": "設定を開く"
   },
   "detail": {
@@ -39,17 +39,17 @@
     "milestone": "マイルストーン"
   },
   "investigation": {
-    "title": "Issueからタスクを作成",
-    "issuePrefix": "Issue",
-    "description": "このGitLab Issueからタスクを作成します。タスクはカンバンボードのバックログ列に追加されます。",
+    "title": "イシューからタスクを作成",
+    "issuePrefix": "イシュー",
+    "description": "このGitLab イシューからタスクを作成します。タスクはカンバンボードのバックログ列に追加されます。",
     "selectNotes": "含めるノートを選択",
     "deselectAll": "すべて解除",
     "selectAll": "すべて選択",
     "willInclude": "タスクに含まれるもの:",
-    "includeTitle": "Issueのタイトルと説明",
-    "includeLink": "GitLab Issueへのリンク",
-    "includeLabels": "Issueのラベルとメタデータ",
-    "noNotes": "ノートなし（このIssueにはノートがありません）",
+    "includeTitle": "イシューのタイトルと説明",
+    "includeLink": "GitLab イシューへのリンク",
+    "includeLabels": "イシューのラベルとメタデータ",
+    "noNotes": "ノートなし（このイシューにはノートがありません）",
     "failedToLoadNotes": "ノートの読み込みに失敗しました",
     "taskCreated": "タスクが作成されました！カンバンボードで確認してください。",
     "creating": "作成中...",
@@ -58,8 +58,8 @@
     "close": "閉じる"
   },
   "settings": {
-    "enableIssues": "GitLab Issuesを有効化",
-    "enableIssuesDescription": "GitLabからIssueを同期し、自動的にタスクを作成します",
+    "enableIssues": "GitLab イシューを有効化",
+    "enableIssuesDescription": "GitLabからイシューを同期し、自動的にタスクを作成します",
     "instance": "GitLabインスタンス",
     "instanceDescription": "https://gitlab.comまたはセルフホスト型インスタンスのURLを使用",
     "connectedVia": "GitLab CLI経由で接続",
@@ -89,8 +89,8 @@
     "checking": "確認中...",
     "connectedTo": "接続先",
     "notConnected": "未接続",
-    "issuesAvailable": "利用可能なIssue",
-    "issuesAvailableDescription": "サイドバーからGitLab Issuesにアクセスして、Issueを表示、調査し、タスクを作成できます。",
+    "issuesAvailable": "利用可能なイシュー",
+    "issuesAvailableDescription": "サイドバーからGitLab イシューsにアクセスして、イシューを表示、調査し、タスクを作成できます。",
     "defaultBranch": "デフォルトブランチ",
     "defaultBranchDescription": "タスクワークツリー作成のベースブランチ",
     "loadingBranches": "ブランチを読み込み中...",
@@ -100,7 +100,7 @@
     "noBranchesFound": "ブランチが見つかりません",
     "branchFromNote": "すべての新しいタスクは以下からブランチします:",
     "autoSyncOnLoad": "読み込み時に自動同期",
-    "autoSyncDescription": "プロジェクト読み込み時に自動的にIssueを取得",
+    "autoSyncDescription": "プロジェクト読み込み時に自動的にイシューを取得",
     "cli": {
       "required": "GitLab CLIが必要",
       "notInstalled": "OAuth認証にはGitLab CLI（glab）が必要です。インストールして「OAuthを使用」オプションを使用してください。",
@@ -152,13 +152,13 @@
       "notReviewed": "未レビュー",
       "notReviewedDesc": "このMRを分析するにはAIレビューを実行してください",
       "reviewComplete": "レビュー完了",
-      "reviewCompleteDesc": "指摘事項が見つかりました。選択してGitLabに投稿してください。",
+      "reviewCompleteDesc": "指摘が見つかりました。選択してGitLabに投稿してください。",
       "waitingForChanges": "変更待ち",
-      "waitingForChangesDesc": "指摘事項が投稿されました。コントリビューターが問題に対処するのを待っています。",
+      "waitingForChangesDesc": "指摘を投稿しました。コントリビューターが問題に対処するのを待っています。",
       "readyToMerge": "マージ準備完了",
       "readyToMergeDesc": "ブロックする問題は見つかりませんでした。このMRはマージできます。",
       "needsAttention": "要注意",
-      "needsAttentionDesc": "指摘事項をGitLabに投稿する必要があります。",
+      "needsAttentionDesc": "指摘をGitLabに投稿する必要があります。",
       "readyForFollowup": "フォローアップ準備完了",
       "readyForFollowupDesc": "レビュー以降に変更がありました。フォローアップを実行して問題が解決されたか確認してください。",
       "blockingIssues": "ブロックする問題",
