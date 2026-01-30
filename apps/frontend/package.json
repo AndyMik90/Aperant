@@ -36,6 +36,8 @@
     "package:win": "node scripts/package-with-python.cjs --win",
     "package:linux": "node scripts/package-with-python.cjs --linux",
     "package:flatpak": "node scripts/package-with-python.cjs --linux flatpak",
+    "verify:linux": "node scripts/verify-linux-packages.cjs dist",
+    "test:verify-linux": "node --test scripts/verify-linux-packages.test.mjs",
     "start:packaged:mac": "open dist/mac-arm64/Auto-Claude.app || open dist/mac/Auto-Claude.app",
     "start:packaged:win": "start \"\" \"dist\\win-unpacked\\Auto-Claude.exe\"",
     "start:packaged:linux": "./dist/linux-unpacked/auto-claude",
@@ -166,14 +168,6 @@
         "to": "icon.ico"
       },
       {
-        "from": "python-runtime/${os}-${arch}/python",
-        "to": "python"
-      },
-      {
-        "from": "python-runtime/${os}-${arch}/site-packages",
-        "to": "python-site-packages"
-      },
-      {
         "from": "../backend",
         "to": "backend",
         "filter": [
@@ -202,6 +196,16 @@
       "target": [
         "dmg",
         "zip"
+      ],
+      "extraResources": [
+        {
+          "from": "python-runtime/${os}-${arch}/python",
+          "to": "python"
+        },
+        {
+          "from": "python-runtime/${os}-${arch}/site-packages",
+          "to": "python-site-packages"
+        }
       ]
     },
     "win": {
@@ -209,6 +213,16 @@
       "target": [
         "nsis",
         "zip"
+      ],
+      "extraResources": [
+        {
+          "from": "python-runtime/${os}-${arch}/python",
+          "to": "python"
+        },
+        {
+          "from": "python-runtime/${os}-${arch}/site-packages",
+          "to": "python-site-packages"
+        }
       ]
     },
     "linux": {
@@ -218,7 +232,17 @@
         "deb",
         "flatpak"
       ],
-      "category": "Development"
+      "category": "Development",
+      "extraResources": [
+        {
+          "from": "python-runtime/${os}-${arch}/python",
+          "to": "python"
+        },
+        {
+          "from": "python-runtime/${os}-${arch}/site-packages",
+          "to": "python-site-packages"
+        }
+      ]
     },
     "flatpak": {
       "runtime": "org.freedesktop.Platform",
