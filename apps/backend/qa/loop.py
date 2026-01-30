@@ -11,6 +11,7 @@ import time as time_module
 from pathlib import Path
 
 from core.client import create_client
+from core.task_event import TaskEventEmitter
 from debug import debug, debug_error, debug_section, debug_success, debug_warning
 from linear_updater import (
     LinearTaskState,
@@ -88,6 +89,7 @@ async def run_qa_validation_loop(
     # Set environment variable for security hooks to find the correct project directory
     # This is needed because os.getcwd() may return the wrong directory in worktree mode
     os.environ[PROJECT_DIR_ENV_VAR] = str(project_dir.resolve())
+    task_event_emitter = TaskEventEmitter.from_spec_dir(spec_dir)
 
     debug_section("qa_loop", "QA Validation Loop")
     debug(
@@ -118,6 +120,10 @@ async def run_qa_validation_loop(
 
     # Emit phase event at start of QA validation (before any early returns)
     emit_phase(ExecutionPhase.QA_REVIEW, "Starting QA validation")
+    task_event_emitter.emit(
+        "QA_STARTED",
+        {"iteration": 1, "maxIterations": MAX_QA_ITERATIONS},
+    )
 
     # Check if there's pending human feedback that needs to be processed
     fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
@@ -127,6 +133,10 @@ async def run_qa_validation_loop(
     if is_qa_approved(spec_dir) and not has_human_feedback:
         debug_success("qa_loop", "Build already approved by QA")
         print("\n✅ Build already approved by QA.")
+        task_event_emitter.emit(
+            "QA_PASSED",
+            {"iteration": 0, "testsRun": {}},
+        )
         return True
 
     # If there's human feedback, we need to run the fixer first before re-validating
@@ -137,6 +147,10 @@ async def run_qa_validation_loop(
             fix_request_file=str(fix_request_file),
         )
         emit_phase(ExecutionPhase.QA_FIXING, "Processing human feedback")
+        task_event_emitter.emit(
+            "QA_FIXING_STARTED",
+            {"iteration": 0},
+        )
         print("\n📝 Human feedback detected. Running QA Fixer first...")
 
         # Get model and thinking budget for fixer (uses QA phase config)
@@ -165,6 +179,10 @@ async def run_qa_validation_loop(
             return False
 
         debug_success("qa_loop", "Human feedback fixes applied")
+        task_event_emitter.emit(
+            "QA_FIXING_COMPLETE",
+            {"iteration": 0},
+        )
         print("\n✅ Fixes applied based on human feedback. Running QA validation...")
 
         # Remove the fix request file after processing
@@ -199,6 +217,7 @@ async def run_qa_validation_loop(
     qa_iteration = get_qa_iteration_count(spec_dir)
     consecutive_errors = 0
     last_error_context = None  # Track error for self-correction feedback
+    max_iterations_emitted = False
 
     while qa_iteration < MAX_QA_ITERATIONS:
         qa_iteration += 1
@@ -269,6 +288,14 @@ async def run_qa_validation_loop(
                 duration=f"{iteration_duration:.1f}s",
             )
             record_iteration(spec_dir, qa_iteration, "approved", [], iteration_duration)
+            qa_status = get_qa_signoff_status(spec_dir) or {}
+            task_event_emitter.emit(
+                "QA_PASSED",
+                {
+                    "iteration": qa_iteration,
+                    "testsRun": qa_status.get("tests_passed", {}),
+                },
+            )
 
             print("\n" + "=" * 70)
             print("  ✅ QA APPROVED")
@@ -316,6 +343,17 @@ async def run_qa_validation_loop(
                 issue_count=len(current_issues),
                 issues=current_issues[:3] if current_issues else [],  # Show first 3
             )
+            task_event_emitter.emit(
+                "QA_FAILED",
+                {
+                    "iteration": qa_iteration,
+                    "issueCount": len(current_issues),
+                    "issues": [
+                        issue.get("title", "")
+                        for issue in (current_issues[:5] if current_issues else [])
+                    ],
+                },
+            )
 
             # Check for recurring issues BEFORE recording current iteration
             # This prevents the current issues from matching themselves in history
@@ -360,6 +398,11 @@ async def run_qa_validation_loop(
                     print(
                         "\nLinear: Task marked as needing human intervention (recurring issues)"
                     )
+                task_event_emitter.emit(
+                    "QA_MAX_ITERATIONS",
+                    {"iteration": qa_iteration, "maxIterations": MAX_QA_ITERATIONS},
+                )
+                max_iterations_emitted = True
 
                 return False
 
@@ -371,6 +414,15 @@ async def run_qa_validation_loop(
             if qa_iteration >= MAX_QA_ITERATIONS:
                 print("\n⚠️  Maximum QA iterations reached.")
                 print("Escalating to human review.")
+                if not max_iterations_emitted:
+                    task_event_emitter.emit(
+                        "QA_MAX_ITERATIONS",
+                        {
+                            "iteration": qa_iteration,
+                            "maxIterations": MAX_QA_ITERATIONS,
+                        },
+                    )
+                    max_iterations_emitted = True
                 break
 
             # Run fixer with phase-specific thinking budget
@@ -382,6 +434,10 @@ async def run_qa_validation_loop(
                 thinking_budget=fixer_thinking_budget,
             )
             emit_phase(ExecutionPhase.QA_FIXING, "Fixing QA issues")
+            task_event_emitter.emit(
+                "QA_FIXING_STARTED",
+                {"iteration": qa_iteration},
+            )
             print("\nRunning QA Fixer Agent...")
 
             fix_client = create_client(
@@ -416,6 +472,10 @@ async def run_qa_validation_loop(
                 break
 
             debug_success("qa_loop", "Fixes applied, re-running QA validation")
+            task_event_emitter.emit(
+                "QA_FIXING_COMPLETE",
+                {"iteration": qa_iteration},
+            )
             print("\n✅ Fixes applied. Re-running QA validation...")
 
         elif status == "error":
@@ -459,6 +519,13 @@ async def run_qa_validation_loop(
                     "The QA agent is unable to properly update implementation_plan.json."
                 )
                 print("Escalating to human review.")
+                task_event_emitter.emit(
+                    "QA_AGENT_ERROR",
+                    {
+                        "iteration": qa_iteration,
+                        "consecutiveErrors": consecutive_errors,
+                    },
+                )
 
                 # End validation phase as failed
                 if task_logger:
@@ -473,6 +540,11 @@ async def run_qa_validation_loop(
 
     # Max iterations reached without approval
     emit_phase(ExecutionPhase.FAILED, "QA validation incomplete")
+    if not max_iterations_emitted:
+        task_event_emitter.emit(
+            "QA_MAX_ITERATIONS",
+            {"iteration": qa_iteration, "maxIterations": MAX_QA_ITERATIONS},
+        )
     debug_error(
         "qa_loop",
         "QA VALIDATION INCOMPLETE - max iterations reached",

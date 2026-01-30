@@ -10,6 +10,7 @@ import { fileWatcher } from '../../file-watcher';
 import { findTaskAndProject } from './shared';
 import { checkGitStatus } from '../../project-initializer';
 import { initializeClaudeProfileManager, type ClaudeProfileManager } from '../../claude-profile-manager';
+import { taskStateManager } from '../../task-state-manager';
 import {
   getPlanPath,
   persistPlanStatus,
@@ -177,7 +178,42 @@ export function registerTaskExecutionHandlers(
         return;
       }
 
-      console.warn('[TASK_START] Found task:', task.specId, 'status:', task.status, 'subtasks:', task.subtasks.length);
+      console.warn('[TASK_START] Found task:', task.specId, 'status:', task.status, 'reviewReason:', task.reviewReason, 'subtasks:', task.subtasks.length);
+
+      // Immediately mark as started so the UI moves the card to In Progress.
+      // Use XState actor state as source of truth (if actor exists), with task data as fallback.
+      // - plan_review: User approved the plan, send PLAN_APPROVED to transition to coding
+      // - human_review/error: User resuming, send USER_RESUMED
+      // - backlog/other: Fresh start, send PLANNING_STARTED
+      const currentXState = taskStateManager.getCurrentState(taskId);
+      console.warn('[TASK_START] Current XState:', currentXState, '| Task status:', task.status, task.reviewReason);
+
+      if (currentXState === 'plan_review') {
+        // XState says plan_review - send PLAN_APPROVED
+        console.warn('[TASK_START] XState: plan_review -> coding via PLAN_APPROVED');
+        taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
+      } else if (currentXState === 'human_review' || currentXState === 'error') {
+        // XState says human_review or error - send USER_RESUMED
+        console.warn('[TASK_START] XState:', currentXState, '-> coding via USER_RESUMED');
+        taskStateManager.handleUiEvent(taskId, { type: 'USER_RESUMED' }, task, project);
+      } else if (currentXState) {
+        // XState actor exists but in another state (coding, planning, etc.)
+        // This shouldn't happen normally, but handle gracefully
+        console.warn('[TASK_START] XState in unexpected state:', currentXState, '- sending PLANNING_STARTED');
+        taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
+      } else if (task.status === 'human_review' && task.reviewReason === 'plan_review') {
+        // No XState actor - fallback to task data (e.g., after app restart)
+        console.warn('[TASK_START] No XState actor, task data: plan_review -> coding via PLAN_APPROVED');
+        taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
+      } else if (task.status === 'human_review' || task.status === 'error') {
+        // No XState actor - fallback to task data for resuming
+        console.warn('[TASK_START] No XState actor, task data:', task.status, '-> coding via USER_RESUMED');
+        taskStateManager.handleUiEvent(taskId, { type: 'USER_RESUMED' }, task, project);
+      } else {
+        // Fresh start - PLANNING_STARTED transitions from backlog to planning
+        console.warn('[TASK_START] Fresh start via PLANNING_STARTED');
+        taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
+      }
 
       // Start file watcher for this task
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
@@ -252,45 +288,6 @@ export function registerTaskExecutionHandlers(
           }
         );
       }
-
-      // Notify status change IMMEDIATELY (don't wait for file write)
-      // This provides instant UI feedback while file persistence happens in background
-      const ipcSentAt = Date.now();
-      mainWindow.webContents.send(
-        IPC_CHANNELS.TASK_STATUS_CHANGE,
-        taskId,
-        'in_progress'
-      );
-
-      const DEBUG = process.env.DEBUG === 'true';
-      if (DEBUG) {
-        console.log(`[TASK_START] IPC sent immediately for task ${taskId}, deferring file persistence`);
-      }
-
-      // CRITICAL: Persist status to implementation_plan.json to prevent status flip-flop
-      // When getTasks() is called (on refresh), it reads status from the plan file.
-      // Without persisting here, the old status (e.g., 'human_review') would override
-      // the in-memory 'in_progress' status, causing the task to flip back and forth.
-      // Uses shared utility for consistency with agent-events-handlers.ts
-      // NOTE: This is now async and non-blocking for better UI responsiveness
-      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
-      setImmediate(async () => {
-        const persistStart = Date.now();
-        try {
-          const persisted = await persistPlanStatus(planPath, 'in_progress', project.id);
-          if (persisted) {
-            console.warn('[TASK_START] Updated plan status to: in_progress');
-          }
-          if (DEBUG) {
-            const delay = persistStart - ipcSentAt;
-            const duration = Date.now() - persistStart;
-            console.log(`[TASK_START] File persistence: delayed ${delay}ms after IPC, completed in ${duration}ms`);
-          }
-        } catch (err) {
-          console.error('[TASK_START] Failed to persist plan status:', err);
-        }
-      });
-      // Note: Plan file may not exist yet for new tasks - that's fine (persistPlanStatus handles ENOENT)
     }
   );
 
@@ -298,52 +295,33 @@ export function registerTaskExecutionHandlers(
    * Stop a task
    */
   ipcMain.on(IPC_CHANNELS.TASK_STOP, (_, taskId: string) => {
-    const DEBUG = process.env.DEBUG === 'true';
-
     agentManager.killTask(taskId);
     fileWatcher.unwatch(taskId);
 
-    // Notify status change IMMEDIATELY for instant UI feedback
-    const ipcSentAt = Date.now();
-    const mainWindow = getMainWindow();
-    if (mainWindow) {
-      mainWindow.webContents.send(
-        IPC_CHANNELS.TASK_STATUS_CHANGE,
-        taskId,
-        'backlog'
-      );
-    }
-
-    if (DEBUG) {
-      console.log(`[TASK_STOP] IPC sent immediately for task ${taskId}, deferring file persistence`);
-    }
-
-    // Find task and project to update the plan file (async, non-blocking)
+    // Find task and project to emit USER_STOPPED with plan context
     const { task, project } = findTaskAndProject(taskId);
 
-    if (task && project) {
-      // Persist status to implementation_plan.json to prevent status flip-flop on refresh
-      // Uses shared utility for consistency with agent-events-handlers.ts
-      // NOTE: This is now async and non-blocking for better UI responsiveness
+    if (!task || !project) return;
+
+    let hasPlan = false;
+    try {
       const planPath = getPlanPath(project, task);
-      setImmediate(async () => {
-        const persistStart = Date.now();
-        try {
-          const persisted = await persistPlanStatus(planPath, 'backlog', project.id);
-          if (persisted) {
-            console.warn('[TASK_STOP] Updated plan status to backlog');
-          }
-          if (DEBUG) {
-            const delay = persistStart - ipcSentAt;
-            const duration = Date.now() - persistStart;
-            console.log(`[TASK_STOP] File persistence: delayed ${delay}ms after IPC, completed in ${duration}ms`);
-          }
-        } catch (err) {
-          console.error('[TASK_STOP] Failed to persist plan status:', err);
-        }
-      });
-      // Note: File not found is expected for tasks without a plan file (persistPlanStatus handles ENOENT)
+      const planContent = safeReadFileSync(planPath);
+      if (planContent) {
+        const plan = JSON.parse(planContent);
+        const { totalCount } = checkSubtasksCompletion(plan);
+        hasPlan = totalCount > 0;
+      }
+    } catch {
+      hasPlan = false;
     }
+
+    taskStateManager.handleUiEvent(
+      taskId,
+      { type: 'USER_STOPPED', hasPlan },
+      task,
+      project
+    );
   });
 
   /**
@@ -392,29 +370,12 @@ export function registerTaskExecutionHandlers(
           return { success: false, error: 'Failed to write QA report file' };
         }
 
-        // Notify UI immediately for instant feedback
-        const mainWindow = getMainWindow();
-        if (mainWindow) {
-          mainWindow.webContents.send(
-            IPC_CHANNELS.TASK_STATUS_CHANGE,
-            taskId,
-            'done'
-          );
-        }
-
-        // CRITICAL: Persist 'done' status to implementation_plan.json
-        // Without this, the old status would be shown after page refresh since
-        // getTasks() reads status from the plan file, not from the Zustand store.
-        const planPath = getPlanPath(project, task);
-        try {
-          const persisted = await persistPlanStatus(planPath, 'done', project.id);
-          if (persisted) {
-            console.warn('[TASK_REVIEW] Persisted approved status (done) to implementation_plan.json');
-          }
-        } catch (err) {
-          console.error('[TASK_REVIEW] Failed to persist approved status:', err);
-          // Non-fatal: UI already updated, file persistence is best-effort
-        }
+        taskStateManager.handleUiEvent(
+          taskId,
+          { type: 'MARK_DONE' },
+          task,
+          project
+        );
       } else {
         // Reset and discard all changes from worktree merge in main
         // The worktree still has all changes, so nothing is lost
@@ -536,29 +497,12 @@ export function registerTaskExecutionHandlers(
         console.warn('[TASK_REVIEW] Starting QA process with projectPath:', qaProjectPath);
         agentManager.startQAProcess(taskId, qaProjectPath, task.specId);
 
-        // Notify UI immediately for instant feedback
-        const mainWindow = getMainWindow();
-        if (mainWindow) {
-          mainWindow.webContents.send(
-            IPC_CHANNELS.TASK_STATUS_CHANGE,
-            taskId,
-            'in_progress'
-          );
-        }
-
-        // CRITICAL: Persist 'in_progress' status to implementation_plan.json
-        // Without this, the old status (e.g., 'human_review') would be shown after page refresh
-        // since getTasks() reads status from the plan file, not from the Zustand store.
-        const planPath = getPlanPath(project, task);
-        try {
-          const persisted = await persistPlanStatus(planPath, 'in_progress', project.id);
-          if (persisted) {
-            console.warn('[TASK_REVIEW] Persisted rejected status (in_progress) to implementation_plan.json');
-          }
-        } catch (err) {
-          console.error('[TASK_REVIEW] Failed to persist rejected status:', err);
-          // Non-fatal: UI already updated, file persistence is best-effort
-        }
+        taskStateManager.handleUiEvent(
+          taskId,
+          { type: 'USER_RESUMED' },
+          task,
+          project
+        );
       }
 
       return { success: true };
@@ -699,14 +643,17 @@ export function registerTaskExecutionHandlers(
       const planPath = getPlanPath(project, task);
 
       try {
-        // Use shared utility for thread-safe plan file updates
-        const persisted = await persistPlanStatus(planPath, status, project.id);
+        const handledByMachine = taskStateManager.handleManualStatusChange(taskId, status, task, project);
+        if (!handledByMachine) {
+          // Use shared utility for thread-safe plan file updates (legacy/manual override)
+          const persisted = await persistPlanStatus(planPath, status, project.id);
 
-        if (!persisted) {
-          // If no implementation plan exists yet, create a basic one
-          await createPlanIfNotExists(planPath, task, status);
-          // Invalidate cache after creating new plan
-          projectStore.invalidateTasksCache(project.id);
+          if (!persisted) {
+            // If no implementation plan exists yet, create a basic one
+            await createPlanIfNotExists(planPath, task, status);
+            // Invalidate cache after creating new plan
+            projectStore.invalidateTasksCache(project.id);
+          }
         }
 
         // Auto-stop task when status changes AWAY from 'in_progress' and process IS running
@@ -817,7 +764,8 @@ export function registerTaskExecutionHandlers(
             mainWindow.webContents.send(
               IPC_CHANNELS.TASK_STATUS_CHANGE,
               taskId,
-              'in_progress'
+              'in_progress',
+              project.id
             );
           }
         }
@@ -1191,7 +1139,8 @@ export function registerTaskExecutionHandlers(
           mainWindow.webContents.send(
             IPC_CHANNELS.TASK_STATUS_CHANGE,
             taskId,
-            newStatus
+            newStatus,
+            project.id
           );
         }
 

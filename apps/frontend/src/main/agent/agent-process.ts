@@ -12,6 +12,7 @@ import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { ProcessType, ExecutionProgressData } from './types';
 import type { CompletablePhase } from '../../shared/constants/phase-protocol';
+import { parseTaskEvent } from './task-event-parser';
 import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv, detectAuthFailure } from '../rate-limit-detector';
 import { getAPIProfileEnv } from '../services/profile';
 import { projectStore } from '../project-store';
@@ -29,7 +30,7 @@ import { killProcessGracefully, isWindows } from '../platform';
 /**
  * Type for supported CLI tools
  */
-type CliTool = 'claude' | 'gh';
+type CliTool = 'claude' | 'gh' | 'glab';
 
 /**
  * Mapping of CLI tools to their environment variable names
@@ -37,7 +38,8 @@ type CliTool = 'claude' | 'gh';
  */
 const CLI_TOOL_ENV_MAP: Readonly<Record<CliTool, string>> = {
   claude: 'CLAUDE_CLI_PATH',
-  gh: 'GITHUB_CLI_PATH'
+  gh: 'GITHUB_CLI_PATH',
+  glab: 'GITLAB_CLI_PATH'
 } as const;
 
 
@@ -201,12 +203,14 @@ export class AgentProcessManager {
     // Detect and pass CLI tool paths to Python backend
     const claudeCliEnv = this.detectAndSetCliPath('claude');
     const ghCliEnv = this.detectAndSetCliPath('gh');
+    const glabCliEnv = this.detectAndSetCliPath('glab');
 
     return {
       ...augmentedEnv,
       ...gitBashEnv,
       ...claudeCliEnv,
       ...ghCliEnv,
+      ...glabCliEnv,
       ...extraEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',
@@ -624,6 +628,17 @@ export class AgentProcessManager {
       const hasMarker = line.includes('__EXEC_PHASE__');
       if (isDebug && hasMarker) {
         console.log(`[PhaseDebug:${taskId}] Found marker in line: "${line.substring(0, 200)}"`);
+      }
+
+      // Log all task event markers for debugging
+      if (line.includes('__TASK_EVENT__')) {
+        console.log(`[AgentProcess:${taskId}] Found __TASK_EVENT__ marker in line:`, line.substring(0, 300));
+      }
+
+      const taskEvent = parseTaskEvent(line);
+      if (taskEvent) {
+        console.log(`[AgentProcess:${taskId}] Parsed task event:`, taskEvent.type, taskEvent);
+        this.emitter.emit('task-event', taskId, taskEvent);
       }
 
       const phaseUpdate = this.events.parseExecutionPhase(line, currentPhase, isSpecRunner);
