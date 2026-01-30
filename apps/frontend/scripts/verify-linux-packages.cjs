@@ -170,6 +170,7 @@ function verifyAppImage(appImagePath) {
   const result = spawnSync('bsdtar', ['-t', '-f', appImagePath], {
     stdio: 'pipe',
     encoding: 'utf-8',
+    maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large file listings
   });
 
   if (result.status !== 0) {
@@ -197,6 +198,7 @@ function verifyDeb(debPath) {
   const result = spawnSync('dpkg-deb', ['-c', debPath], {
     stdio: 'pipe',
     encoding: 'utf-8',
+    maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large file listings
   });
 
   if (result.status !== 0) {
@@ -217,10 +219,11 @@ function verifyFlatpak(flatpakPath) {
 
   const issues = [];
 
-  // Check if flatpak command is available
-  if (!commandExists('flatpak')) {
+  // Check if flatpak command is available for detailed validation
+  const hasFlatpakCli = commandExists('flatpak');
+  if (!hasFlatpakCli) {
     logWarning('flatpak command not found. Skipping detailed Flatpak verification');
-    return { verified: false, reason: 'flatpak command not available' };
+    // Continue with basic file existence/size checks
   }
 
   // Check if file exists and is not empty
