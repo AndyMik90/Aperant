@@ -13,38 +13,103 @@ This approach:
 """
 
 import json
+import re
 from pathlib import Path
 
+# Worktree path patterns for detection
+# Matches paths like: .auto-claude/worktrees/tasks/{spec-name}/
+WORKTREE_PATH_PATTERNS = [
+    r"[/\\]\.auto-claude[/\\]worktrees[/\\]tasks[/\\]",
+    r"[/\\]\.auto-claude[/\\]github[/\\]pr[/\\]worktrees[/\\]",  # PR review worktrees
+    r"[/\\]\.worktrees[/\\]",  # Legacy worktree location
+]
 
-def detect_worktree_mode(spec_dir: Path) -> tuple[bool, str | None]:
+
+def detect_worktree_isolation(project_dir: Path) -> tuple[bool, Path | None]:
     """
-    Detect if running in isolated worktree mode.
+    Detect if the project_dir is inside an isolated worktree.
+
+    When running in a worktree, the agent should NOT escape to the parent project.
+    This function detects worktree mode and extracts the forbidden parent path.
 
     Args:
-        spec_dir: Absolute path to spec directory
+        project_dir: The working directory for the AI
 
     Returns:
-        (is_worktree, forbidden_parent_path) tuple:
-        - is_worktree: True if running in a worktree
-        - forbidden_parent_path: The parent project path to forbid, or None
+        Tuple of (is_worktree, parent_project_path)
+        - is_worktree: True if running in an isolated worktree
+        - parent_project_path: The forbidden parent project path (None if not in worktree)
     """
-    # Check if spec_dir contains worktree path patterns
-    # Normalize path separators to forward slashes for consistent matching
-    spec_str = str(spec_dir).replace("\\", "/")
+    # Resolve the path first for consistent matching across platforms
+    # This handles Windows drive letters, symlinks, and relative paths
+    resolved_dir = project_dir.resolve()
+    project_str = str(resolved_dir)
 
-    # New worktree location: .auto-claude/worktrees/tasks/{spec-name}/
-    new_worktree_marker = "/.auto-claude/worktrees/tasks/"
-    if new_worktree_marker in spec_str:
-        parent_path = spec_str.split(new_worktree_marker, 1)[0]
-        return True, parent_path
-
-    # Legacy worktree location: .worktrees/{spec-name}/
-    legacy_worktree_marker = "/.worktrees/"
-    if legacy_worktree_marker in spec_str:
-        parent_path = spec_str.split(legacy_worktree_marker, 1)[0]
-        return True, parent_path
+    for pattern in WORKTREE_PATH_PATTERNS:
+        match = re.search(pattern, project_str)
+        if match:
+            # Extract the parent project path (everything before the worktree marker)
+            parent_prefix = project_str[: match.start()]
+            # Handle root-level worktrees where prefix would be empty
+            if not parent_prefix:
+                parent_path = Path(resolved_dir.anchor)
+            else:
+                parent_path = Path(parent_prefix)
+            return True, parent_path
 
     return False, None
+
+
+def generate_worktree_isolation_warning(
+    project_dir: Path, parent_project_path: Path
+) -> str:
+    """
+    Generate the worktree isolation warning section for prompts.
+
+    This warning explicitly tells the agent that it's in an isolated worktree
+    and must NOT escape to the parent project directory.
+
+    Args:
+        project_dir: The worktree directory (agent's working directory)
+        parent_project_path: The forbidden parent project path
+
+    Returns:
+        Markdown string with isolation warning
+    """
+    return f"""## ⛔ ISOLATED WORKTREE - CRITICAL
+
+You are in an **ISOLATED GIT WORKTREE** - a complete copy of the project for safe development.
+
+**YOUR LOCATION:** `{project_dir}`
+**FORBIDDEN PATH:** `{parent_project_path}`
+
+### Rules:
+1. **NEVER** use `cd {parent_project_path}` or any path starting with `{parent_project_path}`
+2. **NEVER** use absolute paths that reference the parent project
+3. **ALL** project files exist HERE via relative paths
+
+### Why This Matters:
+- Git commits made in the parent project go to the WRONG branch
+- File changes in the parent project escape isolation
+- This defeats the entire purpose of safe, isolated development
+
+### Correct Usage:
+```bash
+# ✅ CORRECT - Use relative paths from your worktree
+./prod/src/file.ts
+./apps/frontend/src/component.tsx
+
+# ❌ WRONG - These escape isolation!
+cd {parent_project_path}
+{parent_project_path}/prod/src/file.ts
+```
+
+If you see absolute paths in spec.md or context.json that reference `{parent_project_path}`,
+convert them to relative paths from YOUR current location.
+
+---
+
+"""
 
 
 def get_relative_spec_path(spec_dir: Path, project_dir: Path) -> str:
@@ -75,6 +140,7 @@ def generate_environment_context(project_dir: Path, spec_dir: Path) -> str:
     Generate environment context header for prompts.
 
     This explicitly tells the AI where it is working, preventing path confusion.
+    When running in a worktree, includes an isolation warning to prevent escaping.
 
     Args:
         project_dir: The working directory for the AI
@@ -85,14 +151,21 @@ def generate_environment_context(project_dir: Path, spec_dir: Path) -> str:
     """
     relative_spec = get_relative_spec_path(spec_dir, project_dir)
 
-    # Detect worktree mode and get forbidden parent path
-    is_worktree, forbidden_parent = detect_worktree_mode(spec_dir)
+    # Check if we're in an isolated worktree
+    is_worktree, parent_project_path = detect_worktree_isolation(project_dir)
 
-    # Build the environment context
-    context = f"""## YOUR ENVIRONMENT
+    # Start with worktree isolation warning if applicable
+    sections = []
+    if is_worktree and parent_project_path:
+        sections.append(
+            generate_worktree_isolation_warning(project_dir, parent_project_path)
+        )
+
+    sections.append(f"""## YOUR ENVIRONMENT
 
 **Working Directory:** `{project_dir}`
 **Spec Location:** `{relative_spec}/`
+{"**Isolation Mode:** WORKTREE (changes are isolated from main project)" if is_worktree else ""}
 
 Your filesystem is restricted to your working directory. All file paths should be
 relative to this location. Do NOT use absolute paths.
@@ -110,35 +183,9 @@ coder prompt for detailed examples.
 
 ---
 
-"""
+""")
 
-    # Add worktree isolation warning if in worktree mode
-    if is_worktree and forbidden_parent:
-        context += f"""## 🚨 ISOLATED WORKTREE - CRITICAL
-
-You are in an **ISOLATED GIT WORKTREE** - a complete copy of the project.
-
-**YOUR LOCATION:** `{project_dir}`
-**FORBIDDEN:** Do NOT use `cd {forbidden_parent}` or `cd ../..` - this **ESCAPES ISOLATION**
-
-All project files exist HERE via relative paths from your working directory.
-
-**CRITICAL RULES:**
-* **NEVER** `cd {forbidden_parent}` or any path traversal outside your worktree
-* **STAY** within your working directory at all times
-* **ALL** file operations use paths relative to your current location
-* Before any `cd` command, run `pwd` and verify the target is within your worktree
-
-**VIOLATION WARNING:** Escaping the worktree will cause:
-* Git commits going to wrong branch
-* Files created/modified in the wrong location
-* Breaking worktree isolation guarantees
-
----
-
-"""
-
-    return context
+    return "".join(sections)
 
 
 def generate_subtask_prompt(
