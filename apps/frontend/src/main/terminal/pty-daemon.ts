@@ -23,6 +23,18 @@ const MAX_BUFFER_SIZE = 100_000;
 // Ring buffer to prevent memory growth
 const RING_BUFFER_MAX_CHUNKS = 1000;
 
+/**
+ * Sanitize an ID for safe logging to prevent log injection attacks.
+ * Removes control characters and truncates to prevent log corruption.
+ */
+function sanitizeIdForLog(id: string): string {
+  // Remove control characters (newlines, carriage returns, tabs, etc.)
+  // and truncate to reasonable length to prevent log flooding
+  return String(id)
+    .replace(/[\x00-\x1F\x7F]/g, '')
+    .slice(0, 100);
+}
+
 interface ManagedPty {
   id: string;
   process: pty.IPty;
@@ -296,7 +308,7 @@ class PtyDaemon {
       });
 
       ptyProcess.onExit(({ exitCode, signal }) => {
-        console.error(`[PTY Daemon] PTY ${id} exited: code=${exitCode}, signal=${signal}`);
+        console.error(`[PTY Daemon] PTY ${sanitizeIdForLog(id)} exited: code=${exitCode}, signal=${signal}`);
         managed.isDead = true;
 
         // Notify all subscribers
@@ -308,7 +320,7 @@ class PtyDaemon {
       });
 
       this.ptys.set(id, managed);
-      console.error(`[PTY Daemon] Created PTY ${id} (${config.shell})`);
+      console.error(`[PTY Daemon] Created PTY ${sanitizeIdForLog(id)} (${config.shell})`);
 
       return id;
     } catch (error) {
@@ -332,7 +344,7 @@ class PtyDaemon {
       managed.process.write(data);
     } catch (error) {
       // PTY process may have been destroyed during teardown
-      console.error(`[PTY Daemon] Error writing to PTY ${id}:`, error);
+      console.error(`[PTY Daemon] Error writing to PTY ${sanitizeIdForLog(id)}:`, error);
       managed.isDead = true;
     }
   }
@@ -346,7 +358,7 @@ class PtyDaemon {
       throw new Error(`PTY ${id} not found`);
     }
     if (managed.isDead) {
-      console.warn(`[PTY Daemon] Cannot resize dead PTY ${id}`);
+      console.warn(`[PTY Daemon] Cannot resize dead PTY ${sanitizeIdForLog(id)}`);
       return;
     }
     try {
@@ -355,7 +367,7 @@ class PtyDaemon {
       managed.config.rows = rows;
     } catch (error) {
       // PTY process may have been destroyed during teardown
-      console.error(`[PTY Daemon] Error resizing PTY ${id}:`, error);
+      console.error(`[PTY Daemon] Error resizing PTY ${sanitizeIdForLog(id)}:`, error);
       managed.isDead = true;
     }
   }
@@ -366,7 +378,7 @@ class PtyDaemon {
   private killPty(id: string): void {
     const managed = this.ptys.get(id);
     if (!managed) {
-      console.warn(`[PTY Daemon] PTY ${id} not found for kill`);
+      console.warn(`[PTY Daemon] PTY ${sanitizeIdForLog(id)} not found for kill`);
       return;
     }
 
@@ -374,12 +386,12 @@ class PtyDaemon {
       try {
         managed.process.kill();
       } catch (error) {
-        console.error(`[PTY Daemon] Error killing PTY ${id}:`, error);
+        console.error(`[PTY Daemon] Error killing PTY ${sanitizeIdForLog(id)}:`, error);
       }
     }
 
     this.ptys.delete(id);
-    console.error(`[PTY Daemon] Removed PTY ${id}`);
+    console.error(`[PTY Daemon] Removed PTY ${sanitizeIdForLog(id)}`);
   }
 
   /**
@@ -412,7 +424,7 @@ class PtyDaemon {
       throw new Error(`PTY ${id} not found`);
     }
     managed.clients.add(socket);
-    console.error(`[PTY Daemon] Client subscribed to PTY ${id}`);
+    console.error(`[PTY Daemon] Client subscribed to PTY ${sanitizeIdForLog(id)}`);
   }
 
   /**
@@ -422,7 +434,7 @@ class PtyDaemon {
     const managed = this.ptys.get(id);
     if (managed) {
       managed.clients.delete(socket);
-      console.error(`[PTY Daemon] Client unsubscribed from PTY ${id}`);
+      console.error(`[PTY Daemon] Client unsubscribed from PTY ${sanitizeIdForLog(id)}`);
     }
   }
 
