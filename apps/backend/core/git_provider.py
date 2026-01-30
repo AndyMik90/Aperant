@@ -13,11 +13,12 @@ from pathlib import Path
 from .git_executable import run_git
 
 
-def detect_git_provider(project_dir: str | Path) -> str:
+def detect_git_provider(project_dir: str | Path, remote_name: str | None = None) -> str:
     """Detect the git hosting provider from the git remote URL.
 
     Args:
         project_dir: Path to the git repository
+        remote_name: Name of the remote to check (defaults to "origin")
 
     Returns:
         'github' if GitHub remote detected
@@ -32,9 +33,10 @@ def detect_git_provider(project_dir: str | Path) -> str:
         'unknown' # for no remote or other providers
     """
     try:
-        # Get the origin remote URL
+        # Get the remote URL (use specified remote or default to origin)
+        remote = remote_name if remote_name else "origin"
         result = run_git(
-            ["remote", "get-url", "origin"],
+            ["remote", "get-url", remote],
             cwd=project_dir,
             timeout=5,
         )

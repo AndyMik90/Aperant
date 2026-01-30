@@ -1839,8 +1839,10 @@ class WorktreeManager:
                 error=push_result.get("error", "Push failed"),
             )
 
-        # Step 2: Detect git provider
-        provider = detect_git_provider(self.project_dir)
+        # Step 2: Detect git provider (use the remote that was pushed to)
+        provider = detect_git_provider(
+            self.project_dir, remote_name=push_result.get("remote")
+        )
 
         # Step 3: Create the PR/MR based on provider
         if provider == "github":
