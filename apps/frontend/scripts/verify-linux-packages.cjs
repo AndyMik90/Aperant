@@ -20,6 +20,11 @@ const CRITICAL_PACKAGES = [
   'dotenv',
 ];
 
+// Minimum expected Flatpak file size (50 MB)
+// Flatpak files are large OCI archives; anything smaller is suspicious
+// Based on observed minimum sizes of valid builds
+const FLATPAK_MIN_SIZE_MB = 50;
+
 // Colors for terminal output
 const colors = {
   reset: '\x1b[0m',
@@ -230,9 +235,11 @@ function verifyFlatpak(flatpakPath) {
 
   // Flatpak files are large OCI archives, so we just verify file size and basic structure
   // Detailed content inspection would require mounting or extracting the flatpak
-  if (stats.size < 50 * 1024 * 1024) {
-    // Less than 50MB is suspicious
-    issues.push(`Flatpak file seems too small (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+  if (stats.size < FLATPAK_MIN_SIZE_MB * 1024 * 1024) {
+    // Less than minimum size is suspicious
+    issues.push(
+      `Flatpak file seems too small (${(stats.size / 1024 / 1024).toFixed(2)} MB, expected at least ${FLATPAK_MIN_SIZE_MB} MB)`,
+    );
   }
 
   return {
