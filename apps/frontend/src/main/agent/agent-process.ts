@@ -29,7 +29,7 @@ import { killProcessGracefully, isWindows } from '../platform';
 /**
  * Type for supported CLI tools
  */
-type CliTool = 'claude' | 'gh';
+type CliTool = 'claude' | 'gh' | 'glab';
 
 /**
  * Mapping of CLI tools to their environment variable names
@@ -37,7 +37,8 @@ type CliTool = 'claude' | 'gh';
  */
 const CLI_TOOL_ENV_MAP: Readonly<Record<CliTool, string>> = {
   claude: 'CLAUDE_CLI_PATH',
-  gh: 'GITHUB_CLI_PATH'
+  gh: 'GITHUB_CLI_PATH',
+  glab: 'GITLAB_CLI_PATH'
 } as const;
 
 
@@ -201,12 +202,14 @@ export class AgentProcessManager {
     // Detect and pass CLI tool paths to Python backend
     const claudeCliEnv = this.detectAndSetCliPath('claude');
     const ghCliEnv = this.detectAndSetCliPath('gh');
+    const glabCliEnv = this.detectAndSetCliPath('glab');
 
     return {
       ...augmentedEnv,
       ...gitBashEnv,
       ...claudeCliEnv,
       ...ghCliEnv,
+      ...glabCliEnv,
       ...extraEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',

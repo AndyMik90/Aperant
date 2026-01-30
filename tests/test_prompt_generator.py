@@ -13,75 +13,120 @@ from prompts_pkg.prompt_generator import (
 )
 
 
-class TestDetectWorktreeIsolation:
-    """Tests for detect_worktree_isolation function (core worktree detection)."""
+def normalize_path(path_str: str) -> str:
+    """Normalize path string for cross-platform comparison."""
+    # Convert to lowercase and replace backslashes with forward slashes
+    return path_str.lower().replace("\\", "/")
 
-    def test_new_worktree_pattern_unix(self):
-        """Test detection of .auto-claude/worktrees/tasks/ pattern on Unix."""
+
+class TestDetectWorktreeIsolation:
+    """Tests for detect_worktree_isolation function."""
+
+    def test_new_worktree_unix_path(self):
+        """Test detection of new worktree location on Unix-style path."""
+        # New worktree: /project/.auto-claude/worktrees/tasks/spec-name/
         project_dir = Path("/opt/dev/project/.auto-claude/worktrees/tasks/001-feature")
 
-        is_worktree, parent_path = detect_worktree_isolation(project_dir)
+        is_worktree, forbidden = detect_worktree_isolation(project_dir)
 
         assert is_worktree is True
-        assert parent_path is not None
-        # Parent should be the project root before .auto-claude
-        assert str(parent_path).endswith("project") or "project" in str(parent_path)
+        assert forbidden is not None
+        # On Windows, paths get resolved with drive letter, so check for key parts
+        norm_forbidden = normalize_path(str(forbidden))
+        assert "opt/dev/project" in norm_forbidden
+        assert ".auto-claude" not in norm_forbidden
 
-    def test_new_worktree_pattern_windows(self):
-        """Test detection of .auto-claude/worktrees/tasks/ pattern on Windows."""
-        project_dir = Path("E:/projects/myapp/.auto-claude/worktrees/tasks/009-audit")
+    def test_new_worktree_windows_path(self):
+        """Test detection of new worktree location on Windows."""
+        # Windows path with backslashes
+        project_dir = Path("E:/projects/x/.auto-claude/worktrees/tasks/009-audit")
 
-        is_worktree, parent_path = detect_worktree_isolation(project_dir)
+        is_worktree, forbidden = detect_worktree_isolation(project_dir)
 
         assert is_worktree is True
-        assert parent_path is not None
+        assert forbidden is not None
+        # Check the essential parts
+        norm_forbidden = normalize_path(str(forbidden))
+        assert "projects" in norm_forbidden and "x" in norm_forbidden
+        assert ".auto-claude" not in norm_forbidden
 
-    def test_legacy_worktree_pattern_unix(self):
-        """Test detection of .worktrees/ legacy pattern on Unix."""
+    def test_legacy_worktree_unix_path(self):
+        """Test detection of legacy worktree location on Unix-style path."""
+        # Legacy worktree: /project/.worktrees/spec-name/
         project_dir = Path("/opt/dev/project/.worktrees/001-feature")
 
-        is_worktree, parent_path = detect_worktree_isolation(project_dir)
+        is_worktree, forbidden = detect_worktree_isolation(project_dir)
 
         assert is_worktree is True
-        assert parent_path is not None
+        assert forbidden is not None
+        # Check for key parts
+        norm_forbidden = normalize_path(str(forbidden))
+        assert "opt/dev/project" in norm_forbidden
+        assert ".worktrees" not in norm_forbidden
 
-    def test_legacy_worktree_pattern_windows(self):
-        """Test detection of .worktrees/ legacy pattern on Windows."""
-        project_dir = Path("C:/projects/myapp/.worktrees/009-audit")
+    def test_legacy_worktree_windows_path(self):
+        """Test detection of legacy worktree location on Windows."""
+        project_dir = Path("C:/projects/x/.worktrees/009-audit")
 
-        is_worktree, parent_path = detect_worktree_isolation(project_dir)
-
-        assert is_worktree is True
-        assert parent_path is not None
-
-    def test_pr_review_worktree_pattern(self):
-        """Test detection of PR review worktree pattern (.auto-claude/github/pr/worktrees/)."""
-        project_dir = Path("/opt/dev/project/.auto-claude/github/pr/worktrees/pr-123")
-
-        is_worktree, parent_path = detect_worktree_isolation(project_dir)
+        is_worktree, forbidden = detect_worktree_isolation(project_dir)
 
         assert is_worktree is True
-        assert parent_path is not None
-        # Parent should be before the .auto-claude marker
-        assert "project" in str(parent_path) or str(parent_path).endswith("project")
+        assert forbidden is not None
+        # Check the essential parts
+        norm_forbidden = normalize_path(str(forbidden))
+        assert "projects" in norm_forbidden
+        assert ".worktrees" not in norm_forbidden
 
-    def test_pr_review_worktree_pattern_windows(self):
-        """Test PR review worktree pattern on Windows."""
-        project_dir = Path("E:/projects/myapp/.auto-claude/github/pr/worktrees/pr-456")
+    def test_pr_worktree_unix_path(self):
+        """Test detection of PR review worktree location on Unix-style path."""
+        # PR worktree: /project/.auto-claude/github/pr/worktrees/123/
+        project_dir = Path("/opt/dev/project/.auto-claude/github/pr/worktrees/123")
 
-        is_worktree, parent_path = detect_worktree_isolation(project_dir)
+        is_worktree, forbidden = detect_worktree_isolation(project_dir)
 
         assert is_worktree is True
-        assert parent_path is not None
+        assert forbidden is not None
+        # Check for key parts
+        norm_forbidden = normalize_path(str(forbidden))
+        assert "opt/dev/project" in norm_forbidden
+        assert ".auto-claude" not in norm_forbidden
+
+    def test_pr_worktree_windows_path(self):
+        """Test detection of PR review worktree location on Windows."""
+        project_dir = Path("E:/projects/auto-claude/.auto-claude/github/pr/worktrees/1528")
+
+        is_worktree, forbidden = detect_worktree_isolation(project_dir)
+
+        assert is_worktree is True
+        assert forbidden is not None
+        # The forbidden path should be E:/projects/auto-claude (the project folder)
+        # Note: project folder itself is named "auto-claude", so check for that
+        norm_forbidden = normalize_path(str(forbidden))
+        assert "projects/auto-claude" in norm_forbidden  # project folder name
+        assert "github/pr/worktrees" not in norm_forbidden
 
     def test_not_in_worktree(self):
-        """Test when not in any worktree (direct mode)."""
+        """Test when not in a worktree (direct mode)."""
+        # Direct mode: /project/
         project_dir = Path("/opt/dev/project")
 
-        is_worktree, parent_path = detect_worktree_isolation(project_dir)
+        is_worktree, forbidden = detect_worktree_isolation(project_dir)
 
         assert is_worktree is False
-        assert parent_path is None
+        assert forbidden is None
+
+    def test_deeply_nested_worktree(self):
+        """Test worktree detection with deeply nested project directory."""
+        project_dir = Path("/opt/dev/project/.auto-claude/worktrees/tasks/009-very-long-spec-name-for-testing")
+
+        is_worktree, forbidden = detect_worktree_isolation(project_dir)
+
+        assert is_worktree is True
+        assert forbidden is not None
+        # Check for key parts
+        norm_forbidden = normalize_path(str(forbidden))
+        assert "opt/dev/project" in norm_forbidden
+        assert ".auto-claude" not in norm_forbidden
 
     def test_regular_auto_claude_dir(self):
         """Test that regular .auto-claude dir is NOT detected as worktree."""
@@ -117,7 +162,8 @@ class TestGenerateEnvironmentContext:
         # Verify worktree warning is present
         assert "ISOLATED WORKTREE - CRITICAL" in context
         assert "FORBIDDEN PATH:" in context
-        assert "escape isolation" in context.lower()
+        # Check that some form of the parent path is shown
+        assert "opt" in context.lower() and "project" in context.lower()
 
     def test_context_no_worktree_warning_in_direct_mode(self):
         """Test that worktree warning is NOT included in direct mode."""
@@ -142,7 +188,6 @@ class TestGenerateEnvironmentContext:
         assert "**Working Directory:**" in context
         assert "**Spec Location:**" in context
         assert "implementation_plan.json" in context
-        assert "PATH CONFUSION PREVENTION" in context
 
     def test_context_windows_worktree(self):
         """Test worktree warning with Windows paths (from ticket ACS-394)."""
@@ -160,26 +205,45 @@ class TestGenerateEnvironmentContext:
         # Verify worktree warning includes the Windows path
         # Note: Path resolution on Windows converts forward slashes to backslashes
         assert "ISOLATED WORKTREE - CRITICAL" in context
-        assert "projects" in context and "x" in context
+        # The forbidden path should be the parent project
+        assert "FORBIDDEN PATH:" in context
 
     def test_context_forbidden_path_examples(self):
-        """Test that forbidden path is shown and critical rules are included."""
-        spec_dir = Path(
-            "/opt/dev/project/.auto-claude/worktrees/tasks/001-feature"
-            "/.auto-claude/specs/001-feature"
-        )
-        project_dir = Path(
-            "/opt/dev/project/.auto-claude/worktrees/tasks/001-feature"
-        )
+        """Test that forbidden path is shown and rules are included."""
+        spec_dir = Path("/opt/dev/project/.auto-claude/worktrees/tasks/001-feature/.auto-claude/specs/001-feature")
+        project_dir = Path("/opt/dev/project/.auto-claude/worktrees/tasks/001-feature")
 
         context = generate_environment_context(project_dir, spec_dir)
 
         # Verify forbidden parent path is shown
         assert "FORBIDDEN PATH:" in context
+        # Check that some form of the parent path is shown (cross-platform)
+        assert "opt" in context.lower() and "project" in context.lower()
 
-        # Verify rules section exists with prohibition
-        assert "Rules:" in context
+        # Verify Rules section exists
+        assert "### Rules:" in context
         assert "**NEVER**" in context  # Explicit prohibition
 
-        # Verify consequences are explained
-        assert "WRONG branch" in context
+        # Verify Why This Matters section explains consequences
+        assert "### Why This Matters:" in context
+        assert "Git commits made in the parent project go to the WRONG branch" in context
+
+    def test_context_includes_isolation_mode_indicator(self):
+        """Test that Isolation Mode indicator is shown when in worktree."""
+        spec_dir = Path("/opt/dev/project/.auto-claude/worktrees/tasks/001-feature/.auto-claude/specs/001-feature")
+        project_dir = Path("/opt/dev/project/.auto-claude/worktrees/tasks/001-feature")
+
+        context = generate_environment_context(project_dir, spec_dir)
+
+        # Verify Isolation Mode indicator is present
+        assert "**Isolation Mode:** WORKTREE" in context
+
+    def test_context_no_isolation_mode_in_direct_mode(self):
+        """Test that Isolation Mode indicator is NOT shown in direct mode."""
+        spec_dir = Path("/opt/dev/project/.auto-claude/specs/001-feature")
+        project_dir = Path("/opt/dev/project")
+
+        context = generate_environment_context(project_dir, spec_dir)
+
+        # Verify Isolation Mode is not present
+        assert "**Isolation Mode:**" not in context

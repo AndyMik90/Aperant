@@ -187,6 +187,7 @@ export interface ElectronAPI {
   mergeWorktreePreview: (taskId: string) => Promise<IPCResult<WorktreeMergeResult>>;
   createWorktreePR: (taskId: string, options?: WorktreeCreatePROptions) => Promise<IPCResult<WorktreeCreatePRResult>>;
   discardWorktree: (taskId: string, skipStatusChange?: boolean) => Promise<IPCResult<WorktreeDiscardResult>>;
+  discardOrphanedWorktree: (projectId: string, specName: string) => Promise<IPCResult<WorktreeDiscardResult>>;
   clearStagedState: (taskId: string) => Promise<IPCResult<{ cleared: boolean }>>;
   listWorktrees: (projectId: string, options?: { includeStats?: boolean }) => Promise<IPCResult<WorktreeListResult>>;
   worktreeOpenInIDE: (worktreePath: string, ide: SupportedIDE, customPath?: string) => Promise<IPCResult<{ opened: boolean }>>;
@@ -354,6 +355,7 @@ export interface ElectronAPI {
     python: import('./cli').ToolDetectionResult;
     git: import('./cli').ToolDetectionResult;
     gh: import('./cli').ToolDetectionResult;
+    glab: import('./cli').ToolDetectionResult;
     claude: import('./cli').ToolDetectionResult;
   }>>;
   /** Check if Claude Code onboarding is complete (reads ~/.claude.json) */
