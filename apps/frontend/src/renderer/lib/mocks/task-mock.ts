@@ -29,6 +29,20 @@ export const taskMock = {
 
   deleteTask: async () => ({ success: true }),
 
+  splitIntoTasks: async (_projectId: string, text: string, _promptTemplate?: string) => ({
+    success: true,
+    data: [
+      {
+        title: 'Sample Task 1',
+        description: text.substring(0, 100)
+      },
+      {
+        title: 'Sample Task 2',
+        description: text.substring(0, 100)
+      }
+    ]
+  }),
+
   updateTask: async (_taskId: string, updates: { title?: string; description?: string }) => ({
     success: true,
     data: {

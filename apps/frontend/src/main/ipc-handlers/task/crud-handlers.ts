@@ -14,7 +14,9 @@ import { cleanupWorktree } from '../../utils/worktree-cleanup';
 import { taskStateManager } from '../../task-state-manager';
 import { parsePythonCommand, getValidatedPythonPath } from '../../python-detector';
 import { getConfiguredPythonPath } from '../../python-env-manager';
-import { getProfileEnv } from '../../rate-limit-detector';
+import { getBestAvailableProfileEnv } from '../../rate-limit-detector';
+import { getAPIProfileEnv } from '../../services/profile';
+import { getOAuthModeClearVars } from '../../agent/env-utils';
 
 /**
  * Register task CRUD (Create, Read, Update, Delete) handlers
@@ -833,67 +835,93 @@ async def split_into_tasks():
 asyncio.run(split_into_tasks())
 `;
 
-  return new Promise((resolve) => {
+  // We need to use async/await for getAPIProfileEnv, but spawn is callback-based
+  // So we'll create an inner async function to handle the environment setup
+  return (async () => {
     const pythonPath = getValidatedPythonPath(getConfiguredPythonPath(), 'splitTextIntoTasks');
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
 
-    // Get active Claude profile environment (CLAUDE_CONFIG_DIR if not default)
-    const profileEnv = getProfileEnv();
+    // Get active API profile environment variables (ANTHROPIC_* vars)
+    const apiProfileEnv = await getAPIProfileEnv();
+    const isApiProfileActive = Object.keys(apiProfileEnv).length > 0;
 
-    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, '-c', script], {
-      cwd: autoBuildSource,
-      env: {
-        ...process.env,
-        ...envVars,
-        ...profileEnv, // Include active Claude profile config (OAuth token)
-        PYTHONUNBUFFERED: '1',
-        PYTHONIOENCODING: 'utf-8',
-        PYTHONUTF8: '1'
+    // Only get OAuth profile env if no API profile is active to avoid conflicts
+    let profileEnv: Record<string, string> = {};
+    if (!isApiProfileActive) {
+      // Use centralized function that automatically handles rate limits and capacity
+      const profileResult = getBestAvailableProfileEnv();
+      profileEnv = profileResult.env;
+
+      if (profileResult.wasSwapped) {
+        console.warn('[splitTextIntoTasks] Using alternative profile:', {
+          originalProfile: profileResult.originalProfile?.name,
+          selectedProfile: profileResult.profileName,
+          reason: profileResult.swapReason
+        });
       }
-    });
+    }
 
-    let output = '';
-    let errorOutput = '';
-    const timeout = setTimeout(() => {
-      console.warn('[splitTextIntoTasks] Task splitting timed out after 120s');
-      childProcess.kill();
-      resolve([]);
-    }, 120000); // 120 second timeout
+    // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
 
-    childProcess.stdout?.on('data', (data: Buffer) => {
-      output += data.toString();
-    });
+    return new Promise((resolve) => {
+      const childProcess = spawn(pythonCommand, [...pythonBaseArgs, '-c', script], {
+        cwd: autoBuildSource,
+        env: {
+          ...process.env,
+          ...envVars,
+          ...profileEnv, // Claude OAuth profile - includes CLAUDE_CONFIG_DIR and clears CLAUDE_CODE_OAUTH_TOKEN
+          ...apiProfileEnv, // API profile (ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, etc.)
+          ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
+          PYTHONUNBUFFERED: '1',
+          PYTHONIOENCODING: 'utf-8',
+          PYTHONUTF8: '1'
+        }
+      });
 
-    childProcess.stderr?.on('data', (data: Buffer) => {
-      errorOutput += data.toString();
-    });
+      let output = '';
+      let errorOutput = '';
+      const timeout = setTimeout(() => {
+        console.warn('[splitTextIntoTasks] Task splitting timed out after 120s');
+        childProcess.kill();
+        resolve([]);
+      }, 120000); // 120 second timeout
 
-    childProcess.on('exit', (code: number | null) => {
-      clearTimeout(timeout);
+      childProcess.stdout?.on('data', (data: Buffer) => {
+        output += data.toString();
+      });
 
-      if (code === 0 && output.trim()) {
-        try {
-          const tasks = JSON.parse(output.trim());
-          console.log('[splitTextIntoTasks] Successfully split into', tasks.length, 'tasks');
-          resolve(tasks);
-        } catch (e) {
-          console.error('[splitTextIntoTasks] Failed to parse response:', output.substring(0, 500));
+      childProcess.stderr?.on('data', (data: Buffer) => {
+        errorOutput += data.toString();
+      });
+
+      childProcess.on('exit', (code: number | null) => {
+        clearTimeout(timeout);
+
+        if (code === 0 && output.trim()) {
+          try {
+            const tasks = JSON.parse(output.trim());
+            console.log('[splitTextIntoTasks] Successfully split into', tasks.length, 'tasks');
+            resolve(tasks);
+          } catch (e) {
+            console.error('[splitTextIntoTasks] Failed to parse response:', output.substring(0, 500));
+            resolve([]);
+          }
+        } else {
+          console.warn('[splitTextIntoTasks] Failed to split tasks', {
+            code,
+            errorOutput: errorOutput.substring(0, 500),
+            output: output.substring(0, 200)
+          });
           resolve([]);
         }
-      } else {
-        console.warn('[splitTextIntoTasks] Failed to split tasks', {
-          code,
-          errorOutput: errorOutput.substring(0, 500),
-          output: output.substring(0, 200)
-        });
-        resolve([]);
-      }
-    });
+      });
 
-    childProcess.on('error', (err) => {
-      clearTimeout(timeout);
-      console.warn('[splitTextIntoTasks] Process error:', err.message);
-      resolve([]);
+      childProcess.on('error', (err) => {
+        clearTimeout(timeout);
+        console.warn('[splitTextIntoTasks] Process error:', err.message);
+        resolve([]);
+      });
     });
-  });
+  })();
 }
