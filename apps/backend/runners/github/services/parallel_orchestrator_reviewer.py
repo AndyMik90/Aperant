@@ -1427,6 +1427,10 @@ The SDK will run invoked agents in parallel automatically.
         if not findings:
             return []
 
+        # Retry configuration for API errors
+        MAX_VALIDATION_RETRIES = 2
+        VALIDATOR_MAX_MESSAGES = 200  # Lower limit for validator (simpler task)
+
         # Build validation prompt with all findings
         findings_json = []
         for f in findings:
@@ -1466,47 +1470,101 @@ For EACH finding above:
         model_shorthand = self.config.model or "sonnet"
         model = resolve_model_id(model_shorthand)
 
-        # Create validator client (inherits worktree filesystem access)
-        try:
-            validator_client = create_client(
-                project_dir=worktree_path,
-                spec_dir=self.github_dir,
-                model=model,
-                agent_type="pr_finding_validator",
-                max_thinking_tokens=get_thinking_budget("medium"),
-                output_format={
-                    "type": "json_schema",
-                    "schema": FindingValidationResponse.model_json_schema(),
-                },
-            )
-        except Exception as e:
-            logger.error(f"[PRReview] Failed to create validator client: {e}")
-            # Fail-safe: return original findings
-            return findings
-
-        # Run validation
-        try:
-            async with validator_client:
-                await validator_client.query(prompt)
-
-                stream_result = await process_sdk_stream(
-                    client=validator_client,
-                    context_name="FindingValidator",
-                    model=model,
-                    system_prompt=prompt,
+        # Retry loop for transient API errors
+        last_error = None
+        for attempt in range(MAX_VALIDATION_RETRIES + 1):
+            if attempt > 0:
+                logger.info(
+                    f"[PRReview] Validation retry {attempt}/{MAX_VALIDATION_RETRIES}"
+                )
+                safe_print(
+                    f"[FindingValidator] Retry attempt {attempt}/{MAX_VALIDATION_RETRIES}"
                 )
 
-                if stream_result.get("error"):
-                    logger.error(
-                        f"[PRReview] Validation failed: {stream_result['error']}"
+            # Create validator client (inherits worktree filesystem access)
+            try:
+                validator_client = create_client(
+                    project_dir=worktree_path,
+                    spec_dir=self.github_dir,
+                    model=model,
+                    agent_type="pr_finding_validator",
+                    max_thinking_tokens=get_thinking_budget("medium"),
+                    output_format={
+                        "type": "json_schema",
+                        "schema": FindingValidationResponse.model_json_schema(),
+                    },
+                )
+            except Exception as e:
+                logger.error(f"[PRReview] Failed to create validator client: {e}")
+                last_error = e
+                continue  # Try again
+
+            # Run validation
+            try:
+                async with validator_client:
+                    await validator_client.query(prompt)
+
+                    stream_result = await process_sdk_stream(
+                        client=validator_client,
+                        context_name="FindingValidator",
+                        model=model,
+                        system_prompt=prompt,
+                        max_messages=VALIDATOR_MAX_MESSAGES,
                     )
-                    # Fail-safe: return original findings
-                    return findings
 
-                structured_output = stream_result.get("structured_output")
+                    error = stream_result.get("error")
+                    if error:
+                        # Check for specific error types that warrant retry
+                        error_str = str(error).lower()
+                        is_retryable = (
+                            "400" in error_str
+                            or "concurrency" in error_str
+                            or "circuit breaker" in error_str
+                            or "tool_use" in error_str
+                        )
 
-        except Exception as e:
-            logger.error(f"[PRReview] Validation stream error: {e}")
+                        if is_retryable and attempt < MAX_VALIDATION_RETRIES:
+                            logger.warning(
+                                f"[PRReview] Retryable validation error: {error}"
+                            )
+                            last_error = Exception(error)
+                            continue  # Retry
+
+                        logger.error(f"[PRReview] Validation failed: {error}")
+                        # Fail-safe: return original findings
+                        return findings
+
+                    structured_output = stream_result.get("structured_output")
+
+                    # Success - break out of retry loop
+                    if structured_output:
+                        break
+
+            except Exception as e:
+                error_str = str(e).lower()
+                is_retryable = (
+                    "400" in error_str
+                    or "concurrency" in error_str
+                    or "rate" in error_str
+                )
+
+                if is_retryable and attempt < MAX_VALIDATION_RETRIES:
+                    logger.warning(f"[PRReview] Retryable stream error: {e}")
+                    last_error = e
+                    continue  # Retry
+
+                logger.error(f"[PRReview] Validation stream error: {e}")
+                # Fail-safe: return original findings
+                return findings
+        else:
+            # All retries exhausted
+            logger.error(
+                f"[PRReview] Validation failed after {MAX_VALIDATION_RETRIES} retries. "
+                f"Last error: {last_error}"
+            )
+            safe_print(
+                f"[FindingValidator] ERROR: Validation failed after {MAX_VALIDATION_RETRIES} retries"
+            )
             # Fail-safe: return original findings
             return findings
 
