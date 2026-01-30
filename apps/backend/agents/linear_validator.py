@@ -27,14 +27,14 @@ from typing import TYPE_CHECKING, Any, TypeVar
 import diskcache
 import requests
 from core.client import create_client
+
+# Import metadata module for workspace context
+from integrations.linear import linear_metadata
 from integrations.linear.linear_utils import get_linear_authorization_header
 from phase_config import get_phase_model, get_phase_thinking_budget
 from task_logger import LogPhase
 
 from .session import run_agent_session
-
-# Import metadata module for workspace context
-from integrations.linear import linear_metadata
 
 if TYPE_CHECKING:
     from core.client import ClaudeSDKClient
@@ -833,7 +833,9 @@ class LinearValidationAgent:
         try:
             workspace_metadata = self._get_workspace_metadata()
         except AuthenticationError:
-            logger.warning("[LINEAR_VALIDATOR] Could not fetch workspace metadata, continuing without it")
+            logger.warning(
+                "[LINEAR_VALIDATOR] Could not fetch workspace metadata, continuing without it"
+            )
             workspace_metadata = {}
 
         # Build validation prompt with 5-step workflow
@@ -1060,20 +1062,26 @@ Version Label Rules:
             available_projects = workspace_metadata.get("projects", [])
 
             # Format labels as a list
-            labels_list = ", ".join([label.get("name", "") for label in available_labels[:20]])  # Limit to 20 labels
+            labels_list = ", ".join(
+                [label.get("name", "") for label in available_labels[:20]]
+            )  # Limit to 20 labels
             if len(available_labels) > 20:
                 labels_list += f", ... ({len(available_labels)} total)"
 
             # Format users (name and email)
-            users_list = ", ".join([
-                f"{user.get('displayName') or user.get('name', 'Unknown')} ({user.get('email', 'no-email')})"
-                for user in available_users[:15]  # Limit to 15 users
-            ])
+            users_list = ", ".join(
+                [
+                    f"{user.get('displayName') or user.get('name', 'Unknown')} ({user.get('email', 'no-email')})"
+                    for user in available_users[:15]  # Limit to 15 users
+                ]
+            )
             if len(available_users) > 15:
                 users_list += f", ... ({len(available_users)} total)"
 
             # Format projects
-            projects_list = ", ".join([project.get("name", "") for project in available_projects[:10]])  # Limit to 10 projects
+            projects_list = ", ".join(
+                [project.get("name", "") for project in available_projects[:10]]
+            )  # Limit to 10 projects
             if len(available_projects) > 10:
                 projects_list += f", ... ({len(available_projects)} total)"
 
@@ -1173,7 +1181,11 @@ IMPORTANT: Base your feasibility assessment on ACTUAL code analysis:
 Based on BOTH ticket content AND codebase analysis:
 
 **Auto-Select Labels** (CRITICAL: Choose from Available Labels section above):
-{"- **IMPORTANT:** ONLY select labels that exist in the 'Available Labels' list in the Workspace Context section above" if workspace_metadata else "- Select appropriate labels for this ticket"}
+{
+            "- **IMPORTANT:** ONLY select labels that exist in the 'Available Labels' list in the Workspace Context section above"
+            if workspace_metadata
+            else "- Select appropriate labels for this ticket"
+        }
 - Choose 3-5 most relevant labels based on:
   - Work type (bug, feature, enhancement, refactor, documentation, testing, performance)
   - Component area (backend, frontend, database, api, ui/ux, infrastructure)
@@ -1181,7 +1193,11 @@ Based on BOTH ticket content AND codebase analysis:
   - Impact level (low, medium, high, critical - based on affected files)
 
 **Determine Version Label:**
-{"Calculate the appropriate version label based on the current version and ticket type." if current_version else "Recommend whether this should be a patch or minor version increment."}
+{
+            "Calculate the appropriate version label based on the current version and ticket type."
+            if current_version
+            else "Recommend whether this should be a patch or minor version increment."
+        }
 
 Rules:
 - Bug fixes (especially critical/high priority) → Patch increment (last number + 1)
@@ -1231,10 +1247,18 @@ Please provide your results in the following structured format:
     "label1",
     "label2",
     "label3"
-  ],{f'''
+  ],{
+            '''
   "recommended_assignee": "User Name (email@example.com)",
-  "recommended_project": "Project Name",''' if workspace_metadata else ''}
-  "version_label": "{current_version + " (patch/minor)" if current_version else "To be determined"}",
+  "recommended_project": "Project Name",'''
+            if workspace_metadata
+            else ""
+        }
+  "version_label": "{
+            current_version + " (patch/minor)"
+            if current_version
+            else "To be determined"
+        }",
   "properties": {{
     "category": "backend|frontend|fullstack|devops|testing|documentation",
     "complexity": "simple|medium|complex",
