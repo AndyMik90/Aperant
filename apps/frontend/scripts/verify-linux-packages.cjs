@@ -185,7 +185,7 @@ function verifyAppImage(appImagePath) {
   if (!commandExists('bsdtar')) {
     logWarning('bsdtar not found. Install with: sudo apt-get install libarchive-tools');
     logWarning('Skipping AppImage verification');
-    return { verified: false, reason: 'bsdtar not available' };
+    return { verified: false, reason: 'bsdtar not available', critical: true };
   }
 
   // Extract file list from AppImage using bsdtar
@@ -213,7 +213,7 @@ function verifyDeb(debPath) {
   // Check if dpkg is available
   if (!commandExists('dpkg-deb')) {
     logWarning('dpkg-deb not found. Skipping deb verification');
-    return { verified: false, reason: 'dpkg-deb not available' };
+    return { verified: false, reason: 'dpkg-deb not available', critical: true };
   }
 
   // List contents of deb package
@@ -330,10 +330,16 @@ function main() {
   log('\n=== Verification Results ===\n', colors.blue);
 
   let hasFailures = false;
+  let hasCriticalSkips = false;
 
   for (const [type, result] of Object.entries(results)) {
     if (result.reason) {
-      logWarning(`${type}: SKIPPED (${result.reason})`);
+      if (result.critical) {
+        logError(`${type}: CRITICAL - SKIPPED (${result.reason})`);
+        hasCriticalSkips = true;
+      } else {
+        logWarning(`${type}: SKIPPED (${result.reason})`);
+      }
     } else if (result.verified) {
       logSuccess(`${type}: VERIFIED`);
       if (result.fileCount) {
@@ -353,9 +359,17 @@ function main() {
 
   log('');
 
-  if (hasFailures) {
+  if (hasFailures || hasCriticalSkips) {
     logError('\n=== VERIFICATION FAILED ===\n');
-    log('Some packages are missing critical files. This will cause runtime errors.\n', colors.red);
+    if (hasFailures) {
+      log('Some packages are missing critical files. This will cause runtime errors.\n', colors.red);
+    }
+    if (hasCriticalSkips) {
+      log('Some packages could not be verified due to missing required tools.\n', colors.red);
+      log('Install required tools:\n', colors.red);
+      log('  - bsdtar: sudo apt-get install libarchive-tools\n', colors.red);
+      log('  - dpkg-deb: sudo apt-get install dpkg\n', colors.red);
+    }
     process.exit(1);
   } else {
     logSuccess('\n=== ALL PACKAGES VERIFIED ===\n');
