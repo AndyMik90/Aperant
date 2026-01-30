@@ -156,33 +156,6 @@
     "backgroundTaskTitle": "タスクはバックグラウンドで続行中",
     "backgroundTaskDescription": "タスクはまだ実行中です。進捗を監視するには、このダイアログを再度開いてください。"
   },
-  "wizard": {
-    "createTitle": "新規タスクを作成",
-    "createDescription": "構築したい内容を説明してください。AIがリクエストを分析し、詳細な仕様を作成します。",
-    "descriptionPlaceholder": "実装したい機能、バグ修正、または改善について説明してください。要件、制約、期待される動作について可能な限り具体的に記述してください。@を入力してファイルを参照できます。",
-    "draftRestored": "下書きを復元しました",
-    "startFresh": "最初から始める",
-    "hideFiles": "ファイルを非表示",
-    "browseFiles": "ファイルを参照",
-    "creating": "作成中...",
-    "createTask": "タスクを作成",
-    "worktreeNotice": {
-      "title": "分離されたワークスペース",
-      "description": "このタスクは分離された git ワークツリーで実行されます。マージを選択するまでメインブランチは安全に保たれます。"
-    },
-    "gitOptions": {
-      "title": "Gitオプション（オプション）",
-      "baseBranchLabel": "ベースブランチ（オプション）",
-      "useProjectDefault": "プロジェクトのデフォルトを使用",
-      "useProjectDefaultWithBranch": "プロジェクトのデフォルト（{{branch}}）を使用",
-      "helpText": "このタスクのワークツリーの作成元となるブランチを上書きします。空欄にするとプロジェクトで設定されたデフォルトブランチが使用されます。",
-      "useWorktreeLabel": "分離されたワークスペースを使用（推奨）",
-      "useWorktreeDescription": "安全にレビューしてからマージするために、別のgitワークツリーに変更を作成します。無効にすると、プロジェクトで直接ビルドします（高速ですがリスクあり）。"
-    },
-    "errors": {
-      "createFailed": "タスクの作成に失敗しました。もう一度お試しください。"
-    }
-  },
   "feedback": {
     "dragDropHint": "画像をドラッグ&ドロップするか、スクリーンショットを貼り付け",
     "imageAdded": "画像が正常に追加されました",

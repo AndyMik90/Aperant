@@ -302,7 +302,6 @@ function getBillingFailureMessage(failureType: 'insufficient_credits' | 'payment
       return 'A billing error occurred with your Claude API account. Please check your payment method or switch to another profile in Settings > Claude Profiles.';
     case 'subscription_inactive':
       return 'Your Claude API subscription is inactive or expired. Please renew your subscription or switch to another profile in Settings > Claude Profiles.';
-    case 'unknown':
     default:
       return 'A billing issue was detected with your Claude API account. Please check your account status or switch to another profile in Settings > Claude Profiles.';
   }

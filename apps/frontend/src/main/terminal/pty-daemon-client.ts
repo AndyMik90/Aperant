@@ -9,7 +9,6 @@ import * as net from 'net';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, ChildProcess } from 'child_process';
-import { app } from 'electron';
 import { isWindows, GRACEFUL_KILL_TIMEOUT_MS } from '../platform';
 import { getIsShuttingDown } from './pty-manager';
 
