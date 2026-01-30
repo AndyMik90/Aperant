@@ -28,8 +28,8 @@ from pathlib import Path
 from typing import TypedDict, TypeVar
 
 from core.gh_executable import get_gh_executable, invalidate_gh_cache
-from core.model_config import get_utility_model_config
 from core.git_executable import get_git_executable, get_isolated_git_env, run_git
+from core.model_config import get_utility_model_config
 from debug import debug_warning
 
 logger = logging.getLogger(__name__)
