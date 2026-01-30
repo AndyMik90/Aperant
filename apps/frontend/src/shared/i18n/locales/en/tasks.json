@@ -38,7 +38,8 @@
     "completed": "Completed",
     "hasErrors": "Has Errors",
     "qaIssues": "QA Issues",
-    "approvePlan": "Approve Plan"
+    "approvePlan": "Approve Plan",
+    "stopped": "Stopped"
   },
   "tooltips": {
     "archiveTask": "Archive task",

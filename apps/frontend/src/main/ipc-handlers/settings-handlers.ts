@@ -139,7 +139,7 @@ export function registerSettingsHandlers(
       // Fixes issue where Windows paths persisted on macOS (and vice versa)
       // when settings were synced/transferred between platforms
       // See: https://github.com/AndyMik90/Auto-Claude/issues/XXX
-      const pathFields = ['pythonPath', 'gitPath', 'githubCLIPath', 'claudePath', 'autoBuildPath'] as const;
+      const pathFields = ['pythonPath', 'gitPath', 'githubCLIPath', 'gitlabCLIPath', 'claudePath', 'autoBuildPath'] as const;
       for (const field of pathFields) {
         const pathValue = settings[field];
         if (pathValue && isPathFromWrongPlatform(pathValue)) {
@@ -174,6 +174,7 @@ export function registerSettingsHandlers(
         pythonPath: settings.pythonPath,
         gitPath: settings.gitPath,
         githubCLIPath: settings.githubCLIPath,
+        gitlabCLIPath: settings.gitlabCLIPath,
         claudePath: settings.claudePath,
       });
 
@@ -215,12 +216,14 @@ export function registerSettingsHandlers(
           settings.pythonPath !== undefined ||
           settings.gitPath !== undefined ||
           settings.githubCLIPath !== undefined ||
+          settings.gitlabCLIPath !== undefined ||
           settings.claudePath !== undefined
         ) {
           configureTools({
             pythonPath: newSettings.pythonPath,
             gitPath: newSettings.gitPath,
             githubCLIPath: newSettings.githubCLIPath,
+            gitlabCLIPath: newSettings.gitlabCLIPath,
             claudePath: newSettings.claudePath,
           });
 
@@ -260,6 +263,7 @@ export function registerSettingsHandlers(
       python: ReturnType<typeof getToolInfo>;
       git: ReturnType<typeof getToolInfo>;
       gh: ReturnType<typeof getToolInfo>;
+      glab: ReturnType<typeof getToolInfo>;
       claude: ReturnType<typeof getToolInfo>;
     }>> => {
       try {
@@ -269,6 +273,7 @@ export function registerSettingsHandlers(
             python: getToolInfo('python'),
             git: getToolInfo('git'),
             gh: getToolInfo('gh'),
+            glab: getToolInfo('glab'),
             claude: getToolInfo('claude'),
           },
         };

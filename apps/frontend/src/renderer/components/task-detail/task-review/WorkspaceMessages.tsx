@@ -1,7 +1,7 @@
-import { AlertCircle, GitMerge, Loader2, Check, RotateCcw } from 'lucide-react';
+import { AlertCircle, GitMerge, Loader2, Check, RotateCcw, Play } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../../ui/button';
-import { persistTaskStatus } from '../../../stores/task-store';
+import { persistTaskStatus, startTask } from '../../../stores/task-store';
 import type { Task } from '../../../../shared/types';
 
 interface LoadingMessageProps {
@@ -32,6 +32,11 @@ interface NoWorkspaceMessageProps {
  */
 export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
   const [isMarkingDone, setIsMarkingDone] = useState(false);
+  const [isProceeding, setIsProceeding] = useState(false);
+
+  const isPlanReview =
+    task?.status === 'human_review' &&
+    task.reviewReason === 'plan_review';
 
   const handleMarkDone = async () => {
     if (!task) return;
@@ -48,18 +53,53 @@ export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
     }
   };
 
+  const handleProceedToCoding = async () => {
+    if (!task) return;
+
+    setIsProceeding(true);
+    try {
+      await startTask(task.id);
+    } catch (err) {
+      console.error('Error proceeding to coding:', err);
+    } finally {
+      setIsProceeding(false);
+    }
+  };
+
   return (
     <div className="rounded-xl border border-border bg-secondary/30 p-4">
       <h3 className="font-medium text-sm text-foreground mb-2 flex items-center gap-2">
         <AlertCircle className="h-4 w-4 text-muted-foreground" />
-        No Workspace Found
+        {isPlanReview ? 'Human Review Required' : 'No Workspace Found'}
       </h3>
       <p className="text-sm text-muted-foreground mb-3">
-        No isolated workspace was found for this task. The changes may have been made directly in your project.
+        {isPlanReview
+          ? 'Human review required prior to coding. Review your spec.md for any necessary changes.'
+          : 'No isolated workspace was found for this task. The changes may have been made directly in your project.'}
       </p>
 
       {/* Allow marking as done */}
-      {task && task.status === 'human_review' && (
+      {isPlanReview ? (
+        <Button
+          onClick={handleProceedToCoding}
+          disabled={isProceeding}
+          size="sm"
+          variant="default"
+          className="w-full"
+        >
+          {isProceeding ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Updating...
+            </>
+          ) : (
+            <>
+              <Play className="h-4 w-4 mr-2" />
+              Proceed to Coding
+            </>
+          )}
+        </Button>
+      ) : task && task.status === 'human_review' && (
         <Button
           onClick={handleMarkDone}
           disabled={isMarkingDone}

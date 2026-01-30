@@ -589,12 +589,15 @@ def _try_smart_merge_inner(
 
                 if progress_callback is not None:
                     stats = resolution_result.get("stats", {})
+                    original_conflict_count = len(
+                        git_conflicts.get("conflicting_files", [])
+                    )
                     progress_callback(
                         MergeProgressStage.COMPLETE,
                         100,
                         "Merge complete",
                         {
-                            "conflicts_found": stats.get("conflicts_resolved", 0),
+                            "conflicts_found": original_conflict_count,
                             "conflicts_resolved": stats.get("conflicts_resolved", 0),
                         },
                     )
@@ -613,14 +616,21 @@ def _try_smart_merge_inner(
                 )
 
                 if progress_callback is not None:
+                    original_conflict_count = len(
+                        git_conflicts.get("conflicting_files", [])
+                    )
+                    remaining_count = len(
+                        resolution_result.get("remaining_conflicts", [])
+                    )
                     progress_callback(
                         MergeProgressStage.ERROR,
                         0,
                         "Some conflicts could not be resolved",
                         {
-                            "conflicts_found": len(
-                                resolution_result.get("remaining_conflicts", [])
-                            ),
+                            "conflicts_found": original_conflict_count,
+                            "conflicts_resolved": original_conflict_count
+                            - remaining_count,
+                            "conflicts_remaining": remaining_count,
                         },
                     )
 
