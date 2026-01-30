@@ -94,6 +94,19 @@ export interface ValidationResult {
 		reason: string;
 	}>;
 
+	// Workspace-aware recommendations (optional - only included if workspace metadata is available)
+	suggestedAssignee?: {
+		name: string;
+		email: string;
+		userId: string;
+		reason: string;
+	};
+	suggestedProject?: {
+		name: string;
+		projectId: string;
+		reason: string;
+	};
+
 	// Step 4: Version label
 	versionRecommendation: {
 		currentVersion?: string;

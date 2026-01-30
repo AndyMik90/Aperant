@@ -33,6 +33,9 @@ from task_logger import LogPhase
 
 from .session import run_agent_session
 
+# Import metadata module for workspace context
+from integrations.linear import linear_metadata
+
 if TYPE_CHECKING:
     from core.client import ClaudeSDKClient
 
@@ -356,6 +359,9 @@ class LinearValidationAgent:
         cache_dir.mkdir(parents=True, exist_ok=True)
         self.cache = diskcache.Cache(str(cache_dir))
 
+        # Workspace metadata (fetched on demand)
+        self._workspace_metadata: dict[str, Any] | None = None
+
     def _emit_progress(self, phase: str, step: int, total: int, message: str) -> None:
         """Emit a progress update if a callback is registered.
 
@@ -542,6 +548,47 @@ class LinearValidationAgent:
             )
         except Exception as e:
             logger.warning(f"Failed to cache result for {issue_id}: {e}")
+
+    def _get_workspace_metadata(self) -> dict[str, Any]:
+        """
+        Fetch workspace metadata from Linear (labels, users, teams, projects).
+
+        Uses in-memory cache to avoid repeated API calls during the agent's lifetime.
+        The underlying metadata module has its own 1-hour TTL cache.
+
+        Returns:
+            Dict with workspace metadata including labels, users, teams, projects.
+
+        Raises:
+            AuthenticationError: If LINEAR_API_KEY is not set
+            NetworkError: If Linear API call fails
+        """
+        if self._workspace_metadata is not None:
+            return self._workspace_metadata
+
+        api_key = os.environ.get("LINEAR_API_KEY")
+        if not api_key:
+            raise AuthenticationError(
+                "LINEAR_API_KEY not found in environment. "
+                "Please set it in your .env file."
+            )
+
+        try:
+            logger.info("[LINEAR_VALIDATOR] Fetching workspace metadata...")
+            self._workspace_metadata = linear_metadata.fetch_linear_workspace_metadata(
+                api_key
+            )
+            logger.info(
+                f"[LINEAR_VALIDATOR] Fetched {len(self._workspace_metadata.get('labels', []))} labels, "
+                f"{len(self._workspace_metadata.get('users', []))} users, "
+                f"{len(self._workspace_metadata.get('teams', []))} teams, "
+                f"{len(self._workspace_metadata.get('projects', []))} projects"
+            )
+            return self._workspace_metadata
+        except requests.exceptions.RequestException as e:
+            logger.error(f"[LINEAR_VALIDATOR] Failed to fetch workspace metadata: {e}")
+            # Continue without metadata - validation will still work but without context
+            return {}
 
     def _fetch_linear_issue(self, issue_id: str) -> dict[str, Any]:
         """
@@ -781,9 +828,19 @@ class LinearValidationAgent:
             traceback.print_exc()
             raise
 
+        # Fetch workspace metadata for context-aware recommendations
+        print("[LINEAR_VALIDATOR] Fetching workspace metadata...", flush=True)
+        try:
+            workspace_metadata = self._get_workspace_metadata()
+        except AuthenticationError:
+            logger.warning("[LINEAR_VALIDATOR] Could not fetch workspace metadata, continuing without it")
+            workspace_metadata = {}
+
         # Build validation prompt with 5-step workflow
         print("[LINEAR_VALIDATOR] Building validation prompt...", flush=True)
-        prompt = self._build_validation_prompt(issue_id, issue_data, current_version)
+        prompt = self._build_validation_prompt(
+            issue_id, issue_data, current_version, workspace_metadata
+        )
         print(f"[LINEAR_VALIDATOR] Prompt built: {len(prompt)} characters", flush=True)
 
         # Debug: Log prompt (truncated)
@@ -959,6 +1016,7 @@ class LinearValidationAgent:
         issue_id: str,
         issue_data: dict[str, Any],
         current_version: str | None,
+        workspace_metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Build the validation prompt with 5-step workflow instructions.
@@ -967,6 +1025,7 @@ class LinearValidationAgent:
             issue_id: Linear issue identifier
             issue_data: Raw issue data from Linear
             current_version: Current project version for version calculation
+            workspace_metadata: Optional workspace metadata (labels, users, projects)
 
         Returns:
             Formatted prompt string
@@ -991,6 +1050,52 @@ Version Label Rules:
 - CRITICAL or HIGH priority bugs → Patch increment (e.g., 2.7.4 → 2.7.5)
 - New features or enhancements → Minor increment (e.g., 2.7.4 → 2.8.0)
 - If version cannot be parsed, default to minor increment
+"""
+
+        # Build workspace context section from metadata
+        workspace_context = ""
+        if workspace_metadata:
+            available_labels = workspace_metadata.get("labels", [])
+            available_users = workspace_metadata.get("users", [])
+            available_projects = workspace_metadata.get("projects", [])
+
+            # Format labels as a list
+            labels_list = ", ".join([label.get("name", "") for label in available_labels[:20]])  # Limit to 20 labels
+            if len(available_labels) > 20:
+                labels_list += f", ... ({len(available_labels)} total)"
+
+            # Format users (name and email)
+            users_list = ", ".join([
+                f"{user.get('displayName') or user.get('name', 'Unknown')} ({user.get('email', 'no-email')})"
+                for user in available_users[:15]  # Limit to 15 users
+            ])
+            if len(available_users) > 15:
+                users_list += f", ... ({len(available_users)} total)"
+
+            # Format projects
+            projects_list = ", ".join([project.get("name", "") for project in available_projects[:10]])  # Limit to 10 projects
+            if len(available_projects) > 10:
+                projects_list += f", ... ({len(available_projects)} total)"
+
+            workspace_context = f"""
+## Workspace Context
+
+IMPORTANT: Your label and assignee recommendations MUST come from the following available options:
+
+**Available Labels ({len(available_labels)} total):**
+{labels_list}
+
+**Available Assignees ({len(available_users)} total):**
+{users_list}
+
+**Available Projects ({len(available_projects)} total):**
+{projects_list}
+
+**CRITICAL CONSTRAINTS:**
+- ONLY recommend labels that exist in the available labels list above
+- ONLY suggest assignees from the available users list above
+- ONLY recommend projects from the available projects list above
+- If you cannot find appropriate labels from the available list, choose the closest match or omit
 """
 
         prompt = f"""You are an expert ticket validation agent for Linear. Analyze the following ticket and provide recommendations.
@@ -1067,11 +1172,13 @@ IMPORTANT: Base your feasibility assessment on ACTUAL code analysis:
 #### Step 5: Generate Recommendations
 Based on BOTH ticket content AND codebase analysis:
 
-**Auto-Select Labels** (with codebase awareness):
-- **Type:** bug, feature, enhancement, refactor, documentation, testing, performance
-- **Component:** backend, frontend, database, api, ui/ux, infrastructure
-- **Complexity:** simple, medium, complex (based on actual code examined)
-- **Impact:** low, medium, high, critical (based on affected files)
+**Auto-Select Labels** (CRITICAL: Choose from Available Labels section above):
+{"- **IMPORTANT:** ONLY select labels that exist in the 'Available Labels' list in the Workspace Context section above" if workspace_metadata else "- Select appropriate labels for this ticket"}
+- Choose 3-5 most relevant labels based on:
+  - Work type (bug, feature, enhancement, refactor, documentation, testing, performance)
+  - Component area (backend, frontend, database, api, ui/ux, infrastructure)
+  - Complexity (simple, medium, complex - based on actual code examined)
+  - Impact level (low, medium, high, critical - based on affected files)
 
 **Determine Version Label:**
 {"Calculate the appropriate version label based on the current version and ticket type." if current_version else "Recommend whether this should be a patch or minor version increment."}
@@ -1124,7 +1231,9 @@ Please provide your results in the following structured format:
     "label1",
     "label2",
     "label3"
-  ],
+  ],{f'''
+  "recommended_assignee": "User Name (email@example.com)",
+  "recommended_project": "Project Name",''' if workspace_metadata else ''}
   "version_label": "{current_version + " (patch/minor)" if current_version else "To be determined"}",
   "properties": {{
     "category": "backend|frontend|fullstack|devops|testing|documentation",

@@ -12,7 +12,6 @@ This metadata is used to:
 """
 
 import logging
-import os
 from datetime import timedelta
 from pathlib import Path
 
@@ -54,7 +53,7 @@ def fetch_linear_workspace_metadata(api_key: str) -> dict:
         requests.RequestException: If API call fails
     """
     cache = get_metadata_cache()
-    cache_key = f"workspace_metadata"
+    cache_key = "workspace_metadata"
 
     # Check cache first
     cached_data = cache.get(cache_key)
@@ -223,7 +222,11 @@ def fetch_linear_workspace_metadata(api_key: str) -> dict:
         # Linear priority values (0-4, where 4 = urgent)
         "priorities": [
             {"label": "No priority", "value": 0, "description": "No priority set"},
-            {"label": "Urgent", "value": 4, "description": "Urgent - immediate attention needed"},
+            {
+                "label": "Urgent",
+                "value": 4,
+                "description": "Urgent - immediate attention needed",
+            },
             {"label": "High", "value": 3, "description": "High priority"},
             {"label": "Medium", "value": 2, "description": "Medium priority"},
             {"label": "Low", "value": 1, "description": "Low priority"},

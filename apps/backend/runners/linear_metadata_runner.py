@@ -14,7 +14,6 @@ This script fetches and caches workspace metadata from Linear including
 labels, users, teams, projects, and workflow states.
 """
 
-import asyncio
 import json
 import logging
 import sys
@@ -78,9 +77,7 @@ def output_result(result: dict) -> None:
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Fetch Linear workspace metadata"
-    )
+    parser = argparse.ArgumentParser(description="Fetch Linear workspace metadata")
     parser.add_argument(
         "--project-dir",
         type=Path,
