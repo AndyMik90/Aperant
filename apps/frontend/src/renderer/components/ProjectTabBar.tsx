@@ -87,7 +87,6 @@ export function ProjectTabBar({
   return (
     <div className={cn(
       'flex items-center border-b border-border bg-background',
-      'overflow-x-auto scrollbar-hide',
       className
     )}>
       <div className="flex items-center flex-1 min-w-0 overflow-x-auto scrollbar-hide">

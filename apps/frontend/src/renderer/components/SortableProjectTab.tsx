@@ -94,7 +94,7 @@ export function SortableProjectTab({
                 'w-1 h-4 bg-muted-foreground rounded-full flex-shrink-0'
               )}
             />
-            <span className="truncate font-medium">
+            <span className="font-medium">
               {project.name}
             </span>
           </div>
