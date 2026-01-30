@@ -26,29 +26,31 @@ const RATE_LIMIT_INDICATORS = [
 /**
  * Patterns that indicate authentication failures
  * These patterns detect when Claude CLI/SDK fails due to missing or invalid auth
+ *
+ * IMPORTANT: These patterns must be specific enough to NOT match on AI response
+ * content that discusses authentication topics (e.g., PRs about auth features).
+ * The patterns should only match actual API error messages.
  */
 const AUTH_FAILURE_PATTERNS = [
-  /authentication\s*(is\s*)?required/i,
-  /not\s*(yet\s*)?authenticated/i,
-  /login\s*(is\s*)?required/i,
-  /oauth\s*token\s*(is\s*)?(invalid|expired|missing)/i,
-  /unauthorized/i,
-  /please\s*(log\s*in|login|authenticate)/i,
-  /invalid\s*(credentials|token|api\s*key)/i,
-  /auth(entication)?\s+(failed|error|failure)/i,
-  /session\s*(expired|invalid)/i,
-  /access\s*denied/i,
-  /permission\s*denied/i,
-  /401\s*unauthorized/i,
-  /credentials\s*(are\s*)?(missing|invalid|expired)/i,
-  // Match "OAuth token has expired" format from Claude API
-  /oauth\s*token\s+has\s+expired/i,
-  // Match Claude API authentication_error type in JSON responses
+  // Match Claude API authentication_error type in JSON responses (most reliable)
   /["']?type["']?\s*:\s*["']?authentication_error["']?/i,
-  // Match plain "API Error: 401" without requiring "unauthorized"
+  // Match plain "API Error: 401" - this is a structured error format
   /API\s*Error:\s*401/i,
-  // Match "Please obtain a new token" message from Claude API
-  /please\s*(obtain|get|refresh)\s*(a\s*)?new\s*token/i
+  // Match "OAuth token has expired" format from Claude API (specific phrasing)
+  /oauth\s*token\s+has\s+expired/i,
+  // Match "Please obtain a new token" or "refresh your existing token" - API specific
+  /please\s+(obtain\s+a\s+new|refresh\s+your)\s+(existing\s+)?token/i,
+  // Match Claude CLI specific auth messages (with context markers)
+  /\[.*\]\s*authentication\s*(is\s*)?required/i,
+  /\[.*\]\s*not\s*(yet\s*)?authenticated/i,
+  /\[.*\]\s*login\s*(is\s*)?required/i,
+  // Match 401 status codes in structured error output
+  /status[:\s]+401/i,
+  /HTTP\s*401/i,
+  // Match specific error prefixes that indicate actual errors (not AI discussion)
+  /Error:\s*.*(?:unauthorized|authentication|invalid\s*token)/i,
+  // Match · Please run /login format from Claude CLI
+  /·\s*Please\s+run\s+\/login/i,
 ];
 
 /**
