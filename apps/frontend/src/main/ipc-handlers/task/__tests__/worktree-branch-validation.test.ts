@@ -9,59 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { GIT_BRANCH_REGEX } from '../worktree-handlers';
-
-/**
- * Validates a detected branch name and returns the safe branch to delete.
- * This mirrors the logic used in TASK_DISCARD_WORKTREE and TASK_UPDATE_STATUS handlers.
- *
- * Why `auto-claude/` prefix is considered safe:
- * - All task worktrees use branches named `auto-claude/{specId}`
- * - This pattern is controlled by Auto-Claude, not user input
- * - If detected branch matches this pattern, it's a valid task branch
- * - If it doesn't match (e.g., `main`, `develop`, `feature/xxx`), it's likely
- *   the main project's branch being incorrectly detected from a corrupted worktree
- */
-function validateWorktreeBranch(
-  detectedBranch: string | null,
-  expectedBranch: string
-): { branchToDelete: string; usedFallback: boolean; reason: string } {
-  // If detection failed, use expected pattern
-  if (detectedBranch === null) {
-    return {
-      branchToDelete: expectedBranch,
-      usedFallback: true,
-      reason: 'detection_failed',
-    };
-  }
-
-  // Exact match - ideal case
-  if (detectedBranch === expectedBranch) {
-    return {
-      branchToDelete: detectedBranch,
-      usedFallback: false,
-      reason: 'exact_match',
-    };
-  }
-
-  // Matches auto-claude pattern with valid specId (not just "auto-claude/")
-  // The specId must be non-empty for this to be a valid task branch
-  if (detectedBranch.startsWith('auto-claude/') && detectedBranch.length > 'auto-claude/'.length) {
-    return {
-      branchToDelete: detectedBranch,
-      usedFallback: false,
-      reason: 'pattern_match',
-    };
-  }
-
-  // Detected branch doesn't match expected pattern - use fallback
-  // This is the critical security fix for issue #1479
-  return {
-    branchToDelete: expectedBranch,
-    usedFallback: true,
-    reason: 'invalid_pattern',
-  };
-}
+import { GIT_BRANCH_REGEX, validateWorktreeBranch } from '../worktree-handlers';
 
 describe('GIT_BRANCH_REGEX', () => {
   it('should accept valid auto-claude branch names', () => {
@@ -89,10 +37,11 @@ describe('GIT_BRANCH_REGEX', () => {
     expect(GIT_BRANCH_REGEX.test('.invalid')).toBe(false);
   });
 
-  it('should reject HEAD (detached state)', () => {
-    // HEAD indicates detached state - should not be used as branch name
-    expect(GIT_BRANCH_REGEX.test('HEAD')).toBe(true); // Note: HEAD is technically valid as a name
-    // But we handle HEAD specially in the validation logic
+  it('should accept HEAD as syntactically valid (handled specially in validation logic)', () => {
+    // HEAD is technically valid as a git branch name syntactically,
+    // but when detected from rev-parse it indicates detached state.
+    // The validateWorktreeBranch function handles this case specially.
+    expect(GIT_BRANCH_REGEX.test('HEAD')).toBe(true);
   });
 });
 

@@ -128,6 +128,26 @@ class TestDetectWorktreeIsolation:
         assert "opt/dev/project" in norm_forbidden
         assert ".auto-claude" not in norm_forbidden
 
+    def test_regular_auto_claude_dir(self):
+        """Test that regular .auto-claude dir is NOT detected as worktree."""
+        # Just having .auto-claude in path doesn't make it a worktree
+        project_dir = Path("/opt/dev/project/.auto-claude/specs/001-feature")
+
+        is_worktree, parent_path = detect_worktree_isolation(project_dir)
+
+        assert is_worktree is False
+        assert parent_path is None
+
+    def test_empty_or_root_path(self):
+        """Test edge case with minimal paths."""
+        # Root path
+        project_dir = Path("/")
+
+        is_worktree, parent_path = detect_worktree_isolation(project_dir)
+
+        assert is_worktree is False
+        assert parent_path is None
+
 
 class TestGenerateEnvironmentContext:
     """Tests for generate_environment_context function."""
@@ -172,12 +192,18 @@ class TestGenerateEnvironmentContext:
     def test_context_windows_worktree(self):
         """Test worktree warning with Windows paths (from ticket ACS-394)."""
         # This is the exact scenario from the bug report
-        spec_dir = Path("E:/projects/x/.auto-claude/worktrees/tasks/009-audit/.auto-claude/specs/009-audit")
-        project_dir = Path("E:/projects/x/.auto-claude/worktrees/tasks/009-audit")
+        spec_dir = Path(
+            "E:/projects/x/.auto-claude/worktrees/tasks/009-audit"
+            "/.auto-claude/specs/009-audit"
+        )
+        project_dir = Path(
+            "E:/projects/x/.auto-claude/worktrees/tasks/009-audit"
+        )
 
         context = generate_environment_context(project_dir, spec_dir)
 
         # Verify worktree warning includes the Windows path
+        # Note: Path resolution on Windows converts forward slashes to backslashes
         assert "ISOLATED WORKTREE - CRITICAL" in context
         # The forbidden path should be the parent project
         assert "FORBIDDEN PATH:" in context

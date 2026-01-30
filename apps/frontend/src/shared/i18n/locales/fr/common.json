@@ -139,7 +139,8 @@
   },
   "worktrees": {
     "deleteSuccess": "Worktree '{{branch}}' supprimé avec succès",
-    "bulkDeleteSuccess": "{{count}} worktree(s) supprimé(s) avec succès"
+    "bulkDeleteSuccess": "{{count}} worktree supprimé avec succès",
+    "bulkDeleteSuccess_plural": "{{count}} worktrees supprimés avec succès"
   },
   "notification": {
     "accountSwitched": "Compte changé",

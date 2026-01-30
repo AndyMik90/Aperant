@@ -858,5 +858,11 @@
       "increase": "Augmenter {{label}} de {{step}}",
       "currentValue": "Valeur actuelle : {{value}}"
     }
+  },
+  "agents": {
+    "pr_template_filler": {
+      "label": "Remplisseur de modèle PR",
+      "description": "Remplit intelligemment les modèles de PR GitHub à partir des changements de code"
+    }
   }
 }
