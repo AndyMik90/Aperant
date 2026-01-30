@@ -5,7 +5,7 @@
  * This is useful for features like AI task splitting where users want to
  * paste content that includes both text and images from the clipboard.
  */
-import { ipcMain, clipboard, nativeImage } from 'electron';
+import { ipcMain, clipboard, nativeImage, net } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { IPCResult } from '../../shared/types';
 
@@ -19,6 +19,102 @@ export interface ClipboardImage {
 export interface ClipboardContent {
   text: string;
   images: ClipboardImage[];
+}
+
+/**
+ * Fetch an image from a URL and convert it to a base64 data URL
+ */
+function fetchImageAsDataUrl(url: string): Promise<{ dataUrl: string; mimeType: string; size: number } | null> {
+  return new Promise((resolve) => {
+    console.warn('[Clipboard] Fetching image:', url.substring(0, 100));
+
+    const request = net.request({
+      method: 'GET',
+      url: url
+    });
+
+    // Set user agent to avoid being blocked
+    request.setHeader('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+    const chunks: Buffer[] = [];
+
+    request.on('response', (response) => {
+      const statusCode = response.statusCode;
+      console.warn('[Clipboard] Response status:', statusCode);
+
+      // Check if the request was successful
+      if (!statusCode || statusCode < 200 || statusCode >= 300) {
+        console.warn('[Clipboard] Failed to fetch image, status:', statusCode);
+        resolve(null);
+        return;
+      }
+
+      // Get content type from headers (may be string or string array)
+      const contentTypeHeader = response.headers['content-type'];
+      const contentType = typeof contentTypeHeader === 'string'
+        ? contentTypeHeader
+        : Array.isArray(contentTypeHeader)
+          ? contentTypeHeader[0]
+          : 'image/jpeg';
+      const mimeType = contentType.split(';')[0].trim();
+
+      response.on('data', (chunk) => {
+        chunks.push(chunk);
+      });
+
+      response.on('end', () => {
+        try {
+          const buffer = Buffer.concat(chunks);
+          const base64 = buffer.toString('base64');
+          const dataUrl = `data:${mimeType};base64,${base64}`;
+
+          console.warn('[Clipboard] Image fetched successfully, size:', buffer.length, 'bytes');
+          resolve({ dataUrl, mimeType, size: buffer.length });
+        } catch (error) {
+          console.error('[Clipboard] Error processing image:', error);
+          resolve(null);
+        }
+      });
+    });
+
+    request.on('error', (error) => {
+      console.error('[Clipboard] Network error fetching image:', error.message);
+      resolve(null);
+    });
+
+    request.end();
+  });
+}
+
+/**
+ * Check if a URL is likely a content image (not an emoji or UI icon)
+ */
+function isContentImageUrl(url: string): boolean {
+  // Decode HTML entities like &amp;
+  const decodedUrl = url.replace(/&amp;/g, '&');
+
+  // Filter out emojis (usually in /images/emoji.php)
+  if (decodedUrl.includes('/images/emoji.php')) {
+    return false;
+  }
+
+  // Filter out small UI icons (usually in /rsrc.php with small dimensions)
+  if (decodedUrl.includes('/rsrc.php/v4/')) {
+    return false;
+  }
+
+  // Look for actual content images - Facebook content photos are in /v/t39.30808-6/
+  if (decodedUrl.includes('/v/t39.30808-6/') || decodedUrl.includes('/v/t39.30808')) {
+    return true;
+  }
+
+  // Generic check: allow images from scontent domains (Facebook content)
+  if (decodedUrl.includes('scontent-') && decodedUrl.includes('.fbcdn.net')) {
+    return true;
+  }
+
+  // Default to false for unknown patterns
+  return false;
 }
 
 /**
@@ -55,17 +151,60 @@ export function registerClipboardHandlers(): void {
         const htmlContent = clipboard.readHTML();
         console.warn('[Clipboard] HTML content detected, length:', htmlContent.length);
 
-        // Check for HTML img tags that might contain images
+        // Extract image URLs from HTML img tags
         const imgMatches = htmlContent.match(/<img[^>]+src=["']([^"']+)["']/gi);
         if (imgMatches && imgMatches.length > 0) {
           console.warn('[Clipboard] Found', imgMatches.length, 'img tags in HTML content');
-          imgMatches.forEach((match, i) => {
+
+          // Extract unique URLs
+          const uniqueUrls = new Set<string>();
+          const contentImageUrls: string[] = [];
+
+          for (const match of imgMatches) {
             const src = match.match(/src=["']([^"']+)["']/)?.[1];
             if (src) {
-              console.warn(`[Clipboard]   [${i + 1}] src:`, src.substring(0, 150));
-              // TODO: Could potentially fetch images from URLs if they're not data URLs
+              // Decode HTML entities
+              const decodedUrl = src.replace(/&amp;/g, '&');
+              if (!uniqueUrls.has(decodedUrl)) {
+                uniqueUrls.add(decodedUrl);
+
+                // Check if this is a content image (not emoji/UI icon)
+                if (isContentImageUrl(decodedUrl)) {
+                  contentImageUrls.push(decodedUrl);
+                  console.warn(`[Clipboard]   Content image:`, decodedUrl.substring(0, 100));
+                } else {
+                  console.warn(`[Clipboard]   Skipped (UI element):`, decodedUrl.substring(0, 100));
+                }
+              }
             }
-          });
+          }
+
+          // Fetch content images in parallel
+          if (contentImageUrls.length > 0) {
+            console.warn('[Clipboard] Fetching', contentImageUrls.length, 'content images...');
+
+            const fetchResults = await Promise.all(
+              contentImageUrls.map(url => fetchImageAsDataUrl(url))
+            );
+
+            for (let i = 0; i < fetchResults.length; i++) {
+              const fetchResult = fetchResults[i];
+              if (fetchResult) {
+                const imageId = `clipboard-img-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+                result.images.push({
+                  id: imageId,
+                  dataUrl: fetchResult.dataUrl,
+                  mimeType: fetchResult.mimeType,
+                  size: fetchResult.size
+                });
+                console.warn(`[Clipboard] Successfully fetched image ${i + 1}/${contentImageUrls.length}`);
+              } else {
+                console.warn(`[Clipboard] Failed to fetch image ${i + 1}/${contentImageUrls.length}`);
+              }
+            }
+          } else {
+            console.warn('[Clipboard] No content images found (all were UI elements/emojis)');
+          }
         }
       }
 
