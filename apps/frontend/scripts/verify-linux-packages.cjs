@@ -91,12 +91,68 @@ function findPackages(distDir) {
 }
 
 /**
+ * Common file list verification logic
+ * @param {string[]} files - List of files from package
+ * @param {string} packageType - Type of package (for error messages)
+ * @returns {Object} Verification result with verified flag and issues array
+ *
+ * File formats:
+ * - AppImage (bsdtar): './resources/python', './resources/backend/file.py'
+ * - deb (dpkg-deb -c): 'resources/python', 'resources/backend/file.py' (in last column)
+ */
+function verifyFileList(files, packageType) {
+  const issues = [];
+
+  // Check for Python binary directory
+  // AppImage: './resources/python' or ends with '/resources/python'
+  // deb: 'resources/python' (last column) or path ends with '/resources/python'
+  // Must NOT match 'resources/python-site-packages'
+  const pythonBinFound = files.some(
+    (f) =>
+      (f === './resources/python' ||
+        f === 'resources/python' ||
+        f.endsWith('/resources/python') ||
+        f.endsWith('./resources/python')) &&
+      !f.includes('python-site-packages') &&
+      !f.endsWith('/resources/python-site-packages'),
+  );
+  if (!pythonBinFound) {
+    issues.push(`Python binary directory not found in ${packageType}`);
+  }
+
+  // Check for backend directory (must be under resources/)
+  const backendFound = files.some(
+    (f) => f.includes('./resources/backend/') || f.includes('resources/backend/') || f === './resources/backend' || f === 'resources/backend',
+  );
+  if (!backendFound) {
+    issues.push(`Backend directory not found in ${packageType}`);
+  }
+
+  // Check for critical Python packages (must be under python-site-packages/)
+  for (const pkg of CRITICAL_PACKAGES) {
+    // Match: './resources/python-site-packages/secretstorage/__init__.py'
+    // Match: 'resources/python-site-packages/secretstorage/__init__.py'
+    // Don't match: '/some/other/path/secretstorage/'
+    const found = files.some(
+      (f) => f.includes(`python-site-packages/${pkg}/`) || f.includes(`python-site-packages/${pkg}.`),
+    );
+    if (!found) {
+      issues.push(`Python package not found: ${pkg}`);
+    }
+  }
+
+  return {
+    verified: issues.length === 0,
+    issues,
+    fileCount: files.filter((f) => f.trim()).length,
+  };
+}
+
+/**
  * Verify AppImage contents using bsdtar (libarchive)
  */
 function verifyAppImage(appImagePath) {
   logInfo(`Verifying AppImage: ${path.basename(appImagePath)}`);
-
-  const issues = [];
 
   // Check if bsdtar is available
   if (!commandExists('bsdtar')) {
@@ -117,34 +173,7 @@ function verifyAppImage(appImagePath) {
   }
 
   const files = result.stdout.split('\n');
-
-  // Check for Python binary (in resources/)
-  const pythonBinFound = files.some(
-    (f) => f.includes('resources/python') || f.endsWith('/python') || f.match(/\/python(\.exe)?$/),
-  );
-  if (!pythonBinFound) {
-    issues.push('Python binary not found in AppImage');
-  }
-
-  // Check for backend directory (in resources/)
-  const backendFound = files.some((f) => f.includes('resources/backend') || f.endsWith('/backend'));
-  if (!backendFound) {
-    issues.push('Backend directory not found in AppImage');
-  }
-
-  // Check for critical Python packages (in resources/python-site-packages/)
-  for (const pkg of CRITICAL_PACKAGES) {
-    const found = files.some((f) => f.includes(`python-site-packages/${pkg}/`) || f.endsWith(`/${pkg}`));
-    if (!found) {
-      issues.push(`Python package not found: ${pkg}`);
-    }
-  }
-
-  return {
-    verified: issues.length === 0,
-    issues,
-    fileCount: files.filter((f) => f.trim()).length,
-  };
+  return verifyFileList(files, 'AppImage');
 }
 
 /**
@@ -152,8 +181,6 @@ function verifyAppImage(appImagePath) {
  */
 function verifyDeb(debPath) {
   logInfo(`Verifying deb package: ${path.basename(debPath)}`);
-
-  const issues = [];
 
   // Check if dpkg is available
   if (!commandExists('dpkg-deb')) {
@@ -173,34 +200,7 @@ function verifyDeb(debPath) {
   }
 
   const files = result.stdout.split('\n');
-
-  // Check for Python binary (in resources/)
-  const pythonBinFound = files.some(
-    (f) => f.includes('resources/python') || f.endsWith('/python') || f.match(/\/python(\.exe)?$/),
-  );
-  if (!pythonBinFound) {
-    issues.push('Python binary not found in deb package');
-  }
-
-  // Check for backend directory (in resources/)
-  const backendFound = files.some((f) => f.includes('resources/backend') || f.endsWith('/backend'));
-  if (!backendFound) {
-    issues.push('Backend directory not found in deb package');
-  }
-
-  // Check for critical Python packages (in resources/python-site-packages/)
-  for (const pkg of CRITICAL_PACKAGES) {
-    const found = files.some((f) => f.includes(`python-site-packages/${pkg}/`) || f.endsWith(`/${pkg}`));
-    if (!found) {
-      issues.push(`Python package not found: ${pkg}`);
-    }
-  }
-
-  return {
-    verified: issues.length === 0,
-    issues,
-    fileCount: files.filter((f) => f.trim()).length,
-  };
+  return verifyFileList(files, 'deb package');
 }
 
 /**
@@ -338,4 +338,11 @@ if (require.main === module) {
 }
 
 // Export for testing
-module.exports = { CRITICAL_PACKAGES };
+module.exports = {
+  CRITICAL_PACKAGES,
+  findPackages,
+  verifyFileList,
+  verifyAppImage,
+  verifyDeb,
+  verifyFlatpak,
+};
