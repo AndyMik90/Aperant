@@ -571,14 +571,14 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_SPLIT_INTO_TASKS,
-    async (_, projectId: string, text: string, promptTemplate?: string): Promise<IPCResult<Array<{ title: string; description: string }>>> => {
+    async (_, projectId: string, text: string, promptTemplate?: string, images?: import('../../../shared/types/screenshot').ClipboardImage[]): Promise<IPCResult<Array<{ title: string; description: string; attachedImages?: import('../../../shared/types/screenshot').ClipboardImage[] }>>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
         return { success: false, error: 'Project not found' };
       }
 
       try {
-        const splitTasks = await splitTextIntoTasks(text, promptTemplate);
+        const splitTasks = await splitTextIntoTasks(text, promptTemplate, images);
         return { success: true, data: splitTasks };
       } catch (error) {
         console.error('[TASK_SPLIT_INTO_TASKS] Error:', error);
@@ -685,7 +685,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
 /**
  * Split text into multiple tasks using Claude AI
  */
-async function splitTextIntoTasks(text: string, promptTemplate?: string): Promise<Array<{ title: string; description: string }>> {
+async function splitTextIntoTasks(text: string, promptTemplate?: string, images?: import('../../../shared/types/screenshot').ClipboardImage[]): Promise<Array<{ title: string; description: string; attachedImages?: import('../../../shared/types/screenshot').ClipboardImage[] }>> {
   const { spawn } = await import('child_process');
   const path = await import('path');
   const { app } = await import('electron');
@@ -734,23 +734,52 @@ async function splitTextIntoTasks(text: string, promptTemplate?: string): Promis
   // Create the Python script for task splitting
   const escapedText = JSON.stringify(text);
 
+  // Build the images section for the prompt
+  let imagesPrompt = '';
+  if (images && images.length > 0) {
+    imagesPrompt = `\n\nATTACHED IMAGES (${images.length}):\n`;
+    imagesPrompt += 'The following images are provided as reference. Analyze them and use the information to create appropriate tasks.\n';
+    imagesPrompt += 'Images are provided as base64 data URLs:\n\n';
+
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
+      imagesPrompt += `[Image ${i + 1}]\n`;
+      imagesPrompt += `- Type: ${img.mimeType}\n`;
+      imagesPrompt += `- Size: ${img.size} bytes\n`;
+      imagesPrompt += `- Data URL: ${img.dataUrl.substring(0, 100)}... (truncated)\n\n`;
+    }
+
+    imagesPrompt += '\nIMPORTANT: These images contain context that should be used to inform the tasks being created. ';
+    imagesPrompt += 'For example, if the images show screenshots of a UI with issues, create tasks to fix those specific issues. ';
+    imagesPrompt += 'If images show design mockups, create tasks to implement those designs.\n';
+  }
+
   // Use the provided prompt template or default
   let promptToUse = promptTemplate;
   if (!promptToUse || !promptToUse.trim()) {
     // Default prompt if none provided
     promptToUse = `Analyze the following text and split it into separate, actionable tasks.
+${imagesPrompt ? 'Also analyze the attached images and use them as reference when creating tasks.' : ''}
 
 Return your response as a JSON array of objects with "title" and "description" keys.
 Format: [{"title": "task title", "description": "task description"}]
+${imagesPrompt ? 'Note: Use information from the images to create more accurate and specific tasks.' : ''}
 
 Text to split:
 {{text}}
+${imagesPrompt ? '{{images}}' : ''}
 
 Respond ONLY with the JSON array. No markdown, no explanation.`;
   }
 
-  // Replace {{text}} placeholder with actual text
-  const promptWithText = promptToUse.replace(/\{\{text\}\}/g, text);
+  // Replace {{text}} and {{images}} placeholders with actual content
+  let promptWithText = promptToUse.replace(/\{\{text\}\}/g, text);
+  if (images && images.length > 0) {
+    promptWithText = promptWithText.replace(/\{\{images\}\}/g, imagesPrompt);
+  } else {
+    // Remove {{images}} placeholder if no images
+    promptWithText = promptWithText.replace(/\{\{images\}\}/g, '');
+  }
   const escapedPrompt = JSON.stringify(promptWithText);
 
   const script = `
@@ -902,7 +931,14 @@ asyncio.run(split_into_tasks())
           try {
             const tasks = JSON.parse(output.trim());
             console.log('[splitTextIntoTasks] Successfully split into', tasks.length, 'tasks');
-            resolve(tasks);
+
+            // Attach images to each task if provided
+            const tasksWithImages = tasks.map((task: { title: string; description: string }) => ({
+              ...task,
+              attachedImages: images
+            }));
+
+            resolve(tasksWithImages);
           } catch (e) {
             console.error('[splitTextIntoTasks] Failed to parse response:', output.substring(0, 500));
             resolve([]);

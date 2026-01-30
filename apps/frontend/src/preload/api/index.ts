@@ -1,6 +1,6 @@
 import { ProjectAPI, createProjectAPI } from './project-api';
 import { TerminalAPI, createTerminalAPI } from './terminal-api';
-import { TaskAPI, createTaskAPI, type SplitTask } from './task-api';
+import { TaskAPI, createTaskAPI } from './task-api';
 import { SettingsAPI, createSettingsAPI } from './settings-api';
 import { FileAPI, createFileAPI } from './file-api';
 import { AgentAPI, createAgentAPI } from './agent-api';

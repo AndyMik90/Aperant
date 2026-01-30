@@ -47,8 +47,10 @@ import type {
   TaskLogStreamChunk,
   ImageAttachment,
   ReviewReason,
-  MergeProgress
+  MergeProgress,
+  SplitTask
 } from './task';
+import type { ClipboardImage } from './screenshot';
 import type {
   TerminalCreateOptions,
   TerminalSession,
@@ -169,7 +171,7 @@ export interface ElectronAPI {
   getTasks: (projectId: string, options?: { forceRefresh?: boolean }) => Promise<IPCResult<Task[]>>;
   createTask: (projectId: string, title: string, description: string, metadata?: TaskMetadata) => Promise<IPCResult<Task>>;
   deleteTask: (taskId: string) => Promise<IPCResult>;
-  splitIntoTasks: (projectId: string, text: string, promptTemplate?: string) => Promise<IPCResult<Array<{ title: string; description: string }>>>;
+  splitIntoTasks: (projectId: string, text: string, promptTemplate?: string, images?: ClipboardImage[]) => Promise<IPCResult<SplitTask[]>>;
   updateTask: (taskId: string, updates: { title?: string; description?: string }) => Promise<IPCResult<Task>>;
   startTask: (taskId: string, options?: TaskStartOptions) => void;
   stopTask: (taskId: string) => void;

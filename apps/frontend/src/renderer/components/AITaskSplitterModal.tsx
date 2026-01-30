@@ -12,7 +12,7 @@ import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
-import type { ClipboardImage } from '../../shared/types/screenshot';
+import type { SplitTask, ClipboardImage } from '@shared/types';
 import {
   Dialog,
   DialogContent,
@@ -26,11 +26,6 @@ import { cn } from '../lib/utils';
 import { PromptTemplateSelector } from './PromptTemplateSelector';
 import { useSettingsStore } from '../stores/settings-store';
 import { DEFAULT_PROMPT_TEMPLATES, type PromptTemplate } from '../../shared/types';
-
-export interface SplitTask {
-  title: string;
-  description: string;
-}
 
 interface AITaskSplitterModalProps {
   open: boolean;
@@ -92,8 +87,13 @@ export function AITaskSplitterModal({
       // Get the prompt template to use
       const promptTemplate = getPromptTemplate();
 
-      // Call the backend API to split the text with the prompt template
-      const result = await window.electronAPI.splitIntoTasks(projectId || '', inputText, promptTemplate);
+      // Call the backend API to split the text with the prompt template and images
+      const result = await window.electronAPI.splitIntoTasks(
+        projectId || '',
+        inputText,
+        promptTemplate,
+        clipboardImages
+      );
 
       if (result.success && result.data) {
         setSplitTasks(result.data);
@@ -338,6 +338,28 @@ export function AITaskSplitterModal({
                             rows={3}
                           />
                         </div>
+                        {/* Attached images gallery */}
+                        {task.attachedImages && task.attachedImages.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">
+                              {t('tasks:aiSplitter.attachedImages', { count: task.attachedImages.length })}
+                            </Label>
+                            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                              {task.attachedImages.map((image) => (
+                                <div
+                                  key={image.id}
+                                  className="relative shrink-0 group"
+                                >
+                                  <img
+                                    src={image.dataUrl}
+                                    alt="Task reference image"
+                                    className="h-16 w-auto rounded-md border border-border object-cover"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <Button
                         variant="ghost"
