@@ -316,7 +316,7 @@ async def run_pr_template_filler(
 
     try:
         async with client:
-            status, response = await run_agent_session(
+            status, response, _ = await run_agent_session(
                 client, prompt, spec_dir, verbose, phase=LogPhase.CODING
             )
 
