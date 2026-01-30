@@ -37,7 +37,8 @@
     "completed": "Terminé",
     "hasErrors": "Contient des erreurs",
     "qaIssues": "Problèmes QA",
-    "approvePlan": "Approuver le plan"
+    "approvePlan": "Approuver le plan",
+    "stopped": "Arrêté"
   },
   "tooltips": {
     "archiveTask": "Archiver la tâche",

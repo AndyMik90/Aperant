@@ -23,6 +23,7 @@ import { getIsolatedGitEnv, detectWorktreeBranch, refreshGitIndex } from '../../
 import { cleanupWorktree } from '../../utils/worktree-cleanup';
 import { killProcessGracefully } from '../../platform';
 import { stripAnsiCodes } from '../../../shared/utils/ansi-sanitizer';
+import { taskStateManager } from '../../task-state-manager';
 
 // Regex pattern for validating git branch names
 export const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
@@ -2332,6 +2333,7 @@ export function registerWorktreeHandlers(
               }
 
               debug('Merge result. isStageOnly:', isStageOnly, 'newStatus:', newStatus, 'staged:', staged);
+              const reviewReason = newStatus === 'human_review' ? 'completed' : undefined;
 
               // Read suggested commit message if staging succeeded
               // OPTIMIZATION: Use async I/O to prevent blocking
@@ -2379,6 +2381,7 @@ export function registerWorktreeHandlers(
                       const plan = JSON.parse(planContent);
                       plan.status = newStatus;
                       plan.planStatus = planStatus;
+                      plan.reviewReason = reviewReason;
                       plan.updated_at = new Date().toISOString();
                       if (staged) {
                         plan.stagedAt = new Date().toISOString();
@@ -2437,10 +2440,8 @@ export function registerWorktreeHandlers(
                 // Non-fatal: UI will still update, but status may not persist across refresh
               }
 
-              const mainWindow = getMainWindow();
-              if (mainWindow) {
-                mainWindow.webContents.send(IPC_CHANNELS.TASK_STATUS_CHANGE, taskId, newStatus);
-              }
+              // Route status change through TaskStateManager (XState) to avoid dual emission
+              taskStateManager.handleManualStatusChange(taskId, newStatus as any, task, project);
 
               resolve({
                 success: true,
@@ -2777,10 +2778,8 @@ export function registerWorktreeHandlers(
         // Only send status change to backlog if not skipped
         // (skip when caller will set a different status, e.g., 'done')
         if (!skipStatusChange) {
-          const mainWindow = getMainWindow();
-          if (mainWindow) {
-            mainWindow.webContents.send(IPC_CHANNELS.TASK_STATUS_CHANGE, taskId, 'backlog');
-          }
+          // Route through TaskStateManager (XState) to avoid dual emission
+          taskStateManager.handleManualStatusChange(taskId, 'backlog', task, project);
         }
 
         return {
