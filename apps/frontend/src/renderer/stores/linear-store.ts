@@ -24,6 +24,7 @@ function createDefaultValidationResult(ticketId: string): ValidationResult {
 		ticketIdentifier: "",
 		validationTimestamp: new Date().toISOString(),
 		cached: false,
+		projectId: null,
 		contentAnalysis: {
 			title: "",
 			descriptionSummary: "",
@@ -66,6 +67,8 @@ interface LinearState {
 		currentTool?: string;
 		toolStatus?: 'running' | 'complete' | 'error';
 	}>;
+	// Track which project ID was used for each ticket's validation (for posting comments)
+	validationProjectIds: Map<string, string>;
 	// Counter to force re-renders when progress updates
 	progressUpdateCounter: number;
 	selectedTicketId: string | null;
@@ -95,6 +98,7 @@ interface LinearState {
 	updateValidationResult: (ticketId: string, result: ValidationResult) => void;
 	removeValidationResult: (ticketId: string) => void;
 	clearValidationResults: () => void;
+	setValidationProjectId: (ticketIdentifier: string, projectId: string) => void;
 
 	// Validation progress actions
 	updateValidationProgress: (ticketId: string, progress: {
@@ -253,6 +257,7 @@ export const useLinearStore = create<LinearState>((set, get) => ({
 	filters: {},
 	validationResults: new Map(),
 	validationProgress: new Map(),
+	validationProjectIds: new Map(),
 	progressUpdateCounter: 0,
 	selectedTicketId: null,
 	selectedProjectId: null,
@@ -329,6 +334,13 @@ export const useLinearStore = create<LinearState>((set, get) => ({
 		}),
 
 	clearValidationResults: () => set({ validationResults: new Map() }),
+
+	setValidationProjectId: (ticketIdentifier, projectId) =>
+		set((state) => {
+			const newMap = new Map(state.validationProjectIds);
+			newMap.set(ticketIdentifier, projectId);
+			return { validationProjectIds: newMap };
+		}),
 
 	// Validation progress actions
 	updateValidationProgress: (ticketId, progress) =>
@@ -424,6 +436,10 @@ export async function fetchLinearTickets(
 			store.setLoading(false);
 			return;
 		}
+
+		// Set the selected project ID so it's available for later operations (like posting comments)
+		// This preserves the project context for tickets that don't have an explicit project assignment
+		store.setSelectedProjectId(projectId);
 
 		const result = await window.electronAPI.getLinearIssues(
 			projectId,
@@ -540,6 +556,9 @@ export async function validateLinearTicket(
 				hasCodebaseVerification: !!result.data.codebaseVerification,
 				hasCompleteness: !!result.data.completenessValidation,
 			});
+			// Store the projectId used for this validation so comments can be posted later
+			// This is ticket-identifier based, not project-based, as tickets can exist without projects
+			store.setValidationProjectId(result.data.ticketIdentifier, projectId);
 			store.updateValidationResult(ticketId, {
 				...result.data,
 				status: "complete",

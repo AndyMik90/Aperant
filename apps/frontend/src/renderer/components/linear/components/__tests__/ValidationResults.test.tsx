@@ -50,6 +50,7 @@ function createMockValidation(overrides: Partial<ValidationResult> = {}): Valida
 		ticketIdentifier: 'ACS-441',
 		validationTimestamp: new Date().toISOString(),
 		cached: false,
+		projectId: null,
 		contentAnalysis: {
 			title: 'Test ticket objective',
 			descriptionSummary: 'Test description summary',
@@ -715,8 +716,20 @@ describe('ValidationResults', () => {
 
 			// Mock the electronAPI
 			const mockPostLinearComment = vi.fn().mockResolvedValue({ success: true });
+			// Mock getLinearComments to simulate the state AFTER posting feedback:
+			// Returns both the GitHub thread and our feedback comment (both top-level)
+			const mockGetLinearComments = vi.fn().mockResolvedValue({
+				success: true,
+				data: [
+					// Our feedback comment (most recent, first in array)
+					{ id: 'feedback-comment-456', body: 'Validation results...', parentId: null, user: { name: 'Auto-Claude' } },
+					// Original GitHub thread (earliest, last in array)
+					{ id: 'github-comment-123', body: 'Original GitHub issue', parentId: null, user: { name: 'GitHub User' } },
+				],
+			});
 			global.window.electronAPI = {
 				postLinearComment: mockPostLinearComment,
+				getLinearComments: mockGetLinearComments,
 			} as any;
 
 			const mockOnOpenChange = vi.fn();
@@ -736,21 +749,27 @@ describe('ValidationResults', () => {
 
 			// Wait for async operations
 			await waitFor(() => {
+				// Should have called getLinearComments once to find the GitHub thread for clarification
+				expect(mockGetLinearComments).toHaveBeenCalledTimes(1);
+				expect(mockGetLinearComments).toHaveBeenCalledWith('project-123', 'ticket-123');
+
 				// Should have called postLinearComment twice:
-				// 1. Feedback comment (full validation results)
-				// 2. Clarification comment (new GitHub thread for missing info)
+				// 1. Feedback comment (full validation results) - top-level comment (null parentId)
+				// 2. Clarification comment - reply to GitHub thread
 				expect(mockPostLinearComment).toHaveBeenCalledTimes(2);
 			});
 
-			// Verify first two calls have correct projectId and ticketId
+			// Verify calls have correct projectId, ticketId, and parentId
 			const firstCall = mockPostLinearComment.mock.calls[0];
 			const secondCall = mockPostLinearComment.mock.calls[1];
 			expect(firstCall[0]).toBe('project-123'); // projectId
 			expect(firstCall[1]).toBe('ticket-123'); // ticketId
 			expect(secondCall[0]).toBe('project-123'); // projectId
 			expect(secondCall[1]).toBe('ticket-123'); // ticketId
-			// Second call should have null as 4th arg (no parentId for new thread)
-			expect(secondCall[3]).toBeNull();
+			// First call (feedback) should be top-level (null parentId)
+			expect(firstCall[3]).toBeNull();
+			// Second call (clarification) should reply to GitHub thread
+			expect(secondCall[3]).toBe('github-comment-123');
 
 			// Modal should close on success
 			await waitFor(() => {
@@ -794,6 +813,8 @@ describe('ValidationResults', () => {
 
 			// Wait for async operations
 			await waitFor(() => {
+				// Should NOT have called getLinearComments (no missing fields)
+				expect(mockGetLinearComments).not.toHaveBeenCalled();
 				// Should have called postLinearComment only once for feedback
 				expect(mockPostLinearComment).toHaveBeenCalledTimes(1);
 			});

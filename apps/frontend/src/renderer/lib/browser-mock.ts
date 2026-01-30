@@ -268,6 +268,7 @@ const browserMockAPI: ElectronAPI = {
       ticketIdentifier: '',
       validationTimestamp: new Date().toISOString(),
       cached: false,
+      projectId: null,
       status: 'complete' as const,
       contentAnalysis: {
         title: 'Mock',

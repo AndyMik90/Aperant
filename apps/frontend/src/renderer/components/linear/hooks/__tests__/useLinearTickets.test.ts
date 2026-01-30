@@ -76,6 +76,7 @@ describe("useLinearTickets - Validation Result Key Mapping", () => {
 			ticketIdentifier: "LIN-123",
 			validationTimestamp: "2024-01-01T00:00:00.000Z",
 			cached: false,
+			projectId: null,
 			status: "complete",
 			contentAnalysis: {
 				title: "Test Ticket",
@@ -185,6 +186,7 @@ describe("useLinearTickets - Validation Result Key Mapping", () => {
 			ticketIdentifier: "LIN-1",
 			validationTimestamp: "2024-01-01T00:00:00.000Z",
 			cached: false,
+			projectId: null,
 			status: "complete",
 			contentAnalysis: {
 				title: "Ticket 1",
@@ -385,6 +387,7 @@ describe("useLinearTickets - Validation State", () => {
 				ticketIdentifier: "LIN-123",
 				validationTimestamp: new Date().toISOString(),
 				cached: false,
+				projectId: null,
 				status: "validating",
 				contentAnalysis: {
 					title: "",
@@ -422,6 +425,7 @@ describe("useLinearTickets - Validation State", () => {
 				ticketIdentifier: "LIN-123",
 				validationTimestamp: new Date().toISOString(),
 				cached: false,
+				projectId: null,
 				status: "complete",
 				contentAnalysis: {
 					title: "Test",
@@ -511,6 +515,7 @@ describe("useLinearTickets - Validation State", () => {
 				ticketIdentifier: "LIN-1",
 				validationTimestamp: "2024-01-01T00:00:00.000Z",
 				cached: false,
+				projectId: null,
 				status: "complete",
 				contentAnalysis: {
 					title: "Ticket 1",
@@ -542,6 +547,7 @@ describe("useLinearTickets - Validation State", () => {
 				ticketIdentifier: "LIN-2",
 				validationTimestamp: "2024-01-01T00:00:00.000Z",
 				cached: false,
+				projectId: null,
 				status: "complete",
 				contentAnalysis: {
 					title: "Ticket 2",

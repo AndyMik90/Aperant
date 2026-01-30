@@ -272,6 +272,7 @@ export function ValidationModal({
 						ticketIdentifier: '',
 						validationTimestamp: new Date().toISOString(),
 						cached: false,
+						projectId: null,
 						contentAnalysis: {
 							title: '',
 							descriptionSummary: '',

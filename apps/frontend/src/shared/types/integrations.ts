@@ -59,6 +59,10 @@ export interface ValidationResult {
 	validationTimestamp: string;
 	cached: boolean;
 
+	// Project ID that was used for this validation (for posting comments, etc.)
+	// This allows posting comments without requiring project context from the ticket
+	projectId: string | null;
+
 	// Step 1: Content analysis
 	contentAnalysis: {
 		title: string;

@@ -153,6 +153,7 @@ describe("LinearTicketDetail - Immediate Modal Opening", () => {
 			ticketIdentifier: "LIN-123",
 			validationTimestamp: "2024-01-01T00:00:00.000Z",
 			cached: false,
+			projectId: null,
 			status: "complete",
 			contentAnalysis: {
 				title: "Test",
@@ -286,6 +287,7 @@ describe("LinearTicketDetail - Display States", () => {
 			ticketIdentifier: "LIN-123",
 			validationTimestamp: "2024-01-01T00:00:00.000Z",
 			cached: false,
+			projectId: null,
 			status: "complete",
 			contentAnalysis: {
 				title: "Test",
@@ -340,6 +342,7 @@ describe("LinearTicketDetail - Display States", () => {
 			ticketIdentifier: "LIN-123",
 			validationTimestamp: "2024-01-01T00:00:00.000Z",
 			cached: false,
+			projectId: null,
 			status: "error",
 			error: "Validation failed",
 			contentAnalysis: {

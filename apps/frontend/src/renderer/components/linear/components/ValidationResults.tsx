@@ -290,44 +290,71 @@ export function ValidationResults({
 	}, [ticket, validation, onOpenChange, t]);
 
 	// Handle post feedback to Linear (for incomplete validations)
-	// Posts both: 1) Full validation results, 2) Clarification comment (creates new GitHub thread)
+	// Posts feedback as top-level comment, and clarification as reply to GitHub thread
 	const handlePostFeedback = useCallback(async () => {
 		setIsPosting(true);
 		setError(null);
 
 		try {
-			// Use the ticket's own project for API calls (to ensure correct Linear workspace/team)
-			// If ticket has no project, fall back to selected project from store
-			// This ensures we post to the correct Linear team/workspace that the ticket belongs to
-			const projectId = ticket.project?.id || useLinearStore.getState().selectedProjectId || null;
+			// Resolve projectId in priority order:
+			// 1. validationProjectIds Map - stores the projectId used during validation (ticket-identifier based)
+			// 2. ticket.project?.id - the ticket's own project assignment
+			// 3. selectedProjectId - fallback to currently selected project
+			// This ensures comments are posted using the same context that was used for validation
+			const linearStore = useLinearStore.getState();
+			const projectId = linearStore.validationProjectIds.get(ticket.identifier)
+				|| ticket.project?.id
+				|| linearStore.selectedProjectId
+				|| null;
 
 			if (!projectId) {
 				throw new Error('No project ID available for posting comments. Please select a project with Linear integration configured.');
 			}
 
-			// 1. Post the full validation results comment (top-level comment)
+			// 1. Post the full validation results comment as a top-level comment
+			// This is a normal Linear comment, not synced to GitHub
 			const feedbackComment = buildFeedbackComment(ticket, validation, t);
-			const feedbackResult = await window.electronAPI.postLinearComment(projectId, ticket.id, feedbackComment);
+			const feedbackResult = await window.electronAPI.postLinearComment(
+				projectId,
+				ticket.id,
+				feedbackComment,
+				null, // Top-level comment on Linear ticket
+			);
 
 			if (!feedbackResult.success) {
 				throw new Error(feedbackResult.error || 'Failed to post feedback comment');
 			}
 
 			// 2. If there are missing fields, also post a clarification comment
-			// This creates a new thread that will sync to GitHub via Linear's integration
-			// to request information from the reporter
+			// Fetch GitHub thread BEFORE posting clarification (not before posting feedback)
+			// so we find the original GitHub thread, not the feedback comment we just posted
 			const isComplete = validation.completenessValidation?.isComplete ?? false;
 			const hasMissingFields = validation.completenessValidation?.missingFields?.length > 0;
 
 			if (!isComplete && hasMissingFields) {
-				// Post clarification as a new top-level comment (not a threaded reply)
-				// This creates a new GitHub thread which is cleaner than replying to existing threads
+				// Fetch existing comments to find the GitHub-synced thread
+				// GitHub comments appear as top-level comments (parentId: null) in Linear
+				// We need to fetch AFTER posting feedback so we can distinguish from our own comment
+				const commentsResult = await window.electronAPI.getLinearComments(projectId, ticket.id);
+
+				// Find the GitHub thread (first top-level comment that is NOT the feedback we just posted)
+				// The feedback comment is the latest top-level comment, so we look for the earliest one
+				const comments = commentsResult.success && commentsResult.data ? commentsResult.data : [];
+				const topLevelComments = comments.filter(c => c.parentId === null);
+				// The GitHub thread should be the earliest top-level comment (last in the array)
+				// Our feedback comment is the most recent (first in the array)
+				const githubCommentId = topLevelComments.length > 1
+					? topLevelComments[topLevelComments.length - 1]?.id || null
+					: null;
+
+				// Post clarification as a reply to the GitHub thread
+				// This syncs properly to GitHub as part of the existing thread
 				const clarificationComment = buildClarificationComment(ticket, validation, t);
 				const clarificationResult = await window.electronAPI.postLinearComment(
 					projectId,
 					ticket.id,
 					clarificationComment,
-					null, // No parentId - creates new thread that syncs to GitHub
+					githubCommentId, // Reply to GitHub thread if found, otherwise posts as top-level
 				);
 
 				if (!clarificationResult.success) {

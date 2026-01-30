@@ -250,6 +250,7 @@ describe("Linear Validation Progress", () => {
 				ticketIdentifier: "LIN-123",
 				validationTimestamp: new Date().toISOString(),
 				cached: false,
+				projectId: null,
 				status: "validating" as const,
 				contentAnalysis: {
 					title: "Test",
@@ -310,6 +311,7 @@ describe("Linear Validation Progress", () => {
 				ticketIdentifier: "LIN-123",
 				validationTimestamp: new Date().toISOString(),
 				cached: false,
+				projectId: null,
 				status: "validating" as const,
 				contentAnalysis: {
 					title: "Test",

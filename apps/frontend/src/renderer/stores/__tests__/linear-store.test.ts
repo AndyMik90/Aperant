@@ -43,6 +43,7 @@ function createTestValidationResult(
 		ticketIdentifier: "LIN-123",
 		validationTimestamp: new Date().toISOString(),
 		cached: false,
+		projectId: null,
 		status: "complete",
 		contentAnalysis: {
 			title: "Test Analysis",

@@ -1082,7 +1082,7 @@ ${issue.description || "No description provided."}
             commentCreate(input: {
               issueId: $issueId,
               body: $body,
-              parentCommentId: $parentId
+              parentId: $parentId
             }) {
               success
               comment {
