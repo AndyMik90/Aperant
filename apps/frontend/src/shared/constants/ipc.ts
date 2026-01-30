@@ -16,6 +16,10 @@ export const IPC_CHANNELS = {
   TAB_STATE_GET: 'tabState:get',
   TAB_STATE_SAVE: 'tabState:save',
 
+  // Kanban preferences (per-project column collapse state)
+  KANBAN_PREFS_GET: 'kanbanPrefs:get',
+  KANBAN_PREFS_SAVE: 'kanbanPrefs:save',
+
   // Task operations
   TASK_LIST: 'task:list',
   TASK_CREATE: 'task:create',
@@ -58,6 +62,7 @@ export const IPC_CHANNELS = {
   TASK_LOGS_UNWATCH: 'task:logsUnwatch',   // Stop watching for log changes
   TASK_LOGS_CHANGED: 'task:logsChanged',   // Event: logs changed (main -> renderer)
   TASK_LOGS_STREAM: 'task:logsStream',     // Event: streaming log chunk (main -> renderer)
+  TASK_MERGE_PROGRESS: 'task:mergeProgress',  // Event: merge progress update (main -> renderer)
 
   // Terminal operations
   TERMINAL_CREATE: 'terminal:create',
@@ -548,6 +553,9 @@ export const IPC_CHANNELS = {
   SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes
   GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
   GET_SENTRY_CONFIG: 'sentry:get-config',        // Get full Sentry config (DSN + sample rates)
+
+  // Spell check
+  SPELLCHECK_SET_LANGUAGES: 'spellcheck:setLanguages',  // Set spell check language (syncs with i18n)
 
   // Screenshot capture
   SCREENSHOT_GET_SOURCES: 'screenshot:getSources',  // Get available screens/windows

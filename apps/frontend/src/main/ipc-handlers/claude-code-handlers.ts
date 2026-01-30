@@ -23,7 +23,7 @@ import { isSecurePath } from '../utils/windows-paths';
 import { isWindows, isMacOS, isLinux } from '../platform';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { isValidConfigDir } from '../utils/config-path-validator';
-import { clearKeychainCache } from '../claude-profile/credential-utils';
+import { clearKeychainCache, getCredentialsFromKeychain } from '../claude-profile/credential-utils';
 import { getUsageMonitor } from '../claude-profile/usage-monitor';
 import semver from 'semver';
 
@@ -855,7 +855,7 @@ interface AuthCheckResult {
  * Checks multiple locations based on platform:
  * - macOS: .claude.json with oauthAccount containing emailAddress
  * - Linux: .credentials.json OR .claude.json (Claude uses different storage on Linux)
- * - Windows: .claude.json with oauthAccount containing emailAddress
+ * - Windows: .claude.json, .credentials.json, AND Windows Credential Manager
  *
  * Also returns the full oauthAccount data so we can update the profile token.
  */
@@ -890,8 +890,8 @@ function checkProfileAuthentication(configDir: string): AuthCheckResult {
       }
     }
 
-    // On Linux, also check .credentials.json (Claude CLI may store tokens here)
-    if (isLinux() && existsSync(credentialsJsonPath)) {
+    // On Linux and Windows, also check .credentials.json (Claude CLI stores tokens here)
+    if ((isLinux() || isWindows()) && existsSync(credentialsJsonPath)) {
       const content = readFileSync(credentialsJsonPath, 'utf-8');
       const data = JSON.parse(content);
 
@@ -923,6 +923,22 @@ function checkProfileAuthentication(configDir: string): AuthCheckResult {
           oauthAccount: {
             accessToken: data.accessToken || data.token,
             refreshToken: data.refreshToken
+          }
+        };
+      }
+    }
+
+    // On Windows, also check Windows Credential Manager as a fallback
+    // Credentials may be stored ONLY in Credential Manager (not in files)
+    if (isWindows()) {
+      const keychainCreds = getCredentialsFromKeychain(expandedConfigDir);
+      if (keychainCreds.token) {
+        return {
+          authenticated: true,
+          email: keychainCreds.email || undefined,
+          oauthAccount: {
+            accessToken: keychainCreds.token,
+            emailAddress: keychainCreds.email || undefined
           }
         };
       }

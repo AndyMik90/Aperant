@@ -594,7 +594,7 @@ Focus on:
 - Insecure cryptography
 - Input validation issues
 
-Output findings in JSON format with high confidence (>80%) only.
+Output findings in JSON format with evidence from the actual code.
 """
 
 
@@ -611,5 +611,5 @@ Focus on:
 - Pattern adherence
 - Maintainability
 
-Output findings in JSON format with high confidence (>80%) only.
+Output findings in JSON format with evidence from the actual code.
 """

@@ -26,29 +26,70 @@ const RATE_LIMIT_INDICATORS = [
 /**
  * Patterns that indicate authentication failures
  * These patterns detect when Claude CLI/SDK fails due to missing or invalid auth
+ *
+ * IMPORTANT: These patterns must be specific enough to NOT match on AI response
+ * content that discusses authentication topics (e.g., PRs about auth features).
+ * The patterns should only match actual API error messages.
  */
 const AUTH_FAILURE_PATTERNS = [
-  /authentication\s*(is\s*)?required/i,
-  /not\s*(yet\s*)?authenticated/i,
-  /login\s*(is\s*)?required/i,
-  /oauth\s*token\s*(is\s*)?(invalid|expired|missing)/i,
-  /unauthorized/i,
-  /please\s*(log\s*in|login|authenticate)/i,
-  /invalid\s*(credentials|token|api\s*key)/i,
-  /auth(entication)?\s+(failed|error|failure)/i,
-  /session\s*(expired|invalid)/i,
-  /access\s*denied/i,
-  /permission\s*denied/i,
-  /401\s*unauthorized/i,
-  /credentials\s*(are\s*)?(missing|invalid|expired)/i,
-  // Match "OAuth token has expired" format from Claude API
-  /oauth\s*token\s+has\s+expired/i,
-  // Match Claude API authentication_error type in JSON responses
+  // Match Claude API authentication_error type in JSON responses (most reliable)
   /["']?type["']?\s*:\s*["']?authentication_error["']?/i,
-  // Match plain "API Error: 401" without requiring "unauthorized"
+  // Match plain "API Error: 401" - this is a structured error format
   /API\s*Error:\s*401/i,
-  // Match "Please obtain a new token" message from Claude API
-  /please\s*(obtain|get|refresh)\s*(a\s*)?new\s*token/i
+  // Match "OAuth token has expired" format from Claude API (specific phrasing)
+  /oauth\s*token\s+has\s+expired/i,
+  // Match "Please obtain a new token" or "refresh your existing token" - API specific
+  /please\s+(obtain\s+a\s+new|refresh\s+your)\s+(existing\s+)?token/i,
+  // Match Claude CLI specific auth messages (with context markers)
+  /\[.*\]\s*authentication\s*(is\s*)?required/i,
+  /\[.*\]\s*not\s*(yet\s*)?authenticated/i,
+  /\[.*\]\s*login\s*(is\s*)?required/i,
+  // Match 401 status codes in structured error output
+  /status[:\s]+401/i,
+  /HTTP\s*401/i,
+  // Match specific error prefixes that indicate actual errors (not AI discussion)
+  /Error:\s*.*(?:unauthorized|authentication|invalid\s*token)/i,
+  // Match · Please run /login format from Claude CLI
+  /·\s*Please\s+run\s+\/login/i,
+];
+
+/**
+ * Patterns that indicate billing/credit failures
+ * These patterns detect when Claude API fails due to insufficient credits or billing issues
+ */
+const BILLING_FAILURE_PATTERNS = [
+  // Credit balance patterns
+  /credit\s*balance\s*(is\s+)?(too\s+)?(insufficient|low|empty|zero|exhausted)/i,
+  /insufficient\s*credit(s)?/i,
+  /no\s*(remaining\s*)?credit(s)?/i,
+  /credit(s)?\s*(are\s*)?(exhausted|depleted|used\s*up)/i,
+  /out\s*of\s*credit(s)?/i,
+  /credit\s*limit\s*(reached|exceeded)/i,
+  // Billing error patterns
+  /billing\s*(error|issue|problem|failure)/i,
+  /payment\s*(required|failed|issue|problem)/i,
+  /subscription\s*(expired|inactive|cancelled|canceled)/i,
+  /account\s*(suspended|inactive)\s*(due\s*to\s*billing)?/i,
+  // Usage limit patterns (billing-related, not rate limits)
+  /usage\s*quota\s*(exceeded|reached)/i,
+  /monthly\s*(usage\s*)?(limit|quota)\s*(exceeded|reached)/i,
+  /plan\s*(limit|quota)\s*(exceeded|reached)/i,
+  // API error patterns for billing
+  /["']?type["']?\s*:\s*["']?billing_error["']?/i,
+  /["']?type["']?\s*:\s*["']?insufficient_credits["']?/i,
+  /["']?error["']?\s*:\s*["']?insufficient_credits["']?/i,
+  // extra_usage patterns from Claude API
+  /extra_usage\s*(exceeded|limit|error)?/i,
+  // Match HTTP 402 Payment Required (require context to avoid false positives on "line 402" etc.)
+  /(?:HTTP|status|code|error)\s*:?\s*402\b/i,
+  /\b402\s+payment\s+required/i,
+  /API\s*Error:\s*402/i,
+  // Balance/funds patterns
+  /insufficient\s*(funds|balance)/i,
+  /balance\s*(is\s*)?(zero|empty|insufficient)/i,
+  // Add funds/credits messages
+  /please\s*(add|purchase)\s*(more\s*)?(credits?|funds)/i,
+  /top\s*up\s*(your\s*)?(account|credits|balance)/i
 ];
 
 /**
@@ -82,6 +123,22 @@ export interface AuthFailureDetectionResult {
   profileId?: string;
   /** The type of auth failure detected */
   failureType?: 'missing' | 'invalid' | 'expired' | 'unknown';
+  /** User-friendly message describing the failure */
+  message?: string;
+  /** Original error message from the process output */
+  originalError?: string;
+}
+
+/**
+ * Result of billing failure detection
+ */
+export interface BillingFailureDetectionResult {
+  /** Whether a billing failure was detected */
+  isBillingFailure: boolean;
+  /** The profile ID that has billing issues (if known) */
+  profileId?: string;
+  /** The type of billing failure detected */
+  failureType?: 'insufficient_credits' | 'payment_required' | 'subscription_inactive' | 'unknown';
   /** User-friendly message describing the failure */
   message?: string;
   /** Original error message from the process output */
@@ -214,6 +271,44 @@ function getAuthFailureMessage(failureType: 'missing' | 'invalid' | 'expired' | 
 }
 
 /**
+ * Classify the type of billing failure based on the error message
+ */
+function classifyBillingFailureType(output: string): 'insufficient_credits' | 'payment_required' | 'subscription_inactive' | 'unknown' {
+  const lowerOutput = output.toLowerCase();
+
+  // Check for credit-related failures (including extra_usage which indicates usage exhaustion)
+  if (/credit\s*(balance|s)?|insufficient\s*(credit|funds|balance)|out\s*of\s*credit|no\s*(remaining\s*)?credit|extra_usage/.test(lowerOutput)) {
+    return 'insufficient_credits';
+  }
+  // Check for subscription-related failures
+  if (/subscription\s*(expired|inactive|cancelled|canceled)|account\s*(suspended|inactive)/.test(lowerOutput)) {
+    return 'subscription_inactive';
+  }
+  // Check for payment-related failures
+  if (/payment\s*(required|failed)|402|billing\s*(error|issue|problem|failure)/.test(lowerOutput)) {
+    return 'payment_required';
+  }
+  return 'unknown';
+}
+
+/**
+ * Get a user-friendly message for the billing failure
+ */
+function getBillingFailureMessage(failureType: 'insufficient_credits' | 'payment_required' | 'subscription_inactive' | 'unknown'): string {
+  switch (failureType) {
+    case 'insufficient_credits':
+      return 'Your Claude API credit balance is too low. Please add credits to your account or switch to another profile in Settings > Claude Profiles.';
+    case 'payment_required':
+      return 'A billing error occurred with your Claude API account. Please check your payment method or switch to another profile in Settings > Claude Profiles.';
+    case 'subscription_inactive':
+      return 'Your Claude API subscription is inactive or expired. Please renew your subscription or switch to another profile in Settings > Claude Profiles.';
+    case 'unknown':
+    default:
+      return 'A billing issue was detected with your Claude API account. Please check your account status or switch to another profile in Settings > Claude Profiles.';
+  }
+}
+
+/**
  * Detect authentication failure from output (stdout + stderr combined)
  */
 export function detectAuthFailure(
@@ -250,6 +345,48 @@ export function detectAuthFailure(
  */
 export function isAuthFailureError(output: string): boolean {
   return detectAuthFailure(output).isAuthFailure;
+}
+
+/**
+ * Detect billing failure from output (stdout + stderr combined)
+ */
+export function detectBillingFailure(
+  output: string,
+  profileId?: string
+): BillingFailureDetectionResult {
+  // First, make sure this isn't a rate limit or auth error (those should be handled separately)
+  if (detectRateLimit(output).isRateLimited) {
+    return { isBillingFailure: false };
+  }
+  if (detectAuthFailure(output).isAuthFailure) {
+    return { isBillingFailure: false };
+  }
+
+  // Check for billing failure patterns
+  for (const pattern of BILLING_FAILURE_PATTERNS) {
+    if (pattern.test(output)) {
+      const profileManager = getClaudeProfileManager();
+      const effectiveProfileId = profileId || profileManager.getActiveProfile().id;
+      const failureType = classifyBillingFailureType(output);
+
+      return {
+        isBillingFailure: true,
+        profileId: effectiveProfileId,
+        failureType,
+        message: getBillingFailureMessage(failureType),
+        originalError: output
+      };
+    }
+  }
+
+  return { isBillingFailure: false };
+}
+
+/**
+ * Check if output contains billing failure error
+ */
+export function isBillingFailureError(output: string): boolean {
+  return detectBillingFailure(output).isBillingFailure;
 }
 
 /**

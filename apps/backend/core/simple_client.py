@@ -22,14 +22,14 @@ Example usage:
 """
 
 import logging
+import os
 from pathlib import Path
 
 from agents.tools_pkg import get_agent_config, get_default_thinking_level
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from core.auth import (
+    configure_sdk_authentication,
     get_sdk_env_vars,
-    require_auth_token,
-    validate_token_not_encrypted,
 )
 from core.platform import validate_cli_path
 from phase_config import get_thinking_budget
@@ -72,20 +72,15 @@ def create_simple_client(
     Raises:
         ValueError: If agent_type is not found in AGENT_CONFIGS
     """
-    # Get authentication
-    oauth_token = require_auth_token()
-
-    # Validate token is not encrypted before passing to SDK
-    # Encrypted tokens (enc:...) should have been decrypted by require_auth_token()
-    # If we still have an encrypted token here, it means decryption failed or was skipped
-    validate_token_not_encrypted(oauth_token)
-
-    import os
-
-    os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
-
-    # Get environment variables for SDK
+    # Get environment variables for SDK (including CLAUDE_CONFIG_DIR if set)
     sdk_env = get_sdk_env_vars()
+
+    # Get the config dir for profile-specific credential lookup
+    # CLAUDE_CONFIG_DIR enables per-profile Keychain entries with SHA256-hashed service names
+    config_dir = sdk_env.get("CLAUDE_CONFIG_DIR")
+
+    # Configure SDK authentication (OAuth or API profile mode)
+    configure_sdk_authentication(config_dir)
 
     # Get agent configuration (raises ValueError if unknown type)
     config = get_agent_config(agent_type)

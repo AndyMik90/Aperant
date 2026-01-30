@@ -505,11 +505,11 @@ export interface PRReviewProgress {
 interface CIWaitResult {
   /** Whether we successfully waited (no timeout) */
   success: boolean;
-  /** Whether any checks are still in progress */
+  /** Whether any checks are still pending (queued or in_progress) */
   hasInProgress: boolean;
-  /** Number of checks currently in progress */
+  /** Number of checks currently pending (queued or in_progress) */
   inProgressCount: number;
-  /** Names of checks still in progress (if any) */
+  /** Names of checks still pending (if any) */
   inProgressChecks: string[];
   /** Whether we timed out waiting */
   timedOut: boolean;
@@ -520,9 +520,13 @@ interface CIWaitResult {
 /**
  * Wait for CI checks to complete before starting AI review.
  *
- * Polls GitHub API to check if any CI checks are "in_progress".
- * Only blocks on "in_progress" status - does NOT block on "queued" status
- * (which could be CLA, licensing workflows that may never run).
+ * Polls GitHub API to check if any CI checks are "queued" or "in_progress".
+ * Blocks on BOTH statuses because:
+ * - "queued" = CI has been triggered but not started yet
+ * - "in_progress" = CI is actively running
+ *
+ * We wait for all checks to reach "completed" status before reviewing,
+ * so our review doesn't report "CI is pending" when it will finish soon.
  *
  * @param token GitHub API token
  * @param repo Repository in "owner/repo" format
@@ -581,10 +585,10 @@ async function waitForCIChecks(
         }>;
       };
 
-      // Find checks that are actively running (in_progress)
-      // We do NOT block on "queued" status - those could be CLA/licensing workflows
+      // Find checks that are not yet completed (queued or in_progress)
+      // We block on BOTH statuses to ensure CI is fully done before reviewing
       const inProgressChecks = checkRuns.check_runs.filter(
-        (cr) => cr.status === "in_progress"
+        (cr) => cr.status === "queued" || cr.status === "in_progress"
       );
 
       const inProgressCount = inProgressChecks.length;
@@ -602,10 +606,10 @@ async function waitForCIChecks(
         inProgressNames,
       });
 
-      // If no checks are in_progress, we can proceed
+      // If no checks are pending (queued or in_progress), we can proceed
       if (inProgressCount === 0) {
         const waitTimeSeconds = Math.floor((Date.now() - startTime) / 1000);
-        debugLog("No CI checks in progress, proceeding with review", {
+        debugLog("All CI checks completed, proceeding with review", {
           prNumber,
           waitTimeSeconds,
         });

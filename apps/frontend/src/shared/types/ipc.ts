@@ -3,6 +3,7 @@
  */
 
 import type { IPCResult } from './common';
+import type { KanbanPreferences } from './kanban';
 import type { SupportedIDE, SupportedTerminal } from './settings';
 import type {
   Project,
@@ -44,7 +45,8 @@ import type {
   TaskMetadata,
   TaskLogs,
   TaskLogStreamChunk,
-  ImageAttachment
+  ImageAttachment,
+  MergeProgress
 } from './task';
 import type {
   TerminalCreateOptions,
@@ -157,6 +159,10 @@ export interface ElectronAPI {
   // Tab State (persisted in main process for reliability)
   getTabState: () => Promise<IPCResult<TabState>>;
   saveTabState: (tabState: TabState) => Promise<IPCResult>;
+
+  // Kanban preferences (per-project column collapse state)
+  getKanbanPreferences: (projectId: string) => Promise<IPCResult<KanbanPreferences | null>>;
+  saveKanbanPreferences: (projectId: string, preferences: KanbanPreferences) => Promise<IPCResult>;
 
   // Task operations
   getTasks: (projectId: string, options?: { forceRefresh?: boolean }) => Promise<IPCResult<Task[]>>;
@@ -335,6 +341,9 @@ export interface ElectronAPI {
   // App settings
   getSettings: () => Promise<IPCResult<AppSettings>>;
   saveSettings: (settings: Partial<AppSettings>) => Promise<IPCResult>;
+
+  // Spell check
+  setSpellCheckLanguages: (language: string) => Promise<IPCResult<{ success: boolean }>>;
 
   // Sentry error reporting
   notifySentryStateChanged: (enabled: boolean) => void;
@@ -765,6 +774,9 @@ export interface ElectronAPI {
   ) => () => void;
   onTaskLogsStream: (
     callback: (specId: string, chunk: TaskLogStreamChunk) => void
+  ) => () => void;
+  onMergeProgress: (
+    callback: (taskId: string, progress: MergeProgress) => void
   ) => () => void;
 
   // File explorer operations
