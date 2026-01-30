@@ -878,11 +878,10 @@ def create_client(
                             paths_info.append(
                                 f"  - `{s['skill']}` on files matching: {', '.join(s['paths'])}"
                             )
-                    paths_section = "\n".join(paths_info) if paths_info else ""
+                    paths_section = "\n" + "\n".join(paths_info) if paths_info else ""
                     skill_instructions.append(
                         f"**Per-subtask skills** ({skills_list}):\n"
-                        f"Run these skills on relevant files during subtask implementation.\n"
-                        f"{paths_section}"
+                        f"Run these skills on relevant files during subtask implementation.{paths_section}"
                     )
 
                 # End-of-coding instructions
