@@ -20,6 +20,9 @@ export const settingsMock = {
   getSentryDsn: async () => '',  // No DSN in browser mode
   getSentryConfig: async () => ({ dsn: '', tracesSampleRate: 0, profilesSampleRate: 0 }),
 
+  // Spell check (no-op in browser mode)
+  setSpellCheckLanguages: async () => ({ success: true, data: { success: true } }),
+
   getCliToolsInfo: async () => ({
     success: true,
     data: {
