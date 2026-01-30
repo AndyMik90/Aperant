@@ -56,10 +56,10 @@ function logInfo(message) {
 }
 
 /**
- * Check if a command exists
+ * Check if a command exists (POSIX-compliant)
  */
 function commandExists(cmd) {
-  const result = spawnSync('which', [cmd], { stdio: 'ignore' });
+  const result = spawnSync('sh', ['-c', `command -v ${cmd}`], { stdio: 'ignore' });
   return result.status === 0;
 }
 
@@ -83,12 +83,24 @@ function findPackages(distDir) {
   for (const file of files) {
     const fullPath = path.join(distDir, file);
 
-    if (file.endsWith('.AppImage') && !packages.appImage) {
-      packages.appImage = fullPath;
-    } else if (file.endsWith('.deb') && !packages.deb) {
-      packages.deb = fullPath;
-    } else if (file.endsWith('.flatpak') && !packages.flatpak) {
-      packages.flatpak = fullPath;
+    if (file.endsWith('.AppImage')) {
+      if (!packages.appImage) {
+        packages.appImage = fullPath;
+      } else {
+        logWarning(`Multiple AppImage files found, using first: ${path.basename(packages.appImage)}`);
+      }
+    } else if (file.endsWith('.deb')) {
+      if (!packages.deb) {
+        packages.deb = fullPath;
+      } else {
+        logWarning(`Multiple deb files found, using first: ${path.basename(packages.deb)}`);
+      }
+    } else if (file.endsWith('.flatpak')) {
+      if (!packages.flatpak) {
+        packages.flatpak = fullPath;
+      } else {
+        logWarning(`Multiple Flatpak files found, using first: ${path.basename(packages.flatpak)}`);
+      }
     }
   }
 

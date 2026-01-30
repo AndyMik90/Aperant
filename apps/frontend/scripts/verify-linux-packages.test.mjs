@@ -6,10 +6,11 @@
 
 import { describe, it, mock } from 'node:test';
 import assert from 'node:assert';
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { CRITICAL_PACKAGES, findPackages, verifyFileList, verifyFlatpak } = require('./verify-linux-packages.cjs');
+const { CRITICAL_PACKAGES, findPackages, verifyFileList } = require('./verify-linux-packages.cjs');
 
 describe('verify-linux-packages', () => {
   describe('package finding logic', () => {
@@ -23,31 +24,89 @@ describe('verify-linux-packages', () => {
         'latest.yml',
       ];
 
-      // Mock fs.readdirSync to return our test files
       const distDir = '/test/dist';
-      const mockReaddirSync = mock.fn(() => mockFiles);
 
-      // Verify the expected results
-      const appImage = mockFiles.find((f) => f.endsWith('.AppImage'));
-      const deb = mockFiles.find((f) => f.endsWith('.deb'));
-      const flatpak = mockFiles.find((f) => f.endsWith('.flatpak'));
+      // Mock fs.existsSync to return true (directory exists)
+      const existsSync = mock.method(fs, 'existsSync', mock.fn(() => true));
+      // Mock fs.readdirSync to return our test files
+      const readdirSync = mock.method(fs, 'readdirSync', mock.fn(() => mockFiles));
 
-      assert.equal(appImage, 'Auto-Claude-2.7.5-linux-x86_64.AppImage');
-      assert.equal(deb, 'auto-claude_2.7.5_amd64.deb');
-      assert.equal(flatpak, 'com.autoclaude.ui_2.7.5_linux_x86_64.flatpak');
+      try {
+        const result = findPackages(distDir);
+
+        // Verify the expected results
+        assert.equal(result.appImage, '/test/dist/Auto-Claude-2.7.5-linux-x86_64.AppImage');
+        assert.equal(result.deb, '/test/dist/auto-claude_2.7.5_amd64.deb');
+        assert.equal(result.flatpak, '/test/dist/com.autoclaude.ui_2.7.5_linux_x86_64.flatpak');
+      } finally {
+        existsSync.mock.restore();
+        readdirSync.mock.restore();
+      }
     });
 
     it('should handle missing packages gracefully', () => {
       // Test behavior when packages are missing
       const mockFiles = ['latest-mac.yml', 'latest.yml'];
+      const distDir = '/test/dist';
 
-      const appImage = mockFiles.find((f) => f.endsWith('.AppImage'));
-      const deb = mockFiles.find((f) => f.endsWith('.deb'));
-      const flatpak = mockFiles.find((f) => f.endsWith('.flatpak'));
+      const existsSync = mock.method(fs, 'existsSync', mock.fn(() => true));
+      const readdirSync = mock.method(fs, 'readdirSync', mock.fn(() => mockFiles));
 
-      assert.equal(appImage, undefined);
-      assert.equal(deb, undefined);
-      assert.equal(flatpak, undefined);
+      try {
+        const result = findPackages(distDir);
+
+        assert.equal(result.appImage, null);
+        assert.equal(result.deb, null);
+        assert.equal(result.flatpak, null);
+      } finally {
+        existsSync.mock.restore();
+        readdirSync.mock.restore();
+      }
+    });
+
+    it('should handle missing dist directory', () => {
+      // Test behavior when dist directory doesn't exist
+      const distDir = '/test/dist';
+
+      const existsSync = mock.method(fs, 'existsSync', mock.fn(() => false));
+
+      try {
+        const result = findPackages(distDir);
+
+        // Should return empty packages object without error
+        assert.equal(result.appImage, null);
+        assert.equal(result.deb, null);
+        assert.equal(result.flatpak, null);
+      } finally {
+        existsSync.mock.restore();
+      }
+    });
+
+    it('should warn about duplicate packages', () => {
+      // Test behavior when multiple packages of same type exist
+      const mockFiles = [
+        'Auto-Claude-2.7.5-linux-x86_64.AppImage',
+        'Auto-Claude-2.7.5-linux-x86_64.AppImage', // Duplicate
+        'auto-claude_2.7.5_amd64.deb',
+        'auto-claude_2.7.5_amd64.deb', // Duplicate
+        'com.autoclaude.ui_2.7.5_linux_x86_64.flatpak',
+      ];
+      const distDir = '/test/dist';
+
+      const existsSync = mock.method(fs, 'existsSync', mock.fn(() => true));
+      const readdirSync = mock.method(fs, 'readdirSync', mock.fn(() => mockFiles));
+
+      try {
+        const result = findPackages(distDir);
+
+        // Should still find packages, using first occurrence
+        assert.equal(result.appImage, '/test/dist/Auto-Claude-2.7.5-linux-x86_64.AppImage');
+        assert.equal(result.deb, '/test/dist/auto-claude_2.7.5_amd64.deb');
+        assert.equal(result.flatpak, '/test/dist/com.autoclaude.ui_2.7.5_linux_x86_64.flatpak');
+      } finally {
+        existsSync.mock.restore();
+        readdirSync.mock.restore();
+      }
     });
   });
 
@@ -163,14 +222,8 @@ describe('verify-linux-packages', () => {
 
   describe('Flatpak file validation', () => {
     it('should reject empty Flatpak files', () => {
-      const mockPath = '/test/app.flatpak';
+      // Test the size validation logic (directly, since verifyFlatpak uses real fs)
       const mockStat = { size: 0 };
-
-      // Mock fs.existsSync and fs.statSync
-      const existsSync = mock.fn(() => true);
-      const statSync = mock.fn(() => mockStat);
-
-      // Since verifyFlatpak uses real fs, we test the logic directly
       const issues = [];
       if (mockStat.size === 0) {
         issues.push('Flatpak file is empty');
