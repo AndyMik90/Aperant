@@ -367,12 +367,21 @@ class PRReviewFinding:
     validation_evidence: str | None = None  # Code snippet examined during validation
     validation_explanation: str | None = None  # Why finding was validated/dismissed
 
-    # Cross-validation and confidence routing fields
-    confidence: float = 0.5  # Confidence score (0.0-1.0), defaults to medium confidence
+    # Cross-validation fields
+    # NOTE: confidence field is DEPRECATED - we use evidence-based validation, not confidence scores
+    # The finding-validator determines validity by examining actual code, not by confidence thresholds
+    confidence: float = 0.5  # DEPRECATED: No longer used for filtering
     source_agents: list[str] = field(
         default_factory=list
     )  # Which agents reported this finding
-    cross_validated: bool = False  # Whether multiple agents agreed on this finding
+    cross_validated: bool = (
+        False  # Whether multiple agents agreed on this finding (signal, not filter)
+    )
+
+    # Impact finding flag - indicates this finding is about code OUTSIDE the PR's changed files
+    # (e.g., callers affected by contract changes). Used by _is_finding_in_scope() to allow
+    # findings about related files that aren't directly in the PR diff.
+    is_impact_finding: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -398,6 +407,8 @@ class PRReviewFinding:
             "confidence": self.confidence,
             "source_agents": self.source_agents,
             "cross_validated": self.cross_validated,
+            # Impact finding flag
+            "is_impact_finding": self.is_impact_finding,
         }
 
     @classmethod
@@ -425,6 +436,8 @@ class PRReviewFinding:
             confidence=data.get("confidence", 0.5),
             source_agents=data.get("source_agents", []),
             cross_validated=data.get("cross_validated", False),
+            # Impact finding flag
+            is_impact_finding=data.get("is_impact_finding", False),
         )
 
 
