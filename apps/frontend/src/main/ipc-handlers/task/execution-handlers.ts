@@ -102,30 +102,6 @@ async function ensureProfileManagerInitialized(): Promise<
 }
 
 /**
- * Check if there's an active API profile configured
- *
- * API profiles (custom API keys) are stored separately from OAuth profiles.
- * This function checks if an API profile is active and has valid credentials.
- *
- * @returns true if an active API profile exists, false otherwise
- */
-async function hasValidAPIProfile(): Promise<boolean> {
-  try {
-    const file = await loadProfilesFile();
-    // Check if there's an active profile ID set
-    if (!file.activeProfileId || file.activeProfileId === '') {
-      return false;
-    }
-    // Verify the active profile exists in the profiles list
-    const activeProfile = file.profiles.find((p) => p.id === file.activeProfileId);
-    return !!activeProfile;
-  } catch (error) {
-    console.error('[hasValidAPIProfile] Error checking API profile:', error);
-    return false;
-  }
-}
-
-/**
  * Register task execution handlers (start, stop, review, status management, recovery)
  */
 export function registerTaskExecutionHandlers(
