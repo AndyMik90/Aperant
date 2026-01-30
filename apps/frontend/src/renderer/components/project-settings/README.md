@@ -226,11 +226,9 @@ hooks/
 **Returns**:
 - `envConfig`: Current environment config
 - `setEnvConfig`: Config updater
-- `updateEnvConfig`: Partial update function
+- `updateEnvConfig`: Partial update function (auto-saves to backend)
 - `isLoadingEnv`: Loading state
 - `envError`: Error state
-- `isSavingEnv`: Save in progress state
-- `saveEnvConfig`: Save function
 
 ### useClaudeAuth.ts
 **Purpose**: Manages Claude authentication status checking.

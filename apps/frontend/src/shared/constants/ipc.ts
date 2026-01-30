@@ -16,6 +16,10 @@ export const IPC_CHANNELS = {
   TAB_STATE_GET: 'tabState:get',
   TAB_STATE_SAVE: 'tabState:save',
 
+  // Kanban preferences (per-project column collapse state)
+  KANBAN_PREFS_GET: 'kanbanPrefs:get',
+  KANBAN_PREFS_SAVE: 'kanbanPrefs:save',
+
   // Task operations
   TASK_LIST: 'task:list',
   TASK_CREATE: 'task:create',
@@ -28,6 +32,7 @@ export const IPC_CHANNELS = {
   TASK_RECOVER_STUCK: 'task:recoverStuck',
   TASK_CHECK_RUNNING: 'task:checkRunning',
   TASK_SPLIT_INTO_TASKS: 'task:splitIntoTasks',  // AI-powered task splitting
+  TASK_LOAD_IMAGE_THUMBNAIL: 'task:loadImageThumbnail',
 
   // Workspace management (for human review)
   // Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
@@ -36,6 +41,7 @@ export const IPC_CHANNELS = {
   TASK_WORKTREE_MERGE: 'task:worktreeMerge',
   TASK_WORKTREE_MERGE_PREVIEW: 'task:worktreeMergePreview',  // Preview merge conflicts before merging
   TASK_WORKTREE_DISCARD: 'task:worktreeDiscard',
+  TASK_WORKTREE_DISCARD_ORPHAN: 'task:worktreeDiscardOrphan',  // Delete orphaned worktree by spec name (no task association)
   TASK_WORKTREE_CREATE_PR: 'task:worktreeCreatePR',
   TASK_WORKTREE_OPEN_IN_IDE: 'task:worktreeOpenInIDE',
   TASK_WORKTREE_OPEN_IN_TERMINAL: 'task:worktreeOpenInTerminal',
@@ -58,6 +64,7 @@ export const IPC_CHANNELS = {
   TASK_LOGS_UNWATCH: 'task:logsUnwatch',   // Stop watching for log changes
   TASK_LOGS_CHANGED: 'task:logsChanged',   // Event: logs changed (main -> renderer)
   TASK_LOGS_STREAM: 'task:logsStream',     // Event: streaming log chunk (main -> renderer)
+  TASK_MERGE_PROGRESS: 'task:mergeProgress',  // Event: merge progress update (main -> renderer)
 
   // Terminal operations
   TERMINAL_CREATE: 'terminal:create',
@@ -120,6 +127,10 @@ export const IPC_CHANNELS = {
   CLAUDE_PROFILE_FETCH_USAGE: 'claude:fetchUsage',
   CLAUDE_PROFILE_GET_BEST_PROFILE: 'claude:getBestProfile',
 
+  // Account priority order (unified OAuth + API profile ordering)
+  ACCOUNT_PRIORITY_GET: 'account:priorityGet',
+  ACCOUNT_PRIORITY_SET: 'account:prioritySet',
+
   // SDK/CLI rate limit event (for non-terminal Claude invocations)
   CLAUDE_SDK_RATE_LIMIT: 'claude:sdkRateLimit',
   // Auth failure event (401 errors requiring re-authentication)
@@ -130,12 +141,15 @@ export const IPC_CHANNELS = {
   // Usage monitoring (proactive account switching)
   USAGE_UPDATED: 'claude:usageUpdated',  // Event: usage data updated (main -> renderer)
   USAGE_REQUEST: 'claude:usageRequest',  // Request current usage snapshot
+  ALL_PROFILES_USAGE_REQUEST: 'claude:allProfilesUsageRequest',  // Request all profiles usage immediately
+  ALL_PROFILES_USAGE_UPDATED: 'claude:allProfilesUsageUpdated',  // Event: all profiles usage data (main -> renderer)
   PROACTIVE_SWAP_NOTIFICATION: 'claude:proactiveSwapNotification',  // Event: proactive swap occurred
 
   // Settings
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_GET_CLI_TOOLS_INFO: 'settings:getCliToolsInfo',
+  SETTINGS_CLAUDE_CODE_GET_ONBOARDING_STATUS: 'settings:claudeCode:getOnboardingStatus',  // Check hasCompletedOnboarding from ~/.claude.json
 
   // API Profile management (custom Anthropic-compatible endpoints)
   PROFILES_GET: 'profiles:get',
@@ -176,6 +190,11 @@ export const IPC_CHANNELS = {
   ROADMAP_COMPLETE: 'roadmap:complete',
   ROADMAP_ERROR: 'roadmap:error',
   ROADMAP_STOPPED: 'roadmap:stopped',
+
+  // Roadmap progress persistence (per-project state)
+  ROADMAP_PROGRESS_SAVE: 'roadmap:progressSave',
+  ROADMAP_PROGRESS_LOAD: 'roadmap:progressLoad',
+  ROADMAP_PROGRESS_CLEAR: 'roadmap:progressClear',
 
   // Context operations
   CONTEXT_GET: 'context:get',
@@ -244,6 +263,7 @@ export const IPC_CHANNELS = {
 
   // GitHub OAuth events (main -> renderer) - for streaming device code during auth
   GITHUB_AUTH_DEVICE_CODE: 'github:authDeviceCode',
+  GITHUB_AUTH_CHANGED: 'github:authChanged',  // Event: GitHub auth state changed (account swap)
 
   // GitHub events (main -> renderer)
   GITHUB_INVESTIGATION_PROGRESS: 'github:investigationProgress',
@@ -475,6 +495,7 @@ export const IPC_CHANNELS = {
   INSIGHTS_STREAM_CHUNK: 'insights:streamChunk',
   INSIGHTS_STATUS: 'insights:status',
   INSIGHTS_ERROR: 'insights:error',
+  INSIGHTS_SESSION_UPDATED: 'insights:sessionUpdated',  // Event: session updated (main -> renderer)
 
   // File explorer operations
   FILE_EXPLORER_LIST: 'fileExplorer:list',
@@ -535,7 +556,22 @@ export const IPC_CHANNELS = {
   GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
   GET_SENTRY_CONFIG: 'sentry:get-config',        // Get full Sentry config (DSN + sample rates)
 
+  // Spell check
+  SPELLCHECK_SET_LANGUAGES: 'spellcheck:setLanguages',  // Set spell check language (syncs with i18n)
+
   // Screenshot capture
   SCREENSHOT_GET_SOURCES: 'screenshot:getSources',  // Get available screens/windows
-  SCREENSHOT_CAPTURE: 'screenshot:capture'          // Capture screenshot from source
+  SCREENSHOT_CAPTURE: 'screenshot:capture',          // Capture screenshot from source
+
+  // Queue routing (rate limit recovery)
+  QUEUE_GET_RUNNING_TASKS_BY_PROFILE: 'queue:getRunningTasksByProfile',
+  QUEUE_GET_BEST_PROFILE_FOR_TASK: 'queue:getBestProfileForTask',
+  QUEUE_ASSIGN_PROFILE_TO_TASK: 'queue:assignProfileToTask',
+  QUEUE_UPDATE_TASK_SESSION: 'queue:updateTaskSession',
+  QUEUE_GET_TASK_SESSION: 'queue:getTaskSession',
+
+  // Queue routing events (main -> renderer)
+  QUEUE_PROFILE_SWAPPED: 'queue:profileSwapped',      // Task switched to different profile
+  QUEUE_SESSION_CAPTURED: 'queue:sessionCaptured',    // Session ID captured from running task
+  QUEUE_BLOCKED_NO_PROFILES: 'queue:blockedNoProfiles' // All profiles unavailable
 } as const;

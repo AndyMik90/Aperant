@@ -58,7 +58,7 @@ import { GitHubSetupModal } from './components/GitHubSetupModal';
 import { useProjectStore, loadProjects, addProject, initializeProject, removeProject } from './stores/project-store';
 import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings, loadProfiles, saveSettings } from './stores/settings-store';
-import { useClaudeProfileStore } from './stores/claude-profile-store';
+import { useClaudeProfileStore, loadClaudeProfiles } from './stores/claude-profile-store';
 import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-store';
 import { initializeGitHubListeners } from './stores/github';
 import { initDownloadProgressListener } from './stores/download-store';
@@ -186,6 +186,7 @@ export function App() {
     loadProjects();
     loadSettings();
     loadProfiles();
+    loadClaudeProfiles();
     // Initialize global GitHub listeners (PR reviews, etc.) so they persist across navigation
     initializeGitHubListeners();
     // Initialize global download progress listener for Ollama model downloads
@@ -314,7 +315,24 @@ export function App() {
     if (settings.language && settings.language !== i18n.language) {
       i18n.changeLanguage(settings.language);
     }
-  }, [settings.language, i18n]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run when settings.language changes, not on every i18n object change
+  }, [settings.language, i18n.language]);
+
+  // Sync spell check language with i18n language
+  useEffect(() => {
+    const syncSpellCheck = async () => {
+      try {
+        const result = await window.electronAPI.setSpellCheckLanguages(i18n.language);
+        if (!result.success) {
+          console.warn('[App] Failed to set spell check language:', result.error);
+        }
+      } catch (error) {
+        console.warn('[App] Error syncing spell check language:', error);
+      }
+    };
+
+    syncSpellCheck();
+  }, [i18n.language]);
 
   // Listen for open-app-settings events (e.g., from project settings)
   useEffect(() => {
@@ -1147,7 +1165,7 @@ export function App() {
 
         {/* Auth Failure Modal - shows when Claude CLI encounters 401/auth errors */}
         <AuthFailureModal onOpenSettings={() => {
-          setSettingsInitialSection('integrations');
+          setSettingsInitialSection('accounts');
           setIsSettingsDialogOpen(true);
         }} />
 
@@ -1157,7 +1175,7 @@ export function App() {
           onClose={handleVersionWarningClose}
           onOpenSettings={() => {
             handleVersionWarningClose();
-            setSettingsInitialSection('integrations');
+            setSettingsInitialSection('accounts');
             setIsSettingsDialogOpen(true);
           }}
         />

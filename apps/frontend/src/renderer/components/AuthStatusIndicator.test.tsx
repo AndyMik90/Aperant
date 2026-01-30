@@ -33,7 +33,9 @@ vi.mock('react-i18next', () => ({
         'common:usage.authenticationAriaLabel': 'Authentication: {{provider}}',
         'common:usage.profile': 'Profile',
         'common:usage.id': 'ID',
-        'common:usage.apiEndpoint': 'API Endpoint'
+        'common:usage.apiEndpoint': 'API Endpoint',
+        'common:usage.claudeCode': 'Claude Code',
+        'common:usage.apiKey': 'API Key'
       };
       // Handle interpolation (e.g., "Authentication: {{provider}}")
       if (params && Object.keys(params).length > 0) {
@@ -109,7 +111,7 @@ const testProfiles: APIProfile[] = [
   {
     id: 'profile-4',
     name: 'ZHIPU China',
-    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    baseUrl: 'https://open.bigmodel.cn/api/anthropic',
     apiKey: 'zhipu-key-5678',
     models: undefined,
     createdAt: Date.now(),
@@ -134,17 +136,17 @@ describe('AuthStatusIndicator', () => {
       );
     });
 
-    it('should display Anthropic provider with Lock icon', () => {
+    it('should display Claude Code badge with Lock icon for OAuth', () => {
       render(<AuthStatusIndicator />);
 
-      expect(screen.getByText('Anthropic')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /authentication: anthropic/i })).toBeInTheDocument();
+      expect(screen.getByText('Claude Code')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /authentication: claude code/i })).toBeInTheDocument();
     });
 
     it('should have correct aria-label for OAuth', () => {
       render(<AuthStatusIndicator />);
 
-      expect(screen.getByRole('button')).toHaveAttribute('aria-label', 'Authentication: Anthropic');
+      expect(screen.getByRole('button')).toHaveAttribute('aria-label', 'Authentication: Claude Code');
     });
   });
 
@@ -155,17 +157,17 @@ describe('AuthStatusIndicator', () => {
       );
     });
 
-    it('should display provider label (Anthropic) with Key icon', () => {
+    it('should display API Key badge with Key icon for API profile', () => {
       render(<AuthStatusIndicator />);
 
-      expect(screen.getByText('Anthropic')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /authentication: anthropic/i })).toBeInTheDocument();
+      expect(screen.getByText('API Key')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /authentication: api key/i })).toBeInTheDocument();
     });
 
     it('should have correct aria-label for profile', () => {
       render(<AuthStatusIndicator />);
 
-      expect(screen.getByRole('button')).toHaveAttribute('aria-label', 'Authentication: Anthropic');
+      expect(screen.getByRole('button')).toHaveAttribute('aria-label', 'Authentication: API Key');
     });
   });
 
@@ -176,34 +178,34 @@ describe('AuthStatusIndicator', () => {
       );
     });
 
-    it('should fallback to Anthropic provider display', () => {
+    it('should fallback to OAuth (Claude Code) when profile not found', () => {
       render(<AuthStatusIndicator />);
 
-      expect(screen.getByText('Anthropic')).toBeInTheDocument();
+      expect(screen.getByText('Claude Code')).toBeInTheDocument();
     });
   });
 
   describe('provider detection for different API profiles', () => {
-    it('should display z.ai provider label for z.ai profile', () => {
+    it('should display API Key badge for z.ai profile', () => {
       vi.mocked(useSettingsStore).mockReturnValue(
         createUseSettingsStoreMock({ activeProfileId: 'profile-3' })
       );
 
       render(<AuthStatusIndicator />);
 
-      expect(screen.getByText('z.ai')).toBeInTheDocument();
-      expect(screen.getByRole('button')).toHaveAttribute('aria-label', 'Authentication: z.ai');
+      expect(screen.getByText('API Key')).toBeInTheDocument();
+      expect(screen.getByRole('button')).toHaveAttribute('aria-label', 'Authentication: API Key');
     });
 
-    it('should display ZHIPU AI provider label for ZHIPU profile', () => {
+    it('should display API Key badge for ZHIPU profile', () => {
       vi.mocked(useSettingsStore).mockReturnValue(
         createUseSettingsStoreMock({ activeProfileId: 'profile-4' })
       );
 
       render(<AuthStatusIndicator />);
 
-      expect(screen.getByText('ZHIPU AI')).toBeInTheDocument();
-      expect(screen.getByRole('button')).toHaveAttribute('aria-label', 'Authentication: ZHIPU AI');
+      expect(screen.getByText('API Key')).toBeInTheDocument();
+      expect(screen.getByRole('button')).toHaveAttribute('aria-label', 'Authentication: API Key');
     });
 
     it('should apply correct color classes for each provider', () => {

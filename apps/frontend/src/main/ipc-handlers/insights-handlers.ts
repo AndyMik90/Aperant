@@ -215,11 +215,11 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         };
 
         const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
-        writeFileSync(planPath, JSON.stringify(implementationPlan, null, 2));
+        writeFileSync(planPath, JSON.stringify(implementationPlan, null, 2), 'utf-8');
 
         // Save task metadata
         const metadataPath = path.join(specDir, "task_metadata.json");
-        writeFileSync(metadataPath, JSON.stringify(taskMetadata, null, 2));
+        writeFileSync(metadataPath, JSON.stringify(taskMetadata, null, 2), 'utf-8');
 
         // Create the task object
         const task: Task = {
@@ -370,5 +370,10 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
   // Forward SDK rate limit events to renderer
   insightsService.on("sdk-rate-limit", (rateLimitInfo: unknown) => {
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
+  });
+
+  // Forward session-updated events to renderer for real-time UI updates
+  insightsService.on("session-updated", (projectId: string, session: unknown) => {
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.INSIGHTS_SESSION_UPDATED, projectId, session);
   });
 }

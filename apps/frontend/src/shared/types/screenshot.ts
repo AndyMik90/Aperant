@@ -23,3 +23,4 @@ export interface ScreenshotCaptureOptions {
   /** The ID of the source to capture */
   sourceId: string;
 }
+

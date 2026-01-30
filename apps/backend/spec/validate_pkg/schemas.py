@@ -72,21 +72,24 @@ IMPLEMENTATION_PLAN_SCHEMA = {
         "required_fields": ["type"],
         "optional_fields": [
             "run",
+            "command",
+            "expected",
             "url",
             "method",
             "expect_status",
             "expect_contains",
             "scenario",
             "steps",
+            "instructions",
         ],
         "verification_types": [
             "command",
             "api",
             "browser",
-            "component",
+            "component",  # Legacy - consider deprecating (use "command" with test)
+            "e2e",
             "manual",
             "none",
-            "e2e",
         ],
     },
 }

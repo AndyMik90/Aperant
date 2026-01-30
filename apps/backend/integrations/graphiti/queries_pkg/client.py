@@ -9,6 +9,7 @@ import logging
 import sys
 from datetime import datetime, timezone
 
+from core.sentry import capture_exception
 from graphiti_config import GraphitiConfig, GraphitiState
 
 logger = logging.getLogger(__name__)
@@ -133,9 +134,23 @@ class GraphitiClient:
                 )
             except ProviderNotInstalled as e:
                 logger.warning(f"LLM provider packages not installed: {e}")
+                capture_exception(
+                    e,
+                    error_type="ProviderNotInstalled",
+                    provider_type="llm",
+                    llm_provider=self.config.llm_provider,
+                    embedder_provider=self.config.embedder_provider,
+                )
                 return False
             except ProviderError as e:
                 logger.warning(f"LLM provider configuration error: {e}")
+                capture_exception(
+                    e,
+                    error_type="ProviderError",
+                    provider_type="llm",
+                    llm_provider=self.config.llm_provider,
+                    embedder_provider=self.config.embedder_provider,
+                )
                 return False
 
             try:
@@ -145,9 +160,23 @@ class GraphitiClient:
                 )
             except ProviderNotInstalled as e:
                 logger.warning(f"Embedder provider packages not installed: {e}")
+                capture_exception(
+                    e,
+                    error_type="ProviderNotInstalled",
+                    provider_type="embedder",
+                    llm_provider=self.config.llm_provider,
+                    embedder_provider=self.config.embedder_provider,
+                )
                 return False
             except ProviderError as e:
                 logger.warning(f"Embedder provider configuration error: {e}")
+                capture_exception(
+                    e,
+                    error_type="ProviderError",
+                    provider_type="embedder",
+                    llm_provider=self.config.llm_provider,
+                    embedder_provider=self.config.embedder_provider,
+                )
                 return False
 
             # Apply LadybugDB monkeypatch to use it via graphiti's KuzuDriver
@@ -173,15 +202,36 @@ class GraphitiClient:
                     logger.warning(
                         f"Failed to initialize LadybugDB driver at {db_path}: {e}"
                     )
+                    capture_exception(
+                        e,
+                        error_type=type(e).__name__,
+                        db_path=str(db_path),
+                        llm_provider=self.config.llm_provider,
+                        embedder_provider=self.config.embedder_provider,
+                    )
                     return False
                 except Exception as e:
                     logger.warning(
                         f"Unexpected error initializing LadybugDB driver at {db_path}: {e}"
                     )
+                    capture_exception(
+                        e,
+                        error_type=type(e).__name__,
+                        db_path=str(db_path),
+                        llm_provider=self.config.llm_provider,
+                        embedder_provider=self.config.embedder_provider,
+                    )
                     return False
                 logger.info(f"Initialized LadybugDB driver (patched) at: {db_path}")
             except ImportError as e:
                 logger.warning(f"KuzuDriver not available: {e}")
+                capture_exception(
+                    e,
+                    error_type="ImportError",
+                    component="kuzu_driver_patched",
+                    llm_provider=self.config.llm_provider,
+                    embedder_provider=self.config.embedder_provider,
+                )
                 return False
 
             # Initialize Graphiti with the custom providers
@@ -216,10 +266,23 @@ class GraphitiClient:
                 f"Graphiti packages not installed: {e}. "
                 "Install with: pip install real_ladybug graphiti-core"
             )
+            capture_exception(
+                e,
+                error_type="ImportError",
+                component="graphiti_core",
+                llm_provider=self.config.llm_provider,
+                embedder_provider=self.config.embedder_provider,
+            )
             return False
 
         except Exception as e:
             logger.warning(f"Failed to initialize Graphiti client: {e}")
+            capture_exception(
+                e,
+                error_type=type(e).__name__,
+                llm_provider=self.config.llm_provider,
+                embedder_provider=self.config.embedder_provider,
+            )
             return False
 
     async def close(self) -> None:

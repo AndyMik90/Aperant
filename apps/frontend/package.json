@@ -36,6 +36,8 @@
     "package:win": "node scripts/package-with-python.cjs --win",
     "package:linux": "node scripts/package-with-python.cjs --linux",
     "package:flatpak": "node scripts/package-with-python.cjs --linux flatpak",
+    "verify:linux": "node scripts/verify-linux-packages.cjs dist",
+    "test:verify-linux": "node --test scripts/verify-linux-packages.test.mjs",
     "start:packaged:mac": "open dist/mac-arm64/Auto-Claude.app || open dist/mac/Auto-Claude.app",
     "start:packaged:win": "start \"\" \"dist\\win-unpacked\\Auto-Claude.exe\"",
     "start:packaged:linux": "./dist/linux-unpacked/auto-claude",
@@ -81,7 +83,7 @@
     "chokidar": "^5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "dotenv": "^16.6.1",
+    "dotenv": "^17.2.3",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.6.2",
     "i18next": "^25.7.3",
@@ -98,6 +100,7 @@
     "semver": "^7.7.3",
     "tailwind-merge": "^3.4.0",
     "uuid": "^13.0.0",
+    "xstate": "^5.26.0",
     "zod": "^4.2.1",
     "zustand": "^5.0.9"
   },
@@ -111,16 +114,16 @@
     "@testing-library/dom": "^10.0.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.1.0",
-    "@types/minimatch": "^5.1.2",
+    "@types/minimatch": "^6.0.0",
     "@types/node": "^25.0.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/semver": "^7.7.1",
-    "@types/uuid": "^10.0.0",
+    "@types/uuid": "^11.0.0",
     "@vitejs/plugin-react": "^5.1.2",
     "autoprefixer": "^10.4.22",
     "cross-env": "^10.1.0",
-    "electron": "39.2.7",
+    "electron": "40.0.0",
     "electron-builder": "^26.4.0",
     "electron-vite": "^5.0.0",
     "husky": "^9.1.7",
@@ -166,14 +169,6 @@
         "to": "icon.ico"
       },
       {
-        "from": "python-runtime/${os}-${arch}/python",
-        "to": "python"
-      },
-      {
-        "from": "python-runtime/${os}-${arch}/site-packages",
-        "to": "python-site-packages"
-      },
-      {
         "from": "../backend",
         "to": "backend",
         "filter": [
@@ -202,6 +197,16 @@
       "target": [
         "dmg",
         "zip"
+      ],
+      "extraResources": [
+        {
+          "from": "python-runtime/${os}-${arch}/python",
+          "to": "python"
+        },
+        {
+          "from": "python-runtime/${os}-${arch}/site-packages",
+          "to": "python-site-packages"
+        }
       ]
     },
     "win": {
@@ -209,6 +214,16 @@
       "target": [
         "nsis",
         "zip"
+      ],
+      "extraResources": [
+        {
+          "from": "python-runtime/${os}-${arch}/python",
+          "to": "python"
+        },
+        {
+          "from": "python-runtime/${os}-${arch}/site-packages",
+          "to": "python-site-packages"
+        }
       ]
     },
     "linux": {
@@ -218,7 +233,17 @@
         "deb",
         "flatpak"
       ],
-      "category": "Development"
+      "category": "Development",
+      "extraResources": [
+        {
+          "from": "python-runtime/${os}-${arch}/python",
+          "to": "python"
+        },
+        {
+          "from": "python-runtime/${os}-${arch}/site-packages",
+          "to": "python-site-packages"
+        }
+      ]
     },
     "flatpak": {
       "runtime": "org.freedesktop.Platform",

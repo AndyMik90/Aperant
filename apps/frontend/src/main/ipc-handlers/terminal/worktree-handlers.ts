@@ -15,6 +15,7 @@ import { minimatch } from 'minimatch';
 import { debugLog, debugError } from '../../../shared/utils/debug-logger';
 import { projectStore } from '../../project-store';
 import { parseEnvFile } from '../utils';
+import { isWindows } from '../../platform';
 import {
   getTerminalWorktreeDir,
   getTerminalWorktreePath,
@@ -276,7 +277,7 @@ function symlinkNodeModulesToWorktree(projectPath: string, worktreePath: string)
       // Platform-specific symlink creation:
       // - Windows: Use 'junction' type which requires absolute paths (no admin rights required)
       // - Unix (macOS/Linux): Use relative paths for portability (worktree can be moved)
-      if (process.platform === 'win32') {
+      if (isWindows()) {
         symlinkSync(sourcePath, targetPath, 'junction');
         debugLog('[TerminalWorktree] Created junction (Windows):', targetRel, '->', sourcePath);
       } else {
@@ -302,7 +303,7 @@ function saveWorktreeConfig(projectPath: string, name: string, config: TerminalW
   const metadataDir = getTerminalWorktreeMetadataDir(projectPath);
   mkdirSync(metadataDir, { recursive: true });
   const metadataPath = getTerminalWorktreeMetadataPath(projectPath, name);
-  writeFileSync(metadataPath, JSON.stringify(config, null, 2));
+  writeFileSync(metadataPath, JSON.stringify(config, null, 2), 'utf-8');
 }
 
 function loadWorktreeConfig(projectPath: string, name: string): TerminalWorktreeConfig | null {
@@ -434,7 +435,10 @@ async function createTerminalWorktree(
     }
 
     if (createGitBranch) {
-      execFileSync(getToolPath('git'), ['worktree', 'add', '-b', branchName, worktreePath, baseRef], {
+      // Use --no-track to prevent the new branch from inheriting upstream tracking
+      // from the base ref (e.g., origin/main). This ensures users can push with -u
+      // to correctly set up tracking to their own remote branch.
+      execFileSync(getToolPath('git'), ['worktree', 'add', '-b', branchName, '--no-track', worktreePath, baseRef], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],

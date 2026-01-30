@@ -9,6 +9,7 @@ import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { CustomMcpServer, McpHealthCheckResult, McpHealthStatus, McpTestConnectionResult } from '../../shared/types/project';
 import { spawn } from 'child_process';
 import { appLog } from '../app-logger';
+import { isWindows } from '../platform';
 
 /**
  * Defense-in-depth: Frontend-side command validation
@@ -54,7 +55,7 @@ function areArgsSafe(args: string[] | undefined): boolean {
   if (args.some(arg => DANGEROUS_FLAGS.has(arg))) return false;
 
   // On Windows with shell: true, check for shell metacharacters that could enable injection
-  if (process.platform === 'win32') {
+  if (isWindows()) {
     if (args.some(arg => SHELL_METACHARACTERS.some(char => arg.includes(char)))) {
       return false;
     }
@@ -193,7 +194,7 @@ async function checkCommandHealth(server: CustomMcpServer, startTime: number): P
       });
     }
 
-    const command = process.platform === 'win32' ? 'where' : 'which';
+    const command = isWindows() ? 'where' : 'which';
     const proc = spawn(command, [server.command!], {
       timeout: 5000,
     });
@@ -421,7 +422,7 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
     const proc = spawn(server.command!, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 15000, // OS-level timeout for reliable process termination
-      shell: process.platform === 'win32', // Required for Windows to run npx.cmd
+      shell: isWindows(), // Required for Windows to run npx.cmd
     });
 
     let stdout = '';
@@ -460,7 +461,7 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
     proc.stdin.write(initRequest);
 
     proc.stdout.on('data', (data) => {
-      stdout += data.toString();
+      stdout += data.toString('utf-8');
 
       // Try to parse JSON response
       try {
@@ -489,7 +490,7 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
     });
 
     proc.stderr.on('data', (data) => {
-      stderr += data.toString();
+      stderr += data.toString('utf-8');
     });
 
     proc.on('error', (error) => {

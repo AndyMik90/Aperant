@@ -217,6 +217,29 @@ export async function withProfilesLock<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /**
+ * Set the active API profile by ID
+ * This atomically updates the activeProfileId in profiles.json
+ *
+ * @param profileId - The profile ID to set as active, or null to clear
+ * @returns The updated ProfilesFile
+ */
+export async function setActiveAPIProfile(profileId: string | null): Promise<ProfilesFile> {
+  return await atomicModifyProfiles((file) => {
+    // Validate that the profile exists if setting an ID
+    if (profileId !== null) {
+      const profile = file.profiles.find(p => p.id === profileId);
+      if (!profile) {
+        throw new Error(`API profile not found: ${profileId}`);
+      }
+    }
+    return {
+      ...file,
+      activeProfileId: profileId
+    };
+  });
+}
+
+/**
  * Atomically modify the profiles file
  * Loads, modifies, and saves the file within an exclusive lock
  *

@@ -101,7 +101,7 @@ def setup_qa_report_mocks() -> None:
     sys.modules['client'] = mock_client
 
     # Add auto-claude path for imports
-    sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
+    sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 
 def cleanup_qa_report_mocks() -> None:

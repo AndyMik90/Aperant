@@ -52,7 +52,7 @@ async def _save_to_graphiti_async(
         # The helper handles enablement checks internally
         from memory.graphiti_helpers import get_graphiti_memory
 
-        memory = get_graphiti_memory(spec_dir, project_dir)
+        memory = await get_graphiti_memory(spec_dir, project_dir)
         if memory is None:
             return False
 

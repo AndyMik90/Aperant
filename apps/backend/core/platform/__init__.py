@@ -371,7 +371,7 @@ def validate_cli_path(cli_path: str) -> bool:
     Returns:
         True if path is secure, False otherwise
     """
-    if not cli_path:
+    if not cli_path or not cli_path.strip():
         return False
 
     # Security validation: reject paths with shell metacharacters or other dangerous patterns
@@ -380,7 +380,7 @@ def validate_cli_path(cli_path: str) -> bool:
         r"%[^%]+%",  # Windows environment variable expansion
         r"\.\./",  # Unix directory traversal
         r"\.\.\\",  # Windows directory traversal
-        r"[\r\n]",  # Newlines (command injection)
+        r"[\r\n\x00]",  # Newlines (command injection), null bytes (path truncation)
     ]
 
     for pattern in dangerous_patterns:

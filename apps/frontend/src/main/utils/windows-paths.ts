@@ -37,6 +37,17 @@ export const WINDOWS_GIT_PATHS: WindowsToolPaths = {
   ],
 };
 
+export const WINDOWS_GLAB_PATHS: WindowsToolPaths = {
+  toolName: 'GitLab CLI',
+  executable: 'glab.exe',
+  patterns: [
+    // Official Inno Setup installer path (DefaultDirName={autopf}\glab)
+    '%PROGRAMFILES%\\glab',
+    '%PROGRAMFILES(X86)%\\glab',
+    '%LOCALAPPDATA%\\Programs\\glab',
+  ],
+};
+
 export function isSecurePath(pathStr: string): boolean {
   const dangerousPatterns = [
     /[;&|`${}[\]<>!"^]/,  // Shell metacharacters (parentheses removed - safe when quoted)

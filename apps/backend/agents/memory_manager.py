@@ -10,6 +10,7 @@ Handles session memory storage using dual-layer approach:
 import logging
 from pathlib import Path
 
+from core.sentry import capture_exception
 from debug import (
     debug,
     debug_detailed,
@@ -116,12 +117,15 @@ async def get_graphiti_context(
 
     memory = None
     try:
-        # Use centralized helper for GraphitiMemory instantiation
-        memory = get_graphiti_memory(spec_dir, project_dir)
+        # Use centralized helper for GraphitiMemory instantiation (async)
+        memory = await get_graphiti_memory(spec_dir, project_dir)
         if memory is None:
             if is_debug_enabled():
-                debug_warning("memory", "GraphitiMemory not available")
+                debug_warning(
+                    "memory", "GraphitiMemory not available for context retrieval"
+                )
             return None
+
         # Build search query from subtask description
         subtask_desc = subtask.get("description", "")
         subtask_id = subtask.get("id", "")
@@ -228,6 +232,15 @@ async def get_graphiti_context(
         logger.warning(f"Failed to get Graphiti context: {e}")
         if is_debug_enabled():
             debug_error("memory", "Graphiti context retrieval failed", error=str(e))
+        # Capture exception to Sentry with full context
+        capture_exception(
+            e,
+            operation="get_graphiti_context",
+            subtask_id=subtask.get("id", "unknown"),
+            subtask_desc=subtask.get("description", "")[:200],
+            spec_dir=str(spec_dir),
+            project_dir=str(project_dir),
+        )
         return None
     finally:
         # Always close the memory connection (swallow exceptions to avoid overriding)
@@ -324,21 +337,16 @@ async def save_session_memory(
 
         memory = None
         try:
-            # Use centralized helper for GraphitiMemory instantiation
-            memory = get_graphiti_memory(spec_dir, project_dir)
+            # Use centralized helper for GraphitiMemory instantiation (async)
+            memory = await get_graphiti_memory(spec_dir, project_dir)
             if memory is None:
                 if is_debug_enabled():
                     debug_warning("memory", "GraphitiMemory not available")
-                # Continue to file-based fallback
-            else:
-                if is_debug_enabled():
-                    debug_detailed(
+                    debug(
                         "memory",
-                        "GraphitiMemory instance created",
-                        is_enabled=memory.is_enabled,
-                        group_id=getattr(memory, "group_id", "unknown"),
+                        "get_graphiti_memory() returned None - this usually means Graphiti is disabled or provider config is invalid",
                     )
-
+                # Continue to file-based fallback
             if memory is not None and memory.is_enabled:
                 if is_debug_enabled():
                     debug("memory", "Saving to Graphiti...")
@@ -393,6 +401,17 @@ async def save_session_memory(
             logger.warning(f"Graphiti save failed: {e}, falling back to file-based")
             if is_debug_enabled():
                 debug_error("memory", "Graphiti save failed", error=str(e))
+            # Capture exception to Sentry with full context
+            capture_exception(
+                e,
+                operation="save_session_memory_graphiti",
+                subtask_id=subtask_id,
+                session_num=session_num,
+                success=success,
+                subtasks_completed=subtasks_completed,
+                spec_dir=str(spec_dir),
+                project_dir=str(project_dir),
+            )
         finally:
             # Always close the memory connection (swallow exceptions to avoid overriding)
             if memory is not None:
@@ -438,6 +457,17 @@ async def save_session_memory(
         logger.error(f"File-based memory save also failed: {e}")
         if is_debug_enabled():
             debug_error("memory", "File-based memory save FAILED", error=str(e))
+        # Capture exception to Sentry with full context
+        capture_exception(
+            e,
+            operation="save_session_memory_file",
+            subtask_id=subtask_id,
+            session_num=session_num,
+            success=success,
+            subtasks_completed=subtasks_completed,
+            spec_dir=str(spec_dir),
+            project_dir=str(project_dir),
+        )
         return False, "none"
 
 

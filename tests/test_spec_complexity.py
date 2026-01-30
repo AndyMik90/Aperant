@@ -50,7 +50,7 @@ sys.modules['claude_agent_sdk'] = mock_agent_sdk
 sys.modules['claude_agent_sdk.types'] = mock_agent_types
 
 # Add auto-claude directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from spec.complexity import (
     Complexity,

@@ -134,7 +134,7 @@ describe('Application Logger', () => {
 
       const info = getSystemInfo();
 
-      expect(parseInt(info.cpuCores)).toBeGreaterThan(0);
+      expect(parseInt(info.cpuCores, 10)).toBeGreaterThan(0);
     });
   });
 

@@ -100,7 +100,7 @@ mock_client.create_client = MagicMock()
 sys.modules['client'] = mock_client
 
 # Now we can safely add the auto-claude path and import
-sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 # Import criteria functions directly to avoid going through qa/__init__.py
 # which imports reviewer and fixer that need the SDK

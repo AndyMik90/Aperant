@@ -62,7 +62,7 @@ export function WorktreeSelector({
       // Fetch terminal worktrees, task worktrees, and other worktrees in parallel
       const [terminalResult, taskResult, otherResult] = await Promise.all([
         window.electronAPI.listTerminalWorktrees(projectPath),
-        project?.id ? window.electronAPI.listWorktrees(project.id) : Promise.resolve(null),
+        project?.id ? window.electronAPI.listWorktrees(project.id, { includeStats: false }) : Promise.resolve(null),
         window.electronAPI.listOtherWorktrees(projectPath),
       ]);
 

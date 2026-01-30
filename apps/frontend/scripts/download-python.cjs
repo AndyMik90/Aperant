@@ -1118,6 +1118,7 @@ function validateInput(value, validValues, name) {
 
   // Remove any control characters or newlines (ASCII 0-31 and 127)
   // eslint-disable-next-line no-control-regex
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentional - sanitizing input by removing control characters
   const sanitized = String(value).replace(/[\x00-\x1f\x7f]/g, '');
 
   if (!validValues.includes(sanitized)) {

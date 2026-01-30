@@ -15,6 +15,7 @@ import type {
 } from '../shared/types';
 import { DEFAULT_CHANGELOG_PATH } from '../shared/constants';
 import { getToolPath } from './cli-tool-manager';
+import { refreshGitIndex } from './utils/git-isolation';
 
 /**
  * Service for creating GitHub releases with worktree-aware pre-flight checks.
@@ -198,6 +199,8 @@ export class ReleaseService extends EventEmitter {
 
     // Check 1: Git working directory is clean
     try {
+      refreshGitIndex(projectPath);
+
       const gitStatus = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
         cwd: projectPath,
         encoding: 'utf-8'
@@ -445,6 +448,8 @@ export class ReleaseService extends EventEmitter {
 
       // If empty or error checking, assume merged for safety
       if (unmergedCommits === 'error') {
+        refreshGitIndex(worktreePath);
+
         // Try alternative: check if worktree has any uncommitted changes
         const hasChanges = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
           cwd: worktreePath,
@@ -486,6 +491,8 @@ export class ReleaseService extends EventEmitter {
     }
 
     // Check for uncommitted changes
+    refreshGitIndex(projectPath);
+
     const gitStatus = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
       cwd: projectPath,
       encoding: 'utf-8'
@@ -546,17 +553,21 @@ export class ReleaseService extends EventEmitter {
       });
 
       const pkgPath = path.join(projectPath, 'package.json');
-      if (!existsSync(pkgPath)) {
-        throw new Error('package.json not found in project root');
+      let pkgContent: string;
+      try {
+        pkgContent = readFileSync(pkgPath, 'utf-8');
+      } catch (readErr: unknown) {
+        if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+          throw new Error('package.json not found in project root');
+        }
+        throw readErr;
       }
-
-      const pkgContent = readFileSync(pkgPath, 'utf-8');
       const pkg = JSON.parse(pkgContent);
       pkg.version = version;
 
       // Preserve formatting (detect indent)
       const indent = pkgContent.match(/^(\s+)/m)?.[1] || '  ';
-      writeFileSync(pkgPath, JSON.stringify(pkg, null, indent) + '\n');
+      writeFileSync(pkgPath, JSON.stringify(pkg, null, indent) + '\n', 'utf-8');
 
       // Stage and commit only package.json
       this.emitProgress(projectId, {
@@ -712,11 +723,11 @@ export class ReleaseService extends EventEmitter {
         let stderr = '';
 
         child.stdout?.on('data', (data: Buffer) => {
-          stdout += data.toString();
+          stdout += data.toString('utf-8');
         });
 
         child.stderr?.on('data', (data: Buffer) => {
-          stderr += data.toString();
+          stderr += data.toString('utf-8');
         });
 
         child.on('exit', (code) => {

@@ -252,6 +252,18 @@ export function initializePRReviewListeners(): void {
     }
   );
 
+  // Listen for GitHub auth changes - clear all PR review state when account changes
+  window.electronAPI.github.onGitHubAuthChanged(
+    (data: { oldUsername: string | null; newUsername: string }) => {
+      console.warn(
+        `[PRReviewStore] GitHub auth changed from "${data.oldUsername ?? 'none'}" to "${data.newUsername}". ` +
+        `Clearing all PR review state.`
+      );
+      // Clear all PR review state since the token has changed
+      usePRReviewStore.setState({ prReviews: {} });
+    }
+  );
+
   prReviewListenersInitialized = true;
 }
 

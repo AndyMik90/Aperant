@@ -3,6 +3,7 @@ import { existsSync, accessSync, constants } from 'fs';
 import path from 'path';
 import { app } from 'electron';
 import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
+import { isWindows } from './platform';
 
 /**
  * Get the path to the bundled Python executable.
@@ -17,10 +18,9 @@ export function getBundledPythonPath(): string | null {
   }
 
   const resourcesPath = process.resourcesPath;
-  const isWindows = process.platform === 'win32';
 
   // Bundled Python location in packaged app
-  const pythonPath = isWindows
+  const pythonPath = isWindows()
     ? path.join(resourcesPath, 'python', 'python.exe')
     : path.join(resourcesPath, 'python', 'bin', 'python3');
 
@@ -52,8 +52,6 @@ function findHomebrewPython(): string | null {
  * @returns The Python command to use, or null if none found
  */
 export function findPythonCommand(): string | null {
-  const isWindows = process.platform === 'win32';
-
   // 1. Check for bundled Python first (packaged apps only)
   const bundledPython = getBundledPythonPath();
   if (bundledPython) {
@@ -75,7 +73,7 @@ export function findPythonCommand(): string | null {
 
   // Build candidate list prioritizing Homebrew Python on macOS
   let candidates: string[];
-  if (isWindows) {
+  if (isWindows()) {
     candidates = ['py -3', 'python', 'python3', 'py'];
   } else {
     const homebrewPython = findHomebrewPython();
@@ -101,7 +99,7 @@ export function findPythonCommand(): string | null {
   }
 
   // Fallback to platform-specific default
-  if (isWindows) {
+  if (isWindows()) {
     return 'python';
   }
   return findHomebrewPython() || 'python3';
@@ -119,7 +117,7 @@ function getPythonVersion(pythonCmd: string): string | null {
       stdio: 'pipe',
       timeout: 5000,
       windowsHide: true
-    }).toString().trim();
+    }).toString('utf-8').trim();
 
     // Extract version number from "Python 3.10.5" format
     const match = version.match(/Python (\d+\.\d+\.\d+)/);
@@ -186,7 +184,7 @@ export function getDefaultPythonCommand(): string {
   }
 
   // Fall back to system Python
-  if (process.platform === 'win32') {
+  if (isWindows()) {
     return 'python';
   }
   return findHomebrewPython() || 'python3';
@@ -354,7 +352,7 @@ function verifyIsPython(pythonCmd: string): boolean {
       timeout: 5000,
       windowsHide: true,
       shell: false
-    }).toString().trim();
+    }).toString('utf-8').trim();
 
     // Must output "Python X.Y.Z"
     return /^Python \d+\.\d+/.test(output);
@@ -441,7 +439,7 @@ export function validatePythonPath(pythonPath: string): PythonPathValidation {
     }
 
     // Security check 4: Must be executable (Unix) or .exe (Windows)
-    if (process.platform !== 'win32' && !isExecutable(normalizedPath)) {
+    if (!isWindows() && !isExecutable(normalizedPath)) {
       return {
         valid: false,
         reason: 'File exists but is not executable'

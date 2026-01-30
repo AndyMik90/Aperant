@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   MessageSquare,
@@ -105,9 +105,36 @@ export function Insights({ projectId }: InsightsProps) {
   const [creatingTask, setCreatingTask] = useState<string | null>(null);
   const [taskCreated, setTaskCreated] = useState<Set<string>>(new Set());
   const [showSidebar, setShowSidebar] = useState(true);
+  const [isUserAtBottom, setIsUserAtBottom] = useState(true);
+  const [viewportEl, setViewportEl] = useState<HTMLElement | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Scroll threshold in pixels - user is considered "at bottom" if within this distance
+  const SCROLL_BOTTOM_THRESHOLD = 100;
+
+  // Check if user is near the bottom of scroll area
+  const checkIfAtBottom = useCallback((viewport: HTMLElement) => {
+    const { scrollTop, scrollHeight, clientHeight } = viewport;
+    return scrollHeight - scrollTop - clientHeight <= SCROLL_BOTTOM_THRESHOLD;
+  }, []);
+
+  // Handle scroll events to track user position
+  const handleScroll = useCallback(() => {
+    if (viewportEl) {
+      setIsUserAtBottom(checkIfAtBottom(viewportEl));
+    }
+  }, [viewportEl, checkIfAtBottom]);
+
+  // Set up scroll listener and check initial position when viewport becomes available
+  useEffect(() => {
+    if (viewportEl) {
+      // Check initial scroll position
+      setIsUserAtBottom(checkIfAtBottom(viewportEl));
+      viewportEl.addEventListener('scroll', handleScroll, { passive: true });
+      return () => viewportEl.removeEventListener('scroll', handleScroll);
+    }
+  }, [viewportEl, handleScroll, checkIfAtBottom]);
 
   // Load session and set up listeners on mount
   useEffect(() => {
@@ -116,10 +143,14 @@ export function Insights({ projectId }: InsightsProps) {
     return cleanup;
   }, [projectId]);
 
-  // Auto-scroll to bottom when messages change
+  // Smart auto-scroll: only scroll if user is already at bottom
+  // This allows users to scroll up to read previous messages without being
+  // yanked back down during streaming responses
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [session?.messages, streamingContent]);
+    if (isUserAtBottom && viewportEl) {
+      viewportEl.scrollTop = viewportEl.scrollHeight;
+    }
+  }, [session?.messages, streamingContent, isUserAtBottom, viewportEl]);
 
   // Focus textarea on mount
   useEffect(() => {
@@ -137,6 +168,7 @@ export function Insights({ projectId }: InsightsProps) {
 
     setInputValue('');
     sendMessage(projectId, message);
+    setIsUserAtBottom(true); // Resume auto-scroll when user sends a message
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -259,7 +291,10 @@ export function Insights({ projectId }: InsightsProps) {
         </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 px-6 py-4">
+      <ScrollArea
+        className="flex-1 px-6 py-4"
+        onViewportRef={setViewportEl}
+      >
         {messages.length === 0 && !streamingContent ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
@@ -353,13 +388,12 @@ export function Insights({ projectId }: InsightsProps) {
               </div>
             )}
 
-            <div ref={messagesEndRef} />
           </div>
         )}
       </ScrollArea>
 
       {/* Input */}
-      <div className="border-t border-border p-4">
+      <div className="flex-shrink-0 border-t border-border p-4">
         <div className="flex gap-2">
           <Textarea
             ref={textareaRef}

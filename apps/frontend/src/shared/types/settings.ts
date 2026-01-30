@@ -224,6 +224,7 @@ export interface AppSettings {
   pythonPath?: string;
   gitPath?: string;
   githubCLIPath?: string;
+  gitlabCLIPath?: string;
   claudePath?: string;
   autoBuildPath?: string;
   autoUpdateAutoBuild: boolean;
@@ -245,6 +246,7 @@ export interface AppSettings {
   memoryOllamaEmbeddingModel?: string;
   memoryOllamaEmbeddingDim?: number;
   memoryVoyageApiKey?: string;
+  memoryVoyageEmbeddingModel?: string;
   memoryAzureApiKey?: string;
   memoryAzureBaseUrl?: string;
   memoryAzureEmbeddingDeployment?: string;
@@ -291,6 +293,8 @@ export interface AppSettings {
   promptTemplates?: PromptTemplate[];
   // Currently selected prompt template for AI task splitting
   selectedPromptTemplateId?: string;
+  // Sidebar collapsed state (icons only when true)
+  sidebarCollapsed?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

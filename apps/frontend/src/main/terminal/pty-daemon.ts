@@ -11,17 +11,29 @@
 import * as net from 'net';
 import * as fs from 'fs';
 import * as pty from '@lydell/node-pty';
+import { isWindows, isUnix } from '../platform';
 
-const SOCKET_PATH =
-  process.platform === 'win32'
-    ? `\\\\.\\pipe\\auto-claude-pty-${process.getuid?.() || 'default'}`
-    : `/tmp/auto-claude-pty-${process.getuid?.() || 'default'}.sock`;
+const SOCKET_PATH = isWindows()
+  ? `\\\\.\\pipe\\auto-claude-pty-${process.getuid?.() || 'default'}`
+  : `/tmp/auto-claude-pty-${process.getuid?.() || 'default'}.sock`;
 
 // Maximum buffer size per PTY (100KB)
 const MAX_BUFFER_SIZE = 100_000;
 
 // Ring buffer to prevent memory growth
 const RING_BUFFER_MAX_CHUNKS = 1000;
+
+/**
+ * Sanitize an ID for safe logging to prevent log injection attacks.
+ * Uses JSON.stringify which CodeQL recognizes as a sanitizer, then
+ * removes the surrounding quotes for cleaner log output.
+ */
+function sanitizeIdForLog(id: string): string {
+  // JSON.stringify escapes control characters and is recognized by CodeQL
+  // as a sanitizer for log injection. We slice off the quotes for cleaner output.
+  const escaped = JSON.stringify(String(id).slice(0, 100));
+  return escaped.slice(1, -1);
+}
 
 interface ManagedPty {
   id: string;
@@ -71,6 +83,7 @@ interface DaemonResponse {
 class PtyDaemon {
   private ptys = new Map<string, ManagedPty>();
   private server: net.Server | null = null;
+  private isShuttingDown = false;
 
   constructor() {
     console.error('[PTY Daemon] Starting...');
@@ -83,7 +96,7 @@ class PtyDaemon {
    * Remove stale socket/pipe
    */
   private cleanup(): void {
-    if (process.platform !== 'win32' && fs.existsSync(SOCKET_PATH)) {
+    if (isUnix() && fs.existsSync(SOCKET_PATH)) {
       try {
         fs.unlinkSync(SOCKET_PATH);
         console.error('[PTY Daemon] Cleaned up stale socket');
@@ -113,7 +126,7 @@ class PtyDaemon {
     this.server.listen(SOCKET_PATH, () => {
       console.error(`[PTY Daemon] Listening on ${SOCKET_PATH}`);
       // Set permissions on Unix
-      if (process.platform !== 'win32') {
+      if (isUnix()) {
         try {
           fs.chmodSync(SOCKET_PATH, 0o600);
         } catch (error) {
@@ -130,7 +143,7 @@ class PtyDaemon {
     let buffer = '';
 
     socket.on('data', (chunk) => {
-      buffer += chunk.toString();
+      buffer += chunk.toString('utf-8');
 
       // Handle newline-delimited JSON messages
       const lines = buffer.split('\n');
@@ -236,6 +249,11 @@ class PtyDaemon {
    * Create a new PTY
    */
   private createPty(config: PtyConfig): string {
+    // Guard against spawning new PTY processes after shutdown has begun
+    if (this.isShuttingDown) {
+      throw new Error('Cannot create PTY: daemon is shutting down');
+    }
+
     const id = `pty-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     try {
@@ -290,7 +308,7 @@ class PtyDaemon {
       });
 
       ptyProcess.onExit(({ exitCode, signal }) => {
-        console.error(`[PTY Daemon] PTY ${id} exited: code=${exitCode}, signal=${signal}`);
+        console.error('[PTY Daemon] PTY exited:', { id: sanitizeIdForLog(id), exitCode, signal });
         managed.isDead = true;
 
         // Notify all subscribers
@@ -302,7 +320,7 @@ class PtyDaemon {
       });
 
       this.ptys.set(id, managed);
-      console.error(`[PTY Daemon] Created PTY ${id} (${config.shell})`);
+      console.error('[PTY Daemon] Created PTY:', { id: sanitizeIdForLog(id), shell: config.shell });
 
       return id;
     } catch (error) {
@@ -322,7 +340,13 @@ class PtyDaemon {
     if (managed.isDead) {
       throw new Error(`PTY ${id} is dead`);
     }
-    managed.process.write(data);
+    try {
+      managed.process.write(data);
+    } catch (error) {
+      // PTY process may have been destroyed during teardown
+      console.error('[PTY Daemon] Error writing to PTY:', sanitizeIdForLog(id), error);
+      managed.isDead = true;
+    }
   }
 
   /**
@@ -334,12 +358,18 @@ class PtyDaemon {
       throw new Error(`PTY ${id} not found`);
     }
     if (managed.isDead) {
-      console.warn(`[PTY Daemon] Cannot resize dead PTY ${id}`);
+      console.warn('[PTY Daemon] Cannot resize dead PTY:', sanitizeIdForLog(id));
       return;
     }
-    managed.process.resize(cols, rows);
-    managed.config.cols = cols;
-    managed.config.rows = rows;
+    try {
+      managed.process.resize(cols, rows);
+      managed.config.cols = cols;
+      managed.config.rows = rows;
+    } catch (error) {
+      // PTY process may have been destroyed during teardown
+      console.error('[PTY Daemon] Error resizing PTY:', sanitizeIdForLog(id), error);
+      managed.isDead = true;
+    }
   }
 
   /**
@@ -348,7 +378,7 @@ class PtyDaemon {
   private killPty(id: string): void {
     const managed = this.ptys.get(id);
     if (!managed) {
-      console.warn(`[PTY Daemon] PTY ${id} not found for kill`);
+      console.warn('[PTY Daemon] PTY not found for kill:', sanitizeIdForLog(id));
       return;
     }
 
@@ -356,12 +386,12 @@ class PtyDaemon {
       try {
         managed.process.kill();
       } catch (error) {
-        console.error(`[PTY Daemon] Error killing PTY ${id}:`, error);
+        console.error('[PTY Daemon] Error killing PTY:', sanitizeIdForLog(id), error);
       }
     }
 
     this.ptys.delete(id);
-    console.error(`[PTY Daemon] Removed PTY ${id}`);
+    console.error('[PTY Daemon] Removed PTY:', sanitizeIdForLog(id));
   }
 
   /**
@@ -394,7 +424,7 @@ class PtyDaemon {
       throw new Error(`PTY ${id} not found`);
     }
     managed.clients.add(socket);
-    console.error(`[PTY Daemon] Client subscribed to PTY ${id}`);
+    console.error('[PTY Daemon] Client subscribed to PTY:', sanitizeIdForLog(id));
   }
 
   /**
@@ -404,7 +434,7 @@ class PtyDaemon {
     const managed = this.ptys.get(id);
     if (managed) {
       managed.clients.delete(socket);
-      console.error(`[PTY Daemon] Client unsubscribed from PTY ${id}`);
+      console.error('[PTY Daemon] Client unsubscribed from PTY:', sanitizeIdForLog(id));
     }
   }
 
@@ -448,13 +478,16 @@ class PtyDaemon {
     const shutdown = (signal: string) => {
       console.error(`[PTY Daemon] Received ${signal}, shutting down...`);
 
+      // Set shutdown flag to prevent new PTY creation and guard operations
+      this.isShuttingDown = true;
+
       // Kill all PTYs
       this.ptys.forEach((managed) => {
         if (!managed.isDead) {
           try {
             managed.process.kill();
           } catch (error) {
-            console.error(`[PTY Daemon] Error killing PTY ${managed.id}:`, error);
+            console.error('[PTY Daemon] Error killing PTY:', sanitizeIdForLog(managed.id), error);
           }
         }
       });

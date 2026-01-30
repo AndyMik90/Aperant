@@ -21,7 +21,9 @@
   "actions": {
     "settings": "Settings",
     "help": "Help & Feedback",
-    "newTask": "New Task"
+    "newTask": "New Task",
+    "collapseSidebar": "Collapse Sidebar",
+    "expandSidebar": "Expand Sidebar"
   },
   "tooltips": {
     "settings": "Application Settings",

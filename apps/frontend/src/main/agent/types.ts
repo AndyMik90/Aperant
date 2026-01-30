@@ -1,6 +1,7 @@
 import { ChildProcess } from 'child_process';
 import type { IdeationConfig } from '../../shared/types';
 import type { CompletablePhase } from '../../shared/constants/phase-protocol';
+import type { TaskEventPayload } from './task-event-schema';
 
 /**
  * Agent-specific types for process and state management
@@ -10,7 +11,7 @@ export type QueueProcessType = 'ideation' | 'roadmap';
 
 export interface AgentProcess {
   taskId: string;
-  process: ChildProcess;
+  process: ChildProcess | null; // null during async spawn setup before ChildProcess is created
   startedAt: Date;
   projectPath?: string; // For ideation processes to load session on completion
   spawnId: number; // Unique ID to identify this specific spawn
@@ -34,6 +35,7 @@ export interface AgentManagerEvents {
   error: (taskId: string, error: string) => void;
   exit: (taskId: string, code: number | null, processType: ProcessType) => void;
   'execution-progress': (taskId: string, progress: ExecutionProgressData) => void;
+  'task-event': (taskId: string, event: TaskEventPayload) => void;
 }
 
 // IdeationConfig now imported from shared types to maintain consistency

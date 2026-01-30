@@ -100,6 +100,7 @@
     "openaiGetKey": "Get your key from",
     "voyageApiKey": "Voyage AI API Key",
     "voyageApiKeyDescription": "Required for Voyage AI embeddings",
+    "voyageEmbeddingModel": "Embedding Model",
     "googleApiKey": "Google AI API Key",
     "googleApiKeyDescription": "Required for Google AI embeddings",
     "azureConfig": "Azure OpenAI Configuration",
@@ -118,7 +119,16 @@
       "voyage": "Voyage AI",
       "google": "Google AI",
       "azure": "Azure OpenAI"
-    }
+    },
+    "ollamaConfig": "Ollama Configuration",
+    "checking": "Checking...",
+    "connected": "Connected",
+    "notRunning": "Not running",
+    "baseUrl": "Base URL",
+    "embeddingModel": "Embedding Model",
+    "embeddingDim": "Embedding Dimension",
+    "embeddingDimDescription": "Required for Ollama embeddings (e.g., 768 for nomic-embed-text)",
+    "modelRecommendation": "Recommended: qwen3-embedding:4b (balanced), :8b (quality), :0.6b (fast)"
   },
   "completion": {
     "title": "You're All Set!",
