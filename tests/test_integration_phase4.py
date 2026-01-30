@@ -27,20 +27,18 @@ import importlib.util
 
 # Load file_lock first (models.py depends on it)
 file_lock_spec = importlib.util.spec_from_file_location(
-    "file_lock",
-    backend_path / "runners" / "github" / "file_lock.py"
+    "file_lock", backend_path / "runners" / "github" / "file_lock.py"
 )
 file_lock_module = importlib.util.module_from_spec(file_lock_spec)
-sys.modules['file_lock'] = file_lock_module
+sys.modules["file_lock"] = file_lock_module
 file_lock_spec.loader.exec_module(file_lock_module)
 
 # Load models next
 models_spec = importlib.util.spec_from_file_location(
-    "models",
-    backend_path / "runners" / "github" / "models.py"
+    "models", backend_path / "runners" / "github" / "models.py"
 )
 models_module = importlib.util.module_from_spec(models_spec)
-sys.modules['models'] = models_module
+sys.modules["models"] = models_module
 models_spec.loader.exec_module(models_module)
 PRReviewFinding = models_module.PRReviewFinding
 PRReviewResult = models_module.PRReviewResult
@@ -50,56 +48,58 @@ ReviewCategory = models_module.ReviewCategory
 # Load services module dependencies for parallel_orchestrator_reviewer
 category_utils_spec = importlib.util.spec_from_file_location(
     "category_utils",
-    backend_path / "runners" / "github" / "services" / "category_utils.py"
+    backend_path / "runners" / "github" / "services" / "category_utils.py",
 )
 category_utils_module = importlib.util.module_from_spec(category_utils_spec)
-sys.modules['services.category_utils'] = category_utils_module
+sys.modules["services.category_utils"] = category_utils_module
 category_utils_spec.loader.exec_module(category_utils_module)
 
 # Load io_utils
 io_utils_spec = importlib.util.spec_from_file_location(
-    "io_utils",
-    backend_path / "runners" / "github" / "services" / "io_utils.py"
+    "io_utils", backend_path / "runners" / "github" / "services" / "io_utils.py"
 )
 io_utils_module = importlib.util.module_from_spec(io_utils_spec)
-sys.modules['services.io_utils'] = io_utils_module
+sys.modules["services.io_utils"] = io_utils_module
 io_utils_spec.loader.exec_module(io_utils_module)
 
 # Load pydantic_models
 pydantic_models_spec = importlib.util.spec_from_file_location(
     "pydantic_models",
-    backend_path / "runners" / "github" / "services" / "pydantic_models.py"
+    backend_path / "runners" / "github" / "services" / "pydantic_models.py",
 )
 pydantic_models_module = importlib.util.module_from_spec(pydantic_models_spec)
-sys.modules['services.pydantic_models'] = pydantic_models_module
+sys.modules["services.pydantic_models"] = pydantic_models_module
 pydantic_models_spec.loader.exec_module(pydantic_models_module)
 AgentAgreement = pydantic_models_module.AgentAgreement
 
 # Load agent_utils (shared utility for working directory injection)
 agent_utils_spec = importlib.util.spec_from_file_location(
-    "agent_utils",
-    backend_path / "runners" / "github" / "services" / "agent_utils.py"
+    "agent_utils", backend_path / "runners" / "github" / "services" / "agent_utils.py"
 )
 agent_utils_module = importlib.util.module_from_spec(agent_utils_spec)
-sys.modules['services.agent_utils'] = agent_utils_module
+sys.modules["services.agent_utils"] = agent_utils_module
 agent_utils_spec.loader.exec_module(agent_utils_module)
 
 # Load parallel_orchestrator_reviewer (contains _is_finding_in_scope and _cross_validate_findings)
 orchestrator_spec = importlib.util.spec_from_file_location(
     "parallel_orchestrator_reviewer",
-    backend_path / "runners" / "github" / "services" / "parallel_orchestrator_reviewer.py"
+    backend_path
+    / "runners"
+    / "github"
+    / "services"
+    / "parallel_orchestrator_reviewer.py",
 )
 orchestrator_module = importlib.util.module_from_spec(orchestrator_spec)
 # Mock dependencies that aren't needed for unit testing
 # IMPORTANT: Save and restore ALL mocked modules to avoid polluting sys.modules for other tests
 _modules_to_mock = [
-    'context_gatherer',
-    'core.client',
-    'gh_client',
-    'phase_config',
-    'services.pr_worktree_manager',
-    'services.sdk_utils',
-    'claude_agent_sdk',
+    "context_gatherer",
+    "core.client",
+    "gh_client",
+    "phase_config",
+    "services.pr_worktree_manager",
+    "services.sdk_utils",
+    "claude_agent_sdk",
 ]
 _original_modules = {name: sys.modules.get(name) for name in _modules_to_mock}
 for name in _modules_to_mock:
@@ -120,6 +120,7 @@ _is_finding_in_scope = orchestrator_module._is_finding_in_scope
 # Phase 5+ Tests: Scope Filtering (Updated)
 # =============================================================================
 
+
 class TestScopeFiltering:
     """Test scope filtering logic (updated for Phase 5 - uses is_impact_finding schema field)."""
 
@@ -132,11 +133,12 @@ class TestScopeFiltering:
         ParallelOrchestratorFinding Pydantic model. The actual code uses
         getattr(finding, 'is_impact_finding', False) to access it.
         """
+
         def _make_finding(
             file: str = "src/test.py",
             line: int = 10,
             is_impact_finding: bool = False,
-            **kwargs
+            **kwargs,
         ):
             defaults = {
                 "id": "TEST001",
@@ -152,6 +154,7 @@ class TestScopeFiltering:
             # Set is_impact_finding as attribute (accessed via getattr in _is_finding_in_scope)
             finding.is_impact_finding = is_impact_finding
             return finding
+
         return _make_finding
 
     def test_finding_in_changed_files_passes(self, make_finding):
@@ -166,9 +169,7 @@ class TestScopeFiltering:
         """Finding for a file NOT in changed_files should be filtered."""
         changed_files = ["src/auth.py", "src/utils.py"]
         finding = make_finding(
-            file="src/database.py",
-            line=10,
-            description="This code has a bug"
+            file="src/database.py", line=10, description="This code has a bug"
         )
 
         is_valid, reason = _is_finding_in_scope(finding, changed_files)
@@ -199,7 +200,7 @@ class TestScopeFiltering:
             file="src/utils.py",
             line=10,
             is_impact_finding=True,  # Schema field replaces keyword detection
-            description="This change breaks the helper function in utils.py"
+            description="This change breaks the helper function in utils.py",
         )
         is_valid, _ = _is_finding_in_scope(finding, changed_files)
         assert is_valid
@@ -213,7 +214,7 @@ class TestScopeFiltering:
             file="src/database.py",
             line=20,
             is_impact_finding=False,
-            description="database.py depends on modified auth module"
+            description="database.py depends on modified auth module",
         )
         is_valid, reason = _is_finding_in_scope(finding, changed_files)
         assert not is_valid
@@ -248,15 +249,14 @@ github_dir = backend_path / "runners" / "github"
 # Load context_gatherer module directly using spec loader
 # This avoids the complex package import chain
 _cg_spec = importlib.util.spec_from_file_location(
-    "context_gatherer_isolated",
-    github_dir / "context_gatherer.py"
+    "context_gatherer_isolated", github_dir / "context_gatherer.py"
 )
 _cg_module = importlib.util.module_from_spec(_cg_spec)
 # Set up minimal module environment
-sys.modules['context_gatherer_isolated'] = _cg_module
+sys.modules["context_gatherer_isolated"] = _cg_module
 # Mock only the gh_client dependency
 _mock_gh = MagicMock()
-sys.modules['gh_client'] = _mock_gh
+sys.modules["gh_client"] = _mock_gh
 _cg_spec.loader.exec_module(_cg_module)
 PRContextGathererIsolated = _cg_module.PRContextGatherer
 
@@ -278,7 +278,9 @@ class TestImportDetection:
         (src_dir / "config.ts").write_text("export const config = { debug: true };")
 
         # Create index.ts that re-exports
-        (src_dir / "index.ts").write_text("export * from './utils';\nexport { config } from './config';")
+        (src_dir / "index.ts").write_text(
+            "export * from './utils';\nexport { config } from './config';"
+        )
 
         # Create shared directory
         shared_dir = src_dir / "shared"
@@ -286,7 +288,9 @@ class TestImportDetection:
         (shared_dir / "types.ts").write_text("export type User = { id: string };")
 
         # Create Python module
-        (src_dir / "python_module.py").write_text("from .helpers import util_func\nimport os")
+        (src_dir / "python_module.py").write_text(
+            "from .helpers import util_func\nimport os"
+        )
         (src_dir / "helpers.py").write_text("def util_func(): pass")
         (src_dir / "__init__.py").write_text("")
 
@@ -295,19 +299,19 @@ class TestImportDetection:
     def test_path_alias_detection(self, temp_project):
         """Path alias imports (@/utils) should be detected and resolved."""
         import json
+
         # Create tsconfig.json with path aliases
         tsconfig = {
             "compilerOptions": {
-                "paths": {
-                    "@/*": ["src/*"],
-                    "@shared/*": ["src/shared/*"]
-                }
+                "paths": {"@/*": ["src/*"], "@shared/*": ["src/shared/*"]}
             }
         }
         (temp_project / "tsconfig.json").write_text(json.dumps(tsconfig))
 
         # Create the target file that the alias points to
-        (temp_project / "src" / "utils.ts").write_text("export const helper = () => {};")
+        (temp_project / "src" / "utils.ts").write_text(
+            "export const helper = () => {};"
+        )
 
         # Test file with alias import
         test_content = "import { helper } from '@/utils';"
@@ -322,7 +326,9 @@ class TestImportDetection:
         assert isinstance(imports, set)
         # Normalize paths for cross-platform comparison (Windows uses backslashes)
         normalized_imports = {p.replace("\\", "/") for p in imports}
-        assert "src/utils.ts" in normalized_imports, f"Expected 'src/utils.ts' in imports, got: {imports}"
+        assert "src/utils.ts" in normalized_imports, (
+            f"Expected 'src/utils.ts' in imports, got: {imports}"
+        )
 
     def test_commonjs_require_detection(self, temp_project):
         """CommonJS require('./utils') should be detected."""
@@ -384,7 +390,18 @@ class TestImportDetection:
 
 
 class TestReverseDepDetection:
-    """Test reverse dependency detection (Phase 2)."""
+    """Test reverse dependency detection (Phase 2).
+
+    ARCHITECTURE NOTE (2025-01): These tests document that programmatic file scanning
+    has been intentionally removed. The _find_dependents() method now returns an empty
+    set because LLM agents handle file discovery via their tools (Glob, Grep, Read).
+
+    This design change:
+    - Removes the legacy 2000 file scan limit
+    - Lets LLM agents use their judgment to find relevant files
+    - Avoids pre-loading context that may not be needed
+    - Scales better for large codebases
+    """
 
     @pytest.fixture
     def temp_project_with_deps(self, tmp_path):
@@ -392,7 +409,7 @@ class TestReverseDepDetection:
         src_dir = tmp_path / "src"
         src_dir.mkdir()
 
-        # Create a utility file with non-generic name (helpers is in skip list)
+        # Create a utility file with non-generic name
         (src_dir / "formatter.ts").write_text(
             "export function format(s: string) { return s; }"
         )
@@ -405,63 +422,49 @@ class TestReverseDepDetection:
             "import { format } from './formatter';\nexport const fetch = () => {};"
         )
 
-        # Create a file that does NOT import formatter
-        (src_dir / "standalone.ts").write_text(
-            "export const standalone = () => {};"
-        )
-
         return tmp_path
 
-    def test_finds_files_importing_changed_file(self, temp_project_with_deps):
-        """Verify grep-based detection finds files that import a given file."""
+    def test_find_dependents_returns_empty_set(self, temp_project_with_deps):
+        """_find_dependents() returns empty - LLM agents discover files via tools.
+
+        This is intentional: programmatic file scanning was removed in favor of
+        letting LLM agents use Glob/Grep/Read tools to discover relevant files
+        based on the PR context they receive.
+        """
         gatherer = PRContextGathererIsolated(temp_project_with_deps, pr_number=1)
-        # Use non-generic name (helpers is in the skip list)
         dependents = gatherer._find_dependents("src/formatter.ts", max_results=10)
 
-        # Should find auth.ts and api.ts as dependents
-        assert any("auth.ts" in d for d in dependents)
-        assert any("api.ts" in d for d in dependents)
-        # Should NOT include standalone.ts
-        assert not any("standalone.ts" in d for d in dependents)
+        # Method now intentionally returns empty set
+        assert dependents == set()
 
-    def test_generic_names_not_skipped(self, tmp_path):
-        """Generic names (index, main, utils) are no longer skipped - LLM decides relevance."""
+    def test_find_dependents_empty_for_any_file(self, tmp_path):
+        """Verify _find_dependents() returns empty for any input.
+
+        The LLM-driven architecture means agents decide what's relevant,
+        not programmatic scanning.
+        """
         src_dir = tmp_path / "src"
         src_dir.mkdir()
 
-        # Create files with generic names
         (src_dir / "index.ts").write_text("export * from './utils';")
         (src_dir / "main.ts").write_text("import { x } from './index';")
 
         gatherer = PRContextGathererIsolated(tmp_path, pr_number=1)
+        dependents = gatherer._find_dependents("src/index.ts")
 
-        # Generic names should NOT be skipped anymore (behavior changed in Phase 4)
-        # The LLM-driven system decides what's relevant based on PR context
-        dependents_index = gatherer._find_dependents("src/index.ts")
+        # Returns empty - LLM agents handle file discovery
+        assert dependents == set()
 
-        # main.ts imports index, so it should be found as a dependent
-        assert "src/main.ts" in dependents_index
-
-    def test_respects_file_limit(self, tmp_path):
-        """Large repo search should stop after reaching file limit."""
+    def test_find_dependents_returns_set_type(self, tmp_path):
+        """Verify _find_dependents() returns correct type (set)."""
         src_dir = tmp_path / "src"
         src_dir.mkdir()
-        (src_dir / "unique_name.ts").write_text("export const x = 1;")
+        (src_dir / "file.ts").write_text("export const x = 1;")
 
         gatherer = PRContextGathererIsolated(tmp_path, pr_number=1)
+        dependents = gatherer._find_dependents("src/file.ts")
 
-        # Mock os.walk to generate more files than the limit (2000)
-        # This simulates a large codebase without creating actual files
-        def mock_walk(path):
-            # Yield a directory with 3000 TypeScript files
-            yield (str(path), [], [f"file{i}.ts" for i in range(3000)])
-
-        with patch.object(_cg_module.os, "walk", mock_walk):
-            # The function should stop after max_files_to_check (2000) files
-            # and return gracefully without hanging
-            dependents = gatherer._find_dependents("src/unique_name.ts")
-
-        # Should return a set (may be empty since mock files don't contain imports)
+        # Should return a set (empty, but correct type)
         assert isinstance(dependents, set)
 
 
@@ -479,6 +482,7 @@ class TestCrossValidation:
     @pytest.fixture
     def make_finding(self):
         """Factory fixture to create PRReviewFinding instances."""
+
         def _make_finding(
             id: str = "TEST001",
             file: str = "src/test.py",
@@ -487,7 +491,7 @@ class TestCrossValidation:
             severity: ReviewSeverity = ReviewSeverity.HIGH,
             confidence: float = 0.7,
             source_agents: list = None,
-            **kwargs
+            **kwargs,
         ):
             return PRReviewFinding(
                 id=id,
@@ -499,8 +503,11 @@ class TestCrossValidation:
                 line=line,
                 confidence=confidence,
                 source_agents=source_agents or [],
-                **{k: v for k, v in kwargs.items() if k not in ["title", "description"]}
+                **{
+                    k: v for k, v in kwargs.items() if k not in ["title", "description"]
+                },
             )
+
         return _make_finding
 
     @pytest.fixture
@@ -508,18 +515,13 @@ class TestCrossValidation:
         """Create a mock ParallelOrchestratorReviewer instance."""
         from models import GitHubRunnerConfig
 
-        config = GitHubRunnerConfig(
-            token="test-token",
-            repo="test/repo"
-        )
+        config = GitHubRunnerConfig(token="test-token", repo="test/repo")
         # Create minimal directory structure
         github_dir = tmp_path / ".auto-claude" / "github"
         github_dir.mkdir(parents=True)
 
         reviewer = ParallelOrchestratorReviewer(
-            project_dir=tmp_path,
-            github_dir=github_dir,
-            config=config
+            project_dir=tmp_path, github_dir=github_dir, config=config
         )
         return reviewer
 
@@ -533,7 +535,7 @@ class TestCrossValidation:
             category=ReviewCategory.SECURITY,
             confidence=0.7,
             source_agents=["security-reviewer"],
-            description="SQL injection risk"
+            description="SQL injection risk",
         )
         finding2 = make_finding(
             id="F2",
@@ -542,10 +544,12 @@ class TestCrossValidation:
             category=ReviewCategory.SECURITY,
             confidence=0.6,
             source_agents=["quality-reviewer"],
-            description="Input not sanitized"
+            description="Input not sanitized",
         )
 
-        validated, agreement = mock_reviewer._cross_validate_findings([finding1, finding2])
+        validated, agreement = mock_reviewer._cross_validate_findings(
+            [finding1, finding2]
+        )
 
         # Should merge into one finding
         assert len(validated) == 1
@@ -582,8 +586,12 @@ class TestCrossValidation:
 
     def test_merged_finding_has_cross_validated_true(self, make_finding, mock_reviewer):
         """Merged multi-agent findings should have cross_validated=True."""
-        finding1 = make_finding(id="F1", file="src/test.py", line=5, source_agents=["agent1"])
-        finding2 = make_finding(id="F2", file="src/test.py", line=5, source_agents=["agent2"])
+        finding1 = make_finding(
+            id="F1", file="src/test.py", line=5, source_agents=["agent1"]
+        )
+        finding2 = make_finding(
+            id="F2", file="src/test.py", line=5, source_agents=["agent2"]
+        )
 
         validated, _ = mock_reviewer._cross_validate_findings([finding1, finding2])
 

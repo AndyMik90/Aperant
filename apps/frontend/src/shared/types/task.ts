@@ -352,6 +352,13 @@ export interface PathMappedAIMerge {
   reason: string;
 }
 
+// Conflict scenario types for better UX messaging
+// - 'already_merged': Task changes already identical in target branch
+// - 'superseded': Target has newer version of same feature
+// - 'diverged': Standard diverged branches (AI can resolve)
+// - 'normal_conflict': Actual conflicting changes
+export type ConflictScenario = 'already_merged' | 'superseded' | 'diverged' | 'normal_conflict';
+
 // Git-level conflict information (branch divergence)
 export interface GitConflictInfo {
   hasConflicts: boolean;
@@ -364,6 +371,12 @@ export interface GitConflictInfo {
   pathMappedAIMerges?: PathMappedAIMerge[];
   // Total number of file renames detected
   totalRenames?: number;
+  // Conflict scenario for better UX messaging
+  scenario?: ConflictScenario;
+  // Files that are already merged (identical in both branches)
+  alreadyMergedFiles?: string[];
+  // Human-readable message about the scenario
+  scenarioMessage?: string;
 }
 
 // Summary statistics from merge preview/execution
@@ -377,6 +390,30 @@ export interface MergeStats {
   hasGitConflicts?: boolean; // True if there are git-level conflicts requiring rebase
   // Count of files needing AI merge due to path mappings (file renames)
   pathMappedAIMergeCount?: number;
+}
+
+// Merge progress tracking (for progress bar during merge operations)
+export type MergeStage = 'analyzing' | 'detecting_conflicts' | 'resolving' | 'validating' | 'complete' | 'error';
+
+export interface MergeProgress {
+  stage: MergeStage;
+  percent: number;
+  message: string;
+  details?: {
+    conflicts_found?: number;
+    conflicts_resolved?: number;
+    current_file?: string;
+  };
+}
+
+// Merge log entry (for conflict resolution logging)
+export type MergeLogEntryType = 'info' | 'success' | 'warning' | 'error';
+
+export interface MergeLogEntry {
+  timestamp: string;
+  type: MergeLogEntryType;
+  message: string;
+  details?: string;
 }
 
 export interface WorktreeMergeResult {
@@ -442,10 +479,10 @@ export interface WorktreeListItem {
   path: string;
   branch: string;
   baseBranch: string;
-  commitCount?: number;
-  filesChanged?: number;
-  additions?: number;
-  deletions?: number;
+  commitCount: number;
+  filesChanged: number;
+  additions: number;
+  deletions: number;
 }
 
 /**

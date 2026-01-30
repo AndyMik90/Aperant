@@ -858,5 +858,11 @@
       "increase": "Increase {{label}} by {{step}}",
       "currentValue": "Current value: {{value}}"
     }
+  },
+  "agents": {
+    "pr_template_filler": {
+      "label": "PR Template Filler",
+      "description": "AI-fills GitHub PR templates from code changes"
+    }
   }
 }
