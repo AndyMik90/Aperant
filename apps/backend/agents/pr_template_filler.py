@@ -343,7 +343,5 @@ async def run_pr_template_filler(
     except Exception as e:
         logger.error(f"PR template filler error: {e}")
         if task_logger:
-            task_logger.log_error(
-                f"PR template filler error: {e}", LogPhase.CODING
-            )
+            task_logger.log_error(f"PR template filler error: {e}", LogPhase.CODING)
         return None

@@ -1333,9 +1333,7 @@ class WorktreeManager:
                 error="gh CLI not found. Install from https://cli.github.com/",
             )
 
-    def _gather_pr_context(
-        self, spec_name: str, target_branch: str
-    ) -> tuple[str, str]:
+    def _gather_pr_context(self, spec_name: str, target_branch: str) -> tuple[str, str]:
         """
         Gather diff summary and commit log for PR template filling.
 
@@ -1381,7 +1379,9 @@ class WorktreeManager:
             if len(patch_content) > MAX_DIFF_CHARS:
                 # Truncate patch and add notice
                 truncated_patch = patch_content[:MAX_DIFF_CHARS]
-                diff_summary += "\n\n" + truncated_patch + "\n\n(... diff truncated due to size)"
+                diff_summary += (
+                    "\n\n" + truncated_patch + "\n\n(... diff truncated due to size)"
+                )
             else:
                 diff_summary += "\n\n" + patch_content
 
@@ -1430,7 +1430,9 @@ class WorktreeManager:
                 run_pr_template_filler,
             )
         except ImportError:
-            logger.warning("PR template filler module not available, skipping AI PR body")
+            logger.warning(
+                "PR template filler module not available, skipping AI PR body"
+            )
             return None
 
         # Check if a PR template exists before doing any heavy lifting
