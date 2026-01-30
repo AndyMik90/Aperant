@@ -67,11 +67,11 @@ export function SortableProjectTab({
         <TooltipTrigger asChild>
           <div
             className={cn(
-              'flex-1 flex items-center gap-1 sm:gap-2',
+              'flex items-center gap-1 sm:gap-2',
               // Responsive padding: tighter on mobile, normal on desktop
               'px-2 sm:px-3 md:px-4 py-2 sm:py-2.5',
               'text-xs sm:text-sm',
-              'min-w-0 truncate hover:bg-muted/50 transition-colors',
+              'hover:bg-muted/50 transition-colors',
               'border-b-2 border-transparent cursor-pointer',
               isActive && [
                 'bg-background border-b-primary text-foreground',
