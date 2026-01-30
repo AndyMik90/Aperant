@@ -2146,7 +2146,14 @@ export function registerWorktreeHandlers(
 
               try {
                 const parsed = JSON.parse(trimmed);
-                if (parsed && parsed.type === 'progress') {
+                // Validate parsed object has expected MergeProgress structure before forwarding
+                if (
+                  parsed &&
+                  parsed.type === 'progress' &&
+                  typeof parsed.stage === 'string' &&
+                  typeof parsed.percent === 'number' &&
+                  typeof parsed.message === 'string'
+                ) {
                   const mainWindow = getMainWindow();
                   if (mainWindow) {
                     mainWindow.webContents.send(IPC_CHANNELS.TASK_MERGE_PROGRESS, taskId, parsed);

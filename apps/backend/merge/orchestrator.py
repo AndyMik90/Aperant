@@ -360,7 +360,8 @@ class MergeOrchestrator:
             # --- RESOLVING stage (50-75%) ---
             total_files = len(modifications)
             for idx, (file_path, snapshot) in enumerate(modifications):
-                file_percent = 50 + int((idx / max(total_files, 1)) * 25)
+                # Calculate progress after processing (idx + 1) to reach 75% on last file
+                file_percent = 50 + int(((idx + 1) / max(total_files, 1)) * 25)
                 _emit(
                     MergeProgressStage.RESOLVING,
                     file_percent,

@@ -70,7 +70,7 @@ class TestEnvVarTokenResolution:
     def test_no_token_returns_none(self, monkeypatch):
         """Returns None when no auth token is configured."""
         # Mock keychain to return None (env vars already cleared by fixture)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
         token = get_auth_token()
         assert token is None
 
@@ -374,7 +374,7 @@ class TestRequireAuthToken:
         for var in AUTH_TOKEN_ENV_VARS:
             os.environ.pop(var, None)
         # Mock keychain to return None (tests that need a token will set env var)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
         yield
         # Cleanup after test
         for var in AUTH_TOKEN_ENV_VARS:
@@ -512,7 +512,8 @@ class TestTokenSourceDetection:
         monkeypatch.setattr("subprocess.run", Mock(return_value=mock_result))
 
         source = get_auth_token_source()
-        assert source == "macOS Keychain"
+        # Source can be "macOS Keychain" or "macOS Keychain (profile)" depending on profile settings
+        assert source is not None and source.startswith("macOS Keychain")
 
     def test_source_windows_credential_files(self, monkeypatch, tmp_path):
         """Identifies Windows Credential Files as source."""
@@ -528,7 +529,8 @@ class TestTokenSourceDetection:
         )
 
         source = get_auth_token_source()
-        assert source == "Windows Credential Files"
+        # Source can have "(profile)" suffix depending on profile settings
+        assert source is not None and source.startswith("Windows Credential Files")
 
     def test_source_linux_secret_service(self, monkeypatch):
         """Identifies Linux Secret Service as source."""
@@ -554,12 +556,13 @@ class TestTokenSourceDetection:
         monkeypatch.setattr("core.auth.secretstorage", mock_ss)
 
         source = get_auth_token_source()
-        assert source == "Linux Secret Service"
+        # Source can have "(profile)" suffix depending on profile settings
+        assert source is not None and source.startswith("Linux Secret Service")
 
     def test_source_none_when_not_found(self, monkeypatch):
         """Returns None when no token source is found."""
         # Mock keychain to return None (env vars already cleared by fixture)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
         source = get_auth_token_source()
         assert source is None
 
