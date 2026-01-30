@@ -17,7 +17,7 @@
 
 import { execFileSync } from 'child_process';
 import { createHash } from 'crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs';
 import { homedir, userInfo } from 'os';
 import { dirname, join } from 'path';
 import { isMacOS, isWindows, isLinux } from '../platform';
@@ -928,10 +928,18 @@ function getCredentialsFromWindowsCredentialManager(configDir?: string, forceRef
     // Uses the Windows Credential Manager API via .NET
     // NOTE: The CREDENTIAL struct must use IntPtr for string fields (blittable requirement)
     // and strings must be manually marshaled after PtrToStructure
+    //
+    // NOTE: This CREDENTIAL struct uses IntPtr for string fields (TargetName, Comment, etc.)
+    // because CredRead returns a pointer to Windows-allocated memory. We must use a "blittable"
+    // struct layout where strings are IntPtr, then manually marshal strings via PtrToStringUni.
+    // This differs from the CredWrite struct (see updateWindowsCredentialManagerCredentials)
+    // which uses string types because the .NET marshaler can automatically convert strings
+    // to pointers when CALLING Windows APIs (but not when RECEIVING data from them).
     const psScript = `
       $ErrorActionPreference = 'Stop'
 
-      # Define the CREDENTIAL struct with IntPtr for string fields (required for marshaling)
+      # Define the CREDENTIAL struct with IntPtr for string fields (required for CredRead marshaling)
+      # See comment above for why this differs from the CredWrite struct definition.
       Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
@@ -1884,10 +1892,18 @@ function updateWindowsCredentialManagerCredentials(
     const base64Json = encodeBase64ForPowerShell(credentialsJson);
 
     // PowerShell script to write to Credential Manager
+    //
+    // NOTE: This CREDENTIAL struct uses string types for TargetName, Comment, etc.
+    // because CredWrite accepts data FROM us, and the .NET marshaler can automatically
+    // convert string fields to the appropriate Unicode pointers when CALLING Windows APIs.
+    // This differs from the CredRead struct (see getCredentialsFromWindowsCredentialManager)
+    // which must use IntPtr because we're RECEIVING data from Windows and need to manually
+    // marshal the strings from Windows-allocated memory.
     const psScript = `
       $ErrorActionPreference = 'Stop'
 
       # Use CredWrite from advapi32.dll to write generic credentials
+      # This struct uses string types (auto-marshaled) unlike CredRead which needs IntPtr.
       $sig = @'
       [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
       public struct CREDENTIAL {
@@ -2064,11 +2080,29 @@ function updateWindowsFileCredentials(
       restrictWindowsFilePermissions(dirPath);
     }
 
-    // Write to file
-    writeFileSync(credentialsPath, credentialsJson, { encoding: 'utf-8' });
+    // Atomic file write: write to temp file, set permissions, then rename.
+    // This prevents a race condition where the file briefly exists with default permissions.
+    const tempPath = `${credentialsPath}.${Date.now()}.tmp`;
+    try {
+      // Write to temp file
+      writeFileSync(tempPath, credentialsJson, { encoding: 'utf-8' });
 
-    // Restrict file permissions to current user only (mimics Unix 0600)
-    restrictWindowsFilePermissions(credentialsPath);
+      // Restrict temp file permissions to current user only (mimics Unix 0600)
+      restrictWindowsFilePermissions(tempPath);
+
+      // Atomic rename (on same filesystem, this is atomic on Windows)
+      renameSync(tempPath, credentialsPath);
+    } catch (writeError) {
+      // Clean up temp file on error
+      try {
+        if (existsSync(tempPath)) {
+          unlinkSync(tempPath);
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
+      throw writeError;
+    }
 
     if (isDebug) {
       console.warn('[CredentialUtils:Windows:Update] Successfully updated credentials file:', credentialsPath);
