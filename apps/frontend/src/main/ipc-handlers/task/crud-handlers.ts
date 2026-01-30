@@ -8,7 +8,8 @@ import { titleGenerator } from '../../title-generator';
 import { AgentManager } from '../../agent';
 import { findTaskAndProject } from './shared';
 import { findAllSpecPaths, isValidTaskId } from '../../utils/spec-path-helpers';
-import { isPathWithinBase } from '../../worktree-paths';
+import { isPathWithinBase, findTaskWorktree } from '../../worktree-paths';
+import { cleanupWorktree } from '../../utils/worktree-cleanup';
 
 /**
  * Register task CRUD (Create, Read, Update, Delete) handlers
@@ -216,6 +217,15 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
 
   /**
    * Delete a task
+   *
+   * This handler:
+   * 1. Checks if task exists and is not running
+   * 2. Cleans up the worktree (auto-commits, deletes directory, prunes refs, deletes branch)
+   * 3. Deletes all spec directories (main project + any remaining worktree locations)
+   *
+   * Note: Worktree cleanup uses manual deletion instead of `git worktree remove --force`
+   * because the latter fails on Windows when the directory contains untracked files
+   * (node_modules, build artifacts, etc.). See: https://github.com/AndyMik90/Auto-Claude/issues/1539
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_DELETE,
@@ -235,20 +245,48 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         return { success: false, error: 'Cannot delete a running task. Stop the task first.' };
       }
 
-      // Find ALL locations where this task exists (main + worktrees)
+      let hasErrors = false;
+      const errors: string[] = [];
+
+      // Clean up the worktree first if it exists
+      // This uses the robust cleanup that handles Windows file locking issues
+      const worktreePath = findTaskWorktree(project.path, task.specId);
+      if (worktreePath) {
+        console.warn(`[TASK_DELETE] Found worktree at: ${worktreePath}`);
+        const cleanupResult = await cleanupWorktree({
+          worktreePath,
+          projectPath: project.path,
+          specId: task.specId,
+          commitMessage: 'Auto-save before task deletion',
+          logPrefix: '[TASK_DELETE]',
+          deleteBranch: true
+        });
+
+        if (!cleanupResult.success) {
+          console.error(`[TASK_DELETE] Worktree cleanup failed:`, cleanupResult.warnings);
+          hasErrors = true;
+          errors.push(`Worktree cleanup: ${cleanupResult.warnings.join('; ')}`);
+        } else {
+          if (cleanupResult.autoCommitted) {
+            console.warn(`[TASK_DELETE] Auto-committed uncommitted work before deletion`);
+          }
+          if (cleanupResult.warnings.length > 0) {
+            console.warn(`[TASK_DELETE] Cleanup warnings:`, cleanupResult.warnings);
+          }
+        }
+      }
+
+      // Find ALL locations where this task exists (main + any remaining worktree dirs)
       // Following the archiveTasks() pattern from project-store.ts
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specPaths = findAllSpecPaths(project.path, specsBaseDir, task.specId);
 
       // If spec directory doesn't exist anywhere, return success (already removed)
-      if (specPaths.length === 0) {
+      if (specPaths.length === 0 && !hasErrors) {
         console.warn(`[TASK_DELETE] No spec directories found for task ${taskId} - already removed`);
         projectStore.invalidateTasksCache(project.id);
         return { success: true };
       }
-
-      let hasErrors = false;
-      const errors: string[] = [];
 
       // Delete from ALL locations
       for (const specDir of specPaths) {

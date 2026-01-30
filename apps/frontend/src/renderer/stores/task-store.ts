@@ -941,6 +941,52 @@ export async function deleteTask(
 }
 
 /**
+ * Delete multiple tasks
+ * Permanently removes tasks from the project
+ */
+export async function deleteTasks(
+  taskIds: string[]
+): Promise<{ success: boolean; error?: string; failedIds?: string[] }> {
+  const store = useTaskStore.getState();
+  const failedIds: string[] = [];
+
+  try {
+    // Delete tasks one by one (API only supports single delete)
+    for (const taskId of taskIds) {
+      const result = await window.electronAPI.deleteTask(taskId);
+      if (!result.success) {
+        failedIds.push(taskId);
+      }
+    }
+
+    // Remove successfully deleted tasks from local state
+    const deletedIds = new Set(taskIds.filter(id => !failedIds.includes(id)));
+    store.setTasks(store.tasks.filter(t => !deletedIds.has(t.id) && !deletedIds.has(t.specId || '')));
+
+    // Clear selection if selected task was deleted
+    if (store.selectedTaskId && deletedIds.has(store.selectedTaskId)) {
+      store.selectTask(null);
+    }
+
+    if (failedIds.length > 0) {
+      return {
+        success: false,
+        error: `Failed to delete ${failedIds.length} task(s)`,
+        failedIds
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting tasks:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
  * Archive tasks
  * Marks tasks as archived by adding archivedAt timestamp to metadata
  */
