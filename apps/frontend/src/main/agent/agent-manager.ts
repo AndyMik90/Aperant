@@ -6,6 +6,8 @@ import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { AgentQueueManager } from './agent-queue';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
+import { getAPIProfileEnv } from '../services/profile';
+import { getOAuthModeClearVars } from './env-utils';
 import {
   SpecCreationMetadata,
   TaskExecutionOptions,
@@ -521,6 +523,10 @@ export class AgentManager extends EventEmitter {
       }
 
       const combinedEnv = this.processManager.getCombinedEnv(projectPath);
+      // Get active API profile environment variables
+      const apiProfileEnv = await getAPIProfileEnv();
+      // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+      const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
       const args = [
         runnerPath,
         "--project-dir",
@@ -548,7 +554,7 @@ export class AgentManager extends EventEmitter {
 
         const child = spawn(pythonCommand, args, {
           cwd: autoBuildSource,
-          env: { ...process.env, ...combinedEnv },
+          env: { ...process.env, ...combinedEnv, ...oauthModeClearVars, ...apiProfileEnv },
         });
 
         child.stdout?.on("data", (data: Buffer) => {
@@ -687,6 +693,10 @@ export class AgentManager extends EventEmitter {
       }
 
       const combinedEnv = this.processManager.getCombinedEnv(projectPath);
+      // Get active API profile environment variables
+      const apiProfileEnv = await getAPIProfileEnv();
+      // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+      const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
       const args = [
         runnerPath,
         "--project-dir",
@@ -708,7 +718,7 @@ export class AgentManager extends EventEmitter {
 
         const child = spawn(pythonCommand, args, {
           cwd: autoBuildSource,
-          env: { ...process.env, ...combinedEnv },
+          env: { ...process.env, ...combinedEnv, ...oauthModeClearVars, ...apiProfileEnv },
         });
 
         child.stdout?.on("data", (data: Buffer) => {
