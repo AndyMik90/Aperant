@@ -901,7 +901,7 @@ class LinearValidationAgent:
 
                         if should_update:
                             message = messages[min(message_index, len(messages) - 1)]
-                            self._emit_progress("ai_analysis", 5, 7, f"{message} ({elapsed}s elapsed)")
+                            self._emit_progress("ai_analysis", 5, 7, message)
 
                             # Cycle through messages for variety
                             if elapsed >= 15:  # After 15s, change message

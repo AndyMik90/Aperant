@@ -91,7 +91,8 @@ export function LinearTicketDetail({
 
 	// Calculate progress percentage and timestamps
 	const progress = progressStep && progressTotal ? (progressStep / progressTotal) * 100 : 0;
-	const startedAt = progressTimestamp ? new Date(progressTimestamp - 60000) : undefined; // Approximate start time
+	// Use progressTimestamp as the start time (first progress event timestamp)
+	const startedAt = progressTimestamp ? new Date(progressTimestamp) : undefined;
 	const lastActivityAt = progressTimestamp ? new Date(progressTimestamp) : undefined;
 
 	const validation = validationResult;
