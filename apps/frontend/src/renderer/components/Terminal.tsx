@@ -15,10 +15,26 @@ import { usePtyProcess } from './terminal/usePtyProcess';
 import { useTerminalEvents } from './terminal/useTerminalEvents';
 import { useAutoNaming } from './terminal/useAutoNaming';
 import { useTerminalFileDrop } from './terminal/useTerminalFileDrop';
+import { debugLog } from '../../shared/utils/debug-logger';
 
 // Minimum dimensions to prevent PTY creation with invalid sizes
 const MIN_COLS = 10;
 const MIN_ROWS = 3;
+
+// Platform detection for timing adjustments
+const isWindows = typeof window !== 'undefined' && window.platform?.isWindows;
+
+// Threshold in milliseconds to allow for async PTY resize acknowledgment
+// Mismatches within this window after a resize are expected and not logged as warnings
+// Windows ConPTY is slower than Unix PTY, so use longer grace period
+const DIMENSION_MISMATCH_GRACE_PERIOD_MS = isWindows ? 500 : 100;
+
+// Cooldown between auto-corrections to prevent rapid-fire corrections
+const AUTO_CORRECTION_COOLDOWN_MS = isWindows ? 1000 : 300;
+
+// Auto-correction frequency monitoring
+const AUTO_CORRECTION_WARNING_THRESHOLD = 5;  // Warn if > 5 per minute
+const AUTO_CORRECTION_WINDOW_MS = 60000;
 
 /**
  * Handle interface exposed by Terminal component for external control.
@@ -57,6 +73,17 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   // Track last sent PTY dimensions to prevent redundant resize calls
   // This ensures terminal.resize() stays in sync with PTY dimensions
   const lastPtyDimensionsRef = useRef<{ cols: number; rows: number } | null>(null);
+  // Track when the last resize was sent to PTY for grace period logic
+  // This prevents false positive mismatch warnings during async resize acknowledgment
+  const lastResizeTimeRef = useRef<number>(0);
+  // Track previous isExpanded state to detect actual expansion changes
+  // This prevents forcing PTY resize on initial mount (only on actual state changes)
+  const prevIsExpandedRef = useRef<boolean | undefined>(undefined);
+  // Track when last auto-correction was performed to implement cooldown
+  const lastAutoCorrectionTimeRef = useRef<number>(0);
+  // Track auto-correction frequency for monitoring
+  const autoCorrectionCountRef = useRef<number>(0);
+  const autoCorrectionWindowStartRef = useRef<number>(Date.now());
 
   // Worktree dialog state
   const [showWorktreeDialog, setShowWorktreeDialog] = useState(false);
@@ -112,9 +139,91 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   const handleDimensionsReady = useCallback((cols: number, rows: number) => {
     // Only set dimensions if they're valid (above minimum thresholds)
     if (cols >= MIN_COLS && rows >= MIN_ROWS) {
+      debugLog(`[Terminal ${id}] handleDimensionsReady: cols=${cols}, rows=${rows} - setting readyDimensions`);
       setReadyDimensions({ cols, rows });
+    } else {
+      debugLog(`[Terminal ${id}] handleDimensionsReady: dimensions below minimum: cols=${cols} (min=${MIN_COLS}), rows=${rows} (min=${MIN_ROWS})`);
     }
-  }, []);
+  }, [id]);
+
+  /**
+   * Check for dimension mismatch between xterm and PTY.
+   * Logs a warning if dimensions differ outside the grace period after a resize.
+   * This helps diagnose text alignment issues that can occur when xterm and PTY
+   * have different ideas about terminal dimensions.
+   *
+   * @param xtermCols - Current xterm column count
+   * @param xtermRows - Current xterm row count
+   * @param context - Optional context string for the log message (e.g., "after resize", "on fit")
+   * @param autoCorrect - If true, automatically correct mismatches by resizing PTY
+   */
+  const checkDimensionMismatch = useCallback((
+    xtermCols: number,
+    xtermRows: number,
+    context?: string,
+    autoCorrect: boolean = false
+  ) => {
+    const ptyDims = lastPtyDimensionsRef.current;
+
+    // Skip check if PTY hasn't been created yet (no dimensions to compare)
+    if (!ptyDims) {
+      return;
+    }
+
+    // Skip check if we're within the grace period after a resize
+    // This prevents false positives during async PTY resize acknowledgment
+    const timeSinceLastResize = Date.now() - lastResizeTimeRef.current;
+    if (timeSinceLastResize < DIMENSION_MISMATCH_GRACE_PERIOD_MS) {
+      return;
+    }
+
+    // Check for mismatch
+    const colsMismatch = xtermCols !== ptyDims.cols;
+    const rowsMismatch = xtermRows !== ptyDims.rows;
+
+    if (colsMismatch || rowsMismatch) {
+      const contextStr = context ? ` (${context})` : '';
+      debugLog(
+        `[Terminal ${id}] DIMENSION MISMATCH DETECTED${contextStr}: ` +
+        `xterm=(cols=${xtermCols}, rows=${xtermRows}) vs PTY=(cols=${ptyDims.cols}, rows=${ptyDims.rows}) - ` +
+        `delta=(cols=${xtermCols - ptyDims.cols}, rows=${xtermRows - ptyDims.rows})`
+      );
+
+      // Auto-correct if enabled, PTY is created, and cooldown has passed
+      const timeSinceAutoCorrect = Date.now() - lastAutoCorrectionTimeRef.current;
+      if (
+        autoCorrect &&
+        isCreatedRef.current &&
+        timeSinceAutoCorrect >= AUTO_CORRECTION_COOLDOWN_MS &&
+        xtermCols >= MIN_COLS &&
+        xtermRows >= MIN_ROWS
+      ) {
+        // Track frequency before correction
+        const now = Date.now();
+        if (now - autoCorrectionWindowStartRef.current >= AUTO_CORRECTION_WINDOW_MS) {
+          // Log if previous window had excessive corrections
+          if (autoCorrectionCountRef.current > AUTO_CORRECTION_WARNING_THRESHOLD) {
+            debugLog(`[Terminal ${id}] AUTO-CORRECTION WARNING: ${autoCorrectionCountRef.current} corrections in last minute`);
+          }
+          autoCorrectionCountRef.current = 0;
+          autoCorrectionWindowStartRef.current = now;
+        }
+        autoCorrectionCountRef.current++;
+
+        debugLog(`[Terminal ${id}] AUTO-CORRECTING (#${autoCorrectionCountRef.current}): resizing PTY to ${xtermCols}x${xtermRows}`);
+        lastPtyDimensionsRef.current = { cols: xtermCols, rows: xtermRows };
+        lastResizeTimeRef.current = Date.now();
+        lastAutoCorrectionTimeRef.current = Date.now();
+        window.electronAPI.resizeTerminal(id, xtermCols, xtermRows).then((result) => {
+          if (!result.success) {
+            debugLog(`[Terminal ${id}] AUTO-CORRECTION resize failed: ${result.error || 'unknown error'}`);
+          }
+        }).catch((error) => {
+          debugLog(`[Terminal ${id}] AUTO-CORRECTION resize error: ${error}`);
+        });
+      }
+    }
+  }, [id]);
 
   // Initialize xterm with command tracking
   const {
@@ -152,7 +261,14 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
 
       // Update tracked dimensions and send resize to PTY
       lastPtyDimensionsRef.current = { cols, rows };
-      window.electronAPI.resizeTerminal(id, cols, rows);
+      lastResizeTimeRef.current = Date.now();
+      window.electronAPI.resizeTerminal(id, cols, rows).then((result) => {
+        if (!result.success) {
+          debugLog(`[Terminal ${id}] Resize failed: ${result.error || 'unknown error'}`);
+        }
+      }).catch((error) => {
+        debugLog(`[Terminal ${id}] Resize error: ${error}`);
+      });
     },
     onDimensionsReady: handleDimensionsReady,
   });
@@ -167,15 +283,14 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   // This prevents creating PTY with default 80x24 when container is smaller
   const ptyDimensions = useMemo(() => {
     if (readyDimensions) {
+      debugLog(`[Terminal ${id}] ptyDimensions memo: using readyDimensions cols=${readyDimensions.cols}, rows=${readyDimensions.rows}`);
       return readyDimensions;
     }
-    // Fallback to current dimensions if they're valid
-    if (cols >= MIN_COLS && rows >= MIN_ROWS) {
-      return { cols, rows };
-    }
-    // Return null to prevent PTY creation until dimensions are ready
+    // Wait for actual measurement via onDimensionsReady callback
+    // Do NOT use current cols/rows as they may be initial defaults (80x24)
+    debugLog(`[Terminal ${id}] ptyDimensions memo: readyDimensions is null, returning null (skipCreation will be true)`);
     return null;
-  }, [readyDimensions, cols, rows]);
+  }, [readyDimensions, id]);
 
   // Create PTY process - only when we have valid dimensions
   const { prepareForRecreate, resetForRecreate } = usePtyProcess({
@@ -190,10 +305,32 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
     isRecreatingRef,
     onCreated: () => {
       isCreatedRef.current = true;
-      // Initialize PTY dimension tracking with creation dimensions
-      // This ensures the first resize check has a baseline to compare against
+      // ALWAYS force PTY resize on creation/remount
+      // This ensures PTY matches xterm even if PTY existed before remount (expand/minimize)
+      // The root cause of text alignment issues is that when terminal remounts:
+      // 1. PTY persists with old dimensions (e.g., 80x20)
+      // 2. New xterm measures new container (e.g., 160x40)
+      // 3. Without this force resize, PTY never gets updated
       if (ptyDimensions) {
+        debugLog(`[Terminal ${id}] PTY created - forcing PTY resize to match xterm: cols=${ptyDimensions.cols}, rows=${ptyDimensions.rows}`);
         lastPtyDimensionsRef.current = { cols: ptyDimensions.cols, rows: ptyDimensions.rows };
+        lastResizeTimeRef.current = Date.now();
+        // Force resize to ensure PTY matches xterm dimensions
+        window.electronAPI.resizeTerminal(id, ptyDimensions.cols, ptyDimensions.rows).then((result) => {
+          if (!result.success) {
+            debugLog(`[Terminal ${id}] Initial resize failed: ${result.error || 'unknown error'}`);
+          }
+        }).catch((error) => {
+          debugLog(`[Terminal ${id}] Initial resize error: ${error}`);
+        });
+
+        // Schedule initial dimension mismatch check after PTY creation
+        // This helps detect if xterm dimensions drifted during PTY setup
+        setTimeout(() => {
+          checkDimensionMismatch(cols, rows, 'post-PTY creation');
+        }, DIMENSION_MISMATCH_GRACE_PERIOD_MS + 100);
+      } else {
+        debugLog(`[Terminal ${id}] PTY created - no dimensions available for tracking`);
       }
       // If there's a pending worktree config from a recreation attempt,
       // sync it to main process now that the terminal exists.
@@ -217,6 +354,26 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
     },
   });
 
+  // Monitor for dimension mismatches between xterm and PTY
+  // This effect runs when xterm dimensions change and checks for mismatches
+  // after the grace period to help diagnose text alignment issues
+  // Auto-correction is enabled to automatically fix any detected mismatches
+  useEffect(() => {
+    // Only check if PTY has been created
+    if (!isCreatedRef.current) {
+      return;
+    }
+
+    // Schedule a mismatch check after the grace period
+    // This allows time for the PTY resize to be acknowledged
+    // Enable auto-correct to automatically fix any detected mismatches
+    const timeoutId = setTimeout(() => {
+      checkDimensionMismatch(cols, rows, 'periodic dimension sync check', true);
+    }, DIMENSION_MISMATCH_GRACE_PERIOD_MS + 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [cols, rows, checkDimensionMismatch]);
+
   // Handle terminal events (output is now handled globally via useGlobalTerminalListeners)
   useTerminalEvents({
     terminalId: id,
@@ -239,6 +396,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   // Uses transitionend event listener and RAF-based retry logic instead of fixed timeout
   // for more reliable resizing after CSS transitions complete
   useEffect(() => {
+    // Detect if this is an actual expansion state change vs initial mount
+    // Only force PTY resize on actual state changes to avoid resizing with invalid dimensions on mount
+    const isFirstMount = prevIsExpandedRef.current === undefined;
+    const expansionStateChanged = !isFirstMount && prevIsExpandedRef.current !== isExpanded;
+    debugLog(`[Terminal ${id}] Expansion effect: isExpanded=${isExpanded}, isFirstMount=${isFirstMount}, expansionStateChanged=${expansionStateChanged}, prevIsExpanded=${prevIsExpandedRef.current}`);
+    prevIsExpandedRef.current = isExpanded;
+
     // RAF fallback for test environments where requestAnimationFrame may not be defined
     const raf = typeof requestAnimationFrame !== 'undefined'
       ? requestAnimationFrame
@@ -273,9 +437,24 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
 
         // fit() returns boolean indicating success (true if container had valid dimensions)
         const success = fit();
+        debugLog(`[Terminal ${id}] performFit: fit returned success=${success}, expansionStateChanged=${expansionStateChanged}, isCreatedRef=${isCreatedRef.current}`);
 
         if (success) {
           fitSucceeded = true;
+          // Force PTY resize only on actual expansion state changes (not initial mount)
+          // This ensures PTY stays in sync even when xterm.onResize() doesn't fire
+          if (expansionStateChanged && isCreatedRef.current && cols >= MIN_COLS && rows >= MIN_ROWS) {
+            debugLog(`[Terminal ${id}] performFit: Forcing PTY resize to cols=${cols}, rows=${rows}`);
+            lastPtyDimensionsRef.current = { cols, rows };
+            lastResizeTimeRef.current = Date.now();
+            window.electronAPI.resizeTerminal(id, cols, rows).then((result) => {
+              if (!result.success) {
+                debugLog(`[Terminal ${id}] Expansion resize failed: ${result.error || 'unknown error'}`);
+              }
+            }).catch((error) => {
+              debugLog(`[Terminal ${id}] Expansion resize error: ${error}`);
+            });
+          }
         } else if (retryCount < MAX_RETRIES) {
           // Container not ready yet, retry after a short delay
           retryCount++;
@@ -343,7 +522,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
         container.parentElement?.removeEventListener('transitionend', handleTransitionEnd);
       }
     };
-  }, [isExpanded, fit]);
+  }, [isExpanded, fit, id, cols, rows]);
 
   // Trigger deferred Claude resume when terminal becomes active
   // This ensures Claude sessions are only resumed when the user actually views the terminal,
