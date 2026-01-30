@@ -948,6 +948,57 @@ def get_sdk_env_vars() -> dict[str, str]:
     return env
 
 
+def configure_sdk_authentication(config_dir: str | None = None) -> None:
+    """
+    Configure SDK authentication based on environment variables.
+
+    Supports two authentication modes:
+    - API Profile mode (ANTHROPIC_BASE_URL set): uses ANTHROPIC_AUTH_TOKEN
+    - OAuth mode (default): uses CLAUDE_CODE_OAUTH_TOKEN
+
+    In API profile mode, explicitly removes CLAUDE_CODE_OAUTH_TOKEN from the
+    environment because the SDK gives OAuth priority over API keys when both
+    are present.
+
+    Args:
+        config_dir: Optional profile config directory for per-profile Keychain
+                    lookup. When set, enables multi-profile token storage.
+
+    Raises:
+        ValueError: If required tokens are missing for the active mode.
+                   - API profile mode: requires ANTHROPIC_AUTH_TOKEN
+                   - OAuth mode: requires CLAUDE_CODE_OAUTH_TOKEN (from Keychain or env)
+    """
+    api_profile_mode = bool(os.environ.get("ANTHROPIC_BASE_URL", "").strip())
+
+    if api_profile_mode:
+        # API profile mode: ensure ANTHROPIC_AUTH_TOKEN is present
+        if not os.environ.get("ANTHROPIC_AUTH_TOKEN"):
+            raise ValueError(
+                "API profile mode active (ANTHROPIC_BASE_URL is set) "
+                "but ANTHROPIC_AUTH_TOKEN is not set"
+            )
+        # Explicitly remove CLAUDE_CODE_OAUTH_TOKEN so SDK uses ANTHROPIC_AUTH_TOKEN
+        # SDK gives OAuth priority over API keys when both are present
+        os.environ.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
+        logger.info("Using API profile authentication")
+    else:
+        # OAuth mode: require and validate OAuth token
+        # Get OAuth token - uses profile-specific Keychain lookup when config_dir is set
+        # This correctly reads from "Claude Code-credentials-{hash}" for non-default profiles
+        oauth_token = require_auth_token(config_dir)
+
+        # Validate token is not encrypted before passing to SDK
+        # Encrypted tokens (enc:...) should have been decrypted by require_auth_token()
+        # If we still have an encrypted token here, it means decryption failed or was skipped
+        validate_token_not_encrypted(oauth_token)
+
+        # Ensure SDK can access it via its expected env var
+        # This is required because the SDK doesn't know about per-profile Keychain naming
+        os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
+        logger.info("Using OAuth authentication")
+
+
 def ensure_claude_code_oauth_token() -> None:
     """
     Ensure CLAUDE_CODE_OAUTH_TOKEN is set (for SDK compatibility).
