@@ -924,7 +924,8 @@ class LinearValidationAgent:
 
                 # Wrap the session call with timeout
                 try:
-                    status, response = await asyncio.wait_for(
+                    # run_agent_session returns: status, response_text, metadata
+                    result = await asyncio.wait_for(
                         run_agent_session(
                             client,
                             prompt,
@@ -934,6 +935,11 @@ class LinearValidationAgent:
                         ),
                         timeout=self.session_timeout,
                     )
+                    # Unpack the result - we only need status and response
+                    if isinstance(result, tuple) and len(result) >= 2:
+                        status, response = result[0], result[1]
+                    else:
+                        status, response = result, str(result)
 
                     # Signal heartbeat to stop
                     stop_heartbeat.set()
