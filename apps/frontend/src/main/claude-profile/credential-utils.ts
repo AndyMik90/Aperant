@@ -1969,11 +1969,54 @@ function updateWindowsCredentialManagerCredentials(
 }
 
 /**
+ * Restrict Windows file permissions to current user only using icacls.
+ * This is a best-effort operation - if it fails, we log a warning but don't fail the overall operation.
+ *
+ * @param filePath - Path to the file to secure
+ */
+function restrictWindowsFilePermissions(filePath: string): void {
+  const isDebug = process.env.DEBUG === 'true';
+
+  try {
+    // Use icacls to:
+    // 1. Disable inheritance and remove all inherited permissions (/inheritance:r)
+    // 2. Grant full control to the current user only (/grant:r %USERNAME%:F)
+    // This mimics Unix 0600 permissions (owner read/write only)
+    const username = userInfo().username;
+
+    // First, disable inheritance and remove inherited permissions
+    execFileSync('icacls', [filePath, '/inheritance:r'], {
+      windowsHide: true,
+      timeout: 5000,
+    });
+
+    // Then grant full control to current user only
+    execFileSync('icacls', [filePath, '/grant:r', `${username}:F`], {
+      windowsHide: true,
+      timeout: 5000,
+    });
+
+    if (isDebug) {
+      console.warn('[CredentialUtils:Windows] Set restrictive permissions on:', filePath);
+    }
+  } catch (error) {
+    // Non-fatal: log warning but don't fail the operation
+    // The file is still protected by the user's home directory permissions
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn('[CredentialUtils:Windows] Could not set restrictive file permissions:', errorMessage);
+  }
+}
+
+/**
  * Update credentials in Windows .credentials.json file with new tokens (fallback).
  *
  * This is the fallback method for Windows when Credential Manager is unavailable.
  * Claude CLI on Windows primarily uses file-based storage (.credentials.json),
  * so this fallback ensures credentials are persisted even if Credential Manager fails.
+ *
+ * Security: We use icacls to restrict file permissions to the current user only,
+ * mimicking Unix 0600 permissions. This prevents other users on multi-user systems
+ * from reading the OAuth tokens.
  *
  * @param configDir - Config directory for the profile (undefined for default profile)
  * @param credentials - New credentials to store
@@ -2023,8 +2066,11 @@ function updateWindowsFileCredentials(
       mkdirSync(dirPath, { recursive: true });
     }
 
-    // Write to file (Windows doesn't support Unix permission modes, but we write securely)
+    // Write to file
     writeFileSync(credentialsPath, credentialsJson, { encoding: 'utf-8' });
+
+    // Restrict file permissions to current user only (mimics Unix 0600)
+    restrictWindowsFilePermissions(credentialsPath);
 
     if (isDebug) {
       console.warn('[CredentialUtils:Windows:Update] Successfully updated credentials file:', credentialsPath);
@@ -2042,11 +2088,16 @@ function updateWindowsFileCredentials(
 }
 
 /**
- * Update credentials in Windows - tries Credential Manager first, falls back to file.
+ * Update credentials in Windows - writes to file FIRST (primary storage), then Credential Manager.
  *
- * Claude CLI on Windows primarily uses file-based storage (.credentials.json),
- * but we try Credential Manager first for forward compatibility in case Claude CLI
- * changes its storage mechanism in the future.
+ * Claude CLI on Windows primarily uses file-based storage (.credentials.json).
+ * We write to file first to ensure Claude CLI always has the latest tokens,
+ * then update Credential Manager for forward compatibility.
+ *
+ * IMPORTANT: The write order matters! If we wrote to Credential Manager first and file
+ * write failed, Claude CLI would read stale tokens from the file while Credential Manager
+ * has the new tokens - an inconsistent state. By writing to file first, we ensure the
+ * primary storage is always up-to-date.
  *
  * @param configDir - Config directory for the profile (undefined for default profile)
  * @param credentials - New credentials to store
@@ -2063,28 +2114,29 @@ function updateWindowsCredentials(
 ): UpdateCredentialsResult {
   const isDebug = process.env.DEBUG === 'true';
 
-  // Try Credential Manager first (for forward compatibility)
+  // Write to file FIRST - this is what Claude CLI reads on Windows
+  const fileResult = updateWindowsFileCredentials(configDir, credentials);
+  if (!fileResult.success) {
+    // File write failed - don't proceed with Credential Manager to avoid inconsistent state
+    console.error('[CredentialUtils:Windows:Update] File update failed:', fileResult.error);
+    return fileResult;
+  }
+
+  // File write succeeded - now update Credential Manager for forward compatibility
   const psPath = findPowerShellPath();
   if (psPath) {
     const credManagerResult = updateWindowsCredentialManagerCredentials(configDir, credentials);
-    if (credManagerResult.success) {
-      // Also update the file for consistency (Claude CLI reads from file)
-      const fileResult = updateWindowsFileCredentials(configDir, credentials);
-      if (!fileResult.success) {
-        // CRITICAL: File write failure means Claude CLI will read stale tokens.
-        // Return failure since the file is what Claude CLI actually uses on Windows.
-        console.warn('[CredentialUtils:Windows:Update] Credential Manager succeeded but file update failed:', fileResult.error);
-        return { success: false, error: `Credential Manager updated but file write failed: ${fileResult.error}` };
+    if (!credManagerResult.success) {
+      // Credential Manager failed but file succeeded - this is acceptable
+      // Claude CLI will use the file, which has the latest tokens
+      if (isDebug) {
+        console.warn('[CredentialUtils:Windows:Update] Credential Manager update failed (file update succeeded):', credManagerResult.error);
       }
-      return credManagerResult;
-    }
-    if (isDebug) {
-      console.warn('[CredentialUtils:Windows:Update] Credential Manager update failed, trying file fallback:', credManagerResult.error);
     }
   }
 
-  // Fall back to file-based storage (what Claude CLI actually uses on Windows)
-  return updateWindowsFileCredentials(configDir, credentials);
+  // Return success since file (primary storage) was updated successfully
+  return { success: true };
 }
 
 /**
