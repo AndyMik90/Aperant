@@ -15,6 +15,7 @@
 	"scrollForMore": "Scroll for more",
 	"allLoaded": "All tickets loaded",
 	"runValidation": "Validate Ticket",
+	"viewValidation": "View Validation",
 	"validationStarted": "Validation Started",
 	"analysisInProgress": "AI Analysis in Progress...",
 	"analysisComplete": "Analysis Complete",
@@ -43,6 +44,8 @@
 	"taskCreated": "Task created",
 	"updateFailed": "Failed to update ticket",
 	"createTaskFailed": "Failed to create task",
+	"postFeedback": "Post Feedback",
+	"postFeedbackFailed": "Failed to post feedback",
 	"viewOnLinear": "View on Linear",
 	"validation": "Validation",
 	"validationResults": "Validation results",
@@ -51,6 +54,8 @@
 	"notValidated": "Not validated",
 	"recommendedVersion": "Recommended Version",
 	"category": "Category",
+	"complexity": "Complexity",
+	"impact": "Impact",
 	"viewFullValidation": "View Full Validation",
 	"description": "Description",
 	"noDescription": "No description provided",
@@ -74,7 +79,11 @@
 	"noResultsFound": "No results found",
 	"reset": "Reset",
 	"selectTicket": "Select a ticket to view details",
-	"validationIncomplete": "Validation completed but no results were returned. This may indicate an issue with the AI response. Please try again.",
+	"validationIncomplete": "Needs Clarification",
+	"validationIncompleteDesc": "Ticket validation completed with missing information. Add details to proceed.",
+	"validationIncompleteWithMissing": "Needs clarification: {{count}} required fields missing",
+	"validationComplete": "Ready to Implement",
+	"validationCompleteDesc": "Ticket has sufficient information to proceed (feasibility: {{score}}%)",
 	"validationFailed": "Validation Failed",
 	"validationFailedDesc": "Failed to validate the ticket. Please try again.",
 	"ticketValidated": "{{identifier}} has been validated successfully",
@@ -194,5 +203,6 @@
 		"validate": "Validate (Enter)",
 		"deselect": "Deselect (Esc)"
 	},
-	"labelsOverflow": "+{{count}} more"
+	"labelsOverflow": "+{{count}} more",
+	"cached": "Cached"
 }

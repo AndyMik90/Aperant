@@ -631,13 +631,6 @@ export class AgentManager extends EventEmitter {
           for (const line of lines) {
             if (!line.trim()) continue;
 
-            // Add to stderr for final output
-            stderr += line + "\n";
-
-            // Log to console
-            const sanitizedErr = stripAnsiCodes(line);
-            console.error(`[LINEAR_IPC] stderr:`, sanitizedErr);
-
             // Skip already processed lines
             const lineKey = line.trim();
             if (processedStderrLines.has(lineKey)) continue;
@@ -647,7 +640,6 @@ export class AgentManager extends EventEmitter {
             const toolCallMatch = line.match(/\[DEBUG\] \[session\] Tool call #\d+:\s+(\w+)/);
             if (toolCallMatch) {
               const toolName = toolCallMatch[1];
-              console.log(`[LINEAR_IPC] Tool started:`, toolName);
               // Emit progress with current tool information
               this.emit("linear-validate-progress", ticketId, {
                 type: "progress",
@@ -658,13 +650,13 @@ export class AgentManager extends EventEmitter {
                 currentTool: toolName,
                 toolStatus: "running",
               });
+              continue;
             }
 
             // Pattern 2: Tool completed - "[DEBUG] [task_logger] [coding][Glob] Done"
             const toolDoneMatch = line.match(/\[DEBUG\] \[task_logger\] \[.*?\]\s*\[(\w+)\]\s*\[Done\]/);
             if (toolDoneMatch) {
               const toolName = toolDoneMatch[1];
-              console.log(`[LINEAR_IPC] Tool completed:`, toolName);
               // Emit progress with tool complete status
               this.emit("linear-validate-progress", ticketId, {
                 type: "progress",
@@ -675,6 +667,7 @@ export class AgentManager extends EventEmitter {
                 currentTool: toolName,
                 toolStatus: "complete",
               });
+              continue;
             }
 
             // Pattern 3: Task logger message - "[DEBUG] [task_logger] [coding] Let me check..."
@@ -683,7 +676,6 @@ export class AgentManager extends EventEmitter {
               const message = taskLoggerMessageMatch[1];
               // Truncate very long messages
               const truncatedMessage = message.length > 100 ? message.substring(0, 97) + "..." : message;
-              console.log(`[LINEAR_IPC] Task logger:`, truncatedMessage);
               // Emit progress with the task logger message
               this.emit("linear-validate-progress", ticketId, {
                 type: "progress",
@@ -694,7 +686,11 @@ export class AgentManager extends EventEmitter {
                 currentTool: undefined,
                 toolStatus: undefined,
               });
+              continue;
             }
+
+            // For other stderr lines, just accumulate for final error output
+            stderr += line + "\n";
           }
         });
 
@@ -721,13 +717,49 @@ export class AgentManager extends EventEmitter {
 
           if (code === 0 && stdout) {
             try {
-              const result = JSON.parse(stdout);
-              console.log(`[LINEAR_IPC] Result:`, {
-                success: result.success,
-                hasData: !!result.data,
-                error: result.error,
-              });
-              resolve(result);
+              // Try to parse stdout as JSON directly first
+              let result = null;
+              try {
+                result = JSON.parse(stdout);
+              } catch {
+                // If direct parsing fails, try to extract JSON from markdown code blocks
+                // Pattern: ```json\n{...}\n``` or just find the last complete JSON object
+                const codeBlockMatch = stdout.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+                if (codeBlockMatch) {
+                  result = JSON.parse(codeBlockMatch[1]);
+                } else {
+                  // Try to find the last complete JSON object by matching braces
+                  const startIndex = stdout.lastIndexOf("{");
+                  if (startIndex !== -1) {
+                    let depth = 0;
+                    let endIndex = -1;
+                    for (let i = startIndex; i < stdout.length; i++) {
+                      if (stdout[i] === "{") depth++;
+                      else if (stdout[i] === "}") {
+                        depth--;
+                        if (depth === 0) {
+                          endIndex = i;
+                          break;
+                        }
+                      }
+                    }
+                    if (endIndex !== -1) {
+                      result = JSON.parse(stdout.slice(startIndex, endIndex + 1));
+                    }
+                  }
+                }
+              }
+
+              if (result && typeof result === "object") {
+                console.log(`[LINEAR_IPC] Result:`, {
+                  success: result.success,
+                  hasData: !!result.data,
+                  error: result.error,
+                });
+                resolve(result);
+              } else {
+                throw new Error("No valid JSON found in output");
+              }
             } catch (parseError) {
               console.error(`[LINEAR_IPC] Failed to parse output:`, parseError);
               console.error(`[LINEAR_IPC] stdout was:`, stdout.slice(0, 1000));

@@ -169,53 +169,82 @@ function updateTicketAtIndex(
 }
 
 /**
+ * Extract numeric ticket ID from identifier (e.g., "ACS-399" -> 399)
+ * Returns 0 if not found
+ */
+function extractTicketNumber(identifier: string): number {
+	const match = identifier.match(/\d+$/);
+	return match ? parseInt(match[0], 10) : 0;
+}
+
+/**
  * Apply filters to tickets based on current filter state
+ * - By default excludes "completed" and "canceled" tickets (shown only when explicitly selected)
+ * - Sorts by identifier descending (newest first - higher number)
  */
 export function applyFilters(
 	tickets: LinearTicket[],
 	filters: LinearFilters,
 ): LinearTicket[] {
-	return tickets.filter((ticket) => {
-		// Filter by team
-		if (filters.teamId) {
-			// Note: Linear API doesn't return team info in issue response
-			// This filter would need to be applied server-side or via additional data
-			// For now, we'll include this as a placeholder
-		}
+	return tickets
+		.filter((ticket) => {
+			// Filter by team
+			if (filters.teamId) {
+				// Note: Linear API doesn't return team info in issue response
+				// This filter would need to be applied server-side or via additional data
+				// For now, we'll include this as a placeholder
+			}
 
-		// Filter by project
-		if (filters.projectId && ticket.project?.id !== filters.projectId) {
-			return false;
-		}
-
-		// Filter by status (by name)
-		if (filters.status && ticket.state.name !== filters.status) {
-			return false;
-		}
-
-		// Filter by labels
-		if (filters.labels && filters.labels.length > 0) {
-			const ticketLabelNames = ticket.labels.map((l) => l.name);
-			const hasMatchingLabel = filters.labels.some((filterLabel) =>
-				ticketLabelNames.includes(filterLabel),
-			);
-			if (!hasMatchingLabel) {
+			// Filter by project
+			if (filters.projectId && ticket.project?.id !== filters.projectId) {
 				return false;
 			}
-		}
 
-		// Filter by assignee
-		if (filters.assigneeId && ticket.assignee?.id !== filters.assigneeId) {
-			return false;
-		}
+			// Filter by status (by name)
+			if (filters.status && ticket.state.name !== filters.status) {
+				return false;
+			}
 
-		// Filter by priority
-		if (filters.priority != null && ticket.priority !== filters.priority) {
-			return false;
-		}
+			// By default, exclude completed/canceled tickets unless explicitly selected
+			if (!filters.status) {
+				if (
+					ticket.state.type === "completed" ||
+					ticket.state.type === "canceled"
+				) {
+					return false;
+				}
+			}
 
-		return true;
-	});
+			// Filter by labels
+			if (filters.labels && filters.labels.length > 0) {
+				const ticketLabelNames = ticket.labels.map((l) => l.name);
+				const hasMatchingLabel = filters.labels.some((filterLabel) =>
+					ticketLabelNames.includes(filterLabel),
+				);
+				if (!hasMatchingLabel) {
+					return false;
+				}
+			}
+
+			// Filter by assignee
+			if (filters.assigneeId && ticket.assignee?.id !== filters.assigneeId) {
+				return false;
+			}
+
+			// Filter by priority
+			if (filters.priority != null && ticket.priority !== filters.priority) {
+				return false;
+			}
+
+			return true;
+		})
+		.sort((a, b) => {
+			// Sort by identifier descending (newest first - higher ticket number)
+			// Extract numeric part from identifiers like "ACS-399" and "ACS-400"
+			const aNumber = extractTicketNumber(a.identifier);
+			const bNumber = extractTicketNumber(b.identifier);
+			return bNumber - aNumber;
+		});
 }
 
 export const useLinearStore = create<LinearState>((set, get) => ({

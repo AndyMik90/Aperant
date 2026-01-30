@@ -982,5 +982,83 @@ ${issue.description || "No description provided."}
 		},
 	);
 
+	/**
+	 * Post a comment to a Linear ticket
+	 * Note: projectId is optional - if not provided, will look for any project with Linear API key
+	 */
+	ipcMain.handle(
+		IPC_CHANNELS.LINEAR_POST_COMMENT,
+		async (
+			_,
+			projectId: string | null,
+			ticketId: string,
+			comment: string,
+		): Promise<IPCResult<void>> => {
+			debugLog("Post comment requested", { ticketId, projectId });
+
+			let apiKey: string | null = null;
+
+			// If projectId provided, get API key from that project
+			if (projectId) {
+				const project = projectStore.getProject(projectId);
+				if (project) {
+					apiKey = getLinearApiKey(project);
+				}
+			}
+
+			// If no API key yet, search for any project with Linear API key configured
+			if (!apiKey) {
+				const allProjects = projectStore.getProjects();
+				for (const project of allProjects) {
+					const key = getLinearApiKey(project);
+					if (key) {
+						apiKey = key;
+						debugLog("Found Linear API key from project", { projectId: project.id });
+						break;
+					}
+				}
+			}
+
+			if (!apiKey) {
+				debugLog("Post comment failed: No Linear API key configured");
+				return { success: false, error: "No Linear API key configured. Please connect your Linear account in settings." };
+			}
+
+			try {
+				const mutation = `
+          mutation($issueId: String!, $body: String!) {
+            commentCreate(input: {
+              issueId: $issueId,
+              body: $body
+            }) {
+              success
+              comment {
+                id
+                body
+              }
+            }
+          }
+        `;
+
+				debugLog("Posting comment to Linear", { ticketId });
+
+				await linearGraphQL(apiKey, mutation, {
+					issueId: ticketId,
+					body: comment,
+				});
+
+				debugLog("Comment posted successfully", { ticketId });
+				return { success: true };
+			} catch (error) {
+				debugLog("Post comment error", { ticketId, error });
+				return {
+					success: false,
+					error:
+						error instanceof Error ? error.message : "Failed to post comment",
+				};
+			}
+		},
+	);
+
 	console.warn('[Linear] Linear integration handlers registered');
 }

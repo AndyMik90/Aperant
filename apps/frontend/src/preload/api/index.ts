@@ -9,6 +9,7 @@ import type { InsightsAPI } from './modules/insights-api';
 import { AppUpdateAPI, createAppUpdateAPI } from './app-update-api';
 import { GitHubAPI, createGitHubAPI } from './modules/github-api';
 import type { GitLabAPI } from './modules/gitlab-api';
+import type { LinearAPI } from './modules/linear-api';
 import { DebugAPI, createDebugAPI } from './modules/debug-api';
 import { ClaudeCodeAPI, createClaudeCodeAPI } from './modules/claude-code-api';
 import { McpAPI, createMcpAPI } from './modules/mcp-api';
@@ -25,6 +26,7 @@ export interface ElectronAPI extends
   AgentAPI,
   IdeationAPI,
   InsightsAPI,
+  LinearAPI,
   AppUpdateAPI,
   GitLabAPI,
   DebugAPI,
@@ -82,6 +84,7 @@ export type {
   AgentAPI,
   IdeationAPI,
   InsightsAPI,
+  LinearAPI,
   AppUpdateAPI,
   ProfileAPI,
   GitHubAPI,

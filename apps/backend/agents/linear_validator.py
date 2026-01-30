@@ -19,6 +19,7 @@ import logging
 import os
 import random
 import re
+import sys
 import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -323,7 +324,7 @@ class LinearValidationAgent:
     auto-select labels, determine version, and recommend properties.
     """
 
-    CACHE_TTL_SECONDS = 3600  # 1 hour TTL
+    CACHE_TTL_SECONDS = 600  # 10 minutes TTL
     DEFAULT_SESSION_TIMEOUT = 300  # 5 minutes default timeout for validation
 
     def __init__(
@@ -406,14 +407,24 @@ class LinearValidationAgent:
         Returns:
             Configured ClaudeSDKClient instance (fresh each time, no caching)
         """
-        print("[LINEAR_VALIDATOR] create_client START", flush=True)
-        print(f"[LINEAR_VALIDATOR] project_dir: {self.project_dir}", flush=True)
-        print(f"[LINEAR_VALIDATOR] spec_dir: {self.spec_dir}", flush=True)
+        print("[LINEAR_VALIDATOR] create_client START", file=sys.stderr, flush=True)
+        print(
+            f"[LINEAR_VALIDATOR] project_dir: {self.project_dir}",
+            file=sys.stderr,
+            flush=True,
+        )
+        print(
+            f"[LINEAR_VALIDATOR] spec_dir: {self.spec_dir}", file=sys.stderr, flush=True
+        )
 
         # Resolve model from phase_config or use override
         if self._model_override:
             model = self._model_override
-            print(f"[LINEAR_VALIDATOR] Using model override: {model}", flush=True)
+            print(
+                f"[LINEAR_VALIDATOR] Using model override: {model}",
+                file=sys.stderr,
+                flush=True,
+            )
         else:
             # Use phase_config to resolve model for 'coding' phase (Linear validation is similar)
             try:
@@ -466,7 +477,11 @@ class LinearValidationAgent:
                 agent_type="linear_validator",
                 max_thinking_tokens=max_thinking_tokens,
             )
-            print("[LINEAR_VALIDATOR] create_client succeeded", flush=True)
+            print(
+                "[LINEAR_VALIDATOR] create_client succeeded",
+                file=sys.stderr,
+                flush=True,
+            )
             return client
         except Exception as e:
             print(
@@ -630,7 +645,11 @@ class LinearValidationAgent:
         # Use the identifier as-is for GraphQL (Linear accepts LIN-123 or just 123)
         numeric_id = issue_id.replace("LIN-", "")
 
-        print(f"[LINEAR_VALIDATOR] _fetch_linear_issue START: {issue_id}", flush=True)
+        print(
+            f"[LINEAR_VALIDATOR] _fetch_linear_issue START: {issue_id}",
+            file=sys.stderr,
+            flush=True,
+        )
 
         # GraphQL query to fetch issue data
         query = """
@@ -671,7 +690,11 @@ class LinearValidationAgent:
         # Get correct Authorization header for Linear API
         # Linear personal API keys (starting with 'lin_api_') should NOT use Bearer prefix
         # OAuth tokens should use 'Bearer' prefix
-        print("[LINEAR_VALIDATOR] Getting Linear auth header...", flush=True)
+        print(
+            "[LINEAR_VALIDATOR] Getting Linear auth header...",
+            file=sys.stderr,
+            flush=True,
+        )
         try:
             authorization = get_linear_authorization_header(api_key)
             print(
@@ -679,7 +702,11 @@ class LinearValidationAgent:
                 flush=True,
             )
         except ValueError as e:
-            print(f"[LINEAR_VALIDATOR] ERROR getting auth header: {e}", flush=True)
+            print(
+                f"[LINEAR_VALIDATOR] ERROR getting auth header: {e}",
+                file=sys.stderr,
+                flush=True,
+            )
             raise
 
         headers = {
@@ -688,7 +715,9 @@ class LinearValidationAgent:
         }
 
         try:
-            print("[LINEAR_VALIDATOR] Calling Linear API...", flush=True)
+            print(
+                "[LINEAR_VALIDATOR] Calling Linear API...", file=sys.stderr, flush=True
+            )
             response = requests.post(
                 "https://api.linear.app/graphql",
                 json={"query": query, "variables": {"issueId": numeric_id}},
@@ -704,7 +733,11 @@ class LinearValidationAgent:
 
             if "errors" in data:
                 error_msg = data["errors"][0].get("message", "Unknown error")
-                print(f"[LINEAR_VALIDATOR] Linear API error: {error_msg}", flush=True)
+                print(
+                    f"[LINEAR_VALIDATOR] Linear API error: {error_msg}",
+                    file=sys.stderr,
+                    flush=True,
+                )
                 if (
                     "not found" in error_msg.lower()
                     or "does not exist" in error_msg.lower()
@@ -714,7 +747,11 @@ class LinearValidationAgent:
 
             issue_data = data.get("data", {}).get("issue")
             if not issue_data:
-                print("[LINEAR_VALIDATOR] ERROR: No issue data in response", flush=True)
+                print(
+                    "[LINEAR_VALIDATOR] ERROR: No issue data in response",
+                    file=sys.stderr,
+                    flush=True,
+                )
                 raise TicketNotFoundError(issue_id)
 
             print(
@@ -771,12 +808,18 @@ class LinearValidationAgent:
             - confidence: Overall confidence score (0-1)
             - reasoning: Detailed explanation of recommendations
         """
-        print(f"[LINEAR_VALIDATOR] validate_ticket START: {issue_id}", flush=True)
+        print(
+            f"[LINEAR_VALIDATOR] validate_ticket START: {issue_id}",
+            file=sys.stderr,
+            flush=True,
+        )
         print(
             f"[LINEAR_VALIDATOR] issue_data provided: {issue_data is not None}",
             flush=True,
         )
-        print(f"[LINEAR_VALIDATOR] skip_cache: {skip_cache}", flush=True)
+        print(
+            f"[LINEAR_VALIDATOR] skip_cache: {skip_cache}", file=sys.stderr, flush=True
+        )
 
         # Fetch issue data from Linear API if not provided
         if issue_data is None:
@@ -786,7 +829,11 @@ class LinearValidationAgent:
             logger.info(f"Fetching issue data for {issue_id} from Linear API")
             try:
                 issue_data = await asyncio.to_thread(self._fetch_linear_issue, issue_id)
-                print("[LINEAR_VALIDATOR] Issue data fetched successfully", flush=True)
+                print(
+                    "[LINEAR_VALIDATOR] Issue data fetched successfully",
+                    file=sys.stderr,
+                    flush=True,
+                )
                 print(
                     f"[LINEAR_VALIDATOR] Issue title: {issue_data.get('title', 'N/A')}",
                     flush=True,
@@ -806,12 +853,16 @@ class LinearValidationAgent:
         )
 
         # Check cache first
-        print("[LINEAR_VALIDATOR] Checking cache...", flush=True)
+        print("[LINEAR_VALIDATOR] Checking cache...", file=sys.stderr, flush=True)
         cached_result = self._get_cached_result(
             issue_id, validation_timestamp, skip_cache
         )
         if cached_result is not None:
-            print("[LINEAR_VALIDATOR] RETURNING cached result", flush=True)
+            print(
+                "[LINEAR_VALIDATOR] RETURNING cached result",
+                file=sys.stderr,
+                flush=True,
+            )
             return cached_result
         print(
             "[LINEAR_VALIDATOR] No cached result, proceeding with validation",
@@ -829,10 +880,14 @@ class LinearValidationAgent:
         )
 
         # Perform validation if not cached
-        print("[LINEAR_VALIDATOR] Creating SDK client...", flush=True)
+        print("[LINEAR_VALIDATOR] Creating SDK client...", file=sys.stderr, flush=True)
         try:
             client = self.create_client()
-            print("[LINEAR_VALIDATOR] SDK client created successfully", flush=True)
+            print(
+                "[LINEAR_VALIDATOR] SDK client created successfully",
+                file=sys.stderr,
+                flush=True,
+            )
         except Exception as e:
             print(
                 f"[LINEAR_VALIDATOR] ERROR creating client: {type(e).__name__}: {e}",
@@ -844,7 +899,11 @@ class LinearValidationAgent:
             raise
 
         # Fetch workspace metadata for context-aware recommendations
-        print("[LINEAR_VALIDATOR] Fetching workspace metadata...", flush=True)
+        print(
+            "[LINEAR_VALIDATOR] Fetching workspace metadata...",
+            file=sys.stderr,
+            flush=True,
+        )
         try:
             workspace_metadata = self._get_workspace_metadata()
         except AuthenticationError:
@@ -853,12 +912,39 @@ class LinearValidationAgent:
             )
             workspace_metadata = {}
 
-        # Build validation prompt with 5-step workflow
-        print("[LINEAR_VALIDATOR] Building validation prompt...", flush=True)
-        prompt = self._build_validation_prompt(
-            issue_id, issue_data, current_version, workspace_metadata
+        # Step 2: Real Codebase Search (Python subprocess, not AI tools)
+        print(
+            "[LINEAR_VALIDATOR] Starting real codebase search...",
+            file=sys.stderr,
+            flush=True,
         )
-        print(f"[LINEAR_VALIDATOR] Prompt built: {len(prompt)} characters", flush=True)
+        codebase_search_results = await asyncio.to_thread(
+            self._perform_codebase_search, issue_data, self.project_dir
+        )
+        print(
+            f"[LINEAR_VALIDATOR] Codebase search complete: {len(codebase_search_results.get('searched_files', []))} files examined",
+            file=sys.stderr,
+            flush=True,
+        )
+
+        # Build validation prompt with 5-step workflow and codebase search results
+        print(
+            "[LINEAR_VALIDATOR] Building validation prompt...",
+            file=sys.stderr,
+            flush=True,
+        )
+        prompt = self._build_validation_prompt(
+            issue_id,
+            issue_data,
+            current_version,
+            workspace_metadata,
+            codebase_search_results,
+        )
+        print(
+            f"[LINEAR_VALIDATOR] Prompt built: {len(prompt)} characters",
+            file=sys.stderr,
+            flush=True,
+        )
 
         # Debug: Log prompt (truncated)
         if DEBUG_LINEAR_VALIDATION:
@@ -868,7 +954,11 @@ class LinearValidationAgent:
             )
 
         # Run validation session with streaming and retry logic
-        print("[LINEAR_VALIDATOR] Starting validation session...", flush=True)
+        print(
+            "[LINEAR_VALIDATOR] Starting validation session...",
+            file=sys.stderr,
+            flush=True,
+        )
         async with client:
 
             async def run_validation_session():
@@ -1050,7 +1140,7 @@ class LinearValidationAgent:
             issue_id, response, issue_data, current_version
         )
 
-        print("[LINEAR_VALIDATOR] Parsing complete", flush=True)
+        print("[LINEAR_VALIDATOR] Parsing complete", file=sys.stderr, flush=True)
         print(
             f"[LINEAR_VALIDATOR] Result structure: analysis={bool(result.get('analysis'))}, "
             f"codebase_verification={bool(result.get('codebase_verification'))}, "
@@ -1071,13 +1161,17 @@ class LinearValidationAgent:
             )
 
         # Save to cache
-        print("[LINEAR_VALIDATOR] Saving to cache...", flush=True)
+        print("[LINEAR_VALIDATOR] Saving to cache...", file=sys.stderr, flush=True)
         self._save_result(issue_id, validation_timestamp, result)
 
         if DEBUG_LINEAR_VALIDATION:
             logger.debug(f"[LINEAR_VALIDATION] Validation complete for {issue_id}")
 
-        print(f"[LINEAR_VALIDATOR] validate_ticket COMPLETE for {issue_id}", flush=True)
+        print(
+            f"[LINEAR_VALIDATOR] validate_ticket COMPLETE for {issue_id}",
+            file=sys.stderr,
+            flush=True,
+        )
         return result
 
     def _build_validation_prompt(
@@ -1086,6 +1180,7 @@ class LinearValidationAgent:
         issue_data: dict[str, Any],
         current_version: str | None,
         workspace_metadata: dict[str, Any] | None = None,
+        codebase_search_results: dict[str, Any] | None = None,
     ) -> str:
         """
         Build the validation prompt with 5-step workflow instructions.
@@ -1186,10 +1281,12 @@ IMPORTANT: Your label and assignee recommendations MUST come from the following 
 **Assignee:** {assignee}
 
 {version_context}
-
+{self._format_codebase_search_results(codebase_search_results)}
 ## Codebase-Aware Validation Workflow
 
-IMPORTANT: You have access to codebase search tools (Read, Grep, Glob). Use them to validate ticket claims against actual code.
+PRE-SEARCHED CODEBASE INFORMATION:
+The codebase has already been searched for relevant files. Use the results above to inform your analysis.
+You may still use the Read, Grep, and Glob tools to examine specific files in more detail if needed.
 
 ### Phase 1: Ticket Analysis (Steps 1-2)
 
@@ -1200,7 +1297,7 @@ IMPORTANT: You have access to codebase search tools (Read, Grep, Glob). Use them
 - Identify the type of work (bug, feature, enhancement, refactoring, etc.)
 
 #### Step 2: Search Codebase for Related Implementation
-CRITICAL: Before assessing feasibility, you MUST search the codebase:
+CRITICAL: Before providing any output, you MUST use the Grep, Glob, and Read tools to search the codebase. This is not optional.
 
 1. **Use Grep to search for related code:**
    - Search for function names, class names, or keywords from the ticket title/description
@@ -1221,6 +1318,8 @@ CRITICAL: Before assessing feasibility, you MUST search the codebase:
    - Note any existing implementations that relate to this ticket
    - Identify potential conflicts or duplications
    - Assess if the ticket's claims match the actual codebase
+
+MANDATORY: Your JSON output MUST include the `codebase_verification` field with actual search results. Do not skip this step.
 
 ### Phase 2: Completeness & Feasibility (Steps 3-4)
 
@@ -1278,6 +1377,8 @@ Rules:
 4. **Priority:** urgent (1), high (2), normal (3), low (4)
 
 ## Output Format
+
+CRITICAL: The `codebase_verification` field is MANDATORY. You MUST include actual search results from using Grep, Glob, and Read tools. Do not skip this field.
 
 Please provide your results in the following structured format:
 
@@ -1337,9 +1438,355 @@ Please provide your results in the following structured format:
 }}
 ```
 
-Begin your analysis with codebase search now.
+IMPORTANT: Before providing the JSON output above, you MUST:
+1. Use Grep to search for relevant code patterns
+2. Use Glob to find related files
+3. Use Read to examine source files
+4. Document your findings in the `codebase_verification` field
+
+Do NOT provide the JSON output until you have completed the codebase search step.
 """
         return prompt
+
+    def _format_codebase_search_results(self, results: dict[str, Any] | None) -> str:
+        """
+        Format codebase search results for inclusion in the prompt.
+
+        Args:
+            results: Codebase search results from _perform_codebase_search
+
+        Returns:
+            Formatted string for the prompt
+        """
+        if not results:
+            return ""
+
+        searched_files = results.get("searched_files", [])
+        related_implementations = results.get("related_implementations", [])
+        patterns_found = results.get("patterns_found", [])
+        technical_constraints = results.get("technical_constraints", [])
+        existing_solutions = results.get("existing_solutions", "")
+
+        output = ["## Codebase Search Results", ""]
+        output.append(f"**Files Searched:** {len(searched_files)} files examined")
+        if searched_files:
+            # Show first 10 files
+            for f in searched_files[:10]:
+                output.append(f"  - {f}")
+            if len(searched_files) > 10:
+                output.append(f"  - ... and {len(searched_files) - 10} more files")
+        output.append("")
+
+        if related_implementations:
+            output.append(
+                f"**Related Implementations Found:** {len(related_implementations)} matches"
+            )
+            for impl in related_implementations[:5]:
+                output.append(f"  - {impl['file']}: {impl['description']}")
+                if impl.get("relevance"):
+                    output.append(f"    Relevance: {impl['relevance']}")
+            if len(related_implementations) > 5:
+                output.append(f"  - ... and {len(related_implementations) - 5} more")
+            output.append("")
+
+        if patterns_found:
+            output.append("**Code Patterns Found:**")
+            for pattern in patterns_found:
+                output.append(f"  - {pattern}")
+            output.append("")
+
+        if technical_constraints:
+            output.append("**Technical Constraints Identified:**")
+            for constraint in technical_constraints:
+                output.append(f"  - {constraint}")
+            output.append("")
+
+        if existing_solutions:
+            output.append(f"**Existing Solutions:** {existing_solutions}")
+            output.append("")
+
+        return "\n".join(output) + "\n"
+
+    def _perform_codebase_search(
+        self, issue_data: dict[str, Any], project_dir: Path
+    ) -> dict[str, Any]:
+        """
+        Perform real codebase search using subprocess calls to grep/find.
+
+        This is a "real step" that searches the codebase before AI analysis,
+        rather than relying on the AI to use tools (which it doesn't always do).
+
+        Args:
+            issue_data: Linear ticket data (title, description, etc.)
+            project_dir: Root directory of the project
+
+        Returns:
+            Dict with search results:
+            - searched_files: List of files searched
+            - related_implementations: List of related code found
+            - patterns_found: List of code patterns found
+            - technical_constraints: List of technical constraints
+            - existing_solutions: Description of existing solutions
+        """
+        import subprocess
+
+        title = issue_data.get("title", "")
+        description = issue_data.get("description", "")
+
+        # Extract keywords from title and description
+        keywords = self._extract_search_keywords(title, description)
+        print(
+            f"[LINEAR_VALIDATOR] Search keywords: {keywords}",
+            file=sys.stderr,
+            flush=True,
+        )
+
+        results = {
+            "searched_files": [],
+            "related_implementations": [],
+            "patterns_found": [],
+            "technical_constraints": [],
+            "existing_solutions": "",
+        }
+
+        # Skip search if no keywords
+        if not keywords:
+            print(
+                "[LINEAR_VALIDATOR] No keywords found, skipping codebase search",
+                file=sys.stderr,
+                flush=True,
+            )
+            return results
+
+        # Use rg (ripgrep) for fast searching
+        try:
+            # Search for keywords in the codebase
+            for keyword in keywords[:5]:  # Limit to 5 keywords
+                try:
+                    # Use ripgrep to search for the keyword
+                    cmd = [
+                        "rg",
+                        "-i",  # case insensitive
+                        "-l",  # files with matches only
+                        "-t",
+                        "py",  # Python files
+                        "-t",
+                        "ts",  # TypeScript files
+                        "-t",
+                        "tsx",  # TSX files
+                        "-t",
+                        "js",  # JavaScript files
+                        "-t",
+                        "jsx",  # JSX files
+                        "--max-count",
+                        "20",  # limit results
+                        keyword,
+                        str(project_dir),
+                    ]
+                    proc = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                        cwd=str(project_dir),
+                    )
+
+                    if proc.returncode == 0:
+                        files = (
+                            proc.stdout.strip().split("\n")
+                            if proc.stdout.strip()
+                            else []
+                        )
+                        results["searched_files"].extend(files)
+                        print(
+                            f"[LINEAR_VALIDATOR] Keyword '{keyword}': {len(files)} files found",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+
+                except (subprocess.TimeoutExpired, FileNotFoundError):
+                    # rg not available or timeout, skip
+                    continue
+
+        except Exception as e:
+            print(
+                f"[LINEAR_VALIDATOR] Codebase search error: {e}",
+                file=sys.stderr,
+                flush=True,
+            )
+
+        # Deduplicate searched files
+        results["searched_files"] = list(set(results["searched_files"]))
+
+        # Analyze search results to find related implementations
+        if results["searched_files"]:
+            results["related_implementations"] = self._analyze_related_files(
+                results["searched_files"], keywords
+            )
+            results["patterns_found"] = self._extract_code_patterns(
+                results["searched_files"], project_dir
+            )
+
+        # Generate summary
+        if results["related_implementations"]:
+            count = len(results["related_implementations"])
+            results["existing_solutions"] = (
+                f"Found {count} related implementation(s) in the codebase that may be relevant to this ticket."
+            )
+        else:
+            results["existing_solutions"] = (
+                "No directly related implementations found in the codebase."
+            )
+
+        return results
+
+    def _extract_search_keywords(self, title: str, description: str) -> list[str]:
+        """
+        Extract relevant search keywords from ticket title and description.
+
+        Args:
+            title: Ticket title
+            description: Ticket description
+
+        Returns:
+            List of keywords to search for
+        """
+        import re
+
+        # Combine title and description
+        text = f"{title} {description}".lower()
+
+        # Common technical terms to look for
+        technical_keywords = {
+            "auth",
+            "login",
+            "user",
+            "session",
+            "token",
+            "oauth",
+            "api",
+            "endpoint",
+            "route",
+            "controller",
+            "service",
+            "component",
+            "modal",
+            "dialog",
+            "form",
+            "input",
+            "database",
+            "query",
+            "migration",
+            "schema",
+            "frontend",
+            "backend",
+            "render",
+            "state",
+            "store",
+            "test",
+            "spec",
+            "mock",
+            "stub",
+            "error",
+            "exception",
+            "handling",
+            "validation",
+            "linear",
+            "github",
+            "gitlab",
+            "integration",
+            "agent",
+            "runner",
+            "worker",
+            "queue",
+            "terminal",
+            "pty",
+            "shell",
+            "command",
+        }
+
+        # Extract words that match technical keywords
+        keywords = []
+        for keyword in technical_keywords:
+            if keyword in text:
+                keywords.append(keyword)
+
+        # Also extract capitalized words (likely class/function names)
+        capitalized = re.findall(r"\b[A-Z][a-z]+(?:[A-Z][a-z]+)*\b", title)
+        keywords.extend([cap.lower() for cap in capitalized if len(cap) > 3])
+
+        return list(set(keywords))  # Deduplicate
+
+    def _analyze_related_files(
+        self, files: list[str], keywords: list[str]
+    ) -> list[dict[str, Any]]:
+        """
+        Analyze found files to identify related implementations.
+
+        Args:
+            files: List of files found by search
+            keywords: Search keywords used
+
+        Returns:
+            List of related implementations with metadata
+        """
+        related = []
+
+        for file_path in files[:10]:  # Limit to 10 files
+            # Determine relevance based on file path and keywords
+            relevance = "similar"
+            if any(kw in file_path.lower() for kw in keywords):
+                relevance = "similar"
+
+            # Generate description based on file path
+            description = f"Found in {file_path}"
+
+            related.append(
+                {
+                    "file": file_path,
+                    "description": description,
+                    "relevance": relevance,
+                }
+            )
+
+        return related
+
+    def _extract_code_patterns(self, files: list[str], project_dir: Path) -> list[str]:
+        """
+        Extract common code patterns from found files.
+
+        Args:
+            files: List of files to analyze
+            project_dir: Project root directory
+
+        Returns:
+            List of code patterns found
+        """
+        patterns = []
+
+        # Common patterns to look for
+        pattern_keywords = {
+            "class": ["class ", "Class ", "interface "],
+            "function": ["def ", "function ", "const ", "async "],
+            "component": ["Component", "component", "render"],
+            "hook": ["use", "Hook", "hook"],
+            "store": ["Store", "store", "state"],
+            "service": ["Service", "service"],
+        }
+
+        # Simple pattern detection based on file paths
+        for file_path in files[:20]:  # Check first 20 files
+            file_lower = file_path.lower()
+            if "test" in file_lower or "spec" in file_lower:
+                patterns.append("Test files present")
+            if "store" in file_lower:
+                patterns.append("State management (store)")
+            if "service" in file_lower:
+                patterns.append("Service layer")
+            if "component" in file_lower:
+                patterns.append("UI components")
+
+        return list(set(patterns))
 
     def _parse_validation_result(
         self,
@@ -1367,7 +1814,11 @@ Begin your analysis with codebase search now.
             f"[LINEAR_VALIDATOR] Response length: {len(response)} characters",
             flush=True,
         )
-        print(f"[LINEAR_VALIDATOR] Response preview: {response[:500]}...", flush=True)
+        print(
+            f"[LINEAR_VALIDATOR] Response preview: {response[:500]}...",
+            file=sys.stderr,
+            flush=True,
+        )
 
         # Try to extract JSON from the response (first from code blocks, then full text)
         json_match = re.search(r"```json\s*(\{[\s\S]*?\})\s*```", response, re.DOTALL)

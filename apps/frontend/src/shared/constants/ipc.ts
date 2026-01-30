@@ -239,6 +239,7 @@ export const IPC_CHANNELS = {
   LINEAR_CANCEL_VALIDATION: 'linear:cancelValidation',
   LINEAR_UPDATE_TICKET_WITH_VALIDATION: 'linear:updateTicketWithValidation',
   LINEAR_CLEAR_CACHE: 'linear:clearCache',
+  LINEAR_POST_COMMENT: 'linear:postComment',
 
   // Linear validation events (main -> renderer)
   LINEAR_VALIDATE_PROGRESS: 'linear:validateProgress',

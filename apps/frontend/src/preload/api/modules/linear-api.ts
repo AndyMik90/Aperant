@@ -70,6 +70,11 @@ export interface LinearAPI {
 		validation: ValidationResult,
 	) => Promise<IPCResult<any>>;
 	clearLinearCache: () => Promise<IPCResult<void>>;
+	postLinearComment: (
+		projectId: string | null,
+		ticketId: string,
+		comment: string,
+	) => Promise<IPCResult<void>>;
 }
 
 /**
@@ -154,4 +159,16 @@ export const createLinearAPI = (): LinearAPI => ({
 
 	clearLinearCache: (): Promise<IPCResult<void>> =>
 		invokeIpc(IPC_CHANNELS.LINEAR_CLEAR_CACHE),
+
+	postLinearComment: (
+		projectId: string | null,
+		ticketId: string,
+		comment: string,
+	): Promise<IPCResult<void>> =>
+		invokeIpc(
+			IPC_CHANNELS.LINEAR_POST_COMMENT,
+			projectId,
+			ticketId,
+			comment,
+		),
 });

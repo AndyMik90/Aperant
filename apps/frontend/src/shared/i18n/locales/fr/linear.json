@@ -40,6 +40,7 @@
 	"selectTicketToView": "Sélectionnez un ticket pour voir les détails",
 	"noOpenTickets": "Aucun ticket ouvert",
 	"runValidation": "Valider le Ticket",
+	"viewValidation": "Voir la Validation",
 	"validationStarted": "Validation Démarrée",
 	"analysisInProgress": "Analyse IA en Cours...",
 	"analysisComplete": "Analyse Terminée",
@@ -67,6 +68,8 @@
 	"taskCreated": "Tâche créée",
 	"updateFailed": "Échec de la mise à jour du ticket",
 	"createTaskFailed": "Échec de la création de la tâche",
+	"postFeedback": "Publier les commentaires",
+	"postFeedbackFailed": "Échec de la publication des commentaires",
 	"viewOnLinear": "Voir sur Linear",
 	"validation": "Validation",
 	"validationResults": "Résultats de validation",
@@ -75,6 +78,8 @@
 	"notValidated": "Non validé",
 	"recommendedVersion": "Version Recommandée",
 	"category": "Catégorie",
+	"complexity": "Complexité",
+	"impact": "Impact",
 	"viewFullValidation": "Voir la Validation Complète",
 	"description": "Description",
 	"noDescription": "Aucune description fournie",
@@ -99,7 +104,11 @@
 	"noResultsFound": "Aucun résultat trouvé",
 	"reset": "Réinitialiser",
 	"selectTicket": "Sélectionnez un ticket pour voir les détails",
-	"validationIncomplete": "Validation terminée mais aucun résultat retourné. Cela peut indiquer un problème avec la réponse de l'IA. Veuillez réessayer.",
+	"validationIncomplete": "Nécessite des Précisions",
+	"validationIncompleteDesc": "La validation du ticket est terminée mais des informations sont manquantes. Ajoutez des détails pour continuer.",
+	"validationIncompleteWithMissing": "Nécessite des précisions : {{count}} champs requis manquants",
+	"validationComplete": "Prêt à Implémenter",
+	"validationCompleteDesc": "Ticket contient suffisamment d'informations pour procéder (faisabilité : {{score}}%)",
 	"validationFailed": "Échec de la Validation",
 	"validationFailedDesc": "Échec de la validation du ticket. Veuillez réessayer.",
 	"ticketValidated": "{{identifier}} a été validé avec succès",
@@ -186,5 +195,6 @@
 		"validate": "Valider (Entrée)",
 		"deselect": "Désélectionner (Esc)"
 	},
-	"labelsOverflow": "+{{count}} autres"
+	"labelsOverflow": "+{{count}} autres",
+	"cached": "En cache"
 }

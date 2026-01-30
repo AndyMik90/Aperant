@@ -60,6 +60,12 @@ export function useLinearFiltering(
 	// Use store or local filters based on option
 	const filters = useStore ? storeFilters : localFilters;
 
+	// Helper function to extract ticket number from identifier (e.g., "ACS-441" -> 441)
+	const extractTicketNumber = useCallback((identifier: string): number => {
+		const match = identifier.match(/\d+$/);
+		return match ? parseInt(match[0], 10) : 0;
+	}, []);
+
 	// Helper function to apply search query and filters
 	const applyFiltering = useCallback(
 		(
@@ -68,6 +74,15 @@ export function useLinearFiltering(
 			query: string,
 		): LinearTicket[] => {
 			let filtered = ticketsToFilter;
+
+			// By default, exclude completed/canceled tickets unless explicitly selected via status filter
+			if (!currentFilters.status) {
+				filtered = filtered.filter(
+					(ticket) =>
+						ticket.state.type !== "completed" &&
+						ticket.state.type !== "canceled",
+				);
+			}
 
 			// Apply search query (searches title and description)
 			if (query.trim()) {
@@ -129,9 +144,16 @@ export function useLinearFiltering(
 				);
 			}
 
+			// Sort by identifier descending (newest ticket number first)
+			filtered.sort((a, b) => {
+				const aNumber = extractTicketNumber(a.identifier);
+				const bNumber = extractTicketNumber(b.identifier);
+				return bNumber - aNumber;
+			});
+
 			return filtered;
 		},
-		[],
+		[extractTicketNumber],
 	);
 
 	// Compute filtered tickets

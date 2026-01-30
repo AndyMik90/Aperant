@@ -2,6 +2,7 @@ import {
 	CheckCircle2,
 	Clock,
 	ExternalLink,
+	FileText,
 	Loader2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -96,6 +97,12 @@ export function LinearTicketDetail({
 	const lastActivityAt = progressTimestamp ? new Date(progressTimestamp) : undefined;
 
 	const validation = validationResult;
+
+	// Check if validation is still fresh (within 10 minutes)
+	const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+	const isValidationFresh = validation?.validationTimestamp
+		? Date.now() - new Date(validation.validationTimestamp).getTime() < CACHE_TTL_MS
+		: false;
 
 	// Scroll to top when ticket changes
 	useEffect(() => {
@@ -262,19 +269,32 @@ export function LinearTicketDetail({
 							</div>
 						)}
 
-						{/* Validate Button */}
+						{/* Validate/View Results Button */}
 						<button
 							type="button"
-							onClick={handleValidate}
+							onClick={() => {
+								if (isValidationFresh && validation) {
+									// View existing validation result
+									setShowResultsModal(true);
+								} else {
+									// Run new validation
+									handleValidate();
+								}
+							}}
 							disabled={isValidating}
 							className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 text-sm"
-							aria-label={t("linear:runValidation")}
+							aria-label={isValidationFresh ? t("linear:viewValidation") : t("linear:runValidation")}
 							aria-busy={isValidating}
 						>
 							{isValidating ? (
 								<>
 									<Loader2 className="w-3.5 h-3.5 animate-spin" />
 									<span className="hidden sm:inline">{t("linear:validatingTicket")}</span>
+								</>
+							) : isValidationFresh ? (
+								<>
+									<FileText className="w-3.5 h-3.5" />
+									<span>{t("linear:viewValidation")}</span>
 								</>
 							) : (
 								<>
