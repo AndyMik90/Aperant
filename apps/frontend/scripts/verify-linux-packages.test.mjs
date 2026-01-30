@@ -137,6 +137,23 @@ describe('verify-linux-packages', () => {
       assert.equal(result.issues.length, 0);
     });
 
+    it('should detect Python binary with trailing slashes', () => {
+      // Archive tools like bsdtar/dpkg-deb commonly output directories with trailing slashes
+      const mockFiles = [
+        'usr/bin/auto-claude',
+        './resources/python/',  // Trailing slash
+        'resources/backend/',   // Trailing slash
+        './resources/python-site-packages/secretstorage/__init__.py',
+        './resources/python-site-packages/pydantic_core/__init__.py',
+        './resources/python-site-packages/claude_agent_sdk/__init__.py',
+        './resources/python-site-packages/dotenv/__init__.py',
+      ];
+
+      const result = verifyFileList(mockFiles, 'test-package');
+      assert.ok(result.verified, 'Should detect Python binary directory with trailing slash');
+      assert.equal(result.issues.length, 0);
+    });
+
     it('should detect backend directory in file list', () => {
       const mockFiles = [
         'usr/bin/auto-claude',

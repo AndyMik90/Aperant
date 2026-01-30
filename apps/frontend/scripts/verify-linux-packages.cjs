@@ -121,27 +121,36 @@ function findPackages(distDir) {
 function verifyFileList(files, packageType) {
   const issues = [];
 
+  // Normalize paths by removing trailing slashes (archive tools commonly add these)
+  const normalizePath = (p) => p.replace(/\/+$/, '');
+
   // Check for Python binary directory
-  // AppImage: './resources/python' or ends with '/resources/python'
-  // deb: 'resources/python' (last column) or path ends with '/resources/python'
+  // AppImage: './resources/python' or './resources/python/' (with trailing slash)
+  // deb: 'resources/python' or 'resources/python/' (with trailing slash)
   // Must NOT match 'resources/python-site-packages'
-  const pythonBinFound = files.some(
-    (f) =>
-      (f === './resources/python' ||
-        f === 'resources/python' ||
-        f.endsWith('/resources/python') ||
-        f.endsWith('./resources/python')) &&
-      !f.includes('python-site-packages') &&
-      !f.endsWith('/resources/python-site-packages'),
-  );
+  const pythonBinFound = files.some((f) => {
+    const normalized = normalizePath(f);
+    return (
+      (normalized === './resources/python' ||
+        normalized === 'resources/python' ||
+        normalized.endsWith('/resources/python')) &&
+      !f.includes('python-site-packages')
+    );
+  });
   if (!pythonBinFound) {
     issues.push(`Python binary directory not found in ${packageType}`);
   }
 
   // Check for backend directory (must be under resources/)
-  const backendFound = files.some(
-    (f) => f.includes('./resources/backend/') || f.includes('resources/backend/') || f === './resources/backend' || f === 'resources/backend',
-  );
+  const backendFound = files.some((f) => {
+    const normalized = normalizePath(f);
+    return (
+      f.includes('./resources/backend/') ||
+      f.includes('resources/backend/') ||
+      normalized === './resources/backend' ||
+      normalized === 'resources/backend'
+    );
+  });
   if (!backendFound) {
     issues.push(`Backend directory not found in ${packageType}`);
   }
