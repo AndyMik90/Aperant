@@ -6,6 +6,7 @@ import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { AgentQueueManager } from './agent-queue';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
+import { hasValidAPIProfile } from '../services/utils/auth-utils';
 import {
   SpecCreationMetadata,
   TaskExecutionOptions,
@@ -96,6 +97,7 @@ export class AgentManager extends EventEmitter {
     baseBranch?: string
   ): Promise<void> {
     // Pre-flight auth check: Verify active profile has valid authentication
+    // Supports both OAuth and API profile authentication
     // Ensure profile manager is initialized to prevent race condition
     let profileManager;
     try {
@@ -105,7 +107,10 @@ export class AgentManager extends EventEmitter {
       this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
       return;
     }
-    if (!profileManager.hasValidAuth()) {
+    const hasOAuthAuth = profileManager.hasValidAuth();
+    const hasAPIAuth = await hasValidAPIProfile();
+
+    if (!hasOAuthAuth && !hasAPIAuth) {
       this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
       return;
     }
@@ -189,6 +194,7 @@ export class AgentManager extends EventEmitter {
     options: TaskExecutionOptions = {}
   ): Promise<void> {
     // Pre-flight auth check: Verify active profile has valid authentication
+    // Supports both OAuth and API profile authentication
     // Ensure profile manager is initialized to prevent race condition
     let profileManager;
     try {
@@ -198,7 +204,10 @@ export class AgentManager extends EventEmitter {
       this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
       return;
     }
-    if (!profileManager.hasValidAuth()) {
+    const hasOAuthAuth = profileManager.hasValidAuth();
+    const hasAPIAuth = await hasValidAPIProfile();
+
+    if (!hasOAuthAuth && !hasAPIAuth) {
       this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
       return;
     }
