@@ -49,13 +49,11 @@ def detect_worktree_isolation(project_dir: Path) -> tuple[bool, Path | None]:
         match = re.search(pattern, project_str)
         if match:
             # Extract the parent project path (everything before the worktree marker)
-            parent_prefix = project_str[: match.start()]
-            # Handle root-level worktrees where prefix would be empty
-            if not parent_prefix:
-                parent_path = Path(resolved_dir.anchor)
-            else:
-                parent_path = Path(parent_prefix)
-            return True, parent_path
+            parent_path = project_str[: match.start()]
+            # Handle edge case where worktree is at filesystem root
+            if not parent_path:
+                parent_path = resolved_dir.anchor
+            return True, Path(parent_path)
 
     return False, None
 

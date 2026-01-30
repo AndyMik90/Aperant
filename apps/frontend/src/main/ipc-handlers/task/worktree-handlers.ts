@@ -20,11 +20,67 @@ import {
 } from '../../worktree-paths';
 import { persistPlanStatus, updateTaskMetadataPrUrl } from './plan-file-utils';
 import { getIsolatedGitEnv, detectWorktreeBranch, refreshGitIndex } from '../../utils/git-isolation';
+import { cleanupWorktree } from '../../utils/worktree-cleanup';
 import { killProcessGracefully } from '../../platform';
 import { stripAnsiCodes } from '../../../shared/utils/ansi-sanitizer';
 
 // Regex pattern for validating git branch names
-const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
+export const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
+
+/**
+ * Validates a detected branch name and returns the safe branch to delete.
+ *
+ * Why `auto-claude/` prefix is considered safe:
+ * - All task worktrees use branches named `auto-claude/{specId}`
+ * - This pattern is controlled by Auto-Claude, not user input
+ * - If detected branch matches this pattern, it's a valid task branch
+ * - If it doesn't match (e.g., `main`, `develop`, `feature/xxx`), it's likely
+ *   the main project's branch being incorrectly detected from a corrupted worktree
+ *
+ * Issue #1479: When cleaning up a corrupted worktree, git rev-parse walks up
+ * to the main project and returns its current branch instead of the worktree's branch.
+ * This could cause deletion of the wrong branch.
+ */
+export function validateWorktreeBranch(
+  detectedBranch: string | null,
+  expectedBranch: string
+): { branchToDelete: string; usedFallback: boolean; reason: string } {
+  // If detection failed, use expected pattern
+  if (detectedBranch === null) {
+    return {
+      branchToDelete: expectedBranch,
+      usedFallback: true,
+      reason: 'detection_failed',
+    };
+  }
+
+  // Exact match - ideal case
+  if (detectedBranch === expectedBranch) {
+    return {
+      branchToDelete: detectedBranch,
+      usedFallback: false,
+      reason: 'exact_match',
+    };
+  }
+
+  // Matches auto-claude pattern with valid specId (not just "auto-claude/")
+  // The specId must be non-empty for this to be a valid task branch
+  if (detectedBranch.startsWith('auto-claude/') && detectedBranch.length > 'auto-claude/'.length) {
+    return {
+      branchToDelete: detectedBranch,
+      usedFallback: false,
+      reason: 'pattern_match',
+    };
+  }
+
+  // Detected branch doesn't match expected pattern - use fallback
+  // This is the critical security fix for issue #1479
+  return {
+    branchToDelete: expectedBranch,
+    usedFallback: true,
+    reason: 'invalid_pattern',
+  };
+}
 
 // Maximum PR title length (GitHub's limit is 256 characters)
 const MAX_PR_TITLE_LENGTH = 256;
@@ -1297,6 +1353,12 @@ async function openInTerminal(dirPath: string, terminal: SupportedTerminal, cust
  * This is the branch the task was created from (set by user during task creation)
  */
 function getTaskBaseBranch(specDir: string): string | undefined {
+  // Defensive check for undefined input
+  if (!specDir || typeof specDir !== 'string') {
+    console.error('[getTaskBaseBranch] specDir is undefined or not a string');
+    return undefined;
+  }
+
   try {
     const metadataPath = path.join(specDir, 'task_metadata.json');
     if (existsSync(metadataPath)) {
@@ -1327,6 +1389,16 @@ function getTaskBaseBranch(specDir: string): string | undefined {
  * as the user may be on a feature branch when viewing worktree status.
  */
 function getEffectiveBaseBranch(projectPath: string, specId: string, projectMainBranch?: string): string {
+  // Defensive check for undefined inputs
+  if (!projectPath || typeof projectPath !== 'string') {
+    console.error('[getEffectiveBaseBranch] projectPath is undefined or not a string');
+    return 'main';
+  }
+  if (!specId || typeof specId !== 'string') {
+    console.error('[getEffectiveBaseBranch] specId is undefined or not a string');
+    return 'main';
+  }
+
   // 1. Try task metadata baseBranch
   const specDir = path.join(projectPath, '.auto-claude', 'specs', specId);
   const taskBaseBranch = getTaskBaseBranch(specDir);
@@ -2224,29 +2296,31 @@ export function registerWorktreeHandlers(
 
                 // Clean up worktree after successful full merge (fixes #243)
                 // This allows drag-to-Done workflow since TASK_UPDATE_STATUS blocks 'done' when worktree exists
-                try {
-                  if (worktreePath && existsSync(worktreePath)) {
-                    execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
-                      cwd: project.path,
-                      encoding: 'utf-8'
-                    });
-                    debug('Worktree cleaned up after full merge:', worktreePath);
+                // Uses shared cleanup utility for robust Windows support (fixes #1539)
+                if (worktreePath && existsSync(worktreePath)) {
+                  const cleanupResult = await cleanupWorktree({
+                    worktreePath,
+                    projectPath: project.path,
+                    specId: task.specId,
+                    commitMessage: 'Auto-save before merge cleanup',
+                    logPrefix: '[TASK_WORKTREE_MERGE]',
+                    deleteBranch: true
+                  });
 
-                    // Also delete the task branch since we merged successfully
-                    const taskBranch = `auto-claude/${task.specId}`;
-                    try {
-                      execFileSync(getToolPath('git'), ['branch', '-D', taskBranch], {
-                        cwd: project.path,
-                        encoding: 'utf-8'
-                      });
-                      debug('Task branch deleted:', taskBranch);
-                    } catch {
-                      // Branch might not exist or already deleted
+                  if (cleanupResult.success) {
+                    debug('Worktree cleaned up after full merge:', worktreePath);
+                    if (cleanupResult.branch) {
+                      debug('Task branch deleted:', cleanupResult.branch);
                     }
+                  } else {
+                    debug('Worktree cleanup failed (non-fatal):', cleanupResult.warnings);
+                    // Non-fatal - merge succeeded, cleanup can be done manually
                   }
-                } catch (cleanupErr) {
-                  debug('Worktree cleanup failed (non-fatal):', cleanupErr);
-                  // Non-fatal - merge succeeded, cleanup can be done manually
+
+                  // Log any warnings for debugging
+                  if (cleanupResult.warnings.length > 0) {
+                    debug('Cleanup warnings:', cleanupResult.warnings);
+                  }
                 }
               }
 
@@ -2639,6 +2713,10 @@ export function registerWorktreeHandlers(
   /**
    * Discard the worktree changes
    * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
+   *
+   * Note: Uses the shared cleanupWorktree utility which handles Windows-specific issues
+   * where `git worktree remove --force` fails when the directory contains untracked files.
+   * See: https://github.com/AndyMik90/Auto-Claude/issues/1539
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_DISCARD,
@@ -2662,64 +2740,49 @@ export function registerWorktreeHandlers(
           };
         }
 
-        try {
-          // Get the branch name before removing
-          // Use shared utility to validate detected branch matches expected pattern
-          // This prevents deleting wrong branch when worktree is corrupted/orphaned
-          const { branch, usingFallback } = detectWorktreeBranch(
-            worktreePath,
-            task.specId,
-            { timeout: 30000, logPrefix: '[TASK_WORKTREE_DISCARD]' }
-          );
+        // Use the shared cleanup utility for robust, cross-platform worktree deletion
+        const cleanupResult = await cleanupWorktree({
+          worktreePath,
+          projectPath: project.path,
+          specId: task.specId,
+          commitMessage: 'Auto-save before discard',
+          logPrefix: '[TASK_WORKTREE_DISCARD]',
+          deleteBranch: true
+        });
 
-          // Remove the worktree
-          execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
-            cwd: project.path,
-            encoding: 'utf-8',
-            env: getIsolatedGitEnv(),
-            timeout: 30000
-          });
-
-          // Delete the branch
-          try {
-            execFileSync(getToolPath('git'), ['branch', '-D', branch], {
-              cwd: project.path,
-              encoding: 'utf-8',
-              env: getIsolatedGitEnv(),
-              timeout: 30000
-            });
-          } catch (branchDeleteError) {
-            // Branch might already be deleted or not exist
-            if (usingFallback) {
-              console.warn(`[TASK_WORKTREE_DISCARD] Could not delete branch ${branch} using fallback pattern. Actual branch may still exist and need manual cleanup.`, branchDeleteError);
-            } else {
-              console.warn(`[TASK_WORKTREE_DISCARD] Could not delete branch ${branch} (may not exist or be checked out elsewhere)`, branchDeleteError);
-            }
-          }
-
-          // Only send status change to backlog if not skipped
-          // (skip when caller will set a different status, e.g., 'done')
-          if (!skipStatusChange) {
-            const mainWindow = getMainWindow();
-            if (mainWindow) {
-              mainWindow.webContents.send(IPC_CHANNELS.TASK_STATUS_CHANGE, taskId, 'backlog');
-            }
-          }
-
-          return {
-            success: true,
-            data: {
-              success: true,
-              message: 'Worktree discarded successfully'
-            }
-          };
-        } catch (gitError) {
-          console.error('Git error discarding worktree:', gitError);
+        if (!cleanupResult.success) {
+          console.error('[TASK_WORKTREE_DISCARD] Cleanup failed:', cleanupResult.warnings);
           return {
             success: false,
-            error: `Failed to discard worktree: ${gitError instanceof Error ? gitError.message : 'Unknown error'}`
+            error: `Failed to discard worktree: ${cleanupResult.warnings.join('; ')}`
           };
         }
+
+        // Log any non-fatal warnings
+        if (cleanupResult.warnings.length > 0) {
+          console.warn('[TASK_WORKTREE_DISCARD] Cleanup warnings:', cleanupResult.warnings);
+        }
+        if (cleanupResult.autoCommitted) {
+          console.warn('[TASK_WORKTREE_DISCARD] Auto-committed uncommitted work before discard');
+        }
+
+
+        // Only send status change to backlog if not skipped
+        // (skip when caller will set a different status, e.g., 'done')
+        if (!skipStatusChange) {
+          const mainWindow = getMainWindow();
+          if (mainWindow) {
+            mainWindow.webContents.send(IPC_CHANNELS.TASK_STATUS_CHANGE, taskId, 'backlog');
+          }
+        }
+
+        return {
+          success: true,
+          data: {
+            success: true,
+            message: 'Worktree discarded successfully'
+          }
+        };
       } catch (error) {
         console.error('Failed to discard worktree:', error);
         return {
@@ -2734,6 +2797,85 @@ export function registerWorktreeHandlers(
   const execFileAsync = promisify(execFile);
 
   /**
+   * Discard an orphaned worktree by spec name (no task association required)
+   * Used when the worktree exists but the task is missing or git state is corrupted
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_WORKTREE_DISCARD_ORPHAN,
+    async (_, projectId: string, specName: string): Promise<IPCResult<WorktreeDiscardResult>> => {
+      try {
+        // Validate inputs
+        if (!projectId || typeof projectId !== 'string') {
+          console.error('discardOrphanedWorktree: Invalid projectId:', projectId);
+          return { success: false, error: 'Invalid projectId' };
+        }
+        if (!specName || typeof specName !== 'string') {
+          console.error('discardOrphanedWorktree: Invalid specName:', specName);
+          return { success: false, error: 'Invalid specName' };
+        }
+
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          return { success: false, error: 'Project not found' };
+        }
+
+        // Validate project.path
+        if (!project.path || typeof project.path !== 'string') {
+          console.error('discardOrphanedWorktree: Project path is invalid:', project.path);
+          return { success: false, error: 'Project path is invalid' };
+        }
+
+        // Find worktree at .auto-claude/worktrees/tasks/{spec-name}/
+        const worktreePath = findTaskWorktree(project.path, specName);
+
+        if (!worktreePath) {
+          return {
+            success: true,
+            data: {
+              success: true,
+              message: 'No worktree to discard'
+            }
+          };
+        }
+
+        // Use cleanupWorktree which auto-commits any uncommitted changes before deletion
+        // This preserves work in git history (recoverable via reflog for ~90 days)
+        const cleanupResult = await cleanupWorktree({
+          worktreePath,
+          projectPath: project.path,
+          specId: specName,
+          commitMessage: 'Auto-save before orphaned worktree deletion',
+          logPrefix: '[ORPHAN_CLEANUP]',
+          deleteBranch: true
+        });
+
+        if (!cleanupResult.success) {
+          return {
+            success: false,
+            error: cleanupResult.warnings.join(', ') || 'Failed to cleanup orphaned worktree'
+          };
+        }
+
+        return {
+          success: true,
+          data: {
+            success: true,
+            message: cleanupResult.autoCommitted
+              ? 'Orphaned worktree deleted (uncommitted changes were auto-saved)'
+              : 'Orphaned worktree deleted successfully'
+          }
+        };
+      } catch (error) {
+        console.error('Failed to discard orphaned worktree:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to discard orphaned worktree'
+        };
+      }
+    }
+  );
+
+  /**
    * List all spec worktrees for a project
    * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
    */
@@ -2741,12 +2883,31 @@ export function registerWorktreeHandlers(
     IPC_CHANNELS.TASK_LIST_WORKTREES,
     async (_, projectId: string): Promise<IPCResult<WorktreeListResult>> => {
       try {
+        // Validate projectId
+        if (!projectId || typeof projectId !== 'string') {
+          console.error('listWorktrees: Invalid projectId:', projectId);
+          return { success: false, error: 'Invalid projectId' };
+        }
+
         const project = projectStore.getProject(projectId);
         if (!project) {
           return { success: false, error: 'Project not found' };
         }
 
+// Validate project.path
+        if (!project.path || typeof project.path !== 'string') {
+          console.error('listWorktrees: Project path is invalid:', project.path);
+          return { success: false, error: 'Project path is invalid' };
+        }
+
         const worktreesDir = getTaskWorktreeDir(project.path);
+
+        // Fetch tasks once before iterating (avoids repeated lookups per entry)
+        // Used for orphan detection - worktrees without a matching task are orphaned
+        const tasks = projectStore.getTasks(projectId);
+        // Track if task lookup was successful (empty array with existing specs dir = lookup failed)
+        const mainSpecsDir = path.join(project.path, '.auto-claude', 'specs');
+        const taskLookupSuccessful = tasks.length > 0 || !existsSync(mainSpecsDir);
 
         // Helper to process a single worktree entry (async)
         const processWorktreeEntry = async (entry: string, entryPath: string): Promise<WorktreeListItem | null> => {
@@ -2763,7 +2924,7 @@ export function registerWorktreeHandlers(
             // Note: We do NOT use current HEAD as that may be a feature branch
             const baseBranch = getEffectiveBaseBranch(project.path, entry, project.settings?.mainBranch);
 
-            // Get commit count (async, cross-platform - no shell syntax)
+// Get commit count (async, cross-platform - no shell syntax)
             let commitCount = 0;
             try {
               const countResult = await execFileAsync(getToolPath('git'), ['rev-list', '--count', `${baseBranch}..HEAD`], {
@@ -2798,6 +2959,11 @@ export function registerWorktreeHandlers(
               // Ignore diff errors
             }
 
+            // Check if there's a task associated with this worktree
+            // A worktree without a task is considered orphaned (can happen if task was deleted)
+            // Only mark as orphaned if task lookup was successful (avoid false positives)
+            const hasTask = tasks.some(t => t.specId === entry);
+
             return {
               specName: entry,
               path: entryPath,
@@ -2806,12 +2972,26 @@ export function registerWorktreeHandlers(
               commitCount,
               filesChanged,
               additions,
-              deletions
+              deletions,
+              isOrphaned: taskLookupSuccessful ? !hasTask : false
             };
           } catch (gitError) {
-            console.error(`Error getting info for worktree ${entry}:`, gitError);
-            // Skip this worktree if we can't get git info
-            return null;
+            // FIX: Don't skip worktree if git fails - it may be orphaned/corrupted
+            // Include it so it can be managed (deleted if orphaned)
+            const hasTask = tasks.some(t => t.specId === entry);
+            console.warn(`[Worktree] Git commands failed for ${entry}, hasTask=${hasTask}:`, gitError);
+            // Note: branch is empty - renderer should handle based on isOrphaned flag
+            return {
+              specName: entry,
+              path: entryPath,
+              branch: '',
+              baseBranch: '',
+              commitCount: 0,
+              filesChanged: 0,
+              additions: 0,
+              deletions: 0,
+              isOrphaned: taskLookupSuccessful ? !hasTask : false
+            };
           }
         };
 
