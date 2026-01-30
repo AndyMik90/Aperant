@@ -3,6 +3,7 @@
  */
 
 import type { IPCResult } from './common';
+import type { KanbanPreferences } from './kanban';
 import type { SupportedIDE, SupportedTerminal } from './settings';
 import type {
   Project,
@@ -44,7 +45,8 @@ import type {
   TaskMetadata,
   TaskLogs,
   TaskLogStreamChunk,
-  ImageAttachment
+  ImageAttachment,
+  MergeProgress
 } from './task';
 import type {
   TerminalCreateOptions,
@@ -136,7 +138,6 @@ import type {
   GitLabNewCommitsCheck
 } from './integrations';
 import type { APIProfile, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from './profile';
-import type { KanbanPreferences } from './kanban';
 
 // Electron API exposed via contextBridge
 // Tab state interface (persisted in main process)
@@ -159,7 +160,7 @@ export interface ElectronAPI {
   getTabState: () => Promise<IPCResult<TabState>>;
   saveTabState: (tabState: TabState) => Promise<IPCResult>;
 
-  // Kanban Preferences (persisted in main process per project)
+  // Kanban preferences (per-project column collapse state)
   getKanbanPreferences: (projectId: string) => Promise<IPCResult<KanbanPreferences | null>>;
   saveKanbanPreferences: (projectId: string, preferences: KanbanPreferences) => Promise<IPCResult>;
 
@@ -770,6 +771,9 @@ export interface ElectronAPI {
   ) => () => void;
   onTaskLogsStream: (
     callback: (specId: string, chunk: TaskLogStreamChunk) => void
+  ) => () => void;
+  onMergeProgress: (
+    callback: (taskId: string, progress: MergeProgress) => void
   ) => () => void;
 
   // File explorer operations
