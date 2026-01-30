@@ -311,7 +311,8 @@ const browserMockAPI: ElectronAPI = {
     // Mock listener cleanup - no-op
   },
   clearLinearCache: async () => ({ success: true, data: undefined }),
-  postLinearComment: async () => ({ success: true, data: undefined }),
+  postLinearComment: async (_projectId, _ticketId, _comment, _parentId) => ({ success: true, data: undefined }),
+  getLinearComments: async () => ({ success: true, data: [] }),
 
   // Claude Code Operations
   checkClaudeCodeVersion: async () => ({

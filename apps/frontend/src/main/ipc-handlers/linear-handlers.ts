@@ -984,6 +984,7 @@ ${issue.description || "No description provided."}
 
 	/**
 	 * Post a comment to a Linear ticket
+	 * If parentId is provided, posts as a threaded reply (syncs to GitHub for GitHub threads)
 	 * Note: projectId is optional - if not provided, will look for any project with Linear API key
 	 */
 	ipcMain.handle(
@@ -993,8 +994,9 @@ ${issue.description || "No description provided."}
 			projectId: string | null,
 			ticketId: string,
 			comment: string,
+			parentId: string | null = null, // Optional: parent comment ID for threaded replies (GitHub sync)
 		): Promise<IPCResult<void>> => {
-			debugLog("Post comment requested", { ticketId, projectId });
+			debugLog("Post comment requested", { ticketId, projectId, parentId });
 
 			let apiKey: string | null = null;
 
@@ -1025,7 +1027,25 @@ ${issue.description || "No description provided."}
 			}
 
 			try {
-				const mutation = `
+				// Build mutation based on whether we're posting a threaded reply or top-level comment
+				// Threaded replies (with parentId) sync to GitHub when the thread is from GitHub
+				const mutation = parentId
+					? `
+          mutation($issueId: String!, $body: String!, $parentId: String!) {
+            commentCreate(input: {
+              issueId: $issueId,
+              body: $body,
+              parentCommentId: $parentId
+            }) {
+              success
+              comment {
+                id
+                body
+              }
+            }
+          }
+        `
+					: `
           mutation($issueId: String!, $body: String!) {
             commentCreate(input: {
               issueId: $issueId,
@@ -1040,12 +1060,18 @@ ${issue.description || "No description provided."}
           }
         `;
 
-				debugLog("Posting comment to Linear", { ticketId });
-
-				await linearGraphQL(apiKey, mutation, {
+				const variables: Record<string, string> = {
 					issueId: ticketId,
 					body: comment,
-				});
+				};
+
+				if (parentId) {
+					variables.parentId = parentId;
+				}
+
+				debugLog("Posting comment to Linear", { ticketId, parentId });
+
+				await linearGraphQL(apiKey, mutation, variables);
 
 				debugLog("Comment posted successfully", { ticketId });
 				return { success: true };
@@ -1055,6 +1081,72 @@ ${issue.description || "No description provided."}
 					success: false,
 					error:
 						error instanceof Error ? error.message : "Failed to post comment",
+				};
+			}
+		},
+	);
+
+	/**
+	 * Fetch comments for an issue (to find GitHub threads for reply)
+	 */
+	ipcMain.handle(
+		IPC_CHANNELS.LINEAR_GET_COMMENTS,
+		async (
+			_,
+			projectId: string,
+			ticketId: string,
+		): Promise<IPCResult<Array<{ id: string; body: string; parentId: string | null; user: { name: string } }>>> => {
+			debugLog("Get comments requested", { ticketId, projectId });
+
+			const project = projectStore.getProject(projectId);
+			if (!project) {
+				return { success: false, error: "Project not found" };
+			}
+
+			const apiKey = getLinearApiKey(project);
+			if (!apiKey) {
+				return { success: false, error: "No Linear API key configured" };
+			}
+
+			try {
+				const query = `
+          query($issueId: String!) {
+            issue(id: $issueId) {
+              comments {
+                nodes {
+                  id
+                  body
+                  parentId
+                  user {
+                    name
+                  }
+                  createdAt
+                }
+              }
+            }
+          }
+        `;
+
+				const data = (await linearGraphQL(apiKey, query, { issueId: ticketId })) as {
+					issue: {
+						comments: {
+							nodes: Array<{
+								id: string;
+								body: string;
+								parentId: string | null;
+								user: { name: string };
+							}>;
+						};
+					};
+				};
+
+				debugLog("Comments fetched successfully", { ticketId, count: data?.issue?.comments?.nodes?.length });
+				return { success: true, data: data?.issue?.comments?.nodes || [] };
+			} catch (error) {
+				debugLog("Get comments error", { ticketId, error });
+				return {
+					success: false,
+					error: error instanceof Error ? error.message : "Failed to fetch comments",
 				};
 			}
 		},

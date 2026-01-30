@@ -290,7 +290,7 @@ export function ValidationResults({
 	}, [ticket, validation, onOpenChange, t]);
 
 	// Handle post feedback to Linear (for incomplete validations)
-	// Posts both: 1) Full validation results, 2) Clarification comment for GitHub reporter
+	// Posts both: 1) Full validation results, 2) Clarification comment as reply to GitHub thread
 	const handlePostFeedback = useCallback(async () => {
 		setIsPosting(true);
 		setError(null);
@@ -298,9 +298,13 @@ export function ValidationResults({
 		try {
 			// Get project ID from ticket, or fall back to selected project from store
 			// The backend will handle finding an API key if projectId is null
-			const projectId = ticket.project?.id || useLinearStore.getState().selectedProjectId || null;
+			const projectId = ticket.project?.id || useLinearStore.getState().selectedProjectId;
 
-			// 1. Post the full validation results comment
+			if (!projectId) {
+				throw new Error('No project ID available for posting comments');
+			}
+
+			// 1. Post the full validation results comment (top-level comment)
 			const feedbackComment = buildFeedbackComment(ticket, validation, t);
 			const feedbackResult = await window.electronAPI.postLinearComment(projectId, ticket.id, feedbackComment);
 
@@ -313,12 +317,28 @@ export function ValidationResults({
 			const isComplete = validation.completenessValidation?.isComplete ?? false;
 			const hasMissingFields = validation.completenessValidation?.missingFields?.length > 0;
 
-			if (!isComplete && hasMissingFields) {
+			if (!isComplete && hasMissingFields && projectId) {
+				// Fetch comments to find GitHub threads
+				const commentsResult = await window.electronAPI.getLinearComments(projectId, ticket.id);
+
+				let parentId: string | null = null;
+
+				if (commentsResult.success && commentsResult.data) {
+					// Find the first top-level comment that might be from GitHub
+					// GitHub comments appear as top-level comments (without parentId)
+					// We reply to the first one we find
+					const githubThread = commentsResult.data.find((c) => !c.parentId);
+					if (githubThread) {
+						parentId = githubThread.id;
+					}
+				}
+
 				const clarificationComment = buildClarificationComment(ticket, validation, t);
 				const clarificationResult = await window.electronAPI.postLinearComment(
 					projectId,
 					ticket.id,
-					clarificationComment
+					clarificationComment,
+					parentId, // Post as threaded reply if we found a GitHub thread
 				);
 
 				if (!clarificationResult.success) {

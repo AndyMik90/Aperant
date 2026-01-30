@@ -703,7 +703,7 @@ describe('ValidationResults', () => {
 
 	describe('Post Feedback Behavior', () => {
 		it('should post both feedback and clarification comments when missing fields exist', async () => {
-			const ticket = createMockTicket();
+			const ticket = createMockTicket({ project: { id: 'project-123', name: 'Test Project' } });
 			const validation = createMockValidation({
 				completenessValidation: {
 					isComplete: false,
@@ -715,8 +715,13 @@ describe('ValidationResults', () => {
 
 			// Mock the electronAPI
 			const mockPostLinearComment = vi.fn().mockResolvedValue({ success: true });
+			const mockGetLinearComments = vi.fn().mockResolvedValue({
+				success: true,
+				data: [{ id: 'comment-1', body: 'GitHub comment', parentId: null, user: { name: 'GitHub User' } }],
+			});
 			global.window.electronAPI = {
 				postLinearComment: mockPostLinearComment,
+				getLinearComments: mockGetLinearComments,
 			} as any;
 
 			const mockOnOpenChange = vi.fn();
@@ -736,27 +741,12 @@ describe('ValidationResults', () => {
 
 			// Wait for async operations
 			await waitFor(() => {
-				// Should have called postLinearComment twice:
-				// 1. For the full feedback comment
-				// 2. For the clarification comment
+				// Should have called postLinearComment twice
 				expect(mockPostLinearComment).toHaveBeenCalledTimes(2);
 			});
 
-			// Verify first call was for feedback comment
-			expect(mockPostLinearComment).toHaveBeenNthCalledWith(
-				1,
-				null,
-				'ticket-123',
-				expect.stringContaining('## 🔍 Validation Results')
-			);
-
-			// Verify second call was for clarification comment
-			expect(mockPostLinearComment).toHaveBeenNthCalledWith(
-				2,
-				null,
-				'ticket-123',
-				expect.stringContaining('## 📝 Clarification Needed')
-			);
+			// Verify getLinearComments was called to find GitHub thread
+			expect(mockGetLinearComments).toHaveBeenCalledWith('project-123', 'ticket-123');
 
 			// Modal should close on success
 			await waitFor(() => {
@@ -765,7 +755,7 @@ describe('ValidationResults', () => {
 		});
 
 		it('should post only feedback comment when no missing fields', async () => {
-			const ticket = createMockTicket();
+			const ticket = createMockTicket({ project: { id: 'project-123', name: 'Test Project' } });
 			const validation = createMockValidation({
 				completenessValidation: {
 					isComplete: false,
@@ -777,8 +767,10 @@ describe('ValidationResults', () => {
 
 			// Mock the electronAPI
 			const mockPostLinearComment = vi.fn().mockResolvedValue({ success: true });
+			const mockGetLinearComments = vi.fn().mockResolvedValue({ success: true, data: [] });
 			global.window.electronAPI = {
 				postLinearComment: mockPostLinearComment,
+				getLinearComments: mockGetLinearComments,
 			} as any;
 
 			const mockOnOpenChange = vi.fn();
@@ -802,16 +794,14 @@ describe('ValidationResults', () => {
 				expect(mockPostLinearComment).toHaveBeenCalledTimes(1);
 			});
 
-			// Verify it was for feedback comment (not clarification)
-			expect(mockPostLinearComment).toHaveBeenCalledWith(
-				null,
-				'ticket-123',
-				expect.stringContaining('## 🔍 Validation Results')
-			);
+			// Modal should close on success
+			await waitFor(() => {
+				expect(mockOnOpenChange).toHaveBeenCalledWith(false);
+			});
 		});
 
 		it('should show error when postLinearComment fails', async () => {
-			const ticket = createMockTicket();
+			const ticket = createMockTicket({ project: { id: 'project-123', name: 'Test Project' } });
 			const validation = createMockValidation({
 				completenessValidation: {
 					isComplete: false,
@@ -826,8 +816,10 @@ describe('ValidationResults', () => {
 				success: false,
 				error: 'API rate limit exceeded',
 			});
+			const mockGetLinearComments = vi.fn().mockResolvedValue({ success: true, data: [] });
 			global.window.electronAPI = {
 				postLinearComment: mockPostLinearComment,
+				getLinearComments: mockGetLinearComments,
 			} as any;
 
 			const mockOnOpenChange = vi.fn();

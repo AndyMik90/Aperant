@@ -448,7 +448,8 @@ export interface ElectronAPI {
   cancelLinearValidation: (ticketId: string) => Promise<IPCResult<void>>;
   updateLinearTicketWithValidation: (projectId: string, ticketId: string, validation: ValidationResult) => Promise<IPCResult<any>>;
   clearLinearCache: () => Promise<IPCResult<void>>;
-  postLinearComment: (projectId: string | null, ticketId: string, comment: string) => Promise<IPCResult<void>>;
+  postLinearComment: (projectId: string | null, ticketId: string, comment: string, parentId?: string | null) => Promise<IPCResult<void>>;
+  getLinearComments: (projectId: string, ticketId: string) => Promise<IPCResult<Array<{ id: string; body: string; parentId: string | null; user: { name: string } }>>>;
   /** Listen for Linear validation progress events */
   onLinearValidationProgress: (callback: (progress: {
     ticketId: string;
