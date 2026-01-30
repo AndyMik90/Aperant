@@ -18,6 +18,7 @@ import {
 import { findTaskWorktree } from '../../worktree-paths';
 import { projectStore } from '../../project-store';
 import { getIsolatedGitEnv, detectWorktreeBranch } from '../../utils/git-isolation';
+import { hasValidAPIProfile } from '../../services/utils/auth-utils';
 
 /**
  * Atomic file write to prevent TOCTOU race conditions.
@@ -167,7 +168,10 @@ export function registerTaskExecutionHandlers(
       }
 
       // Check authentication - Claude requires valid auth to run tasks
-      if (!profileManager.hasValidAuth()) {
+      const hasOAuthAuth = profileManager.hasValidAuth();
+      const hasAPIAuth = await hasValidAPIProfile();
+
+      if (!hasOAuthAuth && !hasAPIAuth) {
         console.warn('[TASK_START] No valid authentication for active profile');
         mainWindow.webContents.send(
           IPC_CHANNELS.TASK_ERROR,
@@ -748,7 +752,10 @@ export function registerTaskExecutionHandlers(
             return { success: false, error: initResult.error };
           }
           const profileManager = initResult.profileManager;
-          if (!profileManager.hasValidAuth()) {
+          const hasOAuthAuth = profileManager.hasValidAuth();
+          const hasAPIAuth = await hasValidAPIProfile();
+
+          if (!hasOAuthAuth && !hasAPIAuth) {
             console.warn('[TASK_UPDATE_STATUS] No valid authentication for active profile');
             if (mainWindow) {
               mainWindow.webContents.send(
@@ -1102,7 +1109,10 @@ export function registerTaskExecutionHandlers(
             };
           }
           const profileManager = initResult.profileManager;
-          if (!profileManager.hasValidAuth()) {
+          const hasOAuthAuth = profileManager.hasValidAuth();
+          const hasAPIAuth = await hasValidAPIProfile();
+
+          if (!hasOAuthAuth && !hasAPIAuth) {
             console.warn('[Recovery] Auth check failed, cannot auto-restart task');
             // Recovery succeeded but we can't restart without auth
             return {
