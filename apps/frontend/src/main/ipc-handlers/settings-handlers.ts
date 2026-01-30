@@ -1,4 +1,4 @@
-import { ipcMain, dialog, app, shell } from 'electron';
+import { ipcMain, dialog, app, shell, session } from 'electron';
 import { existsSync, writeFileSync, mkdirSync, statSync, readFileSync } from 'fs';
 import { execFileSync } from 'node:child_process';
 import path from 'path';
@@ -8,7 +8,8 @@ import { is } from '@electron-toolkit/utils';
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-import { IPC_CHANNELS, DEFAULT_APP_SETTINGS, DEFAULT_AGENT_PROFILES } from '../../shared/constants';
+import { IPC_CHANNELS, DEFAULT_APP_SETTINGS, DEFAULT_AGENT_PROFILES, SPELL_CHECK_LANGUAGE_MAP, DEFAULT_SPELL_CHECK_LANGUAGE } from '../../shared/constants';
+import { setAppLanguage } from '../app-language';
 import type {
   AppSettings,
   IPCResult,
@@ -797,6 +798,66 @@ export function registerSettingsHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to check source token'
+        };
+      }
+    }
+  );
+
+  // ============================================
+  // Spell Check Operations
+  // ============================================
+
+  /**
+   * Set spell check languages based on app language.
+   * Called when renderer's i18n language changes to sync spell checker.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.SPELLCHECK_SET_LANGUAGES,
+    async (_, language: string): Promise<IPCResult<{ success: boolean }>> => {
+      try {
+        // Validate language parameter
+        if (!language || typeof language !== 'string') {
+          return {
+            success: false,
+            error: 'Invalid language parameter'
+          };
+        }
+
+        // Update tracked app language for context menu labels
+        setAppLanguage(language);
+
+        // Get spell check languages for this app language
+        const spellCheckLanguages = SPELL_CHECK_LANGUAGE_MAP[language] || [DEFAULT_SPELL_CHECK_LANGUAGE];
+
+        // Get available languages on this system
+        const availableLanguages = session.defaultSession.availableSpellCheckerLanguages;
+
+        // Filter to only available languages
+        const validLanguages = spellCheckLanguages.filter(lang =>
+          availableLanguages.includes(lang)
+        );
+
+        // Fallback to default if none of the preferred languages are available
+        const languagesToSet = validLanguages.length > 0
+          ? validLanguages
+          : (availableLanguages.includes(DEFAULT_SPELL_CHECK_LANGUAGE) ? [DEFAULT_SPELL_CHECK_LANGUAGE] : []);
+
+        if (languagesToSet.length > 0) {
+          session.defaultSession.setSpellCheckerLanguages(languagesToSet);
+          console.log(`[SPELLCHECK] Languages set to: ${languagesToSet.join(', ')} for app language: ${language}`);
+        } else {
+          console.warn(`[SPELLCHECK] No valid spell check languages available for: ${language}`);
+        }
+
+        return {
+          success: true,
+          data: { success: true }
+        };
+      } catch (error) {
+        console.error('[SPELLCHECK_SET_LANGUAGES] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to set spell check languages'
         };
       }
     }

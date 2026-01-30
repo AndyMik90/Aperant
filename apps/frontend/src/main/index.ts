@@ -35,7 +35,7 @@ for (const envPath of possibleEnvPaths) {
   }
 }
 
-import { app, BrowserWindow, shell, nativeImage, session, screen } from 'electron';
+import { app, BrowserWindow, shell, nativeImage, session, screen, Menu, MenuItem } from 'electron';
 import { join } from 'path';
 import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
@@ -46,7 +46,8 @@ import { pythonEnvManager } from './python-env-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
 import { initializeUsageMonitorForwarding } from './ipc-handlers/terminal-handlers';
 import { initializeAppUpdater, stopPeriodicUpdates } from './app-updater';
-import { DEFAULT_APP_SETTINGS, IPC_CHANNELS } from '../shared/constants';
+import { DEFAULT_APP_SETTINGS, IPC_CHANNELS, SPELL_CHECK_LANGUAGE_MAP, DEFAULT_SPELL_CHECK_LANGUAGE, ADD_TO_DICTIONARY_LABELS } from '../shared/constants';
+import { getAppLanguage, initAppLanguage } from './app-language';
 import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
@@ -204,13 +205,95 @@ function createWindow(): void {
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
-      backgroundThrottling: false // Prevent terminal lag when window loses focus
+      backgroundThrottling: false, // Prevent terminal lag when window loses focus
+      spellcheck: true // Enable spell check for text inputs
     }
   });
 
   // Show window when ready to avoid visual flash
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
+  });
+
+  // Configure initial spell check languages with proper fallback logic
+  // Uses shared constant for consistency with the IPC handler
+  const defaultLanguage = 'en';
+  const defaultSpellCheckLanguages = SPELL_CHECK_LANGUAGE_MAP[defaultLanguage] || [DEFAULT_SPELL_CHECK_LANGUAGE];
+  const availableSpellCheckLanguages = session.defaultSession.availableSpellCheckerLanguages;
+  const validSpellCheckLanguages = defaultSpellCheckLanguages.filter(lang =>
+    availableSpellCheckLanguages.includes(lang)
+  );
+  const initialSpellCheckLanguages = validSpellCheckLanguages.length > 0
+    ? validSpellCheckLanguages
+    : (availableSpellCheckLanguages.includes(DEFAULT_SPELL_CHECK_LANGUAGE) ? [DEFAULT_SPELL_CHECK_LANGUAGE] : []);
+
+  if (initialSpellCheckLanguages.length > 0) {
+    session.defaultSession.setSpellCheckerLanguages(initialSpellCheckLanguages);
+    console.log(`[SPELLCHECK] Initial languages set to: ${initialSpellCheckLanguages.join(', ')}`);
+  } else {
+    console.warn('[SPELLCHECK] No spell check languages available on this system');
+  }
+
+  // Handle context menu with spell check and standard editing options
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    const menu = new Menu();
+
+    // Add spelling suggestions if there's a misspelled word
+    if (params.misspelledWord) {
+      for (const suggestion of params.dictionarySuggestions) {
+        menu.append(new MenuItem({
+          label: suggestion,
+          click: () => mainWindow?.webContents.replaceMisspelling(suggestion)
+        }));
+      }
+
+      if (params.dictionarySuggestions.length > 0) {
+        menu.append(new MenuItem({ type: 'separator' }));
+      }
+
+      // Use localized label for "Add to Dictionary" based on app language (not OS locale)
+      // getAppLanguage() tracks the user's in-app language setting, updated via SPELLCHECK_SET_LANGUAGES IPC
+      const addToDictionaryLabel = ADD_TO_DICTIONARY_LABELS[getAppLanguage()] || ADD_TO_DICTIONARY_LABELS['en'];
+      menu.append(new MenuItem({
+        label: addToDictionaryLabel,
+        click: () => mainWindow?.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
+      }));
+
+      menu.append(new MenuItem({ type: 'separator' }));
+    }
+
+    // Standard editing options for editable fields
+    // Using role without explicit label allows Electron to provide localized labels
+    if (params.isEditable) {
+      menu.append(new MenuItem({
+        role: 'cut',
+        enabled: params.editFlags.canCut
+      }));
+      menu.append(new MenuItem({
+        role: 'copy',
+        enabled: params.editFlags.canCopy
+      }));
+      menu.append(new MenuItem({
+        role: 'paste',
+        enabled: params.editFlags.canPaste
+      }));
+      menu.append(new MenuItem({
+        role: 'selectAll',
+        enabled: params.editFlags.canSelectAll
+      }));
+    } else if (params.selectionText?.trim()) {
+      // Non-editable text selection (e.g., labels, paragraphs)
+      // Use .trim() to avoid showing menu for whitespace-only selections
+      menu.append(new MenuItem({
+        role: 'copy',
+        enabled: params.editFlags.canCopy
+      }));
+    }
+
+    // Only show menu if there are items
+    if (menu.items.length > 0) {
+      menu.popup();
+    }
   });
 
   // Handle external links with URL scheme allowlist for security
@@ -277,6 +360,9 @@ app.whenReady().then(() => {
       .then(() => console.log('[main] Cleared cache on startup'))
       .catch((err) => console.warn('[main] Failed to clear cache:', err));
   }
+
+  // Initialize app language from OS locale for main process i18n (context menus)
+  initAppLanguage();
 
   // Clean up stale update metadata from the old source updater system
   // This prevents version display desync after electron-updater installs a new version
