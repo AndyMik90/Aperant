@@ -58,7 +58,7 @@ export function TaskSubtasks({ task }: TaskSubtasksProps) {
                 <div className="flex items-start gap-2">
                   {getSubtaskStatusIcon(subtask.status)}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <span className={cn(
                         'text-[10px] font-medium px-1.5 py-0.5 rounded-full',
                         subtask.status === 'completed' ? 'bg-success/20 text-success' :
