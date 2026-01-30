@@ -56,10 +56,11 @@ function logInfo(message) {
 }
 
 /**
- * Check if a command exists (POSIX-compliant)
+ * Check if a command exists
+ * Uses 'which' directly without shell interpolation to prevent command injection
  */
 function commandExists(cmd) {
-  const result = spawnSync('sh', ['-c', `command -v ${cmd}`], { stdio: 'ignore' });
+  const result = spawnSync('which', [cmd], { stdio: 'ignore' });
   return result.status === 0;
 }
 
