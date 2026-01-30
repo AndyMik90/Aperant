@@ -571,7 +571,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_SPLIT_INTO_TASKS,
-    async (_, projectId: string, text: string, promptTemplate?: string, images?: import('../../../shared/types/screenshot').ClipboardImage[]): Promise<IPCResult<Array<{ title: string; description: string; attachedImages?: import('../../../shared/types/screenshot').ClipboardImage[] }>>> => {
+    async (_, projectId: string, text: string, promptTemplate?: string, images?: import('../../../shared/types/screenshot').ClipboardImage[]): Promise<IPCResult<Array<{ title: string; description: string }>>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
         return { success: false, error: 'Project not found' };
@@ -685,7 +685,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
 /**
  * Split text into multiple tasks using Claude AI
  */
-async function splitTextIntoTasks(text: string, promptTemplate?: string, images?: import('../../../shared/types/screenshot').ClipboardImage[]): Promise<Array<{ title: string; description: string; attachedImages?: import('../../../shared/types/screenshot').ClipboardImage[] }>> {
+async function splitTextIntoTasks(text: string, promptTemplate?: string, images?: import('../../../shared/types/screenshot').ClipboardImage[]): Promise<Array<{ title: string; description: string }>> {
   const { spawn } = await import('child_process');
   const path = await import('path');
   const { app } = await import('electron');
@@ -931,14 +931,7 @@ asyncio.run(split_into_tasks())
           try {
             const tasks = JSON.parse(output.trim());
             console.log('[splitTextIntoTasks] Successfully split into', tasks.length, 'tasks');
-
-            // Attach images to each task if provided
-            const tasksWithImages = tasks.map((task: { title: string; description: string }) => ({
-              ...task,
-              attachedImages: images
-            }));
-
-            resolve(tasksWithImages);
+            resolve(tasks);
           } catch (e) {
             console.error('[splitTextIntoTasks] Failed to parse response:', output.substring(0, 500));
             resolve([]);

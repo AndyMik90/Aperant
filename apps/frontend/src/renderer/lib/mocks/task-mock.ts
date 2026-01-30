@@ -29,18 +29,16 @@ export const taskMock = {
 
   deleteTask: async () => ({ success: true }),
 
-  splitIntoTasks: async (_projectId: string, text: string, _promptTemplate?: string, images?: import('../../../shared/types/screenshot').ClipboardImage[]) => ({
+  splitIntoTasks: async (_projectId: string, text: string, _promptTemplate?: string, _images?: import('../../../shared/types/screenshot').ClipboardImage[]) => ({
     success: true,
     data: [
       {
         title: 'Sample Task 1',
-        description: text.substring(0, 100),
-        attachedImages: images
+        description: text.substring(0, 100)
       },
       {
         title: 'Sample Task 2',
-        description: text.substring(0, 100),
-        attachedImages: images
+        description: text.substring(0, 100)
       }
     ]
   }),

@@ -613,16 +613,27 @@ export function App() {
     setSelectedTask(null);
   };
 
-  const handleAISplitComplete = async (splitTasks: SplitTask[]) => {
+  const handleAISplitComplete = async (splitTasks: SplitTask[], images: import('@shared/types').ClipboardImage[]) => {
     const currentProjectId = activeProjectId || selectedProjectId;
     if (!currentProjectId) return;
 
-    // Create tasks from the split results
+    // Convert ClipboardImage to ImageAttachment format with base64 data
+    const attachedImages = images.map(img => ({
+      id: img.id,
+      filename: `clipboard-${img.id}.${img.mimeType.split('/')[1]}`,
+      mimeType: img.mimeType,
+      size: img.size,
+      data: img.dataUrl.split(',')[1], // Extract base64 data from data URL
+      thumbnail: img.dataUrl // Use the full image as thumbnail for preview
+    }));
+
+    // Create tasks from the split results with attached images
     for (const splitTask of splitTasks) {
       await window.electronAPI.createTask(
         currentProjectId,
         splitTask.title,
-        splitTask.description
+        splitTask.description,
+        { attachedImages }
       );
     }
 

@@ -166,11 +166,9 @@ export type { ThinkingLevel };
 export type ModelType = 'haiku' | 'sonnet' | 'opus';
 
 // Task returned from AI split functionality
-import type { ClipboardImage } from './screenshot';
 export interface SplitTask {
   title: string;
   description: string;
-  attachedImages?: ClipboardImage[];  // Images from clipboard that should be attached to this task
 }
 export type TaskCategory =
   | 'feature'
