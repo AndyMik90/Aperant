@@ -132,10 +132,16 @@ export function AITaskSplitterModal({
     setError(null);
 
     try {
+      console.warn('[AITaskSplitter] Reading clipboard...');
       const result = await window.electronAPI.readClipboardWithImages();
+
+      console.warn('[AITaskSplitter] Clipboard result:', { success: result.success, hasData: !!result.data, error: result.error });
 
       if (result.success && result.data) {
         const { text, images } = result.data;
+
+        console.warn('[AITaskSplitter] Received text:', text?.substring(0, 100), '...');
+        console.warn('[AITaskSplitter] Received images:', images.length, 'images');
 
         // Set the text content
         if (text) {
@@ -144,11 +150,14 @@ export function AITaskSplitterModal({
 
         // Set the images
         setClipboardImages(images);
+
+        console.warn('[AITaskSplitter] Paste complete:', { textLength: text.length, imageCount: images.length });
       } else {
+        console.error('[AITaskSplitter] Failed to read clipboard:', result.error);
         setError(result.error || t('tasks:aiSplitter.errors.clipboardFailed'));
       }
     } catch (err) {
-      console.error('Failed to paste from clipboard:', err);
+      console.error('[AITaskSplitter] Failed to paste from clipboard:', err);
       setError(t('tasks:aiSplitter.errors.clipboardFailed'));
     } finally {
       setIsPasting(false);

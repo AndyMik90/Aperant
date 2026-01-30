@@ -36,6 +36,8 @@ export function registerClipboardHandlers(): void {
       // Get all available clipboard formats
       const formats = clipboard.availableFormats();
 
+      console.warn('[Clipboard] Available clipboard formats:', formats);
+
       const result: ClipboardContent = {
         text: '',
         images: []
@@ -44,14 +46,20 @@ export function registerClipboardHandlers(): void {
       // Extract text if available
       if (formats.includes('text/plain')) {
         result.text = clipboard.readText();
+        console.warn('[Clipboard] Text content length:', result.text.length, 'chars');
+        console.warn('[Clipboard] Text preview:', result.text.substring(0, 200));
       }
 
       // Extract images if available
       if (formats.includes('image/png') || formats.includes('image/jpeg')) {
+        console.warn('[Clipboard] Image format detected in clipboard');
+
         // Try to read image from clipboard
         const image = clipboard.readImage();
 
         if (!image.isEmpty()) {
+          console.warn('[Clipboard] Image detected, size:', image.getSize());
+
           // Generate a unique ID for this image
           const imageId = `clipboard-img-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
@@ -63,15 +71,20 @@ export function registerClipboardHandlers(): void {
           const bufferSize = image.getSize();
           const pngBuffer = image.toPNG();
 
+          console.warn('[Clipboard] PNG buffer size:', pngBuffer.length, 'bytes');
+
           // If PNG is too large (> 2MB), use JPEG with compression
           if (pngBuffer.length > 2 * 1024 * 1024) {
             const jpegQuality = Math.max(0.1, 1 - (pngBuffer.length / (10 * 1024 * 1024))); // Scale quality based on size
+            console.warn('[Clipboard] Compressing to JPEG, quality:', jpegQuality);
             const jpegBuffer = image.toJPEG(jpegQuality);
             dataUrl = `data:image/jpeg;base64,${jpegBuffer.toString('base64')}`;
             mimeType = 'image/jpeg';
+            console.warn('[Clipboard] JPEG compressed size:', jpegBuffer.length, 'bytes');
           } else {
             dataUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
             mimeType = 'image/png';
+            console.warn('[Clipboard] PNG size:', pngBuffer.length, 'bytes');
           }
 
           result.images.push({
@@ -80,8 +93,20 @@ export function registerClipboardHandlers(): void {
             mimeType,
             size: Buffer.from(dataUrl.split(',')[1], 'base64').length
           });
+
+          console.warn('[Clipboard] Image extracted successfully, total images:', result.images.length);
+        } else {
+          console.warn('[Clipboard] Image format detected but readImage() returned empty image');
         }
+      } else {
+        console.warn('[Clipboard] No image formats detected in clipboard. Available formats:', formats);
       }
+
+      console.warn('[Clipboard] Final result:', {
+        textLength: result.text.length,
+        imageCount: result.images.length,
+        totalSize: result.images.reduce((sum, img) => sum + img.size, 0)
+      });
 
       return {
         success: true,
