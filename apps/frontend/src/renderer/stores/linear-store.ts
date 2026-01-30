@@ -303,6 +303,8 @@ export const useLinearStore = create<LinearState>((set, get) => ({
 				...progress,
 				timestamp: Date.now()
 			});
+			// Debug log to verify updates are being called
+			console.log('[LinearStore] updateValidationProgress called:', { ticketId, progress, timestamp: Date.now() });
 			// Increment counter to force re-renders
 			return { validationProgress: newProgress, progressUpdateCounter: state.progressUpdateCounter + 1 };
 		}),

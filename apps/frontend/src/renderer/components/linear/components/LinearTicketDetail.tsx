@@ -56,24 +56,38 @@ export function LinearTicketDetail({
 	const detailRef = useRef<HTMLDivElement>(null);
 
 	// Listen for validation progress events for this ticket
-	useLinearValidationProgress(ticket?.id);
+	// IMPORTANT: Use ticket.identifier (e.g., "ACS-441") not ticket.id (UUID)
+	// because validation is triggered with the identifier
+	useLinearValidationProgress(ticket?.identifier);
 
 	// Get validation progress from store
+	// IMPORTANT: Use ticket.identifier to match the key used during validation
 	const progressPhase = useLinearStore((state) =>
-		ticket ? state.validationProgress.get(ticket.id)?.phase : undefined
+		ticket ? state.validationProgress.get(ticket.identifier)?.phase : undefined
 	);
 	const progressStep = useLinearStore((state) =>
-		ticket ? state.validationProgress.get(ticket.id)?.step : undefined
+		ticket ? state.validationProgress.get(ticket.identifier)?.step : undefined
 	);
 	const progressTotal = useLinearStore((state) =>
-		ticket ? state.validationProgress.get(ticket.id)?.total : undefined
+		ticket ? state.validationProgress.get(ticket.identifier)?.total : undefined
 	);
 	const progressMessage = useLinearStore((state) =>
-		ticket ? state.validationProgress.get(ticket.id)?.message : undefined
+		ticket ? state.validationProgress.get(ticket.identifier)?.message : undefined
 	);
 	const progressTimestamp = useLinearStore((state) =>
-		ticket ? state.validationProgress.get(ticket.id)?.timestamp : undefined
+		ticket ? state.validationProgress.get(ticket.identifier)?.timestamp : undefined
 	);
+
+	// Debug log progress values
+	console.log('[LinearTicketDetail] Progress values:', {
+		ticketIdentifier: ticket?.identifier,
+		ticketId: ticket?.id,
+		progressPhase,
+		progressStep,
+		progressTotal,
+		progressMessage,
+		progressTimestamp,
+	});
 
 	// Calculate progress percentage and timestamps
 	const progress = progressStep && progressTotal ? (progressStep / progressTotal) * 100 : 0;
@@ -120,7 +134,8 @@ export function LinearTicketDetail({
 		if (!window.electronAPI?.cancelLinearValidation || !ticket) return;
 
 		try {
-			const result = await window.electronAPI.cancelLinearValidation(ticket.id);
+			// IMPORTANT: Use ticket.identifier (e.g., "ACS-441") to match the task ID
+			const result = await window.electronAPI.cancelLinearValidation(ticket.identifier);
 			if (result.success) {
 				setShowProgressModal(false);
 			}
