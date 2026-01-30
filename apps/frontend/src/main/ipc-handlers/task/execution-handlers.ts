@@ -10,6 +10,7 @@ import { fileWatcher } from '../../file-watcher';
 import { findTaskAndProject } from './shared';
 import { checkGitStatus } from '../../project-initializer';
 import { initializeClaudeProfileManager, type ClaudeProfileManager } from '../../claude-profile-manager';
+import { loadProfilesFile } from '../../services/profile/profile-manager';
 import {
   getPlanPath,
   persistPlanStatus,
@@ -100,6 +101,30 @@ async function ensureProfileManagerInitialized(): Promise<
 }
 
 /**
+ * Check if there's an active API profile configured
+ *
+ * API profiles (custom API keys) are stored separately from OAuth profiles.
+ * This function checks if an API profile is active and has valid credentials.
+ *
+ * @returns true if an active API profile exists, false otherwise
+ */
+async function hasValidAPIProfile(): Promise<boolean> {
+  try {
+    const file = await loadProfilesFile();
+    // Check if there's an active profile ID set
+    if (!file.activeProfileId || file.activeProfileId === '') {
+      return false;
+    }
+    // Verify the active profile exists in the profiles list
+    const activeProfile = file.profiles.find((p) => p.id === file.activeProfileId);
+    return !!activeProfile;
+  } catch (error) {
+    console.error('[hasValidAPIProfile] Error checking API profile:', error);
+    return false;
+  }
+}
+
+/**
  * Register task execution handlers (start, stop, review, status management, recovery)
  */
 export function registerTaskExecutionHandlers(
@@ -167,7 +192,10 @@ export function registerTaskExecutionHandlers(
       }
 
       // Check authentication - Claude requires valid auth to run tasks
-      if (!profileManager.hasValidAuth()) {
+      const hasOAuthAuth = profileManager.hasValidAuth();
+      const hasAPIAuth = await hasValidAPIProfile();
+
+      if (!hasOAuthAuth && !hasAPIAuth) {
         console.warn('[TASK_START] No valid authentication for active profile');
         mainWindow.webContents.send(
           IPC_CHANNELS.TASK_ERROR,
@@ -748,7 +776,10 @@ export function registerTaskExecutionHandlers(
             return { success: false, error: initResult.error };
           }
           const profileManager = initResult.profileManager;
-          if (!profileManager.hasValidAuth()) {
+          const hasOAuthAuth = profileManager.hasValidAuth();
+          const hasAPIAuth = await hasValidAPIProfile();
+
+          if (!hasOAuthAuth && !hasAPIAuth) {
             console.warn('[TASK_UPDATE_STATUS] No valid authentication for active profile');
             if (mainWindow) {
               mainWindow.webContents.send(
@@ -1102,7 +1133,10 @@ export function registerTaskExecutionHandlers(
             };
           }
           const profileManager = initResult.profileManager;
-          if (!profileManager.hasValidAuth()) {
+          const hasOAuthAuth = profileManager.hasValidAuth();
+          const hasAPIAuth = await hasValidAPIProfile();
+
+          if (!hasOAuthAuth && !hasAPIAuth) {
             console.warn('[Recovery] Auth check failed, cannot auto-restart task');
             // Recovery succeeded but we can't restart without auth
             return {
