@@ -30,6 +30,21 @@
     "supersededDescription": "Votre branche actuelle a une version plus récente de ces modifications. Envisagez de supprimer cette tâche ou de voir la comparaison.",
     "supersededCompareTooltip": "Voir une comparaison détaillée pour voir comment la branche actuelle diffère des modifications de cette tâche.",
     "supersededDiscardTooltip": "Supprimer le worktree de cette tâche puisque les modifications ne sont plus nécessaires.",
+    "status": {
+      "branchDiverged": "Branche divergée",
+      "aiWillResolve": "L'IA résoudra",
+      "filesRenamed": "Fichiers renommés",
+      "branchBehind": "Branche en retard",
+      "readyToMerge": "Prêt à fusionner",
+      "files": "fichiers",
+      "file": "fichier",
+      "conflict": "conflit",
+      "conflicts": "conflits",
+      "details": "Détails",
+      "refresh": "Actualiser",
+      "stageOnly": "Préparer seulement (réviser dans l'IDE avant de commiter)",
+      "discardBuild": "Supprimer le build"
+    },
     "buttons": {
       "stageWithAIMerge": "Préparer avec fusion IA",
       "mergeWithAI": "Fusionner avec IA",

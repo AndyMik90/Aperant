@@ -129,6 +129,44 @@ def _get_tool_detail(tool_name: str, tool_input: dict[str, Any]) -> str:
 MAX_MESSAGE_COUNT = 500
 
 
+def _is_tool_concurrency_error(text: str) -> bool:
+    """
+    Detect the specific tool use concurrency error pattern.
+
+    This error occurs when Claude makes multiple parallel tool_use blocks
+    and some fail, corrupting the tool_use/tool_result message pairing.
+
+    Args:
+        text: Text to check for error pattern
+
+    Returns:
+        True if this is the tool concurrency error, False otherwise
+    """
+    text_lower = text.lower()
+    # Check for the specific error message pattern
+    # Pattern 1: Explicit concurrency or tool_use errors with 400
+    has_400 = "400" in text_lower
+    has_tool = "tool" in text_lower
+
+    if has_400 and has_tool:
+        # Look for specific keywords indicating tool concurrency issues
+        error_keywords = [
+            "concurrency",
+            "tool_use",
+            "tool use",
+            "tool_result",
+            "tool result",
+        ]
+        if any(keyword in text_lower for keyword in error_keywords):
+            return True
+
+    # Pattern 2: API error with 400 and tool mention
+    if "api error" in text_lower and has_400 and has_tool:
+        return True
+
+    return False
+
+
 async def process_sdk_stream(
     client: Any,
     on_thinking: Callable[[str], None] | None = None,
@@ -181,6 +219,8 @@ async def process_sdk_stream(
     # Track subagent tool IDs to log their results
     subagent_tool_ids: dict[str, str] = {}  # tool_id -> agent_name
     completed_agent_tool_ids: set[str] = set()  # tool_ids of completed agents
+    # Track tool concurrency errors for retry logic
+    detected_concurrency_error = False
 
     # Circuit breaker: max messages before aborting
     message_limit = max_messages if max_messages is not None else MAX_MESSAGE_COUNT
@@ -383,6 +423,15 @@ async def process_sdk_stream(
                         block_type = type(block).__name__
                         if block_type == "TextBlock" and hasattr(block, "text"):
                             result_text += block.text
+                            # Check for tool concurrency error pattern in text output
+                            if _is_tool_concurrency_error(block.text):
+                                detected_concurrency_error = True
+                                logger.warning(
+                                    f"[{context_name}] Detected tool use concurrency error in response"
+                                )
+                                safe_print(
+                                    f"[{context_name}] WARNING: Tool concurrency error detected"
+                                )
                             # Always print text content preview (not just in DEBUG_MODE)
                             text_preview = block.text[:500].replace("\n", " ").strip()
                             if text_preview:
@@ -498,6 +547,13 @@ async def process_sdk_stream(
         safe_print(f"[DEBUG {context_name}] Session ended. Total messages: {msg_count}")
 
     safe_print(f"[{context_name}] Session ended. Total messages: {msg_count}")
+
+    # Set error flag if tool concurrency error was detected
+    if detected_concurrency_error and not stream_error:
+        stream_error = "tool_use_concurrency_error"
+        logger.warning(
+            f"[{context_name}] Tool use concurrency error detected - caller should retry"
+        )
 
     return {
         "result_text": result_text,

@@ -30,6 +30,21 @@
     "supersededDescription": "Your current branch has a newer version of these changes. Consider discarding this task or viewing the comparison.",
     "supersededCompareTooltip": "View a detailed comparison to see how the current branch differs from this task's changes.",
     "supersededDiscardTooltip": "Remove this task's worktree since the changes are no longer needed.",
+    "status": {
+      "branchDiverged": "Branch Diverged",
+      "aiWillResolve": "AI will resolve",
+      "filesRenamed": "Files Renamed",
+      "branchBehind": "Branch Behind",
+      "readyToMerge": "Ready to merge",
+      "files": "files",
+      "file": "file",
+      "conflict": "conflict",
+      "conflicts": "conflicts",
+      "details": "Details",
+      "refresh": "Refresh",
+      "stageOnly": "Stage only (review in IDE before committing)",
+      "discardBuild": "Discard build"
+    },
     "buttons": {
       "stageWithAIMerge": "Stage with AI Merge",
       "mergeWithAI": "Merge with AI",

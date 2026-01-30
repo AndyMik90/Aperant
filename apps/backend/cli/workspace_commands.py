@@ -699,6 +699,8 @@ def _detect_conflict_scenario(
         return {
             "scenario": "normal_conflict",
             "already_merged_files": [],
+            "superseded_files": [],
+            "diverged_files": [],
             "details": f"Error during analysis: {e}",
         }
 

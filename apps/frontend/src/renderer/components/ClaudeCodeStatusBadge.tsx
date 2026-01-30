@@ -185,6 +185,7 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
     try {
       if (!window.electronAPI?.installClaudeCode) {
         setInstallError("Installation not available");
+        setIsInstalling(false);
         return;
       }
 
