@@ -17,9 +17,9 @@
 
 import { execFileSync } from 'child_process';
 import { createHash } from 'crypto';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs';
 import { homedir, userInfo } from 'os';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { isMacOS, isWindows, isLinux } from '../platform';
 
 /**
@@ -158,6 +158,28 @@ export function calculateConfigDirHash(configDir: string): string {
 }
 
 /**
+ * Normalize Windows path separators for hash consistency with Claude CLI.
+ *
+ * Claude CLI on Windows uses backslashes, so we must too for hash consistency.
+ * Mixed slashes (C:\Users\bill/.claude-profiles) produce different hashes than
+ * consistent slashes (C:\Users\bill\.claude-profiles).
+ *
+ * Supports:
+ * - Drive letter paths: C:\Users\...
+ * - UNC paths with backslashes: \\server\share
+ * - UNC paths with forward slashes: //server/share (normalized to \\server\share)
+ *
+ * @param path - The path to normalize
+ * @returns The path with forward slashes replaced by backslashes on Windows
+ */
+export function normalizeWindowsPath(path: string): string {
+  if (!isWindows()) return path;
+  // Match: drive letter (C:), UNC with backslashes (\\), or UNC with forward slashes (//)
+  if (!/^[A-Za-z]:|^[\\/]{2}/.test(path)) return path;
+  return path.replace(/\//g, '\\');
+}
+
+/**
  * Get the Keychain service name for a config directory (macOS).
  *
  * All profiles use hash-based keychain entries for isolation.
@@ -176,9 +198,11 @@ export function getKeychainServiceName(configDir?: string): string {
   }
 
   // Normalize the configDir: expand ~ and resolve to absolute path
-  const normalizedConfigDir = configDir.startsWith('~')
-    ? join(homedir(), configDir.slice(1))
-    : configDir;
+  const normalizedConfigDir = normalizeWindowsPath(
+    configDir.startsWith('~')
+      ? join(homedir(), configDir.slice(1))
+      : configDir
+  );
 
   // ALL profiles now use hash-based keychain entries for isolation
   // This prevents interference with external Claude Code CLI
@@ -383,6 +407,195 @@ function parseCredentialJson<T extends PlatformCredentials>(
   }
 
   return extractFn(data);
+}
+
+// =============================================================================
+// File-Based Credential Helpers (Shared for Linux and Windows)
+// =============================================================================
+
+/**
+ * Shared implementation for reading credentials from a JSON file.
+ * Used by both Linux and Windows file-based credential storage.
+ *
+ * @param credentialsPath - Path to the credentials file
+ * @param cacheKey - Cache key for storing results
+ * @param logPrefix - Prefix for log messages (e.g., "Linux", "Windows:File")
+ * @param forceRefresh - Whether to bypass cache
+ * @returns Platform credentials with token and email
+ */
+function getCredentialsFromFile(
+  credentialsPath: string,
+  cacheKey: string,
+  logPrefix: string,
+  forceRefresh = false
+): PlatformCredentials {
+  const isDebug = process.env.DEBUG === 'true';
+  const now = Date.now();
+
+  // Return cached credentials if available and fresh
+  const cached = credentialCache.get(cacheKey);
+  if (!forceRefresh && cached) {
+    const ttl = cached.credentials.error ? ERROR_CACHE_TTL_MS : CACHE_TTL_MS;
+    if ((now - cached.timestamp) < ttl) {
+      if (isDebug) {
+        const cacheAge = now - cached.timestamp;
+        console.warn(`[CredentialUtils:${logPrefix}:CACHE] Returning cached credentials:`, {
+          credentialsPath,
+          hasToken: !!cached.credentials.token,
+          tokenFingerprint: getTokenFingerprint(cached.credentials.token),
+          cacheAge: Math.round(cacheAge / 1000) + 's'
+        });
+      }
+      return cached.credentials;
+    }
+  }
+
+  // Defense-in-depth: Validate credentials path is within expected boundaries
+  if (!isValidCredentialsPath(credentialsPath)) {
+    if (isDebug) {
+      console.warn(`[CredentialUtils:${logPrefix}] Invalid credentials path rejected:`, { credentialsPath });
+    }
+    const invalidResult = { token: null, email: null, error: 'Invalid credentials path' };
+    credentialCache.set(cacheKey, { credentials: invalidResult, timestamp: now });
+    return invalidResult;
+  }
+
+  // Check if credentials file exists
+  if (!existsSync(credentialsPath)) {
+    if (isDebug) {
+      console.warn(`[CredentialUtils:${logPrefix}] Credentials file not found:`, credentialsPath);
+    }
+    const notFoundResult = { token: null, email: null };
+    credentialCache.set(cacheKey, { credentials: notFoundResult, timestamp: now });
+    return notFoundResult;
+  }
+
+  try {
+    const content = readFileSync(credentialsPath, 'utf-8');
+
+    // Parse JSON
+    let data: unknown;
+    try {
+      data = JSON.parse(content);
+    } catch {
+      console.warn(`[CredentialUtils:${logPrefix}] Failed to parse credentials JSON:`, credentialsPath);
+      const errorResult = { token: null, email: null };
+      credentialCache.set(cacheKey, { credentials: errorResult, timestamp: now });
+      return errorResult;
+    }
+
+    // Validate JSON structure
+    if (!validateCredentialData(data)) {
+      console.warn(`[CredentialUtils:${logPrefix}] Invalid credentials data structure:`, credentialsPath);
+      const invalidResult = { token: null, email: null };
+      credentialCache.set(cacheKey, { credentials: invalidResult, timestamp: now });
+      return invalidResult;
+    }
+
+    const { token, email } = extractCredentials(data);
+
+    // Validate token format if present
+    if (token && !isValidTokenFormat(token)) {
+      console.warn(`[CredentialUtils:${logPrefix}] Invalid token format in:`, credentialsPath);
+      const result = { token: null, email };
+      credentialCache.set(cacheKey, { credentials: result, timestamp: now });
+      return result;
+    }
+
+    const credentials = { token, email };
+    credentialCache.set(cacheKey, { credentials, timestamp: now });
+
+    if (isDebug) {
+      console.warn(`[CredentialUtils:${logPrefix}] Retrieved credentials from file:`, credentialsPath, {
+        hasToken: !!token,
+        hasEmail: !!email,
+        tokenFingerprint: getTokenFingerprint(token),
+        forceRefresh
+      });
+    }
+    return credentials;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn(`[CredentialUtils:${logPrefix}] Failed to read credentials file:`, credentialsPath, errorMessage);
+    const errorResult = { token: null, email: null, error: `Failed to read credentials: ${errorMessage}` };
+    credentialCache.set(cacheKey, { credentials: errorResult, timestamp: now });
+    return errorResult;
+  }
+}
+
+/**
+ * Shared implementation for reading full credentials from a JSON file.
+ * Used by both Linux and Windows file-based credential storage.
+ *
+ * @param credentialsPath - Path to the credentials file
+ * @param logPrefix - Prefix for log messages (e.g., "Linux:Full", "Windows:File:Full")
+ * @returns Full OAuth credentials including refresh token
+ */
+function getFullCredentialsFromFile(
+  credentialsPath: string,
+  logPrefix: string
+): FullOAuthCredentials {
+  const isDebug = process.env.DEBUG === 'true';
+
+  // Defense-in-depth: Validate credentials path is within expected boundaries
+  if (!isValidCredentialsPath(credentialsPath)) {
+    if (isDebug) {
+      console.warn(`[CredentialUtils:${logPrefix}] Invalid credentials path rejected:`, { credentialsPath });
+    }
+    return { token: null, email: null, refreshToken: null, expiresAt: null, scopes: null, subscriptionType: null, rateLimitTier: null, error: 'Invalid credentials path' };
+  }
+
+  // Check if credentials file exists
+  if (!existsSync(credentialsPath)) {
+    if (isDebug) {
+      console.warn(`[CredentialUtils:${logPrefix}] Credentials file not found:`, credentialsPath);
+    }
+    return { token: null, email: null, refreshToken: null, expiresAt: null, scopes: null, subscriptionType: null, rateLimitTier: null };
+  }
+
+  try {
+    const content = readFileSync(credentialsPath, 'utf-8');
+
+    // Parse JSON
+    let data: unknown;
+    try {
+      data = JSON.parse(content);
+    } catch {
+      console.warn(`[CredentialUtils:${logPrefix}] Failed to parse credentials JSON:`, credentialsPath);
+      return { token: null, email: null, refreshToken: null, expiresAt: null, scopes: null, subscriptionType: null, rateLimitTier: null };
+    }
+
+    // Validate JSON structure
+    if (!validateCredentialData(data)) {
+      console.warn(`[CredentialUtils:${logPrefix}] Invalid credentials data structure:`, credentialsPath);
+      return { token: null, email: null, refreshToken: null, expiresAt: null, scopes: null, subscriptionType: null, rateLimitTier: null };
+    }
+
+    const { token, email, refreshToken, expiresAt, scopes, subscriptionType, rateLimitTier } = extractFullCredentials(data);
+
+    // Validate token format if present
+    if (token && !isValidTokenFormat(token)) {
+      console.warn(`[CredentialUtils:${logPrefix}] Invalid token format in:`, credentialsPath);
+      return { token: null, email, refreshToken, expiresAt, scopes, subscriptionType, rateLimitTier };
+    }
+
+    if (isDebug) {
+      console.warn(`[CredentialUtils:${logPrefix}] Retrieved full credentials from file:`, credentialsPath, {
+        hasToken: !!token,
+        hasEmail: !!email,
+        hasRefreshToken: !!refreshToken,
+        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+        tokenFingerprint: getTokenFingerprint(token),
+        subscriptionType,
+        rateLimitTier
+      });
+    }
+    return { token, email, refreshToken, expiresAt, scopes, subscriptionType, rateLimitTier };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn(`[CredentialUtils:${logPrefix}] Failed to read credentials file:`, credentialsPath, errorMessage);
+    return { token: null, email: null, refreshToken: null, expiresAt: null, scopes: null, subscriptionType: null, rateLimitTier: null, error: `Failed to read credentials: ${errorMessage}` };
+  }
 }
 
 // =============================================================================
@@ -653,98 +866,7 @@ function getLinuxCredentialsPath(configDir?: string): string {
 function getCredentialsFromLinuxFile(configDir?: string, forceRefresh = false): PlatformCredentials {
   const credentialsPath = getLinuxCredentialsPath(configDir);
   const cacheKey = `linux:${credentialsPath}`;
-  const isDebug = process.env.DEBUG === 'true';
-  const now = Date.now();
-
-  // Return cached credentials if available and fresh
-  const cached = credentialCache.get(cacheKey);
-  if (!forceRefresh && cached) {
-    const ttl = cached.credentials.error ? ERROR_CACHE_TTL_MS : CACHE_TTL_MS;
-    if ((now - cached.timestamp) < ttl) {
-      if (isDebug) {
-        const cacheAge = now - cached.timestamp;
-        console.warn('[CredentialUtils:Linux:CACHE] Returning cached credentials:', {
-          credentialsPath,
-          hasToken: !!cached.credentials.token,
-          tokenFingerprint: getTokenFingerprint(cached.credentials.token),
-          cacheAge: Math.round(cacheAge / 1000) + 's'
-        });
-      }
-      return cached.credentials;
-    }
-  }
-
-  // Defense-in-depth: Validate credentials path is within expected boundaries
-  if (!isValidCredentialsPath(credentialsPath)) {
-    if (isDebug) {
-      console.warn('[CredentialUtils:Linux] Invalid credentials path rejected:', { credentialsPath });
-    }
-    const invalidResult = { token: null, email: null, error: 'Invalid credentials path' };
-    credentialCache.set(cacheKey, { credentials: invalidResult, timestamp: now });
-    return invalidResult;
-  }
-
-  // Check if credentials file exists
-  if (!existsSync(credentialsPath)) {
-    if (isDebug) {
-      console.warn('[CredentialUtils:Linux] Credentials file not found:', credentialsPath);
-    }
-    const notFoundResult = { token: null, email: null };
-    credentialCache.set(cacheKey, { credentials: notFoundResult, timestamp: now });
-    return notFoundResult;
-  }
-
-  try {
-    const content = readFileSync(credentialsPath, 'utf-8');
-
-    // Parse JSON
-    let data: unknown;
-    try {
-      data = JSON.parse(content);
-    } catch {
-      console.warn('[CredentialUtils:Linux] Failed to parse credentials JSON:', credentialsPath);
-      const errorResult = { token: null, email: null };
-      credentialCache.set(cacheKey, { credentials: errorResult, timestamp: now });
-      return errorResult;
-    }
-
-    // Validate JSON structure
-    if (!validateCredentialData(data)) {
-      console.warn('[CredentialUtils:Linux] Invalid credentials data structure:', credentialsPath);
-      const invalidResult = { token: null, email: null };
-      credentialCache.set(cacheKey, { credentials: invalidResult, timestamp: now });
-      return invalidResult;
-    }
-
-    const { token, email } = extractCredentials(data);
-
-    // Validate token format if present
-    if (token && !isValidTokenFormat(token)) {
-      console.warn('[CredentialUtils:Linux] Invalid token format in:', credentialsPath);
-      const result = { token: null, email };
-      credentialCache.set(cacheKey, { credentials: result, timestamp: now });
-      return result;
-    }
-
-    const credentials = { token, email };
-    credentialCache.set(cacheKey, { credentials, timestamp: now });
-
-    if (isDebug) {
-      console.warn('[CredentialUtils:Linux] Retrieved credentials from file:', credentialsPath, {
-        hasToken: !!token,
-        hasEmail: !!email,
-        tokenFingerprint: getTokenFingerprint(token),
-        forceRefresh
-      });
-    }
-    return credentials;
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.warn('[CredentialUtils:Linux] Failed to read credentials file:', credentialsPath, errorMessage);
-    const errorResult = { token: null, email: null, error: `Failed to read credentials: ${errorMessage}` };
-    credentialCache.set(cacheKey, { credentials: errorResult, timestamp: now });
-    return errorResult;
-  }
+  return getCredentialsFromFile(credentialsPath, cacheKey, 'Linux', forceRefresh);
 }
 
 // =============================================================================
@@ -804,29 +926,60 @@ function getCredentialsFromWindowsCredentialManager(configDir?: string, forceRef
   try {
     // PowerShell script to read from Credential Manager
     // Uses the Windows Credential Manager API via .NET
+    // NOTE: The CREDENTIAL struct must use IntPtr for string fields (blittable requirement)
+    // and strings must be manually marshaled after PtrToStructure
+    //
+    // NOTE: This CREDENTIAL struct uses IntPtr for string fields (TargetName, Comment, etc.)
+    // because CredRead returns a pointer to Windows-allocated memory. We must use a "blittable"
+    // struct layout where strings are IntPtr, then manually marshal strings via PtrToStringUni.
+    // This differs from the CredWrite struct (see updateWindowsCredentialManagerCredentials)
+    // which uses string types because the .NET marshaler can automatically convert strings
+    // to pointers when CALLING Windows APIs (but not when RECEIVING data from them).
     const psScript = `
       $ErrorActionPreference = 'Stop'
-      Add-Type -AssemblyName System.Runtime.WindowsRuntime
 
-      # Use CredRead from advapi32.dll to read generic credentials
-      $sig = @'
-      [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-      public static extern bool CredRead(string target, int type, int reservedFlag, out IntPtr credentialPtr);
+      # Define the CREDENTIAL struct with IntPtr for string fields (required for CredRead marshaling)
+      # See comment above for why this differs from the CredWrite struct definition.
+      Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
 
-      [DllImport("advapi32.dll", SetLastError = true)]
-      public static extern bool CredFree(IntPtr cred);
+[StructLayout(LayoutKind.Sequential)]
+public struct CREDENTIAL {
+    public uint Flags;
+    public uint Type;
+    public IntPtr TargetName;
+    public IntPtr Comment;
+    public System.Runtime.InteropServices.ComTypes.FILETIME LastWritten;
+    public uint CredentialBlobSize;
+    public IntPtr CredentialBlob;
+    public uint Persist;
+    public uint AttributeCount;
+    public IntPtr Attributes;
+    public IntPtr TargetAlias;
+    public IntPtr UserName;
+}
 '@
-      Add-Type -MemberDefinition $sig -Namespace Win32 -Name Credential
+
+      # Import CredRead and CredFree from advapi32.dll
+      Add-Type -MemberDefinition @'
+[DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+public static extern bool CredRead(string target, uint type, uint reservedFlag, out IntPtr credentialPtr);
+
+[DllImport("advapi32.dll", SetLastError = true)]
+public static extern bool CredFree(IntPtr cred);
+'@ -Namespace Win32 -Name CredApi
 
       $credPtr = [IntPtr]::Zero
       # CRED_TYPE_GENERIC = 1
-      $success = [Win32.Credential]::CredRead("${escapePowerShellString(targetName)}", 1, 0, [ref]$credPtr)
+      $success = [Win32.CredApi]::CredRead("${escapePowerShellString(targetName)}", 1, 0, [ref]$credPtr)
 
       if ($success) {
         try {
-          $cred = [Runtime.InteropServices.Marshal]::PtrToStructure($credPtr, [Type][System.Management.Automation.PSCredential].Assembly.GetType('Microsoft.PowerShell.Commands.CREDENTIAL'))
+          # Marshal the pointer to our CREDENTIAL struct
+          $cred = [Runtime.InteropServices.Marshal]::PtrToStructure($credPtr, [Type][CREDENTIAL])
 
-          # Read the credential blob (password field)
+          # Read the credential blob (password field) - contains the JSON
           $blobSize = $cred.CredentialBlobSize
           if ($blobSize -gt 0) {
             $blob = [byte[]]::new($blobSize)
@@ -835,7 +988,7 @@ function getCredentialsFromWindowsCredentialManager(configDir?: string, forceRef
             Write-Output $password
           }
         } finally {
-          [Win32.Credential]::CredFree($credPtr) | Out-Null
+          [Win32.CredApi]::CredFree($credPtr) | Out-Null
         }
       } else {
         # Credential not found - this is expected if user hasn't authenticated
@@ -912,6 +1065,67 @@ function findPowerShellPath(): string | null {
 }
 
 // =============================================================================
+// Windows Credentials File Implementation (Fallback)
+// =============================================================================
+
+/**
+ * Get the credentials file path for Windows
+ * Claude CLI on Windows stores credentials in .credentials.json files, not Windows Credential Manager
+ */
+function getWindowsCredentialsPath(configDir?: string): string {
+  const baseDir = configDir || join(homedir(), '.claude');
+  return join(baseDir, '.credentials.json');
+}
+
+/**
+ * Retrieve credentials from Windows .credentials.json file
+ * This is the primary storage mechanism used by Claude CLI on Windows
+ */
+function getCredentialsFromWindowsFile(configDir?: string, forceRefresh = false): PlatformCredentials {
+  const credentialsPath = getWindowsCredentialsPath(configDir);
+  const cacheKey = `windows-file:${credentialsPath}`;
+  return getCredentialsFromFile(credentialsPath, cacheKey, 'Windows:File', forceRefresh);
+}
+
+/**
+ * Retrieve credentials from Windows - checks both file and Credential Manager, uses the most recent valid token.
+ * Claude CLI on Windows can store credentials in either location, and they may get out of sync.
+ * We compare both sources and return the one with the most recent/valid token.
+ */
+function getCredentialsFromWindows(configDir?: string, forceRefresh = false): PlatformCredentials {
+  const isDebug = process.env.DEBUG === 'true';
+
+  // Get credentials from both sources
+  const fileResult = getCredentialsFromWindowsFile(configDir, forceRefresh);
+  const credManagerResult = getCredentialsFromWindowsCredentialManager(configDir, forceRefresh);
+
+  // If only one has a token, use that one
+  if (fileResult.token && !credManagerResult.token) {
+    if (isDebug) {
+      console.warn('[CredentialUtils:Windows] Using file credentials (Credential Manager empty)');
+    }
+    return fileResult;
+  }
+  if (credManagerResult.token && !fileResult.token) {
+    if (isDebug) {
+      console.warn('[CredentialUtils:Windows] Using Credential Manager credentials (file empty)');
+    }
+    return credManagerResult;
+  }
+
+  // If neither has a token, return file result (which has the appropriate error)
+  if (!fileResult.token && !credManagerResult.token) {
+    return fileResult;
+  }
+
+  // Both have tokens - prefer file since Claude CLI writes there after login
+  if (isDebug) {
+    console.warn('[CredentialUtils:Windows] Both sources have tokens, preferring file (Claude CLI primary storage)');
+  }
+  return fileResult;
+}
+
+// =============================================================================
 // Cross-Platform Public API
 // =============================================================================
 
@@ -920,8 +1134,8 @@ function findPowerShellPath(): string | null {
  * secure storage.
  *
  * - macOS: Reads from Keychain
- * - Linux: Reads from .credentials.json file
- * - Windows: Reads from Windows Credential Manager
+ * - Linux: Tries Secret Service (via secret-tool), falls back to .credentials.json
+ * - Windows: Checks both .credentials.json and Credential Manager, prefers file
  *
  * For default profile: reads from "Claude Code-credentials" or default config dir
  * For custom profiles: uses SHA256(configDir).slice(0,8) hash suffix
@@ -942,7 +1156,7 @@ export function getCredentialsFromKeychain(configDir?: string, forceRefresh = fa
   }
 
   if (isWindows()) {
-    return getCredentialsFromWindowsCredentialManager(configDir, forceRefresh);
+    return getCredentialsFromWindows(configDir, forceRefresh);
   }
 
   // Unknown platform - return empty
@@ -967,11 +1181,13 @@ export function clearKeychainCache(configDir?: string): void {
     const linuxSecretKey = `linux-secret:${getSecretServiceAttribute(configDir)}`;
     const linuxFileKey = `linux:${getLinuxCredentialsPath(configDir)}`;
     const windowsKey = `windows:${getWindowsCredentialTarget(configDir)}`;
+    const windowsFileKey = `windows-file:${getWindowsCredentialsPath(configDir)}`;
 
     credentialCache.delete(macOSKey);
     credentialCache.delete(linuxSecretKey);
     credentialCache.delete(linuxFileKey);
     credentialCache.delete(windowsKey);
+    credentialCache.delete(windowsFileKey);
   } else {
     credentialCache.clear();
   }
@@ -1136,67 +1352,7 @@ function getFullCredentialsFromLinux(configDir?: string): FullOAuthCredentials {
  */
 function getFullCredentialsFromLinuxFile(configDir?: string): FullOAuthCredentials {
   const credentialsPath = getLinuxCredentialsPath(configDir);
-  const isDebug = process.env.DEBUG === 'true';
-
-  // Defense-in-depth: Validate credentials path is within expected boundaries
-  if (!isValidCredentialsPath(credentialsPath)) {
-    if (isDebug) {
-      console.warn('[CredentialUtils:Linux:Full] Invalid credentials path rejected:', { credentialsPath });
-    }
-    return { token: null, email: null, refreshToken: null, expiresAt: null, scopes: null, subscriptionType: null, rateLimitTier: null, error: 'Invalid credentials path' };
-  }
-
-  // Check if credentials file exists
-  if (!existsSync(credentialsPath)) {
-    if (isDebug) {
-      console.warn('[CredentialUtils:Linux:Full] Credentials file not found:', credentialsPath);
-    }
-    return { token: null, email: null, refreshToken: null, expiresAt: null, scopes: null, subscriptionType: null, rateLimitTier: null };
-  }
-
-  try {
-    const content = readFileSync(credentialsPath, 'utf-8');
-
-    // Parse JSON
-    let data: unknown;
-    try {
-      data = JSON.parse(content);
-    } catch {
-      console.warn('[CredentialUtils:Linux:Full] Failed to parse credentials JSON:', credentialsPath);
-      return { token: null, email: null, refreshToken: null, expiresAt: null, scopes: null, subscriptionType: null, rateLimitTier: null };
-    }
-
-    // Validate JSON structure
-    if (!validateCredentialData(data)) {
-      console.warn('[CredentialUtils:Linux:Full] Invalid credentials data structure:', credentialsPath);
-      return { token: null, email: null, refreshToken: null, expiresAt: null, scopes: null, subscriptionType: null, rateLimitTier: null };
-    }
-
-    const { token, email, refreshToken, expiresAt, scopes, subscriptionType, rateLimitTier } = extractFullCredentials(data);
-
-    // Validate token format if present
-    if (token && !isValidTokenFormat(token)) {
-      console.warn('[CredentialUtils:Linux:Full] Invalid token format in:', credentialsPath);
-      return { token: null, email, refreshToken, expiresAt, scopes, subscriptionType, rateLimitTier };
-    }
-
-    if (isDebug) {
-      console.warn('[CredentialUtils:Linux:Full] Retrieved full credentials from file:', credentialsPath, {
-        hasToken: !!token,
-        hasEmail: !!email,
-        hasRefreshToken: !!refreshToken,
-        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
-        tokenFingerprint: getTokenFingerprint(token),
-        subscriptionType,
-        rateLimitTier
-      });
-    }
-    return { token, email, refreshToken, expiresAt, scopes, subscriptionType, rateLimitTier };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.warn('[CredentialUtils:Linux:Full] Failed to read credentials file:', credentialsPath, errorMessage);
-    return { token: null, email: null, refreshToken: null, expiresAt: null, scopes: null, subscriptionType: null, rateLimitTier: null, error: `Failed to read credentials: ${errorMessage}` };
-  }
+  return getFullCredentialsFromFile(credentialsPath, 'Linux:Full');
 }
 
 /**
@@ -1223,29 +1379,51 @@ function getFullCredentialsFromWindowsCredentialManager(configDir?: string): Ful
 
   try {
     // PowerShell script to read from Credential Manager (same as basic credentials)
+    // NOTE: The CREDENTIAL struct must use IntPtr for string fields (blittable requirement)
     const psScript = `
       $ErrorActionPreference = 'Stop'
-      Add-Type -AssemblyName System.Runtime.WindowsRuntime
 
-      # Use CredRead from advapi32.dll to read generic credentials
-      $sig = @'
-      [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-      public static extern bool CredRead(string target, int type, int reservedFlag, out IntPtr credentialPtr);
+      # Define the CREDENTIAL struct with IntPtr for string fields (required for marshaling)
+      Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
 
-      [DllImport("advapi32.dll", SetLastError = true)]
-      public static extern bool CredFree(IntPtr cred);
+[StructLayout(LayoutKind.Sequential)]
+public struct CREDENTIAL {
+    public uint Flags;
+    public uint Type;
+    public IntPtr TargetName;
+    public IntPtr Comment;
+    public System.Runtime.InteropServices.ComTypes.FILETIME LastWritten;
+    public uint CredentialBlobSize;
+    public IntPtr CredentialBlob;
+    public uint Persist;
+    public uint AttributeCount;
+    public IntPtr Attributes;
+    public IntPtr TargetAlias;
+    public IntPtr UserName;
+}
 '@
-      Add-Type -MemberDefinition $sig -Namespace Win32 -Name Credential
+
+      # Import CredRead and CredFree from advapi32.dll
+      Add-Type -MemberDefinition @'
+[DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+public static extern bool CredRead(string target, uint type, uint reservedFlag, out IntPtr credentialPtr);
+
+[DllImport("advapi32.dll", SetLastError = true)]
+public static extern bool CredFree(IntPtr cred);
+'@ -Namespace Win32 -Name CredApi
 
       $credPtr = [IntPtr]::Zero
       # CRED_TYPE_GENERIC = 1
-      $success = [Win32.Credential]::CredRead("${escapePowerShellString(targetName)}", 1, 0, [ref]$credPtr)
+      $success = [Win32.CredApi]::CredRead("${escapePowerShellString(targetName)}", 1, 0, [ref]$credPtr)
 
       if ($success) {
         try {
-          $cred = [Runtime.InteropServices.Marshal]::PtrToStructure($credPtr, [Type][System.Management.Automation.PSCredential].Assembly.GetType('Microsoft.PowerShell.Commands.CREDENTIAL'))
+          # Marshal the pointer to our CREDENTIAL struct
+          $cred = [Runtime.InteropServices.Marshal]::PtrToStructure($credPtr, [Type][CREDENTIAL])
 
-          # Read the credential blob (password field)
+          # Read the credential blob (password field) - contains the JSON
           $blobSize = $cred.CredentialBlobSize
           if ($blobSize -gt 0) {
             $blob = [byte[]]::new($blobSize)
@@ -1254,7 +1432,7 @@ function getFullCredentialsFromWindowsCredentialManager(configDir?: string): Ful
             Write-Output $password
           }
         } finally {
-          [Win32.Credential]::CredFree($credPtr) | Out-Null
+          [Win32.CredApi]::CredFree($credPtr) | Out-Null
         }
       } else {
         # Credential not found - this is expected if user hasn't authenticated
@@ -1307,6 +1485,56 @@ function getFullCredentialsFromWindowsCredentialManager(configDir?: string): Ful
 }
 
 /**
+ * Retrieve full credentials (including refresh token) from Windows .credentials.json file
+ * This is the primary storage mechanism used by Claude CLI on Windows
+ */
+function getFullCredentialsFromWindowsFile(configDir?: string): FullOAuthCredentials {
+  const credentialsPath = getWindowsCredentialsPath(configDir);
+  return getFullCredentialsFromFile(credentialsPath, 'Windows:File:Full');
+}
+
+/**
+ * Retrieve full credentials from Windows - checks both file and Credential Manager, uses the most recent valid token.
+ * Claude CLI on Windows can store credentials in either location, and they may get out of sync.
+ * We compare both sources and return the one with the later expiry time (most recently refreshed).
+ */
+function getFullCredentialsFromWindows(configDir?: string): FullOAuthCredentials {
+  const isDebug = process.env.DEBUG === 'true';
+
+  // Get credentials from both sources
+  const fileResult = getFullCredentialsFromWindowsFile(configDir);
+  const credManagerResult = getFullCredentialsFromWindowsCredentialManager(configDir);
+
+  // If only one has a token, use that one
+  if (fileResult.token && !credManagerResult.token) {
+    if (isDebug) {
+      console.warn('[CredentialUtils:Windows:Full] Using file credentials (Credential Manager empty)');
+    }
+    return fileResult;
+  }
+  if (credManagerResult.token && !fileResult.token) {
+    if (isDebug) {
+      console.warn('[CredentialUtils:Windows:Full] Using Credential Manager credentials (file empty)');
+    }
+    return credManagerResult;
+  }
+
+  // If neither has a token, return file result (which has the appropriate error)
+  if (!fileResult.token && !credManagerResult.token) {
+    return fileResult;
+  }
+
+  // Both have tokens - prefer file since Claude CLI writes there after login
+  // This is consistent with getCredentialsFromWindows() which also prefers file.
+  // Using file as primary ensures consistency: the same token is returned whether
+  // calling getCredentialsFromKeychain() or getFullCredentialsFromKeychain().
+  if (isDebug) {
+    console.warn('[CredentialUtils:Windows:Full] Both sources have tokens, preferring file (Claude CLI primary storage)');
+  }
+  return fileResult;
+}
+
+/**
  * Get full credentials including refresh token and expiry from platform-specific secure storage.
  * This is an extended version of getCredentialsFromKeychain that returns all credential data
  * needed for token refresh operations.
@@ -1324,7 +1552,7 @@ export function getFullCredentialsFromKeychain(configDir?: string): FullOAuthCre
   }
 
   if (isWindows()) {
-    return getFullCredentialsFromWindowsCredentialManager(configDir);
+    return getFullCredentialsFromWindows(configDir);
   }
 
   // Unknown platform - return empty
@@ -1589,6 +1817,12 @@ function updateLinuxFileCredentials(
 
     const credentialsJson = JSON.stringify(newCredentialData, null, 2);
 
+    // Ensure directory exists (matching Windows behavior)
+    const dirPath = dirname(credentialsPath);
+    if (!existsSync(dirPath)) {
+      mkdirSync(dirPath, { recursive: true, mode: 0o700 });
+    }
+
     // Write to file with secure permissions (0600)
     writeFileSync(credentialsPath, credentialsJson, { mode: 0o600, encoding: 'utf-8' });
 
@@ -1658,10 +1892,18 @@ function updateWindowsCredentialManagerCredentials(
     const base64Json = encodeBase64ForPowerShell(credentialsJson);
 
     // PowerShell script to write to Credential Manager
+    //
+    // NOTE: This CREDENTIAL struct uses string types for TargetName, Comment, etc.
+    // because CredWrite accepts data FROM us, and the .NET marshaler can automatically
+    // convert string fields to the appropriate Unicode pointers when CALLING Windows APIs.
+    // This differs from the CredRead struct (see getCredentialsFromWindowsCredentialManager)
+    // which must use IntPtr because we're RECEIVING data from Windows and need to manually
+    // marshal the strings from Windows-allocated memory.
     const psScript = `
       $ErrorActionPreference = 'Stop'
 
       # Use CredWrite from advapi32.dll to write generic credentials
+      # This struct uses string types (auto-marshaled) unlike CredRead which needs IntPtr.
       $sig = @'
       [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
       public struct CREDENTIAL {
@@ -1739,6 +1981,197 @@ function updateWindowsCredentialManagerCredentials(
 }
 
 /**
+ * Restrict Windows file permissions to current user only using icacls.
+ * This is a best-effort operation - if it fails, we log a warning but don't fail the overall operation.
+ *
+ * @param filePath - Path to the file to secure
+ */
+function restrictWindowsFilePermissions(filePath: string): void {
+  const isDebug = process.env.DEBUG === 'true';
+
+  try {
+    // Use icacls to:
+    // 1. Disable inheritance and remove all inherited permissions (/inheritance:r)
+    // 2. Grant full control to the current user only (/grant:r %USERNAME%:F)
+    // This mimics Unix 0600 permissions (owner read/write only)
+    const username = userInfo().username;
+
+    // First, disable inheritance and remove inherited permissions
+    execFileSync('icacls', [filePath, '/inheritance:r'], {
+      windowsHide: true,
+      timeout: 5000,
+    });
+
+    // Then grant full control to current user only
+    execFileSync('icacls', [filePath, '/grant:r', `${username}:F`], {
+      windowsHide: true,
+      timeout: 5000,
+    });
+
+    if (isDebug) {
+      console.warn('[CredentialUtils:Windows] Set restrictive permissions on:', filePath);
+    }
+  } catch (error) {
+    // Non-fatal: log warning but don't fail the operation
+    // The file is still protected by the user's home directory permissions
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn('[CredentialUtils:Windows] Could not set restrictive file permissions:', errorMessage);
+  }
+}
+
+/**
+ * Update credentials in Windows .credentials.json file with new tokens (fallback).
+ *
+ * This is the fallback method for Windows when Credential Manager is unavailable.
+ * Claude CLI on Windows primarily uses file-based storage (.credentials.json),
+ * so this fallback ensures credentials are persisted even if Credential Manager fails.
+ *
+ * Security: We use icacls to restrict file permissions to the current user only,
+ * mimicking Unix 0600 permissions. This prevents other users on multi-user systems
+ * from reading the OAuth tokens.
+ *
+ * @param configDir - Config directory for the profile (undefined for default profile)
+ * @param credentials - New credentials to store
+ * @returns Result indicating success or failure
+ */
+function updateWindowsFileCredentials(
+  configDir: string | undefined,
+  credentials: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: number;
+    scopes?: string[];
+  }
+): UpdateCredentialsResult {
+  const credentialsPath = getWindowsCredentialsPath(configDir);
+  const isDebug = process.env.DEBUG === 'true';
+
+  // Defense-in-depth: Validate credentials path
+  if (!isValidCredentialsPath(credentialsPath)) {
+    return { success: false, error: 'Invalid credentials path' };
+  }
+
+  try {
+    // Read existing credentials to preserve email and other fields
+    const existing = getFullCredentialsFromWindowsFile(configDir);
+
+    // Build new credential JSON with all fields
+    const newCredentialData = {
+      claudeAiOauth: {
+        accessToken: credentials.accessToken,
+        refreshToken: credentials.refreshToken,
+        expiresAt: credentials.expiresAt,
+        scopes: credentials.scopes || existing.scopes || [],
+        email: existing.email || undefined,
+        emailAddress: existing.email || undefined,
+        subscriptionType: existing.subscriptionType || undefined,
+        rateLimitTier: existing.rateLimitTier || undefined
+      },
+      email: existing.email || undefined
+    };
+
+    const credentialsJson = JSON.stringify(newCredentialData, null, 2);
+
+    // Ensure directory exists with secure permissions
+    const dirPath = dirname(credentialsPath);
+    if (!existsSync(dirPath)) {
+      mkdirSync(dirPath, { recursive: true });
+      // Restrict directory permissions to current user only (mimics Unix 0700)
+      restrictWindowsFilePermissions(dirPath);
+    }
+
+    // Atomic file write: write to temp file, set permissions, then rename.
+    // This prevents a race condition where the file briefly exists with default permissions.
+    const tempPath = `${credentialsPath}.${Date.now()}.tmp`;
+    try {
+      // Write to temp file
+      writeFileSync(tempPath, credentialsJson, { encoding: 'utf-8' });
+
+      // Restrict temp file permissions to current user only (mimics Unix 0600)
+      restrictWindowsFilePermissions(tempPath);
+
+      // Atomic rename (on same filesystem, this is atomic on Windows)
+      renameSync(tempPath, credentialsPath);
+    } catch (writeError) {
+      // Clean up temp file on error
+      try {
+        if (existsSync(tempPath)) {
+          unlinkSync(tempPath);
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
+      throw writeError;
+    }
+
+    if (isDebug) {
+      console.warn('[CredentialUtils:Windows:Update] Successfully updated credentials file:', credentialsPath);
+    }
+
+    // Clear cached credentials to ensure fresh values are read
+    clearCredentialCache(configDir);
+
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[CredentialUtils:Windows:Update] Failed to update credentials file:', errorMessage);
+    return { success: false, error: `File update failed: ${errorMessage}` };
+  }
+}
+
+/**
+ * Update credentials in Windows - writes to file FIRST (primary storage), then Credential Manager.
+ *
+ * Claude CLI on Windows primarily uses file-based storage (.credentials.json).
+ * We write to file first to ensure Claude CLI always has the latest tokens,
+ * then update Credential Manager for forward compatibility.
+ *
+ * IMPORTANT: The write order matters! If we wrote to Credential Manager first and file
+ * write failed, Claude CLI would read stale tokens from the file while Credential Manager
+ * has the new tokens - an inconsistent state. By writing to file first, we ensure the
+ * primary storage is always up-to-date.
+ *
+ * @param configDir - Config directory for the profile (undefined for default profile)
+ * @param credentials - New credentials to store
+ * @returns Result indicating success or failure
+ */
+function updateWindowsCredentials(
+  configDir: string | undefined,
+  credentials: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: number;
+    scopes?: string[];
+  }
+): UpdateCredentialsResult {
+  const isDebug = process.env.DEBUG === 'true';
+
+  // Write to file FIRST - this is what Claude CLI reads on Windows
+  const fileResult = updateWindowsFileCredentials(configDir, credentials);
+  if (!fileResult.success) {
+    // File write failed - don't proceed with Credential Manager to avoid inconsistent state
+    console.error('[CredentialUtils:Windows:Update] File update failed:', fileResult.error);
+    return fileResult;
+  }
+
+  // File write succeeded - now update Credential Manager for forward compatibility
+  const psPath = findPowerShellPath();
+  if (psPath) {
+    const credManagerResult = updateWindowsCredentialManagerCredentials(configDir, credentials);
+    if (!credManagerResult.success) {
+      // Credential Manager failed but file succeeded - this is acceptable
+      // Claude CLI will use the file, which has the latest tokens
+      if (isDebug) {
+        console.warn('[CredentialUtils:Windows:Update] Credential Manager update failed (file update succeeded):', credManagerResult.error);
+      }
+    }
+  }
+
+  // Return success since file (primary storage) was updated successfully
+  return { success: true };
+}
+
+/**
  * Update credentials in the platform-specific secure storage with new tokens.
  * Called after a successful OAuth token refresh to persist the new tokens.
  *
@@ -1767,7 +2200,7 @@ export function updateKeychainCredentials(
   }
 
   if (isWindows()) {
-    return updateWindowsCredentialManagerCredentials(configDir, credentials);
+    return updateWindowsCredentials(configDir, credentials);
   }
 
   return { success: false, error: `Unsupported platform: ${process.platform}` };

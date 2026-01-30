@@ -44,7 +44,6 @@
   "claudeCode": {
     "checking": "Checking Claude Code...",
     "upToDate": "Claude Code is up to date",
-    "upToDateWithVersion": "Claude Code {{version}} installed",
     "updateAvailable": "Claude Code update available",
     "notInstalled": "Claude Code not installed",
     "error": "Error checking Claude Code",
