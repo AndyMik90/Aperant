@@ -195,6 +195,12 @@ function verifyAppImage(appImagePath) {
     maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large file listings
   });
 
+  // Check for spawn errors (e.g., permission denied, memory issues)
+  if (result.error) {
+    logError(`Failed to execute bsdtar: ${result.error.message}`);
+    return { verified: false, reason: `Command execution failed: ${result.error.message}` };
+  }
+
   if (result.status !== 0) {
     logError(`Failed to read AppImage: ${result.stderr}`);
     return { verified: false, reason: 'Failed to extract file list' };
@@ -222,6 +228,12 @@ function verifyDeb(debPath) {
     encoding: 'utf-8',
     maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large file listings
   });
+
+  // Check for spawn errors (e.g., permission denied, memory issues)
+  if (result.error) {
+    logError(`Failed to execute dpkg-deb: ${result.error.message}`);
+    return { verified: false, reason: `Command execution failed: ${result.error.message}` };
+  }
 
   if (result.status !== 0) {
     logError(`Failed to read deb package: ${result.stderr}`);

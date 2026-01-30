@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { CRITICAL_PACKAGES, findPackages, verifyFileList } = require('./verify-linux-packages.cjs');
+const { CRITICAL_PACKAGES, findPackages, verifyFileList, verifyFlatpak } = require('./verify-linux-packages.cjs');
 
 describe('verify-linux-packages', () => {
   describe('package finding logic', () => {
@@ -239,36 +239,74 @@ describe('verify-linux-packages', () => {
 
   describe('Flatpak file validation', () => {
     it('should reject empty Flatpak files', () => {
-      // Test the size validation logic (directly, since verifyFlatpak uses real fs)
+      const flatpakPath = '/test/app.flatpak';
       const mockStat = { size: 0 };
-      const issues = [];
-      if (mockStat.size === 0) {
-        issues.push('Flatpak file is empty');
-      }
 
-      assert.ok(issues.includes('Flatpak file is empty'));
+      // Mock fs.existsSync to return true
+      const existsSync = mock.method(fs, 'existsSync', mock.fn(() => true));
+      // Mock fs.statSync to return empty file stats
+      const statSync = mock.method(fs, 'statSync', mock.fn(() => mockStat));
+
+      try {
+        const result = verifyFlatpak(flatpakPath);
+
+        assert.ok(!result.verified, 'Should reject empty Flatpak files');
+        assert.ok(result.issues.includes('Flatpak file is empty'));
+      } finally {
+        existsSync.mock.restore();
+        statSync.mock.restore();
+      }
     });
 
     it('should warn about suspiciously small Flatpak files', () => {
+      const flatpakPath = '/test/app.flatpak';
       const mockStat = { size: 10 * 1024 * 1024 }; // 10 MB
 
-      const issues = [];
-      if (mockStat.size < 50 * 1024 * 1024) {
-        issues.push(`Flatpak file seems too small (${(mockStat.size / 1024 / 1024).toFixed(2)} MB)`);
-      }
+      const existsSync = mock.method(fs, 'existsSync', mock.fn(() => true));
+      const statSync = mock.method(fs, 'statSync', mock.fn(() => mockStat));
 
-      assert.ok(issues.some((i) => i.includes('too small')));
+      try {
+        const result = verifyFlatpak(flatpakPath);
+
+        assert.ok(!result.verified, 'Should fail verification for too-small files');
+        assert.ok(result.issues.some((i) => i.includes('too small')));
+      } finally {
+        existsSync.mock.restore();
+        statSync.mock.restore();
+      }
     });
 
     it('should accept reasonable Flatpak file sizes', () => {
+      const flatpakPath = '/test/app.flatpak';
       const mockStat = { size: 133 * 1024 * 1024 }; // 133 MB (typical size)
 
-      const issues = [];
-      if (mockStat.size < 50 * 1024 * 1024) {
-        issues.push('Flatpak file seems too small');
-      }
+      const existsSync = mock.method(fs, 'existsSync', mock.fn(() => true));
+      const statSync = mock.method(fs, 'statSync', mock.fn(() => mockStat));
 
-      assert.equal(issues.length, 0);
+      try {
+        const result = verifyFlatpak(flatpakPath);
+
+        assert.ok(result.verified, 'Should accept reasonable Flatpak file sizes');
+        assert.equal(result.issues.length, 0);
+      } finally {
+        existsSync.mock.restore();
+        statSync.mock.restore();
+      }
+    });
+
+    it('should handle non-existent Flatpak files', () => {
+      const flatpakPath = '/test/nonexistent.flatpak';
+
+      const existsSync = mock.method(fs, 'existsSync', mock.fn(() => false));
+
+      try {
+        const result = verifyFlatpak(flatpakPath);
+
+        assert.ok(!result.verified, 'Should reject non-existent Flatpak files');
+        assert.ok(result.issues.includes('Flatpak file does not exist'));
+      } finally {
+        existsSync.mock.restore();
+      }
     });
   });
 });
