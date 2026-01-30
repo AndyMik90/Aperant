@@ -809,8 +809,9 @@ class LinearValidationAgent:
             logger.debug(f"[LINEAR_VALIDATION] Starting validation for {issue_id}")
 
         # Emit initial progress: starting validation
+        # Using 7 total steps to match the frontend stepper expectations
         self._emit_progress(
-            "initialization", 0, 8, f"Starting validation for {issue_id}"
+            "initialization", 0, 7, f"Starting validation for {issue_id}"
         )
 
         # Perform validation if not cached
@@ -858,7 +859,7 @@ class LinearValidationAgent:
 
             async def run_validation_session():
                 """Run the validation session with retry and timeout support."""
-                # Emit progress: Phase 1 starting
+                # Emit progress: Step 1 - Content Analysis
                 self._emit_progress(
                     "content_analysis", 1, 7, "Analyzing ticket content..."
                 )
@@ -869,44 +870,45 @@ class LinearValidationAgent:
                     logger.debug(
                         "[LINEAR_VALIDATION] Phase 1: Content Analysis - starting"
                     )
-                phase_start_time = time.time() if DEBUG_LINEAR_VALIDATION else 0
-                if DEBUG_LINEAR_VALIDATION:
-                    logger.debug(
-                        "[LINEAR_VALIDATION] Phase 1: Content Analysis - starting"
-                    )
+
+                # Emit progress: Step 2 - Codebase Search (about to start AI analysis)
+                self._emit_progress(
+                    "codebase_search", 2, 7, "Searching codebase for related implementation..."
+                )
 
                 # Create a continuous heartbeat task that emits progress during the long AI call
-                # This keeps running while the AI processes (which can take 30+ seconds), preventing the "hanging" feeling
-                # Updates every 3 seconds with elapsed time to show activity
+                # This cycles through the remaining validation phases as the AI progresses
+                # Updates every 5 seconds to show forward progress through the steps
                 async def continuous_heartbeat_task(stop_event: asyncio.Event):
                     """Emit continuous heartbeat progress updates during AI processing."""
                     elapsed = 0
-                    update_interval = 3  # Update every 3 seconds
+                    update_interval = 5  # Update every 5 seconds to show progress
 
-                    messages = [
-                        "Searching codebase for related implementation...",
-                        "AI analysis in progress...",
-                        "Analyzing ticket requirements...",
-                        "Generating validation recommendations...",
-                        "Preparing final results...",
+                    # Define the phases that will be cycled through as AI progresses
+                    # Each phase advances the step number to show forward progress
+                    phases = [
+                        ("completeness_check", 3, 7, "Validating completeness and feasibility..."),
+                        ("labels_selection", 4, 7, "Selecting appropriate labels..."),
+                        ("version_calculation", 5, 7, "Calculating version recommendation..."),
+                        ("properties_recommendation", 6, 7, "Determining task properties..."),
                     ]
 
-                    message_index = 0
+                    phase_index = 0
                     last_emit_time = 0
 
                     while not stop_event.is_set():
-                        # Check if we need to update (every 3 seconds or immediately for first update)
+                        # Check if we need to update (every 5 seconds or immediately for first update)
                         current_time = time.time()
                         should_update = (current_time - last_emit_time) >= update_interval or last_emit_time == 0
 
                         if should_update:
-                            message = messages[min(message_index, len(messages) - 1)]
-                            self._emit_progress("ai_analysis", 5, 7, message)
+                            # Get current phase info
+                            phase, step, total, message = phases[min(phase_index, len(phases) - 1)]
+                            self._emit_progress(phase, step, total, message)
 
-                            # Cycle through messages for variety, but don't wrap back to start
-                            # Once we've shown all messages, stay on the last one to avoid looping
-                            if elapsed >= 15:  # After 15s, change message
-                                message_index = min(message_index + 1, len(messages) - 1)
+                            # Move to next phase after interval, but stay on last phase
+                            if elapsed >= 15:  # After 15s, advance to next phase
+                                phase_index = min(phase_index + 1, len(phases) - 1)
 
                             last_emit_time = current_time
 
@@ -950,12 +952,12 @@ class LinearValidationAgent:
                             f"[LINEAR_VALIDATION] Phase 1: Content Analysis - complete ({phase_elapsed:.2f}s)"
                         )
 
-                    # Emit progress: AI analysis complete, parsing results
+                    # Emit progress: All steps complete
                     self._emit_progress(
-                        "ai_analysis_complete",
+                        "complete",
                         7,
                         7,
-                        "AI analysis complete, parsing results...",
+                        "Validation complete",
                     )
 
                     # Debug: Log response (truncated)

@@ -230,17 +230,14 @@ function ValidationStepsIndicator({
 }) {
 	// Map phase to step index
 	const phaseToStepIndex: Record<string, number> = {
-		initialization: 0,
-		content_analysis: 0,
-		codebase_search: 1,
-		ai_analysis_start: 1,
-		ai_analysis: 2, // Active AI processing phase - maps to completeness step
-		completeness_check: 2,
-		labels_selection: 3,
-		version_calculation: 4,
-		properties_recommendation: 5,
-		ai_analysis_complete: 6,
-		complete: 6,
+		initialization: -1, // Before first step
+		content_analysis: 0, // Step 1: Analyze
+		codebase_search: 1, // Step 2: Codebase
+		completeness_check: 2, // Step 3: Completeness
+		labels_selection: 3, // Step 4: Labels
+		version_calculation: 4, // Step 5: Version
+		properties_recommendation: 5, // Step 6: Properties
+		complete: 6, // All steps complete
 		error: -1,
 	};
 
