@@ -10,7 +10,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
 import { useTranslation } from "react-i18next";
-import { debugLog, debugError } from "@shared/utils/debug-logger";
 import type {
 	LinearTicket,
 	ValidationResult,
@@ -42,7 +41,7 @@ interface LinearTicketDetailProps {
 	ticket: LinearTicket | null;
 	validationResult: ValidationResult | null;
 	isValidating: boolean;
-	onRunValidation: () => Promise<void>;
+	onRunValidation: (skipCache?: boolean) => Promise<void>;
 }
 
 export function LinearTicketDetail({
@@ -98,12 +97,6 @@ export function LinearTicketDetail({
 
 	const validation = validationResult;
 
-	// Check if validation is still fresh (within 10 minutes)
-	const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
-	const isValidationFresh = validation?.validationTimestamp
-		? Date.now() - new Date(validation.validationTimestamp).getTime() < CACHE_TTL_MS
-		: false;
-
 	// Scroll to top when ticket changes
 	useEffect(() => {
 		if (detailRef.current) {
@@ -124,18 +117,6 @@ export function LinearTicketDetail({
 			setShowProgressModal(false);
 		}
 	}, [validation?.status, progressPhase]);
-
-	const handleValidate = async () => {
-		debugLog("[LinearTicketDetail] handleValidate called, ticket:", ticket?.id);
-		// Open progress modal immediately to show streaming progress
-		setShowProgressModal(true);
-		try {
-			await onRunValidation();
-			debugLog("[LinearTicketDetail] Validation completed");
-		} catch (error) {
-			debugError("[LinearTicketDetail] Validation failed:", error);
-		}
-	};
 
 	// Handle cancel validation
 	const handleCancel = async () => {
@@ -269,32 +250,35 @@ export function LinearTicketDetail({
 							</div>
 						)}
 
-						{/* Validate/View Results Button */}
+						{/* View Result Button - shown when validation exists */}
+						{validation?.status === "complete" && !isValidating && (
+							<button
+								type="button"
+								onClick={() => setShowResultsModal(true)}
+								className="px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 flex items-center gap-1.5 text-sm"
+								aria-label={t("linear:viewValidation")}
+							>
+								<FileText className="w-3.5 h-3.5" />
+								<span className="hidden sm:inline">{t("linear:viewValidation")}</span>
+							</button>
+						)}
+
+						{/* Validate Ticket Button - always shown, runs fresh validation */}
 						<button
 							type="button"
 							onClick={() => {
-								if (isValidationFresh && validation) {
-									// View existing validation result
-									setShowResultsModal(true);
-								} else {
-									// Run new validation
-									handleValidate();
-								}
+								setShowProgressModal(true);
+								onRunValidation(true); // skipCache=true for fresh validation
 							}}
 							disabled={isValidating}
 							className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 text-sm"
-							aria-label={isValidationFresh ? t("linear:viewValidation") : t("linear:runValidation")}
+							aria-label={t("linear:runValidation")}
 							aria-busy={isValidating}
 						>
 							{isValidating ? (
 								<>
 									<Loader2 className="w-3.5 h-3.5 animate-spin" />
 									<span className="hidden sm:inline">{t("linear:validatingTicket")}</span>
-								</>
-							) : isValidationFresh ? (
-								<>
-									<FileText className="w-3.5 h-3.5" />
-									<span>{t("linear:viewValidation")}</span>
 								</>
 							) : (
 								<>

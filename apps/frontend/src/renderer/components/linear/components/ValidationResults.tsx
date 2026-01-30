@@ -298,11 +298,7 @@ export function ValidationResults({
 		try {
 			// Get project ID from ticket, or fall back to selected project from store
 			// The backend will handle finding an API key if projectId is null
-			const projectId = ticket.project?.id || useLinearStore.getState().selectedProjectId;
-
-			if (!projectId) {
-				throw new Error('No project ID available for posting comments');
-			}
+			const projectId = ticket.project?.id || useLinearStore.getState().selectedProjectId || null;
 
 			// 1. Post the full validation results comment (top-level comment)
 			const feedbackComment = buildFeedbackComment(ticket, validation, t);
@@ -317,6 +313,8 @@ export function ValidationResults({
 			const isComplete = validation.completenessValidation?.isComplete ?? false;
 			const hasMissingFields = validation.completenessValidation?.missingFields?.length > 0;
 
+			// Note: We need a projectId to fetch comments (for finding GitHub threads)
+			// If projectId is null, we skip the clarification comment but the feedback was still posted
 			if (!isComplete && hasMissingFields && projectId) {
 				// Fetch comments to find GitHub threads
 				const commentsResult = await window.electronAPI.getLinearComments(projectId, ticket.id);

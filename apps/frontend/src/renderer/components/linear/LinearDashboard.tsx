@@ -153,13 +153,13 @@ export function LinearDashboard({
 		hasActiveFilters,
 	} = useLinearFiltering(tickets);
 
-	const handleRunValidation = useCallback(async () => {
-		debugLog("[LinearDashboard] handleRunValidation called, selectedTicketId:", selectedTicketId, "selectedTicket:", selectedTicket);
+	const handleRunValidation = useCallback(async (skipCache = false) => {
+		debugLog("[LinearDashboard] handleRunValidation called, selectedTicketId:", selectedTicketId, "selectedTicket:", selectedTicket, "skipCache:", skipCache);
 		// Use the Linear identifier (e.g., "LIN-123") instead of UUID
 		const linearIdentifier = selectedTicket?.identifier;
 		if (linearIdentifier) {
-			debugLog("[LinearDashboard] Running validation for Linear identifier:", linearIdentifier);
-			const result = await runValidation(linearIdentifier);
+			debugLog("[LinearDashboard] Running validation for Linear identifier:", linearIdentifier, "skipCache:", skipCache);
+			const result = await runValidation(linearIdentifier, skipCache);
 			debugLog("[LinearDashboard] Validation result received:", result);
 		} else {
 			debugWarn("[LinearDashboard] No Linear identifier available for validation");

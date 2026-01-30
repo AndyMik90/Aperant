@@ -561,7 +561,9 @@ class LinearValidationAgent:
         self, issue_id: str, validation_timestamp: str, result: dict[str, Any]
     ) -> None:
         """
-        Save validation result to cache with TTL.
+        Save validation result to cache (persistent, no TTL).
+
+        Cache persists until explicitly invalidated by skip_cache parameter.
 
         Args:
             issue_id: Linear issue identifier
@@ -571,9 +573,10 @@ class LinearValidationAgent:
         cache_key = self._get_cache_key(issue_id, validation_timestamp)
 
         try:
-            self.cache.set(cache_key, result, expire=self.CACHE_TTL_SECONDS)
+            # Use expire=None for persistent cache (no automatic expiration)
+            self.cache.set(cache_key, result, expire=None)
             logger.info(
-                f"✓ Cached validation result for {issue_id} (TTL: {self.CACHE_TTL_SECONDS}s)"
+                f"✓ Cached validation result for {issue_id} (persistent cache)"
             )
         except Exception as e:
             logger.warning(f"Failed to cache result for {issue_id}: {e}")
