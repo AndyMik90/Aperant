@@ -1086,9 +1086,9 @@ class PRContextGatherer:
         path_obj = Path(file_path)
         stem = path_obj.stem  # e.g., 'helpers' from 'utils/helpers.ts'
 
-        # Skip if stem is too generic (would match too many files)
-        if stem in ["index", "main", "app", "utils", "helpers", "types", "constants"]:
-            return dependents
+        # NOTE: We no longer skip generic filenames like "utils", "types", "index".
+        # The LLM-driven exploration system decides what's relevant based on the PR context.
+        # Widely-used utilities are often the MOST important files to track dependents for.
 
         # Build regex patterns and file extensions based on file type
         pattern = None
@@ -1134,7 +1134,9 @@ class PRContextGatherer:
                     # Check if we've hit the file limit
                     if files_checked >= max_files_to_check:
                         safe_print(
-                            f"[Context] File limit reached finding dependents for {file_path}"
+                            f"[Context] File scan limit ({max_files_to_check}) reached for {file_path}. "
+                            f"Found {len(dependents)} dependents. "
+                            f"LLM agents can explore additional callers if needed via Read/Grep tools."
                         )
                         return dependents
 

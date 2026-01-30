@@ -270,17 +270,29 @@ AGENT_CONFIGS = {
         "thinking_default": "high",
     },
     "pr_orchestrator_parallel": {
-        "tools": BASE_READ_TOOLS + WEB_TOOLS,  # Read-only for parallel PR orchestrator
+        # Read-only for parallel PR orchestrator
+        # NOTE: Do NOT add "Task" here - the SDK auto-allows Task when agents are defined
+        # via the --agents flag. Explicitly adding it interferes with agent registration.
+        "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7"],
         "auto_claude_tools": [],
         "thinking_default": "high",
     },
     "pr_followup_parallel": {
-        "tools": BASE_READ_TOOLS
-        + WEB_TOOLS,  # Read-only for parallel followup reviewer
+        # Read-only for parallel followup reviewer
+        # NOTE: Do NOT add "Task" here - same reason as pr_orchestrator_parallel
+        "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7"],
         "auto_claude_tools": [],
         "thinking_default": "high",
+    },
+    "pr_finding_validator": {
+        # Standalone validator for re-checking findings against actual code
+        # Called separately from orchestrator to validate findings with fresh context
+        "tools": BASE_READ_TOOLS,
+        "mcp_servers": [],
+        "auto_claude_tools": [],
+        "thinking_default": "medium",
     },
     # ═══════════════════════════════════════════════════════════════════════
     # ANALYSIS PHASES
