@@ -263,6 +263,12 @@ AGENT_CONFIGS = {
         "auto_claude_tools": [],
         "thinking_default": "low",
     },
+    "pr_template_filler": {
+        "tools": BASE_READ_TOOLS,  # Read-only — reads diff, template, spec
+        "mcp_servers": [],  # No MCP needed, context passed via prompt
+        "auto_claude_tools": [],
+        "thinking_default": "low",  # Fast utility task for structured fill-in
+    },
     "pr_reviewer": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,  # Read-only
         "mcp_servers": ["context7"],
