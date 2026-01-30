@@ -161,7 +161,7 @@ export function registerSettingsHandlers(
       // Persist migration changes
       if (needsSave) {
         try {
-          writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+          writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
         } catch (error) {
           console.error('[SETTINGS_GET] Failed to persist migration:', error);
           // Continue anyway - settings will be migrated in-memory for this session
@@ -202,7 +202,7 @@ export function registerSettingsHandlers(
           }
         }
 
-        writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2));
+        writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), 'utf-8');
 
         // Apply Python path if changed
         if (settings.pythonPath || settings.autoBuildPath) {
@@ -724,7 +724,7 @@ export function registerSettingsHandlers(
           }
         }
 
-        writeFileSync(envPath, lines.join('\n'));
+        writeFileSync(envPath, lines.join('\n'), 'utf-8');
 
         return { success: true };
       } catch (error) {

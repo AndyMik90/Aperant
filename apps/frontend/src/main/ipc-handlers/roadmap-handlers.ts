@@ -35,24 +35,24 @@ function getFeatureSettings(): { model?: string; thinkingLevel?: string } {
   const settingsPath = path.join(app.getPath("userData"), "settings.json");
 
   try {
-    if (existsSync(settingsPath)) {
-      const content = readFileSync(settingsPath, "utf-8");
-      const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...JSON.parse(content) };
+    const content = readFileSync(settingsPath, "utf-8");
+    const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...JSON.parse(content) };
 
-      // Get roadmap-specific settings
-      const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
-      const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
+    // Get roadmap-specific settings
+    const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
+    const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
 
-      return {
-        model: featureModels.roadmap,
-        thinkingLevel: featureThinking.roadmap,
-      };
-    }
+    return {
+      model: featureModels.roadmap,
+      thinkingLevel: featureThinking.roadmap,
+    };
   } catch (error) {
-    debugError("[Roadmap Handler] Failed to read feature settings:", error);
+    // Return defaults if settings file doesn't exist (ENOENT) or fails to parse
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      debugError("[Roadmap Handler] Failed to read feature settings:", error);
+    }
   }
 
-  // Return defaults if settings file doesn't exist or fails to parse
   return {
     model: DEFAULT_FEATURE_MODELS.roadmap,
     thinkingLevel: DEFAULT_FEATURE_THINKING.roadmap,
@@ -378,12 +378,16 @@ export function registerRoadmapHandlers(
         AUTO_BUILD_PATHS.ROADMAP_FILE
       );
 
-      if (!existsSync(roadmapPath)) {
-        return { success: false, error: "Roadmap not found" };
-      }
-
       try {
-        const content = readFileSync(roadmapPath, "utf-8");
+        let content: string;
+        try {
+          content = readFileSync(roadmapPath, "utf-8");
+        } catch (readErr: unknown) {
+          if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+            return { success: false, error: "Roadmap not found" };
+          }
+          throw readErr;
+        }
         const existingRoadmap = JSON.parse(content);
 
         // Transform camelCase features back to snake_case for JSON file
@@ -408,7 +412,7 @@ export function registerRoadmapHandlers(
         existingRoadmap.metadata = existingRoadmap.metadata || {};
         existingRoadmap.metadata.updated_at = new Date().toISOString();
 
-        writeFileSync(roadmapPath, JSON.stringify(existingRoadmap, null, 2));
+        writeFileSync(roadmapPath, JSON.stringify(existingRoadmap, null, 2), 'utf-8');
 
         return { success: true };
       } catch (error) {
@@ -439,12 +443,16 @@ export function registerRoadmapHandlers(
         AUTO_BUILD_PATHS.ROADMAP_FILE
       );
 
-      if (!existsSync(roadmapPath)) {
-        return { success: false, error: "Roadmap not found" };
-      }
-
       try {
-        const content = readFileSync(roadmapPath, "utf-8");
+        let content: string;
+        try {
+          content = readFileSync(roadmapPath, "utf-8");
+        } catch (readErr: unknown) {
+          if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+            return { success: false, error: "Roadmap not found" };
+          }
+          throw readErr;
+        }
         const roadmap = JSON.parse(content);
 
         // Find and update the feature
@@ -457,7 +465,7 @@ export function registerRoadmapHandlers(
         roadmap.metadata = roadmap.metadata || {};
         roadmap.metadata.updated_at = new Date().toISOString();
 
-        writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2));
+        writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2), 'utf-8');
 
         return { success: true };
       } catch (error) {
@@ -483,12 +491,16 @@ export function registerRoadmapHandlers(
         AUTO_BUILD_PATHS.ROADMAP_FILE
       );
 
-      if (!existsSync(roadmapPath)) {
-        return { success: false, error: "Roadmap not found" };
-      }
-
       try {
-        const content = readFileSync(roadmapPath, "utf-8");
+        let content: string;
+        try {
+          content = readFileSync(roadmapPath, "utf-8");
+        } catch (readErr: unknown) {
+          if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+            return { success: false, error: "Roadmap not found" };
+          }
+          throw readErr;
+        }
         const roadmap = JSON.parse(content);
 
         // Find the feature
@@ -562,7 +574,8 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         };
         writeFileSync(
           path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
-          JSON.stringify(implementationPlan, null, 2)
+          JSON.stringify(implementationPlan, null, 2),
+          'utf-8'
         );
 
         // Create requirements.json
@@ -572,11 +585,12 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         };
         writeFileSync(
           path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS),
-          JSON.stringify(requirements, null, 2)
+          JSON.stringify(requirements, null, 2),
+          'utf-8'
         );
 
         // Create spec.md (required by backend spec creation process)
-        writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE), taskDescription);
+        writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE), taskDescription, 'utf-8');
 
         // Build metadata
         const metadata: TaskMetadata = {
@@ -584,7 +598,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
           featureId: feature.id,
           category: "feature",
         };
-        writeFileSync(path.join(specDir, "task_metadata.json"), JSON.stringify(metadata, null, 2));
+        writeFileSync(path.join(specDir, "task_metadata.json"), JSON.stringify(metadata, null, 2), 'utf-8');
 
         // NOTE: We do NOT auto-start spec creation here - user should explicitly start the task
         // from the kanban board when they're ready
@@ -594,7 +608,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         feature.linked_spec_id = specId;
         roadmap.metadata = roadmap.metadata || {};
         roadmap.metadata.updated_at = new Date().toISOString();
-        writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2));
+        writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2), 'utf-8');
 
         // Create task object
         const task: Task = {
@@ -663,7 +677,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
           is_running: isRunning,
         };
 
-        writeFileSync(progressPath, JSON.stringify(fileData, null, 2));
+        writeFileSync(progressPath, JSON.stringify(fileData, null, 2), 'utf-8');
         debugLog("[Roadmap Handler] Saved progress checkpoint:", { projectId, phase: progressData.phase });
 
         return { success: true };

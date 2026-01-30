@@ -61,7 +61,7 @@ export class LogService {
       ''
     ].join('\n');
 
-    writeFileSync(logFile, header);
+    writeFileSync(logFile, header, 'utf-8');
 
     // Track active session
     this.activeSessions.set(taskId, {
@@ -167,7 +167,7 @@ export class LogService {
       const logsDir = path.dirname(session.logPath);
       const latestPath = path.join(logsDir, 'latest.log');
       const logContent = readFileSync(session.logPath, 'utf-8');
-      writeFileSync(latestPath, logContent);
+      writeFileSync(latestPath, logContent, 'utf-8');
     } catch (error) {
       console.error(`[LogService] Failed to end session for task ${taskId}:`, error);
     }

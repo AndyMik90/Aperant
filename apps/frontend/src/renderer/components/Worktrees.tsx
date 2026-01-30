@@ -166,7 +166,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
     try {
       // Fetch both task worktrees and terminal worktrees in parallel
       const [taskResult, terminalResult] = await Promise.all([
-        window.electronAPI.listWorktrees(projectId),
+        window.electronAPI.listWorktrees(projectId, { includeStats: true }),
         window.electronAPI.listTerminalWorktrees(selectedProject.path)
       ]);
 
@@ -285,10 +285,10 @@ export function Worktrees({ projectId }: WorktreesProps) {
     worktreePath: worktree.path,
     branch: worktree.branch,
     baseBranch: worktree.baseBranch,
-    commitCount: worktree.commitCount,
-    filesChanged: worktree.filesChanged,
-    additions: worktree.additions,
-    deletions: worktree.deletions
+    commitCount: worktree.commitCount ?? 0,
+    filesChanged: worktree.filesChanged ?? 0,
+    additions: worktree.additions ?? 0,
+    deletions: worktree.deletions ?? 0
   });
 
   // Open Create PR dialog
@@ -586,19 +586,19 @@ export function Worktrees({ projectId }: WorktreesProps) {
                         <div className="flex flex-wrap gap-4 text-sm mb-4">
                           <div className="flex items-center gap-1.5 text-muted-foreground">
                             <FileCode className="h-3.5 w-3.5" />
-                            <span>{worktree.filesChanged} files changed</span>
+                            <span>{worktree.filesChanged ?? 0} files changed</span>
                           </div>
                           <div className="flex items-center gap-1.5 text-muted-foreground">
                             <ChevronRight className="h-3.5 w-3.5" />
-                            <span>{worktree.commitCount} commits ahead</span>
+                            <span>{worktree.commitCount ?? 0} commits ahead</span>
                           </div>
                           <div className="flex items-center gap-1.5 text-success">
                             <Plus className="h-3.5 w-3.5" />
-                            <span>{worktree.additions}</span>
+                            <span>{worktree.additions ?? 0}</span>
                           </div>
                           <div className="flex items-center gap-1.5 text-destructive">
                             <Minus className="h-3.5 w-3.5" />
-                            <span>{worktree.deletions}</span>
+                            <span>{worktree.deletions ?? 0}</span>
                           </div>
                         </div>
 
@@ -790,7 +790,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Changes</span>
                     <span>
-                      {selectedWorktree.commitCount} commits, {selectedWorktree.filesChanged} files
+                      {selectedWorktree.commitCount ?? 0} commits, {selectedWorktree.filesChanged ?? 0} files
                     </span>
                   </div>
                 </div>

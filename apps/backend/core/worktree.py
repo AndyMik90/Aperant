@@ -349,6 +349,28 @@ class WorktreeManager:
 
         actual_branch = result.stdout.strip()
 
+        # Handle detached HEAD state: rev-parse --abbrev-ref returns literal "HEAD"
+        # when the worktree is in detached HEAD (e.g. after rebase, merge conflict, etc.)
+        # First try to resolve the branch from git's worktree registry, then fall back
+        # to the expected branch name derived from the spec name.
+        if actual_branch == "HEAD":
+            registered_branch = self._get_worktree_registered_branch(worktree_path)
+            if registered_branch:
+                debug_warning(
+                    "worktree",
+                    f"Worktree '{spec_name}' is in detached HEAD state. "
+                    f"Resolved branch from git worktree registry: {registered_branch}",
+                )
+                actual_branch = registered_branch
+            else:
+                expected_branch = self.get_branch_name(spec_name)
+                debug_warning(
+                    "worktree",
+                    f"Worktree '{spec_name}' is in detached HEAD state. "
+                    f"Using expected branch name: {expected_branch}",
+                )
+                actual_branch = expected_branch
+
         # Get statistics
         stats = self._get_worktree_stats(spec_name)
 
@@ -360,6 +382,50 @@ class WorktreeManager:
             is_active=True,
             **stats,
         )
+
+    def _get_worktree_registered_branch(self, worktree_path: Path) -> str | None:
+        """
+        Get the branch name for a worktree from git's worktree registry.
+
+        Uses `git worktree list --porcelain` to find the branch associated with
+        a worktree path. This works even when the worktree is in detached HEAD state,
+        as git tracks the original branch association in its registry.
+
+        Args:
+            worktree_path: The path to the worktree directory.
+
+        Returns:
+            The branch name (without refs/heads/ prefix) if found, None otherwise.
+        """
+        result = self._run_git(["worktree", "list", "--porcelain"])
+        if result.returncode != 0:
+            return None
+
+        resolved_path = worktree_path.resolve()
+
+        # Parse porcelain output: entries are separated by blank lines,
+        # each entry has "worktree <path>", "HEAD <sha>", "branch refs/heads/<name>"
+        # (or "detached" instead of "branch" if truly detached in registry too)
+        current_path = None
+        for line in result.stdout.split("\n"):
+            if line.startswith("worktree "):
+                current_path = Path(line.split(" ", 1)[1])
+            elif line.startswith("branch refs/heads/") and current_path is not None:
+                try:
+                    if current_path.exists() and resolved_path.exists():
+                        if os.path.samefile(resolved_path, current_path):
+                            return line[len("branch refs/heads/") :]
+                except OSError:
+                    pass
+                # Fallback to normalized case comparison
+                if os.path.normcase(str(resolved_path)) == os.path.normcase(
+                    str(current_path)
+                ):
+                    return line[len("branch refs/heads/") :]
+            elif line == "":
+                current_path = None
+
+        return None
 
     def _check_branch_namespace_conflict(self) -> str | None:
         """
@@ -976,6 +1042,65 @@ class WorktreeManager:
                 error=f"No worktree found for spec: {spec_name}",
             )
 
+        # Verify we have an actual branch name (not detached HEAD)
+        # get_worktree_info already falls back to expected branch name for detached HEAD,
+        # but we also need to re-attach HEAD to the branch in the worktree so git push works.
+        head_check = self._run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=info.path)
+        if head_check.returncode == 0 and head_check.stdout.strip() == "HEAD":
+            # Resolve the target branch: first check git's worktree registry (which
+            # tracks the original branch even when detached), then fall back to the
+            # expected branch name derived from the spec name.
+            target_branch = self._get_worktree_registered_branch(info.path)
+            if not target_branch:
+                target_branch = self.get_branch_name(spec_name)
+            debug_warning(
+                "worktree",
+                f"Re-attaching detached HEAD to branch '{target_branch}' before push",
+            )
+            # Check if the target branch exists locally
+            if self._branch_exists(target_branch):
+                # Move the branch ref to current commit and switch to it
+                current_commit = self._run_git(["rev-parse", "HEAD"], cwd=info.path)
+                if current_commit.returncode != 0:
+                    return PushBranchResult(
+                        success=False,
+                        branch=target_branch,
+                        error=f"Failed to resolve HEAD commit: {current_commit.stderr}",
+                    )
+                commit_sha = current_commit.stdout.strip()
+                # Update the branch to point to current commit
+                branch_update = self._run_git(
+                    ["branch", "-f", target_branch, commit_sha],
+                    cwd=info.path,
+                )
+                if branch_update.returncode != 0:
+                    return PushBranchResult(
+                        success=False,
+                        branch=target_branch,
+                        error=f"Failed to update branch '{target_branch}' to commit {commit_sha}: {branch_update.stderr}",
+                    )
+                # Switch to the branch
+                switch_result = self._run_git(
+                    ["checkout", target_branch], cwd=info.path
+                )
+                if switch_result.returncode != 0:
+                    return PushBranchResult(
+                        success=False,
+                        branch=target_branch,
+                        error=f"Failed to re-attach to branch '{target_branch}': {switch_result.stderr}",
+                    )
+            else:
+                # Branch doesn't exist locally - create it at current HEAD
+                checkout_result = self._run_git(
+                    ["checkout", "-b", target_branch], cwd=info.path
+                )
+                if checkout_result.returncode != 0:
+                    return PushBranchResult(
+                        success=False,
+                        branch=target_branch,
+                        error=f"Failed to create branch '{target_branch}': {checkout_result.stderr}",
+                    )
+
         # Push the branch to origin
         push_args = ["push", "-u", "origin", info.branch]
         if force:
@@ -1315,6 +1440,8 @@ class WorktreeManager:
             return PushAndCreatePRResult(
                 success=False,
                 pushed=False,
+                branch=push_result.get("branch", ""),
+                remote=push_result.get("remote", ""),
                 error=push_result.get("error", "Push failed"),
             )
 

@@ -140,7 +140,7 @@ function saveTriageConfig(project: Project, config: TriageConfig): void {
     enable_triage_comments: config.enableComments,
   };
 
-  fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2));
+  fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2), 'utf-8');
 }
 
 /**

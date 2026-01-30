@@ -553,17 +553,21 @@ export class ReleaseService extends EventEmitter {
       });
 
       const pkgPath = path.join(projectPath, 'package.json');
-      if (!existsSync(pkgPath)) {
-        throw new Error('package.json not found in project root');
+      let pkgContent: string;
+      try {
+        pkgContent = readFileSync(pkgPath, 'utf-8');
+      } catch (readErr: unknown) {
+        if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+          throw new Error('package.json not found in project root');
+        }
+        throw readErr;
       }
-
-      const pkgContent = readFileSync(pkgPath, 'utf-8');
       const pkg = JSON.parse(pkgContent);
       pkg.version = version;
 
       // Preserve formatting (detect indent)
       const indent = pkgContent.match(/^(\s+)/m)?.[1] || '  ';
-      writeFileSync(pkgPath, JSON.stringify(pkg, null, indent) + '\n');
+      writeFileSync(pkgPath, JSON.stringify(pkg, null, indent) + '\n', 'utf-8');
 
       // Stage and commit only package.json
       this.emitProgress(projectId, {
@@ -719,11 +723,11 @@ export class ReleaseService extends EventEmitter {
         let stderr = '';
 
         child.stdout?.on('data', (data: Buffer) => {
-          stdout += data.toString();
+          stdout += data.toString('utf-8');
         });
 
         child.stderr?.on('data', (data: Buffer) => {
-          stderr += data.toString();
+          stderr += data.toString('utf-8');
         });
 
         child.on('exit', (code) => {

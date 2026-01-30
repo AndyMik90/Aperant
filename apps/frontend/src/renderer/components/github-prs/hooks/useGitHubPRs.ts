@@ -423,12 +423,14 @@ export function useGitHubPRs(
 
       try {
         const success = await window.electronAPI.github.cancelPRReview(projectId, prNumber);
-        if (success) {
-          // Update store to mark review as cancelled
-          usePRReviewStore
-            .getState()
-            .setPRReviewError(projectId, prNumber, "Review cancelled by user");
-        }
+        // Always update store state to exit the "reviewing" state
+        // Use different messages based on whether the process was found and killed
+        const message = success
+          ? "Review cancelled by user"
+          : "Review stopped - process not found";
+        usePRReviewStore
+          .getState()
+          .setPRReviewError(projectId, prNumber, message);
         return success;
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to cancel review");

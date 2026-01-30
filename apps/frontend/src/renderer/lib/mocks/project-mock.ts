@@ -55,6 +55,10 @@ export const projectMock = {
 
   saveTabState: async () => ({ success: true }),
 
+  // Kanban Preferences
+  getKanbanPreferences: async () => ({ success: true, data: null }),
+  saveKanbanPreferences: async () => ({ success: true }),
+
   // Dialog operations
   selectDirectory: async () => {
     return prompt('Enter project path (browser mock):', '/Users/demo/projects/new-project');
