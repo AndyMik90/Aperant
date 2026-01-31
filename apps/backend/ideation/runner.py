@@ -173,10 +173,12 @@ class IdeationOrchestrator:
             "progress",
         )
 
-        # Create tasks for all enabled types
-        ideation_tasks = [
-            self.output_streamer.stream_ideation_result(
-                ideation_type, self.phase_executor, MAX_RETRIES
+        # Create tasks explicitly so we can cancel them on timeout
+        ideation_task_objs = [
+            asyncio.create_task(
+                self.output_streamer.stream_ideation_result(
+                    ideation_type, self.phase_executor, MAX_RETRIES
+                )
             )
             for ideation_type in self.enabled_types
         ]
@@ -185,7 +187,7 @@ class IdeationOrchestrator:
         # 5 minute timeout prevents infinite hangs if one type stalls
         try:
             ideation_results = await asyncio.wait_for(
-                asyncio.gather(*ideation_tasks, return_exceptions=True),
+                asyncio.gather(*ideation_task_objs, return_exceptions=True),
                 timeout=300,  # 5 minutes max for all ideation types
             )
         except asyncio.TimeoutError:
@@ -193,7 +195,13 @@ class IdeationOrchestrator:
                 "Ideation generation timed out after 5 minutes",
                 "error",
             )
-            # Return empty results for timed out types
+            # Cancel all pending tasks to prevent resource leaks
+            for task in ideation_task_objs:
+                if not task.done():
+                    task.cancel()
+            # Wait for cancellation to complete (ignore CancelledError)
+            await asyncio.gather(*ideation_task_objs, return_exceptions=True)
+            # Return timeout exceptions for all types
             ideation_results = [
                 Exception("Ideation timed out") for _ in self.enabled_types
             ]
