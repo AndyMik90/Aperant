@@ -6,10 +6,8 @@ import type {
   SDKRateLimitInfo,
   AuthFailureInfo,
   ImplementationPlan,
-  TaskStatus,
-  ReviewReason,
-  ExecutionPhase,
 } from "../../shared/types";
+import { XSTATE_SETTLED_STATES, XSTATE_TO_PHASE, mapStateToLegacy } from "../../shared/state-machines";
 import { AgentManager } from "../agent";
 import type { ProcessType, ExecutionProgressData } from "../agent";
 import { titleGenerator } from "../title-generator";
@@ -21,60 +19,6 @@ import { findTaskAndProject } from "./task/shared";
 import { safeSendToRenderer } from "./utils";
 import { getClaudeProfileManager } from "../claude-profile-manager";
 import { taskStateManager } from "../task-state-manager";
-
-/**
- * XState states where the task has "settled" — the state machine has determined
- * the task's final or review status. Execution-progress events from the agent
- * process should NOT overwrite these states, as XState is the source of truth.
- */
-const XSTATE_SETTLED_STATES = new Set([
-  'plan_review', 'human_review', 'error', 'creating_pr', 'pr_created', 'done'
-]);
-
-/** Maps XState states to execution phases for re-stamping plan files. */
-const XSTATE_TO_PHASE_MAP: Record<string, ExecutionPhase> = {
-  'backlog': 'idle',
-  'planning': 'planning',
-  'plan_review': 'planning',
-  'coding': 'coding',
-  'qa_review': 'qa_review',
-  'qa_fixing': 'qa_fixing',
-  'human_review': 'complete',
-  'error': 'failed',
-  'creating_pr': 'complete',
-  'pr_created': 'complete',
-  'done': 'complete'
-};
-
-/** Convert XState state to legacy status/reviewReason for plan file re-stamping. */
-function mapStateToLegacyForRestamp(
-  state: string
-): { status: TaskStatus; reviewReason?: ReviewReason } {
-  switch (state) {
-    case 'backlog':
-      return { status: 'backlog' };
-    case 'planning':
-    case 'coding':
-      return { status: 'in_progress' };
-    case 'plan_review':
-      return { status: 'human_review', reviewReason: 'plan_review' };
-    case 'qa_review':
-    case 'qa_fixing':
-      return { status: 'ai_review' };
-    case 'human_review':
-      return { status: 'human_review', reviewReason: 'completed' };
-    case 'error':
-      return { status: 'human_review', reviewReason: 'errors' };
-    case 'creating_pr':
-      return { status: 'human_review', reviewReason: 'completed' };
-    case 'pr_created':
-      return { status: 'pr_created' };
-    case 'done':
-      return { status: 'done' };
-    default:
-      return { status: 'backlog' };
-  }
-}
 
 /**
  * Register all agent-events-related IPC handlers
@@ -184,7 +128,7 @@ export function registerAgenteventsHandlers(
   });
 
   agentManager.on("task-event", (taskId: string, event, projectId?: string) => {
-    console.log(`[agent-events-handlers] Received task-event for ${taskId}:`, event.type, event);
+    console.debug(`[agent-events-handlers] Received task-event for ${taskId}:`, event.type, event);
 
     if (taskStateManager.getLastSequence(taskId) === undefined) {
       const { task, project } = findTaskAndProject(taskId, projectId);
@@ -205,18 +149,18 @@ export function registerAgenteventsHandlers(
 
     const { task, project } = findTaskAndProject(taskId, projectId);
     if (!task || !project) {
-      console.log(`[agent-events-handlers] No task/project found for ${taskId}`);
+      console.debug(`[agent-events-handlers] No task/project found for ${taskId}`);
       return;
     }
 
-    console.log(`[agent-events-handlers] Task state before handleTaskEvent:`, {
+    console.debug(`[agent-events-handlers] Task state before handleTaskEvent:`, {
       status: task.status,
       reviewReason: task.reviewReason,
       phase: task.executionProgress?.phase
     });
 
     const accepted = taskStateManager.handleTaskEvent(taskId, event, task, project);
-    console.log(`[agent-events-handlers] Event ${event.type} accepted: ${accepted}`);
+    console.debug(`[agent-events-handlers] Event ${event.type} accepted: ${accepted}`);
     if (!accepted) {
       return;
     }
@@ -278,13 +222,13 @@ export function registerAgenteventsHandlers(
         }
       }
     } else if (xstateInTerminalState && progress.phase) {
-      console.log(`[agent-events-handlers] Skipping persistPlanPhaseSync for ${taskId}: XState in '${currentXState}', not overwriting with phase '${progress.phase}'`);
+      console.debug(`[agent-events-handlers] Skipping persistPlanPhaseSync for ${taskId}: XState in '${currentXState}', not overwriting with phase '${progress.phase}'`);
     }
 
     // Skip sending execution-progress to renderer when XState has settled.
     // XState's emitPhaseFromState already sent the correct phase to the renderer.
     if (xstateInTerminalState) {
-      console.log(`[agent-events-handlers] Skipping execution-progress to renderer for ${taskId}: XState in '${currentXState}', ignoring phase '${progress.phase}'`);
+      console.debug(`[agent-events-handlers] Skipping execution-progress to renderer for ${taskId}: XState in '${currentXState}', ignoring phase '${progress.phase}'`);
       return;
     }
     safeSendToRenderer(
@@ -312,10 +256,10 @@ export function registerAgenteventsHandlers(
     const planWithStatus = plan as { xstateState?: string; executionPhase?: string; status?: string };
     const currentXState = taskStateManager.getCurrentState(taskId);
     if (currentXState && !planWithStatus.xstateState && task && project) {
-      console.log(`[agent-events-handlers] Re-stamping XState status on plan file for ${taskId} (state: ${currentXState})`);
+      console.debug(`[agent-events-handlers] Re-stamping XState status on plan file for ${taskId} (state: ${currentXState})`);
       const mainPlanPath = getPlanPath(project, task);
-      const { status, reviewReason } = mapStateToLegacyForRestamp(currentXState);
-      const phase = XSTATE_TO_PHASE_MAP[currentXState] || 'idle';
+      const { status, reviewReason } = mapStateToLegacy(currentXState);
+      const phase = XSTATE_TO_PHASE[currentXState] || 'idle';
       persistPlanStatusAndReasonSync(mainPlanPath, status, reviewReason, project.id, currentXState, phase);
 
       // Also re-stamp worktree copy if it exists

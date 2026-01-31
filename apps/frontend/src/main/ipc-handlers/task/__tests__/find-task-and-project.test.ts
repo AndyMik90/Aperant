@@ -90,7 +90,7 @@ describe('findTaskAndProject', () => {
     expect(resultScopedA.project).toBe(projectA);
   });
 
-  it('should fall back to all-project search when projectId has no matching task', () => {
+  it('should NOT fall back to other projects when projectId is provided but task not found', () => {
     const projectA = createProject({ id: 'proj-a' });
     const projectB = createProject({ id: 'proj-b' });
 
@@ -100,10 +100,23 @@ describe('findTaskAndProject', () => {
     mockTasksByProject.set('proj-a', [taskA]);
     mockTasksByProject.set('proj-b', []);
 
-    // Search Project B (which has no tasks) - falls back to finding in Project A
+    // Search Project B (which has no tasks) — should NOT find Project A's task
     const result = findTaskAndProject('write-to-file', 'proj-b');
-    expect(result.task).toBe(taskA);
-    expect(result.project).toBe(projectA);
+    expect(result.task).toBeUndefined();
+    expect(result.project).toBeUndefined();
+  });
+
+  it('should return undefined when projectId refers to a non-existent project', () => {
+    const project = createProject({ id: 'proj-1' });
+    const task = createTask({ id: 'task-1', specId: 'write-to-file', projectId: 'proj-1' });
+
+    mockProjects.push(project);
+    mockTasksByProject.set('proj-1', [task]);
+
+    // Search with a projectId that doesn't exist — should NOT fall back
+    const result = findTaskAndProject('write-to-file', 'non-existent-project');
+    expect(result.task).toBeUndefined();
+    expect(result.project).toBeUndefined();
   });
 
   it('should return undefined when task not found in any project', () => {
@@ -126,5 +139,19 @@ describe('findTaskAndProject', () => {
     const result = findTaskAndProject('unique-uuid', 'proj-1');
     expect(result.task).toBe(task);
     expect(result.project).toBe(project);
+  });
+
+  it('should log warning when provided projectId is not found', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    mockProjects.push(createProject({ id: 'proj-1' }));
+
+    findTaskAndProject('some-task', 'ghost-project');
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('ghost-project'),
+      // Flexible match on the rest of the message
+    );
+    warnSpy.mockRestore();
   });
 });
