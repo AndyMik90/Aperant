@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   CheckCheck,
 } from 'lucide-react';
+import { getAppLocale } from '../../../lib/date-utils';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -50,7 +51,7 @@ interface MRDetailProps {
 }
 
 function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString(undefined, {
+  return new Date(dateString).toLocaleDateString(getAppLocale(), {
     month: 'short',
     day: 'numeric',
     year: 'numeric',

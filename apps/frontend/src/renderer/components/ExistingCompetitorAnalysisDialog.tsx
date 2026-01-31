@@ -8,6 +8,7 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 import { Button } from './ui/button';
+import { formatDate } from '../lib/date-utils';
 
 interface ExistingCompetitorAnalysisDialogProps {
   open: boolean;
@@ -41,13 +42,13 @@ export function ExistingCompetitorAnalysisDialog({
     onOpenChange(false);
   };
 
-  const formatDate = (date?: Date) => {
+  const formatAnalysisDate = (date?: Date) => {
     if (!date) return 'recently';
-    return new Intl.DateTimeFormat(undefined, {
+    return formatDate(date, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
-    }).format(date);
+    });
   };
 
   return (
@@ -59,7 +60,7 @@ export function ExistingCompetitorAnalysisDialog({
             Competitor Analysis Options
           </AlertDialogTitle>
           <AlertDialogDescription className="text-muted-foreground">
-            This project has an existing competitor analysis from {formatDate(analysisDate)}
+            This project has an existing competitor analysis from {formatAnalysisDate(analysisDate)}
           </AlertDialogDescription>
         </AlertDialogHeader>
 

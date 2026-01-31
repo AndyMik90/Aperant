@@ -1,5 +1,6 @@
 import { GitMerge, GitPullRequest, Lock, ExternalLink } from 'lucide-react';
 import { cn } from '../../../lib/utils';
+import { getAppLocale } from '../../../lib/date-utils';
 import type { GitLabMergeRequest } from '../../../../shared/types';
 
 interface MergeRequestItemProps {
@@ -27,7 +28,7 @@ export function MergeRequestItem({ mr, isSelected, onClick }: MergeRequestItemPr
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString(getAppLocale(), { month: 'short', day: 'numeric' });
   };
 
   return (

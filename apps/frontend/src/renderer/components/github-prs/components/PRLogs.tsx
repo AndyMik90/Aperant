@@ -14,6 +14,7 @@ import {
   Clock,
   Activity
 } from 'lucide-react';
+import { getAppLocale } from '../../../lib/date-utils';
 import { Badge } from '../../ui/badge';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../../ui/collapsible';
 import { cn } from '../../../lib/utils';
@@ -187,7 +188,7 @@ export function PRLogs({ prNumber, logs, isLoading, isStreaming = false }: PRLog
               </div>
               <div className="text-xs text-muted-foreground flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {new Date(logs.updated_at).toLocaleString()}
+                {new Date(logs.updated_at).toLocaleString(getAppLocale())}
               </div>
             </div>
 
@@ -432,7 +433,7 @@ function OrchestratorActivitySection({ entries, isExpanded, onToggle }: Orchestr
           {entries.map((entry, idx) => (
             <div key={`activity-${entry.timestamp}-${idx}`} className="flex items-start gap-2 text-[10px] text-muted-foreground/80 py-0.5">
               <span className="text-muted-foreground/50 tabular-nums shrink-0">
-                {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                {new Date(entry.timestamp).toLocaleTimeString(getAppLocale(), { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </span>
               <span className="break-words">{entry.content}</span>
             </div>
@@ -531,7 +532,7 @@ function LogEntry({ entry }: LogEntryProps) {
   const formatTime = (timestamp: string) => {
     try {
       const date = new Date(timestamp);
-      return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      return date.toLocaleTimeString(getAppLocale(), { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     } catch {
       return '';
     }
