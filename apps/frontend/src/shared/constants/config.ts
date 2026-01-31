@@ -31,6 +31,7 @@ export const DEFAULT_APP_SETTINGS = {
   pythonPath: undefined as string | undefined,
   gitPath: undefined as string | undefined,
   githubCLIPath: undefined as string | undefined,
+  gitlabCLIPath: undefined as string | undefined,
   autoBuildPath: undefined as string | undefined,
   autoUpdateAutoBuild: true,
   autoNameTerminals: true,

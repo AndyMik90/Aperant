@@ -139,18 +139,9 @@ class PRReviewEngine:
             files_list.append(f"- ... and {len(context.changed_files) - 20} more files")
         files_str = "\n".join(files_list)
 
-        # NEW: Format related files (imports, tests, etc.)
+        # Removed: Related files section
+        # LLM agents now discover relevant files themselves via Read, Grep, Glob tools
         related_files_str = ""
-        if context.related_files:
-            related_files_list = [f"- `{f}`" for f in context.related_files[:10]]
-            if len(context.related_files) > 10:
-                related_files_list.append(
-                    f"- ... and {len(context.related_files) - 10} more"
-                )
-            related_files_str = f"""
-### Related Files (imports, tests, configs)
-{chr(10).join(related_files_list)}
-"""
 
         # NEW: Format commits for context
         commits_str = ""

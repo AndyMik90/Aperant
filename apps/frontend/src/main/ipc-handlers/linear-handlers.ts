@@ -239,7 +239,7 @@ export function registerLinearHandlers(
 
       try {
         const query = `
-          query($teamId: ID!) {
+          query($teamId: String!) {
             team(id: $teamId) {
               projects {
                 nodes {

@@ -134,6 +134,7 @@ export function TaskReview({
       ) : worktreeStatus?.exists ? (
         /* Worktree exists but not yet staged - show staging UI */
         <WorkspaceStatus
+          taskId={task.id}
           worktreeStatus={worktreeStatus}
           workspaceError={workspaceError}
           stageOnly={stageOnly}
