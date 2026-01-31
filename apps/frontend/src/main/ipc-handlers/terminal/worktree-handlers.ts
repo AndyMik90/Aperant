@@ -504,9 +504,17 @@ async function createTerminalWorktree(
       }
     }
 
+    // Check if error was due to timeout (execFileAsync with timeout sets killed=true and signal='SIGTERM')
+    const isTimeout =
+      error instanceof Error && 'killed' in error && (error as NodeJS.ErrnoException & { killed?: boolean }).killed === true;
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to create worktree',
+      error: isTimeout
+        ? 'Git operation timed out. The repository may be too large or the network connection is slow. Please try again.'
+        : error instanceof Error
+          ? error.message
+          : 'Failed to create worktree',
     };
   }
 }
@@ -759,9 +767,18 @@ async function removeTerminalWorktree(
     return { success: true };
   } catch (error) {
     debugError('[TerminalWorktree] Error removing worktree:', error);
+
+    // Check if error was due to timeout (execFileAsync with timeout sets killed=true and signal='SIGTERM')
+    const isTimeout =
+      error instanceof Error && 'killed' in error && (error as NodeJS.ErrnoException & { killed?: boolean }).killed === true;
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to remove worktree',
+      error: isTimeout
+        ? 'Git operation timed out. The repository may be too large. Please try again.'
+        : error instanceof Error
+          ? error.message
+          : 'Failed to remove worktree',
     };
   }
 }
