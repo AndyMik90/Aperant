@@ -779,32 +779,37 @@ async function splitTextIntoTasks(text: string, promptTemplate?: string, images?
   let imagesPrompt = '';
   if (savedImages.length > 0) {
     imagesPrompt = `\n\nATTACHED IMAGES (${savedImages.length}):\n`;
-    imagesPrompt += 'The following images are provided as reference files. Analyze them and use the information to create appropriate tasks.\n';
-    imagesPrompt += 'Image file paths:\n\n';
+    imagesPrompt += 'The following images are provided as reference files. Analyze them to determine which tasks they relate to.\n';
+    imagesPrompt += 'Image references:\n\n';
 
     for (let i = 0; i < savedImages.length; i++) {
       const img = savedImages[i];
       imagesPrompt += `[Image ${i + 1}]\n`;
-      imagesPrompt += `- File: ${img.path}\n`;
+      imagesPrompt += `- Reference: [Image ${i + 1}]\n`;
       imagesPrompt += `- Type: ${img.mimeType}\n`;
       imagesPrompt += `- Size: ${img.size} bytes\n\n`;
     }
 
-    imagesPrompt += '\nIMPORTANT: These images contain context that should be used to inform the tasks being created. ';
-    imagesPrompt += 'For example, if the images show screenshots of a UI with issues, create tasks to fix those specific issues. ';
-    imagesPrompt += 'If images show design mockups, create tasks to implement those designs.\n';
+    imagesPrompt += '\nIMPORTANT: Assign images to the specific tasks they relate to. ';
+    imagesPrompt += 'For each task, include an "imageReferences" array with the image numbers (e.g., [1, 3] for Image 1 and Image 3).\n';
+    imagesPrompt += 'If an image doesn\'t relate to any specific task, you may omit it. If all images relate to all tasks, include all image numbers.\n';
   }
 
   // Use the provided prompt template or default
   let promptToUse = promptTemplate;
   if (!promptToUse || !promptToUse.trim()) {
     // Default prompt if none provided
-    promptToUse = `Analyze the following text and split it into separate, actionable tasks.
-${imagesPrompt ? 'Also analyze the attached images and use them as reference when creating tasks.' : ''}
+    promptToUse = `Analyze the following text ${savedImages.length > 0 ? 'and attached images' : ''} and split it into separate, actionable tasks.
 
-Return your response as a JSON array of objects with "title" and "description" keys.
-Format: [{"title": "task title", "description": "task description"}]
-${imagesPrompt ? 'Note: Use information from the images to create more accurate and specific tasks.' : ''}
+${savedImages.length > 0 ? 'Examine the attached images and determine which specific task each image relates to.' : ''}
+
+Return your response as a JSON array of objects with "title", "description", and "imageReferences" keys.
+Format: [{"title": "task title", "description": "task description", "imageReferences": [1, 2]}]
+- "title": short task title
+- "description": detailed task description
+- "imageReferences": array of image numbers that relate to this task (e.g., [1] for Image 1, [1, 2] for both, [] for none)
+
+${savedImages.length > 0 ? 'Carefully analyze each image and only assign it to tasks it directly relates to.' : ''}
 
 Text to split:
 {{text}}
@@ -973,22 +978,39 @@ asyncio.run(split_into_tasks())
             const tasks = JSON.parse(output.trim());
             console.log('[splitTextIntoTasks] Successfully split into', tasks.length, 'tasks');
 
-            // Attach saved images to each task
-            const tasksWithImages = tasks.map((task: { title: string; description: string }) => ({
-              ...task,
-              attachedImages: savedImages
-            }));
+            // Attach saved images to each task based on AI's imageReferences
+            const tasksWithImages: Array<{ title: string; description: string; attachedImages?: import('../../../shared/types/task').ImageAttachment[] }> = [];
+
+            for (const task of tasks) {
+              // Get image indices from AI response (default to empty array)
+              const imageIndices: number[] = task.imageReferences || [];
+
+              // Map image indices (1-based) to actual images
+              const taskImages = imageIndices
+                .map(idx => savedImages[idx - 1]) // Convert to 0-based index
+                .filter(img => img !== undefined); // Remove undefined
+
+              tasksWithImages.push({
+                title: task.title,
+                description: task.description,
+                attachedImages: taskImages
+              });
+
+              console.log(`[splitTextIntoTasks] Task "${task.title}" assigned ${taskImages.length} images:`, imageIndices);
+            }
 
             resolve(tasksWithImages);
           } catch (e) {
             console.error('[splitTextIntoTasks] Failed to parse response:', output.substring(0, 500));
+            console.error('[splitTextIntoTasks] Parse error:', e);
+            console.error('[splitTextIntoTasks] Full output:', output);
             resolve([]);
           }
         } else {
           console.warn('[splitTextIntoTasks] Failed to split tasks', {
             code,
-            errorOutput: errorOutput.substring(0, 500),
-            output: output.substring(0, 200)
+            errorOutput: errorOutput.substring(0, 1000),
+            output: output.substring(0, 500)
           });
           resolve([]);
         }

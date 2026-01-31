@@ -168,6 +168,17 @@ export function AITaskSplitterModal({
     setClipboardImages(clipboardImages.filter(img => img.id !== imageId));
   };
 
+  const removeImageFromTask = (taskIndex: number, imageId: string) => {
+    const updated = [...splitTasks];
+    if (updated[taskIndex].attachedImages) {
+      updated[taskIndex] = {
+        ...updated[taskIndex],
+        attachedImages: updated[taskIndex].attachedImages!.filter(img => img.id !== imageId)
+      };
+    }
+    setSplitTasks(updated);
+  };
+
   const updateTask = (index: number, field: keyof SplitTask, value: string) => {
     const updated = [...splitTasks];
     updated[index] = { ...updated[index], [field]: value };
@@ -355,6 +366,14 @@ export function AITaskSplitterModal({
                                     alt="Task reference image"
                                     className="h-16 w-auto rounded-md border border-border object-cover"
                                   />
+                                  <Button
+                                    variant="destructive"
+                                    size="icon"
+                                    onClick={() => removeImageFromTask(index, image.id)}
+                                    className="absolute -top-1 -right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
                                 </div>
                               ))}
                             </div>
