@@ -25,6 +25,12 @@ export type TaskStateName = typeof TASK_STATE_NAMES[number];
  * XState states where the task has "settled" — the state machine has determined
  * the task's final or review status. Execution-progress events from the agent
  * process should NOT overwrite these states, as XState is the source of truth.
+ *
+ * Note: `error` is included because stale execution-progress events (e.g.,
+ * phase='failed') may arrive after XState has already transitioned to error.
+ * When a user resumes from error (USER_RESUMED), XState transitions synchronously
+ * to `coding` before the new agent process emits events, so the guard no longer
+ * blocks — new execution-progress events flow through normally.
  */
 export const XSTATE_SETTLED_STATES: ReadonlySet<string> = new Set<TaskStateName>([
   'plan_review', 'human_review', 'error', 'creating_pr', 'pr_created', 'done'
