@@ -390,6 +390,83 @@ describe('TaskStateManager', () => {
       // Should have sent PROCESS_EXITED event with unexpected=true
       // This should transition to error state
     });
+
+    it('should NOT mark exit code 0 as unexpected (plan_review stays intact)', () => {
+      // Simulate: PLANNING_STARTED → PLANNING_COMPLETE (requireReview) → process exits code 0
+      const planningStarted = {
+        type: 'PLANNING_STARTED',
+        taskId: mockTask.id,
+        specId: mockTask.specId,
+        projectId: mockProject.id,
+        timestamp: new Date().toISOString(),
+        eventId: 'evt-1',
+        sequence: 0
+      };
+
+      const planningComplete = {
+        type: 'PLANNING_COMPLETE',
+        taskId: mockTask.id,
+        specId: mockTask.specId,
+        projectId: mockProject.id,
+        timestamp: new Date().toISOString(),
+        eventId: 'evt-2',
+        sequence: 1,
+        hasSubtasks: false,
+        subtaskCount: 0,
+        requireReviewBeforeCoding: true
+      };
+
+      manager.handleTaskEvent(mockTask.id, planningStarted, mockTask, mockProject);
+      manager.handleTaskEvent(mockTask.id, planningComplete, mockTask, mockProject);
+
+      // XState should be in plan_review now
+      expect(manager.getCurrentState(mockTask.id)).toBe('plan_review');
+
+      // Process exits with code 0 - should NOT transition to error
+      manager.handleProcessExited(mockTask.id, 0, mockTask, mockProject);
+
+      // PLANNING_COMPLETE is a terminal event, so handleProcessExited should skip entirely
+      // Task should remain in plan_review
+      expect(manager.getCurrentState(mockTask.id)).toBe('plan_review');
+    });
+
+    it('should treat PLANNING_COMPLETE as a terminal event', () => {
+      // PLANNING_COMPLETE should prevent handleProcessExited from running
+      const planningStarted = {
+        type: 'PLANNING_STARTED',
+        taskId: mockTask.id,
+        specId: mockTask.specId,
+        projectId: mockProject.id,
+        timestamp: new Date().toISOString(),
+        eventId: 'evt-1',
+        sequence: 0
+      };
+
+      const planningComplete = {
+        type: 'PLANNING_COMPLETE',
+        taskId: mockTask.id,
+        specId: mockTask.specId,
+        projectId: mockProject.id,
+        timestamp: new Date().toISOString(),
+        eventId: 'evt-2',
+        sequence: 1,
+        hasSubtasks: true,
+        subtaskCount: 3,
+        requireReviewBeforeCoding: false
+      };
+
+      manager.handleTaskEvent(mockTask.id, planningStarted, mockTask, mockProject);
+      manager.handleTaskEvent(mockTask.id, planningComplete, mockTask, mockProject);
+
+      // XState should be in coding (no review required)
+      expect(manager.getCurrentState(mockTask.id)).toBe('coding');
+
+      // Process exits with code 1 - should still skip because PLANNING_COMPLETE is terminal
+      manager.handleProcessExited(mockTask.id, 1, mockTask, mockProject);
+
+      // Task should remain in coding, NOT transition to error
+      expect(manager.getCurrentState(mockTask.id)).toBe('coding');
+    });
   });
 
   describe('actor state restoration', () => {

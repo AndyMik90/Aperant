@@ -314,8 +314,8 @@ export function persistPlanPhaseSync(
     const phaseToStatus: Record<string, TaskStatus> = {
       'planning': 'in_progress',
       'coding': 'in_progress',
-      'qa_review': 'in_progress',
-      'qa_fixing': 'in_progress',
+      'qa_review': 'ai_review',
+      'qa_fixing': 'ai_review',
       'complete': 'human_review',
       'failed': 'error'
     };

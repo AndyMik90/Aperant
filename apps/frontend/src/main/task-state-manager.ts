@@ -36,6 +36,7 @@ interface TaskContextEntry {
 
 const TERMINAL_EVENTS = new Set<string>([
   'QA_PASSED',
+  'PLANNING_COMPLETE',
   'PLANNING_FAILED',
   'CODING_FAILED',
   'QA_MAX_ITERATIONS',
@@ -92,10 +93,14 @@ export class TaskStateManager {
       return;
     }
     const actor = this.getOrCreateActor(taskId);
+    // Only mark as unexpected if the process exited with a non-zero code.
+    // A code-0 exit is normal (e.g., spec creation finished, plan created, waiting for review).
+    // Sending unexpected:true for code-0 exits incorrectly transitions plan_review → error.
+    const isUnexpected = exitCode !== 0;
     actor.send({
       type: 'PROCESS_EXITED',
       exitCode: exitCode ?? -1,
-      unexpected: true
+      unexpected: isUnexpected
     } satisfies TaskEvent);
   }
 
