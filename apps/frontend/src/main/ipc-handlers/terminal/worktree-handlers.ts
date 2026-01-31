@@ -399,12 +399,12 @@ async function createTerminalWorktree(
     const isRemoteRef = baseBranch.startsWith('origin/');
     const remoteBranchName = isRemoteRef ? baseBranch.replace('origin/', '') : baseBranch;
 
-    // Fetch the branch from remote
+    // Fetch the branch from remote (async to avoid blocking main process)
     try {
-      execFileSync(getToolPath('git'), ['fetch', 'origin', remoteBranchName], {
+      await execFileAsync(getToolPath('git'), ['fetch', 'origin', remoteBranchName], {
         cwd: projectPath,
         encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 30000,
         env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Fetched latest from origin/' + remoteBranchName);
@@ -438,18 +438,20 @@ async function createTerminalWorktree(
       // Use --no-track to prevent the new branch from inheriting upstream tracking
       // from the base ref (e.g., origin/main). This ensures users can push with -u
       // to correctly set up tracking to their own remote branch.
-      execFileSync(getToolPath('git'), ['worktree', 'add', '-b', branchName, '--no-track', worktreePath, baseRef], {
+      // Use async to avoid blocking the main process on large repos.
+      await execFileAsync(getToolPath('git'), ['worktree', 'add', '-b', branchName, '--no-track', worktreePath, baseRef], {
         cwd: projectPath,
         encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 60000,
         env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Created worktree with branch:', branchName, 'from', baseRef);
     } else {
-      execFileSync(getToolPath('git'), ['worktree', 'add', '--detach', worktreePath, baseRef], {
+      // Use async to avoid blocking the main process on large repos.
+      await execFileAsync(getToolPath('git'), ['worktree', 'add', '--detach', worktreePath, baseRef], {
         cwd: projectPath,
         encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 60000,
         env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Created worktree in detached HEAD mode from', baseRef);
@@ -713,10 +715,11 @@ async function removeTerminalWorktree(
 
   try {
     if (existsSync(worktreePath)) {
-      execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+      // Use async to avoid blocking the main process on large repos
+      await execFileAsync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
         cwd: projectPath,
         encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 60000,
         env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Removed git worktree');
@@ -728,10 +731,11 @@ async function removeTerminalWorktree(
         debugError('[TerminalWorktree] Invalid branch name in config:', config.branchName);
       } else {
         try {
-          execFileSync(getToolPath('git'), ['branch', '-D', config.branchName], {
+          // Use async to avoid blocking the main process
+          await execFileAsync(getToolPath('git'), ['branch', '-D', config.branchName], {
             cwd: projectPath,
             encoding: 'utf-8',
-            stdio: ['pipe', 'pipe', 'pipe'],
+            timeout: 30000,
             env: getIsolatedGitEnv(),
           });
           debugLog('[TerminalWorktree] Deleted branch:', config.branchName);

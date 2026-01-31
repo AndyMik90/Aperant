@@ -490,15 +490,22 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     // Serialize buffer before disposing to preserve ANSI formatting
     serializeBuffer();
 
-    if (xtermRef.current) {
-      xtermRef.current.dispose();
-      xtermRef.current = null;
+    // Dispose addons explicitly before disposing xterm
+    // While xterm.dispose() handles loaded addons, explicit disposal ensures
+    // resources are freed in a predictable order and prevents potential leaks
+    if (fitAddonRef.current) {
+      fitAddonRef.current.dispose();
+      fitAddonRef.current = null;
     }
     if (serializeAddonRef.current) {
       serializeAddonRef.current.dispose();
       serializeAddonRef.current = null;
     }
-    fitAddonRef.current = null;
+    // Note: webLinksAddon is local and will be disposed when xterm.dispose() is called
+    if (xtermRef.current) {
+      xtermRef.current.dispose();
+      xtermRef.current = null;
+    }
   }, [serializeBuffer]);
 
   return {
