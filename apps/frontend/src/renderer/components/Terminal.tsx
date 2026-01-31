@@ -205,7 +205,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
         const now = Date.now();
         if (now - autoCorrectionWindowStartRef.current >= AUTO_CORRECTION_WINDOW_MS) {
           // Log warning if previous window had excessive corrections
-          if (autoCorrectionCountRef.current > AUTO_CORRECTION_WARNING_THRESHOLD) {
+          if (autoCorrectionCountRef.current >= AUTO_CORRECTION_WARNING_THRESHOLD) {
             debugLog(
               `[Terminal ${id}] AUTO-CORRECTION WARNING: ${autoCorrectionCountRef.current} corrections ` +
               `in last minute - this may indicate a persistent sync issue`
@@ -235,7 +235,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   // Initialize xterm with command tracking
   const {
     terminalRef,
-    xtermRef: _xtermRef,
+    xtermRef,
     fit,
     write: _write,  // Output now handled by useGlobalTerminalListeners
     writeln,
@@ -318,12 +318,15 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
       // 1. PTY persists with old dimensions (e.g., 80x20)
       // 2. New xterm measures new container (e.g., 160x40)
       // 3. Without this force resize, PTY never gets updated
-      if (ptyDimensions) {
-        debugLog(`[Terminal ${id}] PTY created - forcing PTY resize to match xterm: cols=${ptyDimensions.cols}, rows=${ptyDimensions.rows}`);
-        lastPtyDimensionsRef.current = { cols: ptyDimensions.cols, rows: ptyDimensions.rows };
+      // Read current dimensions from xterm ref to avoid stale closure values
+      const currentCols = xtermRef.current?.cols;
+      const currentRows = xtermRef.current?.rows;
+      if (currentCols !== undefined && currentRows !== undefined && currentCols >= MIN_COLS && currentRows >= MIN_ROWS) {
+        debugLog(`[Terminal ${id}] PTY created - forcing PTY resize to match xterm: cols=${currentCols}, rows=${currentRows}`);
+        lastPtyDimensionsRef.current = { cols: currentCols, rows: currentRows };
         lastResizeTimeRef.current = Date.now();
         // Force resize to ensure PTY matches xterm dimensions
-        window.electronAPI.resizeTerminal(id, ptyDimensions.cols, ptyDimensions.rows).then((result) => {
+        window.electronAPI.resizeTerminal(id, currentCols, currentRows).then((result) => {
           if (!result.success) {
             debugLog(`[Terminal ${id}] PTY creation resize failed: ${result.error || 'unknown error'}`);
           }
@@ -333,11 +336,16 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
 
         // Schedule initial dimension mismatch check after PTY creation
         // This helps detect if xterm dimensions drifted during PTY setup
+        // Read fresh dimensions inside the timeout to avoid stale closure
         setTimeout(() => {
-          checkDimensionMismatch(cols, rows, 'post-PTY creation');
+          const freshCols = xtermRef.current?.cols;
+          const freshRows = xtermRef.current?.rows;
+          if (freshCols !== undefined && freshRows !== undefined) {
+            checkDimensionMismatch(freshCols, freshRows, 'post-PTY creation');
+          }
         }, DIMENSION_MISMATCH_GRACE_PERIOD_MS + 100);
       } else {
-        debugLog(`[Terminal ${id}] PTY created - no dimensions available for tracking`);
+        debugLog(`[Terminal ${id}] PTY created - no valid dimensions available for tracking (cols=${currentCols}, rows=${currentRows})`);
       }
       // If there's a pending worktree config from a recreation attempt,
       // sync it to main process now that the terminal exists.
@@ -450,11 +458,14 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
           fitSucceeded = true;
           // Force PTY resize only on actual expansion state changes (not initial mount)
           // This ensures PTY stays in sync even when xterm.onResize() doesn't fire
-          if (expansionStateChanged && isCreatedRef.current && cols >= MIN_COLS && rows >= MIN_ROWS) {
-            debugLog(`[Terminal ${id}] performFit: Forcing PTY resize to cols=${cols}, rows=${rows}`);
-            lastPtyDimensionsRef.current = { cols, rows };
+          // Read fresh dimensions from xterm ref after fit() to avoid stale closure values
+          const freshCols = xtermRef.current?.cols;
+          const freshRows = xtermRef.current?.rows;
+          if (expansionStateChanged && isCreatedRef.current && freshCols !== undefined && freshRows !== undefined && freshCols >= MIN_COLS && freshRows >= MIN_ROWS) {
+            debugLog(`[Terminal ${id}] performFit: Forcing PTY resize to cols=${freshCols}, rows=${freshRows}`);
+            lastPtyDimensionsRef.current = { cols: freshCols, rows: freshRows };
             lastResizeTimeRef.current = Date.now();
-            window.electronAPI.resizeTerminal(id, cols, rows).then((result) => {
+            window.electronAPI.resizeTerminal(id, freshCols, freshRows).then((result) => {
               if (!result.success) {
                 debugLog(`[Terminal ${id}] performFit resize failed: ${result.error || 'unknown error'}`);
               }
@@ -529,7 +540,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
         container.parentElement?.removeEventListener('transitionend', handleTransitionEnd);
       }
     };
-  }, [isExpanded, fit, id, cols, rows]);
+  }, [isExpanded, fit, id]);
 
   // Trigger deferred Claude resume when terminal becomes active
   // This ensures Claude sessions are only resumed when the user actually views the terminal,
