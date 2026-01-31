@@ -1,0 +1,39 @@
+name: Sync Fork with Upstream
+
+on:
+  schedule:
+    # Executa todos os dias às 06:00 UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch: # Permite executar manualmente pelo GitHub UI
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream and sync
+        run: |
+          git remote add upstream https://github.com/AndyMik90/Auto-Claude.git
+          git fetch upstream
+
+          # Check if there are new commits
+          BEHIND=$(git rev-list --count develop..upstream/develop)
+          if [ "$BEHIND" -eq 0 ]; then
+            echo "Already up to date. Nothing to sync."
+            exit 0
+          fi
+
+          echo "Found $BEHIND new commits from upstream. Merging..."
+          git merge upstream/develop --no-edit
+          git push origin develop
