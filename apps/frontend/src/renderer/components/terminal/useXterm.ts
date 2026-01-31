@@ -72,6 +72,13 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       return;
     }
 
+    // Reset refs when (re)initializing xterm
+    // This is critical for React StrictMode which unmounts/remounts components,
+    // causing dispose() to set isDisposedRef.current = true on the first unmount.
+    // Without this reset, the remounted component would still have isDisposed = true.
+    isDisposedRef.current = false;
+    dimensionsReadyCalledRef.current = false;
+
     debugLog(`[useXterm] Initializing xterm for terminal: ${terminalId}`);
 
     const xterm = new XTerm({
