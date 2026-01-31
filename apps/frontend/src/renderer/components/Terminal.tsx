@@ -218,14 +218,18 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
         autoCorrectionCountRef.current++;
 
         debugLog(`[Terminal ${id}] AUTO-CORRECTING (#${autoCorrectionCountRef.current}): resizing PTY to ${xtermCols}x${xtermRows}`);
-        lastPtyDimensionsRef.current = { cols: xtermCols, rows: xtermRows };
+        const previousDims = lastPtyDimensionsRef.current;
         lastResizeTimeRef.current = Date.now();
         lastAutoCorrectionTimeRef.current = Date.now();
         window.electronAPI.resizeTerminal(id, xtermCols, xtermRows).then((result) => {
-          if (!result.success) {
+          if (result.success) {
+            lastPtyDimensionsRef.current = { cols: xtermCols, rows: xtermRows };
+          } else {
+            lastPtyDimensionsRef.current = previousDims;
             debugLog(`[Terminal ${id}] AUTO-CORRECTION resize failed: ${result.error || 'unknown error'}`);
           }
         }).catch((error) => {
+          lastPtyDimensionsRef.current = previousDims;
           debugLog(`[Terminal ${id}] AUTO-CORRECTION resize error: ${error}`);
         });
       }
@@ -266,14 +270,18 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
         return;
       }
 
-      // Update tracked dimensions and send resize to PTY
-      lastPtyDimensionsRef.current = { cols, rows };
+      // Update tracked dimensions only after successful resize to PTY
+      const previousDims = lastPtyDimensionsRef.current;
       lastResizeTimeRef.current = Date.now();
       window.electronAPI.resizeTerminal(id, cols, rows).then((result) => {
-        if (!result.success) {
+        if (result.success) {
+          lastPtyDimensionsRef.current = { cols, rows };
+        } else {
+          lastPtyDimensionsRef.current = previousDims;
           debugLog(`[Terminal ${id}] onResize failed: ${result.error || 'unknown error'}`);
         }
       }).catch((error) => {
+        lastPtyDimensionsRef.current = previousDims;
         debugLog(`[Terminal ${id}] onResize error: ${error}`);
       });
     },
@@ -323,14 +331,19 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
       const currentRows = xtermRef.current?.rows;
       if (currentCols !== undefined && currentRows !== undefined && currentCols >= MIN_COLS && currentRows >= MIN_ROWS) {
         debugLog(`[Terminal ${id}] PTY created - forcing PTY resize to match xterm: cols=${currentCols}, rows=${currentRows}`);
-        lastPtyDimensionsRef.current = { cols: currentCols, rows: currentRows };
+        const previousDims = lastPtyDimensionsRef.current;
         lastResizeTimeRef.current = Date.now();
         // Force resize to ensure PTY matches xterm dimensions
+        // Only update ref on success to avoid masking future mismatches on failure
         window.electronAPI.resizeTerminal(id, currentCols, currentRows).then((result) => {
-          if (!result.success) {
+          if (result.success) {
+            lastPtyDimensionsRef.current = { cols: currentCols, rows: currentRows };
+          } else {
+            lastPtyDimensionsRef.current = previousDims;
             debugLog(`[Terminal ${id}] PTY creation resize failed: ${result.error || 'unknown error'}`);
           }
         }).catch((error) => {
+          lastPtyDimensionsRef.current = previousDims;
           debugLog(`[Terminal ${id}] PTY creation resize error: ${error}`);
         });
 
@@ -463,13 +476,18 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
           const freshRows = xtermRef.current?.rows;
           if (expansionStateChanged && isCreatedRef.current && freshCols !== undefined && freshRows !== undefined && freshCols >= MIN_COLS && freshRows >= MIN_ROWS) {
             debugLog(`[Terminal ${id}] performFit: Forcing PTY resize to cols=${freshCols}, rows=${freshRows}`);
-            lastPtyDimensionsRef.current = { cols: freshCols, rows: freshRows };
+            const previousDims = lastPtyDimensionsRef.current;
             lastResizeTimeRef.current = Date.now();
+            // Only update ref on success to avoid masking future mismatches on failure
             window.electronAPI.resizeTerminal(id, freshCols, freshRows).then((result) => {
-              if (!result.success) {
+              if (result.success) {
+                lastPtyDimensionsRef.current = { cols: freshCols, rows: freshRows };
+              } else {
+                lastPtyDimensionsRef.current = previousDims;
                 debugLog(`[Terminal ${id}] performFit resize failed: ${result.error || 'unknown error'}`);
               }
             }).catch((error) => {
+              lastPtyDimensionsRef.current = previousDims;
               debugLog(`[Terminal ${id}] performFit resize error: ${error}`);
             });
           }
