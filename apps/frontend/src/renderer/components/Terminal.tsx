@@ -21,20 +21,22 @@ import { debugLog } from '../../shared/utils/debug-logger';
 const MIN_COLS = 10;
 const MIN_ROWS = 3;
 
-// Platform detection for timing adjustments
+// Platform detection for platform-specific timing
+// Windows ConPTY is slower than Unix PTY, so we need longer grace periods
 const isWindows = typeof window !== 'undefined' && window.platform?.isWindows;
 
 // Threshold in milliseconds to allow for async PTY resize acknowledgment
 // Mismatches within this window after a resize are expected and not logged as warnings
-// Windows ConPTY is slower than Unix PTY, so use longer grace period
+// Windows needs longer grace period due to slower ConPTY resize
 const DIMENSION_MISMATCH_GRACE_PERIOD_MS = isWindows ? 500 : 100;
 
 // Cooldown between auto-corrections to prevent rapid-fire corrections
+// Windows needs longer cooldown due to slower ConPTY operations
 const AUTO_CORRECTION_COOLDOWN_MS = isWindows ? 1000 : 300;
 
 // Auto-correction frequency monitoring
-const AUTO_CORRECTION_WARNING_THRESHOLD = 5;  // Warn if > 5 per minute
-const AUTO_CORRECTION_WINDOW_MS = 60000;
+const AUTO_CORRECTION_WARNING_THRESHOLD = 5;  // Warn if > 5 corrections per minute
+const AUTO_CORRECTION_WINDOW_MS = 60000;  // 1 minute window
 
 /**
  * Handle interface exposed by Terminal component for external control.
@@ -81,7 +83,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   const prevIsExpandedRef = useRef<boolean | undefined>(undefined);
   // Track when last auto-correction was performed to implement cooldown
   const lastAutoCorrectionTimeRef = useRef<number>(0);
-  // Track auto-correction frequency for monitoring
+  // Track auto-correction frequency to detect potential deeper issues
+  // If corrections exceed threshold, it may indicate a persistent sync problem
   const autoCorrectionCountRef = useRef<number>(0);
   const autoCorrectionWindowStartRef = useRef<number>(Date.now());
 
@@ -198,13 +201,17 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
         xtermCols >= MIN_COLS &&
         xtermRows >= MIN_ROWS
       ) {
-        // Track frequency before correction
+        // Track auto-correction frequency for monitoring
         const now = Date.now();
         if (now - autoCorrectionWindowStartRef.current >= AUTO_CORRECTION_WINDOW_MS) {
-          // Log if previous window had excessive corrections
+          // Log warning if previous window had excessive corrections
           if (autoCorrectionCountRef.current > AUTO_CORRECTION_WARNING_THRESHOLD) {
-            debugLog(`[Terminal ${id}] AUTO-CORRECTION WARNING: ${autoCorrectionCountRef.current} corrections in last minute`);
+            debugLog(
+              `[Terminal ${id}] AUTO-CORRECTION WARNING: ${autoCorrectionCountRef.current} corrections ` +
+              `in last minute - this may indicate a persistent sync issue`
+            );
           }
+          // Reset the window
           autoCorrectionCountRef.current = 0;
           autoCorrectionWindowStartRef.current = now;
         }
@@ -264,10 +271,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
       lastResizeTimeRef.current = Date.now();
       window.electronAPI.resizeTerminal(id, cols, rows).then((result) => {
         if (!result.success) {
-          debugLog(`[Terminal ${id}] Resize failed: ${result.error || 'unknown error'}`);
+          debugLog(`[Terminal ${id}] onResize failed: ${result.error || 'unknown error'}`);
         }
       }).catch((error) => {
-        debugLog(`[Terminal ${id}] Resize error: ${error}`);
+        debugLog(`[Terminal ${id}] onResize error: ${error}`);
       });
     },
     onDimensionsReady: handleDimensionsReady,
@@ -318,10 +325,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
         // Force resize to ensure PTY matches xterm dimensions
         window.electronAPI.resizeTerminal(id, ptyDimensions.cols, ptyDimensions.rows).then((result) => {
           if (!result.success) {
-            debugLog(`[Terminal ${id}] Initial resize failed: ${result.error || 'unknown error'}`);
+            debugLog(`[Terminal ${id}] PTY creation resize failed: ${result.error || 'unknown error'}`);
           }
         }).catch((error) => {
-          debugLog(`[Terminal ${id}] Initial resize error: ${error}`);
+          debugLog(`[Terminal ${id}] PTY creation resize error: ${error}`);
         });
 
         // Schedule initial dimension mismatch check after PTY creation
@@ -449,10 +456,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
             lastResizeTimeRef.current = Date.now();
             window.electronAPI.resizeTerminal(id, cols, rows).then((result) => {
               if (!result.success) {
-                debugLog(`[Terminal ${id}] Expansion resize failed: ${result.error || 'unknown error'}`);
+                debugLog(`[Terminal ${id}] performFit resize failed: ${result.error || 'unknown error'}`);
               }
             }).catch((error) => {
-              debugLog(`[Terminal ${id}] Expansion resize error: ${error}`);
+              debugLog(`[Terminal ${id}] performFit resize error: ${error}`);
             });
           }
         } else if (retryCount < MAX_RETRIES) {
