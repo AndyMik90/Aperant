@@ -266,7 +266,7 @@ export const useIdeationStore = create<IdeationState>((set) => ({
 
   addLog: (log) =>
     set((state) => ({
-      logs: [...state.logs, log].slice(-100) // Keep last 100 logs
+      logs: [...state.logs, log].slice(-500) // Keep last 500 logs for better debugging
     })),
 
   clearLogs: () => set({ logs: [] }),

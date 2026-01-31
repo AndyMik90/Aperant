@@ -181,8 +181,22 @@ class IdeationOrchestrator:
             for ideation_type in self.enabled_types
         ]
 
-        # Run all ideation types concurrently
-        ideation_results = await asyncio.gather(*ideation_tasks, return_exceptions=True)
+        # Run all ideation types concurrently with timeout protection
+        # 5 minute timeout prevents infinite hangs if one type stalls
+        try:
+            ideation_results = await asyncio.wait_for(
+                asyncio.gather(*ideation_tasks, return_exceptions=True),
+                timeout=300,  # 5 minutes max for all ideation types
+            )
+        except asyncio.TimeoutError:
+            print_status(
+                "Ideation generation timed out after 5 minutes",
+                "error",
+            )
+            # Return empty results for timed out types
+            ideation_results = [
+                Exception("Ideation timed out") for _ in self.enabled_types
+            ]
 
         # Process results
         for i, result in enumerate(ideation_results):

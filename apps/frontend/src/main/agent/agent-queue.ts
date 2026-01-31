@@ -417,7 +417,7 @@ export class AgentQueueManager {
 
     // Track completed types for progress calculation
     const completedTypes = new Set<string>();
-    const totalTypes = 7; // Default all types
+    const totalTypes = 6; // There are exactly 6 ideation types defined in backend
 
     // Handle stdout - explicitly decode as UTF-8 for cross-platform Unicode support
     childProcess.stdout?.on('data', (data: Buffer) => {
