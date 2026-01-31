@@ -36,9 +36,8 @@ for (const envPath of possibleEnvPaths) {
 }
 
 import { app, BrowserWindow, shell, nativeImage, session, screen, Menu, MenuItem } from 'electron';
-import { join } from 'path';
 import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
-import { isDev, isMacOS, isWindows, isLinux } from './platform';
+import { isDev, isMacOS, isWindows, isLinux, joinPaths } from './platform';
 
 // Platform detection wrapper for backward compatibility
 // Uses centralized platform module (apps/frontend/src/main/platform/)
@@ -109,8 +108,8 @@ function loadSettingsSync(): AppSettings {
 function cleanupStaleUpdateMetadata(): void {
   const userData = app.getPath('userData');
   const stalePaths = [
-    join(userData, 'auto-claude-source'),
-    join(userData, 'backend-source'),
+    joinPaths(userData, 'auto-claude-source'),
+    joinPaths(userData, 'backend-source'),
   ];
 
   for (const stalePath of stalePaths) {
@@ -130,8 +129,8 @@ function getIconPath(): string {
   // In dev mode, __dirname is out/main, so we go up to project root then into resources
   // In production, resources are in the app's resources folder
   const resourcesPath = is.dev
-    ? join(__dirname, '../../resources')
-    : join(process.resourcesPath);
+    ? joinPaths(__dirname, '../../resources')
+    : joinPaths(process.resourcesPath);
 
   let iconName: string;
   if (isMacOS()) {
@@ -143,7 +142,7 @@ function getIconPath(): string {
     iconName = 'icon.png';
   }
 
-  const iconPath = join(resourcesPath, iconName);
+  const iconPath = joinPaths(resourcesPath, iconName);
   return iconPath;
 }
 
@@ -210,7 +209,7 @@ function createWindow(): void {
     trafficLightPosition: { x: 15, y: 10 },
     icon: getIconPath(),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: joinPaths(__dirname, '../preload/index.js'),
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
@@ -330,7 +329,7 @@ function createWindow(): void {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
+    mainWindow.loadFile(joinPaths(__dirname, '../renderer/index.html'));
   }
 
   // Open DevTools in development
@@ -433,7 +432,7 @@ app.whenReady().then(() => {
 
   // Load settings and configure agent manager with Python and auto-claude paths
   // Uses EAFP pattern (try/catch) instead of LBYL (existsSync) to avoid TOCTOU race conditions
-  const settingsPath = join(app.getPath('userData'), 'settings.json');
+  const settingsPath = joinPaths(app.getPath('userData'), 'settings.json');
   try {
     const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
 
@@ -441,7 +440,7 @@ app.whenReady().then(() => {
     // Uses EAFP pattern (try/catch with accessSync) instead of existsSync to avoid TOCTOU race conditions
     let validAutoBuildPath = settings.autoBuildPath;
     if (validAutoBuildPath) {
-      const specRunnerPath = join(validAutoBuildPath, 'runners', 'spec_runner.py');
+      const specRunnerPath = joinPaths(validAutoBuildPath, 'runners', 'spec_runner.py');
       let specRunnerExists = false;
       try {
         accessSync(specRunnerPath);
@@ -457,8 +456,8 @@ app.whenReady().then(() => {
         let migrated = false;
         if (validAutoBuildPath.endsWith('/auto-claude') || validAutoBuildPath.endsWith('\\auto-claude')) {
           const basePath = validAutoBuildPath.replace(/[/\\]auto-claude$/, '');
-          const correctedPath = join(basePath, 'apps', 'backend');
-          const correctedSpecRunnerPath = join(correctedPath, 'runners', 'spec_runner.py');
+          const correctedPath = joinPaths(basePath, 'apps', 'backend');
+          const correctedSpecRunnerPath = joinPaths(correctedPath, 'runners', 'spec_runner.py');
 
           let correctedPathExists = false;
           try {
