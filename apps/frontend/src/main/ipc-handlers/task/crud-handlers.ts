@@ -820,12 +820,17 @@ Respond ONLY with the JSON array. No markdown, no explanation.`;
 
   // Replace {{text}} and {{images}} placeholders with actual content
   let promptWithText = promptToUse.replace(/\{\{text\}\}/g, text);
-  if (images && images.length > 0) {
+  if (savedImages.length > 0) {
     promptWithText = promptWithText.replace(/\{\{images\}\}/g, imagesPrompt);
   } else {
     // Remove {{images}} placeholder if no images
     promptWithText = promptWithText.replace(/\{\{images\}\}/g, '');
   }
+
+  // Log the prompt for debugging (truncated)
+  console.log('[splitTextIntoTasks] Sending prompt to AI, length:', promptWithText.length, 'chars');
+  console.log('[splitTextIntoTasks] Prompt preview:', promptWithText.substring(0, 500), '...');
+
   const escapedPrompt = JSON.stringify(promptWithText);
 
   const script = `
@@ -842,7 +847,7 @@ async def split_into_tasks():
         client = ClaudeSDKClient(
             options=ClaudeAgentOptions(
                 model="claude-haiku-4-5",
-                system_prompt="You are a task planning assistant. Split text into actionable tasks. Return ONLY valid JSON array with title and description fields. No markdown, no explanation.",
+                system_prompt="You are a task planning assistant. Split text into actionable tasks. Return ONLY valid JSON array with title, description, and imageReferences fields. No markdown, no explanation.",
                 max_turns=1,
             )
         )
@@ -881,20 +886,32 @@ async def split_into_tasks():
                     # Clean up any remaining whitespace
                     cleaned = cleaned.strip()
 
+                    # Log the response for debugging
+                    print(f"[DEBUG] Parsed response length: {len(cleaned)}", file=sys.stderr)
+
                     # Try to parse as JSON
                     tasks = json.loads(cleaned)
                     if isinstance(tasks, list):
-                        # Validate each task has title and description
+                        # Validate each task has title, description, and optional imageReferences
                         valid_tasks = []
                         for task in tasks:
                             if isinstance(task, dict) and 'title' in task and 'description' in task:
-                                valid_tasks.append({
+                                valid_task = {
                                     'title': str(task['title']).strip(),
                                     'description': str(task['description']).strip()
-                                })
+                                }
+                                # Add imageReferences if present and valid
+                                if 'imageReferences' in task and isinstance(task['imageReferences'], list):
+                                    valid_task['imageReferences'] = task['imageReferences']
+                                else:
+                                    valid_task['imageReferences'] = []
+                                valid_tasks.append(valid_task)
+
                         if valid_tasks:
                             print(json.dumps(valid_tasks))
                             sys.exit(0)
+                        else:
+                            print(f"No valid tasks found in response", file=sys.stderr)
                 except json.JSONDecodeError as e:
                     print(f"JSON parse error: {e}", file=sys.stderr)
                     print(f"Response was: {response_text[:1000]}", file=sys.stderr)
@@ -962,16 +979,26 @@ asyncio.run(split_into_tasks())
         resolve([]);
       }, 120000); // 120 second timeout
 
+      // Log the script for debugging (truncated to avoid huge logs)
+      console.log('[splitTextIntoTasks] Executing Python script, length:', script.length, 'chars');
+
       childProcess.stdout?.on('data', (data: Buffer) => {
         output += data.toString();
       });
 
       childProcess.stderr?.on('data', (data: Buffer) => {
-        errorOutput += data.toString();
+        const text = data.toString();
+        errorOutput += text;
+        console.log('[splitTextIntoTasks] stderr:', text);
       });
 
       childProcess.on('exit', (code: number | null) => {
         clearTimeout(timeout);
+
+        // Always log stderr if present
+        if (errorOutput) {
+          console.error('[splitTextIntoTasks] Process stderr:', errorOutput);
+        }
 
         if (code === 0 && output.trim()) {
           try {
@@ -983,7 +1010,12 @@ asyncio.run(split_into_tasks())
 
             for (const task of tasks) {
               // Get image indices from AI response (default to empty array)
-              const imageIndices: number[] = task.imageReferences || [];
+              let imageIndices: number[] = [];
+
+              if (task.imageReferences && Array.isArray(task.imageReferences)) {
+                // Validate that all items are numbers
+                imageIndices = task.imageReferences.filter((idx: unknown) => typeof idx === 'number' && idx > 0 && idx <= savedImages.length);
+              }
 
               // Map image indices (1-based) to actual images
               const taskImages = imageIndices
