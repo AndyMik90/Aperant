@@ -70,6 +70,8 @@ export interface TaskAPI {
   archiveTasks: (projectId: string, taskIds: string[], version?: string) => Promise<IPCResult<boolean>>;
   unarchiveTasks: (projectId: string, taskIds: string[]) => Promise<IPCResult<boolean>>;
   createWorktreePR: (taskId: string, options?: WorktreeCreatePROptions) => Promise<IPCResult<WorktreeCreatePRResult>>;
+  getTaskGitChanges: (projectId: string, specId: string) => Promise<IPCResult<any>>;
+  getTaskFileDiff: (projectId: string, specId: string, filePath: string) => Promise<IPCResult<any>>;
 
   // Task Event Listeners
   // Note: projectId is optional for backward compatibility - events without projectId will still work
@@ -335,5 +337,11 @@ export const createTaskAPI = (): TaskAPI => ({
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TASK_MERGE_PROGRESS, handler);
     };
-  }
+  },
+
+  getTaskGitChanges: (projectId: string, specId: string): Promise<IPCResult<any>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_GIT_CHANGES, projectId, specId),
+
+  getTaskFileDiff: (projectId: string, specId: string, filePath: string): Promise<IPCResult<any>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_FILE_DIFF, projectId, specId, filePath)
 });

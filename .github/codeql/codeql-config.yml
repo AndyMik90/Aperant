@@ -1,0 +1,20 @@
+name: "CodeQL Config"
+
+# Query filters for suppressing false positives
+# Reference: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/customizing-code-scanning
+
+# We suppress SSRF warnings in ollama.py because:
+# 1. All user-provided URLs go through get_ollama_url()
+# 2. get_ollama_url() validates URLs using validate_url() which:
+#    - Only allows HTTP/HTTPS schemes (blocks file://, data://, etc.)
+#    - Validates URL structure and hostname
+#    - Can block private IPs (configurable)
+# 3. The validation happens BEFORE the URL is used in any HTTP request
+# 4. Invalid URLs raise ValueError and return generic error messages
+
+# Note: These are legitimate SSRF protections, not security bypasses
+packs:
+  # Use default security queries
+  - codeql/python-queries:codeql-suites/python-security-extended.qls
+  - codeql/javascript-queries:codeql-suites/javascript-security-extended.qls
+

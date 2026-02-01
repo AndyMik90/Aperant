@@ -185,6 +185,16 @@
     "comfortable": "Confortable",
     "large": "Grand"
   },
+  "navigation": {
+    "mode": {
+      "title": "Style de barre de navigation",
+      "description": "Choisissez comment la barre de navigation est affichée",
+      "iconsOnly": "Icônes uniquement",
+      "iconsDescription": "Vue compacte",
+      "full": "Icônes et texte",
+      "fullDescription": "Vue complète"
+    }
+  },
   "general": {
     "otherAgentSettings": "Autres paramètres de l'agent",
     "otherAgentSettingsDescription": "Options de configuration supplémentaires de l'agent",
@@ -352,6 +362,13 @@
       "integrationTitle": "Intégration GitLab",
       "integrationDescription": "Se connecter à GitLab pour le suivi des issues",
       "syncDescription": "Synchroniser avec GitLab Issues"
+    },
+    "azure-devops": {
+      "title": "Azure DevOps",
+      "description": "Synchronisation tableau Azure DevOps",
+      "integrationTitle": "Intégration Azure DevOps",
+      "integrationDescription": "Se connecter à Azure DevOps pour le suivi des éléments de travail",
+      "syncDescription": "Synchroniser avec les tableaux Azure DevOps"
     },
     "memory": {
       "title": "Mémoire",

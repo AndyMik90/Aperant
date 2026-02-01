@@ -185,6 +185,16 @@
     "comfortable": "Comfortable",
     "large": "Large"
   },
+  "navigation": {
+    "mode": {
+      "title": "Navigation Bar Style",
+      "description": "Choose how the navigation bar is displayed",
+      "iconsOnly": "Icons Only",
+      "iconsDescription": "Compact view",
+      "full": "Icons & Text",
+      "fullDescription": "Full view"
+    }
+  },
   "general": {
     "otherAgentSettings": "Other Agent Settings",
     "otherAgentSettingsDescription": "Additional agent configuration options",
@@ -352,6 +362,13 @@
       "integrationTitle": "GitLab Integration",
       "integrationDescription": "Connect to GitLab for issue tracking",
       "syncDescription": "Sync with GitLab Issues"
+    },
+    "azure-devops": {
+      "title": "Azure DevOps",
+      "description": "Azure DevOps board sync",
+      "integrationTitle": "Azure DevOps Integration",
+      "integrationDescription": "Connect to Azure DevOps for work item tracking",
+      "syncDescription": "Sync with Azure DevOps Boards"
     },
     "memory": {
       "title": "Memory",

@@ -6,6 +6,7 @@ import { SecuritySettings } from '../../project-settings/SecuritySettings';
 import { LinearIntegration } from '../integrations/LinearIntegration';
 import { GitHubIntegration } from '../integrations/GitHubIntegration';
 import { GitLabIntegration } from '../integrations/GitLabIntegration';
+import { AzureDevOpsIntegration } from '../integrations/AzureDevOpsIntegration';
 import { InitializationGuard } from '../common/InitializationGuard';
 import type { ProjectSettingsSection } from '../ProjectSettingsContent';
 
@@ -161,6 +162,28 @@ export function SectionRouter({
               setShowGitLabToken={setShowGitLabToken}
               gitLabConnectionStatus={gitLabConnectionStatus}
               isCheckingGitLab={isCheckingGitLab}
+              projectPath={project.path}
+              settings={settings}
+              setSettings={setSettings}
+            />
+          </InitializationGuard>
+        </SettingsSection>
+      );
+
+    case 'azure-devops':
+      return (
+        <SettingsSection
+          title={t('projectSections.azure-devops.integrationTitle')}
+          description={t('projectSections.azure-devops.integrationDescription')}
+        >
+          <InitializationGuard
+            initialized={!!project.autoBuildPath}
+            title={t('projectSections.azure-devops.integrationTitle')}
+            description={t('projectSections.azure-devops.syncDescription')}
+          >
+            <AzureDevOpsIntegration
+              envConfig={envConfig}
+              updateEnvConfig={updateEnvConfig}
               projectPath={project.path}
               settings={settings}
               setSettings={setSettings}

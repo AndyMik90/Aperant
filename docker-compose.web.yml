@@ -1,0 +1,64 @@
+services:
+  # Backend API (FastAPI)
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: auto-claude-backend
+    ports:
+      - "8000:8000"
+    # NOTE: Running as root for write access. For production, fix host permissions:
+    # sudo chown -R $(id -u):$(id -g) ./code
+    # Then change to: user: "${UID:-1000}:${GID:-1000}"
+    user: "0:0"
+    environment:
+      - PYTHONUNBUFFERED=1
+      # Use /tmp as HOME since /root may not be writable
+      - HOME=/tmp
+      # Git config for worktree operations
+      - GIT_DISCOVERY_ACROSS_FILESYSTEM=1
+      # Use SSH_PRIVATE_KEY env variable for git operations instead of mounting host SSH directory
+      # Set SSH_PRIVATE_KEY in .env.docker with your private key content
+      - SSH_PRIVATE_KEY=${SSH_PRIVATE_KEY:-}
+    env_file:
+      - .env.docker
+    volumes:
+      # Mount the code directory with full read-write access
+      - ./code:/home/code:rw
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; resp = httpx.get('http://localhost:8000/api/health'); resp.raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
+
+  # Frontend Web (Nginx serving static files)
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile.web
+    container_name: auto-claude-web
+    ports:
+      - "3001:80"
+    environment:
+      - VITE_CUSTOM_DOMAIN=${VITE_CUSTOM_DOMAIN:-notesvnn.click}
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.2"

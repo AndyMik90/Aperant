@@ -57,6 +57,8 @@ export const DEFAULT_APP_SETTINGS = {
   betaUpdates: false,
   // Language preference (default to English)
   language: 'en' as const,
+  // Navigation bar display mode (default to full with icons and text)
+  navigationMode: 'full' as const,
   // Anonymous error reporting (Sentry) - enabled by default to help improve the app
   sentryEnabled: true,
   // Auto-name Claude terminals based on initial message (enabled by default)

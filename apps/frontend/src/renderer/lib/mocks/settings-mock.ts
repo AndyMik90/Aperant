@@ -54,5 +54,16 @@ export const settingsMock = {
   onAppUpdateAvailable: () => () => {},
   onAppUpdateDownloaded: () => () => {},
   onAppUpdateProgress: () => () => {},
-  onAppUpdateStableDowngrade: () => () => {}
+  onAppUpdateStableDowngrade: () => () => {},
+
+  // Azure DevOps API (mock - not available in browser mode)
+  azureDevOps: {
+    getConfig: async () => ({ success: false, error: 'Not available in browser mode' }),
+    getIterations: async () => ({ success: false, error: 'Not available in browser mode' }),
+    getCurrentIteration: async () => ({ success: false, error: 'Not available in browser mode' }),
+    getWorkItemsForIteration: async () => ({ success: false, error: 'Not available in browser mode' }),
+    getWorkItem: async () => ({ success: false, error: 'Not available in browser mode' }),
+    getAreas: async () => ({ success: false, error: 'Not available in browser mode' }),
+    checkConnection: async () => ({ success: false, error: 'Not available in browser mode' })
+  }
 };

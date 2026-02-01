@@ -430,7 +430,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
   }, [selectedWorktreeIds, selectedProject, worktrees, terminalWorktrees, projectId, findTaskForWorktree, loadWorktrees, t, toast]);
 
   // Handle terminal worktree delete
-  const handleDeleteTerminalWorktree = async () => {
+  const handleDeleteTerminalWorktree = useCallback(async () => {
     if (!terminalWorktreeToDelete || !selectedProject) return;
 
     setIsDeletingTerminal(true);
@@ -452,7 +452,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
     } finally {
       setIsDeletingTerminal(false);
     }
-  };
+  }, [terminalWorktreeToDelete, selectedProject, loadWorktrees]);
 
   if (!selectedProject) {
     return (

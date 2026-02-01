@@ -1,0 +1,83 @@
+{
+  "notConnected": {
+    "title": "Azure DevOps Not Connected",
+    "description": "Configure Azure DevOps in project settings to view and manage work items."
+  },
+  "header": {
+    "project": "Project",
+    "team": "Team",
+    "sprint": "Sprint",
+    "selectSprint": "Select Sprint",
+    "refresh": "Refresh",
+    "workItems": "work items"
+  },
+  "board": {
+    "title": "Azure DevOps Board",
+    "noProject": "No project selected",
+    "items": "items",
+    "area": "Area",
+    "selectArea": "Select area...",
+    "iteration": "Iteration",
+    "selectIteration": "Select iteration...",
+    "current": "Current",
+    "emptyColumn": "No work items",
+    "loading": "Loading work items..."
+  },
+  "workItem": {
+    "id": "ID",
+    "title": "Title",
+    "type": "Type",
+    "state": "State",
+    "assignedTo": "Assigned To",
+    "unassigned": "Unassigned",
+    "priority": "Priority",
+    "storyPoints": "Story Points",
+    "effort": "Effort",
+    "description": "Description",
+    "acceptanceCriteria": "Acceptance Criteria",
+    "noDescription": "No description provided",
+    "noAcceptanceCriteria": "No acceptance criteria defined",
+    "tags": "Tags",
+    "iterationPath": "Iteration",
+    "areaPath": "Area",
+    "openInAzureDevOps": "Open in Azure DevOps",
+    "convertToTask": "Convert to Task",
+    "converting": "Converting..."
+  },
+  "types": {
+    "bug": "Bug",
+    "userStory": "User Story",
+    "task": "Task",
+    "feature": "Feature",
+    "epic": "Epic",
+    "issue": "Issue",
+    "default": "Work Item"
+  },
+  "priority": {
+    "1": "Critical",
+    "2": "High",
+    "3": "Medium",
+    "4": "Low"
+  },
+  "settings": {
+    "title": "Azure DevOps Settings",
+    "description": "Configure Azure DevOps integration to sync work items with your project.",
+    "organizationUrl": "Organization URL",
+    "organizationUrlPlaceholder": "https://dev.azure.com/your-org",
+    "project": "Project",
+    "projectPlaceholder": "Your Azure DevOps project",
+    "team": "Team",
+    "teamPlaceholder": "Your team name",
+    "personalAccessToken": "Personal Access Token",
+    "personalAccessTokenPlaceholder": "Your PAT with work item read scope",
+    "testConnection": "Test Connection",
+    "save": "Save",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "checkingConnection": "Checking connection...",
+    "testing": "Testing...",
+    "connectionSuccessful": "Connection successful!",
+    "connectionFailed": "Connection failed. Check your settings.",
+    "patHelperText": "Create a PAT with Work Items (Read) scope at your Azure DevOps organization settings."
+  }
+}

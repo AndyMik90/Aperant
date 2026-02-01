@@ -49,6 +49,8 @@ export const IPC_CHANNELS = {
   TASK_ARCHIVE: 'task:archive',
   TASK_UNARCHIVE: 'task:unarchive',
   TASK_CLEAR_STAGED_STATE: 'task:clearStagedState',
+  TASK_GIT_CHANGES: 'task:gitChanges',
+  TASK_FILE_DIFF: 'task:fileDiff',
 
   // Task events (main -> renderer)
   TASK_PROGRESS: 'task:progress',
@@ -307,6 +309,15 @@ export const IPC_CHANNELS = {
   // GitLab MR Review operations
   GITLAB_MR_GET_DIFF: 'gitlab:mr:getDiff',
   GITLAB_MR_REVIEW: 'gitlab:mr:review',
+
+  // Azure DevOps integration
+  AZURE_DEVOPS_GET_CONFIG: 'azureDevOps:getConfig',
+  AZURE_DEVOPS_CHECK_CONNECTION: 'azureDevOps:checkConnection',
+  AZURE_DEVOPS_GET_ITERATIONS: 'azureDevOps:getIterations',
+  AZURE_DEVOPS_GET_CURRENT_ITERATION: 'azureDevOps:getCurrentIteration',
+  AZURE_DEVOPS_GET_WORK_ITEMS: 'azureDevOps:getWorkItems',
+  AZURE_DEVOPS_GET_WORK_ITEM: 'azureDevOps:getWorkItem',
+  AZURE_DEVOPS_GET_AREAS: 'azureDevOps:getAreas',
   GITLAB_MR_REVIEW_CANCEL: 'gitlab:mr:reviewCancel',
   GITLAB_MR_GET_REVIEW: 'gitlab:mr:getReview',
   GITLAB_MR_FOLLOWUP_REVIEW: 'gitlab:mr:followupReview',
@@ -555,22 +566,7 @@ export const IPC_CHANNELS = {
   GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
   GET_SENTRY_CONFIG: 'sentry:get-config',        // Get full Sentry config (DSN + sample rates)
 
-  // Spell check
-  SPELLCHECK_SET_LANGUAGES: 'spellcheck:setLanguages',  // Set spell check language (syncs with i18n)
-
   // Screenshot capture
   SCREENSHOT_GET_SOURCES: 'screenshot:getSources',  // Get available screens/windows
-  SCREENSHOT_CAPTURE: 'screenshot:capture',          // Capture screenshot from source
-
-  // Queue routing (rate limit recovery)
-  QUEUE_GET_RUNNING_TASKS_BY_PROFILE: 'queue:getRunningTasksByProfile',
-  QUEUE_GET_BEST_PROFILE_FOR_TASK: 'queue:getBestProfileForTask',
-  QUEUE_ASSIGN_PROFILE_TO_TASK: 'queue:assignProfileToTask',
-  QUEUE_UPDATE_TASK_SESSION: 'queue:updateTaskSession',
-  QUEUE_GET_TASK_SESSION: 'queue:getTaskSession',
-
-  // Queue routing events (main -> renderer)
-  QUEUE_PROFILE_SWAPPED: 'queue:profileSwapped',      // Task switched to different profile
-  QUEUE_SESSION_CAPTURED: 'queue:sessionCaptured',    // Session ID captured from running task
-  QUEUE_BLOCKED_NO_PROFILES: 'queue:blockedNoProfiles' // All profiles unavailable
+  SCREENSHOT_CAPTURE: 'screenshot:capture'          // Capture screenshot from source
 } as const;

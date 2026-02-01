@@ -27,6 +27,11 @@
     "start": "electron .",
     "start:mcp": "electron . --remote-debugging-port=9222",
     "preview": "electron-vite preview",
+    "dev:web": "vite --config vite.config.web.ts",
+    "backend:web": "cd ../backend && .venv/bin/python -m uvicorn web.main:app --reload --host 127.0.0.1 --port 8000",
+    "start:web": "concurrently -n backend,frontend -c blue,green \"npm run backend:web\" \"npm run dev:web\"",
+    "build:web": "vite build --config vite.config.web.ts",
+    "preview:web": "vite preview --config vite.config.web.ts",
     "rebuild": "electron-rebuild",
     "python:download": "node scripts/download-python.cjs",
     "python:download:all": "node scripts/download-python.cjs --all",
@@ -102,7 +107,8 @@
     "uuid": "^13.0.0",
     "xstate": "^5.26.0",
     "zod": "^4.2.1",
-    "zustand": "^5.0.9"
+    "zustand": "^5.0.9",
+    "striptags": "^3.2.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.11",

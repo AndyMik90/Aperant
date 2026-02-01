@@ -149,7 +149,31 @@ sudo dnf install cmake
 
 ## Quick Start
 
-The fastest way to get started:
+There are two ways to get started with development:
+
+### Option 1: Devcontainer (Recommended for GitHub Codespaces)
+
+The easiest way to start contributing is using our pre-configured devcontainer:
+
+**With GitHub Codespaces:**
+1. Open this repository on GitHub
+2. Click "Code" → "Codespaces" → create a codespace on your working branch (develop is the default in this repo)
+3. Wait for automatic setup (all dependencies install automatically)
+4. Run `claude` to authenticate with Claude CLI
+5. Start developing with `npm run dev`
+
+**With VS Code Dev Containers:**
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop) and [VS Code](https://code.visualstudio.com/)
+2. Install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+3. Open this repository in VS Code
+4. Press `F1` → "Dev Containers: Reopen in Container"
+5. Wait for setup to complete
+
+See [.devcontainer/README.md](.devcontainer/README.md) for detailed devcontainer documentation.
+
+### Option 2: Local Installation
+
+The fastest way to set up locally:
 
 ```bash
 # Clone the repository

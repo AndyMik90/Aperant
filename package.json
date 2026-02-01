@@ -23,7 +23,13 @@
     "package": "cd apps/frontend && npm run package",
     "package:mac": "cd apps/frontend && npm run package:mac",
     "package:win": "cd apps/frontend && npm run package:win",
-    "package:linux": "cd apps/frontend && npm run package:linux"
+    "package:linux": "cd apps/frontend && npm run package:linux",
+    "dev:web": "cd apps/frontend && npm run dev:web",
+    "start:web": "cd apps/frontend && npm run start:web",
+    "build:web": "cd apps/frontend && npm run build:web",
+    "backend:web": "cd apps/backend && .venv/bin/python -m uvicorn web.main:app --reload --host 127.0.0.1 --port 8000",
+    "web": "npm run backend:web & sleep 2 && npm run dev:web",
+    "web:start": "npm run backend:web & sleep 2 && npm run start:web"
   },
   "engines": {
     "node": ">=24.0.0",

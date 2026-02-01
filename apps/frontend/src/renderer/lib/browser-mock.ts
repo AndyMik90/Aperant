@@ -7,6 +7,9 @@
  */
 
 import type { ElectronAPI } from '../../shared/types';
+import { createWebAdapter } from '../platform/web-adapter';
+import { isWeb } from '../platform/web-adapter';
+
 import {
   projectMock,
   taskMock,
@@ -249,6 +252,17 @@ const browserMockAPI: ElectronAPI = {
     onQueueBlockedNoProfiles: () => () => {}
   },
 
+  // Azure DevOps API
+  azureDevOps: {
+    getConfig: async () => ({ success: false, error: 'Not available in browser mock' }),
+    getIterations: async () => ({ success: false, error: 'Not available in browser mock' }),
+    getCurrentIteration: async () => ({ success: false, error: 'Not available in browser mock' }),
+    getWorkItemsForIteration: async () => ({ success: false, error: 'Not available in browser mock' }),
+    getWorkItem: async () => ({ success: false, error: 'Not available in browser mock' }),
+    getAreas: async () => ({ success: false, error: 'Not available in browser mock' }),
+    checkConnection: async () => ({ success: false, error: 'Not available in browser mock' })
+  },
+
   // Claude Code Operations
   checkClaudeCodeVersion: async () => ({
     success: true,
@@ -373,5 +387,11 @@ export function initBrowserMock(): void {
   }
 }
 
-// Auto-initialize
-initBrowserMock();
+if(isWeb()){
+  const webAdapter = createWebAdapter();
+    (window as Window & { electronAPI: ElectronAPI }).electronAPI = webAdapter;
+}else{
+  // Auto-initialize
+  initBrowserMock();
+}
+

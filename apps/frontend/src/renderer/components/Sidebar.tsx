@@ -59,7 +59,7 @@ import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
 import { UpdateBanner } from './UpdateBanner';
 import type { Project, AutoBuildVersionInfo, GitStatus } from '../../shared/types';
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
+export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'azure-devops-board' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -100,6 +100,11 @@ const gitlabNavItems: NavItem[] = [
   { id: 'gitlab-merge-requests', labelKey: 'navigation:items.gitlabMRs', icon: GitMerge, shortcut: 'R' }
 ];
 
+// Azure DevOps nav items shown when Azure DevOps is enabled
+const azureDevOpsNavItems: NavItem[] = [
+  { id: 'azure-devops-board', labelKey: 'navigation:items.azureDevOpsBoard', icon: GitlabIcon, shortcut: 'Z' }
+];
+
 export function Sidebar({
   onSettingsClick,
   onNewTaskClick,
@@ -130,6 +135,7 @@ export function Sidebar({
   // Subscribe to project-env-store for reactive GitHub/GitLab tab visibility
   const githubEnabled = useProjectEnvStore((state) => state.envConfig?.githubEnabled ?? false);
   const gitlabEnabled = useProjectEnvStore((state) => state.envConfig?.gitlabEnabled ?? false);
+  const azureDevOpsEnabled = useProjectEnvStore((state) => state.envConfig?.gitlabEnabled ?? false);
 
   // Track the last loaded project ID to avoid redundant loads
   const lastLoadedProjectIdRef = useRef<string | null>(null);
@@ -146,8 +152,12 @@ export function Sidebar({
       items.push(...gitlabNavItems);
     }
 
+    if (azureDevOpsEnabled) {
+      items.push(...azureDevOpsNavItems);
+    }
+
     return items;
-  }, [githubEnabled, gitlabEnabled]);
+  }, [githubEnabled, gitlabEnabled, azureDevOpsEnabled]);
 
   // Load envConfig when project changes to ensure store is populated
   useEffect(() => {

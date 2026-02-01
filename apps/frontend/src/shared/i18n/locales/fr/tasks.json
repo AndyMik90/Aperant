@@ -57,6 +57,7 @@
   "columns": {
     "backlog": "Planification",
     "queue": "File d'attente",
+    "queue": "File d'attente",
     "in_progress": "En cours",
     "ai_review": "Révision IA",
     "human_review": "Révision humaine",
@@ -67,6 +68,8 @@
   "kanban": {
     "emptyBacklog": "Aucune tâche planifiée",
     "emptyBacklogHint": "Ajoutez une tâche pour commencer",
+    "emptyQueue": "La file d'attente est vide",
+    "emptyQueueHint": "Les tâches attendront ici lorsque la limite de tâches parallèles sera atteinte",
     "emptyQueue": "La file d'attente est vide",
     "emptyQueueHint": "Les tâches attendront ici lorsque la limite de tâches parallèles sera atteinte",
     "emptyInProgress": "Rien en cours",
@@ -82,6 +85,7 @@
     "showArchived": "Afficher les archivées",
     "addTaskAriaLabel": "Ajouter une nouvelle tâche au backlog",
     "queueAllAriaLabel": "Déplacer toutes les tâches vers la file d'attente",
+    "queueAllAriaLabel": "Déplacer toutes les tâches vers la file d'attente",
     "closeTaskDetailsAriaLabel": "Fermer les détails de la tâche",
     "editTask": "Modifier la tâche",
     "cannotEditWhileRunning": "Impossible de modifier pendant l'exécution",
@@ -91,6 +95,7 @@
     "keepWorktree": "Garder le Worktree",
     "deleteWorktree": "Supprimer le Worktree & Marquer Terminé",
     "refreshTasks": "Actualiser les tâches",
+    "queueSettings": "Paramètres de la file d'attente",
     "queueSettings": "Paramètres de la file d'attente",
     "orderSaveFailedTitle": "Réorganisation non enregistrée",
     "orderSaveFailedDescription": "Votre changement d'ordre des tâches a été appliqué mais n'a pas pu être sauvegardé. Il sera perdu lors du rafraîchissement.",
@@ -116,6 +121,25 @@
     "unlockColumn": "Déverrouiller la largeur de la colonne",
     "columnLocked": "La largeur de la colonne est verrouillée",
     "expandAll": "Développer toutes les colonnes"
+  },
+  "queue": {
+    "limitReached": "Limite de tâches parallèles atteinte ({{current}}/{{max}}). Tâche déplacée vers la file d'attente.",
+    "movedToQueue": "Tâche déplacée vers la file d'attente.",
+    "autoPromoted": "Tâche auto-promue de la file d'attente vers En cours.",
+    "capacityAvailable": "{{count}} emplacement(s) disponible(s) dans En cours.",
+    "queueAll": "Tout ajouter à la file d'attente",
+    "queueAllSuccess": "{{count}} tâches déplacées vers la file d'attente.",
+    "settings": {
+      "title": "Paramètres de la file d'attente",
+      "description": "Configurer le nombre maximal de tâches pouvant s'exécuter en parallèle dans le tableau \"En cours\"",
+      "maxParallelLabel": "Tâches parallèles maximales",
+      "minValueError": "Doit être au moins 1",
+      "maxValueError": "Ne peut pas dépasser 10",
+      "hint": "Lorsque cette limite est atteinte, les nouvelles tâches attendront dans la file avant de passer à \"En cours\"",
+      "saved": "Paramètres de la file d'attente enregistrés",
+      "saveFailed": "Échec de l'enregistrement des paramètres",
+      "retry": "Veuillez réessayer"
+    }
   },
   "queue": {
     "limitReached": "Limite de tâches parallèles atteinte ({{current}}/{{max}}). Tâche déplacée vers la file d'attente.",

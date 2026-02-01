@@ -4,6 +4,12 @@
 claude-agent-sdk>=0.1.25
 python-dotenv>=1.0.0
 
+# Web API Dependencies (FastAPI)
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+websockets>=14.1
+httpx>=0.28.1
+
 # TOML parsing fallback for Python < 3.11
 tomli>=2.0.0; python_version < "3.11"
 

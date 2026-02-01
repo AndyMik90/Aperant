@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Monitor, ZoomIn, ZoomOut, RotateCcw, Check } from 'lucide-react';
+import { Monitor, ZoomIn, ZoomOut, RotateCcw, Check, SidebarIcon, LayoutList } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Label } from '../ui/label';
@@ -90,12 +90,62 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
     handlePresetChange(UI_SCALE_DEFAULT);
   };
 
+  // Handle navigation mode change - save immediately like theme
+  const handleNavigationModeChange = (mode: 'icons' | 'full') => {
+    onSettingsChange({ ...settings, navigationMode: mode });
+    updateStoreSettings({ navigationMode: mode });
+  };
+
   return (
     <SettingsSection
       title={t('sections.display.title')}
       description={t('sections.display.description')}
     >
       <div className="space-y-6">
+        {/* Navigation Mode */}
+        <div className="space-y-3">
+          <Label className="text-sm font-medium text-foreground">{t('navigation.mode.title')}</Label>
+          <p className="text-sm text-muted-foreground">
+            {t('navigation.mode.description')}
+          </p>
+          <div className="grid grid-cols-2 gap-3 max-w-md pt-1">
+            <button
+              type="button"
+              onClick={() => handleNavigationModeChange('icons')}
+              className={cn(
+                'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                (settings.navigationMode || 'full') === 'icons'
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:border-primary/50 hover:bg-accent/50'
+              )}
+            >
+              <SidebarIcon className="h-4 w-4" />
+              <div className="text-center">
+                <div className="text-sm font-medium">{t('navigation.mode.iconsOnly')}</div>
+                <div className="text-xs text-muted-foreground">{t('navigation.mode.iconsDescription')}</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleNavigationModeChange('full')}
+              className={cn(
+                'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                (settings.navigationMode || 'full') === 'full'
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:border-primary/50 hover:bg-accent/50'
+              )}
+            >
+              <LayoutList className="h-4 w-4" />
+              <div className="text-center">
+                <div className="text-sm font-medium">{t('navigation.mode.full')}</div>
+                <div className="text-xs text-muted-foreground">{t('navigation.mode.fullDescription')}</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
         {/* Preset Buttons */}
         <div className="space-y-3">
           <Label className="text-sm font-medium text-foreground">{t('scale.presets')}</Label>

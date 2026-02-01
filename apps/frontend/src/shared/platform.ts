@@ -63,3 +63,15 @@ export function isLinux(): boolean {
 export function isUnix(): boolean {
   return isMacOS() || isLinux();
 }
+
+/**
+ * Check if running in web browser mode.
+ *
+ * @returns true if running in web browser
+ */
+export function isWeb(): boolean {
+  return typeof window !== 'undefined' &&
+    (window.location?.protocol?.startsWith('http') ||
+      (window as any).electronAPI?.platform === 'web' ||
+      (window as any).electronAPI?.isElectron === false);
+}

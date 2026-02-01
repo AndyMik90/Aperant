@@ -8,13 +8,14 @@ import type { IdeationAPI } from './modules/ideation-api';
 import type { InsightsAPI } from './modules/insights-api';
 import { AppUpdateAPI, createAppUpdateAPI } from './app-update-api';
 import { GitHubAPI, createGitHubAPI } from './modules/github-api';
+import { AzureDevOpsAPI, createAzureDevOpsAPI } from './modules/azure-devops-api';
 import type { GitLabAPI } from './modules/gitlab-api';
 import { DebugAPI, createDebugAPI } from './modules/debug-api';
 import { ClaudeCodeAPI, createClaudeCodeAPI } from './modules/claude-code-api';
 import { McpAPI, createMcpAPI } from './modules/mcp-api';
 import { ProfileAPI, createProfileAPI } from './profile-api';
-import { ScreenshotAPI, createScreenshotAPI } from './screenshot-api';
 import { QueueAPI, createQueueAPI } from './queue-api';
+import { ScreenshotAPI, createScreenshotAPI } from './screenshot-api';
 
 export interface ElectronAPI extends
   ProjectAPI,
@@ -35,6 +36,7 @@ export interface ElectronAPI extends
   github: GitHubAPI;
   /** Queue routing API for rate limit recovery */
   queue: QueueAPI;
+  azureDevOps: AzureDevOpsAPI;
 }
 
 export const createElectronAPI = (): ElectronAPI => ({
@@ -51,7 +53,8 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createProfileAPI(),
   ...createScreenshotAPI(),
   github: createGitHubAPI(),
-  queue: createQueueAPI()  // Queue routing for rate limit recovery
+  queue: createQueueAPI(),  // Queue routing for rate limit recovery,
+  azureDevOps: createAzureDevOpsAPI()
 });
 
 // Export individual API creators for potential use in tests or specialized contexts
@@ -66,6 +69,7 @@ export {
   createAppUpdateAPI,
   createProfileAPI,
   createGitHubAPI,
+  createAzureDevOpsAPI,
   createDebugAPI,
   createClaudeCodeAPI,
   createMcpAPI,
@@ -86,9 +90,10 @@ export type {
   ProfileAPI,
   GitHubAPI,
   GitLabAPI,
+  AzureDevOpsAPI,
   DebugAPI,
   ClaudeCodeAPI,
   McpAPI,
   ScreenshotAPI,
-  QueueAPI
+  QueueAPI,
 };

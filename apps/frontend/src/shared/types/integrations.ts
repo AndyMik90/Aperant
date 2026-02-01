@@ -258,6 +258,98 @@ export interface GitLabImportResult {
   tasks?: import('./task').Task[];
 }
 
+// Azure DevOps Integration Types
+export interface AzureDevOpsSyncStatus {
+  connected: boolean;
+  organizationUrl?: string;
+  project?: string;
+  team?: string;
+  workItemCount?: number;
+  lastSyncedAt?: string;
+  error?: string;
+}
+
+export interface AzureDevOpsConfig {
+  enabled: boolean;
+  organizationUrl?: string;
+  project?: string;
+  team?: string;
+  personalAccessToken?: string;
+}
+
+export interface AzureDevOpsIteration {
+  id: string;
+  name: string;
+  path: string;
+  startDate?: string;
+  finishDate?: string;
+  state?: 'past' | 'current' | 'future';
+  isCurrent?: boolean;
+  attributes?: {
+    startDate?: string;
+    finishDate?: string;
+    timeFrame?: 'past' | 'current' | 'future';
+  };
+}
+
+export interface AzureDevOpsWorkItem {
+  id: number;
+  rev: number;
+  title: string;
+  description?: string;
+  acceptanceCriteria?: string;
+  design?: string;
+  state: string;
+  workItemType: string;
+  assignedTo?: {
+    displayName: string;
+    uniqueName: string;
+    imageUrl?: string;
+  };
+  createdDate: string;
+  changedDate: string;
+  areaPath: string;
+  iterationPath: string;
+  tags?: string;
+  priority?: number;
+  storyPoints?: number;
+  effort?: number;
+  remainingWork?: number;
+  completedWork?: number;
+  htmlUrl?: string;
+  url: string;
+  // Keep fields for backward compatibility
+  fields: {
+    'System.Id': number;
+    'System.WorkItemType': string;
+    'System.State': string;
+    'System.Title': string;
+    'System.Description'?: string;
+    'System.AssignedTo'?: {
+      displayName: string;
+      uniqueName: string;
+      imageUrl?: string;
+    };
+    'System.CreatedDate': string;
+    'System.ChangedDate': string;
+    'System.AreaPath': string;
+    'System.IterationPath': string;
+    'System.Tags'?: string;
+    'Microsoft.VSTS.Common.Priority'?: number;
+    'Microsoft.VSTS.Scheduling.StoryPoints'?: number;
+    'Microsoft.VSTS.Scheduling.Effort'?: number;
+    'Microsoft.VSTS.Common.AcceptanceCriteria'?: string;
+    [key: string]: any;
+  };
+}
+
+export interface AzureDevOpsBoardColumn {
+  id: string;
+  name: string;
+  workItems: AzureDevOpsWorkItem[];
+}
+
+
 export interface GitLabInvestigationResult {
   success: boolean;
   issueIid: number; // GitLab uses iid

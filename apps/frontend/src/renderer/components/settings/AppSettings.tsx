@@ -19,6 +19,7 @@ import {
   Code,
   Bug,
   Server,
+  Cloud,
   Terminal,
   Users
 } from 'lucide-react';
@@ -95,6 +96,7 @@ const projectNavItemsConfig: NavItemConfig<ProjectSettingsSection>[] = [
   { id: 'linear', icon: Zap },
   { id: 'github', icon: Github },
   { id: 'gitlab', icon: GitLabIcon },
+  { id: 'azure-devops', icon: Cloud },
   { id: 'memory', icon: Database }
 ];
 

@@ -1,0 +1,83 @@
+{
+  "notConnected": {
+    "title": "Azure DevOps non connecté",
+    "description": "Configurez Azure DevOps dans les paramètres du projet pour afficher et gérer les éléments de travail."
+  },
+  "header": {
+    "project": "Projet",
+    "team": "Équipe",
+    "sprint": "Sprint",
+    "selectSprint": "Sélectionner un sprint",
+    "refresh": "Actualiser",
+    "workItems": "éléments de travail"
+  },
+  "board": {
+    "title": "Tableau Azure DevOps",
+    "noProject": "Aucun projet sélectionné",
+    "items": "éléments",
+    "area": "Zone",
+    "selectArea": "Sélectionner une zone...",
+    "iteration": "Itération",
+    "selectIteration": "Sélectionner une itération...",
+    "current": "Actuel",
+    "emptyColumn": "Aucun élément de travail",
+    "loading": "Chargement des éléments de travail..."
+  },
+  "workItem": {
+    "id": "ID",
+    "title": "Titre",
+    "type": "Type",
+    "state": "État",
+    "assignedTo": "Assigné à",
+    "unassigned": "Non assigné",
+    "priority": "Priorité",
+    "storyPoints": "Points d'histoire",
+    "effort": "Effort",
+    "description": "Description",
+    "acceptanceCriteria": "Critères d'acceptation",
+    "noDescription": "Aucune description fournie",
+    "noAcceptanceCriteria": "Aucun critère d'acceptation défini",
+    "tags": "Étiquettes",
+    "iterationPath": "Itération",
+    "areaPath": "Zone",
+    "openInAzureDevOps": "Ouvrir dans Azure DevOps",
+    "convertToTask": "Convertir en tâche",
+    "converting": "Conversion..."
+  },
+  "types": {
+    "bug": "Bogue",
+    "userStory": "Récit utilisateur",
+    "task": "Tâche",
+    "feature": "Fonctionnalité",
+    "epic": "Épique",
+    "issue": "Problème",
+    "default": "Élément de travail"
+  },
+  "priority": {
+    "1": "Critique",
+    "2": "Élevée",
+    "3": "Moyenne",
+    "4": "Faible"
+  },
+  "settings": {
+    "title": "Paramètres Azure DevOps",
+    "description": "Configurez l'intégration Azure DevOps pour synchroniser les éléments de travail avec votre projet.",
+    "organizationUrl": "URL de l'organisation",
+    "organizationUrlPlaceholder": "https://dev.azure.com/votre-org",
+    "project": "Projet",
+    "projectPlaceholder": "Votre projet Azure DevOps",
+    "team": "Équipe",
+    "teamPlaceholder": "Nom de votre équipe",
+    "personalAccessToken": "Jeton d'accès personnel",
+    "personalAccessTokenPlaceholder": "Votre PAT avec accès en lecture aux éléments de travail",
+    "testConnection": "Tester la connexion",
+    "save": "Enregistrer",
+    "connected": "Connecté",
+    "disconnected": "Déconnecté",
+    "checkingConnection": "Vérification de la connexion...",
+    "testing": "Test en cours...",
+    "connectionSuccessful": "Connexion réussie !",
+    "connectionFailed": "Échec de la connexion. Vérifiez vos paramètres.",
+    "patHelperText": "Créez un PAT avec le scope Éléments de travail (Lecture) dans les paramètres de votre organisation Azure DevOps."
+  }
+}

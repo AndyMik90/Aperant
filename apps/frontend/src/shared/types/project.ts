@@ -8,6 +8,7 @@ export interface Project {
   path: string;
   autoBuildPath: string;
   settings: ProjectSettings;
+  envConfig?: ProjectEnvConfig;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -319,6 +320,13 @@ export interface ProjectEnvConfig {
   gitlabToken?: string;
   gitlabProject?: string; // Format: group/project or numeric ID
   gitlabAutoSync?: boolean; // Auto-sync issues on project load
+
+  // Azure DevOps Integration
+  azureDevOpsEnabled: boolean;
+  azureDevOpsOrganizationUrl?: string; // Format: https://dev.azure.com/organization
+  azureDevOpsProject?: string; // Project name or ID
+  azureDevOpsTeam?: string; // Team name (optional)
+  azureDevOpsPersonalAccessToken?: string; // PAT with work item read scope
 
   // Git/Worktree Settings
   defaultBranch?: string; // Base branch for worktree creation (e.g., 'main', 'develop')
