@@ -344,15 +344,345 @@ When a task reaches 100% completion:
 
 ### Changes in v2.7.6-beta.2 vs v2.7.5
 
-**Note:** This will be filled in Phase 2 (Root Cause Analysis) by examining git diff.
+**Analysis Date:** 2026-02-01
+**Diff Command:** `git diff v2.7.5..v2.7.6-beta.2`
+**Total Changes:** 524 lines across task-store.ts and execution-handlers.ts
 
-Key areas to investigate:
-- [ ] XState migration (PR #1575)
-- [ ] Task state management refactor
-- [ ] Log loading/persistence logic
-- [ ] Zustand store configuration
-- [ ] Electron main process changes
-- [ ] IPC handler modifications
+#### Summary of Major Changes
+
+The v2.7.6-beta.2 release introduced a **fundamental architectural change** by migrating task state management from direct IPC/file-based status updates to an **XState state machine**. This is a complete refactor of how task status and lifecycle are managed.
+
+#### Critical Finding: XState Migration Impact
+
+**BEFORE (v2.7.5):**
+- Task status changes were managed via direct IPC events
+- `TASK_START` → Immediate IPC send `TASK_STATUS_CHANGE` → File write to `implementation_plan.json`
+- `TASK_STOP` → Immediate IPC send `TASK_STATUS_CHANGE` → File write to `implementation_plan.json`
+- Status was persisted synchronously to plan file, then IPC notified frontend
+- `updateTaskFromPlan` would recalculate status from subtask completion
+
+**AFTER (v2.7.6-beta.2):**
+- Task status changes are managed by `taskStateManager` (XState actors)
+- `TASK_START` → XState event (`PLAN_APPROVED`, `USER_RESUMED`, or `PLANNING_STARTED`)
+- `TASK_STOP` → XState event (`USER_STOPPED`)
+- No direct IPC status notifications in execution handlers
+- `updateTaskFromPlan` NO LONGER updates status - comment says "XState is the source of truth"
+- Status changes go through state machine → listeners → IPC events
+
+#### Detailed Changes in task-store.ts
+
+**1. Added Task Status Change Listener System**
+```typescript
+// New listener registration system
+const taskStatusChangeListeners = new Set<...>();
+registerTaskStatusChangeListener: (listener) => {
+  taskStatusChangeListeners.add(listener);
+  return () => taskStatusChangeListeners.delete(listener);
+}
+```
+
+**Purpose:** Allow external systems (like queue manager) to react to status changes
+**Impact:** Status changes now go through a notification system instead of direct updates
+
+**2. Added Activity Tracking for Stuck Detection**
+```typescript
+const taskLastActivity = new Map<string, number>();
+const STUCK_ACTIVITY_THRESHOLD_MS = 60_000;
+
+recordTaskActivity(taskId: string): void
+hasRecentActivity(taskId: string): boolean
+clearTaskActivity(taskId: string): void
+```
+
+**Purpose:** Track task liveness to prevent false-positive stuck detection
+**Impact:** Status updates, execution progress, and log batching now record activity
+**Calls added to:**
+- `updateTaskStatus` - records activity before updating
+- `updateExecutionProgress` - records activity before progress update
+- `batchAppendLogs` - records activity when logs arrive
+
+**3. Changed updateTaskStatus Signature and Behavior**
+```typescript
+// BEFORE (v2.7.5):
+updateTaskStatus: (taskId, status) => set((state) => { ... })
+
+// AFTER (v2.7.6-beta.2):
+updateTaskStatus: (taskId, status, reviewReason?) => {
+  recordTaskActivity(taskId);
+  const oldStatus = state.tasks[index].status;
+
+  // Skip if status unchanged
+  if (oldStatus === status) return;
+
+  // Update state
+  set((state) => { ... });
+
+  // Notify listeners AFTER state update
+  queueMicrotask(() => {
+    notifyTaskStatusChange(taskId, oldStatus, status);
+  });
+}
+```
+
+**Key Changes:**
+- Added `reviewReason` parameter
+- Records activity before updating (stuck detection)
+- Captures old status before update
+- Skips no-op updates (status unchanged)
+- Notifies listeners asynchronously via `queueMicrotask`
+- Execution progress now defaults to `planning` phase when starting (prevents "no active phase" race)
+
+**4. CRITICAL: updateTaskFromPlan No Longer Updates Status**
+```typescript
+// BEFORE (v2.7.5):
+// Complex logic to recalculate status from subtask completion
+if (!isInActivePhase && !isInTerminalPhase && !isInTerminalStatus && !isExplicitHumanReview) {
+  if (allCompleted && hasSubtasks) {
+    status = 'ai_review';
+  } else if (anyFailed) {
+    status = 'human_review';
+    reviewReason = 'errors';
+  } else if (anyInProgress || anyCompleted) {
+    status = 'in_progress';
+  }
+}
+
+// AFTER (v2.7.6-beta.2):
+// NOTE: We do NOT update status from plan anymore.
+// XState is the source of truth for status - it emits TASK_STATUS_CHANGE.
+// Plan updates only update subtasks, title, and other non-status fields.
+// This prevents race conditions where a stale plan overwrites XState status.
+```
+
+**Impact:** Plan file updates NO LONGER affect task status
+**Rationale:** Prevents race conditions where stale plan file data overrides XState status
+**Consequence:** Status must be managed entirely by XState state machine
+
+**5. Added Queue Column to Task Order State**
+```typescript
+// BEFORE (v2.7.5):
+type TaskOrderState = {
+  backlog: string[];
+  in_progress: string[];
+  ai_review: string[];
+  human_review: string[];
+  pr_created: string[];
+  done: string[];
+  error: string[];
+}
+
+// AFTER (v2.7.6-beta.2):
+type TaskOrderState = {
+  backlog: string[];
+  queue: string[];        // NEW COLUMN
+  in_progress: string[];
+  ai_review: string[];
+  human_review: string[];
+  done: string[];
+  pr_created: string[];   // REORDERED
+  error: string[];
+}
+```
+
+**Impact:** Kanban board now has a "queue" column for auto-promotion
+**Related:** Queue routing system added in v2.7.6-beta.2
+
+**6. Removed Status Updates from Helper Functions**
+```typescript
+// submitReview() - BEFORE:
+store.updateTaskStatus(taskId, approved ? 'done' : 'in_progress');
+// AFTER: Removed - status managed by XState
+
+// recoverStuckTask() - BEFORE:
+store.updateTaskStatus(taskId, result.data.newStatus);
+// AFTER: Removed - status managed by XState
+```
+
+**Impact:** These functions no longer directly update status
+**Consequence:** XState must handle all status transitions
+
+**7. Added Bulk Delete Function**
+```typescript
+// NEW in v2.7.6-beta.2:
+export async function deleteTasks(taskIds: string[])
+```
+
+**Purpose:** Support multi-select delete in UI
+**Impact:** Not related to log bug
+
+**8. Updated isIncompleteHumanReview**
+```typescript
+// BEFORE:
+if (task.reviewReason === 'errors') return false;
+
+// AFTER:
+if (task.reviewReason === 'errors' || task.reviewReason === 'stopped' || task.reviewReason === 'plan_review') return false;
+```
+
+**Impact:** More review reasons excluded from "incomplete" detection
+**Related:** XState plan_review state addition
+
+#### Detailed Changes in execution-handlers.ts
+
+**1. Added taskStateManager Import**
+```typescript
+import { taskStateManager } from '../../task-state-manager';
+```
+
+**Purpose:** Use XState for status management instead of direct IPC
+
+**2. TASK_START Handler Complete Rewrite**
+
+**BEFORE (v2.7.5):**
+```typescript
+// Immediate IPC notification
+mainWindow.webContents.send(IPC_CHANNELS.TASK_STATUS_CHANGE, taskId, 'in_progress');
+
+// Async file persistence (non-blocking)
+setImmediate(async () => {
+  await persistPlanStatus(planPath, 'in_progress', project.id);
+});
+```
+
+**AFTER (v2.7.6-beta.2):**
+```typescript
+// Determine XState event based on current state
+const currentXState = taskStateManager.getCurrentState(taskId);
+
+if (currentXState === 'plan_review') {
+  taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
+} else if (currentXState === 'human_review' || currentXState === 'error') {
+  taskStateManager.handleUiEvent(taskId, { type: 'USER_RESUMED' }, task, project);
+} else if (currentXState) {
+  taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
+} else if (task.status === 'human_review' && task.reviewReason === 'plan_review') {
+  // Fallback to task data (e.g., after app restart)
+  taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
+} else if (task.status === 'human_review' || task.status === 'error') {
+  taskStateManager.handleUiEvent(taskId, { type: 'USER_RESUMED' }, task, project);
+} else {
+  taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
+}
+
+// NO direct IPC status notifications
+// NO direct plan file writes
+```
+
+**Impact:**
+- Status transitions now go through XState state machine
+- State machine must emit events that trigger status updates
+- Fallback logic for app restart (no XState actor exists)
+- **CRITICAL:** Relies on task data from file when XState actor doesn't exist
+
+**3. TASK_STOP Handler Rewrite**
+
+**BEFORE (v2.7.5):**
+```typescript
+// Immediate IPC notification
+mainWindow.webContents.send(IPC_CHANNELS.TASK_STATUS_CHANGE, taskId, 'backlog');
+
+// Async file persistence
+setImmediate(async () => {
+  await persistPlanStatus(planPath, 'backlog', project.id);
+});
+```
+
+**AFTER (v2.7.6-beta.2):**
+```typescript
+// Determine if task has a plan
+let hasPlan = false;
+try {
+  const planContent = safeReadFileSync(planPath);
+  if (planContent) {
+    const plan = JSON.parse(planContent);
+    const { totalCount } = checkSubtasksCompletion(plan);
+    hasPlan = totalCount > 0;
+  }
+} catch {
+  hasPlan = false;
+}
+
+// Send XState event
+taskStateManager.handleUiEvent(taskId, { type: 'USER_STOPPED', hasPlan }, task, project);
+```
+
+**Impact:**
+- No direct status updates
+- XState determines target status based on `hasPlan` context
+- State machine must handle status transition and IPC notification
+
+#### Changes in log-service.ts
+
+**Minor Changes Only:**
+```typescript
+// BEFORE:
+writeFileSync(logFile, header);
+
+// AFTER:
+writeFileSync(logFile, header, 'utf-8');
+```
+
+**Impact:** Explicit encoding, not related to log disappearance bug
+
+#### NO Changes to task-log-service.ts
+
+**Finding:** `task-log-service.ts` was NOT modified between v2.7.5 and v2.7.6-beta.2
+**Implication:** Log loading/persistence logic itself is unchanged
+**Consequence:** Bug is likely in state management, not log file I/O
+
+#### Root Cause Hypothesis
+
+Based on the git diff analysis, the log disappearance bug is likely caused by:
+
+**Primary Hypothesis: XState State Machine Not Initialized on App Restart**
+
+1. **In v2.7.5:**
+   - `getTasks()` loads tasks from disk
+   - Logs are loaded via `taskLogService.loadLogs()`
+   - Task status is persisted in `implementation_plan.json`
+   - On app restart, `getTasks()` reads plan file → loads logs → hydrates state
+   - Everything works because status and logs come from files
+
+2. **In v2.7.6-beta.2:**
+   - `getTasks()` still loads tasks from disk
+   - Logs should still be loaded via `taskLogService.loadLogs()`
+   - BUT: Task status is now managed by XState actors
+   - **PROBLEM:** On app restart, XState actors may not exist yet
+   - **CONSEQUENCE:** `TASK_START` handler has fallback logic using `task.status` and `task.reviewReason`
+   - **BUG:** If XState actor doesn't emit proper events on initialization, logs may not load
+
+**Secondary Hypothesis: Log Loading Not Triggered Without XState Events**
+
+1. In v2.7.5, status changes triggered IPC events directly
+2. In v2.7.6-beta.2, status changes go through XState → listeners → IPC
+3. If XState state machine doesn't exist on app restart:
+   - No status change events are emitted
+   - No listeners are notified
+   - Log loading may not be triggered
+   - Frontend shows empty logs despite files existing on disk
+
+**Evidence Supporting This Hypothesis:**
+
+1. ✅ Production builds work → Suggests timing issue (dev mode slower to initialize?)
+2. ✅ `updateTaskFromPlan` no longer updates status → Status stuck if XState not running
+3. ✅ `TASK_START` has fallback logic for "after app restart" → Acknowledges XState actor may not exist
+4. ✅ `task-log-service.ts` unchanged → File I/O is not the problem
+5. ✅ Comments say "XState is source of truth" → Everything depends on state machine
+
+#### Next Investigation Steps
+
+- [x] XState migration (PR #1575) - **CONFIRMED: Major refactor**
+- [x] Task state management refactor - **CONFIRMED: Direct IPC → XState events**
+- [x] Log loading/persistence logic - **UNCHANGED in task-log-service.ts**
+- [x] Zustand store configuration - **Changed: listeners, activity tracking, no status from plan**
+- [x] Electron main process changes - **CONFIRMED: execution-handlers uses XState**
+- [x] IPC handler modifications - **CONFIRMED: No direct status IPC in TASK_START/STOP**
+
+**Required Next Steps:**
+1. Verify XState actor initialization on app restart
+2. Check if taskStateManager creates actors when loading tasks from disk
+3. Trace log loading flow with XState events
+4. Identify missing event emission that should trigger log loading
 
 ---
 
