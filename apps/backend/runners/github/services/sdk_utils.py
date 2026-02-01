@@ -124,6 +124,49 @@ def _get_tool_detail(tool_name: str, tool_input: dict[str, Any]) -> str:
     return f"Using tool: {tool_name}"
 
 
+# Circuit breaker threshold - abort if message count exceeds this
+# Prevents runaway retry loops from consuming unbounded resources
+MAX_MESSAGE_COUNT = 500
+
+
+def _is_tool_concurrency_error(text: str) -> bool:
+    """
+    Detect the specific tool use concurrency error pattern.
+
+    This error occurs when Claude makes multiple parallel tool_use blocks
+    and some fail, corrupting the tool_use/tool_result message pairing.
+
+    Args:
+        text: Text to check for error pattern
+
+    Returns:
+        True if this is the tool concurrency error, False otherwise
+    """
+    text_lower = text.lower()
+    # Check for the specific error message pattern
+    # Pattern 1: Explicit concurrency or tool_use errors with 400
+    has_400 = "400" in text_lower
+    has_tool = "tool" in text_lower
+
+    if has_400 and has_tool:
+        # Look for specific keywords indicating tool concurrency issues
+        error_keywords = [
+            "concurrency",
+            "tool_use",
+            "tool use",
+            "tool_result",
+            "tool result",
+        ]
+        if any(keyword in text_lower for keyword in error_keywords):
+            return True
+
+    # Pattern 2: API error with 400 and tool mention
+    if "api error" in text_lower and has_400 and has_tool:
+        return True
+
+    return False
+
+
 async def process_sdk_stream(
     client: Any,
     on_thinking: Callable[[str], None] | None = None,
@@ -133,6 +176,10 @@ async def process_sdk_stream(
     on_structured_output: Callable[[dict[str, Any]], None] | None = None,
     context_name: str = "SDK",
     model: str | None = None,
+    max_messages: int | None = None,
+    # Deprecated parameters (kept for backwards compatibility, no longer used)
+    system_prompt: str | None = None,  # noqa: ARG001
+    agent_definitions: dict | None = None,  # noqa: ARG001
 ) -> dict[str, Any]:
     """
     Process SDK response stream with customizable callbacks.
@@ -153,6 +200,7 @@ async def process_sdk_stream(
         on_structured_output: Callback for structured output - receives dict
         context_name: Name for logging (e.g., "ParallelOrchestrator", "ParallelFollowup")
         model: Model name for logging (e.g., "claude-sonnet-4-5-20250929")
+        max_messages: Optional override for max message count circuit breaker (default: MAX_MESSAGE_COUNT)
 
     Returns:
         Dictionary with:
@@ -171,6 +219,11 @@ async def process_sdk_stream(
     # Track subagent tool IDs to log their results
     subagent_tool_ids: dict[str, str] = {}  # tool_id -> agent_name
     completed_agent_tool_ids: set[str] = set()  # tool_ids of completed agents
+    # Track tool concurrency errors for retry logic
+    detected_concurrency_error = False
+
+    # Circuit breaker: max messages before aborting
+    message_limit = max_messages if max_messages is not None else MAX_MESSAGE_COUNT
 
     safe_print(f"[{context_name}] Processing SDK stream...")
     if DEBUG_MODE:
@@ -185,6 +238,17 @@ async def process_sdk_stream(
             try:
                 msg_type = type(msg).__name__
                 msg_count += 1
+
+                # CIRCUIT BREAKER: Abort if message count exceeds threshold
+                # This prevents runaway retry loops (e.g., 400 errors causing infinite retries)
+                if msg_count > message_limit:
+                    stream_error = (
+                        f"Circuit breaker triggered: message count ({msg_count}) "
+                        f"exceeded limit ({message_limit}). Possible retry loop detected."
+                    )
+                    logger.error(f"[{context_name}] {stream_error}")
+                    safe_print(f"[{context_name}] ERROR: {stream_error}")
+                    break
 
                 # Log progress periodically so user knows AI is working
                 if msg_count - last_progress_log >= PROGRESS_LOG_INTERVAL:
@@ -258,6 +322,16 @@ async def process_sdk_stream(
                         safe_print(
                             f"[{context_name}] Invoking agent: {agent_name}{model_info}"
                         )
+                        # Log delegation prompt for debugging trigger system
+                        delegation_prompt = tool_input.get("prompt", "")
+                        if delegation_prompt:
+                            # Show first 300 chars of delegation prompt
+                            prompt_preview = delegation_prompt[:300]
+                            if len(delegation_prompt) > 300:
+                                prompt_preview += "..."
+                            safe_print(
+                                f"[{context_name}] Delegation prompt for {agent_name}: {prompt_preview}"
+                            )
                     elif tool_name != "StructuredOutput":
                         # Log meaningful tool info (not just tool name)
                         tool_detail = _get_tool_detail(tool_name, tool_input)
@@ -349,6 +423,15 @@ async def process_sdk_stream(
                         block_type = type(block).__name__
                         if block_type == "TextBlock" and hasattr(block, "text"):
                             result_text += block.text
+                            # Check for tool concurrency error pattern in text output
+                            if _is_tool_concurrency_error(block.text):
+                                detected_concurrency_error = True
+                                logger.warning(
+                                    f"[{context_name}] Detected tool use concurrency error in response"
+                                )
+                                safe_print(
+                                    f"[{context_name}] WARNING: Tool concurrency error detected"
+                                )
                             # Always print text content preview (not just in DEBUG_MODE)
                             text_preview = block.text[:500].replace("\n", " ").strip()
                             if text_preview:
@@ -464,6 +547,13 @@ async def process_sdk_stream(
         safe_print(f"[DEBUG {context_name}] Session ended. Total messages: {msg_count}")
 
     safe_print(f"[{context_name}] Session ended. Total messages: {msg_count}")
+
+    # Set error flag if tool concurrency error was detected
+    if detected_concurrency_error and not stream_error:
+        stream_error = "tool_use_concurrency_error"
+        logger.warning(
+            f"[{context_name}] Tool use concurrency error detected - caller should retry"
+        )
 
     return {
         "result_text": result_text,

@@ -1,5 +1,7 @@
 # Auto-Build Framework Dependencies
-claude-agent-sdk>=0.1.19
+# SDK 0.1.25+ required for improved tool use concurrency handling
+# Earlier versions had 400 errors when tool_use blocks had partial failures
+claude-agent-sdk>=0.1.25
 python-dotenv>=1.0.0
 
 # TOML parsing fallback for Python < 3.11
