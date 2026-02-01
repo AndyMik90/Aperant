@@ -57,9 +57,11 @@ export class ProjectStore {
       try {
         const content = readFileSync(this.storePath, 'utf-8');
         const data = JSON.parse(content);
-        // Convert date strings back to Date objects
+        // Convert date strings back to Date objects and normalize paths to absolute
         data.projects = data.projects.map((p: Project) => ({
           ...p,
+          // Ensure project.path is always absolute (critical for dev mode path resolution)
+          path: path.isAbsolute(p.path) ? p.path : path.resolve(p.path),
           createdAt: new Date(p.createdAt),
           updatedAt: new Date(p.updatedAt)
         }));
@@ -82,8 +84,12 @@ export class ProjectStore {
    * Add a new project
    */
   addProject(projectPath: string, name?: string): Project {
-    // Check if project already exists
-    const existing = this.data.projects.find((p) => p.path === projectPath);
+    // CRITICAL: Normalize to absolute path for dev mode compatibility
+    // This prevents path resolution issues after app restart
+    const absolutePath = path.isAbsolute(projectPath) ? projectPath : path.resolve(projectPath);
+
+    // Check if project already exists (using absolute path for comparison)
+    const existing = this.data.projects.find((p) => p.path === absolutePath);
     if (existing) {
       // Validate that .auto-claude folder still exists for existing project
       // If manually deleted, reset autoBuildPath so UI prompts for reinitialization
@@ -97,15 +103,15 @@ export class ProjectStore {
     }
 
     // Derive name from path if not provided
-    const projectName = name || path.basename(projectPath);
+    const projectName = name || path.basename(absolutePath);
 
     // Determine auto-claude path (supports both 'auto-claude' and '.auto-claude')
-    const autoBuildPath = getAutoBuildPath(projectPath) || '';
+    const autoBuildPath = getAutoBuildPath(absolutePath) || '';
 
     const project: Project = {
       id: uuidv4(),
       name: projectName,
-      path: projectPath,
+      path: absolutePath, // Store absolute path
       autoBuildPath,
       settings: { ...DEFAULT_PROJECT_SETTINGS },
       createdAt: new Date(),
