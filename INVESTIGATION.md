@@ -91,7 +91,133 @@ npm run dev
 
 ## Log Storage Investigation
 
+### Storage Architecture Overview
+
+Auto Claude uses a multi-layered log storage system with different behaviors in development vs production:
+
+#### 1. File System Storage (Backend - Python)
+
+**Spec Directories:**
+- **Location:** `{projectPath}/.auto-claude/specs/{specId}/`
+- **Purpose:** Main project spec directory containing task metadata and logs
+- **Contains:** `task_logs.json` (phase-based logs), `spec.md`, `implementation_plan.json`, etc.
+- **Configurable:** Can be customized via `autoBuildPath` setting (default: `.auto-claude`)
+
+**Worktree Directories:**
+- **Location:** `{projectPath}/.auto-claude/worktrees/tasks/{specId}/`
+- **Legacy Location:** `{projectPath}/.worktrees/{specId}/` (fallback)
+- **Purpose:** Isolated git worktree for task execution (coding/validation phases)
+- **Contains:** Complete copy of project + spec directory with active build logs
+- **Worktree Spec Path:** `{worktreePath}/.auto-claude/specs/{specId}/task_logs.json`
+
+**task_logs.json File Structure:**
+```json
+{
+  "spec_id": "XXX-task-name",
+  "created_at": "ISO-8601 timestamp",
+  "updated_at": "ISO-8601 timestamp",
+  "phases": {
+    "planning": { "status": "completed", "entries": [...] },
+    "coding": { "status": "active", "entries": [...] },
+    "validation": { "status": "pending", "entries": [...] }
+  }
+}
+```
+
+**Log Merging Strategy (TaskLogService):**
+- **Planning phase:** Loaded from main spec directory
+- **Coding/Validation phases:** Loaded from worktree spec directory (if exists), fallback to main
+- Service watches both locations and merges logs in real-time
+- Cache stored in-memory: `Map<specDir, TaskLogs>`
+
+#### 2. Frontend State Storage (Renderer Process)
+
+**Zustand Store (In-Memory):**
+- **Store:** `task-store.ts` in `apps/frontend/src/renderer/stores/`
+- **State:** `tasks: Task[]` - array of task objects with logs
+- **Logs Format:** Legacy string-based logs stored in `task.logs: string[]`
+- **Not Persisted:** Store state is NOT persisted to localStorage (except task order)
+
+**localStorage Keys:**
+- **Task Order State:** `task-order-state-{projectId}`
+  - Stores kanban column ordering for drag-and-drop
+  - Type: `TaskOrderState` (object with arrays per status column)
+
+- **Task Creation Drafts:** `task-creation-draft-{projectId}`
+  - Stores unsaved task creation form data
+  - Type: `TaskDraft` object
+  - Note: Image data excluded from storage to avoid size limits
+
+**No Direct Log Persistence:**
+- Task logs are NOT stored in localStorage
+- Logs must be loaded from backend via IPC on each app restart
+- This is intentional - logs are managed by backend, frontend is just a view
+
+#### 3. IPC Communication Layer (Main Process)
+
+**Log Loading Flow:**
+1. **Renderer → Main:** `window.electronAPI.getTasks(projectId)`
+2. **Main Process:** Reads specs from disk, calls `taskLogService.loadLogs()`
+3. **TaskLogService:**
+   - Finds main spec directory: `{project.path}/.auto-claude/specs/{specId}`
+   - Finds worktree (if exists): `findTaskWorktree(projectPath, specId)`
+   - Loads `task_logs.json` from both locations
+   - Merges logs (planning from main, coding/validation from worktree)
+   - Returns merged `TaskLogs` object
+4. **Main → Renderer:** Returns task data with logs via IPC result
+5. **Renderer:** Calls `store.setTasks(result.data)` to hydrate state
+
+**Log Watching Flow:**
+1. **Renderer → Main:** `window.electronAPI.watchTaskLogs(projectId, specId)`
+2. **TaskLogService:** Starts polling both spec locations (1000ms interval)
+3. **On Change:** Emits `logs-changed` event
+4. **Main → Renderer:** Forwards event via IPC: `mainWindow.webContents.send('logs-changed', specId, logs)`
+5. **Renderer:** Updates state with new logs
+
+**IPC Handlers:**
+- `TASK_LOGS_GET` → `taskLogService.loadLogs(specDir, projectPath, specsRelPath, specId)`
+- `TASK_LOGS_WATCH` → `taskLogService.startWatching(specId, specDir, projectPath, specsRelPath)`
+- `TASK_LOGS_UNWATCH` → `taskLogService.stopWatching(specId)`
+
+#### 4. Development vs Production Differences
+
+**Development Mode (`npm run dev`):**
+- **Electron Main Process:** Runs from source code
+- **Vite Dev Server:** Hot module reloading enabled
+- **Path Resolution:** Uses `app.getAppPath()` pointing to source directory
+- **State Lifecycle:** App restart = complete process restart
+- **Potential Issue:** State hydration on restart may fail if IPC not ready
+
+**Production Mode (exe build):**
+- **Electron Main Process:** Packaged into ASAR archive
+- **Vite Build:** Pre-bundled static files
+- **Path Resolution:** Uses `app.getAppPath()` pointing to packaged resources
+- **State Lifecycle:** App restart = complete process restart (same as dev)
+- **Observation:** Logs persist correctly in production (bug does not occur)
+
 ### File System Check
+
+#### Paths to Verify During Manual Testing
+
+1. **Main Spec Directory:**
+   ```bash
+   ls -la {projectPath}/.auto-claude/specs/{specId}/task_logs.json
+   ```
+   **Expected:** File exists with JSON content
+   **Dev Mode Path Example:** `/path/to/project/.auto-claude/specs/001-example/task_logs.json`
+   **Prod Mode Path Example:** Same as dev (no difference in log file location)
+
+2. **Worktree Spec Directory:**
+   ```bash
+   ls -la {projectPath}/.auto-claude/worktrees/tasks/{specId}/.auto-claude/specs/{specId}/task_logs.json
+   ```
+   **Expected:** File exists during task execution (coding/validation phases)
+   **Note:** Worktree created when task starts, deleted when task completes
+
+3. **localStorage Keys (DevTools → Application → Local Storage):**
+   - `task-order-state-{projectId}` → Should contain JSON object with column arrays
+   - `task-creation-draft-{projectId}` → Should contain task draft (if user has unsaved work)
+   - **Critical:** No `task-logs-*` or `tasks-*` keys should exist (logs not persisted here)
 
 #### During First Run
 Check the following locations for log files:
@@ -112,17 +238,27 @@ Check the following locations for log files:
    **Path:** _[FULL PATH]_
    **Size:** _[FILE SIZE]_
 
-3. **Application data directory:**
-   - Windows: `%APPDATA%/auto-claude/`
-   - Check for any cached or persisted log data
+3. **localStorage (Browser DevTools):**
+   - Check keys: `task-order-state-*`, `task-creation-draft-*`
+   - Verify NO keys exist for log storage
 
-   **Found:** _[YES/NO]_
-   **Path:** _[FULL PATH]_
+   **Found localStorage Keys:** _[LIST KEYS]_
 
 #### After Restart
 Repeat the above checks and note any differences:
 
 **Differences:** _[TO BE FILLED]_
+
+### Key Questions for Investigation
+
+Based on the storage architecture, the bug investigation should focus on:
+
+1. **IPC Timing:** Does `getTasks()` IPC call complete before UI tries to render logs?
+2. **TaskLogService Cache:** Is the in-memory log cache being cleared on restart?
+3. **State Hydration:** Does `loadTasks()` successfully populate the store on app restart?
+4. **File System:** Do the `task_logs.json` files actually exist after restart, or are they deleted?
+5. **Path Resolution:** Does `getSpecsDir()` return the same path in dev vs prod mode?
+6. **XState Migration Impact:** Did the v2.7.6-beta.2 refactor break the log loading flow?
 
 ---
 
