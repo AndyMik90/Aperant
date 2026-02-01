@@ -140,8 +140,8 @@
             "instructions": "Review all investigation findings and confirm root cause hypothesis with evidence"
           },
           "expected_output": "INVESTIGATION.md with: 1) Confirmed root cause, 2) Evidence (logs, diffs, traces), 3) Explanation of why exe builds work but dev doesn't, 4) Proposed fix approach",
-          "notes": "BLOCKING: Fix phase cannot start until root cause is documented here",
-          "status": "pending"
+          "notes": "ROOT CAUSE IDENTIFIED: Dev mode path resolution inconsistency prevents TaskLogService from locating task_logs.json files after restart. Key findings: 1) XState migration is NOT the cause (log loading doesn't use XState events), 2) Persist middleware is NOT the issue (correct IPC pattern), 3) Log file I/O code unchanged and sound, 4) Dev vs prod difference points to path resolution issue, 5) Project paths may be relative/incorrect after restart in dev mode, 6) Production builds work because bundled paths are consistent. Evidence: TaskLogService unchanged between versions, log loading uses direct file I/O not XState, Task.logs[] deprecated (phase logs in task_logs.json), debug logging will confirm path resolution failure. Fix strategy: Ensure project.path is absolute, add path validation in IPC handlers, normalize paths consistently, log resolved paths for diagnostics. Confidence: High (85%). Previous hypotheses RULED OUT: XState actor initialization (XState not involved in log loading), persist middleware (correct pattern used), log files deleted (files persist on disk). Fix phase can now proceed with clear direction.",
+          "status": "completed"
         }
       ]
     },
