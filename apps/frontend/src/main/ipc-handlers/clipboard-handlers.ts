@@ -132,7 +132,11 @@ export function registerClipboardHandlers(): void {
       // Get all available clipboard formats
       const formats = clipboard.availableFormats();
 
-      console.warn('[Clipboard] Available clipboard formats:', formats);
+      // Don't log clipboard content in production to avoid PII exposure
+      const isDev = process.env.NODE_ENV === 'development';
+      if (isDev) {
+        console.warn('[Clipboard] Available clipboard formats:', formats);
+      }
 
       const result: ClipboardContent = {
         text: '',
@@ -142,14 +146,17 @@ export function registerClipboardHandlers(): void {
       // Extract text content
       if (formats.includes('text/plain')) {
         result.text = clipboard.readText();
-        console.warn('[Clipboard] Text content length:', result.text.length, 'chars');
-        console.warn('[Clipboard] Text preview:', result.text.substring(0, 200));
+        if (isDev) {
+          console.warn('[Clipboard] Text content length:', result.text.length, 'chars');
+        }
       }
 
       // Check for HTML format (Facebook posts often copy as HTML with img tags)
       if (formats.includes('text/html')) {
         const htmlContent = clipboard.readHTML();
-        console.warn('[Clipboard] HTML content detected, length:', htmlContent.length);
+        if (isDev) {
+          console.warn('[Clipboard] HTML content detected, length:', htmlContent.length);
+        }
 
         // Extract image URLs from HTML img tags
         const imgMatches = htmlContent.match(/<img[^>]+src=["']([^"']+)["']/gi);
@@ -171,9 +178,13 @@ export function registerClipboardHandlers(): void {
                 // Check if this is a content image (not emoji/UI icon)
                 if (isContentImageUrl(decodedUrl)) {
                   contentImageUrls.push(decodedUrl);
-                  console.warn(`[Clipboard]   Content image:`, decodedUrl.substring(0, 100));
+                  if (isDev) {
+                    console.warn(`[Clipboard]   Content image:`, decodedUrl.substring(0, 100));
+                  }
                 } else {
-                  console.warn(`[Clipboard]   Skipped (UI element):`, decodedUrl.substring(0, 100));
+                  if (isDev) {
+                    console.warn(`[Clipboard]   Skipped (UI element):`, decodedUrl.substring(0, 100));
+                  }
                 }
               }
             }
@@ -181,7 +192,9 @@ export function registerClipboardHandlers(): void {
 
           // Fetch content images in parallel
           if (contentImageUrls.length > 0) {
-            console.warn('[Clipboard] Fetching', contentImageUrls.length, 'content images...');
+            if (isDev) {
+              console.warn('[Clipboard] Fetching', contentImageUrls.length, 'content images...');
+            }
 
             const fetchResults = await Promise.all(
               contentImageUrls.map(url => fetchImageAsDataUrl(url))

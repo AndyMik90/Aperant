@@ -355,6 +355,8 @@
     "pasteFromClipboard": "Paste from Clipboard",
     "pasting": "Pasting...",
     "attachedImages": "Attached Images ({{count}})",
+    "clipboardImageAlt": "Clipboard image",
+    "taskReferenceImageAlt": "Task reference image",
     "clipboardHint": "Paste text and images from your clipboard",
     "errors": {
       "emptyInput": "Please enter some text to split",
@@ -384,7 +386,8 @@
       "templatePromptRequired": "Please enter a prompt template",
       "templateCreated": "Template created successfully",
       "templateUpdated": "Template updated successfully",
-      "templateDeleted": "Template deleted successfully"
+      "templateDeleted": "Template deleted successfully",
+      "customBadge": "Custom"
     }
   },
   "serviceSelector": {

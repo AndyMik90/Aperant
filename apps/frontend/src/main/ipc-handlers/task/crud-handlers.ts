@@ -1,9 +1,10 @@
-import { ipcMain, nativeImage } from 'electron';
+import { ipcMain, nativeImage, app } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { IPCResult, Task, TaskMetadata } from '../../../shared/types';
 import path from 'path';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, Dirent } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, Dirent, rmSync } from 'fs';
 import { spawn } from 'child_process';
+import { randomUUID } from 'crypto';
 import { projectStore } from '../../project-store';
 import { titleGenerator } from '../../title-generator';
 import { AgentManager } from '../../agent';
@@ -686,12 +687,6 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
  * Split text into multiple tasks using Claude AI
  */
 async function splitTextIntoTasks(text: string, promptTemplate?: string, images?: import('../../../shared/types/screenshot').ClipboardImage[]): Promise<Array<{ title: string; description: string; attachedImages?: import('../../../shared/types/task').ImageAttachment[] }>> {
-  const { spawn } = await import('child_process');
-  const path = await import('path');
-  const { app } = await import('electron');
-  const { existsSync, readFileSync, mkdirSync, writeFileSync } = await import('fs');
-  const { randomUUID } = await import('crypto');
-
   // Find the auto-claude backend path
   const possiblePaths = [
     path.resolve(process.cwd(), 'apps', 'backend'),
@@ -715,20 +710,58 @@ async function splitTextIntoTasks(text: string, promptTemplate?: string, images?
   const tempDir = path.join(autoBuildSource, '.auto-claude', '.temp', 'clipboard-images', Date.now().toString());
   const savedImages: import('../../../shared/types/task').ImageAttachment[] = [];
 
+  // Define allowed MIME types for security
+  const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/svg+xml'];
+
+  // MIME type to file extension mapping
+  const mimeToExt: Record<string, string> = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'image/svg+xml': 'svg'
+  };
+
+  // Maximum image size (10MB)
+  const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+
   if (images && images.length > 0) {
     try {
       mkdirSync(tempDir, { recursive: true });
 
       for (const img of images) {
         try {
-          // Generate filename from ID and extension from MIME type
-          const ext = img.mimeType.split('/')[1] || 'png';
-          const filename = `clipboard-${img.id}.${ext}`;
+          // Security: Validate MIME type
+          if (!ALLOWED_MIME_TYPES.includes(img.mimeType)) {
+            console.warn(`[splitTextIntoTasks] Invalid MIME type for image ${img.id}: ${img.mimeType}`);
+            continue;
+          }
+
+          // Security: Validate data URL format
+          if (!img.dataUrl.startsWith('data:') || !img.dataUrl.includes(',')) {
+            console.warn(`[splitTextIntoTasks] Invalid data URL format for image ${img.id}`);
+            continue;
+          }
+
+          // Security: Sanitize img.id to prevent path traversal
+          const sanitizedId = img.id.replace(/[^a-zA-Z0-9-]/g, '');
+
+          // Cross-platform: Use proper MIME type to extension mapping (fixes SVG)
+          const ext = mimeToExt[img.mimeType] || 'png';
+          const filename = `clipboard-${sanitizedId}.${ext}`;
           const imagePath = path.join(tempDir, filename);
 
           // Extract base64 data from data URL and save to file
           const base64Data = img.dataUrl.split(',')[1];
           const buffer = Buffer.from(base64Data, 'base64');
+
+          // Security: Validate file size
+          if (buffer.length > MAX_IMAGE_SIZE) {
+            console.warn(`[splitTextIntoTasks] Image ${img.id} exceeds size limit: ${buffer.length} bytes`);
+            continue;
+          }
+
           writeFileSync(imagePath, buffer);
 
           // Create thumbnail (resize to max 200px width/height for display)
@@ -976,6 +1009,12 @@ asyncio.run(split_into_tasks())
       const timeout = setTimeout(() => {
         console.warn('[splitTextIntoTasks] Task splitting timed out after 120s');
         childProcess.kill();
+        // Cleanup: Remove temp directory on timeout
+        try {
+          rmSync(tempDir, { recursive: true, force: true });
+        } catch (err) {
+          console.warn('[splitTextIntoTasks] Failed to cleanup temp directory on timeout:', err);
+        }
         resolve([]);
       }, 120000); // 120 second timeout
 
@@ -998,6 +1037,13 @@ asyncio.run(split_into_tasks())
         // Always log stderr if present
         if (errorOutput) {
           console.error('[splitTextIntoTasks] Process stderr:', errorOutput);
+        }
+
+        // Cleanup: Remove temp directory after processing
+        try {
+          rmSync(tempDir, { recursive: true, force: true });
+        } catch (err) {
+          console.warn('[splitTextIntoTasks] Failed to cleanup temp directory:', err);
         }
 
         if (code === 0 && output.trim()) {
@@ -1051,6 +1097,12 @@ asyncio.run(split_into_tasks())
       childProcess.on('error', (err) => {
         clearTimeout(timeout);
         console.warn('[splitTextIntoTasks] Process error:', err.message);
+        // Cleanup: Remove temp directory on error
+        try {
+          rmSync(tempDir, { recursive: true, force: true });
+        } catch (cleanupErr) {
+          console.warn('[splitTextIntoTasks] Failed to cleanup temp directory on error:', cleanupErr);
+        }
         resolve([]);
       });
     });

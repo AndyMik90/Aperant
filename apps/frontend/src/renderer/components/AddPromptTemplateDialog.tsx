@@ -34,7 +34,7 @@ export function AddPromptTemplateDialog({
   onTemplateCreated,
   editingTemplate
 }: AddPromptTemplateDialogProps) {
-  const { t } = useTranslation(['tasks']);
+  const { t } = useTranslation(['tasks', 'common']);
   const [title, setTitle] = useState(editingTemplate?.title || '');
   const [prompt, setPrompt] = useState(editingTemplate?.prompt || '');
   const [isSaving, setIsSaving] = useState(false);

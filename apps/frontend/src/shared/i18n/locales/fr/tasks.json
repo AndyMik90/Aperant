@@ -354,6 +354,8 @@
     "pasteFromClipboard": "Coller depuis le presse-papiers",
     "pasting": "Collage...",
     "attachedImages": "Images jointes ({{count}})",
+    "clipboardImageAlt": "Image du presse-papiers",
+    "taskReferenceImageAlt": "Image de référence de la tâche",
     "clipboardHint": "Collez du texte et des images depuis votre presse-papiers",
     "errors": {
       "emptyInput": "Veuillez entrer du texte à fractionner",
@@ -383,7 +385,8 @@
       "templatePromptRequired": "Veuillez entrer un modèle de prompt",
       "templateCreated": "Modèle créé avec succès",
       "templateUpdated": "Modèle mis à jour avec succès",
-      "templateDeleted": "Modèle supprimé avec succès"
+      "templateDeleted": "Modèle supprimé avec succès",
+      "customBadge": "Personnalisé"
     }
   },
   "serviceSelector": {

@@ -122,7 +122,7 @@ export function PromptTemplateSelector({ value, onChange, disabled }: PromptTemp
                 >
                   <span className="font-medium">{template.title}</span>
                   {template.isCustom && (
-                    <span className="text-xs text-muted-foreground">Custom</span>
+                    <span className="text-xs text-muted-foreground">{t('tasks:aiSplitter.promptTemplate.customBadge')}</span>
                   )}
                 </button>
               ))}
