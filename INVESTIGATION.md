@@ -712,13 +712,860 @@ Based on initial observation, potential root causes could be:
 
 ---
 
+## Task Log Loading Flow: Complete Call Trace
+
+**Analysis Date:** 2026-02-01
+**Purpose:** Document the exact call sequence from app startup to log display in UI
+**Finding:** Logs are NOT loaded during initial task loading - they're loaded separately when task detail modal opens
+
+### Flow Overview
+
+The task log loading system uses a **two-phase approach**:
+1. **Phase 1:** Load task metadata (title, status, subtasks) during project initialization
+2. **Phase 2:** Load phase-based logs (task_logs.json) separately when task detail modal opens
+
+This separation is intentional - loading logs for all tasks on startup would be slow and wasteful.
+
+### Phase 1: Task Metadata Loading (App Startup)
+
+#### Step 1: App Component Mount
+**File:** `apps/frontend/src/renderer/App.tsx:434`
+```typescript
+// When project changes, load tasks
+useEffect(() => {
+  const currentProjectId = activeProjectId || selectedProjectId;
+  if (currentProjectId) {
+    loadTasks(currentProjectId);
+    setSelectedTask(null); // Clear selection on project change
+  }
+}, [activeProjectId, selectedProjectId, ...]);
+```
+**What happens:** React effect triggers task loading when active project changes
+
+---
+
+#### Step 2: Task Store loadTasks Function
+**File:** `apps/frontend/src/renderer/stores/task-store.ts:662-700`
+```typescript
+export async function loadTasks(projectId: string, options?: { forceRefresh?: boolean }): Promise<void> {
+  const store = useTaskStore.getState();
+  store.setLoading(true);
+  store.setError(null);
+
+  debugLog('[TaskStore.loadTasks] Loading tasks for project:', {
+    projectId,
+    forceRefresh: options?.forceRefresh || false,
+    currentTaskCount: store.tasks.length
+  });
+
+  try {
+    const result = await window.electronAPI.getTasks(projectId, options);
+
+    debugLog('[TaskStore.loadTasks] Received result from IPC:', {
+      success: result.success,
+      dataPresent: !!result.data,
+      taskCount: result.data?.length || 0,
+      error: result.error
+    });
+
+    if (result.success && result.data) {
+      debugLog('[TaskStore.loadTasks] Tasks loaded successfully:', {
+        count: result.data.length,
+        tasksWithLogs: result.data.filter(t => t.logs && t.logs.length > 0).length,
+        totalLogCount: result.data.reduce((sum, t) => sum + (t.logs?.length || 0), 0)
+      });
+      store.setTasks(result.data);
+    } else {
+      debugWarn('[TaskStore.loadTasks] Failed to load tasks:', result.error);
+      store.setError(result.error || 'Failed to load tasks');
+    }
+  } catch (error) {
+    debugWarn('[TaskStore.loadTasks] Exception while loading tasks:', error);
+    store.setError(error instanceof Error ? error.message : 'Unknown error');
+  } finally {
+    store.setLoading(false);
+  }
+}
+```
+**What happens:**
+- Calls IPC to get tasks from main process
+- Logs debug info about task count and logs (added in subtask-1-2)
+- Updates Zustand store with task array via `setTasks(result.data)`
+
+**Key observation:** The debug logging shows `tasksWithLogs` and `totalLogCount` - this will reveal if logs are missing in the IPC response
+
+---
+
+#### Step 3: IPC Handler - TASK_LIST
+**File:** `apps/frontend/src/main/ipc-handlers/task/crud-handlers.ts:25-43`
+```typescript
+ipcMain.handle(
+  IPC_CHANNELS.TASK_LIST,
+  async (_, projectId: string, options?: { forceRefresh?: boolean }): Promise<IPCResult<Task[]>> => {
+    console.warn('[IPC] TASK_LIST called with projectId:', projectId, 'options:', options);
+
+    // If forceRefresh is requested, invalidate cache and clear XState actors
+    if (options?.forceRefresh) {
+      projectStore.invalidateTasksCache(projectId);
+      taskStateManager.clearAllTasks();
+      console.warn('[IPC] TASK_LIST cache and task state cleared for forceRefresh');
+    }
+
+    const tasks = projectStore.getTasks(projectId);
+    console.warn('[IPC] TASK_LIST returning', tasks.length, 'tasks');
+    return { success: true, data: tasks };
+  }
+);
+```
+**What happens:**
+- Handles `TASK_LIST` IPC call from renderer
+- Optionally clears cache if `forceRefresh` is true
+- Calls `projectStore.getTasks(projectId)` to load tasks from disk
+- Returns task array to renderer
+
+---
+
+#### Step 4: Project Store getTasks Method
+**File:** `apps/frontend/src/main/project-store.ts:271-342`
+```typescript
+getTasks(projectId: string): Task[] {
+  // Check cache first
+  const cached = this.tasksCache.get(projectId);
+  const now = Date.now();
+
+  if (cached && (now - cached.timestamp) < this.CACHE_TTL_MS) {
+    return cached.tasks;
+  }
+
+  const project = this.getProject(projectId);
+  if (!project) {
+    return [];
+  }
+
+  const allTasks: Task[] = [];
+  const specsBaseDir = getSpecsDir(project.autoBuildPath);
+
+  // 1. Scan main project specs directory
+  const mainSpecsDir = path.join(project.path, specsBaseDir);
+  const mainSpecIds = new Set<string>();
+  if (existsSync(mainSpecsDir)) {
+    const mainTasks = this.loadTasksFromSpecsDir(mainSpecsDir, project.path, 'main', projectId, specsBaseDir);
+    allTasks.push(...mainTasks);
+    mainTasks.forEach(t => mainSpecIds.add(t.specId));
+  }
+
+  // 2. Scan worktree specs directories
+  const worktreesDir = getTaskWorktreeDir(project.path);
+  if (existsSync(worktreesDir)) {
+    // ... load worktree tasks ...
+  }
+
+  // 3. Deduplicate tasks by ID (prefer worktree version if exists)
+  const taskMap = new Map<string, Task>();
+  for (const task of allTasks) {
+    const existing = taskMap.get(task.id);
+    if (!existing || task.location === 'worktree') {
+      taskMap.set(task.id, task);
+    }
+  }
+
+  const tasks = Array.from(taskMap.values());
+
+  // Update cache
+  this.tasksCache.set(projectId, { tasks, timestamp: now });
+
+  return tasks;
+}
+```
+**What happens:**
+- Checks 3-second TTL cache first
+- Scans main specs directory: `{projectPath}/.auto-claude/specs/{specId}/`
+- Scans worktree specs directories: `{projectPath}/.auto-claude/worktrees/tasks/{specId}/`
+- Deduplicates (prefers worktree version if task exists in both)
+- Caches result for 3 seconds
+- Returns task array
+
+**Critical note:** This does NOT call TaskLogService at all - logs are not loaded here
+
+---
+
+#### Step 5: Load Tasks from Specs Directory
+**File:** `apps/frontend/src/main/project-store.ts:363-539`
+```typescript
+private loadTasksFromSpecsDir(
+  specsDir: string,
+  basePath: string,
+  location: 'main' | 'worktree',
+  projectId: string,
+  specsBaseDir: string
+): Task[] {
+  const tasks: Task[] = [];
+  let specDirs: Dirent[] = [];
+
+  try {
+    specDirs = readdirSync(specsDir, { withFileTypes: true });
+  } catch (error) {
+    console.error('[ProjectStore] Error reading specs directory:', error);
+    return [];
+  }
+
+  for (const dir of specDirs) {
+    if (!dir.isDirectory()) continue;
+    if (dir.name === '.gitkeep') continue;
+
+    try {
+      const specPath = path.join(specsDir, dir.name);
+      const planPath = path.join(specPath, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+      // Read implementation_plan.json
+      let plan: ImplementationPlan | null = null;
+      if (existsSync(planPath)) {
+        try {
+          const content = readFileSync(planPath, 'utf-8');
+          plan = JSON.parse(content);
+        } catch (err) {
+          // Handle JSON parse errors ...
+        }
+      }
+
+      // Extract metadata, subtasks, status, etc. from plan
+      // ... (lots of processing) ...
+
+      tasks.push({
+        id: dir.name,
+        specId: dir.name,
+        projectId,
+        title,
+        description: finalDescription,
+        status: finalStatus,
+        subtasks,
+        logs: [],  // ❌ EMPTY ARRAY - LOGS NOT LOADED HERE
+        metadata,
+        ...(finalReviewReason !== undefined && { reviewReason: finalReviewReason }),
+        ...(executionProgress && { executionProgress }),
+        stagedInMainProject,
+        stagedAt,
+        location,
+        specsPath: specPath,
+        createdAt: new Date(plan?.created_at || Date.now()),
+        updatedAt: new Date(plan?.updated_at || Date.now())
+      });
+    } catch (error) {
+      console.error(`[ProjectStore] Error loading spec ${dir.name}:`, error);
+    }
+  }
+
+  return tasks;
+}
+```
+**What happens:**
+- Reads `implementation_plan.json` for each spec directory
+- Extracts title, description, status, subtasks, executionProgress
+- Creates Task object with **`logs: []`** (EMPTY ARRAY)
+- Does NOT read `task_logs.json` at this point
+- Returns task array
+
+**CRITICAL FINDING:** Task metadata loading completely bypasses task_logs.json. The logs array is initialized as empty.
+
+---
+
+#### Step 6: Store Hydration
+**File:** `apps/frontend/src/renderer/stores/task-store.ts:71-138`
+```typescript
+setTasks: (tasks) => {
+  debugLog('[TaskStore.setTasks] Hydrating tasks:', {
+    count: tasks.length,
+    taskIds: tasks.map(t => ({
+      id: t.id,
+      status: t.status,
+      logCount: t.logs?.length || 0,
+      hasExecutionProgress: !!t.executionProgress,
+      executionPhase: t.executionProgress?.phase,
+      subtaskCount: t.subtasks?.length || 0
+    }))
+  });
+
+  set({
+    tasks: [...tasks],
+    isLoading: false
+  });
+},
+```
+**What happens:**
+- Receives task array from IPC
+- Logs detailed info about each task (added in subtask-1-2)
+- Updates Zustand state with new tasks array
+- Sets loading to false
+
+**Key observation:** The debug log will show `logCount: 0` for all tasks, confirming logs are not loaded at this point
+
+---
+
+### Phase 2: Task Log Loading (Task Detail Modal Opens)
+
+#### Step 7: Task Detail Hook Mount
+**File:** `apps/frontend/src/renderer/components/task-detail/hooks/useTaskDetail.ts:188-239`
+```typescript
+// Load and watch phase logs
+useEffect(() => {
+  if (!selectedProject) return;
+
+  const loadLogs = async () => {
+    setIsLoadingLogs(true);
+    try {
+      const result = await window.electronAPI.getTaskLogs(selectedProject.id, task.specId);
+      if (result.success && result.data) {
+        setPhaseLogs(result.data);
+        // Auto-expand active phase
+        const activePhase = (['planning', 'coding', 'validation'] as TaskLogPhase[]).find(
+          phase => result.data?.phases[phase]?.status === 'active'
+        );
+        if (activePhase) {
+          setExpandedPhases(new Set([activePhase]));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load task logs:', err);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
+
+  loadLogs();
+
+  // Start watching for log changes
+  window.electronAPI.watchTaskLogs(selectedProject.id, task.specId);
+
+  // Listen for log changes
+  const unsubscribe = window.electronAPI.onTaskLogsChanged((specId, logs) => {
+    if (specId === task.specId) {
+      setPhaseLogs(logs);
+      // Auto-expand newly active phase ...
+    }
+  });
+
+  return () => {
+    unsubscribe();
+    window.electronAPI.unwatchTaskLogs(task.specId);
+  };
+}, [selectedProject, task.specId]);
+```
+**What happens:**
+- Hook mounts when task detail modal opens
+- Calls `window.electronAPI.getTaskLogs(projectId, specId)` to load logs
+- Calls `window.electronAPI.watchTaskLogs(projectId, specId)` to watch for changes
+- Subscribes to `onTaskLogsChanged` event for real-time updates
+- Cleanup: unwatches and unsubscribes when modal closes
+
+**This is where logs are actually loaded!**
+
+---
+
+#### Step 8: IPC Handler - TASK_LOGS_GET
+**File:** `apps/frontend/src/main/ipc-handlers/task/logs-handlers.ts:18-44`
+```typescript
+ipcMain.handle(
+  IPC_CHANNELS.TASK_LOGS_GET,
+  async (_, projectId: string, specId: string): Promise<IPCResult<TaskLogs | null>> => {
+    try {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const specsRelPath = getSpecsDir(project.autoBuildPath);
+      const specDir = path.join(project.path, specsRelPath, specId);
+
+      if (!existsSync(specDir)) {
+        return { success: false, error: 'Spec directory not found' };
+      }
+
+      const logs = taskLogService.loadLogs(specDir, project.path, specsRelPath, specId);
+      return { success: true, data: logs };
+    } catch (error) {
+      console.error('Failed to get task logs:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get task logs'
+      };
+    }
+  }
+);
+```
+**What happens:**
+- Handles `TASK_LOGS_GET` IPC call from renderer
+- Finds project and spec directory
+- Calls `taskLogService.loadLogs(specDir, project.path, specsRelPath, specId)`
+- Returns TaskLogs object to renderer
+
+---
+
+#### Step 9: Task Log Service - Load Logs
+**File:** `apps/frontend/src/main/task-log-service.ts:82-137`
+```typescript
+loadLogs(specDir: string, projectPath?: string, specsRelPath?: string, specId?: string): TaskLogs | null {
+  debugLog('[TaskLogService.loadLogs] Loading logs:', {
+    specDir,
+    projectPath,
+    specsRelPath,
+    specId,
+    watchedPathsCount: this.watchedPaths.size
+  });
+
+  // First try to load from main spec dir
+  const mainLogs = this.loadLogsFromPath(specDir);
+
+  // Check if we have worktree paths registered for this spec
+  const watchedInfo = Array.from(this.watchedPaths.entries()).find(
+    ([_, info]) => info.mainSpecDir === specDir
+  );
+
+  let worktreeSpecDir: string | null = null;
+
+  if (watchedInfo && watchedInfo[1].worktreeSpecDir) {
+    worktreeSpecDir = watchedInfo[1].worktreeSpecDir;
+    debugLog('[TaskLogService.loadLogs] Found worktree from watched paths:', worktreeSpecDir);
+  } else if (projectPath && specsRelPath && specId) {
+    // Calculate worktree path from provided params
+    worktreeSpecDir = findWorktreeSpecDir(projectPath, specId, specsRelPath);
+    debugLog('[TaskLogService.loadLogs] Calculated worktree path:', {
+      worktreeSpecDir,
+      exists: worktreeSpecDir ? existsSync(worktreeSpecDir) : false
+    });
+  }
+
+  // Load from worktree if it exists
+  let worktreeLogs: TaskLogs | null = null;
+  if (worktreeSpecDir && existsSync(worktreeSpecDir)) {
+    worktreeLogs = this.loadLogsFromPath(worktreeSpecDir);
+  }
+
+  // Merge logs from both sources
+  return this.mergeLogs(mainLogs, worktreeLogs, specDir);
+}
+```
+**What happens:**
+- Loads logs from main spec directory: `{projectPath}/.auto-claude/specs/{specId}/task_logs.json`
+- Finds worktree spec directory if it exists: `{projectPath}/.auto-claude/worktrees/tasks/{specId}/.auto-claude/specs/{specId}/task_logs.json`
+- Calls `loadLogsFromPath()` for each location
+- Merges logs using `mergeLogs()` strategy
+- Returns merged TaskLogs object
+
+**Enhanced debug logging added in subtask-1-2 will show:**
+- Whether main logs were found
+- Whether worktree was found
+- Merge sources for each phase
+
+---
+
+#### Step 10: Task Log Service - Load from Path
+**File:** `apps/frontend/src/main/task-log-service.ts:40-80`
+```typescript
+loadLogsFromPath(specDir: string): TaskLogs | null {
+  const logFile = path.join(specDir, 'task_logs.json');
+
+  debugLog('[TaskLogService.loadLogsFromPath] Attempting to load logs:', {
+    specDir,
+    logFile,
+    exists: existsSync(logFile)
+  });
+
+  if (!existsSync(logFile)) {
+    debugLog('[TaskLogService.loadLogsFromPath] Log file does not exist:', logFile);
+    return null;
+  }
+
+  try {
+    const content = readFileSync(logFile, 'utf-8');
+    const logs = JSON.parse(content) as TaskLogs;
+
+    debugLog('[TaskLogService.loadLogsFromPath] Successfully loaded logs:', {
+      specDir,
+      specId: logs.spec_id,
+      phases: Object.keys(logs.phases),
+      entryCounts: {
+        planning: logs.phases.planning?.entries?.length || 0,
+        coding: logs.phases.coding?.entries?.length || 0,
+        validation: logs.phases.validation?.entries?.length || 0
+      }
+    });
+
+    this.logCache.set(specDir, logs);
+    return logs;
+  } catch (error) {
+    // JSON parse error - file may be mid-write, return cached version if available
+    const cached = this.logCache.get(specDir);
+    if (cached) {
+      debugWarn('[TaskLogService.loadLogsFromPath] Parse error, returning cached logs:', {
+        specDir,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return cached;
+    }
+    debugError('[TaskLogService.loadLogsFromPath] Failed to load logs (no cache):', {
+      logFile,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return null;
+  }
+}
+```
+**What happens:**
+- Checks if `task_logs.json` exists
+- Reads and parses JSON file
+- Logs detailed info about phases and entry counts (added in subtask-1-2)
+- Caches the result
+- On parse error, returns cached version if available
+- Returns TaskLogs object or null
+
+**Enhanced debug logging will show:**
+- File existence check result
+- Successful parse with phase breakdown
+- Or parse errors with fallback to cache
+
+---
+
+#### Step 11: Task Log Service - Merge Logs
+**File:** `apps/frontend/src/main/task-log-service.ts:140-185`
+```typescript
+private mergeLogs(mainLogs: TaskLogs | null, worktreeLogs: TaskLogs | null, specDir: string): TaskLogs | null {
+  debugLog('[TaskLogService.mergeLogs] Merging logs:', {
+    specDir,
+    hasMainLogs: !!mainLogs,
+    hasWorktreeLogs: !!worktreeLogs,
+    mainEntries: mainLogs ? {
+      planning: mainLogs.phases.planning?.entries?.length || 0,
+      coding: mainLogs.phases.coding?.entries?.length || 0,
+      validation: mainLogs.phases.validation?.entries?.length || 0
+    } : null,
+    worktreeEntries: worktreeLogs ? {
+      planning: worktreeLogs.phases.planning?.entries?.length || 0,
+      coding: worktreeLogs.phases.coding?.entries?.length || 0,
+      validation: worktreeLogs.phases.validation?.entries?.length || 0
+    } : null
+  });
+
+  if (!worktreeLogs) {
+    debugLog('[TaskLogService.mergeLogs] No worktree logs, using main logs only');
+    if (mainLogs) {
+      this.logCache.set(specDir, mainLogs);
+    }
+    return mainLogs;
+  }
+
+  if (!mainLogs) {
+    debugLog('[TaskLogService.mergeLogs] No main logs, using worktree logs only');
+    this.logCache.set(specDir, worktreeLogs);
+    return worktreeLogs;
+  }
+
+  // Merge logs: planning from main, coding/validation from worktree (if available)
+  const mergedLogs: TaskLogs = {
+    spec_id: mainLogs.spec_id,
+    created_at: mainLogs.created_at,
+    updated_at: worktreeLogs.updated_at > mainLogs.updated_at ? worktreeLogs.updated_at : mainLogs.updated_at,
+    phases: {
+      planning: mainLogs.phases.planning || worktreeLogs.phases.planning,
+      coding: (worktreeLogs.phases.coding?.entries?.length > 0 || worktreeLogs.phases.coding?.status !== 'pending')
+        ? worktreeLogs.phases.coding
+        : mainLogs.phases.coding,
+      validation: (worktreeLogs.phases.validation?.entries?.length > 0 || worktreeLogs.phases.validation?.status !== 'pending')
+        ? worktreeLogs.phases.validation
+        : mainLogs.phases.validation
+    }
+  };
+
+  debugLog('[TaskLogService.mergeLogs] Merged logs created:', {
+    specDir,
+    mergedEntries: {
+      planning: mergedLogs.phases.planning?.entries?.length || 0,
+      coding: mergedLogs.phases.coding?.entries?.length || 0,
+      validation: mergedLogs.phases.validation?.entries?.length || 0
+    },
+    source: {
+      planning: mainLogs.phases.planning ? 'main' : 'worktree',
+      coding: (worktreeLogs.phases.coding?.entries?.length > 0 || worktreeLogs.phases.coding?.status !== 'pending') ? 'worktree' : 'main',
+      validation: (worktreeLogs.phases.validation?.entries?.length > 0 || worktreeLogs.phases.validation?.status !== 'pending') ? 'worktree' : 'main'
+    }
+  });
+
+  this.logCache.set(specDir, mergedLogs);
+  return mergedLogs;
+}
+```
+**What happens:**
+- Merges logs from main and worktree directories
+- Strategy: planning phase from main, coding/validation from worktree (if available)
+- Logs detailed merge strategy (added in subtask-1-2)
+- Caches merged result
+- Returns merged TaskLogs object
+
+**Enhanced debug logging will show:**
+- Entry counts from each source
+- Which source was used for each phase
+- Final merged entry counts
+
+---
+
+### Log Watching Flow (Real-time Updates)
+
+#### Step 12: Start Watching
+**File:** `apps/frontend/src/main/ipc-handlers/task/logs-handlers.ts:49-71`
+```typescript
+ipcMain.handle(
+  IPC_CHANNELS.TASK_LOGS_WATCH,
+  async (_, projectId: string, specId: string): Promise<IPCResult> => {
+    try {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const specsRelPath = getSpecsDir(project.autoBuildPath);
+      const specDir = path.join(project.path, specsRelPath, specId);
+
+      if (!existsSync(specDir)) {
+        return { success: false, error: 'Spec directory not found' };
+      }
+
+      taskLogService.startWatching(specId, specDir, project.path, specsRelPath);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to start watching task logs:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to start watching'
+      };
+    }
+  }
+);
+```
+**What happens:**
+- Handles `TASK_LOGS_WATCH` IPC call
+- Finds spec directory
+- Calls `taskLogService.startWatching()` to start polling for changes
+- Returns success/failure
+
+---
+
+#### Step 13: Poll for Changes
+**File:** `apps/frontend/src/main/task-log-service.ts:187-260`
+```typescript
+startWatching(specId: string, specDir: string, projectPath: string, specsRelPath: string): void {
+  // ... setup ...
+
+  // Start polling both main and worktree log files
+  const pollInterval = setInterval(() => {
+    try {
+      const currentMainLogs = this.loadLogsFromPath(specDir);
+      const currentWorktreeLogs = worktreeSpecDir ? this.loadLogsFromPath(worktreeSpecDir) : null;
+      const currentMergedLogs = this.mergeLogs(currentMainLogs, currentWorktreeLogs, specDir);
+
+      // Check if logs changed (simple JSON comparison)
+      const previousMerged = lastMergedLogs;
+      if (JSON.stringify(currentMergedLogs) !== JSON.stringify(previousMerged)) {
+        debugLog('[TaskLogService.startWatching] Logs changed, emitting event:', {
+          specId,
+          previousEntries: previousMerged ? {
+            planning: previousMerged.phases.planning?.entries?.length || 0,
+            coding: previousMerged.phases.coding?.entries?.length || 0,
+            validation: previousMerged.phases.validation?.entries?.length || 0
+          } : null,
+          currentEntries: currentMergedLogs ? {
+            planning: currentMergedLogs.phases.planning?.entries?.length || 0,
+            coding: currentMergedLogs.phases.coding?.entries?.length || 0,
+            validation: currentMergedLogs.phases.validation?.entries?.length || 0
+          } : null
+        });
+
+        lastMergedLogs = currentMergedLogs;
+        if (currentMergedLogs) {
+          this.emit('logs-changed', specId, currentMergedLogs);
+        }
+      }
+    } catch (error) {
+      debugError('[TaskLogService.startWatching] Error during poll:', {
+        specId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }, this.POLL_INTERVAL_MS);
+
+  this.pollIntervals.set(specId, pollInterval);
+}
+```
+**What happens:**
+- Starts polling every 1000ms (1 second)
+- Loads logs from both main and worktree on each poll
+- Merges logs and compares with previous version
+- If changed, emits `logs-changed` event
+- Event is forwarded to renderer via IPC
+
+**Enhanced debug logging will show:**
+- When logs change
+- Before/after entry counts for each phase
+- Poll errors
+
+---
+
+#### Step 14: Event Forwarding
+**File:** `apps/frontend/src/main/ipc-handlers/task/logs-handlers.ts:98-111`
+```typescript
+// Setup task log service event forwarding to renderer
+taskLogService.on('logs-changed', (specId: string, logs: TaskLogs) => {
+  const mainWindow = getMainWindow();
+  if (mainWindow) {
+    mainWindow.webContents.send(IPC_CHANNELS.TASK_LOGS_CHANGED, specId, logs);
+  }
+});
+
+taskLogService.on('stream-chunk', (specId: string, chunk: TaskLogStreamChunk) => {
+  const mainWindow = getMainWindow();
+  if (mainWindow) {
+    mainWindow.webContents.send(IPC_CHANNELS.TASK_LOGS_STREAM, specId, chunk);
+  }
+});
+```
+**What happens:**
+- Listens for `logs-changed` and `stream-chunk` events from TaskLogService
+- Forwards events to renderer via `mainWindow.webContents.send()`
+- Renderer receives via `onTaskLogsChanged` listener
+
+---
+
+#### Step 15: Renderer Update
+**File:** `apps/frontend/src/renderer/components/task-detail/hooks/useTaskDetail.ts:218-233`
+```typescript
+// Listen for log changes
+const unsubscribe = window.electronAPI.onTaskLogsChanged((specId, logs) => {
+  if (specId === task.specId) {
+    setPhaseLogs(logs);
+    // Auto-expand newly active phase
+    const activePhase = (['planning', 'coding', 'validation'] as TaskLogPhase[]).find(
+      phase => logs.phases[phase]?.status === 'active'
+    );
+    if (activePhase) {
+      setExpandedPhases(prev => {
+        const next = new Set(prev);
+        next.add(activePhase);
+        return next;
+      });
+    }
+  }
+});
+```
+**What happens:**
+- Receives `onTaskLogsChanged` event from main process
+- Updates local state with new logs via `setPhaseLogs(logs)`
+- Auto-expands active phase in UI
+- React re-renders with updated logs
+
+---
+
+### Summary: Complete Call Chain
+
+**Initial Task Loading (App Startup):**
+```
+App.tsx (useEffect)
+  → loadTasks(projectId)
+    → window.electronAPI.getTasks(projectId)
+      → [IPC] TASK_LIST handler
+        → projectStore.getTasks(projectId)
+          → loadTasksFromSpecsDir()
+            → readFileSync(implementation_plan.json)
+            → Create Task with logs: []  ❌ EMPTY
+          → Return Task[]
+        → Return IPCResult<Task[]>
+      → [IPC Response]
+    → store.setTasks(tasks)  // Tasks have NO logs yet
+  → Render task list (no logs shown)
+```
+
+**Task Detail Log Loading (Modal Opens):**
+```
+useTaskDetail hook (useEffect)
+  → window.electronAPI.getTaskLogs(projectId, specId)
+    → [IPC] TASK_LOGS_GET handler
+      → taskLogService.loadLogs(specDir, ...)
+        → loadLogsFromPath(mainSpecDir)
+          → readFileSync(task_logs.json)  ✅ Read main logs
+          → Parse and cache
+        → loadLogsFromPath(worktreeSpecDir)
+          → readFileSync(task_logs.json)  ✅ Read worktree logs
+          → Parse and cache
+        → mergeLogs(mainLogs, worktreeLogs)
+          → planning from main
+          → coding/validation from worktree
+          → Return merged TaskLogs
+      → Return IPCResult<TaskLogs>
+    → [IPC Response]
+  → setPhaseLogs(logs)  ✅ Logs loaded
+  → Render logs in UI
+```
+
+**Real-time Log Watching:**
+```
+useTaskDetail hook (useEffect)
+  → window.electronAPI.watchTaskLogs(projectId, specId)
+    → [IPC] TASK_LOGS_WATCH handler
+      → taskLogService.startWatching(...)
+        → setInterval(poll, 1000ms)
+          → loadLogsFromPath() for main + worktree
+          → mergeLogs()
+          → Compare with previous
+          → If changed: emit('logs-changed', specId, logs)
+            → [Event] logs-handlers forwards to renderer
+              → mainWindow.webContents.send('logs-changed', ...)
+                → [IPC Event] Renderer receives
+                  → onTaskLogsChanged callback
+                    → setPhaseLogs(logs)  ✅ UI updates
+                    → React re-renders
+```
+
+---
+
+### Key Findings from Call Trace
+
+1. **Two-Phase Design is Intentional:**
+   - Task metadata (title, status, subtasks) loaded on app startup
+   - Task logs loaded separately when task detail modal opens
+   - This prevents loading potentially large log files for all tasks unnecessarily
+
+2. **Logs Never Populate Task.logs Array:**
+   - The `Task.logs` field is initialized as `[]` and never populated
+   - Phase-based logs are stored separately in `phaseLogs` state in useTaskDetail hook
+   - Legacy `Task.logs` field appears to be deprecated but not removed
+
+3. **Log Loading Requires Task Detail Modal:**
+   - If the task detail modal never opens, logs are never loaded
+   - If the modal opens briefly and closes, logs may not have time to load
+   - Logs are NOT automatically loaded for tasks in the background
+
+4. **XState Not Involved in Log Loading:**
+   - Log loading uses direct IPC calls, not XState events
+   - TaskLogService is independent of XState state machine
+   - XState migration should NOT affect log loading itself
+
+5. **Potential Bug Scenarios:**
+   - **Scenario A:** If task detail modal doesn't call `getTaskLogs()` correctly
+   - **Scenario B:** If `taskLogService.loadLogs()` fails silently
+   - **Scenario C:** If IPC event forwarding breaks after app restart
+   - **Scenario D:** If `task_logs.json` file paths are incorrect after restart
+
+6. **Debug Logging Coverage:**
+   - Subtask-1-2 added comprehensive logging at all key steps
+   - Logs will show: file existence, parse success, merge sources, entry counts
+   - This should reveal exactly where the flow breaks
+
+---
+
 ## Next Steps
 
 1. ✅ Complete reproduction and documentation (this file)
-2. ⏳ Add detailed logging to trace state flow (Phase 1, Subtask 1-2)
-3. ⏳ Document log storage locations (Phase 1, Subtask 1-3)
-4. ⏳ Analyze git diff v2.7.5..v2.7.6-beta.2 (Phase 2, Subtask 2-1)
-5. ⏳ Trace log loading flow (Phase 2, Subtask 2-2)
+2. ✅ Add detailed logging to trace state flow (Phase 1, Subtask 1-2)
+3. ✅ Document log storage locations (Phase 1, Subtask 1-3)
+4. ✅ Analyze git diff v2.7.5..v2.7.6-beta.2 (Phase 2, Subtask 2-1)
+5. ✅ Trace log loading flow (Phase 2, Subtask 2-2)
 6. ⏳ Compare Zustand persist config (Phase 2, Subtask 2-3)
 7. ⏳ Identify root cause (Phase 2, Subtask 2-4)
 8. ⏳ Implement fix (Phase 3)
