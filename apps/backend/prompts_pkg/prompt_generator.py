@@ -25,6 +25,7 @@ WORKTREE_PATH_PATTERNS = [
     r"[/\\]\.worktrees[/\\]",  # Legacy worktree location
 ]
 
+
 def get_supported_languages() -> set[str]:
     """
     Dynamically detect supported languages from i18n folder structure.

@@ -9,8 +9,10 @@ This verifies that:
 3. Sanitization blocks prompt injection attempts
 """
 
+import re
 import sys
 from pathlib import Path
+from typing import Optional
 
 import pytest
 
@@ -20,6 +22,12 @@ backend_dir = project_root / "apps" / "backend"
 sys.path.insert(0, str(backend_dir))
 
 from prompts_pkg.prompt_generator import get_supported_languages, get_user_language_instruction
+
+
+def _extract_lang_name(result: str) -> Optional[str]:
+    """Safely extract the first bolded text from a language instruction string."""
+    match = re.search(r'\*\*(.*?)\*\*', result)
+    return match.group(1) if match else None
 
 
 class TestLanguageDetection:
@@ -120,9 +128,9 @@ class TestSecurityPromptInjection:
         result = get_user_language_instruction()
 
         # The language name part (between first **) should not contain newlines
-        if "**" in result:
-            lang_name_section = result.split("**")[3]
-            assert "\n" not in lang_name_section
+        lang_name_section = _extract_lang_name(result)
+        assert lang_name_section is not None
+        assert "\n" not in lang_name_section
 
     def test_control_characters_removed(self, monkeypatch):
         """Control characters should be removed from language name"""
@@ -130,10 +138,10 @@ class TestSecurityPromptInjection:
         monkeypatch.setenv("AUTO_CLAUDE_USER_LANGUAGE_NAME", "French\r\n---\nEvil")
         result = get_user_language_instruction()
 
-        if "**" in result:
-            lang_name_section = result.split("**")[3]
-            assert "\r" not in lang_name_section
-            assert "---" not in lang_name_section
+        lang_name_section = _extract_lang_name(result)
+        assert lang_name_section is not None
+        assert "\r" not in lang_name_section
+        assert "---" not in lang_name_section
 
     def test_markdown_injection_blocked(self, monkeypatch):
         """Markdown injection attempts should be blocked"""
@@ -156,9 +164,9 @@ class TestSecurityLengthLimit:
         monkeypatch.setenv("AUTO_CLAUDE_USER_LANGUAGE_NAME", "A" * 100)
         result = get_user_language_instruction()
 
-        if "**" in result:
-            lang_name = result.split("**")[3]
-            assert len(lang_name) <= 50
+        lang_name = _extract_lang_name(result)
+        assert lang_name is not None
+        assert len(lang_name) <= 50
 
     def test_very_long_name_truncated(self, monkeypatch):
         """Very long language names should be truncated, not rejected"""
