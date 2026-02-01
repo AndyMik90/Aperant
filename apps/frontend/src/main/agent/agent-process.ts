@@ -193,16 +193,15 @@ export class AgentProcessManager {
           return languageEnv;
         }
 
-        languageEnv['AUTO_CLAUDE_USER_LANGUAGE'] = normalizedLanguage;
-
-        // Also pass the language display name so backend doesn't need to maintain a mapping
-        // This makes frontend (i18n.ts) the single source of truth for language names
         const langConfig = AVAILABLE_LANGUAGES.find(l => l.value === normalizedLanguage);
-        if (langConfig) {
-          languageEnv['AUTO_CLAUDE_USER_LANGUAGE_NAME'] = langConfig.label;
+        if (!langConfig) {
+          console.warn('[AgentProcess] Unsupported language in settings, ignoring:', normalizedLanguage);
+          return languageEnv;
         }
 
-        console.log('[AgentProcess] Setting AUTO_CLAUDE_USER_LANGUAGE:', normalizedLanguage, langConfig?.label);
+        languageEnv['AUTO_CLAUDE_USER_LANGUAGE'] = normalizedLanguage;
+        languageEnv['AUTO_CLAUDE_USER_LANGUAGE_NAME'] = langConfig.label;
+        console.log('[AgentProcess] Setting AUTO_CLAUDE_USER_LANGUAGE:', normalizedLanguage, langConfig.label);
       }
     } catch (error) {
       console.warn('[AgentProcess] Failed to read language setting:', error);

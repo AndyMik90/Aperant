@@ -121,7 +121,7 @@ class TestSecurityPromptInjection:
 
         # The language name part (between first **) should not contain newlines
         if "**" in result:
-            lang_name_section = result.split("**")[1]
+            lang_name_section = result.split("**")[3]
             assert "\n" not in lang_name_section
 
     def test_control_characters_removed(self, monkeypatch):
@@ -131,7 +131,7 @@ class TestSecurityPromptInjection:
         result = get_user_language_instruction()
 
         if "**" in result:
-            lang_name_section = result.split("**")[1]
+            lang_name_section = result.split("**")[3]
             assert "\r" not in lang_name_section
             assert "---" not in lang_name_section
 
@@ -157,7 +157,7 @@ class TestSecurityLengthLimit:
         result = get_user_language_instruction()
 
         if "**" in result:
-            lang_name = result.split("**")[1]
+            lang_name = result.split("**")[3]
             assert len(lang_name) <= 50
 
     def test_very_long_name_truncated(self, monkeypatch):
