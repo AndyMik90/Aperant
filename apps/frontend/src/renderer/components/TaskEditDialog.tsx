@@ -26,7 +26,7 @@
  * />
  * ```
  */
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
@@ -35,6 +35,7 @@ import { TaskFormFields } from './task-form/TaskFormFields';
 import { type FileReferenceData } from './task-form/useImageUpload';
 import { persistUpdateTask } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
+import { useContextStore } from '../stores/context-store';
 import type { Task, ImageAttachment, TaskCategory, TaskPriority, TaskComplexity, TaskImpact, ModelType, ThinkingLevel } from '../../shared/types';
 import {
   DEFAULT_AGENT_PROFILES,
@@ -66,12 +67,8 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     p => p.id === settings.selectedAgentProfile
   ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto')!;
 
-  // Get project path for loading image thumbnails from disk
-  const projects = useProjectStore((state) => state.projects);
-  const projectPath = useMemo(() => {
-    const project = projects.find(p => p.id === task.projectId);
-    return project?.path;
-  }, [projects, task.projectId]);
+  // Get project index for service context
+  const { projectIndex } = useContextStore();
 
   // Form state
   const [title, setTitle] = useState(task.title);
@@ -79,6 +76,9 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showClassification, setShowClassification] = useState(false);
+
+  // Service selector (folder to work in)
+  const [serviceId, setServiceId] = useState<string>('');
 
   // Classification fields
   const [category, setCategory] = useState<TaskCategory | ''>(task.metadata?.category || '');
@@ -277,8 +277,6 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       }
     >
       <TaskFormFields
-        projectPath={projectPath}
-        specId={task.specId}
         description={description}
         onDescriptionChange={setDescription}
         title={title}
@@ -311,6 +309,9 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         onImagesChange={setImages}
         requireReviewBeforeCoding={requireReviewBeforeCoding}
         onRequireReviewChange={setRequireReviewBeforeCoding}
+        serviceId={serviceId}
+        onServiceIdChange={setServiceId}
+        projectIndex={projectIndex}
         disabled={isSaving}
         error={error}
         onError={setError}
