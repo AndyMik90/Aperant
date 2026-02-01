@@ -508,6 +508,37 @@ export class ProjectStore {
           }));
         }) || [];
 
+        // Auto-correct status to human_review if all subtasks are completed
+        // This handles cases where task completed but app restarted before XState persisted the status
+        // (e.g., QA_PASSED event emitted but not processed before shutdown)
+        let correctedStatus = finalStatus;
+        let correctedReviewReason = finalReviewReason;
+        if (subtasks.length > 0 && !hasJsonError) {
+          const completedCount = subtasks.filter(s => s.status === 'completed').length;
+          const allCompleted = completedCount === subtasks.length;
+
+          // If all subtasks are done but status isn't human_review or done, auto-correct
+          if (allCompleted && finalStatus !== 'human_review' && finalStatus !== 'done' && finalStatus !== 'pr_created') {
+            console.warn(`[ProjectStore] Auto-correcting task ${dir.name}: all ${subtasks.length} subtasks completed but status was ${finalStatus}. Setting to human_review.`);
+            correctedStatus = 'human_review';
+            correctedReviewReason = 'completed';
+
+            // Persist the corrected status to the plan file to prevent repeated corrections
+            if (plan) {
+              plan.status = 'human_review';
+              plan.planStatus = 'review';
+              plan.reviewReason = 'completed';
+              plan.updated_at = new Date().toISOString();
+              try {
+                writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+                console.warn(`[ProjectStore] Persisted corrected status for task ${dir.name}`);
+              } catch (writeError) {
+                console.error(`[ProjectStore] Failed to persist corrected status for task ${dir.name}:`, writeError);
+              }
+            }
+          }
+        }
+
         // Extract staged status from plan (set when changes are merged with --no-commit)
         const planWithStaged = plan as unknown as { stagedInMainProject?: boolean; stagedAt?: string } | null;
         const stagedInMainProject = planWithStaged?.stagedInMainProject;
@@ -549,11 +580,11 @@ export class ProjectStore {
           projectId,
           title,
           description: finalDescription,
-          status: finalStatus,
+          status: correctedStatus,
           subtasks,
           logs: [],
           metadata,
-          ...(finalReviewReason !== undefined && { reviewReason: finalReviewReason }),
+          ...(correctedReviewReason !== undefined && { reviewReason: correctedReviewReason }),
           ...(executionProgress && { executionProgress }),
           stagedInMainProject,
           stagedAt,

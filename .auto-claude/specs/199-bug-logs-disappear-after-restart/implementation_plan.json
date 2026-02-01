@@ -107,7 +107,7 @@
             "instructions": "Run app with added logging from subtask-1-2 and document the complete call flow in INVESTIGATION.md"
           },
           "expected_output": "INVESTIGATION.md section with: 1) Complete call trace, 2) State values at each step, 3) Identified missing or failing step",
-          "notes": "Completed comprehensive call trace documentation. Key findings: 1) Two-phase design - task metadata loaded on startup, logs loaded separately when task detail modal opens, 2) Task.logs[] array always empty (deprecated), phase logs loaded via separate IPC call, 3) Log loading flow: useTaskDetail → getTaskLogs IPC → taskLogService.loadLogs → merge main+worktree logs → setPhaseLogs, 4) XState NOT involved in log loading (direct IPC), 5) Potential bug scenarios identified (modal not calling getTaskLogs, service failing silently, IPC forwarding broken, incorrect file paths). Full 15-step call trace documented in INVESTIGATION.md with code snippets and state values at each step.",
+          "notes": "Completed comprehensive call trace documentation. Key findings: 1) Two-phase design - task metadata loaded on startup, logs loaded separately when task detail modal opens, 2) Task.logs[] array always empty (deprecated), phase logs loaded via separate IPC call, 3) Log loading flow: useTaskDetail \u2192 getTaskLogs IPC \u2192 taskLogService.loadLogs \u2192 merge main+worktree logs \u2192 setPhaseLogs, 4) XState NOT involved in log loading (direct IPC), 5) Potential bug scenarios identified (modal not calling getTaskLogs, service failing silently, IPC forwarding broken, incorrect file paths). Full 15-step call trace documented in INVESTIGATION.md with code snippets and state values at each step.",
           "status": "completed"
         },
         {
@@ -159,15 +159,18 @@
           "id": "subtask-3-1",
           "description": "Implement fix based on root cause (exact approach TBD from investigation phase)",
           "service": "frontend",
-          "files_to_modify": [],
+          "files_to_modify": [
+            "apps/frontend/src/main/project-store.ts",
+            "apps/frontend/src/main/ipc-handlers/task/logs-handlers.ts"
+          ],
           "files_to_create": [],
           "patterns_from": [],
           "verification": {
             "type": "manual",
             "instructions": "Apply fix, then run reproduction steps from subtask-1-1 to verify logs now persist after restart"
           },
-          "notes": "Exact files and implementation will be determined by phase-2 investigation results. Likely candidates: task-store.ts, logs-handlers.ts, or task components",
-          "status": "pending"
+          "notes": "Implemented path normalization fix: (1) project-store.ts: normalize all paths to absolute on load() and addProject(), (2) logs-handlers.ts: add path validation and debug logging in TASK_LOGS_GET and TASK_LOGS_WATCH handlers. Ensures project.path is always absolute preventing dev mode resolution failures. TypeScript compilation passed. Fix handles migration of existing relative paths automatically.",
+          "status": "completed"
         },
         {
           "id": "subtask-3-2",
@@ -182,8 +185,8 @@
             "type": "manual",
             "instructions": "Run task to 100% completion, verify: 1) Logs visible, 2) Verification mode activates, 3) UI shows correct state"
           },
-          "notes": "Address the UI breakdown issue where tasks at 100% don't show logs or enter verification mode",
-          "status": "pending"
+          "notes": "Added automatic status correction logic in project-store.ts loadTasksFromSpecsDir(). When loading tasks, if all subtasks are completed but status is not human_review/done/pr_created, the status is auto-corrected to human_review with reviewReason=completed. This ensures tasks at 100% completion properly trigger verification mode even if the app restarted before XState persisted the status. The corrected status is persisted back to implementation_plan.json to prevent repeated corrections.",
+          "status": "completed"
         },
         {
           "id": "subtask-3-3",
@@ -235,7 +238,7 @@
         },
         {
           "id": "subtask-4-2",
-          "description": "Add integration test for log loading flow (IPC → service → state)",
+          "description": "Add integration test for log loading flow (IPC \u2192 service \u2192 state)",
           "service": "frontend",
           "files_to_modify": [],
           "files_to_create": [
@@ -389,7 +392,7 @@
   "executionPhase": "coding",
   "status": "in_progress",
   "planStatus": "in_progress",
-  "updated_at": "2026-02-01T21:09:15.583Z",
+  "updated_at": "2026-02-01T21:10:33.252Z",
   "xstateState": "coding",
   "lastEvent": {
     "eventId": "d90bb954-4492-4dfe-a65d-07bce6f1ebe9",
