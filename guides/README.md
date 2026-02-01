@@ -1,6 +1,6 @@
-# Auto Claude Guides
+# Jerry Guides
 
-Detailed documentation for Auto Claude setup and usage.
+Detailed documentation for Jerry setup and usage.
 
 ## Available Guides
 

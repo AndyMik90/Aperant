@@ -26,6 +26,14 @@ export interface TerminalProcess {
   dangerouslySkipPermissions?: boolean;
   /** Shell type for Windows (affects command chaining syntax) */
   shellType?: WindowsShellType;
+  /** Task monitor specific fields */
+  isTaskMonitor?: boolean;
+  taskId?: string;
+  specId?: string;
+  taskStatus?: 'running' | 'completed' | 'failed';
+  taskProgress?: number;
+  currentSubtask?: number;
+  totalSubtasks?: number;
 }
 
 /**

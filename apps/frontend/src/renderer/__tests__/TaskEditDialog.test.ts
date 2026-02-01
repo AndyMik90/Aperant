@@ -16,7 +16,7 @@ function createTestTask(overrides: Partial<Task> = {}): Task {
     projectId: 'project-1',
     title: 'Test Task Title',
     description: 'Test task description',
-    status: 'backlog' as TaskStatus,
+    status: 'planning' as TaskStatus,
     subtasks: [],
     logs: [],
     createdAt: new Date(),
@@ -175,8 +175,8 @@ describe('TaskEditDialog Logic', () => {
 
   describe('Edit Button State', () => {
     it('should be disabled when task is running', () => {
-      const task = createTestTask({ status: 'in_progress' });
-      const isRunning = task.status === 'in_progress';
+      const task = createTestTask({ status: 'coding' });
+      const isRunning = task.status === 'coding';
       const isStuck = false;
 
       const isEditDisabled = isRunning && !isStuck;
@@ -185,8 +185,8 @@ describe('TaskEditDialog Logic', () => {
     });
 
     it('should be enabled when task is not running', () => {
-      const task = createTestTask({ status: 'backlog' });
-      const isRunning = task.status === 'in_progress';
+      const task = createTestTask({ status: 'planning' });
+      const isRunning = task.status === 'coding';
       const isStuck = false;
 
       const isEditDisabled = isRunning && !isStuck;
@@ -195,8 +195,8 @@ describe('TaskEditDialog Logic', () => {
     });
 
     it('should be enabled when task is stuck (even if status is in_progress)', () => {
-      const task = createTestTask({ status: 'in_progress' });
-      const isRunning = task.status === 'in_progress';
+      const task = createTestTask({ status: 'coding' });
+      const isRunning = task.status === 'coding';
       const isStuck = true;
 
       const isEditDisabled = isRunning && !isStuck;
@@ -206,7 +206,7 @@ describe('TaskEditDialog Logic', () => {
 
     it('should be enabled for tasks in human_review', () => {
       const task = createTestTask({ status: 'human_review' });
-      const isRunning = task.status === 'in_progress';
+      const isRunning = task.status === 'coding';
       const isStuck = false;
 
       const isEditDisabled = isRunning && !isStuck;
@@ -216,7 +216,7 @@ describe('TaskEditDialog Logic', () => {
 
     it('should be enabled for completed tasks', () => {
       const task = createTestTask({ status: 'done' });
-      const isRunning = task.status === 'in_progress';
+      const isRunning = task.status === 'coding';
       const isStuck = false;
 
       const isEditDisabled = isRunning && !isStuck;
@@ -268,7 +268,7 @@ describe('TaskEditDialog Logic', () => {
       const task = createTestTask({
         id: 'task-1',
         title: 'Original Title',
-        status: 'in_progress',
+        status: 'coding',
         subtasks: [{ id: 'subtask-1', title: 'Test subtask', description: 'Test subtask', status: 'pending', files: [] }]
       });
       useTaskStore.setState({ tasks: [task] });
@@ -276,7 +276,7 @@ describe('TaskEditDialog Logic', () => {
       useTaskStore.getState().updateTask('task-1', { title: 'Updated Title' });
 
       const updatedTask = useTaskStore.getState().tasks.find((t) => t.id === 'task-1');
-      expect(updatedTask?.status).toBe('in_progress');
+      expect(updatedTask?.status).toBe('coding');
       expect(updatedTask?.subtasks).toHaveLength(1);
     });
   });

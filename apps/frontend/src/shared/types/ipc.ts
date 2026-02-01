@@ -68,6 +68,7 @@ import type {
 } from './agent';
 import type { AppSettings, SourceEnvConfig, SourceEnvCheckResult } from './settings';
 import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent } from './app-update';
+import type { StructuredBlock } from './structured-output';
 import type {
   ChangelogTask,
   TaskSpecContent,
@@ -164,6 +165,7 @@ export interface ElectronAPI {
   updateTaskStatus: (taskId: string, status: TaskStatus, options?: { forceCleanup?: boolean }) => Promise<IPCResult & { worktreeExists?: boolean; worktreePath?: string }>;
   recoverStuckTask: (taskId: string, options?: TaskRecoveryOptions) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
+  sendMessageToTask: (taskId: string, message: string) => Promise<IPCResult<boolean>>;
 
   // Workspace management (for human review)
   // Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
@@ -251,6 +253,10 @@ export interface ElectronAPI {
   onTerminalClaudeExit: (callback: (id: string) => void) => () => void;
   /** Listen for pending Claude resume notifications (for deferred resume on tab activation) */
   onTerminalPendingResume: (callback: (id: string, sessionId?: string) => void) => () => void;
+  /** Listen for task monitor terminal creation (for task-linked terminals) */
+  onTaskMonitorTerminalCreate: (callback: (terminalData: any) => void) => () => void;
+  /** Listen for structured output blocks (for rich task monitor UI) */
+  onTerminalStructuredOutput: (callback: (id: string, block: StructuredBlock) => void) => () => void;
 
   // Claude profile management (multi-account support)
   getClaudeProfiles: () => Promise<IPCResult<ClaudeProfileSettings>>;
@@ -625,7 +631,7 @@ export interface ElectronAPI {
   openExternal: (url: string) => Promise<void>;
   openTerminal: (dirPath: string) => Promise<IPCResult<void>>;
 
-  // Auto Claude source environment operations
+  // Jerry source environment operations
   getSourceEnv: () => Promise<IPCResult<SourceEnvConfig>>;
   updateSourceEnv: (config: { claudeOAuthToken?: string }) => Promise<IPCResult>;
   checkSourceToken: () => Promise<IPCResult<SourceEnvCheckResult>>;

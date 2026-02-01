@@ -7,33 +7,34 @@
 // Task Status (Kanban columns)
 // ============================================
 
-// Task status columns in Kanban board order
+// Task status columns shown in Kanban board (done/pr_created live in Worktrees page)
 export const TASK_STATUS_COLUMNS = [
-  'backlog',
-  'in_progress',
+  'planning',
+  'coding',
   'ai_review',
-  'human_review',
-  'done'
+  'human_review'
 ] as const;
 
 export type TaskStatusColumn = typeof TASK_STATUS_COLUMNS[number];
 
+// All task statuses including those not shown on Kanban
+type AllTaskStatus = TaskStatusColumn | 'done' | 'pr_created';
+
 // Status label translation keys (use with t() from react-i18next)
-// Note: pr_created maps to 'done' column in Kanban view (see KanbanBoard.tsx)
-export const TASK_STATUS_LABELS: Record<TaskStatusColumn | 'pr_created', string> = {
-  backlog: 'columns.backlog',
-  in_progress: 'columns.in_progress',
+// Note: done/pr_created tasks are shown on Worktrees page, not Kanban
+export const TASK_STATUS_LABELS: Record<AllTaskStatus, string> = {
+  planning: 'columns.planning',
+  coding: 'columns.coding',
   ai_review: 'columns.ai_review',
   human_review: 'columns.human_review',
   done: 'columns.done',
   pr_created: 'columns.pr_created'
 };
 
-// Status colors for UI
-// Note: pr_created maps to 'done' column in Kanban view (see KanbanBoard.tsx)
-export const TASK_STATUS_COLORS: Record<TaskStatusColumn | 'pr_created', string> = {
-  backlog: 'bg-muted text-muted-foreground',
-  in_progress: 'bg-info/10 text-info',
+// Status colors for UI (includes all statuses for use across app)
+export const TASK_STATUS_COLORS: Record<AllTaskStatus, string> = {
+  planning: 'bg-amber-500/10 text-amber-400',
+  coding: 'bg-info/10 text-info',
   ai_review: 'bg-warning/10 text-warning',
   human_review: 'bg-purple-500/10 text-purple-400',
   done: 'bg-success/10 text-success',

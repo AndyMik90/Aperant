@@ -518,7 +518,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
       });
     });
 
-    it("should create task in backlog status", async () => {
+    it("should create task in planning status", async () => {
       const { setupIpcHandlers } = await import("../ipc-handlers");
       setupIpcHandlers(
         mockAgentManager as never,
@@ -543,9 +543,9 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
       );
 
       expect(result).toHaveProperty("success", true);
-      // Task is created in backlog status, spec creation starts when task:start is called
+      // Task is created in planning status, spec creation starts when task:start is called
       const task = (result as { data: { status: string } }).data;
-      expect(task.status).toBe("backlog");
+      expect(task.status).toBe("planning");
     });
   });
 
@@ -679,7 +679,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
       mkdirSync(specDir, { recursive: true });
       writeFileSync(
         path.join(specDir, "implementation_plan.json"),
-        JSON.stringify({ feature: "Test Task", status: "in_progress" })
+        JSON.stringify({ feature: "Test Task", status: "coding" })
       );
 
       mockAgentManager.emit("exit", "task-1", 1, "task-execution");

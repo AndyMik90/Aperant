@@ -22,11 +22,13 @@ __all__ = [
     # Main API
     "run_autonomous_agent",
     "run_followup_planner",
+    "run_planning_agent",
     # Memory
     "debug_memory_system_status",
     "get_graphiti_context",
     "save_session_memory",
     "save_session_to_graphiti",
+    "MemoryHandlers",
     # Session
     "run_agent_session",
     "post_session_processing",
@@ -71,6 +73,14 @@ def __getattr__(name):
         from .planner import run_followup_planner
 
         return run_followup_planner
+    elif name == "run_planning_agent":
+        from .planning_agent import run_planning_agent
+
+        return run_planning_agent
+    elif name == "MemoryHandlers":
+        from .memory_handlers import MemoryHandlers
+
+        return MemoryHandlers
     elif name in ("post_session_processing", "run_agent_session"):
         from .session import post_session_processing, run_agent_session
 

@@ -14,6 +14,22 @@ import {
 import type { IdeationConfig } from '../../shared/types';
 
 /**
+ * Phase 6: Agent mode for multi-agent support
+ */
+export type AgentMode = 'planning' | 'coding' | 'reviewing' | 'idle';
+
+/**
+ * Phase 6: Agent statistics for monitoring
+ */
+export interface AgentStats {
+  planning: number;
+  coding: number;
+  reviewing: number;
+  idle: number;
+  total: number;
+}
+
+/**
  * Main AgentManager - orchestrates agent process lifecycle
  * This is a slim facade that delegates to focused modules
  */
@@ -33,6 +49,12 @@ export class AgentManager extends EventEmitter {
     baseBranch?: string;
     swapCount: number;
   }> = new Map();
+
+  /**
+   * Phase 6: Track mode for each running agent
+   * Maps taskId to agent mode
+   */
+  private agentModes: Map<string, AgentMode> = new Map();
 
   constructor() {
     super();
@@ -55,6 +77,9 @@ export class AgentManager extends EventEmitter {
       // Clean up context when:
       // 1. Task completed successfully (code === 0), or
       // 2. Task failed and won't be restarted (handled by auto-swap logic)
+
+      // Phase 6: Clean up agent mode when process exits
+      this.agentModes.delete(taskId);
 
       // Note: Auto-swap restart happens BEFORE this exit event is processed,
       // so we need a small delay to allow restart to preserve context
@@ -177,6 +202,130 @@ export class AgentManager extends EventEmitter {
 
     // Note: This is spec-creation but it chains to task-execution via run.py
     await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
+
+    // Phase 6: Track agent mode - spec creation starts as 'coding' (will transition internally)
+    this.agentModes.set(taskId, 'coding');
+  }
+
+  /**
+   * Start planning agent for a newly created task.
+   *
+   * This method is called at task creation (Phase 2: Agent at Task Creation).
+   * The agent runs in planning mode:
+   * - Creates worktree for isolated development
+   * - Creates initial spec.md and implementation_plan.json
+   * - Responds to user chat messages
+   * - Does NOT auto-continue to coding (waits for "Start Build" button)
+   *
+   * @param taskId - The task/spec ID
+   * @param projectPath - Path to the project
+   * @param taskDescription - Description of the task
+   * @param specDir - Directory for the spec files (already created by TASK_CREATE)
+   * @param metadata - Task metadata including model configuration
+   * @param baseBranch - Base branch for worktree creation
+   * @returns true if agent was started successfully
+   */
+  async startPlanningAgent(
+    taskId: string,
+    projectPath: string,
+    taskDescription: string,
+    specDir: string,
+    metadata?: SpecCreationMetadata,
+    baseBranch?: string
+  ): Promise<boolean> {
+    console.log('[AgentManager] Starting planning agent for task:', taskId);
+
+    // Pre-flight auth check: Verify active profile has valid authentication
+    let profileManager;
+    try {
+      profileManager = await initializeClaudeProfileManager();
+    } catch (error) {
+      console.error('[AgentManager] Failed to initialize profile manager:', error);
+      this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
+      return false;
+    }
+    if (!profileManager.hasValidAuth()) {
+      this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
+      return false;
+    }
+
+    // Ensure Python environment is ready before spawning process
+    const pythonStatus = await this.processManager.ensurePythonEnvReady('AgentManager');
+    if (!pythonStatus.ready) {
+      this.emit('error', taskId, `Python environment not ready: ${pythonStatus.error || 'initialization failed'}`);
+      return false;
+    }
+
+    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
+
+    if (!autoBuildSource) {
+      this.emit('error', taskId, 'Auto-build source path not found. Please configure it in App Settings.');
+      return false;
+    }
+
+    const specRunnerPath = path.join(autoBuildSource, 'runners', 'spec_runner.py');
+
+    if (!existsSync(specRunnerPath)) {
+      this.emit('error', taskId, `Spec runner not found at: ${specRunnerPath}`);
+      return false;
+    }
+
+    // Get combined environment variables
+    const combinedEnv = this.processManager.getCombinedEnv(projectPath);
+
+    // Build arguments for spec_runner.py in PLANNING MODE
+    // Key difference from startSpecCreation: NO --auto-approve flag
+    // This means the agent creates the spec but pauses before coding
+    const args = [specRunnerPath, '--task', taskDescription, '--project-dir', projectPath];
+
+    // Pass spec directory (already created by TASK_CREATE)
+    args.push('--spec-dir', specDir);
+
+    // Pass base branch if specified (ensures worktrees are created from the correct branch)
+    if (baseBranch) {
+      args.push('--base-branch', baseBranch);
+    }
+
+    // PLANNING MODE: Pass --auto-approve to skip CLI review (user approves via "Start Build" in UI)
+    // Pass --no-build to prevent automatic run.py execution (build starts when user clicks "Start Build")
+    args.push('--auto-approve');
+    args.push('--no-build');
+
+    // Pass model and thinking level configuration
+    if (metadata?.isAutoProfile && metadata.phaseModels && metadata.phaseThinking) {
+      // For auto profile, use spec phase config for planning
+      args.push('--model', metadata.phaseModels.spec);
+      args.push('--thinking-level', metadata.phaseThinking.spec);
+    } else if (metadata?.model) {
+      // Non-auto profile: use single model and thinking level
+      args.push('--model', metadata.model);
+      if (metadata.thinkingLevel) {
+        args.push('--thinking-level', metadata.thinkingLevel);
+      }
+    }
+
+    // Workspace mode: --direct skips worktree isolation (default is isolated for safety)
+    if (metadata?.useWorktree === false) {
+      args.push('--direct');
+    }
+
+    // Store context for potential restart (mark as planning mode)
+    this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch);
+
+    // Spawn the planning agent process
+    try {
+      await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'planning');
+      console.log('[AgentManager] Planning agent started successfully for task:', taskId);
+
+      // Phase 6: Track agent mode
+      this.agentModes.set(taskId, 'planning');
+
+      return true;
+    } catch (error) {
+      console.error('[AgentManager] Failed to start planning agent:', error);
+      this.emit('error', taskId, `Failed to start planning agent: ${error instanceof Error ? error.message : 'unknown error'}`);
+      return false;
+    }
   }
 
   /**
@@ -254,6 +403,9 @@ export class AgentManager extends EventEmitter {
     this.storeTaskContext(taskId, projectPath, specId, options, false);
 
     await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
+
+    // Phase 6: Track agent mode
+    this.agentModes.set(taskId, 'coding');
   }
 
   /**
@@ -291,6 +443,9 @@ export class AgentManager extends EventEmitter {
     const args = [runPath, '--spec', specId, '--project-dir', projectPath, '--qa'];
 
     await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'qa-process');
+
+    // Phase 6: Track agent mode
+    this.agentModes.set(taskId, 'reviewing');
   }
 
   /**
@@ -366,6 +521,14 @@ export class AgentManager extends EventEmitter {
    */
   isRunning(taskId: string): boolean {
     return this.state.hasProcess(taskId);
+  }
+
+  /**
+   * Send a message to a running task's agent via stdin.
+   * The message is queued and processed at the next iteration boundary.
+   */
+  sendMessageToTask(taskId: string, message: string): boolean {
+    return this.processManager.sendMessageToTask(taskId, message);
   }
 
   /**
@@ -478,5 +641,83 @@ export class AgentManager extends EventEmitter {
     }, 500);
 
     return true;
+  }
+
+  /**
+   * Phase 6: Get the mode of a specific agent
+   */
+  getAgentMode(taskId: string): AgentMode | undefined {
+    return this.agentModes.get(taskId);
+  }
+
+  /**
+   * Phase 6: Set the mode of a specific agent
+   * Used when task transitions between phases (e.g., planning -> coding)
+   */
+  setAgentMode(taskId: string, mode: AgentMode): void {
+    if (this.state.hasProcess(taskId)) {
+      this.agentModes.set(taskId, mode);
+      console.log(`[AgentManager] Set agent mode for ${taskId} to ${mode}`);
+    }
+  }
+
+  /**
+   * Phase 6: Get statistics about running agents
+   * Useful for monitoring and resource management
+   */
+  getAgentStats(): AgentStats {
+    const stats: AgentStats = {
+      planning: 0,
+      coding: 0,
+      reviewing: 0,
+      idle: 0,
+      total: 0
+    };
+
+    for (const mode of this.agentModes.values()) {
+      stats[mode]++;
+      stats.total++;
+    }
+
+    return stats;
+  }
+
+  /**
+   * Phase 6: Graceful shutdown - stops all agents and waits for cleanup
+   * Should be called on app close
+   */
+  async gracefulShutdown(): Promise<void> {
+    console.log('[AgentManager] Starting graceful shutdown...');
+    const runningTasks = this.getRunningTasks();
+
+    if (runningTasks.length === 0) {
+      console.log('[AgentManager] No running tasks to shutdown');
+      return;
+    }
+
+    console.log(`[AgentManager] Stopping ${runningTasks.length} running agent(s)...`);
+
+    // Send SIGTERM to all processes
+    await this.killAll();
+
+    // Wait for processes to exit (with timeout)
+    const maxWaitMs = 5000;
+    const startTime = Date.now();
+
+    while (this.getRunningTasks().length > 0 && Date.now() - startTime < maxWaitMs) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    const remaining = this.getRunningTasks();
+    if (remaining.length > 0) {
+      console.warn(`[AgentManager] ${remaining.length} agent(s) did not exit gracefully, forcing kill`);
+      // Force kill is already handled by killAll, just log the warning
+    }
+
+    // Clear all mode tracking
+    this.agentModes.clear();
+    this.taskExecutionContext.clear();
+
+    console.log('[AgentManager] Graceful shutdown complete');
   }
 }

@@ -55,7 +55,7 @@ def get_isolated_git_env(base_env: dict | None = None) -> dict:
     for key in GIT_ENV_VARS_TO_CLEAR:
         env.pop(key, None)
 
-    # Disable user's pre-commit hooks during Auto-Claude managed git operations
+    # Disable user's pre-commit hooks during Jerry managed git operations
     # to prevent double-hook execution and potential conflicts
     env["HUSKY"] = "0"
 

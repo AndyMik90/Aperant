@@ -1,6 +1,6 @@
 # IPC Handlers - Modular Architecture
 
-This directory contains the refactored IPC (Inter-Process Communication) handlers for Auto Claude UI, organized into domain-specific modules for better maintainability and code organization.
+This directory contains the refactored IPC (Inter-Process Communication) handlers for Jerry UI, organized into domain-specific modules for better maintainability and code organization.
 
 ## Overview
 

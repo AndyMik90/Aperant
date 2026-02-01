@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical } from 'lucide-react';
+import { useNavigation } from '../contexts/NavigationContext';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, TerminalSquare } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -31,7 +32,9 @@ import {
   JSON_ERROR_PREFIX,
   JSON_ERROR_TITLE_SUFFIX
 } from '../../shared/constants';
-import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks } from '../stores/task-store';
+import { startTask, stopTask, startBuild, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, useTaskStore } from '../stores/task-store';
+import { useTerminalStore } from '../stores/terminal-store';
+import { useProjectStore } from '../stores/project-store';
 import type { Task, TaskCategory, ReviewReason, TaskStatus } from '../../shared/types';
 
 // Category icon mapping
@@ -134,6 +137,11 @@ export const TaskCard = memo(function TaskCard({
   onToggleSelect
 }: TaskCardProps) {
   const { t } = useTranslation(['tasks', 'errors']);
+  const { setActiveView } = useNavigation();
+  const selectedProject = useProjectStore((state) => state.projects.find(p => p.id === state.selectedProjectId));
+  const terminals = useTerminalStore((state) => state.terminals);
+  const setActiveTerminal = useTerminalStore((state) => state.setActiveTerminal);
+  const addTerminal = useTerminalStore((state) => state.addTerminal);
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const stuckCheckRef = useRef<{ timeout: NodeJS.Timeout | null; interval: NodeJS.Timeout | null }>({
@@ -141,7 +149,15 @@ export const TaskCard = memo(function TaskCard({
     interval: null
   });
 
-  const isRunning = task.status === 'in_progress';
+  // Coding tasks have active execution agents
+  const isRunning = task.status === 'coding';
+  // Phase 2: Planning tasks may have active planning agents
+  const isPlanning = task.status === 'planning';
+  // Check if the agent was stopped (for visual feedback on stop button)
+  const isAgentStopped = useTaskStore((state) => state.isAgentStopped(task.id));
+  // Both planning and coding tasks can be considered "active" for visual purposes
+  // But only if agent hasn't been stopped
+  const hasActiveAgent = (task.status === 'coding' || task.status === 'planning') && !isAgentStopped;
   const executionPhase = task.executionProgress?.phase;
   const hasActiveExecution = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
 
@@ -308,9 +324,81 @@ export const TaskCard = memo(function TaskCard({
     }
   };
 
+  const handleViewTerminal = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // Get expected terminal ID for this task
+    const expectedTerminalId = `task-${task.id}`;
+
+    // Check if terminal already exists
+    const terminalExists = terminals.some(t => t.id === expectedTerminalId);
+
+    console.log('[TaskCard] View Terminal clicked:', {
+      taskId: task.id,
+      taskStatus: task.status,
+      expectedTerminalId,
+      terminalExists,
+      terminalCount: terminals.length
+    });
+
+    // Navigate to terminals page
+    setActiveView('terminals');
+
+    // If terminal doesn't exist and task needs a terminal (any active status), recreate it
+    if (!terminalExists && (task.status === 'planning' || task.status === 'coding' || task.status === 'ai_review' || task.status === 'human_review')) {
+      try {
+        // Get project path for this task
+        const projectPath = selectedProject?.path;
+
+        console.log('[TaskCard] Recreating terminal:', { projectPath, taskId: task.id });
+
+        if (projectPath) {
+          // Create the task monitor terminal
+          await window.electronAPI.createTerminal({
+            id: expectedTerminalId,
+            cwd: projectPath,
+            projectPath,
+            isTaskMonitor: true,
+            taskId: task.id,
+            specId: task.specId,
+            taskTitle: task.title
+          });
+
+          console.log('[TaskCard] Terminal creation IPC call completed');
+
+          // Wait for terminal to be added to store (poll with timeout)
+          const maxAttempts = 20; // 2 seconds max
+          for (let i = 0; i < maxAttempts; i++) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            const currentTerminals = useTerminalStore.getState().terminals;
+            if (currentTerminals.some(t => t.id === expectedTerminalId)) {
+              console.log('[TaskCard] Terminal found in store, activating');
+              setActiveTerminal(expectedTerminalId);
+              return;
+            }
+          }
+
+          console.warn('[TaskCard] Terminal not found in store after waiting');
+        } else {
+          console.error('[TaskCard] No project path available');
+        }
+      } catch (error) {
+        console.error('[TaskCard] Error recreating task terminal:', error);
+      }
+    } else if (terminalExists) {
+      console.log('[TaskCard] Terminal exists, activating');
+      // Terminal exists, just activate it
+      setTimeout(() => {
+        setActiveTerminal(expectedTerminalId);
+      }, 100);
+    } else {
+      console.log('[TaskCard] Terminal does not exist and task is not in_progress', { status: task.status });
+    }
+  };
+
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'in_progress':
+      case 'coding':
         return 'info';
       case 'ai_review':
         return 'warning';
@@ -327,7 +415,7 @@ export const TaskCard = memo(function TaskCard({
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'in_progress':
+      case 'coding':
         return t('labels.running');
       case 'ai_review':
         return t('labels.aiReview');
@@ -366,7 +454,8 @@ export const TaskCard = memo(function TaskCard({
     <Card
       className={cn(
         'card-surface task-card-enhanced cursor-pointer',
-        isRunning && !isStuck && 'ring-2 ring-primary border-primary task-running-pulse',
+        // Phase 2: Both planning and coding tasks with agents show the running pulse
+        hasActiveAgent && !isStuck && 'ring-2 ring-primary border-primary task-running-pulse',
         isStuck && 'ring-2 ring-warning border-warning task-stuck-pulse',
         isArchived && 'opacity-60 hover:opacity-80',
         isSelectable && isSelected && 'ring-2 ring-ring border-ring bg-accent/10'
@@ -620,7 +709,56 @@ export const TaskCard = memo(function TaskCard({
                 <Archive className="mr-1.5 h-3 w-3" />
                 {t('actions.archive')}
               </Button>
-            ) : (task.status === 'backlog' || task.status === 'in_progress') && (
+            ) : isPlanning ? (
+              // Phase 2: Planning tasks show "Start Build" to transition to coding
+              // The planning agent runs automatically, user can stop it or start coding
+              <div className="flex items-center gap-1">
+                {isAgentStopped ? (
+                  // Agent was stopped - show Resume button
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-7 px-2.5"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startTask(task.id);
+                    }}
+                    title={t('tooltips.resumePlanningAgent')}
+                  >
+                    <Play className="mr-1.5 h-3 w-3" />
+                    {t('actions.resume')}
+                  </Button>
+                ) : (
+                  // Agent is running - show Stop button
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-7 px-2.5"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      stopTask(task.id);
+                    }}
+                    title={t('tooltips.stopPlanningAgent')}
+                  >
+                    <Square className="mr-1.5 h-3 w-3" />
+                    {t('actions.stop')}
+                  </Button>
+                )}
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-7 px-2.5"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    startBuild(task.id);
+                  }}
+                  title={t('tooltips.startBuild')}
+                >
+                  <Play className="mr-1.5 h-3 w-3" />
+                  {t('actions.startBuild')}
+                </Button>
+              </div>
+            ) : task.status === 'coding' && (
               <Button
                 variant={isRunning ? 'destructive' : 'default'}
                 size="sm"
@@ -635,9 +773,22 @@ export const TaskCard = memo(function TaskCard({
                 ) : (
                   <>
                     <Play className="mr-1.5 h-3 w-3" />
-                    {t('actions.start')}
+                    {t('actions.run')}
                   </>
                 )}
+              </Button>
+            )}
+
+            {/* View Terminal button - show for active task statuses */}
+            {(task.status === 'coding' || task.status === 'ai_review' || task.status === 'human_review' || task.status === 'planning') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 cursor-pointer"
+                onClick={handleViewTerminal}
+                title={t('tooltips.viewTerminal')}
+              >
+                <TerminalSquare className="h-3 w-3" />
               </Button>
             )}
 

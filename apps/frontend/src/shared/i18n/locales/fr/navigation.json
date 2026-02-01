@@ -4,11 +4,11 @@
     "tools": "Outils"
   },
   "items": {
-    "kanban": "Tableau Kanban",
-    "terminals": "Terminaux Agent",
-    "insights": "Insights",
+    "kanban": "Kanban",
+    "terminals": "Terminaux",
+    "insights": "Chat",
     "roadmap": "Feuille de route",
-    "ideation": "Idéation",
+    "ideation": "Idées",
     "changelog": "Journal des modifications",
     "context": "Contexte",
     "githubIssues": "Issues GitHub",
@@ -28,7 +28,7 @@
     "help": "Aide & Feedback"
   },
   "messages": {
-    "initializeToCreateTasks": "Initialisez Auto Claude pour créer des tâches"
+    "initializeToCreateTasks": "Initialisez Jerry pour créer des tâches"
   },
   "updateBanner": {
     "title": "Mise à jour disponible",

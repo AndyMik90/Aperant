@@ -1136,11 +1136,11 @@ body {
 }
 
 /* Column status colors for Kanban */
-.column-backlog {
-  border-top-color: var(--muted-foreground);
+.column-planning {
+  border-top-color: var(--amber-400, #FBBF24);
 }
 
-.column-in-progress {
+.column-coding {
   border-top-color: var(--info);
 }
 

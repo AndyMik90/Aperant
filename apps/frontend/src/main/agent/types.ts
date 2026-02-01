@@ -27,7 +27,7 @@ export interface ExecutionProgressData {
   completedPhases?: CompletablePhase[];
 }
 
-export type ProcessType = 'spec-creation' | 'task-execution' | 'qa-process';
+export type ProcessType = 'spec-creation' | 'task-execution' | 'qa-process' | 'planning';
 
 export interface AgentManagerEvents {
   log: (taskId: string, log: string) => void;

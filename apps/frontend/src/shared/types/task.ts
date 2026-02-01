@@ -5,7 +5,7 @@
 import type { ThinkingLevel, PhaseModelConfig, PhaseThinkingConfig } from './settings';
 import type { ExecutionPhase as ExecutionPhaseType, CompletablePhase } from '../constants/phase-protocol';
 
-export type TaskStatus = 'backlog' | 'in_progress' | 'ai_review' | 'human_review' | 'pr_created' | 'done';
+export type TaskStatus = 'planning' | 'coding' | 'ai_review' | 'human_review' | 'pr_created' | 'done';
 
 // Maps task status columns to ordered task IDs for kanban board reordering
 export type TaskOrderState = Record<TaskStatus, string[]>;
@@ -265,6 +265,7 @@ export interface Task {
   stagedAt?: string;  // ISO timestamp when changes were staged
   location?: 'main' | 'worktree';  // Where task was loaded from (main project or worktree)
   specsPath?: string;  // Full path to specs directory for this task
+  terminalId?: string;  // ID of associated task monitor terminal
   createdAt: Date;
   updatedAt: Date;
 }
@@ -493,4 +494,6 @@ export interface TaskStartOptions {
   workers?: number;
   model?: string;
   baseBranch?: string; // Override base branch for worktree creation
+  /** Pending user messages to send to the agent immediately after start */
+  pendingMessages?: string[];
 }

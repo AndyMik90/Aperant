@@ -67,8 +67,8 @@ function createTestPlan(overrides: Record<string, unknown> = {}): object {
         ]
       }
     ],
-    status: 'in_progress',
-    planStatus: 'in_progress',
+    status: 'coding',
+    planStatus: 'coding',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     ...overrides
@@ -328,12 +328,12 @@ describe('Task Lifecycle Integration', () => {
       });
 
       // Since updateTaskStatus might not be directly exposed, we test the IPC channel directly
-      const result = await mockIpcRenderer.invoke('task:updateStatus', 'task-001', 'in_progress');
+      const result = await mockIpcRenderer.invoke('task:updateStatus', 'task-001', 'coding');
 
       expect(mockIpcRenderer.invoke).toHaveBeenCalledWith(
         'task:updateStatus',
         'task-001',
-        'in_progress'
+        'coding'
       );
       expect(result).toMatchObject({ success: true });
     });

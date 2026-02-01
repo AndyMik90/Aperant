@@ -214,6 +214,13 @@ export function useIpcListeners(): void {
       }
     );
 
+    const cleanupAgentStopped = window.electronAPI.onTaskAgentStopped(
+      (taskId: string) => {
+        // Mark agent as stopped for UI feedback
+        useTaskStore.getState().setAgentStopped(taskId, true);
+      }
+    );
+
     // Roadmap event listeners
     // Helper to check if event is for the currently viewed project
     const isCurrentProject = (eventProjectId: string): boolean => {
@@ -346,6 +353,7 @@ export function useIpcListeners(): void {
       cleanupLog();
       cleanupStatus();
       cleanupExecutionProgress();
+      cleanupAgentStopped();
       cleanupRoadmapProgress();
       cleanupRoadmapComplete();
       cleanupRoadmapError();

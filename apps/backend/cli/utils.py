@@ -2,7 +2,7 @@
 CLI Utilities
 ==============
 
-Shared utility functions for the Auto Claude CLI.
+Shared utility functions for the Jerry CLI.
 """
 
 import os
@@ -165,7 +165,7 @@ def validate_environment(spec_dir: Path) -> bool:
     # Check for OAuth token (API keys are not supported)
     if not get_auth_token():
         print("Error: No OAuth token found")
-        print("\nAuto Claude requires Claude Code OAuth authentication.")
+        print("\nJerry requires Claude Code OAuth authentication.")
         print("Direct API keys (ANTHROPIC_API_KEY) are not supported.")
         print("\nTo authenticate, run:")
         print("  claude setup-token")

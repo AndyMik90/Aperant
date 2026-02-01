@@ -1,6 +1,6 @@
 # Context Handlers Module
 
-This directory contains the refactored context-related IPC handlers for the Auto Claude UI application. The handlers manage project context, memory systems (both file-based and Graphiti/LadybugDB), and project index operations.
+This directory contains the refactored context-related IPC handlers for the Jerry UI application. The handlers manage project context, memory systems (both file-based and Graphiti/LadybugDB), and project index operations.
 
 ## Architecture
 

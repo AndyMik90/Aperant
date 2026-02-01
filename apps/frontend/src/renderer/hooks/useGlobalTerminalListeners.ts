@@ -1,7 +1,10 @@
 import { useEffect } from 'react';
-import { writeToTerminal } from '../stores/terminal-store';
+import { writeToTerminal, useTerminalStore } from '../stores/terminal-store';
 import { terminalBufferManager } from '../lib/terminal-buffer-manager';
 import { debugLog, debugWarn } from '../../shared/utils/debug-logger';
+import type { Terminal } from '../stores/terminal-store';
+import type { StructuredBlock } from '../../shared/types';
+import { ClaudeOutputParser } from '../lib/claude-output-parser';
 
 /**
  * Module-level cleanup function storage.
@@ -46,7 +49,7 @@ export function useGlobalTerminalListeners(): void {
 
     // Register global terminal output listener
     // This listener runs for ALL terminals, regardless of which project is active
-    globalCleanup = window.electronAPI.onTerminalOutput((terminalId: string, data: string) => {
+    const cleanupOutput = window.electronAPI.onTerminalOutput((terminalId: string, data: string) => {
       // Use writeToTerminal which:
       // 1. Always buffers to terminalBufferManager for persistence
       // 2. Writes to xterm immediately if terminal has a registered callback (visible)
@@ -56,6 +59,64 @@ export function useGlobalTerminalListeners(): void {
         `[GlobalTerminalListeners] Processed output for ${terminalId}, buffer size: ${terminalBufferManager.getSize(terminalId)}`
       );
     });
+
+    // Register task monitor terminal creation listener
+    const cleanupTaskMonitor = window.electronAPI.onTaskMonitorTerminalCreate((terminalData: Partial<Terminal>) => {
+      debugLog('[GlobalTerminalListeners] Task monitor terminal created:', terminalData);
+
+      // Check if terminal already exists to prevent duplicates
+      const existingTerminal = useTerminalStore.getState().terminals.find(t => t.id === terminalData.id);
+      if (existingTerminal) {
+        debugLog('[GlobalTerminalListeners] Terminal already exists, skipping:', terminalData.id);
+        return;
+      }
+
+      // Add terminal to store with rich UI initialized
+      const newTerminal: Terminal = {
+        id: terminalData.id!,
+        title: terminalData.title || 'Task Monitor',
+        status: 'running',
+        cwd: terminalData.projectPath || '',
+        createdAt: new Date(),
+        isClaudeMode: false,
+        projectPath: terminalData.projectPath,
+        isTaskMonitor: true,
+        taskId: terminalData.taskId,
+        specId: terminalData.specId,
+        taskStatus: terminalData.taskStatus || 'running',
+        displayOrder: useTerminalStore.getState().terminals.length,
+        // Initialize rich chat UI
+        viewMode: 'rich',
+        messages: [],
+        parser: new ClaudeOutputParser(),
+        isStreaming: false,
+      };
+
+      useTerminalStore.setState((state) => ({
+        terminals: [...state.terminals, newTerminal],
+      }));
+    });
+
+    // Register structured output listener for rich task monitor UI
+    // This receives pre-parsed blocks from main process for efficient rendering
+    const cleanupStructuredOutput = window.electronAPI.onTerminalStructuredOutput(
+      (terminalId: string, block: StructuredBlock) => {
+        // Only process for task monitor terminals in rich mode
+        const terminal = useTerminalStore.getState().terminals.find(t => t.id === terminalId);
+        if (terminal?.isTaskMonitor && terminal.viewMode === 'rich') {
+          useTerminalStore.getState().appendStructuredBlock(terminalId, block);
+          debugLog(
+            `[GlobalTerminalListeners] Processed structured block for ${terminalId}: ${block.type}`
+          );
+        }
+      }
+    );
+
+    globalCleanup = () => {
+      cleanupOutput();
+      cleanupTaskMonitor();
+      cleanupStructuredOutput();
+    };
 
     // Cleanup on unmount (app shutdown)
     return () => {

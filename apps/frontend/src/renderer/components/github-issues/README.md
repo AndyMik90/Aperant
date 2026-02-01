@@ -279,4 +279,4 @@ When contributing to this module:
 
 ## License
 
-Part of the Auto Claude project.
+Part of the Jerry project.

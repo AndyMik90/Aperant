@@ -103,5 +103,7 @@ export const terminalMock = {
   onTerminalAuthCreated: () => () => {},
   onTerminalClaudeBusy: () => () => {},
   onTerminalClaudeExit: () => () => {},
-  onTerminalPendingResume: () => () => {}
+  onTerminalPendingResume: () => () => {},
+  onTaskMonitorTerminalCreate: () => () => {},
+  onTerminalStructuredOutput: () => () => {}
 };

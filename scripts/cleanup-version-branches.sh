@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ###############################################################################
-# Auto Claude - Version Branch Cleanup Script
+# Jerry - Version Branch Cleanup Script
 ###############################################################################
 #
 # PURPOSE:
@@ -36,7 +36,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║          Auto Claude - Version Branch Cleanup Tool            ║${NC}"
+echo -e "${BLUE}║          Jerry - Version Branch Cleanup Tool                  ║${NC}"
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
 echo ""
 

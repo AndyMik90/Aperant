@@ -17,6 +17,7 @@ import type {
   TerminalWorktreeConfig,
   TerminalWorktreeResult,
   OtherWorktreeInfo,
+  StructuredBlock,
 } from '../../shared/types';
 
 /** Type for proactive swap notification events */
@@ -73,6 +74,7 @@ export interface TerminalAPI {
 
   // Terminal Event Listeners
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
+  onTerminalStructuredOutput: (callback: (id: string, block: StructuredBlock) => void) => () => void;
   onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void;
   onTerminalTitleChange: (callback: (id: string, title: string) => void) => () => void;
   onTerminalWorktreeConfigChange: (callback: (id: string, config: TerminalWorktreeConfig | undefined) => void) => () => void;
@@ -87,6 +89,7 @@ export interface TerminalAPI {
   onTerminalClaudeBusy: (callback: (id: string, isBusy: boolean) => void) => () => void;
   onTerminalClaudeExit: (callback: (id: string) => void) => () => void;
   onTerminalPendingResume: (callback: (id: string, sessionId?: string) => void) => () => void;
+  onTaskMonitorTerminalCreate: (callback: (terminalData: any) => void) => () => void;
 
   // Claude Profile Management
   getClaudeProfiles: () => Promise<IPCResult<ClaudeProfileSettings>>;
@@ -212,6 +215,22 @@ export const createTerminalAPI = (): TerminalAPI => ({
     };
   },
 
+  onTerminalStructuredOutput: (
+    callback: (id: string, block: StructuredBlock) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      id: string,
+      block: StructuredBlock
+    ): void => {
+      callback(id, block);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TERMINAL_STRUCTURED_OUTPUT, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_STRUCTURED_OUTPUT, handler);
+    };
+  },
+
   onTerminalExit: (
     callback: (id: string, exitCode: number) => void
   ): (() => void) => {
@@ -225,6 +244,21 @@ export const createTerminalAPI = (): TerminalAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TERMINAL_EXIT, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_EXIT, handler);
+    };
+  },
+
+  onTaskMonitorTerminalCreate: (
+    callback: (terminalData: any) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      terminalData: any
+    ): void => {
+      callback(terminalData);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_MONITOR_TERMINAL_CREATE, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_MONITOR_TERMINAL_CREATE, handler);
     };
   },
 

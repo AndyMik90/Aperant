@@ -1,16 +1,18 @@
 {
   "refreshTasks": "Actualiser les tâches",
   "status": {
-    "backlog": "Backlog",
+    "planning": "Planification",
+    "coding": "Codage",
     "todo": "À faire",
-    "in_progress": "En cours",
     "review": "Révision",
     "prCreated": "PR créée",
     "complete": "Terminé",
     "archived": "Archivé"
   },
   "actions": {
-    "start": "Démarrer",
+    "start": "Exécuter",
+    "run": "Exécuter",
+    "startBuild": "Lancer le build",
     "stop": "Arrêter",
     "recover": "Récupérer",
     "resume": "Reprendre",
@@ -42,7 +44,11 @@
   "tooltips": {
     "archiveTask": "Archiver la tâche",
     "archiveAllDone": "Archiver toutes les tâches terminées",
-    "viewPR": "Ouvrir la pull request dans le navigateur"
+    "viewPR": "Ouvrir la pull request dans le navigateur",
+    "viewTerminal": "Voir le terminal de la tâche",
+    "stopPlanningAgent": "Arrêter l'agent de planification",
+    "resumePlanningAgent": "Reprendre l'agent de planification",
+    "startBuild": "Lancer le build - passer en phase de codage"
   },
   "creation": {
     "title": "Créer une nouvelle tâche",
@@ -54,18 +60,18 @@
     "description": "Créez votre première tâche pour commencer"
   },
   "columns": {
-    "backlog": "Planification",
-    "in_progress": "En cours",
+    "planning": "Planification",
+    "coding": "Codage",
     "ai_review": "Révision IA",
     "human_review": "Révision humaine",
     "done": "Terminé",
     "pr_created": "PR créée"
   },
   "kanban": {
-    "emptyBacklog": "Aucune tâche planifiée",
-    "emptyBacklogHint": "Ajoutez une tâche pour commencer",
-    "emptyInProgress": "Rien en cours",
-    "emptyInProgressHint": "Démarrez une tâche depuis le Backlog",
+    "emptyPlanning": "Aucune tâche planifiée",
+    "emptyPlanningHint": "Ajoutez une tâche pour commencer",
+    "emptyCoding": "Rien en cours",
+    "emptyCodingHint": "Cliquez sur 'Exécuter' sur une tâche planifiée",
     "emptyAiReview": "Aucune tâche en révision",
     "emptyAiReviewHint": "L'IA révisera les tâches terminées",
     "emptyHumanReview": "Rien à réviser",
@@ -75,7 +81,7 @@
     "emptyDefault": "Aucune tâche",
     "dropHere": "Déposer ici",
     "showArchived": "Afficher les archivées",
-    "addTaskAriaLabel": "Ajouter une nouvelle tâche au backlog",
+    "addTaskAriaLabel": "Ajouter une nouvelle tâche à la planification",
     "closeTaskDetailsAriaLabel": "Fermer les détails de la tâche",
     "editTask": "Modifier la tâche",
     "cannotEditWhileRunning": "Impossible de modifier pendant l'exécution",

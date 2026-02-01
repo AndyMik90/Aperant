@@ -1,4 +1,4 @@
-# Contributing to Auto Claude UI
+# Contributing to Jerry UI
 
 Thank you for your interest in contributing! This document provides guidelines for contributing to the frontend application.
 
@@ -13,7 +13,7 @@ Thank you for your interest in contributing! This document provides guidelines f
 ```bash
 # Clone the repository
 git clone https://github.com/AndyMik90/Auto-Claude.git
-cd Auto-Claude/apps/frontend
+cd Jerry/apps/frontend
 
 # Install dependencies
 npm install

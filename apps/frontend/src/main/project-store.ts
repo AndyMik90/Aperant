@@ -552,7 +552,7 @@ export class ProjectStore {
     // Handle both 'subtasks' and 'chunks' naming conventions, filter out undefined
     const allSubtasks = plan?.phases?.flatMap((p) => p.subtasks || (p as { chunks?: PlanSubtask[] }).chunks || []).filter(Boolean) || [];
 
-    let calculatedStatus: TaskStatus = 'backlog';
+    let calculatedStatus: TaskStatus = 'planning';
     let reviewReason: ReviewReason | undefined;
 
     if (allSubtasks.length > 0) {
@@ -578,25 +578,27 @@ export class ProjectStore {
         calculatedStatus = 'human_review';
         reviewReason = 'errors';
       } else if (inProgress > 0 || completed > 0) {
-        calculatedStatus = 'in_progress';
+        calculatedStatus = 'coding';
       }
     }
 
     // FIRST: Check for explicit user-set status from plan (takes highest priority)
     // This allows users to manually mark tasks as 'done' via drag-and-drop
     if (plan?.status) {
+      // Status mapping with backwards compatibility
+      // Old: backlog, in_progress → New: planning, coding
       const statusMap: Record<string, TaskStatus> = {
-        'pending': 'backlog',
-        'planning': 'in_progress', // Task is in planning phase (spec creation running)
-        'in_progress': 'in_progress',
-        'coding': 'in_progress', // Task is in coding phase
+        'pending': 'planning',
+        'planning': 'planning', // New status name (also maps old planning phase)
+        'backlog': 'planning', // Old status → new status
+        'in_progress': 'coding', // Old status → new status
+        'coding': 'coding', // New status name (also maps old coding phase)
         'review': 'ai_review',
         'completed': 'done',
         'done': 'done',
         'human_review': 'human_review',
         'ai_review': 'ai_review',
         'pr_created': 'pr_created', // PR has been created for this task
-        'backlog': 'backlog'
       };
       const storedStatus = statusMap[plan.status];
 
@@ -614,7 +616,8 @@ export class ProjectStore {
       if (storedStatus) {
         // Planning/coding status from the backend should be respected even if subtasks aren't in progress yet
         // This happens when a task is in planning phase (creating spec) but no subtasks have been started
-        const isActiveProcessStatus = (plan.status as string) === 'planning' || (plan.status as string) === 'coding' || (plan.status as string) === 'in_progress';
+        // Note: 'in_progress' is the old status name, kept for backwards compatibility with existing plan files
+        const isActiveProcessStatus = (plan.status as string) === 'planning' || (plan.status as string) === 'coding' || (plan.status as string) === 'in_progress' || (plan.status as string) === 'backlog';
 
         // Check if this is a plan review (spec approval stage before coding starts)
         // planStatus: "review" indicates spec creation is complete and awaiting user approval
@@ -627,9 +630,9 @@ export class ProjectStore {
 
         const isStoredStatusValid =
           (storedStatus === calculatedStatus) || // Matches calculated
-          (storedStatus === 'human_review' && (calculatedStatus === 'ai_review' || calculatedStatus === 'in_progress')) || // Human review is more advanced than ai_review or in_progress (fixes status loop bug)
+          (storedStatus === 'human_review' && (calculatedStatus === 'ai_review' || calculatedStatus === 'coding')) || // Human review is more advanced than ai_review or coding (fixes status loop bug)
           (storedStatus === 'human_review' && isPlanReviewStage) || // Plan review stage (awaiting spec approval)
-          (isActiveProcessStatus && storedStatus === 'in_progress' && hasRemainingWork); // Planning/coding phases should show as in_progress ONLY when there's remaining work
+          (isActiveProcessStatus && storedStatus === 'coding' && hasRemainingWork); // Planning/coding phases should show as coding ONLY when there's remaining work
 
         if (isStoredStatusValid) {
           // Preserve reviewReason for human_review status

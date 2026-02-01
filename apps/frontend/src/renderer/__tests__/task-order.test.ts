@@ -14,7 +14,7 @@ function createTestTask(overrides: Partial<Task> = {}): Task {
     projectId: 'project-1',
     title: 'Test Task',
     description: 'Test description',
-    status: 'backlog' as TaskStatus,
+    status: 'planning' as TaskStatus,
     subtasks: [],
     logs: [],
     createdAt: new Date(),
@@ -26,8 +26,8 @@ function createTestTask(overrides: Partial<Task> = {}): Task {
 // Helper to create a test task order state
 function createTestTaskOrder(overrides: Partial<TaskOrderState> = {}): TaskOrderState {
   return {
-    backlog: [],
-    in_progress: [],
+    planning: [],
+    coding: [],
     ai_review: [],
     human_review: [],
     pr_created: [],
@@ -58,7 +58,7 @@ describe('Task Order State Management', () => {
   describe('setTaskOrder', () => {
     it('should set task order state', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2', 'task-3']
+        planning: ['task-1', 'task-2', 'task-3']
       });
 
       useTaskStore.getState().setTaskOrder(order);
@@ -68,10 +68,10 @@ describe('Task Order State Management', () => {
 
     it('should replace existing task order', () => {
       const initialOrder = createTestTaskOrder({
-        backlog: ['old-task-1', 'old-task-2']
+        planning: ['old-task-1', 'old-task-2']
       });
       const newOrder = createTestTaskOrder({
-        backlog: ['new-task-1', 'new-task-2', 'new-task-3']
+        planning: ['new-task-1', 'new-task-2', 'new-task-3']
       });
 
       useTaskStore.getState().setTaskOrder(initialOrder);
@@ -85,14 +85,14 @@ describe('Task Order State Management', () => {
 
       useTaskStore.getState().setTaskOrder(order);
 
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual([]);
-      expect(useTaskStore.getState().taskOrder?.in_progress).toEqual([]);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual([]);
+      expect(useTaskStore.getState().taskOrder?.coding).toEqual([]);
     });
 
     it('should preserve all column orders', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1'],
-        in_progress: ['task-2'],
+        planning: ['task-1'],
+        coding: ['task-2'],
         ai_review: ['task-3'],
         human_review: ['task-4'],
         pr_created: ['task-5'],
@@ -101,8 +101,8 @@ describe('Task Order State Management', () => {
 
       useTaskStore.getState().setTaskOrder(order);
 
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-1']);
-      expect(useTaskStore.getState().taskOrder?.in_progress).toEqual(['task-2']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-1']);
+      expect(useTaskStore.getState().taskOrder?.coding).toEqual(['task-2']);
       expect(useTaskStore.getState().taskOrder?.ai_review).toEqual(['task-3']);
       expect(useTaskStore.getState().taskOrder?.human_review).toEqual(['task-4']);
       expect(useTaskStore.getState().taskOrder?.pr_created).toEqual(['task-5']);
@@ -113,125 +113,125 @@ describe('Task Order State Management', () => {
   describe('reorderTasksInColumn', () => {
     it('should reorder tasks within a column using arrayMove', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2', 'task-3']
+        planning: ['task-1', 'task-2', 'task-3']
       });
       useTaskStore.setState({ taskOrder: order });
 
       // Move task-1 to position of task-3
-      useTaskStore.getState().reorderTasksInColumn('backlog', 'task-1', 'task-3');
+      useTaskStore.getState().reorderTasksInColumn('planning', 'task-1', 'task-3');
 
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-2', 'task-3', 'task-1']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-2', 'task-3', 'task-1']);
     });
 
     it('should move task from later position to earlier position', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2', 'task-3', 'task-4']
+        planning: ['task-1', 'task-2', 'task-3', 'task-4']
       });
       useTaskStore.setState({ taskOrder: order });
 
       // Move task-4 to position of task-2
-      useTaskStore.getState().reorderTasksInColumn('backlog', 'task-4', 'task-2');
+      useTaskStore.getState().reorderTasksInColumn('planning', 'task-4', 'task-2');
 
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-1', 'task-4', 'task-2', 'task-3']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-1', 'task-4', 'task-2', 'task-3']);
     });
 
     it('should handle reordering in different columns', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2'],
-        in_progress: ['task-3', 'task-4', 'task-5']
+        planning: ['task-1', 'task-2'],
+        coding: ['task-3', 'task-4', 'task-5']
       });
       useTaskStore.setState({ taskOrder: order });
 
-      // Reorder in_progress column
-      useTaskStore.getState().reorderTasksInColumn('in_progress', 'task-5', 'task-3');
+      // Reorder coding column
+      useTaskStore.getState().reorderTasksInColumn('coding', 'task-5', 'task-3');
 
-      expect(useTaskStore.getState().taskOrder?.in_progress).toEqual(['task-5', 'task-3', 'task-4']);
-      // backlog should remain unchanged
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-1', 'task-2']);
+      expect(useTaskStore.getState().taskOrder?.coding).toEqual(['task-5', 'task-3', 'task-4']);
+      // planning should remain unchanged
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-1', 'task-2']);
     });
 
     it('should do nothing if taskOrder is null', () => {
       useTaskStore.setState({ taskOrder: null });
 
-      useTaskStore.getState().reorderTasksInColumn('backlog', 'task-1', 'task-2');
+      useTaskStore.getState().reorderTasksInColumn('planning', 'task-1', 'task-2');
 
       expect(useTaskStore.getState().taskOrder).toBeNull();
     });
 
     it('should do nothing if activeId is not in the column', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2', 'task-3']
+        planning: ['task-1', 'task-2', 'task-3']
       });
       useTaskStore.setState({ taskOrder: order });
 
-      useTaskStore.getState().reorderTasksInColumn('backlog', 'nonexistent', 'task-2');
+      useTaskStore.getState().reorderTasksInColumn('planning', 'nonexistent', 'task-2');
 
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-1', 'task-2', 'task-3']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-1', 'task-2', 'task-3']);
     });
 
     it('should do nothing if overId is not in the column', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2', 'task-3']
+        planning: ['task-1', 'task-2', 'task-3']
       });
       useTaskStore.setState({ taskOrder: order });
 
-      useTaskStore.getState().reorderTasksInColumn('backlog', 'task-1', 'nonexistent');
+      useTaskStore.getState().reorderTasksInColumn('planning', 'task-1', 'nonexistent');
 
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-1', 'task-2', 'task-3']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-1', 'task-2', 'task-3']);
     });
 
     it('should do nothing if both activeId and overId are not in the column', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2', 'task-3']
+        planning: ['task-1', 'task-2', 'task-3']
       });
       useTaskStore.setState({ taskOrder: order });
 
-      useTaskStore.getState().reorderTasksInColumn('backlog', 'nonexistent-1', 'nonexistent-2');
+      useTaskStore.getState().reorderTasksInColumn('planning', 'nonexistent-1', 'nonexistent-2');
 
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-1', 'task-2', 'task-3']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-1', 'task-2', 'task-3']);
     });
 
     it('should handle reordering with same active and over id (no change)', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2', 'task-3']
+        planning: ['task-1', 'task-2', 'task-3']
       });
       useTaskStore.setState({ taskOrder: order });
 
-      useTaskStore.getState().reorderTasksInColumn('backlog', 'task-2', 'task-2');
+      useTaskStore.getState().reorderTasksInColumn('planning', 'task-2', 'task-2');
 
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-1', 'task-2', 'task-3']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-1', 'task-2', 'task-3']);
     });
 
     it('should handle column with only one task', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1']
+        planning: ['task-1']
       });
       useTaskStore.setState({ taskOrder: order });
 
       // Cannot reorder a single task (overId won't exist)
-      useTaskStore.getState().reorderTasksInColumn('backlog', 'task-1', 'task-2');
+      useTaskStore.getState().reorderTasksInColumn('planning', 'task-1', 'task-2');
 
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-1']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-1']);
     });
 
     it('should handle reordering adjacent tasks', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2', 'task-3']
+        planning: ['task-1', 'task-2', 'task-3']
       });
       useTaskStore.setState({ taskOrder: order });
 
       // Swap task-1 and task-2
-      useTaskStore.getState().reorderTasksInColumn('backlog', 'task-1', 'task-2');
+      useTaskStore.getState().reorderTasksInColumn('planning', 'task-1', 'task-2');
 
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-2', 'task-1', 'task-3']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-2', 'task-1', 'task-3']);
     });
   });
 
   describe('loadTaskOrder', () => {
     it('should load task order from localStorage', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2'],
-        in_progress: ['task-3']
+        planning: ['task-1', 'task-2'],
+        coding: ['task-3']
       });
       localStorage.setItem('task-order-state-project-1', JSON.stringify(order));
 
@@ -244,8 +244,8 @@ describe('Task Order State Management', () => {
       useTaskStore.getState().loadTaskOrder('project-1');
 
       expect(useTaskStore.getState().taskOrder).toEqual({
-        backlog: [],
-        in_progress: [],
+        planning: [],
+        coding: [],
         ai_review: [],
         human_review: [],
         pr_created: [],
@@ -254,16 +254,16 @@ describe('Task Order State Management', () => {
     });
 
     it('should use project-specific localStorage keys', () => {
-      const order1 = createTestTaskOrder({ backlog: ['project1-task'] });
-      const order2 = createTestTaskOrder({ backlog: ['project2-task'] });
+      const order1 = createTestTaskOrder({ planning: ['project1-task'] });
+      const order2 = createTestTaskOrder({ planning: ['project2-task'] });
       localStorage.setItem('task-order-state-project-1', JSON.stringify(order1));
       localStorage.setItem('task-order-state-project-2', JSON.stringify(order2));
 
       useTaskStore.getState().loadTaskOrder('project-1');
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['project1-task']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['project1-task']);
 
       useTaskStore.getState().loadTaskOrder('project-2');
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['project2-task']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['project2-task']);
     });
 
     it('should handle corrupted localStorage data gracefully', () => {
@@ -276,8 +276,8 @@ describe('Task Order State Management', () => {
 
       // Should fall back to empty order state
       expect(useTaskStore.getState().taskOrder).toEqual({
-        backlog: [],
-        in_progress: [],
+        planning: [],
+        coding: [],
         ai_review: [],
         human_review: [],
         pr_created: [],
@@ -302,8 +302,8 @@ describe('Task Order State Management', () => {
 
       // Should fall back to empty order state
       expect(useTaskStore.getState().taskOrder).toEqual({
-        backlog: [],
-        in_progress: [],
+        planning: [],
+        coding: [],
         ai_review: [],
         human_review: [],
         pr_created: [],
@@ -318,8 +318,8 @@ describe('Task Order State Management', () => {
   describe('saveTaskOrder', () => {
     it('should save task order to localStorage', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2'],
-        in_progress: ['task-3']
+        planning: ['task-1', 'task-2'],
+        coding: ['task-3']
       });
       useTaskStore.setState({ taskOrder: order });
 
@@ -340,7 +340,7 @@ describe('Task Order State Management', () => {
     });
 
     it('should use project-specific localStorage keys', () => {
-      const order = createTestTaskOrder({ backlog: ['test-task'] });
+      const order = createTestTaskOrder({ planning: ['test-task'] });
       useTaskStore.setState({ taskOrder: order });
 
       useTaskStore.getState().saveTaskOrder('my-project-id');
@@ -353,7 +353,7 @@ describe('Task Order State Management', () => {
       // Spy on console.error
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      const order = createTestTaskOrder({ backlog: ['task-1'] });
+      const order = createTestTaskOrder({ planning: ['task-1'] });
       useTaskStore.setState({ taskOrder: order });
 
       // Mock localStorage.setItem to throw
@@ -374,22 +374,22 @@ describe('Task Order State Management', () => {
     });
 
     it('should overwrite existing stored order', () => {
-      const initialOrder = createTestTaskOrder({ backlog: ['old-task'] });
+      const initialOrder = createTestTaskOrder({ planning: ['old-task'] });
       localStorage.setItem('task-order-state-project-1', JSON.stringify(initialOrder));
 
-      const newOrder = createTestTaskOrder({ backlog: ['new-task-1', 'new-task-2'] });
+      const newOrder = createTestTaskOrder({ planning: ['new-task-1', 'new-task-2'] });
       useTaskStore.setState({ taskOrder: newOrder });
 
       useTaskStore.getState().saveTaskOrder('project-1');
 
       const stored = JSON.parse(localStorage.getItem('task-order-state-project-1')!);
-      expect(stored.backlog).toEqual(['new-task-1', 'new-task-2']);
+      expect(stored.planning).toEqual(['new-task-1', 'new-task-2']);
     });
   });
 
   describe('clearTaskOrder', () => {
     it('should clear task order from localStorage', () => {
-      const order = createTestTaskOrder({ backlog: ['task-1'] });
+      const order = createTestTaskOrder({ planning: ['task-1'] });
       localStorage.setItem('task-order-state-project-1', JSON.stringify(order));
       useTaskStore.setState({ taskOrder: order });
 
@@ -431,58 +431,58 @@ describe('Task Order State Management', () => {
   describe('moveTaskToColumnTop', () => {
     it('should move task to top of target column', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2'],
-        in_progress: ['task-3', 'task-4']
+        planning: ['task-1', 'task-2'],
+        coding: ['task-3', 'task-4']
       });
       useTaskStore.setState({ taskOrder: order });
 
-      useTaskStore.getState().moveTaskToColumnTop('task-2', 'in_progress', 'backlog');
+      useTaskStore.getState().moveTaskToColumnTop('task-2', 'coding', 'planning');
 
-      expect(useTaskStore.getState().taskOrder?.in_progress).toEqual(['task-2', 'task-3', 'task-4']);
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-1']);
+      expect(useTaskStore.getState().taskOrder?.coding).toEqual(['task-2', 'task-3', 'task-4']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-1']);
     });
 
     it('should remove task from source column when provided', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2', 'task-3'],
-        in_progress: ['task-4']
+        planning: ['task-1', 'task-2', 'task-3'],
+        coding: ['task-4']
       });
       useTaskStore.setState({ taskOrder: order });
 
-      useTaskStore.getState().moveTaskToColumnTop('task-2', 'in_progress', 'backlog');
+      useTaskStore.getState().moveTaskToColumnTop('task-2', 'coding', 'planning');
 
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-1', 'task-3']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-1', 'task-3']);
     });
 
     it('should work without source column (only add to target)', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1'],
-        in_progress: ['task-2', 'task-3']
+        planning: ['task-1'],
+        coding: ['task-2', 'task-3']
       });
       useTaskStore.setState({ taskOrder: order });
 
-      useTaskStore.getState().moveTaskToColumnTop('new-task', 'in_progress');
+      useTaskStore.getState().moveTaskToColumnTop('new-task', 'coding');
 
-      expect(useTaskStore.getState().taskOrder?.in_progress).toEqual(['new-task', 'task-2', 'task-3']);
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-1']);
+      expect(useTaskStore.getState().taskOrder?.coding).toEqual(['new-task', 'task-2', 'task-3']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-1']);
     });
 
     it('should handle task already in target column (remove duplicate first)', () => {
       const order = createTestTaskOrder({
-        in_progress: ['task-1', 'task-2', 'task-3']
+        coding: ['task-1', 'task-2', 'task-3']
       });
       useTaskStore.setState({ taskOrder: order });
 
       // Move task-3 to top of same column (simulates cross-column then same-column scenario)
-      useTaskStore.getState().moveTaskToColumnTop('task-3', 'in_progress');
+      useTaskStore.getState().moveTaskToColumnTop('task-3', 'coding');
 
-      expect(useTaskStore.getState().taskOrder?.in_progress).toEqual(['task-3', 'task-1', 'task-2']);
+      expect(useTaskStore.getState().taskOrder?.coding).toEqual(['task-3', 'task-1', 'task-2']);
     });
 
     it('should do nothing if taskOrder is null', () => {
       useTaskStore.setState({ taskOrder: null });
 
-      useTaskStore.getState().moveTaskToColumnTop('task-1', 'in_progress', 'backlog');
+      useTaskStore.getState().moveTaskToColumnTop('task-1', 'coding', 'planning');
 
       expect(useTaskStore.getState().taskOrder).toBeNull();
     });
@@ -490,8 +490,8 @@ describe('Task Order State Management', () => {
     it('should initialize target column if it does not exist in order', () => {
       // Create order with partial columns (simulating missing column)
       const order = {
-        backlog: ['task-1'],
-        in_progress: [],
+        planning: ['task-1'],
+        coding: [],
         ai_review: [],
         human_review: [],
         pr_created: [],
@@ -499,23 +499,23 @@ describe('Task Order State Management', () => {
       } as TaskOrderState;
       useTaskStore.setState({ taskOrder: order });
 
-      useTaskStore.getState().moveTaskToColumnTop('task-1', 'in_progress', 'backlog');
+      useTaskStore.getState().moveTaskToColumnTop('task-1', 'coding', 'planning');
 
-      expect(useTaskStore.getState().taskOrder?.in_progress).toEqual(['task-1']);
+      expect(useTaskStore.getState().taskOrder?.coding).toEqual(['task-1']);
     });
   });
 
   describe('addTask with task order', () => {
     it('should add new task to top of column order', () => {
       const order = createTestTaskOrder({
-        backlog: ['existing-task-1', 'existing-task-2']
+        planning: ['existing-task-1', 'existing-task-2']
       });
       useTaskStore.setState({ taskOrder: order, tasks: [] });
 
-      const newTask = createTestTask({ id: 'new-task', status: 'backlog' });
+      const newTask = createTestTask({ id: 'new-task', status: 'planning' });
       useTaskStore.getState().addTask(newTask);
 
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual([
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual([
         'new-task',
         'existing-task-1',
         'existing-task-2'
@@ -524,25 +524,25 @@ describe('Task Order State Management', () => {
 
     it('should add task to correct column based on status', () => {
       const order = createTestTaskOrder({
-        backlog: ['backlog-task'],
-        in_progress: ['progress-task']
+        planning: ['backlog-task'],
+        coding: ['progress-task']
       });
       useTaskStore.setState({ taskOrder: order, tasks: [] });
 
-      const newTask = createTestTask({ id: 'new-progress-task', status: 'in_progress' });
+      const newTask = createTestTask({ id: 'new-progress-task', status: 'coding' });
       useTaskStore.getState().addTask(newTask);
 
-      expect(useTaskStore.getState().taskOrder?.in_progress).toEqual([
+      expect(useTaskStore.getState().taskOrder?.coding).toEqual([
         'new-progress-task',
         'progress-task'
       ]);
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['backlog-task']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['backlog-task']);
     });
 
     it('should not modify order if taskOrder is null', () => {
       useTaskStore.setState({ taskOrder: null, tasks: [] });
 
-      const newTask = createTestTask({ id: 'new-task', status: 'backlog' });
+      const newTask = createTestTask({ id: 'new-task', status: 'planning' });
       useTaskStore.getState().addTask(newTask);
 
       expect(useTaskStore.getState().taskOrder).toBeNull();
@@ -551,7 +551,7 @@ describe('Task Order State Management', () => {
 
     it('should handle adding task when column does not exist in order', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1']
+        planning: ['task-1']
       });
       useTaskStore.setState({ taskOrder: order, tasks: [] });
 
@@ -564,16 +564,16 @@ describe('Task Order State Management', () => {
 
     it('should prevent duplicate task IDs in order', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2']
+        planning: ['task-1', 'task-2']
       });
       useTaskStore.setState({ taskOrder: order, tasks: [] });
 
       // Try to add a task with existing ID
-      const duplicateTask = createTestTask({ id: 'task-1', status: 'backlog' });
+      const duplicateTask = createTestTask({ id: 'task-1', status: 'planning' });
       useTaskStore.getState().addTask(duplicateTask);
 
       // Should add to top but remove existing occurrence
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-1', 'task-2']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-1', 'task-2']);
     });
   });
 
@@ -587,8 +587,8 @@ describe('Task Order State Management', () => {
 
       // Empty string causes JSON.parse to throw - should fall back to empty order
       expect(useTaskStore.getState().taskOrder).toEqual({
-        backlog: [],
-        in_progress: [],
+        planning: [],
+        coding: [],
         ai_review: [],
         human_review: [],
         pr_created: [],
@@ -600,15 +600,15 @@ describe('Task Order State Management', () => {
 
     it('should handle partial/incomplete JSON object', () => {
       // JSON that parses but is missing some columns
-      const partialOrder = { backlog: ['task-1'], in_progress: ['task-2'] };
+      const partialOrder = { planning: ['task-1'], coding: ['task-2'] };
       localStorage.setItem('task-order-state-project-1', JSON.stringify(partialOrder));
 
       useTaskStore.getState().loadTaskOrder('project-1');
 
       // Should load whatever was stored (partial data)
       const order = useTaskStore.getState().taskOrder;
-      expect(order?.backlog).toEqual(['task-1']);
-      expect(order?.in_progress).toEqual(['task-2']);
+      expect(order?.planning).toEqual(['task-1']);
+      expect(order?.coding).toEqual(['task-2']);
       // Missing columns will be undefined in the stored object
     });
 
@@ -620,7 +620,7 @@ describe('Task Order State Management', () => {
       // null is valid JSON but not a valid TaskOrderState - store resets to empty order
       const order = useTaskStore.getState().taskOrder;
       expect(order).not.toBeNull();
-      expect(order?.backlog).toEqual([]);
+      expect(order?.planning).toEqual([]);
     });
 
     it('should handle array instead of object stored', () => {
@@ -631,13 +631,13 @@ describe('Task Order State Management', () => {
       // Array is valid JSON but wrong structure - store resets to empty order
       const order = useTaskStore.getState().taskOrder;
       expect(Array.isArray(order)).toBe(false);
-      expect(order?.backlog).toEqual([]);
+      expect(order?.planning).toEqual([]);
     });
 
     it('should round-trip save and load with exact data preservation', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2', 'task-3'],
-        in_progress: ['task-4'],
+        planning: ['task-1', 'task-2', 'task-3'],
+        coding: ['task-4'],
         ai_review: [],
         human_review: ['task-5', 'task-6'],
         pr_created: [],
@@ -660,7 +660,7 @@ describe('Task Order State Management', () => {
     });
 
     it('should handle special characters in project ID', () => {
-      const order = createTestTaskOrder({ backlog: ['special-task'] });
+      const order = createTestTaskOrder({ planning: ['special-task'] });
       useTaskStore.setState({ taskOrder: order });
 
       const specialProjectId = 'project/with:special@chars!';
@@ -669,14 +669,14 @@ describe('Task Order State Management', () => {
       useTaskStore.setState({ taskOrder: null });
       useTaskStore.getState().loadTaskOrder(specialProjectId);
 
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['special-task']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['special-task']);
     });
 
     it('should isolate different projects completely', () => {
       // Set up three different projects with different orders
       const orders = {
-        'project-a': createTestTaskOrder({ backlog: ['a-task-1', 'a-task-2'] }),
-        'project-b': createTestTaskOrder({ in_progress: ['b-task-1'] }),
+        'project-a': createTestTaskOrder({ planning: ['a-task-1', 'a-task-2'] }),
+        'project-b': createTestTaskOrder({ coding: ['b-task-1'] }),
         'project-c': createTestTaskOrder({ done: ['c-task-1', 'c-task-2', 'c-task-3'] })
       };
 
@@ -697,16 +697,16 @@ describe('Task Order State Management', () => {
     it('should handle very long task ID arrays', () => {
       // Create an order with many task IDs
       const manyTaskIds = Array.from({ length: 100 }, (_, i) => `task-${i}`);
-      const order = createTestTaskOrder({ backlog: manyTaskIds });
+      const order = createTestTaskOrder({ planning: manyTaskIds });
       useTaskStore.setState({ taskOrder: order });
 
       useTaskStore.getState().saveTaskOrder('many-tasks-project');
       useTaskStore.setState({ taskOrder: null });
       useTaskStore.getState().loadTaskOrder('many-tasks-project');
 
-      expect(useTaskStore.getState().taskOrder?.backlog).toHaveLength(100);
-      expect(useTaskStore.getState().taskOrder?.backlog[0]).toBe('task-0');
-      expect(useTaskStore.getState().taskOrder?.backlog[99]).toBe('task-99');
+      expect(useTaskStore.getState().taskOrder?.planning).toHaveLength(100);
+      expect(useTaskStore.getState().taskOrder?.planning[0]).toBe('task-0');
+      expect(useTaskStore.getState().taskOrder?.planning[99]).toBe('task-99');
     });
   });
 
@@ -714,20 +714,20 @@ describe('Task Order State Management', () => {
     it('should filter out stale IDs that do not exist in tasks', () => {
       // Scenario: Task order has IDs for tasks that have been deleted
       const tasks = [
-        createTestTask({ id: 'task-1', status: 'backlog' }),
-        createTestTask({ id: 'task-3', status: 'backlog' })
+        createTestTask({ id: 'task-1', status: 'planning' }),
+        createTestTask({ id: 'task-3', status: 'planning' })
       ];
 
       // Order contains 'task-2' which no longer exists
       const orderWithStaleIds = createTestTaskOrder({
-        backlog: ['task-1', 'task-2', 'task-3']
+        planning: ['task-1', 'task-2', 'task-3']
       });
 
       useTaskStore.setState({ tasks, taskOrder: orderWithStaleIds });
 
       // Build a set of current task IDs and filter out stale IDs
       const currentTaskIds = new Set(tasks.map(t => t.id));
-      const columnOrder = useTaskStore.getState().taskOrder?.backlog || [];
+      const columnOrder = useTaskStore.getState().taskOrder?.planning || [];
       const validOrder = columnOrder.filter(id => currentTaskIds.has(id));
 
       // Stale ID should be filtered out
@@ -740,14 +740,14 @@ describe('Task Order State Management', () => {
       const tasks: Task[] = [];
 
       const orderWithOnlyStaleIds = createTestTaskOrder({
-        backlog: ['deleted-task-1', 'deleted-task-2', 'deleted-task-3']
+        planning: ['deleted-task-1', 'deleted-task-2', 'deleted-task-3']
       });
 
       useTaskStore.setState({ tasks, taskOrder: orderWithOnlyStaleIds });
 
       // Filter out stale IDs
       const currentTaskIds = new Set(tasks.map(t => t.id));
-      const columnOrder = useTaskStore.getState().taskOrder?.backlog || [];
+      const columnOrder = useTaskStore.getState().taskOrder?.planning || [];
       const validOrder = columnOrder.filter(id => currentTaskIds.has(id));
 
       expect(validOrder).toEqual([]);
@@ -756,21 +756,21 @@ describe('Task Order State Management', () => {
 
     it('should preserve valid IDs while removing stale ones', () => {
       const tasks = [
-        createTestTask({ id: 'valid-1', status: 'in_progress' }),
-        createTestTask({ id: 'valid-3', status: 'in_progress' }),
-        createTestTask({ id: 'valid-5', status: 'in_progress' })
+        createTestTask({ id: 'valid-1', status: 'coding' }),
+        createTestTask({ id: 'valid-3', status: 'coding' }),
+        createTestTask({ id: 'valid-5', status: 'coding' })
       ];
 
       // Order with alternating valid/stale IDs
       const mixedOrder = createTestTaskOrder({
-        in_progress: ['valid-1', 'stale-2', 'valid-3', 'stale-4', 'valid-5']
+        coding: ['valid-1', 'stale-2', 'valid-3', 'stale-4', 'valid-5']
       });
 
       useTaskStore.setState({ tasks, taskOrder: mixedOrder });
 
       // Filter stale IDs
       const currentTaskIds = new Set(tasks.map(t => t.id));
-      const columnOrder = useTaskStore.getState().taskOrder?.in_progress || [];
+      const columnOrder = useTaskStore.getState().taskOrder?.coding || [];
       const validOrder = columnOrder.filter(id => currentTaskIds.has(id));
 
       // Should keep relative order of valid IDs
@@ -779,14 +779,14 @@ describe('Task Order State Management', () => {
 
     it('should handle stale IDs across multiple columns', () => {
       const tasks = [
-        createTestTask({ id: 'backlog-task', status: 'backlog' }),
-        createTestTask({ id: 'progress-task', status: 'in_progress' }),
+        createTestTask({ id: 'backlog-task', status: 'planning' }),
+        createTestTask({ id: 'progress-task', status: 'coding' }),
         createTestTask({ id: 'done-task', status: 'done' })
       ];
 
       const orderWithStaleInMultipleColumns = createTestTaskOrder({
-        backlog: ['backlog-task', 'stale-backlog'],
-        in_progress: ['stale-progress', 'progress-task'],
+        planning: ['backlog-task', 'stale-backlog'],
+        coding: ['stale-progress', 'progress-task'],
         done: ['stale-done-1', 'done-task', 'stale-done-2']
       });
 
@@ -796,8 +796,8 @@ describe('Task Order State Management', () => {
       const taskOrder = useTaskStore.getState().taskOrder!;
 
       // Filter each column
-      const validBacklog = taskOrder.backlog.filter(id => currentTaskIds.has(id));
-      const validProgress = taskOrder.in_progress.filter(id => currentTaskIds.has(id));
+      const validBacklog = taskOrder.planning.filter(id => currentTaskIds.has(id));
+      const validProgress = taskOrder.coding.filter(id => currentTaskIds.has(id));
       const validDone = taskOrder.done.filter(id => currentTaskIds.has(id));
 
       expect(validBacklog).toEqual(['backlog-task']);
@@ -807,19 +807,19 @@ describe('Task Order State Management', () => {
 
     it('should not modify order if all IDs are valid', () => {
       const tasks = [
-        createTestTask({ id: 'task-1', status: 'backlog' }),
-        createTestTask({ id: 'task-2', status: 'backlog' }),
-        createTestTask({ id: 'task-3', status: 'backlog' })
+        createTestTask({ id: 'task-1', status: 'planning' }),
+        createTestTask({ id: 'task-2', status: 'planning' }),
+        createTestTask({ id: 'task-3', status: 'planning' })
       ];
 
       const validOrder = createTestTaskOrder({
-        backlog: ['task-1', 'task-2', 'task-3']
+        planning: ['task-1', 'task-2', 'task-3']
       });
 
       useTaskStore.setState({ tasks, taskOrder: validOrder });
 
       const currentTaskIds = new Set(tasks.map(t => t.id));
-      const columnOrder = useTaskStore.getState().taskOrder?.backlog || [];
+      const columnOrder = useTaskStore.getState().taskOrder?.planning || [];
       const filteredOrder = columnOrder.filter(id => currentTaskIds.has(id));
 
       // Should be identical
@@ -831,20 +831,20 @@ describe('Task Order State Management', () => {
   describe('order filtering: new task placement at top', () => {
     it('should identify new tasks not present in custom order', () => {
       const tasks = [
-        createTestTask({ id: 'existing-1', status: 'backlog' }),
-        createTestTask({ id: 'existing-2', status: 'backlog' }),
-        createTestTask({ id: 'new-task', status: 'backlog' }) // Not in order
+        createTestTask({ id: 'existing-1', status: 'planning' }),
+        createTestTask({ id: 'existing-2', status: 'planning' }),
+        createTestTask({ id: 'new-task', status: 'planning' }) // Not in order
       ];
 
       const orderWithoutNewTask = createTestTaskOrder({
-        backlog: ['existing-1', 'existing-2']
+        planning: ['existing-1', 'existing-2']
       });
 
       useTaskStore.setState({ tasks, taskOrder: orderWithoutNewTask });
 
-      const columnOrder = useTaskStore.getState().taskOrder?.backlog || [];
+      const columnOrder = useTaskStore.getState().taskOrder?.planning || [];
       const orderSet = new Set(columnOrder);
-      const columnTasks = tasks.filter(t => t.status === 'backlog');
+      const columnTasks = tasks.filter(t => t.status === 'planning');
 
       // Find new tasks (not in order)
       const newTasks = columnTasks.filter(t => !orderSet.has(t.id));
@@ -855,21 +855,21 @@ describe('Task Order State Management', () => {
 
     it('should identify multiple new tasks not in order', () => {
       const tasks = [
-        createTestTask({ id: 'existing-1', status: 'backlog' }),
-        createTestTask({ id: 'new-task-1', status: 'backlog' }),
-        createTestTask({ id: 'new-task-2', status: 'backlog' }),
-        createTestTask({ id: 'new-task-3', status: 'backlog' })
+        createTestTask({ id: 'existing-1', status: 'planning' }),
+        createTestTask({ id: 'new-task-1', status: 'planning' }),
+        createTestTask({ id: 'new-task-2', status: 'planning' }),
+        createTestTask({ id: 'new-task-3', status: 'planning' })
       ];
 
       const orderWithOnlyOne = createTestTaskOrder({
-        backlog: ['existing-1']
+        planning: ['existing-1']
       });
 
       useTaskStore.setState({ tasks, taskOrder: orderWithOnlyOne });
 
-      const columnOrder = useTaskStore.getState().taskOrder?.backlog || [];
+      const columnOrder = useTaskStore.getState().taskOrder?.planning || [];
       const orderSet = new Set(columnOrder);
-      const columnTasks = tasks.filter(t => t.status === 'backlog');
+      const columnTasks = tasks.filter(t => t.status === 'planning');
 
       const newTasks = columnTasks.filter(t => !orderSet.has(t.id));
 
@@ -881,22 +881,22 @@ describe('Task Order State Management', () => {
 
     it('should correctly separate ordered and unordered tasks', () => {
       const tasks = [
-        createTestTask({ id: 'ordered-1', status: 'in_progress' }),
-        createTestTask({ id: 'ordered-2', status: 'in_progress' }),
-        createTestTask({ id: 'unordered-1', status: 'in_progress' }),
-        createTestTask({ id: 'ordered-3', status: 'in_progress' }),
-        createTestTask({ id: 'unordered-2', status: 'in_progress' })
+        createTestTask({ id: 'ordered-1', status: 'coding' }),
+        createTestTask({ id: 'ordered-2', status: 'coding' }),
+        createTestTask({ id: 'unordered-1', status: 'coding' }),
+        createTestTask({ id: 'ordered-3', status: 'coding' }),
+        createTestTask({ id: 'unordered-2', status: 'coding' })
       ];
 
       const partialOrder = createTestTaskOrder({
-        in_progress: ['ordered-1', 'ordered-2', 'ordered-3']
+        coding: ['ordered-1', 'ordered-2', 'ordered-3']
       });
 
       useTaskStore.setState({ tasks, taskOrder: partialOrder });
 
-      const columnOrder = useTaskStore.getState().taskOrder?.in_progress || [];
+      const columnOrder = useTaskStore.getState().taskOrder?.coding || [];
       const orderSet = new Set(columnOrder);
-      const columnTasks = tasks.filter(t => t.status === 'in_progress');
+      const columnTasks = tasks.filter(t => t.status === 'coding');
 
       const orderedTasks = columnTasks.filter(t => orderSet.has(t.id));
       const unorderedTasks = columnTasks.filter(t => !orderSet.has(t.id));
@@ -910,20 +910,20 @@ describe('Task Order State Management', () => {
 
     it('should handle empty order (all tasks are new)', () => {
       const tasks = [
-        createTestTask({ id: 'new-1', status: 'backlog' }),
-        createTestTask({ id: 'new-2', status: 'backlog' }),
-        createTestTask({ id: 'new-3', status: 'backlog' })
+        createTestTask({ id: 'new-1', status: 'planning' }),
+        createTestTask({ id: 'new-2', status: 'planning' }),
+        createTestTask({ id: 'new-3', status: 'planning' })
       ];
 
       const emptyOrder = createTestTaskOrder({
-        backlog: []
+        planning: []
       });
 
       useTaskStore.setState({ tasks, taskOrder: emptyOrder });
 
-      const columnOrder = useTaskStore.getState().taskOrder?.backlog || [];
+      const columnOrder = useTaskStore.getState().taskOrder?.planning || [];
       const orderSet = new Set(columnOrder);
-      const columnTasks = tasks.filter(t => t.status === 'backlog');
+      const columnTasks = tasks.filter(t => t.status === 'planning');
 
       const newTasks = columnTasks.filter(t => !orderSet.has(t.id));
 
@@ -934,39 +934,39 @@ describe('Task Order State Management', () => {
 
     it('should addTask to place new task at top of order', () => {
       const existingOrder = createTestTaskOrder({
-        backlog: ['existing-1', 'existing-2']
+        planning: ['existing-1', 'existing-2']
       });
 
       useTaskStore.setState({ tasks: [], taskOrder: existingOrder });
 
       // Add a new task
-      const newTask = createTestTask({ id: 'brand-new', status: 'backlog' });
+      const newTask = createTestTask({ id: 'brand-new', status: 'planning' });
       useTaskStore.getState().addTask(newTask);
 
       // New task should be at the top of the order
       const order = useTaskStore.getState().taskOrder;
-      expect(order?.backlog[0]).toBe('brand-new');
-      expect(order?.backlog).toEqual(['brand-new', 'existing-1', 'existing-2']);
+      expect(order?.planning[0]).toBe('brand-new');
+      expect(order?.planning).toEqual(['brand-new', 'existing-1', 'existing-2']);
     });
 
     it('should addTask to correct column based on task status', () => {
       const existingOrder = createTestTaskOrder({
-        backlog: ['backlog-task'],
-        in_progress: ['progress-task'],
+        planning: ['backlog-task'],
+        coding: ['progress-task'],
         done: ['done-task']
       });
 
       useTaskStore.setState({ tasks: [], taskOrder: existingOrder });
 
       // Add a task to in_progress
-      const newProgressTask = createTestTask({ id: 'new-progress', status: 'in_progress' });
+      const newProgressTask = createTestTask({ id: 'new-progress', status: 'coding' });
       useTaskStore.getState().addTask(newProgressTask);
 
       const order = useTaskStore.getState().taskOrder;
       // Should be at top of in_progress
-      expect(order?.in_progress[0]).toBe('new-progress');
+      expect(order?.coding[0]).toBe('new-progress');
       // Should not affect other columns
-      expect(order?.backlog).toEqual(['backlog-task']);
+      expect(order?.planning).toEqual(['backlog-task']);
       expect(order?.done).toEqual(['done-task']);
     });
   });
@@ -974,19 +974,19 @@ describe('Task Order State Management', () => {
   describe('order filtering: cross-column move updates', () => {
     it('should remove task from source column and add to target column on move', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2', 'task-3'],
-        in_progress: ['task-4', 'task-5']
+        planning: ['task-1', 'task-2', 'task-3'],
+        coding: ['task-4', 'task-5']
       });
       useTaskStore.setState({ taskOrder: order });
 
       // Move task-2 from backlog to in_progress
-      useTaskStore.getState().moveTaskToColumnTop('task-2', 'in_progress', 'backlog');
+      useTaskStore.getState().moveTaskToColumnTop('task-2', 'coding', 'planning');
 
       const updatedOrder = useTaskStore.getState().taskOrder;
       // Removed from source
-      expect(updatedOrder?.backlog).toEqual(['task-1', 'task-3']);
+      expect(updatedOrder?.planning).toEqual(['task-1', 'task-3']);
       // Added to top of target
-      expect(updatedOrder?.in_progress).toEqual(['task-2', 'task-4', 'task-5']);
+      expect(updatedOrder?.coding).toEqual(['task-2', 'task-4', 'task-5']);
     });
 
     it('should move task to top of target column preserving target order', () => {
@@ -1008,54 +1008,54 @@ describe('Task Order State Management', () => {
 
     it('should handle moving to empty column', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1', 'task-2'],
+        planning: ['task-1', 'task-2'],
         done: []
       });
       useTaskStore.setState({ taskOrder: order });
 
       // Move to empty done column
-      useTaskStore.getState().moveTaskToColumnTop('task-1', 'done', 'backlog');
+      useTaskStore.getState().moveTaskToColumnTop('task-1', 'done', 'planning');
 
       const updatedOrder = useTaskStore.getState().taskOrder;
       expect(updatedOrder?.done).toEqual(['task-1']);
-      expect(updatedOrder?.backlog).toEqual(['task-2']);
+      expect(updatedOrder?.planning).toEqual(['task-2']);
     });
 
     it('should handle moving from single-item column', () => {
       const order = createTestTaskOrder({
-        in_progress: ['lone-task'],
+        coding: ['lone-task'],
         done: ['done-1', 'done-2']
       });
       useTaskStore.setState({ taskOrder: order });
 
       // Move the only task out of in_progress
-      useTaskStore.getState().moveTaskToColumnTop('lone-task', 'done', 'in_progress');
+      useTaskStore.getState().moveTaskToColumnTop('lone-task', 'done', 'coding');
 
       const updatedOrder = useTaskStore.getState().taskOrder;
-      expect(updatedOrder?.in_progress).toEqual([]);
+      expect(updatedOrder?.coding).toEqual([]);
       expect(updatedOrder?.done[0]).toBe('lone-task');
     });
 
     it('should handle sequential cross-column moves', () => {
       const order = createTestTaskOrder({
-        backlog: ['task-1'],
-        in_progress: [],
+        planning: ['task-1'],
+        coding: [],
         ai_review: [],
         done: []
       });
       useTaskStore.setState({ taskOrder: order });
 
       // Move task through multiple columns (simulating workflow)
-      useTaskStore.getState().moveTaskToColumnTop('task-1', 'in_progress', 'backlog');
+      useTaskStore.getState().moveTaskToColumnTop('task-1', 'coding', 'planning');
 
       let updatedOrder = useTaskStore.getState().taskOrder;
-      expect(updatedOrder?.backlog).toEqual([]);
-      expect(updatedOrder?.in_progress).toEqual(['task-1']);
+      expect(updatedOrder?.planning).toEqual([]);
+      expect(updatedOrder?.coding).toEqual(['task-1']);
 
-      useTaskStore.getState().moveTaskToColumnTop('task-1', 'ai_review', 'in_progress');
+      useTaskStore.getState().moveTaskToColumnTop('task-1', 'ai_review', 'coding');
 
       updatedOrder = useTaskStore.getState().taskOrder;
-      expect(updatedOrder?.in_progress).toEqual([]);
+      expect(updatedOrder?.coding).toEqual([]);
       expect(updatedOrder?.ai_review).toEqual(['task-1']);
 
       useTaskStore.getState().moveTaskToColumnTop('task-1', 'done', 'ai_review');
@@ -1068,28 +1068,28 @@ describe('Task Order State Management', () => {
     it('should handle moving task that is already in target column (dedup)', () => {
       // Edge case: somehow task ID ended up in both columns
       const orderWithDup = createTestTaskOrder({
-        backlog: ['task-1', 'task-2'],
-        in_progress: ['task-2', 'task-3'] // task-2 is duplicated
+        planning: ['task-1', 'task-2'],
+        coding: ['task-2', 'task-3'] // task-2 is duplicated
       });
       useTaskStore.setState({ taskOrder: orderWithDup });
 
       // Move task-2 from backlog to in_progress
-      useTaskStore.getState().moveTaskToColumnTop('task-2', 'in_progress', 'backlog');
+      useTaskStore.getState().moveTaskToColumnTop('task-2', 'coding', 'planning');
 
       const updatedOrder = useTaskStore.getState().taskOrder;
       // Should be removed from backlog
-      expect(updatedOrder?.backlog).toEqual(['task-1']);
+      expect(updatedOrder?.planning).toEqual(['task-1']);
       // Should appear exactly once at top of in_progress
-      expect(updatedOrder?.in_progress[0]).toBe('task-2');
+      expect(updatedOrder?.coding[0]).toBe('task-2');
       // Should be deduplicated
-      const task2Count = updatedOrder?.in_progress.filter(id => id === 'task-2').length;
+      const task2Count = updatedOrder?.coding.filter(id => id === 'task-2').length;
       expect(task2Count).toBe(1);
     });
 
     it('should preserve unaffected columns during cross-column move', () => {
       const order = createTestTaskOrder({
-        backlog: ['backlog-1', 'backlog-2'],
-        in_progress: ['progress-1'],
+        planning: ['backlog-1', 'backlog-2'],
+        coding: ['progress-1'],
         ai_review: ['review-1', 'review-2'],
         human_review: ['human-1'],
         done: ['done-1', 'done-2', 'done-3']
@@ -1097,12 +1097,12 @@ describe('Task Order State Management', () => {
       useTaskStore.setState({ taskOrder: order });
 
       // Move from backlog to in_progress
-      useTaskStore.getState().moveTaskToColumnTop('backlog-1', 'in_progress', 'backlog');
+      useTaskStore.getState().moveTaskToColumnTop('backlog-1', 'coding', 'planning');
 
       const updatedOrder = useTaskStore.getState().taskOrder;
       // Affected columns updated
-      expect(updatedOrder?.backlog).toEqual(['backlog-2']);
-      expect(updatedOrder?.in_progress).toEqual(['backlog-1', 'progress-1']);
+      expect(updatedOrder?.planning).toEqual(['backlog-2']);
+      expect(updatedOrder?.coding).toEqual(['backlog-1', 'progress-1']);
       // Unaffected columns preserved exactly
       expect(updatedOrder?.ai_review).toEqual(['review-1', 'review-2']);
       expect(updatedOrder?.human_review).toEqual(['human-1']);
@@ -1118,13 +1118,13 @@ describe('Task Order State Management', () => {
 
       // 2. Set up initial order
       const order = createTestTaskOrder({
-        backlog: ['task-a', 'task-b', 'task-c']
+        planning: ['task-a', 'task-b', 'task-c']
       });
       useTaskStore.getState().setTaskOrder(order);
 
       // 3. Reorder
-      useTaskStore.getState().reorderTasksInColumn('backlog', 'task-c', 'task-a');
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-c', 'task-a', 'task-b']);
+      useTaskStore.getState().reorderTasksInColumn('planning', 'task-c', 'task-a');
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-c', 'task-a', 'task-b']);
 
       // 4. Save
       useTaskStore.getState().saveTaskOrder('test-project');
@@ -1136,13 +1136,13 @@ describe('Task Order State Management', () => {
       useTaskStore.getState().loadTaskOrder('test-project');
 
       // 7. Verify order persisted
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['task-c', 'task-a', 'task-b']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['task-c', 'task-a', 'task-b']);
     });
 
     it('should handle project switching correctly', () => {
       // Set up orders for two projects
-      const order1 = createTestTaskOrder({ backlog: ['project1-task'] });
-      const order2 = createTestTaskOrder({ backlog: ['project2-task'] });
+      const order1 = createTestTaskOrder({ planning: ['project1-task'] });
+      const order2 = createTestTaskOrder({ planning: ['project2-task'] });
 
       // Save project 1 order
       useTaskStore.setState({ taskOrder: order1 });
@@ -1156,10 +1156,10 @@ describe('Task Order State Management', () => {
       useTaskStore.setState({ taskOrder: null });
 
       useTaskStore.getState().loadTaskOrder('project-1');
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['project1-task']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['project1-task']);
 
       useTaskStore.getState().loadTaskOrder('project-2');
-      expect(useTaskStore.getState().taskOrder?.backlog).toEqual(['project2-task']);
+      expect(useTaskStore.getState().taskOrder?.planning).toEqual(['project2-task']);
     });
   });
 });

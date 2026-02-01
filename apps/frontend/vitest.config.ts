@@ -2,6 +2,11 @@ import { defineConfig } from 'vitest/config';
 import { resolve } from 'path';
 
 export default defineConfig({
+  // Force development mode for tests so React.act is available
+  mode: 'development',
+  define: {
+    'process.env.NODE_ENV': JSON.stringify('development')
+  },
   test: {
     globals: true,
     environment: 'node',

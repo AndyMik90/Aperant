@@ -2,7 +2,7 @@
 
 ## Issue Summary
 
-Auto-Claude users are experiencing API 401 errors ("Invalid bearer token") because the Python backend is passing encrypted tokens (with `enc:` prefix) directly to the Claude Agent SDK without decryption. Standalone Claude Code terminals work correctly because they decrypt these tokens before use.
+Jerry users are experiencing API 401 errors ("Invalid bearer token") because the Python backend is passing encrypted tokens (with `enc:` prefix) directly to the Claude Agent SDK without decryption. Standalone Claude Code terminals work correctly because they decrypt these tokens before use.
 
 **Key insight from user thehaffk:** "python cant unencrypt claude token and it launches session with CLAUDE_CODE_OAUTH_TOKEN=enc:djEwtxMGISt3tQ..."
 

@@ -153,7 +153,7 @@ export function registerInvestigateIssue(
         );
 
         // NOTE: We intentionally do NOT call agentManager.startSpecCreation() here
-        // This allows the task to stay in "backlog" status until the user manually starts it
+        // This allows the task to stay in "planning" status until the user manually starts it
         // Previously, calling startSpecCreation would auto-start the task immediately
 
         // Phase 3: Creating task

@@ -76,7 +76,7 @@ export function getPlanPath(project: Project, task: Task): string {
  */
 export function mapStatusToPlanStatus(status: TaskStatus): string {
   switch (status) {
-    case 'in_progress':
+    case 'coding':
       return 'in_progress';
     case 'ai_review':
     case 'human_review':

@@ -33,6 +33,7 @@ export interface TaskAPI {
   ) => Promise<IPCResult<Task>>;
   startTask: (taskId: string, options?: TaskStartOptions) => void;
   stopTask: (taskId: string) => void;
+  startBuild: (taskId: string) => Promise<IPCResult>;
   submitReview: (
     taskId: string,
     approved: boolean,
@@ -49,6 +50,7 @@ export interface TaskAPI {
     options?: import('../../shared/types').TaskRecoveryOptions
   ) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
+  sendMessageToTask: (taskId: string, message: string) => Promise<IPCResult<boolean>>;
 
   // Workspace Management (for human review)
   getWorktreeStatus: (taskId: string) => Promise<IPCResult<import('../../shared/types').WorktreeStatus>>;
@@ -74,6 +76,7 @@ export interface TaskAPI {
   onTaskExecutionProgress: (
     callback: (taskId: string, progress: import('../../shared/types').ExecutionProgress, projectId?: string) => void
   ) => () => void;
+  onTaskAgentStopped: (callback: (taskId: string) => void) => () => void;
 
   // Task Phase Logs
   getTaskLogs: (projectId: string, specId: string) => Promise<IPCResult<TaskLogs | null>>;
@@ -111,6 +114,9 @@ export const createTaskAPI = (): TaskAPI => ({
   stopTask: (taskId: string): void =>
     ipcRenderer.send(IPC_CHANNELS.TASK_STOP, taskId),
 
+  startBuild: (taskId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_START_BUILD, taskId),
+
   submitReview: (
     taskId: string,
     approved: boolean,
@@ -134,6 +140,9 @@ export const createTaskAPI = (): TaskAPI => ({
 
   checkTaskRunning: (taskId: string): Promise<IPCResult<boolean>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_CHECK_RUNNING, taskId),
+
+  sendMessageToTask: (taskId: string, message: string): Promise<IPCResult<boolean>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_SEND_MESSAGE, taskId, message),
 
   // Workspace Management
   getWorktreeStatus: (taskId: string): Promise<IPCResult<import('../../shared/types').WorktreeStatus>> =>
@@ -258,6 +267,21 @@ export const createTaskAPI = (): TaskAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TASK_EXECUTION_PROGRESS, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TASK_EXECUTION_PROGRESS, handler);
+    };
+  },
+
+  onTaskAgentStopped: (
+    callback: (taskId: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      taskId: string
+    ): void => {
+      callback(taskId);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_AGENT_STOPPED, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_AGENT_STOPPED, handler);
     };
   },
 

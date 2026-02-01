@@ -1,9 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Group,
-  Panel,
-  Separator,
-} from 'react-resizable-panels';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -20,7 +15,8 @@ import {
   rectSortingStrategy,
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
-import { Plus, Sparkles, Grid2X2, FolderTree, File, Folder, History, ChevronDown, Loader2, TerminalSquare } from 'lucide-react';
+import { Plus, Grid2X2, FolderTree, File, Folder, History, ChevronDown, ChevronLeft, ChevronRight, Loader2, TerminalSquare, GripVertical } from 'lucide-react';
+import { Group, Panel, Separator, type PanelImperativeHandle, type GroupImperativeHandle } from 'react-resizable-panels';
 import { SortableTerminalWrapper } from './SortableTerminalWrapper';
 import { Button } from './ui/button';
 import {
@@ -56,16 +52,59 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
     // Exclude exited terminals from the visible list
     return filtered.filter(t => t.status !== 'exited');
   }, [allTerminals, projectPath]);
+
+  // Get tasks from task store for task selection dropdown in terminals
+  const tasks = useTaskStore((state) => state.tasks);
+
+  // Separate terminals into task monitors (by status) and regular terminals
+  // Note: done/pr_created tasks are shown on Worktrees page, not in terminal grid
+  const { planningTaskTerminals, inProgressTaskTerminals, aiReviewTaskTerminals, humanReviewTaskTerminals, regularTerminals } = useMemo(() => {
+    const planning: typeof terminals = [];
+    const inProgress: typeof terminals = [];
+    const aiReview: typeof terminals = [];
+    const humanReview: typeof terminals = [];
+    const regular: typeof terminals = [];
+
+    terminals.forEach(t => {
+      if (t.isTaskMonitor && t.taskId) {
+        // Find the actual task to get its real status
+        const task = tasks.find(task => task.id === t.taskId);
+        if (task) {
+          switch (task.status) {
+            case 'planning':
+              planning.push(t);
+              break;
+            case 'coding':
+              inProgress.push(t);
+              break;
+            case 'ai_review':
+              aiReview.push(t);
+              break;
+            case 'human_review':
+              humanReview.push(t);
+              break;
+            // done/pr_created tasks go to Worktrees page - skip them here
+          }
+        }
+      } else if (!t.isTaskMonitor) {
+        regular.push(t);
+      }
+    });
+
+    return {
+      planningTaskTerminals: planning,
+      inProgressTaskTerminals: inProgress,
+      aiReviewTaskTerminals: aiReview,
+      humanReviewTaskTerminals: humanReview,
+      regularTerminals: regular,
+    };
+  }, [terminals, tasks]);
   const activeTerminalId = useTerminalStore((state) => state.activeTerminalId);
   const addTerminal = useTerminalStore((state) => state.addTerminal);
   const removeTerminal = useTerminalStore((state) => state.removeTerminal);
   const setActiveTerminal = useTerminalStore((state) => state.setActiveTerminal);
   const canAddTerminal = useTerminalStore((state) => state.canAddTerminal);
-  const setClaudeMode = useTerminalStore((state) => state.setClaudeMode);
   const reorderTerminals = useTerminalStore((state) => state.reorderTerminals);
-
-  // Get tasks from task store for task selection dropdown in terminals
-  const tasks = useTaskStore((state) => state.tasks);
 
   // File explorer state
   const fileExplorerOpen = useFileExplorerStore((state) => state.isOpen);
@@ -79,10 +118,174 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
   // Expanded terminal state - when set, this terminal takes up the full grid space
   const [expandedTerminalId, setExpandedTerminalId] = useState<string | null>(null);
 
+  // Panel refs for programmatic collapse/expand
+  const panelRefs = {
+    planning: useRef<PanelImperativeHandle>(null),
+    inProgress: useRef<PanelImperativeHandle>(null),
+    aiReview: useRef<PanelImperativeHandle>(null),
+    humanReview: useRef<PanelImperativeHandle>(null),
+    terminals: useRef<PanelImperativeHandle>(null),
+  };
+
+  // Group ref for layout management
+  const groupRef = useRef<GroupImperativeHandle>(null);
+
+  // Collapsed columns state - tracks which columns are manually collapsed
+  const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
+
+  // Redistribute space among non-collapsed panels
+  const redistributeLayout = useCallback((newCollapsedSet: Set<string>) => {
+    if (!groupRef.current) return;
+
+    const collapsedSize = 1.5; // Match the collapsedSize prop
+    const panelIds = ['col-planning', 'col-in-progress', 'col-ai-review', 'col-human-review', 'col-terminals'];
+    const columnIdToPanel: Record<string, string> = {
+      'planning': 'col-planning',
+      'in-progress': 'col-in-progress',
+      'ai-review': 'col-ai-review',
+      'human-review': 'col-human-review',
+      'terminals': 'col-terminals',
+    };
+
+    const collapsedCount = newCollapsedSet.size;
+    const expandedCount = 5 - collapsedCount;
+
+    if (expandedCount === 0) return; // All collapsed, nothing to redistribute
+
+    // Calculate: collapsed panels get 8%, expanded panels share the rest equally
+    const totalCollapsedSpace = collapsedCount * collapsedSize;
+    const remainingSpace = 100 - totalCollapsedSpace;
+    const expandedPanelSize = remainingSpace / expandedCount;
+
+    const newLayout: Record<string, number> = {};
+    Object.entries(columnIdToPanel).forEach(([columnId, panelId]) => {
+      if (newCollapsedSet.has(columnId)) {
+        newLayout[panelId] = collapsedSize;
+      } else {
+        newLayout[panelId] = expandedPanelSize;
+      }
+    });
+
+    // Apply the new layout
+    groupRef.current.setLayout(newLayout);
+  }, []);
+
+  // Toggle column collapse state - calls the Panel's imperative API
+  const toggleColumnCollapse = useCallback((columnId: string) => {
+    const refMap: Record<string, React.RefObject<PanelImperativeHandle | null>> = {
+      'planning': panelRefs.planning,
+      'in-progress': panelRefs.inProgress,
+      'ai-review': panelRefs.aiReview,
+      'human-review': panelRefs.humanReview,
+      'terminals': panelRefs.terminals,
+    };
+
+    const panelRef = refMap[columnId];
+    if (panelRef?.current) {
+      // Use our own state to determine if collapsed (more reliable than library's isCollapsed)
+      const isCurrentlyCollapsed = collapsedColumns.has(columnId);
+      if (isCurrentlyCollapsed) {
+        panelRef.current.expand();
+        // Update local state and redistribute
+        const next = new Set(collapsedColumns);
+        next.delete(columnId);
+        setCollapsedColumns(next);
+        // Redistribute after state update
+        setTimeout(() => redistributeLayout(next), 50);
+      } else {
+        panelRef.current.collapse();
+        // Update local state and redistribute
+        const next = new Set([...collapsedColumns, columnId]);
+        setCollapsedColumns(next);
+        // Redistribute after state update
+        setTimeout(() => redistributeLayout(next), 50);
+      }
+    }
+  }, [collapsedColumns, redistributeLayout]);
+
   // Reset expanded terminal when project changes
   useEffect(() => {
     setExpandedTerminalId(null);
   }, [projectPath]);
+
+  // Track previous terminal counts to detect changes
+  const prevCountsRef = useRef<Record<string, number>>({});
+  // Track if this is the initial mount (need longer delay for panel group to initialize)
+  const isInitialMountRef = useRef(true);
+
+  // Auto-collapse empty columns, auto-expand columns that get terminals
+  // Use a small timeout to ensure panel refs are ready after render
+  useEffect(() => {
+    const columnTerminalCounts: Record<string, number> = {
+      'planning': planningTaskTerminals.length,
+      'in-progress': inProgressTaskTerminals.length,
+      'ai-review': aiReviewTaskTerminals.length,
+      'human-review': humanReviewTaskTerminals.length,
+      'terminals': regularTerminals.length,
+    };
+
+    const refMap: Record<string, React.RefObject<PanelImperativeHandle | null>> = {
+      'planning': panelRefs.planning,
+      'in-progress': panelRefs.inProgress,
+      'ai-review': panelRefs.aiReview,
+      'human-review': panelRefs.humanReview,
+      'terminals': panelRefs.terminals,
+    };
+
+    // Use longer delay on initial mount to ensure panel group is fully initialized
+    const delay = isInitialMountRef.current ? 300 : 100;
+
+    const timeoutId = setTimeout(() => {
+      let hasChanges = false;
+      const newCollapsed = new Set(collapsedColumns);
+
+      Object.entries(columnTerminalCounts).forEach(([columnId, count]) => {
+        const panelRef = refMap[columnId];
+        const prevCount = prevCountsRef.current[columnId] ?? 0;
+
+        if (panelRef?.current) {
+          // Auto-collapse: went from having terminals to having none
+          if (count === 0 && prevCount > 0) {
+            panelRef.current.collapse();
+            newCollapsed.add(columnId);
+            hasChanges = true;
+          }
+          // Auto-expand: went from having none to having terminals
+          else if (count > 0 && prevCount === 0) {
+            panelRef.current.expand();
+            newCollapsed.delete(columnId);
+            hasChanges = true;
+          }
+          // Initial collapse: first render with 0 terminals
+          else if (count === 0 && prevCount === 0 && prevCountsRef.current[columnId] === undefined) {
+            panelRef.current.collapse();
+            newCollapsed.add(columnId);
+            hasChanges = true;
+          }
+        }
+      });
+
+      // Update state and redistribute layout if there were changes
+      if (hasChanges) {
+        setCollapsedColumns(newCollapsed);
+        // Redistribute layout after a small delay, with retry for initial mount
+        const redistributeDelay = isInitialMountRef.current ? 100 : 50;
+        setTimeout(() => {
+          redistributeLayout(newCollapsed);
+          // On initial mount, do a second redistribute to ensure it takes effect
+          if (isInitialMountRef.current) {
+            setTimeout(() => redistributeLayout(newCollapsed), 150);
+          }
+        }, redistributeDelay);
+      }
+
+      // Update previous counts and mark initial mount as complete
+      prevCountsRef.current = columnTerminalCounts;
+      isInitialMountRef.current = false;
+    }, delay);
+
+    return () => clearTimeout(timeoutId);
+  }, [planningTaskTerminals.length, inProgressTaskTerminals.length, aiReviewTaskTerminals.length, humanReviewTaskTerminals.length, regularTerminals.length, collapsedColumns, redistributeLayout]);
 
   // Fetch available session dates when project changes
   useEffect(() => {
@@ -246,15 +449,6 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
     setExpandedTerminalId(prev => prev === terminalId ? null : terminalId);
   }, []);
 
-  const handleInvokeClaudeAll = useCallback(() => {
-    terminals.forEach((terminal) => {
-      if (terminal.status === 'running' && !terminal.isClaudeMode) {
-        setClaudeMode(terminal.id, true);
-        window.electronAPI.invokeClaudeInTerminal(terminal.id, projectPath);
-      }
-    });
-  }, [terminals, setClaudeMode, projectPath]);
-
   // Handle drag start - store dragged item data
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const data = event.active.data.current as {
@@ -345,32 +539,8 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
     }
   }, [reorderTerminals, terminals]);
 
-  // Calculate grid layout based on number of terminals
-  const gridLayout = useMemo(() => {
-    const count = terminals.length;
-    if (count === 0) return { rows: 0, cols: 0 };
-    if (count === 1) return { rows: 1, cols: 1 };
-    if (count === 2) return { rows: 1, cols: 2 };
-    if (count <= 4) return { rows: 2, cols: 2 };
-    if (count <= 6) return { rows: 2, cols: 3 };
-    if (count <= 9) return { rows: 3, cols: 3 };
-    return { rows: 3, cols: 4 }; // Max 12 terminals = 3x4
-  }, [terminals.length]);
-
-  // Group terminals into rows
-  const terminalRows = useMemo(() => {
-    const rows: typeof terminals[] = [];
-    const { cols } = gridLayout;
-    if (cols === 0) return rows;
-
-    for (let i = 0; i < terminals.length; i += cols) {
-      rows.push(terminals.slice(i, i + cols));
-    }
-    return rows;
-  }, [terminals, gridLayout]);
-
-  // Terminal IDs for SortableContext
-  const terminalIds = useMemo(() => terminals.map(t => t.id), [terminals]);
+  // Terminal IDs for SortableContext (only regular terminals are sortable)
+  const terminalIds = useMemo(() => regularTerminals.map(t => t.id), [regularTerminals]);
 
   // Empty state
   if (terminals.length === 0) {
@@ -406,10 +576,27 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
       <div className="flex h-full flex-col">
         {/* Toolbar */}
         <div className="flex h-10 items-center justify-between border-b border-border bg-card/30 px-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              {terminals.length} / 12 terminals
-            </span>
+          <div className="flex items-center gap-3">
+            {inProgressTaskTerminals.length > 0 && (
+              <span className="text-xs font-medium text-muted-foreground">
+                <span className="text-blue-500">{inProgressTaskTerminals.length}</span> in progress
+              </span>
+            )}
+            {aiReviewTaskTerminals.length > 0 && (
+              <span className="text-xs font-medium text-muted-foreground">
+                <span className="text-purple-500">{aiReviewTaskTerminals.length}</span> ai review
+              </span>
+            )}
+            {humanReviewTaskTerminals.length > 0 && (
+              <span className="text-xs font-medium text-muted-foreground">
+                <span className="text-orange-500">{humanReviewTaskTerminals.length}</span> human review
+              </span>
+            )}
+            {regularTerminals.length > 0 && (
+              <span className="text-xs font-medium text-muted-foreground">
+                {regularTerminals.length} {regularTerminals.length === 1 ? 'terminal' : 'terminals'}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {/* Session history dropdown */}
@@ -451,17 +638,6 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            {terminals.some((t) => t.status === 'running' && !t.isClaudeMode) && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1.5"
-                onClick={handleInvokeClaudeAll}
-              >
-                <Sparkles className="h-3 w-3" />
-                Invoke Claude All
-              </Button>
-            )}
             <Button
               variant="outline"
               size="sm"
@@ -494,7 +670,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
         <div className="flex flex-1 overflow-hidden">
           {/* Terminal grid using resizable panels */}
           <div className={cn(
-            "flex-1 overflow-hidden p-2 transition-all duration-300 ease-out",
+            "flex-1 overflow-auto p-2 transition-all duration-300 ease-out",
             fileExplorerOpen && "pr-0"
           )}>
             {expandedTerminalId ? (
@@ -521,17 +697,354 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
                 );
               })()
             ) : (
-              // Show the normal grid layout
-              <SortableContext items={terminalIds} strategy={rectSortingStrategy}>
-                <Group orientation="vertical" className="h-full">
-                  {terminalRows.map((row, rowIndex) => (
-                    <React.Fragment key={rowIndex}>
-                      <Panel id={`row-${rowIndex}`} defaultSize={100 / terminalRows.length} minSize={15}>
-                        <Group orientation="horizontal" className="h-full">
-                          {row.map((terminal, colIndex) => (
-                            <React.Fragment key={terminal.id}>
-                              <Panel id={terminal.id} defaultSize={100 / row.length} minSize={10}>
-                                <div className="h-full p-1">
+              /* Kanban-style vertical columns layout with resizable panels - all columns always rendered */
+              <Group orientation="horizontal" className="flex-1 p-4 h-full" groupRef={groupRef}>
+                {/* Planning Column (Backlog) - FIRST */}
+                <Panel
+                  panelRef={panelRefs.planning}
+                  id="col-planning"
+                  defaultSize={20}
+                  minSize={3}
+                  collapsible
+                  collapsedSize={1.5}
+                >
+                  <div className={cn(
+                    "flex h-full flex-col rounded-xl border border-white/5 bg-gradient-to-b from-secondary/30 to-transparent backdrop-blur-sm border-t-2 border-t-slate-500/60 mx-1 transition-all",
+                    collapsedColumns.has('planning') && "items-center"
+                  )}>
+                    {collapsedColumns.has('planning') ? (
+                      <button
+                        onClick={() => toggleColumnCollapse('planning')}
+                        className="flex flex-col items-center gap-2 p-2 hover:bg-white/5 rounded-lg transition-colors h-full justify-center"
+                        title="Expand Planning"
+                      >
+                        <ChevronRight className="h-4 w-4 text-slate-400" />
+                        <span className="text-xs font-medium text-slate-400 [writing-mode:vertical-rl] rotate-180">
+                          Planning ({planningTaskTerminals.length})
+                        </span>
+                      </button>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between p-4 border-b border-white/5">
+                          <div className="flex items-center gap-2.5">
+                            <h2 className="font-semibold text-sm text-foreground">Planning</h2>
+                            <span className="text-xs font-medium bg-slate-500/20 text-slate-400 px-2 py-0.5 rounded-full">
+                              {planningTaskTerminals.length}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => toggleColumnCollapse('planning')}
+                            className="p-1 hover:bg-white/10 rounded transition-colors"
+                            title="Collapse column"
+                          >
+                            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </div>
+                        <div className="flex-1 min-h-0 p-2 flex flex-col gap-2 overflow-auto">
+                          {planningTaskTerminals.length > 0 ? (
+                            planningTaskTerminals.map((terminal) => (
+                              <div key={terminal.id} className={terminal.isMinimized ? 'flex-shrink-0' : 'flex-1 min-h-48'}>
+                                <SortableTerminalWrapper
+                                  id={terminal.id}
+                                  cwd={terminal.cwd || projectPath}
+                                  projectPath={projectPath}
+                                  isActive={terminal.id === activeTerminalId}
+                                  onClose={() => handleCloseTerminal(terminal.id)}
+                                  onActivate={() => setActiveTerminal(terminal.id)}
+                                  tasks={tasks}
+                                  onNewTaskClick={onNewTaskClick}
+                                  terminalCount={terminals.length}
+                                  isExpanded={false}
+                                  onToggleExpand={() => handleToggleExpand(terminal.id)}
+                                />
+                              </div>
+                            ))
+                          ) : (
+                            <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs">
+                              No terminals
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </Panel>
+
+                <Separator className="w-2 flex items-center justify-center group cursor-col-resize">
+                  <GripVertical className="h-6 w-4 text-muted-foreground/30 group-hover:text-primary/50 transition-colors" />
+                </Separator>
+
+                {/* In Progress Column */}
+                <Panel
+                  panelRef={panelRefs.inProgress}
+                  id="col-in-progress"
+                  defaultSize={20}
+                  minSize={3}
+                  collapsible
+                  collapsedSize={1.5}
+                >
+                  <div className={cn(
+                    "flex h-full flex-col rounded-xl border border-white/5 bg-gradient-to-b from-secondary/30 to-transparent backdrop-blur-sm border-t-2 border-t-blue-500/60 mx-1 transition-all",
+                    collapsedColumns.has('in-progress') && "items-center"
+                  )}>
+                    {collapsedColumns.has('in-progress') ? (
+                      <button
+                        onClick={() => toggleColumnCollapse('in-progress')}
+                        className="flex flex-col items-center gap-2 p-2 hover:bg-white/5 rounded-lg transition-colors h-full justify-center"
+                        title="Expand In Progress"
+                      >
+                        <ChevronRight className="h-4 w-4 text-blue-400" />
+                        <span className="text-xs font-medium text-blue-400 [writing-mode:vertical-rl] rotate-180">
+                          In Progress ({inProgressTaskTerminals.length})
+                        </span>
+                      </button>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between p-4 border-b border-white/5">
+                          <div className="flex items-center gap-2.5">
+                            <h2 className="font-semibold text-sm text-foreground">In Progress</h2>
+                            <span className="text-xs font-medium bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
+                              {inProgressTaskTerminals.length}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => toggleColumnCollapse('in-progress')}
+                            className="p-1 hover:bg-white/10 rounded transition-colors"
+                            title="Collapse column"
+                          >
+                            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </div>
+                        <div className="flex-1 min-h-0 p-2 flex flex-col gap-2 overflow-auto">
+                          {inProgressTaskTerminals.length > 0 ? (
+                            inProgressTaskTerminals.map((terminal) => (
+                              <div key={terminal.id} className={terminal.isMinimized ? 'flex-shrink-0' : 'flex-1 min-h-48'}>
+                                <SortableTerminalWrapper
+                                  id={terminal.id}
+                                  cwd={terminal.cwd || projectPath}
+                                  projectPath={projectPath}
+                                  isActive={terminal.id === activeTerminalId}
+                                  onClose={() => handleCloseTerminal(terminal.id)}
+                                  onActivate={() => setActiveTerminal(terminal.id)}
+                                  tasks={tasks}
+                                  onNewTaskClick={onNewTaskClick}
+                                  terminalCount={terminals.length}
+                                  isExpanded={false}
+                                  onToggleExpand={() => handleToggleExpand(terminal.id)}
+                                />
+                              </div>
+                            ))
+                          ) : (
+                            <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs">
+                              No terminals
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </Panel>
+
+                <Separator className="w-2 flex items-center justify-center group cursor-col-resize">
+                  <GripVertical className="h-6 w-4 text-muted-foreground/30 group-hover:text-primary/50 transition-colors" />
+                </Separator>
+
+                {/* AI Review Column */}
+                <Panel
+                  panelRef={panelRefs.aiReview}
+                  id="col-ai-review"
+                  defaultSize={20}
+                  minSize={3}
+                  collapsible
+                  collapsedSize={1.5}
+                >
+                  <div className={cn(
+                    "flex h-full flex-col rounded-xl border border-white/5 bg-gradient-to-b from-secondary/30 to-transparent backdrop-blur-sm border-t-2 border-t-purple-500/60 mx-1 transition-all",
+                    collapsedColumns.has('ai-review') && "items-center"
+                  )}>
+                    {collapsedColumns.has('ai-review') ? (
+                      <button
+                        onClick={() => toggleColumnCollapse('ai-review')}
+                        className="flex flex-col items-center gap-2 p-2 hover:bg-white/5 rounded-lg transition-colors h-full justify-center"
+                        title="Expand AI Review"
+                      >
+                        <ChevronRight className="h-4 w-4 text-purple-400" />
+                        <span className="text-xs font-medium text-purple-400 [writing-mode:vertical-rl] rotate-180">
+                          AI Review ({aiReviewTaskTerminals.length})
+                        </span>
+                      </button>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between p-4 border-b border-white/5">
+                          <div className="flex items-center gap-2.5">
+                            <h2 className="font-semibold text-sm text-foreground">AI Review</h2>
+                            <span className="text-xs font-medium bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">
+                              {aiReviewTaskTerminals.length}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => toggleColumnCollapse('ai-review')}
+                            className="p-1 hover:bg-white/10 rounded transition-colors"
+                            title="Collapse column"
+                          >
+                            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </div>
+                        <div className="flex-1 min-h-0 p-2 flex flex-col gap-2 overflow-auto">
+                          {aiReviewTaskTerminals.length > 0 ? (
+                            aiReviewTaskTerminals.map((terminal) => (
+                              <div key={terminal.id} className={terminal.isMinimized ? 'flex-shrink-0' : 'flex-1 min-h-48'}>
+                                <SortableTerminalWrapper
+                                  id={terminal.id}
+                                  cwd={terminal.cwd || projectPath}
+                                  projectPath={projectPath}
+                                  isActive={terminal.id === activeTerminalId}
+                                  onClose={() => handleCloseTerminal(terminal.id)}
+                                  onActivate={() => setActiveTerminal(terminal.id)}
+                                  tasks={tasks}
+                                  onNewTaskClick={onNewTaskClick}
+                                  terminalCount={terminals.length}
+                                  isExpanded={false}
+                                  onToggleExpand={() => handleToggleExpand(terminal.id)}
+                                />
+                              </div>
+                            ))
+                          ) : (
+                            <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs">
+                              No terminals
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </Panel>
+
+                <Separator className="w-2 flex items-center justify-center group cursor-col-resize">
+                  <GripVertical className="h-6 w-4 text-muted-foreground/30 group-hover:text-primary/50 transition-colors" />
+                </Separator>
+
+                {/* Human Review Column */}
+                <Panel
+                  panelRef={panelRefs.humanReview}
+                  id="col-human-review"
+                  defaultSize={20}
+                  minSize={3}
+                  collapsible
+                  collapsedSize={1.5}
+                >
+                  <div className={cn(
+                    "flex h-full flex-col rounded-xl border border-white/5 bg-gradient-to-b from-secondary/30 to-transparent backdrop-blur-sm border-t-2 border-t-orange-500/60 mx-1 transition-all",
+                    collapsedColumns.has('human-review') && "items-center"
+                  )}>
+                    {collapsedColumns.has('human-review') ? (
+                      <button
+                        onClick={() => toggleColumnCollapse('human-review')}
+                        className="flex flex-col items-center gap-2 p-2 hover:bg-white/5 rounded-lg transition-colors h-full justify-center"
+                        title="Expand Human Review"
+                      >
+                        <ChevronRight className="h-4 w-4 text-orange-400" />
+                        <span className="text-xs font-medium text-orange-400 [writing-mode:vertical-rl] rotate-180">
+                          Human Review ({humanReviewTaskTerminals.length})
+                        </span>
+                      </button>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between p-4 border-b border-white/5">
+                          <div className="flex items-center gap-2.5">
+                            <h2 className="font-semibold text-sm text-foreground">Human Review</h2>
+                            <span className="text-xs font-medium bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">
+                              {humanReviewTaskTerminals.length}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => toggleColumnCollapse('human-review')}
+                            className="p-1 hover:bg-white/10 rounded transition-colors"
+                            title="Collapse column"
+                          >
+                            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </div>
+                        <div className="flex-1 min-h-0 p-2 flex flex-col gap-2 overflow-auto">
+                          {humanReviewTaskTerminals.length > 0 ? (
+                            humanReviewTaskTerminals.map((terminal) => (
+                              <div key={terminal.id} className={terminal.isMinimized ? 'flex-shrink-0' : 'flex-1 min-h-48'}>
+                                <SortableTerminalWrapper
+                                  id={terminal.id}
+                                  cwd={terminal.cwd || projectPath}
+                                  projectPath={projectPath}
+                                  isActive={terminal.id === activeTerminalId}
+                                  onClose={() => handleCloseTerminal(terminal.id)}
+                                  onActivate={() => setActiveTerminal(terminal.id)}
+                                  tasks={tasks}
+                                  onNewTaskClick={onNewTaskClick}
+                                  terminalCount={terminals.length}
+                                  isExpanded={false}
+                                  onToggleExpand={() => handleToggleExpand(terminal.id)}
+                                />
+                              </div>
+                            ))
+                          ) : (
+                            <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs">
+                              No terminals
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </Panel>
+
+                <Separator className="w-2 flex items-center justify-center group cursor-col-resize">
+                  <GripVertical className="h-6 w-4 text-muted-foreground/30 group-hover:text-primary/50 transition-colors" />
+                </Separator>
+
+                {/* Regular Terminals Column */}
+                <Panel
+                  panelRef={panelRefs.terminals}
+                  id="col-terminals"
+                  defaultSize={20}
+                  minSize={3}
+                  collapsible
+                  collapsedSize={1.5}
+                >
+                  <div className={cn(
+                    "flex h-full flex-col rounded-xl border border-white/5 bg-gradient-to-b from-secondary/30 to-transparent backdrop-blur-sm border-t-2 border-t-muted-foreground/30 mx-1 transition-all",
+                    collapsedColumns.has('terminals') && "items-center"
+                  )}>
+                    {collapsedColumns.has('terminals') ? (
+                      <button
+                        onClick={() => toggleColumnCollapse('terminals')}
+                        className="flex flex-col items-center gap-2 p-2 hover:bg-white/5 rounded-lg transition-colors h-full justify-center"
+                        title="Expand Terminals"
+                      >
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-xs font-medium text-muted-foreground [writing-mode:vertical-rl] rotate-180">
+                          Terminals ({regularTerminals.length})
+                        </span>
+                      </button>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between p-4 border-b border-white/5">
+                          <div className="flex items-center gap-2.5">
+                            <h2 className="font-semibold text-sm text-foreground">Terminals</h2>
+                            <span className="text-xs font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                              {regularTerminals.length}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => toggleColumnCollapse('terminals')}
+                            className="p-1 hover:bg-white/10 rounded transition-colors"
+                            title="Collapse column"
+                          >
+                            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </div>
+                        <div className="flex-1 min-h-0 p-2 flex flex-col gap-2 overflow-auto">
+                          {regularTerminals.length > 0 ? (
+                            <SortableContext items={terminalIds} strategy={rectSortingStrategy}>
+                              {regularTerminals.map((terminal) => (
+                                <div key={terminal.id} className={terminal.isMinimized ? 'flex-shrink-0' : 'flex-1 min-h-48'}>
                                   <SortableTerminalWrapper
                                     id={terminal.id}
                                     cwd={terminal.cwd || projectPath}
@@ -541,26 +1054,24 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
                                     onActivate={() => setActiveTerminal(terminal.id)}
                                     tasks={tasks}
                                     onNewTaskClick={onNewTaskClick}
-                                    terminalCount={terminals.length}
+                                    terminalCount={regularTerminals.length}
                                     isExpanded={false}
                                     onToggleExpand={() => handleToggleExpand(terminal.id)}
                                   />
                                 </div>
-                              </Panel>
-                              {colIndex < row.length - 1 && (
-                                <Separator className="w-1 hover:bg-primary/30 transition-colors" />
-                              )}
-                            </React.Fragment>
-                          ))}
-                        </Group>
-                      </Panel>
-                      {rowIndex < terminalRows.length - 1 && (
-                        <Separator className="h-1 hover:bg-primary/30 transition-colors" />
-                      )}
-                    </React.Fragment>
-                  ))}
-                </Group>
-              </SortableContext>
+                              ))}
+                            </SortableContext>
+                          ) : (
+                            <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs">
+                              No terminals
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </Panel>
+              </Group>
             )}
           </div>
 

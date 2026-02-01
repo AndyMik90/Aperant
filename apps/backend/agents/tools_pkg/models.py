@@ -185,6 +185,32 @@ AGENT_CONFIGS = {
         "thinking_default": "medium",
     },
     # ═══════════════════════════════════════════════════════════════════════
+    # PLANNING PHASE (Task Lifecycle V2 - Phase 3)
+    # Interactive planning agent that runs at task creation.
+    # Can chat with user, create spec.md and implementation_plan.json.
+    # Uses Anthropic memory tool for conversation persistence.
+    # CANNOT execute code or run bash commands.
+    # ═══════════════════════════════════════════════════════════════════════
+    "planning": {
+        "description": "Initial task planning - creates spec and plan interactively",
+        "tools": BASE_READ_TOOLS + WEB_TOOLS + ["Write", "Edit"],  # No Bash
+        "allowed_edit_patterns": [
+            "spec.md",
+            "implementation_plan.json",
+            "memories/**",
+            "docs/**",
+        ],
+        "mcp_servers": ["context7"],  # Minimal MCP for planning
+        "auto_claude_tools": [
+            TOOL_GET_SESSION_CONTEXT,
+            TOOL_RECORD_DISCOVERY,
+        ],
+        "include_memory_tool": True,  # Enable Anthropic memory tool
+        "can_execute_subtasks": False,
+        "can_run_bash": False,
+        "thinking_default": "high",
+    },
+    # ═══════════════════════════════════════════════════════════════════════
     # BUILD PHASES (Full tools + Graphiti memory)
     # Note: "linear" is conditional on project setting "update_linear_with_tasks"
     # ═══════════════════════════════════════════════════════════════════════
@@ -510,3 +536,69 @@ def get_default_thinking_level(agent_type: str) -> str:
     """
     config = get_agent_config(agent_type)
     return config.get("thinking_default", "medium")
+
+
+def get_allowed_edit_patterns(agent_type: str) -> list[str]:
+    """
+    Get allowed file edit patterns for an agent type.
+
+    Used by planning agent to restrict edits to spec files only.
+
+    Args:
+        agent_type: The agent type identifier
+
+    Returns:
+        List of glob patterns for allowed edits, or ["**/*"] if unrestricted
+    """
+    config = get_agent_config(agent_type)
+    return config.get("allowed_edit_patterns", ["**/*"])
+
+
+def includes_memory_tool(agent_type: str) -> bool:
+    """
+    Check if an agent type should include the Anthropic memory tool.
+
+    The memory tool (memory_20250818) provides conversation persistence
+    across sessions through file-based memory storage.
+
+    Args:
+        agent_type: The agent type identifier
+
+    Returns:
+        True if agent should have memory tool enabled
+    """
+    config = get_agent_config(agent_type)
+    return config.get("include_memory_tool", False)
+
+
+def can_run_bash(agent_type: str) -> bool:
+    """
+    Check if an agent type can run bash commands.
+
+    Planning agents cannot run bash for security (read-only exploration).
+
+    Args:
+        agent_type: The agent type identifier
+
+    Returns:
+        True if agent can run bash commands
+    """
+    config = get_agent_config(agent_type)
+    # Default to True for backwards compatibility (existing agents)
+    return config.get("can_run_bash", True)
+
+
+def can_execute_subtasks(agent_type: str) -> bool:
+    """
+    Check if an agent type can execute subtasks.
+
+    Only coding agents can execute subtasks from implementation_plan.json.
+
+    Args:
+        agent_type: The agent type identifier
+
+    Returns:
+        True if agent can execute subtasks
+    """
+    config = get_agent_config(agent_type)
+    return config.get("can_execute_subtasks", True)

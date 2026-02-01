@@ -59,6 +59,7 @@ from ui import (
 from .base import AUTO_CONTINUE_DELAY_SECONDS, HUMAN_INTERVENTION_FILE
 from .memory_manager import debug_memory_system_status, get_graphiti_context
 from .session import post_session_processing, run_agent_session
+from .user_message_queue import get_message_queue
 from .utils import (
     find_phase_for_subtask,
     get_commit_count,
@@ -220,405 +221,495 @@ async def run_autonomous_agent(
     print(box(content, width=70, style="light"))
     print()
 
+    # Initialize user message queue for real-time chat from frontend
+    # This allows users to send guidance/feedback while the agent is running
+    message_queue = None
+    try:
+        message_queue = get_message_queue()
+        message_queue.start(asyncio.get_event_loop())
+    except Exception as e:
+        print_status(f"Warning: Could not initialize message queue: {e}", "warning")
+        message_queue = None
+
     # Main loop
     iteration = 0
+    user_feedback_for_prompt = ""  # Accumulated user feedback to inject into next prompt
 
-    while True:
-        iteration += 1
+    try:
+        while True:
+            iteration += 1
 
-        # Check for human intervention (PAUSE file)
-        pause_file = spec_dir / HUMAN_INTERVENTION_FILE
-        if pause_file.exists():
-            print("\n" + "=" * 70)
-            print("  PAUSED BY HUMAN")
-            print("=" * 70)
+            # Check for pending user messages from frontend chat
+            # Messages are non-blocking and processed at iteration boundaries
+            user_messages = []
+            if message_queue:
+                try:
+                    user_messages = await message_queue.get_all_messages()
+                except Exception as e:
+                    print_status(f"Warning: Error reading user messages: {e}", "warning")
+            if user_messages:
+                user_feedback_for_prompt = "\n\n## User Feedback\n"
+                user_feedback_for_prompt += "The user has sent the following message(s) via the chat interface. "
+                user_feedback_for_prompt += "Please acknowledge and address their input before continuing:\n\n"
+                for msg in user_messages:
+                    user_feedback_for_prompt += f"**User** ({msg.timestamp.strftime('%H:%M:%S')}): {msg.content}\n\n"
+                user_feedback_for_prompt += "Please respond to this feedback, then continue with your current task."
+                print_status(f"Received {len(user_messages)} message(s) from user", "info")
 
-            pause_content = pause_file.read_text().strip()
-            if pause_content:
-                print(f"\nMessage: {pause_content}")
+            # Check for human intervention (PAUSE file)
+            pause_file = spec_dir / HUMAN_INTERVENTION_FILE
+            if pause_file.exists():
+                print("\n" + "=" * 70)
+                print("  PAUSED BY HUMAN")
+                print("=" * 70)
 
-            print("\nTo resume, delete the PAUSE file:")
-            print(f"  rm {pause_file}")
-            print("\nThen run again:")
-            print(f"  python auto-claude/run.py --spec {spec_dir.name}")
-            return
+                pause_content = pause_file.read_text().strip()
+                if pause_content:
+                    print(f"\nMessage: {pause_content}")
 
-        # Check max iterations
-        if max_iterations and iteration > max_iterations:
-            print(f"\nReached max iterations ({max_iterations})")
-            print("To continue, run the script again without --max-iterations")
-            break
+                print("\nTo resume, delete the PAUSE file:")
+                print(f"  rm {pause_file}")
+                print("\nThen run again:")
+                print(f"  python auto-claude/run.py --spec {spec_dir.name}")
+                return
 
-        # Get the next subtask to work on (planner sessions shouldn't bind to a subtask)
-        next_subtask = None if first_run else get_next_subtask(spec_dir)
-        subtask_id = next_subtask.get("id") if next_subtask else None
-        phase_name = next_subtask.get("phase_name") if next_subtask else None
+            # Check max iterations
+            if max_iterations and iteration > max_iterations:
+                print(f"\nReached max iterations ({max_iterations})")
+                print("To continue, run the script again without --max-iterations")
+                break
 
-        # Update status for this session
-        status_manager.update_session(iteration)
-        if phase_name:
-            current_phase = get_current_phase(spec_dir)
-            if current_phase:
-                status_manager.update_phase(
-                    current_phase.get("name", ""),
-                    current_phase.get("phase", 0),
-                    current_phase.get("total", 0),
-                )
-        status_manager.update_subtasks(in_progress=1)
+            # Get the next subtask to work on (planner sessions shouldn't bind to a subtask)
+            next_subtask = None if first_run else get_next_subtask(spec_dir)
+            subtask_id = next_subtask.get("id") if next_subtask else None
+            phase_name = next_subtask.get("phase_name") if next_subtask else None
 
-        # Print session header
-        print_session_header(
-            session_num=iteration,
-            is_planner=first_run,
-            subtask_id=subtask_id,
-            subtask_desc=next_subtask.get("description") if next_subtask else None,
-            phase_name=phase_name,
-            attempt=recovery_manager.get_attempt_count(subtask_id) + 1
-            if subtask_id
-            else 1,
-        )
+            # Update status for this session
+            status_manager.update_session(iteration)
+            if phase_name:
+                current_phase = get_current_phase(spec_dir)
+                if current_phase:
+                    status_manager.update_phase(
+                        current_phase.get("name", ""),
+                        current_phase.get("phase", 0),
+                        current_phase.get("total", 0),
+                    )
+            status_manager.update_subtasks(in_progress=1)
 
-        # Capture state before session for post-processing
-        commit_before = get_latest_commit(project_dir)
-        commit_count_before = get_commit_count(project_dir)
-
-        # Get the phase-specific model and thinking level (respects task_metadata.json configuration)
-        # first_run means we're in planning phase, otherwise coding phase
-        current_phase = "planning" if first_run else "coding"
-        phase_model = get_phase_model(spec_dir, current_phase, model)
-        phase_thinking_budget = get_phase_thinking_budget(spec_dir, current_phase)
-
-        # Create client (fresh context) with phase-specific model and thinking
-        # Use appropriate agent_type for correct tool permissions and thinking budget
-        client = create_client(
-            project_dir,
-            spec_dir,
-            phase_model,
-            agent_type="planner" if first_run else "coder",
-            max_thinking_tokens=phase_thinking_budget,
-        )
-
-        # Generate appropriate prompt
-        if first_run:
-            prompt = generate_planner_prompt(spec_dir, project_dir)
-            if planning_retry_context:
-                prompt += "\n\n" + planning_retry_context
-
-            # Retrieve Graphiti memory context for planning phase
-            # This gives the planner knowledge of previous patterns, gotchas, and insights
-            planner_context = await get_graphiti_context(
-                spec_dir,
-                project_dir,
-                {
-                    "description": "Planning implementation for new feature",
-                    "id": "planner",
-                },
+            # Print session header
+            print_session_header(
+                session_num=iteration,
+                is_planner=first_run,
+                subtask_id=subtask_id,
+                subtask_desc=next_subtask.get("description") if next_subtask else None,
+                phase_name=phase_name,
+                attempt=recovery_manager.get_attempt_count(subtask_id) + 1
+                if subtask_id
+                else 1,
             )
-            if planner_context:
-                prompt += "\n\n" + planner_context
-                print_status("Graphiti memory context loaded for planner", "success")
 
-            first_run = False
-            current_log_phase = LogPhase.PLANNING
+            # Capture state before session for post-processing
+            commit_before = get_latest_commit(project_dir)
+            commit_count_before = get_commit_count(project_dir)
 
-            # Set session info in logger
-            if task_logger:
-                task_logger.set_session(iteration)
-        else:
-            # Switch to coding phase after planning
-            just_transitioned_from_planning = False
-            if is_planning_phase:
-                just_transitioned_from_planning = True
-                is_planning_phase = False
-                current_log_phase = LogPhase.CODING
-                emit_phase(ExecutionPhase.CODING, "Starting implementation")
+            # Get the phase-specific model and thinking level (respects task_metadata.json configuration)
+            # first_run means we're in planning phase, otherwise coding phase
+            current_phase = "planning" if first_run else "coding"
+            phase_model = get_phase_model(spec_dir, current_phase, model)
+            phase_thinking_budget = get_phase_thinking_budget(spec_dir, current_phase)
+
+            # Create client (fresh context) with phase-specific model and thinking
+            # Use appropriate agent_type for correct tool permissions and thinking budget
+            client = create_client(
+                project_dir,
+                spec_dir,
+                phase_model,
+                agent_type="planner" if first_run else "coder",
+                max_thinking_tokens=phase_thinking_budget,
+            )
+
+            # Generate appropriate prompt
+            if first_run:
+                prompt = generate_planner_prompt(spec_dir, project_dir)
+                if planning_retry_context:
+                    prompt += "\n\n" + planning_retry_context
+
+                # Retrieve Graphiti memory context for planning phase
+                # This gives the planner knowledge of previous patterns, gotchas, and insights
+                planner_context = await get_graphiti_context(
+                    spec_dir,
+                    project_dir,
+                    {
+                        "description": "Planning implementation for new feature",
+                        "id": "planner",
+                    },
+                )
+                if planner_context:
+                    prompt += "\n\n" + planner_context
+                    print_status("Graphiti memory context loaded for planner", "success")
+
+                first_run = False
+                current_log_phase = LogPhase.PLANNING
+
+                # Set session info in logger
                 if task_logger:
-                    task_logger.end_phase(
-                        LogPhase.PLANNING,
-                        success=True,
-                        message="Implementation plan created",
-                    )
-                    task_logger.start_phase(
-                        LogPhase.CODING, "Starting implementation..."
-                    )
-                # In worktree mode, the UI prefers planning logs from the main spec dir.
-                # Ensure the planning->coding transition is immediately reflected there.
-                if sync_spec_to_source(spec_dir, source_spec_dir):
-                    print_status("Phase transition synced to main project", "success")
-
-            if not next_subtask:
-                # FIX for Issue #495: Race condition after planning phase
-                # The implementation_plan.json may not be fully flushed to disk yet,
-                # or there may be a brief delay before subtasks become available.
-                # Retry with exponential backoff before giving up.
-                if just_transitioned_from_planning:
-                    print_status(
-                        "Waiting for implementation plan to be ready...", "progress"
-                    )
-                    for retry_attempt in range(3):
-                        delay = (retry_attempt + 1) * 2  # 2s, 4s, 6s
-                        await asyncio.sleep(delay)
-                        next_subtask = get_next_subtask(spec_dir)
-                        if next_subtask:
-                            # Update subtask_id and phase_name after successful retry
-                            subtask_id = next_subtask.get("id")
-                            phase_name = next_subtask.get("phase_name")
-                            print_status(
-                                f"Found subtask {subtask_id} after {delay}s delay",
-                                "success",
-                            )
-                            break
-                        print_status(
-                            f"Retry {retry_attempt + 1}/3: No subtask found yet...",
-                            "warning",
+                    task_logger.set_session(iteration)
+            else:
+                # Switch to coding phase after planning
+                just_transitioned_from_planning = False
+                if is_planning_phase:
+                    just_transitioned_from_planning = True
+                    is_planning_phase = False
+                    current_log_phase = LogPhase.CODING
+                    emit_phase(ExecutionPhase.CODING, "Starting implementation")
+                    if task_logger:
+                        task_logger.end_phase(
+                            LogPhase.PLANNING,
+                            success=True,
+                            message="Implementation plan created",
                         )
+                        task_logger.start_phase(
+                            LogPhase.CODING, "Starting implementation..."
+                        )
+                    # In worktree mode, the UI prefers planning logs from the main spec dir.
+                    # Ensure the planning->coding transition is immediately reflected there.
+                    if sync_spec_to_source(spec_dir, source_spec_dir):
+                        print_status("Phase transition synced to main project", "success")
 
                 if not next_subtask:
-                    print("No pending subtasks found - build may be complete!")
-                    break
+                    # FIX for Issue #495: Race condition after planning phase
+                    # The implementation_plan.json may not be fully flushed to disk yet,
+                    # or there may be a brief delay before subtasks become available.
+                    # Retry with exponential backoff before giving up.
+                    if just_transitioned_from_planning:
+                        print_status(
+                            "Waiting for implementation plan to be ready...", "progress"
+                        )
+                        for retry_attempt in range(3):
+                            delay = (retry_attempt + 1) * 2  # 2s, 4s, 6s
+                            await asyncio.sleep(delay)
+                            next_subtask = get_next_subtask(spec_dir)
+                            if next_subtask:
+                                # Update subtask_id and phase_name after successful retry
+                                subtask_id = next_subtask.get("id")
+                                phase_name = next_subtask.get("phase_name")
+                                print_status(
+                                    f"Found subtask {subtask_id} after {delay}s delay",
+                                    "success",
+                                )
+                                break
+                            print_status(
+                                f"Retry {retry_attempt + 1}/3: No subtask found yet...",
+                                "warning",
+                            )
 
-            # Get attempt count for recovery context
-            attempt_count = recovery_manager.get_attempt_count(subtask_id)
-            recovery_hints = (
-                recovery_manager.get_recovery_hints(subtask_id)
-                if attempt_count > 0
-                else None
-            )
+                    if not next_subtask:
+                        print("No pending subtasks found - build may be complete!")
+                        break
 
-            # Find the phase for this subtask
-            plan = load_implementation_plan(spec_dir)
-            phase = find_phase_for_subtask(plan, subtask_id) if plan else {}
+                # Get attempt count for recovery context
+                attempt_count = recovery_manager.get_attempt_count(subtask_id)
+                recovery_hints = (
+                    recovery_manager.get_recovery_hints(subtask_id)
+                    if attempt_count > 0
+                    else None
+                )
 
-            # Generate focused, minimal prompt for this subtask
-            prompt = generate_subtask_prompt(
-                spec_dir=spec_dir,
-                project_dir=project_dir,
-                subtask=next_subtask,
-                phase=phase or {},
-                attempt_count=attempt_count,
-                recovery_hints=recovery_hints,
-            )
+                # Find the phase for this subtask
+                plan = load_implementation_plan(spec_dir)
+                phase = find_phase_for_subtask(plan, subtask_id) if plan else {}
 
-            # Load and append relevant file context
-            context = load_subtask_context(spec_dir, project_dir, next_subtask)
-            if context.get("patterns") or context.get("files_to_modify"):
-                prompt += "\n\n" + format_context_for_prompt(context)
+                # Generate focused, minimal prompt for this subtask
+                prompt = generate_subtask_prompt(
+                    spec_dir=spec_dir,
+                    project_dir=project_dir,
+                    subtask=next_subtask,
+                    phase=phase or {},
+                    attempt_count=attempt_count,
+                    recovery_hints=recovery_hints,
+                )
 
-            # Retrieve and append Graphiti memory context (if enabled)
-            graphiti_context = await get_graphiti_context(
-                spec_dir, project_dir, next_subtask
-            )
-            if graphiti_context:
-                prompt += "\n\n" + graphiti_context
-                print_status("Graphiti memory context loaded", "success")
+                # Load and append relevant file context
+                context = load_subtask_context(spec_dir, project_dir, next_subtask)
+                if context.get("patterns") or context.get("files_to_modify"):
+                    prompt += "\n\n" + format_context_for_prompt(context)
 
-            # Show what we're working on
-            print(f"Working on: {highlight(subtask_id)}")
-            print(f"Description: {next_subtask.get('description', 'No description')}")
-            if attempt_count > 0:
-                print_status(f"Previous attempts: {attempt_count}", "warning")
-            print()
+                # Retrieve and append Graphiti memory context (if enabled)
+                graphiti_context = await get_graphiti_context(
+                    spec_dir, project_dir, next_subtask
+                )
+                if graphiti_context:
+                    prompt += "\n\n" + graphiti_context
+                    print_status("Graphiti memory context loaded", "success")
 
-        # Set subtask info in logger
-        if task_logger and subtask_id:
-            task_logger.set_subtask(subtask_id)
-            task_logger.set_session(iteration)
+                # Show what we're working on
+                print(f"Working on: {highlight(subtask_id)}")
+                print(f"Description: {next_subtask.get('description', 'No description')}")
+                if attempt_count > 0:
+                    print_status(f"Previous attempts: {attempt_count}", "warning")
+                print()
 
-        # Run session with async context manager
-        async with client:
-            status, response = await run_agent_session(
-                client, prompt, spec_dir, verbose, phase=current_log_phase
-            )
+            # Set subtask info in logger
+            if task_logger and subtask_id:
+                task_logger.set_subtask(subtask_id)
+                task_logger.set_session(iteration)
 
-        plan_validated = False
-        if is_planning_phase and status != "error":
-            valid, errors = _validate_and_fix_implementation_plan()
-            if valid:
-                plan_validated = True
-                planning_retry_context = None
-            else:
-                planning_validation_failures += 1
-                if planning_validation_failures >= max_planning_validation_retries:
+            # Inject user feedback into prompt if any messages were received
+            if user_feedback_for_prompt:
+                prompt += user_feedback_for_prompt
+                # Clear feedback after injecting (will check for new messages next iteration)
+                user_feedback_for_prompt = ""
+
+            # Run session with async context manager
+            # Pass message_queue for interruptible execution (Phase 5)
+            async with client:
+                status, response = await run_agent_session(
+                    client, prompt, spec_dir, verbose, phase=current_log_phase,
+                    message_queue=message_queue
+                )
+
+            plan_validated = False
+            if is_planning_phase and status != "error":
+                valid, errors = _validate_and_fix_implementation_plan()
+                if valid:
+                    plan_validated = True
+                    planning_retry_context = None
+                else:
+                    planning_validation_failures += 1
+                    if planning_validation_failures >= max_planning_validation_retries:
+                        print_status(
+                            "implementation_plan.json validation failed too many times",
+                            "error",
+                        )
+                        for err in errors:
+                            print(f"  - {err}")
+                        status_manager.update(state=BuildState.ERROR)
+                        return
+
                     print_status(
-                        "implementation_plan.json validation failed too many times",
-                        "error",
+                        "implementation_plan.json invalid - retrying planner", "warning"
                     )
                     for err in errors:
                         print(f"  - {err}")
-                    status_manager.update(state=BuildState.ERROR)
-                    return
 
-                print_status(
-                    "implementation_plan.json invalid - retrying planner", "warning"
-                )
-                for err in errors:
-                    print(f"  - {err}")
-
-                planning_retry_context = (
-                    "## IMPLEMENTATION PLAN VALIDATION ERRORS\n\n"
-                    "The previous `implementation_plan.json` is INVALID.\n"
-                    "You MUST rewrite it to match the required schema:\n"
-                    "- Top-level: `feature`, `workflow_type`, `phases`\n"
-                    "- Each phase: `id` (or `phase`) and `name`, and `subtasks`\n"
-                    "- Each subtask: `id`, `description`, `status` (use `pending` for not started)\n\n"
-                    "Validation errors:\n" + "\n".join(f"- {e}" for e in errors)
-                )
-                # Stay in planning mode for the next iteration
-                first_run = True
-                status = "continue"
-
-        # === POST-SESSION PROCESSING (100% reliable) ===
-        # Only run post-session processing for coding sessions.
-        if subtask_id and current_log_phase == LogPhase.CODING:
-            linear_is_enabled = (
-                linear_task is not None and linear_task.task_id is not None
-            )
-            success = await post_session_processing(
-                spec_dir=spec_dir,
-                project_dir=project_dir,
-                subtask_id=subtask_id,
-                session_num=iteration,
-                commit_before=commit_before,
-                commit_count_before=commit_count_before,
-                recovery_manager=recovery_manager,
-                linear_enabled=linear_is_enabled,
-                status_manager=status_manager,
-                source_spec_dir=source_spec_dir,
-            )
-
-            # Check for stuck subtasks (use iteration config for threshold)
-            attempt_count = recovery_manager.get_attempt_count(subtask_id)
-            max_attempts = iteration_config["subtask_attempts_before_stuck"]
-            if not success and attempt_count >= max_attempts:
-                recovery_manager.mark_subtask_stuck(
-                    subtask_id, f"Failed after {attempt_count} attempts"
-                )
-                print()
-                print_status(
-                    f"Subtask {subtask_id} marked as STUCK after {attempt_count} attempts",
-                    "error",
-                )
-                print(muted("Consider: manual intervention or skipping this subtask"))
-
-                # Record stuck subtask in Linear (if enabled)
-                if linear_is_enabled:
-                    await linear_task_stuck(
-                        spec_dir=spec_dir,
-                        subtask_id=subtask_id,
-                        attempt_count=attempt_count,
+                    planning_retry_context = (
+                        "## IMPLEMENTATION PLAN VALIDATION ERRORS\n\n"
+                        "The previous `implementation_plan.json` is INVALID.\n"
+                        "You MUST rewrite it to match the required schema:\n"
+                        "- Top-level: `feature`, `workflow_type`, `phases`\n"
+                        "- Each phase: `id` (or `phase`) and `name`, and `subtasks`\n"
+                        "- Each subtask: `id`, `description`, `status` (use `pending` for not started)\n\n"
+                        "Validation errors:\n" + "\n".join(f"- {e}" for e in errors)
                     )
-                    print_status("Linear notified of stuck subtask", "info")
-        elif plan_validated and source_spec_dir:
-            # After planning phase, sync the newly created implementation plan back to source
-            if sync_spec_to_source(spec_dir, source_spec_dir):
-                print_status("Implementation plan synced to main project", "success")
+                    # Stay in planning mode for the next iteration
+                    first_run = True
+                    status = "continue"
 
-        # Handle session status
-        if status == "complete":
-            # Don't emit COMPLETE here - subtasks are done but QA hasn't run yet
-            # QA loop will emit COMPLETE after actual approval
-            print_build_complete_banner(spec_dir)
-            status_manager.update(state=BuildState.COMPLETE)
-
-            if task_logger:
-                task_logger.end_phase(
-                    LogPhase.CODING,
-                    success=True,
-                    message="All subtasks completed successfully",
+            # === POST-SESSION PROCESSING (100% reliable) ===
+            # Only run post-session processing for coding sessions.
+            if subtask_id and current_log_phase == LogPhase.CODING:
+                linear_is_enabled = (
+                    linear_task is not None and linear_task.task_id is not None
+                )
+                success = await post_session_processing(
+                    spec_dir=spec_dir,
+                    project_dir=project_dir,
+                    subtask_id=subtask_id,
+                    session_num=iteration,
+                    commit_before=commit_before,
+                    commit_count_before=commit_count_before,
+                    recovery_manager=recovery_manager,
+                    linear_enabled=linear_is_enabled,
+                    status_manager=status_manager,
+                    source_spec_dir=source_spec_dir,
                 )
 
-            if linear_task and linear_task.task_id:
-                await linear_build_complete(spec_dir)
-                print_status("Linear notified: build complete, ready for QA", "success")
-
-            break
-
-        elif status == "continue":
-            print(
-                muted(
-                    f"\nAgent will auto-continue in {AUTO_CONTINUE_DELAY_SECONDS}s..."
-                )
-            )
-            print_progress_summary(spec_dir)
-
-            # Update state back to building
-            status_manager.update(
-                state=BuildState.PLANNING if is_planning_phase else BuildState.BUILDING
-            )
-
-            # Show next subtask info
-            next_subtask = get_next_subtask(spec_dir)
-            if next_subtask:
-                subtask_id = next_subtask.get("id")
-                print(
-                    f"\nNext: {highlight(subtask_id)} - {next_subtask.get('description')}"
-                )
-
+                # Check for stuck subtasks (use iteration config for threshold)
                 attempt_count = recovery_manager.get_attempt_count(subtask_id)
-                if attempt_count > 0:
+                max_attempts = iteration_config["subtask_attempts_before_stuck"]
+                if not success and attempt_count >= max_attempts:
+                    recovery_manager.mark_subtask_stuck(
+                        subtask_id, f"Failed after {attempt_count} attempts"
+                    )
+                    print()
                     print_status(
-                        f"WARNING: {attempt_count} previous attempt(s)", "warning"
+                        f"Subtask {subtask_id} marked as STUCK after {attempt_count} attempts",
+                        "error",
+                    )
+                    print(muted("Consider: manual intervention or skipping this subtask"))
+
+                    # Record stuck subtask in Linear (if enabled)
+                    if linear_is_enabled:
+                        await linear_task_stuck(
+                            spec_dir=spec_dir,
+                            subtask_id=subtask_id,
+                            attempt_count=attempt_count,
+                        )
+                        print_status("Linear notified of stuck subtask", "info")
+            elif plan_validated and source_spec_dir:
+                # After planning phase, sync the newly created implementation plan back to source
+                if sync_spec_to_source(spec_dir, source_spec_dir):
+                    print_status("Implementation plan synced to main project", "success")
+
+            # Handle session status
+            if status == "complete":
+                # Don't emit COMPLETE here - subtasks are done but QA hasn't run yet
+                # QA loop will emit COMPLETE after actual approval
+                print_build_complete_banner(spec_dir)
+                status_manager.update(state=BuildState.COMPLETE)
+
+                if task_logger:
+                    task_logger.end_phase(
+                        LogPhase.CODING,
+                        success=True,
+                        message="All subtasks completed successfully",
                     )
 
-            await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+                if linear_task and linear_task.task_id:
+                    await linear_build_complete(spec_dir)
+                    print_status("Linear notified: build complete, ready for QA", "success")
 
-        elif status == "error":
-            emit_phase(ExecutionPhase.FAILED, "Session encountered an error")
-            print_status("Session encountered an error", "error")
-            print(muted("Will retry with a fresh session..."))
-            status_manager.update(state=BuildState.ERROR)
-            await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+                break
 
-        # Small delay between sessions
-        if max_iterations is None or iteration < max_iterations:
-            print("\nPreparing next session...\n")
-            await asyncio.sleep(1)
+            elif status == "continue":
+                print(
+                    muted(
+                        f"\nAgent will auto-continue in {AUTO_CONTINUE_DELAY_SECONDS}s..."
+                    )
+                )
+                print_progress_summary(spec_dir)
 
-    # Final summary
-    content = [
-        bold(f"{icon(Icons.SESSION)} SESSION SUMMARY"),
-        "",
-        f"Project: {project_dir}",
-        f"Spec: {highlight(spec_dir.name)}",
-        f"Sessions completed: {iteration}",
-    ]
-    print()
-    print(box(content, width=70, style="heavy"))
-    print_progress_summary(spec_dir)
+                # Update state back to building
+                status_manager.update(
+                    state=BuildState.PLANNING if is_planning_phase else BuildState.BUILDING
+                )
 
-    # Show stuck subtasks if any
-    stuck_subtasks = recovery_manager.get_stuck_subtasks()
-    if stuck_subtasks:
+                # Show next subtask info
+                next_subtask = get_next_subtask(spec_dir)
+                if next_subtask:
+                    subtask_id = next_subtask.get("id")
+                    print(
+                        f"\nNext: {highlight(subtask_id)} - {next_subtask.get('description')}"
+                    )
+
+                    attempt_count = recovery_manager.get_attempt_count(subtask_id)
+                    if attempt_count > 0:
+                        print_status(
+                            f"WARNING: {attempt_count} previous attempt(s)", "warning"
+                        )
+
+                await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+
+            elif status == "error":
+                emit_phase(ExecutionPhase.FAILED, "Session encountered an error")
+                print_status("Session encountered an error", "error")
+                print(muted("Will retry with a fresh session..."))
+                status_manager.update(state=BuildState.ERROR)
+                await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+
+            elif status == "stopped":
+                # Phase 5: User requested immediate stop
+                emit_phase(ExecutionPhase.IDLE, "User requested stop")
+                print_status("Execution stopped by user request", "warning")
+                status_manager.update(state=BuildState.PAUSED)
+                print()
+                print(muted("To resume, run the agent again."))
+                break
+
+            elif status == "paused":
+                # Phase 5: User requested pause - wait for resume command
+                emit_phase(ExecutionPhase.IDLE, "User requested pause")
+                print_status("Execution paused by user request", "info")
+                status_manager.update(state=BuildState.PAUSED)
+                print()
+                print(muted("Waiting for 'continue' command..."))
+                print(muted("Send 'continue' or 'resume' to resume execution."))
+                print(muted("Send 'stop' or 'abort' to stop completely."))
+
+                # Wait for resume or stop command
+                while True:
+                    if message_queue:
+                        user_msgs = await message_queue.get_all_messages()
+                        for msg in user_msgs:
+                            content = msg.content.strip().lower()
+                            if content in ("continue", "resume", "go", "proceed"):
+                                print_status("Resuming execution...", "success")
+                                status_manager.update(state=BuildState.BUILDING)
+                                break
+                            elif content in ("stop", "halt", "cancel", "abort"):
+                                print_status("Stopping execution...", "warning")
+                                break
+                        else:
+                            # No resume or stop command found, keep waiting
+                            await asyncio.sleep(0.5)
+                            continue
+                        # Got a command, exit the wait loop
+                        if content in ("stop", "halt", "cancel", "abort"):
+                            # Break outer loop
+                            break
+                        break
+                    else:
+                        # No message queue, can't wait for resume
+                        print_status("No message queue available, stopping", "warning")
+                        break
+                else:
+                    # User sent stop command during pause
+                    break
+
+            # Small delay between sessions
+            if max_iterations is None or iteration < max_iterations:
+                print("\nPreparing next session...\n")
+                await asyncio.sleep(1)
+
+        # Final summary
+        content = [
+            bold(f"{icon(Icons.SESSION)} SESSION SUMMARY"),
+            "",
+            f"Project: {project_dir}",
+            f"Spec: {highlight(spec_dir.name)}",
+            f"Sessions completed: {iteration}",
+        ]
         print()
-        print_status("STUCK SUBTASKS (need manual intervention):", "error")
-        for stuck in stuck_subtasks:
-            print(f"  {icon(Icons.ERROR)} {stuck['subtask_id']}: {stuck['reason']}")
+        print(box(content, width=70, style="heavy"))
+        print_progress_summary(spec_dir)
 
-    # Instructions
-    completed, total = count_subtasks(spec_dir)
-    if completed < total:
-        content = [
-            bold(f"{icon(Icons.PLAY)} NEXT STEPS"),
-            "",
-            f"{total - completed} subtasks remaining.",
-            f"Run again: {highlight(f'python auto-claude/run.py --spec {spec_dir.name}')}",
-        ]
-    else:
-        content = [
-            bold(f"{icon(Icons.SUCCESS)} NEXT STEPS"),
-            "",
-            "All subtasks completed!",
-            "  1. Review the auto-claude/* branch",
-            "  2. Run manual tests",
-            "  3. Merge to main",
-        ]
+        # Show stuck subtasks if any
+        stuck_subtasks = recovery_manager.get_stuck_subtasks()
+        if stuck_subtasks:
+            print()
+            print_status("STUCK SUBTASKS (need manual intervention):", "error")
+            for stuck in stuck_subtasks:
+                print(f"  {icon(Icons.ERROR)} {stuck['subtask_id']}: {stuck['reason']}")
 
-    print()
-    print(box(content, width=70, style="light"))
-    print()
+        # Instructions
+        completed, total = count_subtasks(spec_dir)
+        if completed < total:
+            content = [
+                bold(f"{icon(Icons.PLAY)} NEXT STEPS"),
+                "",
+                f"{total - completed} subtasks remaining.",
+                f"Run again: {highlight(f'python auto-claude/run.py --spec {spec_dir.name}')}",
+            ]
+        else:
+            content = [
+                bold(f"{icon(Icons.SUCCESS)} NEXT STEPS"),
+                "",
+                "All subtasks completed!",
+                "  1. Review the auto-claude/* branch",
+                "  2. Run manual tests",
+                "  3. Merge to main",
+            ]
 
-    # Set final status
-    if completed == total:
-        status_manager.update(state=BuildState.COMPLETE)
-    else:
-        status_manager.update(state=BuildState.PAUSED)
+        print()
+        print(box(content, width=70, style="light"))
+        print()
+
+        # Set final status
+        if completed == total:
+            status_manager.update(state=BuildState.COMPLETE)
+        else:
+            status_manager.update(state=BuildState.PAUSED)
+    finally:
+        # Clean up user message queue
+        if message_queue:
+            message_queue.stop()

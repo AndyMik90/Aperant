@@ -796,4 +796,37 @@ export class AgentProcessManager {
     // Later sources override earlier ones
     return { ...memoryEnv, ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
   }
+
+  /**
+   * Send a message to a running task's Python agent via stdin.
+   * The message will be received by the UserMessageQueue in Python
+   * and processed at the next iteration boundary.
+   */
+  sendMessageToTask(taskId: string, message: string): boolean {
+    const agentProcess = this.state.getProcess(taskId);
+    if (!agentProcess) {
+      console.warn('[AgentProcess] Cannot send message - no process found for task:', taskId);
+      return false;
+    }
+
+    if (!agentProcess.process.stdin || agentProcess.process.stdin.destroyed) {
+      console.warn('[AgentProcess] Cannot send message - stdin not available for task:', taskId);
+      return false;
+    }
+
+    try {
+      const jsonMessage = JSON.stringify({
+        type: 'user_message',
+        content: message,
+        timestamp: new Date().toISOString()
+      });
+
+      agentProcess.process.stdin.write(jsonMessage + '\n');
+      console.log('[AgentProcess] Sent message to task:', taskId, '- length:', message.length);
+      return true;
+    } catch (error) {
+      console.error('[AgentProcess] Failed to send message to task:', taskId, error);
+      return false;
+    }
+  }
 }

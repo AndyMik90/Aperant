@@ -11,6 +11,7 @@ import type { TerminalWorktreeConfig } from '../../shared/types';
 import { TERMINAL_DOM_UPDATE_DELAY_MS } from '../../shared/constants';
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { CreateWorktreeDialog } from './terminal/CreateWorktreeDialog';
+import { TaskMonitorChat } from './terminal/TaskMonitorChat';
 import { useXterm } from './terminal/useXterm';
 import { usePtyProcess } from './terminal/usePtyProcess';
 import { useTerminalEvents } from './terminal/useTerminalEvents';
@@ -65,6 +66,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   const updateTerminal = useTerminalStore((state) => state.updateTerminal);
   const setAssociatedTask = useTerminalStore((state) => state.setAssociatedTask);
   const setWorktreeConfig = useTerminalStore((state) => state.setWorktreeConfig);
+  const setIsMinimized = useTerminalStore((state) => state.setIsMinimized);
+  const setViewMode = useTerminalStore((state) => state.setViewMode);
+
+  // Get minimized state from store (for task monitors)
+  const isMinimized = terminal?.isMinimized ?? false;
+  // Get view mode for task monitors (rich chat UI vs raw terminal)
+  const viewMode = terminal?.viewMode ?? 'rich';
 
   // Use cwd from store if available (for worktree), otherwise use prop
   const effectiveCwd = terminal?.cwd || cwd;
@@ -381,8 +389,8 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
     }
   }, [terminal?.worktreeConfig?.worktreePath, settings.preferredIDE, settings.customIDEPath, toast]);
 
-  // Get backlog tasks for worktree dialog
-  const backlogTasks = tasks.filter((t) => t.status === 'backlog');
+  // Get planning tasks for worktree dialog
+  const backlogTasks = tasks.filter((t) => t.status === 'planning');
 
   // Determine border color based on Claude busy state
   // Red (busy) = Claude is actively processing
@@ -394,7 +402,9 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
     <div
       ref={setDropRef}
       className={cn(
-        'flex h-full flex-col rounded-lg border bg-[#0B0B0F] overflow-hidden transition-all relative',
+        'flex flex-col rounded-lg border bg-[#0B0B0F] overflow-hidden transition-all relative',
+        // Height: collapsed to just header when minimized, full height otherwise
+        isMinimized && terminal?.isTaskMonitor ? 'h-auto' : 'h-full',
         // Default border states
         isActive ? 'border-primary ring-1 ring-primary/20' : 'border-border',
         // File drop overlay
@@ -439,13 +449,25 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
         dragHandleListeners={dragHandleListeners}
         isExpanded={isExpanded}
         onToggleExpand={onToggleExpand}
+        isTaskMonitor={terminal?.isTaskMonitor}
+        taskId={terminal?.taskId}
+        taskStatus={terminal?.taskStatus}
+        isMinimized={isMinimized}
+        onToggleMinimize={terminal?.isTaskMonitor ? () => setIsMinimized(id, !isMinimized) : undefined}
+        viewMode={viewMode}
+        onToggleViewMode={terminal?.isTaskMonitor ? () => setViewMode(id, viewMode === 'rich' ? 'raw' : 'rich') : undefined}
       />
 
-      <div
-        ref={terminalRef}
-        className="flex-1 p-1"
-        style={{ minHeight: 0 }}
-      />
+      {/* Conditionally render rich chat UI for task monitors (when in rich mode) or regular xterm terminal */}
+      {terminal?.isTaskMonitor && viewMode === 'rich' ? (
+        <TaskMonitorChat terminal={terminal} terminalRef={terminalRef} isActive={isActive} isMinimized={isMinimized} />
+      ) : (
+        <div
+          ref={terminalRef}
+          className="flex-1 p-1"
+          style={{ minHeight: 0 }}
+        />
+      )}
 
       {/* Worktree creation dialog */}
       {projectPath && (

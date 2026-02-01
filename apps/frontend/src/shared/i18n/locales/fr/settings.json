@@ -7,7 +7,7 @@
   "sections": {
     "appearance": {
       "title": "Apparence",
-      "description": "Personnalisez l'apparence de Auto Claude"
+      "description": "Personnalisez l'apparence de Jerry"
     },
     "display": {
       "title": "Affichage",
@@ -39,7 +39,7 @@
     },
     "updates": {
       "title": "Mises à jour",
-      "description": "Mises à jour Auto Claude"
+      "description": "Mises à jour Jerry"
     },
     "notifications": {
       "title": "Notifications",
@@ -190,7 +190,7 @@
     "otherAgentSettingsDescription": "Options de configuration supplémentaires de l'agent",
     "agentFramework": "Framework de l'agent",
     "agentFrameworkDescription": "Le framework de codage utilisé pour les tâches autonomes",
-    "agentFrameworkAutoClaude": "Auto Claude",
+    "agentFrameworkAutoClaude": "Jerry",
     "aiTerminalNaming": "Nommage IA des terminaux",
     "aiTerminalNamingDescription": "Nommer automatiquement les terminaux en fonction des commandes (utilise Haiku)",
     "featureModelSettings": "Paramètres du modèle de fonctionnalité",
@@ -222,7 +222,7 @@
     "sourceBundled": "Intégré",
     "sourceFallback": "Valeur par défaut",
     "notDetected": "Non détecté",
-    "autoClaudePath": "Chemin Auto Claude",
+    "autoClaudePath": "Chemin Jerry",
     "autoClaudePathDescription": "Chemin relatif vers le répertoire auto-claude dans les projets",
     "autoClaudePathPlaceholder": "auto-claude (par défaut)",
     "autoNameTerminals": "Nommer automatiquement les terminaux",
@@ -230,7 +230,7 @@
   },
   "theme": {
     "title": "Apparence",
-    "description": "Personnalisez l'apparence de Auto Claude",
+    "description": "Personnalisez l'apparence de Jerry",
     "mode": "Mode",
     "modeDescription": "Choisir entre les thèmes clair et sombre",
     "light": "Clair",
@@ -246,14 +246,14 @@
     "detectAgain": "Détecter à nouveau",
     "ide": {
       "label": "IDE préféré",
-      "description": "Auto Claude ouvrira les worktrees dans cet éditeur",
+      "description": "Jerry ouvrira les worktrees dans cet éditeur",
       "placeholder": "Sélectionner un IDE...",
       "customPath": "Chemin IDE personnalisé",
       "customPathPlaceholder": "/chemin/vers/votre/ide"
     },
     "terminal": {
       "label": "Terminal préféré",
-      "description": "Auto Claude ouvrira les sessions terminal ici",
+      "description": "Jerry ouvrira les sessions terminal ici",
       "placeholder": "Sélectionner un terminal...",
       "customPath": "Chemin terminal personnalisé",
       "customPathPlaceholder": "/chemin/vers/votre/terminal"
@@ -270,7 +270,7 @@
   },
   "updates": {
     "title": "Mises à jour",
-    "description": "Gérer les mises à jour de Auto Claude",
+    "description": "Gérer les mises à jour de Jerry",
     "appUpdateReady": "Mise à jour de l'app prête",
     "newVersion": "Nouvelle version",
     "released": "Publiée le",
@@ -287,7 +287,7 @@
     "unableToCheck": "Impossible de vérifier les mises à jour",
     "checkForUpdates": "Vérifier les mises à jour",
     "autoUpdateProjects": "Mise à jour automatique des projets",
-    "autoUpdateProjectsDescription": "Mettre à jour automatiquement Auto Claude dans les projets quand une nouvelle version est disponible",
+    "autoUpdateProjectsDescription": "Mettre à jour automatiquement Jerry dans les projets quand une nouvelle version est disponible",
     "betaUpdates": "Mises à jour bêta",
     "betaUpdatesDescription": "Recevoir les versions bêta pré-release avec de nouvelles fonctionnalités (peut être moins stable)",
     "stableDowngradeAvailable": "Version stable disponible",
@@ -474,7 +474,7 @@
     "description": "Accédez aux logs et informations de débogage pour le dépannage",
     "errorReporting": {
       "label": "Rapports d'erreurs anonymes",
-      "description": "Envoyer des rapports de crash pour améliorer Auto Claude. Aucune donnée personnelle ni code n'est collecté."
+      "description": "Envoyer des rapports de crash pour améliorer Jerry. Aucune donnée personnelle ni code n'est collecté."
     },
     "openLogsFolder": "Ouvrir le dossier des logs",
     "copyDebugInfo": "Copier les infos de débogage",
@@ -504,7 +504,7 @@
     "noProjectSelected": "Aucun projet sélectionné",
     "noProjectSelectedDescription": "Sélectionnez un projet dans le menu déroulant pour voir et configurer les serveurs MCP.",
     "projectNotInitialized": "Projet non initialisé",
-    "projectNotInitializedDescription": "Initialisez Auto Claude pour ce projet pour configurer les serveurs MCP.",
+    "projectNotInitializedDescription": "Initialisez Jerry pour ce projet pour configurer les serveurs MCP.",
     "browserAutomation": "Automatisation du navigateur (agents QA uniquement)",
     "alwaysEnabled": "toujours activé",
     "addServer": "Ajouter un serveur",
@@ -541,7 +541,7 @@
         "description": "Automatisation du navigateur web pour les tests"
       },
       "autoClaude": {
-        "name": "Outils Auto-Claude",
+        "name": "Outils Jerry",
         "description": "Suivi de la progression du build"
       }
     },

@@ -311,6 +311,7 @@ async def test_planner_session_does_not_trigger_post_session_processing_on_retry
         _spec_dir: Path,
         _verbose: bool = False,
         phase: LogPhase = LogPhase.CODING,
+        message_queue=None,  # Phase 5: Accept message_queue parameter
     ) -> tuple[str, str]:
         assert phase == LogPhase.PLANNING
         return "error", "planner failed"
@@ -374,6 +375,7 @@ async def test_worktree_planning_to_coding_sync_updates_source_phase_status(
         spec_dir: Path,
         _verbose: bool = False,
         phase: LogPhase = LogPhase.CODING,
+        message_queue=None,  # Phase 5: Accept message_queue parameter
     ) -> tuple[str, str]:
         if phase == LogPhase.PLANNING:
             plan = {

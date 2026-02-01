@@ -602,7 +602,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
           projectId,
           title: feature.title,
           description: taskDescription,
-          status: "backlog",
+          status: "planning",
           subtasks: [],
           logs: [],
           metadata,

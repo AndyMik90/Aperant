@@ -4,11 +4,11 @@
     "tools": "Tools"
   },
   "items": {
-    "kanban": "Kanban Board",
-    "terminals": "Agent Terminals",
-    "insights": "Insights",
+    "kanban": "Kanban",
+    "terminals": "Terminals",
+    "insights": "Chat",
     "roadmap": "Roadmap",
-    "ideation": "Ideation",
+    "ideation": "Ideas",
     "changelog": "Changelog",
     "context": "Context",
     "githubIssues": "GitHub Issues",
@@ -28,7 +28,7 @@
     "help": "Help & Feedback"
   },
   "messages": {
-    "initializeToCreateTasks": "Initialize Auto Claude to create tasks"
+    "initializeToCreateTasks": "Initialize Jerry to create tasks"
   },
   "updateBanner": {
     "title": "Update Available",

@@ -26,7 +26,7 @@ export const roadmapMock = {
       projectId,
       title: 'Converted Feature',
       description: 'Feature converted from roadmap',
-      status: 'backlog' as const,
+      status: 'planning' as const,
       subtasks: [],
       logs: [],
       createdAt: new Date(),

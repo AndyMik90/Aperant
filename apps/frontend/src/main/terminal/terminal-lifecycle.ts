@@ -43,9 +43,9 @@ export async function createTerminal(
   getWindow: WindowGetter,
   dataHandler: DataHandlerFn
 ): Promise<TerminalOperationResult> {
-  const { id, cwd, cols = 80, rows = 24, projectPath } = options;
+  const { id, cwd, cols = 80, rows = 24, projectPath, isTaskMonitor, taskId, specId, taskTitle } = options;
 
-  debugLog('[TerminalLifecycle] Creating terminal:', { id, cwd, cols, rows, projectPath });
+  debugLog('[TerminalLifecycle] Creating terminal:', { id, cwd, cols, rows, projectPath, isTaskMonitor, taskId });
 
   if (terminals.has(id)) {
     debugLog('[TerminalLifecycle] Terminal already exists, returning success:', id);
@@ -53,6 +53,54 @@ export async function createTerminal(
   }
 
   try {
+    // Task monitor terminals don't need a real PTY process
+    // They're just display-only terminals that show task output
+    if (isTaskMonitor) {
+      debugLog('[TerminalLifecycle] Creating task monitor terminal:', taskId);
+
+      const terminal: TerminalProcess = {
+        id,
+        pty: null as any, // Task monitors don't have a PTY
+        isClaudeMode: false,
+        projectPath,
+        cwd: cwd || projectPath || os.homedir(),
+        outputBuffer: '',
+        title: taskTitle || `Task ${taskId}`,
+        isTaskMonitor: true,
+        taskId,
+        specId,
+        taskStatus: 'running',
+        taskProgress: 0,
+      };
+
+      terminals.set(id, terminal);
+
+      // Send initial message to the terminal
+      const window = getWindow();
+      if (window) {
+        const initMessage = `\x1b[36m=== Task Monitor: ${terminal.title} ===\x1b[0m\r\n`;
+        window.webContents.send(IPC_CHANNELS.TERMINAL_OUTPUT, id, initMessage);
+
+        // Notify renderer to add task monitor terminal to store
+        window.webContents.send(
+          IPC_CHANNELS.TASK_MONITOR_TERMINAL_CREATE,
+          {
+            id: terminal.id,
+            title: terminal.title,
+            projectPath: terminal.projectPath,
+            taskId: terminal.taskId,
+            specId: terminal.specId,
+            isTaskMonitor: true,
+            taskStatus: terminal.taskStatus || 'running',
+          }
+        );
+      }
+
+      debugLog('[TerminalLifecycle] Task monitor terminal created successfully:', id);
+      return { success: true };
+    }
+
+    // Regular terminal creation (existing code)
     const profileEnv = PtyManager.getActiveProfileEnv();
 
     if (profileEnv.CLAUDE_CODE_OAUTH_TOKEN) {

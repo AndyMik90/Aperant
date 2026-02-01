@@ -97,7 +97,7 @@ export const insightsMock = {
       specId: `00${Date.now()}-insights-task`,
       title,
       description,
-      status: 'backlog' as const,
+      status: 'planning' as const,
       subtasks: [],
       logs: [],
       createdAt: new Date(),

@@ -1,12 +1,12 @@
-# Auto Claude CLI Usage
+# Jerry CLI Usage
 
-This document covers terminal-only usage of Auto Claude. **For most users, we recommend using the [Desktop UI](#) instead** - it provides a better experience with visual task management, progress tracking, and automatic Python environment setup.
+This document covers terminal-only usage of Jerry. **For most users, we recommend using the [Desktop UI](#) instead** - it provides a better experience with visual task management, progress tracking, and automatic Python environment setup.
 
 ## When to Use CLI
 
 - You prefer terminal workflows
 - You're running on a headless server
-- You're integrating Auto Claude into scripts or CI/CD
+- You're integrating Jerry into scripts or CI/CD
 
 ## Prerequisites
 
@@ -133,7 +133,7 @@ The QA validation loop:
 
 ## Workspace Management
 
-Auto Claude uses Git worktrees for isolated builds:
+Jerry uses Git worktrees for isolated builds:
 
 ```bash
 # Test the feature in the isolated workspace

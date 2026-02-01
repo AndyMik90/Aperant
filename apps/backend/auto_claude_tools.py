@@ -1,5 +1,5 @@
 """
-Auto Claude tools module facade.
+Jerry tools module facade.
 
 Provides MCP tools for agent operations.
 Re-exports from agents.tools_pkg for clean imports.

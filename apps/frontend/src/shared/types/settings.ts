@@ -285,7 +285,7 @@ export interface AppSettings {
   sentryEnabled?: boolean;
 }
 
-// Auto-Claude Source Environment Configuration (for auto-claude repo .env)
+// Jerry Source Environment Configuration (for auto-claude repo .env)
 export interface SourceEnvConfig {
   // Claude Authentication (required for ideation, roadmap generation, etc.)
   hasClaudeToken: boolean;

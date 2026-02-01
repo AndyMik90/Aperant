@@ -1,6 +1,6 @@
-# Auto Claude Individual Contributor License Agreement
+# Jerry Individual Contributor License Agreement
 
-Thank you for your interest in contributing to Auto Claude. This Contributor License Agreement ("Agreement") documents the rights granted by contributors to the Project.
+Thank you for your interest in contributing to Jerry. This Contributor License Agreement ("Agreement") documents the rights granted by contributors to the Project.
 
 By signing this Agreement, you accept and agree to the following terms and conditions for your present and future Contributions submitted to the Project.
 
@@ -10,7 +10,7 @@ By signing this Agreement, you accept and agree to the following terms and condi
 
 **"Contribution"** means any original work of authorship, including any modifications or additions to an existing work, that is intentionally submitted by You to the Project for inclusion in, or documentation of, the Project. For the purposes of this definition, "submitted" means any form of electronic, verbal, or written communication sent to the Project or its representatives, including but not limited to communication on electronic mailing lists, source code control systems, and issue tracking systems that are managed by, or on behalf of, the Project for the purpose of discussing and improving the Project.
 
-**"Project"** means Auto Claude, a multi-agent autonomous coding framework, currently available at https://github.com/AndyMik90/Auto-Claude.
+**"Project"** means Jerry, a multi-agent autonomous coding framework, currently available at https://github.com/AndyMik90/Auto-Claude.
 
 **"Project Owner"** means Andre Mikalsen and any designated successors or assignees.
 

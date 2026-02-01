@@ -11,6 +11,7 @@
 import { BrowserWindow } from 'electron';
 import { AgentManager } from '../../agent';
 import { PythonEnvManager } from '../../python-env-manager';
+import { TerminalManager } from '../../terminal/terminal-manager';
 import { registerTaskCRUDHandlers } from './crud-handlers';
 import { registerTaskExecutionHandlers } from './execution-handlers';
 import { registerWorktreeHandlers } from './worktree-handlers';
@@ -23,13 +24,15 @@ import { registerTaskArchiveHandlers } from './archive-handlers';
 export function registerTaskHandlers(
   agentManager: AgentManager,
   pythonEnvManager: PythonEnvManager,
-  getMainWindow: () => BrowserWindow | null
+  getMainWindow: () => BrowserWindow | null,
+  terminalManager: TerminalManager
 ): void {
   // Register CRUD handlers (create, read, update, delete)
-  registerTaskCRUDHandlers(agentManager);
+  // Phase 2: CRUD handlers now need terminalManager and mainWindow to spawn planning agent at task creation
+  registerTaskCRUDHandlers(agentManager, getMainWindow, terminalManager);
 
   // Register execution handlers (start, stop, review, status management, recovery)
-  registerTaskExecutionHandlers(agentManager, getMainWindow);
+  registerTaskExecutionHandlers(agentManager, getMainWindow, terminalManager);
 
   // Register worktree handlers (status, diff, merge, discard, list)
   registerWorktreeHandlers(pythonEnvManager, getMainWindow);

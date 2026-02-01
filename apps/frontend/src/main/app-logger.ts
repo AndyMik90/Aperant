@@ -3,9 +3,9 @@
  *
  * Provides persistent, always-on logging for the main process using electron-log.
  * Logs are stored in the standard OS log directory:
- * - macOS: ~/Library/Logs/Auto-Claude/
- * - Windows: %USERPROFILE%\AppData\Roaming\Auto-Claude\logs\
- * - Linux: ~/.config/Auto-Claude/logs/
+ * - macOS: ~/Library/Logs/Jerry/
+ * - Windows: %USERPROFILE%\AppData\Roaming\Jerry\logs\
+ * - Linux: ~/.config/Jerry/logs/
  *
  * Features:
  * - Automatic file rotation (7 days, max 10MB per file)

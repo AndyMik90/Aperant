@@ -16,6 +16,11 @@ export interface TerminalCreateOptions {
   cols?: number;
   rows?: number;
   projectPath?: string;
+  /** Task monitor specific options */
+  isTaskMonitor?: boolean;
+  taskId?: string;
+  specId?: string;
+  taskTitle?: string;
 }
 
 export interface TerminalResizeOptions {
@@ -41,6 +46,11 @@ export interface TerminalSession {
   displayOrder?: number;
   /** Associated worktree configuration (validated on restore) */
   worktreeConfig?: TerminalWorktreeConfig;
+  /** Task monitor specific fields */
+  isTaskMonitor?: boolean;
+  taskId?: string;
+  specId?: string;
+  taskStatus?: 'running' | 'completed' | 'failed';
 }
 
 export interface TerminalRestoreResult {
@@ -200,8 +210,8 @@ export interface TerminalWorktreeResult {
 }
 
 /**
- * Information about a worktree not managed by Auto Claude
- * Discovered via `git worktree list` excluding Auto Claude paths
+ * Information about a worktree not managed by Jerry
+ * Discovered via `git worktree list` excluding Jerry paths
  */
 export interface OtherWorktreeInfo {
   /** Full path to the worktree */

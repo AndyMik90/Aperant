@@ -39,7 +39,6 @@ import { useTaskDetail } from './hooks/useTaskDetail';
 import { TaskMetadata } from './TaskMetadata';
 import { TaskWarnings } from './TaskWarnings';
 import { TaskSubtasks } from './TaskSubtasks';
-import { TaskLogs } from './TaskLogs';
 import { TaskFiles } from './TaskFiles';
 import { TaskReview } from './TaskReview';
 import type { Task, WorktreeCreatePROptions } from '../../../shared/types';
@@ -224,7 +223,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
         return 'success';
       case 'human_review':
         return 'purple';
-      case 'in_progress':
+      case 'coding':
         return 'info';
       default:
         return 'secondary';
@@ -273,7 +272,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
       );
     }
 
-    if (task.status === 'backlog' || task.status === 'in_progress') {
+    if (task.status === 'planning' || task.status === 'coding') {
       return (
         <Button
           variant={state.isRunning ? 'destructive' : 'default'}
@@ -383,7 +382,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                         <>
                            <Badge
                              variant={getStatusBadgeVariant(task.status, state.isStuck)}
-                             className={cn('text-xs', (task.status === 'in_progress' && !state.isStuck) && 'status-running')}
+                             className={cn('text-xs', (task.status === 'coding' && !state.isStuck) && 'status-running')}
                            >
                              {t(TASK_STATUS_LABELS[task.status])}
                            </Badge>
@@ -470,12 +469,6 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                   >
                     Subtasks ({task.subtasks.length})
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="logs"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
-                  >
-                    Logs
-                  </TabsTrigger>
                   {showFilesTab && (
                     <TabsTrigger
                       value="files"
@@ -545,21 +538,6 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                 {/* Subtasks Tab */}
                 <TabsContent value="subtasks" className="flex-1 min-h-0 overflow-hidden mt-0">
                   <TaskSubtasks task={task} />
-                </TabsContent>
-
-                {/* Logs Tab */}
-                <TabsContent value="logs" className="flex-1 min-h-0 overflow-hidden mt-0">
-                  <TaskLogs
-                    task={task}
-                    phaseLogs={state.phaseLogs}
-                    isLoadingLogs={state.isLoadingLogs}
-                    expandedPhases={state.expandedPhases}
-                    isStuck={state.isStuck}
-                    logsEndRef={state.logsEndRef}
-                    logsContainerRef={state.logsContainerRef}
-                    onLogsScroll={state.handleLogsScroll}
-                    onTogglePhase={state.togglePhase}
-                  />
                 </TabsContent>
 
                 {/* Files Tab */}

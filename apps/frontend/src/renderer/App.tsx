@@ -55,7 +55,7 @@ import { useProjectStore, loadProjects, addProject, initializeProject, removePro
 import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings, loadProfiles } from './stores/settings-store';
 import { useClaudeProfileStore } from './stores/claude-profile-store';
-import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-store';
+import { useTerminalStore, restoreTerminalSessions, recreateTaskMonitorTerminals } from './stores/terminal-store';
 import { initializeGitHubListeners } from './stores/github';
 import { initDownloadProgressListener } from './stores/download-store';
 import { GlobalDownloadIndicator } from './components/GlobalDownloadIndicator';
@@ -66,6 +66,7 @@ import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
 import { AddProjectModal } from './components/AddProjectModal';
 import { ViewStateProvider } from './contexts/ViewStateContext';
+import { NavigationProvider } from './contexts/NavigationContext';
 
 // Wrapper component for ProjectTabBar
 interface ProjectTabBarWithContextProps {
@@ -144,7 +145,7 @@ export function App() {
   const [skippedInitProjectId, setSkippedInitProjectId] = useState<string | null>(null);
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
 
-  // GitHub setup state (shown after Auto Claude init)
+  // GitHub setup state (shown after Jerry init)
   const [showGitHubSetup, setShowGitHubSetup] = useState(false);
   const [gitHubSetupProject, setGitHubSetupProject] = useState<Project | null>(null);
 
@@ -379,11 +380,27 @@ export function App() {
     // Terminals are now filtered by projectPath in TerminalGrid, so each project
     // sees only its own terminals. PTY processes stay alive across project switches.
     if (selectedProject?.path) {
+      console.log('[App] Restoring terminal sessions for project:', selectedProject.path);
       restoreTerminalSessions(selectedProject.path).catch((err) => {
         console.error('[App] Failed to restore sessions:', err);
       });
     }
   }, [activeProjectId, selectedProjectId, selectedProject?.path, selectedProject?.name]);
+
+  // Recreate task monitor terminals after tasks are loaded (only once per project)
+  useEffect(() => {
+    if (selectedProject?.path && tasks.length > 0) {
+      console.log('[App] Tasks loaded, recreating task monitor terminals with', tasks.length, 'tasks');
+      const store = useTerminalStore.getState();
+      // Pass a snapshot of current tasks to avoid dependency issues
+      const currentTasks = [...tasks];
+      recreateTaskMonitorTerminals(selectedProject.path, store, currentTasks).catch((err) => {
+        console.error('[App] Failed to recreate task monitors:', err);
+      });
+    }
+    // Only depend on tasks.length and path, NOT the tasks array itself
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks.length, selectedProject?.path]);
 
   // Apply theme on load
   useEffect(() => {
@@ -681,7 +698,7 @@ export function App() {
       } else {
         // Initialization failed - show error but keep dialog open
         console.log('[InitDialog] Initialization failed, showing error');
-        const errorMessage = result?.error || 'Failed to initialize Auto Claude. Please try again.';
+        const errorMessage = result?.error || 'Failed to initialize Jerry. Please try again.';
         setInitError(errorMessage);
         setIsInitializing(false);
       }
@@ -759,10 +776,11 @@ export function App() {
   };
 
   return (
-    <ViewStateProvider>
-      <TooltipProvider>
-        <ProactiveSwapListener />
-      <div className="flex h-screen bg-background">
+    <NavigationProvider activeView={activeView} setActiveView={setActiveView}>
+      <ViewStateProvider>
+        <TooltipProvider>
+          <ProactiveSwapListener />
+        <div className="flex h-screen bg-background">
         {/* Sidebar */}
         <Sidebar
           onSettingsClick={() => setIsSettingsDialogOpen(true)}
@@ -946,7 +964,7 @@ export function App() {
           onProjectAdded={handleProjectAdded}
         />
 
-        {/* Initialize Auto Claude Dialog */}
+        {/* Initialize Jerry Dialog */}
         <Dialog open={showInitDialog} onOpenChange={(open) => {
           console.log('[InitDialog] onOpenChange called', { open, pendingProject: !!pendingProject, isInitializing, initSuccess });
           // Only trigger skip if user manually closed the dialog
@@ -1025,7 +1043,7 @@ export function App() {
           </DialogContent>
         </Dialog>
 
-        {/* GitHub Setup Modal - shows after Auto Claude init to configure GitHub */}
+        {/* GitHub Setup Modal - shows after Jerry init to configure GitHub */}
         {gitHubSetupProject && (
           <GitHubSetupModal
             open={showGitHubSetup}
@@ -1095,5 +1113,6 @@ export function App() {
       </div>
       </TooltipProvider>
     </ViewStateProvider>
+    </NavigationProvider>
   );
 }

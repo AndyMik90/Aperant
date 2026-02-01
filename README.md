@@ -1,8 +1,8 @@
-# Auto Claude
+# Jerry
 
 **Autonomous multi-agent coding framework that plans, builds, and validates software for you.**
 
-![Auto Claude Kanban Board](.github/assets/Auto-Claude-Kanban.png)
+![Jerry Kanban Board](.github/assets/Auto-Claude-Kanban.png)
 
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green?style=flat-square)](./agpl-3.0.txt)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/KCXaPBr4Dj)
@@ -113,7 +113,7 @@ AI-assisted feature planning with competitor analysis and audience targeting.
 ## Project Structure
 
 ```
-Auto-Claude/
+Jerry/
 ├── apps/
 │   ├── backend/     # Python agents, specs, QA pipeline
 │   └── frontend/    # Electron desktop application
@@ -156,7 +156,7 @@ For Linux-specific builds (Flatpak, AppImage), see [guides/linux.md](guides/linu
 
 ## Security
 
-Auto Claude uses a three-layer security model:
+Jerry uses a three-layer security model:
 
 1. **OS Sandbox** - Bash commands run in isolation
 2. **Filesystem Restrictions** - Operations limited to project directory
@@ -209,7 +209,7 @@ We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 **AGPL-3.0** - GNU Affero General Public License v3.0
 
-Auto Claude is free to use. If you modify and distribute it, or run it as a service, your code must also be open source under AGPL-3.0.
+Jerry is free to use. If you modify and distribute it, or run it as a service, your code must also be open source under AGPL-3.0.
 
 Commercial licensing available for closed-source use cases.
 

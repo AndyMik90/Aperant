@@ -1,5 +1,5 @@
 /**
- * Shared constants for Auto Claude UI
+ * Shared constants for Jerry UI
  *
  * This file has been refactored for better organization and maintainability.
  * All constants are now organized in domain-specific modules in the constants/ directory.

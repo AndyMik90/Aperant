@@ -1,8 +1,8 @@
 {
-  "name": "auto-claude-ui",
+  "name": "jerry-ui",
   "version": "2.7.5",
   "type": "module",
-  "description": "Desktop UI for Auto Claude autonomous coding framework",
+  "description": "Desktop UI for Jerry autonomous coding framework",
   "homepage": "https://github.com/AndyMik90/Auto-Claude",
   "repository": {
     "type": "git",
@@ -10,7 +10,7 @@
   },
   "main": "./out/main/index.js",
   "author": {
-    "name": "Auto Claude Team",
+    "name": "Jerry Team",
     "email": "119136210+AndyMik90@users.noreply.github.com"
   },
   "license": "AGPL-3.0",
@@ -36,9 +36,9 @@
     "package:win": "node scripts/package-with-python.cjs --win",
     "package:linux": "node scripts/package-with-python.cjs --linux",
     "package:flatpak": "node scripts/package-with-python.cjs --linux flatpak",
-    "start:packaged:mac": "open dist/mac-arm64/Auto-Claude.app || open dist/mac/Auto-Claude.app",
-    "start:packaged:win": "start \"\" \"dist\\win-unpacked\\Auto-Claude.exe\"",
-    "start:packaged:linux": "./dist/linux-unpacked/auto-claude",
+    "start:packaged:mac": "open dist/mac-arm64/Jerry.app || open dist/mac/Jerry.app",
+    "start:packaged:win": "start \"\" \"dist\\win-unpacked\\Jerry.exe\"",
+    "start:packaged:linux": "./dist/linux-unpacked/jerry",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -138,8 +138,8 @@
     "@electron/rebuild": "4.0.2"
   },
   "build": {
-    "appId": "com.autoclaude.ui",
-    "productName": "Auto-Claude",
+    "appId": "com.jerry.ui",
+    "productName": "Jerry",
     "artifactName": "${productName}-${version}-${platform}-${arch}.${ext}",
     "publish": [
       {

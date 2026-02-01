@@ -3,6 +3,7 @@ import { arrayMove } from '@dnd-kit/sortable';
 import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment, TaskOrderState } from '../../shared/types';
 import { debugLog } from '../../shared/utils/debug-logger';
 import { isTerminalPhase } from '../../shared/constants/phase-protocol';
+import { useTerminalStore } from './terminal-store';
 
 interface TaskState {
   tasks: Task[];
@@ -10,6 +11,7 @@ interface TaskState {
   isLoading: boolean;
   error: string | null;
   taskOrder: TaskOrderState | null;  // Per-column task ordering for kanban board
+  stoppedAgents: Set<string>;  // Track which tasks have stopped agents (for UI feedback)
 
   // Actions
   setTasks: (tasks: Task[]) => void;
@@ -31,6 +33,9 @@ interface TaskState {
   loadTaskOrder: (projectId: string) => void;
   saveTaskOrder: (projectId: string) => boolean;
   clearTaskOrder: (projectId: string) => void;
+  // Track agent running state (for stop button visual feedback)
+  setAgentStopped: (taskId: string, stopped: boolean) => void;
+  isAgentStopped: (taskId: string) => boolean;
 
   // Selectors
   getSelectedTask: () => Task | undefined;
@@ -119,13 +124,23 @@ function getTaskOrderKey(projectId: string): string {
  */
 function createEmptyTaskOrder(): TaskOrderState {
   return {
-    backlog: [],
-    in_progress: [],
+    planning: [],
+    coding: [],
     ai_review: [],
     human_review: [],
     pr_created: [],
     done: []
   };
+}
+
+/**
+ * Migrate old status names to new ones for backwards compatibility
+ * backlog → planning, in_progress → coding
+ */
+function migrateTaskStatus(status: string): TaskStatus {
+  if (status === 'backlog') return 'planning';
+  if (status === 'in_progress') return 'coding';
+  return status as TaskStatus;
 }
 
 export const useTaskStore = create<TaskState>((set, get) => ({
@@ -134,13 +149,14 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   isLoading: false,
   error: null,
   taskOrder: null,
+  stoppedAgents: new Set<string>(),
 
   setTasks: (tasks) => set({ tasks }),
 
   addTask: (task) =>
     set((state) => {
       // Determine which column the task belongs to based on its status
-      const status = task.status || 'backlog';
+      const status = task.status || 'planning';
 
       // Update task order if it exists - new tasks go to top of their column
       let taskOrder = state.taskOrder;
@@ -187,14 +203,14 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           // Determine execution progress based on status transition
           let executionProgress = t.executionProgress;
 
-          if (status === 'backlog') {
-            // When status goes to backlog, reset execution progress to idle
+          if (status === 'planning') {
+            // When status goes to planning, reset execution progress to idle
             // This ensures the planning/coding animation stops when task is stopped
             executionProgress = { phase: 'idle' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
-          } else if (status === 'in_progress' && !t.executionProgress?.phase) {
-            // When starting a task and no phase is set yet, default to planning
+          } else if (status === 'coding' && !t.executionProgress?.phase) {
+            // When starting a task and no phase is set yet, default to coding execution
             // This prevents the "no active phase" UI state during startup race condition
-            executionProgress = { phase: 'planning' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
+            executionProgress = { phase: 'coding' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
           }
 
           return { ...t, status, executionProgress, updatedAt: new Date() };
@@ -331,7 +347,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
               status = 'human_review';
               reviewReason = 'errors';
             } else if (anyInProgress || anyCompleted) {
-              status = 'in_progress';
+              status = 'coding';
             }
           }
 
@@ -533,10 +549,17 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           Array.isArray(val) && val.every(item => typeof item === 'string');
 
         // Merge with empty order to handle partial data and validate each column
+        // Also handle backwards compatibility: backlog → planning, in_progress → coding
         const emptyOrder = createEmptyTaskOrder();
         const validatedOrder: TaskOrderState = {
-          backlog: isValidColumnArray(parsed.backlog) ? parsed.backlog : emptyOrder.backlog,
-          in_progress: isValidColumnArray(parsed.in_progress) ? parsed.in_progress : emptyOrder.in_progress,
+          // Migrate old 'backlog' key to new 'planning' key
+          planning: isValidColumnArray(parsed.planning) ? parsed.planning
+            : isValidColumnArray(parsed.backlog) ? parsed.backlog
+            : emptyOrder.planning,
+          // Migrate old 'in_progress' key to new 'coding' key
+          coding: isValidColumnArray(parsed.coding) ? parsed.coding
+            : isValidColumnArray(parsed.in_progress) ? parsed.in_progress
+            : emptyOrder.coding,
           ai_review: isValidColumnArray(parsed.ai_review) ? parsed.ai_review : emptyOrder.ai_review,
           human_review: isValidColumnArray(parsed.human_review) ? parsed.human_review : emptyOrder.human_review,
           pr_created: isValidColumnArray(parsed.pr_created) ? parsed.pr_created : emptyOrder.pr_created,
@@ -578,6 +601,22 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     } catch (error) {
       console.error('Failed to clear task order:', error);
     }
+  },
+
+  setAgentStopped: (taskId, stopped) => {
+    set((state) => {
+      const newSet = new Set(state.stoppedAgents);
+      if (stopped) {
+        newSet.add(taskId);
+      } else {
+        newSet.delete(taskId);
+      }
+      return { stoppedAgents: newSet };
+    });
+  },
+
+  isAgentStopped: (taskId) => {
+    return get().stoppedAgents.has(taskId);
   },
 
   getSelectedTask: () => {
@@ -641,9 +680,36 @@ export async function createTask(
 
 /**
  * Start a task
+ * Collects any pending user messages from the task's terminal and sends them with the start request
  */
 export function startTask(taskId: string, options?: { parallel?: boolean; workers?: number }): void {
-  window.electronAPI.startTask(taskId, options);
+  // Clear stopped state when starting task
+  useTaskStore.getState().setAgentStopped(taskId, false);
+
+  // Find the terminal associated with this task to collect pending user messages
+  const terminalId = `task-${taskId}`;
+  const terminal = useTerminalStore.getState().terminals.find(t => t.id === terminalId);
+
+  // Extract user messages that were added before the task started
+  const pendingMessages: string[] = [];
+  if (terminal?.messages) {
+    for (const msg of terminal.messages) {
+      if (msg.role === 'user') {
+        // Extract text content from user messages
+        for (const block of msg.content) {
+          if (block.type === 'text' && block.text) {
+            pendingMessages.push(block.text);
+          }
+        }
+      }
+    }
+  }
+
+  // Pass pending messages to the backend
+  window.electronAPI.startTask(taskId, {
+    ...options,
+    pendingMessages: pendingMessages.length > 0 ? pendingMessages : undefined
+  });
 }
 
 /**
@@ -651,6 +717,27 @@ export function startTask(taskId: string, options?: { parallel?: boolean; worker
  */
 export function stopTask(taskId: string): void {
   window.electronAPI.stopTask(taskId);
+}
+
+/**
+ * Start build: Transition a task from planning to coding phase
+ * Validates that spec.md and implementation_plan.json exist, stops planning agent, starts coding agent
+ */
+export async function startBuild(taskId: string): Promise<boolean> {
+  const store = useTaskStore.getState();
+
+  try {
+    const result = await window.electronAPI.startBuild(taskId);
+    if (result.success) {
+      store.updateTaskStatus(taskId, 'coding');
+      return true;
+    }
+    console.error('[task-store] startBuild failed:', result.error);
+    return false;
+  } catch (error) {
+    console.error('[task-store] startBuild error:', error);
+    return false;
+  }
 }
 
 /**
@@ -667,7 +754,7 @@ export async function submitReview(
   try {
     const result = await window.electronAPI.submitReview(taskId, approved, feedback, images);
     if (result.success) {
-      store.updateTaskStatus(taskId, approved ? 'done' : 'in_progress');
+      store.updateTaskStatus(taskId, approved ? 'done' : 'coding');
       return true;
     }
     return false;

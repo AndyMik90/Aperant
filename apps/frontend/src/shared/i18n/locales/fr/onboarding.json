@@ -1,11 +1,11 @@
 {
   "wizard": {
     "title": "Assistant de configuration",
-    "description": "Configurez votre environnement Auto Claude en quelques étapes simples",
+    "description": "Configurez votre environnement Jerry en quelques étapes simples",
     "helpText": "Cet assistant vous aidera à configurer votre environnement en quelques étapes. Vous pouvez configurer votre token OAuth Claude, activer les fonctionnalités de mémoire et créer votre première tâche."
   },
   "welcome": {
-    "title": "Bienvenue sur Auto Claude",
+    "title": "Bienvenue sur Jerry",
     "subtitle": "Construisez des logiciels de manière autonome avec des agents IA",
     "getStarted": "Commencer",
     "skip": "Passer la configuration",
@@ -16,7 +16,7 @@
       },
       "specDriven": {
         "title": "Workflow basé sur les specs",
-        "description": "Définissez des tâches avec des spécifications claires et laissez Auto Claude gérer l'implémentation"
+        "description": "Définissez des tâches avec des spécifications claires et laissez Jerry gérer l'implémentation"
       },
       "memory": {
         "title": "Mémoire & Contexte",
@@ -79,7 +79,7 @@
   "memory": {
     "title": "Mémoire",
     "description": "Configurer la mémoire persistante entre sessions pour les agents",
-    "contextDescription": "La mémoire Auto Claude aide à retenir le contexte entre vos sessions de code",
+    "contextDescription": "La mémoire Jerry aide à retenir le contexte entre vos sessions de code",
     "enableMemory": "Activer la mémoire",
     "enableMemoryDescription": "Mémoire persistante entre sessions utilisant LadybugDB (base de données intégrée)",
     "memoryDisabledInfo": "La mémoire est désactivée. Les informations de session seront stockées uniquement dans des fichiers locaux. Activez la mémoire pour un contexte persistant entre sessions avec recherche sémantique.",
@@ -117,13 +117,13 @@
   },
   "completion": {
     "title": "Vous êtes prêt !",
-    "subtitle": "Auto Claude est prêt à vous aider à construire des logiciels incroyables",
+    "subtitle": "Jerry est prêt à vous aider à construire des logiciels incroyables",
     "setupComplete": "Configuration terminée",
     "setupCompleteDescription": "Votre environnement est configuré et prêt. Vous pouvez commencer à créer des tâches immédiatement ou explorer l'application à votre rythme.",
     "whatsNext": "Et maintenant ?",
     "createTask": {
       "title": "Créer une tâche",
-      "description": "Commencez par créer votre première tâche pour voir Auto Claude en action.",
+      "description": "Commencez par créer votre première tâche pour voir Jerry en action.",
       "action": "Ouvrir le créateur de tâches"
     },
     "customizeSettings": {
@@ -149,7 +149,7 @@
     "done": "Terminé"
   },
   "privacy": {
-    "title": "Aidez à améliorer Auto Claude",
+    "title": "Aidez à améliorer Jerry",
     "subtitle": "Les rapports d'erreurs anonymes nous aident à corriger les bugs plus rapidement",
     "whatWeCollect": {
       "title": "Ce que nous collectons",
@@ -175,7 +175,7 @@
     "detecting": "Vérification de l'installation de Claude Code...",
     "info": {
       "title": "Qu'est-ce que Claude Code ?",
-      "description": "Claude Code est le CLI officiel d'Anthropic qui alimente les fonctionnalités IA d'Auto Claude. Il fournit une authentification sécurisée et un accès direct aux modèles Claude."
+      "description": "Claude Code est le CLI officiel d'Anthropic qui alimente les fonctionnalités IA d'Jerry. Il fournit une authentification sécurisée et un accès direct aux modèles Claude."
     },
     "status": {
       "installed": "Installé",
@@ -197,19 +197,19 @@
   },
   "devtools": {
     "title": "Outils de développement",
-    "description": "Choisissez votre IDE et terminal préférés pour travailler avec les worktrees Auto Claude",
+    "description": "Choisissez votre IDE et terminal préférés pour travailler avec les worktrees Jerry",
     "detecting": "Détection des outils installés...",
     "detectAgain": "Détecter à nouveau",
     "whyConfigure": "Pourquoi configurer ceci ?",
-    "whyConfigureDescription": "Quand Auto Claude construit des fonctionnalités dans des worktrees isolés, vous pouvez les ouvrir directement dans votre IDE ou terminal préféré pour tester et réviser les changements.",
+    "whyConfigureDescription": "Quand Jerry construit des fonctionnalités dans des worktrees isolés, vous pouvez les ouvrir directement dans votre IDE ou terminal préféré pour tester et réviser les changements.",
     "ide": {
       "label": "IDE préféré",
-      "description": "Auto Claude ouvrira les worktrees dans cet éditeur",
+      "description": "Jerry ouvrira les worktrees dans cet éditeur",
       "customPath": "Chemin IDE personnalisé"
     },
     "terminal": {
       "label": "Terminal préféré",
-      "description": "Auto Claude ouvrira les sessions terminal ici",
+      "description": "Jerry ouvrira les sessions terminal ici",
       "customPath": "Chemin terminal personnalisé"
     },
     "detectedSummary": "Détecté sur votre système :",

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This module provides AI-based conflict resolution for the Auto Claude merge system. The code has been refactored from a single 665-line file into a well-organized package with clear separation of concerns.
+This module provides AI-based conflict resolution for the Jerry merge system. The code has been refactored from a single 665-line file into a well-organized package with clear separation of concerns.
 
 ## Architecture
 

@@ -1,6 +1,6 @@
 # Task Logger Package
 
-A modular, well-organized logging system for Auto Claude tasks with persistent storage and real-time UI updates.
+A modular, well-organized logging system for Jerry tasks with persistent storage and real-time UI updates.
 
 ## Package Structure
 

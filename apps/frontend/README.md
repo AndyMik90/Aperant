@@ -1,6 +1,6 @@
-# Auto Claude UI - Frontend
+# Jerry UI - Frontend
 
-A modern Electron + React desktop application for the Auto Claude autonomous coding framework.
+A modern Electron + React desktop application for the Jerry autonomous coding framework.
 
 ## Prerequisites
 

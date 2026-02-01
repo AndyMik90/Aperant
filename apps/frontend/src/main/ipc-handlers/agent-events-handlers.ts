@@ -18,6 +18,7 @@ import type {
 } from "../../shared/types";
 import { AgentManager } from "../agent";
 import type { ProcessType, ExecutionProgressData } from "../agent";
+import { TerminalManager } from "../terminal/terminal-manager";
 import { titleGenerator } from "../title-generator";
 import { fileWatcher } from "../file-watcher";
 import { projectStore } from "../project-store";
@@ -26,6 +27,29 @@ import { persistPlanStatusSync, getPlanPath } from "./task/plan-file-utils";
 import { findTaskWorktree } from "../worktree-paths";
 import { findTaskAndProject } from "./task/shared";
 import { safeSendToRenderer } from "./utils";
+import { SDKOutputParser } from "../agent/parsers/sdk-output-parser";
+
+// Track SDK output parsers per task for stateful parsing
+const taskParsers = new Map<string, SDKOutputParser>();
+
+/**
+ * Get or create an SDK output parser for a task
+ */
+function getTaskParser(taskId: string): SDKOutputParser {
+  let parser = taskParsers.get(taskId);
+  if (!parser) {
+    parser = new SDKOutputParser();
+    taskParsers.set(taskId, parser);
+  }
+  return parser;
+}
+
+/**
+ * Clean up parser for a task when it exits
+ */
+function cleanupTaskParser(taskId: string): void {
+  taskParsers.delete(taskId);
+}
 
 /**
  * Validates status transitions to prevent invalid state changes.
@@ -105,7 +129,8 @@ function validateStatusTransition(
  */
 export function registerAgenteventsHandlers(
   agentManager: AgentManager,
-  getMainWindow: () => BrowserWindow | null
+  getMainWindow: () => BrowserWindow | null,
+  terminalManager: TerminalManager
 ): void {
   // ============================================
   // Agent Manager Events → Renderer
@@ -115,6 +140,27 @@ export function registerAgenteventsHandlers(
     // Include projectId for multi-project filtering (issue #723)
     const { project } = findTaskAndProject(taskId);
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_LOG, taskId, log, project?.id);
+
+    // Also forward log to task monitor terminal if it exists
+    const terminalId = `task-${taskId}`;
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      // Format log for terminal display (add newline)
+      const terminalOutput = `${log}\r\n`;
+      mainWindow.webContents.send(IPC_CHANNELS.TERMINAL_OUTPUT, terminalId, terminalOutput);
+
+      // Parse and emit structured blocks for rich UI
+      // This allows TaskMonitorChat to receive pre-parsed blocks
+      const parser = getTaskParser(taskId);
+      const structuredBlock = parser.parse(log);
+      if (structuredBlock) {
+        mainWindow.webContents.send(
+          IPC_CHANNELS.TERMINAL_STRUCTURED_OUTPUT,
+          terminalId,
+          structuredBlock
+        );
+      }
+    }
   });
 
   agentManager.on("error", (taskId: string, error: string) => {
@@ -152,6 +198,9 @@ export function registerAgenteventsHandlers(
     }
 
     fileWatcher.unwatch(taskId);
+
+    // Clean up structured output parser for this task
+    cleanupTaskParser(taskId);
 
     if (processType === "spec-creation") {
       console.warn(`[Task ${taskId}] Spec creation completed with code ${code}`);
@@ -224,7 +273,7 @@ export function registerAgenteventsHandlers(
           // This prevents tasks from getting stuck in ai_review status
           // FIX (ACS-71): Only move to human_review if subtasks exist AND are all completed
           // If no subtasks exist, the task is still in planning and shouldn't move to human_review
-          const isActiveStatus = task.status === "in_progress" || task.status === "ai_review";
+          const isActiveStatus = task.status === "coding" || task.status === "ai_review";
           const hasSubtasks = task.subtasks && task.subtasks.length > 0;
           const hasIncompleteSubtasks =
             hasSubtasks && task.subtasks.some((s) => s.status !== "completed");
@@ -284,8 +333,8 @@ export function registerAgenteventsHandlers(
 
     const phaseToStatus: Record<string, TaskStatus | null> = {
       idle: null,
-      planning: "in_progress",
-      coding: "in_progress",
+      planning: "coding",
+      coding: "coding",
       qa_review: "ai_review",
       qa_fixing: "ai_review",
       complete: "human_review",

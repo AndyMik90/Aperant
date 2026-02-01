@@ -1,16 +1,18 @@
 {
   "refreshTasks": "Refresh Tasks",
   "status": {
-    "backlog": "Backlog",
+    "planning": "Planning",
+    "coding": "Coding",
     "todo": "To Do",
-    "in_progress": "In Progress",
     "review": "Review",
     "prCreated": "PR Created",
     "complete": "Complete",
     "archived": "Archived"
   },
   "actions": {
-    "start": "Start",
+    "start": "Run",
+    "run": "Run",
+    "startBuild": "Start Build",
     "stop": "Stop",
     "recover": "Recover",
     "resume": "Resume",
@@ -42,7 +44,11 @@
   "tooltips": {
     "archiveTask": "Archive task",
     "archiveAllDone": "Archive all done tasks",
-    "viewPR": "Open pull request in browser"
+    "viewPR": "Open pull request in browser",
+    "viewTerminal": "View task terminal",
+    "stopPlanningAgent": "Stop the planning agent",
+    "resumePlanningAgent": "Resume the planning agent",
+    "startBuild": "Start building - transition to coding phase"
   },
   "creation": {
     "title": "Create New Task",
@@ -54,18 +60,18 @@
     "description": "Create your first task to get started"
   },
   "columns": {
-    "backlog": "Planning",
-    "in_progress": "In Progress",
+    "planning": "Planning",
+    "coding": "Coding",
     "ai_review": "AI Review",
     "human_review": "Human Review",
     "done": "Done",
     "pr_created": "PR Created"
   },
   "kanban": {
-    "emptyBacklog": "No tasks planned",
-    "emptyBacklogHint": "Add a task to get started",
-    "emptyInProgress": "Nothing running",
-    "emptyInProgressHint": "Start a task from Backlog",
+    "emptyPlanning": "No tasks planned",
+    "emptyPlanningHint": "Add a task to get started",
+    "emptyCoding": "Nothing running",
+    "emptyCodingHint": "Click 'Run' on a planned task",
     "emptyAiReview": "No tasks in review",
     "emptyAiReviewHint": "AI will review completed tasks",
     "emptyHumanReview": "Nothing to review",
@@ -75,7 +81,7 @@
     "emptyDefault": "No tasks",
     "dropHere": "Drop here",
     "showArchived": "Show archived",
-    "addTaskAriaLabel": "Add new task to backlog",
+    "addTaskAriaLabel": "Add new task to planning",
     "closeTaskDetailsAriaLabel": "Close task details",
     "editTask": "Edit task",
     "cannotEditWhileRunning": "Cannot edit while task is running",

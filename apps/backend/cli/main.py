@@ -1,8 +1,8 @@
 """
-Auto Claude CLI - Main Entry Point
+Jerry CLI - Main Entry Point
 ===================================
 
-Command-line interface for the Auto Claude autonomous coding framework.
+Command-line interface for the Jerry autonomous coding framework.
 """
 
 import argparse
@@ -49,7 +49,7 @@ from .workspace_commands import (
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Auto Claude Framework - Autonomous multi-session coding agent",
+        description="Jerry Framework - Autonomous multi-session coding agent",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

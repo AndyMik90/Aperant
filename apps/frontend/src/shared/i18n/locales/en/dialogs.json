@@ -1,23 +1,23 @@
 {
   "initialize": {
-    "title": "Initialize Auto Claude",
-    "description": "This project doesn't have Auto Claude initialized. Would you like to set it up now?",
+    "title": "Initialize Jerry",
+    "description": "This project doesn't have Jerry initialized. Would you like to set it up now?",
     "willDo": "This will:",
     "createFolder": "Create a .auto-claude folder in your project",
-    "copyFramework": "Copy the Auto Claude framework files",
+    "copyFramework": "Copy the Jerry framework files",
     "setupSpecs": "Set up the specs directory for your tasks",
     "sourcePathNotConfigured": "Source path not configured",
-    "sourcePathNotConfiguredDescription": "Please set the Auto Claude source path in App Settings before initializing.",
+    "sourcePathNotConfiguredDescription": "Please set the Jerry source path in App Settings before initializing.",
     "initFailed": "Initialization Failed",
-    "initFailedDescription": "Failed to initialize Auto Claude. Please try again."
+    "initFailedDescription": "Failed to initialize Jerry. Please try again."
   },
   "gitSetup": {
     "title": "Git Repository Required",
-    "description": "Auto Claude uses git to safely build features in isolated workspaces",
+    "description": "Jerry uses git to safely build features in isolated workspaces",
     "notGitRepo": "This folder is not a git repository",
     "noCommits": "Git repository has no commits",
-    "needsInit": "Git needs to be initialized before Auto Claude can manage your code.",
-    "needsCommit": "At least one commit is required for Auto Claude to create worktrees.",
+    "needsInit": "Git needs to be initialized before Jerry can manage your code.",
+    "needsCommit": "At least one commit is required for Jerry to create worktrees.",
     "willSetup": "We'll set up git for you:",
     "initRepo": "Initialize a new git repository",
     "createCommit": "Create an initial commit with your current files",
@@ -25,20 +25,20 @@
     "settingUp": "Setting up Git",
     "initializingRepo": "Initializing git repository and creating initial commit...",
     "success": "Git Initialized",
-    "readyToUse": "Your project is now ready to use with Auto Claude!"
+    "readyToUse": "Your project is now ready to use with Jerry!"
   },
   "githubSetup": {
     "connectTitle": "Connect to GitHub",
-    "connectDescription": "Auto Claude requires GitHub to manage your code branches and keep tasks up to date.",
+    "connectDescription": "Jerry requires GitHub to manage your code branches and keep tasks up to date.",
     "claudeTitle": "Connect to Claude AI",
-    "claudeDescription": "Auto Claude uses Claude AI for intelligent features like Roadmap generation, Task automation, and Ideation.",
+    "claudeDescription": "Jerry uses Claude AI for intelligent features like Roadmap generation, Task automation, and Ideation.",
     "selectRepo": "Select Repository",
-    "repoDescription": "Auto Claude will use this repository for managing task branches and keeping your code up to date.",
+    "repoDescription": "Jerry will use this repository for managing task branches and keeping your code up to date.",
     "selectBranch": "Select Base Branch",
-    "branchDescription": "Choose which branch Auto Claude should use as the base for creating task branches.",
+    "branchDescription": "Choose which branch Jerry should use as the base for creating task branches.",
     "whyBranch": "Why select a branch?",
-    "branchExplanation": "Auto Claude creates isolated workspaces for each task. Selecting the right base branch ensures your tasks start with the latest code from your main development line.",
-    "ready": "Auto Claude is ready to use! You can now create tasks that will be automatically based on the {{branchName}} branch.",
+    "branchExplanation": "Jerry creates isolated workspaces for each task. Selecting the right base branch ensures your tasks start with the latest code from your main development line.",
+    "ready": "Jerry is ready to use! You can now create tasks that will be automatically based on the {{branchName}} branch.",
     "createRepoAriaLabel": "Create new repository on GitHub",
     "linkRepoAriaLabel": "Link to existing repository",
     "goBackAriaLabel": "Go back to repository selection",
@@ -48,9 +48,9 @@
   },
   "worktrees": {
     "title": "Worktrees",
-    "description": "Manage isolated workspaces for your Auto Claude tasks",
+    "description": "Manage isolated workspaces for your Jerry tasks",
     "empty": "No Worktrees",
-    "emptyDescription": "Worktrees are created automatically when Auto Claude builds features. They provide isolated workspaces for each task.",
+    "emptyDescription": "Worktrees are created automatically when Jerry builds features. They provide isolated workspaces for each task.",
     "merge": "Merge Worktree",
     "mergeDescription": "Merge changes from this worktree into the base branch.",
     "delete": "Delete Worktree?",
@@ -72,7 +72,7 @@
     "errorDescription": "Failed to cleanup worktree. Please try again."
   },
   "update": {
-    "title": "Auto Claude",
+    "title": "Jerry",
     "projectInitialized": "Project is initialized."
   },
   "addFeature": {
@@ -151,7 +151,7 @@
   },
   "appUpdate": {
     "title": "App Update Available",
-    "description": "A new version of Auto Claude is ready to download",
+    "description": "A new version of Jerry is ready to download",
     "newVersion": "New Version",
     "released": "Released",
     "downloading": "Downloading...",

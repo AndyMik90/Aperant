@@ -14,12 +14,15 @@ interface TerminalTitleProps {
   associatedTask?: Task;
   onTitleChange: (newTitle: string) => void;
   terminalCount?: number;
+  /** Whether this is a task monitor (shows full title without truncation) */
+  isTaskMonitor?: boolean;
 }
 
-export function TerminalTitle({ title, associatedTask, onTitleChange, terminalCount = 1 }: TerminalTitleProps) {
+export function TerminalTitle({ title, associatedTask, onTitleChange, terminalCount = 1, isTaskMonitor }: TerminalTitleProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
-  const maxWidthClass = getTitleMaxWidthClass(terminalCount);
+  // Task monitors show full title, regular terminals use max-width based on count
+  const maxWidthClass = isTaskMonitor ? '' : getTitleMaxWidthClass(terminalCount);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleStartEdit = useCallback(() => {

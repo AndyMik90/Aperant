@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { IPCResult, Task, TaskMetadata } from '../../../shared/types';
 import path from 'path';
@@ -6,12 +6,22 @@ import { existsSync, readFileSync, writeFileSync, readdirSync, mkdirSync } from 
 import { projectStore } from '../../project-store';
 import { titleGenerator } from '../../title-generator';
 import { AgentManager } from '../../agent';
+import { TerminalManager } from '../../terminal/terminal-manager';
+import { checkGitStatus } from '../../project-initializer';
+import { initializeClaudeProfileManager } from '../../claude-profile-manager';
 import { findTaskAndProject } from './shared';
+import { fileWatcher } from '../../file-watcher';
 
 /**
  * Register task CRUD (Create, Read, Update, Delete) handlers
+ *
+ * Phase 2: Now receives terminalManager and getMainWindow to spawn planning agent at task creation
  */
-export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
+export function registerTaskCRUDHandlers(
+  agentManager: AgentManager,
+  getMainWindow: () => BrowserWindow | null,
+  terminalManager: TerminalManager
+): void {
   /**
    * List all tasks for a project
    */
@@ -186,7 +196,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         projectId,
         title: finalTitle,
         description,
-        status: 'backlog',
+        status: 'planning',
         subtasks: [],
         logs: [],
         metadata: taskMetadata,
@@ -196,6 +206,97 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
 
       // Invalidate cache since a new task was created
       projectStore.invalidateTasksCache(projectId);
+
+      // =====================================================================
+      // PHASE 2: Agent at Task Creation
+      // Spawn planning agent and create task monitor terminal immediately
+      // =====================================================================
+      const mainWindow = getMainWindow();
+
+      // Check prerequisites before spawning agent
+      const gitStatus = checkGitStatus(project.path);
+      const canSpawnAgent = gitStatus.isGitRepo && gitStatus.hasCommits;
+
+      // Check authentication
+      let hasAuth = false;
+      try {
+        const profileManager = await initializeClaudeProfileManager();
+        hasAuth = profileManager.hasValidAuth();
+      } catch (error) {
+        console.warn('[TASK_CREATE] Failed to check auth, will skip planning agent:', error);
+      }
+
+      if (canSpawnAgent && hasAuth && mainWindow) {
+        console.log('[TASK_CREATE] Phase 2: Spawning planning agent for task:', specId);
+
+        // Create task monitor terminal ID
+        const terminalId = `task-${specId}`;
+
+        // Notify renderer to add terminal to store
+        mainWindow.webContents.send(
+          IPC_CHANNELS.TASK_MONITOR_TERMINAL_CREATE,
+          {
+            id: terminalId,
+            title: finalTitle,
+            projectPath: project.path,
+            taskId: specId,
+            specId: specId,
+            isTaskMonitor: true,
+            taskStatus: 'running', // Planning agent is "running" in planning mode
+          }
+        );
+
+        // Create the virtual terminal in main process (for output streaming)
+        const terminalResult = await terminalManager.create({
+          id: terminalId,
+          cwd: project.path,
+          projectPath: project.path,
+          isTaskMonitor: true,
+          taskId: specId,
+          specId: specId,
+          taskTitle: finalTitle,
+        });
+
+        if (!terminalResult.success) {
+          console.error('[TASK_CREATE] Failed to create task monitor terminal:', terminalResult.error);
+        }
+
+        // Get base branch: task-level override takes precedence over project settings
+        const baseBranch = taskMetadata?.baseBranch || project.settings?.mainBranch;
+
+        // Start file watcher BEFORE starting agent so we detect spec.md and implementation_plan.json changes
+        // This is critical for updating the task UI with subtasks as they are created
+        fileWatcher.watch(specId, specDir);
+        console.log('[TASK_CREATE] File watcher started for spec dir:', specDir);
+
+        // Start the planning agent (does NOT auto-continue to coding)
+        // The agent will create the worktree and spec.md, then wait for user approval
+        const agentStarted = await agentManager.startPlanningAgent(
+          specId,
+          project.path,
+          description,
+          specDir,
+          taskMetadata,
+          baseBranch
+        );
+
+        if (agentStarted) {
+          console.log('[TASK_CREATE] Planning agent started successfully');
+        } else {
+          console.warn('[TASK_CREATE] Planning agent failed to start, task created without agent');
+        }
+      } else {
+        // Log why agent wasn't spawned (for debugging)
+        if (!gitStatus.isGitRepo) {
+          console.log('[TASK_CREATE] Skipping planning agent: not a git repo');
+        } else if (!gitStatus.hasCommits) {
+          console.log('[TASK_CREATE] Skipping planning agent: no commits');
+        } else if (!hasAuth) {
+          console.log('[TASK_CREATE] Skipping planning agent: no valid auth');
+        } else if (!mainWindow) {
+          console.log('[TASK_CREATE] Skipping planning agent: no main window');
+        }
+      }
 
       return { success: true, data: task };
     }

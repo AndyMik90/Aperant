@@ -68,17 +68,17 @@ interface NavItem {
   shortcut?: string;
 }
 
-// Base nav items always shown
+// Base nav items always shown (Chat first since workflow starts there)
 const baseNavItems: NavItem[] = [
+  { id: 'insights', labelKey: 'navigation:items.insights', icon: Sparkles, shortcut: 'N' },
   { id: 'kanban', labelKey: 'navigation:items.kanban', icon: LayoutGrid, shortcut: 'K' },
   { id: 'terminals', labelKey: 'navigation:items.terminals', icon: Terminal, shortcut: 'A' },
-  { id: 'insights', labelKey: 'navigation:items.insights', icon: Sparkles, shortcut: 'N' },
+  { id: 'worktrees', labelKey: 'navigation:items.worktrees', icon: GitBranch, shortcut: 'W' },
   { id: 'roadmap', labelKey: 'navigation:items.roadmap', icon: Map, shortcut: 'D' },
   { id: 'ideation', labelKey: 'navigation:items.ideation', icon: Lightbulb, shortcut: 'I' },
   { id: 'changelog', labelKey: 'navigation:items.changelog', icon: FileText, shortcut: 'L' },
   { id: 'context', labelKey: 'navigation:items.context', icon: BookOpen, shortcut: 'C' },
-  { id: 'agent-tools', labelKey: 'navigation:items.agentTools', icon: Wrench, shortcut: 'M' },
-  { id: 'worktrees', labelKey: 'navigation:items.worktrees', icon: GitBranch, shortcut: 'W' }
+  { id: 'agent-tools', labelKey: 'navigation:items.agentTools', icon: Wrench, shortcut: 'M' }
 ];
 
 // GitHub nav items shown when GitHub is enabled
@@ -293,16 +293,6 @@ export function Sidebar({
   return (
     <TooltipProvider>
       <div className="flex h-full w-64 flex-col bg-sidebar border-r border-border">
-        {/* Header with drag area - extra top padding for macOS traffic lights */}
-        <div className="electron-drag flex h-14 items-center px-4 pt-6">
-          <span className="electron-no-drag text-lg font-bold text-primary">Auto Claude</span>
-        </div>
-
-        <Separator className="mt-2" />
-
-
-        <Separator />
-
         {/* Navigation */}
         <ScrollArea className="flex-1">
           <div className="px-3 py-4">
@@ -379,7 +369,7 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* Initialize Auto Claude Dialog */}
+      {/* Initialize Jerry Dialog */}
       <Dialog open={showInitDialog} onOpenChange={(open) => {
         // Only allow closing if user manually closes (not during initialization)
         if (!open && !isInitializing) {

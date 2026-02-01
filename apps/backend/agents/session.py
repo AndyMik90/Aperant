@@ -4,10 +4,16 @@ Agent Session Management
 
 Handles running agent sessions and post-session processing including
 memory updates, recovery tracking, and Linear integration.
+
+SDK Message Streaming:
+This module emits __SDK_MSG__ markers for the rich task monitor UI.
+See docs/TASK_MONITOR_ARCHITECTURE.md for details.
 """
 
+import json
 import logging
 from pathlib import Path
+from typing import Any
 
 from claude_agent_sdk import ClaudeSDKClient
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
@@ -22,11 +28,7 @@ from progress import (
 )
 from recovery import RecoveryManager
 from security.tool_input_validator import get_safe_tool_input
-from task_logger import (
-    LogEntryType,
-    LogPhase,
-    get_task_logger,
-)
+from task_logger import LogPhase
 from ui import (
     StatusManager,
     muted,
@@ -34,7 +36,14 @@ from ui import (
     print_status,
 )
 
+from .memory_handlers import MemoryHandlers
 from .memory_manager import save_session_memory
+from .user_message_queue import (
+    UserMessageQueue,
+    is_control_command,
+    is_pause_command,
+    is_stop_command,
+)
 from .utils import (
     find_subtask_in_plan,
     get_commit_count,
@@ -44,6 +53,22 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def emit_sdk_msg(msg_type: str, data: dict[str, Any]) -> None:
+    """
+    Emit an SDK message marker for the rich task monitor UI.
+
+    Format: __SDK_MSG__:{"type": "...", ...data}
+
+    This is parsed by the frontend's sdk-output-parser.ts to render
+    Claude Code-style UI components (thinking blocks, diffs, etc.)
+    """
+    try:
+        payload = {"type": msg_type, **data}
+        print(f"__SDK_MSG__:{json.dumps(payload)}", flush=True)
+    except Exception:
+        pass  # Don't break execution if emit fails
 
 
 async def post_session_processing(
@@ -317,9 +342,10 @@ async def run_agent_session(
     spec_dir: Path,
     verbose: bool = False,
     phase: LogPhase = LogPhase.CODING,
+    message_queue: UserMessageQueue | None = None,
 ) -> tuple[str, str]:
     """
-    Run a single agent session using Claude Agent SDK.
+    Run a single agent session using Claude Agent SDK with interruptible execution.
 
     Args:
         client: Claude SDK client
@@ -327,11 +353,14 @@ async def run_agent_session(
         spec_dir: Spec directory path
         verbose: Whether to show detailed output
         phase: Current execution phase for logging
+        message_queue: Optional message queue for user interrupts during execution
 
     Returns:
         (status, response_text) where status is:
         - "continue" if agent should continue working
         - "complete" if all subtasks complete
+        - "paused" if user requested pause
+        - "stopped" if user requested stop
         - "error" if an error occurred
     """
     debug_section("session", f"Agent Session - {phase.value}")
@@ -345,9 +374,9 @@ async def run_agent_session(
     )
     print("Sending prompt to Claude Agent SDK...\n")
 
-    # Get task logger for this spec
-    task_logger = get_task_logger(spec_dir)
+    # Track tool state for matching results to tool calls
     current_tool = None
+    current_tool_id = None
     message_count = 0
     tool_count = 0
 
@@ -369,72 +398,57 @@ async def run_agent_session(
                 msg_type=msg_type,
             )
 
-            # Handle AssistantMessage (text and tool use)
+            # Handle AssistantMessage (text, thinking, and tool use)
             if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                 for block in msg.content:
                     block_type = type(block).__name__
 
                     if block_type == "TextBlock" and hasattr(block, "text"):
                         response_text += block.text
+                        # Emit SDK message for rich UI streaming
+                        emit_sdk_msg("text", {"content": block.text})
+                        # Also print for terminal output
                         print(block.text, end="", flush=True)
-                        # Log text to task logger (persist without double-printing)
-                        if task_logger and block.text.strip():
-                            task_logger.log(
-                                block.text,
-                                LogEntryType.TEXT,
-                                phase,
-                                print_to_console=False,
-                            )
+
+                    elif block_type == "ThinkingBlock" and hasattr(block, "thinking"):
+                        # NEW: Handle thinking blocks for rich UI
+                        thinking_content = block.thinking
+                        signature = getattr(block, "signature", "")
+                        emit_sdk_msg("thinking", {
+                            "content": thinking_content,
+                            "signature": signature,
+                        })
+                        debug(
+                            "session",
+                            "Thinking block received",
+                            thinking_length=len(thinking_content),
+                        )
+
                     elif block_type == "ToolUseBlock" and hasattr(block, "name"):
                         tool_name = block.name
-                        tool_input_display = None
                         tool_count += 1
 
-                        # Safely extract tool input (handles None, non-dict, etc.)
+                        # Get FULL tool input (not truncated!)
                         inp = get_safe_tool_input(block)
+                        tool_id = getattr(block, "id", "")
 
-                        # Extract meaningful tool input for display
-                        if inp:
-                            if "pattern" in inp:
-                                tool_input_display = f"pattern: {inp['pattern']}"
-                            elif "file_path" in inp:
-                                fp = inp["file_path"]
-                                if len(fp) > 50:
-                                    fp = "..." + fp[-47:]
-                                tool_input_display = fp
-                            elif "command" in inp:
-                                cmd = inp["command"]
-                                if len(cmd) > 50:
-                                    cmd = cmd[:47] + "..."
-                                tool_input_display = cmd
-                            elif "path" in inp:
-                                tool_input_display = inp["path"]
+                        # Emit SDK message with FULL input for rich UI streaming
+                        emit_sdk_msg("tool_use", {
+                            "id": tool_id,
+                            "name": tool_name,
+                            "input": inp,
+                        })
 
                         debug(
                             "session",
                             f"Tool call #{tool_count}: {tool_name}",
-                            tool_input=tool_input_display,
+                            tool_id=tool_id,
                             full_input=str(inp)[:500] if inp else None,
                         )
 
-                        # Log tool start (handles printing too)
-                        if task_logger:
-                            task_logger.tool_start(
-                                tool_name,
-                                tool_input_display,
-                                phase,
-                                print_to_console=True,
-                            )
-                        else:
-                            print(f"\n[Tool: {tool_name}]", flush=True)
-
-                        if verbose and hasattr(block, "input"):
-                            input_str = str(block.input)
-                            if len(input_str) > 300:
-                                print(f"   Input: {input_str[:300]}...", flush=True)
-                            else:
-                                print(f"   Input: {input_str}", flush=True)
+                        # Track current tool for result matching
                         current_tool = tool_name
+                        current_tool_id = tool_id
 
             # Handle UserMessage (tool results)
             elif msg_type == "UserMessage" and hasattr(msg, "content"):
@@ -444,79 +458,108 @@ async def run_agent_session(
                     if block_type == "ToolResultBlock":
                         result_content = getattr(block, "content", "")
                         is_error = getattr(block, "is_error", False)
+                        tool_use_id = getattr(block, "tool_use_id", "")
 
-                        # Check if this is an error (not just content containing "blocked")
-                        if is_error and "blocked" in str(result_content).lower():
-                            # Actual blocked command by security hook
-                            debug_error(
-                                "session",
-                                f"Tool BLOCKED: {current_tool}",
-                                result=str(result_content)[:300],
-                            )
-                            print(f"   [BLOCKED] {result_content}", flush=True)
-                            if task_logger and current_tool:
-                                task_logger.tool_end(
-                                    current_tool,
-                                    success=False,
-                                    result="BLOCKED",
-                                    detail=str(result_content),
-                                    phase=phase,
-                                )
-                        elif is_error:
-                            # Show errors (truncated)
-                            error_str = str(result_content)[:500]
+                        # Emit SDK message with FULL result for rich UI
+                        # Truncate very large results (>100KB) to prevent JSON issues
+                        result_str = str(result_content)
+                        if len(result_str) > 102400:
+                            result_str = result_str[:102400] + f"\n\n... [truncated - {len(str(result_content))} chars total]"
+
+                        emit_sdk_msg("tool_result", {
+                            "tool_use_id": tool_use_id,
+                            "name": current_tool or "",
+                            "content": result_str,
+                            "is_error": is_error,
+                        })
+
+                        # Debug logging
+                        if is_error:
                             debug_error(
                                 "session",
                                 f"Tool error: {current_tool}",
-                                error=error_str[:200],
+                                error=str(result_content)[:200],
                             )
-                            print(f"   [Error] {error_str}", flush=True)
-                            if task_logger and current_tool:
-                                # Store full error in detail for expandable view
-                                task_logger.tool_end(
-                                    current_tool,
-                                    success=False,
-                                    result=error_str[:100],
-                                    detail=str(result_content),
-                                    phase=phase,
-                                )
                         else:
-                            # Tool succeeded
                             debug_detailed(
                                 "session",
                                 f"Tool success: {current_tool}",
                                 result_length=len(str(result_content)),
                             )
-                            if verbose:
-                                result_str = str(result_content)[:200]
-                                print(f"   [Done] {result_str}", flush=True)
-                            else:
-                                print("   [Done]", flush=True)
-                            if task_logger and current_tool:
-                                # Store full result in detail for expandable view (only for certain tools)
-                                # Skip storing for very large outputs like Glob results
-                                detail_content = None
-                                if current_tool in (
-                                    "Read",
-                                    "Grep",
-                                    "Bash",
-                                    "Edit",
-                                    "Write",
-                                ):
-                                    result_str = str(result_content)
-                                    # Only store if not too large (detail truncation happens in logger)
-                                    if (
-                                        len(result_str) < 50000
-                                    ):  # 50KB max before truncation
-                                        detail_content = result_str
-                                task_logger.tool_end(
-                                    current_tool,
-                                    success=True,
-                                    detail=detail_content,
-                                    phase=phase,
-                                )
 
                         current_tool = None
+
+                        # PHASE 5: Check for user interrupts after each tool result
+                        # This is a safe point - the tool call has completed
+                        if message_queue and message_queue.has_messages():
+                            user_msgs = await message_queue.get_all_messages()
+                            for user_msg in user_msgs:
+                                content = user_msg.content.strip()
+
+                                # Check for control commands
+                                if is_stop_command(content):
+                                    print(f"\n[User interrupt: STOP requested]")
+                                    emit_sdk_msg("interrupt", {
+                                        "type": "stop",
+                                        "message": content,
+                                    })
+                                    debug(
+                                        "session",
+                                        "User requested STOP",
+                                        message=content,
+                                    )
+                                    # Save interrupt state to memory
+                                    try:
+                                        memory_handlers = MemoryHandlers(spec_dir)
+                                        memory_handlers.save_interrupt_state(
+                                            status="STOPPED",
+                                            user_message=content,
+                                        )
+                                    except Exception as e:
+                                        logger.warning(f"Failed to save interrupt state: {e}")
+                                    return "stopped", response_text
+
+                                if is_pause_command(content):
+                                    print(f"\n[User interrupt: PAUSE requested]")
+                                    emit_sdk_msg("interrupt", {
+                                        "type": "pause",
+                                        "message": content,
+                                    })
+                                    debug(
+                                        "session",
+                                        "User requested PAUSE",
+                                        message=content,
+                                    )
+                                    # Save interrupt state to memory
+                                    try:
+                                        memory_handlers = MemoryHandlers(spec_dir)
+                                        memory_handlers.save_interrupt_state(
+                                            status="PAUSED",
+                                            user_message=content,
+                                        )
+                                    except Exception as e:
+                                        logger.warning(f"Failed to save interrupt state: {e}")
+                                    return "paused", response_text
+
+                                # Regular message (not a control command)
+                                # Save user feedback to memory for the agent to see on next iteration
+                                if not is_control_command(content):
+                                    print(f"\n[User feedback received: {content[:100]}...]")
+                                    emit_sdk_msg("user_feedback", {
+                                        "content": content,
+                                        "timestamp": user_msg.timestamp.isoformat(),
+                                    })
+                                    # Save feedback to memory
+                                    try:
+                                        memory_handlers = MemoryHandlers(spec_dir)
+                                        feedback_content = f"## User Feedback ({user_msg.timestamp.strftime('%Y-%m-%d %H:%M:%S')})\n{content}\n\n"
+                                        feedback_path = "/memories/user_feedback.md"
+                                        if (spec_dir / "memories" / "user_feedback.md").exists():
+                                            memory_handlers.insert(feedback_path, 0, feedback_content)
+                                        else:
+                                            memory_handlers.create(feedback_path, f"# User Feedback Log\n\n{feedback_content}")
+                                    except Exception as e:
+                                        logger.warning(f"Failed to save user feedback to memory: {e}")
 
         print("\n" + "-" * 70 + "\n")
 
@@ -548,7 +591,10 @@ async def run_agent_session(
             message_count=message_count,
             tool_count=tool_count,
         )
+        # Emit error for rich UI
+        emit_sdk_msg("error", {
+            "content": f"Session error: {e}",
+            "phase": phase.value,
+        })
         print(f"Error during agent session: {e}")
-        if task_logger:
-            task_logger.log_error(f"Session error: {e}", phase)
         return "error", str(e)

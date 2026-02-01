@@ -1,4 +1,4 @@
-# Auto Claude Backend
+# Jerry Backend
 
 Autonomous coding framework powered by Claude AI. Builds software features through coordinated multi-agent sessions.
 

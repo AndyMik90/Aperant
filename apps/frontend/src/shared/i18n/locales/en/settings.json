@@ -7,7 +7,7 @@
   "sections": {
     "appearance": {
       "title": "Appearance",
-      "description": "Customize how Auto Claude looks"
+      "description": "Customize how Jerry looks"
     },
     "display": {
       "title": "Display",
@@ -39,7 +39,7 @@
     },
     "updates": {
       "title": "Updates",
-      "description": "Auto Claude updates"
+      "description": "Jerry updates"
     },
     "notifications": {
       "title": "Notifications",
@@ -190,7 +190,7 @@
     "otherAgentSettingsDescription": "Additional agent configuration options",
     "agentFramework": "Agent Framework",
     "agentFrameworkDescription": "The coding framework used for autonomous tasks",
-    "agentFrameworkAutoClaude": "Auto Claude",
+    "agentFrameworkAutoClaude": "Jerry",
     "aiTerminalNaming": "AI Terminal Naming",
     "aiTerminalNamingDescription": "Automatically name terminals based on commands (uses Haiku)",
     "featureModelSettings": "Feature Model Settings",
@@ -222,7 +222,7 @@
     "sourceBundled": "Bundled",
     "sourceFallback": "Fallback",
     "notDetected": "Not detected",
-    "autoClaudePath": "Auto Claude Path",
+    "autoClaudePath": "Jerry Path",
     "autoClaudePathDescription": "Relative path to auto-claude directory in projects",
     "autoClaudePathPlaceholder": "auto-claude (default)",
     "autoNameTerminals": "Automatically name terminals",
@@ -230,7 +230,7 @@
   },
   "theme": {
     "title": "Appearance",
-    "description": "Customize how Auto Claude looks",
+    "description": "Customize how Jerry looks",
     "mode": "Mode",
     "modeDescription": "Choose between light and dark themes",
     "light": "Light",
@@ -246,14 +246,14 @@
     "detectAgain": "Detect Again",
     "ide": {
       "label": "Preferred IDE",
-      "description": "Auto Claude will open worktrees in this editor",
+      "description": "Jerry will open worktrees in this editor",
       "placeholder": "Select IDE...",
       "customPath": "Custom IDE Path",
       "customPathPlaceholder": "/path/to/your/ide"
     },
     "terminal": {
       "label": "Preferred Terminal",
-      "description": "Auto Claude will open terminal sessions here",
+      "description": "Jerry will open terminal sessions here",
       "placeholder": "Select terminal...",
       "customPath": "Custom Terminal Path",
       "customPathPlaceholder": "/path/to/your/terminal"
@@ -270,7 +270,7 @@
   },
   "updates": {
     "title": "Updates",
-    "description": "Manage Auto Claude updates",
+    "description": "Manage Jerry updates",
     "appUpdateReady": "App Update Ready",
     "newVersion": "New Version",
     "released": "Released",
@@ -287,7 +287,7 @@
     "unableToCheck": "Unable to check for updates",
     "checkForUpdates": "Check for Updates",
     "autoUpdateProjects": "Auto-Update Projects",
-    "autoUpdateProjectsDescription": "Automatically update Auto Claude in projects when a new version is available",
+    "autoUpdateProjectsDescription": "Automatically update Jerry in projects when a new version is available",
     "betaUpdates": "Beta Updates",
     "betaUpdatesDescription": "Receive pre-release beta versions with new features (may be less stable)",
     "stableDowngradeAvailable": "Stable Version Available",
@@ -474,7 +474,7 @@
     "description": "Access logs and debug information for troubleshooting",
     "errorReporting": {
       "label": "Anonymous Error Reporting",
-      "description": "Send crash reports to help improve Auto Claude. No personal data or code is collected."
+      "description": "Send crash reports to help improve Jerry. No personal data or code is collected."
     },
     "openLogsFolder": "Open Logs Folder",
     "copyDebugInfo": "Copy Debug Info",
@@ -504,7 +504,7 @@
     "noProjectSelected": "No Project Selected",
     "noProjectSelectedDescription": "Select a project from the dropdown to view and configure MCP servers.",
     "projectNotInitialized": "Project Not Initialized",
-    "projectNotInitializedDescription": "Initialize Auto Claude for this project to configure MCP servers.",
+    "projectNotInitializedDescription": "Initialize Jerry for this project to configure MCP servers.",
     "browserAutomation": "Browser Automation (QA agents only)",
     "alwaysEnabled": "always enabled",
     "addServer": "Add Server",
@@ -541,7 +541,7 @@
         "description": "Web browser automation for testing"
       },
       "autoClaude": {
-        "name": "Auto-Claude Tools",
+        "name": "Jerry Tools",
         "description": "Build progress tracking"
       }
     },

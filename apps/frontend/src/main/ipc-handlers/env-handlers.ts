@@ -228,8 +228,8 @@ export function registerEnvHandlers(
     }
 
     // Generate content with sections
-    const content = `# Auto Claude Framework Environment Variables
-# Managed by Auto Claude UI
+    const content = `# Jerry Framework Environment Variables
+# Managed by Jerry UI
 
 # Claude Code OAuth Token (REQUIRED)
 CLAUDE_CODE_OAUTH_TOKEN=${existingVars['CLAUDE_CODE_OAUTH_TOKEN'] || ''}
@@ -265,7 +265,7 @@ ${envLine(existingVars, GITLAB_ENV_KEYS.AUTO_SYNC, 'false')}
 # GIT/WORKTREE SETTINGS (OPTIONAL)
 # =============================================================================
 # Default base branch for worktree creation
-# If not set, Auto Claude will auto-detect main/master, or fall back to current branch
+# If not set, Jerry will auto-detect main/master, or fall back to current branch
 ${existingVars['DEFAULT_BRANCH'] ? `DEFAULT_BRANCH=${existingVars['DEFAULT_BRANCH']}` : '# DEFAULT_BRANCH=main'}
 
 # =============================================================================

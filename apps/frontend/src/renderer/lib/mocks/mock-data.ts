@@ -68,7 +68,7 @@ export const mockTasks = [
     specId: '001-add-auth',
     title: 'Add user authentication',
     description: 'Implement JWT-based user authentication with login/logout functionality',
-    status: 'backlog' as const,
+    status: 'planning' as const,
     subtasks: [],
     logs: [],
     createdAt: new Date(Date.now() - 86400000),
@@ -80,7 +80,7 @@ export const mockTasks = [
     specId: '002-dashboard',
     title: 'Build analytics dashboard',
     description: 'Create a real-time analytics dashboard with charts and metrics',
-    status: 'in_progress' as const,
+    status: 'coding' as const,
     subtasks: [
       { id: 'subtask-1', title: 'Setup chart library', description: 'Install and configure Chart.js', status: 'completed' as const, files: ['src/lib/charts.ts'] },
       { id: 'subtask-2', title: 'Create dashboard layout', description: 'Build responsive grid layout', status: 'in_progress' as const, files: ['src/components/Dashboard.tsx'] },

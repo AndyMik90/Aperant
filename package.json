@@ -1,9 +1,9 @@
 {
-  "name": "auto-claude",
+  "name": "jerry",
   "version": "2.7.5",
   "description": "Autonomous multi-agent coding framework powered by Claude AI",
   "license": "AGPL-3.0",
-  "author": "Auto Claude Team",
+  "author": "Jerry Team",
   "workspaces": [
     "apps/*",
     "libs/*"

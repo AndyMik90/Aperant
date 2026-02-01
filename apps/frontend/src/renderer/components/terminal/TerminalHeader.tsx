@@ -1,4 +1,4 @@
-import { X, Sparkles, TerminalSquare, FolderGit, ExternalLink, GripVertical, Maximize2, Minimize2 } from 'lucide-react';
+import { X, Sparkles, TerminalSquare, FolderGit, ExternalLink, GripVertical, Maximize2, Minimize2, Square, ChevronDown, ChevronUp, MessageSquare, Code2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import type { Task, TerminalWorktreeConfig } from '../../../shared/types';
@@ -40,6 +40,20 @@ interface TerminalHeaderProps {
   isExpanded?: boolean;
   /** Callback to toggle expanded state */
   onToggleExpand?: () => void;
+  /** Whether this is a task monitor terminal */
+  isTaskMonitor?: boolean;
+  /** Task ID for task monitors */
+  taskId?: string;
+  /** Task status for task monitors */
+  taskStatus?: 'running' | 'completed' | 'failed';
+  /** Whether the terminal is minimized to just the title bar */
+  isMinimized?: boolean;
+  /** Callback to toggle minimized state */
+  onToggleMinimize?: () => void;
+  /** View mode for task monitors (rich chat UI vs raw terminal) */
+  viewMode?: 'rich' | 'raw';
+  /** Callback to toggle view mode */
+  onToggleViewMode?: () => void;
 }
 
 export function TerminalHeader({
@@ -64,9 +78,16 @@ export function TerminalHeader({
   dragHandleListeners,
   isExpanded,
   onToggleExpand,
+  isTaskMonitor,
+  taskId,
+  taskStatus,
+  isMinimized,
+  onToggleMinimize,
+  viewMode,
+  onToggleViewMode,
 }: TerminalHeaderProps) {
   const { t } = useTranslation(['terminal', 'common']);
-  const backlogTasks = tasks.filter((t) => t.status === 'backlog');
+  const backlogTasks = tasks.filter((t) => t.status === 'planning');
 
   return (
     <div className="electron-no-drag group/header flex h-9 items-center justify-between border-b border-border/50 bg-card/30 px-2">
@@ -95,6 +116,7 @@ export function TerminalHeader({
             associatedTask={associatedTask}
             onTitleChange={onTitleChange}
             terminalCount={terminalCount}
+            isTaskMonitor={isTaskMonitor}
           />
         </div>
         {isClaudeMode && (
@@ -116,27 +138,29 @@ export function TerminalHeader({
             onNewTaskClick={onNewTaskClick}
           />
         )}
-        {/* Worktree selector or badge - placed next to task selector */}
-        {worktreeConfig ? (
-          <span
-            className={cn(
-              'flex items-center gap-1 text-[10px] font-medium text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded',
-              terminalCount >= 6 ? 'max-w-20' : terminalCount >= 4 ? 'max-w-28' : 'max-w-40'
-            )}
-            title={worktreeConfig.name}
-          >
-            <FolderGit className="h-2.5 w-2.5 flex-shrink-0" />
-            <span className="truncate">{worktreeConfig.name}</span>
-          </span>
-        ) : (
-          projectPath && onCreateWorktree && onSelectWorktree && (
-            <WorktreeSelector
-              terminalId={terminalId}
-              projectPath={projectPath}
-              currentWorktree={worktreeConfig}
-              onCreateWorktree={onCreateWorktree}
-              onSelectWorktree={onSelectWorktree}
-            />
+        {/* Worktree selector or badge - placed next to task selector (hidden for task monitors) */}
+        {!isTaskMonitor && (
+          worktreeConfig ? (
+            <span
+              className={cn(
+                'flex items-center gap-1 text-[10px] font-medium text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded',
+                terminalCount >= 6 ? 'max-w-20' : terminalCount >= 4 ? 'max-w-28' : 'max-w-40'
+              )}
+              title={worktreeConfig.name}
+            >
+              <FolderGit className="h-2.5 w-2.5 flex-shrink-0" />
+              <span className="truncate">{worktreeConfig.name}</span>
+            </span>
+          ) : (
+            projectPath && onCreateWorktree && onSelectWorktree && (
+              <WorktreeSelector
+                terminalId={terminalId}
+                projectPath={projectPath}
+                currentWorktree={worktreeConfig}
+                onCreateWorktree={onCreateWorktree}
+                onSelectWorktree={onSelectWorktree}
+              />
+            )
           )
         )}
       </div>
@@ -160,7 +184,26 @@ export function TerminalHeader({
             {terminalCount < 4 && t('terminal:worktree.openInIDE')}
           </Button>
         )}
-        {!isClaudeMode && status !== 'exited' && (
+        {/* Stop button for running task monitors */}
+        {isTaskMonitor && taskStatus === 'running' && taskId && (
+          <Button
+            variant="ghost"
+            size={terminalCount >= 4 ? 'icon' : 'sm'}
+            className={cn(
+              'h-6 hover:bg-destructive/10 hover:text-destructive',
+              terminalCount >= 4 ? 'w-6' : 'px-2 text-xs gap-1'
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              window.electronAPI.stopTask(taskId);
+            }}
+            title="Stop Task"
+          >
+            <Square className="h-3 w-3" />
+            {terminalCount < 4 && <span>Stop</span>}
+          </Button>
+        )}
+        {!isClaudeMode && !isTaskMonitor && status !== 'exited' && (
           <Button
             variant="ghost"
             size={terminalCount >= 4 ? 'icon' : 'sm'}
@@ -176,6 +219,44 @@ export function TerminalHeader({
           >
             <Sparkles className="h-3 w-3" />
             {terminalCount < 4 && <span>Claude</span>}
+          </Button>
+        )}
+        {/* View mode toggle for task monitors (rich chat vs raw terminal) */}
+        {isTaskMonitor && onToggleViewMode && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 hover:bg-muted"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleViewMode();
+            }}
+            title={viewMode === 'rich' ? 'Switch to raw terminal view' : 'Switch to rich chat view'}
+          >
+            {viewMode === 'rich' ? (
+              <Code2 className="h-3.5 w-3.5" />
+            ) : (
+              <MessageSquare className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        )}
+        {/* Minimize to title bar button (for task monitors) */}
+        {onToggleMinimize && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 hover:bg-muted"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleMinimize();
+            }}
+            title={isMinimized ? 'Expand content' : 'Minimize to title bar'}
+          >
+            {isMinimized ? (
+              <ChevronDown className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronUp className="h-3.5 w-3.5" />
+            )}
           </Button>
         )}
         {/* Expand/collapse button */}

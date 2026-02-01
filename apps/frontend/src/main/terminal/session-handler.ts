@@ -172,6 +172,11 @@ export function persistSession(terminal: TerminalProcess): void {
     return;
   }
 
+  // Don't persist task monitor terminals - they're recreated from running tasks on app restart
+  if (terminal.isTaskMonitor) {
+    return;
+  }
+
   const store = getTerminalSessionStore();
   store.saveSession(createSessionObject(terminal));
 }
@@ -182,6 +187,11 @@ export function persistSession(terminal: TerminalProcess): void {
  */
 export function persistSessionAsync(terminal: TerminalProcess): void {
   if (!terminal.projectPath) {
+    return;
+  }
+
+  // Don't persist task monitor terminals - they're recreated from running tasks on app restart
+  if (terminal.isTaskMonitor) {
     return;
   }
 
@@ -202,7 +212,8 @@ export async function persistAllSessionsAsync(terminals: Map<string, TerminalPro
 
   const savePromises: Promise<void>[] = [];
   terminals.forEach((terminal) => {
-    if (terminal.projectPath) {
+    // Don't persist task monitor terminals - they're recreated from running tasks on app restart
+    if (terminal.projectPath && !terminal.isTaskMonitor) {
       savePromises.push(store.saveSessionAsync(createSessionObject(terminal)));
     }
   });

@@ -18,6 +18,8 @@ import {
 import { findTaskWorktree } from '../../worktree-paths';
 import { projectStore } from '../../project-store';
 import { getIsolatedGitEnv } from '../../utils/git-isolation';
+import { TerminalManager } from '../../terminal/terminal-manager';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Atomic file write to prevent TOCTOU race conditions.
@@ -104,14 +106,15 @@ async function ensureProfileManagerInitialized(): Promise<
  */
 export function registerTaskExecutionHandlers(
   agentManager: AgentManager,
-  getMainWindow: () => BrowserWindow | null
+  getMainWindow: () => BrowserWindow | null,
+  terminalManager: TerminalManager
 ): void {
   /**
    * Start a task
    */
   ipcMain.on(
     IPC_CHANNELS.TASK_START,
-    async (_, taskId: string, _options?: TaskStartOptions) => {
+    async (_, taskId: string, options?: TaskStartOptions) => {
       console.warn('[TASK_START] Received request for taskId:', taskId);
       const mainWindow = getMainWindow();
       if (!mainWindow) {
@@ -188,6 +191,39 @@ export function registerTaskExecutionHandlers(
       );
       fileWatcher.watch(taskId, specDir);
 
+      // Create task monitor terminal for live output viewing
+      const terminalId = `task-${taskId}`;
+      console.warn('[TASK_START] Creating task monitor terminal:', terminalId);
+
+      // First notify renderer to add terminal to store
+      mainWindow.webContents.send(
+        IPC_CHANNELS.TASK_MONITOR_TERMINAL_CREATE,
+        {
+          id: terminalId,
+          title: task.title,
+          projectPath: project.path,
+          taskId,
+          specId: task.specId,
+          isTaskMonitor: true,
+          taskStatus: 'running',
+        }
+      );
+
+      // Then create the virtual terminal in main process (for output streaming)
+      const terminalResult = await terminalManager.create({
+        id: terminalId,
+        cwd: project.path,
+        projectPath: project.path,
+        isTaskMonitor: true,
+        taskId,
+        specId: task.specId,
+        taskTitle: task.title,
+      });
+
+      if (!terminalResult.success) {
+        console.error('[TASK_START] Failed to create task monitor terminal:', terminalResult.error);
+      }
+
       // Check if spec.md exists (indicates spec creation was already done or in progress)
       const specFilePath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
       const hasSpec = existsSync(specFilePath);
@@ -253,13 +289,30 @@ export function registerTaskExecutionHandlers(
         );
       }
 
+      // Send any pending messages that were queued before the task started
+      // These are messages the user typed in the chat before starting the task
+      if (options?.pendingMessages && options.pendingMessages.length > 0) {
+        console.log(`[TASK_START] Delivering ${options.pendingMessages.length} pending message(s) to task ${taskId}`);
+        // Give the process time to initialize and set up the message queue
+        setTimeout(() => {
+          for (const message of options.pendingMessages!) {
+            const sent = agentManager.sendMessageToTask(taskId, message);
+            if (sent) {
+              console.log(`[TASK_START] Delivered pending message to task ${taskId} (${message.length} chars)`);
+            } else {
+              console.warn(`[TASK_START] Failed to deliver pending message to task ${taskId}`);
+            }
+          }
+        }, 2000); // 2 second delay to allow Python process to initialize message queue
+      }
+
       // Notify status change IMMEDIATELY (don't wait for file write)
       // This provides instant UI feedback while file persistence happens in background
       const ipcSentAt = Date.now();
       mainWindow.webContents.send(
         IPC_CHANNELS.TASK_STATUS_CHANGE,
         taskId,
-        'in_progress'
+        'coding'
       );
 
       const DEBUG = process.env.DEBUG === 'true';
@@ -270,16 +323,16 @@ export function registerTaskExecutionHandlers(
       // CRITICAL: Persist status to implementation_plan.json to prevent status flip-flop
       // When getTasks() is called (on refresh), it reads status from the plan file.
       // Without persisting here, the old status (e.g., 'human_review') would override
-      // the in-memory 'in_progress' status, causing the task to flip back and forth.
+      // the in-memory 'coding' status, causing the task to flip back and forth.
       // Uses shared utility for consistency with agent-events-handlers.ts
       // NOTE: This is now async and non-blocking for better UI responsiveness
       const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
       setImmediate(async () => {
         const persistStart = Date.now();
         try {
-          const persisted = await persistPlanStatus(planPath, 'in_progress', project.id);
+          const persisted = await persistPlanStatus(planPath, 'coding', project.id);
           if (persisted) {
-            console.warn('[TASK_START] Updated plan status to: in_progress');
+            console.warn('[TASK_START] Updated plan status to: coding');
           }
           if (DEBUG) {
             const delay = persistStart - ipcSentAt;
@@ -303,14 +356,15 @@ export function registerTaskExecutionHandlers(
     agentManager.killTask(taskId);
     fileWatcher.unwatch(taskId);
 
-    // Notify status change IMMEDIATELY for instant UI feedback
+    // Notify that agent was stopped IMMEDIATELY for instant UI feedback
+    // We use TASK_AGENT_STOPPED instead of TASK_STATUS_CHANGE because status doesn't change
+    // (task stays in 'planning' or 'coding' but agent process is now stopped)
     const ipcSentAt = Date.now();
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(
-        IPC_CHANNELS.TASK_STATUS_CHANGE,
-        taskId,
-        'backlog'
+        IPC_CHANNELS.TASK_AGENT_STOPPED,
+        taskId
       );
     }
 
@@ -329,9 +383,9 @@ export function registerTaskExecutionHandlers(
       setImmediate(async () => {
         const persistStart = Date.now();
         try {
-          const persisted = await persistPlanStatus(planPath, 'backlog', project.id);
+          const persisted = await persistPlanStatus(planPath, 'planning', project.id);
           if (persisted) {
-            console.warn('[TASK_STOP] Updated plan status to backlog');
+            console.warn('[TASK_STOP] Updated plan status to planning');
           }
           if (DEBUG) {
             const delay = persistStart - ipcSentAt;
@@ -345,6 +399,129 @@ export function registerTaskExecutionHandlers(
       // Note: File not found is expected for tasks without a plan file (persistPlanStatus handles ENOENT)
     }
   });
+
+  /**
+   * Start Build: Phase 4 - Transition from planning → coding
+   *
+   * This is called when the user clicks "Start Build" after the planning agent
+   * has created spec.md and implementation_plan.json. It:
+   * 1. Validates that spec.md and implementation_plan.json exist
+   * 2. Stops the planning agent gracefully (memory already saved)
+   * 3. Starts the coding agent
+   * 4. Updates status to 'coding'
+   *
+   * Memory handoff: The coding agent reads the same /memories directory that
+   * the planning agent wrote to, ensuring full context continuity.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_START_BUILD,
+    async (_, taskId: string): Promise<IPCResult> => {
+      console.log('[TASK_START_BUILD] Transitioning task to coding:', taskId);
+
+      const mainWindow = getMainWindow();
+      if (!mainWindow) {
+        return { success: false, error: 'No main window found' };
+      }
+
+      // Find task and project
+      const { task, project } = findTaskAndProject(taskId);
+      if (!task || !project) {
+        return { success: false, error: 'Task or project not found' };
+      }
+
+      // Get spec directory
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
+      const specDir = path.join(project.path, specsBaseDir, task.specId);
+
+      // Validate that plan exists
+      const specFilePath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
+      const planFilePath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+      if (!existsSync(specFilePath)) {
+        return {
+          success: false,
+          error: 'Cannot start build: spec.md has not been created yet. Continue planning first.'
+        };
+      }
+
+      if (!existsSync(planFilePath)) {
+        return {
+          success: false,
+          error: 'Cannot start build: implementation_plan.json has not been created yet. Continue planning first.'
+        };
+      }
+
+      // Stop the planning agent if it's running
+      if (agentManager.isRunning(taskId)) {
+        console.log('[TASK_START_BUILD] Stopping planning agent...');
+        agentManager.killTask(taskId);
+        // Give it a moment to clean up
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      // Check authentication
+      const initResult = await ensureProfileManagerInitialized();
+      if (!initResult.success) {
+        return { success: false, error: initResult.error };
+      }
+      const profileManager = initResult.profileManager;
+      if (!profileManager.hasValidAuth()) {
+        return {
+          success: false,
+          error: 'Claude authentication required. Please go to Settings > Claude Profiles and authenticate your account.'
+        };
+      }
+
+      // Check git status
+      const gitStatus = checkGitStatus(project.path);
+      if (!gitStatus.isGitRepo || !gitStatus.hasCommits) {
+        return {
+          success: false,
+          error: gitStatus.error || 'Git repository with commits required.'
+        };
+      }
+
+      // Start file watcher for this task
+      fileWatcher.watch(taskId, specDir);
+
+      // Get base branch
+      const baseBranch = task.metadata?.baseBranch || project.settings?.mainBranch;
+
+      // Start the coding agent (task execution)
+      console.log('[TASK_START_BUILD] Starting coding agent for:', task.specId);
+      agentManager.startTaskExecution(
+        taskId,
+        project.path,
+        task.specId,
+        {
+          parallel: false,
+          workers: 1,
+          baseBranch,
+          useWorktree: task.metadata?.useWorktree
+        }
+      );
+
+      // Update status to coding
+      mainWindow.webContents.send(
+        IPC_CHANNELS.TASK_STATUS_CHANGE,
+        taskId,
+        'coding'
+      );
+
+      // Persist status change
+      const planPath = getPlanPath(project, task);
+      setImmediate(async () => {
+        try {
+          await persistPlanStatus(planPath, 'coding', project.id);
+          console.log('[TASK_START_BUILD] Updated plan status to: coding');
+        } catch (err) {
+          console.error('[TASK_START_BUILD] Failed to persist plan status:', err);
+        }
+      });
+
+      return { success: true };
+    }
+  );
 
   /**
    * Review a task (approve or reject)
@@ -524,7 +701,7 @@ export function registerTaskExecutionHandlers(
           mainWindow.webContents.send(
             IPC_CHANNELS.TASK_STATUS_CHANGE,
             taskId,
-            'in_progress'
+            'coding'
           );
         }
       }
@@ -682,15 +859,15 @@ export function registerTaskExecutionHandlers(
           projectStore.invalidateTasksCache(project.id);
         }
 
-        // Auto-stop task when status changes AWAY from 'in_progress' and process IS running
-        // This handles the case where user drags a running task back to Planning/backlog
-        if (status !== 'in_progress' && agentManager.isRunning(taskId)) {
-          console.warn('[TASK_UPDATE_STATUS] Stopping task due to status change away from in_progress:', taskId);
+        // Auto-stop task when status changes AWAY from 'coding' and process IS running
+        // This handles the case where user drags a running task back to Planning
+        if (status !== 'coding' && agentManager.isRunning(taskId)) {
+          console.warn('[TASK_UPDATE_STATUS] Stopping task due to status change away from coding:', taskId);
           agentManager.killTask(taskId);
         }
 
-        // Auto-start task when status changes to 'in_progress' and no process is running
-        if (status === 'in_progress' && !agentManager.isRunning(taskId)) {
+        // Auto-start task when status changes to 'coding' and no process is running
+        if (status === 'coding' && !agentManager.isRunning(taskId)) {
           const mainWindow = getMainWindow();
 
           // Check git status before auto-starting
@@ -790,7 +967,7 @@ export function registerTaskExecutionHandlers(
             mainWindow.webContents.send(
               IPC_CHANNELS.TASK_STATUS_CHANGE,
               taskId,
-              'in_progress'
+              'coding'
             );
           }
         }
@@ -818,7 +995,31 @@ export function registerTaskExecutionHandlers(
   );
 
   /**
-   * Recover a stuck task (status says in_progress but no process running)
+   * Send a chat message to a running task's agent.
+   * The message is queued and processed at the next iteration boundary.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_SEND_MESSAGE,
+    async (_, taskId: string, message: string): Promise<IPCResult<boolean>> => {
+      console.log('[TASK_SEND_MESSAGE] Sending message to task:', taskId, 'length:', message.length);
+
+      // Check if task is running first
+      if (!agentManager.isRunning(taskId)) {
+        console.warn('[TASK_SEND_MESSAGE] Task is not running:', taskId);
+        return { success: false, error: 'Task is not running' };
+      }
+
+      const sent = agentManager.sendMessageToTask(taskId, message);
+      if (!sent) {
+        return { success: false, error: 'Failed to send message to task' };
+      }
+
+      return { success: true, data: true };
+    }
+  );
+
+  /**
+   * Recover a stuck task (status says coding but no process running)
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_RECOVER_STUCK,
@@ -839,7 +1040,7 @@ export function registerTaskExecutionHandlers(
           data: {
             taskId,
             recovered: false,
-            newStatus: 'in_progress' as TaskStatus,
+            newStatus: 'coding' as TaskStatus,
             message: 'Task is still running'
           }
         };
@@ -901,7 +1102,7 @@ export function registerTaskExecutionHandlers(
 
         // Determine the target status intelligently based on subtask progress
         // If targetStatus is explicitly provided, use it; otherwise calculate from subtasks
-        let newStatus: TaskStatus = targetStatus || 'backlog';
+        let newStatus: TaskStatus = targetStatus || 'planning';
 
         if (!targetStatus && plan?.phases && Array.isArray(plan.phases)) {
           // Analyze subtask statuses to determine appropriate recovery status
@@ -913,10 +1114,10 @@ export function registerTaskExecutionHandlers(
               // For recovery, human_review is safer as it requires manual verification
               newStatus = 'human_review';
             } else if (completedCount > 0) {
-              // Some subtasks completed, some still pending - task is in progress
-              newStatus = 'in_progress';
+              // Some subtasks completed, some still pending - task is coding
+              newStatus = 'coding';
             }
-            // else: no subtasks completed, stay with 'backlog'
+            // else: no subtasks completed, stay with 'planning'
           }
         }
 
@@ -924,7 +1125,7 @@ export function registerTaskExecutionHandlers(
           // Update status
           plan.status = newStatus;
           plan.planStatus = newStatus === 'done' ? 'completed'
-            : newStatus === 'in_progress' ? 'in_progress'
+            : newStatus === 'coding' ? 'coding'
             : newStatus === 'ai_review' ? 'review'
             : newStatus === 'human_review' ? 'review'
             : 'pending';
@@ -1083,27 +1284,6 @@ export function registerTaskExecutionHandlers(
           }
 
           try {
-            // Set status to in_progress for the restart
-            newStatus = 'in_progress';
-
-            // Update plan status for restart - write to ALL locations
-            if (plan) {
-              plan.status = 'in_progress';
-              plan.planStatus = 'in_progress';
-              const restartPlanContent = JSON.stringify(plan, null, 2);
-              for (const pathToUpdate of planPathsToUpdate) {
-                try {
-                  atomicWriteFileSync(pathToUpdate, restartPlanContent);
-                  console.log(`[Recovery] Wrote restart status to: ${pathToUpdate}`);
-                } catch (writeError) {
-                  console.error(`[Recovery] Failed to write plan file for restart at ${pathToUpdate}:`, writeError);
-                  // Continue with restart attempt even if file write fails
-                  // The plan status will be updated by the agent when it starts
-                }
-              }
-            }
-
-            // Start the task execution
             // Start file watcher for this task
             const specsBaseDir = getSpecsDir(project.autoBuildPath);
             const specDirForWatcher = path.join(project.path, specsBaseDir, task.specId);
@@ -1112,30 +1292,84 @@ export function registerTaskExecutionHandlers(
             // Check if spec.md exists to determine whether to run spec creation or task execution
             const specFilePath = path.join(specDirForWatcher, AUTO_BUILD_PATHS.SPEC_FILE);
             const hasSpec = existsSync(specFilePath);
-            const needsSpecCreation = !hasSpec;
 
             // Get base branch: task-level override takes precedence over project settings
             const baseBranchForRecovery = task.metadata?.baseBranch || project.settings?.mainBranch;
 
-            if (needsSpecCreation) {
-              // No spec file - need to run spec_runner.py to create the spec
-              const taskDescription = task.description || task.title;
-              console.warn(`[Recovery] Starting spec creation for: ${task.specId}`);
-              agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDirForWatcher, task.metadata, baseBranchForRecovery);
-            } else {
-              // Spec exists - run task execution
-              console.warn(`[Recovery] Starting task execution for: ${task.specId}`);
-              agentManager.startTaskExecution(
-                taskId,
-                project.path,
-                task.specId,
-                {
-                  parallel: false,
-                  workers: 1,
-                  baseBranch: baseBranchForRecovery,
-                  useWorktree: task.metadata?.useWorktree
+            // Phase 2: Handle planning tasks differently
+            // If task is in 'planning' status, restart as planning agent (not coding)
+            if (task.status === 'planning') {
+              console.log(`[Recovery] Task ${taskId} is in planning status, restarting as planning agent`);
+              newStatus = 'planning';
+
+              // Update plan status for restart - keep as planning
+              if (plan) {
+                plan.status = 'planning';
+                plan.planStatus = 'pending';
+                const restartPlanContent = JSON.stringify(plan, null, 2);
+                for (const pathToUpdate of planPathsToUpdate) {
+                  try {
+                    atomicWriteFileSync(pathToUpdate, restartPlanContent);
+                    console.log(`[Recovery] Wrote restart status (planning) to: ${pathToUpdate}`);
+                  } catch (writeError) {
+                    console.error(`[Recovery] Failed to write plan file for restart at ${pathToUpdate}:`, writeError);
+                  }
                 }
+              }
+
+              // Start the planning agent
+              const taskDescription = task.description || task.title;
+              console.warn(`[Recovery] Starting planning agent for: ${task.specId}`);
+              await agentManager.startPlanningAgent(
+                task.specId,
+                project.path,
+                taskDescription,
+                specDirForWatcher,
+                task.metadata,
+                baseBranchForRecovery
               );
+            } else {
+              // Set status to coding for the restart
+              newStatus = 'coding';
+
+              // Update plan status for restart - write to ALL locations
+              if (plan) {
+                plan.status = 'coding';
+                plan.planStatus = 'coding';
+                const restartPlanContent = JSON.stringify(plan, null, 2);
+                for (const pathToUpdate of planPathsToUpdate) {
+                  try {
+                    atomicWriteFileSync(pathToUpdate, restartPlanContent);
+                    console.log(`[Recovery] Wrote restart status to: ${pathToUpdate}`);
+                  } catch (writeError) {
+                    console.error(`[Recovery] Failed to write plan file for restart at ${pathToUpdate}:`, writeError);
+                    // Continue with restart attempt even if file write fails
+                    // The plan status will be updated by the agent when it starts
+                  }
+                }
+              }
+
+              const needsSpecCreation = !hasSpec;
+              if (needsSpecCreation) {
+                // No spec file - need to run spec_runner.py to create the spec
+                const taskDescription = task.description || task.title;
+                console.warn(`[Recovery] Starting spec creation for: ${task.specId}`);
+                agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDirForWatcher, task.metadata, baseBranchForRecovery);
+              } else {
+                // Spec exists - run task execution
+                console.warn(`[Recovery] Starting task execution for: ${task.specId}`);
+                agentManager.startTaskExecution(
+                  taskId,
+                  project.path,
+                  task.specId,
+                  {
+                    parallel: false,
+                    workers: 1,
+                    baseBranch: baseBranchForRecovery,
+                    useWorktree: task.metadata?.useWorktree
+                  }
+                );
+              }
             }
 
             autoRestarted = true;

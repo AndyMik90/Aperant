@@ -150,7 +150,7 @@ export function AppUpdateNotification() {
           <DialogDescription>
             {t(
               "dialogs:appUpdate.description",
-              "A new version of Auto Claude is ready to download"
+              "A new version of Jerry is ready to download"
             )}
           </DialogDescription>
         </DialogHeader>

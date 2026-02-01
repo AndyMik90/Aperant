@@ -27,6 +27,8 @@ export const IPC_CHANNELS = {
   TASK_UPDATE_STATUS: 'task:updateStatus',
   TASK_RECOVER_STUCK: 'task:recoverStuck',
   TASK_CHECK_RUNNING: 'task:checkRunning',
+  TASK_SEND_MESSAGE: 'task:sendMessage',  // Send chat message to running task agent
+  TASK_START_BUILD: 'task:startBuild',  // Phase 4: Transition from planning → coding
 
   // Workspace management (for human review)
   // Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
@@ -50,6 +52,7 @@ export const IPC_CHANNELS = {
   TASK_LOG: 'task:log',
   TASK_STATUS_CHANGE: 'task:statusChange',
   TASK_EXECUTION_PROGRESS: 'task:executionProgress',
+  TASK_AGENT_STOPPED: 'task:agentStopped',  // Agent process was stopped (user clicked Stop)
 
   // Task phase logs (persistent, collapsible logs by phase)
   TASK_LOGS_GET: 'task:logsGet',           // Load logs from spec dir
@@ -67,6 +70,7 @@ export const IPC_CHANNELS = {
   TERMINAL_GENERATE_NAME: 'terminal:generateName',
   TERMINAL_SET_TITLE: 'terminal:setTitle',  // Renderer -> Main: user renamed terminal
   TERMINAL_SET_WORKTREE_CONFIG: 'terminal:setWorktreeConfig',  // Renderer -> Main: worktree association changed
+  TASK_MONITOR_TERMINAL_CREATE: 'terminal:taskMonitorCreate',  // Main -> Renderer: task monitor terminal created
 
   // Terminal session management
   TERMINAL_GET_SESSIONS: 'terminal:getSessions',
@@ -88,6 +92,7 @@ export const IPC_CHANNELS = {
 
   // Terminal events (main -> renderer)
   TERMINAL_OUTPUT: 'terminal:output',
+  TERMINAL_STRUCTURED_OUTPUT: 'terminal:structuredOutput',  // Rich UI: pre-parsed blocks for TaskMonitorChat
   TERMINAL_EXIT: 'terminal:exit',
   TERMINAL_TITLE_CHANGE: 'terminal:titleChange',
   TERMINAL_WORKTREE_CONFIG_CHANGE: 'terminal:worktreeConfigChange',  // Worktree config restored/changed (for sync on recovery)
@@ -424,7 +429,7 @@ export const IPC_CHANNELS = {
   OLLAMA_PULL_MODEL: 'ollama:pullModel',
   OLLAMA_PULL_PROGRESS: 'ollama:pullProgress',
 
-  // Auto Claude source environment configuration
+  // Jerry source environment configuration
   AUTOBUILD_SOURCE_ENV_GET: 'autobuild:source:env:get',
   AUTOBUILD_SOURCE_ENV_UPDATE: 'autobuild:source:env:update',
   AUTOBUILD_SOURCE_ENV_CHECK_TOKEN: 'autobuild:source:env:checkToken',

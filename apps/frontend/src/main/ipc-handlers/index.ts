@@ -56,7 +56,7 @@ export function setupIpcHandlers(
   registerProjectHandlers(pythonEnvManager, agentManager, getMainWindow);
 
   // Task handlers
-  registerTaskHandlers(agentManager, pythonEnvManager, getMainWindow);
+  registerTaskHandlers(agentManager, pythonEnvManager, getMainWindow, terminalManager);
 
   // Terminal and Claude profile handlers
   registerTerminalHandlers(terminalManager, getMainWindow);
@@ -65,7 +65,7 @@ export function setupIpcHandlers(
   registerTerminalWorktreeIpcHandlers();
 
   // Agent event handlers (event forwarding from agent manager to renderer)
-  registerAgenteventsHandlers(agentManager, getMainWindow);
+  registerAgenteventsHandlers(agentManager, getMainWindow, terminalManager);
 
   // Settings and dialog handlers
   registerSettingsHandlers(agentManager, getMainWindow);

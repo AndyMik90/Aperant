@@ -29,6 +29,8 @@ vi.mock('../../../shared/utils/debug-logger', () => ({
 
 describe('useGlobalTerminalListeners', () => {
   let mockOnTerminalOutput: ReturnType<typeof vi.fn>;
+  let mockOnTaskMonitorTerminalCreate: ReturnType<typeof vi.fn>;
+  let mockOnTerminalStructuredOutput: ReturnType<typeof vi.fn>;
   let mockCleanupFn: ReturnType<typeof vi.fn>;
   let terminalOutputCallback: ((terminalId: string, data: string) => void) | null = null;
 
@@ -46,13 +48,25 @@ describe('useGlobalTerminalListeners', () => {
       return mockCleanupFn;
     });
 
+    // Mock window.electronAPI.onTaskMonitorTerminalCreate
+    mockOnTaskMonitorTerminalCreate = vi.fn(() => mockCleanupFn);
+
+    // Mock window.electronAPI.onTerminalStructuredOutput
+    mockOnTerminalStructuredOutput = vi.fn(() => mockCleanupFn);
+
     // Ensure window and electronAPI exist
     if (typeof window === 'undefined') {
       (global as { window: unknown }).window = {};
     }
 
-    (window as unknown as { electronAPI: { onTerminalOutput: typeof mockOnTerminalOutput } }).electronAPI = {
+    (window as unknown as { electronAPI: {
+      onTerminalOutput: typeof mockOnTerminalOutput;
+      onTaskMonitorTerminalCreate: typeof mockOnTaskMonitorTerminalCreate;
+      onTerminalStructuredOutput: typeof mockOnTerminalStructuredOutput;
+    } }).electronAPI = {
       onTerminalOutput: mockOnTerminalOutput,
+      onTaskMonitorTerminalCreate: mockOnTaskMonitorTerminalCreate,
+      onTerminalStructuredOutput: mockOnTerminalStructuredOutput,
     };
   });
 
@@ -243,7 +257,8 @@ describe('useGlobalTerminalListeners', () => {
       // Unmount
       unmount();
 
-      expect(mockCleanupFn).toHaveBeenCalledTimes(1);
+      // Cleanup is called for each of the three listeners: onTerminalOutput, onTaskMonitorTerminalCreate, onTerminalStructuredOutput
+      expect(mockCleanupFn).toHaveBeenCalledTimes(3);
       expect(mockDebugLog).toHaveBeenCalledWith(
         '[GlobalTerminalListeners] Cleaning up global terminal output listener'
       );

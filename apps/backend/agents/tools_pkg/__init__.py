@@ -50,9 +50,13 @@ from .models import (
     TOOL_UPDATE_SUBTASK_STATUS,
     WEB_TOOLS,
     # Config functions
+    can_execute_subtasks,
+    can_run_bash,
     get_agent_config,
+    get_allowed_edit_patterns,
     get_default_thinking_level,
     get_required_mcp_servers,
+    includes_memory_tool,
     is_electron_mcp_enabled,
 )
 from .permissions import get_all_agent_types, get_allowed_tools
@@ -68,7 +72,11 @@ __all__ = [
     "get_agent_config",
     "get_required_mcp_servers",
     "get_default_thinking_level",
+    "get_allowed_edit_patterns",
     "get_all_agent_types",
+    "includes_memory_tool",
+    "can_run_bash",
+    "can_execute_subtasks",
     # Base tool lists
     "BASE_READ_TOOLS",
     "BASE_WRITE_TOOLS",

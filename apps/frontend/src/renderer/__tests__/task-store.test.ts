@@ -14,7 +14,7 @@ function createTestTask(overrides: Partial<Task> = {}): Task {
     projectId: 'project-1',
     title: 'Test Task',
     description: 'Test description',
-    status: 'backlog' as TaskStatus,
+    status: 'planning' as TaskStatus,
     subtasks: [],
     logs: [],
     createdAt: new Date(),
@@ -162,17 +162,17 @@ describe('Task Store', () => {
   describe('updateTaskStatus', () => {
     it('should update task status by id', () => {
       useTaskStore.setState({
-        tasks: [createTestTask({ id: 'task-1', status: 'backlog' })]
+        tasks: [createTestTask({ id: 'task-1', status: 'planning' })]
       });
 
-      useTaskStore.getState().updateTaskStatus('task-1', 'in_progress');
+      useTaskStore.getState().updateTaskStatus('task-1', 'coding');
 
-      expect(useTaskStore.getState().tasks[0].status).toBe('in_progress');
+      expect(useTaskStore.getState().tasks[0].status).toBe('coding');
     });
 
     it('should update task status by specId', () => {
       useTaskStore.setState({
-        tasks: [createTestTask({ id: 'task-1', specId: 'spec-001', status: 'backlog' })]
+        tasks: [createTestTask({ id: 'task-1', specId: 'spec-001', status: 'planning' })]
       });
 
       useTaskStore.getState().updateTaskStatus('spec-001', 'done');
@@ -186,7 +186,7 @@ describe('Task Store', () => {
         tasks: [createTestTask({ id: 'task-1', updatedAt: originalDate })]
       });
 
-      useTaskStore.getState().updateTaskStatus('task-1', 'in_progress');
+      useTaskStore.getState().updateTaskStatus('task-1', 'coding');
 
       expect(useTaskStore.getState().tasks[0].updatedAt.getTime()).toBeGreaterThan(
         originalDate.getTime()
@@ -250,7 +250,7 @@ describe('Task Store', () => {
 
     it('should update status to ai_review when all subtasks completed', () => {
       useTaskStore.setState({
-        tasks: [createTestTask({ id: 'task-1', status: 'in_progress' })]
+        tasks: [createTestTask({ id: 'task-1', status: 'coding' })]
       });
 
       const plan = createTestPlan({
@@ -274,7 +274,7 @@ describe('Task Store', () => {
 
     it('should update status to human_review when any subtask failed', () => {
       useTaskStore.setState({
-        tasks: [createTestTask({ id: 'task-1', status: 'in_progress' })]
+        tasks: [createTestTask({ id: 'task-1', status: 'coding' })]
       });
 
       const plan = createTestPlan({
@@ -298,7 +298,7 @@ describe('Task Store', () => {
 
     it('should update status to in_progress when some subtasks in progress', () => {
       useTaskStore.setState({
-        tasks: [createTestTask({ id: 'task-1', status: 'backlog' })]
+        tasks: [createTestTask({ id: 'task-1', status: 'planning' })]
       });
 
       const plan = createTestPlan({
@@ -317,7 +317,7 @@ describe('Task Store', () => {
 
       useTaskStore.getState().updateTaskFromPlan('task-1', plan);
 
-      expect(useTaskStore.getState().tasks[0].status).toBe('in_progress');
+      expect(useTaskStore.getState().tasks[0].status).toBe('coding');
     });
 
     it('should update title from plan feature', () => {
@@ -336,7 +336,7 @@ describe('Task Store', () => {
       useTaskStore.setState({
         tasks: [createTestTask({
           id: 'task-1',
-          status: 'in_progress',
+          status: 'coding',
           executionProgress: { phase: 'planning', phaseProgress: 10, overallProgress: 5 }
         })]
       });
@@ -357,7 +357,7 @@ describe('Task Store', () => {
 
       useTaskStore.getState().updateTaskFromPlan('task-1', plan);
 
-      expect(useTaskStore.getState().tasks[0].status).toBe('in_progress');
+      expect(useTaskStore.getState().tasks[0].status).toBe('coding');
       expect(useTaskStore.getState().tasks[0].subtasks).toHaveLength(2);
     });
 
@@ -365,7 +365,7 @@ describe('Task Store', () => {
       useTaskStore.setState({
         tasks: [createTestTask({
           id: 'task-1',
-          status: 'in_progress',
+          status: 'coding',
           executionProgress: { phase: 'coding', phaseProgress: 50, overallProgress: 40 }
         })]
       });
@@ -386,14 +386,14 @@ describe('Task Store', () => {
 
       useTaskStore.getState().updateTaskFromPlan('task-1', plan);
 
-      expect(useTaskStore.getState().tasks[0].status).toBe('in_progress');
+      expect(useTaskStore.getState().tasks[0].status).toBe('coding');
     });
 
     it('should update status when task is in idle phase', () => {
       useTaskStore.setState({
         tasks: [createTestTask({
           id: 'task-1',
-          status: 'in_progress',
+          status: 'coding',
           executionProgress: { phase: 'idle', phaseProgress: 0, overallProgress: 0 }
         })]
       });
@@ -421,7 +421,7 @@ describe('Task Store', () => {
       useTaskStore.setState({
         tasks: [createTestTask({
           id: 'task-1',
-          status: 'backlog',
+          status: 'planning',
           executionProgress: undefined
         })]
       });
@@ -587,10 +587,10 @@ describe('Task Store', () => {
   describe('getTasksByStatus', () => {
     it('should return empty array when no tasks match status', () => {
       useTaskStore.setState({
-        tasks: [createTestTask({ status: 'backlog' })]
+        tasks: [createTestTask({ status: 'planning' })]
       });
 
-      const tasks = useTaskStore.getState().getTasksByStatus('in_progress');
+      const tasks = useTaskStore.getState().getTasksByStatus('coding');
 
       expect(tasks).toHaveLength(0);
     });
@@ -598,13 +598,13 @@ describe('Task Store', () => {
     it('should return all tasks with matching status', () => {
       useTaskStore.setState({
         tasks: [
-          createTestTask({ id: 'task-1', status: 'in_progress' }),
-          createTestTask({ id: 'task-2', status: 'backlog' }),
-          createTestTask({ id: 'task-3', status: 'in_progress' })
+          createTestTask({ id: 'task-1', status: 'coding' }),
+          createTestTask({ id: 'task-2', status: 'planning' }),
+          createTestTask({ id: 'task-3', status: 'coding' })
         ]
       });
 
-      const tasks = useTaskStore.getState().getTasksByStatus('in_progress');
+      const tasks = useTaskStore.getState().getTasksByStatus('coding');
 
       expect(tasks).toHaveLength(2);
       expect(tasks.map((t) => t.id)).toContain('task-1');
@@ -612,7 +612,7 @@ describe('Task Store', () => {
     });
 
     it('should filter by each status type', () => {
-      const statuses: TaskStatus[] = ['backlog', 'in_progress', 'ai_review', 'human_review', 'done'];
+      const statuses: TaskStatus[] = ['planning', 'coding', 'ai_review', 'human_review', 'done'];
 
       useTaskStore.setState({
         tasks: statuses.map((status) => createTestTask({ id: `task-${status}`, status }))
@@ -1197,7 +1197,7 @@ describe('Task Store', () => {
         useTaskStore.setState({
           tasks: [createTestTask({
             id: 'task-1',
-            status: 'backlog',
+            status: 'planning',
             executionProgress: undefined
           })]
         });
@@ -1222,16 +1222,16 @@ describe('Task Store', () => {
 
         useTaskStore.getState().updateTaskFromPlan('task-1', plan);
 
-        // Status should remain unchanged (backlog) because when plan explicitly
+        // Status should remain unchanged (planning) because when plan explicitly
         // sets human_review, status recalculation is skipped entirely
-        expect(useTaskStore.getState().tasks[0].status).toBe('backlog');
+        expect(useTaskStore.getState().tasks[0].status).toBe('planning');
       });
 
       it('should NOT preserve status when plan does not explicitly set human_review', () => {
         useTaskStore.setState({
           tasks: [createTestTask({
             id: 'task-1',
-            status: 'backlog',
+            status: 'planning',
             executionProgress: undefined
           })]
         });

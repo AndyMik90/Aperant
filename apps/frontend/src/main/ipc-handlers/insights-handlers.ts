@@ -228,7 +228,7 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
           projectId,
           title,
           description,
-          status: "backlog",
+          status: "planning",
           subtasks: [],
           logs: [],
           metadata: taskMetadata,

@@ -321,7 +321,7 @@ describe('ProjectStore', () => {
       expect(tasks[0].title).toBe('Test Feature');
       expect(tasks[0].specId).toBe('001-test-feature');
       expect(tasks[0].subtasks).toHaveLength(2);
-      expect(tasks[0].status).toBe('in_progress'); // Some completed, some pending
+      expect(tasks[0].status).toBe('coding'); // Some completed, some pending
     });
 
     it('should determine status as backlog when no subtasks completed', async () => {
@@ -360,7 +360,7 @@ describe('ProjectStore', () => {
       const project = store.addProject(TEST_PROJECT_PATH);
       const tasks = store.getTasks(project.id);
 
-      expect(tasks[0].status).toBe('backlog');
+      expect(tasks[0].status).toBe('planning');
     });
 
     it('should determine status as ai_review when all subtasks completed', async () => {

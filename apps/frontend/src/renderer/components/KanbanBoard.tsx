@@ -1,5 +1,12 @@
-import { useState, useMemo, memo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, memo, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  Group,
+  Panel,
+  Separator,
+  type PanelImperativeHandle,
+  type GroupImperativeHandle,
+} from 'react-resizable-panels';
 import { useViewState } from '../contexts/ViewStateContext';
 import {
   DndContext,
@@ -19,7 +26,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, RefreshCw, GitPullRequest, X, GripVertical, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
@@ -28,7 +35,7 @@ import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, forceCompleteTask, archiveTasks, useTaskStore } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, useTaskStore } from '../stores/task-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import { BulkPRDialog } from './BulkPRDialog';
@@ -42,11 +49,15 @@ function isValidDropColumn(id: string): id is typeof TASK_STATUS_COLUMNS[number]
 
 /**
  * Get the visual column for a task status.
- * pr_created tasks are displayed in the 'done' column, so we map them accordingly.
+ * Done/pr_created tasks are not shown on the Kanban board (they live on Worktrees page).
  * This is used to compare visual positions during drag-and-drop operations.
  */
-function getVisualColumn(status: TaskStatus): typeof TASK_STATUS_COLUMNS[number] {
-  return status === 'pr_created' ? 'done' : status;
+function getVisualColumn(status: TaskStatus): typeof TASK_STATUS_COLUMNS[number] | null {
+  // done/pr_created tasks are not shown on Kanban board
+  if (status === 'done' || status === 'pr_created') {
+    return null;
+  }
+  return status;
 }
 
 interface KanbanBoardProps {
@@ -64,15 +75,14 @@ interface DroppableColumnProps {
   onStatusChange: (taskId: string, newStatus: TaskStatus) => unknown;
   isOver: boolean;
   onAddClick?: () => void;
-  onArchiveAll?: () => void;
-  archivedCount?: number;
-  showArchived?: boolean;
-  onToggleArchived?: () => void;
   // Selection props for human_review column
   selectedTaskIds?: Set<string>;
   onSelectAll?: () => void;
   onDeselectAll?: () => void;
   onToggleSelect?: (taskId: string) => void;
+  // Collapse props
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 /**
@@ -112,13 +122,11 @@ function droppableColumnPropsAreEqual(
   if (prevProps.onTaskClick !== nextProps.onTaskClick) return false;
   if (prevProps.onStatusChange !== nextProps.onStatusChange) return false;
   if (prevProps.onAddClick !== nextProps.onAddClick) return false;
-  if (prevProps.onArchiveAll !== nextProps.onArchiveAll) return false;
-  if (prevProps.archivedCount !== nextProps.archivedCount) return false;
-  if (prevProps.showArchived !== nextProps.showArchived) return false;
-  if (prevProps.onToggleArchived !== nextProps.onToggleArchived) return false;
   if (prevProps.onSelectAll !== nextProps.onSelectAll) return false;
   if (prevProps.onDeselectAll !== nextProps.onDeselectAll) return false;
   if (prevProps.onToggleSelect !== nextProps.onToggleSelect) return false;
+  if (prevProps.isCollapsed !== nextProps.isCollapsed) return false;
+  if (prevProps.onToggleCollapse !== nextProps.onToggleCollapse) return false;
 
   // Compare selectedTaskIds Set
   if (prevProps.selectedTaskIds !== nextProps.selectedTaskIds) {
@@ -145,17 +153,17 @@ function droppableColumnPropsAreEqual(
 // Empty state content for each column
 const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): { icon: React.ReactNode; message: string; subtext?: string } => {
   switch (status) {
-    case 'backlog':
+    case 'planning':
       return {
         icon: <Inbox className="h-6 w-6 text-muted-foreground/50" />,
-        message: t('kanban.emptyBacklog'),
-        subtext: t('kanban.emptyBacklogHint')
+        message: t('kanban.emptyPlanning'),
+        subtext: t('kanban.emptyPlanningHint')
       };
-    case 'in_progress':
+    case 'coding':
       return {
         icon: <Loader2 className="h-6 w-6 text-muted-foreground/50" />,
-        message: t('kanban.emptyInProgress'),
-        subtext: t('kanban.emptyInProgressHint')
+        message: t('kanban.emptyCoding'),
+        subtext: t('kanban.emptyCodingHint')
       };
     case 'ai_review':
       return {
@@ -169,12 +177,6 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
         message: t('kanban.emptyHumanReview'),
         subtext: t('kanban.emptyHumanReviewHint')
       };
-    case 'done':
-      return {
-        icon: <CheckCircle2 className="h-6 w-6 text-muted-foreground/50" />,
-        message: t('kanban.emptyDone'),
-        subtext: t('kanban.emptyDoneHint')
-      };
     default:
       return {
         icon: <Inbox className="h-6 w-6 text-muted-foreground/50" />,
@@ -183,7 +185,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect, isCollapsed, onToggleCollapse }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -262,16 +264,14 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
 
   const getColumnBorderColor = (): string => {
     switch (status) {
-      case 'backlog':
-        return 'column-backlog';
-      case 'in_progress':
-        return 'column-in-progress';
+      case 'planning':
+        return 'column-planning';
+      case 'coding':
+        return 'column-coding';
       case 'ai_review':
         return 'column-ai-review';
       case 'human_review':
         return 'column-human-review';
-      case 'done':
-        return 'column-done';
       default:
         return 'border-t-muted-foreground/30';
     }
@@ -279,11 +279,52 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
 
   const emptyState = getEmptyStateContent(status, t);
 
+  // Get column color for collapsed state
+  const getCollapsedTextColor = (): string => {
+    switch (status) {
+      case 'planning':
+        return 'text-amber-400';
+      case 'coding':
+        return 'text-blue-400';
+      case 'ai_review':
+        return 'text-purple-400';
+      case 'human_review':
+        return 'text-orange-400';
+      default:
+        return 'text-muted-foreground';
+    }
+  };
+
+  // Collapsed view - vertical text with expand button
+  if (isCollapsed) {
+    return (
+      <div
+        ref={setNodeRef}
+        className={cn(
+          'flex h-full flex-col items-center rounded-xl border border-white/5 bg-gradient-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
+          getColumnBorderColor(),
+          'border-t-2'
+        )}
+      >
+        <button
+          onClick={onToggleCollapse}
+          className="flex flex-col items-center gap-2 p-2 hover:bg-white/5 rounded-lg transition-colors h-full justify-center"
+          title={`Expand ${t(TASK_STATUS_LABELS[status])}`}
+        >
+          <ChevronRight className={cn("h-4 w-4", getCollapsedTextColor())} />
+          <span className={cn("text-xs font-medium [writing-mode:vertical-rl] rotate-180", getCollapsedTextColor())}>
+            {t(TASK_STATUS_LABELS[status])} ({tasks.length})
+          </span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        'flex min-w-72 max-w-[30rem] flex-1 flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
+        'flex h-full flex-col rounded-xl border border-white/5 bg-gradient-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
         getColumnBorderColor(),
         'border-t-2',
         isOver && 'drop-zone-highlight'
@@ -319,7 +360,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
           </span>
         </div>
         <div className="flex items-center gap-1">
-          {status === 'backlog' && onAddClick && (
+          {status === 'planning' && onAddClick && (
             <Button
               variant="ghost"
               size="icon"
@@ -330,43 +371,14 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
               <Plus className="h-4 w-4" />
             </Button>
           )}
-          {status === 'done' && onArchiveAll && tasks.length > 0 && !showArchived && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 hover:bg-muted-foreground/10 hover:text-muted-foreground transition-colors"
-              onClick={onArchiveAll}
-              aria-label={t('tooltips.archiveAllDone')}
+          {onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              className="p-1 hover:bg-white/10 rounded transition-colors"
+              title="Collapse column"
             >
-              <Archive className="h-4 w-4" />
-            </Button>
-          )}
-          {status === 'done' && archivedCount !== undefined && archivedCount > 0 && onToggleArchived && (
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    'h-7 w-7 transition-colors relative',
-                    showArchived
-                      ? 'text-primary bg-primary/10 hover:bg-primary/20'
-                      : 'hover:bg-muted-foreground/10 hover:text-muted-foreground'
-                  )}
-                  onClick={onToggleArchived}
-                  aria-pressed={showArchived}
-                  aria-label={t('common:accessibility.toggleShowArchivedAriaLabel')}
-                >
-                  <Archive className="h-4 w-4" />
-                  <span className="absolute -top-1 -right-1 text-[10px] font-medium bg-muted rounded-full min-w-[14px] h-[14px] flex items-center justify-center">
-                    {archivedCount}
-                  </span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {showArchived ? t('common:projectTab.hideArchived') : t('common:projectTab.showArchived')}
-              </TooltipContent>
-            </Tooltip>
+              <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+            </button>
           )}
         </div>
       </div>
@@ -425,6 +437,70 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const { showArchived, toggleShowArchived } = useViewState();
 
+  // Panel refs for programmatic collapse/expand
+  const panelRefs = useRef<Record<string, PanelImperativeHandle | null>>({
+    planning: null,
+    coding: null,
+    ai_review: null,
+    human_review: null,
+  });
+
+  // Group ref for layout management
+  const groupRef = useRef<GroupImperativeHandle>(null);
+
+  // Collapsed columns state
+  const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
+
+  // Redistribute space among non-collapsed panels
+  const redistributeLayout = useCallback((newCollapsedSet: Set<string>) => {
+    if (!groupRef.current) return;
+
+    const collapsedSize = 2; // Match the collapsedSize prop
+    const columnCount = TASK_STATUS_COLUMNS.length;
+    const collapsedCount = newCollapsedSet.size;
+    const expandedCount = columnCount - collapsedCount;
+
+    if (expandedCount === 0) return; // All collapsed, nothing to redistribute
+
+    // Calculate: collapsed panels get collapsedSize%, expanded panels share the rest equally
+    const totalCollapsedSpace = collapsedCount * collapsedSize;
+    const remainingSpace = 100 - totalCollapsedSpace;
+    const expandedPanelSize = remainingSpace / expandedCount;
+
+    const newLayout: Record<string, number> = {};
+    TASK_STATUS_COLUMNS.forEach((status) => {
+      const panelId = `col-${status}`;
+      if (newCollapsedSet.has(status)) {
+        newLayout[panelId] = collapsedSize;
+      } else {
+        newLayout[panelId] = expandedPanelSize;
+      }
+    });
+
+    // Apply the new layout
+    groupRef.current.setLayout(newLayout);
+  }, []);
+
+  // Toggle column collapse state
+  const toggleColumnCollapse = useCallback((columnId: string) => {
+    const panelRef = panelRefs.current[columnId];
+    if (panelRef) {
+      const isCurrentlyCollapsed = collapsedColumns.has(columnId);
+      if (isCurrentlyCollapsed) {
+        panelRef.expand();
+        const next = new Set(collapsedColumns);
+        next.delete(columnId);
+        setCollapsedColumns(next);
+        setTimeout(() => redistributeLayout(next), 50);
+      } else {
+        panelRef.collapse();
+        const next = new Set([...collapsedColumns, columnId]);
+        setCollapsedColumns(next);
+        setTimeout(() => redistributeLayout(next), 50);
+      }
+    }
+  }, [collapsedColumns, redistributeLayout]);
+
   // Selection state for bulk actions (Human Review column)
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
 
@@ -447,12 +523,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     isProcessing: false,
     error: undefined
   });
-
-  // Calculate archived count for Done column button
-  const archivedCount = useMemo(() =>
-    tasks.filter(t => t.metadata?.archivedAt).length,
-    [tasks]
-  );
 
   // Filter tasks based on archive status
   const filteredTasks = useMemo(() => {
@@ -477,20 +547,21 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const taskOrder = useTaskStore((state) => state.taskOrder);
 
   const tasksByStatus = useMemo(() => {
-    // Note: pr_created tasks are shown in the 'done' column since they're essentially complete
+    // Note: done/pr_created tasks are not shown on Kanban - they live on Worktrees page
     const grouped: Record<typeof TASK_STATUS_COLUMNS[number], Task[]> = {
-      backlog: [],
-      in_progress: [],
+      planning: [],
+      coding: [],
       ai_review: [],
-      human_review: [],
-      done: []
+      human_review: []
     };
 
     filteredTasks.forEach((task) => {
-      // Map pr_created tasks to the done column
-      const targetColumn = task.status === 'pr_created' ? 'done' : task.status;
-      if (grouped[targetColumn]) {
-        grouped[targetColumn].push(task);
+      // Skip done/pr_created tasks - they're shown on Worktrees page
+      if (task.status === 'done' || task.status === 'pr_created') {
+        return;
+      }
+      if (grouped[task.status]) {
+        grouped[task.status].push(task);
       }
     });
 
@@ -588,23 +659,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const handleBulkPRComplete = useCallback(() => {
     deselectAllTasks();
   }, [deselectAllTasks]);
-
-  const handleArchiveAll = async () => {
-    // Get projectId from the first task (all tasks should have the same projectId)
-    const projectId = tasks[0]?.projectId;
-    if (!projectId) {
-      console.error('[KanbanBoard] No projectId found');
-      return;
-    }
-
-    const doneTaskIds = tasksByStatus.done.map((t) => t.id);
-    if (doneTaskIds.length === 0) return;
-
-    const result = await archiveTasks(projectId, doneTaskIds);
-    if (!result.success) {
-      console.error('[KanbanBoard] Failed to archive tasks:', result.error);
-    }
-  };
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -736,12 +790,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     // Check each column for stale IDs
     let hasStaleIds = false;
     const cleanedOrder: typeof taskOrder = {
-      backlog: [],
-      in_progress: [],
+      planning: [],
+      coding: [],
       ai_review: [],
       human_review: [],
       pr_created: [],
-      done: []
+      done: [] // Keep for TaskOrderState compatibility, but not used in Kanban
     };
 
     for (const status of Object.keys(taskOrder) as Array<keyof typeof taskOrder>) {
@@ -801,9 +855,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const task = tasks.find((t) => t.id === activeTaskId);
       if (!task) return;
 
-      // Compare visual columns (pr_created maps to 'done' visually)
+      // Get visual columns (null for done/pr_created which aren't on Kanban)
       const taskVisualColumn = getVisualColumn(task.status);
       const overTaskVisualColumn = getVisualColumn(overTask.status);
+
+      // Skip if either task is done/pr_created (shouldn't happen, but guard)
+      if (!taskVisualColumn || !overTaskVisualColumn) return;
 
       // Same visual column: reorder within column
       if (taskVisualColumn === overTaskVisualColumn) {
@@ -864,7 +921,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           </Button>
         </div>
       )}
-      {/* Kanban columns */}
+      {/* Kanban columns with resizable panels */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -872,27 +929,49 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex flex-1 gap-4 overflow-x-auto p-6">
-          {TASK_STATUS_COLUMNS.map((status) => (
-            <DroppableColumn
-              key={status}
-              status={status}
-              tasks={tasksByStatus[status]}
-              onTaskClick={onTaskClick}
-              onStatusChange={handleStatusChange}
-              isOver={overColumnId === status}
-              onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
-              onArchiveAll={status === 'done' ? handleArchiveAll : undefined}
-              archivedCount={status === 'done' ? archivedCount : undefined}
-              showArchived={status === 'done' ? showArchived : undefined}
-              onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
-              selectedTaskIds={status === 'human_review' ? selectedTaskIds : undefined}
-              onSelectAll={status === 'human_review' ? selectAllTasks : undefined}
-              onDeselectAll={status === 'human_review' ? deselectAllTasks : undefined}
-              onToggleSelect={status === 'human_review' ? toggleTaskSelection : undefined}
-            />
+        <Group orientation="horizontal" className="flex-1 p-6" groupRef={groupRef}>
+          {TASK_STATUS_COLUMNS.map((status, index) => (
+            <React.Fragment key={status}>
+              <Panel
+                panelRef={(ref) => { panelRefs.current[status] = ref; }}
+                id={`col-${status}`}
+                defaultSize={100 / TASK_STATUS_COLUMNS.length}
+                minSize={3}
+                collapsible
+                collapsedSize={2}
+                className={cn(
+                  collapsedColumns.has(status) ? "min-w-8" : "min-w-48"
+                )}
+              >
+                <div className={cn(
+                  "h-full",
+                  index > 0 && "ml-1",
+                  index < TASK_STATUS_COLUMNS.length - 1 && "mr-1"
+                )}>
+                  <DroppableColumn
+                    status={status}
+                    tasks={tasksByStatus[status]}
+                    onTaskClick={onTaskClick}
+                    onStatusChange={handleStatusChange}
+                    isOver={overColumnId === status}
+                    onAddClick={status === 'planning' ? onNewTaskClick : undefined}
+                    selectedTaskIds={status === 'human_review' ? selectedTaskIds : undefined}
+                    onSelectAll={status === 'human_review' ? selectAllTasks : undefined}
+                    onDeselectAll={status === 'human_review' ? deselectAllTasks : undefined}
+                    onToggleSelect={status === 'human_review' ? toggleTaskSelection : undefined}
+                    isCollapsed={collapsedColumns.has(status)}
+                    onToggleCollapse={() => toggleColumnCollapse(status)}
+                  />
+                </div>
+              </Panel>
+              {index < TASK_STATUS_COLUMNS.length - 1 && (
+                <Separator className="w-2 flex items-center justify-center group cursor-col-resize">
+                  <GripVertical className="h-6 w-4 text-muted-foreground/30 group-hover:text-primary/50 transition-colors" />
+                </Separator>
+              )}
+            </React.Fragment>
           ))}
-        </div>
+        </Group>
 
         {/* Drag overlay - enhanced visual feedback */}
         <DragOverlay>

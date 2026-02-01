@@ -2,8 +2,40 @@
  * Test setup file for Vitest
  */
 import { vi, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, rmSync, existsSync } from 'fs';
-import path from 'path';
+import * as React from 'react';
+
+// React 19 compatibility: provide global IS_REACT_ACT_ENVIRONMENT and act
+// React 19 moved act from react-dom/test-utils to react
+// The testing library checks for this environment variable
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+
+// Make React.act available globally for React 19 compatibility with @testing-library/react
+// Some versions of testing library still look for react-dom/test-utils which doesn't exist in React 19
+if (React.act && typeof window !== 'undefined') {
+  // Polyfill the old react-dom/test-utils location for compatibility
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).__REACT_ACT__ = React.act;
+}
+
+// Conditionally import Node.js modules only when available (not in jsdom)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let fs: typeof import('fs') | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let path: typeof import('path') | null = null;
+
+// Only import fs/path in Node environment (not jsdom)
+if (typeof process !== 'undefined' && process.versions?.node) {
+  try {
+    // Dynamic require to avoid bundler issues in jsdom
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    fs = require('fs');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    path = require('path');
+  } catch {
+    // Running in browser-like environment (jsdom), fs/path not available
+  }
+}
 
 // Mock localStorage for tests that need it
 const localStorageMock = (() => {
@@ -55,24 +87,27 @@ beforeEach(() => {
   // Clear localStorage
   localStorageMock.clear();
 
-  // Use a unique subdirectory per test to avoid race conditions in parallel tests
-  const testId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const _testDir = path.join(TEST_DATA_DIR, testId);
+  // Only perform file system operations in Node environment (not jsdom)
+  if (fs && path) {
+    // Use a unique subdirectory per test to avoid race conditions in parallel tests
+    const testId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const _testDir = path.join(TEST_DATA_DIR, testId);
 
-  try {
-    if (existsSync(TEST_DATA_DIR)) {
-      rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+    try {
+      if (fs.existsSync(TEST_DATA_DIR)) {
+        fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+      }
+    } catch {
+      // Ignore errors if directory is in use by another parallel test
+      // Each test uses unique subdirectory anyway
     }
-  } catch {
-    // Ignore errors if directory is in use by another parallel test
-    // Each test uses unique subdirectory anyway
-  }
 
-  try {
-    mkdirSync(TEST_DATA_DIR, { recursive: true });
-    mkdirSync(path.join(TEST_DATA_DIR, 'store'), { recursive: true });
-  } catch {
-    // Ignore errors if directory already exists from another parallel test
+    try {
+      fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+      fs.mkdirSync(path.join(TEST_DATA_DIR, 'store'), { recursive: true });
+    } catch {
+      // Ignore errors if directory already exists from another parallel test
+    }
   }
 });
 
@@ -114,7 +149,10 @@ if (typeof window !== 'undefined') {
     updateAPIProfile: vi.fn(),
     deleteAPIProfile: vi.fn(),
     setActiveAPIProfile: vi.fn(),
-    testConnection: vi.fn()
+    testConnection: vi.fn(),
+    // Terminal-related API methods
+    onTaskMonitorTerminalCreate: vi.fn(() => vi.fn()),
+    onTerminalOutput: vi.fn(() => vi.fn())
   };
 }
 

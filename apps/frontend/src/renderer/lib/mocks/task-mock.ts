@@ -19,7 +19,7 @@ export const taskMock = {
       specId: `00${mockTasks.length + 1}-new-task`,
       title,
       description,
-      status: 'backlog' as const,
+      status: 'planning' as const,
       subtasks: [],
       logs: [],
       createdAt: new Date(),
@@ -37,7 +37,7 @@ export const taskMock = {
       specId: '001-updated',
       title: updates.title || 'Updated Task',
       description: updates.description || 'Updated description',
-      status: 'backlog' as const,
+      status: 'planning' as const,
       subtasks: [],
       logs: [],
       createdAt: new Date(),
@@ -67,12 +67,14 @@ export const taskMock = {
     data: {
       taskId,
       recovered: true,
-      newStatus: options?.targetStatus || 'backlog',
+      newStatus: options?.targetStatus || 'planning',
       message: '[Browser Mock] Task recovered successfully'
     }
   }),
 
   checkTaskRunning: async () => ({ success: true, data: false }),
+
+  sendMessageToTask: async (_taskId: string, _message: string) => ({ success: true, data: true }),
 
   // Task logs operations
   getTaskLogs: async () => ({

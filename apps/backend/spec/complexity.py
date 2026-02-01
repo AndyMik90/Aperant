@@ -54,7 +54,9 @@ class ComplexityAssessment:
         # Note: historical_context runs early (after discovery) if Graphiti is enabled
         # It's included by default but gracefully skips if not configured
         if self.complexity == Complexity.SIMPLE:
-            return ["discovery", "historical_context", "quick_spec", "validation"]
+            # Include "planning" phase to ensure implementation_plan.json is created
+            # This is required for Task Lifecycle V2 where subtasks must be displayed in UI
+            return ["discovery", "historical_context", "quick_spec", "planning", "validation"]
         elif self.complexity == Complexity.STANDARD:
             # Standard can optionally include research if flagged
             phases = ["discovery", "historical_context", "requirements"]
