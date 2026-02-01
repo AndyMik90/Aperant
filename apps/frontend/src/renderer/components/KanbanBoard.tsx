@@ -724,6 +724,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const resizeStartWidth = useRef<number>(0);
   // Capture projectId at resize start to avoid stale closure if project changes during resize
   const resizeProjectIdRef = useRef<string | null>(null);
+  // Container ref for measuring available width during refresh realignment
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Get projectId from first task
   const projectId = tasks[0]?.projectId;
@@ -1349,6 +1351,35 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   }, [columnPreferences, setColumnCollapsed, saveKanbanPreferences, projectId]);
 
+  // Create a callback to refresh and realign column widths
+  const handleRefreshWithRealign = useCallback(() => {
+    // Capture projectId at function start to avoid stale closure in setTimeout
+    const currentProjectId = projectId;
+
+    // Get container width from ref
+    const containerElement = containerRef.current;
+    if (!containerElement) {
+      return;
+    }
+
+    const containerWidth = containerElement.offsetWidth;
+
+    // Calculate redistributed widths
+    const redistributedWidths = calculateRedistributedWidths(containerWidth, columnPreferences, TASK_STATUS_COLUMNS);
+
+    // Apply new widths to each column
+    for (const [column, newWidth] of Object.entries(redistributedWidths)) {
+      setColumnWidth(column as typeof TASK_STATUS_COLUMNS[number], newWidth);
+    }
+
+    // Save preferences after all updates complete
+    if (currentProjectId) {
+      setTimeout(() => {
+        saveKanbanPreferences(currentProjectId);
+      }, 0);
+    }
+  }, [columnPreferences, setColumnWidth, saveKanbanPreferences, projectId]);
+
   // Create a callback to toggle locked state and save to storage
   const handleToggleColumnLocked = useCallback((status: typeof TASK_STATUS_COLUMNS[number]) => {
     // Capture projectId at function start to avoid stale closure in setTimeout
@@ -1605,7 +1636,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={onRefresh}
+                onClick={() => {
+                  onRefresh?.();
+                  handleRefreshWithRealign();
+                }}
                 disabled={isRefreshing}
                 className="gap-2 text-muted-foreground hover:text-foreground"
               >
@@ -1624,7 +1658,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex flex-1 gap-4 overflow-x-auto p-6">
+        <div ref={containerRef} className="flex flex-1 gap-4 overflow-x-auto p-6">
           {TASK_STATUS_COLUMNS.map((status) => (
             <DroppableColumn
               key={status}
