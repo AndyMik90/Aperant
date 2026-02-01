@@ -25,9 +25,9 @@ from prompts_pkg.prompt_generator import get_supported_languages, get_user_langu
 
 
 def _extract_lang_name(result: str) -> Optional[str]:
-    """Safely extract the first bolded text from a language instruction string."""
-    match = re.search(r'\*\*(.*?)\*\*', result)
-    return match.group(1) if match else None
+    """Safely extract the language name from a language instruction string."""
+    matches = re.findall(r'\*\*(.*?)\*\*', result)
+    return matches[-1] if matches else None
 
 
 class TestLanguageDetection:
