@@ -1,6 +1,7 @@
 import { ChildProcess } from 'child_process';
 import type { IdeationConfig } from '../../shared/types';
 import type { CompletablePhase } from '../../shared/constants/phase-protocol';
+import type { TaskEventPayload } from './task-event-schema';
 
 /**
  * Agent-specific types for process and state management
@@ -34,6 +35,7 @@ export interface AgentManagerEvents {
   error: (taskId: string, error: string) => void;
   exit: (taskId: string, code: number | null, processType: ProcessType) => void;
   'execution-progress': (taskId: string, progress: ExecutionProgressData) => void;
+  'task-event': (taskId: string, event: TaskEventPayload) => void;
 }
 
 // IdeationConfig now imported from shared types to maintain consistency

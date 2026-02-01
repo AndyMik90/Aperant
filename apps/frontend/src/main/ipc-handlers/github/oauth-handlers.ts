@@ -350,7 +350,7 @@ export function registerStartGhAuth(): void {
           };
 
           ghProcess.stdout?.on('data', (data) => {
-            const chunk = data.toString();
+            const chunk = data.toString('utf-8');
             output += chunk;
             debugLog('gh stdout:', chunk);
             // Try to extract device code as data comes in
@@ -359,7 +359,7 @@ export function registerStartGhAuth(): void {
           });
 
           ghProcess.stderr?.on('data', (data) => {
-            const chunk = data.toString();
+            const chunk = data.toString('utf-8');
             errorOutput += chunk;
             debugLog('gh stderr:', chunk);
             // gh often outputs to stderr, so check there too

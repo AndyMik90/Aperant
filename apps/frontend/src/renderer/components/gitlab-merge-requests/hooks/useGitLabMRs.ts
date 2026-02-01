@@ -15,6 +15,11 @@ import {
 export type { GitLabMergeRequest, GitLabMRReviewResult, GitLabMRReviewProgress };
 export type { GitLabMRReviewFinding } from '../../../../shared/types';
 
+interface UseGitLabMRsOptions {
+  /** Filter MRs by state */
+  stateFilter?: 'opened' | 'closed' | 'merged' | 'all';
+}
+
 interface UseGitLabMRsResult {
   mergeRequests: GitLabMergeRequest[];
   isLoading: boolean;
@@ -47,14 +52,14 @@ interface UseGitLabMRsResult {
   } | null;
 }
 
-export function useGitLabMRs(projectId?: string): UseGitLabMRsResult {
+export function useGitLabMRs(projectId?: string, options: UseGitLabMRsOptions = {}): UseGitLabMRsResult {
+  const { stateFilter = 'opened' } = options;
   const [mergeRequests, setMergeRequests] = useState<GitLabMergeRequest[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedMRIid, setSelectedMRIid] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [projectPath, setProjectPath] = useState<string | null>(null);
-  const [stateFilter] = useState<'opened' | 'closed' | 'merged' | 'all'>('opened');
 
   // Get MR review state from the global store
   const mrReviews = useMRReviewStore((state) => state.mrReviews);

@@ -15,6 +15,8 @@ This allows:
 """
 
 import asyncio
+import json
+import logging
 import os
 import re
 import shutil
@@ -28,7 +30,12 @@ from typing import TypedDict, TypeVar
 
 from core.gh_executable import get_gh_executable, invalidate_gh_cache
 from core.git_executable import get_git_executable, get_isolated_git_env, run_git
+from core.git_provider import detect_git_provider
+from core.glab_executable import get_glab_executable, invalidate_glab_cache
+from core.model_config import get_utility_model_config
 from debug import debug_warning
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -136,6 +143,7 @@ class PushAndCreatePRResult(TypedDict, total=False):
     pushed: bool
     remote: str
     branch: str
+    provider: str  # 'github', 'gitlab', or 'unknown'
     pr_url: str | None  # None when PR was created but URL couldn't be extracted
     already_exists: bool
     error: str
@@ -175,8 +183,8 @@ class WorktreeManager:
 
     # Timeout constants for subprocess operations
     GIT_PUSH_TIMEOUT = 120  # 2 minutes for git push (network operations)
-    GH_CLI_TIMEOUT = 60  # 1 minute for gh CLI commands
-    GH_QUERY_TIMEOUT = 30  # 30 seconds for gh CLI queries
+    CLI_TIMEOUT = 60  # 1 minute for CLI commands (gh/glab)
+    CLI_QUERY_TIMEOUT = 30  # 30 seconds for CLI queries (gh/glab)
 
     def __init__(self, project_dir: Path, base_branch: str | None = None):
         self.project_dir = project_dir
@@ -349,6 +357,28 @@ class WorktreeManager:
 
         actual_branch = result.stdout.strip()
 
+        # Handle detached HEAD state: rev-parse --abbrev-ref returns literal "HEAD"
+        # when the worktree is in detached HEAD (e.g. after rebase, merge conflict, etc.)
+        # First try to resolve the branch from git's worktree registry, then fall back
+        # to the expected branch name derived from the spec name.
+        if actual_branch == "HEAD":
+            registered_branch = self._get_worktree_registered_branch(worktree_path)
+            if registered_branch:
+                debug_warning(
+                    "worktree",
+                    f"Worktree '{spec_name}' is in detached HEAD state. "
+                    f"Resolved branch from git worktree registry: {registered_branch}",
+                )
+                actual_branch = registered_branch
+            else:
+                expected_branch = self.get_branch_name(spec_name)
+                debug_warning(
+                    "worktree",
+                    f"Worktree '{spec_name}' is in detached HEAD state. "
+                    f"Using expected branch name: {expected_branch}",
+                )
+                actual_branch = expected_branch
+
         # Get statistics
         stats = self._get_worktree_stats(spec_name)
 
@@ -360,6 +390,50 @@ class WorktreeManager:
             is_active=True,
             **stats,
         )
+
+    def _get_worktree_registered_branch(self, worktree_path: Path) -> str | None:
+        """
+        Get the branch name for a worktree from git's worktree registry.
+
+        Uses `git worktree list --porcelain` to find the branch associated with
+        a worktree path. This works even when the worktree is in detached HEAD state,
+        as git tracks the original branch association in its registry.
+
+        Args:
+            worktree_path: The path to the worktree directory.
+
+        Returns:
+            The branch name (without refs/heads/ prefix) if found, None otherwise.
+        """
+        result = self._run_git(["worktree", "list", "--porcelain"])
+        if result.returncode != 0:
+            return None
+
+        resolved_path = worktree_path.resolve()
+
+        # Parse porcelain output: entries are separated by blank lines,
+        # each entry has "worktree <path>", "HEAD <sha>", "branch refs/heads/<name>"
+        # (or "detached" instead of "branch" if truly detached in registry too)
+        current_path = None
+        for line in result.stdout.split("\n"):
+            if line.startswith("worktree "):
+                current_path = Path(line.split(" ", 1)[1])
+            elif line.startswith("branch refs/heads/") and current_path is not None:
+                try:
+                    if current_path.exists() and resolved_path.exists():
+                        if os.path.samefile(resolved_path, current_path):
+                            return line[len("branch refs/heads/") :]
+                except OSError:
+                    pass
+                # Fallback to normalized case comparison
+                if os.path.normcase(str(resolved_path)) == os.path.normcase(
+                    str(current_path)
+                ):
+                    return line[len("branch refs/heads/") :]
+            elif line == "":
+                current_path = None
+
+        return None
 
     def _check_branch_namespace_conflict(self) -> str | None:
         """
@@ -976,6 +1050,65 @@ class WorktreeManager:
                 error=f"No worktree found for spec: {spec_name}",
             )
 
+        # Verify we have an actual branch name (not detached HEAD)
+        # get_worktree_info already falls back to expected branch name for detached HEAD,
+        # but we also need to re-attach HEAD to the branch in the worktree so git push works.
+        head_check = self._run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=info.path)
+        if head_check.returncode == 0 and head_check.stdout.strip() == "HEAD":
+            # Resolve the target branch: first check git's worktree registry (which
+            # tracks the original branch even when detached), then fall back to the
+            # expected branch name derived from the spec name.
+            target_branch = self._get_worktree_registered_branch(info.path)
+            if not target_branch:
+                target_branch = self.get_branch_name(spec_name)
+            debug_warning(
+                "worktree",
+                f"Re-attaching detached HEAD to branch '{target_branch}' before push",
+            )
+            # Check if the target branch exists locally
+            if self._branch_exists(target_branch):
+                # Move the branch ref to current commit and switch to it
+                current_commit = self._run_git(["rev-parse", "HEAD"], cwd=info.path)
+                if current_commit.returncode != 0:
+                    return PushBranchResult(
+                        success=False,
+                        branch=target_branch,
+                        error=f"Failed to resolve HEAD commit: {current_commit.stderr}",
+                    )
+                commit_sha = current_commit.stdout.strip()
+                # Update the branch to point to current commit
+                branch_update = self._run_git(
+                    ["branch", "-f", target_branch, commit_sha],
+                    cwd=info.path,
+                )
+                if branch_update.returncode != 0:
+                    return PushBranchResult(
+                        success=False,
+                        branch=target_branch,
+                        error=f"Failed to update branch '{target_branch}' to commit {commit_sha}: {branch_update.stderr}",
+                    )
+                # Switch to the branch
+                switch_result = self._run_git(
+                    ["checkout", target_branch], cwd=info.path
+                )
+                if switch_result.returncode != 0:
+                    return PushBranchResult(
+                        success=False,
+                        branch=target_branch,
+                        error=f"Failed to re-attach to branch '{target_branch}': {switch_result.stderr}",
+                    )
+            else:
+                # Branch doesn't exist locally - create it at current HEAD
+                checkout_result = self._run_git(
+                    ["checkout", "-b", target_branch], cwd=info.path
+                )
+                if checkout_result.returncode != 0:
+                    return PushBranchResult(
+                        success=False,
+                        branch=target_branch,
+                        error=f"Failed to create branch '{target_branch}': {checkout_result.stderr}",
+                    )
+
         # Push the branch to origin
         push_args = ["push", "-u", "origin", info.branch]
         if force:
@@ -1067,8 +1200,22 @@ class WorktreeManager:
         target = target_branch or self.base_branch
         pr_title = title or f"auto-claude: {spec_name}"
 
-        # Get PR body from spec.md if available
-        pr_body = self._extract_spec_summary(spec_name)
+        # Try AI-powered PR body from project's PR template, fall back to spec summary
+        pr_body: str | None = None
+        try:
+            diff_summary, commit_log = self._gather_pr_context(spec_name, target)
+            pr_body = self._try_ai_pr_body(
+                spec_name=spec_name,
+                target_branch=target,
+                branch_name=info.branch,
+                diff_summary=diff_summary,
+                commit_log=commit_log,
+            )
+        except Exception as e:
+            logger.warning(f"AI PR body generation encountered an error: {e}")
+
+        if not pr_body:
+            pr_body = self._extract_spec_summary(spec_name)
 
         # Find gh executable before attempting PR creation
         gh_executable = get_gh_executable()
@@ -1111,7 +1258,7 @@ class WorktreeManager:
                     text=True,
                     encoding="utf-8",
                     errors="replace",
-                    timeout=self.GH_CLI_TIMEOUT,
+                    timeout=self.CLI_TIMEOUT,
                     env=get_isolated_git_env(),
                 )
 
@@ -1187,8 +1334,327 @@ class WorktreeManager:
             invalidate_gh_cache()
             return PullRequestResult(
                 success=False,
-                error="gh CLI not found. Install from https://cli.github.com/",
+                error="GitHub CLI (gh) not found. Install from https://cli.github.com/",
             )
+
+    def create_merge_request(
+        self,
+        spec_name: str,
+        target_branch: str | None = None,
+        title: str | None = None,
+        draft: bool = False,
+    ) -> PullRequestResult:
+        """
+        Create a GitLab merge request for a spec's branch using glab CLI with retry logic.
+
+        Args:
+            spec_name: The spec folder name
+            target_branch: Target branch for MR (defaults to base_branch)
+            title: MR title (defaults to spec name)
+            draft: Whether to create as draft MR
+
+        Returns:
+            PullRequestResult with keys:
+                - success: bool
+                - pr_url: str (if created)
+                - already_exists: bool (if MR already exists)
+                - error: str (if failed)
+        """
+        info = self.get_worktree_info(spec_name)
+        if not info:
+            return PullRequestResult(
+                success=False,
+                error=f"No worktree found for spec: {spec_name}",
+            )
+
+        target = target_branch or self.base_branch
+        mr_title = title or f"auto-claude: {spec_name}"
+
+        # Get MR body from spec.md if available
+        mr_body = self._extract_spec_summary(spec_name)
+
+        # Find glab executable before attempting MR creation
+        glab_executable = get_glab_executable()
+        if not glab_executable:
+            return PullRequestResult(
+                success=False,
+                error="GitLab CLI (glab) not found. Install from https://gitlab.com/gitlab-org/cli",
+            )
+
+        # Build glab mr create command
+        glab_args = [
+            glab_executable,
+            "mr",
+            "create",
+            "--target-branch",
+            target,
+            "--source-branch",
+            info.branch,
+            "--title",
+            mr_title,
+            "--description",
+            mr_body,
+        ]
+        if draft:
+            glab_args.append("--draft")
+
+        def is_mr_retryable(stderr: str) -> bool:
+            """Check if MR creation error is retryable (network or HTTP 5xx)."""
+            return _is_retryable_network_error(stderr) or _is_retryable_http_error(
+                stderr
+            )
+
+        def do_create_mr() -> tuple[bool, PullRequestResult | None, str]:
+            """Execute MR creation for retry wrapper."""
+            try:
+                result = subprocess.run(
+                    glab_args,
+                    cwd=info.path,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=self.CLI_TIMEOUT,
+                    env=get_isolated_git_env(),
+                )
+
+                # Check for "already exists" case (success, no retry needed)
+                if result.returncode != 0 and "already exists" in result.stderr.lower():
+                    existing_url = self._get_existing_mr_url(spec_name, target)
+                    result_dict = PullRequestResult(
+                        success=True,
+                        pr_url=existing_url,
+                        already_exists=True,
+                    )
+                    if existing_url is None:
+                        result_dict["message"] = (
+                            "MR already exists but URL could not be retrieved"
+                        )
+                    return (True, result_dict, "")
+
+                if result.returncode == 0:
+                    # Extract MR URL from output
+                    mr_url: str | None = result.stdout.strip()
+                    if not mr_url.startswith("http"):
+                        # Try to find URL in output
+                        # GitLab URL pattern: matches any HTTPS URL with /merge_requests/<number> or /-/merge_requests/<number> path
+                        match = re.search(
+                            r"https://[^\s]+(?:/merge_requests/|/-/merge_requests/)\d+",
+                            result.stdout,
+                        )
+                        if match:
+                            mr_url = match.group(0)
+                        else:
+                            # Invalid output - no valid URL found
+                            mr_url = None
+
+                    return (
+                        True,
+                        PullRequestResult(
+                            success=True,
+                            pr_url=mr_url,
+                            already_exists=False,
+                        ),
+                        "",
+                    )
+
+                return (False, None, result.stderr)
+
+            except FileNotFoundError:
+                # glab CLI not installed - not retryable, raise to exit retry loop
+                raise
+
+        max_retries = 3
+        try:
+            result, last_error = _with_retry(
+                operation=do_create_mr,
+                max_retries=max_retries,
+                is_retryable=is_mr_retryable,
+            )
+
+            if result:
+                return result
+
+            # Handle timeout error message
+            if last_error == "Operation timed out":
+                return PullRequestResult(
+                    success=False,
+                    error=f"MR creation timed out after {max_retries} attempts.",
+                )
+
+            return PullRequestResult(
+                success=False,
+                error=f"Failed to create MR: {last_error}",
+            )
+
+        except FileNotFoundError:
+            # Cached glab path became invalid - clear cache so next call re-discovers
+            invalidate_glab_cache()
+            return PullRequestResult(
+                success=False,
+                error="GitLab CLI (glab) not found. Install from https://gitlab.com/gitlab-org/cli",
+            )
+
+    def _gather_pr_context(self, spec_name: str, target_branch: str) -> tuple[str, str]:
+        """
+        Gather diff summary and commit log for PR template filling.
+
+        Args:
+            spec_name: The spec folder name
+            target_branch: The target branch for the PR
+
+        Returns:
+            Tuple of (diff_summary, commit_log)
+        """
+        worktree_path = self.get_worktree_path(spec_name)
+        info = self.get_worktree_info(spec_name)
+        branch = info.branch if info else self.get_branch_name(spec_name)
+
+        # Get diff summary (stat for overview)
+        diff_result = self._run_git(
+            ["diff", "--stat", f"{target_branch}...{branch}"],
+            cwd=worktree_path,
+            timeout=30,
+        )
+        diff_summary = diff_result.stdout.strip() if diff_result.returncode == 0 else ""
+
+        # Get shortstat for quick summary
+        shortstat_result = self._run_git(
+            ["diff", "--shortstat", f"{target_branch}...{branch}"],
+            cwd=worktree_path,
+            timeout=30,
+        )
+        if shortstat_result.returncode == 0 and shortstat_result.stdout.strip():
+            diff_summary += "\n\n" + shortstat_result.stdout.strip()
+
+        # Get actual code changes (patch format) for better AI context
+        # Truncate to 30k chars to avoid token limits while still providing meaningful context
+        patch_result = self._run_git(
+            ["diff", "-p", "--stat-width=999", f"{target_branch}...{branch}"],
+            cwd=worktree_path,
+            timeout=30,
+        )
+        if patch_result.returncode == 0 and patch_result.stdout.strip():
+            patch_content = patch_result.stdout.strip()
+            MAX_DIFF_CHARS = 30_000
+
+            if len(patch_content) > MAX_DIFF_CHARS:
+                # Truncate patch and add notice
+                truncated_patch = patch_content[:MAX_DIFF_CHARS]
+                diff_summary += (
+                    "\n\n" + truncated_patch + "\n\n(... diff truncated due to size)"
+                )
+            else:
+                diff_summary += "\n\n" + patch_content
+
+        # Get commit log
+        log_result = self._run_git(
+            [
+                "log",
+                "--oneline",
+                "--no-merges",
+                f"{target_branch}..{branch}",
+            ],
+            cwd=worktree_path,
+            timeout=30,
+        )
+        commit_log = log_result.stdout.strip() if log_result.returncode == 0 else ""
+
+        return diff_summary, commit_log
+
+    def _try_ai_pr_body(
+        self,
+        spec_name: str,
+        target_branch: str,
+        branch_name: str,
+        diff_summary: str,
+        commit_log: str,
+    ) -> str | None:
+        """
+        Attempt to generate a PR body using the AI template filler agent.
+
+        Runs the async agent synchronously with a 30-second timeout.
+        Returns None on any failure so the caller can fall back gracefully.
+
+        Args:
+            spec_name: The spec folder name
+            target_branch: The target branch for the PR
+            branch_name: The source branch name
+            diff_summary: Git diff summary of changes
+            commit_log: Git log of commits
+
+        Returns:
+            The AI-generated PR body string, or None if unavailable.
+        """
+        try:
+            from agents.pr_template_filler import (
+                detect_pr_template,
+                run_pr_template_filler,
+            )
+        except ImportError:
+            logger.warning(
+                "PR template filler module not available, skipping AI PR body"
+            )
+            return None
+
+        # Check if a PR template exists before doing any heavy lifting
+        template = detect_pr_template(self.project_dir)
+        if template is None:
+            return None
+
+        # Resolve spec directory
+        spec_dir = self.project_dir / ".auto-claude" / "specs" / spec_name
+        if not spec_dir.is_dir():
+            # Try worktree-local spec path
+            worktree_path = self.get_worktree_path(spec_name)
+            spec_dir = worktree_path / ".auto-claude" / "specs" / spec_name
+            if not spec_dir.is_dir():
+                logger.warning("Spec directory not found for AI PR body generation")
+                return None
+
+        # Get model configuration from environment (respects user settings)
+        model, thinking_budget = get_utility_model_config()
+
+        async def _run_with_timeout() -> str | None:
+            try:
+                return await asyncio.wait_for(
+                    run_pr_template_filler(
+                        project_dir=self.project_dir,
+                        spec_dir=spec_dir,
+                        model=model,
+                        thinking_budget=thinking_budget,
+                        branch_name=branch_name,
+                        target_branch=target_branch,
+                        diff_summary=diff_summary,
+                        commit_log=commit_log,
+                        verbose=False,
+                    ),
+                    timeout=30.0,
+                )
+            except asyncio.TimeoutError:
+                logger.warning("PR template filler timed out after 30s")
+                return None
+
+        try:
+            # Check if there's already a running event loop
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop and loop.is_running():
+                # We're already inside an async context — run in a new thread
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(asyncio.run, _run_with_timeout())
+                    return future.result(timeout=35)
+            else:
+                return asyncio.run(_run_with_timeout())
+
+        except Exception as e:
+            logger.warning(f"AI PR body generation failed: {e}")
+            return None
 
     def _extract_spec_summary(self, spec_name: str) -> str:
         """Extract a summary from spec.md for PR body."""
@@ -1264,7 +1730,7 @@ class WorktreeManager:
                 text=True,
                 encoding="utf-8",
                 errors="replace",
-                timeout=self.GH_QUERY_TIMEOUT,
+                timeout=self.CLI_QUERY_TIMEOUT,
                 env=get_isolated_git_env(),
             )
             if result.returncode == 0:
@@ -1283,6 +1749,57 @@ class WorktreeManager:
 
         return None
 
+    def _get_existing_mr_url(self, spec_name: str, target_branch: str) -> str | None:
+        """Get the URL of an existing MR for this branch."""
+        info = self.get_worktree_info(spec_name)
+        if not info:
+            return None
+
+        glab_executable = get_glab_executable()
+        if not glab_executable:
+            # glab CLI not found - return None and let caller handle it
+            return None
+
+        try:
+            result = subprocess.run(
+                [
+                    glab_executable,
+                    "mr",
+                    "view",
+                    info.branch,
+                    "--output",
+                    "json",
+                ],
+                cwd=info.path,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=self.CLI_QUERY_TIMEOUT,
+                env=get_isolated_git_env(),
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                # Parse JSON output to extract web_url (glab uses snake_case)
+                try:
+                    data = json.loads(result.stdout)
+                    return data.get("web_url")
+                except json.JSONDecodeError:
+                    # If JSON parsing fails, return None
+                    pass
+        except (
+            subprocess.TimeoutExpired,
+            FileNotFoundError,
+            subprocess.SubprocessError,
+        ) as e:
+            # Silently ignore errors when fetching existing MR URL - this is a best-effort
+            # lookup that may fail due to network issues, missing glab CLI, or auth problems.
+            # Returning None allows the caller to handle missing URLs gracefully.
+            if isinstance(e, FileNotFoundError):
+                invalidate_glab_cache()
+            debug_warning("worktree", f"Could not get existing MR URL: {e}")
+
+        return None
+
     def push_and_create_pr(
         self,
         spec_name: str,
@@ -1292,13 +1809,14 @@ class WorktreeManager:
         force_push: bool = False,
     ) -> PushAndCreatePRResult:
         """
-        Push branch and create a pull request in one operation.
+        Push branch and create a pull request/merge request in one operation.
+        Automatically detects git provider (GitHub or GitLab) and routes to the appropriate CLI.
 
         Args:
             spec_name: The spec folder name
-            target_branch: Target branch for PR (defaults to base_branch)
-            title: PR title (defaults to spec name)
-            draft: Whether to create as draft PR
+            target_branch: Target branch for PR/MR (defaults to base_branch)
+            title: PR/MR title (defaults to spec name)
+            draft: Whether to create as draft PR/MR
             force_push: Whether to force push the branch
 
         Returns:
@@ -1306,7 +1824,8 @@ class WorktreeManager:
                 - success: bool
                 - pr_url: str (if created)
                 - pushed: bool (if push succeeded)
-                - already_exists: bool (if PR already exists)
+                - provider: str ('github', 'gitlab', or 'unknown')
+                - already_exists: bool (if PR/MR already exists)
                 - error: str (if failed)
         """
         # Step 1: Push the branch
@@ -1315,16 +1834,41 @@ class WorktreeManager:
             return PushAndCreatePRResult(
                 success=False,
                 pushed=False,
+                branch=push_result.get("branch", ""),
+                remote=push_result.get("remote", ""),
                 error=push_result.get("error", "Push failed"),
             )
 
-        # Step 2: Create the PR
-        pr_result = self.create_pull_request(
-            spec_name=spec_name,
-            target_branch=target_branch,
-            title=title,
-            draft=draft,
+        # Step 2: Detect git provider (use the remote that was pushed to)
+        provider = detect_git_provider(
+            self.project_dir, remote_name=push_result.get("remote")
         )
+
+        # Step 3: Create the PR/MR based on provider
+        if provider == "github":
+            pr_result = self.create_pull_request(
+                spec_name=spec_name,
+                target_branch=target_branch,
+                title=title,
+                draft=draft,
+            )
+        elif provider == "gitlab":
+            pr_result = self.create_merge_request(
+                spec_name=spec_name,
+                target_branch=target_branch,
+                title=title,
+                draft=draft,
+            )
+        else:
+            # Unknown provider
+            return PushAndCreatePRResult(
+                success=False,
+                pushed=True,
+                remote=push_result.get("remote"),
+                branch=push_result.get("branch"),
+                provider=provider,
+                error="Unable to determine git hosting provider. Supported: GitHub, GitLab.",
+            )
 
         # Combine results
         return PushAndCreatePRResult(
@@ -1332,6 +1876,7 @@ class WorktreeManager:
             pushed=True,
             remote=push_result.get("remote"),
             branch=push_result.get("branch"),
+            provider=provider,
             pr_url=pr_result.get("pr_url"),
             already_exists=pr_result.get("already_exists", False),
             error=pr_result.get("error"),
