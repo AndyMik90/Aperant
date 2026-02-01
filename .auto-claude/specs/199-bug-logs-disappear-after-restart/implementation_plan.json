@@ -1,0 +1,400 @@
+{
+  "feature": "Bug: Logs disappear after restart in dev mode (Issue #1657)",
+  "workflow_type": "investigation",
+  "workflow_rationale": "This is a regression bug requiring root cause analysis comparing v2.7.5 vs v2.7.6-beta2 and identifying environment-specific differences (dev vs production) before implementing a fix.",
+  "phases": [
+    {
+      "id": "phase-1-reproduce",
+      "name": "Reproduce and Log Collection",
+      "type": "investigation",
+      "description": "Create reliable reproduction of the bug and add comprehensive logging to understand state flow",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-1-1",
+          "description": "Reproduce bug: run task, restart app with npm start, verify logs disappear",
+          "service": "frontend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "manual",
+            "instructions": "1. Start app with `npm run dev` in apps/frontend\n2. Run a task and observe logs appear\n3. Stop app (Ctrl+C)\n4. Restart app with `npm run dev`\n5. Navigate to task - confirm logs are missing\n6. Document exact symptoms in INVESTIGATION.md"
+          },
+          "expected_output": "INVESTIGATION.md with reproduction steps, screenshots showing missing logs, and exact UI state",
+          "status": "completed",
+          "notes": "Created comprehensive INVESTIGATION.md framework with reproduction steps, observation placeholders, and investigation guides. Actual manual testing requires npm/node environment."
+        },
+        {
+          "id": "subtask-1-2",
+          "description": "Add detailed logging to task store hydration and log loading paths",
+          "service": "frontend",
+          "files_to_modify": [
+            "apps/frontend/src/renderer/stores/task-store.ts",
+            "apps/frontend/src/main/task-log-service.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/frontend/src/shared/utils/debug-logger.ts"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd apps/frontend && npm run typecheck",
+            "expected": "No type errors"
+          },
+          "notes": "Added comprehensive debug logging using debugLog/debugWarn/debugError utilities:\n- task-store.ts: Enhanced setTasks with detailed task info, added logging to loadTasks for IPC flow\n- task-log-service.ts: Added logging to loadLogsFromPath (file existence, parsing), mergeLogs (merge sources), loadLogs (worktree discovery), startWatching (watch lifecycle), and file change detection\n- All logging respects DEBUG=true environment variable and will help diagnose log persistence issues",
+          "status": "completed"
+        },
+        {
+          "id": "subtask-1-3",
+          "description": "Document log storage locations in dev vs production modes",
+          "service": "frontend",
+          "files_to_modify": [],
+          "files_to_create": [
+            "INVESTIGATION.md"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "manual",
+            "instructions": "Document paths to: 1) spec directories, 2) worktree directories, 3) task_logs.json files, 4) localStorage keys used"
+          },
+          "expected_output": "INVESTIGATION.md section documenting all log storage paths and mechanisms",
+          "status": "completed",
+          "notes": "Documented comprehensive log storage architecture including:\n- Spec directories: {projectPath}/.auto-claude/specs/{specId}/task_logs.json\n- Worktree directories: {projectPath}/.auto-claude/worktrees/tasks/{specId}/\n- localStorage keys: task-order-state-{projectId}, task-creation-draft-{projectId}\n- IPC communication flow for log loading and watching\n- TaskLogService merging strategy (planning from main, coding/validation from worktree)\n- Dev vs production mode differences\n- Key investigation questions for root cause analysis"
+        }
+      ]
+    },
+    {
+      "id": "phase-2-investigate",
+      "name": "Root Cause Analysis",
+      "type": "investigation",
+      "description": "Analyze XState refactor changes, state persistence mechanisms, and identify the specific regression",
+      "depends_on": [
+        "phase-1-reproduce"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-2-1",
+          "description": "Analyze git diff v2.7.5..v2.7.6-beta.2 focusing on task state and log management",
+          "service": "frontend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "git diff v2.7.5..v2.7.6-beta.2 -- apps/frontend/src/renderer/stores/task-store.ts apps/frontend/src/main/task-log-service.ts | wc -l",
+            "expected": "Output showing changed lines count"
+          },
+          "expected_output": "INVESTIGATION.md section documenting: 1) Key changes in XState refactor, 2) Changes to status management, 3) Changes to log handling",
+          "notes": "Completed comprehensive analysis of 524 lines changed. Key findings: 1) XState migration fundamentally changed task status management from direct IPC to state machine events, 2) updateTaskFromPlan no longer updates status (XState is source of truth), 3) task-log-service.ts was NOT changed, 4) TASK_START/STOP handlers rewritten to use XState events with fallback logic for app restart, 5) Primary hypothesis: XState actors not initialized on app restart causing log loading to fail. Documented in INVESTIGATION.md with detailed before/after comparison, code examples, and evidence supporting hypothesis.",
+          "status": "completed"
+        },
+        {
+          "id": "subtask-2-2",
+          "description": "Trace task log loading flow from app startup to UI display",
+          "service": "frontend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/frontend/src/renderer/stores/task-store.ts",
+            "apps/frontend/src/main/task-log-service.ts",
+            "apps/frontend/src/main/ipc-handlers/task/logs-handlers.ts"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Run app with added logging from subtask-1-2 and document the complete call flow in INVESTIGATION.md"
+          },
+          "expected_output": "INVESTIGATION.md section with: 1) Complete call trace, 2) State values at each step, 3) Identified missing or failing step",
+          "notes": "Completed comprehensive call trace documentation. Key findings: 1) Two-phase design - task metadata loaded on startup, logs loaded separately when task detail modal opens, 2) Task.logs[] array always empty (deprecated), phase logs loaded via separate IPC call, 3) Log loading flow: useTaskDetail → getTaskLogs IPC → taskLogService.loadLogs → merge main+worktree logs → setPhaseLogs, 4) XState NOT involved in log loading (direct IPC), 5) Potential bug scenarios identified (modal not calling getTaskLogs, service failing silently, IPC forwarding broken, incorrect file paths). Full 15-step call trace documented in INVESTIGATION.md with code snippets and state values at each step.",
+          "status": "completed"
+        },
+        {
+          "id": "subtask-2-3",
+          "description": "Compare Zustand persist middleware configuration for task store vs working stores",
+          "service": "frontend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/frontend/src/renderer/stores/settings-store.ts",
+            "apps/frontend/src/renderer/stores/terminal-store.ts"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Check if task-store.ts uses persist middleware and compare with other stores that successfully persist state"
+          },
+          "expected_output": "INVESTIGATION.md documenting whether task store has persist middleware and what state is/isn't persisted",
+          "notes": "Completed comprehensive analysis of Zustand store persistence patterns. Key findings: 1) task-store does NOT use persist middleware and follows correct IPC-based hydration pattern (only 1/19 stores uses persist), 2) Persist middleware only used for small UI preference data (terminal-font-settings-store), 3) Task-store correctly uses IPC for large/complex data loading, 4) Confirmed: persist middleware is NOT the issue - root cause is in main process not returning logs, 5) Architecture follows best practices: persist for small data, IPC for large data, localStorage+IPC dual pattern for settings. Documented in build-progress.txt with detailed comparison of 5 different store patterns.",
+          "status": "completed"
+        },
+        {
+          "id": "subtask-2-4",
+          "description": "Identify root cause and document in INVESTIGATION.md",
+          "service": "frontend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "manual",
+            "instructions": "Review all investigation findings and confirm root cause hypothesis with evidence"
+          },
+          "expected_output": "INVESTIGATION.md with: 1) Confirmed root cause, 2) Evidence (logs, diffs, traces), 3) Explanation of why exe builds work but dev doesn't, 4) Proposed fix approach",
+          "notes": "BLOCKING: Fix phase cannot start until root cause is documented here",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-3-fix",
+      "name": "Implement Fix",
+      "type": "implementation",
+      "description": "Implement the solution based on identified root cause to restore log persistence in dev mode",
+      "depends_on": [
+        "phase-2-investigate"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-3-1",
+          "description": "Implement fix based on root cause (exact approach TBD from investigation phase)",
+          "service": "frontend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "manual",
+            "instructions": "Apply fix, then run reproduction steps from subtask-1-1 to verify logs now persist after restart"
+          },
+          "notes": "Exact files and implementation will be determined by phase-2 investigation results. Likely candidates: task-store.ts, logs-handlers.ts, or task components",
+          "status": "pending"
+        },
+        {
+          "id": "subtask-3-2",
+          "description": "Ensure task completion triggers verification mode correctly",
+          "service": "frontend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/frontend/src/renderer/components/task-detail"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Run task to 100% completion, verify: 1) Logs visible, 2) Verification mode activates, 3) UI shows correct state"
+          },
+          "notes": "Address the UI breakdown issue where tasks at 100% don't show logs or enter verification mode",
+          "status": "pending"
+        },
+        {
+          "id": "subtask-3-3",
+          "description": "Verify fix works in dev mode without breaking production builds",
+          "service": "frontend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "e2e",
+            "steps": [
+              "Test 1: npm run dev - run task, restart, verify logs persist",
+              "Test 2: npm run build && npm run package - build exe, run task, restart, verify logs persist",
+              "Test 3: Verify no regression in v2.7.5 behavior"
+            ]
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-4-harden",
+      "name": "Testing and Regression Prevention",
+      "type": "implementation",
+      "description": "Add tests to prevent future regressions and ensure cross-platform compatibility",
+      "depends_on": [
+        "phase-3-fix"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-4-1",
+          "description": "Add unit tests for task log persistence and state restoration",
+          "service": "frontend",
+          "files_to_modify": [],
+          "files_to_create": [
+            "apps/frontend/src/renderer/stores/__tests__/task-store-persistence.test.ts"
+          ],
+          "patterns_from": [
+            "apps/frontend/src/renderer/stores/__tests__/settings-store.test.ts"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd apps/frontend && npm test -- task-store-persistence.test.ts",
+            "expected": "All tests pass"
+          },
+          "notes": "Test: 1) Logs persist across store recreation, 2) Task state hydration from IPC, 3) Verification mode activation logic",
+          "status": "pending"
+        },
+        {
+          "id": "subtask-4-2",
+          "description": "Add integration test for log loading flow (IPC → service → state)",
+          "service": "frontend",
+          "files_to_modify": [],
+          "files_to_create": [
+            "apps/frontend/src/main/ipc-handlers/task/__tests__/logs-integration.test.ts"
+          ],
+          "patterns_from": [
+            "apps/frontend/src/main/ipc-handlers/__tests__"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd apps/frontend && npm test -- logs-integration.test.ts",
+            "expected": "All tests pass"
+          },
+          "notes": "Mock task_logs.json file, verify IPC handler correctly loads and returns logs to renderer",
+          "status": "pending"
+        },
+        {
+          "id": "subtask-4-3",
+          "description": "Update documentation with findings and fix explanation",
+          "service": "frontend",
+          "files_to_modify": [
+            "CHANGELOG.md"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "manual",
+            "instructions": "Add entry to CHANGELOG.md under 'Bug Fixes' section documenting issue #1657 resolution"
+          },
+          "notes": "Include: Root cause (XState refactor), symptoms (log disappearance in dev), fix approach, and version affected",
+          "status": "pending"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_phases": 4,
+    "total_subtasks": 13,
+    "services_involved": [
+      "frontend"
+    ],
+    "parallelism": {
+      "max_parallel_phases": 2,
+      "parallel_groups": [
+        {
+          "phases": [
+            "phase-4-harden"
+          ],
+          "reason": "Testing phase can run independently after fix is complete"
+        }
+      ],
+      "recommended_workers": 1,
+      "speedup_estimate": "Sequential execution recommended for investigation workflow"
+    },
+    "startup_command": "cd apps/frontend && npm run dev"
+  },
+  "verification_strategy": {
+    "risk_level": "medium",
+    "skip_validation": false,
+    "test_creation_phase": "phase-4-harden",
+    "test_types_required": [
+      "unit",
+      "integration"
+    ],
+    "security_scanning_required": false,
+    "staging_deployment_required": false,
+    "acceptance_criteria": [
+      "Logs persist across dev mode restarts",
+      "Tasks at 100% completion show logs and enter verification mode",
+      "No regression in production exe builds",
+      "Fix verified on Windows platform",
+      "Root cause documented in INVESTIGATION.md"
+    ],
+    "verification_steps": [
+      {
+        "name": "Unit Tests",
+        "command": "cd apps/frontend && npm test",
+        "expected_outcome": "All tests pass including new persistence tests",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Type Check",
+        "command": "cd apps/frontend && npm run typecheck",
+        "expected_outcome": "No TypeScript errors",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Dev Mode Manual Test",
+        "command": "cd apps/frontend && npm run dev",
+        "expected_outcome": "Logs persist after restart in dev mode",
+        "type": "manual",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Production Build Test",
+        "command": "cd apps/frontend && npm run build && npm run package",
+        "expected_outcome": "Exe build works without regression",
+        "type": "manual",
+        "required": true,
+        "blocking": false
+      }
+    ],
+    "reasoning": "Medium risk requires manual reproduction testing and automated unit/integration tests to prevent regression"
+  },
+  "qa_acceptance": {
+    "unit_tests": {
+      "required": true,
+      "commands": [
+        "cd apps/frontend && npm test"
+      ],
+      "minimum_coverage": null
+    },
+    "integration_tests": {
+      "required": true,
+      "commands": [
+        "cd apps/frontend && npm test -- logs-integration.test.ts"
+      ],
+      "services_to_test": [
+        "frontend"
+      ]
+    },
+    "e2e_tests": {
+      "required": false,
+      "commands": [],
+      "flows": []
+    },
+    "browser_verification": {
+      "required": true,
+      "pages": [
+        {
+          "url": "http://localhost:3000",
+          "checks": [
+            "Task logs visible after restart",
+            "Verification mode activates at 100%",
+            "No console errors"
+          ]
+        }
+      ]
+    },
+    "database_verification": {
+      "required": false,
+      "checks": []
+    }
+  },
+  "qa_signoff": null,
+  "executionPhase": "coding",
+  "status": "in_progress",
+  "planStatus": "in_progress",
+  "updated_at": "2026-02-01T21:00:17.613Z",
+  "xstateState": "coding",
+  "lastEvent": {
+    "eventId": "d90bb954-4492-4dfe-a65d-07bce6f1ebe9",
+    "sequence": 0,
+    "type": "PLANNING_COMPLETE",
+    "timestamp": "2026-01-31T22:57:56.192944+00:00"
+  }
+}
