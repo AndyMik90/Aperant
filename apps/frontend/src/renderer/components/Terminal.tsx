@@ -16,6 +16,7 @@ import { useTerminalEvents } from './terminal/useTerminalEvents';
 import { useAutoNaming } from './terminal/useAutoNaming';
 import { useTerminalFileDrop } from './terminal/useTerminalFileDrop';
 import { debugLog } from '../../shared/utils/debug-logger';
+import { isWindows as checkIsWindows } from '../lib/os-detection';
 
 // Minimum dimensions to prevent PTY creation with invalid sizes
 const MIN_COLS = 10;
@@ -23,16 +24,16 @@ const MIN_ROWS = 3;
 
 // Platform detection for platform-specific timing
 // Windows ConPTY is slower than Unix PTY, so we need longer grace periods
-const isWindows = typeof window !== 'undefined' && window.platform?.isWindows;
+const platformIsWindows = checkIsWindows();
 
 // Threshold in milliseconds to allow for async PTY resize acknowledgment
 // Mismatches within this window after a resize are expected and not logged as warnings
 // Windows needs longer grace period due to slower ConPTY resize
-const DIMENSION_MISMATCH_GRACE_PERIOD_MS = isWindows ? 500 : 100;
+const DIMENSION_MISMATCH_GRACE_PERIOD_MS = platformIsWindows ? 500 : 100;
 
 // Cooldown between auto-corrections to prevent rapid-fire corrections
 // Windows needs longer cooldown due to slower ConPTY operations
-const AUTO_CORRECTION_COOLDOWN_MS = isWindows ? 1000 : 300;
+const AUTO_CORRECTION_COOLDOWN_MS = platformIsWindows ? 1000 : 300;
 
 // Auto-correction frequency monitoring
 const AUTO_CORRECTION_WARNING_THRESHOLD = 5;  // Warn if > 5 corrections per minute
@@ -87,6 +88,11 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   // If corrections exceed threshold, it may indicate a persistent sync problem
   const autoCorrectionCountRef = useRef<number>(0);
   const autoCorrectionWindowStartRef = useRef<number>(Date.now());
+  // Sequence number for resize operations to prevent race conditions
+  // When concurrent resize calls complete out-of-order, only the latest result is applied
+  const resizeSequenceRef = useRef<number>(0);
+  // Track post-creation dimension check timeout for cleanup
+  const postCreationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Worktree dialog state
   const [showWorktreeDialog, setShowWorktreeDialog] = useState(false);
@@ -137,6 +143,41 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
 
   // Track when xterm dimensions are ready for PTY creation
   const [readyDimensions, setReadyDimensions] = useState<{ cols: number; rows: number } | null>(null);
+
+  /**
+   * Helper function to resize PTY with proper dimension tracking and race condition prevention.
+   * Uses sequence numbers to ensure only the latest resize result updates the tracked dimensions.
+   * This prevents stale dimension corruption when concurrent resize calls complete out-of-order.
+   *
+   * @param cols - Target column count
+   * @param rows - Target row count
+   * @param context - Context string for debug logging (e.g., "onResize", "performFit")
+   */
+  const resizePtyWithTracking = useCallback((cols: number, rows: number, context: string) => {
+    // Increment sequence number for this resize operation
+    const sequence = ++resizeSequenceRef.current;
+    lastResizeTimeRef.current = Date.now();
+
+    window.electronAPI.resizeTerminal(id, cols, rows).then((result) => {
+      // Only update dimensions if this is still the latest resize operation
+      // This prevents race conditions where an earlier failed call overwrites a later successful one
+      if (sequence !== resizeSequenceRef.current) {
+        debugLog(`[Terminal ${id}] ${context}: Ignoring stale resize result (sequence ${sequence} vs current ${resizeSequenceRef.current})`);
+        return;
+      }
+
+      if (result.success) {
+        lastPtyDimensionsRef.current = { cols, rows };
+      } else {
+        debugLog(`[Terminal ${id}] ${context} resize failed: ${result.error || 'unknown error'}`);
+      }
+    }).catch((error) => {
+      // Only log if this is still the latest operation
+      if (sequence === resizeSequenceRef.current) {
+        debugLog(`[Terminal ${id}] ${context} resize error: ${error}`);
+      }
+    });
+  }, [id]);
 
   // Callback when xterm has measured valid dimensions
   const handleDimensionsReady = useCallback((cols: number, rows: number) => {
@@ -218,23 +259,11 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
         autoCorrectionCountRef.current++;
 
         debugLog(`[Terminal ${id}] AUTO-CORRECTING (#${autoCorrectionCountRef.current}): resizing PTY to ${xtermCols}x${xtermRows}`);
-        const previousDims = lastPtyDimensionsRef.current;
-        lastResizeTimeRef.current = Date.now();
         lastAutoCorrectionTimeRef.current = Date.now();
-        window.electronAPI.resizeTerminal(id, xtermCols, xtermRows).then((result) => {
-          if (result.success) {
-            lastPtyDimensionsRef.current = { cols: xtermCols, rows: xtermRows };
-          } else {
-            lastPtyDimensionsRef.current = previousDims;
-            debugLog(`[Terminal ${id}] AUTO-CORRECTION resize failed: ${result.error || 'unknown error'}`);
-          }
-        }).catch((error) => {
-          lastPtyDimensionsRef.current = previousDims;
-          debugLog(`[Terminal ${id}] AUTO-CORRECTION resize error: ${error}`);
-        });
+        resizePtyWithTracking(xtermCols, xtermRows, 'AUTO-CORRECTION');
       }
     }
-  }, [id]);
+  }, [id, resizePtyWithTracking]);
 
   // Initialize xterm with command tracking
   const {
@@ -270,20 +299,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
         return;
       }
 
-      // Update tracked dimensions only after successful resize to PTY
-      const previousDims = lastPtyDimensionsRef.current;
-      lastResizeTimeRef.current = Date.now();
-      window.electronAPI.resizeTerminal(id, cols, rows).then((result) => {
-        if (result.success) {
-          lastPtyDimensionsRef.current = { cols, rows };
-        } else {
-          lastPtyDimensionsRef.current = previousDims;
-          debugLog(`[Terminal ${id}] onResize failed: ${result.error || 'unknown error'}`);
-        }
-      }).catch((error) => {
-        lastPtyDimensionsRef.current = previousDims;
-        debugLog(`[Terminal ${id}] onResize error: ${error}`);
-      });
+      // Use helper to resize PTY with proper tracking and race condition prevention
+      resizePtyWithTracking(cols, rows, 'onResize');
     },
     onDimensionsReady: handleDimensionsReady,
   });
@@ -331,26 +348,14 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
       const currentRows = xtermRef.current?.rows;
       if (currentCols !== undefined && currentRows !== undefined && currentCols >= MIN_COLS && currentRows >= MIN_ROWS) {
         debugLog(`[Terminal ${id}] PTY created - forcing PTY resize to match xterm: cols=${currentCols}, rows=${currentRows}`);
-        const previousDims = lastPtyDimensionsRef.current;
-        lastResizeTimeRef.current = Date.now();
-        // Force resize to ensure PTY matches xterm dimensions
-        // Only update ref on success to avoid masking future mismatches on failure
-        window.electronAPI.resizeTerminal(id, currentCols, currentRows).then((result) => {
-          if (result.success) {
-            lastPtyDimensionsRef.current = { cols: currentCols, rows: currentRows };
-          } else {
-            lastPtyDimensionsRef.current = previousDims;
-            debugLog(`[Terminal ${id}] PTY creation resize failed: ${result.error || 'unknown error'}`);
-          }
-        }).catch((error) => {
-          lastPtyDimensionsRef.current = previousDims;
-          debugLog(`[Terminal ${id}] PTY creation resize error: ${error}`);
-        });
+        // Use helper to resize PTY with proper tracking and race condition prevention
+        resizePtyWithTracking(currentCols, currentRows, 'PTY creation');
 
         // Schedule initial dimension mismatch check after PTY creation
         // This helps detect if xterm dimensions drifted during PTY setup
         // Read fresh dimensions inside the timeout to avoid stale closure
-        setTimeout(() => {
+        // Store timeout ID for cleanup on unmount
+        postCreationTimeoutRef.current = setTimeout(() => {
           const freshCols = xtermRef.current?.cols;
           const freshRows = xtermRef.current?.rows;
           if (freshCols !== undefined && freshRows !== undefined) {
@@ -476,20 +481,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
           const freshRows = xtermRef.current?.rows;
           if (expansionStateChanged && isCreatedRef.current && freshCols !== undefined && freshRows !== undefined && freshCols >= MIN_COLS && freshRows >= MIN_ROWS) {
             debugLog(`[Terminal ${id}] performFit: Forcing PTY resize to cols=${freshCols}, rows=${freshRows}`);
-            const previousDims = lastPtyDimensionsRef.current;
-            lastResizeTimeRef.current = Date.now();
-            // Only update ref on success to avoid masking future mismatches on failure
-            window.electronAPI.resizeTerminal(id, freshCols, freshRows).then((result) => {
-              if (result.success) {
-                lastPtyDimensionsRef.current = { cols: freshCols, rows: freshRows };
-              } else {
-                lastPtyDimensionsRef.current = previousDims;
-                debugLog(`[Terminal ${id}] performFit resize failed: ${result.error || 'unknown error'}`);
-              }
-            }).catch((error) => {
-              lastPtyDimensionsRef.current = previousDims;
-              debugLog(`[Terminal ${id}] performFit resize error: ${error}`);
-            });
+            // Use helper to resize PTY with proper tracking and race condition prevention
+            resizePtyWithTracking(freshCols, freshRows, 'performFit');
           }
         } else if (retryCount < MAX_RETRIES) {
           // Container not ready yet, retry after a short delay
@@ -558,7 +551,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
         container.parentElement?.removeEventListener('transitionend', handleTransitionEnd);
       }
     };
-  }, [isExpanded, fit, id]);
+  }, [isExpanded, fit, id, resizePtyWithTracking]);
 
   // Trigger deferred Claude resume when terminal becomes active
   // This ensures Claude sessions are only resumed when the user actually views the terminal,
@@ -604,6 +597,12 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
     return () => {
       isMountedRef.current = false;
       cleanupAutoNaming();
+
+      // Clear post-creation dimension check timeout to prevent operations on unmounted component
+      if (postCreationTimeoutRef.current !== null) {
+        clearTimeout(postCreationTimeoutRef.current);
+        postCreationTimeoutRef.current = null;
+      }
 
       setTimeout(() => {
         if (!isMountedRef.current) {
