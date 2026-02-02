@@ -22,6 +22,29 @@
     "fileRenamesDetected": "{{count}} file rename detected - AI will handle the merge.",
     "fileRenamesDetected_other": "{{count}} file renames detected - AI will handle the merge.",
     "filesRenamedOrMoved": "Files may have been renamed or moved - AI will handle the merge.",
+    "alreadyMergedTitle": "Changes already in your branch",
+    "alreadyMergedDescription": "These changes appear to already exist in your current branch. You can safely mark this task as done.",
+    "alreadyMergedTooltip": "The task's changes are already present in your branch. Marking as done will clean up the worktree without merging.",
+    "matchingFiles": "Matching files",
+    "supersededTitle": "Changes superseded",
+    "supersededDescription": "Your current branch has a newer version of these changes. Consider discarding this task or viewing the comparison.",
+    "supersededCompareTooltip": "View a detailed comparison to see how the current branch differs from this task's changes.",
+    "supersededDiscardTooltip": "Remove this task's worktree since the changes are no longer needed.",
+    "status": {
+      "branchDiverged": "Branch Diverged",
+      "aiWillResolve": "AI will resolve",
+      "filesRenamed": "Files Renamed",
+      "branchBehind": "Branch Behind",
+      "readyToMerge": "Ready to merge",
+      "files": "files",
+      "file": "file",
+      "conflict": "conflict",
+      "conflicts": "conflicts",
+      "details": "Details",
+      "refresh": "Refresh",
+      "stageOnly": "Stage only (review in IDE before committing)",
+      "discardBuild": "Discard build"
+    },
     "buttons": {
       "stageWithAIMerge": "Stage with AI Merge",
       "mergeWithAI": "Merge with AI",
@@ -29,7 +52,13 @@
       "mergeTo": "Merge to {{branch}}",
       "resolving": "Resolving...",
       "staging": "Staging...",
-      "merging": "Merging..."
+      "merging": "Merging...",
+      "completing": "Completing..."
+    },
+    "actions": {
+      "markAsDone": "Mark as Done",
+      "discardTask": "Discard Task",
+      "viewComparison": "View Comparison"
     }
   },
   "pr": {
@@ -62,6 +91,30 @@
       "targetBranch": "Leave empty to use the default branch",
       "prTitle": "Leave empty to use the task title"
     }
+  },
+  "mergeProgress": {
+    "stages": {
+      "analyzing": "Analyzing changes",
+      "detectingConflicts": "Detecting conflicts",
+      "resolving": "Resolving conflicts",
+      "validating": "Validating merge",
+      "complete": "Merge complete",
+      "error": "Merge failed",
+      "stalled": "Merge stalled"
+    },
+    "conflictCounter": "{{found}} found, {{resolved}} resolved",
+    "currentFile": "Current file",
+    "viewLogs": "View logs",
+    "hideLogs": "Hide logs",
+    "logTypes": {
+      "info": "Info",
+      "warning": "Warning",
+      "error": "Error",
+      "conflict": "Conflict",
+      "resolution": "Resolution"
+    },
+    "completionMessage": "All changes have been merged successfully.",
+    "errorMessage": "An error occurred during the merge process."
   },
   "bulkPR": {
     "title": "Create Pull Requests",

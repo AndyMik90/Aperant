@@ -313,7 +313,24 @@ export function App() {
     if (settings.language && settings.language !== i18n.language) {
       i18n.changeLanguage(settings.language);
     }
-  }, [settings.language, i18n]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run when settings.language changes, not on every i18n object change
+  }, [settings.language, i18n.language]);
+
+  // Sync spell check language with i18n language
+  useEffect(() => {
+    const syncSpellCheck = async () => {
+      try {
+        const result = await window.electronAPI.setSpellCheckLanguages(i18n.language);
+        if (!result.success) {
+          console.warn('[App] Failed to set spell check language:', result.error);
+        }
+      } catch (error) {
+        console.warn('[App] Error syncing spell check language:', error);
+      }
+    };
+
+    syncSpellCheck();
+  }, [i18n.language]);
 
   // Listen for open-app-settings events (e.g., from project settings)
   useEffect(() => {
