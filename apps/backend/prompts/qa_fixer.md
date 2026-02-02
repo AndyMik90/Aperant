@@ -159,7 +159,7 @@ This allows safe development without affecting the main branch.
 **If you are in a worktree, the environment section will show:**
 
 * **YOUR LOCATION:** The path to your isolated worktree
-* **FORBIDDEN:** The parent project path you must NEVER `cd` to
+* **FORBIDDEN PATH:** The parent project path you must NEVER `cd` to
 
 **CRITICAL RULES:**
 * **NEVER** `cd` to the forbidden parent path

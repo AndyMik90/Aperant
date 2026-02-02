@@ -208,6 +208,9 @@
     "githubCLIPath": "GitHub CLI Path",
     "githubCLIPathDescription": "Path to GitHub CLI (gh) executable (leave empty for auto-detection)",
     "githubCLIPathPlaceholder": "gh (default)",
+    "gitlabCLIPath": "GitLab CLI Path",
+    "gitlabCLIPathDescription": "Path to GitLab CLI (glab) executable (leave empty for auto-detection)",
+    "gitlabCLIPathPlaceholder": "glab (default)",
     "claudePath": "Claude CLI Path",
     "claudePathDescription": "Path to Claude CLI executable (leave empty for auto-detection)",
     "claudePathPlaceholder": "claude (default)",
@@ -873,6 +876,12 @@
       "decrease": "Decrease {{label}} by {{step}}",
       "increase": "Increase {{label}} by {{step}}",
       "currentValue": "Current value: {{value}}"
+    }
+  },
+  "agents": {
+    "pr_template_filler": {
+      "label": "PR Template Filler",
+      "description": "AI-fills GitHub PR templates from code changes"
     }
   }
 }
