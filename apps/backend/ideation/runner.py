@@ -28,6 +28,7 @@ from .types import IdeationPhaseResult
 
 # Configuration
 MAX_RETRIES = 3
+IDEATION_TIMEOUT_SECONDS = 5 * 60  # 5 minutes max for all ideation types
 
 
 class IdeationOrchestrator:
@@ -188,7 +189,7 @@ class IdeationOrchestrator:
         try:
             ideation_results = await asyncio.wait_for(
                 asyncio.gather(*ideation_task_objs, return_exceptions=True),
-                timeout=300,  # 5 minutes max for all ideation types
+                timeout=IDEATION_TIMEOUT_SECONDS,
             )
         except asyncio.TimeoutError:
             print_status(
@@ -199,11 +200,18 @@ class IdeationOrchestrator:
             for task in ideation_task_objs:
                 if not task.done():
                     task.cancel()
-            # Wait for cancellation to complete (ignore CancelledError)
-            await asyncio.gather(*ideation_task_objs, return_exceptions=True)
-            # Return timeout exceptions for all types
+            # Wait for cancellation to complete and preserve results from completed tasks
+            # Tasks that finished before timeout will return their results;
+            # cancelled tasks will return CancelledError
+            results_after_cancel = await asyncio.gather(
+                *ideation_task_objs, return_exceptions=True
+            )
+            # Convert CancelledError to timeout exception, preserve completed results
             ideation_results = [
-                Exception("Ideation timed out") for _ in self.enabled_types
+                Exception("Ideation timed out")
+                if isinstance(res, asyncio.CancelledError)
+                else res
+                for res in results_after_cancel
             ]
 
         # Process results
