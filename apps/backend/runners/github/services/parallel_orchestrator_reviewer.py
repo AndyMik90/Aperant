@@ -17,14 +17,19 @@ Key Design:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import os
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from claude_agent_sdk import AgentDefinition
+# Note: AgentDefinition import kept for backwards compatibility but no longer used
+# The Task tool's custom subagent_type feature is broken in Claude Code CLI
+# See: https://github.com/anthropics/claude-code/issues/8697
+from claude_agent_sdk import AgentDefinition  # noqa: F401
 
 try:
     from ...core.client import create_client
@@ -48,6 +53,7 @@ try:
         AgentAgreement,
         FindingValidationResponse,
         ParallelOrchestratorResponse,
+        SpecialistResponse,
     )
     from .sdk_utils import process_sdk_stream
 except (ImportError, ValueError, SystemError):
@@ -72,8 +78,54 @@ except (ImportError, ValueError, SystemError):
         AgentAgreement,
         FindingValidationResponse,
         ParallelOrchestratorResponse,
+        SpecialistResponse,
     )
     from services.sdk_utils import process_sdk_stream
+
+
+# =============================================================================
+# Specialist Configuration for Parallel SDK Sessions
+# =============================================================================
+
+
+@dataclass
+class SpecialistConfig:
+    """Configuration for a specialist agent in parallel SDK sessions."""
+
+    name: str
+    prompt_file: str
+    tools: list[str]
+    description: str
+
+
+# Define specialist configurations
+# Each specialist runs as its own SDK session with its own system prompt and tools
+SPECIALIST_CONFIGS: list[SpecialistConfig] = [
+    SpecialistConfig(
+        name="security",
+        prompt_file="pr_security_agent.md",
+        tools=["Read", "Grep", "Glob"],
+        description="Security vulnerabilities, OWASP Top 10, auth issues, injection, XSS",
+    ),
+    SpecialistConfig(
+        name="quality",
+        prompt_file="pr_quality_agent.md",
+        tools=["Read", "Grep", "Glob"],
+        description="Code quality, complexity, duplication, error handling, patterns",
+    ),
+    SpecialistConfig(
+        name="logic",
+        prompt_file="pr_logic_agent.md",
+        tools=["Read", "Grep", "Glob"],
+        description="Logic correctness, edge cases, algorithms, race conditions",
+    ),
+    SpecialistConfig(
+        name="codebase-fit",
+        prompt_file="pr_codebase_fit_agent.md",
+        tools=["Read", "Grep", "Glob"],
+        description="Naming conventions, ecosystem fit, architectural alignment",
+    ),
+]
 
 
 logger = logging.getLogger(__name__)
@@ -334,6 +386,302 @@ class ParallelOrchestratorReviewer:
                 model="inherit",
             ),
         }
+
+    # =========================================================================
+    # Parallel SDK Sessions Implementation
+    # =========================================================================
+    # This replaces the broken Task tool subagent approach.
+    # Each specialist runs as its own SDK session in parallel via asyncio.gather()
+    # See: https://github.com/anthropics/claude-code/issues/8697
+
+    def _build_specialist_prompt(
+        self,
+        config: SpecialistConfig,
+        context: PRContext,
+        project_root: Path,
+    ) -> str:
+        """Build the full prompt for a specialist agent.
+
+        Args:
+            config: Specialist configuration
+            context: PR context with files and patches
+            project_root: Working directory for the agent
+
+        Returns:
+            Full system prompt with context injected
+        """
+        # Load base prompt from file
+        base_prompt = self._load_prompt(config.prompt_file)
+        if not base_prompt:
+            base_prompt = f"You are a {config.name} specialist for PR review."
+
+        # Inject working directory using the existing helper
+        with_working_dir = create_working_dir_injector(project_root)
+        prompt_with_cwd = with_working_dir(
+            base_prompt,
+            f"You are a {config.name} specialist. Find {config.description}.",
+        )
+
+        # Build file list
+        files_list = []
+        for file in context.changed_files:
+            files_list.append(
+                f"- `{file.path}` (+{file.additions}/-{file.deletions}) - {file.status}"
+            )
+
+        # Build diff content (limited to avoid context overflow)
+        patches = []
+        MAX_DIFF_CHARS = 150_000  # Smaller limit per specialist
+
+        for file in context.changed_files:
+            if file.patch:
+                patches.append(f"\n### File: {file.path}\n{file.patch}")
+
+        diff_content = "\n".join(patches)
+        if len(diff_content) > MAX_DIFF_CHARS:
+            diff_content = diff_content[:MAX_DIFF_CHARS] + "\n\n... (diff truncated)"
+
+        # Compose full prompt with PR context
+        pr_context = f"""
+## PR Context
+
+**PR #{context.pr_number}**: {context.title}
+
+**Description:**
+{context.description or "(No description provided)"}
+
+### Changed Files ({len(context.changed_files)} files, +{context.total_additions}/-{context.total_deletions})
+{chr(10).join(files_list)}
+
+### Diff
+{diff_content}
+
+## Your Task
+
+Analyze this PR for {config.description}.
+Use the Read, Grep, and Glob tools to explore the codebase as needed.
+Report findings with specific file paths, line numbers, and code evidence.
+"""
+
+        return prompt_with_cwd + pr_context
+
+    async def _run_specialist_session(
+        self,
+        config: SpecialistConfig,
+        context: PRContext,
+        project_root: Path,
+        model: str,
+        thinking_budget: int | None,
+    ) -> tuple[str, list[PRReviewFinding]]:
+        """Run a single specialist as its own SDK session.
+
+        Args:
+            config: Specialist configuration
+            context: PR context
+            project_root: Working directory
+            model: Model to use
+            thinking_budget: Max thinking tokens
+
+        Returns:
+            Tuple of (specialist_name, findings)
+        """
+        safe_print(
+            f"[Specialist:{config.name}] Starting analysis...",
+            flush=True,
+        )
+
+        # Build the specialist prompt with PR context
+        prompt = self._build_specialist_prompt(config, context, project_root)
+
+        try:
+            # Create SDK client for this specialist
+            # Note: Agent type uses the generic "pr_reviewer" since individual
+            # specialist types aren't registered in AGENT_CONFIGS. The specialist-specific
+            # system prompt handles differentiation.
+            client = create_client(
+                project_dir=project_root,
+                spec_dir=self.github_dir,
+                model=model,
+                agent_type="pr_reviewer",
+                max_thinking_tokens=thinking_budget,
+                output_format={
+                    "type": "json_schema",
+                    "schema": SpecialistResponse.model_json_schema(),
+                },
+            )
+
+            async with client:
+                await client.query(prompt)
+
+                # Process SDK stream
+                stream_result = await process_sdk_stream(
+                    client=client,
+                    context_name=f"Specialist:{config.name}",
+                    model=model,
+                    system_prompt=prompt,
+                    agent_definitions={},  # No subagents for specialists
+                )
+
+                error = stream_result.get("error")
+                if error:
+                    logger.error(f"[Specialist:{config.name}] SDK stream failed: {error}")
+                    safe_print(
+                        f"[Specialist:{config.name}] Analysis failed: {error}",
+                        flush=True,
+                    )
+                    return (config.name, [])
+
+                # Parse structured output
+                structured_output = stream_result.get("structured_output")
+                findings = self._parse_specialist_output(
+                    config.name, structured_output, stream_result.get("result_text", "")
+                )
+
+                safe_print(
+                    f"[Specialist:{config.name}] Complete: {len(findings)} findings",
+                    flush=True,
+                )
+
+                return (config.name, findings)
+
+        except Exception as e:
+            logger.error(
+                f"[Specialist:{config.name}] Session failed: {e}",
+                exc_info=True,
+            )
+            safe_print(
+                f"[Specialist:{config.name}] Error: {e}",
+                flush=True,
+            )
+            return (config.name, [])
+
+    def _parse_specialist_output(
+        self,
+        specialist_name: str,
+        structured_output: dict[str, Any] | None,
+        result_text: str,
+    ) -> list[PRReviewFinding]:
+        """Parse findings from specialist output.
+
+        Args:
+            specialist_name: Name of the specialist
+            structured_output: Structured JSON output if available
+            result_text: Raw text output as fallback
+
+        Returns:
+            List of PRReviewFinding objects
+        """
+        findings = []
+
+        if structured_output:
+            try:
+                result = SpecialistResponse.model_validate(structured_output)
+
+                for f in result.findings:
+                    finding_id = hashlib.md5(
+                        f"{f.file}:{f.line}:{f.title}".encode(),
+                        usedforsecurity=False,
+                    ).hexdigest()[:12]
+
+                    category = map_category(f.category)
+
+                    try:
+                        severity = ReviewSeverity(f.severity.lower())
+                    except ValueError:
+                        severity = ReviewSeverity.MEDIUM
+
+                    finding = PRReviewFinding(
+                        id=finding_id,
+                        file=f.file,
+                        line=f.line,
+                        end_line=f.end_line,
+                        title=f.title,
+                        description=f.description,
+                        category=category,
+                        severity=severity,
+                        suggested_fix=f.suggested_fix or "",
+                        evidence=f.evidence,
+                        source_agents=[specialist_name],
+                        is_impact_finding=f.is_impact_finding,
+                    )
+                    findings.append(finding)
+
+                logger.info(
+                    f"[Specialist:{specialist_name}] Parsed {len(findings)} findings from structured output"
+                )
+
+            except Exception as e:
+                logger.error(
+                    f"[Specialist:{specialist_name}] Failed to parse structured output: {e}"
+                )
+                # Fall through to text parsing
+
+        if not findings and result_text:
+            # Fallback to text parsing
+            findings = self._parse_text_output(result_text)
+            for f in findings:
+                f.source_agents = [specialist_name]
+
+        return findings
+
+    async def _run_parallel_specialists(
+        self,
+        context: PRContext,
+        project_root: Path,
+        model: str,
+        thinking_budget: int | None,
+    ) -> tuple[list[PRReviewFinding], list[str]]:
+        """Run all specialists in parallel and collect findings.
+
+        Args:
+            context: PR context
+            project_root: Working directory
+            model: Model to use
+            thinking_budget: Max thinking tokens
+
+        Returns:
+            Tuple of (all_findings, agents_invoked)
+        """
+        safe_print(
+            f"[ParallelOrchestrator] Launching {len(SPECIALIST_CONFIGS)} specialists in parallel...",
+            flush=True,
+        )
+
+        # Create tasks for all specialists
+        tasks = [
+            self._run_specialist_session(
+                config=config,
+                context=context,
+                project_root=project_root,
+                model=model,
+                thinking_budget=thinking_budget,
+            )
+            for config in SPECIALIST_CONFIGS
+        ]
+
+        # Run all specialists in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Collect findings and track which agents ran
+        all_findings: list[PRReviewFinding] = []
+        agents_invoked: list[str] = []
+
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(f"[ParallelOrchestrator] Specialist task failed: {result}")
+                continue
+
+            specialist_name, findings = result
+            agents_invoked.append(specialist_name)
+            all_findings.extend(findings)
+
+        safe_print(
+            f"[ParallelOrchestrator] All specialists complete. "
+            f"Total findings: {len(all_findings)}",
+            flush=True,
+        )
+
+        return (all_findings, agents_invoked)
 
     def _build_orchestrator_prompt(self, context: PRContext) -> str:
         """Build full prompt for orchestrator with PR context."""
@@ -720,11 +1068,6 @@ The SDK will run invoked agents in parallel automatically.
             # LLM agents now discover relevant files themselves via Read, Grep, Glob tools
             # No need to pre-scan the codebase programmatically
 
-            # Build orchestrator prompt AFTER worktree creation and related files rescan
-            prompt = self._build_orchestrator_prompt(context)
-            # Capture agent definitions for debug logging (with worktree path)
-            agent_defs = self._define_specialist_agents(project_root)
-
             # Use model and thinking level from config (user settings)
             # Resolve model shorthand via environment variable override if configured
             model_shorthand = self.config.model or "sonnet"
@@ -737,122 +1080,114 @@ The SDK will run invoked agents in parallel automatically.
                 f"thinking_level={thinking_level}, thinking_budget={thinking_budget}"
             )
 
-            # Create client with subagents defined
-            # SDK handles parallel execution when Claude invokes multiple Task tools
-            client = self._create_sdk_client(project_root, model, thinking_budget)
-
             self._report_progress(
                 "orchestrating",
                 40,
-                "Orchestrator delegating to specialist agents...",
+                "Running specialist agents in parallel...",
                 pr_number=context.pr_number,
             )
 
-            # Run orchestrator session using shared SDK stream processor
-            # Retry logic for tool use concurrency errors
-            MAX_RETRIES = 3
-            RETRY_DELAY = 2.0  # seconds between retries
+            # =================================================================
+            # PARALLEL SDK SESSIONS APPROACH
+            # =================================================================
+            # Instead of using broken Task tool subagents, we spawn each
+            # specialist as its own SDK session and run them in parallel.
+            # See: https://github.com/anthropics/claude-code/issues/8697
+            #
+            # This gives us:
+            # - True parallel execution via asyncio.gather()
+            # - Full control over each specialist's tools and prompts
+            # - No dependency on broken CLI features
+            # =================================================================
 
-            result_text = ""
-            structured_output = None
-            agents_invoked = []
-            msg_count = 0
-            last_error = None
+            # Run all specialists in parallel
+            findings, agents_invoked = await self._run_parallel_specialists(
+                context=context,
+                project_root=project_root,
+                model=model,
+                thinking_budget=thinking_budget,
+            )
 
-            for attempt in range(MAX_RETRIES):
-                if attempt > 0:
-                    logger.info(
-                        f"[ParallelOrchestrator] Retry attempt {attempt}/{MAX_RETRIES - 1} "
-                        f"after tool concurrency error"
-                    )
-                    safe_print(
-                        f"[ParallelOrchestrator] Retry {attempt}/{MAX_RETRIES - 1} "
-                        f"(tool concurrency error detected)"
-                    )
-                    # Small delay before retry
-                    import asyncio
+            # Log results
+            logger.info(
+                f"[ParallelOrchestrator] Parallel specialists complete: "
+                f"{len(findings)} findings from {len(agents_invoked)} agents"
+            )
 
-                    await asyncio.sleep(RETRY_DELAY)
+            # Skip the old orchestrator session code - findings come from parallel specialists
+            # The code below (structured output parsing, retries, etc.) is no longer needed
+            # as _run_parallel_specialists handles everything
 
-                    # Recreate client for retry (fresh session)
-                    client = self._create_sdk_client(
-                        project_root, model, thinking_budget
-                    )
+            # NOTE: The following block is kept but skipped via this marker
+            if False:  # DISABLED: Old orchestrator + Task tool approach
+                # Old code for reference - to be removed after testing
+                prompt = self._build_orchestrator_prompt(context)
+                agent_defs = self._define_specialist_agents(project_root)
+                client = self._create_sdk_client(project_root, model, thinking_budget)
 
-                try:
-                    async with client:
-                        await client.query(prompt)
+                MAX_RETRIES = 3
+                RETRY_DELAY = 2.0
 
+                result_text = ""
+                structured_output = None
+                msg_count = 0
+                last_error = None
+
+                for attempt in range(MAX_RETRIES):
+                    if attempt > 0:
+                        logger.info(
+                            f"[ParallelOrchestrator] Retry attempt {attempt}/{MAX_RETRIES - 1} "
+                            f"after tool concurrency error"
+                        )
                         safe_print(
-                            f"[ParallelOrchestrator] Running orchestrator ({model})...",
-                            flush=True,
+                            f"[ParallelOrchestrator] Retry {attempt}/{MAX_RETRIES - 1} "
+                            f"(tool concurrency error detected)"
+                        )
+                        await asyncio.sleep(RETRY_DELAY)
+                        client = self._create_sdk_client(
+                            project_root, model, thinking_budget
                         )
 
-                        # Process SDK stream with shared utility
-                        stream_result = await process_sdk_stream(
-                            client=client,
-                            context_name="ParallelOrchestrator",
-                            model=model,
-                            system_prompt=prompt,
-                            agent_definitions=agent_defs,
-                        )
+                    try:
+                        async with client:
+                            await client.query(prompt)
 
-                        error = stream_result.get("error")
-
-                        # Check for tool concurrency error specifically
-                        if (
-                            error == "tool_use_concurrency_error"
-                            and attempt < MAX_RETRIES - 1
-                        ):
-                            logger.warning(
-                                f"[ParallelOrchestrator] Tool concurrency error on attempt {attempt + 1}, "
-                                f"will retry..."
+                            safe_print(
+                                f"[ParallelOrchestrator] Running orchestrator ({model})...",
+                                flush=True,
                             )
-                            last_error = error
-                            continue  # Retry
 
-                        # Check for other stream processing errors
-                        if error:
-                            logger.error(
-                                f"[ParallelOrchestrator] SDK stream failed: {error}"
+                            stream_result = await process_sdk_stream(
+                                client=client,
+                                context_name="ParallelOrchestrator",
+                                model=model,
+                                system_prompt=prompt,
+                                agent_definitions=agent_defs,
                             )
-                            raise RuntimeError(f"SDK stream processing failed: {error}")
 
-                        # Success - extract results and break retry loop
-                        result_text = stream_result["result_text"]
-                        structured_output = stream_result["structured_output"]
-                        agents_invoked = stream_result["agents_invoked"]
-                        msg_count = stream_result["msg_count"]
-                        break  # Success, exit retry loop
+                            error = stream_result.get("error")
 
-                except Exception as e:
-                    # Check if this is a retryable error
-                    error_str = str(e).lower()
-                    is_retryable = (
-                        "400" in error_str
-                        or "concurrency" in error_str
-                        or "tool_use" in error_str
-                    )
+                            if (
+                                error == "tool_use_concurrency_error"
+                                and attempt < MAX_RETRIES - 1
+                            ):
+                                last_error = error
+                                continue
+                            if error:
+                                raise RuntimeError(f"SDK stream processing failed: {error}")
+                            result_text = stream_result["result_text"]
+                            structured_output = stream_result["structured_output"]
+                            agents_invoked = stream_result["agents_invoked"]
+                            break
+                    except Exception as e:
+                        if attempt < MAX_RETRIES - 1:
+                            last_error = str(e)
+                            continue
+                        raise
+                else:
+                    raise RuntimeError(f"Orchestrator failed after {MAX_RETRIES} attempts")
 
-                    if is_retryable and attempt < MAX_RETRIES - 1:
-                        logger.warning(
-                            f"[ParallelOrchestrator] Retryable error on attempt {attempt + 1}: {e}"
-                        )
-                        last_error = str(e)
-                        continue  # Retry
-
-                    # Not retryable or out of retries - re-raise
-                    raise
-            else:
-                # All retries exhausted
-                logger.error(
-                    f"[ParallelOrchestrator] Failed after {MAX_RETRIES} attempts. "
-                    f"Last error: {last_error}"
-                )
-                raise RuntimeError(
-                    f"Orchestrator failed after {MAX_RETRIES} retry attempts. "
-                    f"Last error: {last_error}"
-                )
+            # END DISABLED BLOCK
 
             self._report_progress(
                 "finalizing",
@@ -861,20 +1196,9 @@ The SDK will run invoked agents in parallel automatically.
                 pr_number=context.pr_number,
             )
 
-            # Parse findings from output (structured output also returns agents)
-            findings, agents_from_structured = self._extract_structured_output(
-                structured_output, result_text
-            )
-
-            # Use agents from structured output (more reliable than streaming detection)
-            final_agents = (
-                agents_from_structured if agents_from_structured else agents_invoked
-            )
-            logger.info(
-                f"[ParallelOrchestrator] Session complete. Agents invoked: {final_agents}"
-            )
+            # Log completion with agent info
             safe_print(
-                f"[ParallelOrchestrator] Complete. Agents invoked: {final_agents}",
+                f"[ParallelOrchestrator] Complete. Agents invoked: {agents_invoked}",
                 flush=True,
             )
 
@@ -977,7 +1301,7 @@ The SDK will run invoked agents in parallel automatically.
                 verdict_reasoning=verdict_reasoning,
                 blockers=blockers,
                 findings=unique_findings,
-                agents_invoked=final_agents,
+                agents_invoked=agents_invoked,
             )
 
             # Map verdict to overall_status
