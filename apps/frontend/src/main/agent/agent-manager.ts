@@ -6,6 +6,7 @@ import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { AgentQueueManager } from './agent-queue';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
+import { getOperationRegistry } from '../claude-profile/operation-registry';
 import {
   SpecCreationMetadata,
   TaskExecutionOptions,
@@ -65,12 +66,16 @@ export class AgentManager extends EventEmitter {
         // If task completed successfully, always clean up
         if (code === 0) {
           this.taskExecutionContext.delete(taskId);
+          // Unregister from OperationRegistry
+          getOperationRegistry().unregisterOperation(taskId);
           return;
         }
 
         // If task failed and hit max retries, clean up
         if (context.swapCount >= 2) {
           this.taskExecutionContext.delete(taskId);
+          // Unregister from OperationRegistry
+          getOperationRegistry().unregisterOperation(taskId);
         }
         // Otherwise keep context for potential restart
       }, 1000); // Delay to allow restart logic to run first
@@ -175,6 +180,28 @@ export class AgentManager extends EventEmitter {
     // Store context for potential restart
     this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch);
 
+    // Register with unified OperationRegistry for proactive swap support
+    const activeProfile = profileManager.getActiveProfile();
+    if (activeProfile) {
+      // Keep internal state tracking for backward compatibility
+      this.assignProfileToTask(taskId, activeProfile.id, activeProfile.name, 'proactive');
+
+      // Register with unified registry for proactive swap
+      const operationRegistry = getOperationRegistry();
+      operationRegistry.registerOperation(
+        taskId,
+        'spec-creation',
+        activeProfile.id,
+        activeProfile.name,
+        (newProfileId: string) => this.restartTask(taskId, newProfileId),
+        {
+          stopFn: () => { this.killTask(taskId); },
+          metadata: { projectPath, taskDescription, specDir }
+        }
+      );
+      console.log('[AgentManager] Task registered with OperationRegistry:', { taskId, profileId: activeProfile.id, profileName: activeProfile.name, type: 'spec-creation' });
+    }
+
     // Note: This is spec-creation but it chains to task-execution via run.py
     await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
   }
@@ -252,6 +279,28 @@ export class AgentManager extends EventEmitter {
 
     // Store context for potential restart
     this.storeTaskContext(taskId, projectPath, specId, options, false);
+
+    // Register with unified OperationRegistry for proactive swap support
+    const activeProfile = profileManager.getActiveProfile();
+    if (activeProfile) {
+      // Keep internal state tracking for backward compatibility
+      this.assignProfileToTask(taskId, activeProfile.id, activeProfile.name, 'proactive');
+
+      // Register with unified registry for proactive swap
+      const operationRegistry = getOperationRegistry();
+      operationRegistry.registerOperation(
+        taskId,
+        'task-execution',
+        activeProfile.id,
+        activeProfile.name,
+        (newProfileId: string) => this.restartTask(taskId, newProfileId),
+        {
+          stopFn: () => { this.killTask(taskId); },
+          metadata: { projectPath, specId, options }
+        }
+      );
+      console.log('[AgentManager] Task registered with OperationRegistry:', { taskId, profileId: activeProfile.id, profileName: activeProfile.name, type: 'task-execution' });
+    }
 
     await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
   }

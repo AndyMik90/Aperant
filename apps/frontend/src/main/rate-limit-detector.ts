@@ -265,7 +265,6 @@ function getAuthFailureMessage(failureType: 'missing' | 'invalid' | 'expired' | 
       return 'Your Claude session has expired. Please re-authenticate in Settings > Claude Profiles.';
     case 'invalid':
       return 'Invalid Claude credentials. Please check your OAuth token or re-authenticate in Settings > Claude Profiles.';
-    case 'unknown':
     default:
       return 'Claude authentication failed. Please verify your authentication in Settings > Claude Profiles.';
   }
@@ -303,7 +302,6 @@ function getBillingFailureMessage(failureType: 'insufficient_credits' | 'payment
       return 'A billing error occurred with your Claude API account. Please check your payment method or switch to another profile in Settings > Claude Profiles.';
     case 'subscription_inactive':
       return 'Your Claude API subscription is inactive or expired. Please renew your subscription or switch to another profile in Settings > Claude Profiles.';
-    case 'unknown':
     default:
       return 'A billing issue was detected with your Claude API account. Please check your account status or switch to another profile in Settings > Claude Profiles.';
   }

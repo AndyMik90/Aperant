@@ -142,6 +142,8 @@
       "idle": "Idle",
       "planning": "Planning",
       "coding": "Coding",
+      "rate_limit_paused": "Rate Limited",
+      "auth_failure_paused": "Auth Required",
       "reviewing": "Reviewing",
       "fixing": "Fixing",
       "complete": "Complete",

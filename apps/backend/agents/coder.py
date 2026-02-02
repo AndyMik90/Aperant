@@ -57,11 +57,15 @@ from ui import (
 )
 
 from .base import (
+    AUTH_FAILURE_PAUSE_FILE,
     AUTO_CONTINUE_DELAY_SECONDS,
     HUMAN_INTERVENTION_FILE,
     INITIAL_RETRY_DELAY_SECONDS,
     MAX_CONCURRENCY_RETRIES,
+    MAX_RATE_LIMIT_WAIT_SECONDS,
     MAX_RETRY_DELAY_SECONDS,
+    RATE_LIMIT_PAUSE_FILE,
+    RESUME_FILE,
 )
 from .memory_manager import debug_memory_system_status, get_graphiti_context
 from .session import post_session_processing, run_agent_session
@@ -74,6 +78,142 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def wait_for_rate_limit_reset(spec_dir: Path, wait_seconds: float) -> bool:
+    """
+    Wait for rate limit reset with periodic checks for resume/cancel.
+
+    Args:
+        spec_dir: Spec directory to check for RESUME file
+        wait_seconds: Maximum time to wait in seconds
+
+    Returns:
+        True if resumed early, False if waited full duration
+    """
+    CHECK_INTERVAL = 30  # Check every 30 seconds
+    elapsed = 0.0
+    resume_file = spec_dir / RESUME_FILE
+    pause_file = spec_dir / RATE_LIMIT_PAUSE_FILE
+
+    while elapsed < wait_seconds:
+        # Check if user requested resume
+        if resume_file.exists():
+            try:
+                resume_file.unlink(missing_ok=True)
+                pause_file.unlink(missing_ok=True)
+            except OSError:
+                pass
+            return True
+
+        # Wait for next check interval or remaining time
+        sleep_time = min(CHECK_INTERVAL, wait_seconds - elapsed)
+        await asyncio.sleep(sleep_time)
+        elapsed += sleep_time
+
+    # Clean up pause file after wait completes
+    try:
+        pause_file.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+    return False
+
+
+async def wait_for_auth_resume(spec_dir: Path) -> None:
+    """
+    Wait for user re-authentication signal.
+
+    Blocks until:
+    - RESUME file is created (user completed re-auth in UI)
+    - AUTH_PAUSE file is deleted (alternative resume signal)
+    - Maximum wait timeout is reached (24 hours)
+
+    Args:
+        spec_dir: Spec directory to monitor for signal files
+    """
+    CHECK_INTERVAL = 10  # Check every 10 seconds
+    MAX_WAIT_TIMEOUT = 86400  # 24 hours maximum wait
+    elapsed = 0.0
+    resume_file = spec_dir / RESUME_FILE
+    pause_file = spec_dir / AUTH_FAILURE_PAUSE_FILE
+
+    while elapsed < MAX_WAIT_TIMEOUT:
+        # Check for resume signals
+        if resume_file.exists() or not pause_file.exists():
+            try:
+                resume_file.unlink(missing_ok=True)
+                pause_file.unlink(missing_ok=True)
+            except OSError:
+                pass
+            return
+
+        await asyncio.sleep(CHECK_INTERVAL)
+        elapsed += CHECK_INTERVAL
+
+    # Timeout reached - clean up and return
+    print_status(
+        "Authentication wait timeout reached (24 hours) - resuming with original credentials",
+        "warning",
+    )
+    try:
+        pause_file.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def parse_rate_limit_reset_time(error_info: dict | None) -> int | None:
+    """
+    Parse rate limit reset time from error info.
+
+    Attempts to extract reset time from various formats in error messages.
+
+    Args:
+        error_info: Error info dict with 'message' key
+
+    Returns:
+        Unix timestamp of reset time, or None if not parseable
+    """
+    import re
+    from datetime import datetime, timedelta
+
+    if not error_info:
+        return None
+
+    message = error_info.get("message", "")
+
+    # Try to find patterns like "resets at 3:00 PM" or "in 5 minutes"
+    # Pattern: "in X minutes/hours"
+    in_time_match = re.search(r"in\s+(\d+)\s*(minute|hour|min|hr)s?", message, re.I)
+    if in_time_match:
+        amount = int(in_time_match.group(1))
+        unit = in_time_match.group(2).lower()
+        if unit.startswith("hour") or unit.startswith("hr"):
+            delta = timedelta(hours=amount)
+        else:
+            delta = timedelta(minutes=amount)
+        return int((datetime.now() + delta).timestamp())
+
+    # Pattern: "at HH:MM" (12 or 24 hour)
+    at_time_match = re.search(r"at\s+(\d{1,2}):(\d{2})(?:\s*(am|pm))?", message, re.I)
+    if at_time_match:
+        hour = int(at_time_match.group(1))
+        minute = int(at_time_match.group(2))
+        meridiem = at_time_match.group(3)
+        if meridiem:
+            if meridiem.lower() == "pm" and hour < 12:
+                hour += 12
+            elif meridiem.lower() == "am" and hour == 12:
+                hour = 0
+
+        now = datetime.now()
+        reset_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if reset_time <= now:
+            reset_time += timedelta(days=1)
+        return int(reset_time.timestamp())
+
+    # Default: 5 hour wait (typical session reset)
+    return int((datetime.now() + timedelta(hours=5)).timestamp())
 
 
 async def run_autonomous_agent(
@@ -681,6 +821,128 @@ async def run_autonomous_agent(
                 current_retry_delay = min(
                     current_retry_delay * 2, MAX_RETRY_DELAY_SECONDS
                 )
+
+            elif error_info and error_info.get("type") == "rate_limit":
+                # Rate limit error - intelligent wait for reset
+                _reset_concurrency_state()
+
+                reset_timestamp = parse_rate_limit_reset_time(error_info)
+                if reset_timestamp:
+                    from datetime import datetime
+
+                    wait_seconds = reset_timestamp - datetime.now().timestamp()
+
+                    # Handle negative wait_seconds (reset time in the past)
+                    if wait_seconds <= 0:
+                        print_status(
+                            "Rate limit reset time already passed - retrying immediately",
+                            "warning",
+                        )
+                        status_manager.update(state=BuildState.BUILDING)
+                        await asyncio.sleep(2)  # Brief delay before retry
+                        continue
+
+                    if wait_seconds > MAX_RATE_LIMIT_WAIT_SECONDS:
+                        # Wait time too long - fail the task
+                        print_status("Rate limit wait time too long", "error")
+                        print(
+                            f"Reset time would require waiting {wait_seconds / 3600:.1f} hours"
+                        )
+                        print(
+                            f"Maximum wait is {MAX_RATE_LIMIT_WAIT_SECONDS / 3600:.1f} hours"
+                        )
+                        emit_phase(
+                            ExecutionPhase.FAILED,
+                            "Rate limit wait time exceeds maximum allowed",
+                        )
+                        status_manager.update(state=BuildState.ERROR)
+                        break
+
+                    if wait_seconds > 0:
+                        # Emit pause phase with reset time for frontend
+                        wait_minutes = wait_seconds / 60
+                        emit_phase(
+                            ExecutionPhase.RATE_LIMIT_PAUSED,
+                            f"Rate limit - resuming in {wait_minutes:.0f} minutes",
+                            reset_timestamp=reset_timestamp,
+                        )
+
+                        # Create pause file for frontend detection
+                        import json
+
+                        pause_data = {
+                            "paused_at": datetime.now().isoformat(),
+                            "reset_timestamp": reset_timestamp,
+                            "error": error_info.get("message", "Rate limit reached"),
+                        }
+                        pause_file = spec_dir / RATE_LIMIT_PAUSE_FILE
+                        pause_file.write_text(json.dumps(pause_data), encoding="utf-8")
+
+                        print_status(
+                            f"Rate limited - waiting {wait_minutes:.0f} minutes for reset",
+                            "warning",
+                        )
+                        status_manager.update(state=BuildState.PAUSED)
+
+                        # Wait with periodic checks for resume signal
+                        resumed_early = await wait_for_rate_limit_reset(
+                            spec_dir, wait_seconds
+                        )
+                        if resumed_early:
+                            print_status("Resumed early by user", "success")
+
+                        # Resume execution
+                        emit_phase(ExecutionPhase.CODING, "Resuming after rate limit")
+                        status_manager.update(state=BuildState.BUILDING)
+                        continue  # Resume the loop
+                else:
+                    # Couldn't parse reset time - fall back to standard retry
+                    print_status("Rate limit hit (unknown reset time)", "warning")
+                    print(muted("Will retry with a fresh session..."))
+                    status_manager.update(state=BuildState.ERROR)
+                    await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+
+            elif error_info and error_info.get("type") == "authentication":
+                # Authentication error - pause for user re-authentication
+                _reset_concurrency_state()
+
+                emit_phase(
+                    ExecutionPhase.AUTH_FAILURE_PAUSED,
+                    "Re-authentication required",
+                )
+
+                # Create pause file for frontend detection
+                import json
+                from datetime import datetime
+
+                pause_data = {
+                    "paused_at": datetime.now().isoformat(),
+                    "error": error_info.get("message", "Authentication failed"),
+                    "requires_action": "re-authenticate",
+                }
+                pause_file = spec_dir / AUTH_FAILURE_PAUSE_FILE
+                pause_file.write_text(json.dumps(pause_data), encoding="utf-8")
+
+                print()
+                print("=" * 70)
+                print("  AUTHENTICATION REQUIRED")
+                print("=" * 70)
+                print()
+                print("OAuth token is invalid or expired.")
+                print("Please re-authenticate in the Auto Claude settings.")
+                print()
+                print("The task will automatically resume once you re-authenticate.")
+                print()
+
+                status_manager.update(state=BuildState.PAUSED)
+
+                # Wait for user to complete re-authentication
+                await wait_for_auth_resume(spec_dir)
+
+                print_status("Authentication restored - resuming", "success")
+                emit_phase(ExecutionPhase.CODING, "Resuming after re-authentication")
+                status_manager.update(state=BuildState.BUILDING)
+                continue  # Resume the loop
 
             else:
                 # Other errors - use standard retry logic

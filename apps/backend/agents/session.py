@@ -68,6 +68,64 @@ def is_tool_concurrency_error(error: Exception) -> bool:
     )
 
 
+def is_rate_limit_error(error: Exception) -> bool:
+    """
+    Check if an error is a rate limit error (429 or similar).
+
+    Rate limit errors occur when the API usage quota is exceeded,
+    either for session limits or weekly limits.
+
+    Args:
+        error: The exception to check
+
+    Returns:
+        True if this is a rate limit error, False otherwise
+    """
+    error_str = str(error).lower()
+    return any(
+        p in error_str
+        for p in [
+            "limit reached",
+            "rate limit",
+            "429",
+            "too many requests",
+            "usage limit",
+            "quota exceeded",
+        ]
+    )
+
+
+def is_authentication_error(error: Exception) -> bool:
+    """
+    Check if an error is an authentication error (401, token expired, etc.).
+
+    Authentication errors occur when OAuth tokens are invalid, expired,
+    or have been revoked (e.g., after token refresh on another process).
+
+    Args:
+        error: The exception to check
+
+    Returns:
+        True if this is an authentication error, False otherwise
+    """
+    error_str = str(error).lower()
+    return any(
+        p in error_str
+        for p in [
+            "401",
+            "authentication",
+            "unauthorized",
+            "invalid token",
+            "token expired",
+            "authentication_error",
+            "invalid_token",
+            "token_expired",
+            "not authenticated",
+            "access denied",
+        ]
+    )
+
+
 async def post_session_processing(
     spec_dir: Path,
     project_dir: Path,
@@ -568,7 +626,18 @@ async def run_agent_session(
     except Exception as e:
         # Detect specific error types for better retry handling
         is_concurrency = is_tool_concurrency_error(e)
-        error_type = "tool_concurrency" if is_concurrency else "other"
+        is_rate_limit = is_rate_limit_error(e)
+        is_auth = is_authentication_error(e)
+
+        # Classify error type for appropriate handling
+        if is_concurrency:
+            error_type = "tool_concurrency"
+        elif is_rate_limit:
+            error_type = "rate_limit"
+        elif is_auth:
+            error_type = "authentication"
+        else:
+            error_type = "other"
 
         debug_error(
             "session",
@@ -579,10 +648,18 @@ async def run_agent_session(
             tool_count=tool_count,
         )
 
-        # Log concurrency errors prominently
+        # Log errors prominently based on type
         if is_concurrency:
             print("\n⚠️  Tool concurrency limit reached (400 error)")
             print("   Claude API limits concurrent tool use in a single request")
+            print(f"   Error: {str(e)[:200]}\n")
+        elif is_rate_limit:
+            print("\n⚠️  Rate limit reached")
+            print("   API usage quota exceeded - waiting for reset")
+            print(f"   Error: {str(e)[:200]}\n")
+        elif is_auth:
+            print("\n⚠️  Authentication error")
+            print("   OAuth token may be invalid or expired")
             print(f"   Error: {str(e)[:200]}\n")
         else:
             print(f"Error during agent session: {e}")

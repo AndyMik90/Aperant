@@ -1,8 +1,7 @@
 import { ipcMain, app } from 'electron';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, } from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
-import { is } from '@electron-toolkit/utils';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {
   Project,
@@ -142,7 +141,7 @@ function detectMainBranch(projectPath: string): string | null {
   return branches[0] || null;
 }
 
-const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+const _settingsPath = path.join(app.getPath('userData'), 'settings.json');
 
 /**
  * Configure all Python-dependent services with the managed Python path

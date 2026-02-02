@@ -20,6 +20,7 @@ import type { AuthFailureInfo, BillingFailureInfo } from '../../../../shared/typ
 import { parsePythonCommand } from '../../../python-detector';
 import { detectAuthFailure, detectBillingFailure } from '../../../rate-limit-detector';
 import { getClaudeProfileManager } from '../../../claude-profile-manager';
+import { getOperationRegistry, type OperationType } from '../../../claude-profile/operation-registry';
 import { isWindows, isMacOS } from '../../../platform';
 
 const execAsync = promisify(exec);
@@ -73,6 +74,23 @@ export interface SubprocessOptions {
   progressPattern?: RegExp;
   /** Additional environment variables to pass to the subprocess */
   env?: Record<string, string>;
+  /**
+   * Operation registration for proactive swap support.
+   * If provided, the operation will be registered with the unified OperationRegistry.
+   */
+  operationRegistration?: {
+    /** Unique operation ID */
+    operationId: string;
+    /** Operation type for categorization */
+    operationType: OperationType;
+    /** Optional metadata for the operation */
+    metadata?: Record<string, unknown>;
+    /**
+     * Function to restart the operation with a new profile.
+     * Should call the original function with refreshed environment.
+     */
+    restartFn?: (newProfileId: string) => boolean | Promise<boolean>;
+  };
 }
 
 /**
@@ -125,6 +143,51 @@ export function runPythonSubprocess<T = unknown>(
     // On Windows, this is not needed (taskkill /T handles it)
     detached: !isWindows(),
   });
+
+  // Register with OperationRegistry for proactive swap support
+  if (options.operationRegistration) {
+    const { operationId, operationType, metadata, restartFn } = options.operationRegistration;
+    const profileManager = getClaudeProfileManager();
+    const activeProfile = profileManager.getActiveProfile();
+
+    if (activeProfile) {
+      const operationRegistry = getOperationRegistry();
+
+      // Create a stop function that kills the subprocess
+      const stopFn = async () => {
+        if (child.pid) {
+          try {
+            if (!isWindows()) {
+              process.kill(-child.pid, 'SIGTERM');
+            } else {
+              execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], () => {});
+            }
+          } catch {
+            child.kill('SIGTERM');
+          }
+        }
+      };
+
+      operationRegistry.registerOperation(
+        operationId,
+        operationType,
+        activeProfile.id,
+        activeProfile.name,
+        restartFn || (() => false), // Use provided restartFn or a no-op
+        {
+          stopFn,
+          metadata: { ...metadata, pythonPath: options.pythonPath, cwd: options.cwd }
+        }
+      );
+
+      console.log('[SubprocessRunner] Operation registered with OperationRegistry:', {
+        operationId,
+        operationType,
+        profileId: activeProfile.id,
+        profileName: activeProfile.name
+      });
+    }
+  }
 
   const promise = new Promise<SubprocessResult<T>>((resolve) => {
 
@@ -304,6 +367,11 @@ export function runPythonSubprocess<T = unknown>(
     child.on('close', (code: number | null) => {
       // Treat null exit code (killed with SIGKILL) as failure, not success
       const exitCode = code ?? -1;
+
+      // Unregister from OperationRegistry when process exits
+      if (options.operationRegistration) {
+        getOperationRegistry().unregisterOperation(options.operationRegistration.operationId);
+      }
 
       // Debug logging only in development mode
       if (process.env.NODE_ENV === 'development') {

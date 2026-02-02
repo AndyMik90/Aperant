@@ -1280,6 +1280,9 @@ async function runPRReview(
   // Build environment with project settings
   const subprocessEnv = await getRunnerEnv(getClaudeMdEnv(project));
 
+  // Create operation ID for this review
+  const reviewKey = getReviewKey(project.id, prNumber);
+
   const { process: childProcess, promise } = runPythonSubprocess<PRReviewResult>({
     pythonPath: getPythonPath(backendPath),
     args,
@@ -1314,10 +1317,17 @@ async function runPRReview(
       debugLog("Review result loaded", { findingsCount: reviewResult.findings.length });
       return reviewResult;
     },
+    // Register with OperationRegistry for proactive swap support
+    operationRegistration: {
+      operationId: `pr-review:${reviewKey}`,
+      operationType: 'pr-review',
+      metadata: { projectId: project.id, prNumber, repo },
+      // PR reviews don't support restart (would need to refetch PR data)
+      // The review will complete or fail, and user can retry manually
+    },
   });
 
-  // Register the running process
-  const reviewKey = getReviewKey(project.id, prNumber);
+  // Register the running process (keep legacy registry for cancel support)
   runningReviews.set(reviewKey, childProcess);
   debugLog("Registered review process", { reviewKey, pid: childProcess.pid });
 
@@ -2699,6 +2709,12 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
                 findingsCount: reviewResult.findings.length,
               });
               return reviewResult;
+            },
+            // Register with OperationRegistry for proactive swap support
+            operationRegistration: {
+              operationId: `pr-followup-review:${reviewKey}`,
+              operationType: 'pr-review',
+              metadata: { projectId: project.id, prNumber, repo, isFollowup: true },
             },
           });
 

@@ -268,8 +268,7 @@ export function AuthStatusIndicator() {
 
               {/* Profile details for API profiles */}
               {!isOAuth && (
-                <>
-                  <div className="pt-2 border-t space-y-2">
+                <div className="pt-2 border-t space-y-2">
                     {/* Profile name with icon */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -303,13 +302,11 @@ export function AuthStatusIndicator() {
                       </div>
                     )}
                   </div>
-                </>
               )}
 
               {/* Account details for OAuth profiles */}
               {isOAuth && authStatus.name && authStatus.name !== 'OAuth' && (
-                <>
-                  <div className="pt-2 border-t space-y-2">
+                <div className="pt-2 border-t space-y-2">
                     {/* Account name/email with icon */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -319,7 +316,6 @@ export function AuthStatusIndicator() {
                       <span className="font-medium text-[10px]">{authStatus.name}</span>
                     </div>
                   </div>
-                </>
               )}
             </div>
           </TooltipContent>

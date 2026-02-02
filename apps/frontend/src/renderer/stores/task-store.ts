@@ -233,7 +233,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       };
     }),
 
-  updateTaskStatus: (taskId, status, reviewReason) => {
+  updateTaskStatus: (taskId, status, _reviewReason) => {
     // Record activity for stuck detection — status changes prove the task is alive
     recordTaskActivity(taskId);
 

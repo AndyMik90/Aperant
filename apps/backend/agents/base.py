@@ -20,3 +20,13 @@ INITIAL_RETRY_DELAY_SECONDS = (
     2  # Initial retry delay (doubles each retry: 2s, 4s, 8s, 16s, 32s)
 )
 MAX_RETRY_DELAY_SECONDS = 32  # Cap retry delay at 32 seconds
+
+# Pause file constants for intelligent error recovery
+# These files signal pause/resume between frontend and backend
+RATE_LIMIT_PAUSE_FILE = "RATE_LIMIT_PAUSE"  # Created when rate limited
+AUTH_FAILURE_PAUSE_FILE = "AUTH_PAUSE"  # Created when auth fails
+RESUME_FILE = "RESUME"  # Created by frontend to signal resume
+
+# Maximum time to wait for rate limit reset (2 hours)
+# If reset time is beyond this, task should fail rather than wait indefinitely
+MAX_RATE_LIMIT_WAIT_SECONDS = 7200
