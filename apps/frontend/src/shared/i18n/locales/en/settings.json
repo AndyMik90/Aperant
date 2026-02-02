@@ -860,7 +860,10 @@
       "decrease": "Decrease {{label}} by {{step}}",
       "increase": "Increase {{label}} by {{step}}",
       "currentValue": "Current value: {{value}}"
-    }
+    },
+    "testConnection": "Test Connection",
+    "edit": "Edit",
+    "delete": "Delete"
   },
   "agents": {
     "pr_template_filler": {

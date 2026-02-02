@@ -377,10 +377,13 @@ export function WorkspaceStatus({
             <AlertTriangle className="h-4 w-4 text-warning mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-warning">
-                {uncommittedCount} uncommitted {uncommittedCount === 1 ? 'change' : 'changes'} in main project
+                {t('taskReview:merge.status.uncommittedChanges', {
+                  count: uncommittedCount,
+                  type: uncommittedCount === 1 ? t('taskReview:merge.status.change') : t('taskReview:merge.status.changes')
+                })}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Commit or stash them in your terminal before staging to avoid conflicts.
+                {t('taskReview:merge.status.uncommittedWarning')}
               </p>
             </div>
           </div>
@@ -390,7 +393,7 @@ export function WorkspaceStatus({
         {isLoadingPreview && !mergePreview && (
           <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Checking for conflicts...
+            {t('taskReview:merge.status.checkingForConflicts')}
           </div>
         )}
 
@@ -585,7 +588,7 @@ export function WorkspaceStatus({
               className="flex-1"
             >
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Checking for conflicts...
+              {t('taskReview:merge.status.checkingForConflicts')}
             </Button>
           )}
 

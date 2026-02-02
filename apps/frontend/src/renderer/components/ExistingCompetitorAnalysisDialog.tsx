@@ -1,4 +1,5 @@
 import { Globe, RefreshCw, TrendingUp, CheckCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -26,6 +27,7 @@ export function ExistingCompetitorAnalysisDialog({
   onSkip,
   analysisDate,
 }: ExistingCompetitorAnalysisDialogProps) {
+  const { t } = useTranslation('roadmap');
   const handleUseExisting = () => {
     onUseExisting();
     onOpenChange(false);
@@ -42,7 +44,7 @@ export function ExistingCompetitorAnalysisDialog({
   };
 
   const formatDate = (date?: Date) => {
-    if (!date) return 'recently';
+    if (!date) return t('competitorAnalysis.existing.recently');
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
       day: 'numeric',
@@ -56,10 +58,10 @@ export function ExistingCompetitorAnalysisDialog({
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2 text-foreground">
             <TrendingUp className="h-5 w-5 text-primary" />
-            Competitor Analysis Options
+            {t('competitorAnalysis.existing.title')}
           </AlertDialogTitle>
           <AlertDialogDescription className="text-muted-foreground">
-            This project has an existing competitor analysis from {formatDate(analysisDate)}
+            {t('competitorAnalysis.existing.description', { date: formatDate(analysisDate) })}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -73,11 +75,11 @@ export function ExistingCompetitorAnalysisDialog({
               <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
-                  Use existing analysis
-                  <span className="text-xs text-primary font-normal">(Recommended)</span>
+                  {t('competitorAnalysis.existing.useExisting.title')}
+                  <span className="text-xs text-primary font-normal">({t('competitorAnalysis.existing.recommended')})</span>
                 </h4>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Reuse the competitor insights you already have. Faster and no additional web searches.
+                  {t('competitorAnalysis.existing.useExisting.description')}
                 </p>
               </div>
             </div>
@@ -92,10 +94,10 @@ export function ExistingCompetitorAnalysisDialog({
               <RefreshCw className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <h4 className="text-sm font-medium text-foreground">
-                  Run new analysis
+                  {t('competitorAnalysis.existing.runNew.title')}
                 </h4>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Perform fresh web searches to get updated competitor information. Takes longer.
+                  {t('competitorAnalysis.existing.runNew.description')}
                 </p>
               </div>
             </div>
@@ -110,10 +112,10 @@ export function ExistingCompetitorAnalysisDialog({
               <Globe className="h-5 w-5 text-muted-foreground/60 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <h4 className="text-sm font-medium text-muted-foreground">
-                  Skip competitor analysis
+                  {t('competitorAnalysis.existing.skip.title')}
                 </h4>
                 <p className="text-xs text-muted-foreground/80 mt-1">
-                  Generate roadmap without any competitor insights.
+                  {t('competitorAnalysis.existing.skip.description')}
                 </p>
               </div>
             </div>
@@ -122,7 +124,7 @@ export function ExistingCompetitorAnalysisDialog({
 
         <AlertDialogFooter className="sm:justify-start">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('competitorAnalysis.existing.cancel')}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

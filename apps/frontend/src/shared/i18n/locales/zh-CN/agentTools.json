@@ -1,0 +1,123 @@
+{
+  "agents": {
+    "spec_gatherer": {
+      "label": "需求收集器",
+      "description": "从用户收集初始需求"
+    },
+    "spec_researcher": {
+      "label": "需求研究员",
+      "description": "验证外部集成和 API"
+    },
+    "spec_writer": {
+      "label": "需求编写器",
+      "description": "创建 spec.md 文档"
+    },
+    "spec_critic": {
+      "label": "需求评审器",
+      "description": "使用深度分析进行自我评审"
+    },
+    "spec_discovery": {
+      "label": "需求发现器",
+      "description": "初始项目发现和分析"
+    },
+    "spec_context": {
+      "label": "需求上下文",
+      "description": "从现有代码库构建上下文"
+    },
+    "spec_validation": {
+      "label": "需求验证器",
+      "description": "验证需求的完整性和质量"
+    },
+    "planner": {
+      "label": "规划器",
+      "description": "创建包含子任务的实施计划"
+    },
+    "coder": {
+      "label": "编码器",
+      "description": "实现单个子任务"
+    },
+    "qa_reviewer": {
+      "label": "QA 评审器",
+      "description": "验证验收标准。根据项目类型使用 Electron 或 Puppeteer。"
+    },
+    "qa_fixer": {
+      "label": "QA 修复器",
+      "description": "修复 QA 报告的问题。根据项目类型使用 Electron 或 Puppeteer。"
+    },
+    "pr_reviewer": {
+      "label": "PR 评审器",
+      "description": "评审 GitHub 拉取请求"
+    },
+    "commit_message": {
+      "label": "提交消息",
+      "description": "生成提交消息"
+    },
+    "merge_resolver": {
+      "label": "合并解析器",
+      "description": "解决合并冲突"
+    },
+    "insights": {
+      "label": "洞察",
+      "description": "提取代码洞察"
+    },
+    "analysis": {
+      "label": "分析",
+      "description": "带上下文查找的代码库分析"
+    },
+    "batch_analysis": {
+      "label": "批量分析",
+      "description": "批量处理问题或项目"
+    },
+    "ideation": {
+      "label": "想法生成",
+      "description": "生成功能想法"
+    },
+    "roadmap_discovery": {
+      "label": "路线图发现",
+      "description": "发现路线图项目"
+    }
+  },
+  "mcpServers": {
+    "context7": {
+      "name": "Context7",
+      "description": "通过 @upstash/context7-mcp 查找库和框架的文档"
+    },
+    "graphiti-memory": {
+      "name": "Graphiti Memory",
+      "description": "用于跨会话上下文的知识图谱。需要 GRAPHITI_MCP_URL 环境变量。"
+    },
+    "auto-claude": {
+      "name": "Auto-Claude 工具",
+      "description": "构建进度跟踪、会话上下文、发现和注意事项记录"
+    },
+    "linear": {
+      "name": "Linear",
+      "description": "通过 Linear API 进行项目管理。需要 LINEAR_API_KEY 环境变量。"
+    },
+    "electron": {
+      "name": "Electron",
+      "description": "通过 Chrome DevTools 协议进行桌面应用自动化。需要 ELECTRON_MCP_ENABLED=true。"
+    },
+    "puppeteer": {
+      "name": "Puppeteer",
+      "description": "用于非 Electron Web 前端的 Web 浏览器自动化。"
+    }
+  },
+  "categories": {
+    "spec": "需求创建",
+    "build": "构建",
+    "qa": "QA",
+    "utility": "实用工具",
+    "ideation": "想法生成"
+  },
+  "labels": {
+    "availableTools": "可用工具",
+    "textOnly": "仅文本（无工具）",
+    "mcpServers": "MCP 服务器",
+    "mcp": "MCP",
+    "agents": "个代理",
+    "mcpServerOverview": "MCP 服务器概览",
+    "mcpServerConfiguration": "MCP 服务器配置",
+    "customMcpServers": "自定义 MCP 服务器"
+  }
+}

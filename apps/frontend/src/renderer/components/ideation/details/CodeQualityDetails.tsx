@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import {
   Code2,
   AlertTriangle,
@@ -11,7 +12,7 @@ import { Badge } from '../../ui/badge';
 import { Card } from '../../ui/card';
 import {
   CODE_QUALITY_SEVERITY_COLORS,
-  CODE_QUALITY_CATEGORY_LABELS,
+  getCodeQualityCategoryLabels,
   IDEATION_EFFORT_COLORS
 } from '../../../../shared/constants';
 import type { CodeQualityIdea } from '../../../../shared/types';
@@ -21,6 +22,8 @@ interface CodeQualityDetailsProps {
 }
 
 export function CodeQualityDetails({ idea }: CodeQualityDetailsProps) {
+  const { t } = useTranslation('ideation');
+  const codeQualityLabels = getCodeQualityCategoryLabels(t);
   return (
     <>
       {/* Metrics */}
@@ -46,7 +49,7 @@ export function CodeQualityDetails({ idea }: CodeQualityDetailsProps) {
           Category
         </h3>
         <Badge variant="outline">
-          {CODE_QUALITY_CATEGORY_LABELS[idea.category]}
+          {codeQualityLabels[idea.category]}
         </Badge>
       </div>
 

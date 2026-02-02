@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import type { ProjectSettings } from '../../../shared/types';
@@ -8,12 +9,13 @@ interface NotificationsSectionProps {
 }
 
 export function NotificationsSection({ settings, onUpdateSettings }: NotificationsSectionProps) {
+  const { t } = useTranslation('settings');
   return (
     <section className="space-y-4">
-      <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
+      <h3 className="text-sm font-semibold text-foreground">{t('projectSettings.general.notifications')}</h3>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <Label className="font-normal text-foreground">On Task Complete</Label>
+          <Label className="font-normal text-foreground">{t('projectSettings.general.onTaskComplete')}</Label>
           <Switch
             checked={settings.notifications.onTaskComplete}
             onCheckedChange={(checked) =>
@@ -27,7 +29,7 @@ export function NotificationsSection({ settings, onUpdateSettings }: Notificatio
           />
         </div>
         <div className="flex items-center justify-between">
-          <Label className="font-normal text-foreground">On Task Failed</Label>
+          <Label className="font-normal text-foreground">{t('projectSettings.general.onTaskFailed')}</Label>
           <Switch
             checked={settings.notifications.onTaskFailed}
             onCheckedChange={(checked) =>
@@ -41,7 +43,7 @@ export function NotificationsSection({ settings, onUpdateSettings }: Notificatio
           />
         </div>
         <div className="flex items-center justify-between">
-          <Label className="font-normal text-foreground">On Review Needed</Label>
+          <Label className="font-normal text-foreground">{t('projectSettings.general.onReviewNeeded')}</Label>
           <Switch
             checked={settings.notifications.onReviewNeeded}
             onCheckedChange={(checked) =>
@@ -55,7 +57,7 @@ export function NotificationsSection({ settings, onUpdateSettings }: Notificatio
           />
         </div>
         <div className="flex items-center justify-between">
-          <Label className="font-normal text-foreground">Sound</Label>
+          <Label className="font-normal text-foreground">{t('projectSettings.general.sound')}</Label>
           <Switch
             checked={settings.notifications.sound}
             onCheckedChange={(checked) =>

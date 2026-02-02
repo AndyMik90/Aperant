@@ -1332,7 +1332,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                             max="99"
                             step="1"
                             value={autoSwitchSettings?.sessionThreshold ?? 95}
-                            onChange={(e) => handleUpdateAutoSwitch({ sessionThreshold: parseInt(e.target.value) })}
+                            onChange={(e) => handleUpdateAutoSwitch({ sessionThreshold: parseInt(e.target.value, 10) })}
                             disabled={isLoadingAutoSwitch}
                             className="w-full"
                             aria-describedby="session-threshold-description"
@@ -1355,7 +1355,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                             max="99"
                             step="1"
                             value={autoSwitchSettings?.weeklyThreshold ?? 99}
-                            onChange={(e) => handleUpdateAutoSwitch({ weeklyThreshold: parseInt(e.target.value) })}
+                            onChange={(e) => handleUpdateAutoSwitch({ weeklyThreshold: parseInt(e.target.value, 10) })}
                             disabled={isLoadingAutoSwitch}
                             className="w-full"
                             aria-describedby="weekly-threshold-description"

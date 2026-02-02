@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { CheckCircle2, Circle, ExternalLink, Play, TrendingUp } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -14,6 +15,7 @@ export function PhaseCard({
   onConvertToSpec,
   onGoToTask,
 }: PhaseCardProps) {
+  const { t } = useTranslation('roadmap');
   const completedCount = features.filter((f) => f.status === 'done').length;
   const progress = features.length > 0 ? (completedCount / features.length) * 100 : 0;
 
@@ -49,9 +51,9 @@ export function PhaseCard({
       {/* Progress */}
       <div className="mb-4">
         <div className="flex items-center justify-between text-sm mb-1">
-          <span className="text-muted-foreground">Progress</span>
+          <span className="text-muted-foreground">{t('generation.progress.label')}</span>
           <span>
-            {completedCount}/{features.length} features
+            {completedCount}/{features.length} {t('phase.features')}
           </span>
         </div>
         <Progress value={progress} className="h-2" />
@@ -60,7 +62,7 @@ export function PhaseCard({
       {/* Milestones */}
       {phase.milestones.length > 0 && (
         <div className="mb-4">
-          <h4 className="text-sm font-medium mb-2">Milestones</h4>
+          <h4 className="text-sm font-medium mb-2">{t('phase.milestones')}</h4>
           <div className="space-y-2">
             {phase.milestones.map((milestone) => (
               <div key={milestone.id} className="flex items-center gap-2 text-sm">
@@ -84,7 +86,7 @@ export function PhaseCard({
 
       {/* Features */}
       <div>
-        <h4 className="text-sm font-medium mb-2">Features ({features.length})</h4>
+        <h4 className="text-sm font-medium mb-2">{t('phase.features')} ({features.length})</h4>
         <div className="grid gap-2">
           {features.slice(0, 5).map((feature) => (
             <div
@@ -117,7 +119,7 @@ export function PhaseCard({
                   }}
                 >
                   <ExternalLink className="h-3 w-3 mr-1" />
-                  View Task
+                  {t('phase.viewTask')}
                 </Button>
               ) : (
                 <Button
@@ -130,14 +132,14 @@ export function PhaseCard({
                   }}
                 >
                   <Play className="h-3 w-3 mr-1" />
-                  Build
+                  {t('phase.build')}
                 </Button>
               )}
             </div>
           ))}
           {features.length > 5 && (
             <div className="text-sm text-muted-foreground text-center py-1">
-              +{features.length - 5} more features
+              +{features.length - 5} {t('phase.moreFeatures')}
             </div>
           )}
         </div>

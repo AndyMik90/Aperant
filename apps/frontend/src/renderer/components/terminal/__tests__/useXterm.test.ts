@@ -27,20 +27,20 @@ vi.mock('@xterm/xterm', () => ({
     onResize: vi.fn(),
     dispose: vi.fn(),
     write: vi.fn(),
+    refresh: vi.fn(),
     cols: 80,
     rows: 24,
     options: {
       cursorBlink: true,
       cursorStyle: 'block',
       fontSize: 14,
-      fontFamily: 'monospace',
       fontWeight: 'normal',
+      fontFamily: 'monospace',
       lineHeight: 1,
       letterSpacing: 0,
-      theme: { cursorAccent: '#000000' },
+      theme: {},
       scrollback: 1000
-    },
-    refresh: vi.fn()
+    }
   }))
 }));
 
@@ -106,20 +106,20 @@ async function setupMockXterm(overrides: {
       onResize: vi.fn(),
       dispose: vi.fn(),
       write: vi.fn(),
+      refresh: vi.fn(),
       cols: 80,
       rows: 24,
       options: {
         cursorBlink: true,
         cursorStyle: 'block',
         fontSize: 14,
-        fontFamily: 'monospace',
         fontWeight: 'normal',
+        fontFamily: 'monospace',
         lineHeight: 1,
         letterSpacing: 0,
-        theme: { cursorAccent: '#000000' },
+        theme: {},
         scrollback: 1000
-      },
-      refresh: vi.fn()
+      }
     };
   });
 

@@ -26,6 +26,7 @@ import {
 } from '../ui/select';
 import { useSettingsStore } from '../../stores/settings-store';
 import type { GraphitiLLMProvider, GraphitiEmbeddingProvider, AppSettings } from '../../../shared/types';
+import { useTranslation } from 'react-i18next';
 
 interface GraphitiStepProps {
   onNext: () => void;
@@ -33,34 +34,34 @@ interface GraphitiStepProps {
   onSkip: () => void;
 }
 
-// Provider configurations with descriptions
+// Provider configurations with descriptions - will be populated from translations
 const LLM_PROVIDERS: Array<{
   id: GraphitiLLMProvider;
-  name: string;
-  description: string;
+  nameKey: string;
+  descriptionKey: string;
   requiresApiKey: boolean;
 }> = [
-  { id: 'openai', name: 'OpenAI', description: 'GPT models (recommended)', requiresApiKey: true },
-  { id: 'anthropic', name: 'Anthropic', description: 'Claude models', requiresApiKey: true },
-  { id: 'google', name: 'Google AI', description: 'Gemini models', requiresApiKey: true },
-  { id: 'groq', name: 'Groq', description: 'Llama models (fast inference)', requiresApiKey: true },
-  { id: 'openrouter', name: 'OpenRouter', description: 'Multi-provider aggregator', requiresApiKey: true },
-  { id: 'azure_openai', name: 'Azure OpenAI', description: 'Enterprise Azure deployment', requiresApiKey: true },
-  { id: 'ollama', name: 'Ollama', description: 'Local models (free)', requiresApiKey: false }
+  { id: 'openai', nameKey: 'providers.openai.name', descriptionKey: 'providers.openai.description', requiresApiKey: true },
+  { id: 'anthropic', nameKey: 'providers.anthropic.name', descriptionKey: 'providers.anthropic.description', requiresApiKey: true },
+  { id: 'google', nameKey: 'providers.google.name', descriptionKey: 'providers.google.description', requiresApiKey: true },
+  { id: 'groq', nameKey: 'providers.groq.name', descriptionKey: 'providers.groq.description', requiresApiKey: true },
+  { id: 'openrouter', nameKey: 'providers.openrouter.name', descriptionKey: 'providers.openrouter.description', requiresApiKey: true },
+  { id: 'azure_openai', nameKey: 'providers.azure_openai.name', descriptionKey: 'providers.azure_openai.description', requiresApiKey: true },
+  { id: 'ollama', nameKey: 'providers.ollama.name', descriptionKey: 'providers.ollama.description', requiresApiKey: false }
 ];
 
 const EMBEDDING_PROVIDERS: Array<{
   id: GraphitiEmbeddingProvider;
-  name: string;
-  description: string;
+  nameKey: string;
+  descriptionKey: string;
   requiresApiKey: boolean;
 }> = [
-  { id: 'ollama', name: 'Ollama', description: 'Local embeddings (free)', requiresApiKey: false },
-  { id: 'openai', name: 'OpenAI', description: 'text-embedding-3-small (recommended)', requiresApiKey: true },
-  { id: 'voyage', name: 'Voyage AI', description: 'voyage-3 (great with Anthropic)', requiresApiKey: true },
-  { id: 'google', name: 'Google AI', description: 'Gemini text-embedding-004', requiresApiKey: true },
-  { id: 'openrouter', name: 'OpenRouter', description: 'OpenAI-compatible embeddings', requiresApiKey: true },
-  { id: 'azure_openai', name: 'Azure OpenAI', description: 'Enterprise Azure embeddings', requiresApiKey: true }
+  { id: 'ollama', nameKey: 'providers.ollama.name', descriptionKey: 'providers.ollama.description', requiresApiKey: false },
+  { id: 'openai', nameKey: 'providers.openai.name', descriptionKey: 'providers.openai.description', requiresApiKey: true },
+  { id: 'voyage', nameKey: 'providers.voyage.name', descriptionKey: 'providers.voyage.description', requiresApiKey: true },
+  { id: 'google', nameKey: 'providers.google.name', descriptionKey: 'providers.google.description', requiresApiKey: true },
+  { id: 'openrouter', nameKey: 'providers.openrouter.name', descriptionKey: 'providers.openrouter.description', requiresApiKey: true },
+  { id: 'azure_openai', nameKey: 'providers.azure_openai.name', descriptionKey: 'providers.azure_openai.description', requiresApiKey: true }
 ];
 
 interface GraphitiConfig {
@@ -109,6 +110,7 @@ interface ValidationStatus {
  * Allows users to configure Graphiti memory backend with multiple provider options.
  */
 export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
+  const { t } = useTranslation(['onboarding', 'common']);
   const { settings, updateSettings } = useSettingsStore();
   const [config, setConfig] = useState<GraphitiConfig>({
     enabled: true,  // Enabled by default for better first-time experience
@@ -153,7 +155,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
       setIsCheckingInfra(true);
       try {
         const result = await window.electronAPI.getMemoryInfrastructureStatus();
-        setKuzuAvailable(result?.success && result?.data?.memory?.kuzuInstalled ? true : false);
+        setKuzuAvailable(!!(result?.success && result?.data?.memory?.kuzuInstalled));
       } catch {
         setKuzuAvailable(false);
       } finally {
@@ -181,38 +183,38 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
 
     // Check LLM provider
     if (llmProvider === 'openai' || embeddingProvider === 'openai') {
-      if (!config.openaiApiKey.trim()) return 'OpenAI API key';
+      if (!config.openaiApiKey.trim()) return t('onboarding:graphiti.providers.openai.apiKey');
     }
     if (llmProvider === 'anthropic') {
-      if (!config.anthropicApiKey.trim()) return 'Anthropic API key';
+      if (!config.anthropicApiKey.trim()) return t('onboarding:graphiti.providers.anthropic.apiKey');
     }
     if (llmProvider === 'azure_openai' || embeddingProvider === 'azure_openai') {
-      if (!config.azureOpenaiApiKey.trim()) return 'Azure OpenAI API key';
-      if (!config.azureOpenaiBaseUrl.trim()) return 'Azure OpenAI Base URL';
+      if (!config.azureOpenaiApiKey.trim()) return t('onboarding:graphiti.providers.azure_openai.apiKey');
+      if (!config.azureOpenaiBaseUrl.trim()) return t('onboarding:graphiti.providers.azure_openai.baseUrl');
       if (llmProvider === 'azure_openai' && !config.azureOpenaiLlmDeployment.trim()) {
-        return 'Azure OpenAI LLM deployment name';
+        return t('onboarding:graphiti.providers.azure_openai.llmDeployment');
       }
       if (embeddingProvider === 'azure_openai' && !config.azureOpenaiEmbeddingDeployment.trim()) {
-        return 'Azure OpenAI embedding deployment name';
+        return t('onboarding:graphiti.providers.azure_openai.embeddingDeployment');
       }
     }
     if (embeddingProvider === 'voyage') {
-      if (!config.voyageApiKey.trim()) return 'Voyage API key';
+      if (!config.voyageApiKey.trim()) return t('onboarding:graphiti.voyage.apiKey');
     }
     if (llmProvider === 'google' || embeddingProvider === 'google') {
-      if (!config.googleApiKey.trim()) return 'Google API key';
+      if (!config.googleApiKey.trim()) return t('onboarding:graphiti.providers.google.apiKey');
     }
     if (llmProvider === 'groq') {
-      if (!config.groqApiKey.trim()) return 'Groq API key';
+      if (!config.groqApiKey.trim()) return t('onboarding:graphiti.providers.groq.apiKey');
     }
     if (llmProvider === 'openrouter' || embeddingProvider === 'openrouter') {
-      if (!config.openrouterApiKey.trim()) return 'OpenRouter API key';
+      if (!config.openrouterApiKey.trim()) return t('onboarding:graphiti.providers.openrouter.apiKey');
     }
     if (llmProvider === 'ollama') {
-      if (!config.ollamaLlmModel.trim()) return 'Ollama LLM model name';
+      if (!config.ollamaLlmModel.trim()) return t('onboarding:graphiti.providers.ollama.llmModel');
     }
     if (embeddingProvider === 'ollama') {
-      if (!config.ollamaEmbeddingModel.trim()) return 'Ollama embedding model name';
+      if (!config.ollamaEmbeddingModel.trim()) return t('onboarding:graphiti.providers.ollama.embeddingModel');
     }
 
     return null;
@@ -385,7 +387,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="openai-key" className="text-sm font-medium text-foreground">
-                OpenAI API Key
+                {t('onboarding:graphiti.providers.openai.apiKey')}
               </Label>
               {validationStatus.provider?.tested && needsOpenAI && (
                 <div className="flex items-center gap-1.5">
@@ -406,7 +408,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                   setConfig(prev => ({ ...prev, openaiApiKey: e.target.value }));
                   setValidationStatus(prev => ({ ...prev, provider: null }));
                 }}
-                placeholder="sk-..."
+                placeholder={t('onboarding:graphiti.placeholders.openai')}
                 className="pr-10 font-mono text-sm"
                 disabled={isSaving || isValidating}
               />
@@ -419,9 +421,9 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Get your key from{' '}
+              {t('onboarding:graphiti.providers.openai.getYourKeyFrom')}{' '}
               <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-                OpenAI
+                {t('onboarding:graphiti.providers.openai.keyLink')}
               </a>
             </p>
           </div>
@@ -431,7 +433,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
         {needsAnthropic && (
           <div className="space-y-2">
             <Label htmlFor="anthropic-key" className="text-sm font-medium text-foreground">
-              Anthropic API Key
+              {t('onboarding:graphiti.providers.anthropic.apiKey')}
             </Label>
             <div className="relative">
               <Input
@@ -439,7 +441,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                 type={showApiKey['anthropic'] ? 'text' : 'password'}
                 value={config.anthropicApiKey}
                 onChange={(e) => setConfig(prev => ({ ...prev, anthropicApiKey: e.target.value }))}
-                placeholder="sk-ant-..."
+                placeholder={t('onboarding:graphiti.placeholders.anthropic')}
                 className="pr-10 font-mono text-sm"
                 disabled={isSaving || isValidating}
               />
@@ -452,9 +454,9 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Get your key from{' '}
+              {t('onboarding:graphiti.providers.anthropic.getYourKeyFrom')}{' '}
               <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-                Anthropic Console
+                {t('onboarding:graphiti.providers.anthropic.keyLink')}
               </a>
             </p>
           </div>
@@ -463,16 +465,16 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
         {/* Azure OpenAI Settings */}
         {needsAzure && (
           <div className="space-y-3 p-3 rounded-md bg-muted/50">
-            <p className="text-sm font-medium text-foreground">Azure OpenAI Settings</p>
+            <p className="text-sm font-medium text-foreground">{t('onboarding:graphiti.providers.azure_openai.name')}</p>
             <div className="space-y-2">
-              <Label htmlFor="azure-key" className="text-xs text-muted-foreground">API Key</Label>
+              <Label htmlFor="azure-key" className="text-xs text-muted-foreground">{t('onboarding:graphiti.providers.azure_openai.apiKey')}</Label>
               <div className="relative">
                 <Input
                   id="azure-key"
                   type={showApiKey['azure'] ? 'text' : 'password'}
                   value={config.azureOpenaiApiKey}
                   onChange={(e) => setConfig(prev => ({ ...prev, azureOpenaiApiKey: e.target.value }))}
-                  placeholder="Azure API key"
+                  placeholder={t('onboarding:graphiti.placeholders.azureApiKey')}
                   className="pr-10 font-mono text-sm"
                   disabled={isSaving || isValidating}
                 />
@@ -486,26 +488,26 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="azure-url" className="text-xs text-muted-foreground">Base URL</Label>
+              <Label htmlFor="azure-url" className="text-xs text-muted-foreground">{t('onboarding:graphiti.providers.azure_openai.baseUrl')}</Label>
               <Input
                 id="azure-url"
                 type="text"
                 value={config.azureOpenaiBaseUrl}
                 onChange={(e) => setConfig(prev => ({ ...prev, azureOpenaiBaseUrl: e.target.value }))}
-                placeholder="https://your-resource.openai.azure.com"
+                placeholder={t('onboarding:graphiti.placeholders.azureBaseUrl')}
                 className="font-mono text-sm"
                 disabled={isSaving || isValidating}
               />
             </div>
             {llmProvider === 'azure_openai' && (
               <div className="space-y-2">
-                <Label htmlFor="azure-llm-deployment" className="text-xs text-muted-foreground">LLM Deployment Name</Label>
+                <Label htmlFor="azure-llm-deployment" className="text-xs text-muted-foreground">{t('onboarding:graphiti.providers.azure_openai.llmDeployment')}</Label>
                 <Input
                   id="azure-llm-deployment"
                   type="text"
                   value={config.azureOpenaiLlmDeployment}
                   onChange={(e) => setConfig(prev => ({ ...prev, azureOpenaiLlmDeployment: e.target.value }))}
-                  placeholder="gpt-4"
+                  placeholder={t('onboarding:graphiti.placeholders.azureLlmDeployment')}
                   className="font-mono text-sm"
                   disabled={isSaving || isValidating}
                 />
@@ -513,13 +515,13 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
             )}
             {embeddingProvider === 'azure_openai' && (
               <div className="space-y-2">
-                <Label htmlFor="azure-embedding-deployment" className="text-xs text-muted-foreground">Embedding Deployment Name</Label>
+                <Label htmlFor="azure-embedding-deployment" className="text-xs text-muted-foreground">{t('onboarding:graphiti.providers.azure_openai.embeddingDeployment')}</Label>
                 <Input
                   id="azure-embedding-deployment"
                   type="text"
                   value={config.azureOpenaiEmbeddingDeployment}
                   onChange={(e) => setConfig(prev => ({ ...prev, azureOpenaiEmbeddingDeployment: e.target.value }))}
-                  placeholder="text-embedding-ada-002"
+                  placeholder={t('onboarding:graphiti.placeholders.azureEmbeddingDeployment')}
                   className="font-mono text-sm"
                   disabled={isSaving || isValidating}
                 />
@@ -532,7 +534,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
         {needsVoyage && (
           <div className="space-y-2">
             <Label htmlFor="voyage-key" className="text-sm font-medium text-foreground">
-              Voyage API Key
+              {t('onboarding:graphiti.voyage.apiKey')}
             </Label>
             <div className="relative">
               <Input
@@ -540,7 +542,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                 type={showApiKey['voyage'] ? 'text' : 'password'}
                 value={config.voyageApiKey}
                 onChange={(e) => setConfig(prev => ({ ...prev, voyageApiKey: e.target.value }))}
-                placeholder="pa-..."
+                placeholder={t('onboarding:graphiti.placeholders.voyage')}
                 className="pr-10 font-mono text-sm"
                 disabled={isSaving || isValidating}
               />
@@ -553,9 +555,9 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Get your key from{' '}
+              {t('onboarding:graphiti.voyage.getYourKeyFrom')}{' '}
               <a href="https://dash.voyageai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-                Voyage AI
+                {t('onboarding:graphiti.voyage.keyLink')}
               </a>
             </p>
           </div>
@@ -565,7 +567,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
         {needsGoogle && (
           <div className="space-y-2">
             <Label htmlFor="google-key" className="text-sm font-medium text-foreground">
-              Google API Key
+              {t('onboarding:graphiti.providers.google.apiKey')}
             </Label>
             <div className="relative">
               <Input
@@ -573,7 +575,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                 type={showApiKey['google'] ? 'text' : 'password'}
                 value={config.googleApiKey}
                 onChange={(e) => setConfig(prev => ({ ...prev, googleApiKey: e.target.value }))}
-                placeholder="AIza..."
+                placeholder={t('onboarding:graphiti.placeholders.google')}
                 className="pr-10 font-mono text-sm"
                 disabled={isSaving || isValidating}
               />
@@ -586,9 +588,9 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Get your key from{' '}
+              {t('onboarding:graphiti.providers.google.getYourKeyFrom')}{' '}
               <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-                Google AI Studio
+                {t('onboarding:graphiti.providers.google.keyLink')}
               </a>
             </p>
           </div>
@@ -598,7 +600,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
         {needsGroq && (
           <div className="space-y-2">
             <Label htmlFor="groq-key" className="text-sm font-medium text-foreground">
-              Groq API Key
+              {t('onboarding:graphiti.providers.groq.apiKey')}
             </Label>
             <div className="relative">
               <Input
@@ -606,7 +608,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                 type={showApiKey['groq'] ? 'text' : 'password'}
                 value={config.groqApiKey}
                 onChange={(e) => setConfig(prev => ({ ...prev, groqApiKey: e.target.value }))}
-                placeholder="gsk_..."
+                placeholder={t('onboarding:graphiti.placeholders.groq')}
                 className="pr-10 font-mono text-sm"
                 disabled={isSaving || isValidating}
               />
@@ -619,9 +621,9 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Get your key from{' '}
+              {t('onboarding:graphiti.providers.groq.getYourKeyFrom')}{' '}
               <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-                Groq Console
+                {t('onboarding:graphiti.providers.groq.keyLink')}
               </a>
             </p>
           </div>
@@ -631,7 +633,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
         {needsOpenRouter && (
           <div className="space-y-2">
             <Label htmlFor="openrouter-key" className="text-sm font-medium text-foreground">
-              OpenRouter API Key
+              {t('onboarding:graphiti.providers.openrouter.apiKey')}
             </Label>
             <div className="relative">
               <Input
@@ -639,7 +641,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                 type={showApiKey['openrouter'] ? 'text' : 'password'}
                 value={config.openrouterApiKey}
                 onChange={(e) => setConfig(prev => ({ ...prev, openrouterApiKey: e.target.value }))}
-                placeholder="sk-or-..."
+                placeholder={t('onboarding:graphiti.placeholders.openrouter')}
                 className="pr-10 font-mono text-sm"
                 disabled={isSaving || isValidating}
               />
@@ -652,9 +654,9 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Get your key from{' '}
+              {t('onboarding:graphiti.providers.openrouter.getYourKeyFrom')}{' '}
               <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-                OpenRouter Dashboard
+                {t('onboarding:graphiti.providers.openrouter.keyLink')}
               </a>
             </p>
           </div>
@@ -663,28 +665,28 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
         {/* Ollama Settings */}
         {needsOllama && (
           <div className="space-y-3 p-3 rounded-md bg-muted/50">
-            <p className="text-sm font-medium text-foreground">Ollama Settings (Local)</p>
+            <p className="text-sm font-medium text-foreground">{t('onboarding:graphiti.providers.ollama.settings')}</p>
             <div className="space-y-2">
-              <Label htmlFor="ollama-url" className="text-xs text-muted-foreground">Base URL</Label>
+              <Label htmlFor="ollama-url" className="text-xs text-muted-foreground">{t('onboarding:graphiti.providers.ollama.baseUrl')}</Label>
               <Input
                 id="ollama-url"
                 type="text"
                 value={config.ollamaBaseUrl}
                 onChange={(e) => setConfig(prev => ({ ...prev, ollamaBaseUrl: e.target.value }))}
-                placeholder="http://localhost:11434"
+                placeholder={t('onboarding:graphiti.placeholders.ollamaBaseUrl')}
                 className="font-mono text-sm"
                 disabled={isSaving || isValidating}
               />
             </div>
             {llmProvider === 'ollama' && (
               <div className="space-y-2">
-                <Label htmlFor="ollama-llm" className="text-xs text-muted-foreground">LLM Model</Label>
+                <Label htmlFor="ollama-llm" className="text-xs text-muted-foreground">{t('onboarding:graphiti.providers.ollama.llmModel')}</Label>
                 <Input
                   id="ollama-llm"
                   type="text"
                   value={config.ollamaLlmModel}
                   onChange={(e) => setConfig(prev => ({ ...prev, ollamaLlmModel: e.target.value }))}
-                  placeholder="llama3.2, deepseek-r1:7b, etc."
+                  placeholder={t('onboarding:graphiti.placeholders.ollamaLlmModel')}
                   className="font-mono text-sm"
                   disabled={isSaving || isValidating}
                 />
@@ -693,25 +695,25 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
             {embeddingProvider === 'ollama' && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="ollama-embedding" className="text-xs text-muted-foreground">Embedding Model</Label>
+                  <Label htmlFor="ollama-embedding" className="text-xs text-muted-foreground">{t('onboarding:graphiti.providers.ollama.embeddingModel')}</Label>
                   <Input
                     id="ollama-embedding"
                     type="text"
                     value={config.ollamaEmbeddingModel}
                     onChange={(e) => setConfig(prev => ({ ...prev, ollamaEmbeddingModel: e.target.value }))}
-                    placeholder="nomic-embed-text"
+                    placeholder={t('onboarding:graphiti.placeholders.ollamaEmbeddingModel')}
                     className="font-mono text-sm"
                     disabled={isSaving || isValidating}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="ollama-dim" className="text-xs text-muted-foreground">Embedding Dimension</Label>
+                  <Label htmlFor="ollama-dim" className="text-xs text-muted-foreground">{t('onboarding:graphiti.providers.ollama.embeddingDimension')}</Label>
                   <Input
                     id="ollama-dim"
                     type="number"
                     value={config.ollamaEmbeddingDim}
                     onChange={(e) => setConfig(prev => ({ ...prev, ollamaEmbeddingDim: e.target.value }))}
-                    placeholder="768"
+                    placeholder={t('onboarding:graphiti.placeholders.ollamaEmbeddingDim')}
                     className="font-mono text-sm"
                     disabled={isSaving || isValidating}
                   />
@@ -719,9 +721,9 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
               </>
             )}
             <p className="text-xs text-muted-foreground">
-              Ensure Ollama is running locally. See{' '}
+              {t('onboarding:graphiti.providers.ollama.ensureRunning')}{' '}
               <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-                ollama.ai
+                {t('onboarding:graphiti.providers.ollama.link')}
               </a>
             </p>
           </div>
@@ -741,10 +743,10 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Memory & Context
+            {t('onboarding:graphiti.title')}
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Enable Graphiti for persistent memory across coding sessions
+            {t('onboarding:graphiti.description')}
           </p>
         </div>
 
@@ -766,11 +768,10 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                     <CheckCircle2 className="h-6 w-6 text-success shrink-0 mt-0.5" />
                     <div className="flex-1">
                       <h3 className="text-lg font-medium text-success">
-                        Graphiti configured successfully
+                        {t('onboarding:graphiti.configuredSuccessfully')}
                       </h3>
                       <p className="mt-1 text-sm text-success/80">
-                        Memory features are enabled. Auto Claude will maintain context
-                        across sessions for improved code understanding.
+                        {t('onboarding:graphiti.configuredSuccessfullyDescription')}
                       </p>
                     </div>
                   </div>
@@ -785,7 +786,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                   onClick={handleReconfigure}
                   className="text-primary hover:text-primary/80 underline-offset-4 hover:underline"
                 >
-                  Reconfigure Graphiti settings
+                  {t('onboarding:graphiti.reconfigureSettings')}
                 </button>
               </div>
             )}
@@ -813,11 +814,10 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                         <Info className="h-5 w-5 text-info shrink-0 mt-0.5" />
                         <div className="flex-1">
                           <p className="text-sm font-medium text-info">
-                            Database will be created automatically
+                            {t('onboarding:graphiti.databaseAutoCreated')}
                           </p>
                           <p className="text-sm text-info/80 mt-1">
-                            LadybugDB uses an embedded database - no Docker required.
-                            The database will be created when you first use memory features.
+                            {t('onboarding:graphiti.databaseAutoCreatedDescription')}
                           </p>
                         </div>
                       </div>
@@ -832,25 +832,23 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                       <Info className="h-5 w-5 text-info shrink-0 mt-0.5" />
                       <div className="flex-1 space-y-3">
                         <p className="text-sm font-medium text-foreground">
-                          What is Graphiti?
+                          {t('onboarding:graphiti.whatIsGraphiti')}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Graphiti is an intelligent memory layer that helps Auto Claude remember
-                          context across sessions. It uses a knowledge graph to store discoveries,
-                          patterns, and insights about your codebase.
+                          {t('onboarding:graphiti.whatIsGraphitiDescription')}
                         </p>
                         <ul className="text-sm text-muted-foreground space-y-1.5 list-disc list-inside">
-                          <li>Persistent memory across coding sessions</li>
-                          <li>Better understanding of your codebase over time</li>
-                          <li>Reduces repetitive explanations</li>
-                          <li>No Docker required - uses embedded database</li>
+                          <li>{t('onboarding:graphiti.benefits.persistentMemory')}</li>
+                          <li>{t('onboarding:graphiti.benefits.betterUnderstanding')}</li>
+                          <li>{t('onboarding:graphiti.benefits.reducesRepetition')}</li>
+                          <li>{t('onboarding:graphiti.benefits.noDocker')}</li>
                         </ul>
                         <button
                           onClick={handleOpenDocs}
                           className="text-sm text-info hover:text-info/80 flex items-center gap-1"
                         >
                           <ExternalLink className="h-3 w-3" />
-                          Learn more about Graphiti
+                          {t('onboarding:graphiti.learnMoreAboutGraphiti')}
                         </button>
                       </div>
                     </div>
@@ -865,10 +863,10 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                         <Database className="h-5 w-5 text-muted-foreground" />
                         <div>
                           <Label htmlFor="enable-graphiti" className="text-sm font-medium text-foreground cursor-pointer">
-                            Enable Graphiti Memory
+                            {t('onboarding:graphiti.enableGraphitiMemory')}
                           </Label>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Uses LadybugDB (embedded) and an LLM/embedding provider
+                            {t('onboarding:graphiti.enableGraphitiDescription')}
                           </p>
                         </div>
                       </div>
@@ -890,7 +888,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                         <div className="flex items-center gap-2">
                           <Database className="h-4 w-4 text-muted-foreground" />
                           <Label htmlFor="database-name" className="text-sm font-medium text-foreground">
-                            Database Name
+                            {t('onboarding:graphiti.databaseName')}
                           </Label>
                         </div>
                         {validationStatus.database && (
@@ -901,7 +899,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                               <XCircle className="h-4 w-4 text-destructive" />
                             )}
                             <span className={`text-xs ${validationStatus.database.success ? 'text-success' : 'text-destructive'}`}>
-                              {validationStatus.database.success ? 'Ready' : 'Issue'}
+                              {validationStatus.database.success ? t('onboarding:graphiti.ready') : t('onboarding:graphiti.issue')}
                             </span>
                           </div>
                         )}
@@ -914,12 +912,12 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                           setConfig(prev => ({ ...prev, database: e.target.value }));
                           setValidationStatus(prev => ({ ...prev, database: null }));
                         }}
-                        placeholder="auto_claude_memory"
+                        placeholder={t('onboarding:graphiti.placeholders.databaseName')}
                         className="font-mono text-sm"
                         disabled={isSaving || isValidating}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Stored in ~/.auto-claude/graphs/
+                        {t('onboarding:graphiti.databaseLocation')}
                       </p>
                     </div>
 
@@ -928,7 +926,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                       {/* LLM Provider */}
                       <div className="space-y-2">
                         <Label className="text-sm font-medium text-foreground">
-                          LLM Provider
+                          {t('onboarding:graphiti.llmProvider')}
                         </Label>
                         <Select
                           value={config.llmProvider}
@@ -945,8 +943,8 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                             {LLM_PROVIDERS.map(p => (
                               <SelectItem key={p.id} value={p.id}>
                                 <div className="flex flex-col">
-                                  <span>{p.name}</span>
-                                  <span className="text-xs text-muted-foreground">{p.description}</span>
+                                  <span>{t(`onboarding:graphiti.${p.nameKey}`)}</span>
+                                  <span className="text-xs text-muted-foreground">{t(`onboarding:graphiti.${p.descriptionKey}`)}</span>
                                 </div>
                               </SelectItem>
                             ))}
@@ -957,7 +955,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                       {/* Embedding Provider */}
                       <div className="space-y-2">
                         <Label className="text-sm font-medium text-foreground">
-                          Embedding Provider
+                          {t('onboarding:graphiti.embeddingProvider')}
                         </Label>
                         <Select
                           value={config.embeddingProvider}
@@ -974,8 +972,8 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                             {EMBEDDING_PROVIDERS.map(p => (
                               <SelectItem key={p.id} value={p.id}>
                                 <div className="flex flex-col">
-                                  <span>{p.name}</span>
-                                  <span className="text-xs text-muted-foreground">{p.description}</span>
+                                  <span>{t(`onboarding:graphiti.${p.nameKey}`)}</span>
+                                  <span className="text-xs text-muted-foreground">{t(`onboarding:graphiti.${p.descriptionKey}`)}</span>
                                 </div>
                               </SelectItem>
                             ))}
@@ -998,28 +996,28 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                         {isValidating ? (
                           <>
                             <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            Testing connection...
+                            {t('onboarding:graphiti.testingConnection')}
                           </>
                         ) : (
                           <>
                             <Zap className="h-4 w-4 mr-2" />
-                            Test Connection
+                            {t('onboarding:graphiti.testConnection')}
                           </>
                         )}
                       </Button>
                       {validationStatus.database?.success && validationStatus.provider?.success && (
                         <p className="text-xs text-success text-center mt-2">
-                          All connections validated successfully!
+                          {t('onboarding:graphiti.allConnectionsValidated')}
                         </p>
                       )}
                       {config.llmProvider !== 'openai' && config.llmProvider !== 'ollama' && (
                         <p className="text-xs text-muted-foreground text-center mt-2">
-                          Note: API key validation currently only fully supports OpenAI. Your key will be saved and used at runtime.
+                          {t('onboarding:graphiti.validationNote')}
                         </p>
                       )}
                       {config.llmProvider === 'ollama' && (
                         <p className="text-xs text-muted-foreground text-center mt-2">
-                          Note: Ollama connection will be tested by checking if the server is reachable.
+                          {t('onboarding:graphiti.ollamaValidationNote')}
                         </p>
                       )}
                     </div>
@@ -1037,7 +1035,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
             onClick={onBack}
             className="text-muted-foreground hover:text-foreground"
           >
-            Back
+            {t('onboarding:oauth.buttons.back')}
           </Button>
           <div className="flex gap-4">
             <Button
@@ -1045,7 +1043,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
               onClick={onSkip}
               className="text-muted-foreground hover:text-foreground"
             >
-              Skip
+              {t('onboarding:oauth.buttons.skip')}
             </Button>
             <Button
               onClick={handleContinue}
@@ -1054,12 +1052,12 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Saving...
+                  {t('onboarding:memory.saving')}
                 </>
               ) : config.enabled && !success ? (
-                'Save & Continue'
+                t('onboarding:memory.saveAndContinue')
               ) : (
-                'Continue'
+                t('onboarding:oauth.buttons.continue')
               )}
             </Button>
           </div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { useDroppable, useDndContext } from '@dnd-kit/core';
+import { useTranslation } from 'react-i18next';
 import '@xterm/xterm/css/xterm.css';
 import { FileDown } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -8,6 +9,7 @@ import { useSettingsStore } from '../stores/settings-store';
 import { useToast } from '../hooks/use-toast';
 import type { TerminalProps } from './terminal/types';
 import type { TerminalWorktreeConfig } from '../../shared/types';
+import { TERMINAL_DOM_UPDATE_DELAY_MS } from '../../shared/constants';
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { CreateWorktreeDialog } from './terminal/CreateWorktreeDialog';
 import { useXterm } from './terminal/useXterm';
@@ -45,6 +47,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   isExpanded,
   onToggleExpand,
 }, ref) {
+  const { t } = useTranslation('common');
+
   const isMountedRef = useRef(true);
   const isCreatedRef = useRef(false);
   // Track deliberate terminal recreation (e.g., worktree switching)
@@ -54,9 +58,6 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   // This fixes a race condition where IPC calls to set worktree config happen before
   // the terminal exists in main process, causing the config to not be persisted
   const pendingWorktreeConfigRef = useRef<TerminalWorktreeConfig | null>(null);
-  // Track last sent PTY dimensions to prevent redundant resize calls
-  // This ensures terminal.resize() stays in sync with PTY dimensions
-  const lastPtyDimensionsRef = useRef<{ cols: number; rows: number } | null>(null);
 
   // Worktree dialog state
   const [showWorktreeDialog, setShowWorktreeDialog] = useState(false);
@@ -131,28 +132,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
     terminalId: id,
     onCommandEnter: handleCommandEnter,
     onResize: (cols, rows) => {
-      // PTY dimension sync validation:
-      // 1. Only resize if PTY is created
-      // 2. Validate dimensions are within acceptable range
-      // 3. Skip if dimensions haven't changed (prevents redundant IPC calls)
-      if (!isCreatedRef.current) {
-        return;
+      if (isCreatedRef.current) {
+        window.electronAPI.resizeTerminal(id, cols, rows);
       }
-
-      // Validate dimensions are within acceptable range
-      if (cols < MIN_COLS || rows < MIN_ROWS) {
-        return;
-      }
-
-      // Skip redundant resize calls if dimensions haven't changed
-      const lastDims = lastPtyDimensionsRef.current;
-      if (lastDims && lastDims.cols === cols && lastDims.rows === rows) {
-        return;
-      }
-
-      // Update tracked dimensions and send resize to PTY
-      lastPtyDimensionsRef.current = { cols, rows };
-      window.electronAPI.resizeTerminal(id, cols, rows);
     },
     onDimensionsReady: handleDimensionsReady,
   });
@@ -190,11 +172,6 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
     isRecreatingRef,
     onCreated: () => {
       isCreatedRef.current = true;
-      // Initialize PTY dimension tracking with creation dimensions
-      // This ensures the first resize check has a baseline to compare against
-      if (ptyDimensions) {
-        lastPtyDimensionsRef.current = { cols: ptyDimensions.cols, rows: ptyDimensions.rows };
-      }
       // If there's a pending worktree config from a recreation attempt,
       // sync it to main process now that the terminal exists.
       // This fixes the race condition where IPC calls happen before terminal creation.
@@ -236,113 +213,11 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   }, [isActive, focus]);
 
   // Refit terminal when expansion state changes
-  // Uses transitionend event listener and RAF-based retry logic instead of fixed timeout
-  // for more reliable resizing after CSS transitions complete
   useEffect(() => {
-    // RAF fallback for test environments where requestAnimationFrame may not be defined
-    const raf = typeof requestAnimationFrame !== 'undefined'
-      ? requestAnimationFrame
-      : (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 0) as unknown as number;
-
-    const cancelRaf = typeof cancelAnimationFrame !== 'undefined'
-      ? cancelAnimationFrame
-      : (id: number) => clearTimeout(id);
-
-    let rafId: number | null = null;
-    let retryTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    let fallbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    let isCleanedUp = false;
-    let fitSucceeded = false;
-    let retryCount = 0;
-    const MAX_RETRIES = 5;
-    const RETRY_DELAY_MS = 50;
-    const FALLBACK_TIMEOUT_MS = 300;
-
-    // Perform fit with RAF and retry logic, following the pattern from useXterm.ts performInitialFit
-    const performFit = () => {
-      if (isCleanedUp) return;
-
-      // Cancel any existing RAF to prevent multiple concurrent fit attempts
-      if (rafId !== null) {
-        cancelRaf(rafId);
-        rafId = null;
-      }
-
-      rafId = raf(() => {
-        if (isCleanedUp) return;
-
-        // fit() returns boolean indicating success (true if container had valid dimensions)
-        const success = fit();
-
-        if (success) {
-          fitSucceeded = true;
-        } else if (retryCount < MAX_RETRIES) {
-          // Container not ready yet, retry after a short delay
-          retryCount++;
-          retryTimeoutId = setTimeout(performFit, RETRY_DELAY_MS);
-        }
-      });
-    };
-
-    // Get terminal container element for transition listening
-    const container = terminalRef.current;
-
-    // Handler for transitionend event - fits terminal after CSS transition completes
-    const handleTransitionEnd = (e: TransitionEvent) => {
-      // Only react to relevant transitions (height, width, flex changes)
-      const relevantProps = ['height', 'width', 'flex', 'max-height', 'max-width'];
-      if (relevantProps.some(prop => e.propertyName.includes(prop))) {
-        // Reset retry count and success flag for new transition
-        retryCount = 0;
-        fitSucceeded = false;
-        performFit();
-      }
-    };
-
-    // Listen for transitionend on the terminal container and its parent
-    // (expansion may trigger transitions on either element)
-    if (container) {
-      container.addEventListener('transitionend', handleTransitionEnd);
-      container.parentElement?.addEventListener('transitionend', handleTransitionEnd);
-    }
-
-    // Start the fit process immediately with RAF-based retry
-    // This handles cases where expansion is instant (no CSS transition)
-    performFit();
-
-    // Fallback timeout to ensure fit happens even if transitionend doesn't fire
-    // This is a safety net for edge cases
-    fallbackTimeoutId = setTimeout(() => {
-      if (!isCleanedUp && !fitSucceeded) {
-        retryCount = 0;
-        performFit();
-      }
-    }, FALLBACK_TIMEOUT_MS);
-
-    return () => {
-      isCleanedUp = true;
-
-      // Clean up RAF
-      if (rafId !== null) {
-        cancelRaf(rafId);
-      }
-
-      // Clean up retry timeout
-      if (retryTimeoutId !== null) {
-        clearTimeout(retryTimeoutId);
-      }
-
-      // Clean up fallback timeout
-      if (fallbackTimeoutId !== null) {
-        clearTimeout(fallbackTimeoutId);
-      }
-
-      // Remove event listeners
-      if (container) {
-        container.removeEventListener('transitionend', handleTransitionEnd);
-        container.parentElement?.removeEventListener('transitionend', handleTransitionEnd);
-      }
-    };
+    const timeoutId = setTimeout(() => {
+      fit();
+    }, TERMINAL_DOM_UPDATE_DELAY_MS);
+    return () => clearTimeout(timeoutId);
   }, [isExpanded, fit]);
 
   // Trigger deferred Claude resume when terminal becomes active
@@ -476,10 +351,6 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
       isCreatedRef.current = false;
     }
 
-    // Reset PTY dimension tracking for new terminal
-    // This ensures the new PTY will receive initial dimensions correctly
-    lastPtyDimensionsRef.current = null;
-
     // Reset refs to allow recreation - effect will now trigger with new cwd
     resetForRecreate();
   }, [id, setWorktreeConfig, updateTerminal, prepareForRecreate, resetForRecreate]);
@@ -506,8 +377,8 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
     } catch (err) {
       console.error('Failed to open in IDE:', err);
       toast({
-        title: 'Failed to open IDE',
-        description: err instanceof Error ? err.message : 'Could not launch IDE',
+        title: t('terminal.failedToOpenIDE'),
+        description: err instanceof Error ? err.message : t('terminal.couldNotLaunchIDE'),
         variant: 'destructive',
       });
     }
@@ -544,14 +415,14 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
         <div className="absolute inset-0 bg-info/10 z-10 flex items-center justify-center pointer-events-none">
           <div className="flex items-center gap-2 bg-info/90 text-info-foreground px-3 py-2 rounded-md">
             <FileDown className="h-4 w-4" />
-            <span className="text-sm font-medium">Drop to insert path</span>
+            <span className="text-sm font-medium">{t('terminal.dropToInsertPath')}</span>
           </div>
         </div>
       )}
 
       <TerminalHeader
         terminalId={id}
-        title={terminal?.title || 'Terminal'}
+        title={terminal?.title || t('terminal.title')}
         status={terminal?.status || 'idle'}
         isClaudeMode={terminal?.isClaudeMode || false}
         tasks={tasks}
@@ -571,7 +442,6 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
         dragHandleListeners={dragHandleListeners}
         isExpanded={isExpanded}
         onToggleExpand={onToggleExpand}
-        pendingClaudeResume={terminal?.pendingClaudeResume}
       />
 
       <div

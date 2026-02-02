@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import {
   Shield,
   AlertTriangle,
@@ -10,7 +11,7 @@ import { Badge } from '../../ui/badge';
 import { Card } from '../../ui/card';
 import {
   SECURITY_SEVERITY_COLORS,
-  SECURITY_CATEGORY_LABELS
+  getSecurityCategoryLabels
 } from '../../../../shared/constants';
 import type { SecurityHardeningIdea } from '../../../../shared/types';
 
@@ -19,6 +20,8 @@ interface SecurityHardeningDetailsProps {
 }
 
 export function SecurityHardeningDetails({ idea }: SecurityHardeningDetailsProps) {
+  const { t } = useTranslation('ideation');
+  const securityLabels = getSecurityCategoryLabels(t);
   return (
     <>
       {/* Metrics */}
@@ -44,7 +47,7 @@ export function SecurityHardeningDetails({ idea }: SecurityHardeningDetailsProps
           Category
         </h3>
         <Badge variant="outline">
-          {SECURITY_CATEGORY_LABELS[idea.category]}
+          {securityLabels[idea.category]}
         </Badge>
       </div>
 

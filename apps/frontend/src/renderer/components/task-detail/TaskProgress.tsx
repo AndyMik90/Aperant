@@ -1,7 +1,8 @@
+import { useTranslation } from 'react-i18next';
 import { Zap, Loader2 } from 'lucide-react';
 import { Progress } from '../ui/progress';
 import { cn, calculateProgress } from '../../lib/utils';
-import { EXECUTION_PHASE_BADGE_COLORS, EXECUTION_PHASE_LABELS } from '../../../shared/constants';
+import { EXECUTION_PHASE_BADGE_COLORS } from '../../../shared/constants';
 import type { Task, ExecutionPhase } from '../../../shared/types';
 
 interface TaskProgressProps {
@@ -13,7 +14,17 @@ interface TaskProgressProps {
 }
 
 export function TaskProgress({ task, isRunning, hasActiveExecution, executionPhase, isStuck }: TaskProgressProps) {
+  const { t } = useTranslation('tasks');
   const progress = calculateProgress(task.subtasks);
+  const phaseLabelKey = executionPhase && {
+    idle: 'progress.idle',
+    planning: 'progress.planning',
+    coding: 'progress.coding',
+    qa_review: 'progress.aiReview',
+    qa_fixing: 'progress.aiReview',
+    complete: 'progress.complete',
+    failed: 'progress.failed'
+  }[executionPhase];
 
   return (
     <div>
@@ -27,7 +38,7 @@ export function TaskProgress({ task, isRunning, hasActiveExecution, executionPha
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">
-                {EXECUTION_PHASE_LABELS[executionPhase]}
+                {phaseLabelKey ? t(phaseLabelKey) : executionPhase}
               </span>
               <span className="text-sm">
                 {task.executionProgress?.overallProgress || 0}%
@@ -40,7 +51,7 @@ export function TaskProgress({ task, isRunning, hasActiveExecution, executionPha
             )}
             {task.executionProgress?.currentSubtask && (
               <p className="text-xs mt-0.5 opacity-70">
-                Subtask: {task.executionProgress.currentSubtask}
+                {t('progress.subtaskLabel', { name: task.executionProgress.currentSubtask })}
               </p>
             )}
           </div>
@@ -50,15 +61,15 @@ export function TaskProgress({ task, isRunning, hasActiveExecution, executionPha
       {/* Progress Bar */}
       <div className="section-divider mb-3">
         <Zap className="h-3 w-3" />
-        Progress
+        {t('progress.label')}
       </div>
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-muted-foreground">
           {hasActiveExecution && task.executionProgress?.message
             ? task.executionProgress.message
             : task.subtasks.length > 0
-              ? `${task.subtasks.filter(c => c.status === 'completed').length}/${task.subtasks.length} subtasks completed`
-              : 'No subtasks yet'}
+              ? t('progress.subtasksCompleted', { completed: task.subtasks.filter(c => c.status === 'completed').length, total: task.subtasks.length })
+              : t('progress.noSubtasksYet')}
         </span>
         <span className={cn(
           'text-sm font-semibold tabular-nums',
@@ -92,7 +103,7 @@ export function TaskProgress({ task, isRunning, hasActiveExecution, executionPha
               executionPhase === 'planning' ? 'bg-amber-500' : 'bg-amber-500/30'
             )}
             style={{ width: '20%' }}
-            title="Planning (0-20%)"
+            title={t('progress.planning')}
           />
           <div
             className={cn(
@@ -100,7 +111,7 @@ export function TaskProgress({ task, isRunning, hasActiveExecution, executionPha
               executionPhase === 'coding' ? 'bg-info' : 'bg-info/30'
             )}
             style={{ width: '60%' }}
-            title="Coding (20-80%)"
+            title={t('progress.coding')}
           />
           <div
             className={cn(
@@ -108,12 +119,12 @@ export function TaskProgress({ task, isRunning, hasActiveExecution, executionPha
               (executionPhase === 'qa_review' || executionPhase === 'qa_fixing') ? 'bg-purple-500' : 'bg-purple-500/30'
             )}
             style={{ width: '15%' }}
-            title="AI Review (80-95%)"
+            title={t('progress.aiReview')}
           />
           <div
             className="transition-all duration-300 bg-success/30"
             style={{ width: '5%' }}
-            title="Complete (95-100%)"
+            title={t('progress.complete')}
           />
         </div>
       )}

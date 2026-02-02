@@ -1,0 +1,40 @@
+{
+  "title": "Create Workspace",
+  "description": "Group related projects together for cross-repo specs and validation.",
+  "form": {
+    "name": "Name",
+    "namePlaceholder": "My App Workspace",
+    "descriptionLabel": "Description (optional)",
+    "descriptionPlaceholder": "Backend, frontend, and mobile apps for My App",
+    "projects": "Projects",
+    "addProjectPlaceholder": "Add a project...",
+    "allProjectsAdded": "All projects have been added",
+    "noProjectsAvailable": "No projects available"
+  },
+  "roles": {
+    "backend": "Backend",
+    "backendDescription": "API server, services",
+    "frontend": "Frontend",
+    "frontendDescription": "Web application",
+    "mobile": "Mobile",
+    "mobileDescription": "Mobile app",
+    "shared": "Shared",
+    "sharedDescription": "Shared types/utils",
+    "api": "API Gateway",
+    "apiDescription": "Gateway, BFF",
+    "worker": "Worker",
+    "workerDescription": "Background jobs",
+    "other": "Other",
+    "otherDescription": "Other project type"
+  },
+  "buttons": {
+    "cancel": "Cancel",
+    "create": "Create Workspace",
+    "creating": "Creating..."
+  },
+  "errors": {
+    "nameRequired": "Workspace name is required",
+    "apiNotAvailable": "Workspace API not available",
+    "createFailed": "Failed to create workspace"
+  }
+}

@@ -252,7 +252,7 @@ export function RateLimitModal() {
                             <span className="truncate flex items-center gap-2">
                               {profile.name}
                               {profile.id === rateLimitInfo?.suggestedProfileId && (
-                                <Star className="h-3 w-3 text-yellow-500" aria-label="Recommended" />
+                                <Star className="h-3 w-3 text-yellow-500" aria-label={t('rateLimit.recommendedAriaLabel')} />
                               )}
                             </span>
                             {selectedProfileId === profile.id && (

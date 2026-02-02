@@ -1,0 +1,155 @@
+{
+  "generationProgress": {
+    "title": "正在生成想法",
+    "complete": "{{count}}/{{total}} 已完成",
+    "showLogs": "显示日志",
+    "hideLogs": "隐藏日志",
+    "stop": "停止",
+    "stopping": "正在停止...",
+    "stopTooltip": "停止生成",
+    "ideas": "{{count}} 个想法",
+    "ideas_one": "{{count}} 个想法",
+    "ideas_other": "{{count}} 个想法",
+    "waiting": "等待开始...",
+    "failed": "此类别想法生成失败",
+    "noIdeas": "此类别未生成想法"
+  },
+  "header": {
+    "title": "想法",
+    "description": "为您的项目生成的 AI 功能想法",
+    "ideas": "个想法",
+    "selected": "已选择",
+    "delete": "删除",
+    "addMore": "添加更多"
+  },
+  "emptyState": {
+    "title": "还没有想法",
+    "description": "根据您项目的上下文、现有模式和目标受众生成 AI 驱动的功能想法。",
+    "enabledTypes": "启用的想法类型",
+    "generateButton": "生成想法",
+    "tokenWarning": "未配置 Claude 令牌。生成时将提示您输入。"
+  },
+  "dialogs": {
+    "configuration": {
+      "title": "想法配置",
+      "description": "配置要生成的想法类型",
+      "ideationTypes": "想法类型",
+      "contextSources": "上下文来源",
+      "includeRoadmapContext": "包含路线图上下文",
+      "includeKanbanContext": "包含看板上下文"
+    },
+    "addMore": {
+      "title": "添加更多想法",
+      "description": "选择要生成的额外想法类型。您现有的想法将被保留。",
+      "allGenerated": "您已经生成了所有想法类型！",
+      "useRegenerate": "使用\"重新生成\"来刷新现有想法。",
+      "selected": "已选择 {{count}} 个",
+      "generate": "生成 {{count}} 种类型",
+      "generateOne": "生成想法"
+    }
+  },
+  "types": {
+    "code_improvements": "代码改进",
+    "ui_ux_improvements": "UI/UX 改进",
+    "documentation_gaps": "文档",
+    "security_hardening": "安全性",
+    "performance_optimizations": "性能",
+    "code_quality": "代码质量"
+  },
+  "typeDescriptions": {
+    "code_improvements": "通过模式、架构和基础设施分析发现的代码改进机会",
+    "ui_ux_improvements": "通过应用分析发现的视觉和交互改进",
+    "documentation_gaps": "需要关注的缺失或过时的文档",
+    "security_hardening": "安全漏洞和加固机会",
+    "performance_optimizations": "性能瓶颈和优化机会",
+    "code_quality": "重构机会、大文件、代码异味和最佳实践违规"
+  },
+  "status": {
+    "draft": "草稿",
+    "selected": "已选择",
+    "converted": "已转换",
+    "dismissed": "已驳回",
+    "archived": "已归档"
+  },
+  "effort": {
+    "trivial": "简单",
+    "small": "小",
+    "medium": "中",
+    "large": "大",
+    "complex": "复杂"
+  },
+  "impact": {
+    "low": "低",
+    "medium": "中",
+    "high": "高",
+    "critical": "严重"
+  },
+  "categories": {
+    "uiux": {
+      "usability": "可用性",
+      "accessibility": "无障碍性",
+      "performance": "性能",
+      "visual": "视觉设计",
+      "interaction": "交互"
+    },
+    "documentation": {
+      "readme": "README",
+      "api_docs": "API 文档",
+      "inline_comments": "内联注释",
+      "examples": "示例和教程",
+      "architecture": "架构文档",
+      "troubleshooting": "故障排除指南"
+    },
+    "security": {
+      "authentication": "身份验证",
+      "authorization": "授权",
+      "input_validation": "输入验证",
+      "data_protection": "数据保护",
+      "dependencies": "依赖项",
+      "configuration": "配置",
+      "secrets_management": "密钥管理"
+    },
+    "performance": {
+      "bundle_size": "打包大小",
+      "runtime": "运行时性能",
+      "memory": "内存使用",
+      "database": "数据库查询",
+      "network": "网络请求",
+      "rendering": "渲染",
+      "caching": "缓存"
+    },
+    "codeQuality": {
+      "large_files": "大文件",
+      "code_smells": "代码异味",
+      "complexity": "高复杂度",
+      "duplication": "代码重复",
+      "naming": "命名规范",
+      "structure": "文件结构",
+      "linting": "代码检查问题",
+      "testing": "测试覆盖率",
+      "types": "类型安全",
+      "dependencies": "依赖项问题",
+      "dead_code": "死代码",
+      "git_hygiene": "Git 规范"
+    }
+  },
+  "severity": {
+    "security": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "critical": "严重"
+    },
+    "codeQuality": {
+      "suggestion": "建议",
+      "minor": "轻微",
+      "major": "主要",
+      "critical": "严重"
+    }
+  },
+  "auth": {
+    "title": "需要 Claude 认证",
+    "description": "生成 AI 驱动的功能想法需要 Claude Code OAuth 令牌。"
+  },
+  "noIdeasToDisplay": "没有要显示的想法"
+}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Database, Globe, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { InfrastructureStatus } from './InfrastructureStatus';
@@ -43,6 +44,7 @@ export function MemoryBackendSection({
   infrastructureStatus,
   isCheckingInfrastructure,
 }: MemoryBackendSectionProps) {
+  const { t } = useTranslation('settings');
   // Ollama model detection state
   const [ollamaModels, setOllamaModels] = useState<OllamaEmbeddingModel[]>([]);
   const [ollamaStatus, setOllamaStatus] = useState<'idle' | 'checking' | 'connected' | 'disconnected'>('idle');
@@ -96,13 +98,13 @@ export function MemoryBackendSection({
         ? 'bg-success/10 text-success'
         : 'bg-muted text-muted-foreground'
     }`}>
-      {envConfig.graphitiEnabled ? 'Enabled' : 'Disabled'}
+      {envConfig.graphitiEnabled ? t('projectSettings.security.enabled') : t('projectSettings.security.disabled')}
     </span>
   );
 
   return (
     <CollapsibleSection
-      title="Memory"
+      title={t('projectSections.memory.title')}
       icon={<Database className="h-4 w-4" />}
       isExpanded={isExpanded}
       onToggle={onToggle}
@@ -110,9 +112,9 @@ export function MemoryBackendSection({
     >
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
-          <Label className="font-normal text-foreground">Enable Memory</Label>
+          <Label className="font-normal text-foreground">{t('projectSettings.security.enableMemory')}</Label>
           <p className="text-xs text-muted-foreground">
-            Persistent cross-session memory using embedded graph database
+            {t('projectSettings.security.enableMemoryDescriptionAlt')}
           </p>
         </div>
         <Switch
@@ -128,8 +130,7 @@ export function MemoryBackendSection({
       {!envConfig.graphitiEnabled && (
         <div className="rounded-lg border border-border bg-muted/30 p-3">
           <p className="text-xs text-muted-foreground">
-            Using file-based memory. Session insights are stored locally in JSON files.
-            Enable Memory for persistent cross-session context with semantic search.
+            {t('projectSettings.security.fileBasedMemory')}
           </p>
         </div>
       )}
@@ -145,9 +146,9 @@ export function MemoryBackendSection({
           {/* Graphiti MCP Server Toggle */}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label className="font-normal text-foreground">Enable Agent Memory Access</Label>
+              <Label className="font-normal text-foreground">{t('projectSettings.security.enableAgentMemoryAccess')}</Label>
               <p className="text-xs text-muted-foreground">
-                Allow agents to search and add to the knowledge graph via MCP
+                {t('projectSettings.security.enableAgentMemoryAccessDescription')}
               </p>
             </div>
             <Switch
@@ -160,12 +161,12 @@ export function MemoryBackendSection({
 
           {settings.graphitiMcpEnabled && (
             <div className="space-y-2 ml-6">
-              <Label className="text-sm font-medium text-foreground">Graphiti MCP Server URL</Label>
+              <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.graphitiUrl')}</Label>
               <p className="text-xs text-muted-foreground">
-                URL of the Graphiti MCP server
+                {t('projectSettings.security.graphitiUrlDescriptionAlt')}
               </p>
               <Input
-                placeholder="http://localhost:8000/mcp/"
+                placeholder={t('projectSettings.security.graphitiUrlPlaceholder')}
                 value={settings.graphitiMcpUrl || ''}
                 onChange={(e) => onUpdateSettings({ graphitiMcpUrl: e.target.value || undefined })}
               />
@@ -176,9 +177,9 @@ export function MemoryBackendSection({
 
           {/* Embedding Provider Selection */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">Embedding Provider</Label>
+            <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.embeddingProvider')}</Label>
             <p className="text-xs text-muted-foreground">
-              Provider for semantic search (optional - keyword search works without)
+              {t('projectSettings.security.embeddingProviderDescription')}
             </p>
             <Select
               value={embeddingProvider}
@@ -190,14 +191,14 @@ export function MemoryBackendSection({
               })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select embedding provider" />
+                <SelectValue placeholder={t('projectSettings.security.selectEmbeddingProvider')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ollama">Ollama (Local - Free)</SelectItem>
-                <SelectItem value="openai">OpenAI</SelectItem>
-                <SelectItem value="voyage">Voyage AI</SelectItem>
-                <SelectItem value="google">Google AI</SelectItem>
-                <SelectItem value="azure_openai">Azure OpenAI</SelectItem>
+                <SelectItem value="ollama">{t('projectSettings.security.ollama')}</SelectItem>
+                <SelectItem value="openai">{t('projectSettings.security.openai')}</SelectItem>
+                <SelectItem value="voyage">{t('projectSettings.security.voyage')}</SelectItem>
+                <SelectItem value="google">{t('projectSettings.security.google')}</SelectItem>
+                <SelectItem value="azure_openai">{t('projectSettings.security.azureOpenai')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -210,28 +211,28 @@ export function MemoryBackendSection({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium text-foreground">
-                  OpenAI API Key {envConfig.openaiKeyIsGlobal ? '(Override)' : ''}
+                  {t('projectSettings.security.openai')} API Key {envConfig.openaiKeyIsGlobal ? t('projectSettings.security.override') : ''}
                 </Label>
                 {envConfig.openaiKeyIsGlobal && (
                   <span className="flex items-center gap-1 text-xs text-info">
                     <Globe className="h-3 w-3" />
-                    Using global key
+                    {t('projectSettings.security.usingGlobalKey')}
                   </span>
                 )}
               </div>
               {envConfig.openaiKeyIsGlobal ? (
                 <p className="text-xs text-muted-foreground">
-                  Using key from App Settings. Enter a project-specific key below to override.
+                  {t('projectSettings.security.usingKeyFromApp')}
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Required for OpenAI embeddings
+                  {t('projectSettings.security.requiredForEmbeddings')}
                 </p>
               )}
               <PasswordInput
                 value={envConfig.openaiKeyIsGlobal ? '' : (envConfig.openaiApiKey || '')}
                 onChange={(value) => onUpdateConfig({ openaiApiKey: value || undefined })}
-                placeholder={envConfig.openaiKeyIsGlobal ? 'Enter to override global key...' : 'sk-xxxxxxxx'}
+                placeholder={envConfig.openaiKeyIsGlobal ? t('projectSettings.security.enterToOverride') : 'sk-xxxxxxxx'}
               />
             </div>
           )}
@@ -239,9 +240,9 @@ export function MemoryBackendSection({
           {/* Voyage AI */}
           {embeddingProvider === 'voyage' && (
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-foreground">Voyage AI API Key</Label>
+              <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.voyageApiKey')}</Label>
               <p className="text-xs text-muted-foreground">
-                Required for Voyage AI embeddings
+                {t('projectSettings.security.requiredForVoyage')}
               </p>
               <PasswordInput
                 value={envConfig.graphitiProviderConfig?.voyageApiKey || ''}
@@ -252,10 +253,10 @@ export function MemoryBackendSection({
                     voyageApiKey: value || undefined,
                   }
                 })}
-                placeholder="pa-xxxxxxxx"
+                placeholder={t('projectSettings.security.voyagePlaceholder')}
               />
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Embedding Model</Label>
+                <Label className="text-xs text-muted-foreground">{t('projectSettings.security.embeddingModelLabel')}</Label>
                 <Input
                   placeholder="voyage-3"
                   value={envConfig.graphitiProviderConfig?.voyageEmbeddingModel || ''}
@@ -274,9 +275,9 @@ export function MemoryBackendSection({
           {/* Google AI */}
           {embeddingProvider === 'google' && (
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-foreground">Google AI API Key</Label>
+              <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.googleApiKey')}</Label>
               <p className="text-xs text-muted-foreground">
-                Required for Google AI embeddings
+                {t('projectSettings.security.requiredForGoogle')}
               </p>
               <PasswordInput
                 value={envConfig.graphitiProviderConfig?.googleApiKey || ''}
@@ -287,7 +288,7 @@ export function MemoryBackendSection({
                     googleApiKey: value || undefined,
                   }
                 })}
-                placeholder="AIzaSy..."
+                placeholder={t('projectSettings.security.googlePlaceholder')}
               />
             </div>
           )}
@@ -295,9 +296,9 @@ export function MemoryBackendSection({
           {/* Azure OpenAI */}
           {embeddingProvider === 'azure_openai' && (
             <div className="space-y-3">
-              <Label className="text-sm font-medium text-foreground">Azure OpenAI Configuration</Label>
+              <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.azureOpenAI')}</Label>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">API Key</Label>
+                <Label className="text-xs text-muted-foreground">{t('projectSettings.security.azureApiKey')}</Label>
                 <PasswordInput
                   value={envConfig.graphitiProviderConfig?.azureOpenaiApiKey || ''}
                   onChange={(value) => onUpdateConfig({
@@ -307,13 +308,13 @@ export function MemoryBackendSection({
                       azureOpenaiApiKey: value || undefined,
                     }
                   })}
-                  placeholder="Azure API Key"
+                  placeholder={t('projectSettings.security.azureApiKeyPlaceholder')}
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Base URL</Label>
+                <Label className="text-xs text-muted-foreground">{t('projectSettings.security.azureBaseUrl')}</Label>
                 <Input
-                  placeholder="https://your-resource.openai.azure.com"
+                  placeholder={t('projectSettings.security.azureBaseUrlPlaceholder')}
                   value={envConfig.graphitiProviderConfig?.azureOpenaiBaseUrl || ''}
                   onChange={(e) => onUpdateConfig({
                     graphitiProviderConfig: {
@@ -325,9 +326,9 @@ export function MemoryBackendSection({
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Embedding Deployment Name</Label>
+                <Label className="text-xs text-muted-foreground">{t('projectSettings.security.azureDeployment')}</Label>
                 <Input
-                  placeholder="text-embedding-ada-002"
+                  placeholder={t('projectSettings.security.azureDeploymentPlaceholder')}
                   value={envConfig.graphitiProviderConfig?.azureOpenaiEmbeddingDeployment || ''}
                   onChange={(e) => onUpdateConfig({
                     graphitiProviderConfig: {
@@ -345,24 +346,24 @@ export function MemoryBackendSection({
           {embeddingProvider === 'ollama' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium text-foreground">Ollama Configuration</Label>
+                <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.ollamaConfig')}</Label>
                 <div className="flex items-center gap-2">
                   {ollamaStatus === 'checking' && (
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Loader2 className="h-3 w-3 animate-spin" />
-                      Checking...
+                      {t('projectSettings.security.ollamaChecking')}
                     </span>
                   )}
                   {ollamaStatus === 'connected' && (
                     <span className="flex items-center gap-1 text-xs text-success">
                       <CheckCircle2 className="h-3 w-3" />
-                      Connected
+                      {t('projectSettings.security.ollamaConnected')}
                     </span>
                   )}
                   {ollamaStatus === 'disconnected' && (
                     <span className="flex items-center gap-1 text-xs text-destructive">
                       <AlertCircle className="h-3 w-3" />
-                      Not running
+                      {t('projectSettings.security.ollamaNotRunning')}
                     </span>
                   )}
                   <Button
@@ -378,9 +379,9 @@ export function MemoryBackendSection({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Base URL</Label>
+                <Label className="text-xs text-muted-foreground">{t('projectSettings.security.ollamaBaseUrl')}</Label>
                 <Input
-                  placeholder="http://localhost:11434"
+                  placeholder={t('projectSettings.security.ollamaBaseUrlPlaceholder')}
                   value={envConfig.graphitiProviderConfig?.ollamaBaseUrl || ''}
                   onChange={(e) => onUpdateConfig({
                     graphitiProviderConfig: {
@@ -399,7 +400,7 @@ export function MemoryBackendSection({
               )}
 
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Embedding Model</Label>
+                <Label className="text-xs text-muted-foreground">{t('projectSettings.security.embeddingModelLabel')}</Label>
                 {ollamaModels.length > 0 ? (
                   <Select
                     value={envConfig.graphitiProviderConfig?.ollamaEmbeddingModel || ''}
@@ -416,7 +417,7 @@ export function MemoryBackendSection({
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select embedding model" />
+                      <SelectValue placeholder={t('projectSettings.security.selectEmbeddingModel')} />
                     </SelectTrigger>
                     <SelectContent>
                       {ollamaModels.map((model) => (
@@ -435,7 +436,7 @@ export function MemoryBackendSection({
                   </Select>
                 ) : (
                   <Input
-                    placeholder="nomic-embed-text"
+                    placeholder={t('projectSettings.security.ollamaEmbeddingPlaceholder')}
                     value={envConfig.graphitiProviderConfig?.ollamaEmbeddingModel || ''}
                     onChange={(e) => onUpdateConfig({
                       graphitiProviderConfig: {
@@ -447,26 +448,26 @@ export function MemoryBackendSection({
                   />
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Recommended: qwen3-embedding:4b (balanced), :8b (quality), :0.6b (fast)
+                  {t('projectSettings.security.ollamaRecommended')}
                 </p>
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Embedding Dimension</Label>
+                <Label className="text-xs text-muted-foreground">{t('projectSettings.security.embeddingDimension')}</Label>
                 <Input
                   type="number"
-                  placeholder="768"
+                  placeholder={t('projectSettings.security.embeddingDimensionPlaceholder')}
                   value={envConfig.graphitiProviderConfig?.ollamaEmbeddingDim || ''}
                   onChange={(e) => onUpdateConfig({
                     graphitiProviderConfig: {
                       ...envConfig.graphitiProviderConfig,
                       embeddingProvider: 'ollama',
-                      ollamaEmbeddingDim: parseInt(e.target.value) || undefined,
+                      ollamaEmbeddingDim: parseInt(e.target.value, 10) || undefined,
                     }
                   })}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Required for Ollama embeddings (e.g., 768 for nomic-embed-text)
+                  {t('projectSettings.security.embeddingDimensionHint')}
                 </p>
               </div>
             </div>
@@ -476,24 +477,24 @@ export function MemoryBackendSection({
           <Separator />
 
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">Database Name</Label>
+            <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.databaseName')}</Label>
             <p className="text-xs text-muted-foreground">
-              Name for the memory database (stored in ~/.auto-claude/memories/)
+              {t('projectSettings.security.databaseNameDescriptionAlt')}
             </p>
             <Input
-              placeholder="auto_claude_memory"
+              placeholder={t('projectSettings.security.databaseNamePlaceholder')}
               value={envConfig.graphitiDatabase || ''}
               onChange={(e) => onUpdateConfig({ graphitiDatabase: e.target.value })}
             />
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">Database Path (Optional)</Label>
+            <Label className="text-sm font-medium text-foreground">{t('projectSettings.security.databasePath')}</Label>
             <p className="text-xs text-muted-foreground">
-              Custom storage location. Default: ~/.auto-claude/memories/
+              {t('projectSettings.security.databasePathDescription')}
             </p>
             <Input
-              placeholder="~/.auto-claude/memories"
+              placeholder={t('projectSettings.security.databasePathPlaceholder')}
               value={envConfig.graphitiDbPath || ''}
               onChange={(e) => onUpdateConfig({ graphitiDbPath: e.target.value || undefined })}
             />

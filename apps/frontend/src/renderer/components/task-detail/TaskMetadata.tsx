@@ -29,7 +29,7 @@ import {
   TASK_IMPACT_COLORS,
   TASK_PRIORITY_LABELS,
   TASK_PRIORITY_COLORS,
-  IDEATION_TYPE_LABELS,
+  getIdeationTypeLabels,
   JSON_ERROR_PREFIX
 } from '../../../shared/constants';
 import type { Task, TaskCategory } from '../../../shared/types';
@@ -52,7 +52,8 @@ interface TaskMetadataProps {
 }
 
 export function TaskMetadata({ task }: TaskMetadataProps) {
-  const { t } = useTranslation(['tasks', 'errors']);
+  const { t } = useTranslation(['tasks', 'errors', 'ideation']);
+  const typeLabels = getIdeationTypeLabels(t);
 
   // Handle JSON error description with i18n
   const displayDescription = (() => {
@@ -134,7 +135,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
             {task.metadata?.sourceType && (
               <Badge variant="secondary" className="text-xs">
                 {task.metadata.sourceType === 'ideation' && task.metadata.ideationType
-                  ? IDEATION_TYPE_LABELS[task.metadata.ideationType] || task.metadata.ideationType
+                  ? typeLabels[task.metadata.ideationType] || task.metadata.ideationType
                   : task.metadata.sourceType}
               </Badge>
             )}

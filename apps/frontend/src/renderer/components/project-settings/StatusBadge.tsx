@@ -1,9 +1,22 @@
+import { useTranslation } from 'react-i18next';
+
 interface StatusBadgeProps {
   status: 'success' | 'warning' | 'info';
-  label: string;
+  label?: string;
+  labelKey?: string;
+  namespace?: string;
 }
 
-export function StatusBadge({ status, label }: StatusBadgeProps) {
+export function StatusBadge({
+  status,
+  label,
+  labelKey,
+  namespace = 'common'
+}: StatusBadgeProps) {
+  const { t } = useTranslation([namespace, 'common']);
+
+  const displayLabel = label || (labelKey ? t(`${namespace}:${labelKey}`) : '');
+
   const colors = {
     success: 'bg-success/10 text-success',
     warning: 'bg-warning/10 text-warning',
@@ -12,7 +25,7 @@ export function StatusBadge({ status, label }: StatusBadgeProps) {
 
   return (
     <span className={`px-2 py-0.5 text-xs rounded-full ${colors[status]}`}>
-      {label}
+      {displayLabel}
     </span>
   );
 }

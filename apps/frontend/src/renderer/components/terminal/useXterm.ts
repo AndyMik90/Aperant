@@ -7,9 +7,17 @@ import { terminalBufferManager } from '../../lib/terminal-buffer-manager';
 import { registerOutputCallback, unregisterOutputCallback } from '../../stores/terminal-store';
 import { useTerminalFontSettingsStore } from '../../stores/terminal-font-settings-store';
 import { isWindows as checkIsWindows, isLinux as checkIsLinux } from '../../lib/os-detection';
-import { debounce } from '../../lib/debounce';
 import { DEFAULT_TERMINAL_THEME } from '../../lib/terminal-theme';
-import { debugLog, debugError } from '../../../shared/utils/debug-logger';
+
+// Type augmentation for navigator.userAgentData (modern User-Agent Client Hints API)
+interface NavigatorUAData {
+  platform: string;
+}
+declare global {
+  interface Navigator {
+    userAgentData?: NavigatorUAData;
+  }
+}
 
 interface UseXtermOptions {
   terminalId: string;
@@ -50,6 +58,15 @@ export interface UseXtermReturn {
   dimensionsReady: boolean;
 }
 
+// Debounce helper function
+function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  return ((...args: unknown[]) => {
+    if (timeoutId) clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), ms);
+  }) as T;
+}
+
 export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsReady }: UseXtermOptions): UseXtermReturn {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
@@ -66,13 +83,9 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
   const fontSettings = useTerminalFontSettingsStore();
 
   // Initialize xterm.js UI
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Font settings are intentionally omitted from deps to prevent xterm instance recreation. Reactive updates are handled by a separate effect.
   useEffect(() => {
-    if (!terminalRef.current || xtermRef.current) {
-      debugLog(`[useXterm] Skipping xterm initialization for terminal: ${terminalId} - already initialized or container not ready`);
-      return;
-    }
-
-    debugLog(`[useXterm] Initializing xterm for terminal: ${terminalId}`);
+    if (!terminalRef.current || xtermRef.current) return;
 
     const xterm = new XTerm({
       cursorBlink: fontSettings.cursorBlink,
@@ -177,8 +190,8 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
 
       // Handle CTRL+SHIFT+C copy (Linux only - alternative to CTRL+C)
       // NOTE: Check Linux-specific shortcuts BEFORE regular shortcuts to prevent unreachable code
-      const platformIsLinuxCopyShortcut = event.ctrlKey && event.shiftKey && (event.key === 'C' || event.key === 'c') && event.type === 'keydown';
-      if (platformIsLinuxCopyShortcut && isLinux) {
+      const isLinuxCopyShortcut = event.ctrlKey && event.shiftKey && (event.key === 'C' || event.key === 'c') && event.type === 'keydown';
+      if (isLinuxCopyShortcut && isLinux) {
         if (handleCopyToClipboard()) {
           return false; // Prevent xterm from handling (copy performed)
         }
@@ -187,8 +200,8 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       }
 
       // Handle CTRL+SHIFT+V paste (Linux only - alternative to CTRL+V)
-      const platformIsLinuxPasteShortcut = event.ctrlKey && event.shiftKey && (event.key === 'V' || event.key === 'v') && event.type === 'keydown';
-      if (platformIsLinuxPasteShortcut && isLinux) {
+      const isLinuxPasteShortcut = event.ctrlKey && event.shiftKey && (event.key === 'V' || event.key === 'v') && event.type === 'keydown';
+      if (isLinuxPasteShortcut && isLinux) {
         event.preventDefault(); // Prevent browser's default paste behavior
         handlePasteFromClipboard();
         return false; // Prevent xterm from sending literal ^V
@@ -242,7 +255,6 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
             // Call onDimensionsReady once when we have valid dimensions
             if (!dimensionsReadyCalledRef.current && cols > 0 && rows > 0) {
               dimensionsReadyCalledRef.current = true;
-              debugLog(`[useXterm] Dimensions ready for terminal: ${terminalId}, cols: ${cols}, rows: ${rows}`);
               onDimensionsReady?.(cols, rows);
             }
           } else {
@@ -256,14 +268,11 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
 
     // Replay buffered output if this is a remount or restored session
     // This now includes ANSI codes for proper formatting/colors/prompt
-    // Use atomic getAndClear to prevent race condition where new output could arrive between get() and clear()
+    // CRITICAL: Use atomic getAndClear() to prevent race condition where
+    // IPC listener appends data between get() and clear(), causing data loss
     const bufferedOutput = terminalBufferManager.getAndClear(terminalId);
     if (bufferedOutput && bufferedOutput.length > 0) {
-      debugLog(`[useXterm] Replaying buffered output for terminal: ${terminalId}, buffer size: ${bufferedOutput.length} chars`);
       xterm.write(bufferedOutput);
-      debugLog(`[useXterm] Buffer replay complete and cleared for terminal: ${terminalId}`);
-    } else {
-      debugLog(`[useXterm] No buffered output to replay for terminal: ${terminalId}`);
     }
 
     // Handle terminal input
@@ -298,34 +307,43 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     };
   }, [terminalId, onCommandEnter, onResize, onDimensionsReady]);
 
-  // Subscribe to font settings changes and update terminal reactively
-  // This effect runs after xterm is created and re-runs when terminalId changes,
-  // ensuring the subscription always uses the latest xterm instance
-  useEffect(() => {
+  /**
+   * Update terminal options dynamically when font settings change.
+   * This function is called both during initial setup and when settings are updated.
+   */
+  const updateTerminalOptions = useCallback((settings: typeof fontSettings) => {
     const xterm = xtermRef.current;
     if (!xterm) return;
 
-    // Update terminal options when font settings change
-    const updateTerminalOptions = (settings: ReturnType<typeof useTerminalFontSettingsStore.getState>) => {
-      xterm.options.cursorBlink = settings.cursorBlink;
-      xterm.options.cursorStyle = settings.cursorStyle;
-      xterm.options.fontSize = settings.fontSize;
-      xterm.options.fontWeight = settings.fontWeight;
-      xterm.options.fontFamily = settings.fontFamily.join(', ');
-      xterm.options.lineHeight = settings.lineHeight;
-      xterm.options.letterSpacing = settings.letterSpacing;
-      xterm.options.theme = {
-        ...xterm.options.theme,
-        cursorAccent: settings.cursorAccentColor,
-      };
-      xterm.options.scrollback = settings.scrollback;
-
-      // Refresh terminal to apply visual changes
-      xterm.refresh(0, xterm.rows - 1);
+    // Update font-related options
+    xterm.options.cursorBlink = settings.cursorBlink;
+    xterm.options.cursorStyle = settings.cursorStyle;
+    xterm.options.fontSize = settings.fontSize;
+    xterm.options.fontFamily = settings.fontFamily.join(', ');
+    xterm.options.fontWeight = settings.fontWeight;
+    xterm.options.lineHeight = settings.lineHeight;
+    xterm.options.letterSpacing = settings.letterSpacing;
+    xterm.options.theme = {
+      ...xterm.options.theme,
+      cursorAccent: settings.cursorAccentColor,
     };
+    xterm.options.scrollback = settings.scrollback;
 
-    // Subscribe to store changes - when terminalId changes, this effect re-runs,
-    // cleaning up the old subscription and creating a new one for the new xterm instance
+    // Refresh terminal to apply visual changes
+    xterm.refresh(0, xterm.rows - 1);
+  }, []);
+
+  // Subscribe to store changes - when terminalId changes, this effect re-runs,
+  // cleaning up the old subscription and creating a new one for the new xterm instance
+  // biome-ignore lint/correctness/useExhaustiveDependencies: terminalId is required for cleanup when it changes
+  useEffect(() => {
+    // Get latest settings from store
+    const latestSettings = useTerminalFontSettingsStore.getState();
+
+    // Update terminal options with latest settings
+    updateTerminalOptions(latestSettings);
+
+    // Subscribe to store changes to reactively update terminal when settings change
     const unsubscribe = useTerminalFontSettingsStore.subscribe(
       () => {
         // Get latest settings from store
@@ -336,19 +354,15 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       }
     );
 
+    // Cleanup subscription when terminalId changes or component unmounts
     return unsubscribe;
-  }, [terminalId]); // Only terminalId needed - re-subscribe when terminal changes
+  }, [terminalId, updateTerminalOptions]);
 
   // Register xterm write callback with terminal-store for global output listener
   // This allows the global listener to write directly to xterm when terminal is visible
   useEffect(() => {
     // Only register if xterm is ready
-    if (!xtermRef.current) {
-      debugLog(`[useXterm] Skipping output callback registration for terminal: ${terminalId} - xterm not ready`);
-      return;
-    }
-
-    debugLog(`[useXterm] Registering output callback for terminal: ${terminalId}`);
+    if (!xtermRef.current) return;
 
     // Create a write function that writes directly to this xterm instance
     const writeCallback = (data: string) => {
@@ -362,7 +376,6 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
 
     // Cleanup: unregister callback when component unmounts
     return () => {
-      debugLog(`[useXterm] Unregistering output callback for terminal: ${terminalId}`);
       unregisterOutputCallback(terminalId);
     };
   }, [terminalId]);
@@ -385,18 +398,14 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
           }
         }
       }
-    }, 200); // 200ms debounce for xterm.js resize stability (recommended minimum)
+    }, 100); // 100ms debounce to prevent layout thrashing
 
     // Observe the terminalRef directly (not parent) for accurate resize detection
     const container = terminalRef.current;
     if (container) {
-      const resizeObserver = new ResizeObserver(handleResize.fn);
+      const resizeObserver = new ResizeObserver(handleResize);
       resizeObserver.observe(container);
-      return () => {
-        // Cancel any pending debounced call before disconnecting
-        handleResize.cancel();
-        resizeObserver.disconnect();
-      };
+      return () => resizeObserver.disconnect();
     }
   }, [onDimensionsReady]);
 
@@ -418,21 +427,10 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     return () => window.removeEventListener('terminal-refit-all', handleRefitAll);
   }, []);
 
-  /**
-   * Fit the terminal content to the container dimensions.
-   * @returns boolean indicating whether fit was successful (had valid dimensions)
-   */
-  const fit = useCallback((): boolean => {
-    if (fitAddonRef.current && xtermRef.current && terminalRef.current) {
-      // Validate container has valid dimensions before fitting
-      const rect = terminalRef.current.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        fitAddonRef.current.fit();
-        const cols = xtermRef.current.cols;
-        const rows = xtermRef.current.rows;
-        setDimensions({ cols, rows });
-        return true;
-      }
+  const fit = useCallback(() => {
+    if (fitAddonRef.current && xtermRef.current) {
+      fitAddonRef.current.fit();
+      return true;
     }
     return false;
   }, []);
@@ -462,29 +460,19 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
   const serializeBuffer = useCallback(() => {
     if (xtermRef.current && serializeAddonRef.current) {
       try {
-        debugLog(`[useXterm] Serializing buffer for terminal: ${terminalId}`);
         const serialized = serializeAddonRef.current.serialize();
         if (serialized && serialized.length > 0) {
           terminalBufferManager.set(terminalId, serialized);
-          debugLog(`[useXterm] Buffer serialized for terminal: ${terminalId}, size: ${serialized.length} chars`);
-        } else {
-          debugLog(`[useXterm] No content to serialize for terminal: ${terminalId}`);
         }
       } catch (error) {
-        debugError('[useXterm] Failed to serialize terminal buffer:', error);
+        console.error('[useXterm] Failed to serialize terminal buffer:', error);
       }
-    } else {
-      debugLog(`[useXterm] Cannot serialize buffer for terminal: ${terminalId} - xterm or serializeAddon not available`);
     }
   }, [terminalId]);
 
   const dispose = useCallback(() => {
     // Guard against double dispose (can happen in React StrictMode or rapid unmount)
-    if (isDisposedRef.current) {
-      debugLog(`[useXterm] Skipping dispose for terminal: ${terminalId} - already disposed`);
-      return;
-    }
-    debugLog(`[useXterm] Disposing xterm for terminal: ${terminalId}`);
+    if (isDisposedRef.current) return;
     isDisposedRef.current = true;
 
     // Serialize buffer before disposing to preserve ANSI formatting

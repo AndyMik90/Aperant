@@ -1,0 +1,176 @@
+{
+  "generation": {
+    "phases": {
+      "analyzing": "Analyzing",
+      "discovering": "Discovering",
+      "generating": "Generating",
+      "complete": "Complete",
+      "error": "Error"
+    },
+    "descriptions": {
+      "analyzing": "Analyzing project structure and codebase...",
+      "discovering": "Discovering target audience and user needs...",
+      "generating": "Generating feature roadmap...",
+      "complete": "Roadmap generation complete!",
+      "error": "Generation failed"
+    },
+    "steps": {
+      "analyze": "Analyze",
+      "discover": "Discover",
+      "generate": "Generate"
+    },
+    "actions": {
+      "stop": "Stop",
+      "stopping": "Stopping...",
+      "stopGeneration": "Stop generation"
+    },
+    "progress": {
+      "label": "Progress"
+    },
+    "errors": {
+      "failedToStop": "Failed to stop generation:"
+    }
+  },
+  "kanban": {
+    "kanban": "Kanban",
+    "phases": "Phases",
+    "allFeatures": "All Features",
+    "byPriority": "By Priority",
+    "dropHere": "Drop here",
+    "noFeatures": "No features",
+    "dragFeaturesHere": "Drag features here",
+    "unknownStatus": "Unknown Status",
+    "features": "features"
+  },
+  "status": {
+    "under_review": "Under Review",
+    "planned": "Planned",
+    "in_progress": "In Progress",
+    "done": "Done"
+  },
+  "phase": {
+    "milestones": "Milestones",
+    "features": "Features",
+    "viewTask": "View Task",
+    "build": "Build",
+    "moreFeatures": "more features"
+  },
+  "competitorAnalysis": {
+    "enableAnalysisTitle": "Enable Competitor Analysis?",
+    "enableAnalysisDescription": "Enhance your roadmap with insights from competitor products",
+    "whatItDoesTitle": "What competitor analysis does:",
+    "identifiesCompetitors": "Identifies 3-5 main competitors based on your project type",
+    "searchesForFeedback": "Searches app stores, forums, and social media for user feedback and pain points",
+    "suggestsFeatures": "Suggests features that address gaps in competitor products",
+    "webSearchesPerformed": "Web searches will be performed",
+    "webSearchesDescription": "This feature will perform web searches to gather competitor information. Your project name and type will be used in search queries. No code or sensitive data is shared.",
+    "optionalInfo": "You can generate a roadmap without competitor analysis if you prefer. The roadmap will still be based on your project structure and best practices.",
+    "skipAnalysisButton": "No, Skip Analysis",
+    "enableAnalysisButton": "Yes, Enable Analysis",
+    "optionsTitle": "Competitor Analysis Options",
+    "optionsDescription": "This project has an existing competitor analysis from {{date}}",
+    "useExistingTitle": "Use existing analysis",
+    "recommended": "(Recommended)",
+    "useExistingDescription": "Reuse the competitor insights you already have. Faster and no additional web searches.",
+    "runNewTitle": "Run new analysis",
+    "runNewDescription": "Perform fresh web searches to get updated competitor information. Takes longer.",
+    "skipTitle": "Skip competitor analysis",
+    "skipDescription": "Generate roadmap without any competitor insights.",
+    "cancelButton": "Cancel",
+    "existing": {
+      "title": "Competitor Analysis Options",
+      "description": "This project has an existing competitor analysis from {{date}}",
+      "recently": "recently",
+      "recommended": "Recommended",
+      "useExisting": {
+        "title": "Use existing analysis",
+        "description": "Reuse the competitor insights you already have. Faster and no additional web searches."
+      },
+      "runNew": {
+        "title": "Run new analysis",
+        "description": "Perform fresh web searches to get updated competitor information. Takes longer."
+      },
+      "skip": {
+        "title": "Skip competitor analysis",
+        "description": "Generate roadmap without any competitor insights."
+      },
+      "cancel": "Cancel"
+    },
+    "viewer": {
+      "title": "Competitor Analysis Results",
+      "description": "Analyzed {{count}} competitors to identify market gaps and opportunities",
+      "identifiedPainPoints": "Identified Pain Points",
+      "noPainPoints": "No pain points identified",
+      "source": "Source:",
+      "frequency": "Frequency:",
+      "opportunity": "Opportunity:",
+      "marketInsightsSummary": "Market Insights Summary",
+      "topPainPoints": "Top Pain Points:",
+      "differentiatorOpportunities": "Differentiator Opportunities:",
+      "marketTrends": "Market Trends:",
+      "visit": "Visit"
+    }
+  },
+  "context": {
+    "projectIndexTab": "Project Index",
+    "memoriesTab": "Memories"
+  },
+  "header": {
+    "addFeature": "Add Feature",
+    "addFeatureTooltip": "Add a new feature to the roadmap",
+    "regenerateTooltip": "Regenerate Roadmap",
+    "competitorAnalysis": "Competitor Analysis",
+    "competitorAnalysisTooltip": "Click to view detailed analysis",
+    "competitorAnalysisTooltipContent": "Analyzed {{count}} competitors with {{painPoints}} pain points identified",
+    "target": "Target:",
+    "morePersonas": "+{{count}} more personas",
+    "secondaryPersonas": "Secondary Personas:",
+    "features": "features",
+    "phases": "phases",
+    "priorities": {
+      "must": "must",
+      "should": "should",
+      "could": "could",
+      "wont": "wont"
+    }
+  },
+  "emptyState": {
+    "title": "No Roadmap Yet",
+    "description": "Generate an AI-powered roadmap that understands your project's target audience and creates a strategic feature plan.",
+    "generateButton": "Generate Roadmap"
+  },
+  "featureCard": {
+    "goToTask": "Go to Task",
+    "build": "Build",
+    "competitorInsight": "Competitor Insight",
+    "competitorInsightTooltip": "This feature addresses competitor pain points",
+    "impact": "impact",
+    "phase": "Phase: {{name}}",
+    "task": "Task",
+    "votesFromFeedback": "{{votes}} votes from user feedback",
+    "externalSource": "External",
+    "cannySource": "Canny",
+    "importedFrom": "Imported from {{provider}}",
+    "source": {
+      "canny": "Canny",
+      "external": "External"
+    }
+  },
+  "featureDetail": {
+    "description": "Description",
+    "rationale": "Rationale",
+    "complexity": "Complexity",
+    "impact": "Impact",
+    "dependencies": "Dependencies",
+    "userStories": "User Stories",
+    "acceptanceCriteria": "Acceptance Criteria",
+    "addressesCompetitorPainPoints": "Addresses Competitor Pain Points",
+    "severity": "severity",
+    "goToTask": "Go to Task",
+    "convertToTask": "Convert to Auto-Build Task",
+    "deleteTitle": "Delete Feature?",
+    "deleteDescription": "This will permanently remove \"{{title}}\" from your roadmap.",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  }
+}

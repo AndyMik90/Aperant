@@ -1,0 +1,123 @@
+{
+  "agents": {
+    "spec_gatherer": {
+      "label": "Spec Gatherer",
+      "description": "Collects initial requirements from user"
+    },
+    "spec_researcher": {
+      "label": "Spec Researcher",
+      "description": "Validates external integrations and APIs"
+    },
+    "spec_writer": {
+      "label": "Spec Writer",
+      "description": "Creates the spec.md document"
+    },
+    "spec_critic": {
+      "label": "Spec Critic",
+      "description": "Self-critique using deep analysis"
+    },
+    "spec_discovery": {
+      "label": "Spec Discovery",
+      "description": "Initial project discovery and analysis"
+    },
+    "spec_context": {
+      "label": "Spec Context",
+      "description": "Builds context from existing codebase"
+    },
+    "spec_validation": {
+      "label": "Spec Validation",
+      "description": "Validates spec completeness and quality"
+    },
+    "planner": {
+      "label": "Planner",
+      "description": "Creates implementation plan with subtasks"
+    },
+    "coder": {
+      "label": "Coder",
+      "description": "Implements individual subtasks"
+    },
+    "qa_reviewer": {
+      "label": "QA Reviewer",
+      "description": "Validates acceptance criteria. Uses Electron or Puppeteer based on project type."
+    },
+    "qa_fixer": {
+      "label": "QA Fixer",
+      "description": "Fixes QA-reported issues. Uses Electron or Puppeteer based on project type."
+    },
+    "pr_reviewer": {
+      "label": "PR Reviewer",
+      "description": "Reviews GitHub pull requests"
+    },
+    "commit_message": {
+      "label": "Commit Message",
+      "description": "Generates commit messages"
+    },
+    "merge_resolver": {
+      "label": "Merge Resolver",
+      "description": "Resolves merge conflicts"
+    },
+    "insights": {
+      "label": "Insights",
+      "description": "Extracts code insights"
+    },
+    "analysis": {
+      "label": "Analysis",
+      "description": "Codebase analysis with context lookup"
+    },
+    "batch_analysis": {
+      "label": "Batch Analysis",
+      "description": "Batch processing of issues or items"
+    },
+    "ideation": {
+      "label": "Ideation",
+      "description": "Generates feature ideas"
+    },
+    "roadmap_discovery": {
+      "label": "Roadmap Discovery",
+      "description": "Discovers roadmap items"
+    }
+  },
+  "mcpServers": {
+    "context7": {
+      "name": "Context7",
+      "description": "Documentation lookup for libraries and frameworks via @upstash/context7-mcp"
+    },
+    "graphiti-memory": {
+      "name": "Graphiti Memory",
+      "description": "Knowledge graph for cross-session context. Requires GRAPHITI_MCP_URL env var."
+    },
+    "auto-claude": {
+      "name": "Auto-Claude Tools",
+      "description": "Build progress tracking, session context, discoveries & gotchas recording"
+    },
+    "linear": {
+      "name": "Linear",
+      "description": "Project management via Linear API. Requires LINEAR_API_KEY env var."
+    },
+    "electron": {
+      "name": "Electron",
+      "description": "Desktop app automation via Chrome DevTools Protocol. Requires ELECTRON_MCP_ENABLED=true."
+    },
+    "puppeteer": {
+      "name": "Puppeteer",
+      "description": "Web browser automation for non-Electron web frontends."
+    }
+  },
+  "categories": {
+    "spec": "Spec Creation",
+    "build": "Build",
+    "qa": "QA",
+    "utility": "Utility",
+    "ideation": "Ideation"
+  },
+  "labels": {
+    "availableTools": "Available Tools",
+    "textOnly": "Text-only (no tools)",
+    "mcpServers": "MCP Servers",
+    "mcp": "MCP",
+    "agents": "agents",
+    "mcpServerOverview": "MCP Server Overview",
+    "mcpServerConfiguration": "MCP Server Configuration",
+    "customMcpServers": "Custom MCP Servers"
+  }
+}

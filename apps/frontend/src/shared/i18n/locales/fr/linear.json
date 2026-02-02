@@ -1,0 +1,85 @@
+{
+  "teamProjectSelector": {
+    "teamLabel": "Équipe",
+    "projectLabel": "Projet (facultatif)",
+    "loading": "Chargement...",
+    "selectTeam": "Sélectionner une équipe",
+    "allProjects": "Tous les projets",
+    "teamFormat": "{{name}} ({{key}})"
+  },
+  "selectTeamToView": "Sélectionnez une équipe pour voir les issues",
+  "searchAndFilter": {
+    "searchPlaceholder": "Rechercher des tâches...",
+    "allStates": "Tous les états"
+  },
+  "states": {
+    "backlog": "Backlog",
+    "todo": "À faire",
+    "inProgress": "En cours",
+    "done": "Terminé",
+    "canceled": "Annulé"
+  },
+  "issueList": {
+    "emptyFilter": "Aucune issue ne correspond à vos filtres",
+    "empty": "Aucune issue trouvée"
+  },
+  "selection": {
+    "deselectAll": "Tout désélectionner",
+    "selectAll": "Tout sélectionner",
+    "selectedOf": "{{selected}} sur {{total}} sélectionné(s)",
+    "refresh": "Actualiser"
+  },
+  "importModal": {
+    "title": "Importer des tâches Linear",
+    "description": "Sélectionnez des tâches depuis Linear pour les importer dans AutoBuild",
+    "done": "Terminé",
+    "cancel": "Annuler",
+    "importing": "Importation...",
+    "importTasks": "Importer {{count}} tâche",
+    "importTasks_plural": "Importer {{count}} tâches"
+  },
+  "errors": {
+    "generic": "Une erreur s'est produite"
+  },
+  "importSuccess": {
+    "title": "Importation terminée",
+    "description": "Les tâches ont été importées avec succès",
+    "importedCount": "{{count}} tâche importée avec succès",
+    "importedCount_plural": "{{count}} tâches importées avec succès",
+    "processing": "Les tâches sont en cours de traitement. Vérifiez votre tableau Kanban pour voir la progression.",
+    "close": "Fermer"
+  },
+  "issueCard": {
+    "hideDescription": "Masquer la description",
+    "showDescription": "Afficher la description",
+    "assignedTo": "Assigné à {{name}}",
+    "project": "Projet : {{name}}",
+    "viewInLinear": "Voir dans Linear",
+    "moreLabels": "+{{count}} de plus"
+  },
+  "integration": {
+    "title": "Intégration Linear",
+    "enabled": "Activé",
+    "enableSync": "Activer la synchronisation Linear",
+    "enableSyncDescription": "Créer et mettre à jour les issues Linear automatiquement",
+    "apiKey": "Clé API",
+    "apiKeyDescription": "Obtenez votre clé API depuis",
+    "apiKeyPlaceholder": "lin_api_xxxxxxxx",
+    "connectionStatus": "État de la connexion",
+    "checking": "Vérification...",
+    "connected": "Connecté{{name}}",
+    "connectedTo": "Connecté à {{name}}",
+    "notConnected": "Non connecté",
+    "tasksAvailableToImport": "{{count}}+ tâches disponibles à importer",
+    "importExistingTasks": "Importer des tâches existantes",
+    "importExistingTasksDescription": "Sélectionnez les issues Linear à importer dans AutoBuild comme tâches.",
+    "importTasksFromLinear": "Importer des tâches depuis Linear",
+    "realtimeSync": "Synchronisation en temps réel",
+    "realtimeSyncDescription": "Importer automatiquement les nouvelles tâches créées dans Linear",
+    "realtimeSyncWarning": "Lorsque activé, les nouvelles issues Linear seront automatiquement importées dans AutoBuild. Assurez-vous de configurer vos filtres d'équipe/projet ci-dessous pour contrôler les issues importées.",
+    "teamId": "ID d'équipe (facultatif)",
+    "teamIdPlaceholder": "Détecté automatiquement",
+    "projectId": "ID de projet (facultatif)",
+    "projectIdPlaceholder": "Créé automatiquement"
+  }
+}

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import {
   Users,
   AlertCircle,
@@ -7,7 +8,7 @@ import {
 import { Badge } from '../../ui/badge';
 import { Card } from '../../ui/card';
 import {
-  DOCUMENTATION_CATEGORY_LABELS,
+  getDocumentationCategoryLabels,
   IDEATION_EFFORT_COLORS,
   IDEATION_IMPACT_COLORS
 } from '../../../../shared/constants';
@@ -18,13 +19,15 @@ interface DocumentationGapDetailsProps {
 }
 
 export function DocumentationGapDetails({ idea }: DocumentationGapDetailsProps) {
+  const { t } = useTranslation('ideation');
+  const docLabels = getDocumentationCategoryLabels(t);
   return (
     <>
       {/* Metrics */}
       <div className="grid grid-cols-2 gap-2">
         <Card className="p-3 text-center">
           <div className="text-lg font-semibold">
-            {DOCUMENTATION_CATEGORY_LABELS[idea.category]}
+            {docLabels[idea.category]}
           </div>
           <div className="text-xs text-muted-foreground">Category</div>
         </Card>

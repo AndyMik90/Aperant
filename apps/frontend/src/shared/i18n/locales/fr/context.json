@@ -1,0 +1,108 @@
+{
+  "tabs": {
+    "projectIndex": "Index du Projet",
+    "memories": "Mémoires"
+  },
+  "status": {
+    "title": "État de la Mémoire Graphique",
+    "connected": "Connecté",
+    "notAvailable": "Non Disponible"
+  },
+  "stats": {
+    "total": "Total",
+    "prReviews": "Revues PR",
+    "sessions": "Sessions",
+    "codebase": "Base de code",
+    "patterns": "Modèles",
+    "gotchas": "Pièges"
+  },
+  "search": {
+    "title": "Rechercher les Mémoires",
+    "placeholder": "Rechercher des modèles, des informations, des pièges...",
+    "button": "Rechercher"
+  },
+  "browser": {
+    "title": "Navigateur de Mémoires",
+    "subtitle": "{{count}} mémoires"
+  },
+  "results": {
+    "score": "Score"
+  },
+  "empty": {
+    "noMemories": "Aucune mémoire enregistrée pour le moment. Les mémoires sont créées lors des sessions d'agent IA et des revues PR.",
+    "noMemoriesForFilter": "Aucune mémoire ne correspond au filtre sélectionné."
+  },
+  "filters": {
+    "showAll": "Afficher toutes les mémoires",
+    "all": "Tout",
+    "pr": "Revues PR",
+    "sessions": "Sessions",
+    "codebase": "Base de code",
+    "patterns": "Modèles",
+    "gotchas": "Pièges"
+  },
+  "projectIndex": {
+    "title": "Structure du Projet",
+    "description": "Connaissances découvertes par l'IA sur votre base de code",
+    "refresh": "Actualiser",
+    "refreshTooltip": "Ré-analyser la structure du projet",
+    "errorTitle": "Échec du chargement de l'index du projet",
+    "noIndexTitle": "Aucun Index de Projet Trouvé",
+    "noIndexDescription": "Cliquez sur le bouton Actualiser pour analyser la structure de votre projet et créer un index.",
+    "analyzeProject": "Analyser le Projet",
+    "overview": "Vue d'ensemble",
+    "services": "Services",
+    "service": "service",
+    "servicesPlural": "services",
+    "infrastructure": "Infrastructure",
+    "dockerCompose": "Docker Compose",
+    "ciCd": "CI/CD",
+    "deployment": "Déploiement",
+    "dockerServices": "Services Docker",
+    "conventions": "Conventions",
+    "pythonLinting": "Linting Python",
+    "jsLinting": "Linting JS",
+    "formatting": "Formatage",
+    "gitHooks": "Git Hooks",
+    "typescript": "TypeScript",
+    "enabled": "Activé"
+  },
+  "memories": {
+    "title": "État de la Mémoire Graphique",
+    "connected": "Connecté",
+    "notAvailable": "Non Disponible",
+    "database": "Base de données",
+    "path": "Chemin",
+    "total": "Total",
+    "prReviews": "Revues PR",
+    "sessions": "Sessions",
+    "codebase": "Base de code",
+    "patterns": "Modèles",
+    "gotchas": "Pièges",
+    "notConfigured": "La mémoire Graphiti n'est pas configurée",
+    "enableInstructions": "Pour activer la mémoire graphique, définissez GRAPHITI_ENABLED=true dans les paramètres du projet.",
+    "searchTitle": "Rechercher les Mémoires",
+    "searchPlaceholder": "Rechercher des modèles, des informations, des pièges...",
+    "resultsFound": "{{count}} résultat trouvé",
+    "resultsFoundPlural": "{{count}} résultats trouvés",
+    "score": "Score",
+    "browserTitle": "Navigateur de Mémoires",
+    "ofMemories": "{{filtered}} sur {{total}} mémoires",
+    "noMemories": "Aucune mémoire enregistrée pour le moment. Les mémoires sont créées lors des sessions d'agent IA et des revues PR.",
+    "noMatches": "Aucune mémoire ne correspond au filtre sélectionné.",
+    "showAllMemories": "Afficher toutes les mémoires"
+  },
+  "memoryCard": {
+    "expand": "Développer",
+    "collapse": "Réduire",
+    "whatWorked": "Ce qui a fonctionné",
+    "whatFailed": "Ce qui a échoué",
+    "approach": "Approche",
+    "recommendations": "Recommandations",
+    "patterns": "Modèles",
+    "gotchas": "Pièges",
+    "changedFiles": "Fichiers modifiés",
+    "fileInsights": "Informations sur les fichiers",
+    "subtasksCompleted": "Sous-tâches terminées"
+  }
+}

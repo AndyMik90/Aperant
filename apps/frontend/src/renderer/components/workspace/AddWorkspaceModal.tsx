@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Layers } from 'lucide-react';
 import {
   Dialog,
@@ -63,15 +64,7 @@ interface SelectedProject {
   role: ProjectRole;
 }
 
-const ROLE_OPTIONS: { value: ProjectRole; label: string; description: string }[] = [
-  { value: 'backend', label: 'Backend', description: 'API server, services' },
-  { value: 'frontend', label: 'Frontend', description: 'Web application' },
-  { value: 'mobile', label: 'Mobile', description: 'Mobile app' },
-  { value: 'shared', label: 'Shared', description: 'Shared types/utils' },
-  { value: 'api', label: 'API Gateway', description: 'Gateway, BFF' },
-  { value: 'worker', label: 'Worker', description: 'Background jobs' },
-  { value: 'other', label: 'Other', description: 'Other project type' },
-];
+const ROLE_KEYS: ProjectRole[] = ['backend', 'frontend', 'mobile', 'shared', 'api', 'worker', 'other'];
 
 export function AddWorkspaceModal({
   open,
@@ -79,6 +72,7 @@ export function AddWorkspaceModal({
   projects,
   onCreated,
 }: AddWorkspaceModalProps) {
+  const { t } = useTranslation('workspace');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedProjects, setSelectedProjects] = useState<SelectedProject[]>([]);
@@ -113,13 +107,13 @@ export function AddWorkspaceModal({
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      setError('Workspace name is required');
+      setError(t('errors.nameRequired'));
       return;
     }
 
     const workspaceApi = window.electronAPI as unknown as Partial<WorkspaceApi>;
     if (!workspaceApi.createWorkspace || !workspaceApi.addProjectToWorkspace || !workspaceApi.getWorkspace) {
-      setError('Workspace API not available');
+      setError(t('errors.apiNotAvailable'));
       return;
     }
 
@@ -138,7 +132,7 @@ export function AddWorkspaceModal({
       );
 
       if (!result.success || !result.data) {
-        throw new Error(result.error || 'Failed to create workspace');
+        throw new Error(result.error || t('errors.createFailed'));
       }
 
       const workspace = result.data;
@@ -183,20 +177,20 @@ export function AddWorkspaceModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Layers className="h-5 w-5" />
-            Create Workspace
+            {t('title')}
           </DialogTitle>
           <DialogDescription>
-            Group related projects together for cross-repo specs and validation.
+            {t('description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
           {/* Name */}
           <div className="grid gap-2">
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name">{t('form.name')}</Label>
             <Input
               id="name"
-              placeholder="My App Workspace"
+              placeholder={t('form.namePlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -204,10 +198,10 @@ export function AddWorkspaceModal({
 
           {/* Description */}
           <div className="grid gap-2">
-            <Label htmlFor="description">Description (optional)</Label>
+            <Label htmlFor="description">{t('form.descriptionLabel')}</Label>
             <Textarea
               id="description"
-              placeholder="Backend, frontend, and mobile apps for My App"
+              placeholder={t('form.descriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
@@ -216,11 +210,11 @@ export function AddWorkspaceModal({
 
           {/* Add projects */}
           <div className="grid gap-2">
-            <Label>Projects</Label>
+            <Label>{t('form.projects')}</Label>
             {availableProjects.length > 0 ? (
               <Select onValueChange={handleAddProject}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Add a project..." />
+                  <SelectValue placeholder={t('form.addProjectPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableProjects.map((project) => (
@@ -233,8 +227,8 @@ export function AddWorkspaceModal({
             ) : (
               <p className="text-sm text-muted-foreground">
                 {selectedProjects.length > 0
-                  ? 'All projects have been added'
-                  : 'No projects available'}
+                  ? t('form.allProjectsAdded')
+                  : t('form.noProjectsAvailable')}
               </p>
             )}
           </div>
@@ -260,9 +254,9 @@ export function AddWorkspaceModal({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {ROLE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
+                      {ROLE_KEYS.map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {t(`roles.${role}`)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -288,10 +282,10 @@ export function AddWorkspaceModal({
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>
-            Cancel
+            {t('buttons.cancel')}
           </Button>
           <Button onClick={handleCreate} disabled={isCreating || !name.trim()}>
-            {isCreating ? 'Creating...' : 'Create Workspace'}
+            {isCreating ? t('buttons.creating') : t('buttons.create')}
           </Button>
         </DialogFooter>
       </DialogContent>

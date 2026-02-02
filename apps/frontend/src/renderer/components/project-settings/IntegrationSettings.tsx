@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Zap,
   Eye,
@@ -75,6 +76,7 @@ export function IntegrationSettings({
   githubExpanded,
   onGitHubToggle
 }: IntegrationSettingsProps) {
+  const { t } = useTranslation('settings');
   // Branch selection state
   const [branches, setBranches] = useState<string[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
@@ -151,10 +153,10 @@ export function IntegrationSettings({
         >
           <div className="flex items-center gap-2">
             <Zap className="h-4 w-4" />
-            Linear Integration
+            {t('projectSections.linear.integrationTitle')}
             {envConfig.linearEnabled && (
               <span className="px-2 py-0.5 text-xs bg-success/10 text-success rounded-full">
-                Enabled
+                {t('projectSettings.integration.enabled')}
               </span>
             )}
           </div>
@@ -169,9 +171,9 @@ export function IntegrationSettings({
           <div className="space-y-4 pl-6 pt-2">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label className="font-normal text-foreground">Enable Linear Sync</Label>
+                <Label className="font-normal text-foreground">{t('projectSettings.integration.enableLinear')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Create and update Linear issues automatically
+                  {t('integrationsApp.linear.description')}
                 </p>
               </div>
               <Switch
@@ -183,22 +185,22 @@ export function IntegrationSettings({
             {envConfig.linearEnabled && (
               <>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-foreground">API Key</Label>
+                  <Label className="text-sm font-medium text-foreground">{t('integrationsApp.linear.apiKey')}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Get your API key from{' '}
+                    {t('integrationsApp.linear.getKeyFrom')}{' '}
                     <a
                       href="https://linear.app/settings/api"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-info hover:underline"
                     >
-                      Linear Settings
+                      {t('integrationsApp.linear.linearSettings')}
                     </a>
                   </p>
                   <div className="relative">
                     <Input
                       type={showLinearKey ? 'text' : 'password'}
-                      placeholder="lin_api_xxxxxxxx"
+                      placeholder={t('integrationsApp.linear.placeholder')}
                       value={envConfig.linearApiKey || ''}
                       onChange={(e) => updateEnvConfig({ linearApiKey: e.target.value })}
                       className="pr-10"
@@ -218,16 +220,16 @@ export function IntegrationSettings({
                   <div className="rounded-lg border border-border bg-muted/30 p-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-foreground">Connection Status</p>
+                        <p className="text-sm font-medium text-foreground">{t('projectSettings.integration.connectionStatus')}</p>
                         <p className="text-xs text-muted-foreground">
-                          {isCheckingLinear ? 'Checking...' :
+                          {isCheckingLinear ? t('projectSettings.connectionStatus.checking') :
                             linearConnectionStatus?.connected
-                              ? `Connected${linearConnectionStatus.teamName ? ` to ${linearConnectionStatus.teamName}` : ''}`
-                              : linearConnectionStatus?.error || 'Not connected'}
+                              ? (linearConnectionStatus.teamName ? t('integrationsApp.linear.connectedTo', { name: linearConnectionStatus.teamName }) : t('integrationsApp.linear.connected'))
+                              : linearConnectionStatus?.error || t('integrationsApp.linear.notConnected')}
                         </p>
                         {linearConnectionStatus?.connected && linearConnectionStatus.issueCount !== undefined && (
                           <p className="text-xs text-muted-foreground mt-1">
-                            {linearConnectionStatus.issueCount}+ tasks available to import
+                            {t('projectSettings.integration.tasksAvailableToImport', { count: linearConnectionStatus.issueCount })}
                           </p>
                         )}
                       </div>
@@ -248,9 +250,9 @@ export function IntegrationSettings({
                     <div className="flex items-start gap-3">
                       <Import className="h-5 w-5 text-info mt-0.5" />
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-foreground">Import Existing Tasks</p>
+                        <p className="text-sm font-medium text-foreground">{t('projectSettings.integration.importExistingTasks')}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Select which Linear issues to import into AutoBuild as tasks.
+                          {t('projectSettings.integration.importTasksDescription')}
                         </p>
                         <Button
                           size="sm"
@@ -259,7 +261,7 @@ export function IntegrationSettings({
                           onClick={onOpenLinearImport}
                         >
                           <Import className="h-4 w-4 mr-2" />
-                          Import Tasks from Linear
+                          {t('projectSettings.integration.importTasksFromLinear')}
                         </Button>
                       </div>
                     </div>
@@ -273,10 +275,10 @@ export function IntegrationSettings({
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
                       <Radio className="h-4 w-4 text-info" />
-                      <Label className="font-normal text-foreground">Real-time Sync</Label>
+                      <Label className="font-normal text-foreground">{t('projectSettings.integration.realtimeSync')}</Label>
                     </div>
                     <p className="text-xs text-muted-foreground pl-6">
-                      Automatically import new tasks created in Linear
+                      {t('projectSettings.integration.realtimeSyncDescription')}
                     </p>
                   </div>
                   <Switch
@@ -288,8 +290,7 @@ export function IntegrationSettings({
                 {envConfig.linearRealtimeSync && (
                   <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 ml-6">
                     <p className="text-xs text-warning">
-                      When enabled, new Linear issues will be automatically imported into AutoBuild.
-                      Make sure to configure your team/project filters below to control which issues are imported.
+                      {t('projectSettings.integration.realtimeSyncWarning')}
                     </p>
                   </div>
                 )}
@@ -298,17 +299,17 @@ export function IntegrationSettings({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-foreground">Team ID (Optional)</Label>
+                    <Label className="text-sm font-medium text-foreground">{t('projectSettings.integration.teamId')}</Label>
                     <Input
-                      placeholder="Auto-detected"
+                      placeholder={t('integrationsApp.linear.autoDetected')}
                       value={envConfig.linearTeamId || ''}
                       onChange={(e) => updateEnvConfig({ linearTeamId: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-foreground">Project ID (Optional)</Label>
+                    <Label className="text-sm font-medium text-foreground">{t('projectSettings.integration.projectId')}</Label>
                     <Input
-                      placeholder="Auto-created"
+                      placeholder={t('integrationsApp.linear.autoCreated')}
                       value={envConfig.linearProjectId || ''}
                       onChange={(e) => updateEnvConfig({ linearProjectId: e.target.value })}
                     />
@@ -330,10 +331,10 @@ export function IntegrationSettings({
         >
           <div className="flex items-center gap-2">
             <Github className="h-4 w-4" />
-            GitHub Integration
+            {t('projectSections.github.integrationTitle')}
             {envConfig.githubEnabled && (
               <span className="px-2 py-0.5 text-xs bg-success/10 text-success rounded-full">
-                Enabled
+                {t('projectSettings.integration.enabled')}
               </span>
             )}
           </div>
@@ -348,9 +349,9 @@ export function IntegrationSettings({
           <div className="space-y-4 pl-6 pt-2">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label className="font-normal text-foreground">Enable GitHub Issues</Label>
+                <Label className="font-normal text-foreground">{t('projectSettings.integration.enableGitHub')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Sync issues from GitHub and create tasks automatically
+                  {t('projectSettings.integration.syncDescription')}
                 </p>
               </div>
               <Switch
@@ -362,22 +363,22 @@ export function IntegrationSettings({
             {envConfig.githubEnabled && (
               <>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-foreground">Personal Access Token</Label>
+                  <Label className="text-sm font-medium text-foreground">{t('integrationsApp.github.personalAccessToken')}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Create a token with <code className="px-1 bg-muted rounded">repo</code> scope from{' '}
+                    {t('projectSettings.integration.createTokenWith')} <code className="px-1 bg-muted rounded">{t('integrationsApp.github.repoScope')}</code> {t('projectSettings.integration.scopeFrom')}{' '}
                     <a
                       href="https://github.com/settings/tokens/new?scopes=repo&description=Auto-Build-UI"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-info hover:underline"
                     >
-                      GitHub Settings
+                      {t('integrationsApp.github.githubSettings')}
                     </a>
                   </p>
                   <div className="relative">
                     <Input
                       type={showGitHubToken ? 'text' : 'password'}
-                      placeholder="ghp_xxxxxxxx or github_pat_xxxxxxxx"
+                      placeholder={t('integrationsApp.github.placeholderToken')}
                       value={envConfig.githubToken || ''}
                       onChange={(e) => updateEnvConfig({ githubToken: e.target.value })}
                       className="pr-10"
@@ -393,12 +394,12 @@ export function IntegrationSettings({
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-foreground">Repository</Label>
+                  <Label className="text-sm font-medium text-foreground">{t('projectSettings.integration.repository')}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Format: <code className="px-1 bg-muted rounded">owner/repo</code> (e.g., facebook/react)
+                    {t('projectSettings.integration.repoFormat')}
                   </p>
                   <Input
-                    placeholder="owner/repository"
+                    placeholder={t('integrationsApp.github.placeholderOwnerRepo')}
                     value={envConfig.githubRepo || ''}
                     onChange={(e) => updateEnvConfig({ githubRepo: e.target.value })}
                   />
@@ -409,12 +410,12 @@ export function IntegrationSettings({
                   <div className="rounded-lg border border-border bg-muted/30 p-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-foreground">Connection Status</p>
+                        <p className="text-sm font-medium text-foreground">{t('projectSettings.integration.connectionStatus')}</p>
                         <p className="text-xs text-muted-foreground">
-                          {isCheckingGitHub ? 'Checking...' :
+                          {isCheckingGitHub ? t('projectSettings.connectionStatus.checking') :
                             gitHubConnectionStatus?.connected
-                              ? `Connected to ${gitHubConnectionStatus.repoFullName}`
-                              : gitHubConnectionStatus?.error || 'Not connected'}
+                              ? t('integrationsApp.github.connectedTo', { repo: gitHubConnectionStatus.repoFullName })
+                              : gitHubConnectionStatus?.error || t('integrationsApp.github.notConnected')}
                         </p>
                         {gitHubConnectionStatus?.connected && gitHubConnectionStatus.repoDescription && (
                           <p className="text-xs text-muted-foreground mt-1 italic">
@@ -439,9 +440,9 @@ export function IntegrationSettings({
                     <div className="flex items-start gap-3">
                       <Github className="h-5 w-5 text-info mt-0.5" />
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-foreground">Issues Available</p>
+                        <p className="text-sm font-medium text-foreground">{t('projectSettings.integration.issuesAvailable')}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Access GitHub Issues from the sidebar to view, investigate, and create tasks from issues.
+                          {t('projectSettings.integration.issuesAvailableDescription')}
                         </p>
                       </div>
                     </div>
@@ -455,10 +456,10 @@ export function IntegrationSettings({
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
                       <RefreshCw className="h-4 w-4 text-info" />
-                      <Label className="font-normal text-foreground">Auto-Sync on Load</Label>
+                      <Label className="font-normal text-foreground">{t('projectSettings.integration.autoSyncOnLoad')}</Label>
                     </div>
                     <p className="text-xs text-muted-foreground pl-6">
-                      Automatically fetch issues when the project loads
+                      {t('projectSettings.integration.autoSyncDescription')}
                     </p>
                   </div>
                   <Switch
@@ -473,10 +474,10 @@ export function IntegrationSettings({
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <GitBranch className="h-4 w-4 text-info" />
-                    <Label className="text-sm font-medium text-foreground">Main Branch</Label>
+                    <Label className="text-sm font-medium text-foreground">{t('projectSettings.integration.mainBranch')}</Label>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    The base branch for creating task worktrees. All new tasks will branch from here.
+                    {t('projectSettings.integration.mainBranchDescription')}
                   </p>
                   <Select
                     value={settings.mainBranch || ''}
@@ -487,10 +488,10 @@ export function IntegrationSettings({
                       {isLoadingBranches ? (
                         <div className="flex items-center gap-2">
                           <Loader2 className="h-3 w-3 animate-spin" />
-                          <span>Loading branches...</span>
+                          <span>{t('projectSettings.integration.loadingBranches')}</span>
                         </div>
                       ) : (
-                        <SelectValue placeholder="Select main branch" />
+                        <SelectValue placeholder={t('projectSettings.integration.selectMainBranch')} />
                       )}
                     </SelectTrigger>
                     <SelectContent>
@@ -503,7 +504,7 @@ export function IntegrationSettings({
                   </Select>
                   {settings.mainBranch && (
                     <p className="text-xs text-muted-foreground">
-                      Tasks will be created on branches like <code className="px-1 bg-muted rounded">auto-claude/task-name</code> from <code className="px-1 bg-muted rounded">{settings.mainBranch}</code>
+                      {t('projectSettings.integration.tasksCreatedOnBranches')} <code className="px-1 bg-muted rounded">auto-claude/task-name</code> {t('projectSettings.integration.from')} <code className="px-1 bg-muted rounded">{settings.mainBranch}</code>
                     </p>
                   )}
                 </div>

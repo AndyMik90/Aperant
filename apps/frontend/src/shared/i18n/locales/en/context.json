@@ -1,0 +1,108 @@
+{
+  "tabs": {
+    "projectIndex": "Project Index",
+    "memories": "Memories"
+  },
+  "status": {
+    "title": "Graph Memory Status",
+    "connected": "Connected",
+    "notAvailable": "Not Available"
+  },
+  "stats": {
+    "total": "Total",
+    "prReviews": "PR Reviews",
+    "sessions": "Sessions",
+    "codebase": "Codebase",
+    "patterns": "Patterns",
+    "gotchas": "Gotchas"
+  },
+  "search": {
+    "title": "Search Memories",
+    "placeholder": "Search for patterns, insights, gotchas...",
+    "button": "Search"
+  },
+  "browser": {
+    "title": "Memory Browser",
+    "subtitle": "{{count}} memories"
+  },
+  "results": {
+    "score": "Score"
+  },
+  "empty": {
+    "noMemories": "No memories recorded yet. Memories are created during AI agent sessions and PR reviews.",
+    "noMemoriesForFilter": "No memories match the selected filter."
+  },
+  "filters": {
+    "showAll": "Show all memories",
+    "all": "All",
+    "pr": "PR Reviews",
+    "sessions": "Sessions",
+    "codebase": "Codebase",
+    "patterns": "Patterns",
+    "gotchas": "Gotchas"
+  },
+  "projectIndex": {
+    "title": "Project Structure",
+    "description": "AI-discovered knowledge about your codebase",
+    "refresh": "Refresh",
+    "refreshTooltip": "Re-analyze project structure",
+    "errorTitle": "Failed to load project index",
+    "noIndexTitle": "No Project Index Found",
+    "noIndexDescription": "Click the Refresh button to analyze your project structure and create an index.",
+    "analyzeProject": "Analyze Project",
+    "overview": "Overview",
+    "services": "Services",
+    "service": "service",
+    "servicesPlural": "services",
+    "infrastructure": "Infrastructure",
+    "dockerCompose": "Docker Compose",
+    "ciCd": "CI/CD",
+    "deployment": "Deployment",
+    "dockerServices": "Docker Services",
+    "conventions": "Conventions",
+    "pythonLinting": "Python Linting",
+    "jsLinting": "JS Linting",
+    "formatting": "Formatting",
+    "gitHooks": "Git Hooks",
+    "typescript": "TypeScript",
+    "enabled": "Enabled"
+  },
+  "memories": {
+    "title": "Graph Memory Status",
+    "connected": "Connected",
+    "notAvailable": "Not Available",
+    "database": "Database",
+    "path": "Path",
+    "total": "Total",
+    "prReviews": "PR Reviews",
+    "sessions": "Sessions",
+    "codebase": "Codebase",
+    "patterns": "Patterns",
+    "gotchas": "Gotchas",
+    "notConfigured": "Graphiti memory is not configured",
+    "enableInstructions": "To enable graph memory, set GRAPHITI_ENABLED=true in project settings.",
+    "searchTitle": "Search Memories",
+    "searchPlaceholder": "Search for patterns, insights, gotchas...",
+    "resultsFound": "{{count}} result found",
+    "resultsFoundPlural": "{{count}} results found",
+    "score": "Score",
+    "browserTitle": "Memory Browser",
+    "ofMemories": "{{filtered}} of {{total}} memories",
+    "noMemories": "No memories recorded yet. Memories are created during AI agent sessions and PR reviews.",
+    "noMatches": "No memories match the selected filter.",
+    "showAllMemories": "Show all memories"
+  },
+  "memoryCard": {
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "whatWorked": "What Worked",
+    "whatFailed": "What Failed",
+    "approach": "Approach",
+    "recommendations": "Recommendations",
+    "patterns": "Patterns",
+    "gotchas": "Gotchas",
+    "changedFiles": "Changed Files",
+    "fileInsights": "File Insights",
+    "subtasksCompleted": "Subtasks Completed"
+  }
+}

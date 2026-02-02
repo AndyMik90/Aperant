@@ -100,6 +100,7 @@
     "openaiGetKey": "Obtenez votre clé sur",
     "voyageApiKey": "Clé API Voyage AI",
     "voyageApiKeyDescription": "Requise pour les embeddings Voyage AI",
+    "voyageEmbeddingModel": "Modèle d'embedding",
     "googleApiKey": "Clé API Google AI",
     "googleApiKeyDescription": "Requise pour les embeddings Google AI",
     "azureConfig": "Configuration Azure OpenAI",
@@ -118,7 +119,16 @@
       "voyage": "Voyage AI",
       "google": "Google AI",
       "azure": "Azure OpenAI"
-    }
+    },
+    "ollamaConfig": "Configuration Ollama",
+    "checking": "Vérification...",
+    "connected": "Connecté",
+    "notRunning": "Non démarré",
+    "baseUrl": "URL de base",
+    "embeddingModel": "Modèle d'embedding",
+    "embeddingDim": "Dimension d'embedding",
+    "embeddingDimDescription": "Requis pour les embeddings Ollama (ex: 768 pour nomic-embed-text)",
+    "modelRecommendation": "Recommandé : qwen3-embedding:4b (équilibré), :8b (qualité), :0.6b (rapide)"
   },
   "completion": {
     "title": "Vous êtes prêt !",
@@ -152,6 +162,20 @@
     "privacy": "Confidentialité",
     "memory": "Mémoire",
     "done": "Terminé"
+  },
+  "authChoice": {
+    "title": "Choisissez votre méthode d'authentification",
+    "description": "Sélectionnez comment vous souhaitez vous authentifier avec Claude. Vous pouvez modifier cela plus tard dans les Paramètres.",
+    "oauth": {
+      "title": "Se connecter avec Anthropic",
+      "description": "Utilisez votre compte Anthropic pour vous authentifier. Flux OAuth simple et sécurisé."
+    },
+    "apiKey": {
+      "title": "Utiliser une clé API personnalisée",
+      "description": "Apportez votre propre clé API depuis Anthropic ou un fournisseur d'API compatible. ⚠️ Hautement expérimental — peut entraîner des coûts significatifs."
+    },
+    "info": "Les deux options offrent un accès complet aux fonctionnalités de Claude Code. Choisissez selon vos préférences.",
+    "skip": "Passer pour maintenant"
   },
   "privacy": {
     "title": "Aidez à améliorer Auto Claude",
@@ -239,5 +263,118 @@
       "retry": "Réessayer",
       "fallbackNote": "La mémoire fonctionnera toujours avec la recherche par mots-clés même sans embeddings."
     }
+  },
+  "graphiti": {
+    "title": "Mémoire & Contexte",
+    "description": "Activer Graphiti pour une mémoire persistante entre les sessions de codage",
+    "whatIsGraphiti": "Qu'est-ce que Graphiti ?",
+    "whatIsGraphitiDescription": "Graphiti est une couche de mémoire intelligente qui aide Auto Claude à retenir le contexte entre les sessions. Il utilise un graphe de connaissances pour stocker les découvertes, motifs et informations sur votre codebase.",
+    "benefits": {
+      "persistentMemory": "Mémoire persistante entre les sessions de codage",
+      "betterUnderstanding": "Meilleure compréhension de votre codebase au fil du temps",
+      "reducesRepetition": "Réduit les explications répétitives",
+      "noDocker": "Pas de Docker requis - utilise une base de données intégrée"
+    },
+    "learnMoreAboutGraphiti": "En savoir plus sur Graphiti",
+    "enableGraphitiMemory": "Activer la mémoire Graphiti",
+    "enableGraphitiDescription": "Utilise LadybugDB (intégré) et un fournisseur LLM/embedding",
+    "databaseName": "Nom de la base de données",
+    "databaseLocation": "Stocké dans ~/.auto-claude/graphs/",
+    "llmProvider": "Fournisseur LLM",
+    "embeddingProvider": "Fournisseur d'embeddings",
+    "testConnection": "Tester la connexion",
+    "testingConnection": "Test de la connexion...",
+    "allConnectionsValidated": "Toutes les connexions validées avec succès !",
+    "validationNote": "Note : La validation de clé API prend actuellement uniquement en charge OpenAI. Votre clé sera sauvegardée et utilisée lors de l'exécution.",
+    "ollamaValidationNote": "Note : La connexion Ollama sera testée en vérifiant si le serveur est accessible.",
+    "configuredSuccessfully": "Graphiti configuré avec succès",
+    "configuredSuccessfullyDescription": "Les fonctionnalités de mémoire sont activées. Auto Claude maintiendra le contexte entre les sessions pour une meilleure compréhension du code.",
+    "reconfigureSettings": "Reconfigurer les paramètres Graphiti",
+    "databaseAutoCreated": "La base de données sera créée automatiquement",
+    "databaseAutoCreatedDescription": "LadybugDB utilise une base de données intégrée - pas de Docker requis. La base de données sera créée lors de votre première utilisation des fonctionnalités de mémoire.",
+    "providers": {
+      "openai": {
+        "name": "OpenAI",
+        "description": "Modèles GPT (recommandé)",
+        "apiKey": "Clé API OpenAI",
+        "getYourKeyFrom": "Obtenez votre clé sur",
+        "keyLink": "OpenAI"
+      },
+      "anthropic": {
+        "name": "Anthropic",
+        "description": "Modèles Claude",
+        "apiKey": "Clé API Anthropic",
+        "getYourKeyFrom": "Obtenez votre clé sur",
+        "keyLink": "Console Anthropic"
+      },
+      "voyage": {
+        "name": "Voyage AI",
+        "description": "voyage-3 (excellent avec Anthropic)"
+      },
+      "google": {
+        "name": "Google AI",
+        "description": "Modèles Gemini",
+        "apiKey": "Clé API Google",
+        "getYourKeyFrom": "Obtenez votre clé sur",
+        "keyLink": "Google AI Studio"
+      },
+      "groq": {
+        "name": "Groq",
+        "description": "Modèles Llama (inférence rapide)",
+        "apiKey": "Clé API Groq",
+        "getYourKeyFrom": "Obtenez votre clé sur",
+        "keyLink": "Console Groq"
+      },
+      "openrouter": {
+        "name": "OpenRouter",
+        "description": "Agrégateur multi-fournisseurs",
+        "apiKey": "Clé API OpenRouter",
+        "getYourKeyFrom": "Obtenez votre clé sur",
+        "keyLink": "Tableau de bord OpenRouter"
+      },
+      "azure_openai": {
+        "name": "Azure OpenAI",
+        "description": "Déploiement Azure entreprise",
+        "apiKey": "Clé API",
+        "baseUrl": "URL de base",
+        "llmDeployment": "Nom du déploiement LLM",
+        "embeddingDeployment": "Nom du déploiement d'embedding"
+      },
+      "ollama": {
+        "name": "Ollama",
+        "description": "Modèles locaux (gratuit)",
+        "settings": "Paramètres Ollama (Local)",
+        "baseUrl": "URL de base",
+        "llmModel": "Modèle LLM",
+        "embeddingModel": "Modèle d'embedding",
+        "embeddingDimension": "Dimension d'embedding",
+        "ensureRunning": "Assurez-vous qu'Ollama fonctionne en local. Voir",
+        "link": "ollama.ai"
+      }
+    },
+    "voyage": {
+      "apiKey": "Clé API Voyage",
+      "getYourKeyFrom": "Obtenez votre clé sur",
+      "keyLink": "Voyage AI"
+    },
+    "placeholders": {
+      "openai": "sk-...",
+      "anthropic": "sk-ant-...",
+      "google": "AIza...",
+      "groq": "gsk_...",
+      "openrouter": "sk-or-...",
+      "voyage": "pa-...",
+      "azureApiKey": "Clé API Azure",
+      "azureBaseUrl": "https://your-resource.openai.azure.com",
+      "azureLlmDeployment": "gpt-4",
+      "azureEmbeddingDeployment": "text-embedding-ada-002",
+      "ollamaBaseUrl": "http://localhost:11434",
+      "ollamaLlmModel": "llama3.2, deepseek-r1:7b, etc.",
+      "ollamaEmbeddingModel": "nomic-embed-text",
+      "ollamaEmbeddingDim": "768",
+      "databaseName": "auto_claude_memory"
+    },
+    "ready": "Prêt",
+    "issue": "Problème"
   }
 }
