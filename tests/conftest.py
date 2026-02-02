@@ -157,6 +157,8 @@ def pytest_runtest_setup(item):
                     pass
 
 
+
+
 # =============================================================================
 # DIRECTORY FIXTURES
 # =============================================================================
@@ -1141,3 +1143,108 @@ def temp_project(temp_git_repo: Path):
     )
 
     return temp_git_repo
+
+
+# =============================================================================
+# WORKTREE MANAGER FIXTURES - For GitLab/GitHub integration tests
+# =============================================================================
+
+@pytest.fixture
+def temp_project_dir(tmp_path):
+    """Create a temporary project directory with proper git setup.
+
+    IMPORTANT: This fixture properly isolates git operations by passing
+    a sanitized environment to subprocess.run calls, clearing git environment
+    variables that may be set by pre-commit hooks. Without this isolation,
+    git operations could affect the parent repository when tests run inside
+    a git worktree (e.g., during pre-commit validation).
+
+    See: https://git-scm.com/docs/git#_environment_variables
+    """
+    project_dir = tmp_path / "test-project"
+    project_dir.mkdir()
+
+    # Create a sanitized environment for git commands to prevent leaking
+    # into parent repos when running inside git worktrees (e.g., pre-commit)
+    git_env = os.environ.copy()
+    git_vars_to_clear = [
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    ]
+    for var in git_vars_to_clear:
+        git_env.pop(var, None)
+
+    # Set GIT_CEILING_DIRECTORIES to prevent git from discovering parent .git
+    git_env["GIT_CEILING_DIRECTORIES"] = str(tmp_path.parent)
+
+    # Initialize git repo
+    subprocess.run(
+        ["git", "init"],
+        cwd=project_dir,
+        capture_output=True,
+        check=True,
+        env=git_env,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test User"],
+        cwd=project_dir,
+        capture_output=True,
+        check=True,
+        env=git_env,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        cwd=project_dir,
+        capture_output=True,
+        check=True,
+        env=git_env,
+    )
+
+    # Disable GPG signing to prevent hangs in CI
+    subprocess.run(
+        ["git", "config", "commit.gpgsign", "false"],
+        cwd=project_dir,
+        capture_output=True,
+        check=True,
+        env=git_env,
+    )
+
+    # Create initial commit
+    readme = project_dir / "README.md"
+    readme.write_text("# Test Project\n")
+    subprocess.run(
+        ["git", "add", "README.md"],
+        cwd=project_dir,
+        capture_output=True,
+        check=True,
+        env=git_env,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "Initial commit"],
+        cwd=project_dir,
+        capture_output=True,
+        check=True,
+        env=git_env,
+    )
+
+    return project_dir
+
+
+@pytest.fixture
+def worktree_manager(temp_project_dir):
+    """Create a WorktreeManager instance."""
+    from core.worktree import WorktreeManager
+
+    # Create .auto-claude directories
+    auto_claude_dir = temp_project_dir / ".auto-claude"
+    auto_claude_dir.mkdir(exist_ok=True)
+    (auto_claude_dir / "specs").mkdir(exist_ok=True)
+    (auto_claude_dir / "worktrees" / "tasks").mkdir(parents=True, exist_ok=True)
+
+    return WorktreeManager(
+        project_dir=temp_project_dir,
+        base_branch="main",
+    )

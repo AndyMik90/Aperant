@@ -3,6 +3,7 @@
  */
 
 import type { IPCResult } from './common';
+import type { KanbanPreferences } from './kanban';
 import type { SupportedIDE, SupportedTerminal } from './settings';
 import type {
   Project,
@@ -44,7 +45,9 @@ import type {
   TaskMetadata,
   TaskLogs,
   TaskLogStreamChunk,
-  ImageAttachment
+  ImageAttachment,
+  ReviewReason,
+  MergeProgress
 } from './task';
 import type {
   TerminalCreateOptions,
@@ -136,7 +139,6 @@ import type {
   GitLabNewCommitsCheck
 } from './integrations';
 import type { APIProfile, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from './profile';
-import type { KanbanPreferences } from './kanban';
 
 // Electron API exposed via contextBridge
 // Tab state interface (persisted in main process)
@@ -159,7 +161,7 @@ export interface ElectronAPI {
   getTabState: () => Promise<IPCResult<TabState>>;
   saveTabState: (tabState: TabState) => Promise<IPCResult>;
 
-  // Kanban Preferences (persisted in main process per project)
+  // Kanban preferences (per-project column collapse state)
   getKanbanPreferences: (projectId: string) => Promise<IPCResult<KanbanPreferences | null>>;
   saveKanbanPreferences: (projectId: string, preferences: KanbanPreferences) => Promise<IPCResult>;
 
@@ -186,6 +188,7 @@ export interface ElectronAPI {
   mergeWorktreePreview: (taskId: string) => Promise<IPCResult<WorktreeMergeResult>>;
   createWorktreePR: (taskId: string, options?: WorktreeCreatePROptions) => Promise<IPCResult<WorktreeCreatePRResult>>;
   discardWorktree: (taskId: string, skipStatusChange?: boolean) => Promise<IPCResult<WorktreeDiscardResult>>;
+  discardOrphanedWorktree: (projectId: string, specName: string) => Promise<IPCResult<WorktreeDiscardResult>>;
   clearStagedState: (taskId: string) => Promise<IPCResult<{ cleared: boolean }>>;
   listWorktrees: (projectId: string, options?: { includeStats?: boolean }) => Promise<IPCResult<WorktreeListResult>>;
   worktreeOpenInIDE: (worktreePath: string, ide: SupportedIDE, customPath?: string) => Promise<IPCResult<{ opened: boolean }>>;
@@ -197,11 +200,11 @@ export interface ElectronAPI {
   unarchiveTasks: (projectId: string, taskIds: string[]) => Promise<IPCResult<boolean>>;
 
   // Event listeners
-  onTaskProgress: (callback: (taskId: string, plan: ImplementationPlan) => void) => () => void;
-  onTaskError: (callback: (taskId: string, error: string) => void) => () => void;
-  onTaskLog: (callback: (taskId: string, log: string) => void) => () => void;
-  onTaskStatusChange: (callback: (taskId: string, status: TaskStatus) => void) => () => void;
-  onTaskExecutionProgress: (callback: (taskId: string, progress: ExecutionProgress) => void) => () => void;
+  onTaskProgress: (callback: (taskId: string, plan: ImplementationPlan, projectId?: string) => void) => () => void;
+  onTaskError: (callback: (taskId: string, error: string, projectId?: string) => void) => () => void;
+  onTaskLog: (callback: (taskId: string, log: string, projectId?: string) => void) => () => void;
+  onTaskStatusChange: (callback: (taskId: string, status: TaskStatus, projectId?: string, reviewReason?: ReviewReason) => void) => () => void;
+  onTaskExecutionProgress: (callback: (taskId: string, progress: ExecutionProgress, projectId?: string) => void) => () => void;
 
   // Terminal operations
   createTerminal: (options: TerminalCreateOptions) => Promise<IPCResult>;
@@ -341,6 +344,9 @@ export interface ElectronAPI {
   getSettings: () => Promise<IPCResult<AppSettings>>;
   saveSettings: (settings: Partial<AppSettings>) => Promise<IPCResult>;
 
+  // Spell check
+  setSpellCheckLanguages: (language: string) => Promise<IPCResult<{ success: boolean }>>;
+
   // Sentry error reporting
   notifySentryStateChanged: (enabled: boolean) => void;
   getSentryDsn: () => Promise<string>;
@@ -350,6 +356,7 @@ export interface ElectronAPI {
     python: import('./cli').ToolDetectionResult;
     git: import('./cli').ToolDetectionResult;
     gh: import('./cli').ToolDetectionResult;
+    glab: import('./cli').ToolDetectionResult;
     claude: import('./cli').ToolDetectionResult;
   }>>;
   /** Check if Claude Code onboarding is complete (reads ~/.claude.json) */
@@ -770,6 +777,9 @@ export interface ElectronAPI {
   ) => () => void;
   onTaskLogsStream: (
     callback: (specId: string, chunk: TaskLogStreamChunk) => void
+  ) => () => void;
+  onMergeProgress: (
+    callback: (taskId: string, progress: MergeProgress) => void
   ) => () => void;
 
   // File explorer operations
