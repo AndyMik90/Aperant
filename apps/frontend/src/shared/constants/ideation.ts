@@ -3,6 +3,11 @@
  * Types, categories, and configuration for AI-generated project improvements
  */
 
+import type { TFunction } from 'i18next';
+
+// Type alias for translation function
+type TranslationFunction = TFunction;
+
 // ============================================
 // Ideation Types
 // ============================================
@@ -27,6 +32,34 @@ export const IDEATION_TYPE_DESCRIPTIONS: Record<string, string> = {
   performance_optimizations: 'Performance bottlenecks and optimization opportunities',
   code_quality: 'Refactoring opportunities, large files, code smells, and best practice violations'
 };
+
+/**
+ * Get translated ideation type labels
+ * @param t - i18n translation function
+ * @returns Record of type keys to translated labels
+ */
+export const getIdeationTypeLabels = (t: TranslationFunction): Record<string, string> => ({
+  code_improvements: t('ideation:types.code_improvements'),
+  ui_ux_improvements: t('ideation:types.ui_ux_improvements'),
+  documentation_gaps: t('ideation:types.documentation_gaps'),
+  security_hardening: t('ideation:types.security_hardening'),
+  performance_optimizations: t('ideation:types.performance_optimizations'),
+  code_quality: t('ideation:types.code_quality')
+});
+
+/**
+ * Get translated ideation type descriptions
+ * @param t - i18n translation function
+ * @returns Record of type keys to translated descriptions
+ */
+export const getIdeationTypeDescriptions = (t: TranslationFunction): Record<string, string> => ({
+  code_improvements: t('ideation:typeDescriptions.code_improvements'),
+  ui_ux_improvements: t('ideation:typeDescriptions.ui_ux_improvements'),
+  documentation_gaps: t('ideation:typeDescriptions.documentation_gaps'),
+  security_hardening: t('ideation:typeDescriptions.security_hardening'),
+  performance_optimizations: t('ideation:typeDescriptions.performance_optimizations'),
+  code_quality: t('ideation:typeDescriptions.code_quality')
+});
 
 // Ideation type colors
 export const IDEATION_TYPE_COLORS: Record<string, string> = {
