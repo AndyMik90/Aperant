@@ -571,9 +571,7 @@ class SpecialistResponse(BaseModel):
     specialist_name: str = Field(
         description="Name of the specialist (security, quality, logic, codebase-fit)"
     )
-    analysis_summary: str = Field(
-        description="Brief summary of what was analyzed"
-    )
+    analysis_summary: str = Field(description="Brief summary of what was analyzed")
     files_examined: list[str] = Field(
         default_factory=list,
         description="List of files that were examined",
