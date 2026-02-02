@@ -234,8 +234,8 @@
             "command": "cd apps/frontend && npm test -- task-store-persistence.test.ts",
             "expected": "All tests pass"
           },
-          "notes": "Test: 1) Logs persist across store recreation, 2) Task state hydration from IPC, 3) Verification mode activation logic",
-          "status": "pending"
+          "notes": "Completed: Created comprehensive test suite with 24 tests covering: 1) Log persistence across store recreation and IPC hydration, 2) Batch append and individual log operations, 3) State hydration from IPC with error handling and loading states, 4) Verification mode activation logic, 5) Execution progress updates and phase transitions, 6) Task creation and store state management. All tests pass successfully. Follows existing test patterns from terminal-font-settings-store.",
+          "status": "completed"
         },
         {
           "id": "subtask-4-2",
@@ -253,8 +253,8 @@
             "command": "cd apps/frontend && npm test -- logs-integration.test.ts",
             "expected": "All tests pass"
           },
-          "notes": "Mock task_logs.json file, verify IPC handler correctly loads and returns logs to renderer",
-          "status": "pending"
+          "notes": "Completed: Created comprehensive integration test suite with 17 tests covering: 1) TASK_LOGS_GET handler with successful load, path normalization (relative→absolute), and error scenarios (project not found, spec not found, service errors, empty logs), 2) TASK_LOGS_WATCH handler with watch lifecycle, error handling (missing project/spec, watch failures), 3) TASK_LOGS_UNWATCH handler, 4) Path resolution consistency (regression test for #1657) verifying relative paths resolve to same absolute path across multiple calls, 5) Event forwarding from service to renderer (logs-changed, stream-chunk events) with null window handling. All 17 tests pass successfully. Follows existing test patterns from worktree-branch-validation.test.ts.",
+          "status": "completed"
         },
         {
           "id": "subtask-4-3",
@@ -393,7 +393,7 @@
   "executionPhase": "coding",
   "status": "in_progress",
   "planStatus": "in_progress",
-  "updated_at": "2026-02-01T21:19:25.256Z",
+  "updated_at": "2026-02-02T11:53:12.913Z",
   "xstateState": "coding",
   "lastEvent": {
     "eventId": "d90bb954-4492-4dfe-a65d-07bce6f1ebe9",
