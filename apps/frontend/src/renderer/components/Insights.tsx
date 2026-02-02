@@ -108,7 +108,6 @@ export function Insights({ projectId }: InsightsProps) {
   const [isUserAtBottom, setIsUserAtBottom] = useState(true);
   const [viewportEl, setViewportEl] = useState<HTMLElement | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Scroll threshold in pixels - user is considered "at bottom" if within this distance
@@ -151,7 +150,7 @@ export function Insights({ projectId }: InsightsProps) {
     if (isUserAtBottom && viewportEl) {
       viewportEl.scrollTop = viewportEl.scrollHeight;
     }
-  }, [session?.messages, streamingContent, isUserAtBottom, viewportEl]);
+  }, [isUserAtBottom, viewportEl]);
 
   // Focus textarea on mount
   useEffect(() => {
@@ -591,6 +590,7 @@ function ToolUsageHistory({ tools }: ToolUsageHistoryProps) {
   return (
     <div className="mt-2">
       <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
         className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >

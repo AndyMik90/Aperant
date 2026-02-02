@@ -87,9 +87,9 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
                 variant="outline"
                 className={cn('text-xs', TASK_CATEGORY_COLORS[task.metadata.category])}
               >
-                {CategoryIcon[task.metadata.category] && (() => {
-                  const Icon = CategoryIcon[task.metadata.category!];
-                  return <Icon className="h-3 w-3 mr-1" />;
+                {(() => {
+                  const Icon = CategoryIcon[task.metadata.category];
+                  return Icon ? <Icon className="h-3 w-3 mr-1" /> : null;
                 })()}
                 {TASK_CATEGORY_LABELS[task.metadata.category]}
               </Badge>
@@ -212,29 +212,32 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
               </h3>
               <ul className="text-sm text-foreground/80 list-disc list-inside space-y-0.5">
                 {task.metadata.dependencies.map((dep, idx) => (
-                  <li key={idx}>{dep}</li>
+                  <li key={`dep-${idx}-${dep}`}>{dep}</li>
                 ))}
               </ul>
             </div>
           )}
 
           {/* Pull Request */}
-          {task.metadata.prUrl && (
-            <div>
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-                <GitPullRequest className="h-3 w-3 text-info" />
-                {t('tasks:metadata.pullRequest')}
-              </h3>
-              <button
-                type="button"
-                onClick={() => window.electronAPI.openExternal(task.metadata!.prUrl!)}
-                className="text-sm text-info hover:underline flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-left"
-              >
-                {task.metadata.prUrl}
-                <ExternalLink className="h-3 w-3" />
-              </button>
-            </div>
-          )}
+          {task.metadata?.prUrl && (() => {
+            const prUrl = task.metadata.prUrl;
+            return (
+              <div>
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                  <GitPullRequest className="h-3 w-3 text-info" />
+                  {t('tasks:metadata.pullRequest')}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => window.electronAPI.openExternal(prUrl)}
+                  className="text-sm text-info hover:underline flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-left"
+                >
+                  {prUrl}
+                  <ExternalLink className="h-3 w-3" />
+                </button>
+              </div>
+            );
+          })()}
 
           {/* Acceptance Criteria */}
           {task.metadata.acceptanceCriteria && task.metadata.acceptanceCriteria.length > 0 && (
@@ -245,7 +248,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
               </h3>
               <ul className="text-sm text-foreground/80 list-disc list-inside space-y-0.5">
                 {task.metadata.acceptanceCriteria.map((criteria, idx) => (
-                  <li key={idx}>{criteria}</li>
+                  <li key={`criteria-${idx}-${criteria}`}>{criteria}</li>
                 ))}
               </ul>
             </div>
@@ -260,7 +263,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
               </h3>
               <div className="flex flex-wrap gap-1">
                 {task.metadata.affectedFiles.map((file, idx) => (
-                  <Tooltip key={idx}>
+                  <Tooltip key={`file-${idx}-${file}`}>
                     <TooltipTrigger asChild>
                       <Badge variant="secondary" className="text-xs font-mono cursor-help">
                         {file.split('/').pop()}
