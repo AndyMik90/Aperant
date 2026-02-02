@@ -13,12 +13,55 @@ environment at the start of each prompt in the "YOUR ENVIRONMENT" section. Pay c
 
 - **Working Directory**: This is your root - all paths are relative to here
 - **Spec Location**: Where your spec files live (usually `./auto-claude/specs/{spec-name}/`)
+- **Isolation Mode**: If present, you are in an isolated worktree (see below)
 
 **RULES:**
 1. ALWAYS use relative paths starting with `./`
-2. NEVER use absolute paths (like `/Users/...`)
+2. NEVER use absolute paths (like `/Users/...` or `/e/projects/...`)
 3. NEVER assume paths exist - check with `ls` first
 4. If a file doesn't exist where expected, check the spec location from YOUR ENVIRONMENT section
+
+---
+
+## ⛔ WORKTREE ISOLATION (When Applicable)
+
+If your environment shows **"Isolation Mode: WORKTREE"**, you are working in an **isolated git worktree**.
+This is a complete copy of the project created for safe, isolated development.
+
+### Critical Rules for Worktree Mode:
+
+1. **NEVER navigate to the parent project path** shown in "FORBIDDEN PATH"
+   - If you see `cd /path/to/main/project` in your context, DO NOT run it
+   - The parent project is OFF LIMITS
+
+2. **All files exist locally via relative paths**
+   - `./prod/...` ✅ CORRECT
+   - `/path/to/main/project/prod/...` ❌ WRONG (escapes isolation)
+
+3. **Git commits in the wrong location = disaster**
+   - Commits made after escaping go to the WRONG branch
+   - This defeats the entire isolation system
+
+### Why You Might Be Tempted to Escape:
+
+You may see absolute paths like `/e/projects/myapp/prod/src/file.ts` in:
+- `spec.md` (file references)
+- `context.json` (discovered files)
+- Error messages
+
+**DO NOT** `cd` to these paths. Instead, convert them to relative paths:
+- `/e/projects/myapp/prod/src/file.ts` → `./prod/src/file.ts`
+
+### Quick Check:
+
+```bash
+# Verify you're still in the worktree
+pwd
+# Should show: .../.auto-claude/worktrees/tasks/{spec-name}/
+# Or (legacy): .../.worktrees/{spec-name}/
+# Or (PR review): .../.auto-claude/github/pr/worktrees/{pr-number}/
+# NOT: /path/to/main/project
+```
 
 ---
 
@@ -81,65 +124,6 @@ git add [verified-path]
 ```
 
 **This check takes 2 seconds and prevents hours of debugging.**
-
----
-
-## 🚨 CRITICAL: WORKTREE ISOLATION 🚨
-
-**You may be in an ISOLATED GIT WORKTREE environment.**
-
-Check the "YOUR ENVIRONMENT" section at the top of this prompt. If you see an
-**"ISOLATED WORKTREE - CRITICAL"** section, you are in a worktree.
-
-### What is a Worktree?
-
-A worktree is a **complete copy of the project** isolated from the main project.
-This allows safe development without affecting the main branch.
-
-### Worktree Rules (CRITICAL)
-
-**If you are in a worktree, the environment section will show:**
-
-* **YOUR LOCATION:** The path to your isolated worktree
-* **FORBIDDEN:** The parent project path you must NEVER `cd` to
-
-**CRITICAL RULES:**
-* **NEVER** `cd` to the forbidden parent path
-* **NEVER** use `cd ../..` to escape the worktree
-* **STAY** within your working directory at all times
-* **ALL** file operations use paths relative to your current location
-
-### Why This Matters
-
-Escaping the worktree causes:
-* ❌ Git commits going to the wrong branch
-* ❌ Files created/modified in the wrong location
-* ❌ Breaking worktree isolation guarantees
-* ❌ Losing the safety of isolated development
-
-### How to Stay Safe
-
-**Before ANY `cd` command:**
-
-```bash
-# 1. Check where you are
-pwd
-
-# 2. Verify the target is within your worktree
-# If pwd shows: /path/to/.auto-claude/worktrees/tasks/spec-name/
-# Then: cd ./apps/backend  ✅ SAFE
-# But:  cd /path/to/parent/project  ❌ FORBIDDEN - ESCAPES ISOLATION
-
-# 3. When in doubt, don't use cd at all
-# Use relative paths from your current directory instead
-git add ./apps/backend/file.py  # Works from anywhere in worktree
-```
-
-### The Golden Rule in Worktrees
-
-**If you're in a worktree, pretend the parent project doesn't exist.**
-
-Everything you need is in your worktree, accessible via relative paths.
 
 ---
 

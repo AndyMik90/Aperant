@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Settings, ListPlus, ChevronLeft, ChevronRight, ChevronsRight, Lock, Unlock } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Settings, ListPlus, ChevronLeft, ChevronRight, ChevronsRight, Lock, Unlock, Trash2 } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
@@ -29,12 +29,22 @@ import { SortableTaskCard } from './SortableTaskCard';
 import { QueueSettingsModal } from './QueueSettingsModal';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, forceCompleteTask, archiveTasks, useTaskStore } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, archiveTasks, deleteTasks, useTaskStore } from '../stores/task-store';
 import { updateProjectSettings, useProjectStore } from '../stores/project-store';
 import { useKanbanSettingsStore, COLLAPSED_COLUMN_WIDTH, DEFAULT_COLUMN_WIDTH, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH } from '../stores/kanban-settings-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import { BulkPRDialog } from './BulkPRDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
 import type { Task, TaskStatus, TaskOrderState } from '../../shared/types';
 
 // Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
@@ -226,12 +236,11 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
     id: status
   });
 
-  // Calculate selection state for human_review column
-  const isHumanReview = status === 'human_review';
-  const selectedCount = selectedTaskIds?.size ?? 0;
+  // Calculate selection state for this column
   const taskCount = tasks.length;
-  const isAllSelected = isHumanReview && taskCount > 0 && selectedCount === taskCount;
-  const isSomeSelected = isHumanReview && selectedCount > 0 && selectedCount < taskCount;
+  const columnSelectedCount = tasks.filter(t => selectedTaskIds?.has(t.id)).length;
+  const isAllSelected = taskCount > 0 && columnSelectedCount === taskCount;
+  const isSomeSelected = columnSelectedCount > 0 && columnSelectedCount < taskCount;
 
   // Determine checkbox checked state: true (all), 'indeterminate' (some), false (none)
   const selectAllCheckedState: boolean | 'indeterminate' = isAllSelected
@@ -270,7 +279,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
     return handlers;
   }, [tasks, onStatusChange]);
 
-  // Create stable onToggleSelect handlers for each task (only for human_review column)
+  // Create stable onToggleSelect handlers for each task (for bulk selection)
   const onToggleSelectHandlers = useMemo(() => {
     if (!onToggleSelect) return null;
     const handlers = new Map<string, () => void>();
@@ -406,8 +415,8 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
               </TooltipContent>
             </Tooltip>
           )}
-          {/* Select All checkbox for human_review column */}
-          {isHumanReview && onSelectAll && onDeselectAll && (
+          {/* Select All checkbox for column */}
+          {onSelectAll && onDeselectAll && (
             <Tooltip delayDuration={200}>
               <TooltipTrigger asChild>
                 <div className="flex items-center">
@@ -670,6 +679,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Bulk PR dialog state
   const [bulkPRDialogOpen, setBulkPRDialogOpen] = useState(false);
 
+  // Delete confirmation dialog state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Worktree cleanup dialog state
   const [worktreeCleanupDialog, setWorktreeCleanupDialog] = useState<{
     open: boolean;
@@ -789,16 +802,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     return grouped;
   }, [filteredTasks, taskOrder]);
 
-  // Prune stale IDs when tasks move out of human_review column
+  // Prune stale IDs when tasks are deleted or filtered out
   useEffect(() => {
-    const validIds = new Set(tasksByStatus.human_review.map(t => t.id));
+    const allTaskIds = new Set(filteredTasks.map(t => t.id));
     setSelectedTaskIds(prev => {
-      const filtered = new Set([...prev].filter(id => validIds.has(id)));
+      const filtered = new Set([...prev].filter(id => allTaskIds.has(id)));
       return filtered.size === prev.size ? prev : filtered;
     });
-  }, [tasksByStatus.human_review]);
+  }, [filteredTasks]);
 
-  // Selection callbacks for bulk actions (Human Review column)
+  // Selection callbacks for bulk actions (all columns)
   const toggleTaskSelection = useCallback((taskId: string) => {
     setSelectedTaskIds(prev => {
       const next = new Set(prev);
@@ -811,20 +824,27 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     });
   }, []);
 
-  const selectAllTasks = useCallback(() => {
-    const humanReviewTasks = tasksByStatus.human_review;
-    const allIds = new Set(humanReviewTasks.map(t => t.id));
-    setSelectedTaskIds(allIds);
-  }, [tasksByStatus.human_review]);
+  const selectAllTasks = useCallback((columnStatus?: typeof TASK_STATUS_COLUMNS[number]) => {
+    if (columnStatus) {
+      // Select all in specific column
+      const columnTasks = tasksByStatus[columnStatus] || [];
+      const columnIds = new Set(columnTasks.map((t: Task) => t.id));
+      setSelectedTaskIds(prev => new Set<string>([...prev, ...columnIds]));
+    } else {
+      // Select all across all columns
+      const allIds = new Set(filteredTasks.map(t => t.id));
+      setSelectedTaskIds(allIds);
+    }
+  }, [tasksByStatus, filteredTasks]);
 
   const deselectAllTasks = useCallback(() => {
     setSelectedTaskIds(new Set());
   }, []);
 
-  // Get selected task objects for the BulkPRDialog
+  // Get selected task objects for bulk actions
   const selectedTasks = useMemo(() => {
-    return tasksByStatus.human_review.filter(task => selectedTaskIds.has(task.id));
-  }, [tasksByStatus.human_review, selectedTaskIds]);
+    return filteredTasks.filter(task => selectedTaskIds.has(task.id));
+  }, [filteredTasks, selectedTaskIds]);
 
   // Handle opening the bulk PR dialog
   const handleOpenBulkPRDialog = useCallback(() => {
@@ -837,6 +857,43 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const handleBulkPRComplete = useCallback(() => {
     deselectAllTasks();
   }, [deselectAllTasks]);
+
+  // Handle opening delete confirmation dialog
+  const handleOpenDeleteConfirm = useCallback(() => {
+    if (selectedTaskIds.size > 0) {
+      setDeleteConfirmOpen(true);
+    }
+  }, [selectedTaskIds.size]);
+
+  // Handle confirmed bulk delete
+  const handleConfirmDelete = useCallback(async () => {
+    if (selectedTaskIds.size === 0) return;
+
+    setIsDeleting(true);
+    const taskIdsToDelete = Array.from(selectedTaskIds);
+    const result = await deleteTasks(taskIdsToDelete);
+
+    setIsDeleting(false);
+    setDeleteConfirmOpen(false);
+
+    if (result.success) {
+      toast({
+        title: t('kanban.deleteSuccess', { count: taskIdsToDelete.length }),
+      });
+      deselectAllTasks();
+    } else {
+      toast({
+        title: t('kanban.deleteError'),
+        description: result.error,
+        variant: 'destructive',
+      });
+      // Still clear selection for successfully deleted tasks
+      if (result.failedIds) {
+        const remainingIds = new Set(result.failedIds);
+        setSelectedTaskIds(remainingIds);
+      }
+    }
+  }, [selectedTaskIds, deselectAllTasks, toast, t]);
 
   const handleArchiveAll = async () => {
     // Get projectId from the first task (all tasks should have the same projectId)
@@ -1445,10 +1502,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               archivedCount={status === 'done' ? archivedCount : undefined}
               showArchived={status === 'done' ? showArchived : undefined}
               onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
-              selectedTaskIds={status === 'human_review' ? selectedTaskIds : undefined}
-              onSelectAll={status === 'human_review' ? selectAllTasks : undefined}
-              onDeselectAll={status === 'human_review' ? deselectAllTasks : undefined}
-              onToggleSelect={status === 'human_review' ? toggleTaskSelection : undefined}
+              selectedTaskIds={selectedTaskIds}
+              onSelectAll={() => selectAllTasks(status)}
+              onDeselectAll={deselectAllTasks}
+              onToggleSelect={toggleTaskSelection}
               isCollapsed={columnPreferences?.[status]?.isCollapsed}
               onToggleCollapsed={() => handleToggleColumnCollapsed(status)}
               columnWidth={columnPreferences?.[status]?.width}
@@ -1490,6 +1547,15 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
             <Button
               variant="ghost"
               size="sm"
+              className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={handleOpenDeleteConfirm}
+            >
+              <Trash2 className="h-4 w-4" />
+              {t('kanban.deleteSelected')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               className="gap-2 text-muted-foreground hover:text-foreground"
               onClick={deselectAllTasks}
             >
@@ -1499,6 +1565,64 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           </div>
         </div>
       )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent className="sm:max-w-[500px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              {t('kanban.deleteConfirmTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('kanban.deleteConfirmDescription')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {/* Task List Preview */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">{t('kanban.tasksToDelete')}</label>
+            <ScrollArea className="h-32 rounded-md border border-border p-2">
+              <div className="space-y-1">
+                {selectedTasks.map((task, idx) => (
+                  <div
+                    key={task.id}
+                    className="flex items-center gap-2 text-sm py-1 px-2 rounded hover:bg-muted/50"
+                  >
+                    <span className="text-muted-foreground">{idx + 1}.</span>
+                    <span className="truncate">{task.title}</span>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Warning message */}
+          <p className="text-sm text-destructive">
+            {t('kanban.deleteWarning')}
+          </p>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              {t('common:buttons.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t('common:buttons.deleting')}
+                </>
+              ) : (
+                t('kanban.deleteConfirmButton', { count: selectedTaskIds.size })
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Worktree cleanup confirmation dialog */}
       <WorktreeCleanupDialog

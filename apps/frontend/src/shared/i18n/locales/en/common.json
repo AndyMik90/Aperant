@@ -80,7 +80,8 @@
     "apply": "Apply",
     "gotIt": "Got it",
     "continue": "Continue",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "deleting": "Deleting..."
   },
   "actions": {
     "save": "Save",
@@ -105,7 +106,8 @@
     "optional": "Optional",
     "required": "Required",
     "dismiss": "Dismiss",
-    "important": "Important"
+    "important": "Important",
+    "orphaned": "(orphaned)"
   },
   "selection": {
     "select": "Select",
@@ -134,6 +136,11 @@
     "failedToDeleteTaskWorktree": "Failed to delete task worktree: {{specName}}",
     "terminalWorktreeNotFound": "Terminal worktree not found: {{name}}",
     "failedToDeleteTerminalWorktree": "Failed to delete terminal worktree: {{name}}"
+  },
+  "worktrees": {
+    "deleteSuccess": "Worktree '{{branch}}' deleted successfully",
+    "bulkDeleteSuccess": "{{count}} worktree deleted successfully",
+    "bulkDeleteSuccess_plural": "{{count}} worktrees deleted successfully"
   },
   "notification": {
     "accountSwitched": "Account Switched",

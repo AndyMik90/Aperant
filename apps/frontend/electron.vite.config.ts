@@ -43,7 +43,9 @@ export default defineConfig({
         'debug',
         'ms',
         // Minimatch for glob pattern matching in worktree handlers
-        'minimatch'
+        'minimatch',
+        // XState for task state machine
+        'xstate'
       ]
     })],
     build: {

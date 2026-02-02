@@ -396,8 +396,14 @@ class GitHubOrchestrator:
                         # No existing review found, create skip result
                         return await self._create_skip_result(pr_number, skip_reason)
                 else:
-                    # For other skip reasons (bot-authored, cooling off), create a skip result
+                    # For other skip reasons (bot-authored, cooling off, in-progress), create a skip result
                     return await self._create_skip_result(pr_number, skip_reason)
+
+            # Mark review as started (prevents concurrent reviews)
+            self.bot_detector.mark_review_started(pr_number)
+            safe_print(
+                f"[BOT DETECTION] Marked PR #{pr_number} review as started", flush=True
+            )
 
             self._report_progress(
                 "analyzing", 30, "Running multi-pass review...", pr_number=pr_number
@@ -572,6 +578,13 @@ class GitHubOrchestrator:
         except Exception as e:
             import traceback
 
+            # Mark review as finished with error
+            self.bot_detector.mark_review_finished(pr_number, success=False)
+            safe_print(
+                f"[BOT DETECTION] Marked PR #{pr_number} review as finished (error)",
+                flush=True,
+            )
+
             # Log full exception details for debugging
             error_details = f"{type(e).__name__}: {e}"
             full_traceback = traceback.format_exc()
@@ -632,6 +645,13 @@ class GitHubOrchestrator:
             10,
             f"Gathering follow-up context for PR #{pr_number}...",
             pr_number=pr_number,
+        )
+
+        # Mark review as started (prevents concurrent reviews)
+        self.bot_detector.mark_review_started(pr_number)
+        safe_print(
+            f"[BOT DETECTION] Marked PR #{pr_number} follow-up review as started",
+            flush=True,
         )
 
         try:
@@ -956,6 +976,13 @@ class GitHubOrchestrator:
             return result
 
         except Exception as e:
+            # Mark review as finished with error
+            self.bot_detector.mark_review_finished(pr_number, success=False)
+            safe_print(
+                f"[BOT DETECTION] Marked PR #{pr_number} follow-up review as finished (error)",
+                flush=True,
+            )
+
             result = PRReviewResult(
                 pr_number=pr_number,
                 repo=self.config.repo,

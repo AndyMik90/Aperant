@@ -18,6 +18,7 @@ import logging
 from .conflict_detector import ConflictDetector
 from .conflict_resolver import ConflictResolver
 from .file_merger import apply_single_task_changes, combine_non_conflicting_changes
+from .progress import MergeProgressCallback, MergeProgressStage
 from .types import (
     ChangeType,
     FileAnalysis,
@@ -57,6 +58,7 @@ class MergePipeline:
         file_path: str,
         baseline_content: str,
         task_snapshots: list[TaskSnapshot],
+        progress_callback: MergeProgressCallback | None = None,
     ) -> MergeResult:
         """
         Merge changes from multiple tasks for a single file.
@@ -65,12 +67,22 @@ class MergePipeline:
             file_path: Path to the file
             baseline_content: Original baseline content
             task_snapshots: Snapshots from tasks that modified this file
+            progress_callback: Optional callback for emitting per-file progress
+                within the 'resolving' stage (50-75% range)
 
         Returns:
             MergeResult with merged content or conflict info
         """
         task_ids = [s.task_id for s in task_snapshots]
         logger.info(f"Merging {file_path} with {len(task_snapshots)} task(s)")
+
+        if progress_callback:
+            progress_callback(
+                stage=MergeProgressStage.RESOLVING,
+                percent=50,
+                message=f"Merging file: {file_path}",
+                details={"current_file": file_path},
+            )
 
         # If only one task modified the file, no conflict possible
         if len(task_snapshots) == 1:
@@ -119,6 +131,7 @@ class MergePipeline:
             baseline_content=baseline_content,
             task_snapshots=task_snapshots,
             conflicts=conflicts,
+            progress_callback=progress_callback,
         )
 
     def _build_task_analyses(

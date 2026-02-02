@@ -16,9 +16,9 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import type { Project } from '../../../../shared/types';
-import type { AuthFailureInfo } from '../../../../shared/types/terminal';
+import type { AuthFailureInfo, BillingFailureInfo } from '../../../../shared/types/terminal';
 import { parsePythonCommand } from '../../../python-detector';
-import { detectAuthFailure } from '../../../rate-limit-detector';
+import { detectAuthFailure, detectBillingFailure } from '../../../rate-limit-detector';
 import { getClaudeProfileManager } from '../../../claude-profile-manager';
 import { isWindows, isMacOS } from '../../../platform';
 
@@ -68,6 +68,8 @@ export interface SubprocessOptions {
   onError?: (error: string) => void;
   /** Callback when auth failure (401) is detected in output */
   onAuthFailure?: (authFailureInfo: AuthFailureInfo) => void;
+  /** Callback when billing/credit exhaustion failure is detected in output */
+  onBillingFailure?: (billingFailureInfo: BillingFailureInfo) => void;
   progressPattern?: RegExp;
   /** Additional environment variables to pass to the subprocess */
   env?: Record<string, string>;
@@ -130,6 +132,8 @@ export function runPythonSubprocess<T = unknown>(
     let stderr = '';
     let authFailureEmitted = false; // Track if we've already emitted an auth failure
     let killedDueToAuthFailure = false; // Track if subprocess was killed due to auth failure
+    let billingFailureEmitted = false; // Track if we've already emitted a billing failure
+    let killedDueToBillingFailure = false; // Track if subprocess was killed due to billing failure
 
     // Default progress pattern: [ 30%] message OR [30%] message
     const progressPattern = options.progressPattern ?? /\[\s*(\d+)%\]\s*(.+)/;
@@ -193,6 +197,65 @@ export function runPythonSubprocess<T = unknown>(
       }
     };
 
+    // Helper to check for billing/credit failures in output and emit once
+    const checkBillingFailure = (line: string) => {
+      if (billingFailureEmitted || !options.onBillingFailure) return;
+
+      const billingResult = detectBillingFailure(line);
+      if (billingResult.isBillingFailure) {
+        billingFailureEmitted = true;
+        console.log('[SubprocessRunner] Billing failure detected in real-time:', billingResult);
+
+        // Get profile info for display
+        const profileManager = getClaudeProfileManager();
+        const profile = billingResult.profileId
+          ? profileManager.getProfile(billingResult.profileId)
+          : profileManager.getActiveProfile();
+
+        const billingFailureInfo: BillingFailureInfo = {
+          profileId: billingResult.profileId || profile?.id || 'unknown',
+          profileName: profile?.name,
+          failureType: billingResult.failureType || 'unknown',
+          message: billingResult.message || 'Billing or credit error. Please check your account.',
+          originalError: billingResult.originalError,
+          detectedAt: new Date(),
+        };
+
+        try {
+          options.onBillingFailure(billingFailureInfo);
+        } catch (e) {
+          console.error('[SubprocessRunner] onBillingFailure callback threw:', e);
+        }
+
+        // Kill the subprocess to stop the billing failure spam
+        killedDueToBillingFailure = true;
+        // The process is stuck in billing errors - no point continuing
+        console.log('[SubprocessRunner] Killing subprocess due to billing failure, pid:', child.pid);
+
+        // Use process.kill with negative PID to kill the entire process group on Unix
+        // This ensures child processes (like the Claude SDK subprocess) are also killed
+        if (child.pid) {
+          try {
+            // On Unix, negative PID kills the process group
+            if (!isWindows()) {
+              process.kill(-child.pid, 'SIGKILL');
+            } else {
+              // On Windows, use taskkill to kill the process tree
+              execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
+                if (err) console.warn('[SubprocessRunner] taskkill error (process may have already exited):', err.message);
+              });
+            }
+          } catch (err) {
+            // Fallback to regular kill if process group kill fails
+            console.log('[SubprocessRunner] Process group kill failed, using regular kill:', err);
+            child.kill('SIGKILL');
+          }
+        } else {
+          child.kill('SIGKILL');
+        }
+      }
+    };
+
     child.stdout.on('data', (data: Buffer) => {
       const text = data.toString('utf-8');
       stdout += text;
@@ -205,6 +268,9 @@ export function runPythonSubprocess<T = unknown>(
 
           // Check for auth failures in real-time (only emit once)
           checkAuthFailure(line);
+
+          // Check for billing/credit failures in real-time (only emit once)
+          checkBillingFailure(line);
 
           // Parse progress updates
           const match = line.match(progressPattern);
@@ -228,6 +294,9 @@ export function runPythonSubprocess<T = unknown>(
 
           // Also check stderr for auth failures
           checkAuthFailure(line);
+
+          // Also check stderr for billing/credit failures
+          checkBillingFailure(line);
         }
       }
     });
@@ -256,6 +325,18 @@ export function runPythonSubprocess<T = unknown>(
           stdout,
           stderr,
           error: 'Authentication failed. Please re-authenticate.',
+        });
+        return;
+      }
+
+      // Check if subprocess was killed due to billing/credit failure
+      if (killedDueToBillingFailure) {
+        resolve({
+          success: false,
+          exitCode: exitCode,
+          stdout,
+          stderr,
+          error: 'Billing or credit error. Please check your account.',
         });
         return;
       }
