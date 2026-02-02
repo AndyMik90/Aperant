@@ -250,11 +250,6 @@
     "colorTheme": "颜色主题",
     "colorThemeDescription": "为界面选择调色板"
   },
-  "projectSelector": {
-    "selectProject": "选择项目...",
-    "noProjectsYet": "暂无项目",
-    "addProject": "添加项目..."
-  },
   "devtools": {
     "title": "开发工具",
     "description": "配置您首选的 IDE 和终端以使用工作树",
@@ -1020,7 +1015,6 @@
     "toolsTitle": "可用工具",
     "textOnlyNoTools": "仅文本（无工具）",
     "agentsCount": "({{count}} 个代理)",
-    "testConnection": "测试连接",
     "test": "测试",
     "edit": "编辑",
     "delete": "删除",

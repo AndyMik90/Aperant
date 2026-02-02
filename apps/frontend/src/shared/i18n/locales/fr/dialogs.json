@@ -50,8 +50,6 @@
     "repositoryDetected": "Dépôt détecté",
     "useDifferentRepo": "Utiliser un autre dépôt",
     "confirmContinue": "Confirmer et continuer",
-    "connectTitle": "Connecter à GitHub",
-    "connectDescription": "Votre projet a besoin d'un dépôt GitHub. Créez-en un nouveau ou connectez-vous à un dépôt existant.",
     "createNewRepo": "Créer un nouveau dépôt",
     "createNewRepoDesc": "Créer un nouveau dépôt sur GitHub",
     "linkExisting": "Lier un existant",

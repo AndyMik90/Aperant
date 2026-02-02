@@ -153,13 +153,6 @@
     "description": "Generate an AI-powered roadmap that understands your project's target audience and creates a strategic feature plan.",
     "generateButton": "Generate Roadmap"
   },
-  "featureCard": {
-    "goToTask": "Go to Task",
-    "build": "Build",
-    "competitorInsight": "Competitor Insight",
-    "competitorInsightTooltip": "This feature addresses competitor pain points",
-    "impact": "impact"
-  },
   "featureDetail": {
     "description": "Description",
     "rationale": "Rationale",

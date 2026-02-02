@@ -50,8 +50,6 @@
     "repositoryDetected": "Repository Detected",
     "useDifferentRepo": "Use Different Repository",
     "confirmContinue": "Confirm & Continue",
-    "connectTitle": "Connect to GitHub",
-    "connectDescription": "Your project needs a GitHub repository. Create a new one or link to an existing repository.",
     "createNewRepo": "Create New Repo",
     "createNewRepoDesc": "Create a new repository on GitHub",
     "linkExisting": "Link Existing",

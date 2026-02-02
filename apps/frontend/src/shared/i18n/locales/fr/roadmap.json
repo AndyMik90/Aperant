@@ -153,13 +153,6 @@
     "description": "Générez une feuille de route alimentée par l'IA qui comprend le public cible de votre projet et crée un plan de fonctionnalités stratégique.",
     "generateButton": "Générer la Feuille de Route"
   },
-  "featureCard": {
-    "goToTask": "Aller à la Tâche",
-    "build": "Construire",
-    "competitorInsight": "Information Concurrent",
-    "competitorInsightTooltip": "Cette fonctionnalité répond aux points de douleur des concurrents",
-    "impact": "impact"
-  },
   "featureDetail": {
     "description": "Description",
     "rationale": "Justification",

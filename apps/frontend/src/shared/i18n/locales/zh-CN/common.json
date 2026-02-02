@@ -245,8 +245,6 @@
       "addAnotherAccount": "添加另一个账户：",
       "connectAccount": "连接 Claude 账户：",
       "willOpenLogin": "这将打开 Claude 登录界面来认证新账户。",
-      "upgradeTitle": "升级以获得更多使用量",
-      "upgradeDescription": "升级您的 Claude 订阅以获得更高的使用限制。",
       "upgradeSubscription": "升级订阅",
       "sources": {
         "changelog": "更新日志生成",
