@@ -314,7 +314,17 @@
     "onReviewNeeded": "On Review Needed",
     "onReviewNeededDescription": "Notify when QA requires your review",
     "sound": "Sound",
-    "soundDescription": "Play sound with notifications"
+    "soundDescription": "Play sound with notifications",
+    "soundType": "Sound Type",
+    "soundTypeDescription": "Choose notification sound style",
+    "test": "Test",
+    "soundTypes": {
+      "chime": "Chime",
+      "ping": "Ping",
+      "pulse": "Pulse",
+      "blip": "Blip",
+      "soft": "Soft"
+    }
   },
   "actions": {
     "save": "Save Settings",

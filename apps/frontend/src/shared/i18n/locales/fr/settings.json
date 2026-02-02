@@ -314,7 +314,17 @@
     "onReviewNeeded": "Révision requise",
     "onReviewNeededDescription": "Notifier quand le QA nécessite votre révision",
     "sound": "Son",
-    "soundDescription": "Jouer un son avec les notifications"
+    "soundDescription": "Jouer un son avec les notifications",
+    "soundType": "Type de son",
+    "soundTypeDescription": "Choisir le style de son de notification",
+    "test": "Tester",
+    "soundTypes": {
+      "chime": "Carillon",
+      "ping": "Ping",
+      "pulse": "Pulsation",
+      "blip": "Bip",
+      "soft": "Doux"
+    }
   },
   "actions": {
     "save": "Enregistrer les paramètres",

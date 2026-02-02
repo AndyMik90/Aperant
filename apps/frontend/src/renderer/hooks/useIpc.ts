@@ -5,6 +5,7 @@ import { useRoadmapStore } from '../stores/roadmap-store';
 import { useRateLimitStore } from '../stores/rate-limit-store';
 import { useAuthFailureStore } from '../stores/auth-failure-store';
 import { useProjectStore } from '../stores/project-store';
+import { playNotificationSound } from '../lib/notification-sounds';
 import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo, SDKRateLimitInfo, AuthFailureInfo } from '../../shared/types';
 
 /**
@@ -356,6 +357,13 @@ export function useIpcListeners(): void {
       }
     );
 
+    // Notification sound listener (Web Audio API - safe alternative to shell.beep)
+    const cleanupNotificationSound = window.electronAPI.onNotificationSound(
+      (soundType) => {
+        playNotificationSound(soundType);
+      }
+    );
+
     // Cleanup on unmount
     return () => {
       // Flush any pending batched updates before cleanup
@@ -376,6 +384,7 @@ export function useIpcListeners(): void {
       cleanupRateLimit();
       cleanupSDKRateLimit();
       cleanupAuthFailure();
+      cleanupNotificationSound();
     };
   }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, batchAppendLogs, setError]);
 }

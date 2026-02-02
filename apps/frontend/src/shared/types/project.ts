@@ -30,11 +30,16 @@ export interface ProjectSettings {
   maxParallelTasks?: number;
 }
 
+/** Available notification sound types */
+export type NotificationSoundType = 'chime' | 'ping' | 'pulse' | 'blip' | 'soft';
+
 export interface NotificationSettings {
   onTaskComplete: boolean;
   onTaskFailed: boolean;
   onReviewNeeded: boolean;
   sound: boolean;
+  /** Sound type to play (default: 'chime') */
+  soundType?: NotificationSoundType;
 }
 
 // ============================================

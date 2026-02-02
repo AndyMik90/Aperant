@@ -1,6 +1,8 @@
-import { Notification, shell } from 'electron';
+import { Notification } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { projectStore } from './project-store';
+import { IPC_CHANNELS } from '../shared/constants';
+import type { NotificationSoundType } from '../shared/types';
 
 export type NotificationType = 'task-complete' | 'task-failed' | 'review-needed';
 
@@ -61,51 +63,66 @@ class NotificationService {
   }
 
   /**
-   * Send a system notification with optional sound
+   * Play notification sound via renderer process (safe, no native crashes)
+   * Uses Web Audio API in the renderer to generate tones
    */
-  private sendNotification(type: NotificationType, options: NotificationOptions): void {
-    // Get notification settings
-    const settings = this.getNotificationSettings(options.projectId);
-
-    // Check if this notification type is enabled
-    if (!this.isNotificationEnabled(type, settings)) {
-      return;
-    }
-
-    // Create and show the notification
-    if (Notification.isSupported()) {
-      const notification = new Notification({
-        title: options.title,
-        body: options.body,
-        silent: !settings.sound // Let the OS handle sound if enabled
-      });
-
-      // Focus window when notification is clicked
-      notification.on('click', () => {
-        const window = this.mainWindow?.();
-        if (window) {
-          if (window.isMinimized()) {
-            window.restore();
-          }
-          window.focus();
-        }
-      });
-
-      notification.show();
-    }
-
-    // Play sound if enabled (system beep)
-    if (settings.sound) {
-      this.playNotificationSound();
+  private playNotificationSound(soundType: NotificationSoundType = 'chime'): void {
+    try {
+      const window = this.mainWindow?.();
+      if (window?.webContents) {
+        window.webContents.send(IPC_CHANNELS.PLAY_NOTIFICATION_SOUND, soundType);
+      }
+    } catch (err) {
+      console.error('[NotificationService] Failed to send sound IPC:', err);
     }
   }
 
   /**
-   * Play a notification sound
+   * Send a system notification with optional sound
    */
-  private playNotificationSound(): void {
-    // Use system beep - works across all platforms
-    shell.beep();
+  private sendNotification(type: NotificationType, options: NotificationOptions): void {
+    try {
+      // Get notification settings
+      const settings = this.getNotificationSettings(options.projectId);
+
+      // Check if this notification type is enabled
+      if (!this.isNotificationEnabled(type, settings)) {
+        return;
+      }
+
+      // Create and show the notification
+      if (Notification.isSupported()) {
+        const notification = new Notification({
+          title: options.title,
+          body: options.body,
+          silent: true // Always silent - we handle sound via Web Audio API
+        });
+
+        // Focus window when notification is clicked
+        notification.on('click', () => {
+          try {
+            const window = this.mainWindow?.();
+            if (window) {
+              if (window.isMinimized()) {
+                window.restore();
+              }
+              window.focus();
+            }
+          } catch (err) {
+            console.error('[NotificationService] Click handler error:', err);
+          }
+        });
+
+        notification.show();
+      }
+
+      // Play sound via renderer if enabled
+      if (settings.sound) {
+        this.playNotificationSound(settings.soundType || 'chime');
+      }
+    } catch (error) {
+      console.error('[NotificationService] Error sending notification:', error);
+    }
   }
 
   /**
@@ -116,6 +133,7 @@ class NotificationService {
     onTaskFailed: boolean;
     onReviewNeeded: boolean;
     sound: boolean;
+    soundType?: NotificationSoundType;
   } {
     // Try to get project-specific settings
     if (projectId) {
@@ -131,7 +149,8 @@ class NotificationService {
       onTaskComplete: true,
       onTaskFailed: true,
       onReviewNeeded: true,
-      sound: false
+      sound: false,
+      soundType: 'chime'
     };
   }
 

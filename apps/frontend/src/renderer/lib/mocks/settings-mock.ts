@@ -23,6 +23,9 @@ export const settingsMock = {
   // Spell check (no-op in browser mode)
   setSpellCheckLanguages: async () => ({ success: true, data: { success: true } }),
 
+  // Notification sound (no-op in browser mode - sound would play via Web Audio API)
+  onNotificationSound: () => () => {},
+
   getCliToolsInfo: async () => ({
     success: true,
     data: {

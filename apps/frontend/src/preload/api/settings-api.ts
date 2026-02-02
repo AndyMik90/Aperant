@@ -5,7 +5,8 @@ import type {
   IPCResult,
   SourceEnvConfig,
   SourceEnvCheckResult,
-  ToolDetectionResult
+  ToolDetectionResult,
+  NotificationSoundType
 } from '../../shared/types';
 
 export interface SettingsAPI {
@@ -39,6 +40,9 @@ export interface SettingsAPI {
 
   // Spell check
   setSpellCheckLanguages: (language: string) => Promise<IPCResult<{ success: boolean }>>;
+
+  // Notification sound (listen for sound events from main process)
+  onNotificationSound: (callback: (soundType: NotificationSoundType) => void) => () => void;
 }
 
 export const createSettingsAPI = (): SettingsAPI => ({
@@ -90,5 +94,21 @@ export const createSettingsAPI = (): SettingsAPI => ({
 
   // Spell check - sync spell checker language with app language
   setSpellCheckLanguages: (language: string): Promise<IPCResult<{ success: boolean }>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.SPELLCHECK_SET_LANGUAGES, language)
+    ipcRenderer.invoke(IPC_CHANNELS.SPELLCHECK_SET_LANGUAGES, language),
+
+  // Notification sound - listen for sound events from main process (Web Audio API)
+  onNotificationSound: (
+    callback: (soundType: NotificationSoundType) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      soundType: NotificationSoundType
+    ) => {
+      callback(soundType);
+    };
+    ipcRenderer.on(IPC_CHANNELS.PLAY_NOTIFICATION_SOUND, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.PLAY_NOTIFICATION_SOUND, handler);
+    };
+  }
 });

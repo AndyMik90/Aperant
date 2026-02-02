@@ -375,6 +375,9 @@ export interface ElectronAPI {
   // Spell check
   setSpellCheckLanguages: (language: string) => Promise<IPCResult<{ success: boolean }>>;
 
+  // Notification sound (listen for sound events from main process - Web Audio API)
+  onNotificationSound: (callback: (soundType: import('./project').NotificationSoundType) => void) => () => void;
+
   // Sentry error reporting
   notifySentryStateChanged: (enabled: boolean) => void;
   getSentryDsn: () => Promise<string>;
