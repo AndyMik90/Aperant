@@ -395,19 +395,20 @@ describe('Subprocess Spawn Integration', () => {
         expect(manager.getRunningTasks()).toHaveLength(2);
       }, { timeout: 5000 });
 
-      // Wait for spawn to complete (ensures exit handlers are attached)
-      await new Promise(resolve => setImmediate(resolve));
+      // Wait for both spawn promises to fully resolve — this ensures the exit
+      // handlers are attached to mockProcess. A single setImmediate is NOT enough
+      // on Windows CI because spawnProcess has async operations (getAPIProfileEnv,
+      // getRecoveryCoordinator) between addProcess and the .on('exit') listener.
+      // Waiting for the promises guarantees spawnProcess has completed fully.
+      await Promise.allSettled([promise1, promise2]);
 
-      // Emit exit for task-1 (first task's handler)
+      // Both tasks share the same mockProcess, so one emit fires both exit handlers
       mockProcess.emit('exit', 0);
-      await promise1;
 
-      // Emit exit for task-2 (second task's handler replaces first due to shared mock process)
-      mockProcess.emit('exit', 0);
-      await promise2;
-
-      // Tasks should be removed from tracking after exit
-      expect(manager.getRunningTasks()).toHaveLength(0);
+      // Wait for tasks to be removed from tracking (cleanup may be async)
+      await vi.waitFor(() => {
+        expect(manager.getRunningTasks()).toHaveLength(0);
+      }, { timeout: 5000 });
     }, 15000);
 
     it('should use configured Python path', async () => {

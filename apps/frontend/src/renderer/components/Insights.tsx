@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   MessageSquare,
@@ -88,7 +88,7 @@ interface InsightsProps {
 }
 
 export function Insights({ projectId }: InsightsProps) {
-  const { t } = useTranslation(['common', 'insights']);
+  const { t } = useTranslation(['insights', 'common']);
   const session = useInsightsStore((state) => state.session);
   const sessions = useInsightsStore((state) => state.sessions);
   const status = useInsightsStore((state) => state.status);
@@ -98,16 +98,43 @@ export function Insights({ projectId }: InsightsProps) {
 
   // Create markdown components with translated accessibility text
   const markdownComponents = useMemo(() => ({
-    a: createSafeLink(t('insights:accessibility.opensInNewWindow')),
+    a: createSafeLink(t('accessibility.opensInNewWindow')),
   }), [t]);
 
   const [inputValue, setInputValue] = useState('');
   const [creatingTask, setCreatingTask] = useState<string | null>(null);
   const [taskCreated, setTaskCreated] = useState<Set<string>>(new Set());
   const [showSidebar, setShowSidebar] = useState(true);
+  const [isUserAtBottom, setIsUserAtBottom] = useState(true);
+  const [viewportEl, setViewportEl] = useState<HTMLElement | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Scroll threshold in pixels - user is considered "at bottom" if within this distance
+  const SCROLL_BOTTOM_THRESHOLD = 100;
+
+  // Check if user is near the bottom of scroll area
+  const checkIfAtBottom = useCallback((viewport: HTMLElement) => {
+    const { scrollTop, scrollHeight, clientHeight } = viewport;
+    return scrollHeight - scrollTop - clientHeight <= SCROLL_BOTTOM_THRESHOLD;
+  }, []);
+
+  // Handle scroll events to track user position
+  const handleScroll = useCallback(() => {
+    if (viewportEl) {
+      setIsUserAtBottom(checkIfAtBottom(viewportEl));
+    }
+  }, [viewportEl, checkIfAtBottom]);
+
+  // Set up scroll listener and check initial position when viewport becomes available
+  useEffect(() => {
+    if (viewportEl) {
+      // Check initial scroll position
+      setIsUserAtBottom(checkIfAtBottom(viewportEl));
+      viewportEl.addEventListener('scroll', handleScroll, { passive: true });
+      return () => viewportEl.removeEventListener('scroll', handleScroll);
+    }
+  }, [viewportEl, handleScroll, checkIfAtBottom]);
 
   // Load session and set up listeners on mount
   useEffect(() => {
@@ -116,10 +143,14 @@ export function Insights({ projectId }: InsightsProps) {
     return cleanup;
   }, [projectId]);
 
-  // Auto-scroll to bottom when messages change
+  // Smart auto-scroll: only scroll if user is already at bottom
+  // This allows users to scroll up to read previous messages without being
+  // yanked back down during streaming responses
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [session?.messages, streamingContent]);
+    if (isUserAtBottom && viewportEl) {
+      viewportEl.scrollTop = viewportEl.scrollHeight;
+    }
+  }, [session?.messages, streamingContent, isUserAtBottom, viewportEl]);
 
   // Focus textarea on mount
   useEffect(() => {
@@ -137,6 +168,7 @@ export function Insights({ projectId }: InsightsProps) {
 
     setInputValue('');
     sendMessage(projectId, message);
+    setIsUserAtBottom(true); // Resume auto-scroll when user sends a message
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -253,13 +285,16 @@ export function Insights({ projectId }: InsightsProps) {
               onClick={handleNewSession}
             >
               <Plus className="mr-2 h-4 w-4" />
-              {t('insights:newChat')}
+              New Chat
             </Button>
           </div>
         </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 px-6 py-4">
+      <ScrollArea
+        className="flex-1 px-6 py-4"
+        onViewportRef={setViewportEl}
+      >
         {messages.length === 0 && !streamingContent ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
@@ -334,7 +369,7 @@ export function Insights({ projectId }: InsightsProps) {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {t('insights:thinking')}
+                  Thinking...
                 </div>
               </div>
             )}
@@ -347,20 +382,19 @@ export function Insights({ projectId }: InsightsProps) {
               </div>
             )}
 
-            <div ref={messagesEndRef} />
           </div>
         )}
       </ScrollArea>
 
       {/* Input */}
-      <div className="border-t border-border p-4">
+      <div className="flex-shrink-0 border-t border-border p-4">
         <div className="flex gap-2">
           <Textarea
             ref={textareaRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={t('insights:placeholder')}
+            placeholder="Ask about your codebase..."
             className="min-h-[80px] resize-none"
             disabled={isLoading}
           />
@@ -377,7 +411,7 @@ export function Insights({ projectId }: InsightsProps) {
           </Button>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          {t('insights:keyboardHint')}
+          Press Enter to send, Shift+Enter for new line
         </p>
       </div>
       </div>
@@ -400,7 +434,6 @@ function MessageBubble({
   isCreatingTask,
   taskCreated
 }: MessageBubbleProps) {
-  const { t } = useTranslation('insights');
   const isUser = message.role === 'user';
 
   return (
@@ -439,7 +472,7 @@ function MessageBubble({
               <div className="mb-2 flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium text-primary">
-                  {t('insights:suggestedTask')}
+                  Suggested Task
                 </span>
               </div>
               <h4 className="mb-2 font-medium text-foreground">
@@ -484,17 +517,17 @@ function MessageBubble({
                 {isCreatingTask ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {t('insights:creating')}
+                    Creating...
                   </>
                 ) : taskCreated ? (
                   <>
                     <CheckCircle2 className="mr-2 h-4 w-4" />
-                    {t('insights:taskCreated')}
+                    Task Created
                   </>
                 ) : (
                   <>
                     <Plus className="mr-2 h-4 w-4" />
-                    {t('insights:createTask')}
+                    Create Task
                   </>
                 )}
               </Button>
@@ -516,7 +549,6 @@ interface ToolUsageHistoryProps {
 }
 
 function ToolUsageHistory({ tools }: ToolUsageHistoryProps) {
-  const { t } = useTranslation('insights');
   const [expanded, setExpanded] = useState(false);
 
   if (tools.length === 0) return null;
@@ -570,7 +602,7 @@ function ToolUsageHistory({ tools }: ToolUsageHistoryProps) {
             );
           })}
         </span>
-        <span>{t('insights:tools', { count: tools.length })}</span>
+        <span>{tools.length} tool{tools.length !== 1 ? 's' : ''} used</span>
         <span className="text-[10px]">{expanded ? '▲' : '▼'}</span>
       </button>
 
@@ -606,26 +638,27 @@ interface ToolIndicatorProps {
 }
 
 function ToolIndicator({ name, input }: ToolIndicatorProps) {
+  const { t } = useTranslation('insights');
+
   // Get friendly name and icon for each tool
-  const { t: tTool } = useTranslation('insights');
   const getToolInfo = (toolName: string) => {
     switch (toolName) {
       case 'Read':
         return {
           icon: FileText,
-          label: tTool('toolIndicators.read'),
+          label: t('insights:toolIndicators.read'),
           color: 'text-blue-500 bg-blue-500/10'
         };
       case 'Glob':
         return {
           icon: FolderSearch,
-          label: tTool('toolIndicators.glob'),
+          label: t('insights:toolIndicators.glob'),
           color: 'text-amber-500 bg-amber-500/10'
         };
       case 'Grep':
         return {
           icon: Search,
-          label: tTool('toolIndicators.grep'),
+          label: t('insights:toolIndicators.grep'),
           color: 'text-green-500 bg-green-500/10'
         };
       default:

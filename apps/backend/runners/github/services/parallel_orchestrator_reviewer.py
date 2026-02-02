@@ -17,20 +17,24 @@ Key Design:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import os
 from collections import defaultdict
-from enum import Enum
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from claude_agent_sdk import AgentDefinition
+# Note: AgentDefinition import kept for backwards compatibility but no longer used
+# The Task tool's custom subagent_type feature is broken in Claude Code CLI
+# See: https://github.com/anthropics/claude-code/issues/8697
+from claude_agent_sdk import AgentDefinition  # noqa: F401
 
 try:
     from ...core.client import create_client
     from ...phase_config import get_thinking_budget, resolve_model_id
-    from ..context_gatherer import PRContext, PRContextGatherer, _validate_git_ref
+    from ..context_gatherer import PRContext, _validate_git_ref
     from ..gh_client import GHClient
     from ..models import (
         BRANCH_BEHIND_BLOCKER_MSG,
@@ -41,13 +45,19 @@ try:
         PRReviewResult,
         ReviewSeverity,
     )
+    from .agent_utils import create_working_dir_injector
     from .category_utils import map_category
     from .io_utils import safe_print
     from .pr_worktree_manager import PRWorktreeManager
-    from .pydantic_models import AgentAgreement, ParallelOrchestratorResponse
+    from .pydantic_models import (
+        AgentAgreement,
+        FindingValidationResponse,
+        ParallelOrchestratorResponse,
+        SpecialistResponse,
+    )
     from .sdk_utils import process_sdk_stream
 except (ImportError, ValueError, SystemError):
-    from context_gatherer import PRContext, PRContextGatherer, _validate_git_ref
+    from context_gatherer import PRContext, _validate_git_ref
     from core.client import create_client
     from gh_client import GHClient
     from models import (
@@ -60,11 +70,62 @@ except (ImportError, ValueError, SystemError):
         ReviewSeverity,
     )
     from phase_config import get_thinking_budget, resolve_model_id
+    from services.agent_utils import create_working_dir_injector
     from services.category_utils import map_category
     from services.io_utils import safe_print
     from services.pr_worktree_manager import PRWorktreeManager
-    from services.pydantic_models import AgentAgreement, ParallelOrchestratorResponse
+    from services.pydantic_models import (
+        AgentAgreement,
+        FindingValidationResponse,
+        ParallelOrchestratorResponse,
+        SpecialistResponse,
+    )
     from services.sdk_utils import process_sdk_stream
+
+
+# =============================================================================
+# Specialist Configuration for Parallel SDK Sessions
+# =============================================================================
+
+
+@dataclass
+class SpecialistConfig:
+    """Configuration for a specialist agent in parallel SDK sessions."""
+
+    name: str
+    prompt_file: str
+    tools: list[str]
+    description: str
+
+
+# Define specialist configurations
+# Each specialist runs as its own SDK session with its own system prompt and tools
+SPECIALIST_CONFIGS: list[SpecialistConfig] = [
+    SpecialistConfig(
+        name="security",
+        prompt_file="pr_security_agent.md",
+        tools=["Read", "Grep", "Glob"],
+        description="Security vulnerabilities, OWASP Top 10, auth issues, injection, XSS",
+    ),
+    SpecialistConfig(
+        name="quality",
+        prompt_file="pr_quality_agent.md",
+        tools=["Read", "Grep", "Glob"],
+        description="Code quality, complexity, duplication, error handling, patterns",
+    ),
+    SpecialistConfig(
+        name="logic",
+        prompt_file="pr_logic_agent.md",
+        tools=["Read", "Grep", "Glob"],
+        description="Logic correctness, edge cases, algorithms, race conditions",
+    ),
+    SpecialistConfig(
+        name="codebase-fit",
+        prompt_file="pr_codebase_fit_agent.md",
+        tools=["Read", "Grep", "Glob"],
+        description="Naming conventions, ecosystem fit, architectural alignment",
+    ),
+]
 
 
 logger = logging.getLogger(__name__)
@@ -74,88 +135,6 @@ DEBUG_MODE = os.environ.get("DEBUG", "").lower() in ("true", "1", "yes")
 
 # Directory for PR review worktrees (inside github/pr for consistency)
 PR_WORKTREE_DIR = ".auto-claude/github/pr/worktrees"
-
-
-class ConfidenceTier(str, Enum):
-    """Confidence tiers for finding routing.
-
-    Findings are routed based on their confidence score:
-    - HIGH (>=0.8): Included as-is
-    - MEDIUM (0.5-0.8): Included with "[Potential]" prefix
-    - LOW (<0.5): Logged but excluded from output
-    """
-
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-
-    # Thresholds (class-level constants)
-    @classmethod
-    def get_tier(cls, confidence: float) -> ConfidenceTier:
-        """Get tier for a given confidence value."""
-        if confidence >= 0.8:  # HIGH_THRESHOLD
-            return cls.HIGH
-        elif confidence >= 0.5:  # LOW_THRESHOLD
-            return cls.MEDIUM
-        else:
-            return cls.LOW
-
-
-def _validate_finding_evidence(finding: PRReviewFinding) -> tuple[bool, str]:
-    """
-    Check if finding has actual code evidence, not just descriptions.
-
-    Returns:
-        Tuple of (is_valid, reason)
-    """
-    if not finding.evidence:
-        return False, "No evidence provided"
-
-    evidence = finding.evidence.strip()
-    if len(evidence) < 10:
-        return False, "Evidence too short (< 10 chars)"
-
-    # Reject generic descriptions that aren't code
-    description_patterns = [
-        "the code",
-        "this function",
-        "it appears",
-        "seems to",
-        "may be",
-        "could be",
-        "might be",
-        "appears to",
-        "there is",
-        "there are",
-    ]
-    evidence_lower = evidence.lower()
-    for pattern in description_patterns:
-        if evidence_lower.startswith(pattern):
-            return False, f"Evidence starts with description pattern: '{pattern}'"
-
-    # Evidence should look like code (has syntax characters)
-    code_chars = [
-        "=",
-        "(",
-        ")",
-        "{",
-        "}",
-        ";",
-        ":",
-        ".",
-        "->",
-        "::",
-        "[",
-        "]",
-        "'",
-        '"',
-    ]
-    has_code_syntax = any(char in evidence for char in code_chars)
-
-    if not has_code_syntax:
-        return False, "Evidence lacks code syntax characters"
-
-    return True, "Valid evidence"
 
 
 def _is_finding_in_scope(
@@ -177,12 +156,10 @@ def _is_finding_in_scope(
 
     # Check if file is in changed files
     if finding.file not in changed_files:
-        # Allow impact findings (about how changes affect other files)
-        impact_keywords = ["breaks", "affects", "impact", "caller", "depends"]
-        description_lower = (finding.description or "").lower()
-        is_impact_finding = any(kw in description_lower for kw in impact_keywords)
+        # Use schema field instead of keyword detection
+        is_impact = getattr(finding, "is_impact_finding", False)
 
-        if not is_impact_finding:
+        if not is_impact:
             return (
                 False,
                 f"File '{finding.file}' not in PR changed files and not an impact finding",
@@ -291,18 +268,27 @@ class ParallelOrchestratorReviewer:
                 f"(orphaned={stats['orphaned']}, expired={stats['expired']}, excess={stats['excess']})"
             )
 
-    def _define_specialist_agents(self) -> dict[str, AgentDefinition]:
+    def _define_specialist_agents(
+        self, project_root: Path | None = None
+    ) -> dict[str, AgentDefinition]:
         """
         Define specialist agents for the SDK.
 
         Each agent has:
         - description: When the orchestrator should invoke this agent
-        - prompt: System prompt for the agent
+        - prompt: System prompt for the agent (includes working directory)
         - tools: Tools the agent can use (read-only for PR review)
         - model: "inherit" = use same model as orchestrator (user's choice)
 
+        Args:
+            project_root: Working directory for the agents (worktree path).
+                         If None, falls back to self.project_dir.
+
         Returns AgentDefinition dataclass instances as required by the SDK.
         """
+        # Use provided project_root or fall back to default
+        working_dir = project_root or self.project_dir
+
         # Load agent prompts from files
         security_prompt = self._load_prompt("pr_security_agent.md")
         quality_prompt = self._load_prompt("pr_quality_agent.md")
@@ -311,16 +297,22 @@ class ParallelOrchestratorReviewer:
         ai_triage_prompt = self._load_prompt("pr_ai_triage.md")
         validator_prompt = self._load_prompt("pr_finding_validator.md")
 
+        # CRITICAL: Inject working directory into all prompts
+        # Subagents don't inherit cwd from parent, so they need explicit path info
+        with_working_dir = create_working_dir_injector(working_dir)
+
         return {
             "security-reviewer": AgentDefinition(
                 description=(
                     "Security specialist. Use for OWASP Top 10, authentication, "
                     "injection, cryptographic issues, and sensitive data exposure. "
                     "Invoke when PR touches auth, API endpoints, user input, database queries, "
-                    "or file operations."
+                    "or file operations. Use Read, Grep, and Glob tools to explore related files, "
+                    "callers, and tests as needed."
                 ),
-                prompt=security_prompt
-                or "You are a security expert. Find vulnerabilities.",
+                prompt=with_working_dir(
+                    security_prompt, "You are a security expert. Find vulnerabilities."
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -328,10 +320,13 @@ class ParallelOrchestratorReviewer:
                 description=(
                     "Code quality expert. Use for complexity, duplication, error handling, "
                     "maintainability, and pattern adherence. Invoke when PR has complex logic, "
-                    "large functions, or significant business logic changes."
+                    "large functions, or significant business logic changes. Use Grep to search "
+                    "for similar patterns across the codebase for consistency checks."
                 ),
-                prompt=quality_prompt
-                or "You are a code quality expert. Find quality issues.",
+                prompt=with_working_dir(
+                    quality_prompt,
+                    "You are a code quality expert. Find quality issues.",
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -339,10 +334,12 @@ class ParallelOrchestratorReviewer:
                 description=(
                     "Logic and correctness specialist. Use for algorithm verification, "
                     "edge cases, state management, and race conditions. Invoke when PR has "
-                    "algorithmic changes, data transformations, concurrent operations, or bug fixes."
+                    "algorithmic changes, data transformations, concurrent operations, or bug fixes. "
+                    "Use Grep to find callers and dependents that may be affected by logic changes."
                 ),
-                prompt=logic_prompt
-                or "You are a logic expert. Find correctness issues.",
+                prompt=with_working_dir(
+                    logic_prompt, "You are a logic expert. Find correctness issues."
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -350,10 +347,13 @@ class ParallelOrchestratorReviewer:
                 description=(
                     "Codebase consistency expert. Use for naming conventions, ecosystem fit, "
                     "architectural alignment, and avoiding reinvention. Invoke when PR introduces "
-                    "new patterns, large additions, or code that might duplicate existing functionality."
+                    "new patterns, large additions, or code that might duplicate existing functionality. "
+                    "Use Grep and Glob to explore existing patterns and conventions in the codebase."
                 ),
-                prompt=codebase_fit_prompt
-                or "You are a codebase expert. Check for consistency.",
+                prompt=with_working_dir(
+                    codebase_fit_prompt,
+                    "You are a codebase expert. Check for consistency.",
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -363,8 +363,10 @@ class ParallelOrchestratorReviewer:
                     "Gemini Code Assist, Cursor, Greptile, and other AI reviewers. "
                     "Invoke when PR has existing AI review comments that need validation."
                 ),
-                prompt=ai_triage_prompt
-                or "You are an AI triage expert. Validate AI comments.",
+                prompt=with_working_dir(
+                    ai_triage_prompt,
+                    "You are an AI triage expert. Validate AI comments.",
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -374,14 +376,312 @@ class ParallelOrchestratorReviewer:
                     "they are actually real issues, not false positives. "
                     "Reads the ACTUAL CODE at the finding location with fresh eyes. "
                     "CRITICAL: Invoke for ALL findings after specialist agents complete. "
-                    "Can confirm findings as valid OR dismiss them as false positives."
+                    "Can confirm findings as valid OR dismiss them as false positives. "
+                    "Use Read, Grep, and Glob to check for mitigations the original agent missed."
                 ),
-                prompt=validator_prompt
-                or "You validate whether findings are real issues.",
+                prompt=with_working_dir(
+                    validator_prompt, "You validate whether findings are real issues."
+                ),
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
         }
+
+    # =========================================================================
+    # Parallel SDK Sessions Implementation
+    # =========================================================================
+    # This replaces the broken Task tool subagent approach.
+    # Each specialist runs as its own SDK session in parallel via asyncio.gather()
+    # See: https://github.com/anthropics/claude-code/issues/8697
+
+    def _build_specialist_prompt(
+        self,
+        config: SpecialistConfig,
+        context: PRContext,
+        project_root: Path,
+    ) -> str:
+        """Build the full prompt for a specialist agent.
+
+        Args:
+            config: Specialist configuration
+            context: PR context with files and patches
+            project_root: Working directory for the agent
+
+        Returns:
+            Full system prompt with context injected
+        """
+        # Load base prompt from file
+        base_prompt = self._load_prompt(config.prompt_file)
+        if not base_prompt:
+            base_prompt = f"You are a {config.name} specialist for PR review."
+
+        # Inject working directory using the existing helper
+        with_working_dir = create_working_dir_injector(project_root)
+        prompt_with_cwd = with_working_dir(
+            base_prompt,
+            f"You are a {config.name} specialist. Find {config.description}.",
+        )
+
+        # Build file list
+        files_list = []
+        for file in context.changed_files:
+            files_list.append(
+                f"- `{file.path}` (+{file.additions}/-{file.deletions}) - {file.status}"
+            )
+
+        # Build diff content (limited to avoid context overflow)
+        patches = []
+        MAX_DIFF_CHARS = 150_000  # Smaller limit per specialist
+
+        for file in context.changed_files:
+            if file.patch:
+                patches.append(f"\n### File: {file.path}\n{file.patch}")
+
+        diff_content = "\n".join(patches)
+        if len(diff_content) > MAX_DIFF_CHARS:
+            diff_content = diff_content[:MAX_DIFF_CHARS] + "\n\n... (diff truncated)"
+
+        # Compose full prompt with PR context
+        pr_context = f"""
+## PR Context
+
+**PR #{context.pr_number}**: {context.title}
+
+**Description:**
+{context.description or "(No description provided)"}
+
+### Changed Files ({len(context.changed_files)} files, +{context.total_additions}/-{context.total_deletions})
+{chr(10).join(files_list)}
+
+### Diff
+{diff_content}
+
+## Your Task
+
+Analyze this PR for {config.description}.
+Use the Read, Grep, and Glob tools to explore the codebase as needed.
+Report findings with specific file paths, line numbers, and code evidence.
+"""
+
+        return prompt_with_cwd + pr_context
+
+    async def _run_specialist_session(
+        self,
+        config: SpecialistConfig,
+        context: PRContext,
+        project_root: Path,
+        model: str,
+        thinking_budget: int | None,
+    ) -> tuple[str, list[PRReviewFinding]]:
+        """Run a single specialist as its own SDK session.
+
+        Args:
+            config: Specialist configuration
+            context: PR context
+            project_root: Working directory
+            model: Model to use
+            thinking_budget: Max thinking tokens
+
+        Returns:
+            Tuple of (specialist_name, findings)
+        """
+        safe_print(
+            f"[Specialist:{config.name}] Starting analysis...",
+            flush=True,
+        )
+
+        # Build the specialist prompt with PR context
+        prompt = self._build_specialist_prompt(config, context, project_root)
+
+        try:
+            # Create SDK client for this specialist
+            # Note: Agent type uses the generic "pr_reviewer" since individual
+            # specialist types aren't registered in AGENT_CONFIGS. The specialist-specific
+            # system prompt handles differentiation.
+            client = create_client(
+                project_dir=project_root,
+                spec_dir=self.github_dir,
+                model=model,
+                agent_type="pr_reviewer",
+                max_thinking_tokens=thinking_budget,
+                output_format={
+                    "type": "json_schema",
+                    "schema": SpecialistResponse.model_json_schema(),
+                },
+            )
+
+            async with client:
+                await client.query(prompt)
+
+                # Process SDK stream
+                stream_result = await process_sdk_stream(
+                    client=client,
+                    context_name=f"Specialist:{config.name}",
+                    model=model,
+                    system_prompt=prompt,
+                    agent_definitions={},  # No subagents for specialists
+                )
+
+                error = stream_result.get("error")
+                if error:
+                    logger.error(f"[Specialist:{config.name}] SDK stream failed: {error}")
+                    safe_print(
+                        f"[Specialist:{config.name}] Analysis failed: {error}",
+                        flush=True,
+                    )
+                    return (config.name, [])
+
+                # Parse structured output
+                structured_output = stream_result.get("structured_output")
+                findings = self._parse_specialist_output(
+                    config.name, structured_output, stream_result.get("result_text", "")
+                )
+
+                safe_print(
+                    f"[Specialist:{config.name}] Complete: {len(findings)} findings",
+                    flush=True,
+                )
+
+                return (config.name, findings)
+
+        except Exception as e:
+            logger.error(
+                f"[Specialist:{config.name}] Session failed: {e}",
+                exc_info=True,
+            )
+            safe_print(
+                f"[Specialist:{config.name}] Error: {e}",
+                flush=True,
+            )
+            return (config.name, [])
+
+    def _parse_specialist_output(
+        self,
+        specialist_name: str,
+        structured_output: dict[str, Any] | None,
+        result_text: str,
+    ) -> list[PRReviewFinding]:
+        """Parse findings from specialist output.
+
+        Args:
+            specialist_name: Name of the specialist
+            structured_output: Structured JSON output if available
+            result_text: Raw text output as fallback
+
+        Returns:
+            List of PRReviewFinding objects
+        """
+        findings = []
+
+        if structured_output:
+            try:
+                result = SpecialistResponse.model_validate(structured_output)
+
+                for f in result.findings:
+                    finding_id = hashlib.md5(
+                        f"{f.file}:{f.line}:{f.title}".encode(),
+                        usedforsecurity=False,
+                    ).hexdigest()[:12]
+
+                    category = map_category(f.category)
+
+                    try:
+                        severity = ReviewSeverity(f.severity.lower())
+                    except ValueError:
+                        severity = ReviewSeverity.MEDIUM
+
+                    finding = PRReviewFinding(
+                        id=finding_id,
+                        file=f.file,
+                        line=f.line,
+                        end_line=f.end_line,
+                        title=f.title,
+                        description=f.description,
+                        category=category,
+                        severity=severity,
+                        suggested_fix=f.suggested_fix or "",
+                        evidence=f.evidence,
+                        source_agents=[specialist_name],
+                        is_impact_finding=f.is_impact_finding,
+                    )
+                    findings.append(finding)
+
+                logger.info(
+                    f"[Specialist:{specialist_name}] Parsed {len(findings)} findings from structured output"
+                )
+
+            except Exception as e:
+                logger.error(
+                    f"[Specialist:{specialist_name}] Failed to parse structured output: {e}"
+                )
+                # Fall through to text parsing
+
+        if not findings and result_text:
+            # Fallback to text parsing
+            findings = self._parse_text_output(result_text)
+            for f in findings:
+                f.source_agents = [specialist_name]
+
+        return findings
+
+    async def _run_parallel_specialists(
+        self,
+        context: PRContext,
+        project_root: Path,
+        model: str,
+        thinking_budget: int | None,
+    ) -> tuple[list[PRReviewFinding], list[str]]:
+        """Run all specialists in parallel and collect findings.
+
+        Args:
+            context: PR context
+            project_root: Working directory
+            model: Model to use
+            thinking_budget: Max thinking tokens
+
+        Returns:
+            Tuple of (all_findings, agents_invoked)
+        """
+        safe_print(
+            f"[ParallelOrchestrator] Launching {len(SPECIALIST_CONFIGS)} specialists in parallel...",
+            flush=True,
+        )
+
+        # Create tasks for all specialists
+        tasks = [
+            self._run_specialist_session(
+                config=config,
+                context=context,
+                project_root=project_root,
+                model=model,
+                thinking_budget=thinking_budget,
+            )
+            for config in SPECIALIST_CONFIGS
+        ]
+
+        # Run all specialists in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Collect findings and track which agents ran
+        all_findings: list[PRReviewFinding] = []
+        agents_invoked: list[str] = []
+
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(f"[ParallelOrchestrator] Specialist task failed: {result}")
+                continue
+
+            specialist_name, findings = result
+            agents_invoked.append(specialist_name)
+            all_findings.extend(findings)
+
+        safe_print(
+            f"[ParallelOrchestrator] All specialists complete. "
+            f"Total findings: {len(all_findings)}",
+            flush=True,
+        )
+
+        return (all_findings, agents_invoked)
 
     def _build_orchestrator_prompt(self, context: PRContext) -> str:
         """Build full prompt for orchestrator with PR context."""
@@ -441,6 +741,11 @@ Found {len(context.ai_bot_comments)} comments from AI tools.
 {chr(10).join(commits_list)}
 """
 
+        # Removed: Related files and import graph sections
+        # LLM agents now discover relevant files themselves via Read, Grep, Glob tools
+        related_files_section = ""
+        import_graph_section = ""
+
         pr_context = f"""
 ---
 
@@ -458,7 +763,7 @@ Found {len(context.ai_bot_comments)} comments from AI tools.
 
 ### All Changed Files
 {chr(10).join(files_list)}
-{commits_section}{ai_comments_section}
+{related_files_section}{import_graph_section}{commits_section}{ai_comments_section}
 ### Code Changes
 ```diff
 {diff_content}
@@ -492,7 +797,7 @@ The SDK will run invoked agents in parallel automatically.
             model=model,
             agent_type="pr_orchestrator_parallel",
             max_thinking_tokens=thinking_budget,
-            agents=self._define_specialist_agents(),
+            agents=self._define_specialist_agents(project_root),
             output_format={
                 "type": "json_schema",
                 "schema": ParallelOrchestratorResponse.model_json_schema(),
@@ -579,17 +884,67 @@ The SDK will run invoked agents in parallel automatically.
         except ValueError:
             severity = ReviewSeverity.MEDIUM
 
+        # Extract evidence: prefer verification.code_examined, fallback to evidence field
+        evidence = finding_data.evidence
+        if hasattr(finding_data, "verification") and finding_data.verification:
+            # Structured verification has more detailed evidence
+            verification = finding_data.verification
+            if hasattr(verification, "code_examined") and verification.code_examined:
+                evidence = verification.code_examined
+
+        # Extract end_line if present
+        end_line = getattr(finding_data, "end_line", None)
+
+        # Extract source_agents if present
+        source_agents = getattr(finding_data, "source_agents", []) or []
+
+        # Extract cross_validated if present
+        cross_validated = getattr(finding_data, "cross_validated", False)
+
+        # Extract is_impact_finding if present (for findings about callers/affected files)
+        is_impact_finding = getattr(finding_data, "is_impact_finding", False)
+
         return PRReviewFinding(
             id=finding_id,
             file=finding_data.file,
             line=finding_data.line,
+            end_line=end_line,
             title=finding_data.title,
             description=finding_data.description,
             category=category,
             severity=severity,
             suggested_fix=finding_data.suggested_fix or "",
-            evidence=finding_data.evidence,
+            evidence=evidence,
+            source_agents=source_agents,
+            cross_validated=cross_validated,
+            is_impact_finding=is_impact_finding,
         )
+
+    async def _get_ci_status(self, pr_number: int) -> dict:
+        """Fetch CI status for the PR.
+
+        Args:
+            pr_number: PR number
+
+        Returns:
+            Dict with passing, failing, pending, failed_checks, awaiting_approval
+        """
+        try:
+            gh_client = GHClient(
+                project_dir=self.project_dir,
+                default_timeout=30.0,
+                repo=self.config.repo,
+            )
+            return await gh_client.get_pr_checks_comprehensive(pr_number)
+        except Exception as e:
+            logger.warning(f"[PRReview] Failed to get CI status: {e}")
+            return {
+                "passing": 0,
+                "failing": 0,
+                "pending": 0,
+                "failed_checks": [],
+                "awaiting_approval": 0,
+            }
 
     async def review(self, context: PRContext) -> PRReviewResult:
         """
@@ -709,28 +1064,9 @@ The SDK will run invoked agents in parallel automatically.
                         else self.project_dir
                     )
 
-            # Rescan for related files using the worktree/project root
-            # This fixes the issue where related files were 0 because context gathering
-            # happened BEFORE the worktree was created (PR files didn't exist locally)
-            if context.changed_files:
-                new_related_files = PRContextGatherer.find_related_files_for_root(
-                    context.changed_files,
-                    project_root,
-                )
-                # Always log rescan result (not gated by DEBUG_MODE)
-                if new_related_files:
-                    context.related_files = new_related_files
-                    safe_print(
-                        f"[PRReview] Rescanned in worktree: found {len(new_related_files)} related files"
-                    )
-                else:
-                    safe_print(
-                        f"[PRReview] Rescanned in worktree: found 0 related files "
-                        f"(initial scan found {len(context.related_files)})"
-                    )
-
-            # Build orchestrator prompt AFTER worktree creation and related files rescan
-            prompt = self._build_orchestrator_prompt(context)
+            # Removed: Related files rescanning
+            # LLM agents now discover relevant files themselves via Read, Grep, Glob tools
+            # No need to pre-scan the codebase programmatically
 
             # Use model and thinking level from config (user settings)
             # Resolve model shorthand via environment variable override if configured
@@ -744,46 +1080,114 @@ The SDK will run invoked agents in parallel automatically.
                 f"thinking_level={thinking_level}, thinking_budget={thinking_budget}"
             )
 
-            # Create client with subagents defined
-            # SDK handles parallel execution when Claude invokes multiple Task tools
-            client = self._create_sdk_client(project_root, model, thinking_budget)
-
             self._report_progress(
                 "orchestrating",
                 40,
-                "Orchestrator delegating to specialist agents...",
+                "Running specialist agents in parallel...",
                 pr_number=context.pr_number,
             )
 
-            # Run orchestrator session using shared SDK stream processor
-            async with client:
-                await client.query(prompt)
+            # =================================================================
+            # PARALLEL SDK SESSIONS APPROACH
+            # =================================================================
+            # Instead of using broken Task tool subagents, we spawn each
+            # specialist as its own SDK session and run them in parallel.
+            # See: https://github.com/anthropics/claude-code/issues/8697
+            #
+            # This gives us:
+            # - True parallel execution via asyncio.gather()
+            # - Full control over each specialist's tools and prompts
+            # - No dependency on broken CLI features
+            # =================================================================
 
-                safe_print(
-                    f"[ParallelOrchestrator] Running orchestrator ({model})...",
-                    flush=True,
-                )
+            # Run all specialists in parallel
+            findings, agents_invoked = await self._run_parallel_specialists(
+                context=context,
+                project_root=project_root,
+                model=model,
+                thinking_budget=thinking_budget,
+            )
 
-                # Process SDK stream with shared utility
-                stream_result = await process_sdk_stream(
-                    client=client,
-                    context_name="ParallelOrchestrator",
-                    model=model,
-                )
+            # Log results
+            logger.info(
+                f"[ParallelOrchestrator] Parallel specialists complete: "
+                f"{len(findings)} findings from {len(agents_invoked)} agents"
+            )
 
-                # Check for stream processing errors
-                if stream_result.get("error"):
-                    logger.error(
-                        f"[ParallelOrchestrator] SDK stream failed: {stream_result['error']}"
-                    )
-                    raise RuntimeError(
-                        f"SDK stream processing failed: {stream_result['error']}"
-                    )
+            # Skip the old orchestrator session code - findings come from parallel specialists
+            # The code below (structured output parsing, retries, etc.) is no longer needed
+            # as _run_parallel_specialists handles everything
 
-                result_text = stream_result["result_text"]
-                structured_output = stream_result["structured_output"]
-                agents_invoked = stream_result["agents_invoked"]
-                msg_count = stream_result["msg_count"]
+            # NOTE: The following block is kept but skipped via this marker
+            if False:  # DISABLED: Old orchestrator + Task tool approach
+                # Old code for reference - to be removed after testing
+                prompt = self._build_orchestrator_prompt(context)
+                agent_defs = self._define_specialist_agents(project_root)
+                client = self._create_sdk_client(project_root, model, thinking_budget)
+
+                MAX_RETRIES = 3
+                RETRY_DELAY = 2.0
+
+                result_text = ""
+                structured_output = None
+                msg_count = 0
+                last_error = None
+
+                for attempt in range(MAX_RETRIES):
+                    if attempt > 0:
+                        logger.info(
+                            f"[ParallelOrchestrator] Retry attempt {attempt}/{MAX_RETRIES - 1} "
+                            f"after tool concurrency error"
+                        )
+                        safe_print(
+                            f"[ParallelOrchestrator] Retry {attempt}/{MAX_RETRIES - 1} "
+                            f"(tool concurrency error detected)"
+                        )
+                        await asyncio.sleep(RETRY_DELAY)
+                        client = self._create_sdk_client(
+                            project_root, model, thinking_budget
+                        )
+
+                    try:
+                        async with client:
+                            await client.query(prompt)
+
+                            safe_print(
+                                f"[ParallelOrchestrator] Running orchestrator ({model})...",
+                                flush=True,
+                            )
+
+                            stream_result = await process_sdk_stream(
+                                client=client,
+                                context_name="ParallelOrchestrator",
+                                model=model,
+                                system_prompt=prompt,
+                                agent_definitions=agent_defs,
+                            )
+
+                            error = stream_result.get("error")
+
+                            if (
+                                error == "tool_use_concurrency_error"
+                                and attempt < MAX_RETRIES - 1
+                            ):
+                                last_error = error
+                                continue
+                            if error:
+                                raise RuntimeError(f"SDK stream processing failed: {error}")
+                            result_text = stream_result["result_text"]
+                            structured_output = stream_result["structured_output"]
+                            agents_invoked = stream_result["agents_invoked"]
+                            break
+                    except Exception as e:
+                        if attempt < MAX_RETRIES - 1:
+                            last_error = str(e)
+                            continue
+                        raise
+                else:
+                    raise RuntimeError(f"Orchestrator failed after {MAX_RETRIES} attempts")
+
+            # END DISABLED BLOCK
 
             self._report_progress(
                 "finalizing",
@@ -792,20 +1196,9 @@ The SDK will run invoked agents in parallel automatically.
                 pr_number=context.pr_number,
             )
 
-            # Parse findings from output (structured output also returns agents)
-            findings, agents_from_structured = self._extract_structured_output(
-                structured_output, result_text
-            )
-
-            # Use agents from structured output (more reliable than streaming detection)
-            final_agents = (
-                agents_from_structured if agents_from_structured else agents_invoked
-            )
-            logger.info(
-                f"[ParallelOrchestrator] Session complete. Agents invoked: {final_agents}"
-            )
+            # Log completion with agent info
             safe_print(
-                f"[ParallelOrchestrator] Complete. Agents invoked: {final_agents}",
+                f"[ParallelOrchestrator] Complete. Agents invoked: {agents_invoked}",
                 flush=True,
             )
 
@@ -828,23 +1221,40 @@ The SDK will run invoked agents in parallel automatically.
                 f"[PRReview] AgentAgreement: {agent_agreement.model_dump_json()}"
             )
 
+            # Stage 1: Line number verification (cheap pre-filter)
+            # Catches hallucinated line numbers without AI cost
+            verified_findings, line_rejected = self._verify_line_numbers(
+                cross_validated_findings,
+                project_root,
+            )
+
+            logger.info(
+                f"[PRReview] Line verification: {len(line_rejected)} rejected, "
+                f"{len(verified_findings)} passed"
+            )
+
+            # Stage 2: AI validation (if findings remain)
+            # Finding-validator re-reads code with fresh eyes
+            if verified_findings:
+                validated_by_ai = await self._validate_findings(
+                    verified_findings, context, project_root
+                )
+            else:
+                validated_by_ai = []
+
+            logger.info(
+                f"[PRReview] After validation: {len(validated_by_ai)} findings "
+                f"(from {len(cross_validated_findings)} cross-validated)"
+            )
+
             # Apply programmatic evidence and scope filters
             # These catch edge cases that slip through the finding-validator
             changed_file_paths = [f.path for f in context.changed_files]
             validated_findings = []
             filtered_findings = []
 
-            for finding in cross_validated_findings:
-                # Check evidence quality
-                evidence_valid, evidence_reason = _validate_finding_evidence(finding)
-                if not evidence_valid:
-                    logger.info(
-                        f"[PRReview] Filtered finding {finding.id}: {evidence_reason}"
-                    )
-                    filtered_findings.append((finding, evidence_reason))
-                    continue
-
-                # Check scope
+            for finding in validated_by_ai:
+                # Check scope (evidence now enforced by schema)
                 scope_valid, scope_reason = _is_finding_in_scope(
                     finding, changed_file_paths
                 )
@@ -862,27 +1272,27 @@ The SDK will run invoked agents in parallel automatically.
                 f"{len(filtered_findings)} filtered"
             )
 
-            # Apply confidence routing to filter low-confidence findings
-            # and mark medium-confidence findings with "[Potential]" prefix
-            routed_findings = self._apply_confidence_routing(validated_findings)
-
-            logger.info(
-                f"[PRReview] Confidence routing: {len(routed_findings)} included, "
-                f"{len(validated_findings) - len(routed_findings)} dropped (low confidence)"
-            )
-
-            # Use routed findings for verdict and summary
-            unique_findings = routed_findings
+            # No confidence routing - validation is binary via finding-validator
+            unique_findings = validated_findings
+            logger.info(f"[PRReview] Final findings: {len(unique_findings)} validated")
 
             logger.info(
                 f"[ParallelOrchestrator] Review complete: {len(unique_findings)} findings"
             )
 
-            # Generate verdict (includes merge conflict check and branch-behind check)
+            # Fetch CI status for verdict consideration
+            ci_status = await self._get_ci_status(context.pr_number)
+            logger.info(
+                f"[PRReview] CI status: {ci_status.get('passing', 0)} passing, "
+                f"{ci_status.get('failing', 0)} failing, {ci_status.get('pending', 0)} pending"
+            )
+
+            # Generate verdict (includes merge conflict check, branch-behind check, and CI status)
             verdict, verdict_reasoning, blockers = self._generate_verdict(
                 unique_findings,
                 has_merge_conflicts=context.has_merge_conflicts,
                 merge_state_status=context.merge_state_status,
+                ci_status=ci_status,
             )
 
             # Generate summary
@@ -891,7 +1301,7 @@ The SDK will run invoked agents in parallel automatically.
                 verdict_reasoning=verdict_reasoning,
                 blockers=blockers,
                 findings=unique_findings,
-                agents_invoked=final_agents,
+                agents_invoked=agents_invoked,
             )
 
             # Map verdict to overall_status
@@ -1232,68 +1642,339 @@ The SDK will run invoked agents in parallel automatically.
 
         return validated_findings, agent_agreement
 
-    def _apply_confidence_routing(
-        self, findings: list[PRReviewFinding]
-    ) -> list[PRReviewFinding]:
+    def _verify_line_numbers(
+        self,
+        findings: list[PRReviewFinding],
+        worktree_path: Path,
+    ) -> tuple[list[PRReviewFinding], list[tuple[PRReviewFinding, str]]]:
         """
-        Route findings based on confidence scores.
+        Pre-filter findings with obviously invalid line numbers.
 
-        - HIGH (>=0.8): Keep as-is, include in output
-        - MEDIUM (0.5-0.8): Prepend "[Potential] " to title, include in output
-        - LOW (<0.5): Log with logger.info(), exclude from output
+        Catches hallucinated line numbers without AI cost by checking that
+        the line number doesn't exceed the file length.
 
         Args:
-            findings: List of findings to route
+            findings: Findings from specialist agents
+            worktree_path: Path to PR worktree (or project root)
 
         Returns:
-            Filtered list of findings (HIGH and MEDIUM only)
+            Tuple of (valid_findings, rejected_findings_with_reasons)
         """
-        routed = []
-        tier_counts = {"high": 0, "medium": 0, "low": 0}
+        valid = []
+        rejected: list[tuple[PRReviewFinding, str]] = []
+
+        # Cache file line counts to avoid re-reading
+        line_counts: dict[str, int | float] = {}
 
         for finding in findings:
-            # Handle missing confidence gracefully (default to 0.5)
-            confidence = getattr(finding, "confidence", 0.5)
-            if confidence is None:
-                confidence = 0.5
-            confidence = self._normalize_confidence(confidence)
+            file_path = worktree_path / finding.file
 
-            tier = ConfidenceTier.get_tier(confidence)
-            tier_counts[tier] += 1
-
-            if tier == ConfidenceTier.HIGH:
-                # HIGH: Include as-is
-                routed.append(finding)
-            elif tier == ConfidenceTier.MEDIUM:
-                # MEDIUM: Prepend "[Potential] " to title
-                if not finding.title.startswith("[Potential] "):
-                    finding.title = f"[Potential] {finding.title}"
-                routed.append(finding)
-            else:
-                # LOW: Log and exclude
+            # Check file exists
+            if not file_path.exists():
+                rejected.append((finding, f"File does not exist: {finding.file}"))
                 logger.info(
-                    f"[PRReview] Dropping low-confidence finding: "
-                    f"'{finding.title}' (confidence={confidence:.2f}, "
-                    f"file={finding.file}:{finding.line})"
+                    f"[PRReview] Rejected {finding.id}: File does not exist: {finding.file}"
                 )
+                continue
 
+            # Get line count (cached)
+            if finding.file not in line_counts:
+                try:
+                    content = file_path.read_text(encoding="utf-8", errors="replace")
+                    line_counts[finding.file] = len(content.splitlines())
+                except Exception as e:
+                    logger.warning(
+                        f"[PRReview] Could not read file {finding.file}: {e}"
+                    )
+                    # Allow finding on read error (conservative - don't block on read issues)
+                    line_counts[finding.file] = float("inf")
+
+            max_line = line_counts[finding.file]
+
+            # Check line number is valid
+            if finding.line > max_line:
+                reason = (
+                    f"Line {finding.line} exceeds file length ({int(max_line)} lines)"
+                )
+                rejected.append((finding, reason))
+                logger.info(f"[PRReview] Rejected {finding.id}: {reason}")
+                continue
+
+            valid.append(finding)
+
+        # Log summary
         logger.info(
-            f"[PRReview] Confidence routing: HIGH={tier_counts['high']}, "
-            f"MEDIUM={tier_counts['medium']}, LOW={tier_counts['low']} "
-            f"(dropped {tier_counts['low']} low-confidence findings)"
+            f"[PRReview] Line verification: {len(rejected)} findings rejected, "
+            f"{len(valid)} passed"
         )
 
-        return routed
+        return valid, rejected
+
+    async def _validate_findings(
+        self,
+        findings: list[PRReviewFinding],
+        context: PRContext,
+        worktree_path: Path,
+    ) -> list[PRReviewFinding]:
+        """
+        Validate findings using the finding-validator agent.
+
+        Invokes the finding-validator agent to re-read code with fresh eyes
+        and determine if findings are real issues or false positives.
+
+        Args:
+            findings: Pre-filtered findings from specialist agents
+            context: PR context with changed files
+            worktree_path: Path to PR worktree for code reading
+
+        Returns:
+            List of validated findings (only confirmed_valid and needs_human_review)
+        """
+        import json
+
+        if not findings:
+            return []
+
+        # Retry configuration for API errors
+        MAX_VALIDATION_RETRIES = 2
+        VALIDATOR_MAX_MESSAGES = 200  # Lower limit for validator (simpler task)
+
+        # Build validation prompt with all findings
+        findings_json = []
+        for f in findings:
+            findings_json.append(
+                {
+                    "id": f.id,
+                    "file": f.file,
+                    "line": f.line,
+                    "title": f.title,
+                    "description": f.description,
+                    "severity": f.severity.value,
+                    "category": f.category.value,
+                    "evidence": f.evidence,
+                }
+            )
+
+        changed_files_str = ", ".join(cf.path for cf in context.changed_files)
+        prompt = f"""
+## Findings to Validate
+
+The following findings were reported by specialist agents. Your job is to validate each one.
+
+**Changed files in this PR:** {changed_files_str}
+
+**Findings:**
+```json
+{json.dumps(findings_json, indent=2)}
+```
+
+For EACH finding above:
+1. Read the actual code at the file/line location
+2. Determine if the issue actually exists
+3. Return validation status with code evidence
+"""
+
+        # Resolve model for validator
+        model_shorthand = self.config.model or "sonnet"
+        model = resolve_model_id(model_shorthand)
+
+        # Retry loop for transient API errors
+        last_error = None
+        for attempt in range(MAX_VALIDATION_RETRIES + 1):
+            if attempt > 0:
+                logger.info(
+                    f"[PRReview] Validation retry {attempt}/{MAX_VALIDATION_RETRIES}"
+                )
+                safe_print(
+                    f"[FindingValidator] Retry attempt {attempt}/{MAX_VALIDATION_RETRIES}"
+                )
+
+            # Create validator client (inherits worktree filesystem access)
+            try:
+                validator_client = create_client(
+                    project_dir=worktree_path,
+                    spec_dir=self.github_dir,
+                    model=model,
+                    agent_type="pr_finding_validator",
+                    max_thinking_tokens=get_thinking_budget("medium"),
+                    output_format={
+                        "type": "json_schema",
+                        "schema": FindingValidationResponse.model_json_schema(),
+                    },
+                )
+            except Exception as e:
+                logger.error(f"[PRReview] Failed to create validator client: {e}")
+                last_error = e
+                continue  # Try again
+
+            # Run validation
+            try:
+                async with validator_client:
+                    await validator_client.query(prompt)
+
+                    stream_result = await process_sdk_stream(
+                        client=validator_client,
+                        context_name="FindingValidator",
+                        model=model,
+                        system_prompt=prompt,
+                        max_messages=VALIDATOR_MAX_MESSAGES,
+                    )
+
+                    error = stream_result.get("error")
+                    if error:
+                        # Check for specific error types that warrant retry
+                        error_str = str(error).lower()
+                        is_retryable = (
+                            "400" in error_str
+                            or "concurrency" in error_str
+                            or "circuit breaker" in error_str
+                            or "tool_use" in error_str
+                        )
+
+                        if is_retryable and attempt < MAX_VALIDATION_RETRIES:
+                            logger.warning(
+                                f"[PRReview] Retryable validation error: {error}"
+                            )
+                            last_error = Exception(error)
+                            continue  # Retry
+
+                        logger.error(f"[PRReview] Validation failed: {error}")
+                        # Fail-safe: return original findings
+                        return findings
+
+                    structured_output = stream_result.get("structured_output")
+
+                    # Success - break out of retry loop
+                    if structured_output:
+                        break
+
+            except Exception as e:
+                error_str = str(e).lower()
+                is_retryable = (
+                    "400" in error_str
+                    or "concurrency" in error_str
+                    or "rate" in error_str
+                )
+
+                if is_retryable and attempt < MAX_VALIDATION_RETRIES:
+                    logger.warning(f"[PRReview] Retryable stream error: {e}")
+                    last_error = e
+                    continue  # Retry
+
+                logger.error(f"[PRReview] Validation stream error: {e}")
+                # Fail-safe: return original findings
+                return findings
+        else:
+            # All retries exhausted
+            logger.error(
+                f"[PRReview] Validation failed after {MAX_VALIDATION_RETRIES} retries. "
+                f"Last error: {last_error}"
+            )
+            safe_print(
+                f"[FindingValidator] ERROR: Validation failed after {MAX_VALIDATION_RETRIES} retries"
+            )
+            # Fail-safe: return original findings
+            return findings
+
+        if not structured_output:
+            logger.warning(
+                "[PRReview] No structured validation output, keeping original findings"
+            )
+            return findings
+
+        # Parse validation results
+        try:
+            response = FindingValidationResponse.model_validate(structured_output)
+        except Exception as e:
+            logger.error(f"[PRReview] Failed to parse validation response: {e}")
+            return findings
+
+        # Build map of validation results
+        validation_map = {v.finding_id: v for v in response.validations}
+
+        # Filter findings based on validation
+        validated_findings = []
+        dismissed_count = 0
+        needs_human_count = 0
+
+        for finding in findings:
+            validation = validation_map.get(finding.id)
+
+            if not validation:
+                # No validation result - keep finding (conservative)
+                validated_findings.append(finding)
+                continue
+
+            if validation.validation_status == "confirmed_valid":
+                # Add validation evidence to finding
+                finding.validation_status = "confirmed_valid"
+                finding.validation_evidence = validation.code_evidence
+                finding.validation_explanation = validation.explanation
+                validated_findings.append(finding)
+
+            elif validation.validation_status == "dismissed_false_positive":
+                # Dismiss - do not include
+                dismissed_count += 1
+                logger.info(
+                    f"[PRReview] Dismissed {finding.id} as false positive: "
+                    f"{validation.explanation[:100]}"
+                )
+
+            elif validation.validation_status == "needs_human_review":
+                # Keep but flag
+                finding.validation_status = "needs_human_review"
+                finding.validation_evidence = validation.code_evidence
+                finding.validation_explanation = validation.explanation
+                finding.title = f"[NEEDS REVIEW] {finding.title}"
+                validated_findings.append(finding)
+                needs_human_count += 1
+
+        logger.info(
+            f"[PRReview] Validation complete: {len(validated_findings)} valid, "
+            f"{dismissed_count} dismissed, {needs_human_count} need human review"
+        )
+
+        return validated_findings
 
     def _generate_verdict(
         self,
         findings: list[PRReviewFinding],
         has_merge_conflicts: bool = False,
         merge_state_status: str = "",
+        ci_status: dict | None = None,
     ) -> tuple[MergeVerdict, str, list[str]]:
-        """Generate merge verdict based on findings, merge conflict status, and branch state."""
+        """Generate merge verdict based on findings, merge conflict status, branch state, and CI."""
         blockers = []
         is_branch_behind = merge_state_status == "BEHIND"
+
+        # Extract CI status
+        ci_status = ci_status or {}
+        ci_failing = ci_status.get("failing", 0)
+        ci_pending = ci_status.get("pending", 0)
+        ci_passing = ci_status.get("passing", 0)
+        ci_awaiting = ci_status.get("awaiting_approval", 0)
+        failed_checks = ci_status.get("failed_checks", [])
+
+        # Build CI status string for reasoning
+        ci_summary = ""
+        if ci_failing > 0:
+            ci_summary = f"CI: {ci_failing} failing ({', '.join(failed_checks[:3])})"
+            if len(failed_checks) > 3:
+                ci_summary += f" +{len(failed_checks) - 3} more"
+        elif ci_awaiting > 0:
+            ci_summary = f"CI: {ci_awaiting} workflow(s) awaiting approval"
+        elif ci_pending > 0:
+            ci_summary = f"CI: {ci_pending} check(s) pending"
+        elif ci_passing > 0:
+            ci_summary = f"CI: {ci_passing} check(s) passing"
+
+        # CRITICAL: CI failures block merging (highest priority after merge conflicts)
+        if ci_failing > 0:
+            blockers.append(f"CI Failing: {', '.join(failed_checks)}")
+        elif ci_awaiting > 0:
+            blockers.append(
+                f"CI Awaiting Approval: {ci_awaiting} workflow(s) need maintainer approval"
+            )
 
         # CRITICAL: Merge conflicts block merging - check first
         if has_merge_conflicts:
@@ -1312,51 +1993,63 @@ The SDK will run invoked agents in parallel automatically.
         for f in critical:
             blockers.append(f"Critical: {f.title} ({f.file}:{f.line})")
 
-        if blockers:
-            # Merge conflicts are the highest priority blocker
-            if has_merge_conflicts:
-                verdict = MergeVerdict.BLOCKED
-                reasoning = (
-                    "Blocked: PR has merge conflicts with base branch. "
-                    "Resolve conflicts before merge."
+        # Determine verdict and reasoning
+        if ci_failing > 0:
+            # Failing CI always blocks
+            verdict = MergeVerdict.BLOCKED
+            reasoning = f"BLOCKED: {ci_summary}. Fix CI before merge."
+            if critical:
+                reasoning += f" Also {len(critical)} critical code issue(s)."
+            elif high or medium:
+                reasoning += (
+                    f" Also {len(high) + len(medium)} code issue(s) to address."
                 )
-            elif critical:
-                verdict = MergeVerdict.BLOCKED
-                reasoning = f"Blocked by {len(critical)} critical issue(s)"
-            # Branch behind is a soft blocker - NEEDS_REVISION, not BLOCKED
-            elif is_branch_behind:
+        elif ci_awaiting > 0:
+            # Awaiting approval blocks
+            verdict = MergeVerdict.BLOCKED
+            reasoning = f"BLOCKED: {ci_summary}. Maintainer must approve workflow runs for fork PRs."
+        elif has_merge_conflicts:
+            verdict = MergeVerdict.BLOCKED
+            reasoning = (
+                f"BLOCKED: PR has merge conflicts with base branch. "
+                f"Resolve conflicts before merge. {ci_summary}"
+            )
+        elif critical:
+            verdict = MergeVerdict.BLOCKED
+            reasoning = f"BLOCKED: {len(critical)} critical code issue(s). {ci_summary}"
+        elif ci_pending > 0:
+            # Pending CI prevents ready-to-merge but doesn't block
+            if high or medium:
                 verdict = MergeVerdict.NEEDS_REVISION
-                if high or medium:
-                    # Branch behind + code issues that need addressing
-                    total = len(high) + len(medium)
-                    reasoning = (
-                        f"{BRANCH_BEHIND_REASONING} "
-                        f"{total} issue(s) must be addressed ({len(high)} required, {len(medium)} recommended)."
-                    )
-                else:
-                    # Just branch behind, no code issues
-                    reasoning = BRANCH_BEHIND_REASONING
-                if low:
-                    reasoning += f" {len(low)} non-blocking suggestion(s) to consider."
+                total = len(high) + len(medium)
+                reasoning = f"NEEDS_REVISION: {total} code issue(s) + {ci_summary}"
             else:
-                verdict = MergeVerdict.BLOCKED
-                reasoning = f"Blocked by {len(blockers)} issue(s)"
+                verdict = MergeVerdict.NEEDS_REVISION
+                reasoning = f"NEEDS_REVISION: {ci_summary}. Wait for CI to complete."
+        elif is_branch_behind:
+            verdict = MergeVerdict.NEEDS_REVISION
+            if high or medium:
+                total = len(high) + len(medium)
+                reasoning = (
+                    f"NEEDS_REVISION: {BRANCH_BEHIND_REASONING} "
+                    f"{total} code issue(s). {ci_summary}"
+                )
+            else:
+                reasoning = f"NEEDS_REVISION: {BRANCH_BEHIND_REASONING} {ci_summary}"
+            if low:
+                reasoning += f" {len(low)} suggestion(s)."
         elif high or medium:
-            # High and Medium severity findings block merge
             verdict = MergeVerdict.NEEDS_REVISION
             total = len(high) + len(medium)
-            reasoning = f"{total} issue(s) must be addressed ({len(high)} required, {len(medium)} recommended)"
+            reasoning = f"NEEDS_REVISION: {total} code issue(s) ({len(high)} high, {len(medium)} medium). {ci_summary}"
             if low:
-                reasoning += f", {len(low)} suggestions"
+                reasoning += f" {len(low)} suggestion(s)."
         elif low:
-            # Only Low severity suggestions - safe to merge (non-blocking)
             verdict = MergeVerdict.READY_TO_MERGE
-            reasoning = (
-                f"No blocking issues. {len(low)} non-blocking suggestion(s) to consider"
-            )
+            reasoning = f"READY_TO_MERGE: No blocking issues. {len(low)} suggestion(s). {ci_summary}"
         else:
             verdict = MergeVerdict.READY_TO_MERGE
-            reasoning = "No blocking issues found"
+            reasoning = f"READY_TO_MERGE: No blocking issues. {ci_summary}"
 
         return verdict, reasoning, blockers
 
@@ -1368,7 +2061,7 @@ The SDK will run invoked agents in parallel automatically.
         findings: list[PRReviewFinding],
         agents_invoked: list[str],
     ) -> str:
-        """Generate PR review summary."""
+        """Generate PR review summary with per-finding evidence details."""
         verdict_emoji = {
             MergeVerdict.READY_TO_MERGE: "✅",
             MergeVerdict.MERGE_WITH_CHANGES: "🟡",
@@ -1394,20 +2087,89 @@ The SDK will run invoked agents in parallel automatically.
                 lines.append(f"- {blocker}")
             lines.append("")
 
-        # Findings summary
+        # Detailed findings with evidence
         if findings:
-            by_severity: dict[str, list] = {}
-            for f in findings:
-                severity = f.severity.value
-                if severity not in by_severity:
-                    by_severity[severity] = []
-                by_severity[severity].append(f)
+            severity_emoji = {
+                "critical": "🔴",
+                "high": "🟠",
+                "medium": "🟡",
+                "low": "🔵",
+            }
 
-            lines.append("### Findings Summary")
-            for severity in ["critical", "high", "medium", "low"]:
-                if severity in by_severity:
-                    count = len(by_severity[severity])
-                    lines.append(f"- **{severity.capitalize()}**: {count} issue(s)")
+            lines.append("### Findings")
+            lines.append("")
+
+            for f in findings:
+                sev = f.severity.value
+                emoji = severity_emoji.get(sev, "⚪")
+
+                # Finding header with location
+                line_range = f"L{f.line}"
+                if f.end_line and f.end_line != f.line:
+                    line_range = f"L{f.line}-L{f.end_line}"
+                lines.append(f"#### {emoji} [{sev.upper()}] {f.title}")
+                lines.append(f"**File:** `{f.file}` ({line_range})")
+
+                # Cross-validation badge
+                if f.cross_validated and f.source_agents:
+                    agents_str = ", ".join(f.source_agents)
+                    lines.append(
+                        f"**Cross-validated** by {len(f.source_agents)} agents: {agents_str}"
+                    )
+
+                # Description
+                lines.append("")
+                lines.append(f"{f.description}")
+
+                # Evidence from the finding itself
+                if f.evidence:
+                    lines.append("")
+                    lines.append("<details>")
+                    lines.append("<summary>Code evidence</summary>")
+                    lines.append("")
+                    lines.append("```")
+                    lines.append(f.evidence)
+                    lines.append("```")
+                    lines.append("</details>")
+
+                # Validation details (what the validator verified)
+                if f.validation_status:
+                    status_label = {
+                        "confirmed_valid": "Confirmed",
+                        "needs_human_review": "Needs human review",
+                    }.get(f.validation_status, f.validation_status)
+                    lines.append("")
+                    lines.append(f"**Validation:** {status_label}")
+                    if f.validation_evidence:
+                        lines.append("")
+                        lines.append("<details>")
+                        lines.append("<summary>Verification details</summary>")
+                        lines.append("")
+                        lines.append(f"{f.validation_evidence}")
+                        if f.validation_explanation:
+                            lines.append("")
+                            lines.append(f"**Reasoning:** {f.validation_explanation}")
+                        lines.append("</details>")
+
+                # Suggested fix
+                if f.suggested_fix:
+                    lines.append("")
+                    lines.append(f"**Suggested fix:** {f.suggested_fix}")
+
+                lines.append("")
+
+            # Findings count summary
+            by_severity: dict[str, int] = {}
+            for f in findings:
+                sev = f.severity.value
+                by_severity[sev] = by_severity.get(sev, 0) + 1
+            summary_parts = []
+            for sev in ["critical", "high", "medium", "low"]:
+                if sev in by_severity:
+                    summary_parts.append(f"{by_severity[sev]} {sev}")
+            lines.append(
+                f"**Total:** {len(findings)} finding(s) ({', '.join(summary_parts)})"
+            )
             lines.append("")
 
         lines.append("---")

@@ -97,7 +97,8 @@
     "add": "Add",
     "gotIt": "Got it",
     "continue": "Continue",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "deleting": "Deleting..."
   },
   "labels": {
     "loading": "Loading...",
@@ -111,7 +112,8 @@
     "required": "Required",
     "dismiss": "Dismiss",
     "important": "Important",
-    "noFilesFound": "No files found"
+    "noFilesFound": "No files found",
+    "orphaned": "(orphaned)"
   },
   "keyboardShortcuts": {
     "navigate": "↑↓ navigate",
@@ -152,6 +154,11 @@
     "failedToDeleteTaskWorktree": "Failed to delete task worktree: {{specName}}",
     "terminalWorktreeNotFound": "Terminal worktree not found: {{name}}",
     "failedToDeleteTerminalWorktree": "Failed to delete terminal worktree: {{name}}"
+  },
+  "worktrees": {
+    "deleteSuccess": "Worktree '{{branch}}' deleted successfully",
+    "bulkDeleteSuccess": "{{count}} worktree deleted successfully",
+    "bulkDeleteSuccess_plural": "{{count}} worktrees deleted successfully"
   },
   "notification": {
     "accountSwitched": "Account Switched",
@@ -501,7 +508,8 @@
     "clickToOpenSettings": "Click to open Settings →",
     "sessionShort": "5-hour session usage",
     "weeklyShort": "7-day weekly usage",
-    "swap": "Swap"
+    "swap": "Swap",
+    "account": "Account"
   },
   "oauth": {
     "enterCode": "Manual Code Entry (Fallback)",

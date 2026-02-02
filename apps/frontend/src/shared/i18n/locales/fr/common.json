@@ -97,7 +97,8 @@
     "add": "Ajouter",
     "gotIt": "Compris",
     "continue": "Continuer",
-    "saving": "Enregistrement..."
+    "saving": "Enregistrement...",
+    "deleting": "Suppression..."
   },
   "labels": {
     "loading": "Chargement...",
@@ -111,7 +112,8 @@
     "required": "Requis",
     "dismiss": "Ignorer",
     "important": "Important",
-    "noFilesFound": "Aucun fichier trouvé"
+    "noFilesFound": "Aucun fichier trouvé",
+    "orphaned": "(orphelin)"
   },
   "keyboardShortcuts": {
     "navigate": "↑↓ naviguer",
@@ -152,6 +154,11 @@
     "failedToDeleteTaskWorktree": "Échec de la suppression du worktree de tâche : {{specName}}",
     "terminalWorktreeNotFound": "Worktree terminal introuvable : {{name}}",
     "failedToDeleteTerminalWorktree": "Échec de la suppression du worktree terminal : {{name}}"
+  },
+  "worktrees": {
+    "deleteSuccess": "Worktree '{{branch}}' supprimé avec succès",
+    "bulkDeleteSuccess": "{{count}} worktree supprimé avec succès",
+    "bulkDeleteSuccess_plural": "{{count}} worktrees supprimés avec succès"
   },
   "notification": {
     "accountSwitched": "Compte changé",
@@ -501,7 +508,8 @@
     "clickToOpenSettings": "Cliquez pour ouvrir les Paramètres →",
     "sessionShort": "Utilisation session 5 heures",
     "weeklyShort": "Utilisation hebdomadaire 7 jours",
-    "swap": "Changer"
+    "swap": "Changer",
+    "account": "Compte"
   },
   "oauth": {
     "enterCode": "Saisie manuelle du code (secours)",

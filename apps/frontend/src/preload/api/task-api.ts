@@ -10,6 +10,8 @@ import type {
   TaskMetadata,
   TaskLogs,
   TaskLogStreamChunk,
+  ReviewReason,
+  MergeProgress,
   SupportedIDE,
   SupportedTerminal,
   WorktreeCreatePROptions,
@@ -59,6 +61,7 @@ export interface TaskAPI {
   mergeWorktree: (taskId: string, options?: { noCommit?: boolean }) => Promise<IPCResult<import('../../shared/types').WorktreeMergeResult>>;
   mergeWorktreePreview: (taskId: string) => Promise<IPCResult<import('../../shared/types').WorktreeMergeResult>>;
   discardWorktree: (taskId: string, skipStatusChange?: boolean) => Promise<IPCResult<import('../../shared/types').WorktreeDiscardResult>>;
+  discardOrphanedWorktree: (projectId: string, specName: string) => Promise<IPCResult<import('../../shared/types').WorktreeDiscardResult>>;
   clearStagedState: (taskId: string) => Promise<IPCResult<{ cleared: boolean }>>;
   listWorktrees: (projectId: string, options?: { includeStats?: boolean }) => Promise<IPCResult<import('../../shared/types').WorktreeListResult>>;
   worktreeOpenInIDE: (worktreePath: string, ide: SupportedIDE, customPath?: string) => Promise<IPCResult<{ opened: boolean }>>;
@@ -73,7 +76,7 @@ export interface TaskAPI {
   onTaskProgress: (callback: (taskId: string, plan: ImplementationPlan, projectId?: string) => void) => () => void;
   onTaskError: (callback: (taskId: string, error: string, projectId?: string) => void) => () => void;
   onTaskLog: (callback: (taskId: string, log: string, projectId?: string) => void) => () => void;
-  onTaskStatusChange: (callback: (taskId: string, status: TaskStatus, projectId?: string) => void) => () => void;
+  onTaskStatusChange: (callback: (taskId: string, status: TaskStatus, projectId?: string, reviewReason?: ReviewReason) => void) => () => void;
   onTaskExecutionProgress: (
     callback: (taskId: string, progress: import('../../shared/types').ExecutionProgress, projectId?: string) => void
   ) => () => void;
@@ -84,6 +87,9 @@ export interface TaskAPI {
   unwatchTaskLogs: (specId: string) => Promise<IPCResult>;
   onTaskLogsChanged: (callback: (specId: string, logs: TaskLogs) => void) => () => void;
   onTaskLogsStream: (callback: (specId: string, chunk: TaskLogStreamChunk) => void) => () => void;
+
+  // Merge Progress Events
+  onMergeProgress: (callback: (taskId: string, progress: MergeProgress) => void) => () => void;
 }
 
 export const createTaskAPI = (): TaskAPI => ({
@@ -157,6 +163,9 @@ export const createTaskAPI = (): TaskAPI => ({
 
   discardWorktree: (taskId: string, skipStatusChange?: boolean): Promise<IPCResult<import('../../shared/types').WorktreeDiscardResult>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_WORKTREE_DISCARD, taskId, skipStatusChange),
+
+  discardOrphanedWorktree: (projectId: string, specName: string): Promise<IPCResult<import('../../shared/types').WorktreeDiscardResult>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_WORKTREE_DISCARD_ORPHAN, projectId, specName),
 
   clearStagedState: (taskId: string): Promise<IPCResult<{ cleared: boolean }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_CLEAR_STAGED_STATE, taskId),
@@ -235,15 +244,16 @@ export const createTaskAPI = (): TaskAPI => ({
   },
 
   onTaskStatusChange: (
-    callback: (taskId: string, status: TaskStatus, projectId?: string) => void
+    callback: (taskId: string, status: TaskStatus, projectId?: string, reviewReason?: ReviewReason) => void
   ): (() => void) => {
     const handler = (
       _event: Electron.IpcRendererEvent,
       taskId: string,
       status: TaskStatus,
-      projectId?: string
+      projectId?: string,
+      reviewReason?: ReviewReason
     ): void => {
-      callback(taskId, status, projectId);
+      callback(taskId, status, projectId, reviewReason);
     };
     ipcRenderer.on(IPC_CHANNELS.TASK_STATUS_CHANGE, handler);
     return () => {
@@ -307,6 +317,23 @@ export const createTaskAPI = (): TaskAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TASK_LOGS_STREAM, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TASK_LOGS_STREAM, handler);
+    };
+  },
+
+  // Merge Progress Events
+  onMergeProgress: (
+    callback: (taskId: string, progress: MergeProgress) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      taskId: string,
+      progress: MergeProgress
+    ): void => {
+      callback(taskId, progress);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_MERGE_PROGRESS, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_MERGE_PROGRESS, handler);
     };
   }
 });

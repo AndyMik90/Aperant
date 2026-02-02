@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 import {
   GitBranch,
   FileCode,
@@ -13,17 +14,24 @@ import {
   CheckCircle,
   GitCommit,
   Code,
-  Terminal
+  Terminal,
+  Info,
+  CheckCheck
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip';
 import { cn } from '../../../lib/utils';
-import type { WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo, SupportedIDE, SupportedTerminal } from '../../../../shared/types';
+import { MergeProgressOverlay } from './MergeProgressOverlay';
+import type { WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo, SupportedIDE, SupportedTerminal, MergeProgress, MergeLogEntry, MergeLogEntryType } from '../../../../shared/types';
 import { useSettingsStore } from '../../../stores/settings-store';
 
+// Maximum log entries to keep to prevent memory issues during long merges
+const MAX_LOG_ENTRIES = 500;
+
 interface WorkspaceStatusProps {
+  taskId: string;
   worktreeStatus: WorktreeStatus;
   workspaceError: string | null;
   stageOnly: boolean;
@@ -82,6 +90,7 @@ const TERMINAL_LABELS: Partial<Record<SupportedTerminal, string>> = {
 };
 
 export function WorkspaceStatus({
+  taskId,
   worktreeStatus,
   workspaceError,
   stageOnly,
@@ -105,6 +114,118 @@ export function WorkspaceStatus({
   const { settings } = useSettingsStore();
   const preferredIDE = settings.preferredIDE || 'vscode';
   const preferredTerminal = settings.preferredTerminal || 'system';
+
+  // Merge progress state
+  const [mergeProgress, setMergeProgress] = useState<MergeProgress | null>(null);
+  const [logEntries, setLogEntries] = useState<MergeLogEntry[]>([]);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const prevIsMergingRef = useRef(isMerging);
+  const mergeStartTimeRef = useRef<number | null>(null);
+  const minDisplayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ipcCleanupRef = useRef<(() => void) | null>(null);
+
+  // Reset state when isMerging transitions from false → true
+  useEffect(() => {
+    if (isMerging && !prevIsMergingRef.current) {
+      setMergeProgress(null);
+      setLogEntries([]);
+      setShowOverlay(true);
+      mergeStartTimeRef.current = Date.now();
+    }
+    prevIsMergingRef.current = isMerging;
+  }, [isMerging]);
+
+  // Minimum display time: keep overlay visible for at least 500ms after merge ends
+  // Also wait for terminal progress event (complete/error) to avoid hiding before final message
+  useEffect(() => {
+    if (!isMerging && showOverlay && mergeStartTimeRef.current !== null) {
+      // Check if we received a terminal progress event (complete or error)
+      const hasTerminalEvent = mergeProgress?.stage === 'complete' || mergeProgress?.stage === 'error';
+
+      // Only hide if we have a terminal event OR if a fallback timeout expires
+      if (hasTerminalEvent) {
+        const elapsed = Date.now() - mergeStartTimeRef.current;
+        const MIN_DISPLAY_MS = 500;
+        const remaining = Math.max(0, MIN_DISPLAY_MS - elapsed);
+
+        if (remaining > 0) {
+          minDisplayTimerRef.current = setTimeout(() => {
+            setShowOverlay(false);
+            mergeStartTimeRef.current = null;
+          }, remaining);
+        } else {
+          setShowOverlay(false);
+          mergeStartTimeRef.current = null;
+        }
+      } else {
+        // Fallback: hide after 2s if no terminal event received (defensive)
+        minDisplayTimerRef.current = setTimeout(() => {
+          setShowOverlay(false);
+          mergeStartTimeRef.current = null;
+        }, 2000);
+      }
+    }
+
+    return () => {
+      if (minDisplayTimerRef.current) {
+        clearTimeout(minDisplayTimerRef.current);
+        minDisplayTimerRef.current = null;
+      }
+    };
+  }, [isMerging, showOverlay, mergeProgress?.stage]);
+
+  // Subscribe to merge progress IPC events
+  useEffect(() => {
+    if (!isMerging) return;
+
+    const stageToLogType = (stage: string): MergeLogEntryType => {
+      switch (stage) {
+        case 'complete': return 'success';
+        case 'error': return 'error';
+        case 'resolving': return 'warning';
+        default: return 'info';
+      }
+    };
+
+    const cleanup = window.electronAPI.onMergeProgress((eventTaskId: string, progress: MergeProgress) => {
+      // Filter by task ID to prevent cross-task event leakage
+      if (eventTaskId !== taskId) return;
+
+      setMergeProgress(progress);
+      setLogEntries(prev => {
+        const newEntry = {
+          timestamp: new Date().toISOString(),
+          type: stageToLogType(progress.stage),
+          message: progress.message,
+          details: progress.details?.current_file,
+        };
+        // Limit log entries to prevent unbounded growth during long merges
+        const updated = [...prev, newEntry];
+        if (updated.length > MAX_LOG_ENTRIES) {
+          return updated.slice(-MAX_LOG_ENTRIES);
+        }
+        return updated;
+      });
+    });
+
+    // Store cleanup ref so we can call it on unmount even if isMerging changes
+    ipcCleanupRef.current = cleanup;
+
+    return cleanup;
+  }, [isMerging, taskId]);
+
+  // Ensure IPC listener cleanup on unmount during active merge
+  useEffect(() => {
+    return () => {
+      if (ipcCleanupRef.current) {
+        ipcCleanupRef.current();
+        ipcCleanupRef.current = null;
+      }
+      if (minDisplayTimerRef.current) {
+        clearTimeout(minDisplayTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleOpenInIDE = async () => {
     if (!worktreeStatus.worktreePath) return;
@@ -137,6 +258,12 @@ export function WorkspaceStatus({
   const uncommittedCount = mergePreview?.uncommittedChanges?.count || 0;
   const hasAIConflicts = mergePreview && mergePreview.conflicts.length > 0;
 
+  // Conflict scenario detection for better UX messaging
+  const conflictScenario = mergePreview?.gitConflicts?.scenario;
+  const alreadyMergedFiles = mergePreview?.gitConflicts?.alreadyMergedFiles || [];
+  const isAlreadyMerged = conflictScenario === 'already_merged';
+  const isSuperseded = conflictScenario === 'superseded';
+
   // Check if branch needs rebase (main has advanced since spec was created)
   // This requires AI merge even if no explicit file conflicts are detected
   const needsRebase = mergePreview?.gitConflicts?.needsRebase;
@@ -160,7 +287,7 @@ export function WorkspaceStatus({
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-medium text-sm text-foreground flex items-center gap-2">
             <GitBranch className="h-4 w-4 text-purple-400" />
-            {t('taskReview:workspace.buildReady')}
+            Build Ready for Review
           </h3>
           <Button
             variant="ghost"
@@ -169,7 +296,7 @@ export function WorkspaceStatus({
             className="h-7 px-2 text-xs"
           >
             <Eye className="h-3.5 w-3.5 mr-1" />
-            {t('taskReview:workspace.view')}
+            View
           </Button>
         </div>
 
@@ -177,7 +304,7 @@ export function WorkspaceStatus({
         <div className="flex items-center gap-4 text-xs">
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <FileCode className="h-3.5 w-3.5" />
-            <span className="font-medium text-foreground">{worktreeStatus.filesChanged || 0}</span> files
+            <span className="font-medium text-foreground">{worktreeStatus.filesChanged || 0}</span> {t('taskReview:merge.status.files')}
           </span>
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <GitCommit className="h-3.5 w-3.5" />
@@ -250,10 +377,13 @@ export function WorkspaceStatus({
             <AlertTriangle className="h-4 w-4 text-warning mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-warning">
-                {uncommittedCount} uncommitted {uncommittedCount === 1 ? 'change' : 'changes'} in main project
+                {t('taskReview:merge.status.uncommittedChanges', {
+                  count: uncommittedCount,
+                  type: uncommittedCount === 1 ? t('taskReview:merge.status.change') : t('taskReview:merge.status.changes')
+                })}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Commit or stash them in your terminal before staging to avoid conflicts.
+                {t('taskReview:merge.status.uncommittedWarning')}
               </p>
             </div>
           </div>
@@ -263,12 +393,52 @@ export function WorkspaceStatus({
         {isLoadingPreview && !mergePreview && (
           <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            {t('taskReview:workspace.checkingForConflicts')}
+            {t('taskReview:merge.status.checkingForConflicts')}
+          </div>
+        )}
+
+        {/* Already Merged Scenario - Show friendly message when task changes exist in target */}
+        {mergePreview && isAlreadyMerged && (
+          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-success/10 border border-success/20">
+            <CheckCheck className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-success">
+                {t('taskReview:merge.alreadyMergedTitle')}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {t('taskReview:merge.alreadyMergedDescription')}
+              </p>
+              {alreadyMergedFiles.length > 0 && alreadyMergedFiles.length <= 5 && (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  <span className="font-medium">{t('taskReview:merge.matchingFiles')}:</span>
+                  <ul className="mt-1 list-disc list-inside">
+                    {alreadyMergedFiles.map(file => (
+                      <li key={file} className="truncate">{file}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Superseded Scenario - Target has newer version of changes */}
+        {mergePreview && isSuperseded && (
+          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-info/10 border border-info/20">
+            <Info className="h-4 w-4 text-info mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-info">
+                {t('taskReview:merge.supersededTitle')}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {t('taskReview:merge.supersededDescription')}
+              </p>
+            </div>
           </div>
         )}
 
         {/* Merge Status */}
-        {mergePreview && (
+        {mergePreview && !isAlreadyMerged && !isSuperseded && (
           <div className={cn(
             "flex items-center justify-between p-2.5 rounded-lg border",
             hasGitConflicts || isBranchBehind || hasPathMappedMerges
@@ -282,8 +452,8 @@ export function WorkspaceStatus({
                 <>
                   <AlertTriangle className="h-4 w-4 text-warning" />
                   <div>
-                    <span className="text-sm font-medium text-warning">{t('taskReview:workspace.branchDiverged')}</span>
-                    <span className="text-xs text-muted-foreground ml-2">{t('taskReview:workspace.aiWillResolve')}</span>
+                    <span className="text-sm font-medium text-warning">{t('taskReview:merge.status.branchDiverged')}</span>
+                    <span className="text-xs text-muted-foreground ml-2">{t('taskReview:merge.status.aiWillResolve')}</span>
                   </div>
                 </>
               ) : isBranchBehind || hasPathMappedMerges ? (
@@ -291,26 +461,26 @@ export function WorkspaceStatus({
                   <AlertTriangle className="h-4 w-4 text-warning" />
                   <div>
                     <span className="text-sm font-medium text-warning">
-                      {hasPathMappedMerges ? t('taskReview:workspace.filesRenamed') : t('taskReview:workspace.branchBehind')}
+                      {hasPathMappedMerges ? t('taskReview:merge.status.filesRenamed') : t('taskReview:merge.status.branchBehind')}
                     </span>
                     <span className="text-xs text-muted-foreground ml-2">
-                      AI will resolve ({hasPathMappedMerges ? `${pathMappedAIMergeCount} files` : `${commitsBehind} commits`})
+                      {t('taskReview:merge.status.aiWillResolve')} ({hasPathMappedMerges ? `${pathMappedAIMergeCount} ${t('taskReview:merge.status.files')}` : `${commitsBehind} commits`})
                     </span>
                   </div>
                 </>
               ) : !hasAIConflicts ? (
                 <>
                   <CheckCircle className="h-4 w-4 text-success" />
-                  <span className="text-sm font-medium text-success">{t('taskReview:workspace.readyToMerge')}</span>
+                  <span className="text-sm font-medium text-success">{t('taskReview:merge.status.readyToMerge')}</span>
                   <span className="text-xs text-muted-foreground ml-1">
-                    {mergePreview.summary.totalFiles} files
+                    {mergePreview.summary.totalFiles} {t('taskReview:merge.status.files')}
                   </span>
                 </>
               ) : (
                 <>
                   <AlertTriangle className="h-4 w-4 text-warning" />
                   <span className="text-sm font-medium text-warning">
-                    {mergePreview.conflicts.length} {mergePreview.conflicts.length === 1 ? t('taskReview:workspace.conflict') : t('taskReview:workspace.conflicts')}
+                    {mergePreview.conflicts.length} {mergePreview.conflicts.length !== 1 ? t('taskReview:merge.status.conflicts') : t('taskReview:merge.status.conflict')}
                   </span>
                 </>
               )}
@@ -323,7 +493,7 @@ export function WorkspaceStatus({
                   onClick={() => onShowConflictDialog(true)}
                   className="h-7 text-xs"
                 >
-                  {t('taskReview:workspace.details')}
+                  {t('taskReview:merge.status.details')}
                 </Button>
               )}
               <Button
@@ -332,7 +502,7 @@ export function WorkspaceStatus({
                 onClick={onLoadMergePreview}
                 disabled={isLoadingPreview}
                 className="h-7 px-2"
-                title={t('taskReview:workspace.refresh')}
+                title={t('taskReview:merge.status.refresh')}
               >
                 {isLoadingPreview ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -344,8 +514,8 @@ export function WorkspaceStatus({
           </div>
         )}
 
-        {/* Git Conflicts Details */}
-        {hasGitConflicts && mergePreview?.gitConflicts && (
+        {/* Git Conflicts Details - hide for already_merged/superseded scenarios */}
+        {hasGitConflicts && mergePreview?.gitConflicts && !isAlreadyMerged && !isSuperseded && (
           <div className="text-xs text-muted-foreground pl-6">
             {t('taskReview:merge.branchHasNewCommits', { branch: mergePreview.gitConflicts.baseBranch, count: mergePreview.gitConflicts.commitsBehind })}
             {mergePreview.gitConflicts.conflictingFiles.length > 0 && (
@@ -357,7 +527,7 @@ export function WorkspaceStatus({
         )}
 
         {/* Branch Behind Details (no explicit conflicts but needs AI merge due to path mappings) */}
-        {!hasGitConflicts && isBranchBehind && mergePreview?.gitConflicts && (
+        {!hasGitConflicts && isBranchBehind && mergePreview?.gitConflicts && !isAlreadyMerged && !isSuperseded && (
           <div className="text-xs text-muted-foreground pl-6">
             {t('taskReview:merge.branchHasNewCommitsSinceBuild', { branch: mergePreview.gitConflicts.baseBranch, count: commitsBehind })}
             {hasPathMappedMerges ? (
@@ -373,10 +543,15 @@ export function WorkspaceStatus({
         )}
       </div>
 
+      {/* Merge Progress Overlay — shown during merge and for minimum display time after */}
+      {(isMerging || showOverlay) && (
+        <MergeProgressOverlay mergeProgress={mergeProgress} logEntries={logEntries} />
+      )}
+
       {/* Actions Footer */}
       <div className="px-4 py-3 bg-muted/20 border-t border-border space-y-3">
-        {/* Stage Only Option - only show after conflicts have been checked */}
-        {mergePreview && (
+        {/* Stage Only Option - only show after conflicts have been checked (not for already_merged/superseded) */}
+        {mergePreview && !isAlreadyMerged && !isSuperseded && (
           <label className="inline-flex items-center gap-2.5 text-sm cursor-pointer select-none px-3 py-2 rounded-lg border border-border bg-background/50 hover:bg-background/80 transition-colors">
             <Checkbox
               checked={stageOnly}
@@ -386,7 +561,7 @@ export function WorkspaceStatus({
             <span className={cn(
               "transition-colors",
               stageOnly ? "text-foreground" : "text-muted-foreground"
-            )}>{t('taskReview:workspace.stageOnlyLabel')}</span>
+            )}>{t('taskReview:merge.status.stageOnly')}</span>
           </label>
         )}
 
@@ -401,7 +576,7 @@ export function WorkspaceStatus({
               className="flex-1"
             >
               <GitMerge className="mr-2 h-4 w-4" />
-              {t('taskReview:workspace.checkForConflicts')}
+              Check for Conflicts
             </Button>
           )}
 
@@ -413,12 +588,85 @@ export function WorkspaceStatus({
               className="flex-1"
             >
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {t('taskReview:workspace.checkingForConflicts')}
+              {t('taskReview:merge.status.checkingForConflicts')}
             </Button>
           )}
 
-          {/* State 3: Merge preview loaded - show appropriate merge/stage button */}
-          {mergePreview && !isLoadingPreview && (
+          {/* State 3a: Already Merged - show "Mark as Done" as primary action */}
+          {mergePreview && !isLoadingPreview && isAlreadyMerged && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="success"
+                  onClick={onMerge}
+                  disabled={isMerging || isDiscarding}
+                  className="flex-1"
+                >
+                  {isMerging ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {t('taskReview:merge.buttons.completing')}
+                    </>
+                  ) : (
+                    <>
+                      <CheckCheck className="mr-2 h-4 w-4" />
+                      {t('taskReview:merge.actions.markAsDone')}
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">
+                  {t('taskReview:merge.alreadyMergedTooltip')}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          {/* State 3b: Superseded - show both "View Comparison" and "Discard" */}
+          {mergePreview && !isLoadingPreview && isSuperseded && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={() => onShowConflictDialog(true)}
+                    disabled={isMerging || isDiscarding}
+                    className="flex-1"
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    {t('taskReview:merge.actions.viewComparison')}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-xs">
+                    {t('taskReview:merge.supersededCompareTooltip')}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    onClick={() => onShowDiscardDialog(true)}
+                    disabled={isMerging || isDiscarding}
+                    className="flex-1"
+                  >
+                    <FolderX className="mr-2 h-4 w-4" />
+                    {t('taskReview:merge.actions.discardTask')}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-xs">
+                    {t('taskReview:merge.supersededDiscardTooltip')}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </>
+          )}
+
+          {/* State 3c: Normal merge - show appropriate merge/stage button */}
+          {mergePreview && !isLoadingPreview && !isAlreadyMerged && !isSuperseded && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -456,8 +704,8 @@ export function WorkspaceStatus({
             </Tooltip>
           )}
 
-          {/* Create PR Button */}
-          {onShowPRDialog && (
+          {/* Create PR Button - hide for already_merged/superseded scenarios */}
+          {onShowPRDialog && !isAlreadyMerged && !isSuperseded && (
             <Button
               variant="info"
               onClick={() => onShowPRDialog(true)}
@@ -478,16 +726,19 @@ export function WorkspaceStatus({
             </Button>
           )}
 
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onShowDiscardDialog(true)}
-            disabled={isMerging || isDiscarding || isCreatingPR}
-            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
-            title={t('taskReview:workspace.discardBuild')}
-          >
-            <FolderX className="h-4 w-4" />
-          </Button>
+          {/* Discard button - hide for superseded (shown as primary action there) */}
+          {!isSuperseded && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onShowDiscardDialog(true)}
+              disabled={isMerging || isDiscarding || isCreatingPR}
+              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+              title={t('taskReview:merge.status.discardBuild')}
+            >
+              <FolderX className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
     </div>
