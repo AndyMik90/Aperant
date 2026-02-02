@@ -304,7 +304,12 @@ app.whenReady().then(() => {
 
     // Validate and migrate autoBuildPath - must contain runners/spec_runner.py
     // Uses EAFP pattern (try/catch with accessSync) instead of existsSync to avoid TOCTOU race conditions
-    let validAutoBuildPath = settings.autoBuildPath;
+    // In development mode, always use auto-detection to support worktrees
+    // In production (packaged app), use stored setting if valid
+    let validAutoBuildPath = app.isPackaged ? settings.autoBuildPath : undefined;
+    if (!app.isPackaged && settings.autoBuildPath) {
+      console.log('[main] Dev mode: skipping stored autoBuildPath to support worktrees, will use auto-detection');
+    }
     if (validAutoBuildPath) {
       const specRunnerPath = join(validAutoBuildPath, 'runners', 'spec_runner.py');
       let specRunnerExists = false;
