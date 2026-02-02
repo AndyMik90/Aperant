@@ -43,7 +43,7 @@ import {
   shouldProactivelySwitch as shouldProactivelySwitchImpl,
   getProfilesSortedByAvailability as getProfilesSortedByAvailabilityImpl
 } from './claude-profile/profile-scorer';
-import { getCredentialsFromKeychain, getFullCredentialsFromKeychain, normalizeWindowsPath } from './claude-profile/credential-utils';
+import { getCredentialsFromKeychain, normalizeWindowsPath, updateProfileSubscriptionMetadata } from './claude-profile/credential-utils';
 import {
   CLAUDE_PROFILES_DIR,
   generateProfileId as generateProfileIdImpl,
@@ -163,23 +163,22 @@ export class ClaudeProfileManager {
           : profile.configDir
       );
 
-      const fullCredentials = getFullCredentialsFromKeychain(expandedConfigDir);
+      // Use helper with onlyIfMissing option to preserve existing values
+      const result = updateProfileSubscriptionMetadata(profile, expandedConfigDir, { onlyIfMissing: true });
 
-      if (fullCredentials.subscriptionType && !profile.subscriptionType) {
-        profile.subscriptionType = fullCredentials.subscriptionType;
+      if (result.subscriptionTypeUpdated) {
         needsSave = true;
         console.warn('[ClaudeProfileManager] Populated subscriptionType for profile:', {
           profileId: profile.id,
-          subscriptionType: fullCredentials.subscriptionType
+          subscriptionType: result.subscriptionType
         });
       }
 
-      if (fullCredentials.rateLimitTier && !profile.rateLimitTier) {
-        profile.rateLimitTier = fullCredentials.rateLimitTier;
+      if (result.rateLimitTierUpdated) {
         needsSave = true;
         console.warn('[ClaudeProfileManager] Populated rateLimitTier for profile:', {
           profileId: profile.id,
-          rateLimitTier: fullCredentials.rateLimitTier
+          rateLimitTier: result.rateLimitTier
         });
       }
     }

@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
-import { getCredentialsFromKeychain, getFullCredentialsFromKeychain, clearKeychainCache } from '../claude-profile/credential-utils';
+import { getFullCredentialsFromKeychain, clearKeychainCache, updateProfileSubscriptionMetadata } from '../claude-profile/credential-utils';
 import { getUsageMonitor } from '../claude-profile/usage-monitor';
 import { getEmailFromConfigDir } from '../claude-profile/profile-utils';
 import * as OutputParser from './output-parser';
@@ -526,12 +526,7 @@ export function handleOAuthToken(
         profile.email = email;
       }
       // Update subscription metadata from Keychain credentials
-      if (keychainCreds.subscriptionType) {
-        profile.subscriptionType = keychainCreds.subscriptionType;
-      }
-      if (keychainCreds.rateLimitTier) {
-        profile.rateLimitTier = keychainCreds.rateLimitTier;
-      }
+      updateProfileSubscriptionMetadata(profile, keychainCreds);
       profile.isAuthenticated = true;
       profileManager.saveProfile(profile);
 
@@ -618,14 +613,8 @@ export function handleOAuthToken(
       if (email) {
         profile.email = email;
       }
-      // Read full credentials to get subscriptionType and rateLimitTier
-      const fullCreds = getFullCredentialsFromKeychain(profile.configDir);
-      if (fullCreds.subscriptionType) {
-        profile.subscriptionType = fullCreds.subscriptionType;
-      }
-      if (fullCreds.rateLimitTier) {
-        profile.rateLimitTier = fullCreds.rateLimitTier;
-      }
+      // Update subscription metadata from Keychain credentials
+      updateProfileSubscriptionMetadata(profile, profile.configDir);
       profile.isAuthenticated = true;
       profileManager.saveProfile(profile);
 
@@ -688,14 +677,8 @@ export function handleOAuthToken(
     if (email) {
       activeProfile.email = email;
     }
-    // Read full credentials to get subscriptionType and rateLimitTier
-    const fullCreds = getFullCredentialsFromKeychain(activeProfile.configDir);
-    if (fullCreds.subscriptionType) {
-      activeProfile.subscriptionType = fullCreds.subscriptionType;
-    }
-    if (fullCreds.rateLimitTier) {
-      activeProfile.rateLimitTier = fullCreds.rateLimitTier;
-    }
+    // Update subscription metadata from Keychain credentials
+    updateProfileSubscriptionMetadata(activeProfile, activeProfile.configDir);
     activeProfile.isAuthenticated = true;
     profileManager.saveProfile(activeProfile);
 
@@ -795,13 +778,7 @@ export function handleOnboardingComplete(
     const previousEmail = profile.email;
     profile.email = email;
     // Also update subscription metadata from Keychain credentials
-    const fullCreds = getFullCredentialsFromKeychain(profile.configDir);
-    if (fullCreds.subscriptionType) {
-      profile.subscriptionType = fullCreds.subscriptionType;
-    }
-    if (fullCreds.rateLimitTier) {
-      profile.rateLimitTier = fullCreds.rateLimitTier;
-    }
+    updateProfileSubscriptionMetadata(profile, profile.configDir);
     profileManager.saveProfile(profile);
     if (previousEmail !== email) {
       console.warn('[ClaudeIntegration] Updated profile email from welcome screen:', profileId, maskEmail(email), '(was:', maskEmail(previousEmail), ')');

@@ -23,7 +23,7 @@ import { isSecurePath } from '../utils/windows-paths';
 import { isWindows, isMacOS, isLinux } from '../platform';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { isValidConfigDir } from '../utils/config-path-validator';
-import { clearKeychainCache, getCredentialsFromKeychain, getFullCredentialsFromKeychain } from '../claude-profile/credential-utils';
+import { clearKeychainCache, getCredentialsFromKeychain, updateProfileSubscriptionMetadata } from '../claude-profile/credential-utils';
 import { getUsageMonitor } from '../claude-profile/usage-monitor';
 import semver from 'semver';
 
@@ -1384,15 +1384,9 @@ export function registerClaudeCodeHandlers(): void {
             profile.email = result.email;
           }
 
-          // Read full credentials to get subscriptionType and rateLimitTier
+          // Update subscription metadata from Keychain credentials
           // These are needed to display "Max" vs "Pro" in the UI
-          const fullCredentials = getFullCredentialsFromKeychain(expandedConfigDir);
-          if (fullCredentials.subscriptionType) {
-            profile.subscriptionType = fullCredentials.subscriptionType;
-          }
-          if (fullCredentials.rateLimitTier) {
-            profile.rateLimitTier = fullCredentials.rateLimitTier;
-          }
+          updateProfileSubscriptionMetadata(profile, expandedConfigDir);
 
           // Save profile metadata (email, isAuthenticated, subscriptionType, rateLimitTier) but NOT the OAuth token
           profileManager.saveProfile(profile);
