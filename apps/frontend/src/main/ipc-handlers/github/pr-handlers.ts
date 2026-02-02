@@ -870,6 +870,16 @@ function parseLogLine(line: string): { source: string; content: string; isError:
     };
   }
 
+  // Check for parallel SDK specialist logs (Specialist:name format)
+  const specialistMatch = line.match(/^\[Specialist:([\w-]+)\]\s*(.*)$/);
+  if (specialistMatch) {
+    return {
+      source: `Specialist:${specialistMatch[1]}`,
+      content: specialistMatch[2],
+      isError: false,
+    };
+  }
+
   for (const pattern of patterns) {
     const match = line.match(pattern);
     if (match) {
@@ -970,8 +980,9 @@ function getPhaseFromSource(source: string): PRLogPhase {
 
   if (contextSources.includes(source)) return "context";
   if (analysisSources.includes(source)) return "analysis";
-  // Specialist agents (Agent:xxx) are part of analysis phase
+  // Specialist agents (Agent:xxx and Specialist:xxx) are part of analysis phase
   if (source.startsWith("Agent:")) return "analysis";
+  if (source.startsWith("Specialist:")) return "analysis";
   if (synthesisSources.includes(source)) return "synthesis";
   return "synthesis"; // Default to synthesis for unknown sources
 }
