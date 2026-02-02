@@ -45,6 +45,18 @@ const GIT_PORCELAIN = {
 } as const;
 
 /**
+ * Check if an error was caused by a timeout (execFileAsync with timeout sets killed=true).
+ * This helper centralizes the timeout detection logic to avoid duplication.
+ */
+function isTimeoutError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    'killed' in error &&
+    (error as NodeJS.ErrnoException & { killed?: boolean }).killed === true
+  );
+}
+
+/**
  * Fix repositories that are incorrectly marked with core.bare=true.
  * This can happen when git worktree operations incorrectly set bare=true
  * on a working repository that has source files.
@@ -420,11 +432,12 @@ async function createTerminalWorktree(
       debugLog('[TerminalWorktree] Using remote ref directly:', baseRef);
     } else {
       // Check if remote version exists and use it for latest code
+      // Use async to avoid blocking the main process (consistent with other git operations)
       try {
-        execFileSync(getToolPath('git'), ['rev-parse', '--verify', `origin/${baseBranch}`], {
+        await execFileAsync(getToolPath('git'), ['rev-parse', '--verify', `origin/${baseBranch}`], {
           cwd: projectPath,
           encoding: 'utf-8',
-          stdio: ['pipe', 'pipe', 'pipe'],
+          timeout: 10000,
           env: getIsolatedGitEnv(),
         });
         baseRef = `origin/${baseBranch}`;
@@ -504,9 +517,8 @@ async function createTerminalWorktree(
       }
     }
 
-    // Check if error was due to timeout (execFileAsync with timeout sets killed=true and signal='SIGTERM')
-    const isTimeout =
-      error instanceof Error && 'killed' in error && (error as NodeJS.ErrnoException & { killed?: boolean }).killed === true;
+    // Check if error was due to timeout
+    const isTimeout = isTimeoutError(error);
 
     return {
       success: false,
@@ -768,9 +780,8 @@ async function removeTerminalWorktree(
   } catch (error) {
     debugError('[TerminalWorktree] Error removing worktree:', error);
 
-    // Check if error was due to timeout (execFileAsync with timeout sets killed=true and signal='SIGTERM')
-    const isTimeout =
-      error instanceof Error && 'killed' in error && (error as NodeJS.ErrnoException & { killed?: boolean }).killed === true;
+    // Check if error was due to timeout
+    const isTimeout = isTimeoutError(error);
 
     return {
       success: false,
