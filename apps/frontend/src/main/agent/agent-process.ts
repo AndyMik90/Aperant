@@ -470,18 +470,11 @@ export class AgentProcessManager {
 
   /**
    * Load environment variables from project's .auto-claude/.env file
-   * This contains frontend-configured settings like memory/Graphiti configuration
+   * This contains frontend-configured settings like memory/Graphiti configuration,
+   * MCP server settings, and per-agent MCP overrides.
    */
   private loadProjectEnv(projectPath: string): Record<string, string> {
-    // Find project by path to get autoBuildPath
-    const projects = projectStore.getProjects();
-    const project = projects.find((p) => p.path === projectPath);
-
-    if (!project?.autoBuildPath) {
-      return {};
-    }
-
-    const envPath = path.join(projectPath, project.autoBuildPath, '.env');
+    const envPath = path.join(projectPath, '.auto-claude', '.env');
     return this.parseEnvFile(envPath);
   }
 
