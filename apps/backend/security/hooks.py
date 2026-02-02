@@ -38,7 +38,7 @@ async def bash_security_hook(
         context: Optional context
 
     Returns:
-        Empty dict to allow, or {"decision": "block", "reason": "..."} to block
+        Empty dict to allow, or hookSpecificOutput with permissionDecision "deny" to block
     """
     if input_data.get("tool_name") != "Bash":
         return {}
@@ -49,15 +49,21 @@ async def bash_security_hook(
     # Check if tool_input is None (malformed tool call)
     if tool_input is None:
         return {
-            "decision": "block",
-            "reason": "Bash tool_input is None - malformed tool call from SDK",
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": "Bash tool_input is None - malformed tool call from SDK",
+            }
         }
 
     # Check if tool_input is a dict
     if not isinstance(tool_input, dict):
         return {
-            "decision": "block",
-            "reason": f"Bash tool_input must be dict, got {type(tool_input).__name__}",
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": f"Bash tool_input must be dict, got {type(tool_input).__name__}",
+            }
         }
 
     # Now safe to access command
@@ -97,8 +103,11 @@ async def bash_security_hook(
     if not commands:
         # Could not parse - fail safe by blocking
         return {
-            "decision": "block",
-            "reason": f"Could not parse command for security validation: {command}",
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": f"Could not parse command for security validation: {command}",
+            }
         }
 
     # Split into segments for per-command validation
@@ -114,8 +123,11 @@ async def bash_security_hook(
 
         if not is_allowed:
             return {
-                "decision": "block",
-                "reason": reason,
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason,
+                }
             }
 
         # Additional validation for sensitive commands
@@ -127,7 +139,13 @@ async def bash_security_hook(
             validator = VALIDATORS[cmd]
             allowed, reason = validator(cmd_segment)
             if not allowed:
-                return {"decision": "block", "reason": reason}
+                return {
+                    "hookSpecificOutput": {
+                        "hookEventName": "PreToolUse",
+                        "permissionDecision": "deny",
+                        "permissionDecisionReason": reason,
+                    }
+                }
 
     return {}
 

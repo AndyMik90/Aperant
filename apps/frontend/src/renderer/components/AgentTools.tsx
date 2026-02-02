@@ -256,6 +256,14 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
     mcp_servers: ['context7'],
     settingsSource: { type: 'feature', feature: 'roadmap' },
   },
+  pr_template_filler: {
+    label: 'PR Template Filler',
+    description: 'Generates AI-powered PR descriptions from templates',
+    category: 'utility',
+    tools: ['Read', 'Glob', 'Grep'],
+    mcp_servers: [],
+    settingsSource: { type: 'feature', feature: 'utility' },
+  },
 };
 
 // MCP Server descriptions - accurate per backend models.py

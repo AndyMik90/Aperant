@@ -1,5 +1,6 @@
 import { Terminal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useMemo } from 'react';
 import { useToast } from '../../../hooks/use-toast';
 import { SettingsSection } from '../SettingsSection';
 import { useTerminalFontSettingsStore } from '../../../stores/terminal-font-settings-store';
@@ -29,18 +30,34 @@ export function TerminalFontSettings() {
   const { t } = useTranslation('settings');
   const { toast } = useToast();
 
-  // Get current settings from store using selector to exclude action functions
-  const settings = useTerminalFontSettingsStore((state) => ({
-    fontFamily: state.fontFamily,
-    fontSize: state.fontSize,
-    fontWeight: state.fontWeight,
-    lineHeight: state.lineHeight,
-    letterSpacing: state.letterSpacing,
-    cursorStyle: state.cursorStyle,
-    cursorBlink: state.cursorBlink,
-    cursorAccentColor: state.cursorAccentColor,
-    scrollback: state.scrollback,
-  }));
+  // Get current settings from store using individual selectors to prevent infinite re-render loop
+  // Each selector only re-renders when its specific value changes
+  const fontFamily = useTerminalFontSettingsStore((state) => state.fontFamily);
+  const fontSize = useTerminalFontSettingsStore((state) => state.fontSize);
+  const fontWeight = useTerminalFontSettingsStore((state) => state.fontWeight);
+  const lineHeight = useTerminalFontSettingsStore((state) => state.lineHeight);
+  const letterSpacing = useTerminalFontSettingsStore((state) => state.letterSpacing);
+  const cursorStyle = useTerminalFontSettingsStore((state) => state.cursorStyle);
+  const cursorBlink = useTerminalFontSettingsStore((state) => state.cursorBlink);
+  const cursorAccentColor = useTerminalFontSettingsStore((state) => state.cursorAccentColor);
+  const scrollback = useTerminalFontSettingsStore((state) => state.scrollback);
+
+  // Reconstruct settings object with stable reference using useMemo
+  // This prevents the infinite re-render loop caused by creating new object references
+  const settings = useMemo<TerminalFontSettings>(
+    () => ({
+      fontFamily,
+      fontSize,
+      fontWeight,
+      lineHeight,
+      letterSpacing,
+      cursorStyle,
+      cursorBlink,
+      cursorAccentColor,
+      scrollback,
+    }),
+    [fontFamily, fontSize, fontWeight, lineHeight, letterSpacing, cursorStyle, cursorBlink, cursorAccentColor, scrollback]
+  );
 
   // Get action methods from store
   const updateSettings = useTerminalFontSettingsStore((state) => state.applySettings);

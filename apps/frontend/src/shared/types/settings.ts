@@ -224,6 +224,7 @@ export interface AppSettings {
   pythonPath?: string;
   gitPath?: string;
   githubCLIPath?: string;
+  gitlabCLIPath?: string;
   claudePath?: string;
   autoBuildPath?: string;
   autoUpdateAutoBuild: boolean;

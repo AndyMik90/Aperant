@@ -299,11 +299,27 @@ export const useSettingsStore = create<SettingsState>((set) => ({
  * Check if settings need migration for onboardingCompleted flag.
  * Existing users (with tokens or projects configured) should have
  * onboardingCompleted set to true to skip the onboarding wizard.
+ *
+ * This function now also checks Claude Code's ~/.claude.json for
+ * hasCompletedOnboarding to respect Claude Code's onboarding status.
  */
-function migrateOnboardingCompleted(settings: AppSettings): AppSettings {
+async function migrateOnboardingCompleted(settings: AppSettings): Promise<AppSettings> {
   // Only migrate if onboardingCompleted is undefined (not explicitly set)
   if (settings.onboardingCompleted !== undefined) {
     return settings;
+  }
+
+  // NEW: Check ~/.claude.json for hasCompletedOnboarding
+  // This allows Auto-Claude to respect Claude Code's onboarding status
+  try {
+    const claudeCodeResult = await window.electronAPI.getClaudeCodeOnboardingStatus();
+    if (claudeCodeResult.success && claudeCodeResult.data?.hasCompletedOnboarding) {
+      // Claude Code says onboarding is complete, respect that
+      return { ...settings, onboardingCompleted: true };
+    }
+  } catch (error) {
+    // If checking Claude Code onboarding fails, log and continue with existing logic
+    console.warn('[settings-store] Failed to check Claude Code onboarding status:', error);
   }
 
   // Check for signs of an existing user:
@@ -334,7 +350,8 @@ export async function loadSettings(): Promise<void> {
     const result = await window.electronAPI.getSettings();
     if (result.success && result.data) {
       // Apply migration for onboardingCompleted flag
-      const migratedSettings = migrateOnboardingCompleted(result.data);
+      // This is now async since it needs to read ~/.claude.json
+      const migratedSettings = await migrateOnboardingCompleted(result.data);
       store.setSettings(migratedSettings);
 
       // If migration changed the settings, persist them

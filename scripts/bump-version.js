@@ -61,16 +61,17 @@ function warning(message) {
   log(`⚠️  ${message}`, colors.yellow);
 }
 
-// Parse semver version
+// Parse semver version (supports optional pre-release suffix like -beta.1)
 function parseVersion(version) {
-  const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)(-[a-zA-Z0-9.]+)?$/);
   if (!match) {
-    error(`Invalid version format: ${version}. Expected format: x.y.z`);
+    error(`Invalid version format: ${version}. Expected format: x.y.z or x.y.z-prerelease`);
   }
   return {
     major: parseInt(match[1]),
     minor: parseInt(match[2]),
     patch: parseInt(match[3]),
+    prerelease: match[4] || null,
   };
 }
 
@@ -86,7 +87,7 @@ function bumpVersion(currentVersion, bumpType) {
     case 'patch':
       return `${version.major}.${version.minor}.${version.patch + 1}`;
     default:
-      // Assume it's a specific version
+      // Assume it's a specific version (including pre-release like 2.7.6-beta.1)
       parseVersion(bumpType); // Validate format
       return bumpType;
   }

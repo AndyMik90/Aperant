@@ -536,6 +536,175 @@ def handle_cleanup_worktrees_command(project_dir: Path) -> None:
     cleanup_all_worktrees(project_dir, confirm=True)
 
 
+def _detect_conflict_scenario(
+    project_dir: Path,
+    conflicting_files: list[str],
+    spec_branch: str,
+    base_branch: str,
+) -> dict:
+    """
+    Analyze conflicting files to determine the conflict scenario.
+
+    This helps distinguish between:
+    - 'already_merged': Task changes already identical in target branch
+    - 'superseded': Target has newer version of same feature
+    - 'diverged': Standard diverged branches (AI can resolve)
+    - 'normal_conflict': Actual conflicting changes
+
+    Returns dict with:
+    - scenario: 'already_merged' | 'superseded' | 'diverged' | 'normal_conflict'
+    - already_merged_files: files identical in task and target
+    - details: additional context
+    """
+    if not conflicting_files:
+        return {
+            "scenario": "normal_conflict",
+            "already_merged_files": [],
+            "details": "No conflicting files to analyze",
+        }
+
+    already_merged_files = []
+    superseded_files = []
+    diverged_files = []
+
+    try:
+        # Get the merge-base commit
+        merge_base_result = subprocess.run(
+            ["git", "merge-base", base_branch, spec_branch],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+        if merge_base_result.returncode != 0:
+            debug_warning(
+                MODULE, "Could not find merge base for conflict scenario detection"
+            )
+            return {
+                "scenario": "normal_conflict",
+                "already_merged_files": [],
+                "details": "Could not determine merge base",
+            }
+
+        merge_base = merge_base_result.stdout.strip()
+
+        for file_path in conflicting_files:
+            try:
+                # Get content from spec branch (task's changes)
+                spec_content_result = subprocess.run(
+                    ["git", "show", f"{spec_branch}:{file_path}"],
+                    cwd=project_dir,
+                    capture_output=True,
+                    text=True,
+                )
+                # Get content from base branch (target)
+                base_content_result = subprocess.run(
+                    ["git", "show", f"{base_branch}:{file_path}"],
+                    cwd=project_dir,
+                    capture_output=True,
+                    text=True,
+                )
+                # Get content from merge-base (original state)
+                merge_base_content_result = subprocess.run(
+                    ["git", "show", f"{merge_base}:{file_path}"],
+                    cwd=project_dir,
+                    capture_output=True,
+                    text=True,
+                )
+
+                # Check file existence in each ref
+                spec_exists = spec_content_result.returncode == 0
+                base_exists = base_content_result.returncode == 0
+                merge_base_exists = merge_base_content_result.returncode == 0
+
+                if spec_exists and base_exists:
+                    spec_content = spec_content_result.stdout
+                    base_content = base_content_result.stdout
+
+                    # If contents are identical, the changes are already merged
+                    if spec_content == base_content:
+                        already_merged_files.append(file_path)
+                        debug(
+                            MODULE,
+                            f"File {file_path}: already merged (identical content)",
+                        )
+                    elif merge_base_exists:
+                        merge_base_content = merge_base_content_result.stdout
+                        # If base has changed from merge_base but spec matches merge_base,
+                        # the task's changes are superseded by newer changes
+                        if spec_content == merge_base_content:
+                            superseded_files.append(file_path)
+                            debug(
+                                MODULE,
+                                f"File {file_path}: superseded (base has newer changes)",
+                            )
+                        else:
+                            diverged_files.append(file_path)
+                            debug(
+                                MODULE,
+                                f"File {file_path}: diverged (both branches modified)",
+                            )
+                    else:
+                        diverged_files.append(file_path)
+                else:
+                    diverged_files.append(file_path)
+
+            except Exception as e:
+                debug_warning(
+                    MODULE, f"Error analyzing file {file_path} for scenario: {e}"
+                )
+                diverged_files.append(file_path)
+
+        # Determine overall scenario based on dominant pattern
+        total_files = len(conflicting_files)
+
+        if len(already_merged_files) == total_files:
+            scenario = "already_merged"
+            details = "All conflicting files have identical content in both branches"
+        elif len(already_merged_files) > total_files / 2:
+            scenario = "already_merged"
+            details = f"{len(already_merged_files)} of {total_files} files already have the same content"
+        elif len(superseded_files) == total_files:
+            scenario = "superseded"
+            details = "All task changes have been superseded by newer changes in the target branch"
+        elif len(superseded_files) > total_files / 2:
+            scenario = "superseded"
+            details = (
+                f"{len(superseded_files)} of {total_files} files have been superseded"
+            )
+        elif diverged_files:
+            scenario = "diverged"
+            details = f"{len(diverged_files)} files have diverged and need AI merge"
+        else:
+            scenario = "normal_conflict"
+            details = "Standard merge conflicts detected"
+
+        debug(
+            MODULE,
+            f"Conflict scenario: {scenario}",
+            already_merged=len(already_merged_files),
+            superseded=len(superseded_files),
+            diverged=len(diverged_files),
+        )
+
+        return {
+            "scenario": scenario,
+            "already_merged_files": already_merged_files,
+            "superseded_files": superseded_files,
+            "diverged_files": diverged_files,
+            "details": details,
+        }
+
+    except Exception as e:
+        debug_error(MODULE, f"Error detecting conflict scenario: {e}")
+        return {
+            "scenario": "normal_conflict",
+            "already_merged_files": [],
+            "superseded_files": [],
+            "diverged_files": [],
+            "details": f"Error during analysis: {e}",
+        }
+
+
 def _check_git_merge_conflicts(
     project_dir: Path, spec_name: str, base_branch: str | None = None
 ) -> dict:
@@ -879,6 +1048,24 @@ def handle_merge_preview_command(
             f for f in git_conflicts.get("conflicting_files", []) if not is_lock_file(f)
         ]
 
+        # Detect conflict scenario (already_merged, superseded, diverged, normal_conflict)
+        # This helps the UI show appropriate messaging and actions
+        conflict_scenario = None
+        if non_lock_conflicting_files:
+            conflict_scenario = _detect_conflict_scenario(
+                project_dir,
+                non_lock_conflicting_files,
+                git_conflicts["spec_branch"],
+                git_conflicts["base_branch"],
+            )
+            debug(
+                MODULE,
+                f"Conflict scenario detected: {conflict_scenario.get('scenario')}",
+                already_merged_files=len(
+                    conflict_scenario.get("already_merged_files", [])
+                ),
+            )
+
         # Use git diff file count as the authoritative totalFiles count
         # The semantic tracker may not track all files (e.g., test files, config files)
         # but we want to show the user all files that will be merged
@@ -952,6 +1139,16 @@ def handle_merge_preview_command(
                 # Path-mapped files that need AI merge due to renames
                 "pathMappedAIMerges": path_mapped_ai_merges,
                 "totalRenames": len(path_mappings),
+                # Conflict scenario detection for better UX messaging
+                "scenario": conflict_scenario.get("scenario")
+                if conflict_scenario
+                else None,
+                "alreadyMergedFiles": conflict_scenario.get("already_merged_files", [])
+                if conflict_scenario
+                else [],
+                "scenarioMessage": conflict_scenario.get("details")
+                if conflict_scenario
+                else None,
             },
             "summary": {
                 # Use git diff count, not semantic tracker count
