@@ -15,7 +15,7 @@ export type TaskOrderState = Record<TaskStatus, string[]>;
 // - 'errors': Subtasks failed during execution
 // - 'qa_rejected': QA found issues that need fixing
 // - 'plan_review': Spec/plan created and awaiting approval before coding starts
-export type ReviewReason = 'completed' | 'errors' | 'qa_rejected' | 'plan_review';
+export type ReviewReason = 'completed' | 'errors' | 'qa_rejected' | 'plan_review' | 'stopped';
 
 export type SubtaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 
@@ -279,6 +279,14 @@ export interface ImplementationPlan {
   // Added for UI status persistence
   status?: TaskStatus;
   planStatus?: string;
+  reviewReason?: ReviewReason;
+  xstateState?: string;  // Persisted XState machine state for restoration (e.g., 'planning', 'coding')
+  lastEvent?: {
+    eventId: string;
+    sequence: number;
+    type: string;
+    timestamp: string;
+  };
   recoveryNote?: string;
   description?: string;
 }

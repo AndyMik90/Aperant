@@ -393,7 +393,8 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             >
                               {task.reviewReason === 'completed' ? 'Completed' :
                                task.reviewReason === 'errors' ? 'Has Errors' :
-                               task.reviewReason === 'plan_review' ? 'Approve Plan' : 'QA Issues'}
+                               task.reviewReason === 'plan_review' ? 'Approve Plan' :
+                               task.reviewReason === 'stopped' ? 'Stopped' : 'QA Issues'}
                             </Badge>
                           )}
                         </>
@@ -406,6 +407,11 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                       )}
                     </div>
                   </DialogPrimitive.Description>
+                  {window.DEBUG && (
+                    <div className="mt-1 text-[11px] text-muted-foreground font-mono">
+                      status={task.status} reviewReason={task.reviewReason ?? 'none'} phase={task.executionProgress?.phase ?? 'none'} reviewRequired={task.metadata?.requireReviewBeforeCoding ? 'true' : 'false'}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0 electron-no-drag">
                   <Button

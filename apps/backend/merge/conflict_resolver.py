@@ -87,7 +87,8 @@ class ConflictResolver:
         for idx, conflict in enumerate(conflicts):
             if progress_callback:
                 # Emit per-conflict progress within the resolving stage (50-75%)
-                conflict_percent = 50 + int((idx / max(total_conflicts, 1)) * 25)
+                # Calculate progress after processing (idx + 1) to reach 75% on last conflict
+                conflict_percent = 50 + int(((idx + 1) / max(total_conflicts, 1)) * 25)
                 progress_callback(
                     stage=MergeProgressStage.RESOLVING,
                     percent=conflict_percent,

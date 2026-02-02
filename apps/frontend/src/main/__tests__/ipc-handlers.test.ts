@@ -689,7 +689,8 @@ describe("IPC Handlers", { timeout: 30000 }, () => {
         "task:statusChange",
         "task-1",
         "human_review",
-        expect.any(String) // projectId for multi-project filtering
+        expect.any(String), // projectId for multi-project filtering
+        "errors"
       );
     });
   });
