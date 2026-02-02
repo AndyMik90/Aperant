@@ -17,6 +17,7 @@ from .project_context import (
     get_mcp_tools_for_project,
     load_project_index,
 )
+from .prompt_generator import get_user_language_instruction
 
 
 def _validate_branch_name(branch: str | None) -> str | None:
@@ -475,8 +476,11 @@ def get_qa_reviewer_prompt(spec_dir: Path, project_dir: Path) -> str:
             # Skip missing files gracefully
             pass
 
+    # Get language instruction (prepend to entire prompt)
+    language_instruction = get_user_language_instruction()
+
     # Inject spec context at the beginning
-    spec_context = f"""## SPEC LOCATION
+    spec_context = f"""{language_instruction}## SPEC LOCATION
 
 Your spec and progress files are located at:
 - Spec: `{spec_dir}/spec.md`
@@ -559,7 +563,10 @@ def get_qa_fixer_prompt(spec_dir: Path, project_dir: Path) -> str:
     """
     base_prompt = _load_prompt_file("qa_fixer.md")
 
-    spec_context = f"""## SPEC LOCATION
+    # Get language instruction
+    language_instruction = get_user_language_instruction()
+
+    spec_context = f"""{language_instruction}## SPEC LOCATION
 
 Your spec and progress files are located at:
 - Spec: `{spec_dir}/spec.md`

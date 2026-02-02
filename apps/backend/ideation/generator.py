@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from client import create_client
 from phase_config import get_thinking_budget, resolve_model_id
+from prompts_pkg.prompt_generator import get_user_language_instruction
 from ui import print_status
 
 # Ideation types
@@ -81,6 +82,11 @@ class IdeationGenerator:
 
         # Load prompt
         prompt = prompt_path.read_text(encoding="utf-8")
+
+        # Add user language preference instruction if set
+        language_instruction = get_user_language_instruction()
+        if language_instruction:
+            prompt = language_instruction + prompt
 
         # Add context
         prompt += f"\n\n---\n\n**Output Directory**: {self.output_dir}\n"
@@ -183,6 +189,11 @@ Common fixes:
 
 Write the fixed JSON to the file now.
 """
+
+        # Add language instruction to recovery prompt as well
+        language_instruction = get_user_language_instruction()
+        if language_instruction:
+            recovery_prompt = language_instruction + recovery_prompt
 
         client = create_client(
             self.project_dir,

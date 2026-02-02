@@ -26,6 +26,7 @@ import { getOAuthModeClearVars } from './env-utils';
 import { getAugmentedEnv } from '../env-utils';
 import { getToolInfo, getClaudeCliPathForSdk } from '../cli-tool-manager';
 import { killProcessGracefully, isWindows } from '../platform';
+import { AVAILABLE_LANGUAGES } from '../../shared/constants/i18n';
 
 /**
  * Type for supported CLI tools
@@ -172,6 +173,42 @@ export class AgentProcessManager {
     return env;
   }
 
+  /**
+   * Get language environment variables from user settings.
+   * Extracted as helper to avoid code duplication between setupProcessEnvironment and getCombinedEnv.
+   *
+   * @param appSettings - Optional pre-read settings to avoid duplicate file reads
+   * @returns Record with AUTO_CLAUDE_USER_LANGUAGE and AUTO_CLAUDE_USER_LANGUAGE_NAME if set
+   */
+  private getLanguageEnvVars(appSettings?: Partial<AppSettings>): Record<string, string> {
+    const languageEnv: Record<string, string> = {};
+    try {
+      const settings = appSettings ?? readSettingsFile();
+      const language = settings?.language;
+
+      // Only set language env vars if language is a non-empty string
+      if (typeof language === 'string') {
+        const normalizedLanguage = language.trim();
+        if (!normalizedLanguage) {
+          return languageEnv;
+        }
+
+        const langConfig = AVAILABLE_LANGUAGES.find(l => l.value === normalizedLanguage);
+        if (!langConfig) {
+          console.warn('[AgentProcess] Unsupported language in settings, ignoring:', normalizedLanguage);
+          return languageEnv;
+        }
+
+        languageEnv['AUTO_CLAUDE_USER_LANGUAGE'] = normalizedLanguage;
+        languageEnv['AUTO_CLAUDE_USER_LANGUAGE_NAME'] = langConfig.label;
+        console.log('[AgentProcess] Setting AUTO_CLAUDE_USER_LANGUAGE:', normalizedLanguage, langConfig.label);
+      }
+    } catch (error) {
+      console.warn('[AgentProcess] Failed to read language setting:', error);
+    }
+    return languageEnv;
+  }
+
   private setupProcessEnvironment(
     extraEnv: Record<string, string>
   ): NodeJS.ProcessEnv {
@@ -205,9 +242,13 @@ export class AgentProcessManager {
     const ghCliEnv = this.detectAndSetCliPath('gh');
     const glabCliEnv = this.detectAndSetCliPath('glab');
 
+    // Read user's language preference from settings and pass to backend
+    const languageEnv = this.getLanguageEnvVars();
+
     return {
       ...augmentedEnv,
       ...gitBashEnv,
+      ...languageEnv,
       ...claudeCliEnv,
       ...ghCliEnv,
       ...glabCliEnv,
@@ -866,9 +907,10 @@ export class AgentProcessManager {
    *
    * Priority (later sources override earlier):
    * 1. App-wide memory settings from settings.json (NEW - enables memory from onboarding)
-   * 2. Backend source .env (apps/backend/.env) - CLI defaults
-   * 3. Project's .auto-claude/.env - Frontend-configured settings (memory, integrations)
-   * 4. Project settings (graphitiMcpUrl, useClaudeMd) - Runtime overrides
+   * 2. User language preference from settings.json
+   * 3. Backend source .env (apps/backend/.env) - CLI defaults
+   * 4. Project's .auto-claude/.env - Frontend-configured settings (memory, integrations)
+   * 5. Project settings (graphitiMcpUrl, useClaudeMd) - Runtime overrides
    */
   getCombinedEnv(projectPath: string): Record<string, string> {
     // Load app-wide memory settings from settings.json
@@ -876,13 +918,16 @@ export class AgentProcessManager {
     const appSettings = (readSettingsFile() || {}) as Partial<AppSettings>;
     const memoryEnv = buildMemoryEnvVars(appSettings as AppSettings);
 
+    // Get language preference from settings (reuse appSettings to avoid double read)
+    const languageEnv = this.getLanguageEnvVars(appSettings);
+
     // Existing env sources
     const autoBuildEnv = this.loadAutoBuildEnv();
     const projectFileEnv = this.loadProjectEnv(projectPath);
     const projectSettingsEnv = this.getProjectEnvVars(projectPath);
 
-    // Priority: app-wide memory -> backend .env -> project .env -> project settings
+    // Priority: app-wide memory -> language -> backend .env -> project .env -> project settings
     // Later sources override earlier ones
-    return { ...memoryEnv, ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
+    return { ...memoryEnv, ...languageEnv, ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
   }
 }

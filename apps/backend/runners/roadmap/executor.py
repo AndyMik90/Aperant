@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from debug import debug, debug_detailed, debug_error, debug_success
+from prompts_pkg.prompt_generator import get_user_language_instruction
 
 
 class ScriptExecutor:
@@ -106,6 +107,16 @@ class AgentExecutor:
         debug_detailed(
             "roadmap_executor", "Loaded prompt file", prompt_length=len(prompt)
         )
+
+        # Add user language preference instruction if set
+        language_instruction = get_user_language_instruction()
+        if language_instruction:
+            prompt = language_instruction + prompt
+            debug_detailed(
+                "roadmap_executor",
+                "Added language instruction",
+                language_instruction_length=len(language_instruction),
+            )
 
         # Add context
         prompt += f"\n\n---\n\n**Output Directory**: {self.output_dir}\n"

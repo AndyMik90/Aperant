@@ -13,6 +13,7 @@ This approach:
 """
 
 import json
+import os
 import re
 from pathlib import Path
 
@@ -23,6 +24,138 @@ WORKTREE_PATH_PATTERNS = [
     r"[/\\]\.auto-claude[/\\]github[/\\]pr[/\\]worktrees[/\\]",  # PR review worktrees
     r"[/\\]\.worktrees[/\\]",  # Legacy worktree location
 ]
+
+
+def get_supported_languages() -> set[str]:
+    """
+    Dynamically detect supported languages from i18n folder structure.
+
+    Reads from: apps/frontend/src/shared/i18n/locales/
+    Example: locales/ko/ exists → "ko" is supported
+
+    This approach allows community contributions without code changes:
+    - Add locales/ja/ folder → Japanese automatically supported
+    - Add locales/zh/ folder → Chinese automatically supported
+
+    The i18n directory path can be overridden via AUTO_CLAUDE_I18N_DIR
+    environment variable for custom deployments or backend-only installations.
+
+    Returns:
+        Set of language codes (e.g., {"en", "fr", "ko"})
+    """
+    # Get i18n directory path (relative to this file)
+    # prompts_pkg is at: apps/backend/prompts_pkg/
+    # i18n is at: apps/frontend/src/shared/i18n/locales/
+    current_dir = Path(__file__).resolve().parent  # apps/backend/prompts_pkg/
+    backend_dir = current_dir.parent  # apps/backend/
+    apps_dir = backend_dir.parent  # apps/
+    project_root = apps_dir.parent  # project root
+    default_i18n_dir = (
+        project_root / "apps" / "frontend" / "src" / "shared" / "i18n" / "locales"
+    )
+
+    # Allow override via environment variable for custom deployments
+    i18n_dir = Path(os.environ.get("AUTO_CLAUDE_I18N_DIR", str(default_i18n_dir)))
+
+    if not i18n_dir.is_dir():
+        # Fallback to English if i18n folder not found
+        # This handles edge cases like unit tests or custom deployments
+        return {"en"}
+
+    # Scan for language directories with defensive error handling
+    languages = set()
+    try:
+        for item in i18n_dir.iterdir():
+            if item.is_dir() and not item.name.startswith("."):
+                # Valid language code: 2-3 lowercase letters (ISO 639-1/639-2)
+                if re.match(r"^[a-z]{2,3}$", item.name):
+                    languages.add(item.name)
+    except OSError:
+        # Permission denied or other filesystem errors - fallback to English
+        return {"en"}
+
+    # Always include English as fallback
+    languages.add("en")
+    return languages
+
+
+# Dynamically detect supported languages from i18n folder structure
+# This is evaluated once at module load time, then cached
+SUPPORTED_LANGUAGES = get_supported_languages()
+
+
+def get_user_language_instruction() -> str:
+    """
+    Get language instruction based on user's language preference.
+
+    Reads from environment variables:
+    - AUTO_CLAUDE_USER_LANGUAGE: language code (e.g., 'fr', 'ko')
+    - AUTO_CLAUDE_USER_LANGUAGE_NAME: display name (e.g., 'French', 'Français', '한국어')
+
+    The frontend validates against AVAILABLE_LANGUAGES before passing to backend,
+    but we validate again here for defense in depth.
+
+    Language support is now dynamic: adding a language folder in i18n automatically
+    enables support without code changes.
+
+    Returns:
+        Language instruction string to prepend to prompts, or empty string if English
+    """
+    user_lang = os.environ.get("AUTO_CLAUDE_USER_LANGUAGE", "en").lower().strip()
+
+    # Validate against dynamically detected languages to prevent prompt injection
+    # SUPPORTED_LANGUAGES is populated from i18n folder at module load time
+
+    if user_lang not in SUPPORTED_LANGUAGES or user_lang == "en":
+        # English is the default - no special instruction needed
+        # Also returns empty string for unsupported languages (security fallback)
+        return ""
+
+    # Get language name from environment (frontend passes it)
+    # Sanitize to prevent prompt injection via lang_name
+    lang_name = os.environ.get("AUTO_CLAUDE_USER_LANGUAGE_NAME", user_lang)
+
+    # Remove potentially dangerous characters (keep only alphanumeric, spaces, hyphens, common accents)
+    # Allowed characters:
+    # - \w: alphanumeric + underscore (includes CJK in Unicode mode)
+    # - \s: whitespace (will be normalized below)
+    # - \-: hyphen (will be normalized below)
+    # - French accents: àâäèéêëîïôùûüÿçœæ
+    # - CJK characters are included via \w with re.UNICODE
+    # This allows "Français", "한국어", "日本語", "中文" but blocks prompt injection
+    lang_name = re.sub(r"[^\w\s\-àâäèéêëîïôùûüÿçœæ]", "", lang_name, flags=re.UNICODE)
+
+    # Remove newlines and control characters (convert to space, then collapse)
+    lang_name = re.sub(r"[\r\n]+", " ", lang_name)
+    # Collapse multiple whitespace into single space
+    lang_name = re.sub(r"\s+", " ", lang_name)
+    # Collapse multiple hyphens into single hyphen (prevents --- markdown separators)
+    lang_name = re.sub(r"-{2,}", "-", lang_name)
+
+    lang_name = lang_name.strip()[:50]  # Limit length to 50 characters
+
+    # Final safety check - if sanitization left nothing, use the language code
+    if not lang_name:
+        lang_name = user_lang
+
+    return f"""## LANGUAGE PREFERENCE
+
+**IMPORTANT:** The user prefers to receive responses in **{lang_name}**.
+
+Please provide all explanations, comments, commit messages, and user-facing text in {lang_name}.
+Code, variable names, function names, and technical identifiers should remain in English.
+
+Examples:
+- ✅ Code comments: in {lang_name}
+- ✅ Commit messages: in {lang_name}
+- ✅ Error messages: in {lang_name}
+- ✅ Documentation: in {lang_name}
+- ❌ Variable/function names: keep in English
+- ❌ Code syntax: keep in English
+
+---
+
+"""
 
 
 def detect_worktree_isolation(project_dir: Path) -> tuple[bool, Path | None]:
@@ -149,11 +282,17 @@ def generate_environment_context(project_dir: Path, spec_dir: Path) -> str:
     """
     relative_spec = get_relative_spec_path(spec_dir, project_dir)
 
+    # Get language instruction first
+    language_instruction = get_user_language_instruction()
+
     # Check if we're in an isolated worktree
     is_worktree, parent_project_path = detect_worktree_isolation(project_dir)
 
-    # Start with worktree isolation warning if applicable
+    # Start with language instruction if applicable
     sections = []
+    if language_instruction:
+        sections.append(language_instruction)
+
     if is_worktree and parent_project_path:
         sections.append(
             generate_worktree_isolation_warning(project_dir, parent_project_path)

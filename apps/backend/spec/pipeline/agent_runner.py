@@ -12,17 +12,15 @@ from ui.capabilities import configure_safe_encoding
 
 configure_safe_encoding()
 
+from core.client import create_client
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
+from prompts_pkg.prompt_generator import get_user_language_instruction
 from security.tool_input_validator import get_safe_tool_input
 from task_logger import (
     LogEntryType,
     LogPhase,
     TaskLogger,
 )
-
-# Lazy import create_client to avoid circular import with core.client
-# The import chain: spec.pipeline -> agent_runner -> core.client -> agents.tools_pkg -> spec.validate_pkg
-# By deferring the import, we break the circular dependency.
 
 
 class AgentRunner:
@@ -92,6 +90,16 @@ class AgentRunner:
             prompt_length=len(prompt),
         )
 
+        # Add language instruction at the top (if user prefers non-English)
+        language_instruction = get_user_language_instruction()
+        if language_instruction:
+            prompt = language_instruction + prompt
+            debug_detailed(
+                "agent_runner",
+                "Added language instruction",
+                language_instruction_length=len(language_instruction),
+            )
+
         # Add context
         prompt += f"\n\n---\n\n**Spec Directory**: {self.spec_dir}\n"
         prompt += f"**Project Directory**: {self.project_dir}\n"
@@ -119,9 +127,6 @@ class AgentRunner:
             "Creating Claude SDK client...",
             thinking_budget=thinking_budget,
         )
-        # Lazy import to avoid circular import with core.client
-        from core.client import create_client
-
         client = create_client(
             self.project_dir,
             self.spec_dir,
