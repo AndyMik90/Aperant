@@ -537,6 +537,53 @@ class ValidationSummary(BaseModel):
     )
 
 
+class SpecialistFinding(BaseModel):
+    """A finding from a specialist agent (used in parallel SDK sessions)."""
+
+    severity: Literal["critical", "high", "medium", "low"] = Field(
+        description="Issue severity level"
+    )
+    category: Literal[
+        "security", "quality", "logic", "performance", "pattern", "test", "docs"
+    ] = Field(description="Issue category")
+    title: str = Field(description="Brief issue title (max 80 chars)")
+    description: str = Field(description="Detailed explanation of the issue")
+    file: str = Field(description="File path where issue was found")
+    line: int = Field(0, description="Line number of the issue")
+    end_line: int | None = Field(None, description="End line number if multi-line")
+    suggested_fix: str | None = Field(None, description="How to fix this issue")
+    evidence: str = Field(
+        min_length=1,
+        description="Actual code snippet examined that shows the issue. Required.",
+    )
+    is_impact_finding: bool = Field(
+        False,
+        description="True if this is about affected code outside the PR (callers, dependencies)",
+    )
+
+
+class SpecialistResponse(BaseModel):
+    """Response schema for individual specialist agent (parallel SDK sessions).
+
+    Used when each specialist runs as its own SDK session rather than via Task tool.
+    """
+
+    specialist_name: str = Field(
+        description="Name of the specialist (security, quality, logic, codebase-fit)"
+    )
+    analysis_summary: str = Field(
+        description="Brief summary of what was analyzed"
+    )
+    files_examined: list[str] = Field(
+        default_factory=list,
+        description="List of files that were examined",
+    )
+    findings: list[SpecialistFinding] = Field(
+        default_factory=list,
+        description="Issues found during analysis",
+    )
+
+
 class ParallelOrchestratorResponse(BaseModel):
     """Complete response schema for parallel orchestrator PR review."""
 
