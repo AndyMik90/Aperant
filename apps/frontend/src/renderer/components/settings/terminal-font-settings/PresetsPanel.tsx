@@ -34,24 +34,28 @@ const BUILTIN_PRESETS = [
     nameKey: 'settings:terminalFonts.presets.vscodeName',
     description: 'settings:terminalFonts.presets.vscode',
     icon: Monitor,
+    'data-testid': 'preset-vscode',
   },
   {
     id: 'intellij',
     nameKey: 'settings:terminalFonts.presets.intellijName',
     description: 'settings:terminalFonts.presets.intellij',
     icon: Monitor,
+    'data-testid': 'preset-intellij',
   },
   {
     id: 'macos',
     nameKey: 'settings:terminalFonts.presets.macosName',
     description: 'settings:terminalFonts.presets.macos',
     icon: Monitor,
+    'data-testid': 'preset-macos',
   },
   {
     id: 'ubuntu',
     nameKey: 'settings:terminalFonts.presets.ubuntuName',
     description: 'settings:terminalFonts.presets.ubuntu',
     icon: Monitor,
+    'data-testid': 'preset-ubuntu',
   },
 ];
 
@@ -277,6 +281,7 @@ export function PresetsPanel({ currentSettings, onPresetApply, onReset }: Preset
                     'border-border hover:border-primary/50 hover:bg-accent/50'
                   )}
                   title={t(preset.description)}
+                  data-testid={preset['data-testid']}
                 >
                   <Icon className="h-5 w-5" />
                   <div className="text-center">

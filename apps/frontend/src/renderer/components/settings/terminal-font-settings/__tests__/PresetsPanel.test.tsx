@@ -105,10 +105,10 @@ describe('PresetsPanel', () => {
         />
       );
 
-      expect(screen.getByText('VS Code')).toBeInTheDocument();
-      expect(screen.getByText('IntelliJ IDEA')).toBeInTheDocument();
-      expect(screen.getByText('macOS Terminal')).toBeInTheDocument();
-      expect(screen.getByText('Ubuntu Terminal')).toBeInTheDocument();
+      expect(screen.getByTestId('preset-vscode')).toBeInTheDocument();
+      expect(screen.getByTestId('preset-intellij')).toBeInTheDocument();
+      expect(screen.getByTestId('preset-macos')).toBeInTheDocument();
+      expect(screen.getByTestId('preset-ubuntu')).toBeInTheDocument();
     });
 
     it('should show empty state for custom presets', () => {
@@ -135,8 +135,8 @@ describe('PresetsPanel', () => {
         />
       );
 
-      const vscodeButton = screen.getByText('VS Code').closest('button');
-      fireEvent.click(vscodeButton!);
+      const vscodeButton = screen.getByTestId('preset-vscode');
+      fireEvent.click(vscodeButton);
 
       expect(mockOnPresetApply).toHaveBeenCalledWith('vscode');
     });
@@ -150,8 +150,8 @@ describe('PresetsPanel', () => {
         />
       );
 
-      const intellijButton = screen.getByText('IntelliJ IDEA').closest('button');
-      fireEvent.click(intellijButton!);
+      const intellijButton = screen.getByTestId('preset-intellij');
+      fireEvent.click(intellijButton);
 
       expect(mockOnPresetApply).toHaveBeenCalledWith('intellij');
     });
@@ -165,8 +165,8 @@ describe('PresetsPanel', () => {
         />
       );
 
-      const macosButton = screen.getByText('macOS Terminal').closest('button');
-      fireEvent.click(macosButton!);
+      const macosButton = screen.getByTestId('preset-macos');
+      fireEvent.click(macosButton);
 
       expect(mockOnPresetApply).toHaveBeenCalledWith('macos');
     });
@@ -180,8 +180,8 @@ describe('PresetsPanel', () => {
         />
       );
 
-      const ubuntuButton = screen.getByText('Ubuntu Terminal').closest('button');
-      fireEvent.click(ubuntuButton!);
+      const ubuntuButton = screen.getByTestId('preset-ubuntu');
+      fireEvent.click(ubuntuButton);
 
       expect(mockOnPresetApply).toHaveBeenCalledWith('ubuntu');
     });
@@ -383,7 +383,7 @@ describe('PresetsPanel', () => {
         />
       );
 
-      const vscodeButton = screen.getByText('VS Code').closest('button');
+      const vscodeButton = screen.getByTestId('preset-vscode');
       expect(vscodeButton).toHaveAttribute('title');
     });
   });
