@@ -3,16 +3,21 @@ Utility functions for task logging.
 """
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from .logger import TaskLogger
+# ANSI functions are in separate ansi.py module to avoid cyclic imports
+
+if TYPE_CHECKING:
+    from .logger import TaskLogger
+
 
 # Global logger instance for easy access
-_current_logger: TaskLogger | None = None
+_current_logger: "TaskLogger | None" = None
 
 
 def get_task_logger(
     spec_dir: Path | None = None, emit_markers: bool = True
-) -> TaskLogger | None:
+) -> "TaskLogger | None":
     """
     Get or create a task logger for the given spec directory.
 
@@ -29,6 +34,9 @@ def get_task_logger(
         return _current_logger
 
     if _current_logger is None or _current_logger.spec_dir != spec_dir:
+        # Lazy import to avoid cyclic import
+        from .logger import TaskLogger
+
         _current_logger = TaskLogger(spec_dir, emit_markers)
 
     return _current_logger
@@ -54,6 +62,9 @@ def update_task_logger_path(new_spec_dir: Path) -> None:
 
     if _current_logger is None:
         return
+
+    # Lazy import to avoid cyclic import
+    from .logger import TaskLogger
 
     # Update the logger's internal paths
     _current_logger.spec_dir = Path(new_spec_dir)

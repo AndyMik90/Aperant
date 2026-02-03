@@ -32,6 +32,25 @@ export function supportsWebGL(): boolean {
 }
 
 /**
+ * Check if the current browser is Safari
+ * Note: Chrome's user agent also contains "Safari", so we need to exclude it
+ */
+export function isSafari(): boolean {
+  try {
+    const userAgent = navigator.userAgent.toLowerCase();
+    // Safari includes "safari" but not "chrome" or "chromium"
+    // Chrome/Chromium include both "safari" and "chrome"/"chromium"
+    return (
+      userAgent.includes('safari') &&
+      !userAgent.includes('chrome') &&
+      !userAgent.includes('chromium')
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Get the maximum number of WebGL contexts supported by the browser
  * This is a conservative estimate - browsers typically support 8-16
  */
@@ -49,7 +68,7 @@ export function getMaxWebGLContexts(): number {
     } else if (userAgent.includes('firefox')) {
       // Firefox typically supports 32
       maxContexts = 32;
-    } else if (userAgent.includes('safari')) {
+    } else if (isSafari()) {
       // Safari is more conservative
       maxContexts = 8;
     }

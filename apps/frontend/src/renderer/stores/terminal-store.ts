@@ -192,10 +192,36 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   addRestoredTerminal: (session: TerminalSession) => {
     const state = get();
+    debugLog(`[TerminalStore] addRestoredTerminal called for session: ${session.id}, title: "${session.title}", projectPath: ${session.projectPath}`);
+
+    // CRITICAL: Always restore buffer to buffer manager FIRST, even if terminal already exists.
+    // This ensures useXterm can replay the buffer regardless of whether this is a fresh restore
+    // or a re-restore (e.g., after project switch). The buffer must be available before
+    // the Terminal component mounts and useXterm tries to read it.
+    if (session.outputBuffer) {
+      terminalBufferManager.set(session.id, session.outputBuffer);
+      debugLog(`[TerminalStore] Restored buffer for terminal ${session.id}, size: ${session.outputBuffer.length} chars`);
+    } else {
+      debugLog(`[TerminalStore] No output buffer to restore for terminal ${session.id}`);
+    }
 
     // Check if terminal already exists
     const existingTerminal = state.terminals.find(t => t.id === session.id);
     if (existingTerminal) {
+      debugLog(`[TerminalStore] Terminal ${session.id} already exists in store, returning existing (buffer was still restored above)`);
+
+      // If session was in Claude mode before shutdown, update pendingClaudeResume for re-restore scenarios
+      // (e.g., after project switch). This ensures the deferred resume logic can trigger even when
+      // the terminal already exists in the store.
+      if (session.isClaudeMode === true && !existingTerminal.pendingClaudeResume) {
+        debugLog(`[TerminalStore] Updating pendingClaudeResume for existing terminal ${session.id}`);
+        set((state) => ({
+          terminals: state.terminals.map(t =>
+            t.id === session.id ? { ...t, pendingClaudeResume: true } : t
+          )
+        }));
+      }
+
       return existingTerminal;
     }
 
@@ -214,25 +240,26 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       // Keep claudeSessionId so users can resume by clicking the invoke button
       isClaudeMode: false,
       claudeSessionId: session.claudeSessionId,
-      // outputBuffer now stored in terminalBufferManager
+      // outputBuffer now stored in terminalBufferManager (done above before existence check)
       isRestored: true,
       projectPath: session.projectPath,
       // Worktree config is validated in main process before restore
       worktreeConfig: session.worktreeConfig,
       // Restore displayOrder for tab position persistence (falls back to end if not set)
       displayOrder: session.displayOrder ?? state.terminals.length,
+      // If session was in Claude mode before shutdown, mark for deferred resume.
+      // This ensures the renderer knows to trigger 'claude --continue' when the terminal
+      // becomes active, without relying on the TERMINAL_PENDING_RESUME IPC event timing
+      // (which may be sent before the Terminal component mounts its listener).
+      pendingClaudeResume: session.isClaudeMode === true,
     };
-
-    // Restore buffer to buffer manager
-    if (session.outputBuffer) {
-      terminalBufferManager.set(session.id, session.outputBuffer);
-    }
 
     set((state) => ({
       terminals: [...state.terminals, restoredTerminal],
       activeTerminalId: state.activeTerminalId || restoredTerminal.id,
     }));
 
+    debugLog(`[TerminalStore] Successfully added restored terminal ${session.id} to store, isRestored: true, claudeSessionId: ${session.claudeSessionId || 'none'}, pendingClaudeResume: ${session.isClaudeMode === true}`);
     return restoredTerminal;
   },
 
@@ -489,10 +516,13 @@ export async function restoreTerminalSessions(projectPath: string): Promise<void
     }
 
     // Restore from disk
+    debugLog(`[TerminalStore] Fetching terminal sessions from disk for project: ${projectPath}`);
     const result = await window.electronAPI.getTerminalSessions(projectPath);
     if (!result.success || !result.data || result.data.length === 0) {
+      debugLog(`[TerminalStore] No sessions found on disk for project: ${projectPath}, success: ${result.success}, sessionCount: ${result.data?.length || 0}`);
       return;
     }
+    debugLog(`[TerminalStore] Found ${result.data.length} sessions on disk for project: ${projectPath}`);
 
     // Sort sessions by displayOrder before restoring (lower = further left)
     // Sessions without displayOrder are placed at the end
@@ -503,11 +533,13 @@ export async function restoreTerminalSessions(projectPath: string): Promise<void
     });
 
     // Add terminals to the store in correct order (they'll be created in the TerminalGrid component)
+    debugLog(`[TerminalStore] Adding ${sortedSessions.length} sorted sessions to store`);
     for (const session of sortedSessions) {
       store.addRestoredTerminal(session);
     }
 
     store.setHasRestoredSessions(true);
+    debugLog(`[TerminalStore] Completed terminal session restoration for project: ${projectPath}`);
   } catch (error) {
     debugError('[TerminalStore] Error restoring sessions:', error);
   } finally {

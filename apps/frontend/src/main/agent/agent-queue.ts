@@ -421,7 +421,7 @@ export class AgentQueueManager {
 
     // Handle stdout - explicitly decode as UTF-8 for cross-platform Unicode support
     childProcess.stdout?.on('data', (data: Buffer) => {
-      const log = data.toString('utf8');
+      const log = data.toString('utf-8');
       // Collect output for rate limit detection (keep last 10KB)
       allOutput = (allOutput + log).slice(-10000);
 
@@ -509,7 +509,7 @@ export class AgentQueueManager {
 
     // Handle stderr - also emit as logs, explicitly decode as UTF-8
     childProcess.stderr?.on('data', (data: Buffer) => {
-      const log = data.toString('utf8');
+      const log = data.toString('utf-8');
       // Collect stderr for rate limit detection too
       allOutput = (allOutput + log).slice(-10000);
       console.error('[Ideation STDERR]', log);
@@ -757,7 +757,7 @@ export class AgentQueueManager {
 
     // Handle stdout - explicitly decode as UTF-8 for cross-platform Unicode support
     childProcess.stdout?.on('data', (data: Buffer) => {
-      const log = data.toString('utf8');
+      const log = data.toString('utf-8');
       // Collect output for rate limit detection (keep last 10KB)
       allRoadmapOutput = (allRoadmapOutput + log).slice(-10000);
 
@@ -792,7 +792,7 @@ export class AgentQueueManager {
 
     // Handle stderr - explicitly decode as UTF-8
     childProcess.stderr?.on('data', (data: Buffer) => {
-      const log = data.toString('utf8');
+      const log = data.toString('utf-8');
       // Collect stderr for rate limit detection too
       allRoadmapOutput = (allRoadmapOutput + log).slice(-10000);
       console.error('[Roadmap STDERR]', log);

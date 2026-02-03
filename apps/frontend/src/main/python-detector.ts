@@ -117,7 +117,7 @@ function getPythonVersion(pythonCmd: string): string | null {
       stdio: 'pipe',
       timeout: 5000,
       windowsHide: true
-    }).toString().trim();
+    }).toString('utf-8').trim();
 
     // Extract version number from "Python 3.10.5" format
     const match = version.match(/Python (\d+\.\d+\.\d+)/);
@@ -352,7 +352,7 @@ function verifyIsPython(pythonCmd: string): boolean {
       timeout: 5000,
       windowsHide: true,
       shell: false
-    }).toString().trim();
+    }).toString('utf-8').trim();
 
     // Must output "Python X.Y.Z"
     return /^Python \d+\.\d+/.test(output);

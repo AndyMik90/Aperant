@@ -158,7 +158,7 @@ export function getUsageEndpoint(provider: ApiProvider, baseUrl: string): string
  * @example
  * detectProvider('https://api.anthropic.com') // returns 'anthropic'
  * detectProvider('https://api.z.ai/api/anthropic') // returns 'zai'
- * detectProvider('https://open.bigmodel.cn/api/paas/v4') // returns 'zhipu'
+ * detectProvider('https://open.bigmodel.cn/api/anthropic') // returns 'zhipu'
  * detectProvider('https://unknown.com/api') // returns 'unknown'
  */
 export function detectProvider(baseUrl: string): ApiProvider {

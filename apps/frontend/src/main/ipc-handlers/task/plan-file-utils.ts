@@ -22,6 +22,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { TaskStatus, Project, Task } from '../../../shared/types';
 import { projectStore } from '../../project-store';
+import type { TaskEventPayload } from '../../agent/task-event-schema';
 
 // In-memory locks for plan file operations
 // Key: plan file path, Value: Promise chain for serializing operations
@@ -111,7 +112,7 @@ export async function persistPlanStatus(planPath: string, status: TaskStatus, pr
       plan.planStatus = mapStatusToPlanStatus(status);
       plan.updated_at = new Date().toISOString();
 
-      writeFileSync(planPath, JSON.stringify(plan, null, 2));
+      writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
       console.warn(`[plan-file-utils] Successfully persisted status: ${status} to implementation_plan.json`);
 
       // Invalidate tasks cache since status changed
@@ -167,7 +168,7 @@ export function persistPlanStatusSync(planPath: string, status: TaskStatus, proj
     plan.planStatus = mapStatusToPlanStatus(status);
     plan.updated_at = new Date().toISOString();
 
-    writeFileSync(planPath, JSON.stringify(plan, null, 2));
+    writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
 
     // Invalidate tasks cache since status changed
     if (projectId) {
@@ -181,6 +182,160 @@ export function persistPlanStatusSync(planPath: string, status: TaskStatus, proj
       return false;
     }
     console.warn(`[plan-file-utils] Could not persist status to ${planPath}:`, err);
+    return false;
+  }
+}
+
+/**
+ * Persist lastEvent metadata synchronously.
+ *
+ * WARNING: This bypasses async locking. Use only in sync event handlers where
+ * async isn't practical. Prefer updatePlanFile when possible.
+ */
+export function persistPlanLastEventSync(planPath: string, event: TaskEventPayload): boolean {
+  try {
+    const planContent = readFileSync(planPath, 'utf-8');
+    const plan = JSON.parse(planContent);
+
+    plan.lastEvent = {
+      eventId: event.eventId,
+      sequence: event.sequence,
+      type: event.type,
+      timestamp: event.timestamp
+    };
+    plan.updated_at = new Date().toISOString();
+
+    writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+    return true;
+  } catch (err) {
+    if (isFileNotFoundError(err)) {
+      return false;
+    }
+    console.warn(`[plan-file-utils] Could not persist lastEvent to ${planPath}:`, err);
+    return false;
+  }
+}
+
+/**
+ * Persist task status, reviewReason, XState state, and execution phase synchronously.
+ * The xstateState and executionPhase are used to restore the exact machine state on reload,
+ * distinguishing between e.g. 'planning' vs 'coding' when both have status 'in_progress'.
+ *
+ * If the plan file doesn't exist, creates a minimal plan with the status fields.
+ * This ensures XState state is persisted even during early phases like spec creation.
+ */
+export function persistPlanStatusAndReasonSync(
+  planPath: string,
+  status: TaskStatus,
+  reviewReason?: string,
+  projectId?: string,
+  xstateState?: string,
+  executionPhase?: string
+): boolean {
+  try {
+    let plan: Record<string, unknown>;
+
+    try {
+      const planContent = readFileSync(planPath, 'utf-8');
+      plan = JSON.parse(planContent);
+    } catch (readErr) {
+      if (!isFileNotFoundError(readErr)) {
+        throw readErr;
+      }
+      // File doesn't exist - create a minimal plan with just status fields
+      // The spec runner will populate the full plan later
+      const planDir = path.dirname(planPath);
+      mkdirSync(planDir, { recursive: true });
+      plan = {
+        created_at: new Date().toISOString(),
+        phases: []
+      };
+      console.log(`[plan-file-utils] Creating minimal plan for XState persistence: ${planPath}`);
+    }
+
+    plan.status = status;
+    plan.planStatus = mapStatusToPlanStatus(status);
+    plan.reviewReason = reviewReason;
+    if (xstateState) {
+      plan.xstateState = xstateState;
+    }
+    if (executionPhase) {
+      plan.executionPhase = executionPhase;
+    }
+    plan.updated_at = new Date().toISOString();
+
+    writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+
+    if (projectId) {
+      projectStore.invalidateTasksCache(projectId);
+    }
+
+    return true;
+  } catch (err) {
+    console.warn(`[plan-file-utils] Could not persist status/reason to ${planPath}:`, err);
+    return false;
+  }
+}
+
+/**
+ * Persist execution phase to the plan file synchronously.
+ * This is called when execution progress updates to ensure the phase
+ * is persisted for restoration on app refresh.
+ */
+export function persistPlanPhaseSync(
+  planPath: string,
+  phase: string,
+  projectId?: string
+): boolean {
+  try {
+    let plan: Record<string, unknown>;
+
+    try {
+      const planContent = readFileSync(planPath, 'utf-8');
+      plan = JSON.parse(planContent);
+    } catch (readErr) {
+      if (!isFileNotFoundError(readErr)) {
+        throw readErr;
+      }
+      // File doesn't exist - create minimal plan
+      const planDir = path.dirname(planPath);
+      mkdirSync(planDir, { recursive: true });
+      plan = {
+        created_at: new Date().toISOString(),
+        phases: []
+      };
+    }
+
+    // Store the execution phase for restoration
+    plan.executionPhase = phase;
+
+    // Also update status to match the phase so the card stays in the correct column on refresh
+    // Map execution phase to TaskStatus for column placement
+    const phaseToStatus: Record<string, TaskStatus> = {
+      'planning': 'in_progress',
+      'coding': 'in_progress',
+      'qa_review': 'ai_review',
+      'qa_fixing': 'ai_review',
+      'complete': 'human_review',
+      'failed': 'error'
+    };
+    const mappedStatus = phaseToStatus[phase];
+    if (mappedStatus) {
+      plan.status = mappedStatus;
+      plan.planStatus = mapStatusToPlanStatus(mappedStatus);
+    }
+
+    plan.updated_at = new Date().toISOString();
+
+    writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+
+    if (projectId) {
+      projectStore.invalidateTasksCache(projectId);
+    }
+
+    return true;
+  } catch (err) {
+    console.warn(`[plan-file-utils] Could not persist phase to ${planPath}:`, err);
     return false;
   }
 }
@@ -207,7 +362,7 @@ export async function updatePlanFile<T extends Record<string, unknown>>(
       // Add updated_at timestamp - use type assertion since T extends Record<string, unknown>
       (updatedPlan as Record<string, unknown>).updated_at = new Date().toISOString();
 
-      writeFileSync(planPath, JSON.stringify(updatedPlan, null, 2));
+      writeFileSync(planPath, JSON.stringify(updatedPlan, null, 2), 'utf-8');
       console.warn(`[plan-file-utils] Successfully updated implementation_plan.json`);
       return updatedPlan;
     } catch (err) {
@@ -228,11 +383,13 @@ export async function updatePlanFile<T extends Record<string, unknown>>(
  * @param planPath - Path to the implementation_plan.json file
  * @param task - The task to create the plan for
  * @param status - Initial status for the plan
+ * @param xstateState - Optional XState machine state for restoration
  */
 export async function createPlanIfNotExists(
   planPath: string,
   task: Task,
-  status: TaskStatus
+  status: TaskStatus,
+  xstateState?: string
 ): Promise<void> {
   return withPlanLock(planPath, async () => {
     // Try to read the file first - if it exists, do nothing
@@ -246,7 +403,7 @@ export async function createPlanIfNotExists(
       // File doesn't exist, continue to create it
     }
 
-    const plan = {
+    const plan: Record<string, unknown> = {
       feature: task.title,
       description: task.description || '',
       created_at: task.createdAt.toISOString(),
@@ -255,6 +412,11 @@ export async function createPlanIfNotExists(
       planStatus: mapStatusToPlanStatus(status),
       phases: []
     };
+
+    // Include xstateState for accurate restoration on reload
+    if (xstateState) {
+      plan.xstateState = xstateState;
+    }
 
     // Ensure directory exists - use try/catch pattern
     const planDir = path.dirname(planPath);
@@ -267,7 +429,7 @@ export async function createPlanIfNotExists(
       }
     }
 
-    writeFileSync(planPath, JSON.stringify(plan, null, 2));
+    writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
   });
 }
 
@@ -301,7 +463,7 @@ export function updateTaskMetadataPrUrl(metadataPath: string, prUrl: string): bo
     mkdirSync(path.dirname(metadataPath), { recursive: true });
 
     // Write back
-    writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+    writeFileSync(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
     return true;
   } catch (err) {
     console.warn(`[plan-file-utils] Could not update metadata at ${metadataPath}:`, err);

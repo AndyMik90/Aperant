@@ -33,6 +33,7 @@ import {
 import { cn } from '../../lib/utils';
 import { calculateProgress } from '../../lib/utils';
 import { startTask, stopTask, submitReview, recoverStuckTask, deleteTask, useTaskStore } from '../../stores/task-store';
+import { useProjectStore } from '../../stores/project-store';
 import { TASK_STATUS_LABELS } from '../../../shared/constants';
 import { TaskEditDialog } from '../TaskEditDialog';
 import { useTaskDetail } from './hooks/useTaskDetail';
@@ -80,6 +81,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
   const { t } = useTranslation(['tasks']);
   const { toast } = useToast();
   const state = useTaskDetail({ task });
+  const activeProject = useProjectStore(s => s.getActiveProject());
   const showFilesTab = isFilesTabEnabled();
   const progressPercent = calculateProgress(task.subtasks);
   const completedSubtasks = task.subtasks.filter(s => s.status === 'completed').length;
@@ -393,7 +395,8 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             >
                               {task.reviewReason === 'completed' ? 'Completed' :
                                task.reviewReason === 'errors' ? 'Has Errors' :
-                               task.reviewReason === 'plan_review' ? 'Approve Plan' : 'QA Issues'}
+                               task.reviewReason === 'plan_review' ? 'Approve Plan' :
+                               task.reviewReason === 'stopped' ? 'Stopped' : 'QA Issues'}
                             </Badge>
                           )}
                         </>
@@ -406,6 +409,13 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                       )}
                     </div>
                   </DialogPrimitive.Description>
+                  {window.DEBUG && (
+                    <div className="mt-1 text-[11px] text-muted-foreground font-mono">
+                      status={task.status} reviewReason={task.reviewReason ?? 'none'} phase={task.executionProgress?.phase ?? 'none'} reviewRequired={task.metadata?.requireReviewBeforeCoding ? 'true' : 'false'}
+                      <br />
+                      projectId={activeProject?.id ?? 'none'} projectName={activeProject?.name ?? 'none'}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0 electron-no-drag">
                   <Button

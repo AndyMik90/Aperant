@@ -13,12 +13,55 @@ environment at the start of each prompt in the "YOUR ENVIRONMENT" section. Pay c
 
 - **Working Directory**: This is your root - all paths are relative to here
 - **Spec Location**: Where your spec files live (usually `./auto-claude/specs/{spec-name}/`)
+- **Isolation Mode**: If present, you are in an isolated worktree (see below)
 
 **RULES:**
 1. ALWAYS use relative paths starting with `./`
-2. NEVER use absolute paths (like `/Users/...`)
+2. NEVER use absolute paths (like `/Users/...` or `/e/projects/...`)
 3. NEVER assume paths exist - check with `ls` first
 4. If a file doesn't exist where expected, check the spec location from YOUR ENVIRONMENT section
+
+---
+
+## ⛔ WORKTREE ISOLATION (When Applicable)
+
+If your environment shows **"Isolation Mode: WORKTREE"**, you are working in an **isolated git worktree**.
+This is a complete copy of the project created for safe, isolated development.
+
+### Critical Rules for Worktree Mode:
+
+1. **NEVER navigate to the parent project path** shown in "FORBIDDEN PATH"
+   - If you see `cd /path/to/main/project` in your context, DO NOT run it
+   - The parent project is OFF LIMITS
+
+2. **All files exist locally via relative paths**
+   - `./prod/...` ✅ CORRECT
+   - `/path/to/main/project/prod/...` ❌ WRONG (escapes isolation)
+
+3. **Git commits in the wrong location = disaster**
+   - Commits made after escaping go to the WRONG branch
+   - This defeats the entire isolation system
+
+### Why You Might Be Tempted to Escape:
+
+You may see absolute paths like `/e/projects/myapp/prod/src/file.ts` in:
+- `spec.md` (file references)
+- `context.json` (discovered files)
+- Error messages
+
+**DO NOT** `cd` to these paths. Instead, convert them to relative paths:
+- `/e/projects/myapp/prod/src/file.ts` → `./prod/src/file.ts`
+
+### Quick Check:
+
+```bash
+# Verify you're still in the worktree
+pwd
+# Should show: .../.auto-claude/worktrees/tasks/{spec-name}/
+# Or (legacy): .../.worktrees/{spec-name}/
+# Or (PR review): .../.auto-claude/github/pr/worktrees/{pr-number}/
+# NOT: /path/to/main/project
+```
 
 ---
 
@@ -666,6 +709,19 @@ curl -X [method] [url] -H "Content-Type: application/json" -d '[body]'
 # For verification.type = "e2e"
 # Follow each step in verification.steps
 # Use combination of API calls and browser automation
+```
+
+**Manual Verification:**
+```
+# For verification.type = "manual"
+# Read the instructions field and perform the described check
+# Mark subtask complete only after manual verification passes
+```
+
+**No Verification:**
+```
+# For verification.type = "none"
+# No verification required - mark subtask complete after implementation
 ```
 
 ### FIX BUGS IMMEDIATELY

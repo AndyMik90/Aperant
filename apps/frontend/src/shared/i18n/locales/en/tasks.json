@@ -38,7 +38,8 @@
     "completed": "Completed",
     "hasErrors": "Has Errors",
     "qaIssues": "QA Issues",
-    "approvePlan": "Approve Plan"
+    "approvePlan": "Approve Plan",
+    "stopped": "Stopped"
   },
   "tooltips": {
     "archiveTask": "Archive task",
@@ -100,6 +101,14 @@
     "selectedCountOne": "{{count}} task selected",
     "selectedCountOther": "{{count}} tasks selected",
     "createPRs": "Create PRs",
+    "deleteSelected": "Delete",
+    "deleteConfirmTitle": "Delete Selected Tasks",
+    "deleteConfirmDescription": "Are you sure you want to permanently delete these tasks?",
+    "deleteWarning": "This action cannot be undone. All task files, including the spec, implementation plan, and any generated code will be permanently deleted from the project.",
+    "tasksToDelete": "Tasks to delete",
+    "deleteConfirmButton": "Delete {{count}} Tasks",
+    "deleteSuccess": "Successfully deleted {{count}} task(s)",
+    "deleteError": "Failed to delete some tasks",
     "clearSelection": "Clear Selection",
     "collapseColumn": "Collapse column",
     "expandColumn": "Expand column",
@@ -170,6 +179,13 @@
   "images": {
     "removeImageAriaLabel": "Remove image {{filename}}",
     "pasteHint": "Tip: Paste screenshots directly with {{shortcut}} to add reference images."
+  },
+  "imagePreview": {
+    "close": "Close preview",
+    "unavailable": "Image unavailable",
+    "description": "Preview of {{filename}}",
+    "doubleClickHint": "Double-click to enlarge",
+    "lowResolution": "Low resolution preview"
   },
   "notifications": {
     "backgroundTaskTitle": "Task continues in background",
@@ -303,6 +319,11 @@
       "fetchSources": "Failed to fetch screenshot sources",
       "capture": "Failed to capture screenshot",
       "captureFailed": "Failed to capture screenshot"
+    },
+    "devMode": {
+      "title": "Screenshot capture unavailable",
+      "description": "Screen capture is not available in development mode due to system permission restrictions.",
+      "hint": "Use an external screenshot tool and paste directly into the task description with {{shortcut}}."
     }
   },
   "referenceImages": {

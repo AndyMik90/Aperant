@@ -982,7 +982,7 @@ describe('usage-monitor', () => {
         profiles: [{
           id: 'zhipu-profile-1',
           name: 'ZHIPU Profile',
-          baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+          baseUrl: 'https://open.bigmodel.cn/api/anthropic',
           apiKey: 'zhipu-api-key'
         }],
         activeProfileId: 'zhipu-profile-1',

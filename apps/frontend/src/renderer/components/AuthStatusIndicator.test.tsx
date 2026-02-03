@@ -111,7 +111,7 @@ const testProfiles: APIProfile[] = [
   {
     id: 'profile-4',
     name: 'ZHIPU China',
-    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    baseUrl: 'https://open.bigmodel.cn/api/anthropic',
     apiKey: 'zhipu-key-5678',
     models: undefined,
     createdAt: Date.now(),

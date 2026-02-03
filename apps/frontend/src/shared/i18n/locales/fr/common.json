@@ -77,9 +77,23 @@
     "discard": "Abandonner",
     "switch": "Changer",
     "add": "Ajouter",
+    "apply": "Appliquer",
     "gotIt": "Compris",
     "continue": "Continuer",
-    "saving": "Enregistrement..."
+    "saving": "Enregistrement...",
+    "deleting": "Suppression..."
+  },
+  "actions": {
+    "save": "Enregistrer",
+    "apply": "Appliquer",
+    "delete": "Supprimer",
+    "settings": "Paramètres"
+  },
+  "os": {
+    "windows": "Windows",
+    "macos": "macOS",
+    "linux": "Linux",
+    "unknown": "Inconnu"
   },
   "labels": {
     "loading": "Chargement...",
@@ -92,7 +106,8 @@
     "optional": "Optionnel",
     "required": "Requis",
     "dismiss": "Ignorer",
-    "important": "Important"
+    "important": "Important",
+    "orphaned": "(orphelin)"
   },
   "selection": {
     "select": "Sélectionner",
@@ -121,6 +136,11 @@
     "failedToDeleteTaskWorktree": "Échec de la suppression du worktree de tâche : {{specName}}",
     "terminalWorktreeNotFound": "Worktree terminal introuvable : {{name}}",
     "failedToDeleteTerminalWorktree": "Échec de la suppression du worktree terminal : {{name}}"
+  },
+  "worktrees": {
+    "deleteSuccess": "Worktree '{{branch}}' supprimé avec succès",
+    "bulkDeleteSuccess": "{{count}} worktree supprimé avec succès",
+    "bulkDeleteSuccess_plural": "{{count}} worktrees supprimés avec succès"
   },
   "notification": {
     "accountSwitched": "Compte changé",
@@ -458,7 +478,8 @@
     "clickToOpenSettings": "Cliquez pour ouvrir les Paramètres →",
     "sessionShort": "Utilisation session 5 heures",
     "weeklyShort": "Utilisation hebdomadaire 7 jours",
-    "swap": "Changer"
+    "swap": "Changer",
+    "account": "Compte"
   },
   "oauth": {
     "enterCode": "Saisie manuelle du code (secours)",

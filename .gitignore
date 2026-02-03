@@ -57,6 +57,7 @@ lerna-debug.log*
 # ===========================
 .auto-claude/
 .planning/
+.planning-archive/
 .auto-build-security.json
 .auto-claude-security.json
 .auto-claude-status
@@ -173,3 +174,4 @@ OPUS_ANALYSIS_AND_IDEAS.md
 /shared_docs
 logs/security/
 Agents.md
+packages/

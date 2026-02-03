@@ -303,7 +303,7 @@ function saveWorktreeConfig(projectPath: string, name: string, config: TerminalW
   const metadataDir = getTerminalWorktreeMetadataDir(projectPath);
   mkdirSync(metadataDir, { recursive: true });
   const metadataPath = getTerminalWorktreeMetadataPath(projectPath, name);
-  writeFileSync(metadataPath, JSON.stringify(config, null, 2));
+  writeFileSync(metadataPath, JSON.stringify(config, null, 2), 'utf-8');
 }
 
 function loadWorktreeConfig(projectPath: string, name: string): TerminalWorktreeConfig | null {

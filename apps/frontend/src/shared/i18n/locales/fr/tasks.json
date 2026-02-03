@@ -37,7 +37,8 @@
     "completed": "Terminé",
     "hasErrors": "Contient des erreurs",
     "qaIssues": "Problèmes QA",
-    "approvePlan": "Approuver le plan"
+    "approvePlan": "Approuver le plan",
+    "stopped": "Arrêté"
   },
   "tooltips": {
     "archiveTask": "Archiver la tâche",
@@ -99,6 +100,14 @@
     "selectedCountOne": "{{count}} tâche sélectionnée",
     "selectedCountOther": "{{count}} tâches sélectionnées",
     "createPRs": "Créer les PRs",
+    "deleteSelected": "Supprimer",
+    "deleteConfirmTitle": "Supprimer les tâches sélectionnées",
+    "deleteConfirmDescription": "Êtes-vous sûr de vouloir supprimer définitivement ces tâches ?",
+    "deleteWarning": "Cette action est irréversible. Tous les fichiers de tâche, y compris le spec, le plan d'implémentation et tout code généré seront définitivement supprimés du projet.",
+    "tasksToDelete": "Tâches à supprimer",
+    "deleteConfirmButton": "Supprimer {{count}} tâches",
+    "deleteSuccess": "{{count}} tâche(s) supprimée(s) avec succès",
+    "deleteError": "Échec de la suppression de certaines tâches",
     "clearSelection": "Effacer la sélection",
     "collapseColumn": "Réduire la colonne",
     "expandColumn": "Développer la colonne",
@@ -169,6 +178,13 @@
   "images": {
     "removeImageAriaLabel": "Supprimer l'image {{filename}}",
     "pasteHint": "Astuce : Collez des captures d'écran directement avec {{shortcut}} pour ajouter des images de référence."
+  },
+  "imagePreview": {
+    "close": "Fermer l'aperçu",
+    "unavailable": "Image indisponible",
+    "description": "Aperçu de {{filename}}",
+    "doubleClickHint": "Double-cliquez pour agrandir",
+    "lowResolution": "Aperçu basse résolution"
   },
   "notifications": {
     "backgroundTaskTitle": "La tâche continue en arrière-plan",
@@ -302,6 +318,11 @@
       "fetchSources": "Échec de la récupération des sources de capture d'écran",
       "capture": "Échec de la capture d'écran",
       "captureFailed": "Échec de la capture d'écran"
+    },
+    "devMode": {
+      "title": "Capture d'écran non disponible",
+      "description": "La capture d'écran n'est pas disponible en mode développement en raison des restrictions de permissions système.",
+      "hint": "Utilisez un outil de capture d'écran externe et collez directement dans la description de la tâche avec {{shortcut}}."
     }
   },
   "referenceImages": {

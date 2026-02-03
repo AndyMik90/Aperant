@@ -12,6 +12,7 @@ import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { ProcessType, ExecutionProgressData } from './types';
 import type { CompletablePhase } from '../../shared/constants/phase-protocol';
+import { parseTaskEvent } from './task-event-parser';
 import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv, detectAuthFailure } from '../rate-limit-detector';
 import { getAPIProfileEnv } from '../services/profile';
 import { projectStore } from '../project-store';
@@ -29,7 +30,7 @@ import { killProcessGracefully, isWindows } from '../platform';
 /**
  * Type for supported CLI tools
  */
-type CliTool = 'claude' | 'gh';
+type CliTool = 'claude' | 'gh' | 'glab';
 
 /**
  * Mapping of CLI tools to their environment variable names
@@ -37,7 +38,8 @@ type CliTool = 'claude' | 'gh';
  */
 const CLI_TOOL_ENV_MAP: Readonly<Record<CliTool, string>> = {
   claude: 'CLAUDE_CLI_PATH',
-  gh: 'GITHUB_CLI_PATH'
+  gh: 'GITHUB_CLI_PATH',
+  glab: 'GITLAB_CLI_PATH'
 } as const;
 
 
@@ -201,12 +203,14 @@ export class AgentProcessManager {
     // Detect and pass CLI tool paths to Python backend
     const claudeCliEnv = this.detectAndSetCliPath('claude');
     const ghCliEnv = this.detectAndSetCliPath('gh');
+    const glabCliEnv = this.detectAndSetCliPath('glab');
 
     return {
       ...augmentedEnv,
       ...gitBashEnv,
       ...claudeCliEnv,
       ...ghCliEnv,
+      ...glabCliEnv,
       ...extraEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',
@@ -499,12 +503,25 @@ export class AgentProcessManager {
     cwd: string,
     args: string[],
     extraEnv: Record<string, string> = {},
-    processType: ProcessType = 'task-execution'
+    processType: ProcessType = 'task-execution',
+    projectId?: string
   ): Promise<void> {
     const isSpecRunner = processType === 'spec-creation';
     this.killProcess(taskId);
 
     const spawnId = this.state.generateSpawnId();
+
+    // IMPORTANT: Add to tracking IMMEDIATELY, before async operations.
+    // This ensures getRunningTasks() returns the task right away, preventing
+    // flaky tests on slower Windows CI where async setup may take longer than
+    // vi.waitFor timeout (ACS-392).
+    this.state.addProcess(taskId, {
+      taskId,
+      process: null, // Will be set after spawn() call completes below
+      startedAt: new Date(),
+      spawnId
+    });
+
     const env = this.setupProcessEnvironment(extraEnv);
 
     // Get Python environment (PYTHONPATH for bundled packages, etc.)
@@ -524,22 +541,48 @@ export class AgentProcessManager {
 
     // Parse Python commandto handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
-    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
-      cwd,
-      env: {
-        ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
-        ...pythonEnv, // Include Python environment (PYTHONPATH for bundled packages)
-        ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
-        ...apiProfileEnv // Include active API profile config (highest priority for ANTHROPIC_* vars)
-      }
-    });
+    let childProcess;
+    try {
+      childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+        cwd,
+        env: {
+          ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
+          ...pythonEnv, // Include Python environment (PYTHONPATH for bundled packages)
+          ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
+          ...apiProfileEnv // Include active API profile config (highest priority for ANTHROPIC_* vars)
+        }
+      });
+    } catch (err) {
+      // spawn() failed synchronously (e.g., command not found, permission denied)
+      // Clean up tracking entry and propagate error
+      this.state.deleteProcess(taskId);
+      this.emitter.emit('error', taskId, err instanceof Error ? err.message : String(err), projectId);
+      throw err;
+    }
 
-    this.state.addProcess(taskId, {
-      taskId,
-      process: childProcess,
-      startedAt: new Date(),
-      spawnId
-    });
+    // Update the tracked process with the actual spawned ChildProcess
+    this.state.updateProcess(taskId, { process: childProcess });
+
+    // Check if this spawn was killed during async setup (before spawn() completed).
+    // If so, terminate the newly created process immediately to prevent orphaned processes.
+    // Note: wasSpawnKilled() is checked AFTER updateProcess() because killProcess()
+    // marks the spawn as killed before deleting the tracking entry.
+    //
+    // CRITICAL: The `?? spawnId` fallback is essential here because if killProcess()
+    // was called during the async setup window, the taskId entry may have been deleted
+    // from the process map. In that case, getProcess(taskId) returns undefined, so we
+    // fall back to the local spawnId variable to check if this specific spawn was killed.
+    const currentSpawnId = this.state.getProcess(taskId)?.spawnId ?? spawnId;
+    if (this.state.wasSpawnKilled(currentSpawnId)) {
+      console.log(`[AgentProcess] Task ${taskId} was killed during spawn setup. Terminating newly created process.`);
+      killProcessGracefully(childProcess, {
+        debugPrefix: '[AgentProcess]',
+        debug: process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development'
+      });
+      this.state.deleteProcess(taskId);
+      this.state.clearKilledSpawn(currentSpawnId);
+      return; // Do not proceed with this spawn
+    }
 
     let currentPhase: ExecutionProgressData['phase'] = isSpecRunner ? 'planning' : 'planning';
     let phaseProgress = 0;
@@ -560,7 +603,7 @@ export class AgentProcessManager {
       message: isSpecRunner ? 'Starting spec creation...' : 'Starting build process...',
       sequenceNumber: ++sequenceNumber,
       completedPhases: [...completedPhases]
-    });
+    }, projectId);
 
     const isDebug = ['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '');
 
@@ -570,6 +613,17 @@ export class AgentProcessManager {
       const hasMarker = line.includes('__EXEC_PHASE__');
       if (isDebug && hasMarker) {
         console.log(`[PhaseDebug:${taskId}] Found marker in line: "${line.substring(0, 200)}"`);
+      }
+
+      // Log all task event markers for debugging
+      if (line.includes('__TASK_EVENT__')) {
+        console.log(`[AgentProcess:${taskId}] Found __TASK_EVENT__ marker in line:`, line.substring(0, 300));
+      }
+
+      const taskEvent = parseTaskEvent(line);
+      if (taskEvent) {
+        console.log(`[AgentProcess:${taskId}] Parsed task event:`, taskEvent.type, taskEvent);
+        this.emitter.emit('task-event', taskId, taskEvent, projectId);
       }
 
       const phaseUpdate = this.events.parseExecutionPhase(line, currentPhase, isSpecRunner);
@@ -629,7 +683,7 @@ export class AgentProcessManager {
           message: lastMessage,
           sequenceNumber: ++sequenceNumber,
           completedPhases: [...completedPhases]
-        });
+        }, projectId);
       }
     };
 
@@ -649,7 +703,7 @@ export class AgentProcessManager {
 
       for (const line of lines) {
         if (line.trim()) {
-          this.emitter.emit('log', taskId, line + '\n');
+          this.emitter.emit('log', taskId, line + '\n', projectId);
           processLog(line);
           if (isDebug) {
             console.log(`[Agent:${taskId}] ${line}`);
@@ -661,20 +715,20 @@ export class AgentProcessManager {
     };
 
     childProcess.stdout?.on('data', (data: Buffer) => {
-      stdoutBuffer = processBufferedOutput(stdoutBuffer, data.toString('utf8'));
+      stdoutBuffer = processBufferedOutput(stdoutBuffer, data.toString('utf-8'));
     });
 
     childProcess.stderr?.on('data', (data: Buffer) => {
-      stderrBuffer = processBufferedOutput(stderrBuffer, data.toString('utf8'));
+      stderrBuffer = processBufferedOutput(stderrBuffer, data.toString('utf-8'));
     });
 
     childProcess.on('exit', (code: number | null) => {
       if (stdoutBuffer.trim()) {
-        this.emitter.emit('log', taskId, stdoutBuffer + '\n');
+        this.emitter.emit('log', taskId, stdoutBuffer + '\n', projectId);
         processLog(stdoutBuffer);
       }
       if (stderrBuffer.trim()) {
-        this.emitter.emit('log', taskId, stderrBuffer + '\n');
+        this.emitter.emit('log', taskId, stderrBuffer + '\n', projectId);
         processLog(stderrBuffer);
       }
 
@@ -689,7 +743,7 @@ export class AgentProcessManager {
         console.log('[AgentProcess] Process failed with code:', code, 'for task:', taskId);
         const wasHandled = this.handleProcessFailure(taskId, allOutput, processType);
         if (wasHandled) {
-          this.emitter.emit('exit', taskId, code, processType);
+          this.emitter.emit('exit', taskId, code, processType, projectId);
           return;
         }
       }
@@ -702,10 +756,10 @@ export class AgentProcessManager {
           message: `Process exited with code ${code}`,
           sequenceNumber: ++sequenceNumber,
           completedPhases: [...completedPhases]
-        });
+        }, projectId);
       }
 
-      this.emitter.emit('exit', taskId, code, processType);
+      this.emitter.emit('exit', taskId, code, processType, projectId);
     });
 
     // Handle process error
@@ -720,9 +774,9 @@ export class AgentProcessManager {
         message: `Error: ${err.message}`,
         sequenceNumber: ++sequenceNumber,
         completedPhases: [...completedPhases]
-      });
+      }, projectId);
 
-      this.emitter.emit('error', taskId, err.message);
+      this.emitter.emit('error', taskId, err.message, projectId);
     });
   }
 
@@ -735,6 +789,14 @@ export class AgentProcessManager {
 
     // Mark this specific spawn as killed so its exit handler knows to ignore
     this.state.markSpawnAsKilled(agentProcess.spawnId);
+
+    // If process hasn't been spawned yet (still in async setup phase, before spawn() returns),
+    // just remove from tracking. The spawn() call will still complete, but the spawned process
+    // will be terminated by the post-spawn wasSpawnKilled() check (see spawnProcess() after updateProcess).
+    if (!agentProcess.process) {
+      this.state.deleteProcess(taskId);
+      return true;
+    }
 
     // Use shared platform-aware kill utility
     killProcessGracefully(agentProcess.process, {
@@ -757,6 +819,15 @@ export class AgentProcessManager {
         const agentProcess = this.state.getProcess(taskId);
 
         if (!agentProcess) {
+          resolve();
+          return;
+        }
+
+        // If process hasn't been spawned yet (still in async setup phase before spawn() returns),
+        // just resolve immediately. The spawn() call will still complete, but the spawned process
+        // will be terminated by the post-spawn wasSpawnKilled() check (see spawnProcess() after updateProcess).
+        if (!agentProcess.process) {
+          this.killProcess(taskId);
           resolve();
           return;
         }

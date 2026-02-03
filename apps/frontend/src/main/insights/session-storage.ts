@@ -61,7 +61,7 @@ export class SessionStorage {
     }
 
     const sessionPath = this.paths.getSessionPath(projectPath, session.id);
-    writeFileSync(sessionPath, JSON.stringify(session, null, 2));
+    writeFileSync(sessionPath, JSON.stringify(session, null, 2), 'utf-8');
   }
 
   /**
@@ -152,7 +152,7 @@ export class SessionStorage {
     }
 
     const currentPath = this.paths.getCurrentSessionPath(projectPath);
-    writeFileSync(currentPath, JSON.stringify({ currentSessionId: sessionId }, null, 2));
+    writeFileSync(currentPath, JSON.stringify({ currentSessionId: sessionId }, null, 2), 'utf-8');
   }
 
   /**

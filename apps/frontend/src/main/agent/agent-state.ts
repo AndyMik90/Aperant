@@ -85,6 +85,20 @@ export class AgentState {
   }
 
   /**
+   * Update a process's properties (e.g., after spawn completes)
+   *
+   * Note: Silently ignores updates if taskId doesn't exist. This is intentional for
+   * race condition handling in spawnProcess() - if a task is killed during async setup,
+   * the tracking entry is deleted before spawn() completes, and we don't want to fail here.
+   */
+  updateProcess(taskId: string, updates: Partial<AgentProcess>): void {
+    const existing = this.processes.get(taskId);
+    if (existing) {
+      this.processes.set(taskId, { ...existing, ...updates });
+    }
+  }
+
+  /**
    * Get all processes
    */
   getAllProcesses(): Map<string, AgentProcess> {

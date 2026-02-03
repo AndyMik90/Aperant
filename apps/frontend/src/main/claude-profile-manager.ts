@@ -43,6 +43,7 @@ import {
   shouldProactivelySwitch as shouldProactivelySwitchImpl,
   getProfilesSortedByAvailability as getProfilesSortedByAvailabilityImpl
 } from './claude-profile/profile-scorer';
+import { getCredentialsFromKeychain, normalizeWindowsPath } from './claude-profile/credential-utils';
 import {
   CLAUDE_PROFILES_DIR,
   generateProfileId as generateProfileIdImpl,
@@ -497,9 +498,12 @@ export class ClaudeProfileManager {
     // This prevents interference with external Claude Code CLI usage
     if (profile?.configDir) {
       // Expand ~ to home directory for the environment variable
-      const expandedConfigDir = profile.configDir.startsWith('~')
-        ? profile.configDir.replace(/^~/, homedir())
-        : profile.configDir;
+      const expandedConfigDir = normalizeWindowsPath(
+        profile.configDir.startsWith('~')
+          ? profile.configDir.replace(/^~/, homedir())
+          : profile.configDir
+      );
+
       env.CLAUDE_CONFIG_DIR = expandedConfigDir;
       if (process.env.DEBUG === 'true') {
         console.warn('[ClaudeProfileManager] Using CLAUDE_CONFIG_DIR for profile:', profile.name, expandedConfigDir);
@@ -718,9 +722,11 @@ export class ClaudeProfileManager {
     }
 
     // Expand ~ to home directory for the environment variable
-    const expandedConfigDir = profile.configDir.startsWith('~')
-      ? profile.configDir.replace(/^~/, require('os').homedir())
-      : profile.configDir;
+    const expandedConfigDir = normalizeWindowsPath(
+      profile.configDir.startsWith('~')
+        ? profile.configDir.replace(/^~/, require('os').homedir())
+        : profile.configDir
+    );
 
     if (process.env.DEBUG === 'true') {
       console.warn('[ClaudeProfileManager] getProfileEnv:', {
@@ -732,9 +738,27 @@ export class ClaudeProfileManager {
       });
     }
 
-    return {
+    // Retrieve OAuth token from Keychain and pass it to subprocess
+    // This ensures the backend Python agent can authenticate even when
+    // there's no .credentials.json file in the profile directory
+    const env: Record<string, string> = {
       CLAUDE_CONFIG_DIR: expandedConfigDir
     };
+
+    try {
+      const credentials = getCredentialsFromKeychain(expandedConfigDir);
+      if (credentials.token) {
+        env.CLAUDE_CODE_OAUTH_TOKEN = credentials.token;
+        if (process.env.DEBUG === 'true') {
+          console.warn('[ClaudeProfileManager] Retrieved OAuth token from Keychain for profile:', profile.name);
+        }
+      }
+    } catch (error) {
+      console.error('[ClaudeProfileManager] Failed to retrieve credentials from Keychain:', error);
+      // Continue without token - backend will fall back to other auth methods
+    }
+
+    return env;
   }
 
   /**
