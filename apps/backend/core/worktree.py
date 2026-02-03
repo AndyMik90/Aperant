@@ -764,7 +764,9 @@ class WorktreeManager:
                     return
             elif worktree_env_path.exists():
                 # Regular file exists - remove it to replace with symlink
-                print_status("Replacing worktree .env with symlink to main project", "info")
+                print_status(
+                    "Replacing worktree .env with symlink to main project", "info"
+                )
                 worktree_env_path.unlink()
 
             # Use relative path for portability if project is moved
