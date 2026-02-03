@@ -519,7 +519,8 @@ export class AgentProcessManager {
     cwd: string,
     args: string[],
     extraEnv: Record<string, string> = {},
-    processType: ProcessType = 'task-execution'
+    processType: ProcessType = 'task-execution',
+    projectId?: string
   ): Promise<void> {
     const isSpecRunner = processType === 'spec-creation';
     this.killProcess(taskId);
@@ -571,7 +572,7 @@ export class AgentProcessManager {
       // spawn() failed synchronously (e.g., command not found, permission denied)
       // Clean up tracking entry and propagate error
       this.state.deleteProcess(taskId);
-      this.emitter.emit('error', taskId, err instanceof Error ? err.message : String(err));
+      this.emitter.emit('error', taskId, err instanceof Error ? err.message : String(err), projectId);
       throw err;
     }
 
@@ -618,7 +619,7 @@ export class AgentProcessManager {
       message: isSpecRunner ? 'Starting spec creation...' : 'Starting build process...',
       sequenceNumber: ++sequenceNumber,
       completedPhases: [...completedPhases]
-    });
+    }, projectId);
 
     const isDebug = ['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '');
 
@@ -638,7 +639,7 @@ export class AgentProcessManager {
       const taskEvent = parseTaskEvent(line);
       if (taskEvent) {
         console.log(`[AgentProcess:${taskId}] Parsed task event:`, taskEvent.type, taskEvent);
-        this.emitter.emit('task-event', taskId, taskEvent);
+        this.emitter.emit('task-event', taskId, taskEvent, projectId);
       }
 
       const phaseUpdate = this.events.parseExecutionPhase(line, currentPhase, isSpecRunner);
@@ -698,7 +699,7 @@ export class AgentProcessManager {
           message: lastMessage,
           sequenceNumber: ++sequenceNumber,
           completedPhases: [...completedPhases]
-        });
+        }, projectId);
       }
     };
 
@@ -718,7 +719,7 @@ export class AgentProcessManager {
 
       for (const line of lines) {
         if (line.trim()) {
-          this.emitter.emit('log', taskId, line + '\n');
+          this.emitter.emit('log', taskId, line + '\n', projectId);
           processLog(line);
           if (isDebug) {
             console.log(`[Agent:${taskId}] ${line}`);
@@ -739,11 +740,11 @@ export class AgentProcessManager {
 
     childProcess.on('exit', (code: number | null) => {
       if (stdoutBuffer.trim()) {
-        this.emitter.emit('log', taskId, stdoutBuffer + '\n');
+        this.emitter.emit('log', taskId, stdoutBuffer + '\n', projectId);
         processLog(stdoutBuffer);
       }
       if (stderrBuffer.trim()) {
-        this.emitter.emit('log', taskId, stderrBuffer + '\n');
+        this.emitter.emit('log', taskId, stderrBuffer + '\n', projectId);
         processLog(stderrBuffer);
       }
 
@@ -758,7 +759,7 @@ export class AgentProcessManager {
         console.log('[AgentProcess] Process failed with code:', code, 'for task:', taskId);
         const wasHandled = this.handleProcessFailure(taskId, allOutput, processType);
         if (wasHandled) {
-          this.emitter.emit('exit', taskId, code, processType);
+          this.emitter.emit('exit', taskId, code, processType, projectId);
           return;
         }
       }
@@ -771,10 +772,10 @@ export class AgentProcessManager {
           message: `Process exited with code ${code}`,
           sequenceNumber: ++sequenceNumber,
           completedPhases: [...completedPhases]
-        });
+        }, projectId);
       }
 
-      this.emitter.emit('exit', taskId, code, processType);
+      this.emitter.emit('exit', taskId, code, processType, projectId);
     });
 
     // Handle process error
@@ -789,9 +790,9 @@ export class AgentProcessManager {
         message: `Error: ${err.message}`,
         sequenceNumber: ++sequenceNumber,
         completedPhases: [...completedPhases]
-      });
+      }, projectId);
 
-      this.emitter.emit('error', taskId, err.message);
+      this.emitter.emit('error', taskId, err.message, projectId);
     });
   }
 
