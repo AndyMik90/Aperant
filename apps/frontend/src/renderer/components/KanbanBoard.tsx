@@ -635,6 +635,70 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
   );
 }, droppableColumnPropsAreEqual);
 
+/**
+ * Calculate redistributed column widths for full-width distribution on refresh
+ * @param containerWidth - The available container width in pixels
+ * @param columnPreferences - The current column preferences (width, isCollapsed, isLocked)
+ * @param columns - Array of column statuses to process
+ * @returns Object mapping column names to their new widths
+ */
+function calculateRedistributedWidths(
+  containerWidth: number,
+  columnPreferences: Record<string, { width: number; isCollapsed: boolean; isLocked: boolean }> | null,
+  columns: readonly string[]
+): Record<string, number> {
+  const result: Record<string, number> = {};
+
+  if (!columnPreferences || containerWidth <= 0) {
+    // Return empty object if no preferences or invalid container
+    return result;
+  }
+
+  // Constants for spacing (6px padding * 2 = 12px, 16px gap * 5 gaps = 80px)
+  const PADDING_TOTAL = 6 * 2; // 12px
+  const GAP_TOTAL = 16 * 5; // 80px (5 gaps between 6 columns)
+  const SPACING_TOTAL = PADDING_TOTAL + GAP_TOTAL;
+
+  // Separate columns into collapsed and expanded
+  const collapsedColumns = columns.filter((col) => columnPreferences[col]?.isCollapsed);
+  const expandedColumns = columns.filter((col) => !columnPreferences[col]?.isCollapsed);
+
+  // If no expanded columns, nothing to redistribute
+  if (expandedColumns.length === 0) {
+    return result;
+  }
+
+  // Calculate available width for expanded columns
+  const collapsedWidthTotal = collapsedColumns.length * COLLAPSED_COLUMN_WIDTH;
+  const availableWidth = containerWidth - SPACING_TOTAL - collapsedWidthTotal;
+
+  // Calculate base width per expanded column
+  const baseWidth = Math.max(MIN_COLUMN_WIDTH, availableWidth / expandedColumns.length);
+
+  // Calculate remainder pixels for distribution
+  let remainder = 0;
+  if (availableWidth > 0 && expandedColumns.length > 0) {
+    const totalBaseWidth = Math.floor(baseWidth) * expandedColumns.length;
+    remainder = Math.round(availableWidth - totalBaseWidth);
+  }
+
+  // Distribute widths to expanded columns (leftmost get remainder first)
+  for (let i = 0; i < expandedColumns.length; i++) {
+    const column = expandedColumns[i];
+    let newWidth = Math.floor(baseWidth);
+
+    // Distribute remainder pixels to leftmost columns first
+    if (i < remainder) {
+      newWidth += 1;
+    }
+
+    // Clamp to MIN/MAX bounds
+    result[column] = Math.max(MIN_COLUMN_WIDTH, Math.min(MAX_COLUMN_WIDTH, newWidth));
+  }
+
+  return result;
+}
+
 export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing }: KanbanBoardProps) {
   const { t } = useTranslation(['tasks', 'dialogs', 'common']);
   const { toast } = useToast();
@@ -660,6 +724,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const resizeStartWidth = useRef<number>(0);
   // Capture projectId at resize start to avoid stale closure if project changes during resize
   const resizeProjectIdRef = useRef<string | null>(null);
+  // Container ref for measuring available width during refresh realignment
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Get projectId from first task
   const projectId = tasks[0]?.projectId;
@@ -1285,6 +1351,35 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   }, [columnPreferences, setColumnCollapsed, saveKanbanPreferences, projectId]);
 
+  // Create a callback to refresh and realign column widths
+  const handleRefreshWithRealign = useCallback(() => {
+    // Capture projectId at function start to avoid stale closure in setTimeout
+    const currentProjectId = projectId;
+
+    // Get container width from ref
+    const containerElement = containerRef.current;
+    if (!containerElement) {
+      return;
+    }
+
+    const containerWidth = containerElement.offsetWidth;
+
+    // Calculate redistributed widths
+    const redistributedWidths = calculateRedistributedWidths(containerWidth, columnPreferences, TASK_STATUS_COLUMNS);
+
+    // Apply new widths to each column
+    for (const [column, newWidth] of Object.entries(redistributedWidths)) {
+      setColumnWidth(column as typeof TASK_STATUS_COLUMNS[number], newWidth);
+    }
+
+    // Save preferences after all updates complete
+    if (currentProjectId) {
+      setTimeout(() => {
+        saveKanbanPreferences(currentProjectId);
+      }, 0);
+    }
+  }, [columnPreferences, setColumnWidth, saveKanbanPreferences, projectId]);
+
   // Create a callback to toggle locked state and save to storage
   const handleToggleColumnLocked = useCallback((status: typeof TASK_STATUS_COLUMNS[number]) => {
     // Capture projectId at function start to avoid stale closure in setTimeout
@@ -1541,7 +1636,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={onRefresh}
+                onClick={() => {
+                  onRefresh?.();
+                  handleRefreshWithRealign();
+                }}
                 disabled={isRefreshing}
                 className="gap-2 text-muted-foreground hover:text-foreground"
               >
@@ -1560,7 +1658,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex flex-1 gap-4 overflow-x-auto p-6">
+        <div ref={containerRef} className="flex flex-1 gap-4 overflow-x-auto p-6">
           {TASK_STATUS_COLUMNS.map((status) => (
             <DroppableColumn
               key={status}
