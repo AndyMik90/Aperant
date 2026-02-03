@@ -150,7 +150,7 @@ export function Insights({ projectId }: InsightsProps) {
     if (isUserAtBottom && viewportEl) {
       viewportEl.scrollTop = viewportEl.scrollHeight;
     }
-  }, [isUserAtBottom, viewportEl]);
+  }, [session?.messages, streamingContent, isUserAtBottom, viewportEl]);
 
   // Focus textarea on mount
   useEffect(() => {
