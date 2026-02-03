@@ -13,7 +13,7 @@ import { EventEmitter } from 'events';
 import { homedir } from 'os';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { ClaudeUsageSnapshot, ProfileUsageSummary, AllProfilesUsage } from '../../shared/types/agent';
-import { loadProfilesFile } from '../services/profile/profile-manager';
+import { loadProfilesFile, setActiveAPIProfile } from '../services/profile/profile-manager';
 import type { APIProfile } from '../../shared/types/profile';
 import { detectProvider as sharedDetectProvider, type ApiProvider } from '../../shared/utils/provider-detection';
 import { getCredentialsFromKeychain, clearKeychainCache } from './credential-utils';
@@ -1965,7 +1965,6 @@ export class UsageMonitor extends EventEmitter {
     } else {
       // Switch API profile via profile-manager service
       try {
-        const { setActiveAPIProfile } = await import('../services/profile/profile-manager');
         await setActiveAPIProfile(bestAccount.id);
       } catch (error) {
         console.error('[UsageMonitor] Failed to set active API profile:', error);

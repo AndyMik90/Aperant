@@ -124,12 +124,13 @@ export class TerminalManager {
    * Send input to a terminal
    */
   write(id: string, data: string): void {
-    debugLog('[TerminalManager:write] Writing to terminal:', id, 'data length:', data.length);
     const terminal = this.terminals.get(id);
     if (terminal) {
-      debugLog('[TerminalManager:write] Terminal found, calling writeToPty...');
+      // Only log for non-trivial writes to reduce noise from keystrokes
+      if (data.length > PtyManager.DEBUG_LOG_WRITE_THRESHOLD_BYTES) {
+        debugLog('[TerminalManager:write] Writing to terminal:', id, 'data length:', data.length);
+      }
       PtyManager.writeToPty(terminal, data);
-      debugLog('[TerminalManager:write] writeToPty completed');
     } else {
       debugError('[TerminalManager:write] Terminal NOT found:', id);
     }

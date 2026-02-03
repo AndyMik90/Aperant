@@ -264,10 +264,15 @@ export function setupPtyHandlers(
 /**
  * Constants for chunked write behavior
  * CHUNKED_WRITE_THRESHOLD: Data larger than this (bytes) will be written in chunks
- * CHUNK_SIZE: Size of each chunk - smaller chunks yield to event loop more frequently
+ *   - Set to 16KB to avoid chunking normal command invocations (~1-2KB for Claude with PATH)
+ *   - Large pastes (>16KB) will still be chunked to avoid blocking
+ * CHUNK_SIZE: Size of each chunk when chunking is needed
+ *   - 4KB chunks balance between event loop yielding and throughput
+ * DEBUG_LOG_WRITE_THRESHOLD_BYTES: Only log writes larger than this to reduce noise
  */
-const CHUNKED_WRITE_THRESHOLD = 1000;
-const CHUNK_SIZE = 100;
+const CHUNKED_WRITE_THRESHOLD = 16 * 1024; // 16KB
+const CHUNK_SIZE = 4 * 1024; // 4KB
+export const DEBUG_LOG_WRITE_THRESHOLD_BYTES = 100;
 
 /**
  * Write queue per terminal to prevent interleaving of concurrent writes.
@@ -319,7 +324,10 @@ function performWrite(terminal: TerminalProcess, data: string): Promise<void> {
     } else {
       try {
         terminal.pty.write(data);
-        debugLog('[PtyManager:writeToPty] Write completed successfully');
+        // Only log completion for non-trivial writes
+        if (data.length > DEBUG_LOG_WRITE_THRESHOLD_BYTES) {
+          debugLog('[PtyManager:writeToPty] Write completed successfully');
+        }
       } catch (error) {
         debugError('[PtyManager:writeToPty] Write FAILED:', error);
       }
@@ -334,7 +342,10 @@ function performWrite(terminal: TerminalProcess, data: string): Promise<void> {
  * Serializes writes per terminal to prevent interleaving of concurrent writes.
  */
 export function writeToPty(terminal: TerminalProcess, data: string): void {
-  debugLog('[PtyManager:writeToPty] About to write to pty, data length:', data.length);
+  // Only log for non-trivial writes to reduce noise from keystrokes
+  if (data.length > DEBUG_LOG_WRITE_THRESHOLD_BYTES) {
+    debugLog('[PtyManager:writeToPty] About to write to pty, data length:', data.length);
+  }
 
   // Get the previous write Promise for this terminal (if any)
   const previousWrite = pendingWrites.get(terminal.id) || Promise.resolve();
