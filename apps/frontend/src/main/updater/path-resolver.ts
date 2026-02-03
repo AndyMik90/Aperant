@@ -3,9 +3,9 @@
  */
 
 import { existsSync, readFileSync } from 'fs';
-import path from 'path';
 import { app } from 'electron';
-import { joinPaths, normalizePath } from '../platform';
+import { joinPaths } from '../platform';
+import { TASK_WORKTREE_DIR } from '../worktree-paths';
 
 /**
  * Get the path to the bundled backend source
@@ -14,15 +14,19 @@ export function getBundledSourcePath(): string {
   // In production, use app resources
   // In development, use the repo's apps/backend folder
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'backend');
+    return joinPaths(process.resourcesPath, 'backend');
   }
 
   // Development mode - prioritize worktree detection
   // Check if we're running from a worktree (app.getAppPath() will be within worktree)
   const appPath = app.getAppPath();
   // Normalize path to use forward slashes for consistent regex matching across platforms
-  const normalizedAppPath = normalizePath(appPath);
-  const worktreeMatch = normalizedAppPath.match(/(.+\/\.auto-claude\/worktrees\/tasks\/[^/]+)/);
+  // (path.normalize on Windows produces backslashes, so we replace them)
+  const normalizedAppPath = appPath.replace(/\\/g, '/');
+  // Build regex pattern from the constant to avoid hardcoding paths
+  const worktreeDirPattern = TASK_WORKTREE_DIR.replace(/\\/g, '/');
+  const worktreeRegex = new RegExp(`(.+/${worktreeDirPattern}/[^/]+)`);
+  const worktreeMatch = normalizedAppPath.match(worktreeRegex);
   if (worktreeMatch) {
     const worktreeBackend = joinPaths(worktreeMatch[1], 'apps', 'backend');
     const worktreeMarker = joinPaths(worktreeBackend, 'runners', 'spec_runner.py');
