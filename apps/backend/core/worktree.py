@@ -761,12 +761,9 @@ class WorktreeManager:
                 # Valid symlink already exists
                 return
         elif worktree_env_path.exists():
-            # It's a file, not a symlink. Warn and do not overwrite.
-            print(
-                f"Warning: Worktree .env is not a symlink; "
-                f"remove it to enable shared config: {worktree_env_path}"
-            )
-            return
+            # Regular file exists - remove it to replace with symlink
+            print(f"Replacing worktree .env with symlink: {worktree_env_path}")
+            worktree_env_path.unlink()
 
         try:
             # Use relative path for portability if project is moved

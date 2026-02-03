@@ -1151,3 +1151,66 @@ class TestWorktreeEnvSymlinks:
         content = worktree_env_path.read_text()
         assert "VERSION=2" in content
         assert "NEW_KEY=value" in content
+
+    def test_broken_symlink_is_replaced(self, temp_git_repo: Path):
+        """Broken .env symlinks are detected and replaced with valid ones."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+
+        # Create .auto-claude/.env in main project
+        auto_claude_dir = temp_git_repo / ".auto-claude"
+        auto_claude_dir.mkdir(parents=True, exist_ok=True)
+        main_env_path = auto_claude_dir / ".env"
+        main_env_path.write_text("MAIN_CONFIG=true\n")
+
+        # Create worktree (will create symlink)
+        info = manager.create_worktree("test-spec")
+        worktree_env_path = info.path / ".auto-claude" / ".env"
+        assert worktree_env_path.is_symlink()
+
+        # Break the symlink by removing and recreating it pointing to non-existent target
+        worktree_env_path.unlink()
+        worktree_env_path.symlink_to("/nonexistent/path/.env")
+        assert worktree_env_path.is_symlink()
+        assert not worktree_env_path.exists()  # Broken symlink
+
+        # Call get_or_create - should fix the broken symlink
+        manager.get_or_create_worktree("test-spec")
+
+        # Verify symlink is now valid and points to main .env
+        assert worktree_env_path.is_symlink()
+        assert worktree_env_path.exists()  # No longer broken
+        assert "MAIN_CONFIG=true" in worktree_env_path.read_text()
+
+    def test_existing_env_file_is_replaced_with_symlink(self, temp_git_repo: Path):
+        """Existing non-symlink .env files are replaced with symlinks."""
+        manager = WorktreeManager(temp_git_repo)
+        manager.setup()
+
+        # Create worktree first (without .env in main project)
+        info = manager.create_worktree("test-spec")
+
+        # Manually create a regular .env file in worktree (simulating stale file)
+        worktree_auto_claude = info.path / ".auto-claude"
+        worktree_auto_claude.mkdir(parents=True, exist_ok=True)
+        worktree_env_path = worktree_auto_claude / ".env"
+        worktree_env_path.write_text("STALE_CONFIG=old_value\n")
+        assert not worktree_env_path.is_symlink()
+
+        # Now create .auto-claude/.env in main project
+        auto_claude_dir = temp_git_repo / ".auto-claude"
+        auto_claude_dir.mkdir(parents=True, exist_ok=True)
+        main_env_path = auto_claude_dir / ".env"
+        main_env_path.write_text("CURRENT_CONFIG=new_value\n")
+
+        # Call get_or_create - should replace regular file with symlink
+        manager.get_or_create_worktree("test-spec")
+
+        # Verify it's now a symlink pointing to main .env
+        assert worktree_env_path.is_symlink(), "Should be replaced with symlink"
+        assert worktree_env_path.resolve() == main_env_path.resolve()
+
+        # Verify content is from main .env, not the old stale file
+        content = worktree_env_path.read_text()
+        assert "CURRENT_CONFIG=new_value" in content
+        assert "STALE_CONFIG" not in content
