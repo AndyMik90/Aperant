@@ -22,7 +22,7 @@ export function getBundledSourcePath(): string {
   const appPath = app.getAppPath();
   // Normalize path to use forward slashes for consistent regex matching across platforms
   const normalizedAppPath = normalizePath(appPath);
-  const worktreeMatch = normalizedAppPath.match(/(.+\/.auto-claude\/worktrees\/tasks\/[^/]+)/);
+  const worktreeMatch = normalizedAppPath.match(/(.+\/\.auto-claude\/worktrees\/tasks\/[^/]+)/);
   if (worktreeMatch) {
     const worktreeBackend = joinPaths(worktreeMatch[1], 'apps', 'backend');
     const worktreeMarker = joinPaths(worktreeBackend, 'runners', 'spec_runner.py');
