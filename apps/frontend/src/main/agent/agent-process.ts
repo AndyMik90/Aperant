@@ -25,7 +25,7 @@ import type { AppSettings } from '../../shared/types/settings';
 import { getOAuthModeClearVars } from './env-utils';
 import { getAugmentedEnv } from '../env-utils';
 import { getToolInfo, getClaudeCliPathForSdk } from '../cli-tool-manager';
-import { killProcessGracefully, isWindows } from '../platform';
+import { killProcessGracefully, isWindows, joinPaths } from '../platform';
 
 /**
  * Type for supported CLI tools
@@ -478,7 +478,7 @@ export class AgentProcessManager {
    * MCP server settings, and per-agent MCP overrides.
    */
   private loadProjectEnv(projectPath: string): Record<string, string> {
-    const envPath = path.join(projectPath, '.auto-claude', '.env');
+    const envPath = joinPaths(projectPath, '.auto-claude', '.env');
     return this.parseEnvFile(envPath);
   }
 

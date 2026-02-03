@@ -833,6 +833,22 @@ class TestWorktreeEnvSymlinks:
     .env file so that MCP server configs and other settings are shared.
     """
 
+    @pytest.fixture(autouse=True)
+    def _require_symlinks(self, tmp_path: Path):
+        """Skip all tests in this class if symlinks are not supported."""
+        target = tmp_path / "symlink-target"
+        link = tmp_path / "symlink-link"
+        try:
+            target.write_text("x")
+            link.symlink_to(target)
+        except (OSError, NotImplementedError):
+            pytest.skip("Symlinks not supported on this platform/configuration")
+        finally:
+            if link.exists() or link.is_symlink():
+                link.unlink()
+            if target.exists():
+                target.unlink()
+
     def test_create_worktree_creates_env_symlink(self, temp_git_repo: Path):
         """create_worktree creates .env symlink when main project has .env file."""
         manager = WorktreeManager(temp_git_repo)

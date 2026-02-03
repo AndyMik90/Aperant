@@ -750,7 +750,7 @@ class WorktreeManager:
             worktree_auto_claude_dir.mkdir(parents=True, exist_ok=True)
             try:
                 worktree_env_path.symlink_to(main_env_path)
-                print(f"Symlinked .env from main project to worktree")
+                print(f"Symlinked .env from main project to worktree: {worktree_path}")
             except OSError as e:
                 print(f"Warning: Could not create .env symlink: {e}")
 

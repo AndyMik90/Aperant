@@ -5,6 +5,7 @@
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { app } from 'electron';
+import { joinPaths, normalizePath } from '../platform';
 
 /**
  * Get the path to the bundled backend source
@@ -19,10 +20,12 @@ export function getBundledSourcePath(): string {
   // Development mode - prioritize worktree detection
   // Check if we're running from a worktree (app.getAppPath() will be within worktree)
   const appPath = app.getAppPath();
-  const worktreeMatch = appPath.match(/(.+\/.auto-claude\/worktrees\/tasks\/[^/]+)/);
+  // Normalize path to use forward slashes for consistent regex matching across platforms
+  const normalizedAppPath = normalizePath(appPath);
+  const worktreeMatch = normalizedAppPath.match(/(.+\/.auto-claude\/worktrees\/tasks\/[^/]+)/);
   if (worktreeMatch) {
-    const worktreeBackend = path.join(worktreeMatch[1], 'apps', 'backend');
-    const worktreeMarker = path.join(worktreeBackend, 'runners', 'spec_runner.py');
+    const worktreeBackend = joinPaths(worktreeMatch[1], 'apps', 'backend');
+    const worktreeMarker = joinPaths(worktreeBackend, 'runners', 'spec_runner.py');
     if (existsSync(worktreeMarker)) {
       console.log('[path-resolver] Using worktree backend:', worktreeBackend);
       return worktreeBackend;
@@ -32,23 +35,23 @@ export function getBundledSourcePath(): string {
   // Development mode - look for backend in various locations
   const possiblePaths = [
     // New structure: apps/frontend -> apps/backend
-    path.join(appPath, '..', 'backend'),
-    path.join(appPath, '..', '..', 'apps', 'backend'),
-    path.join(process.cwd(), 'apps', 'backend'),
-    path.join(process.cwd(), '..', 'backend')
+    joinPaths(appPath, '..', 'backend'),
+    joinPaths(appPath, '..', '..', 'apps', 'backend'),
+    joinPaths(process.cwd(), 'apps', 'backend'),
+    joinPaths(process.cwd(), '..', 'backend')
   ];
 
   for (const p of possiblePaths) {
     // Validate it's a proper backend source (must have runners/spec_runner.py)
-    const markerPath = path.join(p, 'runners', 'spec_runner.py');
+    const markerPath = joinPaths(p, 'runners', 'spec_runner.py');
     if (existsSync(p) && existsSync(markerPath)) {
       return p;
     }
   }
 
   // Fallback - warn if this path is also invalid
-  const fallback = path.join(app.getAppPath(), '..', 'backend');
-  const fallbackMarker = path.join(fallback, 'runners', 'spec_runner.py');
+  const fallback = joinPaths(app.getAppPath(), '..', 'backend');
+  const fallbackMarker = joinPaths(fallback, 'runners', 'spec_runner.py');
   if (!existsSync(fallbackMarker)) {
     console.warn(
       `[path-resolver] No valid backend source found in development paths, fallback "${fallback}" may be invalid`
@@ -61,7 +64,7 @@ export function getBundledSourcePath(): string {
  * Get the path for storing downloaded updates
  */
 export function getUpdateCachePath(): string {
-  return path.join(app.getPath('userData'), 'auto-claude-updates');
+  return joinPaths(app.getPath('userData'), 'auto-claude-updates');
 }
 
 /**
@@ -72,12 +75,12 @@ export function getEffectiveSourcePath(): string {
   // In production (packaged app), check user settings for configured autoBuildPath
   if (app.isPackaged) {
     try {
-      const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+      const settingsPath = joinPaths(app.getPath('userData'), 'settings.json');
       if (existsSync(settingsPath)) {
         const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
         if (settings.autoBuildPath && existsSync(settings.autoBuildPath)) {
           // Validate it's a proper backend source (must have runners/spec_runner.py)
-          const markerPath = path.join(settings.autoBuildPath, 'runners', 'spec_runner.py');
+          const markerPath = joinPaths(settings.autoBuildPath, 'runners', 'spec_runner.py');
           if (existsSync(markerPath)) {
             return settings.autoBuildPath;
           }
@@ -96,8 +99,8 @@ export function getEffectiveSourcePath(): string {
 
   if (app.isPackaged) {
     // Check for user-updated source first
-    const overridePath = path.join(app.getPath('userData'), 'backend-source');
-    const overrideMarker = path.join(overridePath, 'runners', 'spec_runner.py');
+    const overridePath = joinPaths(app.getPath('userData'), 'backend-source');
+    const overrideMarker = joinPaths(overridePath, 'runners', 'spec_runner.py');
     if (existsSync(overridePath) && existsSync(overrideMarker)) {
       return overridePath;
     }
@@ -112,7 +115,7 @@ export function getEffectiveSourcePath(): string {
 export function getUpdateTargetPath(): string {
   if (app.isPackaged) {
     // For packaged apps, store in userData as a source override
-    return path.join(app.getPath('userData'), 'backend-source');
+    return joinPaths(app.getPath('userData'), 'backend-source');
   } else {
     // In development, update the actual source
     return getBundledSourcePath();
