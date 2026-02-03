@@ -752,12 +752,20 @@ class WorktreeManager:
         worktree_auto_claude_dir.mkdir(parents=True, exist_ok=True)
 
         # Check if worktree .env already exists
-        if worktree_env_path.exists() or worktree_env_path.is_symlink():
-            if not worktree_env_path.is_symlink():
-                print(
-                    f"Warning: Worktree .env is not a symlink; "
-                    f"remove it to enable shared config: {worktree_env_path}"
-                )
+        if worktree_env_path.is_symlink():
+            if not worktree_env_path.exists():
+                # Broken symlink - remove it so we can recreate
+                print(f"Found broken .env symlink, removing: {worktree_env_path}")
+                worktree_env_path.unlink()
+            else:
+                # Valid symlink already exists
+                return
+        elif worktree_env_path.exists():
+            # It's a file, not a symlink. Warn and do not overwrite.
+            print(
+                f"Warning: Worktree .env is not a symlink; "
+                f"remove it to enable shared config: {worktree_env_path}"
+            )
             return
 
         try:
