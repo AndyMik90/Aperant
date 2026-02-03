@@ -305,7 +305,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
         data-testid="profile-edit-dialog"
       >
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle data-testid="profile-dialog-title">
             {isEditMode
               ? t('settings:apiProfiles.dialog.editTitle')
               : t('settings:apiProfiles.dialog.createTitle')}
@@ -440,6 +440,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
             className="w-full"
             onClick={handleTestConnection}
             disabled={isTestingConnection || !isFormValidForTest()}
+            data-testid="test-connection-button"
           >
             {isTestingConnection ? (
               <>
@@ -560,6 +561,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={profilesLoading}
+            data-testid="cancel-button"
           >
             {t('settings:apiProfiles.actions.cancel')}
           </Button>
@@ -567,6 +569,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
             type="button"
             onClick={handleSave}
             disabled={profilesLoading}
+            data-testid="save-button"
           >
             {profilesLoading ? (
               <>

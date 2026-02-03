@@ -100,6 +100,7 @@ export function WelcomeStep({ onGetStarted, onSkip }: WelcomeStepProps) {
             size="lg"
             onClick={onGetStarted}
             className="gap-2 px-8"
+            data-testid="welcome-get-started"
           >
             <Sparkles className="h-5 w-5" />
             {t('welcome.getStarted')}
@@ -109,6 +110,7 @@ export function WelcomeStep({ onGetStarted, onSkip }: WelcomeStepProps) {
             variant="ghost"
             onClick={onSkip}
             className="text-muted-foreground hover:text-foreground"
+            data-testid="welcome-skip"
           >
             {t('welcome.skip')}
           </Button>

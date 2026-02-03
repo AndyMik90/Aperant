@@ -179,6 +179,7 @@ export function FontConfigPanel({ settings, onSettingChange }: FontConfigPanelPr
                   'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent'
                 )}
                 title={t('terminalFonts.fontConfig.decreaseFontSize', { step: FONT_SIZE_STEP })}
+                data-testid="decrease-font-size"
               >
                 <Minus className="h-3.5 w-3.5" />
               </button>
@@ -193,6 +194,7 @@ export function FontConfigPanel({ settings, onSettingChange }: FontConfigPanelPr
                   'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent'
                 )}
                 title={t('terminalFonts.fontConfig.increaseFontSize', { step: FONT_SIZE_STEP })}
+                data-testid="increase-font-size"
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>
@@ -263,6 +265,7 @@ export function FontConfigPanel({ settings, onSettingChange }: FontConfigPanelPr
                 'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent'
               )}
               title={t('terminalFonts.fontConfig.decreaseFontWeight', { step: FONT_WEIGHT_STEP })}
+              data-testid="decrease-font-weight"
             >
               <Minus className="h-3.5 w-3.5" />
             </button>
@@ -277,6 +280,7 @@ export function FontConfigPanel({ settings, onSettingChange }: FontConfigPanelPr
                 'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent'
               )}
               title={t('terminalFonts.fontConfig.increaseFontWeight', { step: FONT_WEIGHT_STEP })}
+              data-testid="increase-font-weight"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>

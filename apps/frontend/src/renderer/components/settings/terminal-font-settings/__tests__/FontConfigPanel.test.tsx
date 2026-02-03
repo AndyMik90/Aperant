@@ -104,7 +104,7 @@ describe('FontConfigPanel', () => {
         />
       );
 
-      const increaseButtons = screen.getAllByTitle(/increase font size/i);
+      const increaseButtons = screen.getAllByTestId('increase-font-size');
       fireEvent.click(increaseButtons[0]);
 
       expect(mockOnSettingChange).toHaveBeenCalledWith('fontSize', 14);
@@ -118,7 +118,7 @@ describe('FontConfigPanel', () => {
         />
       );
 
-      const decreaseButtons = screen.getAllByTitle(/decrease font size/i);
+      const decreaseButtons = screen.getAllByTestId('decrease-font-size');
       fireEvent.click(decreaseButtons[0]);
 
       expect(mockOnSettingChange).toHaveBeenCalledWith('fontSize', 12);
@@ -133,7 +133,7 @@ describe('FontConfigPanel', () => {
         />
       );
 
-      const decreaseButtons = screen.getAllByTitle(/decrease font size/i);
+      const decreaseButtons = screen.getAllByTestId('decrease-font-size');
       expect(decreaseButtons[0]).toBeDisabled();
     });
 
@@ -146,7 +146,7 @@ describe('FontConfigPanel', () => {
         />
       );
 
-      const increaseButtons = screen.getAllByTitle(/increase font size/i);
+      const increaseButtons = screen.getAllByTestId('increase-font-size');
       expect(increaseButtons[0]).toBeDisabled();
     });
   });
@@ -174,7 +174,7 @@ describe('FontConfigPanel', () => {
         />
       );
 
-      const increaseButtons = screen.getAllByTitle(/increase font weight/i);
+      const increaseButtons = screen.getAllByTestId('increase-font-weight');
       fireEvent.click(increaseButtons[0]);
 
       expect(mockOnSettingChange).toHaveBeenCalledWith('fontWeight', 500);
@@ -188,7 +188,7 @@ describe('FontConfigPanel', () => {
         />
       );
 
-      const decreaseButtons = screen.getAllByTitle(/decrease font weight/i);
+      const decreaseButtons = screen.getAllByTestId('decrease-font-weight');
       fireEvent.click(decreaseButtons[0]);
 
       expect(mockOnSettingChange).toHaveBeenCalledWith('fontWeight', 300);
@@ -203,7 +203,7 @@ describe('FontConfigPanel', () => {
         />
       );
 
-      const decreaseButtons = screen.getAllByTitle(/decrease font weight/i);
+      const decreaseButtons = screen.getAllByTestId('decrease-font-weight');
       expect(decreaseButtons[0]).toBeDisabled();
     });
 
@@ -216,7 +216,7 @@ describe('FontConfigPanel', () => {
         />
       );
 
-      const increaseButtons = screen.getAllByTitle(/increase font weight/i);
+      const increaseButtons = screen.getAllByTestId('increase-font-weight');
       expect(increaseButtons[0]).toBeDisabled();
     });
   });

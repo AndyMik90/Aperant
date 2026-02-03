@@ -23,11 +23,11 @@ export const API_PROVIDER_PRESETS: readonly ApiProviderPreset[] = [
   {
     id: 'zai-global',
     baseUrl: 'https://api.z.ai/api/anthropic',
-    labelKey: 'settings:apiProfiles.presets.zaiGlobal'
+    labelKey: 'settings:apiProfiles.presets.glmGlobal'
   },
   {
     id: 'zai-cn',
     baseUrl: 'https://open.bigmodel.cn/api/anthropic',
-    labelKey: 'settings:apiProfiles.presets.zaiChina'
+    labelKey: 'settings:apiProfiles.presets.glmChina'
   }
 ];

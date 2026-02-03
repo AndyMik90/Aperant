@@ -19,8 +19,9 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => {
       // Return the key itself or provide specific translations
-      // Keys are without namespace since component uses useTranslation('namespace')
+      // Keys can be with or without namespace since component uses useTranslation('namespace')
       const translations: Record<string, string> = {
+        // Onboarding namespace (without 'onboarding:' prefix for when useTranslation('onboarding') is used)
         'welcome.title': 'Welcome to Auto Claude',
         'welcome.subtitle': 'AI-powered autonomous coding assistant',
         'welcome.getStarted': 'Get Started',
@@ -35,12 +36,55 @@ vi.mock('react-i18next', () => ({
         'welcome.features.parallel.title': 'Parallel',
         'welcome.features.parallel.description': 'Work in parallel',
         'authChoice.title': 'Choose Your Authentication Method',
-        'authChoice.subtitle': 'Select how you want to authenticate',
-        'authChoice.oauthTitle': 'Sign in with Anthropic',
-        'authChoice.oauthDesc': 'OAuth authentication',
-        'authChoice.apiKeyTitle': 'Use Custom API Key',
-        'authChoice.apiKeyDesc': 'Enter your own API key',
+        'authChoice.description': 'Select how you want to authenticate',
+        'authChoice.oauth.title': 'Sign in with Anthropic',
+        'authChoice.oauth.description': 'OAuth authentication',
+        'authChoice.apiKey.title': 'Use Custom API Key',
+        'authChoice.apiKey.description': 'Enter your own API key',
         'authChoice.skip': 'Skip for now',
+        'authChoice.info': 'Both options provide full access to Claude Code features. Choose based on your preference.',
+        'steps.welcome': 'Welcome',
+        'steps.authChoice': 'Auth Method',
+        'steps.auth': 'Auth',
+        'steps.claudeCode': 'CLI',
+        'steps.devtools': 'Dev Tools',
+        'steps.privacy': 'Privacy',
+        'steps.memory': 'Memory',
+        'steps.done': 'Done',
+        'wizard.title': 'Setup Wizard',
+        'wizard.description': 'Configure your Auto Claude environment in a few simple steps',
+        // With namespace prefix (for when useTranslation(['namespace1', 'namespace2']) is used)
+        'onboarding:welcome.title': 'Welcome to Auto Claude',
+        'onboarding:welcome.subtitle': 'AI-powered autonomous coding assistant',
+        'onboarding:welcome.getStarted': 'Get Started',
+        'onboarding:welcome.skip': 'Skip Setup',
+        'onboarding:wizard.helpText': 'Let us help you get started with Auto Claude',
+        'onboarding:welcome.features.aiPowered.title': 'AI-Powered',
+        'onboarding:welcome.features.aiPowered.description': 'Powered by Claude',
+        'onboarding:welcome.features.specDriven.title': 'Spec-Driven',
+        'onboarding:welcome.features.specDriven.description': 'Create from specs',
+        'onboarding:welcome.features.memory.title': 'Memory',
+        'onboarding:welcome.features.memory.description': 'Remembers context',
+        'onboarding:welcome.features.parallel.title': 'Parallel',
+        'onboarding:welcome.features.parallel.description': 'Work in parallel',
+        'onboarding:authChoice.title': 'Choose Your Authentication Method',
+        'onboarding:authChoice.description': 'Select how you want to authenticate',
+        'onboarding:authChoice.oauth.title': 'Sign in with Anthropic',
+        'onboarding:authChoice.oauth.description': 'OAuth authentication',
+        'onboarding:authChoice.apiKey.title': 'Use Custom API Key',
+        'onboarding:authChoice.apiKey.description': 'Enter your own API key',
+        'onboarding:authChoice.skip': 'Skip for now',
+        'onboarding:authChoice.info': 'Both options provide full access to Claude Code features. Choose based on your preference.',
+        'onboarding:steps.welcome': 'Welcome',
+        'onboarding:steps.authChoice': 'Auth Method',
+        'onboarding:steps.auth': 'Auth',
+        'onboarding:steps.claudeCode': 'CLI',
+        'onboarding:steps.devtools': 'Dev Tools',
+        'onboarding:steps.privacy': 'Privacy',
+        'onboarding:steps.memory': 'Memory',
+        'onboarding:steps.done': 'Done',
+        'onboarding:wizard.title': 'Setup Wizard',
+        'onboarding:wizard.description': 'Configure your Auto Claude environment in a few simple steps',
         // Common translations
         'common:actions.close': 'Close'
       };
@@ -106,7 +150,7 @@ describe('OnboardingWizard Integration Tests', () => {
       expect(screen.getByText(/Welcome to Auto Claude/)).toBeInTheDocument();
 
       // Click "Get Started" to go to auth-choice
-      const getStartedButton = screen.getByRole('button', { name: /Get Started/ });
+      const getStartedButton = screen.getByTestId('welcome-get-started');
       fireEvent.click(getStartedButton);
 
       // Should now show auth choice step
@@ -129,7 +173,7 @@ describe('OnboardingWizard Integration Tests', () => {
       render(<OnboardingWizard {...defaultProps} />);
 
       // Click through to auth-choice
-      fireEvent.click(screen.getByRole('button', { name: /Get Started/ }));
+      fireEvent.click(screen.getByTestId('welcome-get-started'));
       await waitFor(() => {
         expect(screen.getByText(/Choose Your Authentication Method/)).toBeInTheDocument();
       });
@@ -149,7 +193,7 @@ describe('OnboardingWizard Integration Tests', () => {
       expect(screen.getByText(/Welcome to Auto Claude/)).toBeInTheDocument();
 
       // Click "Get Started" to go to auth-choice
-      fireEvent.click(screen.getByRole('button', { name: /Get Started/ }));
+      fireEvent.click(screen.getByTestId('welcome-get-started'));
       await waitFor(() => {
         expect(screen.getByText(/Choose Your Authentication Method/)).toBeInTheDocument();
       });
@@ -174,7 +218,7 @@ describe('OnboardingWizard Integration Tests', () => {
       render(<OnboardingWizard {...defaultProps} />);
 
       // Navigate to auth-choice
-      fireEvent.click(screen.getByRole('button', { name: /Get Started/ }));
+      fireEvent.click(screen.getByTestId('welcome-get-started'));
       await waitFor(() => {
         expect(screen.getByText(/Choose Your Authentication Method/)).toBeInTheDocument();
       });
@@ -196,7 +240,7 @@ describe('OnboardingWizard Integration Tests', () => {
       // going back from graphiti returns to auth-choice, not oauth
 
       // Navigate: welcome → auth-choice
-      fireEvent.click(screen.getByText(/Get Started/));
+      fireEvent.click(screen.getByTestId('welcome-get-started'));
       await waitFor(() => {
         expect(screen.getByText(/Choose Your Authentication Method/)).toBeInTheDocument();
       });
@@ -245,7 +289,7 @@ describe('OnboardingWizard Integration Tests', () => {
       render(<OnboardingWizard {...defaultProps} />);
 
       // Click skip on welcome step
-      const skipButton = screen.getByRole('button', { name: /Skip Setup/ });
+      const skipButton = screen.getByTestId('welcome-skip');
       fireEvent.click(skipButton);
 
       // Should call saveSettings
@@ -259,7 +303,7 @@ describe('OnboardingWizard Integration Tests', () => {
       render(<OnboardingWizard {...defaultProps} onOpenChange={mockOnOpenChange} />);
 
       // Click skip to close wizard
-      const skipButton = screen.getByRole('button', { name: /Skip Setup/ });
+      const skipButton = screen.getByTestId('welcome-skip');
       fireEvent.click(skipButton);
 
       await waitFor(() => {
@@ -279,7 +323,7 @@ describe('OnboardingWizard Integration Tests', () => {
       // Progress indicator may not be visible on welcome step
 
       // Navigate to auth-choice
-      fireEvent.click(screen.getByRole('button', { name: /Get Started/ }));
+      fireEvent.click(screen.getByTestId('welcome-get-started'));
       await waitFor(() => {
         expect(screen.getByText(/Choose Your Authentication Method/)).toBeInTheDocument();
       });
@@ -295,7 +339,7 @@ describe('OnboardingWizard Integration Tests', () => {
       render(<OnboardingWizard {...defaultProps} />);
 
       // Navigate to auth-choice
-      fireEvent.click(screen.getByRole('button', { name: /Get Started/ }));
+      fireEvent.click(screen.getByTestId('welcome-get-started'));
       await waitFor(() => {
         expect(screen.getByText(/Choose Your Authentication Method/)).toBeInTheDocument();
       });
@@ -320,7 +364,7 @@ describe('OnboardingWizard Integration Tests', () => {
       render(<OnboardingWizard {...defaultProps} />);
 
       // Navigate to auth-choice
-      fireEvent.click(screen.getByRole('button', { name: /Get Started/ }));
+      fireEvent.click(screen.getByTestId('welcome-get-started'));
       await waitFor(() => {
         expect(screen.getByText(/Choose Your Authentication Method/)).toBeInTheDocument();
       });
@@ -334,7 +378,7 @@ describe('OnboardingWizard Integration Tests', () => {
     it.skip('AC2: OAuth path initiates existing OAuth flow', async () => {
       render(<OnboardingWizard {...defaultProps} />);
 
-      fireEvent.click(screen.getByText(/Get Started/));
+      fireEvent.click(screen.getByTestId('welcome-get-started'));
       await waitFor(() => {
         expect(screen.getByText(/Choose Your Authentication Method/)).toBeInTheDocument();
       });
@@ -352,7 +396,7 @@ describe('OnboardingWizard Integration Tests', () => {
     it('AC3: API Key path opens profile management dialog', async () => {
       render(<OnboardingWizard {...defaultProps} />);
 
-      fireEvent.click(screen.getByText(/Get Started/));
+      fireEvent.click(screen.getByTestId('welcome-get-started'));
       await waitFor(() => {
         expect(screen.getByText(/Choose Your Authentication Method/)).toBeInTheDocument();
       });
