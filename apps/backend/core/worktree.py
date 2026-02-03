@@ -34,6 +34,7 @@ from core.git_provider import detect_git_provider
 from core.glab_executable import get_glab_executable, invalidate_glab_cache
 from core.model_config import get_utility_model_config
 from debug import debug_warning
+from ui import print_status
 
 logger = logging.getLogger(__name__)
 
@@ -749,29 +750,34 @@ class WorktreeManager:
         if not main_env_path.exists():
             return
 
-        worktree_auto_claude_dir.mkdir(parents=True, exist_ok=True)
-
-        # Check if worktree .env already exists
-        if worktree_env_path.is_symlink():
-            if not worktree_env_path.exists():
-                # Broken symlink - remove it so we can recreate
-                print(f"Found broken .env symlink, removing: {worktree_env_path}")
-                worktree_env_path.unlink()
-            else:
-                # Valid symlink already exists
-                return
-        elif worktree_env_path.exists():
-            # Regular file exists - remove it to replace with symlink
-            print(f"Replacing worktree .env with symlink: {worktree_env_path}")
-            worktree_env_path.unlink()
-
         try:
+            worktree_auto_claude_dir.mkdir(parents=True, exist_ok=True)
+
+            # Check if worktree .env already exists
+            if worktree_env_path.is_symlink():
+                if not worktree_env_path.exists():
+                    # Broken symlink - remove it so we can recreate
+                    print_status("Found broken .env symlink, recreating...", "info")
+                    worktree_env_path.unlink()
+                else:
+                    # Valid symlink already exists
+                    return
+            elif worktree_env_path.exists():
+                # Regular file exists - remove it to replace with symlink
+                print_status("Replacing worktree .env with symlink to main project", "info")
+                worktree_env_path.unlink()
+
             # Use relative path for portability if project is moved
+            # Note: os.path.relpath is cross-platform in Python
             relative_target = os.path.relpath(main_env_path, worktree_auto_claude_dir)
             worktree_env_path.symlink_to(relative_target)
-            print(f"Symlinked .env from main project to worktree: {worktree_path}")
+            print_status("Linked .env from main project", "success")
         except OSError as e:
-            print(f"Warning: Could not create .env symlink: {e}")
+            print_status(f"Failed to create .env symlink: {e}", "error")
+            raise WorktreeError(
+                f"Could not create .env symlink in worktree. "
+                f"Worktree requires access to main project's .auto-claude/.env: {e}"
+            )
 
     def get_or_create_worktree(self, spec_name: str) -> WorktreeInfo:
         """
