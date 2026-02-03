@@ -23,9 +23,11 @@ export function getBundledSourcePath(): string {
   // Normalize path to use forward slashes for consistent regex matching across platforms
   // (path.normalize on Windows produces backslashes, so we replace them)
   const normalizedAppPath = appPath.replace(/\\/g, '/');
-  // Build regex pattern from the constant to avoid hardcoding paths
-  const worktreeDirPattern = TASK_WORKTREE_DIR.replace(/\\/g, '/');
-  const worktreeRegex = new RegExp(`(.+/${worktreeDirPattern}/[^/]+)`);
+  // Build regex pattern from the constant, escaping special chars to prevent false matches
+  // (e.g., the dot in ".auto-claude" must match literally, not any character)
+  const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedPattern = escapeRegExp(TASK_WORKTREE_DIR.replace(/\\/g, '/'));
+  const worktreeRegex = new RegExp(`(.+/${escapedPattern}/[^/]+)`);
   const worktreeMatch = normalizedAppPath.match(worktreeRegex);
   if (worktreeMatch) {
     const worktreeBackend = joinPaths(worktreeMatch[1], 'apps', 'backend');
