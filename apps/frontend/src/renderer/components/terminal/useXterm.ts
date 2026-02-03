@@ -333,7 +333,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
           }
         }
       }
-    }, 100); // 100ms debounce to prevent layout thrashing
+    }, 200); // 200ms debounce for xterm.js resize stability (recommended minimum)
 
     // Observe the terminalRef directly (not parent) for accurate resize detection
     const container = terminalRef.current;
