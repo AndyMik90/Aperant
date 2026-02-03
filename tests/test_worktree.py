@@ -838,17 +838,14 @@ class TestWorktreeEnvSymlinks:
         manager = WorktreeManager(temp_git_repo)
         manager.setup()
 
-        # Create worktree FIRST (before .env exists, simulating normal workflow)
-        info = manager.create_worktree("test-spec")
-
-        # Now create .auto-claude/.env in main project (gitignored, not committed)
+        # Create .auto-claude/.env in main project FIRST
         auto_claude_dir = temp_git_repo / ".auto-claude"
         auto_claude_dir.mkdir(parents=True, exist_ok=True)
         main_env_path = auto_claude_dir / ".env"
         main_env_path.write_text("MCP_SERVER_CONFIG=test\nGRAPHITI_ENABLED=true\n")
 
-        # Call get_or_create to trigger symlink creation for existing worktree
-        info = manager.get_or_create_worktree("test-spec")
+        # Now create worktree - should create symlink during creation
+        info = manager.create_worktree("test-spec")
 
         # Verify symlink was created
         worktree_env_path = info.path / ".auto-claude" / ".env"
@@ -888,8 +885,8 @@ class TestWorktreeEnvSymlinks:
         manager = WorktreeManager(temp_git_repo)
         manager.setup()
 
-        # Create worktree first
-        info = manager.create_worktree("test-spec")
+        # Create worktree first (without .env in main project)
+        worktree_info = manager.create_worktree("test-spec")
 
         # Create .auto-claude/.env in main project (gitignored, not committed)
         auto_claude_dir = temp_git_repo / ".auto-claude"
@@ -898,17 +895,17 @@ class TestWorktreeEnvSymlinks:
         main_env_path.write_text("ORIGINAL_CONFIG=true\n")
 
         # Call get_or_create to create symlink
-        info = manager.get_or_create_worktree("test-spec")
+        manager.get_or_create_worktree("test-spec")
 
         # Verify symlink was created
-        worktree_env_path = info.path / ".auto-claude" / ".env"
+        worktree_env_path = worktree_info.path / ".auto-claude" / ".env"
         assert worktree_env_path.is_symlink()
 
         # Get the original symlink target
         original_target = worktree_env_path.resolve()
 
         # Calling get_or_create_worktree again should be idempotent
-        info2 = manager.get_or_create_worktree("test-spec")
+        manager.get_or_create_worktree("test-spec")
 
         # Verify symlink still exists and points to same location
         assert worktree_env_path.is_symlink()
@@ -922,10 +919,10 @@ class TestWorktreeEnvSymlinks:
         manager.setup()
 
         # Create worktree BEFORE the main .env exists
-        info = manager.create_worktree("test-spec")
+        worktree_info = manager.create_worktree("test-spec")
 
         # Verify no symlink exists yet
-        worktree_env_path = info.path / ".auto-claude" / ".env"
+        worktree_env_path = worktree_info.path / ".auto-claude" / ".env"
         assert not worktree_env_path.exists(), (
             "Worktree .env should not exist initially"
         )
@@ -937,7 +934,7 @@ class TestWorktreeEnvSymlinks:
         main_env_path.write_text("LATE_ADDED_CONFIG=true\n")
 
         # Call get_or_create which should ensure symlinks for existing worktree
-        info2 = manager.get_or_create_worktree("test-spec")
+        manager.get_or_create_worktree("test-spec")
 
         # Verify symlink was created for existing worktree
         assert worktree_env_path.exists(), (
@@ -955,8 +952,8 @@ class TestWorktreeEnvSymlinks:
         manager = WorktreeManager(temp_git_repo)
         manager.setup()
 
-        # Create worktree first
-        info = manager.create_worktree("test-spec")
+        # Create worktree first (without .env in main project)
+        manager.create_worktree("test-spec")
 
         # Create .auto-claude/.env in main project (gitignored, not committed)
         auto_claude_dir = temp_git_repo / ".auto-claude"

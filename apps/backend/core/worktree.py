@@ -722,21 +722,7 @@ class WorktreeManager:
 
         # Symlink the .auto-claude/.env file from main project to worktree
         # This ensures MCP server configs and other settings are available in the worktree
-        main_env_path = self.project_dir / ".auto-claude" / ".env"
-        worktree_auto_claude_dir = worktree_path / ".auto-claude"
-        worktree_env_path = worktree_auto_claude_dir / ".env"
-
-        if main_env_path.exists() and not worktree_env_path.exists():
-            # Ensure .auto-claude directory exists in worktree
-            worktree_auto_claude_dir.mkdir(parents=True, exist_ok=True)
-            try:
-                # Create symlink pointing to the main project's .env
-                worktree_env_path.symlink_to(main_env_path)
-                print(f"Symlinked .env from main project to worktree")
-            except OSError as e:
-                # Symlink creation may fail on some systems (e.g., Windows without admin)
-                # Log but don't fail - MCP config can still be loaded from main project path
-                print(f"Warning: Could not create .env symlink: {e}")
+        self._ensure_worktree_symlinks(worktree_path)
 
         return WorktreeInfo(
             path=worktree_path,
