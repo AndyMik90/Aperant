@@ -720,6 +720,10 @@ class WorktreeManager:
 
         print(f"Created worktree: {worktree_path.name} on branch {branch_name}")
 
+        # Symlink the .auto-claude/.env file from main project to worktree
+        # This ensures MCP server configs and other settings are available in the worktree
+        self._ensure_worktree_symlinks(worktree_path)
+
         return WorktreeInfo(
             path=worktree_path,
             branch=branch_name,
@@ -727,6 +731,42 @@ class WorktreeManager:
             base_branch=self.base_branch,
             is_active=True,
         )
+
+    def _ensure_worktree_symlinks(self, worktree_path: Path) -> None:
+        """
+        Ensure symlinks from main project to worktree exist.
+
+        This creates symlinks for files that should be shared between the main
+        project and worktrees, such as .auto-claude/.env (MCP server configs).
+
+        Args:
+            worktree_path: Path to the worktree
+        """
+        main_env_path = self.project_dir / ".auto-claude" / ".env"
+        worktree_auto_claude_dir = worktree_path / ".auto-claude"
+        worktree_env_path = worktree_auto_claude_dir / ".env"
+
+        if not main_env_path.exists():
+            return
+
+        worktree_auto_claude_dir.mkdir(parents=True, exist_ok=True)
+
+        # Check if worktree .env already exists
+        if worktree_env_path.exists() or worktree_env_path.is_symlink():
+            if not worktree_env_path.is_symlink():
+                print(
+                    f"Warning: Worktree .env is not a symlink; "
+                    f"remove it to enable shared config: {worktree_env_path}"
+                )
+            return
+
+        try:
+            # Use relative path for portability if project is moved
+            relative_target = os.path.relpath(main_env_path, worktree_auto_claude_dir)
+            worktree_env_path.symlink_to(relative_target)
+            print(f"Symlinked .env from main project to worktree: {worktree_path}")
+        except OSError as e:
+            print(f"Warning: Could not create .env symlink: {e}")
 
     def get_or_create_worktree(self, spec_name: str) -> WorktreeInfo:
         """
@@ -741,6 +781,8 @@ class WorktreeManager:
         existing = self.get_worktree_info(spec_name)
         if existing:
             print(f"Using existing worktree: {existing.path}")
+            # Ensure symlinks exist for existing worktrees (may have been created before this feature)
+            self._ensure_worktree_symlinks(existing.path)
             return existing
 
         return self.create_worktree(spec_name)
