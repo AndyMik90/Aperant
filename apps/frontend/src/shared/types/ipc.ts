@@ -140,6 +140,34 @@ import type {
 } from './integrations';
 import type { APIProfile, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from './profile';
 
+// ============================================
+// Branch Types
+// ============================================
+
+/**
+ * Branch type indicator for distinguishing local from remote branches
+ */
+export type GitBranchType = 'local' | 'remote';
+
+/**
+ * Structured branch information for UI display with type indicators
+ * Used in branch selection dropdowns to distinguish local vs remote branches
+ */
+export interface GitBranchDetail {
+  /** The branch name (e.g., 'main', 'origin/main') */
+  name: string;
+  /** Whether this is a local or remote branch */
+  type: GitBranchType;
+  /** Display name for UI (e.g., 'main' for local, 'origin/main' for remote) */
+  displayName: string;
+  /** Whether this is the currently checked out branch */
+  isCurrent?: boolean;
+}
+
+// ============================================
+// Electron API
+// ============================================
+
 // Electron API exposed via contextBridge
 // Tab state interface (persisted in main process)
 export interface TabState {
@@ -787,7 +815,10 @@ export interface ElectronAPI {
   readFile: (filePath: string) => Promise<IPCResult<string>>;
 
   // Git operations
+  /** @deprecated Will return GitBranchDetail[] in future - see getGitBranchesWithInfo */
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
+  /** Get branches with structured type information (local vs remote) */
+  getGitBranchesWithInfo: (projectPath: string) => Promise<IPCResult<GitBranchDetail[]>>;
   getCurrentGitBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   detectMainBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   checkGitStatus: (projectPath: string) => Promise<IPCResult<GitStatus>>;

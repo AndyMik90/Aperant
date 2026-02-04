@@ -50,6 +50,7 @@ export interface TaskExecutionOptions {
   workers?: number;
   baseBranch?: string;
   useWorktree?: boolean; // If false, use --direct mode (no worktree isolation)
+  useLocalBranch?: boolean; // If true, use local branch directly instead of preferring origin/branch
 }
 
 export interface SpecCreationMetadata {
@@ -73,6 +74,7 @@ export interface SpecCreationMetadata {
   thinkingLevel?: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
   // Workspace mode - whether to use worktree isolation
   useWorktree?: boolean; // If false, use --direct mode (no worktree isolation)
+  useLocalBranch?: boolean; // If true, use local branch directly instead of preferring origin/branch
 }
 
 export interface IdeationProgressData {
