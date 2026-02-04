@@ -10,7 +10,8 @@ import type {
   IPCResult,
   InitializationResult,
   AutoBuildVersionInfo,
-  GitStatus
+  GitStatus,
+  GitBranchDetail
 } from '../../shared/types';
 import { projectStore } from '../project-store';
 import {
@@ -83,6 +84,96 @@ function getGitBranches(projectPath: string): string[] {
       if (aIsRemote && !bIsRemote) return 1;
       if (!aIsRemote && bIsRemote) return -1;
       return a.localeCompare(b);
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Get structured branch information for a directory (both local and remote)
+ * Returns GitBranchDetail[] with type indicators, keeping both local and remote versions
+ * when a branch exists in both places (no deduplication)
+ */
+function getGitBranchesWithInfo(projectPath: string): GitBranchDetail[] {
+  try {
+    // First fetch to ensure we have latest remote refs
+    try {
+      execFileSync(getToolPath('git'), ['fetch', '--prune'], {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 10000 // 10 second timeout for fetch
+      });
+    } catch {
+      // Fetch may fail if offline or no remote, continue with local refs
+    }
+
+    // Get current branch for isCurrent indicator
+    let currentBranch: string | null = null;
+    try {
+      const currentResult = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      currentBranch = currentResult.trim() || null;
+    } catch {
+      // Ignore - current branch detection may fail in some edge cases
+    }
+
+    // Get local branches
+    const localResult = execFileSync(getToolPath('git'), ['branch', '--format=%(refname:short)'], {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    const localBranches: GitBranchDetail[] = localResult.trim().split('\n')
+      .filter(b => b.trim())
+      .map(b => {
+        const name = b.trim();
+        return {
+          name,
+          type: 'local' as const,
+          displayName: name,
+          isCurrent: name === currentBranch
+        };
+      });
+
+    // Get remote branches
+    let remoteBranches: GitBranchDetail[] = [];
+    try {
+      const remoteResult = execFileSync(getToolPath('git'), ['branch', '-r', '--format=%(refname:short)'], {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      remoteBranches = remoteResult.trim().split('\n')
+        .filter(b => b.trim())
+        .map(b => b.trim())
+        // Remove HEAD pointer entries like "origin/HEAD"
+        .filter(b => !b.endsWith('/HEAD'))
+        .map(name => ({
+          name,
+          type: 'remote' as const,
+          displayName: name,
+          isCurrent: false
+        }));
+    } catch {
+      // Remote branches may not exist, continue with local only
+    }
+
+    // Combine and sort: local branches first, then remote branches, alphabetically within each group
+    const allBranches = [...localBranches, ...remoteBranches];
+
+    return allBranches.sort((a, b) => {
+      // Local branches come first
+      if (a.type === 'local' && b.type === 'remote') return -1;
+      if (a.type === 'remote' && b.type === 'local') return 1;
+      // Within same type, sort alphabetically
+      return a.name.localeCompare(b.name);
     });
   } catch {
     return [];
@@ -449,7 +540,7 @@ export function registerProjectHandlers(
   // Git Operations
   // ============================================
 
-  // Get all branches for a project
+  // Get all branches for a project (legacy - returns string[])
   ipcMain.handle(
     IPC_CHANNELS.GIT_GET_BRANCHES,
     async (_, projectPath: string): Promise<IPCResult<string[]>> => {
@@ -458,6 +549,25 @@ export function registerProjectHandlers(
           return { success: false, error: 'Directory does not exist' };
         }
         const branches = getGitBranches(projectPath);
+        return { success: true, data: branches };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
+  // Get all branches with structured type information (local vs remote)
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_GET_BRANCHES_WITH_INFO,
+    async (_, projectPath: string): Promise<IPCResult<GitBranchDetail[]>> => {
+      try {
+        if (!existsSync(projectPath)) {
+          return { success: false, error: 'Directory does not exist' };
+        }
+        const branches = getGitBranchesWithInfo(projectPath);
         return { success: true, data: branches };
       } catch (error) {
         return {
