@@ -13,7 +13,7 @@
 | Token                   | Token                               | 保留原文，不翻譯為「權杖」                                                            |
 | Embedding               | Embedding                           | 保留原文，不翻譯為「嵌入」（注意：「嵌入式資料庫」的「嵌入式」是 embedded，維持中文） |
 | Blocker                 | Blocker                             | 嚴重程度等級，保留原文                                                                |
-| Idea / Ideas / Ideation | Idea / Ideas                        | 保留原文，選單中 ideation 也翻為 Ideas                                                |
+| Idea / Ideas / Ideation | 選單：Ideas；描述性文字：構想       | 選單項目保留原文 Ideas，描述性句子中翻譯為「構想」                                    |
 | Kanban                  | 選單：Kanban；其他：看板            | 僅選單項目保留原文，描述性文字翻譯為「看板」                                          |
 | Insights                | Insights                            | 保留原文                                                                              |
 | Changelog               | 選單：Changelog；其他：變更日誌     | 僅選單項目保留原文                                                                    |

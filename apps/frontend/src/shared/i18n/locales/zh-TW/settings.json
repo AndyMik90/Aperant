@@ -185,6 +185,12 @@
     "comfortable": "舒適",
     "large": "大"
   },
+  "logOrder": {
+    "label": "日誌排序",
+    "description": "選擇任務詳情檢視中的日誌顯示方式",
+    "chronological": "時間順序（最舊在前）",
+    "reverseChronological": "反時間順序（最新在前）"
+  },
   "general": {
     "otherAgentSettings": "其他代理設定",
     "otherAgentSettingsDescription": "額外的代理設定選項",
@@ -302,7 +308,10 @@
     "stableDowngradeAvailable": "穩定版本可用",
     "stableDowngradeDescription": "您目前使用的是 Beta 版本。由於您已停用 Beta 更新，您可以切換至最新的穩定版本。",
     "stableVersion": "穩定版本",
-    "downloadStableVersion": "下載穩定版本"
+    "downloadStableVersion": "下載穩定版本",
+    "readOnlyVolumeTitle": "無法從磁碟映像檔安裝",
+    "readOnlyVolumeDescription": "Auto Claude 正在唯讀磁碟映像檔（DMG）中執行。請將應用程式拖曳至「應用程式」資料夾，然後從該處重新啟動以安裝更新。",
+    "downloadError": "下載更新失敗"
   },
   "notifications": {
     "title": "通知",
@@ -457,6 +466,8 @@
     "weeklyThresholdDescription": "當每週用量達到此水準時切換（建議：99%）",
     "reactiveRecovery": "被動恢復",
     "reactiveDescription": "遇到意外的用量限制時自動切換",
+    "autoSwitchOnAuthFailure": "驗證失敗時自動切換",
+    "autoSwitchOnAuthFailureDescription": "驗證失敗時自動切換至其他已驗證的帳號",
     "apiKeys": "API 金鑰",
     "apiKeysInfo": "此處設定的金鑰將作為預設值。個別專案可以在其設定中覆寫。",
     "openaiKey": "OpenAI API 金鑰",
@@ -560,7 +571,9 @@
       "weeklyThreshold": "每週用量閾值",
       "weeklyThresholdDescription": "當每週用量達到此水準時切換（建議：99%）",
       "reactiveRecovery": "被動恢復",
-      "reactiveDescription": "遇到意外的用量限制時自動切換"
+      "reactiveDescription": "遇到意外的用量限制時自動切換",
+      "autoSwitchOnAuthFailure": "驗證失敗時自動切換",
+      "autoSwitchOnAuthFailureDescription": "驗證失敗時自動切換至其他已驗證的帳號"
     },
     "priority": {
       "title": "帳號優先順序",

@@ -35,7 +35,7 @@
     "taskId": "任務 ID",
     "description": "描述",
     "noDescription": "未提供描述。",
-    "assignees": "指派者",
+    "assignees": "負責人",
     "milestone": "里程碑"
   },
   "investigation": {

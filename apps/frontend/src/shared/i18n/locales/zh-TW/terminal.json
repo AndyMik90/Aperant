@@ -5,7 +5,8 @@
   },
   "resume": {
     "pending": "可繼續",
-    "pendingTooltip": "點擊以繼續先前的 Claude 工作階段"
+    "pendingTooltip": "點擊以繼續先前的 Claude 工作階段",
+    "resumeAllSessions": "全部繼續"
   },
   "auth": {
     "terminalTitle": "驗證：{{profileName}}",
@@ -38,8 +39,12 @@
     "openInIDE": "在 IDE 中開啟",
     "maxReached": "終端機 Git Worktree 已達上限 12 個",
     "alreadyExists": "同名 Git Worktree 已存在",
+    "searchPlaceholder": "搜尋 Git Worktree...",
+    "noResults": "找不到 Git Worktree",
     "deleteTitle": "刪除 Git Worktree？",
     "deleteDescription": "這將永久刪除 Git Worktree 及其分支。任何未提交的變更將會遺失。",
-    "detached": "（分離）"
+    "detached": "（分離）",
+    "remotePushFailed": "遠端追蹤設定失敗",
+    "remotePushFailedDescription": "Git Worktree 已建立，但分支無法推送至遠端。您可能需要手動執行 git push -u。"
   }
 }

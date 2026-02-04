@@ -39,7 +39,8 @@
     "installAndRestart": "安裝並重新啟動",
     "downloading": "下載中...",
     "dismiss": "關閉",
-    "downloadError": "下載更新失敗"
+    "downloadError": "下載更新失敗",
+    "readOnlyVolumeWarning": "請移至「應用程式」資料夾以更新"
   },
   "claudeCode": {
     "checking": "正在檢查 Claude Code...",

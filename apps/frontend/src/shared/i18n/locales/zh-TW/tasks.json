@@ -48,12 +48,12 @@
   },
   "creation": {
     "title": "建立新任務",
-    "description": "描述你想建置的內容",
-    "placeholder": "描述你的任務..."
+    "description": "描述您想建置的內容",
+    "placeholder": "描述您的任務..."
   },
   "empty": {
     "title": "尚無任務",
-    "description": "建立你的第一個任務以開始使用"
+    "description": "建立您的第一個任務以開始使用"
   },
   "columns": {
     "backlog": "Planning",
@@ -75,7 +75,7 @@
     "emptyAiReview": "沒有審查中的任務",
     "emptyAiReviewHint": "AI 會審查已完成的任務",
     "emptyHumanReview": "沒有需要審查的任務",
-    "emptyHumanReviewHint": "任務會在此等待你的核准",
+    "emptyHumanReviewHint": "任務會在此等待您的核准",
     "emptyDone": "沒有已完成的任務",
     "emptyDoneHint": "已核准的任務會顯示在這裡",
     "emptyDefault": "沒有任務",
@@ -87,14 +87,14 @@
     "editTask": "編輯任務",
     "cannotEditWhileRunning": "任務執行中無法編輯",
     "worktreeCleanupTitle": "Git Worktree 清理",
-    "worktreeCleanupStaged": "此任務已暫存且有 Git Worktree。你要清理 Git Worktree 嗎？",
+    "worktreeCleanupStaged": "此任務已暫存且有 Git Worktree。您要清理 Git Worktree 嗎？",
     "worktreeCleanupNotStaged": "此任務的 Git Worktree 有未合併的變更。刪除 Git Worktree 以標記為完成，或取消以先審查變更。",
     "keepWorktree": "保留 Git Worktree",
     "deleteWorktree": "刪除 Git Worktree 並標記完成",
     "refreshTasks": "重新整理任務",
     "queueSettings": "佇列設定",
     "orderSaveFailedTitle": "排序未儲存",
-    "orderSaveFailedDescription": "你的任務排序已套用，但無法儲存至儲存空間。重新整理後將會遺失。",
+    "orderSaveFailedDescription": "您的任務排序已套用，但無法儲存至儲存空間。重新整理後將會遺失。",
     "selectAll": "全選",
     "deselectAll": "取消全選",
     "selectedCount": "已選取 {{count}} 項",
@@ -103,7 +103,7 @@
     "createPRs": "建立 PR",
     "deleteSelected": "刪除",
     "deleteConfirmTitle": "刪除選取的任務",
-    "deleteConfirmDescription": "你確定要永久刪除這些任務嗎？",
+    "deleteConfirmDescription": "您確定要永久刪除這些任務嗎？",
     "deleteWarning": "此操作無法復原。所有任務檔案（包含規格、實作計畫及所有產生的程式碼）都將從專案中永久刪除。",
     "tasksToDelete": "要刪除的任務",
     "deleteConfirmButton": "刪除 {{count}} 個任務",
@@ -142,6 +142,8 @@
       "idle": "閒置",
       "planning": "規劃",
       "coding": "編碼",
+      "rate_limit_paused": "用量限制",
+      "auth_failure_paused": "需要驗證",
       "reviewing": "審查中",
       "fixing": "修正中",
       "complete": "完成",
@@ -174,7 +176,9 @@
   },
   "metadata": {
     "severity": "嚴重程度",
-    "pullRequest": "Pull Request"
+    "pullRequest": "Pull Request",
+    "showMore": "顯示更多",
+    "showLess": "顯示較少"
   },
   "images": {
     "removeImageAriaLabel": "移除圖片 {{filename}}",
@@ -189,12 +193,12 @@
   },
   "notifications": {
     "backgroundTaskTitle": "任務在背景繼續執行",
-    "backgroundTaskDescription": "任務仍在執行中。你可以重新開啟此對話框以監控進度。"
+    "backgroundTaskDescription": "任務仍在執行中。您可以重新開啟此對話框以監控進度。"
   },
   "wizard": {
     "createTitle": "建立新任務",
-    "createDescription": "描述你想建置的內容。AI 會分析你的需求並建立詳細的規格。",
-    "descriptionPlaceholder": "描述你想實作的功能、錯誤修復或改進。請盡量具體說明需求、限制條件和預期行為。輸入 @ 以參考檔案。",
+    "createDescription": "描述您想建置的內容。AI 會分析您的需求並建立詳細的規格。",
+    "descriptionPlaceholder": "描述您想實作的功能、錯誤修復或改進。請盡量具體說明需求、限制條件和預期行為。輸入 @ 以參考檔案。",
     "draftRestored": "草稿已還原",
     "startFresh": "重新開始",
     "hideFiles": "隱藏檔案",
@@ -203,7 +207,7 @@
     "createTask": "建立任務",
     "worktreeNotice": {
       "title": "隔離工作區",
-      "description": "此任務在隔離的 Git Worktree 中執行。在你選擇合併之前，主分支會保持安全。"
+      "description": "此任務在隔離的 Git Worktree 中執行。在您選擇合併之前，主分支會保持安全。"
     },
     "gitOptions": {
       "title": "Git 選項（選填）",
@@ -214,7 +218,7 @@
       "noBranchesFound": "找不到分支",
       "helpText": "覆寫此任務 Git Worktree 建立所依據的分支。留空則使用專案設定的預設分支。",
       "useWorktreeLabel": "使用隔離工作區（建議）",
-      "useWorktreeDescription": "在獨立的 Git Worktree 中建立變更，以便在合併前安全審查。停用則直接在你的專案中建置（較快但風險較高）。"
+      "useWorktreeDescription": "在獨立的 Git Worktree 中建立變更，以便在合併前安全審查。停用則直接在您的專案中建置（較快但風險較高）。"
     },
     "errors": {
       "createFailed": "建立任務失敗，請再試一次。"
@@ -229,7 +233,7 @@
     "processingError": "圖片處理失敗"
   },
   "review": {
-    "mergeTooltip": "將任務 Git Worktree 分支的變更合併回你的基底分支。AI 會解決所有衝突。之後你可以選擇保留或移除 Git Worktree。"
+    "mergeTooltip": "將任務 Git Worktree 分支的變更合併回您的基底分支。AI 會解決所有衝突。之後您可以選擇保留或移除 Git Worktree。"
   },
   "edit": {
     "title": "編輯任務",
@@ -241,14 +245,14 @@
   },
   "form": {
     "description": "描述",
-    "descriptionPlaceholder": "描述你想實作的功能、錯誤修復或改進。請盡量具體說明需求、限制條件和預期行為。",
+    "descriptionPlaceholder": "描述您想實作的功能、錯誤修復或改進。請盡量具體說明需求、限制條件和預期行為。",
     "imageAddedSuccess": "圖片新增成功！",
     "taskTitle": "任務標題",
     "titlePlaceholder": "留空則從描述自動產生",
     "titleHelpText": "如果留空，會自動產生簡短的描述性標題。",
     "classificationOptional": "分類（選填）",
     "requireReviewLabel": "編碼前需要人工審查",
-    "requireReviewDescription": "啟用後，在編碼階段開始前會提示你審查規格和實作計畫。你可以核准、要求修改或提供意見。",
+    "requireReviewDescription": "啟用後，在編碼階段開始前會提示您審查規格和實作計畫。您可以核准、要求修改或提供意見。",
     "errors": {
       "descriptionRequired": "請提供描述",
       "maxImagesReached": "最多允許 5 張圖片",
@@ -328,6 +332,6 @@
   },
   "referenceImages": {
     "title": "參考圖片（選填）",
-    "description": "新增螢幕截圖或設計稿等視覺參考，幫助 AI 理解你的需求。"
+    "description": "新增螢幕截圖或設計稿等視覺參考，幫助 AI 理解您的需求。"
   }
 }

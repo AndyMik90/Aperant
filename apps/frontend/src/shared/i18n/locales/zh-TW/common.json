@@ -243,6 +243,12 @@
     "selectedCount": "已選取 {{count}} 項",
     "noResultsFound": "找不到結果",
     "reset": "重設",
+    "sort": {
+      "label": "排序",
+      "newest": "最新",
+      "oldest": "最舊",
+      "largest": "最大"
+    },
     "pullRequests": "Pull Request",
     "open": "開啟",
     "selectPRToView": "選擇一個 Pull Request 以檢視詳情",
@@ -361,6 +367,8 @@
     "branchUpdateFailed": "無法更新分支",
     "allPRsLoaded": "所有 PR 已載入",
     "maxPRsShown": "顯示前 100 個 PR",
+    "loadMore": "載入更多",
+    "loadingMore": "載入中...",
     "workflowsAwaitingApproval": "{{count}} 個工作流程等待核准",
     "workflowsAwaitingApproval_plural": "{{count}} 個工作流程等待核准",
     "blockedByWorkflows": "已阻擋",

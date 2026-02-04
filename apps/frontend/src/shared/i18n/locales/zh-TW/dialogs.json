@@ -23,7 +23,7 @@
     "createCommit": "以目前的檔案建立初始提交",
     "manual": "想要手動操作？",
     "settingUp": "正在設定 Git",
-    "initializingRepo": "正在初始化 Git 儲存庫並建立初始提交⋯",
+    "initializingRepo": "正在初始化 Git 儲存庫並建立初始提交...",
     "success": "Git 初始化完成",
     "readyToUse": "您的專案已準備好搭配 Auto Claude 使用！"
   },
