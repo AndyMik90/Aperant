@@ -55,10 +55,11 @@ export function registerTerminalHandlers(
     }
   );
 
-  ipcMain.on(
+  ipcMain.handle(
     IPC_CHANNELS.TERMINAL_RESIZE,
-    (_, id: string, cols: number, rows: number) => {
-      terminalManager.resize(id, cols, rows);
+    async (_, id: string, cols: number, rows: number): Promise<IPCResult<{ success: boolean }>> => {
+      const success = terminalManager.resize(id, cols, rows);
+      return { success, data: { success } };
     }
   );
 
