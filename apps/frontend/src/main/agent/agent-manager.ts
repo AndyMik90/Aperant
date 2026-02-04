@@ -123,6 +123,9 @@ export class AgentManager extends EventEmitter {
     this.assignProfileToTask(taskId, activeProfile.id, activeProfile.name, 'proactive');
 
     // Register with unified registry for proactive swap
+    // Note: We don't provide a stopFn because restartTask() already handles stopping
+    // the task internally via killTask() before restarting. Providing a separate
+    // stopFn would cause a redundant double-kill during profile swaps.
     const operationRegistry = getOperationRegistry();
     operationRegistry.registerOperation(
       taskId,
@@ -130,10 +133,7 @@ export class AgentManager extends EventEmitter {
       activeProfile.id,
       activeProfile.name,
       (newProfileId: string) => this.restartTask(taskId, newProfileId),
-      {
-        stopFn: () => { this.killTask(taskId); },
-        metadata
-      }
+      { metadata }
     );
     console.log('[AgentManager] Task registered with OperationRegistry:', {
       taskId,

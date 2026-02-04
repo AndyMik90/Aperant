@@ -35,6 +35,7 @@ from ui import (
     print_status,
 )
 
+from .base import sanitize_error_message
 from .memory_manager import save_session_memory
 from .utils import (
     find_subtask_in_plan,
@@ -694,12 +695,15 @@ async def run_agent_session(
         else:
             print(f"Error during agent session: {e}")
 
+        # Sanitize error message to remove potentially sensitive data
+        sanitized_error = sanitize_error_message(str(e))
+
         if task_logger:
-            task_logger.log_error(f"Session error: {e}", phase)
+            task_logger.log_error(f"Session error: {sanitized_error}", phase)
 
         error_info = {
             "type": error_type,
-            "message": str(e),
+            "message": sanitized_error,
             "exception_type": type(e).__name__,
         }
-        return "error", str(e), error_info
+        return "error", sanitized_error, error_info

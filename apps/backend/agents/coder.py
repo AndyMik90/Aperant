@@ -72,6 +72,7 @@ from .base import (
     RATE_LIMIT_CHECK_INTERVAL_SECONDS,
     RATE_LIMIT_PAUSE_FILE,
     RESUME_FILE,
+    sanitize_error_message,
 )
 from .memory_manager import debug_memory_system_status, get_graphiti_context
 from .session import post_session_processing, run_agent_session
@@ -86,55 +87,6 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
-def sanitize_error_message(error_message: str, max_length: int = 500) -> str:
-    """
-    Sanitize error message by redacting sensitive patterns and truncating.
-
-    Args:
-        error_message: The raw error message to sanitize
-        max_length: Maximum length after sanitization
-
-    Returns:
-        Sanitized error message with sensitive data redacted
-    """
-    if not error_message:
-        return ""
-
-    # Redact patterns that look like API keys or tokens
-    # Pattern: sk-... (OpenAI/Anthropic keys)
-    sanitized = re.sub(r"\bsk-[a-zA-Z0-9]{20,}\b", "[REDACTED_API_KEY]", error_message)
-
-    # Pattern: key-... (generic API keys)
-    sanitized = re.sub(r"\bkey-[a-zA-Z0-9]{20,}\b", "[REDACTED_API_KEY]", sanitized)
-
-    # Pattern: Bearer ... (bearer tokens)
-    sanitized = re.sub(
-        r"\bBearer\s+[a-zA-Z0-9._\-]{20,}\b", "Bearer [REDACTED_TOKEN]", sanitized
-    )
-
-    # Pattern: token= or token: followed by long strings
-    sanitized = re.sub(
-        r"(token[=:]\s*)[a-zA-Z0-9._\-]{20,}\b",
-        r"\1[REDACTED_TOKEN]",
-        sanitized,
-        flags=re.IGNORECASE,
-    )
-
-    # Pattern: secret= or secret: followed by strings
-    sanitized = re.sub(
-        r"(secret[=:]\s*)[a-zA-Z0-9._\-]{20,}\b",
-        r"\1[REDACTED_SECRET]",
-        sanitized,
-        flags=re.IGNORECASE,
-    )
-
-    # Truncate to max length
-    if len(sanitized) > max_length:
-        sanitized = sanitized[:max_length]
-
-    return sanitized
-
-
 async def wait_for_rate_limit_reset(spec_dir: Path, wait_seconds: float) -> bool:
     """
     Wait for rate limit reset with periodic checks for resume/cancel.
@@ -146,7 +98,7 @@ async def wait_for_rate_limit_reset(spec_dir: Path, wait_seconds: float) -> bool
     Returns:
         True if resumed early, False if waited full duration
     """
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     start_time = loop.time()
     resume_file = spec_dir / RESUME_FILE
     pause_file = spec_dir / RATE_LIMIT_PAUSE_FILE
@@ -191,7 +143,7 @@ async def wait_for_auth_resume(spec_dir: Path) -> None:
     Args:
         spec_dir: Spec directory to monitor for signal files
     """
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     start_time = loop.time()
     resume_file = spec_dir / RESUME_FILE
     pause_file = spec_dir / AUTH_FAILURE_PAUSE_FILE
