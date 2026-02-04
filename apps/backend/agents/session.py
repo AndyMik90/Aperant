@@ -679,24 +679,25 @@ async def run_agent_session(
             tool_count=tool_count,
         )
 
+        # Sanitize error message to remove potentially sensitive data
+        # Must happen BEFORE printing to stdout, since stdout is captured by the frontend
+        sanitized_error = sanitize_error_message(str(e))
+
         # Log errors prominently based on type
         if is_concurrency:
             print("\n⚠️  Tool concurrency limit reached (400 error)")
             print("   Claude API limits concurrent tool use in a single request")
-            print(f"   Error: {str(e)[:200]}\n")
+            print(f"   Error: {sanitized_error[:200]}\n")
         elif is_rate_limit:
             print("\n⚠️  Rate limit reached")
             print("   API usage quota exceeded - waiting for reset")
-            print(f"   Error: {str(e)[:200]}\n")
+            print(f"   Error: {sanitized_error[:200]}\n")
         elif is_auth:
             print("\n⚠️  Authentication error")
             print("   OAuth token may be invalid or expired")
-            print(f"   Error: {str(e)[:200]}\n")
+            print(f"   Error: {sanitized_error[:200]}\n")
         else:
-            print(f"Error during agent session: {e}")
-
-        # Sanitize error message to remove potentially sensitive data
-        sanitized_error = sanitize_error_message(str(e))
+            print(f"Error during agent session: {sanitized_error}")
 
         if task_logger:
             task_logger.log_error(f"Session error: {sanitized_error}", phase)

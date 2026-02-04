@@ -833,7 +833,7 @@ export function registerTaskExecutionHandlers(
         atomicWriteFileSync(resumeFilePath, resumeContent);
         console.log(`[TASK_RESUME_PAUSED] Wrote RESUME file to: ${resumeFilePath}`);
 
-        // Also write to worktree if it exists
+        // Also write to worktree if it exists (backend may be running inside the worktree)
         const worktreePath = findTaskWorktree(project.path, task.specId);
         if (worktreePath) {
           const worktreeResumeFilePath = path.join(worktreePath, specsBaseDir, task.specId, 'RESUME');
@@ -844,6 +844,16 @@ export function registerTaskExecutionHandlers(
             // Non-fatal - main spec dir RESUME is sufficient
             console.warn(`[TASK_RESUME_PAUSED] Could not write to worktree (non-fatal):`, worktreeError);
           }
+        } else if (
+          task.executionProgress?.phase === 'rate_limit_paused' ||
+          task.executionProgress?.phase === 'auth_failure_paused'
+        ) {
+          // Warn if worktree not found for a paused task - the backend is likely
+          // running inside the worktree and may not see the RESUME file in the main spec dir
+          console.warn(
+            `[TASK_RESUME_PAUSED] Worktree not found for paused task ${task.specId}. ` +
+            `Backend may not detect the RESUME file if running inside a worktree.`
+          );
         }
 
         return { success: true };

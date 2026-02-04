@@ -364,13 +364,17 @@ class ClaudeOperationRegistry extends EventEmitter {
 
           // Update the profile for operations that weren't re-registered during restart.
           // For AgentManager tasks, restartFn may create a NEW object in the Map,
-          // in which case this update is harmless (updates the stale reference).
+          // in which case this update is harmless (updates the new reference).
           // For other operations, this ensures the profile is properly updated.
           this.updateOperationProfile(op.id, newProfileId, newProfileName);
 
+          // Re-fetch from Map to get the current object (restartFn may have
+          // re-registered the operation with a new object)
+          const currentOp = this.operations.get(op.id);
+
           console.log('[OperationRegistry] Operation restarted successfully:', {
             id: op.id,
-            type: op.type,
+            type: currentOp?.type ?? op.type,
             newProfile: newProfileName,
           });
 

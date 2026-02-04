@@ -87,18 +87,36 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
-def _check_and_clear_resume_file(resume_file: Path, pause_file: Path) -> bool:
+def _check_and_clear_resume_file(
+    resume_file: Path,
+    pause_file: Path,
+    fallback_resume_file: Path | None = None,
+) -> bool:
     """
     Check if resume file exists and clean up both resume and pause files.
+
+    Also checks a fallback location (main project spec dir) in case the frontend
+    couldn't find the worktree and only wrote the RESUME file there.
 
     Args:
         resume_file: Path to RESUME file
         pause_file: Path to pause file (RATE_LIMIT_PAUSE or AUTH_PAUSE)
+        fallback_resume_file: Optional fallback RESUME file path (e.g. main project spec dir)
 
     Returns:
         True if resume file existed (early resume), False otherwise
     """
-    if resume_file.exists():
+    found = resume_file.exists()
+
+    # Check fallback location if primary not found
+    if not found and fallback_resume_file and fallback_resume_file.exists():
+        found = True
+        try:
+            fallback_resume_file.unlink(missing_ok=True)
+        except OSError as e:
+            logger.debug(f"Error cleaning up fallback resume file: {e}")
+
+    if found:
         try:
             resume_file.unlink(missing_ok=True)
             pause_file.unlink(missing_ok=True)
@@ -110,13 +128,18 @@ def _check_and_clear_resume_file(resume_file: Path, pause_file: Path) -> bool:
     return False
 
 
-async def wait_for_rate_limit_reset(spec_dir: Path, wait_seconds: float) -> bool:
+async def wait_for_rate_limit_reset(
+    spec_dir: Path,
+    wait_seconds: float,
+    source_spec_dir: Path | None = None,
+) -> bool:
     """
     Wait for rate limit reset with periodic checks for resume/cancel.
 
     Args:
         spec_dir: Spec directory to check for RESUME file
         wait_seconds: Maximum time to wait in seconds
+        source_spec_dir: Optional main project spec dir as fallback for RESUME file
 
     Returns:
         True if resumed early, False if waited full duration
@@ -125,6 +148,7 @@ async def wait_for_rate_limit_reset(spec_dir: Path, wait_seconds: float) -> bool
     start_time = loop.time()
     resume_file = spec_dir / RESUME_FILE
     pause_file = spec_dir / RATE_LIMIT_PAUSE_FILE
+    fallback_resume = (source_spec_dir / RESUME_FILE) if source_spec_dir else None
 
     while True:
         # Check elapsed time using loop.time() to avoid drift
@@ -133,7 +157,7 @@ async def wait_for_rate_limit_reset(spec_dir: Path, wait_seconds: float) -> bool
             break
 
         # Check if user requested resume
-        if _check_and_clear_resume_file(resume_file, pause_file):
+        if _check_and_clear_resume_file(resume_file, pause_file, fallback_resume):
             return True
 
         # Wait for next check interval or remaining time
@@ -149,7 +173,10 @@ async def wait_for_rate_limit_reset(spec_dir: Path, wait_seconds: float) -> bool
     return False
 
 
-async def wait_for_auth_resume(spec_dir: Path) -> None:
+async def wait_for_auth_resume(
+    spec_dir: Path,
+    source_spec_dir: Path | None = None,
+) -> None:
     """
     Wait for user re-authentication signal.
 
@@ -160,11 +187,13 @@ async def wait_for_auth_resume(spec_dir: Path) -> None:
 
     Args:
         spec_dir: Spec directory to monitor for signal files
+        source_spec_dir: Optional main project spec dir as fallback for RESUME file
     """
     loop = asyncio.get_running_loop()
     start_time = loop.time()
     resume_file = spec_dir / RESUME_FILE
     pause_file = spec_dir / AUTH_FAILURE_PAUSE_FILE
+    fallback_resume = (source_spec_dir / RESUME_FILE) if source_spec_dir else None
 
     while True:
         # Check elapsed time using loop.time() to avoid drift
@@ -174,7 +203,7 @@ async def wait_for_auth_resume(spec_dir: Path) -> None:
 
         # Check for resume signals
         if (
-            _check_and_clear_resume_file(resume_file, pause_file)
+            _check_and_clear_resume_file(resume_file, pause_file, fallback_resume)
             or not pause_file.exists()
         ):
             # If pause file was deleted externally, still clean up resume file if it exists
@@ -942,7 +971,7 @@ async def run_autonomous_agent(
 
                     # Wait with periodic checks for resume signal
                     resumed_early = await wait_for_rate_limit_reset(
-                        spec_dir, wait_seconds
+                        spec_dir, wait_seconds, source_spec_dir
                     )
                     if resumed_early:
                         print_status("Resumed early by user", "success")
@@ -999,7 +1028,7 @@ async def run_autonomous_agent(
                 status_manager.update(state=BuildState.PAUSED)
 
                 # Wait for user to complete re-authentication
-                await wait_for_auth_resume(spec_dir)
+                await wait_for_auth_resume(spec_dir, source_spec_dir)
 
                 print_status("Authentication restored - resuming", "success")
                 emit_phase(ExecutionPhase.CODING, "Resuming after re-authentication")
