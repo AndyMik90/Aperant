@@ -62,14 +62,16 @@ import { isValidConfigDir } from '../utils/config-path-validator';
 
 describe('isValidConfigDir - Security Validation', () => {
   let _originalHomedir: string;
-  let consoleWarnSpy: any;
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     // Store original homedir for restoration
     _originalHomedir = os.homedir();
 
     // Spy on console.warn to suppress warning output during tests
-    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      /* intentionally empty - suppress console output during tests */
+    });
   });
 
   afterEach(() => {
