@@ -16,7 +16,6 @@ import {
 import type {
   AppSettings,
   FeatureModelConfig,
-  FeatureThinkingConfig,
   ModelTypeShort,
   ThinkingLevel,
   ToolDetectionResult

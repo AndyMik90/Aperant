@@ -69,7 +69,7 @@ vi.mock('child_process', () => {
   // so when tests call vi.mocked(execFileSync).mockReturnValue(), it affects execSync too
   const sharedSyncMock = vi.fn();
 
-const mockExecFile = vi.fn((cmd: unknown, args: unknown, options: unknown, callback: unknown) => {
+const mockExecFile = vi.fn((_cmd: unknown, _args: unknown, _options: unknown, callback: unknown) => {
     // Return a minimal ChildProcess-like object
     const childProcess = {
       stdout: { on: vi.fn() },
@@ -86,7 +86,7 @@ const mockExecFile = vi.fn((cmd: unknown, args: unknown, options: unknown, callb
     return childProcess as unknown as import('child_process').ChildProcess;
   });
 
-  const mockExec = vi.fn((cmd: unknown, options: unknown, callback: unknown) => {
+  const mockExec = vi.fn((_cmd: unknown, _options: unknown, callback: unknown) => {
     // Return a minimal ChildProcess-like object
     const childProcess = {
       stdout: { on: vi.fn() },

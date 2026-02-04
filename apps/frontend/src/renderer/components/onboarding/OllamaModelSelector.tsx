@@ -259,7 +259,7 @@ export function OllamaModelSelector({
         clearTimeout(installCheckTimeoutRef.current);
       }
     };
-  }, [baseUrl]);
+  }, [checkInstalledModels]);
 
   // Progress is now handled globally by the download store listener initialized in App.tsx
 

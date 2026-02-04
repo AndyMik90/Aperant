@@ -71,7 +71,7 @@ function sendError(
  * Register investigation handler
  */
 export function registerInvestigateIssue(
-  agentManager: AgentManager,
+  _agentManager: AgentManager,
   getMainWindow: () => BrowserWindow | null
 ): void {
   ipcMain.on(
@@ -129,16 +129,11 @@ export function registerInvestigateIssue(
           message: 'Analyzing issue with AI...'
         });
 
-        // Build context for investigation
-        let context = buildIssueContext(issue, config.project, config.instanceUrl);
-
-        if (selectedNotes.length > 0) {
-          context += '\n\n## Selected Comments\n';
-          for (const note of selectedNotes) {
-            context += `\n### Comment by ${note.author.username} (${new Date(note.created_at).toLocaleDateString()})\n`;
-            context += note.body + '\n';
-          }
-        }
+        // Note: Context building previously done here has been moved to createSpecForIssue utility.
+        // The buildIssueContext() function and selectedNotes processing are now handled internally
+        // by the spec creation pipeline. This avoids duplicate context generation.
+        // TODO: If advanced context customization is needed in the future, consider extracting
+        // context building into a reusable utility function.
 
         // Use agent manager to investigate
         // Note: This is a simplified version - full implementation would use Claude SDK

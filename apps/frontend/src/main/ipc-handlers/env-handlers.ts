@@ -32,7 +32,7 @@ type ResolvedClaudeCliInvocation =
   | { command: string; env: Record<string, string> }
   | { error: string };
 
-function resolveClaudeCliInvocation(): ResolvedClaudeCliInvocation {
+function _resolveClaudeCliInvocation(): ResolvedClaudeCliInvocation {
   try {
     const invocation = getClaudeCliInvocation();
     if (!invocation?.command) {
