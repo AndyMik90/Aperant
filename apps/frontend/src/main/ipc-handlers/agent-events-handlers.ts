@@ -7,12 +7,13 @@ import type {
   AuthFailureInfo,
   ImplementationPlan,
 } from "../../shared/types";
+import { XSTATE_SETTLED_STATES, XSTATE_TO_PHASE, mapStateToLegacy } from "../../shared/state-machines";
 import { AgentManager } from "../agent";
 import type { ProcessType, ExecutionProgressData } from "../agent";
 import { titleGenerator } from "../title-generator";
 import { fileWatcher } from "../file-watcher";
 import { notificationService } from "../notification-service";
-import { persistPlanLastEventSync, getPlanPath, persistPlanPhaseSync } from "./task/plan-file-utils";
+import { persistPlanLastEventSync, getPlanPath, persistPlanPhaseSync, persistPlanStatusAndReasonSync } from "./task/plan-file-utils";
 import { findTaskWorktree } from "../worktree-paths";
 import { findTaskAndProject } from "./task/shared";
 import { safeSendToRenderer } from "./utils";
@@ -32,16 +33,22 @@ export function registerAgenteventsHandlers(
   // Agent Manager Events → Renderer
   // ============================================
 
-  agentManager.on("log", (taskId: string, log: string) => {
-    // Include projectId for multi-project filtering (issue #723)
-    const { project } = findTaskAndProject(taskId);
-    safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_LOG, taskId, log, project?.id);
+  agentManager.on("log", (taskId: string, log: string, projectId?: string) => {
+    // Use projectId from event when available; fall back to lookup for backward compatibility
+    if (!projectId) {
+      const { project } = findTaskAndProject(taskId);
+      projectId = project?.id;
+    }
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_LOG, taskId, log, projectId);
   });
 
-  agentManager.on("error", (taskId: string, error: string) => {
-    // Include projectId for multi-project filtering (issue #723)
-    const { project } = findTaskAndProject(taskId);
-    safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_ERROR, taskId, error, project?.id);
+  agentManager.on("error", (taskId: string, error: string, projectId?: string) => {
+    // Use projectId from event when available; fall back to lookup for backward compatibility
+    if (!projectId) {
+      const { project } = findTaskAndProject(taskId);
+      projectId = project?.id;
+    }
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_ERROR, taskId, error, projectId);
   });
 
   // Handle SDK rate limit events from agent manager
@@ -82,10 +89,10 @@ export function registerAgenteventsHandlers(
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
   });
 
-  agentManager.on("exit", (taskId: string, code: number | null, processType: ProcessType) => {
-    // Get task + project for context and multi-project filtering (issue #723)
-    const { task: exitTask, project: exitProject } = findTaskAndProject(taskId);
-    const exitProjectId = exitProject?.id;
+  agentManager.on("exit", (taskId: string, code: number | null, processType: ProcessType, projectId?: string) => {
+    // Use projectId from event to scope the lookup (prevents cross-project contamination)
+    const { task: exitTask, project: exitProject } = findTaskAndProject(taskId, projectId);
+    const exitProjectId = exitProject?.id || projectId;
 
     taskStateManager.handleProcessExited(taskId, code, exitTask, exitProject);
 
@@ -109,7 +116,7 @@ export function registerAgenteventsHandlers(
       return;
     }
 
-    const { task, project } = findTaskAndProject(taskId);
+    const { task, project } = findTaskAndProject(taskId, projectId);
     if (!task || !project) return;
 
     const taskTitle = task.title || task.specId;
@@ -120,11 +127,11 @@ export function registerAgenteventsHandlers(
     }
   });
 
-  agentManager.on("task-event", (taskId: string, event) => {
-    console.log(`[agent-events-handlers] Received task-event for ${taskId}:`, event.type, event);
+  agentManager.on("task-event", (taskId: string, event, projectId?: string) => {
+    console.debug(`[agent-events-handlers] Received task-event for ${taskId}:`, event.type, event);
 
     if (taskStateManager.getLastSequence(taskId) === undefined) {
-      const { task, project } = findTaskAndProject(taskId);
+      const { task, project } = findTaskAndProject(taskId, projectId);
       if (task && project) {
         try {
           const planPath = getPlanPath(project, task);
@@ -140,20 +147,20 @@ export function registerAgenteventsHandlers(
       }
     }
 
-    const { task, project } = findTaskAndProject(taskId);
+    const { task, project } = findTaskAndProject(taskId, projectId);
     if (!task || !project) {
-      console.log(`[agent-events-handlers] No task/project found for ${taskId}`);
+      console.debug(`[agent-events-handlers] No task/project found for ${taskId}`);
       return;
     }
 
-    console.log(`[agent-events-handlers] Task state before handleTaskEvent:`, {
+    console.debug(`[agent-events-handlers] Task state before handleTaskEvent:`, {
       status: task.status,
       reviewReason: task.reviewReason,
       phase: task.executionProgress?.phase
     });
 
     const accepted = taskStateManager.handleTaskEvent(taskId, event, task, project);
-    console.log(`[agent-events-handlers] Event ${event.type} accepted: ${accepted}`);
+    console.debug(`[agent-events-handlers] Event ${event.type} accepted: ${accepted}`);
     if (!accepted) {
       return;
     }
@@ -176,14 +183,27 @@ export function registerAgenteventsHandlers(
     }
   });
 
-  agentManager.on("execution-progress", (taskId: string, progress: ExecutionProgressData) => {
-    // Use shared helper to find task and project (issue #723 - deduplicate lookup)
-    const { task, project } = findTaskAndProject(taskId);
-    const taskProjectId = project?.id;
+  agentManager.on("execution-progress", (taskId: string, progress: ExecutionProgressData, projectId?: string) => {
+    // Use projectId from event to scope the lookup (prevents cross-project contamination)
+    const { task, project } = findTaskAndProject(taskId, projectId);
+    const taskProjectId = project?.id || projectId;
+
+    // Check if XState has already established a terminal/review state for this task.
+    // XState is the source of truth for status. When XState is in a terminal state
+    // (e.g., plan_review after PLANNING_COMPLETE), execution-progress events from the
+    // agent process are stale and must not overwrite XState's persisted status.
+    //
+    // Example: When requireReviewBeforeCoding=true, the process exits with code 1 after
+    // PLANNING_COMPLETE. The exit handler emits execution-progress with phase='failed',
+    // which would incorrectly overwrite status='human_review' with status='error' via
+    // persistPlanPhaseSync, and send a 'failed' phase to the renderer overwriting the
+    // 'planning' phase that XState already emitted via emitPhaseFromState.
+    const currentXState = taskStateManager.getCurrentState(taskId);
+    const xstateInTerminalState = currentXState && XSTATE_SETTLED_STATES.has(currentXState);
 
     // Persist phase to plan file for restoration on app refresh
     // Must persist to BOTH main project and worktree (if exists) since task may be loaded from either
-    if (task && project && progress.phase) {
+    if (task && project && progress.phase && !xstateInTerminalState) {
       const mainPlanPath = getPlanPath(project, task);
       persistPlanPhaseSync(mainPlanPath, progress.phase, project.id);
 
@@ -201,9 +221,16 @@ export function registerAgenteventsHandlers(
           persistPlanPhaseSync(worktreePlanPath, progress.phase, project.id);
         }
       }
+    } else if (xstateInTerminalState && progress.phase) {
+      console.debug(`[agent-events-handlers] Skipping persistPlanPhaseSync for ${taskId}: XState in '${currentXState}', not overwriting with phase '${progress.phase}'`);
     }
 
-    // Include projectId in execution progress event for multi-project filtering
+    // Skip sending execution-progress to renderer when XState has settled.
+    // XState's emitPhaseFromState already sent the correct phase to the renderer.
+    if (xstateInTerminalState) {
+      console.debug(`[agent-events-handlers] Skipping execution-progress to renderer for ${taskId}: XState in '${currentXState}', ignoring phase '${progress.phase}'`);
+      return;
+    }
     safeSendToRenderer(
       getMainWindow,
       IPC_CHANNELS.TASK_EXECUTION_PROGRESS,
@@ -218,13 +245,42 @@ export function registerAgenteventsHandlers(
   // ============================================
 
   fileWatcher.on("progress", (taskId: string, plan: ImplementationPlan) => {
-    // Use shared helper to find project (issue #723 - deduplicate lookup)
-    const { project } = findTaskAndProject(taskId);
+    // File watcher events don't carry projectId — fall back to lookup
+    const { task, project } = findTaskAndProject(taskId);
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_PROGRESS, taskId, plan, project?.id);
+
+    // Re-stamp XState status fields if the backend overwrote the plan file without them.
+    // The planner agent writes implementation_plan.json via the Write tool, which replaces
+    // the entire file and strips the frontend's status/xstateState/executionPhase fields.
+    // This causes tasks to snap back to backlog on refresh.
+    const planWithStatus = plan as { xstateState?: string; executionPhase?: string; status?: string };
+    const currentXState = taskStateManager.getCurrentState(taskId);
+    if (currentXState && !planWithStatus.xstateState && task && project) {
+      console.debug(`[agent-events-handlers] Re-stamping XState status on plan file for ${taskId} (state: ${currentXState})`);
+      const mainPlanPath = getPlanPath(project, task);
+      const { status, reviewReason } = mapStateToLegacy(currentXState);
+      const phase = XSTATE_TO_PHASE[currentXState] || 'idle';
+      persistPlanStatusAndReasonSync(mainPlanPath, status, reviewReason, project.id, currentXState, phase);
+
+      // Also re-stamp worktree copy if it exists
+      const worktreePath = findTaskWorktree(project.path, task.specId);
+      if (worktreePath) {
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const worktreePlanPath = path.join(
+          worktreePath,
+          specsBaseDir,
+          task.specId,
+          AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN
+        );
+        if (existsSync(worktreePlanPath)) {
+          persistPlanStatusAndReasonSync(worktreePlanPath, status, reviewReason, project.id, currentXState, phase);
+        }
+      }
+    }
   });
 
   fileWatcher.on("error", (taskId: string, error: string) => {
-    // Include projectId for multi-project filtering (issue #723)
+    // File watcher events don't carry projectId — fall back to lookup
     const { project } = findTaskAndProject(taskId);
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_ERROR, taskId, error, project?.id);
   });
