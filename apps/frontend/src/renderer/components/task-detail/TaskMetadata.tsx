@@ -226,7 +226,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
               </h3>
               <button
                 type="button"
-                onClick={() => window.electronAPI.openExternal(task.metadata?.prUrl!)}
+                onClick={() => window.electronAPI.openExternal(task.metadata.prUrl)}
                 className="text-sm text-info hover:underline flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-left"
               >
                 {task.metadata.prUrl}
