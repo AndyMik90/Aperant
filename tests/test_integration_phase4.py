@@ -106,6 +106,9 @@ _modules_to_mock = [
 _original_modules = {name: sys.modules.get(name) for name in _modules_to_mock}
 for name in _modules_to_mock:
     sys.modules[name] = MagicMock()
+# IMPORTANT: Register the module in sys.modules BEFORE exec_module
+# This is required for dataclass decorators to find the module by name
+sys.modules["parallel_orchestrator_reviewer"] = orchestrator_module
 orchestrator_spec.loader.exec_module(orchestrator_module)
 # Restore all mocked modules to avoid polluting other tests
 for name in _modules_to_mock:
