@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Code, Terminal, Loader2, Check, RefreshCw, Info } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
@@ -86,6 +87,7 @@ const TERMINAL_NAMES: Partial<Record<SupportedTerminal, string>> = {
  * their preferred tools for opening worktrees.
  */
 export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
+  const { t } = useTranslation('onboarding');
   const { settings, updateSettings } = useSettingsStore();
   const [preferredIDE, setPreferredIDE] = useState<SupportedIDE>(settings.preferredIDE || 'vscode');
   const [preferredTerminal, setPreferredTerminal] = useState<SupportedTerminal>(settings.preferredTerminal || 'system');
@@ -234,10 +236,10 @@ export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Developer Tools
+            {t('devtools.title')}
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Choose your preferred IDE and terminal for working with Auto Claude worktrees
+            {t('devtools.description')}
           </p>
         </div>
 
@@ -245,7 +247,7 @@ export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
         {isDetecting && (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="ml-3 text-muted-foreground">Detecting installed tools...</span>
+            <span className="ml-3 text-muted-foreground">{t('devtools.detecting')}</span>
           </div>
         )}
 
@@ -268,11 +270,10 @@ export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
                   <Info className="h-5 w-5 text-info shrink-0 mt-0.5" />
                   <div className="flex-1 space-y-3">
                     <p className="text-sm font-medium text-foreground">
-                      Why configure these?
+                      {t('devtools.whyConfigure')}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      When Auto Claude builds features in isolated worktrees, you can open them
-                      directly in your preferred IDE or terminal to test and review changes.
+                      {t('devtools.whyConfigureDescription')}
                     </p>
                   </div>
                 </div>
@@ -288,7 +289,7 @@ export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
                 disabled={isDetecting}
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Detect Again
+                {t('devtools.detectAgain')}
               </Button>
             </div>
 
@@ -296,7 +297,7 @@ export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
             <div className="space-y-3">
               <Label className="text-sm font-medium text-foreground flex items-center gap-2">
                 <Code className="h-4 w-4" />
-                Preferred IDE
+                {t('devtools.ide.label')}
               </Label>
               <Select
                 value={preferredIDE}
@@ -320,14 +321,14 @@ export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Auto Claude will open worktrees in this editor
+                {t('devtools.ide.description')}
               </p>
 
               {/* Custom IDE Path */}
               {preferredIDE === 'custom' && (
                 <div className="mt-3">
                   <Label htmlFor="custom-ide-path" className="text-xs text-muted-foreground">
-                    Custom IDE Path
+                    {t('devtools.ide.customPath')}
                   </Label>
                   <Input
                     id="custom-ide-path"
@@ -345,7 +346,7 @@ export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
             <div className="space-y-3">
               <Label className="text-sm font-medium text-foreground flex items-center gap-2">
                 <Terminal className="h-4 w-4" />
-                Preferred Terminal
+                {t('devtools.terminal.label')}
               </Label>
               <Select
                 value={preferredTerminal}
@@ -369,14 +370,14 @@ export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Auto Claude will open terminal sessions here
+                {t('devtools.terminal.description')}
               </p>
 
               {/* Custom Terminal Path */}
               {preferredTerminal === 'custom' && (
                 <div className="mt-3">
                   <Label htmlFor="custom-terminal-path" className="text-xs text-muted-foreground">
-                    Custom Terminal Path
+                    {t('devtools.terminal.customPath')}
                   </Label>
                   <Input
                     id="custom-terminal-path"
@@ -393,7 +394,7 @@ export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
             {/* Detection Summary */}
             {detectedTools && (
               <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-md">
-                <p className="font-medium mb-1">Detected on your system:</p>
+                <p className="font-medium mb-1">{t('devtools.detectedSummary')}</p>
                 <ul className="list-disc list-inside space-y-0.5">
                   {detectedTools.ides.map((ide) => (
                     <li key={ide.id}>{ide.name}</li>
@@ -402,7 +403,7 @@ export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
                     <li key={term.id}>{term.name}</li>
                   ))}
                   {detectedTools.ides.length === 0 && detectedTools.terminals.filter(t => t.id !== 'system').length === 0 && (
-                    <li>No additional tools detected (VS Code and system terminal will be used)</li>
+                    <li>{t('devtools.noToolsDetected')}</li>
                   )}
                 </ul>
               </div>
@@ -417,7 +418,7 @@ export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
             onClick={onBack}
             className="text-muted-foreground hover:text-foreground"
           >
-            Back
+            {t('oauth.buttons.back', 'Back')}
           </Button>
           <Button
             onClick={handleSave}
@@ -426,10 +427,10 @@ export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
             {isSaving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Saving...
+                {t('memory.saving', 'Saving...')}
               </>
             ) : (
-              'Save & Continue'
+              t('devtools.saveAndContinue')
             )}
           </Button>
         </div>

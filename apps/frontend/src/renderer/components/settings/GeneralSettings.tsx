@@ -132,21 +132,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
           description={t('general.otherAgentSettingsDescription')}
         >
           <div className="space-y-6">
-            <div className="space-y-3">
-              <Label htmlFor="agentFramework" className="text-sm font-medium text-foreground">{t('general.agentFramework')}</Label>
-              <p className="text-sm text-muted-foreground">{t('general.agentFrameworkDescription')}</p>
-              <Select
-                value={settings.agentFramework}
-                onValueChange={(value) => onSettingsChange({ ...settings, agentFramework: value })}
-              >
-                <SelectTrigger id="agentFramework" className="w-full max-w-md">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto-claude">{t('general.agentFrameworkAutoClaude')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* SETTINGS-1: agentFramework dropdown removed - auto-claude is always used */}
             <div className="space-y-3">
               <div className="flex items-center justify-between max-w-md">
                 <div className="space-y-1">

@@ -14,7 +14,8 @@ import {
   FileText,
   FolderSearch,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  ArrowRight
 } from 'lucide-react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -39,6 +40,7 @@ import {
 import { loadTasks } from '../stores/task-store';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
 import { InsightsModelSelector } from './InsightsModelSelector';
+import { useNavigation } from '../contexts/NavigationContext';
 import type { InsightsChatMessage, InsightsModelConfig } from '../../shared/types';
 import {
   TASK_CATEGORY_LABELS,
@@ -89,6 +91,7 @@ interface InsightsProps {
 
 export function Insights({ projectId }: InsightsProps) {
   const { t } = useTranslation('common');
+  const { setActiveView } = useNavigation();
   const session = useInsightsStore((state) => state.session);
   const sessions = useInsightsStore((state) => state.sessions);
   const status = useInsightsStore((state) => state.status);
@@ -304,6 +307,7 @@ export function Insights({ projectId }: InsightsProps) {
                 onCreateTask={() => handleCreateTask(message)}
                 isCreatingTask={creatingTask === message.id}
                 taskCreated={taskCreated.has(message.id)}
+                onSeeInKanban={() => setActiveView('kanban')}
               />
             ))}
 
@@ -397,6 +401,7 @@ interface MessageBubbleProps {
   onCreateTask: () => void;
   isCreatingTask: boolean;
   taskCreated: boolean;
+  onSeeInKanban: () => void;
 }
 
 function MessageBubble({
@@ -404,7 +409,8 @@ function MessageBubble({
   markdownComponents,
   onCreateTask,
   isCreatingTask,
-  taskCreated
+  taskCreated,
+  onSeeInKanban
 }: MessageBubbleProps) {
   const isUser = message.role === 'user';
 
@@ -481,28 +487,41 @@ function MessageBubble({
                   )}
                 </div>
               )}
-              <Button
-                size="sm"
-                onClick={onCreateTask}
-                disabled={isCreatingTask || taskCreated}
-              >
-                {isCreatingTask ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : taskCreated ? (
-                  <>
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                    Task Created
-                  </>
-                ) : (
-                  <>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Task
-                  </>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={onCreateTask}
+                  disabled={isCreatingTask || taskCreated}
+                >
+                  {isCreatingTask ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : taskCreated ? (
+                    <>
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Task Created
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Task
+                    </>
+                  )}
+                </Button>
+                {taskCreated && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={onSeeInKanban}
+                    className="border-[var(--glow-cyan)]/50 text-[var(--glow-cyan)] hover:bg-[var(--glow-cyan)]/10"
+                  >
+                    See in Kanban
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
                 )}
-              </Button>
+              </div>
             </CardContent>
           </Card>
         )}

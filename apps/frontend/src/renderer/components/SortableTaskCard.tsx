@@ -13,6 +13,8 @@ interface SortableTaskCardProps {
   isSelectable?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
+  // FIX-29b: Bottom panel terminal callback
+  onOpenBottomPanel?: (taskId: string, taskTitle: string) => void;
 }
 
 // Custom comparator - only re-render when task or onClick actually changed
@@ -28,11 +30,12 @@ function sortableTaskCardPropsAreEqual(
     prevProps.onStatusChange === nextProps.onStatusChange &&
     prevProps.isSelectable === nextProps.isSelectable &&
     prevProps.isSelected === nextProps.isSelected &&
-    prevProps.onToggleSelect === nextProps.onToggleSelect
+    prevProps.onToggleSelect === nextProps.onToggleSelect &&
+    prevProps.onOpenBottomPanel === nextProps.onOpenBottomPanel
   );
 }
 
-export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, onStatusChange, isSelectable, isSelected, onToggleSelect }: SortableTaskCardProps) {
+export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, onStatusChange, isSelectable, isSelected, onToggleSelect, onOpenBottomPanel }: SortableTaskCardProps) {
   const {
     attributes,
     listeners,
@@ -74,6 +77,7 @@ export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, 
         isSelectable={isSelectable}
         isSelected={isSelected}
         onToggleSelect={onToggleSelect}
+        onOpenBottomPanel={onOpenBottomPanel}
       />
     </div>
   );

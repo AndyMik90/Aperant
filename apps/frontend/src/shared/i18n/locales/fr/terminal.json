@@ -3,6 +3,13 @@
     "expand": "Agrandir le terminal",
     "collapse": "Reduire le terminal"
   },
+  "bottomPanel": {
+    "header": "Terminal : {{title}}"
+  },
+  "taskMonitor": {
+    "title": "Moniteur de tâche"
+  },
+  "waitingForOutput": "En attente de sortie du terminal...",
   "auth": {
     "terminalTitle": "Auth: {{profileName}}",
     "maxTerminalsReached": "Impossible d'ouvrir le terminal d'auth: nombre maximum de terminaux atteint. Fermez un terminal d'abord."

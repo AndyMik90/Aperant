@@ -67,20 +67,22 @@ interface AppSettingsDialogProps {
 }
 
 // App-level settings sections
-export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'agent' | 'paths' | 'integrations' | 'api-profiles' | 'updates' | 'notifications' | 'debug';
+// SETTINGS-2: Merged 'display' into 'appearance'
+// SETTINGS-3: Moved 'paths' to 'debug'
+export type AppSection = 'appearance' | 'language' | 'devtools' | 'agent' | 'integrations' | 'api-profiles' | 'updates' | 'notifications' | 'debug';
 
 interface NavItemConfig<T extends string> {
   id: T;
   icon: React.ElementType;
 }
 
+// SETTINGS-2: Removed 'display' (merged into appearance)
+// SETTINGS-3: Removed 'paths' (moved to debug section)
 const appNavItemsConfig: NavItemConfig<AppSection>[] = [
   { id: 'appearance', icon: Palette },
-  { id: 'display', icon: Monitor },
   { id: 'language', icon: Globe },
   { id: 'devtools', icon: Code },
   { id: 'agent', icon: Bot },
-  { id: 'paths', icon: FolderOpen },
   { id: 'integrations', icon: Key },
   { id: 'api-profiles', icon: Server },
   { id: 'updates', icon: Package },
@@ -182,17 +184,21 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
   const renderAppSection = () => {
     switch (appSection) {
       case 'appearance':
-        return <ThemeSettings settings={settings} onSettingsChange={setSettings} />;
-      case 'display':
-        return <DisplaySettings settings={settings} onSettingsChange={setSettings} />;
+        // SETTINGS-2: Merged display settings into appearance
+        return (
+          <>
+            <ThemeSettings settings={settings} onSettingsChange={setSettings} />
+            <div className="mt-8">
+              <DisplaySettings settings={settings} onSettingsChange={setSettings} />
+            </div>
+          </>
+        );
       case 'language':
         return <LanguageSettings settings={settings} onSettingsChange={setSettings} />;
       case 'devtools':
         return <DevToolsSettings settings={settings} onSettingsChange={setSettings} />;
       case 'agent':
         return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="agent" />;
-      case 'paths':
-        return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="paths" />;
       case 'integrations':
         return <IntegrationSettings settings={settings} onSettingsChange={setSettings} isOpen={open} />;
       case 'api-profiles':
@@ -202,7 +208,15 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
       case 'notifications':
         return <AdvancedSettings settings={settings} onSettingsChange={setSettings} section="notifications" version={version} />;
       case 'debug':
-        return <DebugSettings />;
+        // SETTINGS-3: Added paths section to debug
+        return (
+          <>
+            <DebugSettings />
+            <div className="mt-8">
+              <GeneralSettings settings={settings} onSettingsChange={setSettings} section="paths" />
+            </div>
+          </>
+        );
       default:
         return null;
     }

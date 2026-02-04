@@ -604,5 +604,13 @@
     "emptyHint": "Save feedback as learnings during task review to build up project knowledge.",
     "deleteTitle": "Delete Learning?",
     "deleteDescription": "This learning will be removed from the project. This action cannot be undone."
+  },
+  "projectRemoval": {
+    "title": "Remove Project",
+    "description": "How would you like to remove \"{{name}}\" from Jerry?",
+    "keepOption": "Remove from Jerry only",
+    "keepDescription": "Remove from the sidebar but keep the .auto-claude folder with all task history and data.",
+    "deleteOption": "Delete all Jerry data",
+    "deleteDescription": "Remove from sidebar AND delete the .auto-claude folder with all task history, specs, and builds."
   }
 }

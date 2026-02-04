@@ -222,10 +222,11 @@ export function registerProjectHandlers(
     }
   );
 
+  // FIX-25: Project removal with optional data deletion
   ipcMain.handle(
     IPC_CHANNELS.PROJECT_REMOVE,
-    async (_, projectId: string): Promise<IPCResult> => {
-      const success = projectStore.removeProject(projectId);
+    async (_, projectId: string, deleteData: boolean = false): Promise<IPCResult> => {
+      const success = projectStore.removeProject(projectId, deleteData);
       return { success };
     }
   );

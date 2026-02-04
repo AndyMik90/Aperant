@@ -354,12 +354,14 @@ export async function addProject(projectPath: string): Promise<Project | null> {
 
 /**
  * Remove a project
+ * @param projectId - The ID of the project to remove
+ * @param deleteData - FIX-25: If true, also delete the .auto-claude directory with all task data
  */
-export async function removeProject(projectId: string): Promise<boolean> {
+export async function removeProject(projectId: string, deleteData: boolean = false): Promise<boolean> {
   const store = useProjectStore.getState();
 
   try {
-    const result = await window.electronAPI.removeProject(projectId);
+    const result = await window.electronAPI.removeProject(projectId, deleteData);
     if (result.success) {
       store.removeProject(projectId);
       // Also close the tab if it's open

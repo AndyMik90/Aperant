@@ -409,14 +409,16 @@ async function startAutoFix(
 
   // Automatically start spec creation using the robust spec_runner.py system
   try {
-    // Start spec creation - spec_runner.py will create a proper detailed spec
-    // After spec creation completes, the normal flow will handle implementation
-    agentManager.startSpecCreation(
+    // FIX-19: Use startPlanningAgent instead of startSpecCreation
+    // This ensures --no-build flag is used to prevent auto-continuation to coding
+    // After spec creation completes, user must click "Start Build" to continue
+    agentManager.startPlanningAgent(
       specData.specId,
       project.path,
       specData.taskDescription,
       specData.specDir,
-      specData.metadata
+      specData.metadata,
+      project.settings?.mainBranch
     );
 
     // Immediately update the plan status to 'planning' so the frontend shows the task as "In Progress"

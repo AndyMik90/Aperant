@@ -1,22 +1,41 @@
 # Known Issues & Fixes
 
-**Last Updated:** 2026-02-03
-**Version:** 2.7.6
+**Last Updated:** 2026-02-04
+**Version:** 2.7.7
+
+---
+
+## Status Summary
+
+| Issue | Description | Status |
+|-------|-------------|--------|
+| #1 | startBuild Error Not Shown in UI | ✅ **FIXED** (FIX-1) |
+| #2 | Phase Labels Not Updating | ✅ **FIXED** (FIX-2 + Phase 7) |
+| #3 | Planning Agent Not Starting on Restart | ✅ **FIXED** (FIX-3) |
+| #4 | Recovery Calling Wrong Handler | ✅ **FIXED** (FIX-4) |
+| #5 | Terminal Output Not Legible | ✅ **FIXED** (Phase 7 complete) |
+| #6 | Task Auto-Transitions Planning→Coding | ✅ **FIXED** (FIX-6) |
+| #7 | No Alert When Planning Completes | ✅ **FIXED** (FIX-7) |
+| #8 | Kanban Drag Auto-Starts Coding | ✅ **FIXED** (FIX-8) |
+| #9 | No User-Initiated Flag | ✅ **FIXED** (FIX-9) |
+| #10 | Validation Too Permissive | ✅ **FIXED** (FIX-10) |
+| #17 | TASK_START uses file-existence not status | ✅ **FIXED** (FIX-17) |
 
 ---
 
 ## Table of Contents
 
-1. [Issue #1: startBuild Error Not Shown in UI](#issue-1-startbuild-error-not-shown-in-ui)
-2. [Issue #2: Phase Labels Not Updating in Real Time](#issue-2-phase-labels-not-updating-in-real-time)
-3. [Issue #3: Planning Agent Not Starting on App Restart](#issue-3-planning-agent-not-starting-on-app-restart)
-4. [Issue #4: Stuck Task Recovery Calling Wrong Handler](#issue-4-stuck-task-recovery-calling-wrong-handler)
-5. [Issue #5: Terminal Output Not Legible](#issue-5-terminal-output-not-legible)
-6. [Issue #6: Task Auto-Transitions from Planning to Coding](#issue-6-task-auto-transitions-from-planning-to-coding)
-7. [Issue #7: No Alert When Planning Completes](#issue-7-no-alert-when-planning-completes)
-8. [Issue #8: Kanban Drag Auto-Starts Coding Agent](#issue-8-kanban-drag-auto-starts-coding-agent)
-9. [Issue #9: No User-Initiated Flag for Transitions](#issue-9-no-user-initiated-flag-for-transitions)
-10. [Issue #10: Status Validation Allows All Non-Regressive Transitions](#issue-10-status-validation-allows-all-non-regressive-transitions)
+1. [Issue #1: startBuild Error Not Shown in UI](#issue-1-startbuild-error-not-shown-in-ui) ✅ FIXED
+2. [Issue #2: Phase Labels Not Updating in Real Time](#issue-2-phase-labels-not-updating-in-real-time) ✅ FIXED
+3. [Issue #3: Planning Agent Not Starting on App Restart](#issue-3-planning-agent-not-starting-on-app-restart) ✅ FIXED
+4. [Issue #4: Stuck Task Recovery Calling Wrong Handler](#issue-4-stuck-task-recovery-calling-wrong-handler) ✅ FIXED
+5. [Issue #5: Terminal Output Not Legible](#issue-5-terminal-output-not-legible) ✅ FIXED
+6. [Issue #6: Task Auto-Transitions from Planning to Coding](#issue-6-task-auto-transitions-from-planning-to-coding) ✅ FIXED
+7. [Issue #7: No Alert When Planning Completes](#issue-7-no-alert-when-planning-completes) ✅ FIXED
+8. [Issue #8: Kanban Drag Auto-Starts Coding Agent](#issue-8-kanban-drag-auto-starts-coding-agent) ✅ FIXED
+9. [Issue #9: No User-Initiated Flag for Transitions](#issue-9-no-user-initiated-flag-for-transitions) ✅ FIXED
+10. [Issue #10: Status Validation Allows All Non-Regressive Transitions](#issue-10-status-validation-allows-all-non-regressive-transitions) ✅ FIXED
+11. [Issue #17: TASK_START Handler Bypasses Manual Gate](#issue-17-task_start-handler-bypasses-manual-gate) ✅ FIXED
 
 ---
 
@@ -1058,6 +1077,75 @@ The transition between these agents is a **USER-CONTROLLED GATE**.
 - [Task Architecture](../architecture/TASK_ARCHITECTURE.md) - Status/Phase system
 - [Integration Workflow](INTEGRATION_WORKFLOW.md) - v2.7.6 implementation details
 - [Task Status Fix Plan](TASK_STATUS_FIX_PLAN.md) - Original fix plan
+
+---
+
+---
+
+## Issue #17: TASK_START Handler Bypasses Manual Gate
+
+### Description
+
+✅ **FIXED** (FIX-17 - 2026-02-04)
+
+The TASK_START handler was checking file existence (`hasSpec`, `needsSpecCreation`) instead of `task.status` to determine which agent to start. This caused planning tasks with spec.md already created to incorrectly start the CODING agent when user clicked "Resume".
+
+### Root Cause
+
+```typescript
+// BEFORE FIX (broken logic):
+const needsSpecCreation = !hasSpec;
+const needsImplementation = hasSpec && task.subtasks.length === 0;
+
+if (needsSpecCreation) {
+  agentManager.startSpecCreation(...);  // OLD method
+} else if (needsImplementation) {
+  agentManager.startTaskExecution(...);  // BUG: Started CODING agent!
+}
+```
+
+When a planning task already had spec.md:
+1. `hasSpec = true` (file exists)
+2. `needsSpecCreation = false`
+3. `needsImplementation = true` (spec exists, no subtasks yet)
+4. Result: `startTaskExecution()` called instead of `startPlanningAgent()`
+
+### Fix Applied
+
+```typescript
+// AFTER FIX (correct logic):
+// FIX-17: Use task.status to decide which agent to start, NOT file existence
+if (task.status === 'planning') {
+  agentManager.startPlanningAgent(...);  // Correct: planning agent
+} else if (task.status === 'coding') {
+  agentManager.startTaskExecution(...);  // Correct: coding agent
+} else {
+  // Error: other statuses can't start agents
+}
+```
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `execution-handlers.ts` | Lines 230-276: Replaced file-existence checks with status-based routing |
+| `execution-handlers.ts` | Lines 295-340: Updated status notification to only send 'coding' for coding tasks |
+
+### Verification
+
+1. Planning task without spec.md → Click "Resume" → Planning agent starts ✅
+2. Planning task with spec.md → Click "Resume" → Planning agent starts (not coding) ✅
+3. Coding task → Click "Resume" → Coding agent starts ✅
+4. Other status tasks → Click "Resume" → Error returned ✅
+
+### Related Issues
+
+- This was the **root cause** behind Issues #3, #4, #6
+- Identified in ARCHITECTURE_VERIFICATION_REPORT.md
+
+### Priority
+
+**CRITICAL** - Was allowing bypass of the Planning → Coding manual gate
 
 ---
 

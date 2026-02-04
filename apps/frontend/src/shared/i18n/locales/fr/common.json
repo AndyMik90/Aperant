@@ -80,7 +80,8 @@
     "gotIt": "Compris",
     "continue": "Continuer",
     "saving": "Enregistrement...",
-    "clear": "Effacer"
+    "clear": "Effacer",
+    "removing": "Suppression..."
   },
   "labels": {
     "loading": "Chargement...",

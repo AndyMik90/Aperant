@@ -2,7 +2,8 @@
 
 **Version:** 3.2
 **Date:** 2026-02-04
-**Status:** 9 tasks remaining (user-approved scope)
+**Status:** ✅ ALL 9 v3.2 TASKS VERIFIED COMPLETE (audit 2026-02-04)
+**Audit:** See `docs/SPEC_VS_CODE_AUDIT_REPORT_v2.md` for verification details
 
 ---
 
@@ -25,18 +26,24 @@ After Ralph v2.3 (42 tasks) + v2.5 (5 tasks) = **47/49 tasks complete (96%)**
 | UI-6: Redesign sidebar | ❌ **SKIP** | Current sidebar already works well, VSCode-style |
 | NAV-8: GitHub footer icons | 🔄 **CHANGED** | Combine into one "GitHub" page instead |
 
-### Remaining Tasks (8):
-| ID | Task | Type |
-|----|------|------|
-| NAV-8 | Merge GitHub Issues + PRs into one "GitHub" page | Revised |
-| CLAUDE-1 | Remove task terminal columns from Claude Code page | New |
-| CLAUDE-2 | Add "+ New Claude Code" button | New |
-| CHAT-1 | Add "See in Kanban" button after task creation | New |
-| FIX-12 | Task card text clipping - fix overflow | New |
-| FIX-13 | Status badge shows "Pending" - should show actual phase | New |
-| FIX-14 | Hide "Start Build" button until spec is ready | New |
-| FIX-15 | Remove context menu dots (⋮) - drag feature was removed | New |
-| FIX-16 | Terminal button click also opens Task Detail modal | New |
+### v3.2 Tasks - ALL COMPLETE (Verified 2026-02-04):
+| ID | Task | Status | Code Location |
+|----|------|--------|---------------|
+| NAV-8 | Merge GitHub Issues + PRs into one "GitHub" page | ✅ DONE | GitHubHub.tsx with tabs |
+| CLAUDE-1 | Remove task terminal columns from Claude Code page | ✅ DONE | TerminalGrid.tsx:47-53 (excludes task monitors) |
+| CLAUDE-2 | Add "+ New Claude Code" button | ✅ DONE | TerminalGrid.tsx:241-253, 421-430 |
+| CHAT-1 | Add "See in Kanban" button after task creation | ✅ DONE | Insights.tsx:517-521 |
+| FIX-12 | Task card text clipping - fix overflow | ✅ DONE | TaskCard.tsx:589-604 (truncate, line-clamp-3) |
+| FIX-13 | Status badge shows "Pending" - should show actual phase | ✅ DONE | TaskCard.tsx:477-534, 656-691 |
+| FIX-14 | Hide "Start Build" button until spec is ready | ✅ DONE | TaskCard.tsx:856-922 |
+| FIX-15 | Remove context menu dots (⋮) - drag feature was removed | ✅ DONE | No DropdownMenu in TaskCard.tsx |
+| FIX-16 | Terminal button click also opens Task Detail modal | ✅ DONE | TaskCard.tsx:430 (stopPropagation) |
+
+**Additional fixes found implemented but not documented:**
+| ID | Description | Code Location |
+|----|-------------|---------------|
+| FIX-21 | Inline terminal expansion | TaskCard.tsx:969-991 |
+| FIX-22 | Animated activity indicator | TaskCard.tsx:570-572 |
 
 ---
 
@@ -422,97 +429,164 @@ onClick={(e) => {
 
 ---
 
-## Ralph Invocation Prompt (v3.2)
+## Ralph Invocation Prompt (v3.2) - TESTED & WORKING
+
+**Last Tested:** 2026-02-04 (jamie.ballard machine)
+**Status:** ✅ Working
 
 ```bash
 /ralph-loop:ralph-loop "
 You are an autonomous senior engineer completing the remaining tasks for Auto-Claude (Jerry).
 
-**YOUR IDENTITY:** You are an EXECUTOR, not an EVALUATOR. You do not get to decide if tasks are worth doing. If a task is in this list, you execute it. Period.
+YOUR IDENTITY:
+- You are an EXECUTOR, not an EVALUATOR.
+- You do not get to decide if tasks are worth doing.
+- If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\AlienZ\Desktop\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
 
 Primary documentation:
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\plans\REMAINING_TASKS.md (THIS FILE - read fully)
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\plans\RALPH_IMPLEMENTATION_GUIDE.md
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\plans\UI_DESIGN.md (Tron Grid theme spec)
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\PROGRESS.md
+- docs\plans\REMAINING_TASKS.md      (read fully)
+- docs\plans\RALPH_IMPLEMENTATION_GUIDE.md
+- docs\plans\UI_DESIGN.md           (Tron Grid theme spec)
+- docs\PROGRESS.md
 
 ---
 
-## TASKS (9 required - ALL MUST COMPLETE)
+TASKS (9 required – ALL MUST COMPLETE)
 
-| # | Task | Steps | Promise |
-|---|------|-------|---------|
-| 1 | NAV-8: Combine GitHub pages | 4 | NAV_8_GITHUB_HUB_COMPLETE |
-| 2 | CLAUDE-1: Remove task terminal columns | 3 | CLAUDE_1_REMOVE_TASK_COLUMNS_COMPLETE |
-| 3 | CLAUDE-2: Add New Claude Code button | 4 | CLAUDE_2_NEW_CLAUDE_CODE_BUTTON_COMPLETE |
-| 4 | CHAT-1: Add See in Kanban button | 3 | CHAT_1_SEE_IN_KANBAN_COMPLETE |
-| 5 | FIX-12: Task card text clipping | 2 | FIX_12_TEXT_CLIPPING_COMPLETE |
-| 6 | FIX-13: Status badge shows wrong phase | 2 | FIX_13_STATUS_BADGE_COMPLETE |
-| 7 | FIX-14: Hide Start Build until spec ready | 3 | FIX_14_HIDE_START_BUILD_COMPLETE |
-| 8 | FIX-15: Remove context menu dots | 1 | FIX_15_REMOVE_DOTS_MENU_COMPLETE |
-| 9 | FIX-16: Terminal button event propagation | 1 | FIX_16_TERMINAL_BUTTON_PROPAGATION_COMPLETE |
+| # | Task                                      | Steps | Promise                                      |
+|---|-------------------------------------------|-------|----------------------------------------------|
+| 1 | NAV-8: Combine GitHub pages               | 4     | NAV_8_GITHUB_HUB_COMPLETE                    |
+| 2 | CLAUDE-1: Remove task terminal columns    | 3     | CLAUDE_1_REMOVE_TASK_COLUMNS_COMPLETE        |
+| 3 | CLAUDE-2: Add New Claude Code button      | 4     | CLAUDE_2_NEW_CLAUDE_CODE_BUTTON_COMPLETE     |
+| 4 | CHAT-1: Add See in Kanban button          | 3     | CHAT_1_SEE_IN_KANBAN_COMPLETE                |
+| 5 | FIX-12: Task card text clipping           | 2     | FIX_12_TEXT_CLIPPING_COMPLETE                |
+| 6 | FIX-13: Status badge shows wrong phase    | 2     | FIX_13_STATUS_BADGE_COMPLETE                 |
+| 7 | FIX-14: Hide Start Build until spec ready | 3     | FIX_14_HIDE_START_BUILD_COMPLETE             |
+| 8 | FIX-15: Remove context menu dots          | 1     | FIX_15_REMOVE_DOTS_MENU_COMPLETE             |
+| 9 | FIX-16: Terminal button event propagation | 1     | FIX_16_TERMINAL_BUTTON_PROPAGATION_COMPLETE  |
 
-**FINAL:** <promise>REMAINING_TASKS_V3_COMPLETE</promise>
-
----
-
-## CRITICAL CONSTRAINTS
-
-1. **9-TASK JOB** - Do NOT stop until all 9 tasks are complete
-2. **ALL REQUIRED** - Every task is marked REQUIRED - no skipping allowed
-3. **NO SUMMARIES** - Progress summaries are NOT stopping points
-4. **CONTINUATION** - After each step, immediately say 'NEXT: [next step]' and continue
+FINAL COMPLETION PROMISE:
+- <promise>REMAINING_TASKS_V3_COMPLETE</promise>
 
 ---
 
-## ANTI-SKIP RULES
+CRITICAL CONSTRAINTS
+
+1. 9-TASK JOB – Do NOT stop until all 9 tasks are complete.
+2. ALL REQUIRED – Every task is REQUIRED; no skipping allowed except under explicit rules below.
+3. NO SUMMARIES – Progress summaries are NOT stopping points.
+4. CONTINUATION – After each step you complete, immediately say:
+   NEXT: [next step]
+   and then continue working on that next step.
+
+---
+
+ANTI-SKIP RULES
 
 You may NOT skip because:
-- Task 'seems complex' ❌
-- Current implementation 'works well' ❌
-- You 'prefer' a different design ❌
-- Task 'requires major changes' ❌
+- Task seems complex.
+- Current implementation 'works well'.
+- You prefer a different design.
+- Task requires major changes.
 
 You may ONLY skip if:
-- Actual error after 3 fix attempts ✅
-- File genuinely doesn't exist ✅
-- Dependency genuinely missing ✅
+- There is a real error after 3 distinct fix attempts, OR
+- A required file genuinely does not exist, OR
+- A dependency is genuinely missing.
 
-**If skipping, you MUST document in PROGRESS.md:**
-1. What you attempted (files, commands)
-2. Exact error message
-3. Concrete reason (NOT opinion)
-4. Approval required: YES
+If you skip, you MUST:
+- Document it in docs\PROGRESS.md (what you tried, exact errors, concrete reason, approval required).
+- Mark the task as blocked, not complete.
 
 ---
 
-## EXECUTION PROTOCOL
+EXECUTION PROTOCOL
 
-1. Read REMAINING_TASKS.md fully
-2. Task 1 (NAV-8): Complete steps 1-4 → output promise → **NEXT: Task 2**
-3. Task 2 (CLAUDE-1): Complete steps 1-3 → output promise → **NEXT: Task 3**
-4. Task 3 (CLAUDE-2): Complete steps 1-4 → output promise → **NEXT: Task 4**
-5. Task 4 (CHAT-1): Complete steps 1-3 → output promise → **NEXT: Task 5**
-6. Task 5 (FIX-12): Complete steps 1-2 → output promise → **NEXT: Task 6**
-7. Task 6 (FIX-13): Complete steps 1-2 → output promise → **NEXT: Task 7**
-8. Task 7 (FIX-14): Complete steps 1-3 → output promise → **NEXT: Task 8**
-9. Task 8 (FIX-15): Complete step 1 → output promise → **NEXT: Task 9**
-10. Task 9 (FIX-16): Complete step 1 → output promise → **NEXT: Verify**
-11. Run: npm run build (fix any errors)
-12. Output: <promise>REMAINING_TASKS_V3_COMPLETE</promise>
+1. Read docs\plans\REMAINING_TASKS.md fully.
+
+2. Task 1 (NAV-8):
+   - Complete steps 1–4 from REMAINING_TASKS.md.
+   - Then output: <promise>NAV_8_GITHUB_HUB_COMPLETE</promise>
+   - Say: NEXT: Task 2 and begin Task 2.
+
+3. Task 2 (CLAUDE-1):
+   - Complete steps 1–3.
+   - Then output: <promise>CLAUDE_1_REMOVE_TASK_COLUMNS_COMPLETE</promise>
+   - Say: NEXT: Task 3.
+
+4. Task 3 (CLAUDE-2):
+   - Complete steps 1–4.
+   - Then output: <promise>CLAUDE_2_NEW_CLAUDE_CODE_BUTTON_COMPLETE</promise>
+   - Say: NEXT: Task 4.
+
+5. Task 4 (CHAT-1):
+   - Complete steps 1–3.
+   - Then output: <promise>CHAT_1_SEE_IN_KANBAN_COMPLETE</promise>
+   - Say: NEXT: Task 5.
+
+6. Task 5 (FIX-12):
+   - Complete steps 1–2.
+   - Then output: <promise>FIX_12_TEXT_CLIPPING_COMPLETE</promise>
+   - Say: NEXT: Task 6.
+
+7. Task 6 (FIX-13):
+   - Complete steps 1–2.
+   - Then output: <promise>FIX_13_STATUS_BADGE_COMPLETE</promise>
+   - Say: NEXT: Task 7.
+
+8. Task 7 (FIX-14):
+   - Complete steps 1–3.
+   - Then output: <promise>FIX_14_HIDE_START_BUILD_COMPLETE</promise>
+   - Say: NEXT: Task 8.
+
+9. Task 8 (FIX-15):
+   - Complete step 1.
+   - Then output: <promise>FIX_15_REMOVE_DOTS_MENU_COMPLETE</promise>
+   - Say: NEXT: Task 9.
+
+10. Task 9 (FIX-16):
+    - Complete step 1.
+    - Then output: <promise>FIX_16_TERMINAL_BUTTON_PROPAGATION_COMPLETE</promise>
+    - Say: NEXT: Verify.
+
+11. Verification:
+    - Run: npm run build
+    - Fix any errors introduced by your changes until the build is clean.
+
+12. Final completion:
+    - ONLY when:
+      - All 9 task promises above have been emitted, AND
+      - npm run build succeeds without new errors,
+      - THEN output: <promise>REMAINING_TASKS_V3_COMPLETE</promise>
 
 ---
 
-⚠️ **HARD STOP RULE:** You may NOT stop until <promise>REMAINING_TASKS_V3_COMPLETE</promise> is output.
+HARD STOP RULE
 
-If you find yourself writing 'excellent progress' or 'good work today' - STOP. That is the early-stop psychology. Instead, check how many tasks remain and continue working.
+- You may NOT stop, summarize, or treat this job as done until:
+  - All 9 task promises have been output, AND
+  - npm run build is passing, AND
+  - <promise>REMAINING_TASKS_V3_COMPLETE</promise> has been truthfully emitted.
+
+- If you find yourself writing 'excellent progress', 'good work today', or any wrap-up style language while tasks remain:
+  - STOP that thought.
+  - Check how many of the 9 tasks are still incomplete.
+  - Continue working and end the turn with a concrete NEXT: ... action.
 
 CURRENT STATUS: 0 of 9 tasks complete. BEGIN NOW.
 " --max-iterations 200 --completion-promise "REMAINING_TASKS_V3_COMPLETE"
 ```
+
+### Key Formatting Notes (for future prompts)
+
+1. **Use plain text headers** - `YOUR IDENTITY:` not `**YOUR IDENTITY:**`
+2. **Use en-dashes** - `9-TASK JOB –` works better than markdown bold
+3. **Numbered sub-steps** - Explicit step-by-step protocol prevents skipping
+4. **Clear promise output format** - `Then output: <promise>...</promise>`
+5. **NEXT: pattern** - Forces continuation between tasks
 
 ---
 

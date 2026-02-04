@@ -40,9 +40,8 @@ import { DiscoveryHub } from './components/DiscoveryHub';
 import { Context } from './components/Context';
 import { RepositoryHub } from './components/RepositoryHub';
 import { Insights } from './components/Insights';
-import { GitHubIssues } from './components/GitHubIssues';
+import { GitHubHub } from './components/GitHubHub';
 import { GitLabIssues } from './components/GitLabIssues';
-import { GitHubPRs } from './components/github-prs';
 import { GitLabMergeRequests } from './components/gitlab-merge-requests';
 import { Changelog } from './components/Changelog';
 import { Worktrees } from './components/Worktrees';
@@ -879,14 +878,18 @@ export function App() {
                 {activeView === 'insights' && (activeProjectId || selectedProjectId) && (
                   <Insights projectId={activeProjectId || selectedProjectId!} />
                 )}
-                {activeView === 'github-issues' && (activeProjectId || selectedProjectId) && (
-                  <GitHubIssues
-                    onOpenSettings={() => {
-                      setSettingsInitialProjectSection('github');
-                      setIsSettingsDialogOpen(true);
-                    }}
-                    onNavigateToTask={handleGoToTask}
-                  />
+                {/* GitHubHub is always mounted but hidden when not active to preserve PR review state */}
+                {(activeProjectId || selectedProjectId) && (
+                  <div className={activeView === 'github' ? 'h-full' : 'hidden'}>
+                    <GitHubHub
+                      onOpenSettings={() => {
+                        setSettingsInitialProjectSection('github');
+                        setIsSettingsDialogOpen(true);
+                      }}
+                      onNavigateToTask={handleGoToTask}
+                      isActive={activeView === 'github'}
+                    />
+                  </div>
                 )}
                 {activeView === 'gitlab-issues' && (activeProjectId || selectedProjectId) && (
                   <GitLabIssues
@@ -896,18 +899,6 @@ export function App() {
                     }}
                     onNavigateToTask={handleGoToTask}
                   />
-                )}
-                {/* GitHubPRs is always mounted but hidden when not active to preserve review state */}
-                {(activeProjectId || selectedProjectId) && (
-                  <div className={activeView === 'github-prs' ? 'h-full' : 'hidden'}>
-                    <GitHubPRs
-                      onOpenSettings={() => {
-                        setSettingsInitialProjectSection('github');
-                        setIsSettingsDialogOpen(true);
-                      }}
-                      isActive={activeView === 'github-prs'}
-                    />
-                  </div>
                 )}
                 {activeView === 'gitlab-merge-requests' && (activeProjectId || selectedProjectId) && (
                   <GitLabMergeRequests

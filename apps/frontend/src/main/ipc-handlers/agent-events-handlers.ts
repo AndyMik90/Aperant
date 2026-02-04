@@ -28,9 +28,15 @@ import { findTaskWorktree } from "../worktree-paths";
 import { findTaskAndProject } from "./task/shared";
 import { safeSendToRenderer } from "./utils";
 import { SDKOutputParser } from "../agent/parsers/sdk-output-parser";
+import { parseRalphPromise } from "../agent/parsers/ralph-promise-parser";
+import type { StepCompleteBlock, TaskCompleteBlock } from "../../shared/types/structured-output";
+import { recordTaskTimestamp } from "../utils/task-timestamps";
 
 // Track SDK output parsers per task for stateful parsing
 const taskParsers = new Map<string, SDKOutputParser>();
+
+// Track Ralph step progress per task
+const taskStepProgress = new Map<string, { completed: number; total: number }>();
 
 /**
  * Get or create an SDK output parser for a task
@@ -45,10 +51,11 @@ function getTaskParser(taskId: string): SDKOutputParser {
 }
 
 /**
- * Clean up parser for a task when it exits
+ * Clean up parser and Ralph progress tracking for a task when it exits
  */
 function cleanupTaskParser(taskId: string): void {
   taskParsers.delete(taskId);
+  taskStepProgress.delete(taskId);
 }
 
 /**
@@ -154,7 +161,7 @@ export function registerAgenteventsHandlers(
 
   agentManager.on("log", (taskId: string, log: string) => {
     // Include projectId for multi-project filtering (issue #723)
-    const { project } = findTaskAndProject(taskId);
+    const { project, task } = findTaskAndProject(taskId);
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_LOG, taskId, log, project?.id);
 
     // Also forward log to task monitor terminal if it exists
@@ -175,6 +182,60 @@ export function registerAgenteventsHandlers(
           terminalId,
           structuredBlock
         );
+      }
+
+      // RALPH LOOP: Parse for Ralph promise markers
+      // Detects <promise>STEP_N_COMPLETE</promise> and <promise>TASK_{ID}_COMPLETE</promise>
+      const promiseResult = parseRalphPromise(log);
+      if (promiseResult) {
+        if (promiseResult.type === 'step_complete' && promiseResult.block) {
+          const stepBlock = promiseResult.block as StepCompleteBlock;
+          console.log(`[Ralph] Step ${stepBlock.stepNumber} complete for task ${taskId}`);
+
+          // Update step progress tracking
+          const progress = taskStepProgress.get(taskId) || { completed: 0, total: 0 };
+          progress.completed = Math.max(progress.completed, stepBlock.stepNumber);
+          taskStepProgress.set(taskId, progress);
+
+          // Emit step complete event to renderer
+          safeSendToRenderer(
+            getMainWindow,
+            IPC_CHANNELS.TASK_STEP_COMPLETE,
+            taskId,
+            stepBlock,
+            project?.id
+          );
+
+          // Also emit structured block for terminal display
+          mainWindow.webContents.send(
+            IPC_CHANNELS.TERMINAL_STRUCTURED_OUTPUT,
+            terminalId,
+            stepBlock
+          );
+        } else if (promiseResult.type === 'task_complete' && promiseResult.block) {
+          const taskBlock = promiseResult.block as TaskCompleteBlock;
+          console.log(`[Ralph] Task ${taskBlock.specId} complete for task ${taskId}`);
+
+          // Emit task complete event to renderer
+          // This signals that autonomous execution is complete and should transition to AI review
+          safeSendToRenderer(
+            getMainWindow,
+            IPC_CHANNELS.TASK_RALPH_COMPLETE,
+            taskId,
+            taskBlock,
+            project?.id
+          );
+
+          // Also emit structured block for terminal display
+          mainWindow.webContents.send(
+            IPC_CHANNELS.TERMINAL_STRUCTURED_OUTPUT,
+            terminalId,
+            taskBlock
+          );
+
+          // Clean up step progress tracking
+          taskStepProgress.delete(taskId);
+        }
       }
     }
   });
@@ -357,6 +418,37 @@ export function registerAgenteventsHandlers(
     // Use shared helper to find task and project (issue #723 - deduplicate lookup)
     const { task, project } = findTaskAndProject(taskId);
     const taskProjectId = project?.id;
+
+    // METRICS-1A: Record timestamps on phase transitions
+    if (task && project) {
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
+      const specDir = task.specsPath || path.join(project.path, specsBaseDir, task.specId);
+      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+      // Record timestamps based on phase transitions
+      const prevPhase = task.executionProgress?.phase;
+      const currentPhase = progress.phase;
+
+      // Detect phase completions and starts
+      if (prevPhase !== currentPhase) {
+        // Coding phase completed
+        if (prevPhase === 'coding' && (currentPhase === 'qa_review' || currentPhase === 'complete')) {
+          recordTaskTimestamp(planPath, 'coding_completed');
+        }
+        // AI Review started
+        if (currentPhase === 'qa_review') {
+          recordTaskTimestamp(planPath, 'ai_review_started');
+        }
+        // AI Review completed (moving to complete or failed)
+        if (prevPhase === 'qa_review' && (currentPhase === 'complete' || currentPhase === 'failed')) {
+          recordTaskTimestamp(planPath, 'ai_review_completed');
+        }
+        // QA Fixing phase (still in ai_review status)
+        if (prevPhase === 'qa_fixing' && (currentPhase === 'complete' || currentPhase === 'failed')) {
+          recordTaskTimestamp(planPath, 'ai_review_completed');
+        }
+      }
+    }
 
     // Include projectId in execution progress event for multi-project filtering
     safeSendToRenderer(

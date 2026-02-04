@@ -36,9 +36,11 @@ import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
 import { persistTaskStatus, forceCompleteTask, useTaskStore } from '../stores/task-store';
+import { useKanbanStore } from '../stores/kanban-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import { BulkPRDialog } from './BulkPRDialog';
+import { BottomPanelTerminal } from './terminal/BottomPanelTerminal';
 import type { Task, TaskStatus, TaskOrderState } from '../../shared/types';
 
 // Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
@@ -84,6 +86,8 @@ interface DroppableColumnProps {
   // Collapse props
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  // FIX-29b: Bottom panel terminal callback
+  onOpenBottomPanel?: (taskId: string, taskTitle: string) => void;
 }
 
 /**
@@ -128,6 +132,7 @@ function droppableColumnPropsAreEqual(
   if (prevProps.onToggleSelect !== nextProps.onToggleSelect) return false;
   if (prevProps.isCollapsed !== nextProps.isCollapsed) return false;
   if (prevProps.onToggleCollapse !== nextProps.onToggleCollapse) return false;
+  if (prevProps.onOpenBottomPanel !== nextProps.onOpenBottomPanel) return false;
 
   // Compare selectedTaskIds Set
   if (prevProps.selectedTaskIds !== nextProps.selectedTaskIds) {
@@ -187,7 +192,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect, isCollapsed, onToggleCollapse }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect, isCollapsed, onToggleCollapse, onOpenBottomPanel }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -260,9 +265,10 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
         isSelectable={isSelectable}
         isSelected={isSelectable ? selectedTaskIds?.has(task.id) : undefined}
         onToggleSelect={onToggleSelectHandlers?.get(task.id)}
+        onOpenBottomPanel={onOpenBottomPanel}
       />
     ));
-  }, [tasks, onClickHandlers, onStatusChangeHandlers, onToggleSelectHandlers, selectedTaskIds]);
+  }, [tasks, onClickHandlers, onStatusChangeHandlers, onToggleSelectHandlers, selectedTaskIds, onOpenBottomPanel]);
 
   const getColumnBorderColor = (): string => {
     switch (status) {
@@ -362,17 +368,8 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
           </span>
         </div>
         <div className="flex items-center gap-1">
-          {status === 'planning' && onAddClick && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
-              onClick={onAddClick}
-              aria-label={t('kanban.addTaskAriaLabel')}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          )}
+          {/* FIX-28: Removed duplicate '+' button from Planning column header
+              The '+' button is already available in the sidebar */}
           {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
@@ -461,8 +458,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Group ref for layout management
   const groupRef = useRef<GroupImperativeHandle>(null);
 
-  // Collapsed columns state
-  const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
+  // FIX-23: Collapsed columns state from persisted store
+  const persistedCollapsedColumns = useKanbanStore((state) => state.collapsedColumns);
+  const toggleColumnCollapseStore = useKanbanStore((state) => state.toggleColumnCollapse);
+
+  // Convert persisted array to Set for efficient lookups
+  const collapsedColumns = useMemo(() => new Set(persistedCollapsedColumns), [persistedCollapsedColumns]);
 
   // Redistribute space among non-collapsed panels
   const redistributeLayout = useCallback((newCollapsedSet: Set<string>) => {
@@ -494,25 +495,42 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     groupRef.current.setLayout(newLayout);
   }, []);
 
-  // Toggle column collapse state
+  // FIX-23: Toggle column collapse state with persistence
   const toggleColumnCollapse = useCallback((columnId: string) => {
     const panelRef = panelRefs.current[columnId];
     if (panelRef) {
       const isCurrentlyCollapsed = collapsedColumns.has(columnId);
       if (isCurrentlyCollapsed) {
         panelRef.expand();
-        const next = new Set(collapsedColumns);
-        next.delete(columnId);
-        setCollapsedColumns(next);
-        setTimeout(() => redistributeLayout(next), 50);
       } else {
         panelRef.collapse();
-        const next = new Set([...collapsedColumns, columnId]);
-        setCollapsedColumns(next);
-        setTimeout(() => redistributeLayout(next), 50);
       }
+      // Update persisted store
+      toggleColumnCollapseStore(columnId);
+      // Compute new set for layout redistribution
+      const next = isCurrentlyCollapsed
+        ? new Set([...collapsedColumns].filter(id => id !== columnId))
+        : new Set([...collapsedColumns, columnId]);
+      setTimeout(() => redistributeLayout(next), 50);
     }
-  }, [collapsedColumns, redistributeLayout]);
+  }, [collapsedColumns, redistributeLayout, toggleColumnCollapseStore]);
+
+  // FIX-23: Restore collapsed state on mount
+  useEffect(() => {
+    if (persistedCollapsedColumns.length > 0) {
+      // Apply persisted collapsed state to panels
+      persistedCollapsedColumns.forEach((columnId) => {
+        const panelRef = panelRefs.current[columnId];
+        if (panelRef) {
+          panelRef.collapse();
+        }
+      });
+      // Redistribute layout after a short delay
+      setTimeout(() => redistributeLayout(collapsedColumns), 100);
+    }
+  // Only run on initial mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Selection state for bulk actions (Human Review column)
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
@@ -536,6 +554,40 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     isProcessing: false,
     error: undefined
   });
+
+  // FIX-29c: Bottom panel terminal state
+  const [bottomPanelState, setBottomPanelState] = useState<{
+    isOpen: boolean;
+    taskId: string | null;
+    taskTitle: string;
+  }>({
+    isOpen: false,
+    taskId: null,
+    taskTitle: ''
+  });
+
+  // FIX-29b: Callback to open bottom panel terminal
+  const handleOpenBottomPanel = useCallback((taskId: string, taskTitle: string) => {
+    setBottomPanelState({
+      isOpen: true,
+      taskId,
+      taskTitle
+    });
+  }, []);
+
+  const handleCloseBottomPanel = useCallback(() => {
+    setBottomPanelState(prev => ({
+      ...prev,
+      isOpen: false
+    }));
+  }, []);
+
+  const handleMinimizeBottomPanel = useCallback(() => {
+    setBottomPanelState(prev => ({
+      ...prev,
+      isOpen: false
+    }));
+  }, []);
 
   // Filter tasks based on archive status
   const filteredTasks = useMemo(() => {
@@ -975,6 +1027,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                     onToggleSelect={status === 'human_review' ? toggleTaskSelection : undefined}
                     isCollapsed={collapsedColumns.has(status)}
                     onToggleCollapse={() => toggleColumnCollapse(status)}
+                    onOpenBottomPanel={handleOpenBottomPanel}
                   />
                 </div>
               </Panel>
@@ -1047,6 +1100,15 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         tasks={selectedTasks}
         onOpenChange={setBulkPRDialogOpen}
         onComplete={handleBulkPRComplete}
+      />
+
+      {/* FIX-29c: Bottom panel terminal */}
+      <BottomPanelTerminal
+        taskId={bottomPanelState.taskId}
+        taskTitle={bottomPanelState.taskTitle}
+        isOpen={bottomPanelState.isOpen}
+        onClose={handleCloseBottomPanel}
+        onMinimize={handleMinimizeBottomPanel}
       />
     </div>
   );

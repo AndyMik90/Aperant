@@ -1,8 +1,8 @@
 # Phase 7: Terminal UX Redesign
 
-**Version:** 1.0
+**Version:** 1.2
 **Date:** 2026-02-04
-**Status:** Design Complete - Ready for Implementation
+**Status:** 4 of 4 Tasks Complete - FULLY IMPLEMENTED
 **Priority:** P1 - High (UX improvement)
 
 ---
@@ -88,10 +88,17 @@ The migration is:
 
 ## Tasks
 
-### TERM-1: Inline Terminal Expansion
+### TERM-1: Inline Terminal Expansion ✅ COMPLETE
 
 **Priority:** P1
 **Complexity:** High
+**Status:** ✅ DONE - Implemented in TaskCard.tsx (FIX-21)
+
+**Implementation:**
+- `isTerminalExpanded` state at TaskCard.tsx:223
+- Terminal toggle button at TaskCard.tsx:431
+- Inline TaskMonitorChat rendered at TaskCard.tsx:969-991
+- No floating modal - terminal expands within card
 
 #### What
 Replace floating TaskTerminalModal with inline terminal expansion in task card. When user clicks terminal button, the card expands vertically to show an embedded terminal below the task info.
@@ -156,10 +163,19 @@ Replace floating TaskTerminalModal with inline terminal expansion in task card. 
 
 ---
 
-### TERM-2: Fix Tool Use Display
+### TERM-2: Fix Tool Use Display ✅ COMPLETE
 
 **Priority:** P0
 **Complexity:** Medium
+**Status:** ✅ DONE - Implemented in ToolUseCard.tsx
+
+**Implementation:**
+- `formatInput()` at ToolUseCard.tsx:57-93 extracts and displays:
+  - `file_path` for Read/Write/Edit tools
+  - `command` for Bash tool
+  - `pattern` for Grep/Glob
+  - `url` for WebFetch/WebSearch
+- No more "(no path)" or "(no command)" - actual values displayed
 
 #### What
 The terminal output shows "(no path)" and "(no command)" for tool use entries. This is the remaining part of FIX-5 that wasn't fully resolved.
@@ -207,10 +223,17 @@ The terminal output shows "(no path)" and "(no command)" for tool use entries. T
 
 ---
 
-### TERM-3: Terminal Output Parsing
+### TERM-3: Terminal Output Parsing ✅ COMPLETE
 
 **Priority:** P1
 **Complexity:** Medium
+**Status:** ✅ DONE - StructuredOutput.tsx created, toggle added
+
+**Implementation:**
+- `claude-output-parser.ts` (580 lines) parses thinking, code, tool use, diffs
+- `StructuredOutput.tsx` created with timeline view
+- Raw/structured toggle added to TaskMonitorChat.tsx
+- Timeline displays tool names, file paths, and status indicators
 
 #### What
 Improve parsing of Claude Code output to display structured information about what's happening.
@@ -253,10 +276,21 @@ Raw terminal output with ANSI codes and JSON mixed in
 
 ---
 
-### TERM-4: Task Terminal Integration
+### TERM-4: Task Terminal Integration ✅ COMPLETE
 
 **Priority:** P2
 **Complexity:** Low
+**Status:** ✅ DONE - Status indicator added to TaskCard.tsx
+
+**Implementation:**
+- Terminal integrated into TaskCard inline expansion
+- Terminal output streams in real-time via TaskMonitorChat
+- Auto-scroll to bottom implemented
+- Status indicator added:
+  - Green (pulsing) = actively running
+  - Red = stuck/error state
+  - Yellow = needs attention (human_review, ai_review)
+  - Gray = idle
 
 #### What
 Clean up the integration between task cards and their terminals. Ensure terminal state persists correctly and updates in real-time.
@@ -284,14 +318,14 @@ Clean up the integration between task cards and their terminals. Ensure terminal
 
 ## Implementation Order
 
-| Order | Task | Dependency | Estimate |
-|-------|------|------------|----------|
-| 1 | TERM-2 | None | Medium |
-| 2 | TERM-1 | TERM-2 (for content) | High |
-| 3 | TERM-3 | TERM-1 | Medium |
-| 4 | TERM-4 | TERM-1, TERM-3 | Low |
+| Order | Task | Dependency | Status |
+|-------|------|------------|--------|
+| 1 | TERM-2: Fix Tool Use Display | None | ✅ DONE |
+| 2 | TERM-1: Inline Terminal Expansion | TERM-2 | ✅ DONE |
+| 3 | TERM-3: Terminal Output Parsing | TERM-1 | ✅ DONE |
+| 4 | TERM-4: Task Terminal Integration | TERM-1, TERM-3 | ✅ DONE |
 
-**Recommended approach:** Start with TERM-2 (fix the data) before TERM-1 (change the UX).
+**Current Status:** 4 of 4 tasks complete. Phase 7 Terminal Redesign FULLY IMPLEMENTED.
 
 ---
 
@@ -310,29 +344,81 @@ Clean up the integration between task cards and their terminals. Ensure terminal
 
 ## Ralph Prompt (Phase 7)
 
+> **NOTE:** Uses the same formatting pattern as the tested v3.2 prompt. See [REMAINING_TASKS.md](REMAINING_TASKS.md#key-formatting-notes-for-future-prompts) for formatting tips.
+
 ```bash
 /ralph-loop:ralph-loop "
 You are completing Phase 7: Terminal UX Redesign for Auto-Claude.
 
-Repository: C:\Users\AlienZ\Desktop\Auto-Claude
+YOUR IDENTITY:
+- You are an EXECUTOR, not an EVALUATOR.
+- You do not get to decide if tasks are worth doing.
+- If a task is in this list, you execute it. Period.
+
+Repository:
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
 
 Primary documentation:
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\plans\TERMINAL_REDESIGN.md (THIS FILE)
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\plans\REMAINING_TASKS.md
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\PROGRESS.md
+- docs\plans\TERMINAL_REDESIGN.md (THIS FILE - read fully)
+- docs\plans\REMAINING_TASKS.md
+- docs\PROGRESS.md
 
-## TASKS (4 required)
+---
 
-| # | Task | Promise |
-|---|------|---------|
-| 1 | TERM-2: Fix Tool Use Display | TERM_2_TOOL_USE_DISPLAY_COMPLETE |
-| 2 | TERM-1: Inline Terminal Expansion | TERM_1_INLINE_TERMINAL_COMPLETE |
-| 3 | TERM-3: Terminal Output Parsing | TERM_3_OUTPUT_PARSING_COMPLETE |
+TASKS (4 required – ALL MUST COMPLETE)
+
+| # | Task                              | Promise                              |
+|---|-----------------------------------|--------------------------------------|
+| 1 | TERM-2: Fix Tool Use Display      | TERM_2_TOOL_USE_DISPLAY_COMPLETE     |
+| 2 | TERM-1: Inline Terminal Expansion | TERM_1_INLINE_TERMINAL_COMPLETE      |
+| 3 | TERM-3: Terminal Output Parsing   | TERM_3_OUTPUT_PARSING_COMPLETE       |
 | 4 | TERM-4: Task Terminal Integration | TERM_4_TERMINAL_INTEGRATION_COMPLETE |
 
-**FINAL:** <promise>PHASE_7_TERMINAL_REDESIGN_COMPLETE</promise>
+FINAL COMPLETION PROMISE:
+- <promise>PHASE_7_TERMINAL_REDESIGN_COMPLETE</promise>
 
-Execute each task completely. Output promise after each. Continue until final promise.
+---
+
+EXECUTION PROTOCOL
+
+1. Read docs\plans\TERMINAL_REDESIGN.md fully.
+
+2. Task 1 (TERM-2):
+   - Complete all steps from TERMINAL_REDESIGN.md.
+   - Then output: <promise>TERM_2_TOOL_USE_DISPLAY_COMPLETE</promise>
+   - Say: NEXT: Task 2 and begin Task 2.
+
+3. Task 2 (TERM-1):
+   - Complete all steps.
+   - Then output: <promise>TERM_1_INLINE_TERMINAL_COMPLETE</promise>
+   - Say: NEXT: Task 3.
+
+4. Task 3 (TERM-3):
+   - Complete all steps.
+   - Then output: <promise>TERM_3_OUTPUT_PARSING_COMPLETE</promise>
+   - Say: NEXT: Task 4.
+
+5. Task 4 (TERM-4):
+   - Complete all steps.
+   - Then output: <promise>TERM_4_TERMINAL_INTEGRATION_COMPLETE</promise>
+   - Say: NEXT: Verify.
+
+6. Verification:
+   - Run: npm run build
+   - Fix any errors until the build is clean.
+
+7. Final completion:
+   - ONLY when all 4 task promises have been emitted AND npm run build succeeds,
+   - THEN output: <promise>PHASE_7_TERMINAL_REDESIGN_COMPLETE</promise>
+
+---
+
+HARD STOP RULE
+
+- You may NOT stop until <promise>PHASE_7_TERMINAL_REDESIGN_COMPLETE</promise> is output.
+- If you find yourself writing wrap-up language while tasks remain, STOP and continue working.
+
+CURRENT STATUS: 0 of 4 tasks complete. BEGIN NOW.
 " --max-iterations 150 --completion-promise "PHASE_7_TERMINAL_REDESIGN_COMPLETE"
 ```
 
@@ -340,21 +426,21 @@ Execute each task completely. Output promise after each. Continue until final pr
 
 ## Success Criteria
 
-- [ ] Terminal button on task card toggles inline expansion (not floating modal)
-- [ ] Tool use displays show actual file paths and commands (no "(no path)")
-- [ ] Terminal output is parsed and displayed in structured format
-- [ ] Terminal state persists across expand/collapse
-- [ ] Real-time output streaming works
-- [ ] Build passes: `npm run build`
+- [x] Terminal button on task card toggles inline expansion (not floating modal) ✅
+- [x] Tool use displays show actual file paths and commands (no "(no path)") ✅
+- [x] Terminal output is parsed and displayed in structured format ✅
+- [x] Terminal state persists across expand/collapse ✅
+- [x] Real-time output streaming works ✅
+- [x] Build passes: `npm run build` ✅
 
 ---
 
 ## Relationship to Other Tasks
 
-**Completes:** FIX-5 (Terminal readability) - marked as "Partial" in TODO.md
+**Completes:** FIX-5 (Terminal readability) - now marked COMPLETE in TODO.md
 **Replaces:** SUG-1b (Claude Code Sessions) - inline approach better than separate page
 **After:** Phase 6 quick fixes (v3.2 remaining tasks)
 
 ---
 
-**Phase 7: Terminal UX Redesign - 4 tasks total**
+**Phase 7: Terminal UX Redesign - COMPLETE (4 of 4 tasks)**

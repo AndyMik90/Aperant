@@ -31,7 +31,12 @@ That's it. No deep analysis needed.
 
 ## PHASE 2: CREATE MINIMAL SPEC (RALPH-COMPATIBLE)
 
-Create a concise `spec.md` in Ralph-Wiggum compatible format:
+Create a concise `spec.md` in Ralph-Wiggum compatible format. Even simple specs MUST include:
+1. Execution rules (DO NOT STOP)
+2. Step counting ("Step N of {Total}")
+3. Per-step promises
+4. NEXT triggers
+5. Final completion promise
 
 ```bash
 cat > spec.md << 'EOF'
@@ -44,12 +49,39 @@ cat > spec.md << 'EOF'
 - [ ] [Primary verification - how to know the change works]
 - [ ] No console errors
 
+---
+
+## ⚠️ EXECUTION RULES
+
+**You are NOT ALLOWED to stop until ALL steps are complete.**
+
+1. Complete each step in order
+2. Output the step promise after each step
+3. **DO NOT** summarize or ask for confirmation
+4. Continue immediately to next step after each promise
+
+---
+
 ## Implementation Steps
 
-### Step 1: [Make the Change]
+**Total Steps: [N]**
+
+### Step 1 of [N]: [Make the Change]
 **Files:** `[path/to/file]`
 **What:** [Specific change to make]
 **Exit:** [How to verify step is complete]
+
+**After completing:**
+1. Output: `<promise>STEP_1_COMPLETE</promise>`
+2. Say: **NEXT: Final Verification**
+3. ⚠️ DO NOT stop. Continue immediately.
+
+---
+
+## Final Verification
+
+- [ ] Change verified
+- [ ] No console errors
 
 ## Files to Modify
 - `[path/to/file]` - [what to change]
@@ -58,11 +90,14 @@ cat > spec.md << 'EOF'
 [Any gotchas or considerations - optional]
 
 ## Completion Promise
-<promise>TASK_COMPLETE</promise>
+
+**ONLY output after ALL steps complete:**
+
+<promise>TASK_{SPEC_ID}_COMPLETE</promise>
 EOF
 ```
 
-**Keep it short!** A simple spec should be 20-50 lines, not 200+.
+**Keep it short!** A simple spec should be 30-60 lines, but MUST include all Ralph-compatible elements.
 
 ---
 
@@ -163,18 +198,47 @@ Update the primary button color from blue to green across the application.
 - [ ] All primary buttons display green (#22C55E) instead of blue
 - [ ] No console errors
 
+---
+
+## ⚠️ EXECUTION RULES
+
+**You are NOT ALLOWED to stop until ALL steps are complete.**
+
+1. Complete each step in order
+2. Output the step promise after each step
+3. **DO NOT** summarize or ask for confirmation
+4. Continue immediately to next step after each promise
+
+---
+
 ## Implementation Steps
 
-### Step 1: Update Button Color
+**Total Steps: 1**
+
+### Step 1 of 1: Update Button Color
 **Files:** `src/components/Button.tsx`
 **What:** Change the `primaryColor` variable from `#3B82F6` to `#22C55E`
 **Exit:** Variable value is updated to green hex code
+
+**After completing:**
+1. Output: `<promise>STEP_1_COMPLETE</promise>`
+2. Say: **NEXT: Final Verification**
+3. ⚠️ DO NOT stop. Continue immediately.
+
+---
+
+## Final Verification
+- [ ] Button color is green (#22C55E)
+- [ ] No console errors
 
 ## Files to Modify
 - `src/components/Button.tsx` - Update color constant
 
 ## Completion Promise
-<promise>TASK_COMPLETE</promise>
+
+**ONLY output after ALL steps complete:**
+
+<promise>TASK_042_COMPLETE</promise>
 ```
 
 ### Example 2: Text Update
@@ -192,18 +256,46 @@ Correct spelling error in the welcome message on the home page.
 - [ ] Welcome message displays "receive" correctly
 - [ ] No console errors
 
+---
+
+## ⚠️ EXECUTION RULES
+
+**You are NOT ALLOWED to stop until ALL steps are complete.**
+
+1. Complete each step in order
+2. Output the step promise after each step
+3. **DO NOT** summarize or ask for confirmation
+
+---
+
 ## Implementation Steps
 
-### Step 1: Fix Typo
+**Total Steps: 1**
+
+### Step 1 of 1: Fix Typo
 **Files:** `src/pages/Home.tsx`
 **What:** Change "You will recieve" to "You will receive" on line 42
 **Exit:** Text is corrected
+
+**After completing:**
+1. Output: `<promise>STEP_1_COMPLETE</promise>`
+2. Say: **NEXT: Final Verification**
+3. ⚠️ DO NOT stop. Continue immediately.
+
+---
+
+## Final Verification
+- [ ] Typo is fixed
+- [ ] No console errors
 
 ## Files to Modify
 - `src/pages/Home.tsx` - Fix typo on line 42
 
 ## Completion Promise
-<promise>TASK_COMPLETE</promise>
+
+**ONLY output after ALL steps complete:**
+
+<promise>TASK_043_COMPLETE</promise>
 ```
 
 ---

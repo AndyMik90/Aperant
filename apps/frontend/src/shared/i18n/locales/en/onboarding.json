@@ -23,10 +23,24 @@
         "description": "Persistent memory across sessions with Graphiti"
       },
       "parallel": {
-        "title": "Parallel Execution",
-        "description": "Run multiple agents in parallel for faster development cycles"
+        "title": "Autonomous Execution",
+        "description": "Ralph Wiggum Mode enables aggressive iteration - Jerry works autonomously until tasks are complete"
       }
     }
+  },
+  "authChoice": {
+    "title": "Choose Your Authentication Method",
+    "description": "Select how you want to authenticate with Claude. You can change this later in Settings.",
+    "oauth": {
+      "title": "Sign in with Anthropic",
+      "description": "Use your Anthropic account to authenticate. Simple and secure OAuth flow."
+    },
+    "apiKey": {
+      "title": "Use Custom API Key",
+      "description": "Bring your own API key from Anthropic or a compatible API provider. ⚠️ Highly experimental — may incur significant costs."
+    },
+    "infoText": "Both options provide full access to Claude Code features. Choose based on your preference.",
+    "skip": "Skip for now"
   },
   "oauth": {
     "title": "Claude Authentication",
@@ -133,7 +147,8 @@
     },
     "exploreDocs": {
       "title": "Explore Documentation",
-      "description": "Learn more about advanced features, best practices, and troubleshooting."
+      "description": "Learn more about advanced features, best practices, and troubleshooting.",
+      "action": "View Documentation"
     },
     "finish": "Finish & Start Building",
     "rerunHint": "You can always re-run this wizard from Settings → Application"

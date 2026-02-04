@@ -45,8 +45,10 @@ npm run package && git tag v2.7.6
 
 #### Hour 1: Environment Setup
 ```bash
-# Navigate to project
-cd C:\Users\AlienZ\Desktop\Auto-Claude
+# Navigate to project (use your machine's path)
+# Machine 1: cd C:\Users\AlienZ\Desktop\Auto-Claude
+# Machine 2: cd C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+cd C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
 
 # Ensure latest code
 git checkout main && git pull

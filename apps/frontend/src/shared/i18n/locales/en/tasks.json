@@ -26,6 +26,7 @@
   },
   "labels": {
     "running": "Running",
+    "planning": "Planning",
     "aiReview": "AI Review",
     "needsReview": "Needs Review",
     "pending": "Pending",
@@ -48,7 +49,8 @@
     "viewTerminal": "View task terminal",
     "stopPlanningAgent": "Stop the planning agent",
     "resumePlanningAgent": "Resume the planning agent",
-    "startBuild": "Start building - transition to coding phase"
+    "startBuild": "Start building - transition to coding phase",
+    "popOutTerminal": "Open in bottom panel"
   },
   "creation": {
     "title": "Create New Task",
@@ -229,8 +231,6 @@
     "titlePlaceholder": "Leave empty to auto-generate from description",
     "titleHelpText": "A short, descriptive title will be generated automatically if left empty.",
     "classificationOptional": "Classification (optional)",
-    "requireReviewLabel": "Require human review before coding",
-    "requireReviewDescription": "When enabled, you'll be prompted to review the spec and implementation plan before the coding phase begins. This allows you to approve, request changes, or provide feedback.",
     "ralphWiggumModeLabel": "Ralph Wiggum Mode (\"I'm helping!\")",
     "ralphWiggumModeDescription": "Aggressive iteration mode. The agent will try harder before giving up: more retry attempts, higher thresholds for recurring issues, and automatic strategy pivots when stuck. Best for complex tasks that may need multiple approaches.",
     "ralphWiggumModeFixedLabel": "Ralph Wiggum Autonomous Mode",

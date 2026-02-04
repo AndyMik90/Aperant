@@ -7,7 +7,7 @@
  * - Agent profile selector
  * - Classification fields (collapsible)
  * - Image thumbnails
- * - Review requirement checkbox
+ * - Ralph Wiggum Mode indicator (always enabled)
  */
 import { useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +15,6 @@ import { ChevronDown, ChevronUp, Image as ImageIcon, X } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
-import { Checkbox } from '../ui/checkbox';
 import { AgentProfileSelector } from '../AgentProfileSelector';
 import { ClassificationFields } from './ClassificationFields';
 import { useImageUpload, type FileReferenceData } from './useImageUpload';
@@ -73,10 +72,6 @@ interface TaskFormFieldsProps {
   images: ImageAttachment[];
   onImagesChange: (images: ImageAttachment[]) => void;
 
-  // Review requirement
-  requireReviewBeforeCoding: boolean;
-  onRequireReviewChange: (require: boolean) => void;
-
   // Ralph Wiggum Mode (aggressive iteration)
   ralphWiggumMode?: boolean;
   onRalphWiggumModeChange?: (enable: boolean) => void;
@@ -126,8 +121,6 @@ export function TaskFormFields({
   onShowClassificationChange,
   images,
   onImagesChange,
-  requireReviewBeforeCoding,
-  onRequireReviewChange,
   ralphWiggumMode = false,
   onRalphWiggumModeChange,
   disabled = false,
@@ -323,28 +316,6 @@ export function TaskFormFields({
           />
         </div>
       )}
-
-      {/* Review Requirement Toggle */}
-      <div className="flex items-start gap-3 p-4 rounded-lg border border-border bg-muted/30">
-        <Checkbox
-          id={`${prefix}require-review`}
-          checked={requireReviewBeforeCoding}
-          onCheckedChange={(checked) => onRequireReviewChange(checked === true)}
-          disabled={disabled}
-          className="mt-0.5"
-        />
-        <div className="flex-1 space-y-1">
-          <Label
-            htmlFor={`${prefix}require-review`}
-            className="text-sm font-medium text-foreground cursor-pointer"
-          >
-            {t('tasks:form.requireReviewLabel')}
-          </Label>
-          <p className="text-xs text-muted-foreground">
-            {t('tasks:form.requireReviewDescription')}
-          </p>
-        </div>
-      </div>
 
       {/* Ralph Wiggum Mode - Always enabled (SUG-22) */}
       <div className="flex items-start gap-3 p-4 rounded-lg border border-primary/30 bg-primary/5">

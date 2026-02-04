@@ -604,5 +604,13 @@
     "emptyHint": "Enregistrez les retours comme apprentissages lors de la révision des tâches pour développer les connaissances du projet.",
     "deleteTitle": "Supprimer l'apprentissage ?",
     "deleteDescription": "Cet apprentissage sera supprimé du projet. Cette action ne peut pas être annulée."
+  },
+  "projectRemoval": {
+    "title": "Supprimer le projet",
+    "description": "Comment souhaitez-vous supprimer \"{{name}}\" de Jerry ?",
+    "keepOption": "Supprimer de Jerry uniquement",
+    "keepDescription": "Supprimer de la barre latérale mais conserver le dossier .auto-claude avec tout l'historique et les données.",
+    "deleteOption": "Supprimer toutes les données Jerry",
+    "deleteDescription": "Supprimer de la barre latérale ET supprimer le dossier .auto-claude avec tout l'historique, les specs et les builds."
   }
 }

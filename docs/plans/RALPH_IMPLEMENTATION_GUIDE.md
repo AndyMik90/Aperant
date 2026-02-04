@@ -100,11 +100,13 @@
    - [FEATURE_PROPOSALS.md](FEATURE_PROPOSALS.md) - Architectural changes
    - [SUGGESTIONS.md](SUGGESTIONS.md) - Feature details
 
-**Project Root:** `C:\Users\AlienZ\Desktop\Auto-Claude\`
+**Project Root (use the path for your machine):**
+- Machine 1 (AlienZ): `C:\Users\AlienZ\Desktop\Auto-Claude\`
+- Machine 2 (jamie.ballard): `C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude\`
 
 **Key Source Directories:**
-- `src/main/` - Electron main process (IPC handlers, agent manager)
-- `src/renderer/` - React frontend (components, stores)
+- `apps/frontend/src/main/` - Electron main process (IPC handlers, agent manager)
+- `apps/frontend/src/renderer/` - React frontend (components, stores)
 - `apps/backend/` - Python agent code
 - `docs/` - Documentation (update PROGRESS.md here)
 
@@ -653,11 +655,12 @@ This was the first attempt. It stopped after 11/49 tasks with "excellent progres
 You are an autonomous senior engineer working on a local repo, executing the Ralph-Wiggum Implementation Guide.
 
 Repository:
-- Project root: C:\Users\AlienZ\Desktop\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+  (Alt: C:\Users\AlienZ\Desktop\Auto-Claude)
 
 Primary documentation for THIS RUN:
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\plans\RALPH_IMPLEMENTATION_GUIDE.md
-- Progress log: C:\Users\AlienZ\Desktop\Auto-Claude\docs\PROGRESS.md
+- docs\plans\RALPH_IMPLEMENTATION_GUIDE.md
+- Progress log: docs\PROGRESS.md
 
 Global objective:
 - Follow RALPH_IMPLEMENTATION_GUIDE.md end-to-end.
@@ -691,15 +694,16 @@ This is the complete, tested prompt for invoking Ralph on the Jerry implementati
 You are an autonomous senior engineer working on a local repo, executing the Ralph-Wiggum Implementation Guide (v2.3).
 
 Repository:
-- Project root: C:\Users\AlienZ\Desktop\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+  (Alt: C:\Users\AlienZ\Desktop\Auto-Claude)
 
 Primary documentation for THIS RUN:
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\plans\RALPH_IMPLEMENTATION_GUIDE.md   (v2.3)
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\KNOWN_ISSUES.md        (if present)
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\UI_DESIGN.md           (if present)
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\FEATURE_PROPOSALS.md   (if present)
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\SUGGESTIONS.md         (if present)
-- Progress log: C:\Users\AlienZ\Desktop\Auto-Claude\docs\PROGRESS.md
+- docs\plans\RALPH_IMPLEMENTATION_GUIDE.md   (v2.3)
+- docs\plans\KNOWN_ISSUES.md        (if present)
+- docs\plans\UI_DESIGN.md           (if present)
+- docs\plans\FEATURE_PROPOSALS.md   (if present)
+- docs\plans\SUGGESTIONS.md         (if present)
+- Progress log: docs\PROGRESS.md
 
 Global objective:
 - Follow RALPH_IMPLEMENTATION_GUIDE.md (v2.3) end-to-end.
@@ -862,13 +866,14 @@ You are an autonomous senior engineer completing the remaining 7 tasks for Auto-
 **YOUR IDENTITY:** You are an EXECUTOR, not an EVALUATOR. You do not get to decide if tasks are worth doing. If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\AlienZ\Desktop\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+  (Alt: C:\Users\AlienZ\Desktop\Auto-Claude)
 
 Primary documentation:
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\plans\REMAINING_TASKS.md (THIS FILE - read fully)
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\plans\RALPH_IMPLEMENTATION_GUIDE.md (v2.5)
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\plans\UI_DESIGN.md (Tron Grid theme spec)
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\PROGRESS.md
+- docs\plans\REMAINING_TASKS.md (THIS FILE - read fully)
+- docs\plans\RALPH_IMPLEMENTATION_GUIDE.md (v2.5)
+- docs\plans\UI_DESIGN.md (Tron Grid theme spec)
+- docs\PROGRESS.md
 
 ---
 
@@ -954,11 +959,21 @@ CURRENT STATUS: 0 of 7 tasks complete. BEGIN NOW.
 
 ---
 
-### Prompt v3.2 (Quick Fixes - 9 Tasks)
+### Prompt v3.2 (Quick Fixes - 9 Tasks) - TESTED & WORKING
 
 After v2.5 audit, 9 UI quick fix tasks were identified. Phase 7 (Terminal Redesign) is separated into its own document.
 
 **Target:** 9 quick fix tasks (NAV-8, CLAUDE-1, CLAUDE-2, CHAT-1, FIX-12 through FIX-16)
+**Last Tested:** 2026-02-04 (jamie.ballard machine) ✅ Working
+
+> **NOTE:** The fully tested and working prompt is in [REMAINING_TASKS.md](REMAINING_TASKS.md#ralph-invocation-prompt-v32---tested--working). Use that version for best results.
+
+**Key Formatting Learnings (v3.2):**
+1. Use plain text headers (`YOUR IDENTITY:`) not markdown bold (`**YOUR IDENTITY:**`)
+2. Use explicit numbered sub-steps for each task in EXECUTION PROTOCOL
+3. Include `Then output: <promise>...</promise>` format for clarity
+4. Add `Say: NEXT: Task X and begin Task X` pattern to force continuation
+5. Separate HARD STOP RULE into its own section with bullet points
 
 ```bash
 /ralph-loop:ralph-loop "
@@ -967,13 +982,14 @@ You are an autonomous senior engineer completing the remaining tasks for Auto-Cl
 **YOUR IDENTITY:** You are an EXECUTOR, not an EVALUATOR. You do not get to decide if tasks are worth doing. If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\AlienZ\Desktop\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+  (Alt: C:\Users\AlienZ\Desktop\Auto-Claude)
 
 Primary documentation:
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\plans\REMAINING_TASKS.md (THIS FILE - read fully)
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\plans\RALPH_IMPLEMENTATION_GUIDE.md
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\plans\UI_DESIGN.md (Tron Grid theme spec)
-- C:\Users\AlienZ\Desktop\Auto-Claude\docs\PROGRESS.md
+- docs\plans\REMAINING_TASKS.md (THIS FILE - read fully)
+- docs\plans\RALPH_IMPLEMENTATION_GUIDE.md
+- docs\plans\UI_DESIGN.md (Tron Grid theme spec)
+- docs\PROGRESS.md
 
 ---
 

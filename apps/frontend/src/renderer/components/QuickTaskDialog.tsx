@@ -74,7 +74,6 @@ export function QuickTaskDialog({
         title: '', // Auto-generate from description
         baseBranch: project.defaultBranch,
         useWorktree: true,
-        requireReviewBeforeCoding: false,
         ralphWiggumMode: true, // Always enabled (SUG-22)
         profileId: settings.selectedAgentProfile || 'auto',
         model: '',

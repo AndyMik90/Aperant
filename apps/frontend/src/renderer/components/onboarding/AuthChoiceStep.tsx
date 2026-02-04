@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { LogIn, Key, Shield } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
@@ -62,6 +63,7 @@ function AuthOptionCard({ icon, title, description, onClick, variant = 'default'
  * - AC1: Displays first-run screen with two clear options
  */
 export function AuthChoiceStep({ onNext, onBack, onSkip, onAPIKeyPathComplete }: AuthChoiceStepProps) {
+  const { t } = useTranslation('onboarding');
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const profiles = useSettingsStore((state) => state.profiles);
 
@@ -113,10 +115,10 @@ export function AuthChoiceStep({ onNext, onBack, onSkip, onAPIKeyPathComplete }:
               </div>
             </div>
             <h1 className="text-3xl font-bold text-foreground tracking-tight">
-              Choose Your Authentication Method
+              {t('authChoice.title', 'Choose Your Authentication Method')}
             </h1>
             <p className="mt-3 text-muted-foreground text-lg">
-              Select how you want to authenticate with Claude. You can change this later in Settings.
+              {t('authChoice.description', 'Select how you want to authenticate with Claude. You can change this later in Settings.')}
             </p>
           </div>
 
@@ -124,16 +126,16 @@ export function AuthChoiceStep({ onNext, onBack, onSkip, onAPIKeyPathComplete }:
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
             <AuthOptionCard
               icon={<LogIn className="h-6 w-6" />}
-              title="Sign in with Anthropic"
-              description="Use your Anthropic account to authenticate. Simple and secure OAuth flow."
+              title={t('authChoice.oauth.title', 'Sign in with Anthropic')}
+              description={t('authChoice.oauth.description', 'Use your Anthropic account to authenticate. Simple and secure OAuth flow.')}
               onClick={handleOAuthChoice}
               variant="oauth"
               data-testid="auth-option-oauth"
             />
             <AuthOptionCard
               icon={<Key className="h-6 w-6" />}
-              title="Use Custom API Key"
-              description="Bring your own API key from Anthropic or a compatible API provider. ⚠️ Highly experimental — may incur significant costs."
+              title={t('authChoice.apiKey.title', 'Use Custom API Key')}
+              description={t('authChoice.apiKey.description', 'Bring your own API key from Anthropic or a compatible API provider. ⚠️ Highly experimental — may incur significant costs.')}
               onClick={handleAPIKeyChoice}
               data-testid="auth-option-apikey"
             />
@@ -142,7 +144,7 @@ export function AuthChoiceStep({ onNext, onBack, onSkip, onAPIKeyPathComplete }:
           {/* Info text */}
           <div className="text-center mb-8">
             <p className="text-muted-foreground text-sm">
-              Both options provide full access to Claude Code features. Choose based on your preference.
+              {t('authChoice.infoText', 'Both options provide full access to Claude Code features. Choose based on your preference.')}
             </p>
           </div>
 
@@ -154,7 +156,7 @@ export function AuthChoiceStep({ onNext, onBack, onSkip, onAPIKeyPathComplete }:
               onClick={onSkip}
               className="text-muted-foreground hover:text-foreground"
             >
-              Skip for now
+              {t('authChoice.skip', 'Skip for now')}
             </Button>
           </div>
         </div>

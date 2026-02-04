@@ -12,7 +12,6 @@
  * - Form validation (description required)
  * - Editable classification fields (category, priority, complexity, impact)
  * - Editable image attachments (add/remove images)
- * - Editable review settings (requireReviewBeforeCoding)
  * - Saves changes via persistUpdateTask (updates store + spec files)
  * - Prevents save when no changes have been made
  *
@@ -107,11 +106,6 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
   // Image attachments
   const [images, setImages] = useState<ImageAttachment[]>(task.metadata?.attachedImages || []);
 
-  // Review setting
-  const [requireReviewBeforeCoding, setRequireReviewBeforeCoding] = useState(
-    task.metadata?.requireReviewBeforeCoding ?? false
-  );
-
   // Ralph Wiggum Mode - Always enabled (SUG-22)
   const [ralphWiggumMode] = useState(true);
 
@@ -154,7 +148,6 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       }
 
       setImages(task.metadata?.attachedImages || []);
-      setRequireReviewBeforeCoding(task.metadata?.requireReviewBeforeCoding ?? false);
       // Ralph mode is always on now (SUG-22), ignore task metadata value
       setError(null);
 
@@ -199,7 +192,6 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       impact !== (task.metadata?.impact || '') ||
       model !== (task.metadata?.model || '') ||
       thinkingLevel !== (task.metadata?.thinkingLevel || '') ||
-      requireReviewBeforeCoding !== (task.metadata?.requireReviewBeforeCoding ?? false) ||
       JSON.stringify(images) !== JSON.stringify(task.metadata?.attachedImages || []) ||
       JSON.stringify(phaseModels) !== JSON.stringify(task.metadata?.phaseModels || DEFAULT_PHASE_MODELS) ||
       JSON.stringify(phaseThinking) !== JSON.stringify(task.metadata?.phaseThinking || DEFAULT_PHASE_THINKING);
@@ -227,7 +219,6 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     }
     // Always set attachedImages to persist removal when all images are deleted
     metadataUpdates.attachedImages = images.length > 0 ? images : [];
-    metadataUpdates.requireReviewBeforeCoding = requireReviewBeforeCoding;
     metadataUpdates.ralphWiggumMode = ralphWiggumMode;
 
     const success = await persistUpdateTask(task.id, {
@@ -304,8 +295,6 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         onShowClassificationChange={setShowClassification}
         images={images}
         onImagesChange={setImages}
-        requireReviewBeforeCoding={requireReviewBeforeCoding}
-        onRequireReviewChange={setRequireReviewBeforeCoding}
         disabled={isSaving}
         error={error}
         onError={setError}

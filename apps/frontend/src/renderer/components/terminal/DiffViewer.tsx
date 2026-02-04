@@ -56,7 +56,7 @@ export function DiffViewer({ filename, oldContent, newContent, language }: DiffV
         </Button>
       </div>
 
-      {/* Side-by-side diff view */}
+      {/* Side-by-side diff view with line numbers */}
       <div className="grid grid-cols-2 divide-x divide-border">
         {/* Old content (left) */}
         <div className="overflow-x-auto">
@@ -64,17 +64,25 @@ export function DiffViewer({ filename, oldContent, newContent, language }: DiffV
             <span className="text-xs font-medium text-red-600 dark:text-red-400">Before</span>
           </div>
           <pre className="text-xs font-mono p-3 bg-background/50">
-            {oldLines.map((line, i) => (
-              <div
-                key={`old-${i}`}
-                className={cn(
-                  "min-h-[1.25rem]",
-                  line.trim() && "bg-red-500/10 text-red-900 dark:text-red-100"
-                )}
-              >
-                {line || ' '}
-              </div>
-            ))}
+            {oldLines.map((line, i) => {
+              const lineNum = i + 1;
+              const lineNumWidth = Math.max(oldLines.length, newLines.length).toString().length;
+              return (
+                <div
+                  key={`old-${i}`}
+                  className={cn(
+                    "min-h-[1.25rem] flex",
+                    line.trim() && "bg-red-500/10 text-red-900 dark:text-red-100"
+                  )}
+                >
+                  <span className="select-none text-gray-500 mr-3" style={{ minWidth: `${lineNumWidth}ch` }}>
+                    {lineNum.toString().padStart(lineNumWidth, ' ')}
+                  </span>
+                  <span className="select-none opacity-60 mr-1">-</span>
+                  <span className="flex-1">{line || ' '}</span>
+                </div>
+              );
+            })}
           </pre>
         </div>
 
@@ -84,17 +92,25 @@ export function DiffViewer({ filename, oldContent, newContent, language }: DiffV
             <span className="text-xs font-medium text-green-600 dark:text-green-400">After</span>
           </div>
           <pre className="text-xs font-mono p-3 bg-background/50">
-            {newLines.map((line, i) => (
-              <div
-                key={`new-${i}`}
-                className={cn(
-                  "min-h-[1.25rem]",
-                  line.trim() && "bg-green-500/10 text-green-900 dark:text-green-100"
-                )}
-              >
-                {line || ' '}
-              </div>
-            ))}
+            {newLines.map((line, i) => {
+              const lineNum = i + 1;
+              const lineNumWidth = Math.max(oldLines.length, newLines.length).toString().length;
+              return (
+                <div
+                  key={`new-${i}`}
+                  className={cn(
+                    "min-h-[1.25rem] flex",
+                    line.trim() && "bg-green-500/10 text-green-900 dark:text-green-100"
+                  )}
+                >
+                  <span className="select-none text-gray-500 mr-3" style={{ minWidth: `${lineNumWidth}ch` }}>
+                    {lineNum.toString().padStart(lineNumWidth, ' ')}
+                  </span>
+                  <span className="select-none opacity-60 mr-1">+</span>
+                  <span className="flex-1">{line || ' '}</span>
+                </div>
+              );
+            })}
           </pre>
         </div>
       </div>

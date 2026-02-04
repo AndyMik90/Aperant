@@ -83,7 +83,10 @@ export function CompletionStep({
     {
       icon: <BookOpen className="h-5 w-5" />,
       title: t('completion.exploreDocs.title'),
-      description: t('completion.exploreDocs.description')
+      description: t('completion.exploreDocs.description'),
+      // ONBOARD-4: Add action to open documentation
+      action: () => window.electronAPI?.openExternal?.('https://github.com/scopefall/jerry'),
+      actionLabel: t('completion.exploreDocs.action', 'View Documentation')
     }
   ];
 

@@ -148,6 +148,7 @@ interface TerminalState {
 
   // Actions
   addTerminal: (cwd?: string, projectPath?: string) => Terminal | null;
+  addClaudeCodeTerminal: (cwd?: string, projectPath?: string) => Terminal | null;
   addRestoredTerminal: (session: TerminalSession) => Terminal;
   // Add a terminal with a specific ID (for terminals created in main process, like OAuth login terminals)
   addExternalTerminal: (id: string, title: string, cwd?: string, projectPath?: string) => Terminal | null;
@@ -229,6 +230,33 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       // outputBuffer removed - managed by terminalBufferManager
       projectPath,
       displayOrder: state.terminals.length,  // New terminals appear at the end
+    };
+
+    set((state) => ({
+      terminals: [...state.terminals, newTerminal],
+      activeTerminalId: newTerminal.id,
+    }));
+
+    return newTerminal;
+  },
+
+  addClaudeCodeTerminal: (cwd?: string, projectPath?: string) => {
+    const state = get();
+    const activeCount = getActiveProjectTerminalCount(state.terminals, projectPath);
+    if (activeCount >= state.maxTerminals) {
+      debugLog(`[TerminalStore] Cannot add Claude Code terminal: limit of ${state.maxTerminals} reached for project ${projectPath}`);
+      return null;
+    }
+
+    const newTerminal: Terminal = {
+      id: uuid(),
+      title: 'Claude Code',
+      status: 'idle',
+      cwd: cwd || process.env.HOME || '~',
+      createdAt: new Date(),
+      isClaudeMode: true,  // Start in Claude mode
+      projectPath,
+      displayOrder: state.terminals.length,
     };
 
     set((state) => ({

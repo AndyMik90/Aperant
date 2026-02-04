@@ -55,6 +55,10 @@ export const IPC_CHANNELS = {
   TASK_AGENT_STOPPED: 'task:agentStopped',  // Agent process was stopped (user clicked Stop)
   TASK_SPEC_READY: 'task:specReady',        // FIX-7: Spec creation complete, ready for review
 
+  // Ralph promise events (main -> renderer) - autonomous execution progress
+  TASK_STEP_COMPLETE: 'task:stepComplete',  // Step promise detected: <promise>STEP_N_COMPLETE</promise>
+  TASK_RALPH_COMPLETE: 'task:ralphComplete', // Task promise detected: <promise>TASK_{ID}_COMPLETE</promise>
+
   // Task phase logs (persistent, collapsible logs by phase)
   TASK_LOGS_GET: 'task:logsGet',           // Load logs from spec dir
   TASK_LOGS_WATCH: 'task:logsWatch',       // Start watching for log changes

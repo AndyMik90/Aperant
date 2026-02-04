@@ -12,10 +12,9 @@ import {
   RefreshCw,
   Github,
   GitlabIcon,
-  GitPullRequest,
   GitMerge,
   FileText,
-  Sparkles,
+  MessageSquare,
   HelpCircle,
   AlertTriangle
 } from 'lucide-react';
@@ -46,7 +45,7 @@ import { AddProjectModal } from './AddProjectModal';
 import { GitSetupModal } from './GitSetupModal';
 import type { Project, GitStatus, ProjectEnvConfig } from '../../shared/types';
 
-export type SidebarView = 'kanban' | 'terminals' | 'discovery' | 'context' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'repository';
+export type SidebarView = 'kanban' | 'terminals' | 'discovery' | 'context' | 'github' | 'gitlab-issues' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'repository';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -65,15 +64,14 @@ interface NavItem {
 
 // UI-6: Activity bar style navigation - icon only with tooltips
 const navItems: NavItem[] = [
-  { id: 'insights', labelKey: 'navigation:items.insights', icon: Sparkles, shortcut: 'N', section: 'main' },
+  { id: 'insights', labelKey: 'navigation:items.insights', icon: MessageSquare, shortcut: 'N', section: 'main' },
   { id: 'kanban', labelKey: 'navigation:items.kanban', icon: LayoutGrid, shortcut: 'K', section: 'main' },
   { id: 'terminals', labelKey: 'navigation:items.terminals', icon: Terminal, shortcut: 'A', section: 'main' },
   { id: 'repository', labelKey: 'navigation:items.repository', icon: BookOpen, shortcut: 'R', section: 'main' },
   { id: 'discovery', labelKey: 'navigation:items.discovery', icon: Compass, shortcut: 'D', section: 'main' },
   { id: 'changelog', labelKey: 'navigation:items.changelog', icon: FileText, shortcut: 'L', section: 'main' },
-  // GitHub items
-  { id: 'github-issues', labelKey: 'navigation:items.githubIssues', icon: Github, shortcut: 'G', section: 'github' },
-  { id: 'github-prs', labelKey: 'navigation:items.githubPRs', icon: GitPullRequest, shortcut: 'P', section: 'github' },
+  // GitHub item (combined Issues + PRs)
+  { id: 'github', labelKey: 'navigation:items.github', icon: Github, shortcut: 'G', section: 'github' },
   // GitLab items
   { id: 'gitlab-issues', labelKey: 'navigation:items.gitlabIssues', icon: GitlabIcon, shortcut: 'B', section: 'gitlab' },
   { id: 'gitlab-merge-requests', labelKey: 'navigation:items.gitlabMRs', icon: GitMerge, section: 'gitlab' }

@@ -153,7 +153,6 @@ export interface TaskDraft {
   phaseThinking?: PhaseThinkingConfig;
   images: ImageAttachment[];
   referencedFiles: ReferencedFile[];
-  requireReviewBeforeCoding?: boolean;
   ralphWiggumMode?: boolean;
   savedAt: Date;
 }
@@ -175,7 +174,6 @@ export interface TaskTemplate {
   thinkingLevel?: ThinkingLevel;
   phaseModels?: PhaseModelConfig;
   phaseThinking?: PhaseThinkingConfig;
-  requireReviewBeforeCoding?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -245,9 +243,6 @@ export interface TaskMetadata {
   // Referenced files (files/folders from project for context)
   referencedFiles?: ReferencedFile[];
 
-  // Review settings
-  requireReviewBeforeCoding?: boolean;  // Require human review of spec/plan before coding starts
-
   // Iteration mode
   ralphWiggumMode?: boolean;  // "I'm helping!" - Aggressive iteration mode with higher retry limits
 
@@ -290,8 +285,35 @@ export interface Task {
   terminalId?: string;  // ID of associated task monitor terminal
   // SUG-6: Task dependencies - array of task IDs this task depends on
   dependencies?: string[];  // Task IDs that must complete before this task can start
+  // METRICS-1: Duration tracking
+  timestamps?: TaskTimestamps;
+  durations?: TaskDurations;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/**
+ * Task duration tracking timestamps (AI work only)
+ * @see docs/architecture/TASK_DURATION_TRACKING.md
+ */
+export interface TaskTimestamps {
+  created?: string;
+  planning_started?: string;
+  planning_completed?: string;
+  coding_started?: string;
+  coding_completed?: string;
+  ai_review_started?: string;
+  ai_review_completed?: string;
+}
+
+/**
+ * Task duration calculations (in milliseconds)
+ */
+export interface TaskDurations {
+  planning_ms?: number;
+  coding_ms?: number;
+  ai_review_ms?: number;
+  total_ai_ms?: number;
 }
 
 // Implementation Plan (from auto-claude)
@@ -310,6 +332,9 @@ export interface ImplementationPlan {
   planStatus?: string;
   recoveryNote?: string;
   description?: string;
+  // METRICS-1A: Duration tracking
+  timestamps?: TaskTimestamps;
+  durations?: TaskDurations;
 }
 
 export interface Phase {

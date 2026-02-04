@@ -26,6 +26,7 @@
   },
   "labels": {
     "running": "En cours",
+    "planning": "Planification",
     "aiReview": "Révision IA",
     "needsReview": "À réviser",
     "pending": "En attente",
@@ -48,7 +49,8 @@
     "viewTerminal": "Voir le terminal de la tâche",
     "stopPlanningAgent": "Arrêter l'agent de planification",
     "resumePlanningAgent": "Reprendre l'agent de planification",
-    "startBuild": "Lancer le build - passer en phase de codage"
+    "startBuild": "Lancer le build - passer en phase de codage",
+    "popOutTerminal": "Ouvrir dans le panneau inférieur"
   },
   "creation": {
     "title": "Créer une nouvelle tâche",
@@ -229,8 +231,6 @@
     "titlePlaceholder": "Laissez vide pour générer automatiquement à partir de la description",
     "titleHelpText": "Un titre court et descriptif sera généré automatiquement s'il est laissé vide.",
     "classificationOptional": "Classification (optionnel)",
-    "requireReviewLabel": "Exiger une révision humaine avant le codage",
-    "requireReviewDescription": "Lorsque activé, vous serez invité à réviser la spécification et le plan d'implémentation avant le début de la phase de codage. Cela vous permet d'approuver, de demander des modifications ou de fournir des commentaires.",
     "ralphWiggumModeLabel": "Mode Ralph Wiggum (\"J'aide !\")",
     "ralphWiggumModeDescription": "Mode d'itération agressive. L'agent essaiera plus fort avant d'abandonner : plus de tentatives, seuils plus élevés pour les problèmes récurrents, et pivots de stratégie automatiques en cas de blocage. Idéal pour les tâches complexes nécessitant plusieurs approches.",
     "ralphWiggumModeFixedLabel": "Mode Autonome Ralph Wiggum",

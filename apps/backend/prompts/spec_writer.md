@@ -28,12 +28,18 @@ You MUST create `spec.md` with ALL required sections (see template below).
 cat project_index.json
 cat requirements.json
 cat context.json
+
+# LIFECYCLE-3: Read past issues memory (if exists) to avoid repeating mistakes
+if [ -f memories/issues.md ]; then
+  cat memories/issues.md
+fi
 ```
 
 Extract from these files:
 - **From project_index.json**: Services, tech stacks, ports, run commands
 - **From requirements.json**: Task description, workflow type, services, acceptance criteria
 - **From context.json**: Files to modify, files to reference, patterns
+- **From memories/issues.md** (if exists): Past QA issues to avoid, patterns that caused problems
 
 ---
 
@@ -60,7 +66,15 @@ Before writing, think about:
 
 ## PHASE 2: WRITE SPEC.MD (MANDATORY)
 
-Create `spec.md` using this EXACT template structure. This format is **Ralph-Wiggum compatible** - the coding agent uses this spec to execute implementation.
+Create `spec.md` using this EXACT template structure. This format is **Ralph-Wiggum compatible** - the coding agent uses this spec to execute implementation autonomously without stopping.
+
+**CRITICAL**: The spec MUST include:
+1. Execution rules section with DO NOT STOP warnings
+2. Step counting ("Step N of {Total}")
+3. Per-step completion promises (`<promise>STEP_N_COMPLETE</promise>`)
+4. NEXT continuation triggers after each step
+5. Final verification checklist
+6. Task completion promise (`<promise>TASK_{SPEC_ID}_COMPLETE</promise>`)
 
 ```bash
 cat > spec.md << 'SPEC_EOF'
@@ -82,9 +96,34 @@ cat > spec.md << 'SPEC_EOF'
 
 **Type**: [from requirements.json: feature|refactor|investigation|migration|simple]
 
+---
+
+## ⚠️ EXECUTION RULES (READ BEFORE STARTING)
+
+**You are NOT ALLOWED to stop until ALL steps below are complete and the final promise is output.**
+
+1. Complete each step in order
+2. Output the step promise IMMEDIATELY after completing each step
+3. **DO NOT** write progress summaries between steps - just continue
+4. **DO NOT** ask for confirmation - execute autonomously
+5. After each step promise, continue to the next step WITHOUT stopping
+6. Only stop after outputting the FINAL `<promise>TASK_{SPEC_ID}_COMPLETE</promise>`
+
+**ANTI-PATTERNS (DO NOT DO THESE):**
+- ❌ "I've completed step 1. Would you like me to continue?"
+- ❌ "Let me summarize what we've done so far..."
+- ❌ "I'll pause here to let you review..."
+
+**CORRECT PATTERN:**
+- ✅ Complete step → Output promise → Say "NEXT: Step N" → Begin next step immediately
+
+---
+
 ## Implementation Steps
 
-### Step 1: [Setup/Preparation Title]
+**Total Steps: [N]** (You must complete ALL steps)
+
+### Step 1 of [N]: [Setup/Preparation Title]
 
 **Files:** `[primary file to modify]`
 
@@ -92,9 +131,14 @@ cat > spec.md << 'SPEC_EOF'
 
 **Exit:** [How to verify step is complete - e.g., "File contains all required imports"]
 
+**After completing this step:**
+1. Output: `<promise>STEP_1_COMPLETE</promise>`
+2. Say: **NEXT: Step 2 - [Next Step Title]**
+3. ⚠️ DO NOT summarize. DO NOT stop. Continue immediately.
+
 ---
 
-### Step 2: [Core Implementation Title]
+### Step 2 of [N]: [Core Implementation Title]
 
 **Files:** `[file1]`, `[file2]`
 
@@ -102,9 +146,14 @@ cat > spec.md << 'SPEC_EOF'
 
 **Exit:** [Verification - e.g., "Function exists and handles Y correctly"]
 
+**After completing this step:**
+1. Output: `<promise>STEP_2_COMPLETE</promise>`
+2. Say: **NEXT: Step 3 - [Next Step Title]**
+3. ⚠️ DO NOT summarize. DO NOT stop. Continue immediately.
+
 ---
 
-### Step 3: [Integration Title]
+### Step 3 of [N]: [Integration Title]
 
 **Files:** `[file to integrate]`
 
@@ -112,9 +161,14 @@ cat > spec.md << 'SPEC_EOF'
 
 **Exit:** [Verification - e.g., "Component is rendered and responds to events"]
 
+**After completing this step:**
+1. Output: `<promise>STEP_3_COMPLETE</promise>`
+2. Say: **NEXT: Step 4 - [Next Step Title]**
+3. ⚠️ DO NOT summarize. DO NOT stop. Continue immediately.
+
 ---
 
-### Step 4: [Testing/Validation Title]
+### Step 4 of [N]: [Testing/Validation Title]
 
 **Files:** `[test file(s)]`
 
@@ -122,7 +176,12 @@ cat > spec.md << 'SPEC_EOF'
 
 **Exit:** [Verification - e.g., "All tests pass with `npm test`"]
 
-[Add more steps as needed - each step should be atomic and verifiable]
+**After completing this step:**
+1. Output: `<promise>STEP_4_COMPLETE</promise>`
+2. Say: **NEXT: Final Verification**
+3. ⚠️ DO NOT summarize. DO NOT stop. Continue immediately.
+
+[Add more steps as needed - each step should be atomic and verifiable, with promise and NEXT trigger]
 
 ## Files to Modify
 
@@ -191,11 +250,25 @@ From `[reference file path]`:
 1. [Step to verify functionality]
 2. [Step to verify edge cases]
 
+---
+
+## Final Verification Checklist
+
+Before outputting the completion promise, verify:
+
+- [ ] All implementation steps completed
+- [ ] All success criteria met
+- [ ] No console errors
+- [ ] Tests pass (if applicable)
+- [ ] Code follows project patterns
+
 ## Completion Promise
 
-When all success criteria are met and tests pass:
+**ONLY output this after ALL steps are complete and verified:**
 
-<promise>TASK_COMPLETE</promise>
+<promise>TASK_{SPEC_ID}_COMPLETE</promise>
+
+(Replace {SPEC_ID} with the actual spec ID, e.g., TASK_001_COMPLETE)
 
 SPEC_EOF
 ```

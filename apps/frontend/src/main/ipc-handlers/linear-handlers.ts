@@ -516,8 +516,9 @@ ${issue.description || 'No description provided.'}
             };
             writeFileSync(path.join(specDir, 'task_metadata.json'), JSON.stringify(metadata, null, 2));
 
-            // Start spec creation with the existing spec directory
-            agentManager.startSpecCreation(specId, project.path, description, specDir, metadata);
+            // FIX-19: Use startPlanningAgent instead of startSpecCreation
+            // This ensures --no-build flag is used to prevent auto-continuation to coding
+            agentManager.startPlanningAgent(specId, project.path, description, specDir, metadata, project.settings?.mainBranch);
 
             imported++;
           } catch (err) {

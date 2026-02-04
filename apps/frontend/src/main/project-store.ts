@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, Dirent } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, Dirent } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask } from '../shared/types';
@@ -131,10 +131,32 @@ export class ProjectStore {
 
   /**
    * Remove a project
+   * FIX-25: Added deleteData parameter to optionally delete .auto-claude directory
+   * @param projectId - The ID of the project to remove
+   * @param deleteData - If true, also delete the .auto-claude directory with all task data
    */
-  removeProject(projectId: string): boolean {
+  removeProject(projectId: string, deleteData: boolean = false): boolean {
     const index = this.data.projects.findIndex((p) => p.id === projectId);
     if (index !== -1) {
+      const project = this.data.projects[index];
+
+      // FIX-25: Delete .auto-claude directory if requested
+      if (deleteData && project.path) {
+        const autoClaudeDir = path.join(project.path, '.auto-claude');
+        if (existsSync(autoClaudeDir)) {
+          try {
+            rmSync(autoClaudeDir, { recursive: true, force: true });
+            console.log(`[ProjectStore] Deleted .auto-claude directory for project "${project.name}"`);
+          } catch (error) {
+            console.error(`[ProjectStore] Failed to delete .auto-claude directory:`, error);
+            // Continue with project removal even if directory deletion fails
+          }
+        }
+      }
+
+      // FIX-26: Clear task cache for this project
+      this.invalidateTasksCache(projectId);
+
       this.data.projects.splice(index, 1);
       this.save();
       return true;

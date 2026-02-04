@@ -115,9 +115,6 @@ export function TaskCreationWizard({
   const [images, setImages] = useState<ImageAttachment[]>([]);
   const [referencedFiles, setReferencedFiles] = useState<ReferencedFile[]>([]);
 
-  // Review setting
-  const [requireReviewBeforeCoding, setRequireReviewBeforeCoding] = useState(false);
-
   // Ralph Wiggum Mode - Always enabled (SUG-22)
   const [ralphWiggumMode] = useState(true);
 
@@ -158,7 +155,6 @@ export function TaskCreationWizard({
         setPhaseThinking(draft.phaseThinking || settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
         setImages(draft.images);
         setReferencedFiles(draft.referencedFiles ?? []);
-        setRequireReviewBeforeCoding(draft.requireReviewBeforeCoding ?? false);
         // Ralph mode is always on now (SUG-22), ignore draft value
         setIsDraftRestored(true);
 
@@ -181,7 +177,6 @@ export function TaskCreationWizard({
         setPhaseThinking(settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
         setImages([]);
         setReferencedFiles([]);
-        setRequireReviewBeforeCoding(false);
         // Ralph mode is always on now (SUG-22), no need to reset
         setBaseBranch(PROJECT_DEFAULT_BRANCH);
         setUseWorktree(true);
@@ -257,10 +252,9 @@ export function TaskCreationWizard({
     phaseThinking,
     images,
     referencedFiles,
-    requireReviewBeforeCoding,
     ralphWiggumMode,
     savedAt: new Date()
-  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, requireReviewBeforeCoding, ralphWiggumMode]);
+  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, ralphWiggumMode]);
 
   /**
    * Detect @ mention being typed and show autocomplete
@@ -428,7 +422,6 @@ export function TaskCreationWizard({
       }
       if (images.length > 0) metadata.attachedImages = images;
       if (allReferencedFiles.length > 0) metadata.referencedFiles = allReferencedFiles;
-      if (requireReviewBeforeCoding) metadata.requireReviewBeforeCoding = true;
       if (ralphWiggumMode) metadata.ralphWiggumMode = true;
       // Always include baseBranch - resolve PROJECT_DEFAULT_BRANCH to actual branch name
       // This ensures the backend always knows which branch to use for worktree creation
@@ -470,7 +463,6 @@ export function TaskCreationWizard({
     setPhaseThinking(settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
     setImages([]);
     setReferencedFiles([]);
-    setRequireReviewBeforeCoding(false);
     // Ralph mode is always on now (SUG-22), no need to reset
     setBaseBranch(PROJECT_DEFAULT_BRANCH);
     setUseWorktree(true);
@@ -525,11 +517,6 @@ export function TaskCreationWizard({
     if (template.thinkingLevel) setThinkingLevel(template.thinkingLevel);
     if (template.phaseModels) setPhaseModels(template.phaseModels);
     if (template.phaseThinking) setPhaseThinking(template.phaseThinking);
-
-    // Apply review setting
-    if (typeof template.requireReviewBeforeCoding === 'boolean') {
-      setRequireReviewBeforeCoding(template.requireReviewBeforeCoding);
-    }
 
     // Show classification section if template has classification values
     if (template.category || template.priority || template.complexity || template.impact) {
@@ -633,7 +620,6 @@ export function TaskCreationWizard({
                 thinkingLevel,
                 phaseModels,
                 phaseThinking,
-                requireReviewBeforeCoding,
               }}
               disabled={isCreating}
             />
@@ -706,8 +692,6 @@ export function TaskCreationWizard({
           onShowClassificationChange={setShowClassification}
           images={images}
           onImagesChange={setImages}
-          requireReviewBeforeCoding={requireReviewBeforeCoding}
-          onRequireReviewChange={setRequireReviewBeforeCoding}
           disabled={isCreating}
           error={error}
           onError={setError}

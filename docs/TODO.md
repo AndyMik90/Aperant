@@ -1,7 +1,7 @@
 # Auto-Claude (Jerry) Master TODO
 
 **Last Updated:** 2026-02-04
-**Status:** ✅ 96% Complete (47/49 original tasks done + 4 new tasks remaining)
+**Status:** ✅ 100% Complete (all original tasks done, all phases complete)
 
 ---
 
@@ -40,7 +40,7 @@
 |----|------|--------|--------|
 | FIX-7 | Add alert when planning completes | [Issue #7](plans/KNOWN_ISSUES.md#issue-7-no-alert-when-planning-completes) | ✅ Done |
 | FIX-1 | Show toast when startBuild fails | [Issue #1](plans/KNOWN_ISSUES.md#issue-1-startbuild-error-not-shown-in-ui) | ✅ Done |
-| FIX-5 | Improve terminal readability (show file paths, commands) | [Issue #5](plans/KNOWN_ISSUES.md#issue-5-terminal-output-not-legible) | ⚠️ Partial (v2.5) - Phase 7 completes |
+| FIX-5 | Improve terminal readability (show file paths, commands) | [Issue #5](plans/KNOWN_ISSUES.md#issue-5-terminal-output-not-legible) | ✅ Done (Phase 7 complete) |
 | FIX-9 | Add userInitiated flag to transitions | [Issue #9](plans/KNOWN_ISSUES.md#issue-9-no-user-initiated-flag-for-transitions) | ✅ Done |
 | FIX-2 | Fix phase labels not updating in real time | [Issue #2](plans/KNOWN_ISSUES.md#issue-2-phase-labels-not-updating-in-real-time) | ✅ Done |
 | SUG-6 | **Task dependencies / ordering** | [Suggestion #6](plans/SUGGESTIONS.md#6-task-dependencies--ordering) | ✅ Done (v2.5) |
@@ -151,14 +151,10 @@ Complete visual overhaul inspired by Tron Cinematic Universe + VSCode aesthetics
 
 | Status | Count |
 |--------|-------|
-| ✅ Done | 46 |
-| ⚠️ Partial | 1 (FIX-5 - Phase 7 completes) |
+| ✅ Done | 60 (all tasks) |
 | ❌ Skipped | 2 (UI-6, SUG-1b) |
-| 🔄 Revised | 1 (NAV-8) |
-| ⬜ New TODO | 9 (v3.2 quick fixes) |
-| 📋 Phase 7 | 4 (Terminal Redesign) |
 
-### Remaining Work - v3.2 Quick Fixes (9 tasks)
+### Completed - v3.2 Quick Fixes (9 tasks) ✅ ALL DONE
 
 | ID | Task | Type | Complexity |
 |----|------|------|------------|
@@ -172,7 +168,7 @@ Complete visual overhaul inspired by Tron Cinematic Universe + VSCode aesthetics
 | FIX-15 | Remove context menu dots - drag feature was removed | New | Low |
 | FIX-16 | Terminal button click also opens Task Detail modal | New | Low |
 
-### Phase 7: Terminal Redesign (4 tasks) - After v3.2
+### Phase 7: Terminal Redesign (4 tasks) ✅ ALL DONE
 
 | ID | Task | Type | Complexity |
 |----|------|------|------------|
@@ -187,7 +183,7 @@ See: [Terminal Redesign](plans/TERMINAL_REDESIGN.md)
 
 | ID | Task |
 |----|------|
-| FIX-5 | Terminal readability (ToolUseCard - partial, Phase 7 completes) |
+| FIX-5 | Terminal readability (ToolUseCard + Phase 7 - COMPLETE) |
 | SUG-6 | Task dependencies (TaskDependencies.tsx) |
 | SUG-23 | Persistent Learning Memory (learnings-store.ts) |
 | UI-3 | Remove border-radius (--radius: 0px) |

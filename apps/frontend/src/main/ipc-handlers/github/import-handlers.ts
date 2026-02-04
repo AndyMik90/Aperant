@@ -70,13 +70,15 @@ ${issue.body || 'No description provided.'}
             project.settings?.mainBranch  // Pass project's configured main branch
           );
 
-          // Start spec creation with the existing spec directory
-          agentManager.startSpecCreation(
+          // FIX-19: Use startPlanningAgent instead of startSpecCreation
+          // This ensures --no-build flag is used to prevent auto-continuation to coding
+          agentManager.startPlanningAgent(
             specData.specId,
             project.path,
             specData.taskDescription,
             specData.specDir,
-            specData.metadata
+            specData.metadata,
+            project.settings?.mainBranch
           );
 
           imported++;

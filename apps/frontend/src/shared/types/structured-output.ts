@@ -15,6 +15,9 @@ export type StructuredBlockType =
   | 'phase_start'
   | 'phase_end'
   | 'error'
+  // Ralph promise types for autonomous execution
+  | 'step_complete'
+  | 'task_complete'
   // Legacy aliases for backwards compatibility
   | 'tool_start'
   | 'tool_end'
@@ -102,6 +105,28 @@ export interface ErrorBlock {
   phase?: string;
 }
 
+/**
+ * Ralph Step Complete block - emitted when a step promise is detected
+ * Used for progress tracking during autonomous execution
+ */
+export interface StepCompleteBlock {
+  type: 'step_complete';
+  stepNumber: number;
+  promiseText: string;
+  timestamp?: string;
+}
+
+/**
+ * Ralph Task Complete block - emitted when task completion promise is detected
+ * Signals that the autonomous execution is complete
+ */
+export interface TaskCompleteBlock {
+  type: 'task_complete';
+  specId: string;
+  promiseText: string;
+  timestamp?: string;
+}
+
 export type StructuredBlock =
   | TextBlock
   | ThinkingBlock
@@ -110,6 +135,9 @@ export type StructuredBlock =
   | PhaseStartBlock
   | PhaseEndBlock
   | ErrorBlock
+  // Ralph promise blocks for autonomous execution
+  | StepCompleteBlock
+  | TaskCompleteBlock
   // Legacy block types for backwards compatibility
   | ToolStartBlock
   | ToolEndBlock

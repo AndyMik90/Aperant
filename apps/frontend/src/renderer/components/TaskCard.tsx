@@ -1,20 +1,13 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '../contexts/NavigationContext';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, TerminalSquare, ExternalLink, Link2 } from 'lucide-react';
-import { TaskTerminalModal } from './TaskTerminalModal';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, TerminalSquare, Link2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { TaskMonitorChat } from './terminal/TaskMonitorChat';
+import { CompactTerminalPreview } from './terminal/CompactTerminalPreview';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from './ui/dropdown-menu';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
 import {
@@ -28,8 +21,6 @@ import {
   TASK_PRIORITY_LABELS,
   EXECUTION_PHASE_LABELS,
   EXECUTION_PHASE_BADGE_COLORS,
-  TASK_STATUS_COLUMNS,
-  TASK_STATUS_LABELS,
   JSON_ERROR_PREFIX,
   JSON_ERROR_TITLE_SUFFIX
 } from '../../shared/constants';
@@ -59,6 +50,90 @@ function shouldSkipStuckCheck(phase: string | undefined): boolean {
   return STUCK_CHECK_SKIP_PHASES.includes(phase as typeof STUCK_CHECK_SKIP_PHASES[number]);
 }
 
+/**
+ * METRICS-1B: Format duration for display
+ * @param ms - Duration in milliseconds
+ * @returns Formatted string like "5s", "2m", "1h 30m"
+ */
+function formatDurationShort(ms: number): string {
+  if (ms < 0) return '0s';
+
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (hours > 0) {
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m`;
+  }
+  return `${seconds}s`;
+}
+
+/**
+ * METRICS-1C: Duration breakdown display for completed tasks
+ */
+interface DurationBreakdownProps {
+  durations: {
+    planning_ms?: number;
+    coding_ms?: number;
+    ai_review_ms?: number;
+    total_ai_ms?: number;
+  };
+}
+
+function DurationBreakdown({ durations }: DurationBreakdownProps) {
+  const total = durations.total_ai_ms || 0;
+  if (total === 0) return null;
+
+  const phases = [
+    { name: 'Planning', ms: durations.planning_ms || 0, color: 'bg-blue-500' },
+    { name: 'Coding', ms: durations.coding_ms || 0, color: 'bg-green-500' },
+    { name: 'AI Review', ms: durations.ai_review_ms || 0, color: 'bg-purple-500' },
+  ].filter(p => p.ms > 0);
+
+  return (
+    <div className="mt-3 p-2 rounded bg-muted/30 text-xs">
+      <div className="text-muted-foreground mb-2 font-medium">AI Work Time</div>
+      {/* Phase breakdown bars */}
+      <div className="flex h-1.5 rounded-full overflow-hidden mb-2 bg-muted">
+        {phases.map((phase, i) => {
+          const percent = (phase.ms / total) * 100;
+          return (
+            <div
+              key={i}
+              className={cn(phase.color)}
+              style={{ width: `${percent}%` }}
+              title={`${phase.name}: ${formatDurationShort(phase.ms)} (${Math.round(percent)}%)`}
+            />
+          );
+        })}
+      </div>
+      {/* Phase labels */}
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {phases.map((phase, i) => {
+          const percent = Math.round((phase.ms / total) * 100);
+          return (
+            <div key={i} className="flex items-center gap-1">
+              <div className={cn('w-2 h-2 rounded-full', phase.color)} />
+              <span className="text-muted-foreground">
+                {phase.name}: {formatDurationShort(phase.ms)} ({percent}%)
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      {/* Total */}
+      <div className="mt-2 pt-2 border-t border-border flex justify-between">
+        <span className="text-muted-foreground font-medium">Total AI Time</span>
+        <span className="font-medium">{formatDurationShort(total)}</span>
+      </div>
+    </div>
+  );
+}
+
 interface TaskCardProps {
   task: Task;
   onClick: () => void;
@@ -67,6 +142,8 @@ interface TaskCardProps {
   isSelectable?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
+  // FIX-29b: Callback to open task terminal in bottom panel
+  onOpenBottomPanel?: (taskId: string, taskTitle: string) => void;
 }
 
 // Custom comparator for React.memo - only re-render when relevant task data changes
@@ -81,7 +158,8 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevProps.onStatusChange === nextProps.onStatusChange &&
     prevProps.isSelectable === nextProps.isSelectable &&
     prevProps.isSelected === nextProps.isSelected &&
-    prevProps.onToggleSelect === nextProps.onToggleSelect
+    prevProps.onToggleSelect === nextProps.onToggleSelect &&
+    prevProps.onOpenBottomPanel === nextProps.onOpenBottomPanel
   ) {
     return true;
   }
@@ -135,7 +213,8 @@ export const TaskCard = memo(function TaskCard({
   onStatusChange,
   isSelectable,
   isSelected,
-  onToggleSelect
+  onToggleSelect,
+  onOpenBottomPanel
 }: TaskCardProps) {
   const { t } = useTranslation(['tasks', 'errors']);
   const { setActiveView } = useNavigation();
@@ -145,7 +224,9 @@ export const TaskCard = memo(function TaskCard({
   const addTerminal = useTerminalStore((state) => state.addTerminal);
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
-  const [isTerminalModalOpen, setIsTerminalModalOpen] = useState(false);
+  // FIX-21: Inline terminal expansion instead of modal
+  const [isTerminalExpanded, setIsTerminalExpanded] = useState(false);
+  const terminalRef = useRef<HTMLDivElement>(null);
   const stuckCheckRef = useRef<{ timeout: NodeJS.Timeout | null; interval: NodeJS.Timeout | null }>({
     timeout: null,
     interval: null
@@ -170,6 +251,36 @@ export const TaskCard = memo(function TaskCard({
   const allTasks = useTaskStore((state) => state.tasks);
   const isBlocked = useMemo(() => isTaskBlocked(task, allTasks), [task, allTasks]);
   const blockingTasks = useMemo(() => getBlockingTasks(task, allTasks), [task, allTasks]);
+
+  // METRICS-1B: Elapsed time tracking
+  const [elapsedTime, setElapsedTime] = useState<number | null>(null);
+
+  // METRICS-1B: Update elapsed time every second while task is running
+  useEffect(() => {
+    // Only track time for active tasks (planning or coding with agent running)
+    if (!hasActiveAgent) {
+      setElapsedTime(null);
+      return;
+    }
+
+    // Get start time from execution progress
+    const startTime = task.executionProgress?.startedAt;
+    if (!startTime) {
+      setElapsedTime(null);
+      return;
+    }
+
+    // Calculate initial elapsed time
+    const startMs = new Date(startTime).getTime();
+    setElapsedTime(Date.now() - startMs);
+
+    // Update every second
+    const interval = setInterval(() => {
+      setElapsedTime(Date.now() - startMs);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [hasActiveAgent, task.executionProgress?.startedAt]);
 
   // Memoize expensive computations to avoid running on every render
   // Truncate description for card display - full description shown in modal
@@ -200,18 +311,6 @@ export const TaskCard = memo(function TaskCard({
     [task.updatedAt]
   );
 
-  // Memoize status menu items to avoid recreating on every render
-  const statusMenuItems = useMemo(() => {
-    if (!onStatusChange) return null;
-    return TASK_STATUS_COLUMNS.filter(status => status !== task.status).map((status) => (
-      <DropdownMenuItem
-        key={status}
-        onClick={() => onStatusChange(status)}
-      >
-        {t(TASK_STATUS_LABELS[status])}
-      </DropdownMenuItem>
-    ));
-  }, [task.status, onStatusChange, t]);
 
   // Memoized stuck check function to avoid recreating on every render
   const performStuckCheck = useCallback(() => {
@@ -331,14 +430,40 @@ export const TaskCard = memo(function TaskCard({
     }
   };
 
-  // SUG-1a: Open terminal modal instead of navigating to terminals page
+  // FIX-21: Toggle inline terminal expansion instead of modal
   const handleViewTerminal = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsTerminalModalOpen(true);
+    setIsTerminalExpanded(!isTerminalExpanded);
   };
+
+  // FIX-21: Get or create task monitor terminal for inline display
+  const taskTerminalId = `task-${task.id}`;
+  const taskTerminal = useMemo(() => {
+    return terminals.find(t => t.id === taskTerminalId);
+  }, [terminals, taskTerminalId]);
+
+  // FIX-21: Create terminal if expanded and doesn't exist
+  useEffect(() => {
+    if (isTerminalExpanded && !taskTerminal && selectedProject?.path) {
+      // Create the task monitor terminal via electron API
+      window.electronAPI.createTerminal({
+        id: taskTerminalId,
+        cwd: selectedProject.path,
+        projectPath: selectedProject.path,
+        isTaskMonitor: true,
+        taskId: task.id,
+        specId: task.specId,
+        taskTitle: task.title
+      }).catch((err: unknown) => {
+        console.error('[TaskCard] Failed to create task terminal:', err);
+      });
+    }
+  }, [isTerminalExpanded, taskTerminal, selectedProject?.path, taskTerminalId, task.id, task.specId, task.title]);
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
+      case 'planning':
+        return 'default';
       case 'coding':
         return 'info';
       case 'ai_review':
@@ -356,6 +481,8 @@ export const TaskCard = memo(function TaskCard({
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case 'planning':
+        return t('labels.planning', { defaultValue: 'Planning' });
       case 'coding':
         return t('labels.running');
       case 'ai_review':
@@ -439,10 +566,16 @@ export const TaskCard = memo(function TaskCard({
         hasActiveAgent && !isStuck && 'ring-2 ring-primary border-primary task-running-pulse',
         isStuck && 'ring-2 ring-warning border-warning task-stuck-pulse',
         isArchived && 'opacity-60 hover:opacity-80',
-        isSelectable && isSelected && 'ring-2 ring-ring border-ring bg-accent/10'
+        isSelectable && isSelected && 'ring-2 ring-ring border-ring bg-accent/10',
+        // FIX-21: Expand when terminal is open
+        isTerminalExpanded && 'ring-2 ring-primary/50'
       )}
       onClick={onClick}
     >
+      {/* FIX-22: Animated activity indicator bar at top when running */}
+      {hasActiveAgent && !isStuck && (
+        <div className="h-0.5 bg-gradient-to-r from-primary via-primary/50 to-primary animate-pulse rounded-t-lg" />
+      )}
       <CardContent className="p-4">
         <div className={isSelectable ? 'flex gap-3' : undefined}>
           {/* Checkbox for selectable mode - stops event propagation */}
@@ -458,17 +591,20 @@ export const TaskCard = memo(function TaskCard({
           )}
 
           <div className={isSelectable ? 'flex-1 min-w-0' : undefined}>
-            {/* Title - full width, no wrapper */}
+            {/* Title - single line with ellipsis, full text on hover */}
             <h3
-              className="font-semibold text-sm text-foreground line-clamp-2 leading-snug"
+              className="font-semibold text-sm text-foreground truncate"
               title={displayTitle}
             >
               {displayTitle}
             </h3>
 
-        {/* Description - sanitized to handle markdown content (memoized) */}
+        {/* Description - 2-3 lines max with proper word wrap and ellipsis */}
         {sanitizedDescription && (
-          <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
+          <p
+            className="mt-2 text-xs text-muted-foreground line-clamp-3 break-words"
+            title={task.description}
+          >
             {sanitizedDescription}
           </p>
         )}
@@ -634,11 +770,23 @@ export const TaskCard = memo(function TaskCard({
           </div>
         )}
 
+        {/* METRICS-1C: Duration breakdown for completed tasks */}
+        {task.status === 'done' && task.durations && task.durations.total_ai_ms && task.durations.total_ai_ms > 0 && (
+          <DurationBreakdown durations={task.durations} />
+        )}
+
         {/* Footer */}
         <div className="mt-4 flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
-            <span>{relativeTime}</span>
+            {/* METRICS-1B: Show elapsed time when running, otherwise show relative time */}
+            {hasActiveAgent && elapsedTime !== null ? (
+              <span className="text-primary font-medium">{formatDurationShort(elapsedTime)}</span>
+            ) : task.status === 'done' && task.executionProgress?.startedAt ? (
+              <span>{t('labels.completed')}</span>
+            ) : (
+              <span>{relativeTime}</span>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -710,26 +858,58 @@ export const TaskCard = memo(function TaskCard({
                 {t('actions.archive')}
               </Button>
             ) : isPlanning ? (
-              // Phase 2: Planning tasks show "Start Build" to transition to coding
-              // The planning agent runs automatically, user can stop it or start coding
+              // Phase 2: Planning tasks - show Stop while agent runs, Start Build only when spec is ready
+              // FIX-14: "Start Build" only shown when agent is stopped (spec may be ready)
               <div className="flex items-center gap-1">
                 {isAgentStopped ? (
-                  // Agent was stopped - show Resume button
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-7 px-2.5"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      startTask(task.id);
-                    }}
-                    title={t('tooltips.resumePlanningAgent')}
-                  >
-                    <Play className="mr-1.5 h-3 w-3" />
-                    {t('actions.resume')}
-                  </Button>
+                  // Agent was stopped - show Resume + Start Build (spec may be ready)
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2.5"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startTask(task.id);
+                      }}
+                      title={t('tooltips.resumePlanningAgent')}
+                    >
+                      <Play className="mr-1.5 h-3 w-3" />
+                      {t('actions.resume')}
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="h-7 px-2.5"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isBlocked) {
+                          startBuild(task.id);
+                        }
+                      }}
+                      disabled={isBlocked}
+                      title={isBlocked
+                        ? t('tasks:dependencies.blockedTooltip', {
+                            defaultValue: 'Cannot start: waiting for dependencies to complete'
+                          })
+                        : t('tooltips.startBuild')
+                      }
+                    >
+                      {isBlocked ? (
+                        <>
+                          <Link2 className="mr-1.5 h-3 w-3" />
+                          {t('tasks:dependencies.blocked', { defaultValue: 'Blocked' })}
+                        </>
+                      ) : (
+                        <>
+                          <Play className="mr-1.5 h-3 w-3" />
+                          {t('actions.startBuild')}
+                        </>
+                      )}
+                    </Button>
+                  </>
                 ) : (
-                  // Agent is running - show Stop button
+                  // Agent is running - show Stop button only (no Start Build during active planning)
                   <Button
                     variant="destructive"
                     size="sm"
@@ -744,36 +924,6 @@ export const TaskCard = memo(function TaskCard({
                     {t('actions.stop')}
                   </Button>
                 )}
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="h-7 px-2.5"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!isBlocked) {
-                      startBuild(task.id);
-                    }
-                  }}
-                  disabled={isBlocked}
-                  title={isBlocked
-                    ? t('tasks:dependencies.blockedTooltip', {
-                        defaultValue: 'Cannot start: waiting for dependencies to complete'
-                      })
-                    : t('tooltips.startBuild')
-                  }
-                >
-                  {isBlocked ? (
-                    <>
-                      <Link2 className="mr-1.5 h-3 w-3" />
-                      {t('tasks:dependencies.blocked', { defaultValue: 'Blocked' })}
-                    </>
-                  ) : (
-                    <>
-                      <Play className="mr-1.5 h-3 w-3" />
-                      {t('actions.startBuild')}
-                    </>
-                  )}
-                </Button>
               </div>
             ) : task.status === 'coding' && (
               <Button
@@ -797,54 +947,91 @@ export const TaskCard = memo(function TaskCard({
             )}
 
             {/* View Terminal button - show for active task statuses */}
+            {/* TERM-4b: Added status indicator dot next to terminal button */}
             {(task.status === 'coding' || task.status === 'ai_review' || task.status === 'human_review' || task.status === 'planning') && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 cursor-pointer"
-                onClick={handleViewTerminal}
-                title={t('tooltips.viewTerminal')}
-              >
-                <TerminalSquare className="h-3 w-3" />
-              </Button>
-            )}
-
-            {/* Move to menu for keyboard accessibility */}
-            {statusMenuItems && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+              <>
+                <Button
+                  variant={isTerminalExpanded ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 px-2 cursor-pointer"
+                  onClick={handleViewTerminal}
+                  title={t('tooltips.viewTerminal')}
+                >
+                  {/* TERM-4b: Status indicator dot */}
+                  <span className={cn(
+                    "w-2 h-2 rounded-full mr-1.5",
+                    // Green = actively running (coding/planning with agent running)
+                    hasActiveAgent && !isStuck ? "bg-green-500 animate-pulse" :
+                    // Red = error/stuck state
+                    isStuck ? "bg-red-500" :
+                    // Yellow = needs attention (human_review, ai_review)
+                    (task.status === 'human_review' || task.status === 'ai_review') ? "bg-yellow-500" :
+                    // Gray = idle (stopped but has terminal)
+                    "bg-gray-400"
+                  )} />
+                  <TerminalSquare className="h-3 w-3 mr-1" />
+                  {isTerminalExpanded ? (
+                    <ChevronUp className="h-3 w-3" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3" />
+                  )}
+                </Button>
+                {/* FIX-29b: Pop out button to open in bottom panel */}
+                {onOpenBottomPanel && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={(e) => e.stopPropagation()}
-                    aria-label={t('actions.taskActions')}
+                    className="h-7 px-2 cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenBottomPanel(task.id, task.title);
+                    }}
+                    title={t('tooltips.popOutTerminal', { defaultValue: 'Open in bottom panel' })}
                   >
-                    <MoreVertical className="h-4 w-4" />
+                    <ExternalLink className="h-3 w-3" />
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenuLabel>{t('actions.moveTo')}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {statusMenuItems}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                )}
+              </>
             )}
+
           </div>
         </div>
         {/* Close content wrapper for selectable mode */}
         </div>
         {/* Close flex container for selectable mode */}
         </div>
-      </CardContent>
 
-      {/* SUG-1a: Task Terminal Modal */}
-      <TaskTerminalModal
-        task={task}
-        open={isTerminalModalOpen}
-        onOpenChange={setIsTerminalModalOpen}
-        projectPath={selectedProject?.path}
-      />
+        {/* FIX-29a: Compact terminal preview (always visible for running tasks) */}
+        {hasActiveAgent && !isTerminalExpanded && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <CompactTerminalPreview taskId={task.id} />
+          </div>
+        )}
+
+        {/* FIX-21: Inline terminal expansion */}
+        {isTerminalExpanded && (
+          <div
+            className="mt-4 border-t border-border pt-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="h-64 rounded-lg overflow-hidden bg-card/50 border border-border">
+              {taskTerminal ? (
+                <TaskMonitorChat
+                  terminal={taskTerminal}
+                  terminalRef={terminalRef}
+                  isActive={true}
+                  isMinimized={false}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  {t('terminal.waitingForOutput')}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
     </Card>
   );
 }, taskCardPropsAreEqual);

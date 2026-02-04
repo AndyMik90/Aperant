@@ -11,6 +11,7 @@ import { checkGitStatus } from '../../project-initializer';
 import { initializeClaudeProfileManager } from '../../claude-profile-manager';
 import { findTaskAndProject } from './shared';
 import { fileWatcher } from '../../file-watcher';
+import { getTaskWorktreeDir } from '../../worktree-paths';
 
 /**
  * Register task CRUD (Create, Read, Update, Delete) handlers
@@ -304,6 +305,7 @@ export function registerTaskCRUDHandlers(
 
   /**
    * Delete a task
+   * FIX-27: Now deletes task from ALL locations (main project AND worktrees)
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_DELETE,
@@ -323,29 +325,76 @@ export function registerTaskCRUDHandlers(
         return { success: false, error: 'Cannot delete a running task. Stop the task first.' };
       }
 
-      // Delete the spec directory - use task.specsPath if available (handles worktree tasks)
-      const specDir = task.specsPath || path.join(project.path, getSpecsDir(project.autoBuildPath), task.specId);
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
+      const deletedPaths: string[] = [];
+      const errors: string[] = [];
 
+      // FIX-27: Delete from ALL locations - main project AND worktrees
+
+      // 1. Delete from main project specs directory
+      const mainSpecDir = path.join(project.path, specsBaseDir, task.specId);
       try {
-        console.warn(`[TASK_DELETE] Attempting to delete: ${specDir} (location: ${task.location || 'unknown'})`);
-        if (existsSync(specDir)) {
-          await rm(specDir, { recursive: true, force: true });
-          console.warn(`[TASK_DELETE] Deleted spec directory: ${specDir}`);
-        } else {
-          console.warn(`[TASK_DELETE] Spec directory not found: ${specDir}`);
+        console.warn(`[TASK_DELETE] Checking main project: ${mainSpecDir}`);
+        if (existsSync(mainSpecDir)) {
+          await rm(mainSpecDir, { recursive: true, force: true });
+          deletedPaths.push(`main: ${mainSpecDir}`);
+          console.warn(`[TASK_DELETE] Deleted from main project: ${mainSpecDir}`);
         }
-
-        // Invalidate cache since a task was deleted
-        projectStore.invalidateTasksCache(project.id);
-
-        return { success: true };
       } catch (error) {
-        console.error('[TASK_DELETE] Error deleting spec directory:', error);
+        const errMsg = error instanceof Error ? error.message : String(error);
+        errors.push(`main: ${errMsg}`);
+        console.error('[TASK_DELETE] Error deleting from main project:', error);
+      }
+
+      // 2. Delete from ALL worktrees that contain this task
+      const worktreesDir = getTaskWorktreeDir(project.path);
+      if (existsSync(worktreesDir)) {
+        try {
+          const worktrees = readdirSync(worktreesDir, { withFileTypes: true });
+          for (const worktree of worktrees) {
+            if (!worktree.isDirectory()) continue;
+
+            const worktreeSpecDir = path.join(worktreesDir, worktree.name, specsBaseDir, task.specId);
+            try {
+              if (existsSync(worktreeSpecDir)) {
+                await rm(worktreeSpecDir, { recursive: true, force: true });
+                deletedPaths.push(`worktree/${worktree.name}: ${worktreeSpecDir}`);
+                console.warn(`[TASK_DELETE] Deleted from worktree ${worktree.name}: ${worktreeSpecDir}`);
+              }
+            } catch (error) {
+              const errMsg = error instanceof Error ? error.message : String(error);
+              errors.push(`worktree/${worktree.name}: ${errMsg}`);
+              console.error(`[TASK_DELETE] Error deleting from worktree ${worktree.name}:`, error);
+            }
+          }
+        } catch (error) {
+          console.error('[TASK_DELETE] Error scanning worktrees:', error);
+        }
+      }
+
+      // Invalidate cache since a task was deleted
+      projectStore.invalidateTasksCache(project.id);
+
+      // Report results
+      if (deletedPaths.length === 0 && errors.length === 0) {
+        console.warn(`[TASK_DELETE] Task ${taskId} not found in any location`);
+        return { success: true }; // Task doesn't exist anywhere, consider it deleted
+      }
+
+      if (errors.length > 0) {
+        console.error(`[TASK_DELETE] Completed with errors:`, { deleted: deletedPaths, errors });
+        // Return partial success if we deleted at least one location
+        if (deletedPaths.length > 0) {
+          return { success: true }; // Partial success - some locations deleted
+        }
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to delete task files'
+          error: `Failed to delete task: ${errors.join(', ')}`
         };
       }
+
+      console.warn(`[TASK_DELETE] Successfully deleted task from ${deletedPaths.length} location(s):`, deletedPaths);
+      return { success: true };
     }
   );
 

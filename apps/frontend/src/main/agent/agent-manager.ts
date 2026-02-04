@@ -172,11 +172,8 @@ export class AgentManager extends EventEmitter {
       args.push('--base-branch', baseBranch);
     }
 
-    // Check if user requires review before coding
-    if (!metadata?.requireReviewBeforeCoding) {
-      // Auto-approve: When user starts a task from the UI without requiring review
-      args.push('--auto-approve');
-    }
+    // FIX-24: Ralph Wiggum Mode is always on - always auto-approve
+    args.push('--auto-approve');
 
     // Pass model and thinking level configuration
     // For auto profile, use phase-specific config; otherwise use single model/thinking

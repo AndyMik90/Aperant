@@ -17,7 +17,7 @@ import { OAuthStep } from './OAuthStep';
 import { ClaudeCodeStep } from './ClaudeCodeStep';
 import { DevToolsStep } from './DevToolsStep';
 import { PrivacyStep } from './PrivacyStep';
-import { GraphitiStep } from './GraphitiStep';
+// GraphitiStep removed from wizard (ONBOARD-1) - still used in Settings
 import { CompletionStep } from './CompletionStep';
 import { useSettingsStore } from '../../stores/settings-store';
 
@@ -28,10 +28,10 @@ interface OnboardingWizardProps {
   onOpenSettings?: () => void;
 }
 
-// Wizard step identifiers
-type WizardStepId = 'welcome' | 'auth-choice' | 'oauth' | 'claude-code' | 'devtools' | 'privacy' | 'graphiti' | 'completion';
+// Wizard step identifiers (ONBOARD-1: graphiti removed - now 7 steps)
+type WizardStepId = 'welcome' | 'auth-choice' | 'oauth' | 'claude-code' | 'devtools' | 'privacy' | 'completion';
 
-// Step configuration with translation keys
+// Step configuration with translation keys (ONBOARD-1: graphiti step removed)
 const WIZARD_STEPS: { id: WizardStepId; labelKey: string }[] = [
   { id: 'welcome', labelKey: 'steps.welcome' },
   { id: 'auth-choice', labelKey: 'steps.authChoice' },
@@ -39,7 +39,6 @@ const WIZARD_STEPS: { id: WizardStepId; labelKey: string }[] = [
   { id: 'claude-code', labelKey: 'steps.claudeCode' },
   { id: 'devtools', labelKey: 'steps.devtools' },
   { id: 'privacy', labelKey: 'steps.privacy' },
-  { id: 'graphiti', labelKey: 'steps.memory' },
   { id: 'completion', labelKey: 'steps.done' }
 ];
 
@@ -93,8 +92,8 @@ export function OnboardingWizard({
   }, [currentStepIndex, currentStepId]);
 
   const goToPreviousStep = useCallback(() => {
-    // If going back from graphiti and oauth was bypassed, go back to auth-choice (skip oauth)
-    if (currentStepId === 'graphiti' && oauthBypassed) {
+    // ONBOARD-1: If going back from privacy and oauth was bypassed, go back to auth-choice (skip oauth)
+    if (currentStepId === 'privacy' && oauthBypassed) {
       // Find index of auth-choice step
       const authChoiceIndex = WIZARD_STEPS.findIndex(step => step.id === 'auth-choice');
       setCurrentStepIndex(authChoiceIndex);
@@ -107,14 +106,14 @@ export function OnboardingWizard({
     }
   }, [currentStepIndex, currentStepId, oauthBypassed]);
 
-  // Handler for when API key path is chosen - skips oauth step
-  const handleSkipToGraphiti = useCallback(() => {
+  // ONBOARD-1: Handler for when API key path is chosen - skips oauth step, goes to claude-code
+  const handleSkipToClaudeCode = useCallback(() => {
     setOauthBypassed(true);
     setCompletedSteps(prev => new Set(prev).add('auth-choice'));
 
-    // Find index of graphiti step
-    const graphitiIndex = WIZARD_STEPS.findIndex(step => step.id === 'graphiti');
-    setCurrentStepIndex(graphitiIndex);
+    // Find index of claude-code step
+    const claudeCodeIndex = WIZARD_STEPS.findIndex(step => step.id === 'claude-code');
+    setCurrentStepIndex(claudeCodeIndex);
   }, []);
 
   // Reset wizard state (for re-running) - defined before skipWizard/finishWizard that use it
@@ -188,7 +187,7 @@ export function OnboardingWizard({
             onNext={goToNextStep}
             onBack={goToPreviousStep}
             onSkip={skipWizard}
-            onAPIKeyPathComplete={handleSkipToGraphiti}
+            onAPIKeyPathComplete={handleSkipToClaudeCode}
           />
         );
       case 'oauth':
@@ -221,14 +220,7 @@ export function OnboardingWizard({
             onBack={goToPreviousStep}
           />
         );
-      case 'graphiti':
-        return (
-          <GraphitiStep
-            onNext={goToNextStep}
-            onBack={goToPreviousStep}
-            onSkip={skipWizard}
-          />
-        );
+      // ONBOARD-1: graphiti case removed - GraphitiStep still available in Settings
       case 'completion':
         return (
           <CompletionStep

@@ -49,7 +49,6 @@ const BUILT_IN_TEMPLATES: TaskTemplate[] = [
     priority: 'high',
     complexity: 'small',
     impact: 'medium',
-    requireReviewBeforeCoding: true,
     createdAt: new Date(0),
     updatedAt: new Date(0),
   },
@@ -61,7 +60,6 @@ const BUILT_IN_TEMPLATES: TaskTemplate[] = [
     priority: 'medium',
     complexity: 'medium',
     impact: 'medium',
-    requireReviewBeforeCoding: false,
     createdAt: new Date(0),
     updatedAt: new Date(0),
   },
@@ -73,7 +71,6 @@ const BUILT_IN_TEMPLATES: TaskTemplate[] = [
     priority: 'low',
     complexity: 'trivial',
     impact: 'low',
-    requireReviewBeforeCoding: false,
     createdAt: new Date(0),
     updatedAt: new Date(0),
   },
@@ -85,7 +82,6 @@ const BUILT_IN_TEMPLATES: TaskTemplate[] = [
     priority: 'low',
     complexity: 'medium',
     impact: 'low',
-    requireReviewBeforeCoding: false,
     createdAt: new Date(0),
     updatedAt: new Date(0),
   },
@@ -101,7 +97,6 @@ interface CurrentFormValues {
   thinkingLevel?: ThinkingLevel | '';
   phaseModels?: PhaseModelConfig;
   phaseThinking?: PhaseThinkingConfig;
-  requireReviewBeforeCoding?: boolean;
 }
 
 interface TaskTemplateSelectorProps {
@@ -149,7 +144,6 @@ export function TaskTemplateSelector({
       thinkingLevel: currentValues.thinkingLevel || undefined,
       phaseModels: currentValues.phaseModels,
       phaseThinking: currentValues.phaseThinking,
-      requireReviewBeforeCoding: currentValues.requireReviewBeforeCoding,
     });
 
     saveTemplate(template);

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FolderOpen, Plus, Trash2 } from 'lucide-react';
 import {
   Select,
@@ -7,6 +8,17 @@ import {
   SelectTrigger,
   SelectValue
 } from '../ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '../ui/dialog';
+import { Button } from '../ui/button';
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import { Label } from '../ui/label';
 import { Separator } from '../ui/separator';
 import { useProjectStore, removeProject } from '../../stores/project-store';
 import { AddProjectModal } from '../AddProjectModal';
@@ -23,9 +35,16 @@ export function ProjectSelector({
   onProjectChange,
   onProjectAdded
 }: ProjectSelectorProps) {
+  const { t } = useTranslation(['settings', 'common']);
   const projects = useProjectStore((state) => state.projects);
   const [showAddModal, setShowAddModal] = useState(false);
   const [open, setOpen] = useState(false);
+
+  // FIX-25: Project removal dialog state
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+  const [projectToRemove, setProjectToRemove] = useState<Project | null>(null);
+  const [deleteDataOption, setDeleteDataOption] = useState<'keep' | 'delete'>('keep');
+  const [isRemoving, setIsRemoving] = useState(false);
 
   const handleValueChange = (value: string) => {
     if (value === '__add_new__') {
@@ -37,12 +56,30 @@ export function ProjectSelector({
     }
   };
 
-  const handleRemoveProject = useCallback(async (projectId: string, e: React.MouseEvent) => {
+  // FIX-25: Show removal dialog instead of removing immediately
+  const handleRemoveProject = useCallback((project: Project, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    await removeProject(projectId);
+    setProjectToRemove(project);
+    setDeleteDataOption('keep'); // Reset to default option
+    setRemoveDialogOpen(true);
     setOpen(false);
   }, []);
+
+  // FIX-25: Handle confirmed removal
+  const handleConfirmRemove = useCallback(async () => {
+    if (!projectToRemove) return;
+
+    setIsRemoving(true);
+    try {
+      const deleteData = deleteDataOption === 'delete';
+      await removeProject(projectToRemove.id, deleteData);
+      setRemoveDialogOpen(false);
+      setProjectToRemove(null);
+    } finally {
+      setIsRemoving(false);
+    }
+  }, [projectToRemove, deleteDataOption]);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
@@ -79,7 +116,7 @@ export function ProjectSelector({
                   onPointerDown={(e) => {
                     e.stopPropagation();
                   }}
-                  onClick={(e) => handleRemoveProject(project.id, e)}
+                  onClick={(e) => handleRemoveProject(project, e)}
                 >
                   <Trash2 className="h-3.5 w-3.5 text-destructive" />
                 </button>
@@ -116,6 +153,68 @@ export function ProjectSelector({
           onProjectAdded?.(project, needsInit);
         }}
       />
+
+      {/* FIX-25: Project removal dialog with two options */}
+      <Dialog open={removeDialogOpen} onOpenChange={(open) => {
+        if (!isRemoving) {
+          setRemoveDialogOpen(open);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('settings:projectRemoval.title')}</DialogTitle>
+            <DialogDescription>
+              {t('settings:projectRemoval.description', { name: projectToRemove?.name })}
+            </DialogDescription>
+          </DialogHeader>
+
+          <RadioGroup
+            value={deleteDataOption}
+            onValueChange={(value) => setDeleteDataOption(value as 'keep' | 'delete')}
+            className="space-y-3 py-4"
+          >
+            <div className="flex items-start space-x-3">
+              <RadioGroupItem value="keep" id="keep" />
+              <div className="grid gap-1">
+                <Label htmlFor="keep" className="font-medium">
+                  {t('settings:projectRemoval.keepOption')}
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  {t('settings:projectRemoval.keepDescription')}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <RadioGroupItem value="delete" id="delete" />
+              <div className="grid gap-1">
+                <Label htmlFor="delete" className="font-medium text-destructive">
+                  {t('settings:projectRemoval.deleteOption')}
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  {t('settings:projectRemoval.deleteDescription')}
+                </p>
+              </div>
+            </div>
+          </RadioGroup>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRemoveDialogOpen(false)}
+              disabled={isRemoving}
+            >
+              {t('common:buttons.cancel')}
+            </Button>
+            <Button
+              variant={deleteDataOption === 'delete' ? 'destructive' : 'default'}
+              onClick={handleConfirmRemove}
+              disabled={isRemoving}
+            >
+              {isRemoving ? t('common:buttons.removing') : t('common:buttons.confirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

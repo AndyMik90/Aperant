@@ -401,6 +401,9 @@ export const useTaskStore = create<TaskState>((set, get) => ({
             subtasks,
             status,
             reviewReason,
+            // METRICS-1C: Copy timestamps and durations from plan
+            timestamps: plan.timestamps || t.timestamps,
+            durations: plan.durations || t.durations,
             updatedAt: new Date()
           };
         })

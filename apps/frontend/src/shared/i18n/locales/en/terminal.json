@@ -3,6 +3,13 @@
     "expand": "Expand terminal",
     "collapse": "Collapse terminal"
   },
+  "bottomPanel": {
+    "header": "Terminal: {{title}}"
+  },
+  "taskMonitor": {
+    "title": "Task Monitor"
+  },
+  "waitingForOutput": "Waiting for terminal output...",
   "auth": {
     "terminalTitle": "Auth: {{profileName}}",
     "maxTerminalsReached": "Cannot open auth terminal: maximum terminals reached. Close a terminal first."

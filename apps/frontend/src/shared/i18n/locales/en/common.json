@@ -80,7 +80,8 @@
     "gotIt": "Got it",
     "continue": "Continue",
     "saving": "Saving...",
-    "clear": "Clear"
+    "clear": "Clear",
+    "removing": "Removing..."
   },
   "labels": {
     "loading": "Loading...",

@@ -51,7 +51,6 @@ export interface TaskExecutionOptions {
 }
 
 export interface SpecCreationMetadata {
-  requireReviewBeforeCoding?: boolean;
   // Auto profile - phase-based model and thinking configuration
   isAutoProfile?: boolean;
   phaseModels?: {
