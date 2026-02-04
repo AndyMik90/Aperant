@@ -90,7 +90,8 @@ orchestrator_spec = importlib.util.spec_from_file_location(
     / "parallel_orchestrator_reviewer.py",
 )
 orchestrator_module = importlib.util.module_from_spec(orchestrator_spec)
-# Register module in sys.modules BEFORE exec_module - required for @dataclass decorator
+# Register module in sys.modules BEFORE exec_module to allow @dataclass decorator to work
+# Without this, dataclass fails on Windows with: AttributeError: 'NoneType' object has no attribute '__dict__'
 sys.modules["parallel_orchestrator_reviewer"] = orchestrator_module
 # Mock dependencies that aren't needed for unit testing
 # IMPORTANT: Save and restore ALL mocked modules to avoid polluting sys.modules for other tests
