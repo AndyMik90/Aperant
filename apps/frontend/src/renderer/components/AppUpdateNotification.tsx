@@ -118,6 +118,10 @@ export function AppUpdateNotification() {
 
   // Listen for update errors (e.g., install failures)
   useEffect(() => {
+    if (!window.electronAPI?.onAppUpdateError) {
+      return;
+    }
+
     const cleanup = window.electronAPI.onAppUpdateError((error) => {
       setDownloadError(error.message);
       setIsDownloading(false);
@@ -128,6 +132,10 @@ export function AppUpdateNotification() {
 
   // Listen for read-only volume warning (when trying to install from DMG on macOS)
   useEffect(() => {
+    if (!window.electronAPI?.onAppUpdateReadOnlyVolume) {
+      return;
+    }
+
     const cleanup = window.electronAPI.onAppUpdateReadOnlyVolume(() => {
       setShowReadOnlyWarning(true);
     });
@@ -280,7 +288,7 @@ export function AppUpdateNotification() {
           )}
 
           {/* Downloaded Success */}
-          {isDownloaded && (
+          {isDownloaded && !showReadOnlyWarning && (
             <div className="flex items-center gap-3 text-sm text-success bg-success/10 border border-success/30 rounded-lg p-3">
               <CheckCircle2 className="h-5 w-5 shrink-0" />
               <span>

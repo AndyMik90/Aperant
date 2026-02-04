@@ -557,8 +557,8 @@ export async function setUpdateChannelWithDowngradeCheck(
  * Uses electron-updater with allowDowngrade enabled to download older stable versions
  */
 export async function downloadStableVersion(): Promise<void> {
-  // Switch to stable channel
-  autoUpdater.channel = 'latest';
+  // Switch to stable channel (resets allowPrerelease and clears downloadedUpdateInfo)
+  setUpdateChannel('latest');
   // Enable downgrade to allow downloading older versions (e.g., stable when on beta)
   autoUpdater.allowDowngrade = true;
   console.warn('[app-updater] Downloading stable version (allowDowngrade=true)...');
