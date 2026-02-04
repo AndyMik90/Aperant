@@ -61,7 +61,9 @@ def sanitize_error_message(error_message: str, max_length: int = 500) -> str:
 
     # Redact patterns that look like API keys or tokens
     # Pattern: sk-... (OpenAI/Anthropic keys like sk-ant-api03-...)
-    sanitized = re.sub(r"\bsk-[a-zA-Z0-9._\-]{20,}\b", "[REDACTED_API_KEY]", error_message)
+    sanitized = re.sub(
+        r"\bsk-[a-zA-Z0-9._\-]{20,}\b", "[REDACTED_API_KEY]", error_message
+    )
 
     # Pattern: key-... (generic API keys)
     sanitized = re.sub(r"\bkey-[a-zA-Z0-9._\-]{20,}\b", "[REDACTED_API_KEY]", sanitized)
