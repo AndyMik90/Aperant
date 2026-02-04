@@ -297,7 +297,7 @@ describe('Subprocess Spawn Integration', () => {
       // Simulate stdout data (must include newline for buffered output processing)
       mockStdout.emit('data', Buffer.from('Test log output\n'));
 
-      expect(logHandler).toHaveBeenCalledWith('task-1', 'Test log output\n');
+      expect(logHandler).toHaveBeenCalledWith('task-1', 'Test log output\n', undefined);
     }, 30000);  // Increase timeout for Windows CI (dynamic imports are slow)
 
     it('should emit log events from stderr', async () => {
@@ -313,7 +313,7 @@ describe('Subprocess Spawn Integration', () => {
       // Simulate stderr data (must include newline for buffered output processing)
       mockStderr.emit('data', Buffer.from('Progress: 50%\n'));
 
-      expect(logHandler).toHaveBeenCalledWith('task-1', 'Progress: 50%\n');
+      expect(logHandler).toHaveBeenCalledWith('task-1', 'Progress: 50%\n', undefined);
     }, 30000);  // Increase timeout for Windows CI (dynamic imports are slow)
 
     it('should emit exit event when process exits', async () => {
@@ -329,8 +329,8 @@ describe('Subprocess Spawn Integration', () => {
       // Simulate process exit
       mockProcess.emit('exit', 0);
 
-      // Exit event includes taskId, exit code, and process type
-      expect(exitHandler).toHaveBeenCalledWith('task-1', 0, expect.any(String));
+      // Exit event includes taskId, exit code, process type, and optional projectId
+      expect(exitHandler).toHaveBeenCalledWith('task-1', 0, expect.any(String), undefined);
     }, 30000);  // Increase timeout for Windows CI (dynamic imports are slow)
 
     it('should emit error event when process errors', async () => {
@@ -346,7 +346,7 @@ describe('Subprocess Spawn Integration', () => {
       // Simulate process error
       mockProcess.emit('error', new Error('Spawn failed'));
 
-      expect(errorHandler).toHaveBeenCalledWith('task-1', 'Spawn failed');
+      expect(errorHandler).toHaveBeenCalledWith('task-1', 'Spawn failed', undefined);
     }, 30000);  // Increase timeout for Windows CI (dynamic imports are slow)
 
     it('should kill task and remove from tracking', async () => {
@@ -395,16 +395,15 @@ describe('Subprocess Spawn Integration', () => {
         expect(manager.getRunningTasks()).toHaveLength(2);
       }, { timeout: 5000 });
 
-      // Wait for spawn to complete (ensures exit handlers are attached)
-      await new Promise(resolve => setImmediate(resolve));
-
-      // Emit exit events - both tasks share the same mockProcess, so both handlers fire
-      // We emit twice to ensure both task handlers receive exit events
-      mockProcess.emit('exit', 0);
-      mockProcess.emit('exit', 0);
-
-      // Wait for promises to settle
+      // Wait for both spawn promises to fully resolve — this ensures the exit
+      // handlers are attached to mockProcess. A single setImmediate is NOT enough
+      // on Windows CI because spawnProcess has async operations (getAPIProfileEnv,
+      // getRecoveryCoordinator) between addProcess and the .on('exit') listener.
+      // Waiting for the promises guarantees spawnProcess has completed fully.
       await Promise.allSettled([promise1, promise2]);
+
+      // Both tasks share the same mockProcess, so one emit fires both exit handlers
+      mockProcess.emit('exit', 0);
 
       // Wait for tasks to be removed from tracking (cleanup may be async)
       await vi.waitFor(() => {

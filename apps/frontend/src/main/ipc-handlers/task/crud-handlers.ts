@@ -10,6 +10,7 @@ import { findTaskAndProject } from './shared';
 import { findAllSpecPaths, isValidTaskId } from '../../utils/spec-path-helpers';
 import { isPathWithinBase, findTaskWorktree } from '../../worktree-paths';
 import { cleanupWorktree } from '../../utils/worktree-cleanup';
+import { taskStateManager } from '../../task-state-manager';
 
 /**
  * Register task CRUD (Create, Read, Update, Delete) handlers
@@ -26,11 +27,13 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
     async (_, projectId: string, options?: { forceRefresh?: boolean }): Promise<IPCResult<Task[]>> => {
       console.warn('[IPC] TASK_LIST called with projectId:', projectId, 'options:', options);
 
-      // If forceRefresh is requested, invalidate cache first
+      // If forceRefresh is requested, invalidate cache and clear XState actors
       // This ensures the refresh button always returns fresh data from disk
+      // and actors are recreated with fresh task data
       if (options?.forceRefresh) {
         projectStore.invalidateTasksCache(projectId);
-        console.warn('[IPC] TASK_LIST cache invalidated for forceRefresh');
+        taskStateManager.clearAllTasks();
+        console.warn('[IPC] TASK_LIST cache and task state cleared for forceRefresh');
       }
 
       const tasks = projectStore.getTasks(projectId);
@@ -125,28 +128,52 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       if (taskMetadata.attachedImages && taskMetadata.attachedImages.length > 0) {
         const attachmentsDir = path.join(specDir, 'attachments');
         mkdirSync(attachmentsDir, { recursive: true });
+        const resolvedAttachmentsDir = path.resolve(attachmentsDir);
+
+        // MIME type allowlist (defense in depth - frontend also validates)
+        const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/svg+xml'];
 
         const savedImages: typeof taskMetadata.attachedImages = [];
 
         for (const image of taskMetadata.attachedImages) {
           if (image.data) {
+            // Validate MIME type
+            if (!image.mimeType || !ALLOWED_MIME_TYPES.includes(image.mimeType)) {
+              console.warn(`[TASK_CREATE] Skipping image with missing or disallowed MIME type: ${image.mimeType}`);
+              continue;
+            }
+
+            // Sanitize filename to prevent path traversal attacks
+            const sanitizedFilename = path.basename(image.filename);
+            if (!sanitizedFilename || sanitizedFilename === '.' || sanitizedFilename === '..') {
+              console.warn(`[TASK_CREATE] Skipping image with invalid filename: ${image.filename}`);
+              continue;
+            }
+
+            // Validate resolved path stays within attachments directory
+            const imagePath = path.join(attachmentsDir, sanitizedFilename);
+            const resolvedPath = path.resolve(imagePath);
+            if (!resolvedPath.startsWith(resolvedAttachmentsDir + path.sep)) {
+              console.warn(`[TASK_CREATE] Skipping image with path traversal attempt: ${image.filename}`);
+              continue;
+            }
+
             try {
               // Decode base64 and save to file
               const buffer = Buffer.from(image.data, 'base64');
-              const imagePath = path.join(attachmentsDir, image.filename);
               writeFileSync(imagePath, buffer);
 
               // Store relative path instead of base64 data
               savedImages.push({
                 id: image.id,
-                filename: image.filename,
+                filename: sanitizedFilename,
                 mimeType: image.mimeType,
                 size: image.size,
-                path: `attachments/${image.filename}`
+                path: `attachments/${sanitizedFilename}`
                 // Don't include data or thumbnail to save space
               });
             } catch (err) {
-              console.error(`Failed to save image ${image.filename}:`, err);
+              console.error(`Failed to save image ${sanitizedFilename}:`, err);
             }
           }
         }
@@ -428,26 +455,50 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           if (updates.metadata.attachedImages && updates.metadata.attachedImages.length > 0) {
             const attachmentsDir = path.join(specDir, 'attachments');
             mkdirSync(attachmentsDir, { recursive: true });
+            const resolvedAttachmentsDir = path.resolve(attachmentsDir);
+
+            // MIME type allowlist (defense in depth - frontend also validates)
+            const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/svg+xml'];
 
             const savedImages: typeof updates.metadata.attachedImages = [];
 
             for (const image of updates.metadata.attachedImages) {
               // If image has data (new image), save it
               if (image.data) {
+                // Validate MIME type
+                if (!image.mimeType || !ALLOWED_MIME_TYPES.includes(image.mimeType)) {
+                  console.warn(`[TASK_UPDATE] Skipping image with missing or disallowed MIME type: ${image.mimeType}`);
+                  continue;
+                }
+
+                // Sanitize filename to prevent path traversal attacks
+                const sanitizedFilename = path.basename(image.filename);
+                if (!sanitizedFilename || sanitizedFilename === '.' || sanitizedFilename === '..') {
+                  console.warn(`[TASK_UPDATE] Skipping image with invalid filename: ${image.filename}`);
+                  continue;
+                }
+
+                // Validate resolved path stays within attachments directory
+                const imagePath = path.join(attachmentsDir, sanitizedFilename);
+                const resolvedPath = path.resolve(imagePath);
+                if (!resolvedPath.startsWith(resolvedAttachmentsDir + path.sep)) {
+                  console.warn(`[TASK_UPDATE] Skipping image with path traversal attempt: ${image.filename}`);
+                  continue;
+                }
+
                 try {
                   const buffer = Buffer.from(image.data, 'base64');
-                  const imagePath = path.join(attachmentsDir, image.filename);
                   writeFileSync(imagePath, buffer);
 
                   savedImages.push({
                     id: image.id,
-                    filename: image.filename,
+                    filename: sanitizedFilename,
                     mimeType: image.mimeType,
                     size: image.size,
-                    path: `attachments/${image.filename}`
+                    path: `attachments/${sanitizedFilename}`
                   });
                 } catch (err) {
-                  console.error(`Failed to save image ${image.filename}:`, err);
+                  console.error(`Failed to save image ${sanitizedFilename}:`, err);
                 }
               } else if (image.path) {
                 // Existing image, keep it

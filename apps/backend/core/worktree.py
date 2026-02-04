@@ -15,6 +15,7 @@ This allows:
 """
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -29,6 +30,8 @@ from typing import TypedDict, TypeVar
 
 from core.gh_executable import get_gh_executable, invalidate_gh_cache
 from core.git_executable import get_git_executable, get_isolated_git_env, run_git
+from core.git_provider import detect_git_provider
+from core.glab_executable import get_glab_executable, invalidate_glab_cache
 from core.model_config import get_utility_model_config
 from debug import debug_warning
 
@@ -140,6 +143,7 @@ class PushAndCreatePRResult(TypedDict, total=False):
     pushed: bool
     remote: str
     branch: str
+    provider: str  # 'github', 'gitlab', or 'unknown'
     pr_url: str | None  # None when PR was created but URL couldn't be extracted
     already_exists: bool
     error: str
@@ -179,8 +183,8 @@ class WorktreeManager:
 
     # Timeout constants for subprocess operations
     GIT_PUSH_TIMEOUT = 120  # 2 minutes for git push (network operations)
-    GH_CLI_TIMEOUT = 60  # 1 minute for gh CLI commands
-    GH_QUERY_TIMEOUT = 30  # 30 seconds for gh CLI queries
+    CLI_TIMEOUT = 60  # 1 minute for CLI commands (gh/glab)
+    CLI_QUERY_TIMEOUT = 30  # 30 seconds for CLI queries (gh/glab)
 
     def __init__(self, project_dir: Path, base_branch: str | None = None):
         self.project_dir = project_dir
@@ -1254,7 +1258,7 @@ class WorktreeManager:
                     text=True,
                     encoding="utf-8",
                     errors="replace",
-                    timeout=self.GH_CLI_TIMEOUT,
+                    timeout=self.CLI_TIMEOUT,
                     env=get_isolated_git_env(),
                 )
 
@@ -1330,7 +1334,165 @@ class WorktreeManager:
             invalidate_gh_cache()
             return PullRequestResult(
                 success=False,
-                error="gh CLI not found. Install from https://cli.github.com/",
+                error="GitHub CLI (gh) not found. Install from https://cli.github.com/",
+            )
+
+    def create_merge_request(
+        self,
+        spec_name: str,
+        target_branch: str | None = None,
+        title: str | None = None,
+        draft: bool = False,
+    ) -> PullRequestResult:
+        """
+        Create a GitLab merge request for a spec's branch using glab CLI with retry logic.
+
+        Args:
+            spec_name: The spec folder name
+            target_branch: Target branch for MR (defaults to base_branch)
+            title: MR title (defaults to spec name)
+            draft: Whether to create as draft MR
+
+        Returns:
+            PullRequestResult with keys:
+                - success: bool
+                - pr_url: str (if created)
+                - already_exists: bool (if MR already exists)
+                - error: str (if failed)
+        """
+        info = self.get_worktree_info(spec_name)
+        if not info:
+            return PullRequestResult(
+                success=False,
+                error=f"No worktree found for spec: {spec_name}",
+            )
+
+        target = target_branch or self.base_branch
+        mr_title = title or f"auto-claude: {spec_name}"
+
+        # Get MR body from spec.md if available
+        mr_body = self._extract_spec_summary(spec_name)
+
+        # Find glab executable before attempting MR creation
+        glab_executable = get_glab_executable()
+        if not glab_executable:
+            return PullRequestResult(
+                success=False,
+                error="GitLab CLI (glab) not found. Install from https://gitlab.com/gitlab-org/cli",
+            )
+
+        # Build glab mr create command
+        glab_args = [
+            glab_executable,
+            "mr",
+            "create",
+            "--target-branch",
+            target,
+            "--source-branch",
+            info.branch,
+            "--title",
+            mr_title,
+            "--description",
+            mr_body,
+        ]
+        if draft:
+            glab_args.append("--draft")
+
+        def is_mr_retryable(stderr: str) -> bool:
+            """Check if MR creation error is retryable (network or HTTP 5xx)."""
+            return _is_retryable_network_error(stderr) or _is_retryable_http_error(
+                stderr
+            )
+
+        def do_create_mr() -> tuple[bool, PullRequestResult | None, str]:
+            """Execute MR creation for retry wrapper."""
+            try:
+                result = subprocess.run(
+                    glab_args,
+                    cwd=info.path,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=self.CLI_TIMEOUT,
+                    env=get_isolated_git_env(),
+                )
+
+                # Check for "already exists" case (success, no retry needed)
+                if result.returncode != 0 and "already exists" in result.stderr.lower():
+                    existing_url = self._get_existing_mr_url(spec_name, target)
+                    result_dict = PullRequestResult(
+                        success=True,
+                        pr_url=existing_url,
+                        already_exists=True,
+                    )
+                    if existing_url is None:
+                        result_dict["message"] = (
+                            "MR already exists but URL could not be retrieved"
+                        )
+                    return (True, result_dict, "")
+
+                if result.returncode == 0:
+                    # Extract MR URL from output
+                    mr_url: str | None = result.stdout.strip()
+                    if not mr_url.startswith("http"):
+                        # Try to find URL in output
+                        # GitLab URL pattern: matches any HTTPS URL with /merge_requests/<number> or /-/merge_requests/<number> path
+                        match = re.search(
+                            r"https://[^\s]+(?:/merge_requests/|/-/merge_requests/)\d+",
+                            result.stdout,
+                        )
+                        if match:
+                            mr_url = match.group(0)
+                        else:
+                            # Invalid output - no valid URL found
+                            mr_url = None
+
+                    return (
+                        True,
+                        PullRequestResult(
+                            success=True,
+                            pr_url=mr_url,
+                            already_exists=False,
+                        ),
+                        "",
+                    )
+
+                return (False, None, result.stderr)
+
+            except FileNotFoundError:
+                # glab CLI not installed - not retryable, raise to exit retry loop
+                raise
+
+        max_retries = 3
+        try:
+            result, last_error = _with_retry(
+                operation=do_create_mr,
+                max_retries=max_retries,
+                is_retryable=is_mr_retryable,
+            )
+
+            if result:
+                return result
+
+            # Handle timeout error message
+            if last_error == "Operation timed out":
+                return PullRequestResult(
+                    success=False,
+                    error=f"MR creation timed out after {max_retries} attempts.",
+                )
+
+            return PullRequestResult(
+                success=False,
+                error=f"Failed to create MR: {last_error}",
+            )
+
+        except FileNotFoundError:
+            # Cached glab path became invalid - clear cache so next call re-discovers
+            invalidate_glab_cache()
+            return PullRequestResult(
+                success=False,
+                error="GitLab CLI (glab) not found. Install from https://gitlab.com/gitlab-org/cli",
             )
 
     def _gather_pr_context(self, spec_name: str, target_branch: str) -> tuple[str, str]:
@@ -1568,7 +1730,7 @@ class WorktreeManager:
                 text=True,
                 encoding="utf-8",
                 errors="replace",
-                timeout=self.GH_QUERY_TIMEOUT,
+                timeout=self.CLI_QUERY_TIMEOUT,
                 env=get_isolated_git_env(),
             )
             if result.returncode == 0:
@@ -1587,6 +1749,57 @@ class WorktreeManager:
 
         return None
 
+    def _get_existing_mr_url(self, spec_name: str, target_branch: str) -> str | None:
+        """Get the URL of an existing MR for this branch."""
+        info = self.get_worktree_info(spec_name)
+        if not info:
+            return None
+
+        glab_executable = get_glab_executable()
+        if not glab_executable:
+            # glab CLI not found - return None and let caller handle it
+            return None
+
+        try:
+            result = subprocess.run(
+                [
+                    glab_executable,
+                    "mr",
+                    "view",
+                    info.branch,
+                    "--output",
+                    "json",
+                ],
+                cwd=info.path,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=self.CLI_QUERY_TIMEOUT,
+                env=get_isolated_git_env(),
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                # Parse JSON output to extract web_url (glab uses snake_case)
+                try:
+                    data = json.loads(result.stdout)
+                    return data.get("web_url")
+                except json.JSONDecodeError:
+                    # If JSON parsing fails, return None
+                    pass
+        except (
+            subprocess.TimeoutExpired,
+            FileNotFoundError,
+            subprocess.SubprocessError,
+        ) as e:
+            # Silently ignore errors when fetching existing MR URL - this is a best-effort
+            # lookup that may fail due to network issues, missing glab CLI, or auth problems.
+            # Returning None allows the caller to handle missing URLs gracefully.
+            if isinstance(e, FileNotFoundError):
+                invalidate_glab_cache()
+            debug_warning("worktree", f"Could not get existing MR URL: {e}")
+
+        return None
+
     def push_and_create_pr(
         self,
         spec_name: str,
@@ -1596,13 +1809,14 @@ class WorktreeManager:
         force_push: bool = False,
     ) -> PushAndCreatePRResult:
         """
-        Push branch and create a pull request in one operation.
+        Push branch and create a pull request/merge request in one operation.
+        Automatically detects git provider (GitHub or GitLab) and routes to the appropriate CLI.
 
         Args:
             spec_name: The spec folder name
-            target_branch: Target branch for PR (defaults to base_branch)
-            title: PR title (defaults to spec name)
-            draft: Whether to create as draft PR
+            target_branch: Target branch for PR/MR (defaults to base_branch)
+            title: PR/MR title (defaults to spec name)
+            draft: Whether to create as draft PR/MR
             force_push: Whether to force push the branch
 
         Returns:
@@ -1610,7 +1824,8 @@ class WorktreeManager:
                 - success: bool
                 - pr_url: str (if created)
                 - pushed: bool (if push succeeded)
-                - already_exists: bool (if PR already exists)
+                - provider: str ('github', 'gitlab', or 'unknown')
+                - already_exists: bool (if PR/MR already exists)
                 - error: str (if failed)
         """
         # Step 1: Push the branch
@@ -1624,13 +1839,36 @@ class WorktreeManager:
                 error=push_result.get("error", "Push failed"),
             )
 
-        # Step 2: Create the PR
-        pr_result = self.create_pull_request(
-            spec_name=spec_name,
-            target_branch=target_branch,
-            title=title,
-            draft=draft,
+        # Step 2: Detect git provider (use the remote that was pushed to)
+        provider = detect_git_provider(
+            self.project_dir, remote_name=push_result.get("remote")
         )
+
+        # Step 3: Create the PR/MR based on provider
+        if provider == "github":
+            pr_result = self.create_pull_request(
+                spec_name=spec_name,
+                target_branch=target_branch,
+                title=title,
+                draft=draft,
+            )
+        elif provider == "gitlab":
+            pr_result = self.create_merge_request(
+                spec_name=spec_name,
+                target_branch=target_branch,
+                title=title,
+                draft=draft,
+            )
+        else:
+            # Unknown provider
+            return PushAndCreatePRResult(
+                success=False,
+                pushed=True,
+                remote=push_result.get("remote"),
+                branch=push_result.get("branch"),
+                provider=provider,
+                error="Unable to determine git hosting provider. Supported: GitHub, GitLab.",
+            )
 
         # Combine results
         return PushAndCreatePRResult(
@@ -1638,6 +1876,7 @@ class WorktreeManager:
             pushed=True,
             remote=push_result.get("remote"),
             branch=push_result.get("branch"),
+            provider=provider,
             pr_url=pr_result.get("pr_url"),
             already_exists=pr_result.get("already_exists", False),
             error=pr_result.get("error"),
