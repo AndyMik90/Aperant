@@ -4,7 +4,7 @@
  * Multi-select dropdowns with visible chip selections
  */
 
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import {
   Search,
   Users,
@@ -152,6 +152,13 @@ function FilterDropdown<T extends string>({
         break;
     }
   }, [filteredItems, focusedIndex, toggleItem]);
+
+  // Scroll focused item into view for keyboard navigation
+  useEffect(() => {
+    if (focusedIndex >= 0 && itemRefs.current[focusedIndex]) {
+      itemRefs.current[focusedIndex]?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [focusedIndex]);
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={(open) => {
@@ -345,7 +352,10 @@ function SortDropdown({
       open={isOpen}
       onOpenChange={(open) => {
         setIsOpen(open);
-        if (!open) {
+        if (open) {
+          // Focus current selection on open for better keyboard UX
+          setFocusedIndex(options.findIndex((o) => o.value === value));
+        } else {
           setFocusedIndex(-1);
         }
       }}

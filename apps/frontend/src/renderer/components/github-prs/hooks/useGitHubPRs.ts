@@ -417,17 +417,23 @@ export function useGitHubPRs(
       }
 
       if (result) {
-        // Update pagination state
-        setHasMore(result.hasNextPage);
-        setEndCursor(result.endCursor ?? null);
+        // Check if this is a failure response (empty result with no next page)
+        // In this case, preserve existing pagination state to allow retry
+        const isFailureResponse = result.prs.length === 0 && !result.hasNextPage && !result.endCursor;
 
-        // Append new PRs to existing list, deduplicating by PR number
-        // (handles edge case where PR shifts position between pagination requests)
-        setPrs((prevPrs) => {
-          const existingNumbers = new Set(prevPrs.map((pr) => pr.number));
-          const newPrs = result.prs.filter((pr) => !existingNumbers.has(pr.number));
-          return [...prevPrs, ...newPrs];
-        });
+        if (!isFailureResponse) {
+          // Update pagination state only on successful response
+          setHasMore(result.hasNextPage);
+          setEndCursor(result.endCursor ?? null);
+
+          // Append new PRs to existing list, deduplicating by PR number
+          // (handles edge case where PR shifts position between pagination requests)
+          setPrs((prevPrs) => {
+            const existingNumbers = new Set(prevPrs.map((pr) => pr.number));
+            const newPrs = result.prs.filter((pr) => !existingNumbers.has(pr.number));
+            return [...prevPrs, ...newPrs];
+          });
+        }
 
         // Batch preload review results for new PRs not in store
         const prsNeedingPreload = result.prs.filter((pr) => {

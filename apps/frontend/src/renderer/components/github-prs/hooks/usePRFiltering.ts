@@ -147,22 +147,30 @@ export function usePRFiltering(
       return true;
     });
 
+    // Pre-compute timestamps to avoid creating Date objects on every comparison
+    const timestamps = new Map(
+      filtered.map((pr) => [pr.number, new Date(pr.createdAt).getTime()])
+    );
+
     // Sort the filtered results
     return filtered.sort((a, b) => {
+      const aTime = timestamps.get(a.number)!;
+      const bTime = timestamps.get(b.number)!;
+
       switch (filters.sortBy) {
         case 'newest':
           // Sort by createdAt descending (most recent first)
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          return bTime - aTime;
         case 'oldest':
           // Sort by createdAt ascending (oldest first)
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          return aTime - bTime;
         case 'largest': {
           // Sort by total changes (additions + deletions) descending
           const aChanges = (a.additions || 0) + (a.deletions || 0);
           const bChanges = (b.additions || 0) + (b.deletions || 0);
           if (bChanges !== aChanges) return bChanges - aChanges;
           // Secondary sort by createdAt (newest first) for stable ordering
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          return bTime - aTime;
         }
         default:
           return 0;
