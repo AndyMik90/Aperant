@@ -186,7 +186,12 @@ class WorktreeManager:
     CLI_TIMEOUT = 60  # 1 minute for CLI commands (gh/glab)
     CLI_QUERY_TIMEOUT = 30  # 30 seconds for CLI queries (gh/glab)
 
-    def __init__(self, project_dir: Path, base_branch: str | None = None, use_local_branch: bool = False):
+    def __init__(
+        self,
+        project_dir: Path,
+        base_branch: str | None = None,
+        use_local_branch: bool = False,
+    ):
         self.project_dir = project_dir
         self.base_branch = base_branch or self._detect_base_branch()
         self.use_local_branch = use_local_branch

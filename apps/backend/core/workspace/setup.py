@@ -359,7 +359,9 @@ def setup_workspace(
     # Ensure timeline tracking hook is installed (once per session)
     ensure_timeline_hook_installed(project_dir)
 
-    manager = WorktreeManager(project_dir, base_branch=base_branch, use_local_branch=use_local_branch)
+    manager = WorktreeManager(
+        project_dir, base_branch=base_branch, use_local_branch=use_local_branch
+    )
     manager.setup()
 
     # Get or create worktree for THIS SPECIFIC SPEC
