@@ -16,7 +16,6 @@ import {
   getOperationRegistry,
   resetOperationRegistry,
   type OperationType,
-  type RegisteredOperation,
 } from '../operation-registry';
 
 describe('OperationRegistry', () => {
