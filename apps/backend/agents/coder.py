@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 
 from core.client import create_client
+from core.phase_event import ExecutionPhase, emit_phase
 from integrations.linear.updater import (
     LinearTaskState,
     is_linear_enabled,
@@ -19,7 +20,6 @@ from integrations.linear.updater import (
     linear_task_stuck,
 )
 from phase_config import get_phase_model, get_phase_thinking_budget
-from core.phase_event import ExecutionPhase, emit_phase
 from progress import (
     count_subtasks,
     count_subtasks_detailed,
@@ -37,8 +37,8 @@ from prompts_pkg.prompt_generator import (
     load_subtask_context,
 )
 from prompts_pkg.prompts import is_first_run
-from services.recovery import RecoveryManager
 from security.constants import PROJECT_DIR_ENV_VAR
+from services.recovery import RecoveryManager
 from task_logger import (
     LogPhase,
     get_task_logger,

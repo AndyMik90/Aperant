@@ -9,9 +9,9 @@ memory updates, recovery tracking, and Linear integration.
 import logging
 from pathlib import Path
 
+from analysis.insight_extractor import extract_session_insights
 from claude_agent_sdk import ClaudeSDKClient
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
-from analysis.insight_extractor import extract_session_insights
 from integrations.linear.updater import (
     linear_subtask_completed,
     linear_subtask_failed,
@@ -20,8 +20,8 @@ from progress import (
     count_subtasks_detailed,
     is_build_complete,
 )
-from services.recovery import RecoveryManager
 from security.tool_input_validator import get_safe_tool_input
+from services.recovery import RecoveryManager
 from task_logger import (
     LogEntryType,
     LogPhase,

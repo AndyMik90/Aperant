@@ -182,11 +182,9 @@ if git diff --cached --name-only | grep -q "^apps/backend/.*\.py$"; then
   echo "Running Python tests..."
   (
     cd apps/backend
-    # Tests to skip: graphiti (external deps), merge_file_tracker/service_orchestrator/worktree/workspace (Windows path/git issues)
-    # Also skip tests that require optional dependencies (pydantic structured outputs)
-    # Note: Many tests temporarily ignored due to import migration (subtask-5-x will fix)
-    # These tests use old shim-style imports that were deleted in earlier subtasks
-    IGNORE_TESTS="--ignore=../../tests/test_graphiti.py --ignore=../../tests/test_merge_file_tracker.py --ignore=../../tests/test_service_orchestrator.py --ignore=../../tests/test_worktree.py --ignore=../../tests/test_workspace.py --ignore=../../tests/test_finding_validation.py --ignore=../../tests/test_sdk_structured_output.py --ignore=../../tests/test_structured_outputs.py --ignore=../../tests/test_integration_phase4.py --ignore=../../tests/test_issue_884_plan_schema.py --ignore=../../tests/test_thinking_level_validation.py --ignore=../../tests/test_risk_classifier.py --ignore=../../tests/test_recovery.py --ignore=../../tests/test_model_resolution.py --ignore=../../tests/test_scan_secrets.py --ignore=../../tests/test_github_pr_review.py --ignore=../../tests/test_implementation_plan.py --ignore=../../tests/test_security.py --ignore=../../tests/test_merge_auto_merger.py --ignore=../../tests/test_qa_loop.py --ignore=../../tests/test_review_helpers.py --ignore=../../tests/test_github_pr_e2e.py --ignore=../../tests/test_merge_parallel.py --ignore=../../tests/test_check_encoding.py --ignore=../../tests/test_followup.py --ignore=../../tests/test_spec_pipeline.py --ignore=../../tests/test_agent_flow.py --ignore=../../tests/test_auth.py --ignore=../../tests/test_client.py --ignore=../../tests/test_prompt_generator.py"
+    # Tests to skip: pydantic-dependent tests (optional dep not always installed),
+    # and test_prompt_generator (has a Windows-path test that fails on macOS/Linux)
+    IGNORE_TESTS="--ignore=../../tests/test_finding_validation.py --ignore=../../tests/test_sdk_structured_output.py --ignore=../../tests/test_structured_outputs.py --ignore=../../tests/test_integration_phase4.py --ignore=../../tests/test_prompt_generator.py"
     
     # Determine Python executable from venv
     VENV_PYTHON=""
