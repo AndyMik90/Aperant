@@ -20,9 +20,11 @@ export const PHASE_PROTOCOL_VERSION = '1.0.0' as const;
  * Order matters for regression detection.
  *
  * 'idle' is frontend-only (initial state before any backend events)
+ * 'starting' is frontend-only (initialization window between status change and first phase event)
  */
 export const EXECUTION_PHASES = [
   'idle',
+  'starting',
   'planning',
   'coding',
   'qa_review',
@@ -61,6 +63,7 @@ export type CompletablePhase = 'planning' | 'coding' | 'qa_review' | 'qa_fixing'
  */
 export const PHASE_ORDER_INDEX: Readonly<Record<ExecutionPhase, number>> = {
   idle: -1,
+  starting: -0.5,
   planning: 0,
   coding: 1,
   qa_review: 2,
@@ -159,6 +162,7 @@ export function isValidPhaseTransition(
   // Define expected previous phases for each transition
   const phasePrerequisites: Record<ExecutionPhase, CompletablePhase[]> = {
     idle: [],
+    starting: [],
     planning: [],
     coding: ['planning'],
     qa_review: ['coding'],
@@ -209,7 +213,8 @@ export function isValidPhaseTransition(
 export function getExpectedPreviousPhase(phase: ExecutionPhase): ExecutionPhase | null {
   const previousPhases: Record<ExecutionPhase, ExecutionPhase | null> = {
     idle: null,
-    planning: 'idle',
+    starting: 'idle',
+    planning: 'starting',
     coding: 'planning',
     qa_review: 'coding',
     qa_fixing: 'qa_review',

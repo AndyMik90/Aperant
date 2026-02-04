@@ -13,7 +13,45 @@ This approach:
 """
 
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+
+def load_project_learnings(project_dir: Path) -> str:
+    """
+    Load LEARNINGS.md from project root if it exists.
+    SUG-23: Persistent Learning Memory
+
+    Returns formatted learnings section for prompt injection, or empty string.
+    """
+    learnings_file = project_dir / "LEARNINGS.md"
+    if not learnings_file.exists():
+        return ""
+
+    try:
+        content = learnings_file.read_text(encoding="utf-8")
+        # Extract just the learning entries (skip header)
+        if "---" in content:
+            parts = content.split("---", 1)
+            if len(parts) > 1:
+                learnings_section = parts[1].strip()
+                if learnings_section and "No learnings recorded yet" not in learnings_section:
+                    return f"""
+## Project Learnings
+
+The following learnings have been captured from previous task feedback. Apply these patterns and avoid these mistakes:
+
+{learnings_section}
+
+---
+
+"""
+        return ""
+    except Exception as e:
+        logger.warning(f"Failed to load LEARNINGS.md: {e}")
+        return ""
 
 
 def get_relative_spec_path(spec_dir: Path, project_dir: Path) -> str:
@@ -116,6 +154,11 @@ def generate_subtask_prompt(
 
     # Environment context first
     sections.append(generate_environment_context(project_dir, spec_dir))
+
+    # SUG-23: Inject project learnings if available
+    learnings = load_project_learnings(project_dir)
+    if learnings:
+        sections.append(learnings)
 
     # Header
     sections.append(f"""# Subtask Implementation Task

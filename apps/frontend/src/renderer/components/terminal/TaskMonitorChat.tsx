@@ -37,7 +37,7 @@ const BULLET_COLORS: Record<string, string> = {
   Read: 'bg-blue-500',
   Write: 'bg-green-500',
   Edit: 'bg-green-500',
-  Bash: 'bg-green-500',
+  Bash: 'bg-purple-500',
   Grep: 'bg-orange-500',
   Glob: 'bg-pink-500',
   WebFetch: 'bg-cyan-500',
@@ -45,6 +45,13 @@ const BULLET_COLORS: Record<string, string> = {
   Task: 'bg-indigo-500',
   thinking: 'bg-amber-500',
   text: 'bg-foreground/50',
+};
+
+// Status colors for success/error indication
+const STATUS_COLORS = {
+  success: 'border-l-green-500 bg-green-500/5',
+  error: 'border-l-red-500 bg-red-500/5',
+  running: 'border-l-blue-500 bg-blue-500/5',
 };
 
 /**
@@ -81,10 +88,12 @@ function ThinkingBlock({ content }: { content: string }) {
 
 /**
  * Tool block matching Claude Code style - Read, Edit, Bash, etc.
+ * FIX-5: Enhanced with file paths, commands, and status colors
  */
 function ToolBlock({ tool }: { tool: ToolUseContent }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const bulletColor = BULLET_COLORS[tool.toolName] || 'bg-gray-500';
+  const statusColor = tool.status ? STATUS_COLORS[tool.status] || '' : '';
 
   // Format the tool header based on tool type
   const getToolHeader = () => {
@@ -118,37 +127,57 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
     return firstValue ? <span className="font-mono text-xs truncate">{firstValue as string}</span> : null;
   };
 
-  // Render Bash tool with IN/OUT format
+  // Render Bash tool with IN/OUT format - FIX-5: Enhanced command display
   if (tool.toolName === 'Bash') {
     const command = tool.input?.command as string || '';
+    const description = tool.input?.description as string || '';
 
     return (
-      <div className="flex gap-3 py-1">
+      <div className={cn("flex gap-3 py-1 pl-1 border-l-2", statusColor || 'border-l-transparent')}>
         <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${bulletColor}`} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 text-sm">
-            <span className="font-semibold text-green-500">Bash</span>
-            {getToolHeader()}
+            <span className="font-semibold text-purple-500">Bash</span>
+            {description && <span className="text-xs text-muted-foreground truncate">{description}</span>}
+            {tool.status && (
+              <span className={cn(
+                "text-xs px-1.5 py-0.5 rounded ml-auto",
+                tool.status === 'success' && 'bg-green-500/20 text-green-400',
+                tool.status === 'error' && 'bg-red-500/20 text-red-400',
+                tool.status === 'running' && 'bg-blue-500/20 text-blue-400'
+              )}>
+                {tool.status}
+              </span>
+            )}
           </div>
 
-          {/* Command input */}
+          {/* Command input - FIX-5: Always show command prominently */}
           <div className="mt-2 rounded bg-muted/50 border border-border overflow-hidden">
             <div className="flex">
-              <div className="px-2 py-1.5 bg-muted/80 text-xs font-medium text-muted-foreground border-r border-border min-w-[36px] text-center">
+              <div className={cn(
+                "px-2 py-1.5 text-xs font-medium border-r border-border min-w-[36px] text-center",
+                tool.status === 'error' ? 'bg-red-500/20 text-red-400' : 'bg-muted/80 text-muted-foreground'
+              )}>
                 IN
               </div>
-              <div className="px-3 py-1.5 font-mono text-xs flex-1 overflow-x-auto whitespace-pre-wrap break-all">
-                {command}
+              <div className="px-3 py-1.5 font-mono text-xs flex-1 overflow-x-auto whitespace-pre-wrap break-all text-foreground">
+                {command || '(no command)'}
               </div>
             </div>
 
             {/* Command output */}
             {tool.output && (
               <div className="flex border-t border-border">
-                <div className="px-2 py-1.5 bg-muted/80 text-xs font-medium text-muted-foreground border-r border-border min-w-[36px] text-center">
+                <div className={cn(
+                  "px-2 py-1.5 text-xs font-medium border-r border-border min-w-[36px] text-center",
+                  tool.status === 'error' ? 'bg-red-500/20 text-red-400' : 'bg-muted/80 text-muted-foreground'
+                )}>
                   OUT
                 </div>
-                <div className="px-3 py-1.5 font-mono text-xs flex-1 overflow-x-auto whitespace-pre-wrap text-muted-foreground max-h-48 overflow-y-auto">
+                <div className={cn(
+                  "px-3 py-1.5 font-mono text-xs flex-1 overflow-x-auto whitespace-pre-wrap max-h-48 overflow-y-auto",
+                  tool.status === 'error' ? 'text-red-400' : 'text-muted-foreground'
+                )}>
                   {tool.output}
                 </div>
               </div>
@@ -159,8 +188,9 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
     );
   }
 
-  // Render Edit tool with collapsible unified diff view
+  // Render Edit tool with collapsible unified diff view - FIX-5: Show file path prominently
   if (tool.toolName === 'Edit') {
+    const filePath = tool.input?.file_path as string || '';
     const oldString = tool.input?.old_string as string || '';
     const newString = tool.input?.new_string as string || '';
     const hasDiff = oldString || newString;
@@ -168,30 +198,33 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
     const newLinesArr = newString ? newString.split('\n') : [];
 
     return (
-      <div className="flex gap-3 py-1">
+      <div className={cn("flex gap-3 py-1 pl-1 border-l-2", statusColor || 'border-l-transparent')}>
         <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${bulletColor}`} />
         <div className="flex-1 min-w-0">
           <button
             onClick={() => hasDiff && setIsExpanded(!isExpanded)}
             className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity w-full text-left"
           >
-            <span className="font-semibold text-green-500">Edit</span>
-            {getToolHeader()}
+            <span className="font-semibold text-green-500">Edit:</span>
+            <span className="font-mono text-xs text-foreground truncate">{filePath || '(no path)'}</span>
+            {tool.status && (
+              <span className={cn(
+                "text-xs px-1.5 py-0.5 rounded",
+                tool.status === 'success' && 'bg-green-500/20 text-green-400',
+                tool.status === 'error' && 'bg-red-500/20 text-red-400',
+                tool.status === 'running' && 'bg-blue-500/20 text-blue-400'
+              )}>
+                {tool.status === 'success' ? 'Modified' : tool.status}
+              </span>
+            )}
             {hasDiff && (
-              <>
-                {tool.status === 'success' && (
-                  <span className="text-xs text-muted-foreground ml-auto mr-2">
-                    Modified
-                  </span>
+              <span className="ml-auto flex-shrink-0">
+                {isExpanded ? (
+                  <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                 )}
-                <span className="flex-shrink-0">
-                  {isExpanded ? (
-                    <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  )}
-                </span>
-              </>
+              </span>
             )}
           </button>
 
@@ -221,18 +254,33 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
     );
   }
 
-  // Render Read tool with expandable content
+  // Render Read tool with expandable content - FIX-5: Show file path prominently
   if (tool.toolName === 'Read') {
+    const filePath = tool.input?.file_path as string || '';
+    const lines = tool.input?.offset && tool.input?.limit
+      ? ` (lines ${tool.input.offset}-${(tool.input.offset as number) + (tool.input.limit as number)})`
+      : '';
+
     return (
-      <div className="flex gap-3 py-1">
+      <div className={cn("flex gap-3 py-1 pl-1 border-l-2", statusColor || 'border-l-transparent')}>
         <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${bulletColor}`} />
         <div className="flex-1 min-w-0">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity w-full text-left"
           >
-            <span className="font-semibold text-blue-500">Read</span>
-            {getToolHeader()}
+            <span className="font-semibold text-blue-500">Read:</span>
+            <span className="font-mono text-xs text-foreground truncate">{filePath || '(no path)'}{lines}</span>
+            {tool.status && (
+              <span className={cn(
+                "text-xs px-1.5 py-0.5 rounded",
+                tool.status === 'success' && 'bg-green-500/20 text-green-400',
+                tool.status === 'error' && 'bg-red-500/20 text-red-400',
+                tool.status === 'running' && 'bg-blue-500/20 text-blue-400'
+              )}>
+                {tool.status}
+              </span>
+            )}
             {tool.output && (
               <span className="ml-auto flex-shrink-0">
                 {isExpanded ? (
@@ -376,17 +424,29 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
 
 /**
  * Text block with bullet point
+ * FIX-5: Enhanced phase headers for better readability
  */
 function TextBlock({ content }: { content: string }) {
   // Skip empty content
   if (!content.trim()) return null;
 
-  // Check if this is a phase marker
+  // Check if this is a phase marker - FIX-5: Enhanced phase headers
   if (content.startsWith('[Phase:') || content.startsWith('[Subphase:')) {
+    const phaseText = content.replace(/[\[\]]/g, '');
+    const isMainPhase = content.startsWith('[Phase:');
+
     return (
-      <div className="py-2 my-1 border-b border-border/50">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          {content.replace(/[\[\]]/g, '')}
+      <div className={cn(
+        "my-3 py-2 px-3 rounded border-l-4",
+        isMainPhase
+          ? "border-l-cyan-500 bg-cyan-500/10"
+          : "border-l-muted-foreground/50 bg-muted/30"
+      )}>
+        <span className={cn(
+          "text-xs font-semibold uppercase tracking-wider",
+          isMainPhase ? "text-cyan-400" : "text-muted-foreground"
+        )}>
+          {phaseText}
         </span>
       </div>
     );

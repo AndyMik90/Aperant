@@ -29,28 +29,36 @@ That's it. No deep analysis needed.
 
 ---
 
-## PHASE 2: CREATE MINIMAL SPEC
+## PHASE 2: CREATE MINIMAL SPEC (RALPH-COMPATIBLE)
 
-Create a concise `spec.md`:
+Create a concise `spec.md` in Ralph-Wiggum compatible format:
 
 ```bash
 cat > spec.md << 'EOF'
-# Quick Spec: [Task Name]
+# Task: [Task Name]
 
-## Task
-[One sentence description]
+## Overview
+[One sentence description of what is being changed]
+
+## Success Criteria
+- [ ] [Primary verification - how to know the change works]
+- [ ] No console errors
+
+## Implementation Steps
+
+### Step 1: [Make the Change]
+**Files:** `[path/to/file]`
+**What:** [Specific change to make]
+**Exit:** [How to verify step is complete]
 
 ## Files to Modify
 - `[path/to/file]` - [what to change]
 
-## Change Details
-[Brief description of the change - a few sentences max]
-
-## Verification
-- [ ] [How to verify the change works]
-
 ## Notes
 [Any gotchas or considerations - optional]
+
+## Completion Promise
+<promise>TASK_COMPLETE</promise>
 EOF
 ```
 
@@ -138,7 +146,7 @@ Ready for implementation.
 
 ---
 
-## EXAMPLES
+## EXAMPLES (RALPH-COMPATIBLE FORMAT)
 
 ### Example 1: Button Color Change
 
@@ -146,20 +154,27 @@ Ready for implementation.
 
 **spec.md**:
 ```markdown
-# Quick Spec: Button Color Change
+# Task: Button Color Change
 
-## Task
-Update primary button color from blue (#3B82F6) to green (#22C55E).
+## Overview
+Update the primary button color from blue to green across the application.
+
+## Success Criteria
+- [ ] All primary buttons display green (#22C55E) instead of blue
+- [ ] No console errors
+
+## Implementation Steps
+
+### Step 1: Update Button Color
+**Files:** `src/components/Button.tsx`
+**What:** Change the `primaryColor` variable from `#3B82F6` to `#22C55E`
+**Exit:** Variable value is updated to green hex code
 
 ## Files to Modify
 - `src/components/Button.tsx` - Update color constant
 
-## Change Details
-Change the `primaryColor` variable from `#3B82F6` to `#22C55E`.
-
-## Verification
-- [ ] Buttons appear green in the UI
-- [ ] No console errors
+## Completion Promise
+<promise>TASK_COMPLETE</promise>
 ```
 
 ### Example 2: Text Update
@@ -168,19 +183,27 @@ Change the `primaryColor` variable from `#3B82F6` to `#22C55E`.
 
 **spec.md**:
 ```markdown
-# Quick Spec: Fix Welcome Typo
+# Task: Fix Welcome Typo
 
-## Task
-Correct spelling of "recieve" to "receive" in welcome message.
+## Overview
+Correct spelling error in the welcome message on the home page.
+
+## Success Criteria
+- [ ] Welcome message displays "receive" correctly
+- [ ] No console errors
+
+## Implementation Steps
+
+### Step 1: Fix Typo
+**Files:** `src/pages/Home.tsx`
+**What:** Change "You will recieve" to "You will receive" on line 42
+**Exit:** Text is corrected
 
 ## Files to Modify
 - `src/pages/Home.tsx` - Fix typo on line 42
 
-## Change Details
-Find "You will recieve" and change to "You will receive".
-
-## Verification
-- [ ] Welcome message displays correctly
+## Completion Promise
+<promise>TASK_COMPLETE</promise>
 ```
 
 ---

@@ -1,3 +1,30 @@
+## 2.7.6 - Task Status & Phase Improvements
+
+### ✨ New Features
+
+- Added "Starting..." intermediate phase with pulse animation during task initialization
+- Added context-aware phase labels for better user understanding:
+  - "Creating Spec" instead of "Planning" during spec creation
+  - "Implementing" instead of "Coding" during implementation
+  - "Testing" instead of "AI Review" during QA
+  - "Fixing Issues" during QA fix cycles
+- Renamed "Insights" to "Chat" and assistant to "Jerry" for consistent branding
+
+### 🛠️ Improvements
+
+- Fixed race condition where tasks showed confusing "Planning" badge on "Coding" status
+- Task store now initializes with `starting` phase when transitioning to coding
+- PhaseProgressIndicator shows proper pulsing animation for starting phase
+- Added French translations for all new phase labels
+
+### 📚 Documentation
+
+- Comprehensive task architecture documentation in `docs/architecture/TASK_ARCHITECTURE.md`
+- Full integration workflow in `docs/plans/INTEGRATION_WORKFLOW.md`
+- Documented previously undocumented features (completedPhases tracking, fallback detection)
+
+---
+
 ## 2.7.4 - Terminal & Workflow Enhancements
 
 ### ✨ New Features

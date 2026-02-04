@@ -1,8 +1,10 @@
 import { useCallback, useRef, useState, type ClipboardEvent, type DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, RotateCcw, Loader2, Image as ImageIcon, X } from 'lucide-react';
+import { AlertCircle, RotateCcw, Loader2, Image as ImageIcon, X, BookOpen } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Textarea } from '../../ui/textarea';
+import { Checkbox } from '../../ui/checkbox';
+import { Label } from '../../ui/label';
 import {
   generateImageId,
   blobToBase64,
@@ -26,6 +28,10 @@ interface QAFeedbackSectionProps {
   images?: ImageAttachment[];
   /** Callback when images change - optional for backward compatibility */
   onImagesChange?: (images: ImageAttachment[]) => void;
+  /** SUG-23: Save feedback as learning for future tasks */
+  saveAsLearning?: boolean;
+  /** SUG-23: Callback when save as learning changes */
+  onSaveAsLearningChange?: (value: boolean) => void;
 }
 
 /**
@@ -38,7 +44,9 @@ export function QAFeedbackSection({
   onFeedbackChange,
   onReject,
   images = [],
-  onImagesChange
+  onImagesChange,
+  saveAsLearning = false,
+  onSaveAsLearningChange
 }: QAFeedbackSectionProps) {
   const { t } = useTranslation('tasks');
 
@@ -353,6 +361,31 @@ export function QAFeedbackSection({
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* SUG-23: Save as Learning checkbox */}
+      {onSaveAsLearningChange && feedback.trim() && (
+        <div className="flex items-start gap-2 mb-3 p-2 rounded-lg bg-muted/50 border border-border">
+          <Checkbox
+            id="save-as-learning"
+            checked={saveAsLearning}
+            onCheckedChange={(checked) => onSaveAsLearningChange(checked === true)}
+            disabled={isSubmitting}
+            className="mt-0.5"
+          />
+          <div className="flex-1">
+            <Label
+              htmlFor="save-as-learning"
+              className="text-sm font-medium cursor-pointer flex items-center gap-1.5"
+            >
+              <BookOpen className="h-3.5 w-3.5 text-primary" />
+              {t('learnings.saveAsLearning', 'Save this feedback as a learning for future tasks')}
+            </Label>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {t('learnings.saveAsLearningHint', 'This feedback will be remembered and used to improve future task execution.')}
+            </p>
+          </div>
         </div>
       )}
 

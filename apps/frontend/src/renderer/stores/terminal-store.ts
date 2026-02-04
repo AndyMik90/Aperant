@@ -906,14 +906,16 @@ export async function recreateTaskMonitorTerminals(
         }
       }
 
-      // For coding tasks, check if process is actually running
-      // If not, queue for restart to resume execution
+      // FIX-3/FIX-4: Coding tasks should NOT auto-restart on app restart
+      // User must click "Resume" button to restart a coding task
+      // This prevents unwanted auto-execution after interruption
       if (task.status === 'coding') {
         try {
           const runningResult = await window.electronAPI.checkTaskRunning(task.id);
           if (runningResult.success && runningResult.data === false) {
-            console.log(`[TerminalStore] Task ${task.id} is coding but no process running, will restart`);
-            tasksToRestart.push(task.id);
+            // Don't auto-restart - just log that it's interrupted
+            console.log(`[TerminalStore] Task ${task.id} is coding but no process running (interrupted state - requires manual resume)`);
+            // DO NOT add to tasksToRestart - user must click Resume
           } else if (runningResult.success && runningResult.data === true) {
             console.log(`[TerminalStore] Task ${task.id} process is already running`);
           }
@@ -922,8 +924,8 @@ export async function recreateTaskMonitorTerminals(
         }
       }
 
-      // Phase 2: For planning tasks, also check if process is running and restart if not
-      // This ensures planning agents are resumed after app restart
+      // FIX-3: For planning tasks, check if process is running and restart if not
+      // Planning agents ARE auto-restarted to resume spec creation after app restart
       if (task.status === 'planning') {
         try {
           const runningResult = await window.electronAPI.checkTaskRunning(task.id);
@@ -946,9 +948,9 @@ export async function recreateTaskMonitorTerminals(
         for (const taskId of tasksToRestart) {
           try {
             console.log(`[TerminalStore] Restarting stuck task: ${taskId}`);
-            // Use recoverStuckTask with autoRestart to properly restart the task
+            // FIX-3/FIX-4: Use recoverStuckTask with autoRestart to properly restart the task
             // For planning tasks, this will call startPlanningAgent
-            // For coding tasks, this will call startTaskExecution
+            // For coding tasks, this will mark as interrupted (no auto-restart)
             const result = await window.electronAPI.recoverStuckTask(taskId, { autoRestart: true });
             if (result.success) {
               console.log(`[TerminalStore] Task ${taskId} restarted successfully`);

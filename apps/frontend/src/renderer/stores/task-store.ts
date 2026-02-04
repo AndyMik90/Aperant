@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
-import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment, TaskOrderState } from '../../shared/types';
+import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment, TaskOrderState, TaskTemplate } from '../../shared/types';
 import { debugLog } from '../../shared/utils/debug-logger';
 import { isTerminalPhase } from '../../shared/constants/phase-protocol';
 import { useTerminalStore } from './terminal-store';
+import { toast } from '../hooks/use-toast';  // FIX-1: Import toast for error notifications
+import { addActivity } from '../utils/activity-tracker';  // SUG-9: Activity Feed tracking
 
 interface TaskState {
   tasks: Task[];
@@ -207,10 +209,18 @@ export const useTaskStore = create<TaskState>((set, get) => ({
             // When status goes to planning, reset execution progress to idle
             // This ensures the planning/coding animation stops when task is stopped
             executionProgress = { phase: 'idle' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
-          } else if (status === 'coding' && !t.executionProgress?.phase) {
-            // When starting a task and no phase is set yet, default to coding execution
-            // This prevents the "no active phase" UI state during startup race condition
-            executionProgress = { phase: 'coding' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
+          } else if (status === 'coding') {
+            // When starting a task, initialize with 'starting' phase to handle the race condition
+            // between status update and first backend phase event (fixes status/phase UI confusion)
+            const currentPhase = t.executionProgress?.phase;
+            if (!currentPhase || currentPhase === 'idle') {
+              executionProgress = {
+                phase: 'starting' as ExecutionPhase,
+                phaseProgress: 0,
+                overallProgress: 0,
+                sequenceNumber: 0
+              };
+            }
           }
 
           return { ...t, status, executionProgress, updatedAt: new Date() };
@@ -667,6 +677,8 @@ export async function createTask(
     const result = await window.electronAPI.createTask(projectId, title, description, metadata);
     if (result.success && result.data) {
       store.addTask(result.data);
+      // SUG-9: Track task creation in activity feed
+      addActivity('task_created', { id: result.data.id, title: result.data.title });
       return result.data;
     } else {
       store.setError(result.error || 'Failed to create task');
@@ -710,6 +722,12 @@ export function startTask(taskId: string, options?: { parallel?: boolean; worker
     ...options,
     pendingMessages: pendingMessages.length > 0 ? pendingMessages : undefined
   });
+
+  // SUG-9: Track task start in activity feed
+  const task = useTaskStore.getState().tasks.find(t => t.id === taskId || t.specId === taskId);
+  if (task) {
+    addActivity('task_started', { id: task.id, title: task.title });
+  }
 }
 
 /**
@@ -732,10 +750,30 @@ export async function startBuild(taskId: string): Promise<boolean> {
       store.updateTaskStatus(taskId, 'coding');
       return true;
     }
-    console.error('[task-store] startBuild failed:', result.error);
+    // FIX-1: Show toast notification when startBuild fails
+    const errorMessage = result.error || 'Unable to start build. Please try again.';
+    console.error('[task-store] startBuild failed:', errorMessage);
+
+    // Show user-friendly error toast
+    toast({
+      title: "Cannot Start Build",
+      description: errorMessage,
+      variant: "destructive",
+      duration: 8000, // 8 seconds for important error
+    });
+
     return false;
   } catch (error) {
     console.error('[task-store] startBuild error:', error);
+
+    // FIX-1: Show toast for unexpected errors
+    toast({
+      title: "Build Error",
+      description: "An unexpected error occurred. Please check the console for details.",
+      variant: "destructive",
+      duration: 8000,
+    });
+
     return false;
   }
 }
@@ -1059,6 +1097,93 @@ export function isDraftEmpty(draft: TaskDraft | null): boolean {
 }
 
 // ============================================
+// Task Template Management (SUG-5)
+// ============================================
+
+const TEMPLATES_KEY = 'task-templates';
+
+/**
+ * Save a task template to localStorage
+ */
+export function saveTemplate(template: TaskTemplate): void {
+  try {
+    const templates = loadTemplates();
+    const existingIndex = templates.findIndex(t => t.id === template.id);
+
+    if (existingIndex >= 0) {
+      // Update existing template
+      templates[existingIndex] = { ...template, updatedAt: new Date() };
+    } else {
+      // Add new template
+      templates.push(template);
+    }
+
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+  } catch (error) {
+    console.error('Failed to save template:', error);
+  }
+}
+
+/**
+ * Load all task templates from localStorage
+ */
+export function loadTemplates(): TaskTemplate[] {
+  try {
+    const stored = localStorage.getItem(TEMPLATES_KEY);
+    if (!stored) return [];
+
+    const templates = JSON.parse(stored);
+    // Convert dates back to Date objects
+    return templates.map((t: TaskTemplate) => ({
+      ...t,
+      createdAt: new Date(t.createdAt),
+      updatedAt: new Date(t.updatedAt)
+    }));
+  } catch (error) {
+    console.error('Failed to load templates:', error);
+    return [];
+  }
+}
+
+/**
+ * Get a specific template by ID
+ */
+export function getTemplate(templateId: string): TaskTemplate | null {
+  const templates = loadTemplates();
+  return templates.find(t => t.id === templateId) || null;
+}
+
+/**
+ * Delete a task template from localStorage
+ */
+export function deleteTemplate(templateId: string): void {
+  try {
+    const templates = loadTemplates();
+    const filtered = templates.filter(t => t.id !== templateId);
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(filtered));
+  } catch (error) {
+    console.error('Failed to delete template:', error);
+  }
+}
+
+/**
+ * Create a new template from current form values
+ */
+export function createTemplateFromForm(
+  name: string,
+  formValues: Omit<TaskTemplate, 'id' | 'name' | 'createdAt' | 'updatedAt'>
+): TaskTemplate {
+  const now = new Date();
+  return {
+    id: crypto.randomUUID(),
+    name,
+    ...formValues,
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+// ============================================
 // GitHub Issue Linking Helpers
 // ============================================
 
@@ -1112,4 +1237,71 @@ export function getTaskProgress(task: Task): { completed: number; total: number;
   const completed = task.subtasks?.filter(s => s.status === 'completed').length || 0;
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
   return { completed, total, percentage };
+}
+
+// ============================================
+// SUG-6: Task Dependencies Helpers
+// ============================================
+
+/**
+ * Check if a task is blocked by incomplete dependencies
+ * A task is blocked if any of its dependency tasks are not in 'done' status
+ */
+export function isTaskBlocked(task: Task, allTasks: Task[]): boolean {
+  if (!task.dependencies || task.dependencies.length === 0) return false;
+  return task.dependencies.some((depId) => {
+    const depTask = allTasks.find((t) => t.id === depId);
+    return depTask && depTask.status !== 'done';
+  });
+}
+
+/**
+ * Get the list of tasks that are blocking the given task
+ * Returns tasks that this task depends on and are not yet complete
+ */
+export function getBlockingTasks(task: Task, allTasks: Task[]): Task[] {
+  if (!task.dependencies || task.dependencies.length === 0) return [];
+  return task.dependencies
+    .map((depId) => allTasks.find((t) => t.id === depId))
+    .filter((t): t is Task => t !== undefined && t.status !== 'done');
+}
+
+/**
+ * Get all tasks that depend on the given task
+ * Returns tasks that have this task in their dependencies array
+ */
+export function getDependentTasks(task: Task, allTasks: Task[]): Task[] {
+  return allTasks.filter((t) => t.dependencies?.includes(task.id));
+}
+
+/**
+ * Update task dependencies and persist to file
+ */
+export async function persistTaskDependencies(
+  taskId: string,
+  dependencies: string[]
+): Promise<boolean> {
+  const store = useTaskStore.getState();
+
+  try {
+    // Call the IPC to persist dependencies to spec files
+    const result = await window.electronAPI.updateTask(taskId, {
+      metadata: { dependencies: dependencies as unknown as string[] }
+    });
+
+    if (result.success && result.data) {
+      // Update local state with the new dependencies
+      store.updateTask(taskId, {
+        dependencies,
+        updatedAt: new Date()
+      });
+      return true;
+    }
+
+    console.error('Failed to persist task dependencies:', result.error);
+    return false;
+  } catch (error) {
+    console.error('Error persisting task dependencies:', error);
+    return false;
+  }
 }

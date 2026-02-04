@@ -92,6 +92,8 @@ export const taskMock = {
   onTaskLog: () => () => {},
   onTaskStatusChange: () => () => {},
   onTaskExecutionProgress: () => () => {},
+  onTaskAgentStopped: () => () => {},
+  onTaskSpecReady: () => () => {},  // FIX-7
   onTaskLogsChanged: () => () => {},
   onTaskLogsStream: () => () => {}
 };

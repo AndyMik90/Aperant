@@ -77,6 +77,8 @@ export interface TaskAPI {
     callback: (taskId: string, progress: import('../../shared/types').ExecutionProgress, projectId?: string) => void
   ) => () => void;
   onTaskAgentStopped: (callback: (taskId: string) => void) => () => void;
+  // FIX-7: Spec ready notification
+  onTaskSpecReady: (callback: (taskId: string, specId: string, projectId?: string) => void) => () => void;
 
   // Task Phase Logs
   getTaskLogs: (projectId: string, specId: string) => Promise<IPCResult<TaskLogs | null>>;
@@ -282,6 +284,24 @@ export const createTaskAPI = (): TaskAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TASK_AGENT_STOPPED, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TASK_AGENT_STOPPED, handler);
+    };
+  },
+
+  // FIX-7: Spec ready notification listener
+  onTaskSpecReady: (
+    callback: (taskId: string, specId: string, projectId?: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      taskId: string,
+      specId: string,
+      projectId?: string
+    ): void => {
+      callback(taskId, specId, projectId);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_SPEC_READY, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_SPEC_READY, handler);
     };
   },
 

@@ -403,12 +403,20 @@ export function registerTaskExecutionHandlers(
   /**
    * Start Build: Phase 4 - Transition from planning → coding
    *
+   * FIX-9: This is the ONLY path that starts the coding agent. It represents an
+   * explicit user action (clicking "Start Build" button). Kanban drag operations
+   * use TASK_UPDATE_STATUS which only changes status, not start agents.
+   *
    * This is called when the user clicks "Start Build" after the planning agent
    * has created spec.md and implementation_plan.json. It:
    * 1. Validates that spec.md and implementation_plan.json exist
    * 2. Stops the planning agent gracefully (memory already saved)
    * 3. Starts the coding agent
    * 4. Updates status to 'coding'
+   *
+   * User-Initiated Gate: This handler is the user action gate between planning
+   * and coding phases. The agent will NOT start automatically - user must
+   * explicitly click "Start Build" to transition.
    *
    * Memory handoff: The coding agent reads the same /memories directory that
    * the planning agent wrote to, ensuring full context continuity.
@@ -711,7 +719,17 @@ export function registerTaskExecutionHandlers(
   );
 
   /**
-   * Update task status manually
+   * Update task status manually (used by Kanban drag-and-drop)
+   *
+   * FIX-8/FIX-9: This handler ONLY changes the task status. It does NOT start
+   * any agents. This is intentional - status changes via Kanban drag should not
+   * auto-start agents. Users must use TASK_START_BUILD (via "Start Build" button)
+   * to explicitly start the coding agent.
+   *
+   * This separation ensures:
+   * 1. Kanban drag = status change only (for organization)
+   * 2. Start Build button = status change + agent start (explicit user action)
+   *
    * Options:
    * - forceCleanup: When setting to 'done' with a worktree present, delete the worktree first
    */
@@ -866,111 +884,8 @@ export function registerTaskExecutionHandlers(
           agentManager.killTask(taskId);
         }
 
-        // Auto-start task when status changes to 'coding' and no process is running
-        if (status === 'coding' && !agentManager.isRunning(taskId)) {
-          const mainWindow = getMainWindow();
-
-          // Check git status before auto-starting
-          const gitStatusCheck = checkGitStatus(project.path);
-          if (!gitStatusCheck.isGitRepo || !gitStatusCheck.hasCommits) {
-            console.warn('[TASK_UPDATE_STATUS] Git check failed, cannot auto-start task');
-            if (mainWindow) {
-              mainWindow.webContents.send(
-                IPC_CHANNELS.TASK_ERROR,
-                taskId,
-                gitStatusCheck.error || 'Git repository with commits required to run tasks.'
-              );
-            }
-            return { success: false, error: gitStatusCheck.error || 'Git repository required' };
-          }
-
-          // Check authentication before auto-starting
-          // Ensure profile manager is initialized to prevent race condition
-          const initResult = await ensureProfileManagerInitialized();
-          if (!initResult.success) {
-            if (mainWindow) {
-              mainWindow.webContents.send(
-                IPC_CHANNELS.TASK_ERROR,
-                taskId,
-                initResult.error
-              );
-            }
-            return { success: false, error: initResult.error };
-          }
-          const profileManager = initResult.profileManager;
-          if (!profileManager.hasValidAuth()) {
-            console.warn('[TASK_UPDATE_STATUS] No valid authentication for active profile');
-            if (mainWindow) {
-              mainWindow.webContents.send(
-                IPC_CHANNELS.TASK_ERROR,
-                taskId,
-                'Claude authentication required. Please go to Settings > Claude Profiles and authenticate your account, or set an OAuth token.'
-              );
-            }
-            return { success: false, error: 'Claude authentication required' };
-          }
-
-          console.warn('[TASK_UPDATE_STATUS] Auto-starting task:', taskId);
-
-          // Start file watcher for this task
-          fileWatcher.watch(taskId, specDir);
-
-          // Check if spec.md exists
-          const specFilePath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
-          const hasSpec = existsSync(specFilePath);
-          const needsSpecCreation = !hasSpec;
-          const needsImplementation = hasSpec && task.subtasks.length === 0;
-
-          console.warn('[TASK_UPDATE_STATUS] hasSpec:', hasSpec, 'needsSpecCreation:', needsSpecCreation, 'needsImplementation:', needsImplementation);
-
-          // Get base branch: task-level override takes precedence over project settings
-          const baseBranchForUpdate = task.metadata?.baseBranch || project.settings?.mainBranch;
-
-          if (needsSpecCreation) {
-            // No spec file - need to run spec_runner.py to create the spec
-            const taskDescription = task.description || task.title;
-            console.warn('[TASK_UPDATE_STATUS] Starting spec creation for:', task.specId);
-            agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, task.metadata, baseBranchForUpdate);
-          } else if (needsImplementation) {
-            // Spec exists but no subtasks - run run.py to create implementation plan and execute
-            console.warn('[TASK_UPDATE_STATUS] Starting task execution (no subtasks) for:', task.specId);
-            agentManager.startTaskExecution(
-              taskId,
-              project.path,
-              task.specId,
-              {
-                parallel: false,
-                workers: 1,
-                baseBranch: baseBranchForUpdate,
-                useWorktree: task.metadata?.useWorktree
-              }
-            );
-          } else {
-            // Task has subtasks, start normal execution
-            // Note: Parallel execution is handled internally by the agent
-            console.warn('[TASK_UPDATE_STATUS] Starting task execution (has subtasks) for:', task.specId);
-            agentManager.startTaskExecution(
-              taskId,
-              project.path,
-              task.specId,
-              {
-                parallel: false,
-                workers: 1,
-                baseBranch: baseBranchForUpdate,
-                useWorktree: task.metadata?.useWorktree
-              }
-            );
-          }
-
-          // Notify renderer about status change
-          if (mainWindow) {
-            mainWindow.webContents.send(
-              IPC_CHANNELS.TASK_STATUS_CHANGE,
-              taskId,
-              'coding'
-            );
-          }
-        }
+        // FIX-8: Auto-start removed - user must click "Start Build" button to start agent
+        // Status change to 'coding' now only changes the status, not auto-start agent
 
         return { success: true };
       } catch (error) {
@@ -1328,52 +1243,35 @@ export function registerTaskExecutionHandlers(
                 task.metadata,
                 baseBranchForRecovery
               );
+              autoRestarted = true;
+              console.warn(`[Recovery] Auto-restarted planning agent for task ${taskId}`);
             } else {
-              // Set status to coding for the restart
+              // FIX-3/FIX-4: Coding tasks should NOT auto-restart on recovery
+              // Instead, mark as interrupted so user can click "Resume" button
+              // This prevents unwanted auto-starts after app restart or recovery
+              console.log(`[Recovery] Task ${taskId} is in coding status, marking as interrupted (no auto-restart)`);
               newStatus = 'coding';
 
-              // Update plan status for restart - write to ALL locations
+              // Update plan status to indicate interrupted state
               if (plan) {
                 plan.status = 'coding';
                 plan.planStatus = 'coding';
-                const restartPlanContent = JSON.stringify(plan, null, 2);
+                plan.interrupted = true;
+                plan.interruptedAt = new Date().toISOString();
+                const interruptedPlanContent = JSON.stringify(plan, null, 2);
                 for (const pathToUpdate of planPathsToUpdate) {
                   try {
-                    atomicWriteFileSync(pathToUpdate, restartPlanContent);
-                    console.log(`[Recovery] Wrote restart status to: ${pathToUpdate}`);
+                    atomicWriteFileSync(pathToUpdate, interruptedPlanContent);
+                    console.log(`[Recovery] Wrote interrupted status to: ${pathToUpdate}`);
                   } catch (writeError) {
-                    console.error(`[Recovery] Failed to write plan file for restart at ${pathToUpdate}:`, writeError);
-                    // Continue with restart attempt even if file write fails
-                    // The plan status will be updated by the agent when it starts
+                    console.error(`[Recovery] Failed to write plan file for interrupted status at ${pathToUpdate}:`, writeError);
                   }
                 }
               }
 
-              const needsSpecCreation = !hasSpec;
-              if (needsSpecCreation) {
-                // No spec file - need to run spec_runner.py to create the spec
-                const taskDescription = task.description || task.title;
-                console.warn(`[Recovery] Starting spec creation for: ${task.specId}`);
-                agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDirForWatcher, task.metadata, baseBranchForRecovery);
-              } else {
-                // Spec exists - run task execution
-                console.warn(`[Recovery] Starting task execution for: ${task.specId}`);
-                agentManager.startTaskExecution(
-                  taskId,
-                  project.path,
-                  task.specId,
-                  {
-                    parallel: false,
-                    workers: 1,
-                    baseBranch: baseBranchForRecovery,
-                    useWorktree: task.metadata?.useWorktree
-                  }
-                );
-              }
+              // Do NOT auto-start the coding agent - user must click "Resume"
+              autoRestarted = false;
             }
-
-            autoRestarted = true;
-            console.warn(`[Recovery] Auto-restarted task ${taskId}`);
           } catch (restartError) {
             console.error('Failed to auto-restart task after recovery:', restartError);
             // Recovery succeeded but restart failed - still report success

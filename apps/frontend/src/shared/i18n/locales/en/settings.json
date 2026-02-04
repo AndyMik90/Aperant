@@ -350,6 +350,10 @@
       "integrationTitle": "Memory",
       "integrationDescription": "Configure persistent cross-session memory for agents",
       "syncDescription": "Configure persistent memory"
+    },
+    "mcp": {
+      "title": "MCP Servers",
+      "description": "External tool integrations"
     }
   },
   "agentProfile": {
@@ -564,6 +568,7 @@
     "headerName": "Header Name",
     "headerValue": "Header Value",
     "noCustomServers": "No custom servers configured. Add one to use with your agents.",
+    "agentToolInfo": "Agents automatically use enabled servers based on their phase and task requirements. Spec and QA agents have different tool access.",
     "errorNameRequired": "Server name is required",
     "errorIdExists": "A server with this ID already exists",
     "errorCommandRequired": "Command is required for command-based servers",
@@ -591,5 +596,13 @@
       "openai": "This looks like an OpenAI API. You'll need an API key.",
       "createOpenaiKey": "Create OpenAI API Key"
     }
+  },
+  "learnings": {
+    "title": "Project Learnings",
+    "description": "Learnings captured from task feedback are automatically injected into future planning and coding prompts.",
+    "empty": "No learnings recorded yet.",
+    "emptyHint": "Save feedback as learnings during task review to build up project knowledge.",
+    "deleteTitle": "Delete Learning?",
+    "deleteDescription": "This learning will be removed from the project. This action cannot be undone."
   }
 }

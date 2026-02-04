@@ -5,8 +5,9 @@
   },
   "items": {
     "kanban": "Kanban",
-    "terminals": "Terminaux",
+    "terminals": "Claude Code",
     "insights": "Chat",
+    "discovery": "Découverte",
     "roadmap": "Feuille de route",
     "ideation": "Idées",
     "changelog": "Journal des modifications",
@@ -16,6 +17,7 @@
     "gitlabIssues": "Issues GitLab",
     "gitlabMRs": "MRs GitLab",
     "worktrees": "Worktrees",
+    "repository": "Dépôt",
     "agentTools": "Aperçu MCP"
   },
   "actions": {

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '../contexts/NavigationContext';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, TerminalSquare } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, TerminalSquare, ExternalLink, Link2 } from 'lucide-react';
+import { TaskTerminalModal } from './TaskTerminalModal';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -32,7 +33,7 @@ import {
   JSON_ERROR_PREFIX,
   JSON_ERROR_TITLE_SUFFIX
 } from '../../shared/constants';
-import { startTask, stopTask, startBuild, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, useTaskStore } from '../stores/task-store';
+import { startTask, stopTask, startBuild, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, useTaskStore, isTaskBlocked, getBlockingTasks } from '../stores/task-store';
 import { useTerminalStore } from '../stores/terminal-store';
 import { useProjectStore } from '../stores/project-store';
 import type { Task, TaskCategory, ReviewReason, TaskStatus } from '../../shared/types';
@@ -144,6 +145,7 @@ export const TaskCard = memo(function TaskCard({
   const addTerminal = useTerminalStore((state) => state.addTerminal);
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [isTerminalModalOpen, setIsTerminalModalOpen] = useState(false);
   const stuckCheckRef = useRef<{ timeout: NodeJS.Timeout | null; interval: NodeJS.Timeout | null }>({
     timeout: null,
     interval: null
@@ -163,6 +165,11 @@ export const TaskCard = memo(function TaskCard({
 
   // Check if task is in human_review but has no completed subtasks (crashed/incomplete)
   const isIncomplete = isIncompleteHumanReview(task);
+
+  // SUG-6: Check if task is blocked by incomplete dependencies
+  const allTasks = useTaskStore((state) => state.tasks);
+  const isBlocked = useMemo(() => isTaskBlocked(task, allTasks), [task, allTasks]);
+  const blockingTasks = useMemo(() => getBlockingTasks(task, allTasks), [task, allTasks]);
 
   // Memoize expensive computations to avoid running on every render
   // Truncate description for card display - full description shown in modal
@@ -324,76 +331,10 @@ export const TaskCard = memo(function TaskCard({
     }
   };
 
-  const handleViewTerminal = async (e: React.MouseEvent) => {
+  // SUG-1a: Open terminal modal instead of navigating to terminals page
+  const handleViewTerminal = (e: React.MouseEvent) => {
     e.stopPropagation();
-
-    // Get expected terminal ID for this task
-    const expectedTerminalId = `task-${task.id}`;
-
-    // Check if terminal already exists
-    const terminalExists = terminals.some(t => t.id === expectedTerminalId);
-
-    console.log('[TaskCard] View Terminal clicked:', {
-      taskId: task.id,
-      taskStatus: task.status,
-      expectedTerminalId,
-      terminalExists,
-      terminalCount: terminals.length
-    });
-
-    // Navigate to terminals page
-    setActiveView('terminals');
-
-    // If terminal doesn't exist and task needs a terminal (any active status), recreate it
-    if (!terminalExists && (task.status === 'planning' || task.status === 'coding' || task.status === 'ai_review' || task.status === 'human_review')) {
-      try {
-        // Get project path for this task
-        const projectPath = selectedProject?.path;
-
-        console.log('[TaskCard] Recreating terminal:', { projectPath, taskId: task.id });
-
-        if (projectPath) {
-          // Create the task monitor terminal
-          await window.electronAPI.createTerminal({
-            id: expectedTerminalId,
-            cwd: projectPath,
-            projectPath,
-            isTaskMonitor: true,
-            taskId: task.id,
-            specId: task.specId,
-            taskTitle: task.title
-          });
-
-          console.log('[TaskCard] Terminal creation IPC call completed');
-
-          // Wait for terminal to be added to store (poll with timeout)
-          const maxAttempts = 20; // 2 seconds max
-          for (let i = 0; i < maxAttempts; i++) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            const currentTerminals = useTerminalStore.getState().terminals;
-            if (currentTerminals.some(t => t.id === expectedTerminalId)) {
-              console.log('[TaskCard] Terminal found in store, activating');
-              setActiveTerminal(expectedTerminalId);
-              return;
-            }
-          }
-
-          console.warn('[TaskCard] Terminal not found in store after waiting');
-        } else {
-          console.error('[TaskCard] No project path available');
-        }
-      } catch (error) {
-        console.error('[TaskCard] Error recreating task terminal:', error);
-      }
-    } else if (terminalExists) {
-      console.log('[TaskCard] Terminal exists, activating');
-      // Terminal exists, just activate it
-      setTimeout(() => {
-        setActiveTerminal(expectedTerminalId);
-      }, 100);
-    } else {
-      console.log('[TaskCard] Terminal does not exist and task is not in_progress', { status: task.status });
-    }
+    setIsTerminalModalOpen(true);
   };
 
   const getStatusBadgeVariant = (status: string) => {
@@ -448,6 +389,46 @@ export const TaskCard = memo(function TaskCard({
 
   const reviewReasonInfo = task.status === 'human_review' ? getReviewReasonLabel(task.reviewReason) : null;
 
+  /**
+   * Get context-aware label for execution phase based on task status.
+   * This makes phase labels more understandable to users by showing
+   * descriptive labels like "Creating Spec" instead of generic "Planning".
+   */
+  const getContextualPhaseLabel = (status: TaskStatus, phase: string): string => {
+    // Special handling for phase within coding status
+    if (status === 'coding') {
+      switch (phase) {
+        case 'starting':
+          return t('execution.phases.starting', { defaultValue: 'Starting...' });
+        case 'planning':
+          return t('execution.phases.creatingSpec', { defaultValue: 'Creating Spec' });
+        case 'coding':
+          return t('execution.phases.implementing', { defaultValue: 'Implementing' });
+        case 'qa_review':
+          return t('execution.phases.testing', { defaultValue: 'Testing' });
+        case 'qa_fixing':
+          return t('execution.phases.fixing', { defaultValue: 'Fixing Issues' });
+        default:
+          return EXECUTION_PHASE_LABELS[phase] || phase;
+      }
+    }
+
+    // For ai_review status
+    if (status === 'ai_review') {
+      switch (phase) {
+        case 'qa_review':
+          return t('execution.phases.reviewing', { defaultValue: 'Reviewing' });
+        case 'qa_fixing':
+          return t('execution.phases.fixing', { defaultValue: 'Fixing Issues' });
+        default:
+          return EXECUTION_PHASE_LABELS[phase] || phase;
+      }
+    }
+
+    // Default to standard labels
+    return EXECUTION_PHASE_LABELS[phase] || phase;
+  };
+
   const isArchived = !!task.metadata?.archivedAt;
 
   return (
@@ -493,7 +474,7 @@ export const TaskCard = memo(function TaskCard({
         )}
 
         {/* Metadata badges */}
-        {(task.metadata || isStuck || isIncomplete || hasActiveExecution || reviewReasonInfo) && (
+        {(task.metadata || isStuck || isIncomplete || isBlocked || hasActiveExecution || reviewReasonInfo) && (
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             {/* Stuck indicator - highest priority */}
             {isStuck && (
@@ -505,8 +486,23 @@ export const TaskCard = memo(function TaskCard({
                 {t('labels.stuck')}
               </Badge>
             )}
+            {/* SUG-6: Blocked indicator - task has incomplete dependencies */}
+            {isBlocked && !isStuck && (
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 bg-yellow-500/10 text-yellow-500 border-yellow-500/30"
+                title={blockingTasks.map(t => t.title).join(', ')}
+              >
+                <Link2 className="h-2.5 w-2.5" />
+                {t('tasks:dependencies.blockedBy', {
+                  count: blockingTasks.length,
+                  task: blockingTasks[0]?.title?.slice(0, 20) + (blockingTasks[0]?.title?.length > 20 ? '...' : ''),
+                  defaultValue: `Blocked by ${blockingTasks.length} task${blockingTasks.length > 1 ? 's' : ''}`
+                })}
+              </Badge>
+            )}
             {/* Incomplete indicator - task in human_review but no subtasks completed */}
-            {isIncomplete && !isStuck && (
+            {isIncomplete && !isStuck && !isBlocked && (
               <Badge
                 variant="outline"
                 className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 bg-orange-500/10 text-orange-400 border-orange-500/30"
@@ -534,8 +530,12 @@ export const TaskCard = memo(function TaskCard({
                   EXECUTION_PHASE_BADGE_COLORS[executionPhase]
                 )}
               >
-                <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                {EXECUTION_PHASE_LABELS[executionPhase]}
+                {/* Show spinner for active phases (not complete/failed) */}
+                {executionPhase !== 'complete' && executionPhase !== 'failed' && (
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                )}
+                {/* Use contextual labels instead of generic phase labels */}
+                {getContextualPhaseLabel(task.status, executionPhase)}
               </Badge>
             )}
              {/* Status badge - hide when execution phase badge is showing */}
@@ -750,12 +750,29 @@ export const TaskCard = memo(function TaskCard({
                   className="h-7 px-2.5"
                   onClick={(e) => {
                     e.stopPropagation();
-                    startBuild(task.id);
+                    if (!isBlocked) {
+                      startBuild(task.id);
+                    }
                   }}
-                  title={t('tooltips.startBuild')}
+                  disabled={isBlocked}
+                  title={isBlocked
+                    ? t('tasks:dependencies.blockedTooltip', {
+                        defaultValue: 'Cannot start: waiting for dependencies to complete'
+                      })
+                    : t('tooltips.startBuild')
+                  }
                 >
-                  <Play className="mr-1.5 h-3 w-3" />
-                  {t('actions.startBuild')}
+                  {isBlocked ? (
+                    <>
+                      <Link2 className="mr-1.5 h-3 w-3" />
+                      {t('tasks:dependencies.blocked', { defaultValue: 'Blocked' })}
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-1.5 h-3 w-3" />
+                      {t('actions.startBuild')}
+                    </>
+                  )}
                 </Button>
               </div>
             ) : task.status === 'coding' && (
@@ -773,7 +790,7 @@ export const TaskCard = memo(function TaskCard({
                 ) : (
                   <>
                     <Play className="mr-1.5 h-3 w-3" />
-                    {t('actions.run')}
+                    {isAgentStopped ? t('actions.resume') : t('actions.run')}
                   </>
                 )}
               </Button>
@@ -820,6 +837,14 @@ export const TaskCard = memo(function TaskCard({
         {/* Close flex container for selectable mode */}
         </div>
       </CardContent>
+
+      {/* SUG-1a: Task Terminal Modal */}
+      <TaskTerminalModal
+        task={task}
+        open={isTerminalModalOpen}
+        onOpenChange={setIsTerminalModalOpen}
+        projectPath={selectedProject?.path}
+      />
     </Card>
   );
 }, taskCardPropsAreEqual);

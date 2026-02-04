@@ -5,9 +5,8 @@ import {
   Settings,
   LayoutGrid,
   Terminal,
-  Map,
+  Compass,
   BookOpen,
-  Lightbulb,
   AlertCircle,
   Download,
   RefreshCw,
@@ -17,13 +16,10 @@ import {
   GitMerge,
   FileText,
   Sparkles,
-  GitBranch,
   HelpCircle,
-  Wrench
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from './ui/button';
-import { ScrollArea } from './ui/scroll-area';
-import { Separator } from './ui/separator';
 import {
   Tooltip,
   TooltipContent,
@@ -45,14 +41,12 @@ import {
   initializeProject
 } from '../stores/project-store';
 import { useSettingsStore } from '../stores/settings-store';
+import { useRateLimitStore } from '../stores/rate-limit-store';
 import { AddProjectModal } from './AddProjectModal';
 import { GitSetupModal } from './GitSetupModal';
-import { RateLimitIndicator } from './RateLimitIndicator';
-import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
-import { UpdateBanner } from './UpdateBanner';
-import type { Project, AutoBuildVersionInfo, GitStatus, ProjectEnvConfig } from '../../shared/types';
+import type { Project, GitStatus, ProjectEnvConfig } from '../../shared/types';
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
+export type SidebarView = 'kanban' | 'terminals' | 'discovery' | 'context' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'repository';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -66,31 +60,23 @@ interface NavItem {
   labelKey: string;
   icon: React.ElementType;
   shortcut?: string;
+  section: 'main' | 'github' | 'gitlab';
 }
 
-// Base nav items always shown (Chat first since workflow starts there)
-const baseNavItems: NavItem[] = [
-  { id: 'insights', labelKey: 'navigation:items.insights', icon: Sparkles, shortcut: 'N' },
-  { id: 'kanban', labelKey: 'navigation:items.kanban', icon: LayoutGrid, shortcut: 'K' },
-  { id: 'terminals', labelKey: 'navigation:items.terminals', icon: Terminal, shortcut: 'A' },
-  { id: 'worktrees', labelKey: 'navigation:items.worktrees', icon: GitBranch, shortcut: 'W' },
-  { id: 'roadmap', labelKey: 'navigation:items.roadmap', icon: Map, shortcut: 'D' },
-  { id: 'ideation', labelKey: 'navigation:items.ideation', icon: Lightbulb, shortcut: 'I' },
-  { id: 'changelog', labelKey: 'navigation:items.changelog', icon: FileText, shortcut: 'L' },
-  { id: 'context', labelKey: 'navigation:items.context', icon: BookOpen, shortcut: 'C' },
-  { id: 'agent-tools', labelKey: 'navigation:items.agentTools', icon: Wrench, shortcut: 'M' }
-];
-
-// GitHub nav items shown when GitHub is enabled
-const githubNavItems: NavItem[] = [
-  { id: 'github-issues', labelKey: 'navigation:items.githubIssues', icon: Github, shortcut: 'G' },
-  { id: 'github-prs', labelKey: 'navigation:items.githubPRs', icon: GitPullRequest, shortcut: 'P' }
-];
-
-// GitLab nav items shown when GitLab is enabled
-const gitlabNavItems: NavItem[] = [
-  { id: 'gitlab-issues', labelKey: 'navigation:items.gitlabIssues', icon: GitlabIcon, shortcut: 'B' },
-  { id: 'gitlab-merge-requests', labelKey: 'navigation:items.gitlabMRs', icon: GitMerge, shortcut: 'R' }
+// UI-6: Activity bar style navigation - icon only with tooltips
+const navItems: NavItem[] = [
+  { id: 'insights', labelKey: 'navigation:items.insights', icon: Sparkles, shortcut: 'N', section: 'main' },
+  { id: 'kanban', labelKey: 'navigation:items.kanban', icon: LayoutGrid, shortcut: 'K', section: 'main' },
+  { id: 'terminals', labelKey: 'navigation:items.terminals', icon: Terminal, shortcut: 'A', section: 'main' },
+  { id: 'repository', labelKey: 'navigation:items.repository', icon: BookOpen, shortcut: 'R', section: 'main' },
+  { id: 'discovery', labelKey: 'navigation:items.discovery', icon: Compass, shortcut: 'D', section: 'main' },
+  { id: 'changelog', labelKey: 'navigation:items.changelog', icon: FileText, shortcut: 'L', section: 'main' },
+  // GitHub items
+  { id: 'github-issues', labelKey: 'navigation:items.githubIssues', icon: Github, shortcut: 'G', section: 'github' },
+  { id: 'github-prs', labelKey: 'navigation:items.githubPRs', icon: GitPullRequest, shortcut: 'P', section: 'github' },
+  // GitLab items
+  { id: 'gitlab-issues', labelKey: 'navigation:items.gitlabIssues', icon: GitlabIcon, shortcut: 'B', section: 'gitlab' },
+  { id: 'gitlab-merge-requests', labelKey: 'navigation:items.gitlabMRs', icon: GitMerge, section: 'gitlab' }
 ];
 
 export function Sidebar({
@@ -103,6 +89,10 @@ export function Sidebar({
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const settings = useSettingsStore((state) => state.settings);
+
+  // Rate limit state
+  const hasPendingRateLimit = useRateLimitStore((state) => state.hasPendingRateLimit);
+  const reopenRateLimitModal = useRateLimitStore((state) => state.reopenRateLimitModal);
 
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
   const [showInitDialog, setShowInitDialog] = useState(false);
@@ -135,19 +125,17 @@ export function Sidebar({
     loadEnvConfig();
   }, [selectedProject?.id, selectedProject?.autoBuildPath]);
 
-  // Compute visible nav items based on GitHub/GitLab enabled state
+  // Filter visible nav items based on GitHub/GitLab enabled state
   const visibleNavItems = useMemo(() => {
-    const items = [...baseNavItems];
-
-    if (envConfig?.githubEnabled) {
-      items.push(...githubNavItems);
-    }
-
-    if (envConfig?.gitlabEnabled) {
-      items.push(...gitlabNavItems);
-    }
-
-    return items;
+    return navItems.filter((item) => {
+      if (item.section === 'github') {
+        return envConfig?.githubEnabled;
+      }
+      if (item.section === 'gitlab') {
+        return envConfig?.gitlabEnabled;
+      }
+      return true;
+    });
   }, [envConfig?.githubEnabled, envConfig?.gitlabEnabled]);
 
   // Keyboard shortcuts
@@ -222,8 +210,6 @@ export function Sidebar({
     try {
       const result = await initializeProject(projectId);
       if (result?.success) {
-        // Clear pendingProject FIRST before closing dialog
-        // This prevents onOpenChange from triggering skip logic
         setPendingProject(null);
         setShowInitDialog(false);
       }
@@ -238,7 +224,6 @@ export function Sidebar({
   };
 
   const handleGitInitialized = async () => {
-    // Refresh git status after initialization
     if (selectedProject) {
       try {
         const result = await window.electronAPI.checkGitStatus(selectedProject.path);
@@ -251,127 +236,131 @@ export function Sidebar({
     }
   };
 
-  const _handleRemoveProject = async (projectId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    await removeProject(projectId);
-  };
-
-
   const handleNavClick = (view: SidebarView) => {
     onViewChange?.(view);
   };
 
+  // UI-6: Activity bar style render
   const renderNavItem = (item: NavItem) => {
     const isActive = activeView === item.id;
     const Icon = item.icon;
 
     return (
-      <button
-        key={item.id}
-        onClick={() => handleNavClick(item.id)}
-        disabled={!selectedProjectId}
-        aria-keyshortcuts={item.shortcut}
-        className={cn(
-          'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200',
-          'hover:bg-accent hover:text-accent-foreground',
-          'disabled:pointer-events-none disabled:opacity-50',
-          isActive && 'bg-accent text-accent-foreground'
-        )}
-      >
-        <Icon className="h-4 w-4 shrink-0" />
-        <span className="flex-1 text-left">{t(item.labelKey)}</span>
-        {item.shortcut && (
-          <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded-md border border-border bg-secondary px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:flex">
-            {item.shortcut}
-          </kbd>
-        )}
-      </button>
+      <Tooltip key={item.id}>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => handleNavClick(item.id)}
+            disabled={!selectedProjectId}
+            className={cn(
+              'flex h-11 w-full items-center justify-center transition-all duration-200',
+              'hover:bg-accent/50 hover:text-accent-foreground',
+              'disabled:pointer-events-none disabled:opacity-50',
+              'border-l-2 border-transparent',
+              isActive && 'bg-accent/30 text-accent-foreground border-l-[var(--glow-cyan)] shadow-[var(--shadow-glow-sm)]'
+            )}
+          >
+            <Icon className="h-5 w-5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right" sideOffset={8}>
+          <span>{t(item.labelKey)}</span>
+          {item.shortcut && (
+            <kbd className="ml-2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium">
+              {item.shortcut}
+            </kbd>
+          )}
+        </TooltipContent>
+      </Tooltip>
     );
   };
 
   return (
-    <TooltipProvider>
-      <div className="flex h-full w-64 flex-col bg-sidebar border-r border-border">
-        {/* Navigation */}
-        <ScrollArea className="flex-1">
-          <div className="px-3 py-4">
-            {/* Project Section */}
-            <div>
-              <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {t('sections.project')}
-              </h3>
-              <nav className="space-y-1">
-                {visibleNavItems.map(renderNavItem)}
-              </nav>
-            </div>
-          </div>
-        </ScrollArea>
+    <TooltipProvider delayDuration={0}>
+      {/* UI-6: VS Code style activity bar - 48px wide icon-only navigation */}
+      <div className="flex h-full w-12 flex-col bg-sidebar border-r border-border">
+        {/* Main navigation items */}
+        <div className="flex flex-col pt-2">
+          {visibleNavItems.map(renderNavItem)}
+        </div>
 
-        <Separator />
+        {/* Spacer */}
+        <div className="flex-1" />
 
-        {/* Rate Limit Indicator - shows when Claude is rate limited */}
-        <RateLimitIndicator />
+        {/* Rate Limit Indicator - compact icon */}
+        {hasPendingRateLimit && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={reopenRateLimitModal}
+                className="flex h-10 w-full items-center justify-center text-warning hover:bg-warning/10 transition-colors"
+              >
+                <AlertTriangle className="h-5 w-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right" sideOffset={8}>
+              {t('common:rateLimit.title')}
+            </TooltipContent>
+          </Tooltip>
+        )}
 
-        {/* Update Banner - shows when app update is available */}
-        <UpdateBanner />
-
-        {/* Bottom section with Settings, Help, and New Task */}
-        <div className="p-4 space-y-3">
-          {/* Claude Code Status Badge */}
-          <ClaudeCodeStatusBadge />
-
-          {/* Settings and Help row */}
-          <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex-1 justify-start gap-2"
-                  onClick={onSettingsClick}
-                >
-                  <Settings className="h-4 w-4" />
-                  {t('actions.settings')}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">{t('tooltips.settings')}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => window.open('https://github.com/AndyMik90/Auto-Claude/issues', '_blank')}
-                  aria-label={t('tooltips.help')}
-                >
-                  <HelpCircle className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">{t('tooltips.help')}</TooltipContent>
-            </Tooltip>
-          </div>
-
+        {/* Bottom section */}
+        <div className="flex flex-col items-center py-2 space-y-1 border-t border-border">
           {/* New Task button */}
-          <Button
-            className="w-full"
-            onClick={onNewTaskClick}
-            disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            {t('actions.newTask')}
-          </Button>
-          {selectedProject && !selectedProject.autoBuildPath && (
-            <p className="mt-2 text-xs text-muted-foreground text-center">
-              {t('messages.initializeToCreateTasks')}
-            </p>
-          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onNewTaskClick}
+                disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
+                className="h-10 w-10"
+              >
+                <Plus className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" sideOffset={8}>
+              {t('actions.newTask')}
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Settings button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onSettingsClick}
+                className="h-10 w-10"
+              >
+                <Settings className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" sideOffset={8}>
+              {t('tooltips.settings')}
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Help button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => window.open('https://github.com/AndyMik90/Auto-Claude/issues', '_blank')}
+                className="h-10 w-10"
+              >
+                <HelpCircle className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" sideOffset={8}>
+              {t('tooltips.help')}
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
       {/* Initialize Jerry Dialog */}
       <Dialog open={showInitDialog} onOpenChange={(open) => {
-        // Only allow closing if user manually closes (not during initialization)
         if (!open && !isInitializing) {
           handleSkipInit();
         }

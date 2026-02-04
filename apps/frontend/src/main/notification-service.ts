@@ -2,7 +2,7 @@ import { Notification, shell } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { projectStore } from './project-store';
 
-export type NotificationType = 'task-complete' | 'task-failed' | 'review-needed';
+export type NotificationType = 'task-complete' | 'task-failed' | 'review-needed' | 'spec-ready';
 
 interface NotificationOptions {
   title: string;
@@ -55,6 +55,19 @@ class NotificationService {
     this.sendNotification('review-needed', {
       title: 'Review Needed',
       body: `"${taskTitle}" is ready for your review`,
+      projectId,
+      taskId
+    });
+  }
+
+  /**
+   * FIX-7: Send a notification when spec is ready for review
+   * This is called when the planning agent completes spec creation
+   */
+  notifySpecReady(taskTitle: string, projectId: string, taskId: string): void {
+    this.sendNotification('spec-ready', {
+      title: 'Spec Ready for Review',
+      body: `"${taskTitle}" spec is complete. Review and click "Start Build" to begin coding.`,
       projectId,
       taskId
     });
@@ -115,6 +128,7 @@ class NotificationService {
     onTaskComplete: boolean;
     onTaskFailed: boolean;
     onReviewNeeded: boolean;
+    onSpecReady: boolean;
     sound: boolean;
   } {
     // Try to get project-specific settings
@@ -122,7 +136,10 @@ class NotificationService {
       const projects = projectStore.getProjects();
       const project = projects.find(p => p.id === projectId);
       if (project?.settings?.notifications) {
-        return project.settings.notifications;
+        return {
+          ...project.settings.notifications,
+          onSpecReady: project.settings.notifications.onSpecReady ?? true  // Default to true
+        };
       }
     }
 
@@ -131,6 +148,7 @@ class NotificationService {
       onTaskComplete: true,
       onTaskFailed: true,
       onReviewNeeded: true,
+      onSpecReady: true,  // FIX-7: Default enabled
       sound: false
     };
   }
@@ -144,6 +162,7 @@ class NotificationService {
       onTaskComplete: boolean;
       onTaskFailed: boolean;
       onReviewNeeded: boolean;
+      onSpecReady: boolean;
       sound: boolean;
     }
   ): boolean {
@@ -154,6 +173,8 @@ class NotificationService {
         return settings.onTaskFailed;
       case 'review-needed':
         return settings.onReviewNeeded;
+      case 'spec-ready':
+        return settings.onSpecReady;
       default:
         return false;
     }

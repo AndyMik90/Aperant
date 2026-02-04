@@ -1,0 +1,93 @@
+/**
+ * TasksHub - Combined Tasks view with tabs
+ *
+ * NAV-4: Add tabs to Tasks page (Kanban/Analytics)
+ * Uses tabs to switch between Kanban board and Analytics dashboard.
+ *
+ * Note: Dependencies tab was planned but SUG-6 (task dependencies) was skipped
+ * as it requires data model changes. Can be added later when implemented.
+ */
+
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { LayoutGrid, BarChart3, RefreshCw } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
+import { Button } from './ui/button';
+import { KanbanBoard } from './KanbanBoard';
+import { AnalyticsDashboard } from './AnalyticsDashboard';
+import { ActivityFeed } from './ActivityFeed';
+import type { Task } from '../../shared/types';
+
+interface TasksHubProps {
+  tasks: Task[];
+  onTaskClick: (task: Task) => void;
+  onNewTaskClick: () => void;
+  onRefresh: () => void;
+  isRefreshing?: boolean;
+}
+
+export function TasksHub({
+  tasks,
+  onTaskClick,
+  onNewTaskClick,
+  onRefresh,
+  isRefreshing = false,
+}: TasksHubProps) {
+  const { t } = useTranslation(['navigation', 'tasks']);
+  const [activeTab, setActiveTab] = useState<'kanban' | 'analytics'>('kanban');
+
+  return (
+    <div className="flex h-full flex-col">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as 'kanban' | 'analytics')}
+        className="flex h-full flex-col"
+      >
+        {/* Tab navigation header */}
+        <div className="border-b border-border px-6 pt-4 flex items-center justify-between">
+          <TabsList className="h-10">
+            <TabsTrigger value="kanban" className="gap-2">
+              <LayoutGrid className="h-4 w-4" />
+              {t('items.kanban')}
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              {t('tasks:analytics.title', { defaultValue: 'Analytics' })}
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Refresh button in header */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {t('tasks:refreshTasks')}
+          </Button>
+        </div>
+
+        {/* Tab content - fills remaining space */}
+        <TabsContent value="kanban" className="flex-1 m-0 overflow-hidden">
+          <KanbanBoard
+            tasks={tasks}
+            onTaskClick={onTaskClick}
+            onNewTaskClick={onNewTaskClick}
+            onRefresh={onRefresh}
+            isRefreshing={isRefreshing}
+            hideRefreshButton
+          />
+        </TabsContent>
+
+        <TabsContent value="analytics" className="flex-1 m-0 overflow-auto p-6">
+          <div className="max-w-4xl mx-auto space-y-6">
+            <AnalyticsDashboard />
+            <ActivityFeed />
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

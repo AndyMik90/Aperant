@@ -104,9 +104,36 @@ AI-assisted feature planning with competitor analysis and audience targeting.
 ![Roadmap](.github/assets/Auto-Claude-roadmap.png)
 
 ### Additional Features
-- **Insights** - Chat interface for exploring your codebase
+- **Insights (Chat with Jerry)** - Chat interface for exploring your codebase
 - **Ideation** - Discover improvements, performance issues, and vulnerabilities
 - **Changelog** - Generate release notes from completed tasks
+
+---
+
+## Task Lifecycle
+
+Tasks in Jerry flow through several stages from planning to completion. Here's what you'll see:
+
+### Task Statuses
+| Status | What It Means |
+|--------|---------------|
+| **Planning** | Creating task specification and implementation plan |
+| **Coding** | Agent is implementing the feature or fix |
+| **AI Review** | Automated quality assurance and testing |
+| **Human Review** | Awaiting your approval before merging |
+| **Done** | Task complete and changes merged |
+
+### Activity Indicators
+During execution, you'll see activity badges showing what the system is doing:
+
+- **Creating Spec** - Designing the implementation approach
+- **Implementing** - Writing code and making changes
+- **Testing** - Running automated tests
+- **Fixing Issues** - Addressing test failures
+
+> **Note:** Tasks show two types of information: the **workflow stage** (Planning, Coding, etc.) and the **current activity** (what the agent is doing). This helps you understand both where the task is in the process and what's happening right now.
+
+For architectural details, see [docs/architecture/TASK_ARCHITECTURE.md](docs/architecture/TASK_ARCHITECTURE.md).
 
 ---
 

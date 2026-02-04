@@ -79,7 +79,8 @@
     "add": "Add",
     "gotIt": "Got it",
     "continue": "Continue",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "clear": "Clear"
   },
   "labels": {
     "loading": "Loading...",
@@ -92,6 +93,10 @@
     "optional": "Optional",
     "required": "Required",
     "dismiss": "Dismiss"
+  },
+  "actions": {
+    "minimize": "Minimize",
+    "maximize": "Maximize"
   },
   "selection": {
     "select": "Select",

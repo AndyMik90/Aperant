@@ -262,6 +262,37 @@ async def run_planning_agent(
     return spec_file.exists()
 
 
+def _load_project_learnings(project_dir: Path) -> str:
+    """
+    Load LEARNINGS.md from project root if it exists.
+    SUG-23: Persistent Learning Memory
+    """
+    learnings_file = project_dir / "LEARNINGS.md"
+    if not learnings_file.exists():
+        return ""
+
+    try:
+        content = learnings_file.read_text(encoding="utf-8")
+        # Extract just the learning entries (skip header)
+        if "---" in content:
+            parts = content.split("---", 1)
+            if len(parts) > 1:
+                learnings_section = parts[1].strip()
+                if learnings_section and "No learnings recorded yet" not in learnings_section:
+                    return f"""
+## Project Learnings
+
+The following learnings have been captured from previous tasks. Apply these patterns:
+
+{learnings_section}
+
+"""
+        return ""
+    except Exception as e:
+        logger.warning(f"Failed to load LEARNINGS.md: {e}")
+        return ""
+
+
 def _generate_planning_prompt(
     spec_dir: Path,
     project_dir: Path,
@@ -275,14 +306,24 @@ def _generate_planning_prompt(
     memory_content = memory_handlers.view("/memories")
     has_prior_context = memory_content and "does not exist" not in memory_content.lower() and "empty" not in memory_content.lower()
 
+    # SUG-23: Load project learnings
+    learnings = _load_project_learnings(project_dir)
+
     prompt_parts = [
         "# Planning Session",
         "",
+    ]
+
+    # Inject learnings if available
+    if learnings:
+        prompt_parts.append(learnings)
+
+    prompt_parts.extend([
         "## Task Description",
         "",
         task_description,
         "",
-    ]
+    ])
 
     if has_prior_context:
         prompt_parts.extend([

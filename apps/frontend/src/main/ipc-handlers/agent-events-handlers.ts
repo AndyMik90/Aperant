@@ -56,6 +56,12 @@ function cleanupTaskParser(taskId: string): void {
  * FIX (ACS-55, ACS-71): Adds guardrails against bad status transitions.
  * FIX (PR Review): Uses comprehensive wouldPhaseRegress() utility instead of hardcoded checks.
  * FIX (ACS-203): Adds phase completion validation to prevent phase overlaps.
+ * FIX-10: Gate enforcement - planning->coding ONLY via TASK_START_BUILD
+ *
+ * IMPORTANT: This validator is only called for AGENT-INITIATED status changes
+ * (via execution-progress events). User-initiated changes go through separate paths:
+ * - TASK_UPDATE_STATUS: Status change only (Kanban drag - now disabled)
+ * - TASK_START_BUILD: User clicks "Start Build" (the ONLY way to start coding)
  *
  * @param task - The current task (may be undefined if not found)
  * @param newStatus - The proposed new status
@@ -69,6 +75,16 @@ function validateStatusTransition(
 ): boolean {
   // Can't validate without task data - allow the transition
   if (!task) return true;
+
+  // FIX-10: Block automatic planning->coding transitions from agent events
+  // This gate ensures users must explicitly click "Start Build" to start coding.
+  // Agent-initiated events should NOT auto-promote tasks from planning to coding.
+  if (task.status === "planning" && newStatus === "coding") {
+    console.warn(
+      `[validateStatusTransition] FIX-10: Blocking auto planning->coding for task ${task.id} (phase: ${phase}). User must click "Start Build".`
+    );
+    return false;
+  }
 
   // Don't allow human_review without subtasks
   // This prevents tasks from jumping to review before planning is complete
@@ -204,6 +220,26 @@ export function registerAgenteventsHandlers(
 
     if (processType === "spec-creation") {
       console.warn(`[Task ${taskId}] Spec creation completed with code ${code}`);
+
+      // FIX-7: Notify user when spec is ready for review
+      if (code === 0) {
+        // Find task and project for notification
+        const { task: specTask, project: specProject } = findTaskAndProject(taskId);
+        if (specTask && specProject) {
+          const specTaskTitle = specTask.title || specTask.specId;
+          notificationService.notifySpecReady(specTaskTitle, specProject.id, taskId);
+          console.warn(`[Task ${taskId}] Sent spec-ready notification for: ${specTaskTitle}`);
+
+          // Also send an IPC event to the renderer for toast notification
+          safeSendToRenderer(
+            getMainWindow,
+            IPC_CHANNELS.TASK_SPEC_READY,
+            taskId,
+            specTask.specId,
+            specProject.id
+          );
+        }
+      }
       return;
     }
 
@@ -331,9 +367,13 @@ export function registerAgenteventsHandlers(
       taskProjectId
     );
 
+    // FIX-6: Phase-to-status mapping that respects user-controlled gates
+    // When task is in 'planning' STATUS, don't auto-transition to 'coding' STATUS
+    // User must click "Start Build" to make that transition
     const phaseToStatus: Record<string, TaskStatus | null> = {
       idle: null,
-      planning: "coding",
+      starting: "coding",  // Starting phase maps to coding status (initialization window)
+      planning: null,      // FIX-6: Don't auto-change status when planning phase is emitted
       coding: "coding",
       qa_review: "ai_review",
       qa_fixing: "ai_review",
@@ -341,7 +381,16 @@ export function registerAgenteventsHandlers(
       failed: "human_review",
     };
 
-    const newStatus = phaseToStatus[progress.phase];
+    // FIX-6: Determine new status based on current task status and phase
+    // If task is already in 'coding' status and planning phase is emitted, keep it as coding
+    // This handles the case where coding agent internally does planning work
+    let newStatus = phaseToStatus[progress.phase];
+
+    // Special case: If task is in 'coding' status and phase is 'planning',
+    // this is internal planning within coding agent - keep status as 'coding'
+    if (task?.status === 'coding' && progress.phase === 'planning') {
+      newStatus = 'coding';
+    }
     // FIX (ACS-55, ACS-71): Validate status transition before sending/persisting
     if (newStatus && validateStatusTransition(task, newStatus, progress.phase)) {
       // Include projectId in status change event for multi-project filtering

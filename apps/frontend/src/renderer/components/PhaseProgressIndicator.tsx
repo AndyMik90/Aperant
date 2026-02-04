@@ -18,6 +18,7 @@ interface PhaseProgressIndicatorProps {
 // Phase display configuration (colors only - labels are translated)
 const PHASE_COLORS: Record<ExecutionPhase, { color: string; bgColor: string }> = {
   idle: { color: 'bg-muted-foreground', bgColor: 'bg-muted' },
+  starting: { color: 'bg-primary', bgColor: 'bg-primary/20' },
   planning: { color: 'bg-amber-500', bgColor: 'bg-amber-500/20' },
   coding: { color: 'bg-info', bgColor: 'bg-info/20' },
   qa_review: { color: 'bg-purple-500', bgColor: 'bg-purple-500/20' },
@@ -29,6 +30,7 @@ const PHASE_COLORS: Record<ExecutionPhase, { color: string; bgColor: string }> =
 // Phase label translation keys
 const PHASE_LABEL_KEYS: Record<ExecutionPhase, string> = {
   idle: 'execution.phases.idle',
+  starting: 'execution.phases.starting',
   planning: 'execution.phases.planning',
   coding: 'execution.phases.coding',
   qa_review: 'execution.phases.reviewing',
@@ -104,7 +106,8 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
   };
 
   // Determine if we should show indeterminate (activity) vs determinate (%) progress
-  const isIndeterminatePhase = phase === 'planning' || phase === 'qa_review' || phase === 'qa_fixing';
+  // 'starting' phase should show indeterminate progress (pulsing animation) while initializing
+  const isIndeterminatePhase = phase === 'starting' || phase === 'planning' || phase === 'qa_review' || phase === 'qa_fixing';
   // Show subtask progress whenever subtasks exist (stops pulsing animation when spec completes)
   const showSubtaskProgress = totalSubtasks > 0;
 
@@ -138,7 +141,10 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
         </div>
         <span className="text-xs font-medium text-foreground">
           {showSubtaskProgress ? (
-            `${subtaskProgress}%`
+            <span>
+              <span className="text-muted-foreground">{completedSubtasks}/{totalSubtasks}</span>
+              <span className="ml-1">({subtaskProgress}%)</span>
+            </span>
           ) : activeEntries > 0 ? (
             <span className="text-muted-foreground">
               {activeEntries} {activeEntries === 1 ? t('execution.labels.entry') : t('execution.labels.entries')}

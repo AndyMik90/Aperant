@@ -28,14 +28,17 @@ import {
 } from './components/ui/dialog';
 import { Sidebar, type SidebarView } from './components/Sidebar';
 import { KanbanBoard } from './components/KanbanBoard';
+import { TasksHub } from './components/TasksHub';
 import { TaskDetailModal } from './components/task-detail/TaskDetailModal';
 import { TaskCreationWizard } from './components/TaskCreationWizard';
+import { QuickTaskDialog } from './components/QuickTaskDialog';
+import { GlobalSearchDialog } from './components/GlobalSearchDialog';
 import { AppSettingsDialog, type AppSection } from './components/settings/AppSettings';
 import type { ProjectSettingsSection } from './components/settings/ProjectSettingsContent';
 import { TerminalGrid } from './components/TerminalGrid';
-import { Roadmap } from './components/Roadmap';
+import { DiscoveryHub } from './components/DiscoveryHub';
 import { Context } from './components/Context';
-import { Ideation } from './components/Ideation';
+import { RepositoryHub } from './components/RepositoryHub';
 import { Insights } from './components/Insights';
 import { GitHubIssues } from './components/GitHubIssues';
 import { GitLabIssues } from './components/GitLabIssues';
@@ -43,7 +46,6 @@ import { GitHubPRs } from './components/github-prs';
 import { GitLabMergeRequests } from './components/gitlab-merge-requests';
 import { Changelog } from './components/Changelog';
 import { Worktrees } from './components/Worktrees';
-import { AgentTools } from './components/AgentTools';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { RateLimitModal } from './components/RateLimitModal';
 import { SDKRateLimitModal } from './components/SDKRateLimitModal';
@@ -129,6 +131,8 @@ export function App() {
   // UI State
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isNewTaskDialogOpen, setIsNewTaskDialogOpen] = useState(false);
+  const [isQuickTaskDialogOpen, setIsQuickTaskDialogOpen] = useState(false);
+  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<AppSection | undefined>(undefined);
   const [settingsInitialProjectSection, setSettingsInitialProjectSection] = useState<ProjectSettingsSection | undefined>(undefined);
@@ -360,11 +364,29 @@ export function App() {
           console.error('Failed to add project:', error);
         }
       }
+
+      // SUG-2: Cmd/Ctrl+K: Quick task creation
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const currentProjectId = activeProjectId || selectedProjectId;
+        if (currentProjectId) {
+          setIsQuickTaskDialogOpen(true);
+        }
+      }
+
+      // SUG-8: Cmd/Ctrl+P: Global search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        const currentProjectId = activeProjectId || selectedProjectId;
+        if (currentProjectId) {
+          setIsGlobalSearchOpen(true);
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeView, openProjectTab]);
+  }, [activeView, openProjectTab, activeProjectId, selectedProjectId]);
 
   // Load tasks when project changes
   useEffect(() => {
@@ -829,7 +851,7 @@ export function App() {
             {selectedProject ? (
               <>
                 {activeView === 'kanban' && (
-                  <KanbanBoard
+                  <TasksHub
                     tasks={tasks}
                     onTaskClick={handleTaskClick}
                     onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
@@ -845,14 +867,14 @@ export function App() {
                     isActive={activeView === 'terminals'}
                   />
                 </div>
-                {activeView === 'roadmap' && (activeProjectId || selectedProjectId) && (
-                  <Roadmap projectId={activeProjectId || selectedProjectId!} onGoToTask={handleGoToTask} />
+                {activeView === 'discovery' && (activeProjectId || selectedProjectId) && (
+                  <DiscoveryHub projectId={activeProjectId || selectedProjectId!} onGoToTask={handleGoToTask} />
                 )}
                 {activeView === 'context' && (activeProjectId || selectedProjectId) && (
                   <Context projectId={activeProjectId || selectedProjectId!} />
                 )}
-                {activeView === 'ideation' && (activeProjectId || selectedProjectId) && (
-                  <Ideation projectId={activeProjectId || selectedProjectId!} onGoToTask={handleGoToTask} />
+                {activeView === 'repository' && (activeProjectId || selectedProjectId) && (
+                  <RepositoryHub projectId={activeProjectId || selectedProjectId!} />
                 )}
                 {activeView === 'insights' && (activeProjectId || selectedProjectId) && (
                   <Insights projectId={activeProjectId || selectedProjectId!} />
@@ -902,7 +924,6 @@ export function App() {
                 {activeView === 'worktrees' && (activeProjectId || selectedProjectId) && (
                   <Worktrees projectId={activeProjectId || selectedProjectId!} />
                 )}
-                {activeView === 'agent-tools' && <AgentTools />}
               </>
             ) : (
               <WelcomeScreen
@@ -928,11 +949,29 @@ export function App() {
 
         {/* Dialogs */}
         {(activeProjectId || selectedProjectId) && (
-          <TaskCreationWizard
-            projectId={activeProjectId || selectedProjectId!}
-            open={isNewTaskDialogOpen}
-            onOpenChange={setIsNewTaskDialogOpen}
-          />
+          <>
+            <TaskCreationWizard
+              projectId={activeProjectId || selectedProjectId!}
+              open={isNewTaskDialogOpen}
+              onOpenChange={setIsNewTaskDialogOpen}
+            />
+            {/* SUG-2: Quick Task Dialog (Cmd+K) */}
+            <QuickTaskDialog
+              projectId={activeProjectId || selectedProjectId!}
+              open={isQuickTaskDialogOpen}
+              onOpenChange={setIsQuickTaskDialogOpen}
+            />
+            {/* SUG-8: Global Search Dialog (Cmd+P) */}
+            <GlobalSearchDialog
+              projectId={activeProjectId || selectedProjectId!}
+              open={isGlobalSearchOpen}
+              onOpenChange={setIsGlobalSearchOpen}
+              onTaskSelect={(taskId) => {
+                const task = tasks.find(t => t.id === taskId);
+                if (task) setSelectedTask(task);
+              }}
+            />
+          </>
         )}
 
         <AppSettingsDialog

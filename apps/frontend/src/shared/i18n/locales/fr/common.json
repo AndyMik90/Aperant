@@ -79,7 +79,8 @@
     "add": "Ajouter",
     "gotIt": "Compris",
     "continue": "Continuer",
-    "saving": "Enregistrement..."
+    "saving": "Enregistrement...",
+    "clear": "Effacer"
   },
   "labels": {
     "loading": "Chargement...",
@@ -92,6 +93,10 @@
     "optional": "Optionnel",
     "required": "Requis",
     "dismiss": "Ignorer"
+  },
+  "actions": {
+    "minimize": "Réduire",
+    "maximize": "Agrandir"
   },
   "selection": {
     "select": "Sélectionner",

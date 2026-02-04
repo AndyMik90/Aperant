@@ -60,65 +60,77 @@ Before writing, think about:
 
 ## PHASE 2: WRITE SPEC.MD (MANDATORY)
 
-Create `spec.md` using this EXACT template structure:
+Create `spec.md` using this EXACT template structure. This format is **Ralph-Wiggum compatible** - the coding agent uses this spec to execute implementation.
 
 ```bash
 cat > spec.md << 'SPEC_EOF'
-# Specification: [Task Name from requirements.json]
+# Task: [Task Name from requirements.json]
 
 ## Overview
 
 [One paragraph: What is being built and why. Synthesize from requirements.json task_description]
 
+## Success Criteria
+
+- [ ] [From requirements.json acceptance_criteria - criterion 1]
+- [ ] [From requirements.json acceptance_criteria - criterion 2]
+- [ ] [From requirements.json acceptance_criteria - criterion 3]
+- [ ] No console errors
+- [ ] Existing tests still pass
+
 ## Workflow Type
 
 **Type**: [from requirements.json: feature|refactor|investigation|migration|simple]
 
-**Rationale**: [Why this workflow type fits the task]
+## Implementation Steps
 
-## Task Scope
+### Step 1: [Setup/Preparation Title]
 
-### Services Involved
-- **[service-name]** (primary) - [role from context analysis]
-- **[service-name]** (integration) - [role from context analysis]
+**Files:** `[primary file to modify]`
 
-### This Task Will:
-- [ ] [Specific change 1 - from requirements]
-- [ ] [Specific change 2 - from requirements]
-- [ ] [Specific change 3 - from requirements]
+**What:** [Specific action - e.g., "Add new imports and dependencies"]
 
-### Out of Scope:
-- [What this task does NOT include]
+**Exit:** [How to verify step is complete - e.g., "File contains all required imports"]
 
-## Service Context
+---
 
-### [Primary Service Name]
+### Step 2: [Core Implementation Title]
 
-**Tech Stack:**
-- Language: [from project_index.json]
-- Framework: [from project_index.json]
-- Key directories: [from project_index.json]
+**Files:** `[file1]`, `[file2]`
 
-**Entry Point:** `[path from project_index]`
+**What:** [Specific implementation action - e.g., "Create the main function/component that handles X"]
 
-**How to Run:**
-```bash
-[command from project_index.json]
-```
+**Exit:** [Verification - e.g., "Function exists and handles Y correctly"]
 
-**Port:** [port from project_index.json]
+---
 
-[Repeat for each involved service]
+### Step 3: [Integration Title]
+
+**Files:** `[file to integrate]`
+
+**What:** [Integration action - e.g., "Wire up the new component to existing code"]
+
+**Exit:** [Verification - e.g., "Component is rendered and responds to events"]
+
+---
+
+### Step 4: [Testing/Validation Title]
+
+**Files:** `[test file(s)]`
+
+**What:** [Testing action - e.g., "Add unit tests for new functionality"]
+
+**Exit:** [Verification - e.g., "All tests pass with `npm test`"]
+
+[Add more steps as needed - each step should be atomic and verifiable]
 
 ## Files to Modify
 
-| File | Service | What to Change |
-|------|---------|---------------|
-| `[path from context.json]` | [service] | [specific change needed] |
+| File | What to Change |
+|------|---------------|
+| `[path from context.json]` | [specific change needed] |
 
 ## Files to Reference
-
-These files show patterns to follow:
 
 | File | Pattern to Copy |
 |------|----------------|
@@ -134,19 +146,11 @@ From `[reference file path]`:
 [code snippet if available from context, otherwise describe pattern]
 ```
 
-**Key Points:**
-- [What to notice about this pattern]
-- [What to replicate]
-
 ## Requirements
 
 ### Functional Requirements
 
 1. **[Requirement Name from requirements.json]**
-   - Description: [What it does]
-   - Acceptance: [How to verify - from acceptance_criteria]
-
-2. **[Requirement Name]**
    - Description: [What it does]
    - Acceptance: [How to verify]
 
@@ -168,66 +172,30 @@ From `[reference file path]`:
 
 ## Development Environment
 
-### Start Services
-
+### How to Run
 ```bash
-[commands from project_index.json]
+[command from project_index.json]
 ```
 
 ### Service URLs
 - [Service Name]: http://localhost:[port]
 
-### Required Environment Variables
-- `VAR_NAME`: [from project_index or .env.example]
-
-## Success Criteria
-
-The task is complete when:
-
-1. [ ] [From requirements.json acceptance_criteria]
-2. [ ] [From requirements.json acceptance_criteria]
-3. [ ] No console errors
-4. [ ] Existing tests still pass
-5. [ ] New functionality verified via browser/API
-
 ## QA Acceptance Criteria
 
-**CRITICAL**: These criteria must be verified by the QA Agent before sign-off.
+### Tests to Run
+```bash
+[test command]
+```
 
-### Unit Tests
-| Test | File | What to Verify |
-|------|------|----------------|
-| [Test Name] | `[path/to/test]` | [What this test should verify] |
+### Manual Verification
+1. [Step to verify functionality]
+2. [Step to verify edge cases]
 
-### Integration Tests
-| Test | Services | What to Verify |
-|------|----------|----------------|
-| [Test Name] | [service-a ↔ service-b] | [API contract, data flow] |
+## Completion Promise
 
-### End-to-End Tests
-| Flow | Steps | Expected Outcome |
-|------|-------|------------------|
-| [User Flow] | 1. [Step] 2. [Step] | [Expected result] |
+When all success criteria are met and tests pass:
 
-### Browser Verification (if frontend)
-| Page/Component | URL | Checks |
-|----------------|-----|--------|
-| [Component] | `http://localhost:[port]/[path]` | [What to verify] |
-
-### Database Verification (if applicable)
-| Check | Query/Command | Expected |
-|-------|---------------|----------|
-| [Migration exists] | `[command]` | [Expected output] |
-
-### QA Sign-off Requirements
-- [ ] All unit tests pass
-- [ ] All integration tests pass
-- [ ] All E2E tests pass
-- [ ] Browser verification complete (if applicable)
-- [ ] Database state verified (if applicable)
-- [ ] No regressions in existing functionality
-- [ ] Code follows established patterns
-- [ ] No security vulnerabilities introduced
+<promise>TASK_COMPLETE</promise>
 
 SPEC_EOF
 ```

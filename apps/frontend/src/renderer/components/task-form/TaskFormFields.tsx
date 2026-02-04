@@ -346,29 +346,22 @@ export function TaskFormFields({
         </div>
       </div>
 
-      {/* Ralph Wiggum Mode Toggle */}
-      {onRalphWiggumModeChange && (
-        <div className="flex items-start gap-3 p-4 rounded-lg border border-border bg-muted/30">
-          <Checkbox
-            id={`${prefix}ralph-wiggum-mode`}
-            checked={ralphWiggumMode}
-            onCheckedChange={(checked) => onRalphWiggumModeChange(checked === true)}
-            disabled={disabled}
-            className="mt-0.5"
-          />
-          <div className="flex-1 space-y-1">
-            <Label
-              htmlFor={`${prefix}ralph-wiggum-mode`}
-              className="text-sm font-medium text-foreground cursor-pointer"
-            >
-              {t('tasks:form.ralphWiggumModeLabel')}
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              {t('tasks:form.ralphWiggumModeDescription')}
-            </p>
+      {/* Ralph Wiggum Mode - Always enabled (SUG-22) */}
+      <div className="flex items-start gap-3 p-4 rounded-lg border border-primary/30 bg-primary/5">
+        <div className="flex-1 space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground">
+              {t('tasks:form.ralphWiggumModeFixedLabel')}
+            </span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium">
+              {t('tasks:form.ralphWiggumModeEnabled')}
+            </span>
           </div>
+          <p className="text-xs text-muted-foreground italic">
+            {t('tasks:form.ralphWiggumModeSubtitle')}
+          </p>
         </div>
-      )}
+      </div>
 
       {/* Error Display */}
       {error && (

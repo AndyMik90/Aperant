@@ -71,7 +71,7 @@
     "emptyPlanning": "No tasks planned",
     "emptyPlanningHint": "Add a task to get started",
     "emptyCoding": "Nothing running",
-    "emptyCodingHint": "Click 'Run' on a planned task",
+    "emptyCodingHint": "Click 'Start Build' on a planned task",
     "emptyAiReview": "No tasks in review",
     "emptyAiReviewHint": "AI will review completed tasks",
     "emptyHumanReview": "Nothing to review",
@@ -79,6 +79,7 @@
     "emptyDone": "No completed tasks",
     "emptyDoneHint": "Approved tasks appear here",
     "emptyDefault": "No tasks",
+    "newTask": "New Task",
     "dropHere": "Drop here",
     "showArchived": "Show archived",
     "addTaskAriaLabel": "Add new task to planning",
@@ -104,12 +105,16 @@
   "execution": {
     "phases": {
       "idle": "Idle",
-      "planning": "Planning",
-      "coding": "Coding",
-      "reviewing": "Reviewing",
-      "fixing": "Fixing",
+      "starting": "Jerry is warming up...",
+      "planning": "Reading codebase...",
+      "coding": "Writing code...",
+      "reviewing": "Reviewing changes...",
+      "fixing": "Fixing issues...",
       "complete": "Complete",
-      "failed": "Failed"
+      "failed": "Failed",
+      "creatingSpec": "Analyzing your request...",
+      "implementing": "Writing code...",
+      "testing": "Running tests..."
     },
     "labels": {
       "interrupted": "Interrupted",
@@ -147,6 +152,26 @@
   "notifications": {
     "backgroundTaskTitle": "Task continues in background",
     "backgroundTaskDescription": "The task is still running. You can reopen this dialog to monitor progress."
+  },
+  "terminal": {
+    "waitingForOutput": "Waiting for task output...",
+    "outputHint": "Output will appear here when the task starts running."
+  },
+  "quickTask": {
+    "placeholder": "What do you want to build?",
+    "hint": "Describe your task and press Enter. Jerry will start planning immediately."
+  },
+  "globalSearch": {
+    "placeholder": "Search tasks, ideas, files...",
+    "noResults": "No results found",
+    "typeLabels": {
+      "tasks": "Tasks",
+      "ideas": "Ideas",
+      "files": "Files"
+    },
+    "navigateHint": "navigate",
+    "selectHint": "select",
+    "closeHint": "close"
   },
   "wizard": {
     "createTitle": "Create New Task",
@@ -208,6 +233,9 @@
     "requireReviewDescription": "When enabled, you'll be prompted to review the spec and implementation plan before the coding phase begins. This allows you to approve, request changes, or provide feedback.",
     "ralphWiggumModeLabel": "Ralph Wiggum Mode (\"I'm helping!\")",
     "ralphWiggumModeDescription": "Aggressive iteration mode. The agent will try harder before giving up: more retry attempts, higher thresholds for recurring issues, and automatic strategy pivots when stuck. Best for complex tasks that may need multiple approaches.",
+    "ralphWiggumModeFixedLabel": "Ralph Wiggum Autonomous Mode",
+    "ralphWiggumModeEnabled": "Always On",
+    "ralphWiggumModeSubtitle": "\"I'm helping!\"",
     "errors": {
       "descriptionRequired": "Please provide a description",
       "maxImagesReached": "Maximum of 5 images allowed",
@@ -266,5 +294,86 @@
     "noTasksToSelect": "No tasks available to select",
     "confirmBulkAction": "Confirm bulk action for {{count}} tasks",
     "processingTasks": "Processing selected tasks..."
+  },
+  "analytics": {
+    "title": "Analytics",
+    "totalTasks": "Total Tasks",
+    "activeTasks": "Active tasks",
+    "completed": "Completed",
+    "inProgress": "In Progress",
+    "completionRate": "Completion Rate",
+    "statusDistribution": "Status Distribution",
+    "needsReview": "Needs Review",
+    "awaitingApproval": "Awaiting your approval",
+    "prsReady": "PRs Ready",
+    "readyToMerge": "Ready to merge",
+    "weeklyActivity": "This Week",
+    "thisWeek": "this week",
+    "created": "created",
+    "completedWord": "completed",
+    "avgSubtasks": "avg subtasks"
+  },
+  "activity": {
+    "title": "Recent Activity",
+    "noActivity": "No recent activity",
+    "taskCreated": "Task created",
+    "taskStarted": "Build started",
+    "taskCompleted": "Task completed",
+    "taskFailed": "Task failed",
+    "statusChanged": "Status changed to {{status}}",
+    "prCreated": "PR created",
+    "taskArchived": "Task archived",
+    "unknown": "Activity"
+  },
+  "dependencies": {
+    "title": "Dependencies",
+    "add": "Add",
+    "none": "No dependencies",
+    "blocked": "Blocked",
+    "blockedBy": "Blocked by {{count}} task",
+    "blockedBy_one": "Blocked by {{count}} task",
+    "blockedBy_other": "Blocked by {{count}} tasks",
+    "blockedMessage": "This task is blocked until all dependencies are complete.",
+    "blockedTooltip": "Cannot start: waiting for dependencies to complete",
+    "searchPlaceholder": "Search tasks...",
+    "noTasks": "No tasks found."
+  },
+  "learnings": {
+    "saveAsLearning": "Save this feedback as a learning for future tasks",
+    "saveAsLearningHint": "This feedback will be remembered and used to improve future task execution."
+  },
+  "templates": {
+    "title": "Templates",
+    "useTemplate": "Use Template",
+    "saveAsTemplate": "Save as Template",
+    "manageTemplates": "Manage Templates",
+    "noTemplates": "No templates yet",
+    "noTemplatesHint": "Save your first template to reuse task configurations",
+    "templateName": "Template Name",
+    "templateNamePlaceholder": "e.g., Bug Fix, Feature Request",
+    "templateDescription": "Description (optional)",
+    "templateDescriptionPlaceholder": "What is this template for?",
+    "createTemplate": "Create Template",
+    "updateTemplate": "Update Template",
+    "deleteTemplate": "Delete Template",
+    "deleteConfirm": "Delete template \"{{name}}\"?",
+    "deleteConfirmDescription": "This action cannot be undone.",
+    "templateSaved": "Template saved successfully",
+    "templateDeleted": "Template deleted",
+    "templateApplied": "Template applied",
+    "selectTemplate": "Select a template",
+    "customTemplate": "Custom settings",
+    "builtInTemplates": "Built-in Templates",
+    "myTemplates": "My Templates",
+    "builtIn": {
+      "bugFix": "Bug Fix",
+      "bugFixDesc": "High priority bug fix with review required",
+      "feature": "New Feature",
+      "featureDesc": "Standard feature with medium complexity",
+      "quickFix": "Quick Fix",
+      "quickFixDesc": "Trivial fix, no review needed",
+      "refactor": "Refactoring",
+      "refactorDesc": "Code cleanup with low impact"
+    }
   }
 }

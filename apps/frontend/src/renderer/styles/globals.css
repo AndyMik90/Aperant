@@ -1,8 +1,9 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-/* Auto-Build UI Design System - Oscura Midnight Theme */
-/* A modern, professional design system with deep dark mode and warm yellow accents */
+/* Auto-Build UI Design System - Tron Grid Theme */
+/* A modern, cyberpunk design system with deep dark mode and cyan glow effects */
+/* UI-4: Cyan (#00d4ff) glow effects on focus/active states */
 
 /* Define custom theme colors for Tailwind CSS v4 */
 @theme {
@@ -49,14 +50,14 @@
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
 
-  /* Border radius - from design system */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 20px;
-  --radius-3xl: 24px;
-  --radius-full: 9999px;
+  /* Border radius - UI-3: Tron Grid aesthetic with sharp corners */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-full: 0px;
 
   /* Animations */
   --animate-accordion-down: accordion-down 0.2s ease-out;
@@ -161,8 +162,8 @@
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
   --shadow-focus: 0 0 0 3px rgba(165, 166, 106, 0.2);
 
-  /* Border radius */
-  --radius: 12px;
+  /* Border radius - UI-3: Sharp corners for Tron Grid aesthetic */
+  --radius: 0px;
 }
 
 /* Dark Mode - Oscura Midnight (Default/Primary theme per design system) */
@@ -1027,6 +1028,23 @@
   --shadow-focus: 0 0 0 3px rgba(74, 222, 128, 0.3);
 }
 
+/* ============================================
+   UI-4: Cyan Glow Effects - Tron Grid Theme
+   ============================================ */
+:root {
+  /* Cyan glow color definition */
+  --glow-cyan: #00d4ff;
+  --glow-cyan-subtle: rgba(0, 212, 255, 0.3);
+  --glow-cyan-medium: rgba(0, 212, 255, 0.5);
+  --glow-cyan-strong: rgba(0, 212, 255, 0.7);
+
+  /* Glow effect shadows */
+  --shadow-glow-sm: 0 0 8px var(--glow-cyan-subtle);
+  --shadow-glow-md: 0 0 12px var(--glow-cyan-medium);
+  --shadow-glow-lg: 0 0 20px var(--glow-cyan-medium), 0 0 40px var(--glow-cyan-subtle);
+  --shadow-glow-focus: 0 0 0 2px var(--background), 0 0 0 4px var(--glow-cyan-medium), 0 0 15px var(--glow-cyan-subtle);
+}
+
 /* Base styles */
 * {
   border-color: var(--border);
@@ -1047,10 +1065,11 @@ body {
 }
 
 /* Card styles - following design system card-based modularity */
+/* UI-3: Sharp corners for Tron Grid aesthetic */
 .card-surface {
   background-color: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  border-radius: 0;
 }
 
 .dark .card-surface {
@@ -1063,24 +1082,27 @@ body {
   box-shadow: var(--shadow-md);
 }
 
-/* Interactive card hover state */
+/* Interactive card hover state - UI-4: Cyan glow on hover */
 .card-interactive {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .card-interactive:hover {
-  border-color: var(--primary);
+  border-color: var(--glow-cyan);
+  box-shadow: var(--shadow-glow-sm);
 }
 
 .dark .card-interactive:hover {
-  border-color: rgba(214, 216, 118, 0.5);
+  border-color: var(--glow-cyan);
+  box-shadow: var(--shadow-glow-md);
 }
 
 /* Surface elevated - for dropdowns, popovers */
+/* UI-3: Sharp corners for Tron Grid aesthetic */
 .surface-elevated {
   background-color: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: 0;
 }
 
 .dark .surface-elevated {
@@ -1100,7 +1122,7 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--muted-foreground);
   opacity: 0.3;
-  border-radius: var(--radius-full);
+  border-radius: 0;
   transition: background 0.2s;
 }
 
@@ -1125,14 +1147,32 @@ body {
   -webkit-app-region: no-drag;
 }
 
-/* Focus visible styles - following accessibility guidelines */
+/* Focus visible styles - UI-4: Cyan glow on focus */
 .focus-ring {
   outline: none;
+  transition: box-shadow 0.2s ease;
 }
 
 .focus-ring:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--shadow-glow-focus);
+}
+
+/* UI-4: Global focus-visible styles with cyan glow */
+button:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-glow-focus);
+}
+
+/* UI-4: Active state glow for interactive elements */
+.dark button:active:not(:disabled),
+.dark [role="button"]:active:not(:disabled) {
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 3px var(--glow-cyan), 0 0 10px var(--glow-cyan-subtle);
 }
 
 /* Column status colors for Kanban */
@@ -1288,6 +1328,7 @@ body {
 }
 
 /* Badge overflow indicator */
+/* UI-3: Sharp corners for Tron Grid aesthetic */
 .badge-overflow {
   display: inline-flex;
   align-items: center;
@@ -1296,16 +1337,17 @@ body {
   padding: 0 6px;
   font-size: 10px;
   font-weight: 600;
-  border-radius: 9999px;
+  border-radius: 0;
   background: var(--muted);
   color: var(--muted-foreground);
 }
 
 /* Subtask indicator dot with tooltip support */
+/* UI-3: Keep dots circular as visual indicators */
 .subtask-dot {
   width: 6px;
   height: 6px;
-  border-radius: 9999px;
+  border-radius: 0;
   transition: transform 0.15s ease;
   cursor: help;
 }
@@ -1450,9 +1492,10 @@ body {
 }
 
 /* Empty column drop zone state */
+/* UI-3: Sharp corners for Tron Grid aesthetic */
 .empty-column-dropzone {
   border: 2px dashed var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: 0;
   padding: 1.5rem;
   text-align: center;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1490,6 +1533,7 @@ body {
 }
 
 /* Column count badge styling */
+/* UI-3: Sharp corners for Tron Grid aesthetic */
 .column-count-badge {
   display: inline-flex;
   align-items: center;
@@ -1497,7 +1541,7 @@ body {
   min-width: 1.5rem;
   height: 1.5rem;
   padding: 0 0.375rem;
-  border-radius: var(--radius-full);
+  border-radius: 0;
   background: var(--secondary);
   font-size: 0.75rem;
   font-weight: 600;
@@ -1506,11 +1550,12 @@ body {
 }
 
 /* Phase progress indicator bar */
+/* UI-3: Sharp corners for Tron Grid aesthetic */
 .phase-indicator {
   display: flex;
   gap: 2px;
   height: 4px;
-  border-radius: var(--radius-full);
+  border-radius: 0;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
 }
@@ -1537,6 +1582,7 @@ body {
 }
 
 /* Review section styling */
+/* UI-3: Sharp corners for Tron Grid aesthetic */
 .review-section-highlight {
   border: 1px solid rgba(168, 85, 247, 0.3);
   background: linear-gradient(
@@ -1544,11 +1590,12 @@ body {
     rgba(168, 85, 247, 0.08) 0%,
     rgba(168, 85, 247, 0.02) 100%
   );
-  border-radius: var(--radius-xl);
+  border-radius: 0;
   padding: 1rem;
 }
 
 /* Success completion state */
+/* UI-3: Sharp corners for Tron Grid aesthetic */
 .completion-state {
   display: flex;
   align-items: center;
@@ -1556,7 +1603,7 @@ body {
   gap: 0.5rem;
   color: var(--success);
   padding: 1rem;
-  border-radius: var(--radius-lg);
+  border-radius: 0;
   background: rgba(78, 190, 150, 0.1);
 }
 
@@ -1619,6 +1666,7 @@ body {
 }
 
 /* Tooltip enhanced styling */
+/* UI-3: Sharp corners for Tron Grid aesthetic */
 .tooltip-enhanced {
   max-width: 250px;
   padding: 0.5rem 0.75rem;
@@ -1626,7 +1674,7 @@ body {
   line-height: 1.4;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 

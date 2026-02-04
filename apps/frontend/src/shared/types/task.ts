@@ -158,6 +158,28 @@ export interface TaskDraft {
   savedAt: Date;
 }
 
+// Task template for reusable task configurations (SUG-5)
+export interface TaskTemplate {
+  id: string;
+  name: string;
+  description?: string;  // Optional description of what this template is for
+  // Form values to pre-populate
+  titleTemplate?: string;  // Optional title template (can include placeholders)
+  descriptionTemplate?: string;  // Optional description template
+  category?: TaskCategory;
+  priority?: TaskPriority;
+  complexity?: TaskComplexity;
+  impact?: TaskImpact;
+  profileId?: string;
+  model?: ModelType;
+  thinkingLevel?: ThinkingLevel;
+  phaseModels?: PhaseModelConfig;
+  phaseThinking?: PhaseThinkingConfig;
+  requireReviewBeforeCoding?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Task metadata from ideation or manual entry
 export type TaskComplexity = 'trivial' | 'small' | 'medium' | 'large' | 'complex';
 export type TaskImpact = 'low' | 'medium' | 'high' | 'critical';
@@ -266,6 +288,8 @@ export interface Task {
   location?: 'main' | 'worktree';  // Where task was loaded from (main project or worktree)
   specsPath?: string;  // Full path to specs directory for this task
   terminalId?: string;  // ID of associated task monitor terminal
+  // SUG-6: Task dependencies - array of task IDs this task depends on
+  dependencies?: string[];  // Task IDs that must complete before this task can start
   createdAt: Date;
   updatedAt: Date;
 }

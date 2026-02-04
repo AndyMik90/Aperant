@@ -21,10 +21,11 @@ import { TaskFormFields } from './task-form/TaskFormFields';
 import { type FileReferenceData } from './task-form/useImageUpload';
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { FileAutocomplete } from './FileAutocomplete';
+import { TaskTemplateSelector } from './task-form/TaskTemplateSelector';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
 import { cn } from '../lib/utils';
-import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile } from '../../shared/types';
+import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile, TaskTemplate } from '../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
 import {
   DEFAULT_AGENT_PROFILES,
@@ -117,8 +118,8 @@ export function TaskCreationWizard({
   // Review setting
   const [requireReviewBeforeCoding, setRequireReviewBeforeCoding] = useState(false);
 
-  // Ralph Wiggum Mode (aggressive iteration)
-  const [ralphWiggumMode, setRalphWiggumMode] = useState(false);
+  // Ralph Wiggum Mode - Always enabled (SUG-22)
+  const [ralphWiggumMode] = useState(true);
 
   // Draft state
   const [isDraftRestored, setIsDraftRestored] = useState(false);
@@ -158,7 +159,7 @@ export function TaskCreationWizard({
         setImages(draft.images);
         setReferencedFiles(draft.referencedFiles ?? []);
         setRequireReviewBeforeCoding(draft.requireReviewBeforeCoding ?? false);
-        setRalphWiggumMode(draft.ralphWiggumMode ?? false);
+        // Ralph mode is always on now (SUG-22), ignore draft value
         setIsDraftRestored(true);
 
         if (draft.category || draft.priority || draft.complexity || draft.impact) {
@@ -181,7 +182,7 @@ export function TaskCreationWizard({
         setImages([]);
         setReferencedFiles([]);
         setRequireReviewBeforeCoding(false);
-        setRalphWiggumMode(false);
+        // Ralph mode is always on now (SUG-22), no need to reset
         setBaseBranch(PROJECT_DEFAULT_BRANCH);
         setUseWorktree(true);
         setIsDraftRestored(false);
@@ -470,7 +471,7 @@ export function TaskCreationWizard({
     setImages([]);
     setReferencedFiles([]);
     setRequireReviewBeforeCoding(false);
-    setRalphWiggumMode(false);
+    // Ralph mode is always on now (SUG-22), no need to reset
     setBaseBranch(PROJECT_DEFAULT_BRANCH);
     setUseWorktree(true);
     setError(null);
@@ -499,6 +500,42 @@ export function TaskCreationWizard({
     resetForm();
     setError(null);
   };
+
+  /**
+   * Apply template values to form (SUG-5)
+   */
+  const handleApplyTemplate = useCallback((template: TaskTemplate) => {
+    // Apply template values, preserving current description/title if they have content
+    if (template.titleTemplate && !title.trim()) {
+      setTitle(template.titleTemplate);
+    }
+    if (template.descriptionTemplate && !description.trim()) {
+      setDescription(template.descriptionTemplate);
+    }
+
+    // Apply classification
+    if (template.category) setCategory(template.category);
+    if (template.priority) setPriority(template.priority);
+    if (template.complexity) setComplexity(template.complexity);
+    if (template.impact) setImpact(template.impact);
+
+    // Apply model configuration
+    if (template.profileId) setProfileId(template.profileId);
+    if (template.model) setModel(template.model);
+    if (template.thinkingLevel) setThinkingLevel(template.thinkingLevel);
+    if (template.phaseModels) setPhaseModels(template.phaseModels);
+    if (template.phaseThinking) setPhaseThinking(template.phaseThinking);
+
+    // Apply review setting
+    if (typeof template.requireReviewBeforeCoding === 'boolean') {
+      setRequireReviewBeforeCoding(template.requireReviewBeforeCoding);
+    }
+
+    // Show classification section if template has classification values
+    if (template.category || template.priority || template.complexity || template.impact) {
+      setShowClassification(true);
+    }
+  }, [title, description]);
 
   // Render @ mention highlight overlay for the description textarea
   const descriptionOverlay = (
@@ -582,6 +619,24 @@ export function TaskCreationWizard({
                 {showFileExplorer ? t('tasks:wizard.hideFiles') : t('tasks:wizard.browseFiles')}
               </Button>
             )}
+
+            {/* Task Template Selector (SUG-5) */}
+            <TaskTemplateSelector
+              onApplyTemplate={handleApplyTemplate}
+              currentValues={{
+                category,
+                priority,
+                complexity,
+                impact,
+                profileId,
+                model,
+                thinkingLevel,
+                phaseModels,
+                phaseThinking,
+                requireReviewBeforeCoding,
+              }}
+              disabled={isCreating}
+            />
           </div>
 
           <div className="flex items-center gap-3">
@@ -653,8 +708,6 @@ export function TaskCreationWizard({
           onImagesChange={setImages}
           requireReviewBeforeCoding={requireReviewBeforeCoding}
           onRequireReviewChange={setRequireReviewBeforeCoding}
-          ralphWiggumMode={ralphWiggumMode}
-          onRalphWiggumModeChange={setRalphWiggumMode}
           disabled={isCreating}
           error={error}
           onError={setError}

@@ -66,6 +66,7 @@ interface KanbanBoardProps {
   onNewTaskClick?: () => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  hideRefreshButton?: boolean;
 }
 
 interface DroppableColumnProps {
@@ -151,13 +152,14 @@ function droppableColumnPropsAreEqual(
 }
 
 // Empty state content for each column
-const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): { icon: React.ReactNode; message: string; subtext?: string } => {
+const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): { icon: React.ReactNode; message: string; subtext?: string; showAddButton?: boolean } => {
   switch (status) {
     case 'planning':
       return {
         icon: <Inbox className="h-6 w-6 text-muted-foreground/50" />,
         message: t('kanban.emptyPlanning'),
-        subtext: t('kanban.emptyPlanningHint')
+        subtext: t('kanban.emptyPlanningHint'),
+        showAddButton: true
       };
     case 'coding':
       return {
@@ -416,6 +418,17 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
                           {emptyState.subtext}
                         </span>
                       )}
+                      {emptyState.showAddButton && onAddClick && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-3"
+                          onClick={onAddClick}
+                        >
+                          <Plus className="mr-1 h-3 w-3" />
+                          {t('kanban.newTask')}
+                        </Button>
+                      )}
                     </>
                   )}
                 </div>
@@ -430,7 +443,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
   );
 }, droppableColumnPropsAreEqual);
 
-export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing, hideRefreshButton }: KanbanBoardProps) {
   const { t } = useTranslation(['tasks', 'dialogs', 'common']);
   const { toast } = useToast();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -532,15 +545,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     return tasks.filter((t) => !t.metadata?.archivedAt);
   }, [tasks, showArchived]);
 
+  // PROP-1: Kanban drag-and-drop is DISABLED
+  // Tasks should only move between columns via explicit user actions:
+  // - "Start Build" button (planning -> coding)
+  // - Review approval/rejection
+  // This prevents accidental status changes and enforces the user-controlled workflow.
+  // To re-enable: restore the original sensor configuration below.
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8 // 8px movement required before drag starts
-      }
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates
-    })
+    // Disabled: PointerSensor, KeyboardSensor
+    // useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    // useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   // Get task order from store for custom ordering
@@ -907,7 +921,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   return (
     <div className="flex h-full flex-col">
       {/* Kanban header with refresh button */}
-      {onRefresh && (
+      {onRefresh && !hideRefreshButton && (
         <div className="flex items-center justify-end px-6 pt-4 pb-2">
           <Button
             variant="ghost"

@@ -350,6 +350,10 @@
       "integrationTitle": "Mémoire",
       "integrationDescription": "Configurer la mémoire persistante inter-sessions pour les agents",
       "syncDescription": "Configurer la mémoire persistante"
+    },
+    "mcp": {
+      "title": "Serveurs MCP",
+      "description": "Intégrations d'outils externes"
     }
   },
   "agentProfile": {
@@ -564,6 +568,7 @@
     "headerName": "Nom de l'en-tête",
     "headerValue": "Valeur de l'en-tête",
     "noCustomServers": "Aucun serveur personnalisé configuré. Ajoutez-en un pour l'utiliser avec vos agents.",
+    "agentToolInfo": "Les agents utilisent automatiquement les serveurs activés selon leur phase et les besoins de la tâche. Les agents Spec et QA ont des accès d'outils différents.",
     "errorNameRequired": "Le nom du serveur est requis",
     "errorIdExists": "Un serveur avec cet ID existe déjà",
     "errorCommandRequired": "La commande est requise pour les serveurs basés sur commande",
@@ -591,5 +596,13 @@
       "openai": "Ceci ressemble à une API OpenAI. Vous aurez besoin d'une clé API.",
       "createOpenaiKey": "Créer une clé API OpenAI"
     }
+  },
+  "learnings": {
+    "title": "Apprentissages du projet",
+    "description": "Les apprentissages capturés à partir des retours sur les tâches sont automatiquement injectés dans les futurs prompts de planification et de codage.",
+    "empty": "Aucun apprentissage enregistré.",
+    "emptyHint": "Enregistrez les retours comme apprentissages lors de la révision des tâches pour développer les connaissances du projet.",
+    "deleteTitle": "Supprimer l'apprentissage ?",
+    "deleteDescription": "Cet apprentissage sera supprimé du projet. Cette action ne peut pas être annulée."
   }
 }

@@ -4,6 +4,7 @@ import { useTaskStore } from '../stores/task-store';
 import { useRoadmapStore } from '../stores/roadmap-store';
 import { useRateLimitStore } from '../stores/rate-limit-store';
 import { useProjectStore } from '../stores/project-store';
+import { toast } from './use-toast';  // FIX-7: Import toast for spec-ready notification
 import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo, SDKRateLimitInfo } from '../../shared/types';
 
 /**
@@ -221,6 +222,25 @@ export function useIpcListeners(): void {
       }
     );
 
+    // FIX-7: Listen for spec-ready events to show toast notification
+    const cleanupSpecReady = window.electronAPI.onTaskSpecReady(
+      (taskId: string, specId: string, projectId?: string) => {
+        // Filter by project to prevent multi-project interference
+        if (!isTaskForCurrentProject(projectId)) return;
+
+        // Find the task to get its title
+        const task = useTaskStore.getState().tasks.find(t => t.id === taskId || t.specId === specId);
+        const taskTitle = task?.title || specId;
+
+        // Show toast notification
+        toast({
+          title: "Spec Ready for Review",
+          description: `"${taskTitle}" spec is complete. Review and click "Start Build" to begin coding.`,
+          duration: 10000, // 10 seconds - longer for important notification
+        });
+      }
+    );
+
     // Roadmap event listeners
     // Helper to check if event is for the currently viewed project
     const isCurrentProject = (eventProjectId: string): boolean => {
@@ -354,6 +374,7 @@ export function useIpcListeners(): void {
       cleanupStatus();
       cleanupExecutionProgress();
       cleanupAgentStopped();
+      cleanupSpecReady();  // FIX-7
       cleanupRoadmapProgress();
       cleanupRoadmapComplete();
       cleanupRoadmapError();

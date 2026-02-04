@@ -112,38 +112,7 @@ export function SortableProjectTab({
         </TooltipContent>
       </Tooltip>
 
-      {/* Active tab controls - settings and archive, always accessible */}
-      {isActive && (
-        <div className="flex items-center gap-0.5 mr-0.5 sm:mr-1 flex-shrink-0">
-          {/* Settings icon - responsive sizing */}
-          {onSettingsClick && (
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    'h-5 w-5 sm:h-6 sm:w-6 p-0 rounded',
-                    'flex items-center justify-center',
-                    'text-muted-foreground hover:text-foreground',
-                    'hover:bg-muted/50 transition-colors',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1'
-                  )}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSettingsClick();
-                  }}
-                  aria-label={t('projectTab.settings')}
-                >
-                  <Settings2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <span>{t('projectTab.settings')}</span>
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </div>
-      )}
+      {/* PROP-21: Removed redundant settings icon - Settings accessible from sidebar footer */}
 
       {canClose && (
         <Tooltip delayDuration={200}>
