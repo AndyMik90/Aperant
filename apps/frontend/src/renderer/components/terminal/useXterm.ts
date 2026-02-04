@@ -296,7 +296,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     return () => {
       // Cleanup handled by parent component
     };
-  }, [terminalId, onCommandEnter, onResize, onDimensionsReady]);
+  }, [terminalId, onCommandEnter, onResize, onDimensionsReady, fontSettings.cursorAccentColor, fontSettings.cursorBlink, fontSettings.cursorStyle, fontSettings.fontFamily.join, fontSettings.fontSize, fontSettings.fontWeight, fontSettings.letterSpacing, fontSettings.lineHeight, fontSettings.scrollback]);
 
   // Subscribe to font settings changes and update terminal reactively
   // This effect runs after xterm is created and re-runs when terminalId changes,
@@ -337,7 +337,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     );
 
     return unsubscribe;
-  }, [terminalId]); // Only terminalId needed - re-subscribe when terminal changes
+  }, []); // Only terminalId needed - re-subscribe when terminal changes
 
   // Register xterm write callback with terminal-store for global output listener
   // This allows the global listener to write directly to xterm when terminal is visible
@@ -499,7 +499,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       serializeAddonRef.current = null;
     }
     fitAddonRef.current = null;
-  }, [serializeBuffer]);
+  }, [serializeBuffer, terminalId]);
 
   return {
     terminalRef,

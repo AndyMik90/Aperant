@@ -21,7 +21,6 @@ import type {
   GitLabAutoFixQueueItem,
   GitLabAutoFixProgress,
   GitLabIssueBatch,
-  GitLabBatchProgress,
   GitLabAnalyzePreviewResult,
 } from './types';
 

@@ -1555,7 +1555,7 @@ async function waitForClaudeExit(
 export async function switchClaudeProfile(
   terminal: TerminalProcess,
   profileId: string,
-  getWindow: WindowGetter,
+  _getWindow: WindowGetter,
   invokeClaudeCallback: (terminalId: string, cwd: string | undefined, profileId: string, dangerouslySkipPermissions?: boolean) => Promise<void>,
   clearRateLimitCallback: (terminalId: string) => void
 ): Promise<{ success: boolean; error?: string }> {

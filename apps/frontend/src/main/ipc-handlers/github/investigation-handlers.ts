@@ -61,7 +61,7 @@ function sendComplete(
  * Investigate a GitHub issue and create a task
  */
 export function registerInvestigateIssue(
-  agentManager: AgentManager,
+  _agentManager: AgentManager,
   getMainWindow: () => BrowserWindow | null
 ): void {
   ipcMain.on(
