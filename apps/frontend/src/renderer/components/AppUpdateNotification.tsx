@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Download, RefreshCw, CheckCircle2, AlertCircle, ExternalLink } from "lucide-react";
+import { Download, RefreshCw, CheckCircle2, AlertCircle, AlertTriangle, ExternalLink } from "lucide-react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -72,6 +72,7 @@ export function AppUpdateNotification() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [showReadOnlyWarning, setShowReadOnlyWarning] = useState(false);
 
   // Create markdown components with translated accessibility text
   const markdownComponents: Components = useMemo(
@@ -120,6 +121,15 @@ export function AppUpdateNotification() {
     const cleanup = window.electronAPI.onAppUpdateError((error) => {
       setDownloadError(error.message);
       setIsDownloading(false);
+    });
+
+    return cleanup;
+  }, []);
+
+  // Listen for read-only volume warning (when trying to install from DMG on macOS)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onAppUpdateReadOnlyVolume(() => {
+      setShowReadOnlyWarning(true);
     });
 
     return cleanup;
@@ -251,6 +261,21 @@ export function AppUpdateNotification() {
             <div className="flex items-center gap-3 text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-lg p-3">
               <AlertCircle className="h-5 w-5 shrink-0" />
               <span>{downloadError}</span>
+            </div>
+          )}
+
+          {/* Read-Only Volume Warning (DMG install on macOS) */}
+          {showReadOnlyWarning && (
+            <div className="flex items-start gap-3 text-sm text-warning bg-warning/10 border border-warning/30 rounded-lg p-3">
+              <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-medium">
+                  {t("dialogs:appUpdate.readOnlyVolumeTitle", "Cannot install from disk image")}
+                </p>
+                <p className="text-muted-foreground">
+                  {t("dialogs:appUpdate.readOnlyVolumeDescription", "Please move Auto Claude to your Applications folder before updating.")}
+                </p>
+              </div>
             </div>
           )}
 

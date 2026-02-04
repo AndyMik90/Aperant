@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Download, X, RefreshCw } from "lucide-react";
+import { Download, X, RefreshCw, AlertTriangle } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "../lib/utils";
 import type { AppUpdateAvailableEvent, AppUpdateProgress } from "../../shared/types";
@@ -25,6 +25,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
   const [downloadProgress, setDownloadProgress] = useState<AppUpdateProgress | null>(null);
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [showReadOnlyWarning, setShowReadOnlyWarning] = useState(false);
 
   // Ref to track current version for stable callbacks
   const currentVersionRef = useRef<string | null>(null);
@@ -156,6 +157,19 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
     return cleanup;
   }, []);
 
+  // Listen for read-only volume warning (when trying to install from DMG on macOS)
+  useEffect(() => {
+    if (!window.electronAPI?.onAppUpdateReadOnlyVolume) {
+      return;
+    }
+
+    const cleanup = window.electronAPI.onAppUpdateReadOnlyVolume(() => {
+      setShowReadOnlyWarning(true);
+    });
+
+    return cleanup;
+  }, []);
+
   // Handle update and restart
   const handleUpdate = async () => {
     if (isDownloaded) {
@@ -244,6 +258,14 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
       {/* Error message */}
       {downloadError && (
         <p className="text-[10px] text-destructive mb-2">{downloadError}</p>
+      )}
+
+      {/* Read-only volume warning (DMG install on macOS) */}
+      {showReadOnlyWarning && (
+        <div className="flex items-start gap-2 text-[10px] text-warning bg-warning/10 border border-warning/30 rounded p-2 mb-2">
+          <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+          <span>{t("navigation:updateBanner.readOnlyVolumeWarning", "Move to Applications folder to update")}</span>
+        </div>
       )}
 
       {/* Action button */}
