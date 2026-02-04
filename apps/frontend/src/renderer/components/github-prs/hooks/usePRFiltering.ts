@@ -160,7 +160,9 @@ export function usePRFiltering(
           // Sort by total changes (additions + deletions) descending
           const aChanges = (a.additions || 0) + (a.deletions || 0);
           const bChanges = (b.additions || 0) + (b.deletions || 0);
-          return bChanges - aChanges;
+          if (bChanges !== aChanges) return bChanges - aChanges;
+          // Secondary sort by createdAt (newest first) for stable ordering
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         }
         default:
           return 0;

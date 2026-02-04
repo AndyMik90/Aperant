@@ -1375,6 +1375,68 @@ async function runPRReview(
 }
 
 /**
+ * Shared helper to fetch PRs via GraphQL API.
+ * Used by both listPRs and listMorePRs handlers to avoid code duplication.
+ */
+async function fetchPRsFromGraphQL(
+  config: { token: string; repo: string },
+  cursor: string | null,
+  debugContext: string
+): Promise<PRListResult> {
+  // Parse owner/repo from config - must be exactly "owner/repo" format
+  const normalizedRepo = normalizeRepoReference(config.repo);
+  const repoParts = normalizedRepo.split("/");
+  if (repoParts.length !== 2 || !repoParts[0] || !repoParts[1]) {
+    debugLog("Invalid repo format - expected 'owner/repo'", {
+      repo: config.repo,
+      normalized: normalizedRepo,
+      context: debugContext,
+    });
+    return { prs: [], hasNextPage: false, endCursor: null };
+  }
+  const [owner, repo] = repoParts;
+
+  try {
+    // Use GraphQL API to get PRs with diff stats (REST list endpoint doesn't include them)
+    // Fetches up to 100 open PRs (GitHub GraphQL max per request)
+    const response = await githubGraphQL<GraphQLPRListResponse>(
+      config.token,
+      LIST_PRS_QUERY,
+      {
+        owner,
+        repo,
+        first: 100, // GitHub GraphQL max is 100
+        after: cursor,
+      }
+    );
+
+    // Handle case where repository doesn't exist or user lacks access
+    if (!response.data.repository) {
+      debugLog("Repository not found or access denied", { owner, repo, context: debugContext });
+      return { prs: [], hasNextPage: false, endCursor: null };
+    }
+
+    const { nodes: prNodes, pageInfo } = response.data.repository.pullRequests;
+
+    debugLog(`Fetched PRs via GraphQL (${debugContext})`, {
+      count: prNodes.length,
+      hasNextPage: pageInfo.hasNextPage,
+      endCursor: pageInfo.endCursor,
+    });
+    return {
+      prs: prNodes.map(mapGraphQLPRToData),
+      hasNextPage: pageInfo.hasNextPage,
+      endCursor: pageInfo.endCursor,
+    };
+  } catch (error) {
+    debugLog(`Failed to fetch PRs (${debugContext})`, {
+      error: error instanceof Error ? error.message : error,
+    });
+    return { prs: [], hasNextPage: false, endCursor: null };
+  }
+}
+
+/**
  * Register PR-related handlers
  */
 export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): void {
@@ -1391,54 +1453,7 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           debugLog("No GitHub config found for project");
           return { prs: [], hasNextPage: false, endCursor: null };
         }
-
-        try {
-          // Parse owner/repo from config - must be exactly "owner/repo" format
-          const normalizedRepo = normalizeRepoReference(config.repo);
-          const repoParts = normalizedRepo.split("/");
-          if (repoParts.length !== 2 || !repoParts[0] || !repoParts[1]) {
-            debugLog("Invalid repo format - expected 'owner/repo'", { repo: config.repo, normalized: normalizedRepo });
-            return { prs: [], hasNextPage: false, endCursor: null };
-          }
-          const [owner, repo] = repoParts;
-
-          // Use GraphQL API to get PRs with diff stats (REST list endpoint doesn't include them)
-          // Fetches up to 100 open PRs (GitHub GraphQL max per request)
-          const response = await githubGraphQL<GraphQLPRListResponse>(
-            config.token,
-            LIST_PRS_QUERY,
-            {
-              owner,
-              repo,
-              first: 100, // GitHub GraphQL max is 100
-              after: null, // Start from beginning
-            }
-          );
-
-          // Handle case where repository doesn't exist or user lacks access
-          if (!response.data.repository) {
-            debugLog("Repository not found or access denied", { owner, repo });
-            return { prs: [], hasNextPage: false, endCursor: null };
-          }
-
-          const { nodes: prNodes, pageInfo } = response.data.repository.pullRequests;
-
-          debugLog("Fetched PRs via GraphQL", {
-            count: prNodes.length,
-            hasNextPage: pageInfo.hasNextPage,
-            endCursor: pageInfo.endCursor,
-          });
-          return {
-            prs: prNodes.map(mapGraphQLPRToData),
-            hasNextPage: pageInfo.hasNextPage,
-            endCursor: pageInfo.endCursor,
-          };
-        } catch (error) {
-          debugLog("Failed to fetch PRs", {
-            error: error instanceof Error ? error.message : error,
-          });
-          return { prs: [], hasNextPage: false, endCursor: null };
-        }
+        return fetchPRsFromGraphQL(config, null, "initial");
       });
       return result ?? { prs: [], hasNextPage: false, endCursor: null };
     }
@@ -1455,54 +1470,7 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           debugLog("No GitHub config found for project");
           return { prs: [], hasNextPage: false, endCursor: null };
         }
-
-        try {
-          // Parse owner/repo from config - must be exactly "owner/repo" format
-          const normalizedRepo = normalizeRepoReference(config.repo);
-          const repoParts = normalizedRepo.split("/");
-          if (repoParts.length !== 2 || !repoParts[0] || !repoParts[1]) {
-            debugLog("Invalid repo format - expected 'owner/repo'", { repo: config.repo, normalized: normalizedRepo });
-            return { prs: [], hasNextPage: false, endCursor: null };
-          }
-          const [owner, repo] = repoParts;
-
-          // Use GraphQL API to get PRs with diff stats (REST list endpoint doesn't include them)
-          // Fetches up to 100 open PRs using the cursor for pagination
-          const response = await githubGraphQL<GraphQLPRListResponse>(
-            config.token,
-            LIST_PRS_QUERY,
-            {
-              owner,
-              repo,
-              first: 100, // GitHub GraphQL max is 100
-              after: cursor, // Use cursor for pagination
-            }
-          );
-
-          // Handle case where repository doesn't exist or user lacks access
-          if (!response.data.repository) {
-            debugLog("Repository not found or access denied", { owner, repo });
-            return { prs: [], hasNextPage: false, endCursor: null };
-          }
-
-          const { nodes: prNodes, pageInfo } = response.data.repository.pullRequests;
-
-          debugLog("Fetched more PRs via GraphQL", {
-            count: prNodes.length,
-            hasNextPage: pageInfo.hasNextPage,
-            endCursor: pageInfo.endCursor,
-          });
-          return {
-            prs: prNodes.map(mapGraphQLPRToData),
-            hasNextPage: pageInfo.hasNextPage,
-            endCursor: pageInfo.endCursor,
-          };
-        } catch (error) {
-          debugLog("Failed to fetch more PRs", {
-            error: error instanceof Error ? error.message : error,
-          });
-          return { prs: [], hasNextPage: false, endCursor: null };
-        }
+        return fetchPRsFromGraphQL(config, cursor, "pagination");
       });
       return result ?? { prs: [], hasNextPage: false, endCursor: null };
     }
