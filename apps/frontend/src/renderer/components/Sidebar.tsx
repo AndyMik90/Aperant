@@ -254,7 +254,7 @@ export function Sidebar({
               'hover:text-[var(--glow-cyan)]',
               'disabled:pointer-events-none disabled:opacity-50',
               'border-l-2 border-transparent',
-              isActive && 'text-[var(--glow-cyan)] border-l-[var(--glow-cyan)] [&>svg]:drop-shadow-[0_0_6px_var(--glow-cyan)]'
+              isActive && 'text-[var(--glow-cyan)] border-l-[var(--glow-cyan)]'
             )}
           >
             <Icon className="h-5 w-5" />
