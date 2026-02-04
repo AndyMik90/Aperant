@@ -344,7 +344,15 @@
       "description": "GitHub issues sync",
       "integrationTitle": "GitHub Integration",
       "integrationDescription": "Connect to GitHub for issue tracking",
-      "syncDescription": "Sync with GitHub Issues"
+      "syncDescription": "Sync with GitHub Issues",
+      "defaultBranch": {
+        "label": "Default Branch",
+        "description": "Base branch for creating task worktrees",
+        "autoDetect": "Auto-detect (main/master)",
+        "searchPlaceholder": "Search branches...",
+        "noBranchesFound": "No branches found",
+        "selectedBranchHelp": "All new tasks will branch from {{branch}}"
+      }
     },
     "gitlab": {
       "title": "GitLab",
