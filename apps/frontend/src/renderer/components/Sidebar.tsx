@@ -251,7 +251,7 @@ export function Sidebar({
             disabled={!selectedProjectId}
             className={cn(
               'flex h-11 w-full items-center justify-center transition-all duration-200',
-              'hover:text-[var(--glow-cyan)]',
+              'hover:text-[var(--glow-cyan)] hover:shadow-[inset_0_0_12px_-4px_var(--glow-cyan)]',
               'disabled:pointer-events-none disabled:opacity-50',
               'border-l-2 border-transparent',
               isActive && 'text-[var(--glow-cyan)] border-l-[var(--glow-cyan)]'

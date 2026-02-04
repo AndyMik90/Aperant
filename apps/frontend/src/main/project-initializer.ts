@@ -299,8 +299,8 @@ export function initializeProject(projectPath: string): InitializationResult {
   if (existsSync(dotAutoBuildPath)) {
     debug('Already initialized - .auto-claude exists');
     return {
-      success: false,
-      error: 'Project already has auto-claude initialized (.auto-claude exists)'
+      success: true,
+      alreadyInitialized: true
     };
   }
 
