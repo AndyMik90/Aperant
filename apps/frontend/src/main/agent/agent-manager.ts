@@ -32,6 +32,7 @@ export class AgentManager extends EventEmitter {
     metadata?: SpecCreationMetadata;
     baseBranch?: string;
     swapCount: number;
+    projectId?: string;
   }> = new Map();
 
   constructor() {
@@ -51,7 +52,7 @@ export class AgentManager extends EventEmitter {
     });
 
     // Listen for task completion to clean up context (prevent memory leak)
-    this.on('exit', (taskId: string, code: number | null) => {
+    this.on('exit', (taskId: string, code: number | null, _processType?: string, _projectId?: string) => {
       // Clean up context when:
       // 1. Task completed successfully (code === 0), or
       // 2. Task failed and won't be restarted (handled by auto-swap logic)
@@ -93,7 +94,8 @@ export class AgentManager extends EventEmitter {
     taskDescription: string,
     specDir?: string,
     metadata?: SpecCreationMetadata,
-    baseBranch?: string
+    baseBranch?: string,
+    projectId?: string
   ): Promise<void> {
     // Pre-flight auth check: Verify active profile has valid authentication
     // Ensure profile manager is initialized to prevent race condition
@@ -173,10 +175,10 @@ export class AgentManager extends EventEmitter {
     }
 
     // Store context for potential restart
-    this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch);
+    this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch, projectId);
 
     // Note: This is spec-creation but it chains to task-execution via run.py
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
+    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution', projectId);
   }
 
   /**
@@ -186,7 +188,8 @@ export class AgentManager extends EventEmitter {
     taskId: string,
     projectPath: string,
     specId: string,
-    options: TaskExecutionOptions = {}
+    options: TaskExecutionOptions = {},
+    projectId?: string
   ): Promise<void> {
     // Pre-flight auth check: Verify active profile has valid authentication
     // Ensure profile manager is initialized to prevent race condition
@@ -251,9 +254,9 @@ export class AgentManager extends EventEmitter {
     // which allows per-phase configuration for planner, coder, and QA phases
 
     // Store context for potential restart
-    this.storeTaskContext(taskId, projectPath, specId, options, false);
+    this.storeTaskContext(taskId, projectPath, specId, options, false, undefined, undefined, undefined, undefined, projectId);
 
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
+    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution', projectId);
   }
 
   /**
@@ -262,7 +265,8 @@ export class AgentManager extends EventEmitter {
   async startQAProcess(
     taskId: string,
     projectPath: string,
-    specId: string
+    specId: string,
+    projectId?: string
   ): Promise<void> {
     // Ensure Python environment is ready before spawning process (prevents exit code 127 race condition)
     const pythonStatus = await this.processManager.ensurePythonEnvReady('AgentManager');
@@ -290,7 +294,7 @@ export class AgentManager extends EventEmitter {
 
     const args = [runPath, '--spec', specId, '--project-dir', projectPath, '--qa'];
 
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'qa-process');
+    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'qa-process', projectId);
   }
 
   /**
@@ -387,7 +391,8 @@ export class AgentManager extends EventEmitter {
     taskDescription?: string,
     specDir?: string,
     metadata?: SpecCreationMetadata,
-    baseBranch?: string
+    baseBranch?: string,
+    projectId?: string
   ): void {
     // Preserve swapCount if context already exists (for restarts)
     const existingContext = this.taskExecutionContext.get(taskId);
@@ -402,7 +407,8 @@ export class AgentManager extends EventEmitter {
       specDir,
       metadata,
       baseBranch,
-      swapCount // Preserve existing count instead of resetting
+      swapCount, // Preserve existing count instead of resetting
+      projectId
     });
   }
 
@@ -464,7 +470,8 @@ export class AgentManager extends EventEmitter {
           context.taskDescription!,
           context.specDir,
           context.metadata,
-          context.baseBranch
+          context.baseBranch,
+          context.projectId
         );
       } else {
         console.log('[AgentManager] Restarting as task execution');
@@ -472,7 +479,8 @@ export class AgentManager extends EventEmitter {
           taskId,
           context.projectPath,
           context.specId,
-          context.options
+          context.options,
+          context.projectId
         );
       }
     }, 500);

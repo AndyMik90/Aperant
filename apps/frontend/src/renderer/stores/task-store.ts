@@ -247,9 +247,9 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     const oldTask = state.tasks[index];
     const oldStatus = oldTask.status;
 
-    // Skip if status is the same
-    if (oldStatus === status) {
-      debugLog('[updateTaskStatus] Status unchanged, skipping:', { taskId, status });
+    // Skip if status AND reviewReason are the same
+    if (oldStatus === status && oldTask.reviewReason === reviewReason) {
+      debugLog('[updateTaskStatus] Status and reviewReason unchanged, skipping:', { taskId, status, reviewReason });
       return;
     }
 
@@ -276,7 +276,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           executionProgress = { phase: 'planning' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
         }
 
-        return { ...t, status, executionProgress, updatedAt: new Date() };
+        return { ...t, status, reviewReason, executionProgress, updatedAt: new Date() };
       });
 
       debugLog('[updateTaskStatus] AFTER set():', {
