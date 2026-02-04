@@ -176,7 +176,9 @@
   },
   "metadata": {
     "severity": "severity",
-    "pullRequest": "Pull Request"
+    "pullRequest": "Pull Request",
+    "showMore": "Show more",
+    "showLess": "Show less"
   },
   "images": {
     "removeImageAriaLabel": "Remove image {{filename}}",

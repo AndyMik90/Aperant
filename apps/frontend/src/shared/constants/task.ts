@@ -3,6 +3,8 @@
  * Includes status, categories, complexity, priority, and execution phases
  */
 
+import type { TaskStatus } from '@shared/types/task';
+
 // ============================================
 // Task Status (Kanban columns)
 // ============================================
@@ -46,6 +48,20 @@ export const TASK_STATUS_COLORS: Record<TaskStatusColumn | 'pr_created' | 'error
   pr_created: 'bg-info/10 text-info',
   error: 'bg-destructive/10 text-destructive'
 };
+
+// Status priority for deduplication: higher = more complete
+// Used in project-store.ts to resolve duplicate tasks (main vs worktree)
+// IMPORTANT: Must follow workflow order: backlog < queue < in_progress < review < done
+export const TASK_STATUS_PRIORITY: Record<TaskStatus, number> = {
+  'done': 100,           // Highest priority - task is complete
+  'pr_created': 90,
+  'human_review': 80,
+  'ai_review': 70,
+  'in_progress': 50,
+  'queue': 30,
+  'backlog': 20,
+  'error': 10           // Lowest priority
+} as const;
 
 // ============================================
 // Subtask Status
