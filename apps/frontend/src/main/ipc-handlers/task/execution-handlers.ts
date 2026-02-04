@@ -268,7 +268,8 @@ export function registerTaskExecutionHandlers(
             parallel: false,  // Sequential for planning phase
             workers: 1,
             baseBranch,
-            useWorktree: task.metadata?.useWorktree
+            useWorktree: task.metadata?.useWorktree,
+            useLocalBranch: task.metadata?.useLocalBranch
           },
           project.id
         );
@@ -285,7 +286,8 @@ export function registerTaskExecutionHandlers(
             parallel: false,
             workers: 1,
             baseBranch,
-            useWorktree: task.metadata?.useWorktree
+            useWorktree: task.metadata?.useWorktree,
+            useLocalBranch: task.metadata?.useLocalBranch
           },
           project.id
         );
@@ -741,7 +743,8 @@ export function registerTaskExecutionHandlers(
                 parallel: false,
                 workers: 1,
                 baseBranch: baseBranchForUpdate,
-                useWorktree: task.metadata?.useWorktree
+                useWorktree: task.metadata?.useWorktree,
+                useLocalBranch: task.metadata?.useLocalBranch
               },
               project.id
             );
@@ -757,7 +760,8 @@ export function registerTaskExecutionHandlers(
                 parallel: false,
                 workers: 1,
                 baseBranch: baseBranchForUpdate,
-                useWorktree: task.metadata?.useWorktree
+                useWorktree: task.metadata?.useWorktree,
+                useLocalBranch: task.metadata?.useLocalBranch
               },
               project.id
             );
@@ -1124,7 +1128,8 @@ export function registerTaskExecutionHandlers(
                   parallel: false,
                   workers: 1,
                   baseBranch: baseBranchForRecovery,
-                  useWorktree: task.metadata?.useWorktree
+                  useWorktree: task.metadata?.useWorktree,
+                  useLocalBranch: task.metadata?.useLocalBranch
                 },
                 project.id
               );
