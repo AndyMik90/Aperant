@@ -1,0 +1,17 @@
+{
+  "hero": {
+    "title": "歡迎使用 Auto Claude",
+    "subtitle": "透過 AI 驅動的代理自主建構軟體"
+  },
+  "actions": {
+    "newProject": "新增專案",
+    "openProject": "開啟專案"
+  },
+  "recentProjects": {
+    "title": "最近的專案",
+    "empty": "尚無專案",
+    "emptyDescription": "建立新專案或開啟現有專案以開始使用",
+    "openFolder": "開啟資料夾",
+    "openProjectAriaLabel": "開啟專案 {{name}}"
+  }
+}

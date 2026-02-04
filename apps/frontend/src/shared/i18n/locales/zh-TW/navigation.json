@@ -1,0 +1,85 @@
+{
+  "sections": {
+    "project": "專案",
+    "tools": "工具"
+  },
+  "items": {
+    "kanban": "Kanban",
+    "terminals": "Agent Terminals",
+    "insights": "Insights",
+    "roadmap": "Roadmap",
+    "ideation": "Ideas",
+    "changelog": "Changelog",
+    "context": "Context",
+    "githubIssues": "GitHub Issues",
+    "githubPRs": "GitHub PRs",
+    "gitlabIssues": "GitLab Issues",
+    "gitlabMRs": "GitLab MRs",
+    "worktrees": "Git Worktree",
+    "agentTools": "MCP 總覽"
+  },
+  "actions": {
+    "settings": "設定",
+    "help": "說明與回饋",
+    "newTask": "新增任務",
+    "collapseSidebar": "收合側邊欄",
+    "expandSidebar": "展開側邊欄"
+  },
+  "tooltips": {
+    "settings": "應用程式設定",
+    "help": "說明與回饋"
+  },
+  "messages": {
+    "initializeToCreateTasks": "請初始化 Auto Claude 以建立任務"
+  },
+  "updateBanner": {
+    "title": "有可用更新",
+    "version": "版本 {{version}} 已準備就緒",
+    "updateAndRestart": "更新並重新啟動",
+    "installAndRestart": "安裝並重新啟動",
+    "downloading": "下載中...",
+    "dismiss": "關閉",
+    "downloadError": "下載更新失敗"
+  },
+  "claudeCode": {
+    "checking": "正在檢查 Claude Code...",
+    "upToDate": "Claude Code 已是最新版本",
+    "updateAvailable": "Claude Code 有可用更新",
+    "notInstalled": "尚未安裝 Claude Code",
+    "error": "檢查 Claude Code 時發生錯誤",
+    "installed": "已安裝",
+    "outdated": "有可用更新",
+    "missing": "尚未安裝",
+    "current": "目前版本",
+    "latest": "最新版本",
+    "path": "路徑",
+    "lastChecked": "上次檢查",
+    "learnMore": "進一步瞭解 Claude Code",
+    "learnMoreAriaLabel": "進一步瞭解 Claude Code（在新視窗中開啟）",
+    "viewChangelog": "檢視 Claude Code 變更日誌",
+    "viewChangelogAriaLabel": "檢視 Claude Code 變更日誌（在新視窗中開啟）",
+    "updateWarningTitle": "要更新 Claude Code 嗎？",
+    "updateWarningDescription": "更新將會關閉所有正在執行的 Claude Code 工作階段。這些工作階段中未儲存的工作可能會遺失。請在繼續之前確認已儲存您的工作。",
+    "updateWarningTerminalNote": "將會開啟終端機視窗來執行安裝指令。請等待安裝完成後再繼續。",
+    "updateAnyway": "開啟終端機並更新",
+    "switchVersion": "切換版本",
+    "selectVersion": "選擇版本",
+    "loadingVersions": "正在載入版本...",
+    "failedToLoadVersions": "載入版本失敗",
+    "installingVersion": "正在安裝版本 {{version}}...",
+    "rollbackWarningTitle": "要切換到版本 {{version}} 嗎？",
+    "rollbackWarningDescription": "切換版本將會關閉所有正在執行的 Claude Code 工作階段。這些工作階段中未儲存的工作可能會遺失。請在繼續之前確認已儲存您的工作。",
+    "rollbackWarningTerminalNote": "將會開啟終端機視窗來執行安裝指令。請等待安裝完成後再繼續。",
+    "switchAnyway": "開啟終端機並切換",
+    "currentVersion": "目前版本",
+    "switchInstallation": "切換安裝",
+    "selectInstallation": "選擇安裝",
+    "loadingInstallations": "正在載入安裝...",
+    "failedToLoadInstallations": "載入安裝失敗",
+    "activeInstallation": "使用中",
+    "pathChangeWarningTitle": "要切換 CLI 安裝嗎？",
+    "pathChangeWarningDescription": "切換 CLI 安裝將使用不同的 Claude Code 執行檔。正在執行的工作階段將繼續使用先前的安裝，直到重新啟動為止。",
+    "switchInstallationConfirm": "切換",
+    "versionUnknown": "版本未知"
+  }
+}

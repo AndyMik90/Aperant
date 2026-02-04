@@ -1,0 +1,136 @@
+{
+  "terminal": {
+    "openTerminal": "開啟終端機",
+    "openInbuilt": "在內建終端機中開啟",
+    "openExternal": "在外部終端機中開啟"
+  },
+  "merge": {
+    "branchHasNewCommits": "{{branch}} 分支有 {{count}} 個新提交。",
+    "branchHasNewCommits_other": "{{branch}} 分支有 {{count}} 個新提交。",
+    "branchHasNewCommitsSinceWorktree": "自此 Git Worktree 建立以來，{{branch}} 分支有 {{count}} 個新提交。",
+    "branchHasNewCommitsSinceWorktree_other": "自此 Git Worktree 建立以來，{{branch}} 分支有 {{count}} 個新提交。",
+    "filesNeedMerging": "{{count}} 個檔案需要合併。",
+    "filesNeedMerging_other": "{{count}} 個檔案需要合併。",
+    "filesNeedIntelligentMerging": "{{count}} 個檔案需要智慧合併：",
+    "filesNeedIntelligentMerging_other": "{{count}} 個檔案需要智慧合併：",
+    "branchHasNewCommitsSinceBuild": "自此建置開始以來，{{branch}} 分支有 {{count}} 個新提交。",
+    "branchHasNewCommitsSinceBuild_other": "自此建置開始以來，{{branch}} 分支有 {{count}} 個新提交。",
+    "filesNeedAIMergeDueToRenames": "{{count}} 個檔案因 {{renameCount}} 個檔案重新命名而需要 AI 合併。",
+    "filesNeedAIMergeDueToRenames_other": "{{count}} 個檔案因 {{renameCount}} 個檔案重新命名而需要 AI 合併。",
+    "filesNeedAIMergeDueToRenamesPlural": "{{count}} 個檔案因 {{renameCount}} 個檔案重新命名而需要 AI 合併。",
+    "filesNeedAIMergeDueToRenamesPlural_other": "{{count}} 個檔案因 {{renameCount}} 個檔案重新命名而需要 AI 合併。",
+    "fileRenamesDetected": "偵測到 {{count}} 個檔案重新命名 - AI 將處理合併。",
+    "fileRenamesDetected_other": "偵測到 {{count}} 個檔案重新命名 - AI 將處理合併。",
+    "filesRenamedOrMoved": "檔案可能已被重新命名或移動 - AI 將處理合併。",
+    "alreadyMergedTitle": "變更已在您的分支中",
+    "alreadyMergedDescription": "這些變更似乎已存在於您目前的分支中。您可以安全地將此任務標記為完成。",
+    "alreadyMergedTooltip": "任務的變更已存在於您的分支中。標記為完成將清理 Git Worktree 而不進行合併。",
+    "matchingFiles": "相符的檔案",
+    "supersededTitle": "變更已被取代",
+    "supersededDescription": "您目前的分支有這些變更的較新版本。請考慮捨棄此任務或查看比較結果。",
+    "supersededCompareTooltip": "查看詳細比較以了解目前分支與此任務變更的差異。",
+    "supersededDiscardTooltip": "移除此任務的 Git Worktree，因為變更已不再需要。",
+    "status": {
+      "branchDiverged": "分支已分歧",
+      "aiWillResolve": "AI 將解決",
+      "filesRenamed": "檔案已重新命名",
+      "branchBehind": "分支落後",
+      "readyToMerge": "可以合併",
+      "files": "個檔案",
+      "file": "個檔案",
+      "conflict": "個衝突",
+      "conflicts": "個衝突",
+      "details": "詳細資訊",
+      "refresh": "重新整理",
+      "stageOnly": "僅暫存（在 IDE 中檢視後再提交）",
+      "discardBuild": "捨棄建置"
+    },
+    "buttons": {
+      "stageWithAIMerge": "以 AI 合併暫存",
+      "mergeWithAI": "以 AI 合併",
+      "stageTo": "暫存至 {{branch}}",
+      "mergeTo": "合併至 {{branch}}",
+      "resolving": "解決中...",
+      "staging": "暫存中...",
+      "merging": "合併中...",
+      "completing": "完成中..."
+    },
+    "actions": {
+      "markAsDone": "標記為完成",
+      "discardTask": "捨棄任務",
+      "viewComparison": "查看比較"
+    }
+  },
+  "pr": {
+    "title": "建立 Pull Request",
+    "description": "推送分支並為「{{taskTitle}}」建立 Pull Request",
+    "errors": {
+      "unknown": "建立 Pull Request 時發生未知錯誤",
+      "invalidBranchName": "分支名稱包含無效字元。請僅使用英文字母、數字、連字號 (-)、底線 (_) 和斜線 (/)。",
+      "emptyTitle": "Pull Request 標題不可為空。"
+    },
+    "success": {
+      "created": "Pull Request 建立成功！",
+      "alreadyExists": "此分支已存在 Pull Request"
+    },
+    "actions": {
+      "retry": "重試",
+      "creating": "建立 PR 中...",
+      "create": "建立 Pull Request"
+    },
+    "labels": {
+      "sourceBranch": "來源分支",
+      "targetBranch": "目標分支",
+      "commits": "提交",
+      "changes": "變更",
+      "prTitle": "PR 標題（選填）",
+      "draftPR": "建立為草稿 PR",
+      "unknown": "未知"
+    },
+    "hints": {
+      "targetBranch": "留空以使用預設分支",
+      "prTitle": "留空以使用任務標題"
+    }
+  },
+  "mergeProgress": {
+    "stages": {
+      "analyzing": "分析變更中",
+      "detectingConflicts": "偵測衝突中",
+      "resolving": "解決衝突中",
+      "validating": "驗證合併中",
+      "complete": "合併完成",
+      "error": "合併失敗",
+      "stalled": "合併停滯"
+    },
+    "conflictCounter": "發現 {{found}} 個，已解決 {{resolved}} 個",
+    "currentFile": "目前檔案",
+    "viewLogs": "查看記錄",
+    "hideLogs": "隱藏記錄",
+    "logTypes": {
+      "info": "資訊",
+      "warning": "警告",
+      "error": "錯誤",
+      "conflict": "衝突",
+      "resolution": "解決方案"
+    },
+    "completionMessage": "所有變更已成功合併。",
+    "errorMessage": "合併過程中發生錯誤。"
+  },
+  "bulkPR": {
+    "title": "建立 Pull Request",
+    "description": "為 {{count}} 個已選擇的任務建立 Pull Request",
+    "creating": "正在建立第 {{current}} / {{total}} 個 PR...",
+    "creatingPR": "正在建立第 {{current}} / {{total}} 個 PR",
+    "resultsDescription": "{{success}} 個成功，{{failed}} 個失敗",
+    "tasksToProcess": "要處理的任務",
+    "targetBranchHint": "留空以使用每個任務的預設分支。此設定將套用至所有 PR。",
+    "createAll": "建立 {{count}} 個 PR",
+    "completed": "已完成",
+    "succeeded": "成功",
+    "failed": "失敗",
+    "skipped": "已跳過",
+    "alreadyExisted": "已存在",
+    "noWorktree": "找不到此任務的 Git Worktree",
+    "resultsDescriptionWithSkipped": "{{success}} 個成功，{{skipped}} 個已跳過，{{failed}} 個失敗"
+  }
+}

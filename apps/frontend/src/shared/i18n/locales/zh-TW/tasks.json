@@ -1,0 +1,333 @@
+{
+  "refreshTasks": "重新整理任務",
+  "status": {
+    "backlog": "Backlog",
+    "queue": "Queue",
+    "todo": "To Do",
+    "in_progress": "In Progress",
+    "review": "Review",
+    "prCreated": "PR Created",
+    "complete": "Complete",
+    "archived": "Archived"
+  },
+  "actions": {
+    "start": "開始",
+    "stop": "停止",
+    "recover": "復原",
+    "resume": "繼續",
+    "archive": "封存",
+    "delete": "刪除",
+    "view": "查看詳情",
+    "viewPR": "查看 PR",
+    "moveTo": "移至",
+    "taskActions": "任務操作",
+    "selectTask": "選擇任務：{{title}}"
+  },
+  "labels": {
+    "running": "執行中",
+    "aiReview": "AI Review",
+    "needsReview": "需要審查",
+    "pending": "等待中",
+    "stuck": "卡住",
+    "incomplete": "未完成",
+    "recovering": "復原中...",
+    "needsRecovery": "需要復原",
+    "needsResume": "需要繼續"
+  },
+  "reviewReason": {
+    "completed": "已完成",
+    "hasErrors": "有錯誤",
+    "qaIssues": "QA 問題",
+    "approvePlan": "核准計畫",
+    "stopped": "已停止"
+  },
+  "tooltips": {
+    "archiveTask": "封存任務",
+    "archiveAllDone": "封存所有已完成的任務",
+    "viewPR": "在瀏覽器中開啟 Pull Request"
+  },
+  "creation": {
+    "title": "建立新任務",
+    "description": "描述你想建置的內容",
+    "placeholder": "描述你的任務..."
+  },
+  "empty": {
+    "title": "尚無任務",
+    "description": "建立你的第一個任務以開始使用"
+  },
+  "columns": {
+    "backlog": "Planning",
+    "queue": "Queue",
+    "in_progress": "In Progress",
+    "ai_review": "AI Review",
+    "human_review": "人工驗證",
+    "done": "Done",
+    "pr_created": "PR Created",
+    "error": "Error"
+  },
+  "kanban": {
+    "emptyBacklog": "沒有規劃中的任務",
+    "emptyBacklogHint": "新增任務以開始使用",
+    "emptyQueue": "佇列為空",
+    "emptyQueueHint": "當平行任務數量達到上限時，任務會在此等待",
+    "emptyInProgress": "沒有執行中的任務",
+    "emptyInProgressHint": "從規劃中啟動任務",
+    "emptyAiReview": "沒有審查中的任務",
+    "emptyAiReviewHint": "AI 會審查已完成的任務",
+    "emptyHumanReview": "沒有需要審查的任務",
+    "emptyHumanReviewHint": "任務會在此等待你的核准",
+    "emptyDone": "沒有已完成的任務",
+    "emptyDoneHint": "已核准的任務會顯示在這裡",
+    "emptyDefault": "沒有任務",
+    "dropHere": "拖放至此",
+    "showArchived": "顯示已封存",
+    "addTaskAriaLabel": "新增任務至待辦",
+    "queueAllAriaLabel": "將所有任務移至佇列",
+    "closeTaskDetailsAriaLabel": "關閉任務詳情",
+    "editTask": "編輯任務",
+    "cannotEditWhileRunning": "任務執行中無法編輯",
+    "worktreeCleanupTitle": "Git Worktree 清理",
+    "worktreeCleanupStaged": "此任務已暫存且有 Git Worktree。你要清理 Git Worktree 嗎？",
+    "worktreeCleanupNotStaged": "此任務的 Git Worktree 有未合併的變更。刪除 Git Worktree 以標記為完成，或取消以先審查變更。",
+    "keepWorktree": "保留 Git Worktree",
+    "deleteWorktree": "刪除 Git Worktree 並標記完成",
+    "refreshTasks": "重新整理任務",
+    "queueSettings": "佇列設定",
+    "orderSaveFailedTitle": "排序未儲存",
+    "orderSaveFailedDescription": "你的任務排序已套用，但無法儲存至儲存空間。重新整理後將會遺失。",
+    "selectAll": "全選",
+    "deselectAll": "取消全選",
+    "selectedCount": "已選取 {{count}} 項",
+    "selectedCountOne": "已選取 {{count}} 個任務",
+    "selectedCountOther": "已選取 {{count}} 個任務",
+    "createPRs": "建立 PR",
+    "deleteSelected": "刪除",
+    "deleteConfirmTitle": "刪除選取的任務",
+    "deleteConfirmDescription": "你確定要永久刪除這些任務嗎？",
+    "deleteWarning": "此操作無法復原。所有任務檔案（包含規格、實作計畫及所有產生的程式碼）都將從專案中永久刪除。",
+    "tasksToDelete": "要刪除的任務",
+    "deleteConfirmButton": "刪除 {{count}} 個任務",
+    "deleteSuccess": "已成功刪除 {{count}} 個任務",
+    "deleteError": "部分任務刪除失敗",
+    "clearSelection": "清除選取",
+    "collapseColumn": "收合欄位",
+    "expandColumn": "展開欄位",
+    "resizeColumn": "調整欄位大小",
+    "lockColumn": "鎖定欄位寬度",
+    "unlockColumn": "解鎖欄位寬度",
+    "columnLocked": "欄位寬度已鎖定",
+    "expandAll": "展開所有欄位"
+  },
+  "queue": {
+    "limitReached": "平行任務數量已達上限（{{current}}/{{max}}）。任務已移至佇列。",
+    "movedToQueue": "任務已移至佇列。",
+    "autoPromoted": "任務已自動從佇列移至進行中。",
+    "capacityAvailable": "進行中有 {{count}} 個空位。",
+    "queueAll": "全部加入佇列",
+    "queueAllSuccess": "已將 {{count}} 個任務移至佇列。",
+    "settings": {
+      "title": "佇列設定",
+      "description": "設定「進行中」看板中可同時執行的最大任務數量",
+      "maxParallelLabel": "最大平行任務數",
+      "minValueError": "至少需為 1",
+      "maxValueError": "不可超過 10",
+      "hint": "當達到此上限時，新任務會在佇列中等待，再移至「進行中」",
+      "saved": "佇列設定已儲存",
+      "saveFailed": "佇列設定儲存失敗",
+      "retry": "請再試一次"
+    }
+  },
+  "execution": {
+    "phases": {
+      "idle": "閒置",
+      "planning": "規劃",
+      "coding": "編碼",
+      "reviewing": "審查中",
+      "fixing": "修正中",
+      "complete": "完成",
+      "failed": "失敗"
+    },
+    "labels": {
+      "interrupted": "已中斷",
+      "progress": "進度",
+      "entry": "筆",
+      "entries": "筆"
+    },
+    "shortPhases": {
+      "plan": "規劃",
+      "code": "編碼",
+      "qa": "QA"
+    }
+  },
+  "files": {
+    "title": "檔案",
+    "tab": "檔案",
+    "noSpecPath": "沒有可用的規格檔案",
+    "noFiles": "找不到檔案",
+    "loading": "載入檔案中...",
+    "loadingContent": "載入內容中...",
+    "errorLoading": "載入檔案失敗",
+    "errorLoadingContent": "載入檔案內容失敗",
+    "retry": "重試",
+    "selectFile": "選擇檔案以檢視其內容",
+    "openInIDE": "在 IDE 中開啟"
+  },
+  "metadata": {
+    "severity": "嚴重程度",
+    "pullRequest": "Pull Request"
+  },
+  "images": {
+    "removeImageAriaLabel": "移除圖片 {{filename}}",
+    "pasteHint": "提示：使用 {{shortcut}} 直接貼上螢幕截圖作為參考圖片。"
+  },
+  "imagePreview": {
+    "close": "關閉預覽",
+    "unavailable": "圖片無法使用",
+    "description": "{{filename}} 的預覽",
+    "doubleClickHint": "雙擊以放大",
+    "lowResolution": "低解析度預覽"
+  },
+  "notifications": {
+    "backgroundTaskTitle": "任務在背景繼續執行",
+    "backgroundTaskDescription": "任務仍在執行中。你可以重新開啟此對話框以監控進度。"
+  },
+  "wizard": {
+    "createTitle": "建立新任務",
+    "createDescription": "描述你想建置的內容。AI 會分析你的需求並建立詳細的規格。",
+    "descriptionPlaceholder": "描述你想實作的功能、錯誤修復或改進。請盡量具體說明需求、限制條件和預期行為。輸入 @ 以參考檔案。",
+    "draftRestored": "草稿已還原",
+    "startFresh": "重新開始",
+    "hideFiles": "隱藏檔案",
+    "browseFiles": "瀏覽檔案",
+    "creating": "建立中...",
+    "createTask": "建立任務",
+    "worktreeNotice": {
+      "title": "隔離工作區",
+      "description": "此任務在隔離的 Git Worktree 中執行。在你選擇合併之前，主分支會保持安全。"
+    },
+    "gitOptions": {
+      "title": "Git 選項（選填）",
+      "baseBranchLabel": "基底分支（選填）",
+      "useProjectDefault": "使用專案預設值",
+      "useProjectDefaultWithBranch": "使用專案預設值（{{branch}}）",
+      "searchBranches": "搜尋分支...",
+      "noBranchesFound": "找不到分支",
+      "helpText": "覆寫此任務 Git Worktree 建立所依據的分支。留空則使用專案設定的預設分支。",
+      "useWorktreeLabel": "使用隔離工作區（建議）",
+      "useWorktreeDescription": "在獨立的 Git Worktree 中建立變更，以便在合併前安全審查。停用則直接在你的專案中建置（較快但風險較高）。"
+    },
+    "errors": {
+      "createFailed": "建立任務失敗，請再試一次。"
+    }
+  },
+  "feedback": {
+    "dragDropHint": "拖放圖片或貼上螢幕截圖",
+    "imageAdded": "圖片新增成功",
+    "maxImagesError": "最多允許 {{count}} 張圖片",
+    "invalidTypeError": "無效的圖片類型。允許格式：{{types}}",
+    "removeImage": "移除圖片",
+    "processingError": "圖片處理失敗"
+  },
+  "review": {
+    "mergeTooltip": "將任務 Git Worktree 分支的變更合併回你的基底分支。AI 會解決所有衝突。之後你可以選擇保留或移除 Git Worktree。"
+  },
+  "edit": {
+    "title": "編輯任務",
+    "description": "更新任務詳情，包含標題、描述、分類、圖片和設定。變更將儲存至規格檔案。",
+    "saveChanges": "儲存變更",
+    "errors": {
+      "updateFailed": "更新任務失敗，請再試一次。"
+    }
+  },
+  "form": {
+    "description": "描述",
+    "descriptionPlaceholder": "描述你想實作的功能、錯誤修復或改進。請盡量具體說明需求、限制條件和預期行為。",
+    "imageAddedSuccess": "圖片新增成功！",
+    "taskTitle": "任務標題",
+    "titlePlaceholder": "留空則從描述自動產生",
+    "titleHelpText": "如果留空，會自動產生簡短的描述性標題。",
+    "classificationOptional": "分類（選填）",
+    "requireReviewLabel": "編碼前需要人工審查",
+    "requireReviewDescription": "啟用後，在編碼階段開始前會提示你審查規格和實作計畫。你可以核准、要求修改或提供意見。",
+    "errors": {
+      "descriptionRequired": "請提供描述",
+      "maxImagesReached": "最多允許 5 張圖片",
+      "invalidImageType": "無效的圖片類型。允許格式：PNG、JPEG、GIF、WebP",
+      "processPasteFailed": "貼上的圖片處理失敗",
+      "processDropFailed": "拖放的圖片處理失敗"
+    },
+    "classification": {
+      "category": "類別",
+      "selectCategory": "選擇類別",
+      "priority": "優先順序",
+      "selectPriority": "選擇優先順序",
+      "complexity": "複雜度",
+      "selectComplexity": "選擇複雜度",
+      "impact": "影響",
+      "selectImpact": "選擇影響",
+      "helpText": "這些標籤有助於組織和排序任務優先順序。非必填，但有助於篩選。",
+      "values": {
+        "category": {
+          "feature": "功能",
+          "bug_fix": "錯誤修復",
+          "refactoring": "重構",
+          "documentation": "文件",
+          "security": "安全性"
+        },
+        "priority": {
+          "low": "低",
+          "medium": "中",
+          "high": "高",
+          "urgent": "緊急"
+        },
+        "complexity": {
+          "trivial": "微小",
+          "small": "小",
+          "medium": "中",
+          "large": "大",
+          "complex": "複雜"
+        },
+        "impact": {
+          "low": "低影響",
+          "medium": "中影響",
+          "high": "高影響",
+          "critical": "重大影響"
+        }
+      }
+    }
+  },
+  "subtasks": {
+    "untitled": "未命名子任務"
+  },
+  "bulkPR": {
+    "selectAllInColumn": "選取欄位中的所有任務",
+    "deselectAllInColumn": "取消選取所有任務",
+    "selectionMode": "選取模式已啟用",
+    "exitSelectionMode": "退出選取模式",
+    "noTasksToSelect": "沒有可選取的任務",
+    "confirmBulkAction": "確認對 {{count}} 個任務執行批次操作",
+    "processingTasks": "正在處理選取的任務..."
+  },
+  "screenshot": {
+    "title": "擷取螢幕截圖",
+    "description": "選擇要擷取的螢幕或視窗作為參考圖片",
+    "capture": "擷取",
+    "capturing": "擷取中...",
+    "noSources": "找不到螢幕或視窗",
+    "errors": {
+      "getSources": "取得螢幕截圖來源失敗",
+      "fetchSources": "擷取螢幕截圖來源失敗",
+      "capture": "擷取螢幕截圖失敗",
+      "captureFailed": "擷取螢幕截圖失敗"
+    },
+    "devMode": {
+      "title": "螢幕截圖擷取無法使用",
+      "description": "由於系統權限限制，開發模式下無法使用螢幕擷取功能。",
+      "hint": "使用外部截圖工具，並透過 {{shortcut}} 直接貼入任務描述中。"
+    }
+  },
+  "referenceImages": {
+    "title": "參考圖片（選填）",
+    "description": "新增螢幕截圖或設計稿等視覺參考，幫助 AI 理解你的需求。"
+  }
+}

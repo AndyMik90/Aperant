@@ -1,0 +1,45 @@
+{
+  "expand": {
+    "expand": "展開終端機",
+    "collapse": "收合終端機"
+  },
+  "resume": {
+    "pending": "可繼續",
+    "pendingTooltip": "點擊以繼續先前的 Claude 工作階段"
+  },
+  "auth": {
+    "terminalTitle": "驗證：{{profileName}}",
+    "maxTerminalsReached": "無法開啟驗證終端機：已達終端機數量上限。請先關閉一個終端機。"
+  },
+  "worktree": {
+    "create": "Git Worktree",
+    "createNew": "新增 Git Worktree",
+    "existing": "終端機 Git Worktree",
+    "taskWorktrees": "任務 Git Worktree",
+    "otherWorktrees": "其他",
+    "createTitle": "建立終端機 Git Worktree",
+    "createDescription": "為此終端機建立一個隔離的工作空間。所有工作將在 Git Worktree 目錄中進行。",
+    "name": "Git Worktree 名稱",
+    "namePlaceholder": "my-feature",
+    "nameRequired": "Git Worktree 名稱為必填",
+    "nameInvalid": "名稱必須以英文字母或數字開頭和結尾",
+    "nameHelp": "小寫英文字母、數字、連字號和底線（空格將轉換為連字號）",
+    "associateTask": "連結至任務",
+    "selectTask": "選擇任務...",
+    "noTask": "無任務（獨立 Git Worktree）",
+    "createBranch": "建立 Git 分支",
+    "branchHelp": "建立分支：{{branch}}",
+    "baseBranch": "基底分支",
+    "selectBaseBranch": "選擇基底分支...",
+    "searchBranch": "搜尋分支...",
+    "noBranchFound": "找不到分支",
+    "useProjectDefault": "使用專案預設（{{branch}}）",
+    "baseBranchHelp": "建立 Git Worktree 的來源分支",
+    "openInIDE": "在 IDE 中開啟",
+    "maxReached": "終端機 Git Worktree 已達上限 12 個",
+    "alreadyExists": "同名 Git Worktree 已存在",
+    "deleteTitle": "刪除 Git Worktree？",
+    "deleteDescription": "這將永久刪除 Git Worktree 及其分支。任何未提交的變更將會遺失。",
+    "detached": "（分離）"
+  }
+}

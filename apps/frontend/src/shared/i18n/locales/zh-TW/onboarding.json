@@ -1,0 +1,253 @@
+{
+  "wizard": {
+    "title": "設定精靈",
+    "description": "透過幾個簡單步驟設定您的 Auto Claude 環境",
+    "helpText": "此精靈將協助您在幾個步驟內完成環境設定。您可以設定 Claude OAuth Token、啟用記憶功能，並建立您的第一個任務。"
+  },
+  "welcome": {
+    "title": "歡迎使用 Auto Claude",
+    "subtitle": "透過 AI 驅動的代理程式自主建構軟體",
+    "getStarted": "開始使用",
+    "skip": "略過設定",
+    "features": {
+      "aiPowered": {
+        "title": "AI 驅動開發",
+        "description": "使用 Claude Code 代理程式產生程式碼並建構功能"
+      },
+      "specDriven": {
+        "title": "規格驅動工作流程",
+        "description": "以清晰的規格定義任務，讓 Auto Claude 處理實作細節"
+      },
+      "memory": {
+        "title": "記憶與上下文",
+        "description": "透過 Graphiti 實現跨工作階段的持久記憶"
+      },
+      "parallel": {
+        "title": "平行執行",
+        "description": "同時執行多個代理程式，加速開發週期"
+      }
+    }
+  },
+  "oauth": {
+    "title": "Claude 驗證",
+    "description": "連結您的 Claude 帳號以啟用 AI 功能",
+    "configureTitle": "設定 Claude 驗證",
+    "addAccountsDesc": "新增您的 Claude 帳號以啟用 AI 功能",
+    "multiAccountInfo": "新增多個 Claude 訂閱帳號，當您達到速率限制時會自動切換。",
+    "noAccountsYet": "尚未設定任何帳號",
+    "badges": {
+      "default": "預設",
+      "active": "啟用中",
+      "authenticated": "已驗證",
+      "needsAuth": "需要驗證"
+    },
+    "buttons": {
+      "authenticate": "驗證",
+      "setActive": "設為啟用",
+      "rename": "重新命名",
+      "delete": "刪除",
+      "add": "新增",
+      "adding": "新增中...",
+      "showToken": "顯示 Token",
+      "hideToken": "隱藏 Token",
+      "copyToken": "複製 Token",
+      "back": "返回",
+      "continue": "繼續",
+      "skip": "略過"
+    },
+    "labels": {
+      "accountName": "帳號名稱",
+      "namePlaceholder": "設定檔名稱（例如：工作、個人）",
+      "tokenLabel": "OAuth Token",
+      "tokenPlaceholder": "在此輸入 Token",
+      "tokenHint": "完成 OAuth 登入後，請貼上終端機中顯示的 Token。"
+    },
+    "keychainTitle": "安全儲存",
+    "keychainDescription": "您的 Token 已使用系統鑰匙圈加密。您可能會看到 macOS 的密碼提示——請點選「永遠允許」以避免再次出現。",
+    "toast": {
+      "authSuccess": "設定檔驗證成功",
+      "authSuccessWithEmail": "帳號：{{email}}",
+      "authSuccessGeneric": "驗證完成。您現在可以使用此設定檔。",
+      "authStartFailed": "無法啟動驗證",
+      "addProfileFailed": "無法新增設定檔",
+      "tokenSaved": "Token 已儲存",
+      "tokenSavedDescription": "您的 Token 已成功儲存。",
+      "tokenSaveFailed": "無法儲存 Token",
+      "tryAgain": "請重試。"
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "設定檔已建立，但無法準備驗證：{{error}}",
+      "authPrepareFailed": "無法準備驗證：{{error}}",
+      "authStartFailedMessage": "無法啟動驗證。請重試。"
+    }
+  },
+  "memory": {
+    "title": "記憶",
+    "description": "設定代理程式的跨工作階段持久記憶",
+    "contextDescription": "Auto Claude 記憶功能可在程式開發工作階段之間保留上下文",
+    "enableMemory": "啟用記憶",
+    "enableMemoryDescription": "使用 LadybugDB（嵌入式資料庫）實現跨工作階段的持久記憶",
+    "memoryDisabledInfo": "記憶功能已停用。工作階段洞察將僅儲存在本機檔案中。啟用記憶功能可獲得具備語意搜尋的跨工作階段持久上下文。",
+    "enableAgentAccess": "啟用代理程式記憶存取",
+    "enableAgentAccessDescription": "允許代理程式透過 MCP 搜尋及新增知識圖譜",
+    "mcpServerUrl": "Graphiti MCP 伺服器 URL",
+    "mcpServerUrlDescription": "用於代理程式記憶存取的 Graphiti MCP 伺服器 URL",
+    "embeddingProvider": "Embedding Provider",
+    "embeddingProviderDescription": "語意搜尋的供應商（選填——不設定也可使用關鍵字搜尋）",
+    "selectEmbeddingModel": "選擇 Embedding Model",
+    "openaiApiKey": "OpenAI API 金鑰",
+    "openaiApiKeyDescription": "使用 OpenAI Embedding 時必填",
+    "openaiGetKey": "從以下位置取得金鑰",
+    "voyageApiKey": "Voyage AI API 金鑰",
+    "voyageApiKeyDescription": "使用 Voyage AI Embedding 時必填",
+    "voyageEmbeddingModel": "Embedding Model",
+    "googleApiKey": "Google AI API 金鑰",
+    "googleApiKeyDescription": "使用 Google AI Embedding 時必填",
+    "azureConfig": "Azure OpenAI 設定",
+    "azureApiKey": "API 金鑰",
+    "azureBaseUrl": "基底 URL",
+    "azureEmbeddingDeployment": "Embedding 部署名稱",
+    "memoryInfo": "記憶功能會儲存關於您程式碼庫的發現、模式和洞察，讓未來的工作階段在啟動時即載入相關上下文。無需 Docker——使用嵌入式資料庫。",
+    "learnMore": "進一步了解記憶功能",
+    "back": "返回",
+    "skip": "略過",
+    "saving": "儲存中...",
+    "saveAndContinue": "儲存並繼續",
+    "providers": {
+      "ollama": "Ollama（本機——免費）",
+      "openai": "OpenAI",
+      "voyage": "Voyage AI",
+      "google": "Google AI",
+      "azure": "Azure OpenAI"
+    },
+    "ollamaConfig": "Ollama 設定",
+    "checking": "檢查中...",
+    "connected": "已連線",
+    "notRunning": "未執行",
+    "baseUrl": "基底 URL",
+    "embeddingModel": "Embedding Model",
+    "embeddingDim": "Embedding Dimension",
+    "embeddingDimDescription": "Ollama Embedding 時必填（例如：nomic-embed-text 為 768）",
+    "modelRecommendation": "建議：qwen3-embedding:4b（均衡）、:8b（高品質）、:0.6b（快速）"
+  },
+  "completion": {
+    "title": "一切就緒！",
+    "subtitle": "Auto Claude 已準備好協助您打造出色的軟體",
+    "setupComplete": "設定完成",
+    "setupCompleteDescription": "您的環境已設定完畢並準備就緒。您可以立即開始建立任務，或按照自己的步調探索應用程式。",
+    "whatsNext": "接下來呢？",
+    "createTask": {
+      "title": "建立任務",
+      "description": "從建立您的第一個任務開始，體驗 Auto Claude 的實際運作。",
+      "action": "開啟任務建立工具"
+    },
+    "customizeSettings": {
+      "title": "自訂設定",
+      "description": "微調您的偏好設定、設定整合功能，或重新執行此精靈。",
+      "action": "開啟設定"
+    },
+    "exploreDocs": {
+      "title": "瀏覽文件",
+      "description": "進一步了解進階功能、最佳實踐和疑難排解。"
+    },
+    "finish": "完成並開始建構",
+    "rerunHint": "您隨時可以從 設定 → 應用程式 重新執行此精靈"
+  },
+  "steps": {
+    "welcome": "歡迎",
+    "authChoice": "驗證方式",
+    "auth": "驗證",
+    "claudeCode": "CLI",
+    "devtools": "開發者工具",
+    "privacy": "隱私",
+    "memory": "記憶",
+    "done": "完成"
+  },
+  "privacy": {
+    "title": "協助改善 Auto Claude",
+    "subtitle": "匿名錯誤報告可幫助我們更快修復問題",
+    "whatWeCollect": {
+      "title": "我們收集的資料",
+      "crashReports": "當機報告和錯誤堆疊追蹤",
+      "errorMessages": "錯誤訊息（檔案路徑已匿名化）",
+      "appVersion": "應用程式版本和平台資訊"
+    },
+    "whatWeNeverCollect": {
+      "title": "我們絕不收集的資料",
+      "code": "您的程式碼或專案檔案",
+      "filenames": "完整檔案路徑（使用者名稱已遮蔽）",
+      "apiKeys": "API 金鑰或 Token",
+      "personalData": "個人資訊或使用資料"
+    },
+    "toggle": {
+      "label": "傳送匿名錯誤報告",
+      "description": "協助我們識別並修復問題"
+    }
+  },
+  "claudeCode": {
+    "title": "Claude Code CLI",
+    "description": "安裝或更新 Claude Code CLI 以啟用 AI 驅動功能",
+    "detecting": "正在檢查 Claude Code 安裝狀態...",
+    "info": {
+      "title": "什麼是 Claude Code？",
+      "description": "Claude Code 是 Anthropic 官方的 CLI 工具，為 Auto Claude 的 AI 功能提供支援。它提供安全驗證及直接存取 Claude 模型的能力。"
+    },
+    "status": {
+      "installed": "已安裝",
+      "outdated": "有可用更新",
+      "notFound": "未安裝"
+    },
+    "version": {
+      "current": "目前版本",
+      "latest": "最新版本"
+    },
+    "install": {
+      "button": "安裝 Claude Code",
+      "updating": "更新 Claude Code",
+      "inProgress": "安裝中...",
+      "success": "安裝指令已傳送至終端機。請在終端機中完成安裝。",
+      "instructions": "安裝程式將在您的終端機中開啟。請依照提示完成安裝。"
+    },
+    "learnMore": "進一步了解 Claude Code"
+  },
+  "devtools": {
+    "title": "開發者工具",
+    "description": "選擇您偏好的 IDE 和終端機，用於操作 Auto Claude Git Worktree",
+    "detecting": "正在偵測已安裝的工具...",
+    "detectAgain": "重新偵測",
+    "whyConfigure": "為什麼要設定這些？",
+    "whyConfigureDescription": "當 Auto Claude 在隔離的 Git Worktree 中建構功能時，您可以直接在偏好的 IDE 或終端機中開啟它們，以測試和檢視變更。",
+    "ide": {
+      "label": "偏好 IDE",
+      "description": "Auto Claude 將在此編輯器中開啟 Git Worktree",
+      "customPath": "自訂 IDE 路徑"
+    },
+    "terminal": {
+      "label": "偏好終端機",
+      "description": "Auto Claude 將在此開啟終端機工作階段",
+      "customPath": "自訂終端機路徑"
+    },
+    "detectedSummary": "在您的系統上已偵測到：",
+    "noToolsDetected": "未偵測到其他工具（將使用 VS Code 和系統終端機）",
+    "custom": "自訂...",
+    "saveAndContinue": "儲存並繼續"
+  },
+  "ollama": {
+    "notInstalled": {
+      "title": "尚未安裝 Ollama",
+      "description": "Ollama 提供免費的本機 Embedding Model 用於語意搜尋。一鍵安裝即可啟用此功能。",
+      "installSuccess": "安裝已在您的終端機中開始。請在終端機中完成安裝，然後點選重試。",
+      "installButton": "安裝 Ollama",
+      "installing": "安裝中...",
+      "retry": "重試",
+      "learnMore": "進一步了解",
+      "fallbackNote": "即使沒有 Ollama，記憶功能仍可使用關鍵字搜尋。"
+    },
+    "notRunning": {
+      "title": "Ollama 未執行",
+      "description": "Ollama 已安裝但未執行。請啟動 Ollama 以使用本機 Embedding Model。",
+      "retry": "重試",
+      "fallbackNote": "即使沒有 Embedding 功能，記憶功能仍可使用關鍵字搜尋。"
+    }
+  }
+}
