@@ -70,8 +70,8 @@ const navItems: NavItem[] = [
   { id: 'repository', labelKey: 'navigation:items.repository', icon: BookOpen, shortcut: 'R', section: 'main' },
   { id: 'discovery', labelKey: 'navigation:items.discovery', icon: Compass, shortcut: 'D', section: 'main' },
   { id: 'changelog', labelKey: 'navigation:items.changelog', icon: FileText, shortcut: 'L', section: 'main' },
-  // GitHub item (combined Issues + PRs)
-  { id: 'github', labelKey: 'navigation:items.github', icon: Github, shortcut: 'G', section: 'github' },
+  // GitHub item (always visible - can help set up repo)
+  { id: 'github', labelKey: 'navigation:items.github', icon: Github, shortcut: 'G', section: 'main' },
   // GitLab items
   { id: 'gitlab-issues', labelKey: 'navigation:items.gitlabIssues', icon: GitlabIcon, shortcut: 'B', section: 'gitlab' },
   { id: 'gitlab-merge-requests', labelKey: 'navigation:items.gitlabMRs', icon: GitMerge, section: 'gitlab' }
