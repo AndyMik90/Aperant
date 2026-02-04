@@ -13,7 +13,7 @@ import { EventEmitter } from 'events';
 import { homedir } from 'os';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { ClaudeUsageSnapshot, ProfileUsageSummary, AllProfilesUsage } from '../../shared/types/agent';
-import { loadProfilesFile } from '../services/profile/profile-manager';
+import { loadProfilesFile, loadProfilesFileSync } from '../services/profile/profile-manager';
 import type { APIProfile } from '../../shared/types/profile';
 import { detectProvider as sharedDetectProvider, type ApiProvider } from '../../shared/utils/provider-detection';
 import { getCredentialsFromKeychain, clearKeychainCache } from './credential-utils';
@@ -240,6 +240,40 @@ export class UsageMonitor extends EventEmitter {
     }
   }
 
+  /**
+   * Check if a valid API profile is active and configured.
+   * When an API profile is active, OAuth authentication errors are not relevant
+   * since the authentication is handled by the API profile's credentials.
+   *
+   * @returns true if a valid API profile is active, false otherwise
+   */
+  private hasValidAPIProfile(): boolean {
+    try {
+      const apiProfilesFile = loadProfilesFileSync();
+      return apiProfilesFile.activeProfileId !== null &&
+             apiProfilesFile.activeProfileId !== '' &&
+             apiProfilesFile.profiles.some(p => p.id === apiProfilesFile.activeProfileId);
+    } catch (error) {
+      this.debugLog('[UsageMonitor] Failed to load API profiles for auth check:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Mark a profile as needing re-authentication, but only if no valid API profile is active.
+   * When an API profile is active, OAuth authentication issues are not relevant.
+   *
+   * @param profileId - The profile ID to mark as needing re-authentication
+   */
+  private markProfileNeedsReauth(profileId: string): void {
+    // Skip marking OAuth profiles as needing re-auth if an API profile is active
+    if (this.hasValidAPIProfile()) {
+      this.debugLog('[UsageMonitor] API profile is active, skipping OAuth re-auth mark for profile: ' + profileId);
+      return;
+    }
+    this.markProfileNeedsReauth(profileId);
+  }
+
   private constructor() {
     super();
     this.debugLog('[UsageMonitor] Initialized');
@@ -382,7 +416,7 @@ export class UsageMonitor extends EventEmitter {
           const creds = getCredentialsFromKeychain(expandedConfigDir);
           if (!creds.token) {
             // Credentials are missing - mark for re-auth
-            this.needsReauthProfiles.add(profile.id);
+            this.markProfileNeedsReauth(profile.id);
             this.debugLog('[UsageMonitor:getAllProfilesUsage] Profile needs re-auth (no credentials): ' + profile.name);
           }
         }
@@ -598,7 +632,7 @@ export class UsageMonitor extends EventEmitter {
           if (tokenResult.persistenceFailed) {
             console.warn('[UsageMonitor] Token refreshed but persistence failed for profile: ' + profile.name +
               ' - user should re-authenticate to avoid auth errors on next restart');
-            this.needsReauthProfiles.add(profile.id);
+            this.markProfileNeedsReauth(profile.id);
           } else {
             // Token was refreshed and persisted successfully - clear from needsReauth if present
             this.needsReauthProfiles.delete(profile.id);
@@ -614,14 +648,14 @@ export class UsageMonitor extends EventEmitter {
           // and user needs to manually re-authenticate
           if (tokenResult.errorCode === 'invalid_grant') {
             this.debugLog('[UsageMonitor] Profile needs re-authentication (invalid refresh token): ' + profile.name);
-            this.needsReauthProfiles.add(profile.id);
+            this.markProfileNeedsReauth(profile.id);
           }
 
           // Check for missing_credentials error - indicates no token in credential store
           // User needs to authenticate via /login
           if (tokenResult.errorCode === 'missing_credentials') {
             this.debugLog('[UsageMonitor] Profile needs authentication (no credentials found): ' + profile.name);
-            this.needsReauthProfiles.add(profile.id);
+            this.markProfileNeedsReauth(profile.id);
           }
         }
       } catch (error) {
@@ -636,7 +670,7 @@ export class UsageMonitor extends EventEmitter {
         if (!token) {
           this.debugLog('[UsageMonitor] No keychain credentials for inactive profile: ' + profile.name);
           // Mark profile as needing re-authentication since credentials are missing
-          this.needsReauthProfiles.add(profile.id);
+          this.markProfileNeedsReauth(profile.id);
           return null;
         }
       }
@@ -805,7 +839,7 @@ export class UsageMonitor extends EventEmitter {
           if (tokenResult.persistenceFailed) {
             console.warn('[UsageMonitor] Token refreshed but persistence failed for profile: ' + activeProfile.name +
               ' - user should re-authenticate to avoid auth errors on next restart');
-            this.needsReauthProfiles.add(activeProfile.id);
+            this.markProfileNeedsReauth(activeProfile.id);
           } else {
             // Token was refreshed and persisted successfully - clear from needsReauth if present
             this.needsReauthProfiles.delete(activeProfile.id);
@@ -828,14 +862,14 @@ export class UsageMonitor extends EventEmitter {
           // and user needs to manually re-authenticate
           if (tokenResult.errorCode === 'invalid_grant') {
             this.debugLog('[UsageMonitor] Profile needs re-authentication (invalid refresh token): ' + activeProfile.name);
-            this.needsReauthProfiles.add(activeProfile.id);
+            this.markProfileNeedsReauth(activeProfile.id);
           }
 
           // Check for missing_credentials error - indicates no token in credential store
           // User needs to authenticate via /login
           if (tokenResult.errorCode === 'missing_credentials') {
             this.debugLog('[UsageMonitor] Profile needs authentication (no credentials found): ' + activeProfile.name);
-            this.needsReauthProfiles.add(activeProfile.id);
+            this.markProfileNeedsReauth(activeProfile.id);
           }
         }
       } catch (error) {
@@ -860,7 +894,7 @@ export class UsageMonitor extends EventEmitter {
       }
 
       // Mark profile as needing re-authentication since credentials are missing
-      this.needsReauthProfiles.add(activeProfile.id);
+      this.markProfileNeedsReauth(activeProfile.id);
     }
 
     // No credential available
@@ -1122,7 +1156,7 @@ export class UsageMonitor extends EventEmitter {
             if (refreshResult.persistenceFailed) {
               console.warn('[UsageMonitor] Token refreshed but persistence failed for profile: ' + profileId +
                 ' - user should re-authenticate to avoid auth errors on next restart');
-              this.needsReauthProfiles.add(profileId);
+              this.markProfileNeedsReauth(profileId);
             } else {
               // Token was refreshed and persisted successfully - clear from needsReauth if present
               this.needsReauthProfiles.delete(profileId);
@@ -1139,7 +1173,7 @@ export class UsageMonitor extends EventEmitter {
             // and user needs to manually re-authenticate (matches inactive profile handling)
             if (refreshResult.errorCode === 'invalid_grant') {
               this.debugLog('[UsageMonitor] Profile needs re-authentication (invalid refresh token): ' + profileId);
-              this.needsReauthProfiles.add(profileId);
+              this.markProfileNeedsReauth(profileId);
             }
           }
         } catch (refreshError) {

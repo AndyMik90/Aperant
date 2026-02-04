@@ -56,6 +56,7 @@ import { initializeClaudeProfileManager, getClaudeProfileManager } from './claud
 import { isProfileAuthenticated } from './claude-profile/profile-utils';
 import { isMacOS, isWindows } from './platform';
 import { ptyDaemonClient } from './terminal/pty-daemon-client';
+import { loadProfilesFileSync } from './services/profile/profile-manager';
 import type { AppSettings, AuthFailureInfo } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -524,21 +525,37 @@ app.whenReady().then(() => {
           // Re-check if the active profile still needs re-auth after clearing valid ones
           const remainingMigratedIds = profileManager.getMigratedProfileIds();
           if (remainingMigratedIds.includes(activeProfile.id)) {
-            // Active profile still needs re-auth - show the modal
-            mainWindow.webContents.once('did-finish-load', () => {
-              // Small delay to ensure stores are initialized
-              setTimeout(() => {
-                const authFailureInfo: AuthFailureInfo = {
-                  profileId: activeProfile.id,
-                  profileName: activeProfile.name,
-                  failureType: 'missing',
-                  message: `Profile "${activeProfile.name}" was migrated to an isolated directory and needs re-authentication.`,
-                  detectedAt: new Date()
-                };
-                console.warn('[main] Sending auth failure for migrated active profile:', activeProfile.name);
-                mainWindow?.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
-              }, 1000);
-            });
+            // Check if there are valid API profiles configured
+            // If so, OAuth authentication is optional
+            let hasValidAPIProfile = false;
+            try {
+              const apiProfilesFile = loadProfilesFileSync();
+              hasValidAPIProfile = apiProfilesFile.activeProfileId !== null &&
+                                   apiProfilesFile.activeProfileId !== '' &&
+                                   apiProfilesFile.profiles.some(p => p.id === apiProfilesFile.activeProfileId);
+            } catch (error) {
+              console.warn('[main] Failed to load API profiles for auth check:', error);
+            }
+
+            if (!hasValidAPIProfile) {
+              // No valid API profile - show auth failure modal for OAuth
+              mainWindow.webContents.once('did-finish-load', () => {
+                // Small delay to ensure stores are initialized
+                setTimeout(() => {
+                  const authFailureInfo: AuthFailureInfo = {
+                    profileId: activeProfile.id,
+                    profileName: activeProfile.name,
+                    failureType: 'missing',
+                    message: `Profile "${activeProfile.name}" was migrated to an isolated directory and needs re-authentication.`,
+                    detectedAt: new Date()
+                  };
+                  console.warn('[main] Sending auth failure for migrated active profile:', activeProfile.name);
+                  mainWindow?.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+                }, 1000);
+              });
+            } else {
+              console.log('[main] API profile is configured, OAuth authentication is optional - skipping auth failure modal');
+            }
           }
         }
       }

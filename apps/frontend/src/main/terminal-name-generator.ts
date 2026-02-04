@@ -11,6 +11,8 @@ import { EventEmitter } from 'events';
 import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv } from './rate-limit-detector';
 import { parsePythonCommand } from './python-detector';
 import { pythonEnvManager } from './python-env-manager';
+import { getAPIProfileEnv } from './services/profile';
+import { getOAuthModeClearVars } from './agent/env-utils';
 
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
@@ -163,17 +165,28 @@ export class TerminalNameGenerator extends EventEmitter {
       hasOAuthToken: !!autoBuildEnv.CLAUDE_CODE_OAUTH_TOKEN
     });
 
-    // Use centralized function that automatically handles rate limits and capacity
-    const profileResult = getBestAvailableProfileEnv();
-    const profileEnv = profileResult.env;
+    // Get active API profile environment variables (ANTHROPIC_* vars)
+    const apiProfileEnv = await getAPIProfileEnv();
+    const isApiProfileActive = Object.keys(apiProfileEnv).length > 0;
 
-    if (profileResult.wasSwapped) {
-      debug('Using alternative profile for terminal name generation:', {
-        originalProfile: profileResult.originalProfile?.name,
-        selectedProfile: profileResult.profileName,
-        reason: profileResult.swapReason
-      });
+    // Only get OAuth profile env if no API profile is active to avoid conflicts
+    let profileEnv: Record<string, string> = {};
+    if (!isApiProfileActive) {
+      // Use centralized function that automatically handles rate limits and capacity
+      const profileResult = getBestAvailableProfileEnv();
+      profileEnv = profileResult.env;
+
+      if (profileResult.wasSwapped) {
+        debug('Using alternative profile for terminal name generation:', {
+          originalProfile: profileResult.originalProfile?.name,
+          selectedProfile: profileResult.profileName,
+          reason: profileResult.swapReason
+        });
+      }
     }
+
+    // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
 
     return new Promise((resolve) => {
       // Use the venv Python where claude_agent_sdk is installed
@@ -183,7 +196,9 @@ export class TerminalNameGenerator extends EventEmitter {
         env: {
           ...process.env,
           ...autoBuildEnv,
-          ...profileEnv, // Include active Claude profile config
+          ...profileEnv, // Claude OAuth profile - includes CLAUDE_CONFIG_DIR and clears CLAUDE_CODE_OAUTH_TOKEN
+          ...apiProfileEnv, // API profile (ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, etc.)
+          ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
           PYTHONUNBUFFERED: '1',
           PYTHONIOENCODING: 'utf-8',
           PYTHONUTF8: '1'

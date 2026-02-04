@@ -52,6 +52,7 @@ import {
   expandHomePath,
   getEmailFromConfigDir
 } from './claude-profile/profile-utils';
+import { loadProfilesFileSync } from './services/profile/profile-manager';
 
 /**
  * Manages Claude Code profiles for multi-account support.
@@ -706,7 +707,8 @@ export class ClaudeProfileManager {
    * Check if a profile has valid authentication for starting tasks.
    * A profile is considered authenticated if:
    * 1) It has a valid OAuth token (not expired), OR
-   * 2) It has an authenticated configDir (credential files exist)
+   * 2) It has an authenticated configDir (credential files exist), OR
+   * 3) There's a valid API profile configured (active API profile with credentials)
    *
    * @param profileId - Optional profile ID to check. If not provided, checks active profile.
    * @returns true if the profile can authenticate, false otherwise
@@ -725,6 +727,21 @@ export class ClaudeProfileManager {
     // Check 2 & 3: Profile has authenticated configDir (works for both default and non-default)
     if (this.isProfileAuthenticated(profile)) {
       return true;
+    }
+
+    // Check 4: If no OAuth auth is available, check for API profiles
+    // API profiles provide an alternative authentication method
+    try {
+      const apiProfilesFile = loadProfilesFileSync();
+      const hasValidAPIProfile = apiProfilesFile.activeProfileId !== null &&
+                                   apiProfilesFile.activeProfileId !== '' &&
+                                   apiProfilesFile.profiles.some(p => p.id === apiProfilesFile.activeProfileId);
+      if (hasValidAPIProfile) {
+        console.log('[ClaudeProfileManager] API profile is configured, authentication is available via API profile');
+        return true;
+      }
+    } catch (error) {
+      console.warn('[ClaudeProfileManager] Failed to load API profiles for auth check:', error);
     }
 
     return false;
