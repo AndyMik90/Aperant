@@ -801,6 +801,73 @@ export function registerTaskExecutionHandlers(
   );
 
   /**
+   * Resume a paused task (rate limited or auth failure paused)
+   * This writes a RESUME file to the spec directory to signal the backend to continue
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_RESUME_PAUSED,
+    async (_, taskId: string): Promise<IPCResult> => {
+      // Find task and project
+      const { task, project } = findTaskAndProject(taskId);
+
+      if (!task || !project) {
+        return { success: false, error: 'Task not found' };
+      }
+
+      // Get the spec directory - use task.specsPath if available (handles worktree vs main)
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
+      const specDir = task.specsPath || path.join(
+        project.path,
+        specsBaseDir,
+        task.specId
+      );
+
+      // Write RESUME file to signal backend to continue
+      const resumeFilePath = path.join(specDir, 'RESUME');
+
+      try {
+        const resumeContent = JSON.stringify({
+          resumed_at: new Date().toISOString(),
+          resumed_by: 'user'
+        });
+        atomicWriteFileSync(resumeFilePath, resumeContent);
+        console.log(`[TASK_RESUME_PAUSED] Wrote RESUME file to: ${resumeFilePath}`);
+
+        // Also write to worktree if it exists (backend may be running inside the worktree)
+        const worktreePath = findTaskWorktree(project.path, task.specId);
+        if (worktreePath) {
+          const worktreeResumeFilePath = path.join(worktreePath, specsBaseDir, task.specId, 'RESUME');
+          try {
+            atomicWriteFileSync(worktreeResumeFilePath, resumeContent);
+            console.log(`[TASK_RESUME_PAUSED] Also wrote RESUME file to worktree: ${worktreeResumeFilePath}`);
+          } catch (worktreeError) {
+            // Non-fatal - main spec dir RESUME is sufficient
+            console.warn(`[TASK_RESUME_PAUSED] Could not write to worktree (non-fatal):`, worktreeError);
+          }
+        } else if (
+          task.executionProgress?.phase === 'rate_limit_paused' ||
+          task.executionProgress?.phase === 'auth_failure_paused'
+        ) {
+          // Warn if worktree not found for a paused task - the backend is likely
+          // running inside the worktree and may not see the RESUME file in the main spec dir
+          console.warn(
+            `[TASK_RESUME_PAUSED] Worktree not found for paused task ${task.specId}. ` +
+            `Backend may not detect the RESUME file if running inside a worktree.`
+          );
+        }
+
+        return { success: true };
+      } catch (error) {
+        console.error('[TASK_RESUME_PAUSED] Failed to write RESUME file:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to signal resume'
+        };
+      }
+    }
+  );
+
+  /**
    * Recover a stuck task (status says in_progress but no process running)
    */
   ipcMain.handle(

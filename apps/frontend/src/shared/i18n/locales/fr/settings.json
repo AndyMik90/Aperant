@@ -457,6 +457,8 @@
     "weeklyThresholdDescription": "Changer quand l'utilisation hebdomadaire atteint ce niveau (recommandé: 99%)",
     "reactiveRecovery": "Récupération réactive",
     "reactiveDescription": "Basculer automatiquement quand une limite inattendue est atteinte",
+    "autoSwitchOnAuthFailure": "Changement auto en cas d'échec d'auth",
+    "autoSwitchOnAuthFailureDescription": "Basculer automatiquement vers un autre compte authentifié en cas d'échec d'authentification",
     "apiKeys": "Clés API",
     "apiKeysInfo": "Les clés définies ici sont utilisées par défaut. Les projets individuels peuvent les remplacer dans leurs paramètres.",
     "openaiKey": "Clé API OpenAI",
@@ -560,7 +562,9 @@
       "weeklyThreshold": "Seuil d'utilisation hebdomadaire",
       "weeklyThresholdDescription": "Basculer lorsque l'utilisation hebdomadaire atteint ce niveau (recommandé: 99%)",
       "reactiveRecovery": "Récupération réactive",
-      "reactiveDescription": "Auto-basculement en cas de limite de taux inattendue"
+      "reactiveDescription": "Auto-basculement en cas de limite de taux inattendue",
+      "autoSwitchOnAuthFailure": "Changement auto en cas d'échec d'auth",
+      "autoSwitchOnAuthFailureDescription": "Basculer automatiquement vers un autre compte authentifié en cas d'échec d'authentification"
     },
     "priority": {
       "title": "Ordre de priorité des comptes",

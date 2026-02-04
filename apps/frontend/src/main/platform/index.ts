@@ -244,7 +244,7 @@ function getWindowsShellConfig(preferredShell?: ShellType): ShellConfig {
 /**
  * Get Unix shell configuration
  */
-function getUnixShellConfig(preferredShell?: ShellType): ShellConfig {
+function getUnixShellConfig(_preferredShell?: ShellType): ShellConfig {
   const shellPath = process.env.SHELL || '/bin/zsh';
 
   return {

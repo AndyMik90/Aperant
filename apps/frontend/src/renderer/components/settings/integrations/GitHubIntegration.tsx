@@ -79,6 +79,7 @@ export function GitHubIntegration({
     if (authMode === 'oauth-success') {
       fetchUserRepos();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authMode]);
 
   // Fetch branches when GitHub is enabled and project path is available

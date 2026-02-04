@@ -9,7 +9,6 @@ import * as net from 'net';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, ChildProcess } from 'child_process';
-import { app } from 'electron';
 import { isWindows, GRACEFUL_KILL_TIMEOUT_MS } from '../platform';
 import { getTaskkillExePath } from '../utils/windows-paths';
 import { getIsShuttingDown } from './pty-manager';
@@ -272,7 +271,7 @@ class PtyDaemonClient {
         }
       });
 
-      this.socket!.write(JSON.stringify({ ...msg, requestId }) + '\n');
+      this.socket?.write(JSON.stringify({ ...msg, requestId }) + '\n');
     });
   }
 
@@ -428,7 +427,7 @@ class PtyDaemonClient {
     this.isShuttingDown = true;
 
     // Kill the daemon process if we spawned it
-    if (this.daemonProcess && this.daemonProcess.pid) {
+    if (this.daemonProcess?.pid) {
       try {
         if (isWindows()) {
           // Windows: use taskkill to force kill process tree

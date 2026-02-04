@@ -95,7 +95,7 @@ function getNpmGlobalPrefix(): string | null {
     const normalizedPath = path.normalize(binPath);
 
     return fs.existsSync(normalizedPath) ? normalizedPath : null;
-  } catch (error) {
+  } catch (_error) {
     // Fallback for Windows: try default npm global location when npm.cmd is not in PATH
     // This happens when the packaged app launches from GUI without full shell environment
     if (isWindows()) {
