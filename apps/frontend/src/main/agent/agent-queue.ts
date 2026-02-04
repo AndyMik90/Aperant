@@ -417,7 +417,12 @@ export class AgentQueueManager {
 
     // Track completed types for progress calculation
     const completedTypes = new Set<string>();
-    const totalTypes = 7; // Default all types
+    // Derive totalTypes from --types argument instead of hardcoding
+    const typesArgIndex = args.findIndex((arg) => arg === '--types');
+    const totalTypes =
+      typesArgIndex > -1 && args[typesArgIndex + 1]
+        ? args[typesArgIndex + 1].split(',').length
+        : 6; // Default to 6 if not specified
 
     // Handle stdout - explicitly decode as UTF-8 for cross-platform Unicode support
     childProcess.stdout?.on('data', (data: Buffer) => {

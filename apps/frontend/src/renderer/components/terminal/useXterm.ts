@@ -242,7 +242,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
             // Call onDimensionsReady once when we have valid dimensions
             if (!dimensionsReadyCalledRef.current && cols > 0 && rows > 0) {
               dimensionsReadyCalledRef.current = true;
-              debugLog(`[useXterm] Dimensions ready for terminal: ${terminalId}, cols: ${cols}, rows: ${rows}`);
+              debugLog(`[useXterm] Dimensions ready for terminal: ${terminalId}, cols: ${cols}, rows: ${rows}, containerWidth: ${rect.width}, containerHeight: ${rect.height}`);
               onDimensionsReady?.(cols, rows);
             }
           } else {

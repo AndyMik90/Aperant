@@ -185,6 +185,16 @@ export interface ClaudeProfile {
    * This is NOT persisted, it's computed dynamically on each getSettings() call.
    */
   isAuthenticated?: boolean;
+  /**
+   * Subscription type from OAuth credentials (e.g., "max" for Claude Max subscription).
+   * Used to display "Max" vs "Pro" in the UI. Populated from Keychain credentials.
+   */
+  subscriptionType?: string;
+  /**
+   * Rate limit tier from OAuth credentials (e.g., "default_claude_max_20x").
+   * Indicates the user's rate limit tier level. Populated from Keychain credentials.
+   */
+  rateLimitTier?: string;
 }
 
 /**

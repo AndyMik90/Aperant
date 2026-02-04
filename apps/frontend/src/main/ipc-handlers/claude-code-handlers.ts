@@ -23,7 +23,7 @@ import { isSecurePath } from '../utils/windows-paths';
 import { isWindows, isMacOS, isLinux } from '../platform';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { isValidConfigDir } from '../utils/config-path-validator';
-import { clearKeychainCache, getCredentialsFromKeychain } from '../claude-profile/credential-utils';
+import { clearKeychainCache, getCredentialsFromKeychain, updateProfileSubscriptionMetadata } from '../claude-profile/credential-utils';
 import { getUsageMonitor } from '../claude-profile/usage-monitor';
 import semver from 'semver';
 
@@ -1370,7 +1370,7 @@ export function registerClaudeCodeHandlers(): void {
           }
         }
 
-        // If authenticated, update the profile with the email
+        // If authenticated, update the profile with metadata from credentials
         // NOTE: We intentionally do NOT store the OAuth token in the profile.
         // Storing the token causes AutoClaude to use a stale cached token instead of
         // letting Claude CLI read fresh tokens from Keychain (which auto-refreshes).
@@ -1384,7 +1384,11 @@ export function registerClaudeCodeHandlers(): void {
             profile.email = result.email;
           }
 
-          // Save profile metadata (email, isAuthenticated) but NOT the OAuth token
+          // Update subscription metadata from Keychain credentials
+          // These are needed to display "Max" vs "Pro" in the UI
+          updateProfileSubscriptionMetadata(profile, expandedConfigDir);
+
+          // Save profile metadata (email, isAuthenticated, subscriptionType, rateLimitTier) but NOT the OAuth token
           profileManager.saveProfile(profile);
 
           // CRITICAL: Clear keychain cache for this profile's configDir
