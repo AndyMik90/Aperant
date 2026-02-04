@@ -251,10 +251,10 @@ export function Sidebar({
             disabled={!selectedProjectId}
             className={cn(
               'flex h-11 w-full items-center justify-center transition-all duration-200',
-              'hover:text-[var(--glow-cyan)]',
+              'hover:bg-accent/50 hover:text-accent-foreground',
               'disabled:pointer-events-none disabled:opacity-50',
               'border-l-2 border-transparent',
-              isActive && 'text-[var(--glow-cyan)] border-l-[var(--glow-cyan)]'
+              isActive && 'bg-accent/30 text-accent-foreground border-l-accent'
             )}
           >
             <Icon className="h-5 w-5" />
