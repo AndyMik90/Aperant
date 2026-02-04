@@ -335,15 +335,28 @@ export class ProjectStore {
         // First occurrence wins
         taskMap.set(task.id, task);
       } else {
-        // Determine which version has the more "complete" status
-        const existingPriority = TASK_STATUS_PRIORITY[existing.status] || 0;
-        const newPriority = TASK_STATUS_PRIORITY[task.status] || 0;
+        // PREFER MAIN PROJECT over worktree - main has current user changes
+        // Only use status priority when both are from same location
+        const existingIsMain = existing.location === 'main';
+        const newIsMain = task.location === 'main';
 
-        if (newPriority > existingPriority) {
-          // New version has higher priority (more complete status)
+        if (existingIsMain && !newIsMain) {
+          // Main wins, keep existing
+          continue;
+        } else if (!existingIsMain && newIsMain) {
+          // New is main, replace existing worktree
           taskMap.set(task.id, task);
+        } else {
+          // Same location - use status priority to determine which is more complete
+          const existingPriority = TASK_STATUS_PRIORITY[existing.status] || 0;
+          const newPriority = TASK_STATUS_PRIORITY[task.status] || 0;
+
+          if (newPriority > existingPriority) {
+            // New version has higher priority (more complete status)
+            taskMap.set(task.id, task);
+          }
+          // Otherwise keep existing version
         }
-        // Otherwise keep existing version (on ties, main project wins since it's loaded first)
       }
     }
 
