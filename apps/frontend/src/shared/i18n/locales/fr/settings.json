@@ -352,14 +352,6 @@
         "searchPlaceholder": "Rechercher des branches...",
         "noBranchesFound": "Aucune branche trouvée",
         "selectedBranchHelp": "Toutes les nouvelles tâches partiront de {{branch}}",
-        "branchGroups": {
-          "local": "Branches Locales",
-          "remote": "Branches Distantes"
-        },
-        "branchType": {
-          "local": "Locale",
-          "remote": "Distante"
-        }
       }
     },
     "gitlab": {

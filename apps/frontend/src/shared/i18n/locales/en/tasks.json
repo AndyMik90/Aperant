@@ -215,14 +215,6 @@
       "helpText": "Override the branch this task's worktree will be created from. Leave empty to use the project's configured default branch.",
       "useWorktreeLabel": "Use isolated workspace (recommended)",
       "useWorktreeDescription": "Creates changes in a separate git worktree for safe review before merging. Disable to build directly in your project (faster but riskier).",
-      "branchGroups": {
-        "local": "Local Branches",
-        "remote": "Remote Branches"
-      },
-      "branchType": {
-        "local": "Local",
-        "remote": "Remote"
-      }
     },
     "errors": {
       "createFailed": "Failed to create task. Please try again."

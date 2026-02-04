@@ -35,14 +35,6 @@
     "noBranchFound": "Aucune branche trouvee",
     "useProjectDefault": "Utiliser la valeur par defaut du projet ({{branch}})",
     "baseBranchHelp": "La branche a partir de laquelle creer le worktree",
-    "branchGroups": {
-      "local": "Branches Locales",
-      "remote": "Branches Distantes"
-    },
-    "branchType": {
-      "local": "Locale",
-      "remote": "Distante"
-    },
     "openInIDE": "Ouvrir dans IDE",
     "maxReached": "Maximum de 12 worktrees terminal atteint",
     "alreadyExists": "Un worktree avec ce nom existe deja",

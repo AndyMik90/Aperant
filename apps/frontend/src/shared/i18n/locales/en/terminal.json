@@ -35,14 +35,6 @@
     "noBranchFound": "No branch found",
     "useProjectDefault": "Use project default ({{branch}})",
     "baseBranchHelp": "The branch to create the worktree from",
-    "branchGroups": {
-      "local": "Local Branches",
-      "remote": "Remote Branches"
-    },
-    "branchType": {
-      "local": "Local",
-      "remote": "Remote"
-    },
     "openInIDE": "Open in IDE",
     "maxReached": "Maximum of 12 terminal worktrees reached",
     "alreadyExists": "A worktree with this name already exists",

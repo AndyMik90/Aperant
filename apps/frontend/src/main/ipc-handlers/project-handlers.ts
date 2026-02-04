@@ -11,7 +11,7 @@ import type {
   InitializationResult,
   AutoBuildVersionInfo,
   GitStatus,
-  BranchInfo
+  GitBranchDetail
 } from '../../shared/types';
 import { projectStore } from '../project-store';
 import {
@@ -92,10 +92,10 @@ function getGitBranches(projectPath: string): string[] {
 
 /**
  * Get structured branch information for a directory (both local and remote)
- * Returns BranchInfo[] with type indicators, keeping both local and remote versions
+ * Returns GitBranchDetail[] with type indicators, keeping both local and remote versions
  * when a branch exists in both places (no deduplication)
  */
-function getGitBranchesWithInfo(projectPath: string): BranchInfo[] {
+function getGitBranchesWithInfo(projectPath: string): GitBranchDetail[] {
   try {
     // First fetch to ensure we have latest remote refs
     try {
@@ -129,7 +129,7 @@ function getGitBranchesWithInfo(projectPath: string): BranchInfo[] {
       stdio: ['pipe', 'pipe', 'pipe']
     });
 
-    const localBranches: BranchInfo[] = localResult.trim().split('\n')
+    const localBranches: GitBranchDetail[] = localResult.trim().split('\n')
       .filter(b => b.trim())
       .map(b => {
         const name = b.trim();
@@ -142,7 +142,7 @@ function getGitBranchesWithInfo(projectPath: string): BranchInfo[] {
       });
 
     // Get remote branches
-    let remoteBranches: BranchInfo[] = [];
+    let remoteBranches: GitBranchDetail[] = [];
     try {
       const remoteResult = execFileSync(getToolPath('git'), ['branch', '-r', '--format=%(refname:short)'], {
         cwd: projectPath,
@@ -562,7 +562,7 @@ export function registerProjectHandlers(
   // Get all branches with structured type information (local vs remote)
   ipcMain.handle(
     IPC_CHANNELS.GIT_GET_BRANCHES_WITH_INFO,
-    async (_, projectPath: string): Promise<IPCResult<BranchInfo[]>> => {
+    async (_, projectPath: string): Promise<IPCResult<GitBranchDetail[]>> => {
       try {
         if (!existsSync(projectPath)) {
           return { success: false, error: 'Directory does not exist' };

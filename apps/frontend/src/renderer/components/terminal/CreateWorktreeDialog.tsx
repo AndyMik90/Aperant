@@ -22,7 +22,7 @@ import {
 } from '../ui/select';
 import { Combobox } from '../ui/combobox';
 import { buildBranchOptions } from '../../lib/branch-utils';
-import type { Task, TerminalWorktreeConfig, BranchInfo } from '../../../shared/types';
+import type { Task, TerminalWorktreeConfig, GitBranchDetail } from '../../../shared/types';
 import { useProjectStore } from '../../stores/project-store';
 
 // Special value to represent "use project default" since Radix UI Select doesn't allow empty string values
@@ -95,8 +95,8 @@ export function CreateWorktreeDialog({
     state.projects.find((p) => p.path === projectPath)
   );
 
-  // Branch selection state - using structured BranchInfo for type indicators
-  const [branches, setBranches] = useState<BranchInfo[]>([]);
+  // Branch selection state - using structured GitBranchDetail for type indicators
+  const [branches, setBranches] = useState<GitBranchDetail[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [baseBranch, setBaseBranch] = useState<string>(PROJECT_DEFAULT_BRANCH);
   const [projectDefaultBranch, setProjectDefaultBranch] = useState<string>('');
@@ -181,8 +181,8 @@ export function CreateWorktreeDialog({
   // Determine if the selected branch is local (for useLocalBranch flag)
   const isSelectedBranchLocal = useMemo(() => {
     if (baseBranch === PROJECT_DEFAULT_BRANCH) return false;
-    const selectedBranchInfo = branches.find((b) => b.name === baseBranch);
-    return selectedBranchInfo?.type === 'local';
+    const selectedGitBranchDetail = branches.find((b) => b.name === baseBranch);
+    return selectedGitBranchDetail?.type === 'local';
   }, [baseBranch, branches]);
 
   const handleCreate = async () => {
@@ -251,7 +251,6 @@ export function CreateWorktreeDialog({
   const branchOptions = useMemo(() => {
     return buildBranchOptions(branches, {
       t,
-      translationPrefix: 'terminal:worktree',
       includeProjectDefault: {
         value: PROJECT_DEFAULT_BRANCH,
         branchName: projectDefaultBranch || 'main',

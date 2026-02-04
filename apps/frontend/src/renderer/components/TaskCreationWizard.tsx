@@ -25,7 +25,7 @@ import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../s
 import { useProjectStore } from '../stores/project-store';
 import { buildBranchOptions } from '../lib/branch-utils';
 import { cn } from '../lib/utils';
-import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile, BranchInfo } from '../../shared/types';
+import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile, GitBranchDetail } from '../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
 import {
   DEFAULT_AGENT_PROFILES,
@@ -63,8 +63,8 @@ export function TaskCreationWizard({
   const [showFileExplorer, setShowFileExplorer] = useState(false);
   const [showGitOptions, setShowGitOptions] = useState(false);
 
-  // Git options state - using structured BranchInfo for type indicators
-  const [branches, setBranches] = useState<BranchInfo[]>([]);
+  // Git options state - using structured GitBranchDetail for type indicators
+  const [branches, setBranches] = useState<GitBranchDetail[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [baseBranch, setBaseBranch] = useState<string>(PROJECT_DEFAULT_BRANCH);
   const [projectDefaultBranch, setProjectDefaultBranch] = useState<string>('');
@@ -82,7 +82,6 @@ export function TaskCreationWizard({
   const branchOptions = useMemo(() => {
     return buildBranchOptions(branches, {
       t,
-      translationPrefix: 'tasks:wizard.gitOptions',
       includeProjectDefault: {
         value: PROJECT_DEFAULT_BRANCH,
         branchName: projectDefaultBranch,
@@ -96,8 +95,8 @@ export function TaskCreationWizard({
   // Determine if the selected branch is local (for useLocalBranch flag)
   const isSelectedBranchLocal = useMemo(() => {
     if (baseBranch === PROJECT_DEFAULT_BRANCH) return false;
-    const selectedBranchInfo = branches.find((b) => b.name === baseBranch);
-    return selectedBranchInfo?.type === 'local';
+    const selectedGitBranchDetail = branches.find((b) => b.name === baseBranch);
+    return selectedGitBranchDetail?.type === 'local';
   }, [baseBranch, branches]);
 
   // Classification fields

@@ -214,14 +214,6 @@
       "helpText": "Remplacez la branche à partir de laquelle le worktree de cette tâche sera créé. Laissez vide pour utiliser la branche par défaut configurée du projet.",
       "useWorktreeLabel": "Utiliser un espace de travail isolé (recommandé)",
       "useWorktreeDescription": "Crée les changements dans un worktree git séparé pour une révision sécurisée avant la fusion. Désactivez pour travailler directement dans votre projet (plus rapide mais risqué).",
-      "branchGroups": {
-        "local": "Branches Locales",
-        "remote": "Branches Distantes"
-      },
-      "branchType": {
-        "local": "Locale",
-        "remote": "Distante"
-      }
     },
     "errors": {
       "createFailed": "Échec de la création de la tâche. Veuillez réessayer."

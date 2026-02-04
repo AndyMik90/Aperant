@@ -10,7 +10,7 @@ import { Combobox } from '../../ui/combobox';
 import { GitHubOAuthFlow } from '../../project-settings/GitHubOAuthFlow';
 import { PasswordInput } from '../../project-settings/PasswordInput';
 import { buildBranchOptions } from '../../../lib/branch-utils';
-import type { ProjectEnvConfig, GitHubSyncStatus, ProjectSettings, BranchInfo } from '../../../../shared/types';
+import type { ProjectEnvConfig, GitHubSyncStatus, ProjectSettings, GitBranchDetail } from '../../../../shared/types';
 
 // Debug logging
 const DEBUG = process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true';
@@ -58,15 +58,15 @@ export function GitHubIntegration({
   settings,
   setSettings
 }: GitHubIntegrationProps) {
-  const { t } = useTranslation(['settings']);
+  const { t } = useTranslation(['settings', 'common']);
   const [authMode, setAuthMode] = useState<'manual' | 'oauth' | 'oauth-success'>('manual');
   const [oauthUsername, setOauthUsername] = useState<string | null>(null);
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [reposError, setReposError] = useState<string | null>(null);
 
-  // Branch selection state - now uses BranchInfo for local/remote distinction
-  const [branches, setBranches] = useState<BranchInfo[]>([]);
+  // Branch selection state - now uses GitBranchDetail for local/remote distinction
+  const [branches, setBranches] = useState<GitBranchDetail[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [branchesError, setBranchesError] = useState<string | null>(null);
 
@@ -126,7 +126,7 @@ export function GitHubIntegration({
       const result = await window.electronAPI.getGitBranchesWithInfo(projectPath);
       debugLog('fetchBranches: getGitBranchesWithInfo result:', { success: result.success, dataType: typeof result.data, dataLength: Array.isArray(result.data) ? result.data.length : 'N/A', error: result.error });
 
-      // result.data is the BranchInfo[] array
+      // result.data is the GitBranchDetail[] array
       if (result.success && result.data) {
         setBranches(result.data);
         debugLog('fetchBranches: Loaded branches:', result.data.length);
@@ -182,7 +182,6 @@ export function GitHubIntegration({
   const branchOptions = useMemo(() => {
     return buildBranchOptions(branches, {
       t,
-      translationPrefix: 'settings:integrations.github.defaultBranch',
       includeAutoDetect: {
         value: '',
         label: t('settings:integrations.github.defaultBranch.autoDetect'),
