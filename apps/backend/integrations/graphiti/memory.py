@@ -13,8 +13,7 @@ The refactored code is now organized as:
 - graphiti/schema.py - Graph schema definitions
 
 Import from this module:
-    from integrations.graphiti.memory import GraphitiMemory, is_graphiti_enabled
-    from integrations.graphiti.memory import GroupIdMode
+    from integrations.graphiti.memory import GraphitiMemory, is_graphiti_enabled, GroupIdMode
 
 For detailed documentation on the memory system architecture and usage,
 see graphiti/graphiti.py.
