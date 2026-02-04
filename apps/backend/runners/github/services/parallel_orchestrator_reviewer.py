@@ -524,7 +524,9 @@ Report findings with specific file paths, line numbers, and code evidence.
 
                 error = stream_result.get("error")
                 if error:
-                    logger.error(f"[Specialist:{config.name}] SDK stream failed: {error}")
+                    logger.error(
+                        f"[Specialist:{config.name}] SDK stream failed: {error}"
+                    )
                     safe_print(
                         f"[Specialist:{config.name}] Analysis failed: {error}",
                         flush=True,
@@ -1174,7 +1176,9 @@ The SDK will run invoked agents in parallel automatically.
                                 last_error = error
                                 continue
                             if error:
-                                raise RuntimeError(f"SDK stream processing failed: {error}")
+                                raise RuntimeError(
+                                    f"SDK stream processing failed: {error}"
+                                )
                             result_text = stream_result["result_text"]
                             structured_output = stream_result["structured_output"]
                             agents_invoked = stream_result["agents_invoked"]
@@ -1185,7 +1189,9 @@ The SDK will run invoked agents in parallel automatically.
                             continue
                         raise
                 else:
-                    raise RuntimeError(f"Orchestrator failed after {MAX_RETRIES} attempts")
+                    raise RuntimeError(
+                        f"Orchestrator failed after {MAX_RETRIES} attempts"
+                    )
 
             # END DISABLED BLOCK
 
