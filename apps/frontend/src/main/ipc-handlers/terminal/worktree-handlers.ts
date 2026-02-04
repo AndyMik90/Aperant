@@ -357,9 +357,9 @@ function loadWorktreeConfig(projectPath: string, name: string): TerminalWorktree
 async function createTerminalWorktree(
   request: CreateTerminalWorktreeRequest
 ): Promise<TerminalWorktreeResult> {
-  const { terminalId, name, taskId, createGitBranch, projectPath, baseBranch: customBaseBranch } = request;
+  const { terminalId, name, taskId, createGitBranch, projectPath, baseBranch: customBaseBranch, useLocalBranch } = request;
 
-  debugLog('[TerminalWorktree] Creating worktree:', { name, taskId, createGitBranch, projectPath, customBaseBranch });
+  debugLog('[TerminalWorktree] Creating worktree:', { name, taskId, createGitBranch, projectPath, customBaseBranch, useLocalBranch });
 
   // Validate projectPath against registered projects
   if (!isValidProjectPath(projectPath)) {
@@ -430,9 +430,13 @@ async function createTerminalWorktree(
       // Already a remote ref, use as-is
       baseRef = baseBranch;
       debugLog('[TerminalWorktree] Using remote ref directly:', baseRef);
+    } else if (useLocalBranch) {
+      // User explicitly requested local branch - skip auto-switch to remote
+      // This preserves gitignored files (.env, configs) that may not exist on remote
+      baseRef = baseBranch;
+      debugLog('[TerminalWorktree] Using local branch (explicit):', baseRef);
     } else {
-      // Check if remote version exists and use it for latest code
-      // Use async to avoid blocking the main process (consistent with other git operations)
+      // Default behavior: check if remote version exists and use it for latest code
       try {
         await execFileAsync(getToolPath('git'), ['rev-parse', '--verify', `origin/${baseBranch}`], {
           cwd: projectPath,
