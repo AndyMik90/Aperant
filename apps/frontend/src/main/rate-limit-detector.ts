@@ -100,14 +100,11 @@ const MAX_ERROR_LENGTH = 500;
 
 /**
  * Sanitize error output before sending to renderer.
- * Truncates long output and only includes in debug mode for security.
+ * Truncates long output to prevent exposing excessive internal details
+ * like full paths, API responses, or stack traces.
  */
-function sanitizeErrorOutput(output: string): string | undefined {
-  // Only include error details in debug mode to limit exposure
-  if (process.env.DEBUG !== 'true') {
-    return undefined;
-  }
-  // Truncate long output
+function sanitizeErrorOutput(output: string): string {
+  // Truncate long output to limit exposure of internal details
   if (output.length > MAX_ERROR_LENGTH) {
     return output.substring(0, MAX_ERROR_LENGTH) + '... (truncated)';
   }
@@ -131,7 +128,7 @@ export interface RateLimitDetectionResult {
     id: string;
     name: string;
   };
-  /** Original error message (truncated, only in DEBUG mode) */
+  /** Original error message (truncated to 500 chars for security) */
   originalError?: string;
 }
 
@@ -651,7 +648,7 @@ export interface SDKRateLimitInfo {
   };
   /** When detected */
   detectedAt: Date;
-  /** Original error message (truncated, only in DEBUG mode) */
+  /** Original error message (truncated to 500 chars for security) */
   originalError?: string;
 
   // Auto-swap information
