@@ -20,8 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import { Combobox, type ComboboxOption } from '../ui/combobox';
-import type { Task, TerminalWorktreeConfig } from '../../../shared/types';
+import { Combobox } from '../ui/combobox';
+import { buildBranchOptions } from '../../lib/branch-utils';
+import type { Task, TerminalWorktreeConfig, GitBranchDetail } from '../../../shared/types';
 import { useProjectStore } from '../../stores/project-store';
 
 // Special value to represent "use project default" since Radix UI Select doesn't allow empty string values
@@ -94,8 +95,8 @@ export function CreateWorktreeDialog({
     state.projects.find((p) => p.path === projectPath)
   );
 
-  // Branch selection state
-  const [branches, setBranches] = useState<string[]>([]);
+  // Branch selection state - using structured GitBranchDetail for type indicators
+  const [branches, setBranches] = useState<GitBranchDetail[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [baseBranch, setBaseBranch] = useState<string>(PROJECT_DEFAULT_BRANCH);
   const [projectDefaultBranch, setProjectDefaultBranch] = useState<string>('');
@@ -115,7 +116,8 @@ export function CreateWorktreeDialog({
     const fetchBranches = async () => {
       setIsLoadingBranches(true);
       try {
-        const result = await window.electronAPI.getGitBranches(projectPath);
+        // Use structured branch data with type indicators
+        const result = await window.electronAPI.getGitBranchesWithInfo(projectPath);
         if (!isMounted) return;
 
         if (result.success && result.data) {
@@ -176,6 +178,13 @@ export function CreateWorktreeDialog({
     }
   }, [backlogTasks, name]);
 
+  // Determine if the selected branch is local (for useLocalBranch flag)
+  const isSelectedBranchLocal = useMemo(() => {
+    if (baseBranch === PROJECT_DEFAULT_BRANCH) return false;
+    const selectedGitBranchDetail = branches.find((b) => b.name === baseBranch);
+    return selectedGitBranchDetail?.type === 'local';
+  }, [baseBranch, branches]);
+
   const handleCreate = async () => {
     // Final sanitization: trim trailing hyphens/underscores for submission
     const finalName = sanitizeWorktreeName(name, undefined, true);
@@ -204,6 +213,9 @@ export function CreateWorktreeDialog({
         projectPath,
         // Only include baseBranch if not using project default
         baseBranch: baseBranch !== PROJECT_DEFAULT_BRANCH ? baseBranch : undefined,
+        // Set useLocalBranch when user explicitly selects a local branch
+        // This preserves gitignored files (.env, configs) by not switching to origin
+        useLocalBranch: isSelectedBranchLocal,
       });
 
       if (result.success && result.config) {
@@ -235,26 +247,16 @@ export function CreateWorktreeDialog({
     onOpenChange(newOpen);
   };
 
-  // Memoized branch options for the Combobox
-  const branchOptions: ComboboxOption[] = useMemo(() => {
-    const regularBranchOptions = branches
-      .filter((b) => b !== projectDefaultBranch)
-      .map((branch) => ({ value: branch, label: branch }));
-
-    const options: ComboboxOption[] = [
-      {
+  // Build branch options using shared utility - groups by local/remote with type indicators
+  const branchOptions = useMemo(() => {
+    return buildBranchOptions(branches, {
+      t,
+      includeProjectDefault: {
         value: PROJECT_DEFAULT_BRANCH,
-        label: t('terminal:worktree.useProjectDefault', { branch: projectDefaultBranch || 'main' }),
+        branchName: projectDefaultBranch || 'main',
+        labelKey: 'terminal:worktree.useProjectDefault',
       },
-      ...regularBranchOptions,
-    ];
-
-    // If the project default branch is not in the list of existing branches, add it as a selectable option
-    if (projectDefaultBranch && !branches.includes(projectDefaultBranch)) {
-      options.push({ value: projectDefaultBranch, label: projectDefaultBranch });
-    }
-
-    return options;
+    });
   }, [branches, projectDefaultBranch, t]);
 
   return (
