@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, Dirent
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask, KanbanPreferences, ExecutionPhase } from '../shared/types';
-import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir, JSON_ERROR_PREFIX, JSON_ERROR_TITLE_SUFFIX } from '../shared/constants';
+import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir, JSON_ERROR_PREFIX, JSON_ERROR_TITLE_SUFFIX, TASK_STATUS_PRIORITY } from '../shared/constants';
 import { getAutoBuildPath, isInitialized } from './project-initializer';
 import { getTaskWorktreeDir } from './worktree-paths';
 import { isValidTaskId, findAllSpecPaths } from './utils/spec-path-helpers';
@@ -336,24 +336,14 @@ export class ProjectStore {
         taskMap.set(task.id, task);
       } else {
         // Determine which version has the more "complete" status
-        const statusPriority: Record<TaskStatus, number> = {
-          'done': 100,           // Highest priority - task is complete
-          'pr_created': 90,
-          'human_review': 80,
-          'ai_review': 70,
-          'in_progress': 50,
-          'backlog': 30,
-          'queue': 20,
-          'error': 10           // Lowest priority
-        };
-        const existingPriority = statusPriority[existing.status] || 0;
-        const newPriority = statusPriority[task.status] || 0;
+        const existingPriority = TASK_STATUS_PRIORITY[existing.status] || 0;
+        const newPriority = TASK_STATUS_PRIORITY[task.status] || 0;
 
         if (newPriority > existingPriority) {
           // New version has higher priority (more complete status)
           taskMap.set(task.id, task);
         }
-        // Otherwise keep existing version
+        // Otherwise keep existing version (on ties, main project wins since it's loaded first)
       }
     }
 
