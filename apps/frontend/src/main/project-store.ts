@@ -324,12 +324,36 @@ export class ProjectStore {
       }
     }
 
-    // 3. Deduplicate tasks by ID (prefer worktree version if exists in both)
+    // 3. Deduplicate tasks by ID
+    // CRITICAL FIX: Don't blindly prefer worktree - it may be stale!
+    // If main project task is "done", it should win over worktree's "in_progress".
+    // Worktrees can linger after completion, containing outdated task data.
     const taskMap = new Map<string, Task>();
     for (const task of allTasks) {
       const existing = taskMap.get(task.id);
-      if (!existing || task.location === 'worktree') {
+      if (!existing) {
+        // First occurrence wins
         taskMap.set(task.id, task);
+      } else {
+        // Determine which version has the more "complete" status
+        const statusPriority: Record<TaskStatus, number> = {
+          'done': 100,           // Highest priority - task is complete
+          'pr_created': 90,
+          'human_review': 80,
+          'ai_review': 70,
+          'in_progress': 50,
+          'backlog': 30,
+          'queue': 20,
+          'error': 10           // Lowest priority
+        };
+        const existingPriority = statusPriority[existing.status] || 0;
+        const newPriority = statusPriority[task.status] || 0;
+
+        if (newPriority > existingPriority) {
+          // New version has higher priority (more complete status)
+          taskMap.set(task.id, task);
+        }
+        // Otherwise keep existing version
       }
     }
 
