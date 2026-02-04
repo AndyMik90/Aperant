@@ -21,6 +21,7 @@ import { parsePythonCommand } from '../../../python-detector';
 import { detectAuthFailure, detectBillingFailure } from '../../../rate-limit-detector';
 import { getClaudeProfileManager } from '../../../claude-profile-manager';
 import { isWindows, isMacOS } from '../../../platform';
+import { getTaskkillExePath } from '../../../utils/windows-paths';
 
 const execAsync = promisify(exec);
 
@@ -182,7 +183,7 @@ export function runPythonSubprocess<T = unknown>(
               process.kill(-child.pid, 'SIGKILL');
             } else {
               // On Windows, use taskkill to kill the process tree
-              execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
+              execFile(getTaskkillExePath(), ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
                 if (err) console.warn('[SubprocessRunner] taskkill error (process may have already exited):', err.message);
               });
             }
@@ -241,7 +242,7 @@ export function runPythonSubprocess<T = unknown>(
               process.kill(-child.pid, 'SIGKILL');
             } else {
               // On Windows, use taskkill to kill the process tree
-              execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
+              execFile(getTaskkillExePath(), ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
                 if (err) console.warn('[SubprocessRunner] taskkill error (process may have already exited):', err.message);
               });
             }

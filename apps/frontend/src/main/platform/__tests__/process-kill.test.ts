@@ -8,6 +8,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'events';
 import type { ChildProcess } from 'child_process';
 
+// Mock getTaskkillExePath to return a predictable path for testing
+vi.mock('../../utils/windows-paths', () => ({
+  getTaskkillExePath: () => 'C:\\Windows\\System32\\taskkill.exe',
+}));
+
 // Mock child_process.spawn before importing the module
 vi.mock('child_process', async () => {
   const actual = await vi.importActual('child_process');
@@ -95,7 +100,7 @@ describe('killProcessGracefully', () => {
 
       // Verify taskkill was called with correct arguments
       expect(mockSpawn).toHaveBeenCalledWith(
-        'taskkill',
+        'C:\\Windows\\System32\\taskkill.exe',
         ['/pid', '12345', '/f', '/t'],
         expect.objectContaining({
           stdio: 'ignore',
@@ -131,7 +136,7 @@ describe('killProcessGracefully', () => {
 
       // taskkill should still be called - this is the key assertion for Issue #1
       expect(mockSpawn).toHaveBeenCalledWith(
-        'taskkill',
+        'C:\\Windows\\System32\\taskkill.exe',
         ['/pid', '12345', '/f', '/t'],
         expect.any(Object)
       );

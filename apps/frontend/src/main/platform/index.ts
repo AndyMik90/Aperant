@@ -16,6 +16,7 @@ import * as path from 'path';
 import { existsSync } from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import { OS, ShellType, PathConfig, ShellConfig, BinaryDirectories } from './types';
+import { getTaskkillExePath } from '../utils/windows-paths';
 
 // Re-export from paths.ts for backward compatibility
 export { getWindowsShellPaths, getOllamaExecutablePaths, getOllamaInstallCommand, getWhichCommand } from './paths';
@@ -484,7 +485,7 @@ export function killProcessGracefully(
       try {
         if (isWindows()) {
           log('Running taskkill for PID:', pid);
-          spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'], {
+          spawn(getTaskkillExePath(), ['/pid', pid.toString(), '/f', '/t'], {
             stdio: 'ignore',
             detached: true
           }).unref();

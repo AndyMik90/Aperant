@@ -144,6 +144,19 @@ export function getWhereExePath(): string {
 }
 
 /**
+ * Get the full path to taskkill.exe.
+ * Using the full path ensures taskkill.exe works even when System32 isn't in PATH,
+ * which can happen in restricted environments or when Electron doesn't inherit
+ * the full system PATH.
+ *
+ * @returns Full path to taskkill.exe (e.g., C:\Windows\System32\taskkill.exe)
+ */
+export function getTaskkillExePath(): string {
+  const systemRoot = process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows';
+  return path.join(systemRoot, 'System32', 'taskkill.exe');
+}
+
+/**
  * Find a Windows executable using the `where` command.
  * This is the most reliable method as it searches:
  * - All directories in PATH

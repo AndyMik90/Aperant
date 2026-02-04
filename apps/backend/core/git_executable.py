@@ -15,6 +15,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from core.platform import get_where_exe_path
+
 # Git environment variables that can interfere with worktree operations
 # when set by pre-commit hooks or other git configurations.
 # These must be cleared to prevent cross-worktree contamination.
@@ -124,14 +126,13 @@ def _find_git_executable() -> str:
             except OSError:
                 continue
 
-        # 4. Try 'where' command with shell=True (more reliable on Windows)
+        # 4. Try 'where' command with full path (works even when System32 isn't in PATH)
         try:
             result = subprocess.run(
-                "where git",
+                [get_where_exe_path(), "git"],
                 capture_output=True,
                 text=True,
                 timeout=5,
-                shell=True,
             )
             if result.returncode == 0 and result.stdout.strip():
                 found_path = result.stdout.strip().split("\n")[0].strip()

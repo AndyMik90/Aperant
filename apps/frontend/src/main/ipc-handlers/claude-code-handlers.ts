@@ -19,7 +19,7 @@ import type { IPCResult } from '../../shared/types';
 import type { ClaudeCodeVersionInfo, ClaudeInstallationList, ClaudeInstallationInfo } from '../../shared/types/cli';
 import { getToolInfo, configureTools, sortNvmVersionDirs, getClaudeDetectionPaths, type ExecFileAsyncOptionsWithVerbatim } from '../cli-tool-manager';
 import { readSettingsFile, writeSettingsFile } from '../settings-utils';
-import { isSecurePath } from '../utils/windows-paths';
+import { isSecurePath, getWhereExePath } from '../utils/windows-paths';
 import { isWindows, isMacOS, isLinux } from '../platform';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { isValidConfigDir } from '../utils/config-path-validator';
@@ -147,7 +147,7 @@ async function scanClaudeInstallations(activePath: string | null): Promise<Claud
   // 2. Check system PATH via which/where
   try {
     if (isWindows()) {
-      const result = await execFileAsync('where', ['claude'], { timeout: 5000 });
+      const result = await execFileAsync(getWhereExePath(), ['claude'], { timeout: 5000 });
       const paths = result.stdout.trim().split('\n').filter(p => p.trim());
       for (const p of paths) {
         await addInstallation(p.trim(), 'system-path');

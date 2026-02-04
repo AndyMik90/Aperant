@@ -10,6 +10,8 @@ import os
 import shutil
 import subprocess
 
+from core.platform import get_where_exe_path
+
 _cached_gh_path: str | None = None
 
 
@@ -53,12 +55,11 @@ def _run_where_command() -> str | None:
     """
     try:
         result = subprocess.run(
-            "where gh",
+            [get_where_exe_path(), "gh"],
             capture_output=True,
             text=True,
             encoding="utf-8",
             timeout=5,
-            shell=True,  # Required: 'where' command must be executed through shell on Windows
         )
         if result.returncode == 0 and result.stdout.strip():
             found_path = result.stdout.strip().split("\n")[0].strip()
