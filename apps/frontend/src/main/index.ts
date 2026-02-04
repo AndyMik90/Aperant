@@ -56,7 +56,7 @@ import { initializeClaudeProfileManager, getClaudeProfileManager } from './claud
 import { isProfileAuthenticated } from './claude-profile/profile-utils';
 import { isMacOS, isWindows } from './platform';
 import { ptyDaemonClient } from './terminal/pty-daemon-client';
-import { loadProfilesFileSync } from './services/profile/profile-manager';
+import { hasActiveAPIProfileSync } from './services/profile/profile-manager';
 import type { AppSettings, AuthFailureInfo } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -527,17 +527,7 @@ app.whenReady().then(() => {
           if (remainingMigratedIds.includes(activeProfile.id)) {
             // Check if there are valid API profiles configured
             // If so, OAuth authentication is optional
-            let hasValidAPIProfile = false;
-            try {
-              const apiProfilesFile = loadProfilesFileSync();
-              hasValidAPIProfile = apiProfilesFile.activeProfileId !== null &&
-                                   apiProfilesFile.activeProfileId !== '' &&
-                                   apiProfilesFile.profiles.some(p => p.id === apiProfilesFile.activeProfileId);
-            } catch (error) {
-              console.warn('[main] Failed to load API profiles for auth check:', error);
-            }
-
-            if (!hasValidAPIProfile) {
+            if (!hasActiveAPIProfileSync()) {
               // No valid API profile - show auth failure modal for OAuth
               mainWindow.webContents.once('did-finish-load', () => {
                 // Small delay to ensure stores are initialized

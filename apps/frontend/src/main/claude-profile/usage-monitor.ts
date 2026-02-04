@@ -13,7 +13,7 @@ import { EventEmitter } from 'events';
 import { homedir } from 'os';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { ClaudeUsageSnapshot, ProfileUsageSummary, AllProfilesUsage } from '../../shared/types/agent';
-import { loadProfilesFile, loadProfilesFileSync } from '../services/profile/profile-manager';
+import { loadProfilesFile, hasActiveAPIProfileSync } from '../services/profile/profile-manager';
 import type { APIProfile } from '../../shared/types/profile';
 import { detectProvider as sharedDetectProvider, type ApiProvider } from '../../shared/utils/provider-detection';
 import { getCredentialsFromKeychain, clearKeychainCache } from './credential-utils';
@@ -248,15 +248,7 @@ export class UsageMonitor extends EventEmitter {
    * @returns true if a valid API profile is active, false otherwise
    */
   private hasValidAPIProfile(): boolean {
-    try {
-      const apiProfilesFile = loadProfilesFileSync();
-      return apiProfilesFile.activeProfileId !== null &&
-             apiProfilesFile.activeProfileId !== '' &&
-             apiProfilesFile.profiles.some(p => p.id === apiProfilesFile.activeProfileId);
-    } catch (error) {
-      this.debugLog('[UsageMonitor] Failed to load API profiles for auth check:', error);
-      return false;
-    }
+    return hasActiveAPIProfileSync();
   }
 
   /**
@@ -271,7 +263,7 @@ export class UsageMonitor extends EventEmitter {
       this.debugLog('[UsageMonitor] API profile is active, skipping OAuth re-auth mark for profile: ' + profileId);
       return;
     }
-    this.markProfileNeedsReauth(profileId);
+    this.needsReauthProfiles.add(profileId);
   }
 
   private constructor() {

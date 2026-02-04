@@ -52,7 +52,7 @@ import {
   expandHomePath,
   getEmailFromConfigDir
 } from './claude-profile/profile-utils';
-import { loadProfilesFileSync } from './services/profile/profile-manager';
+import { hasActiveAPIProfileSync } from './services/profile/profile-manager';
 
 /**
  * Manages Claude Code profiles for multi-account support.
@@ -731,17 +731,9 @@ export class ClaudeProfileManager {
 
     // Check 4: If no OAuth auth is available, check for API profiles
     // API profiles provide an alternative authentication method
-    try {
-      const apiProfilesFile = loadProfilesFileSync();
-      const hasValidAPIProfile = apiProfilesFile.activeProfileId !== null &&
-                                   apiProfilesFile.activeProfileId !== '' &&
-                                   apiProfilesFile.profiles.some(p => p.id === apiProfilesFile.activeProfileId);
-      if (hasValidAPIProfile) {
-        console.log('[ClaudeProfileManager] API profile is configured, authentication is available via API profile');
-        return true;
-      }
-    } catch (error) {
-      console.warn('[ClaudeProfileManager] Failed to load API profiles for auth check:', error);
+    if (hasActiveAPIProfileSync()) {
+      console.log('[ClaudeProfileManager] API profile is configured, authentication is available via API profile');
+      return true;
     }
 
     return false;

@@ -85,6 +85,16 @@ function getDefaultProfilesFile(): ProfilesFile {
 }
 
 /**
+ * Parse and validate profiles JSON content
+ * @param content - JSON string to parse
+ * @returns Valid ProfilesFile or default if invalid
+ */
+function parseAndValidateProfiles(content: string): ProfilesFile {
+  const data = JSON.parse(content);
+  return isValidProfilesFile(data) ? data : getDefaultProfilesFile();
+}
+
+/**
  * Load profiles.json from disk
  * Returns default empty profiles file if file doesn't exist or is corrupted
  */
@@ -93,15 +103,7 @@ export async function loadProfilesFile(): Promise<ProfilesFile> {
 
   try {
     const content = await fs.readFile(filePath, 'utf-8');
-    const data = JSON.parse(content);
-
-    // Validate parsed data structure
-    if (isValidProfilesFile(data)) {
-      return data;
-    }
-
-    // Validation failed - return default
-    return getDefaultProfilesFile();
+    return parseAndValidateProfiles(content);
   } catch {
     // File doesn't exist or read/parse error - return default
     return getDefaultProfilesFile();
@@ -122,18 +124,28 @@ export function loadProfilesFileSync(): ProfilesFile {
     }
 
     const content = readFileSync(filePath, 'utf-8');
-    const data = JSON.parse(content);
-
-    // Validate parsed data structure
-    if (isValidProfilesFile(data)) {
-      return data;
-    }
-
-    // Validation failed - return default
-    return getDefaultProfilesFile();
+    return parseAndValidateProfiles(content);
   } catch {
     // File doesn't exist or read/parse error - return default
     return getDefaultProfilesFile();
+  }
+}
+
+/**
+ * Check if a valid API profile is active and configured with an apiKey.
+ * This is a synchronous check for use in contexts where async/await is not available.
+ *
+ * @returns true if an API profile is active with a valid apiKey, false otherwise
+ */
+export function hasActiveAPIProfileSync(): boolean {
+  try {
+    const apiProfilesFile = loadProfilesFileSync();
+    const activeApiProfile = apiProfilesFile.activeProfileId
+      ? apiProfilesFile.profiles.find(p => p.id === apiProfilesFile.activeProfileId)
+      : undefined;
+    return !!activeApiProfile?.apiKey;
+  } catch {
+    return false;
   }
 }
 
