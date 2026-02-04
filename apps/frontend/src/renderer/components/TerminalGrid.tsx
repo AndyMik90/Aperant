@@ -414,9 +414,6 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
               disabled={!canAddTerminal(projectPath)}
             >
               New Terminal
-              <kbd className="ml-1.5 text-[10px] text-muted-foreground">
-                {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+T
-              </kbd>
             </Button>
             <Button
               variant="outline"
@@ -460,7 +457,6 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
                     <h2 className="text-lg font-semibold text-foreground">Agent Terminals</h2>
                     <p className="mt-1 text-sm text-muted-foreground max-w-md">
                       Spawn multiple terminals to run Claude agents in parallel.
-                      Use <kbd className="px-1.5 py-0.5 text-xs bg-card border border-border rounded">Ctrl+T</kbd> to create a new terminal.
                     </p>
                   </div>
                 </div>
