@@ -192,6 +192,42 @@ describe('Task Store', () => {
         originalDate.getTime()
       );
     });
+
+    it('should apply reviewReason when provided', () => {
+      useTaskStore.setState({
+        tasks: [createTestTask({ id: 'task-1', status: 'in_progress' })]
+      });
+
+      useTaskStore.getState().updateTaskStatus('task-1', 'human_review', 'plan_review');
+
+      const task = useTaskStore.getState().tasks[0];
+      expect(task.status).toBe('human_review');
+      expect(task.reviewReason).toBe('plan_review');
+    });
+
+    it('should clear reviewReason when not provided', () => {
+      useTaskStore.setState({
+        tasks: [createTestTask({ id: 'task-1', status: 'human_review', reviewReason: 'plan_review' })]
+      });
+
+      useTaskStore.getState().updateTaskStatus('task-1', 'in_progress');
+
+      const task = useTaskStore.getState().tasks[0];
+      expect(task.status).toBe('in_progress');
+      expect(task.reviewReason).toBeUndefined();
+    });
+
+    it('should update when only reviewReason changes', () => {
+      useTaskStore.setState({
+        tasks: [createTestTask({ id: 'task-1', status: 'human_review', reviewReason: 'plan_review' })]
+      });
+
+      useTaskStore.getState().updateTaskStatus('task-1', 'human_review', 'completed');
+
+      const task = useTaskStore.getState().tasks[0];
+      expect(task.status).toBe('human_review');
+      expect(task.reviewReason).toBe('completed');
+    });
   });
 
   describe('updateTaskFromPlan', () => {
