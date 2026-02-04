@@ -864,47 +864,54 @@ async def run_autonomous_agent(
                         status_manager.update(state=BuildState.ERROR)
                         break
 
-                    if wait_seconds > 0:
-                        # Emit pause phase with reset time for frontend
-                        wait_minutes = wait_seconds / 60
-                        emit_phase(
-                            ExecutionPhase.RATE_LIMIT_PAUSED,
-                            f"Rate limit - resuming in {wait_minutes:.0f} minutes",
-                            reset_timestamp=reset_timestamp,
-                        )
+                    # Emit pause phase with reset time for frontend
+                    wait_minutes = wait_seconds / 60
+                    emit_phase(
+                        ExecutionPhase.RATE_LIMIT_PAUSED,
+                        f"Rate limit - resuming in {wait_minutes:.0f} minutes",
+                        reset_timestamp=reset_timestamp,
+                    )
 
-                        # Create pause file for frontend detection
-                        pause_data = {
-                            "paused_at": datetime.now().isoformat(),
-                            "reset_timestamp": reset_timestamp,
-                            "error": error_info.get("message", "Rate limit reached"),
-                        }
-                        pause_file = spec_dir / RATE_LIMIT_PAUSE_FILE
-                        pause_file.write_text(json.dumps(pause_data), encoding="utf-8")
+                    # Create pause file for frontend detection
+                    # Sanitize and truncate error message to prevent exposing sensitive data
+                    raw_error = error_info.get("message", "Rate limit reached")
+                    sanitized_error = (
+                        raw_error[:500] if raw_error else "Rate limit reached"
+                    )
+                    pause_data = {
+                        "paused_at": datetime.now().isoformat(),
+                        "reset_timestamp": reset_timestamp,
+                        "error": sanitized_error,
+                    }
+                    pause_file = spec_dir / RATE_LIMIT_PAUSE_FILE
+                    pause_file.write_text(json.dumps(pause_data), encoding="utf-8")
 
-                        print_status(
-                            f"Rate limited - waiting {wait_minutes:.0f} minutes for reset",
-                            "warning",
-                        )
-                        status_manager.update(state=BuildState.PAUSED)
+                    print_status(
+                        f"Rate limited - waiting {wait_minutes:.0f} minutes for reset",
+                        "warning",
+                    )
+                    status_manager.update(state=BuildState.PAUSED)
 
-                        # Wait with periodic checks for resume signal
-                        resumed_early = await wait_for_rate_limit_reset(
-                            spec_dir, wait_seconds
-                        )
-                        if resumed_early:
-                            print_status("Resumed early by user", "success")
+                    # Wait with periodic checks for resume signal
+                    resumed_early = await wait_for_rate_limit_reset(
+                        spec_dir, wait_seconds
+                    )
+                    if resumed_early:
+                        print_status("Resumed early by user", "success")
 
-                        # Resume execution
-                        emit_phase(ExecutionPhase.CODING, "Resuming after rate limit")
-                        status_manager.update(state=BuildState.BUILDING)
-                        continue  # Resume the loop
+                    # Resume execution
+                    emit_phase(ExecutionPhase.CODING, "Resuming after rate limit")
+                    status_manager.update(state=BuildState.BUILDING)
+                    continue  # Resume the loop
                 else:
                     # Couldn't parse reset time - fall back to standard retry
                     print_status("Rate limit hit (unknown reset time)", "warning")
                     print(muted("Will retry with a fresh session..."))
                     status_manager.update(state=BuildState.ERROR)
                     await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+                    _reset_concurrency_state()
+                    status_manager.update(state=BuildState.BUILDING)
+                    continue
 
             elif error_info and error_info.get("type") == "authentication":
                 # Authentication error - pause for user re-authentication
@@ -916,9 +923,14 @@ async def run_autonomous_agent(
                 )
 
                 # Create pause file for frontend detection
+                # Sanitize and truncate error message to prevent exposing sensitive data
+                raw_error = error_info.get("message", "Authentication failed")
+                sanitized_error = (
+                    raw_error[:500] if raw_error else "Authentication failed"
+                )
                 pause_data = {
                     "paused_at": datetime.now().isoformat(),
-                    "error": error_info.get("message", "Authentication failed"),
+                    "error": sanitized_error,
                     "requires_action": "re-authenticate",
                 }
                 pause_file = spec_dir / AUTH_FAILURE_PAUSE_FILE

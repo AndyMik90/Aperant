@@ -141,8 +141,6 @@ function detectMainBranch(projectPath: string): string | null {
   return branches[0] || null;
 }
 
-const _settingsPath = path.join(app.getPath('userData'), 'settings.json');
-
 /**
  * Configure all Python-dependent services with the managed Python path
  */

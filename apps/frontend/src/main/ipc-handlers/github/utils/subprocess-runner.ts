@@ -168,12 +168,18 @@ export function runPythonSubprocess<T = unknown>(
         }
       };
 
+      // Register with OperationRegistry for tracking and proactive swap support.
+      // For operations that provide a restartFn, UsageMonitor can restart them with a new profile.
+      // For operations without restartFn (e.g., PR reviews which are non-resumable due to one-shot workflow),
+      // we register with a no-op restartFn that returns false. This allows the swap to stop the operation
+      // gracefully without attempting restart. The operation will be killed when the profile swaps,
+      // which is the correct behavior for non-resumable operations.
       operationRegistry.registerOperation(
         operationId,
         operationType,
         activeProfile.id,
         activeProfile.name,
-        restartFn || (() => false), // Use provided restartFn or a no-op
+        restartFn || (() => false), // Use provided restartFn or a no-op for non-resumable operations
         {
           stopFn,
           metadata: { ...metadata, pythonPath: options.pythonPath, cwd: options.cwd }

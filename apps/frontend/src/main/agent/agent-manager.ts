@@ -6,6 +6,7 @@ import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { AgentQueueManager } from './agent-queue';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
+import type { ClaudeProfileManager } from '../claude-profile-manager';
 import { getOperationRegistry } from '../claude-profile/operation-registry';
 import {
   SpecCreationMetadata,
@@ -116,7 +117,7 @@ export class AgentManager extends EventEmitter {
   ): Promise<void> {
     // Pre-flight auth check: Verify active profile has valid authentication
     // Ensure profile manager is initialized to prevent race condition
-    let profileManager;
+    let profileManager: ClaudeProfileManager;
     try {
       profileManager = await initializeClaudeProfileManager();
     } catch (error) {
@@ -232,7 +233,7 @@ export class AgentManager extends EventEmitter {
   ): Promise<void> {
     // Pre-flight auth check: Verify active profile has valid authentication
     // Ensure profile manager is initialized to prevent race condition
-    let profileManager;
+    let profileManager: ClaudeProfileManager;
     try {
       profileManager = await initializeClaudeProfileManager();
     } catch (error) {
@@ -528,10 +529,14 @@ export class AgentManager extends EventEmitter {
       console.log('[AgentManager] Restarting task now:', taskId);
       if (context.isSpecCreation) {
         console.log('[AgentManager] Restarting as spec creation');
+        if (!context.taskDescription) {
+          console.error('[AgentManager] Cannot restart spec creation: taskDescription is missing');
+          return;
+        }
         this.startSpecCreation(
           taskId,
           context.projectPath,
-          context.taskDescription!,
+          context.taskDescription,
           context.specDir,
           context.metadata,
           context.baseBranch,

@@ -249,15 +249,17 @@ describe('SETTINGS_CLAUDE_CODE_GET_ONBOARDING_STATUS handler', () => {
       const readFileSyncMock = readFileSync as unknown as MockFn;
 
       // Save original mock implementations to restore after test
-      const originalExistsSync = existsSyncMock.getMockImplementation();
-      const originalReadFileSync = readFileSyncMock.getMockImplementation();
+      type ExistsSyncFn = (path: string) => boolean;
+      type ReadFileSyncFn = (path: string) => string;
+      const originalExistsSync: ExistsSyncFn = (existsSyncMock.getMockImplementation() as ExistsSyncFn | undefined) ?? (() => false);
+      const originalReadFileSync: ReadFileSyncFn = (readFileSyncMock.getMockImplementation() as ReadFileSyncFn | undefined) ?? (() => '');
 
       // Override existsSync to make file appear to exist
       existsSyncMock.mockImplementation((path: string) => {
         if (path === claudeJsonPath) {
           return true; // File appears to exist
         }
-        return originalExistsSync ? originalExistsSync(path) : false;
+        return originalExistsSync(path);
       });
 
       // Override readFileSync to throw error for our specific file
@@ -265,7 +267,7 @@ describe('SETTINGS_CLAUDE_CODE_GET_ONBOARDING_STATUS handler', () => {
         if (path === claudeJsonPath) {
           throw new Error('EACCES: permission denied, open \'' + path + '\'');
         }
-        return originalReadFileSync ? originalReadFileSync(path) : '';
+        return originalReadFileSync(path);
       });
 
       const result = await onboardingStatusHandler({}, null) as {

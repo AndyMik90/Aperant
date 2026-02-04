@@ -2013,7 +2013,7 @@ export class UsageMonitor extends EventEmitter {
     // Claude Agent SDK sessions maintain state independently of auth tokens, so no progress is lost
     const operationRegistry = getOperationRegistry();
     const operationSummary = operationRegistry.getSummary();
-    const operationsOnOldProfile = operationSummary.byProfile[currentProfileId] || [];
+    const operationIdsOnOldProfile = operationSummary.byProfile[currentProfileId] || [];
 
     // Always log running operations info for debugging
     console.log('[UsageMonitor] PROACTIVE-SWAP: Checking running operations:', {
@@ -2022,11 +2022,11 @@ export class UsageMonitor extends EventEmitter {
       totalRunning: operationSummary.totalRunning,
       byProfile: operationSummary.byProfile,
       byType: operationSummary.byType,
-      operationsOnOldProfile: operationsOnOldProfile
+      operationIdsOnOldProfile: operationIdsOnOldProfile
     });
 
-    if (operationsOnOldProfile.length > 0) {
-      console.log('[UsageMonitor] PROACTIVE-SWAP: Found', operationsOnOldProfile.length, 'operations to restart:', operationsOnOldProfile);
+    if (operationIdsOnOldProfile.length > 0) {
+      console.log('[UsageMonitor] PROACTIVE-SWAP: Found', operationIdsOnOldProfile.length, 'operations to restart:', operationIdsOnOldProfile);
 
       // Restart all operations on the old profile with the new profile
       const restartedCount = await operationRegistry.restartOperationsOnProfile(
@@ -2039,7 +2039,7 @@ export class UsageMonitor extends EventEmitter {
       this.emit('proactive-operations-restarted', {
         fromProfile: { id: currentProfileId, name: fromProfileName },
         toProfile: { id: bestAccount.id, name: bestAccount.name },
-        operationIds: operationsOnOldProfile,
+        operationIds: operationIdsOnOldProfile,
         restartedCount,
         limitType,
         timestamp: new Date()

@@ -65,6 +65,12 @@ export interface RegisteredOperation {
 
 /**
  * Events emitted by the operation registry
+ *
+ * NOTE: This interface is defined for documentation purposes only. It describes the event types
+ * that ClaudeOperationRegistry can emit, but is not currently enforced at the type system level.
+ * EventEmitter uses runtime event names, so type-safe event binding would require additional
+ * type assertion infrastructure. This interface serves as documentation for consumers of the
+ * operation registry to know which events are available and their callback signatures.
  */
 export interface OperationRegistryEvents {
   'operation-registered': (operation: RegisteredOperation) => void;

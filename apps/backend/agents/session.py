@@ -7,6 +7,7 @@ memory updates, recovery tracking, and Linear integration.
 """
 
 import logging
+import re
 from pathlib import Path
 
 from claude_agent_sdk import ClaudeSDKClient
@@ -82,12 +83,17 @@ def is_rate_limit_error(error: Exception) -> bool:
         True if this is a rate limit error, False otherwise
     """
     error_str = str(error).lower()
+
+    # Check for HTTP 429 with word boundaries to avoid false positives
+    if re.search(r"\b429\b", error_str):
+        return True
+
+    # Check for other rate limit indicators
     return any(
         p in error_str
         for p in [
             "limit reached",
             "rate limit",
-            "429",
             "too many requests",
             "usage limit",
             "quota exceeded",
@@ -109,10 +115,15 @@ def is_authentication_error(error: Exception) -> bool:
         True if this is an authentication error, False otherwise
     """
     error_str = str(error).lower()
+
+    # Check for HTTP 401 with word boundaries to avoid false positives
+    if re.search(r"\b401\b", error_str):
+        return True
+
+    # Check for other authentication indicators
     return any(
         p in error_str
         for p in [
-            "401",
             "authentication",
             "unauthorized",
             "invalid token",
