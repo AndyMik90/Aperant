@@ -186,7 +186,10 @@ export function usePRFiltering(
   }, []);
 
   const clearFilters = useCallback(() => {
-    setFiltersState(DEFAULT_FILTERS);
+    setFiltersState((prev) => ({
+      ...DEFAULT_FILTERS,
+      sortBy: prev.sortBy, // Preserve sort preference when clearing filters
+    }));
   }, []);
 
   const hasActiveFilters = useMemo(() => {

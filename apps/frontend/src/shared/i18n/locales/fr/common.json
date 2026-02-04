@@ -124,16 +124,6 @@
     "hoursAgo": "Il y a {{count}}h",
     "daysAgo": "Il y a {{count}}j"
   },
-  "sort": {
-    "sortBy": "Trier par",
-    "sortNewest": "Plus récent",
-    "sortOldest": "Plus ancien",
-    "sortLargest": "Plus grand"
-  },
-  "pagination": {
-    "loadMore": "Charger plus",
-    "loadingMore": "Chargement..."
-  },
   "errors": {
     "generic": "Une erreur s'est produite",
     "unknownError": "Une erreur inconnue s'est produite",

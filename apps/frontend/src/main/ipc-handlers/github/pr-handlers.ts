@@ -40,6 +40,23 @@ import {
  * GraphQL response type for PR list query
  * Note: repository can be null if the repo doesn't exist or user lacks access
  */
+interface GraphQLPRNode {
+  number: number;
+  title: string;
+  body: string | null;
+  state: string;
+  author: { login: string } | null;
+  headRefName: string;
+  baseRefName: string;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  assignees: { nodes: Array<{ login: string }> };
+  createdAt: string;
+  updatedAt: string;
+  url: string;
+}
+
 interface GraphQLPRListResponse {
   data: {
     repository: {
@@ -48,26 +65,35 @@ interface GraphQLPRListResponse {
           hasNextPage: boolean;
           endCursor: string | null;
         };
-        nodes: Array<{
-          number: number;
-          title: string;
-          body: string | null;
-          state: string;
-          author: { login: string } | null;
-          headRefName: string;
-          baseRefName: string;
-          additions: number;
-          deletions: number;
-          changedFiles: number;
-          assignees: { nodes: Array<{ login: string }> };
-          createdAt: string;
-          updatedAt: string;
-          url: string;
-        }>;
+        nodes: GraphQLPRNode[];
       };
     } | null;
   };
   errors?: Array<{ message: string }>;
+}
+
+/**
+ * Maps a GraphQL PR node to the frontend PRData format.
+ * Shared between listPRs and listMorePRs handlers.
+ */
+function mapGraphQLPRToData(pr: GraphQLPRNode): PRData {
+  return {
+    number: pr.number,
+    title: pr.title,
+    body: pr.body ?? "",
+    state: pr.state.toLowerCase(),
+    author: { login: pr.author?.login ?? "unknown" },
+    headRefName: pr.headRefName,
+    baseRefName: pr.baseRefName,
+    additions: pr.additions,
+    deletions: pr.deletions,
+    changedFiles: pr.changedFiles,
+    assignees: pr.assignees.nodes.map((a) => ({ login: a.login })),
+    files: [],
+    createdAt: pr.createdAt,
+    updatedAt: pr.updatedAt,
+    htmlUrl: pr.url,
+  };
 }
 
 /**
@@ -1403,23 +1429,7 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             endCursor: pageInfo.endCursor,
           });
           return {
-            prs: prNodes.map((pr) => ({
-              number: pr.number,
-              title: pr.title,
-              body: pr.body ?? "",
-              state: pr.state.toLowerCase(),
-              author: { login: pr.author?.login ?? "unknown" },
-              headRefName: pr.headRefName,
-              baseRefName: pr.baseRefName,
-              additions: pr.additions,
-              deletions: pr.deletions,
-              changedFiles: pr.changedFiles,
-              assignees: pr.assignees.nodes.map((a) => ({ login: a.login })),
-              files: [],
-              createdAt: pr.createdAt,
-              updatedAt: pr.updatedAt,
-              htmlUrl: pr.url,
-            })),
+            prs: prNodes.map(mapGraphQLPRToData),
             hasNextPage: pageInfo.hasNextPage,
             endCursor: pageInfo.endCursor,
           };
@@ -1483,23 +1493,7 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             endCursor: pageInfo.endCursor,
           });
           return {
-            prs: prNodes.map((pr) => ({
-              number: pr.number,
-              title: pr.title,
-              body: pr.body ?? "",
-              state: pr.state.toLowerCase(),
-              author: { login: pr.author?.login ?? "unknown" },
-              headRefName: pr.headRefName,
-              baseRefName: pr.baseRefName,
-              additions: pr.additions,
-              deletions: pr.deletions,
-              changedFiles: pr.changedFiles,
-              assignees: pr.assignees.nodes.map((a) => ({ login: a.login })),
-              files: [],
-              createdAt: pr.createdAt,
-              updatedAt: pr.updatedAt,
-              htmlUrl: pr.url,
-            })),
+            prs: prNodes.map(mapGraphQLPRToData),
             hasNextPage: pageInfo.hasNextPage,
             endCursor: pageInfo.endCursor,
           };

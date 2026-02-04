@@ -340,7 +340,7 @@ export interface PRData {
 export interface PRListResult {
   prs: PRData[];
   hasNextPage: boolean; // True if more PRs exist beyond the 100 limit
-  endCursor?: string; // Cursor for fetching next page of results
+  endCursor?: string | null; // Cursor for fetching next page (null if no more pages)
 }
 
 /**

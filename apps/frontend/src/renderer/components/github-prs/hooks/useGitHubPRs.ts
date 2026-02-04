@@ -89,6 +89,10 @@ export function useGitHubPRs(
   const currentFetchPRNumberRef = useRef<number | null>(null);
   // AbortController for cancelling pending checkNewCommits calls on rapid PR switching
   const checkNewCommitsAbortRef = useRef<AbortController | null>(null);
+  // Track current projectId for staleness checks in async operations
+  const currentProjectIdRef = useRef(projectId);
+  // Counter to detect stale loadMore responses after a refresh
+  const fetchGenerationRef = useRef(0);
 
   // Get PR review state from the global store
   const prReviews = usePRReviewStore((state) => state.prReviews);
@@ -146,6 +150,9 @@ export function useGitHubPRs(
   const fetchPRs = useCallback(
     async () => {
       if (!projectId) return;
+
+      // Increment generation to invalidate any in-flight loadMore requests
+      fetchGenerationRef.current += 1;
 
       setIsLoading(true);
       setError(null);
@@ -229,12 +236,15 @@ export function useGitHubPRs(
 
   // Reset state and selected PR when project changes
   useEffect(() => {
+    currentProjectIdRef.current = projectId;
+    fetchGenerationRef.current += 1;
     hasLoadedRef.current = false;
     setHasMore(false);
     setEndCursor(null);
     setPrs([]);
     setSelectedPRNumber(null);
     setSelectedPRDetails(null);
+    setIsLoadingMore(false);
     currentFetchPRNumberRef.current = null;
     // Cancel any pending checkNewCommits request
     if (checkNewCommitsAbortRef.current) {
@@ -388,11 +398,24 @@ export function useGitHubPRs(
   const loadMore = useCallback(async () => {
     if (!projectId || !endCursor || !hasMore || isLoadingMore) return;
 
+    // Capture current state for staleness checks
+    const requestProjectId = projectId;
+    const requestGeneration = fetchGenerationRef.current;
+
     setIsLoadingMore(true);
     setError(null);
 
     try {
       const result = await window.electronAPI.github.listMorePRs(projectId, endCursor);
+
+      // Discard response if project changed or a refresh happened while loading
+      if (
+        requestProjectId !== currentProjectIdRef.current ||
+        requestGeneration !== fetchGenerationRef.current
+      ) {
+        return;
+      }
+
       if (result) {
         // Update pagination state
         setHasMore(result.hasNextPage);
@@ -403,21 +426,29 @@ export function useGitHubPRs(
 
         // Batch preload review results for new PRs not in store
         const prsNeedingPreload = result.prs.filter((pr) => {
-          const existingState = getPRReviewState(projectId, pr.number);
+          const existingState = getPRReviewState(requestProjectId, pr.number);
           return !existingState?.result && !existingState?.isReviewing;
         });
 
         if (prsNeedingPreload.length > 0) {
           const prNumbers = prsNeedingPreload.map((pr) => pr.number);
           const batchReviews = await window.electronAPI.github.getPRReviewsBatch(
-            projectId,
+            requestProjectId,
             prNumbers
           );
+
+          // Check staleness again after async batch fetch
+          if (
+            requestProjectId !== currentProjectIdRef.current ||
+            requestGeneration !== fetchGenerationRef.current
+          ) {
+            return;
+          }
 
           // Update store with loaded results
           for (const reviewResult of Object.values(batchReviews)) {
             if (reviewResult) {
-              usePRReviewStore.getState().setPRReviewResult(projectId, reviewResult, {
+              usePRReviewStore.getState().setPRReviewResult(requestProjectId, reviewResult, {
                 preserveNewCommitsCheck: true,
               });
             }
@@ -425,7 +456,13 @@ export function useGitHubPRs(
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load more PRs");
+      // Only show error if still relevant
+      if (
+        requestProjectId === currentProjectIdRef.current &&
+        requestGeneration === fetchGenerationRef.current
+      ) {
+        setError(err instanceof Error ? err.message : "Failed to load more PRs");
+      }
     } finally {
       setIsLoadingMore(false);
     }

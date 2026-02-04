@@ -124,16 +124,6 @@
     "hoursAgo": "{{count}}h ago",
     "daysAgo": "{{count}}d ago"
   },
-  "sort": {
-    "sortBy": "Sort by",
-    "sortNewest": "Newest",
-    "sortOldest": "Oldest",
-    "sortLargest": "Largest"
-  },
-  "pagination": {
-    "loadMore": "Load More",
-    "loadingMore": "Loading..."
-  },
   "errors": {
     "generic": "An error occurred",
     "unknownError": "An unknown error occurred",
