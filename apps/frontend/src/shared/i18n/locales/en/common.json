@@ -631,6 +631,16 @@
       "goToSettings": "Go to Settings"
     }
   },
+  "git": {
+    "branchGroups": {
+      "local": "Local Branches",
+      "remote": "Remote Branches"
+    },
+    "branchType": {
+      "local": "Local",
+      "remote": "Remote"
+    }
+  },
   "roadmapProgress": {
     "elapsedTime": "Elapsed",
     "lastActivity": "Last activity",
