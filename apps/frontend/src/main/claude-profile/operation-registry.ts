@@ -36,6 +36,29 @@ export type OperationType =
 
 /**
  * Registered operation entry
+ *
+ * IMPORTANT: Object reference stability during restarts
+ * =====================================================
+ * When an operation is restarted via restartFn, the restartFn implementation may
+ * choose to re-register the operation (creating a new RegisteredOperation object)
+ * OR update the existing one. Either approach is valid:
+ *
+ * 1. RE-REGISTRATION (AgentManager pattern):
+ *    - restartFn calls registerOperation() which replaces the Map entry
+ *    - Creates a new RegisteredOperation object with fresh closures
+ *    - Previous object references become stale and should not be used
+ *    - Callers MUST call getOperation(id) again to get the fresh reference
+ *
+ * 2. IN-PLACE UPDATE (alternative pattern):
+ *    - restartFn updates internal state but doesn't re-register
+ *    - Object reference remains valid
+ *    - Registry calls updateOperationProfile() to sync profileId
+ *
+ * BEST PRACTICE for consumers:
+ * - Don't hold long-lived references to RegisteredOperation objects
+ * - Always use getOperation(id) to get current state
+ * - Subscribe to 'operation-restarted' events to know when to refresh
+ * - If you must hold a reference, listen for 'operation-restarted' and refresh it
  */
 export interface RegisteredOperation {
   /** Unique operation ID */
@@ -54,6 +77,10 @@ export interface RegisteredOperation {
    * Function to restart this operation with a new profile.
    * Returns true if restart was initiated successfully.
    * The registry will update the profileId after successful restart.
+   *
+   * IMPORTANT: This function may re-register the operation (creating a new object)
+   * or update in-place. Callers should use getOperation(id) after restart to get
+   * the current reference.
    */
   restartFn: (newProfileId: string) => boolean | Promise<boolean>;
   /**
@@ -82,6 +109,48 @@ export interface OperationRegistryEvents {
 
 /**
  * Singleton registry for Claude SDK operations
+ *
+ * CONSUMER GUIDELINES: Object Reference Stability
+ * ================================================
+ * Operations may be restarted during profile swaps. When this happens:
+ *
+ * 1. The operation's restartFn is called with a new profileId
+ * 2. The restartFn may choose to:
+ *    a) Re-register the operation (creates new RegisteredOperation object), OR
+ *    b) Update internal state without re-registering (keeps same object)
+ *
+ * 3. Either pattern is valid, but has implications for consumers:
+ *    - Pattern (a): Previous object references become stale
+ *    - Pattern (b): Object references remain valid
+ *
+ * BEST PRACTICES for consumers:
+ * - Don't hold long-lived references to RegisteredOperation objects
+ * - Always use getOperation(id) to get current state when needed
+ * - Subscribe to 'operation-restarted' events to know when state may have changed
+ * - Use hasOperation(id) to verify an operation is still registered
+ *
+ * EXAMPLE: Safely working with operation references
+ * ```typescript
+ * const registry = getOperationRegistry();
+ *
+ * // Initial fetch
+ * let operation = registry.getOperation('task-123');
+ *
+ * // Listen for restarts
+ * registry.onOperationRestarted((operationId, oldProfileId, newProfileId) => {
+ *   if (operationId === 'task-123') {
+ *     // Refresh reference after restart
+ *     operation = registry.getOperation('task-123');
+ *     console.log('Operation restarted with new profile:', newProfileId);
+ *   }
+ * });
+ *
+ * // When accessing operation state later, prefer fresh fetch:
+ * const currentOp = registry.getOperation('task-123');
+ * if (currentOp) {
+ *   console.log('Current profile:', currentOp.profileId);
+ * }
+ * ```
  */
 class ClaudeOperationRegistry extends EventEmitter {
   private operations: Map<string, RegisteredOperation> = new Map();
@@ -176,9 +245,25 @@ class ClaudeOperationRegistry extends EventEmitter {
 
   /**
    * Get operation by ID
+   *
+   * IMPORTANT: Always call this method to get the current operation state.
+   * Don't hold long-lived references to RegisteredOperation objects, as they
+   * may become stale after a restart. Instead, call getOperation(id) whenever
+   * you need current state, or subscribe to 'operation-restarted' events.
    */
   getOperation(id: string): RegisteredOperation | undefined {
     return this.operations.get(id);
+  }
+
+  /**
+   * Check if an operation exists and is currently registered.
+   * Use this to verify an operation reference is still valid.
+   *
+   * @param id - Operation ID to check
+   * @returns true if operation exists in registry, false otherwise
+   */
+  hasOperation(id: string): boolean {
+    return this.operations.has(id);
   }
 
   /**
@@ -220,6 +305,22 @@ class ClaudeOperationRegistry extends EventEmitter {
   /**
    * Restart all operations running on a specific profile with a new profile.
    * This is called by UsageMonitor during proactive swaps.
+   *
+   * IMPORTANT: Object reference stability after restart
+   * ====================================================
+   * When operations are restarted, their restartFn implementations may:
+   * 1. Re-register the operation (AgentManager pattern) - creates new object
+   * 2. Update in-place (alternative pattern) - keeps same object
+   *
+   * For consumers holding operation references:
+   * - Your reference may become stale if the operation re-registers
+   * - Always call getOperation(id) after this method to get fresh reference
+   * - Or subscribe to 'operation-restarted' events and refresh on each event
+   *
+   * This method emits:
+   * - 'operation-restarted' for each successful restart (use this to refresh refs)
+   * - 'operations-restarted' once with total count
+   * - 'operation-profile-updated' for each profile update
    *
    * @param oldProfileId - Profile ID to migrate away from
    * @param newProfileId - Profile ID to migrate to

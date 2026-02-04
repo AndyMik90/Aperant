@@ -87,6 +87,29 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
+def _check_and_clear_resume_file(resume_file: Path, pause_file: Path) -> bool:
+    """
+    Check if resume file exists and clean up both resume and pause files.
+
+    Args:
+        resume_file: Path to RESUME file
+        pause_file: Path to pause file (RATE_LIMIT_PAUSE or AUTH_PAUSE)
+
+    Returns:
+        True if resume file existed (early resume), False otherwise
+    """
+    if resume_file.exists():
+        try:
+            resume_file.unlink(missing_ok=True)
+            pause_file.unlink(missing_ok=True)
+        except OSError as e:
+            logger.debug(
+                f"Error cleaning up resume files: {e} (resume: {resume_file}, pause: {pause_file})"
+            )
+        return True
+    return False
+
+
 async def wait_for_rate_limit_reset(spec_dir: Path, wait_seconds: float) -> bool:
     """
     Wait for rate limit reset with periodic checks for resume/cancel.
@@ -105,17 +128,12 @@ async def wait_for_rate_limit_reset(spec_dir: Path, wait_seconds: float) -> bool
 
     while True:
         # Check elapsed time using loop.time() to avoid drift
-        elapsed = loop.time() - start_time
+        elapsed = max(0, loop.time() - start_time)  # Ensure non-negative
         if elapsed >= wait_seconds:
             break
 
         # Check if user requested resume
-        if resume_file.exists():
-            try:
-                resume_file.unlink(missing_ok=True)
-                pause_file.unlink(missing_ok=True)
-            except OSError:
-                pass
+        if _check_and_clear_resume_file(resume_file, pause_file):
             return True
 
         # Wait for next check interval or remaining time
@@ -125,8 +143,8 @@ async def wait_for_rate_limit_reset(spec_dir: Path, wait_seconds: float) -> bool
     # Clean up pause file after wait completes
     try:
         pause_file.unlink(missing_ok=True)
-    except OSError:
-        pass
+    except OSError as e:
+        logger.debug(f"Error cleaning up pause file {pause_file}: {e}")
 
     return False
 
@@ -150,17 +168,21 @@ async def wait_for_auth_resume(spec_dir: Path) -> None:
 
     while True:
         # Check elapsed time using loop.time() to avoid drift
-        elapsed = loop.time() - start_time
+        elapsed = max(0, loop.time() - start_time)  # Ensure non-negative
         if elapsed >= AUTH_RESUME_MAX_WAIT_SECONDS:
             break
 
         # Check for resume signals
-        if resume_file.exists() or not pause_file.exists():
-            try:
-                resume_file.unlink(missing_ok=True)
-                pause_file.unlink(missing_ok=True)
-            except OSError:
-                pass
+        if (
+            _check_and_clear_resume_file(resume_file, pause_file)
+            or not pause_file.exists()
+        ):
+            # If pause file was deleted externally, still clean up resume file if it exists
+            if not pause_file.exists():
+                try:
+                    resume_file.unlink(missing_ok=True)
+                except OSError as e:
+                    logger.debug(f"Error cleaning up resume file {resume_file}: {e}")
             return
 
         await asyncio.sleep(AUTH_RESUME_CHECK_INTERVAL_SECONDS)
@@ -172,8 +194,8 @@ async def wait_for_auth_resume(spec_dir: Path) -> None:
     )
     try:
         pause_file.unlink(missing_ok=True)
-    except OSError:
-        pass
+    except OSError as e:
+        logger.debug(f"Error cleaning up pause file {pause_file} after timeout: {e}")
 
 
 def parse_rate_limit_reset_time(error_info: dict | None) -> int | None:
