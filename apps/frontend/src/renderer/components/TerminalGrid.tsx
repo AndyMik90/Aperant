@@ -413,7 +413,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
               onClick={handleAddTerminal}
               disabled={!canAddTerminal(projectPath)}
             >
-              New Terminal
+              + Terminal
             </Button>
             <Button
               variant="outline"
@@ -422,7 +422,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
               onClick={handleAddClaudeCodeTerminal}
               disabled={!canAddTerminal(projectPath)}
             >
-              New Claude Code
+              + Claude Code
             </Button>
             {/* File explorer toggle button */}
             {projectPath && (
@@ -460,17 +460,17 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
                     </p>
                   </div>
                 </div>
-                {/* FIX-32: Added both New Terminal and New Claude Code buttons to empty state */}
+                {/* FIX-32: Added both + Terminal and + Claude Code buttons to empty state */}
                 <div className="flex gap-2">
                   <Button onClick={handleAddTerminal} variant="outline">
-                    New Terminal
+                    + Terminal
                   </Button>
                   <Button
                     onClick={handleAddClaudeCodeTerminal}
                     className="border-[var(--glow-cyan)]/50 text-[var(--glow-cyan)] bg-transparent hover:bg-[var(--glow-cyan)]/10"
                     variant="outline"
                   >
-                    New Claude Code
+                    + Claude Code
                   </Button>
                 </div>
               </div>
