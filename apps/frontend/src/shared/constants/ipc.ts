@@ -388,6 +388,7 @@ export const IPC_CHANNELS = {
 
   // GitHub PR Review operations
   GITHUB_PR_LIST: 'github:pr:list',
+  GITHUB_PR_LIST_MORE: 'github:pr:listMore',  // Load more PRs (pagination)
   GITHUB_PR_GET: 'github:pr:get',
   GITHUB_PR_GET_DIFF: 'github:pr:getDiff',
   GITHUB_PR_REVIEW: 'github:pr:review',
