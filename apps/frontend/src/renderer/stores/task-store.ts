@@ -247,8 +247,18 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     const oldTask = state.tasks[index];
     const oldStatus = oldTask.status;
 
-    // Skip if status is the same
-    if (oldStatus === status) return;
+    // Skip if status AND reviewReason are the same
+    if (oldStatus === status && oldTask.reviewReason === reviewReason) {
+      debugLog('[updateTaskStatus] Status and reviewReason unchanged, skipping:', { taskId, status, reviewReason });
+      return;
+    }
+
+    debugLog('[updateTaskStatus] START:', {
+      taskId,
+      oldStatus,
+      newStatus: status,
+      allInProgress: state.tasks.filter(t => t.status === 'in_progress' && !t.metadata?.archivedAt).map(t => t.id)
+    });
 
     // Perform the state update
     set((state) => {
@@ -281,7 +291,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
             newPhase: executionProgress?.phase
           });
 
-          return { ...t, status, executionProgress, updatedAt: new Date() };
+          return { ...t, status, reviewReason, executionProgress, updatedAt: new Date() };
         })
       };
     });
