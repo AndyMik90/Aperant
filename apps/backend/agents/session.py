@@ -137,10 +137,13 @@ def is_authentication_error(error: Exception) -> bool:
         return True
 
     # Check for other authentication indicators
+    # NOTE: "authentication failed" and "authentication error" are more specific patterns
+    # to reduce false positives from generic "authentication" mentions
     return any(
         p in error_str
         for p in [
-            "authentication",
+            "authentication failed",
+            "authentication error",
             "unauthorized",
             "invalid token",
             "token expired",
@@ -148,7 +151,7 @@ def is_authentication_error(error: Exception) -> bool:
             "invalid_token",
             "token_expired",
             "not authenticated",
-            "access denied",
+            "http 401",
         ]
     )
 

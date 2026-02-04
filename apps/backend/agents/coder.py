@@ -86,6 +86,55 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
+def sanitize_error_message(error_message: str, max_length: int = 500) -> str:
+    """
+    Sanitize error message by redacting sensitive patterns and truncating.
+
+    Args:
+        error_message: The raw error message to sanitize
+        max_length: Maximum length after sanitization
+
+    Returns:
+        Sanitized error message with sensitive data redacted
+    """
+    if not error_message:
+        return ""
+
+    # Redact patterns that look like API keys or tokens
+    # Pattern: sk-... (OpenAI/Anthropic keys)
+    sanitized = re.sub(r"\bsk-[a-zA-Z0-9]{20,}\b", "[REDACTED_API_KEY]", error_message)
+
+    # Pattern: key-... (generic API keys)
+    sanitized = re.sub(r"\bkey-[a-zA-Z0-9]{20,}\b", "[REDACTED_API_KEY]", sanitized)
+
+    # Pattern: Bearer ... (bearer tokens)
+    sanitized = re.sub(
+        r"\bBearer\s+[a-zA-Z0-9._\-]{20,}\b", "Bearer [REDACTED_TOKEN]", sanitized
+    )
+
+    # Pattern: token= or token: followed by long strings
+    sanitized = re.sub(
+        r"(token[=:]\s*)[a-zA-Z0-9._\-]{20,}\b",
+        r"\1[REDACTED_TOKEN]",
+        sanitized,
+        flags=re.IGNORECASE,
+    )
+
+    # Pattern: secret= or secret: followed by strings
+    sanitized = re.sub(
+        r"(secret[=:]\s*)[a-zA-Z0-9._\-]{20,}\b",
+        r"\1[REDACTED_SECRET]",
+        sanitized,
+        flags=re.IGNORECASE,
+    )
+
+    # Truncate to max length
+    if len(sanitized) > max_length:
+        sanitized = sanitized[:max_length]
+
+    return sanitized
+
+
 async def wait_for_rate_limit_reset(spec_dir: Path, wait_seconds: float) -> bool:
     """
     Wait for rate limit reset with periodic checks for resume/cancel.
@@ -97,11 +146,17 @@ async def wait_for_rate_limit_reset(spec_dir: Path, wait_seconds: float) -> bool
     Returns:
         True if resumed early, False if waited full duration
     """
-    elapsed = 0.0
+    loop = asyncio.get_event_loop()
+    start_time = loop.time()
     resume_file = spec_dir / RESUME_FILE
     pause_file = spec_dir / RATE_LIMIT_PAUSE_FILE
 
-    while elapsed < wait_seconds:
+    while True:
+        # Check elapsed time using loop.time() to avoid drift
+        elapsed = loop.time() - start_time
+        if elapsed >= wait_seconds:
+            break
+
         # Check if user requested resume
         if resume_file.exists():
             try:
@@ -114,7 +169,6 @@ async def wait_for_rate_limit_reset(spec_dir: Path, wait_seconds: float) -> bool
         # Wait for next check interval or remaining time
         sleep_time = min(RATE_LIMIT_CHECK_INTERVAL_SECONDS, wait_seconds - elapsed)
         await asyncio.sleep(sleep_time)
-        elapsed += sleep_time
 
     # Clean up pause file after wait completes
     try:
@@ -137,11 +191,17 @@ async def wait_for_auth_resume(spec_dir: Path) -> None:
     Args:
         spec_dir: Spec directory to monitor for signal files
     """
-    elapsed = 0.0
+    loop = asyncio.get_event_loop()
+    start_time = loop.time()
     resume_file = spec_dir / RESUME_FILE
     pause_file = spec_dir / AUTH_FAILURE_PAUSE_FILE
 
-    while elapsed < AUTH_RESUME_MAX_WAIT_SECONDS:
+    while True:
+        # Check elapsed time using loop.time() to avoid drift
+        elapsed = loop.time() - start_time
+        if elapsed >= AUTH_RESUME_MAX_WAIT_SECONDS:
+            break
+
         # Check for resume signals
         if resume_file.exists() or not pause_file.exists():
             try:
@@ -152,7 +212,6 @@ async def wait_for_auth_resume(spec_dir: Path) -> None:
             return
 
         await asyncio.sleep(AUTH_RESUME_CHECK_INTERVAL_SECONDS)
-        elapsed += AUTH_RESUME_CHECK_INTERVAL_SECONDS
 
     # Timeout reached - clean up and return
     print_status(
@@ -171,6 +230,14 @@ def parse_rate_limit_reset_time(error_info: dict | None) -> int | None:
 
     Attempts to extract reset time from various formats in error messages.
 
+    TIMEZONE ASSUMPTIONS:
+    - "in X minutes/hours" patterns are timezone-safe (relative time)
+    - "at HH:MM" patterns assume LOCAL timezone, which is reasonable since:
+      1. The user sees timestamps in their local timezone
+      2. The wait calculation happens locally using datetime.now()
+      3. If the API returns UTC "at" times, this would need adjustment
+        (but Claude API typically returns relative times like "in X minutes")
+
     Args:
         error_info: Error info dict with 'message' key
 
@@ -183,7 +250,7 @@ def parse_rate_limit_reset_time(error_info: dict | None) -> int | None:
     message = error_info.get("message", "")
 
     # Try to find patterns like "resets at 3:00 PM" or "in 5 minutes"
-    # Pattern: "in X minutes/hours"
+    # Pattern: "in X minutes/hours" (timezone-safe - relative time)
     in_time_match = re.search(r"in\s+(\d+)\s*(minute|hour|min|hr)s?", message, re.I)
     if in_time_match:
         amount = int(in_time_match.group(1))
@@ -879,10 +946,11 @@ async def run_autonomous_agent(
                     )
 
                     # Create pause file for frontend detection
-                    # Sanitize and truncate error message to prevent exposing sensitive data
+                    # Sanitize error message to prevent exposing sensitive data
                     raw_error = error_info.get("message", "Rate limit reached")
                     sanitized_error = (
-                        raw_error[:500] if raw_error else "Rate limit reached"
+                        sanitize_error_message(raw_error, max_length=500)
+                        or "Rate limit reached"
                     )
                     pause_data = {
                         "paused_at": datetime.now().isoformat(),
@@ -929,10 +997,11 @@ async def run_autonomous_agent(
                 )
 
                 # Create pause file for frontend detection
-                # Sanitize and truncate error message to prevent exposing sensitive data
+                # Sanitize error message to prevent exposing sensitive data
                 raw_error = error_info.get("message", "Authentication failed")
                 sanitized_error = (
-                    raw_error[:500] if raw_error else "Authentication failed"
+                    sanitize_error_message(raw_error, max_length=500)
+                    or "Authentication failed"
                 )
                 pause_data = {
                     "paused_at": datetime.now().isoformat(),

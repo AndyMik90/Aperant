@@ -104,6 +104,46 @@ export class AgentManager extends EventEmitter {
   }
 
   /**
+   * Register a task with the unified OperationRegistry for proactive swap support.
+   * Extracted helper to avoid code duplication between spec creation and task execution.
+   * @private
+   */
+  private registerTaskWithOperationRegistry(
+    taskId: string,
+    operationType: 'spec-creation' | 'task-execution',
+    metadata: Record<string, unknown>
+  ): void {
+    const profileManager = getClaudeProfileManager();
+    const activeProfile = profileManager.getActiveProfile();
+    if (!activeProfile) {
+      return;
+    }
+
+    // Keep internal state tracking for backward compatibility
+    this.assignProfileToTask(taskId, activeProfile.id, activeProfile.name, 'proactive');
+
+    // Register with unified registry for proactive swap
+    const operationRegistry = getOperationRegistry();
+    operationRegistry.registerOperation(
+      taskId,
+      operationType,
+      activeProfile.id,
+      activeProfile.name,
+      (newProfileId: string) => this.restartTask(taskId, newProfileId),
+      {
+        stopFn: () => { this.killTask(taskId); },
+        metadata
+      }
+    );
+    console.log('[AgentManager] Task registered with OperationRegistry:', {
+      taskId,
+      profileId: activeProfile.id,
+      profileName: activeProfile.name,
+      type: operationType
+    });
+  }
+
+  /**
    * Start spec creation process
    */
   async startSpecCreation(
@@ -196,26 +236,7 @@ export class AgentManager extends EventEmitter {
     this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch, projectId);
 
     // Register with unified OperationRegistry for proactive swap support
-    const activeProfile = profileManager.getActiveProfile();
-    if (activeProfile) {
-      // Keep internal state tracking for backward compatibility
-      this.assignProfileToTask(taskId, activeProfile.id, activeProfile.name, 'proactive');
-
-      // Register with unified registry for proactive swap
-      const operationRegistry = getOperationRegistry();
-      operationRegistry.registerOperation(
-        taskId,
-        'spec-creation',
-        activeProfile.id,
-        activeProfile.name,
-        (newProfileId: string) => this.restartTask(taskId, newProfileId),
-        {
-          stopFn: () => { this.killTask(taskId); },
-          metadata: { projectPath, taskDescription, specDir }
-        }
-      );
-      console.log('[AgentManager] Task registered with OperationRegistry:', { taskId, profileId: activeProfile.id, profileName: activeProfile.name, type: 'spec-creation' });
-    }
+    this.registerTaskWithOperationRegistry(taskId, 'spec-creation', { projectPath, taskDescription, specDir });
 
     // Note: This is spec-creation but it chains to task-execution via run.py
     await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution', projectId);
@@ -297,26 +318,7 @@ export class AgentManager extends EventEmitter {
     this.storeTaskContext(taskId, projectPath, specId, options, false, undefined, undefined, undefined, undefined, projectId);
 
     // Register with unified OperationRegistry for proactive swap support
-    const activeProfile = profileManager.getActiveProfile();
-    if (activeProfile) {
-      // Keep internal state tracking for backward compatibility
-      this.assignProfileToTask(taskId, activeProfile.id, activeProfile.name, 'proactive');
-
-      // Register with unified registry for proactive swap
-      const operationRegistry = getOperationRegistry();
-      operationRegistry.registerOperation(
-        taskId,
-        'task-execution',
-        activeProfile.id,
-        activeProfile.name,
-        (newProfileId: string) => this.restartTask(taskId, newProfileId),
-        {
-          stopFn: () => { this.killTask(taskId); },
-          metadata: { projectPath, specId, options }
-        }
-      );
-      console.log('[AgentManager] Task registered with OperationRegistry:', { taskId, profileId: activeProfile.id, profileName: activeProfile.name, type: 'task-execution' });
-    }
+    this.registerTaskWithOperationRegistry(taskId, 'task-execution', { projectPath, specId, options });
 
     await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution', projectId);
   }

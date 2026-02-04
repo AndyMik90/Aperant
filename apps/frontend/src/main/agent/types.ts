@@ -1,5 +1,5 @@
 import { ChildProcess } from 'child_process';
-import type { CompletablePhase } from '../../shared/constants/phase-protocol';
+import type { CompletablePhase, ExecutionPhase } from '../../shared/constants/phase-protocol';
 import type { TaskEventPayload } from './task-event-schema';
 
 /**
@@ -18,7 +18,7 @@ export interface AgentProcess {
 }
 
 export interface ExecutionProgressData {
-  phase: 'idle' | 'planning' | 'coding' | 'qa_review' | 'qa_fixing' | 'complete' | 'failed';
+  phase: ExecutionPhase;
   phaseProgress: number;
   overallProgress: number;
   currentSubtask?: string;

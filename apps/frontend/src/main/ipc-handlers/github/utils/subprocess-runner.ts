@@ -155,8 +155,15 @@ export function runPythonSubprocess<T = unknown>(
 
       // Create a stop function that kills the subprocess.
       // Note: This sends SIGTERM and returns immediately without waiting for process exit.
+      //
+      // Timing dependency for restarts:
+      // - For subprocess-runner operations, restartFn returns false so no race condition
+      //   (operations are non-resumable and won't be restarted, just stopped gracefully)
+      // - For AgentManager operations, there's a 500ms setTimeout delay in restartTask
+      //   (see agent-manager.ts line 528) that mitigates the race between kill and restart
+      //
       // RestartFn implementations should handle potential overlap between process termination
-      // and restart initialization.
+      // and restart initialization if not using the setTimeout pattern.
       const stopFn = async () => {
         if (child.pid) {
           try {

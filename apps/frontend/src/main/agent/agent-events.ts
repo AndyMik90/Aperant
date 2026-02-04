@@ -23,6 +23,8 @@ export class AgentEvents {
   } | null {
     const structuredEvent = parsePhaseEvent(log);
     if (structuredEvent) {
+      // structuredEvent.phase is validated as BackendPhase (via Zod schema),
+      // which is a subset of ExecutionPhase, so this assertion is safe
       const result: {
         phase: ExecutionProgressData['phase'];
         message?: string;
@@ -30,7 +32,7 @@ export class AgentEvents {
         resetTimestamp?: number;
         profileId?: string;
       } = {
-        phase: structuredEvent.phase as ExecutionProgressData['phase'],
+        phase: structuredEvent.phase as ExecutionPhase,
         message: structuredEvent.message,
         currentSubtask: structuredEvent.subtask
       };
@@ -47,13 +49,13 @@ export class AgentEvents {
     }
 
     // Terminal states can't be changed by fallback matching
-    if (isTerminalPhase(currentPhase as ExecutionPhase)) {
+    if (isTerminalPhase(currentPhase)) {
       return null;
     }
 
     // Pause phases should only be changed by structured events
     // Don't allow fallback text matching to transition out of pause phases
-    if (isPausePhase(currentPhase as ExecutionPhase)) {
+    if (isPausePhase(currentPhase)) {
       return null;
     }
 
