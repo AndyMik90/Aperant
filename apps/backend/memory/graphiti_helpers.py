@@ -17,7 +17,7 @@ from core.sentry import capture_exception
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from graphiti_memory import GraphitiMemory
+    from integrations.graphiti.memory import GraphitiMemory
 
 
 def is_graphiti_memory_enabled() -> bool:
@@ -60,7 +60,7 @@ async def get_graphiti_memory(
         return None
 
     try:
-        from graphiti_memory import GraphitiMemory, GroupIdMode
+        from integrations.graphiti.memory import GraphitiMemory, GroupIdMode
 
         if project_dir is None:
             project_dir = spec_dir.parent.parent
