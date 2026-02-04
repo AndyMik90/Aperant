@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, RefreshCw, AlertCircle } from 'lucide-react';
+import { Download, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { debugLog } from '../shared/utils/debug-logger';
 import {
   DndContext,
@@ -26,6 +26,8 @@ import {
   DialogHeader,
   DialogTitle
 } from './components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from './components/ui/radio-group';
+import { Label } from './components/ui/label';
 import { Sidebar, type SidebarView } from './components/Sidebar';
 import { KanbanBoard } from './components/KanbanBoard';
 import { TasksHub } from './components/TasksHub';
@@ -33,25 +35,37 @@ import { TaskDetailModal } from './components/task-detail/TaskDetailModal';
 import { TaskCreationWizard } from './components/TaskCreationWizard';
 import { QuickTaskDialog } from './components/QuickTaskDialog';
 import { GlobalSearchDialog } from './components/GlobalSearchDialog';
-import { AppSettingsDialog, type AppSection } from './components/settings/AppSettings';
+import type { AppSection } from './components/settings/AppSettings';
 import type { ProjectSettingsSection } from './components/settings/ProjectSettingsContent';
 import { TerminalGrid } from './components/TerminalGrid';
-import { DiscoveryHub } from './components/DiscoveryHub';
-import { Context } from './components/Context';
-import { RepositoryHub } from './components/RepositoryHub';
-import { Insights } from './components/Insights';
 import { GitHubHub } from './components/GitHubHub';
-import { GitLabIssues } from './components/GitLabIssues';
-import { GitLabMergeRequests } from './components/gitlab-merge-requests';
-import { Changelog } from './components/Changelog';
-import { Worktrees } from './components/Worktrees';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { RateLimitModal } from './components/RateLimitModal';
 import { SDKRateLimitModal } from './components/SDKRateLimitModal';
-import { OnboardingWizard } from './components/onboarding';
 import { AppUpdateNotification } from './components/AppUpdateNotification';
 import { ProactiveSwapListener } from './components/ProactiveSwapListener';
 import { GitHubSetupModal } from './components/GitHubSetupModal';
+
+// Lazy-loaded components for code splitting (reduces initial bundle size)
+const DiscoveryHub = lazy(() => import('./components/DiscoveryHub').then(m => ({ default: m.DiscoveryHub })));
+const Context = lazy(() => import('./components/Context').then(m => ({ default: m.Context })));
+const RepositoryHub = lazy(() => import('./components/RepositoryHub').then(m => ({ default: m.RepositoryHub })));
+const Insights = lazy(() => import('./components/Insights').then(m => ({ default: m.Insights })));
+const GitLabIssues = lazy(() => import('./components/GitLabIssues').then(m => ({ default: m.GitLabIssues })));
+const GitLabMergeRequests = lazy(() => import('./components/gitlab-merge-requests').then(m => ({ default: m.GitLabMergeRequests })));
+const Changelog = lazy(() => import('./components/Changelog').then(m => ({ default: m.Changelog })));
+const Worktrees = lazy(() => import('./components/Worktrees').then(m => ({ default: m.Worktrees })));
+const OnboardingWizard = lazy(() => import('./components/onboarding').then(m => ({ default: m.OnboardingWizard })));
+const AppSettingsDialog = lazy(() => import('./components/settings/AppSettings').then(m => ({ default: m.AppSettingsDialog })));
+
+// Loading fallback component for lazy-loaded views
+function ViewLoader() {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 import { useProjectStore, loadProjects, addProject, initializeProject, removeProject } from './stores/project-store';
 import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings, loadProfiles } from './stores/settings-store';
@@ -59,6 +73,7 @@ import { useClaudeProfileStore } from './stores/claude-profile-store';
 import { useTerminalStore, restoreTerminalSessions, recreateTaskMonitorTerminals } from './stores/terminal-store';
 import { initializeGitHubListeners } from './stores/github';
 import { initDownloadProgressListener } from './stores/download-store';
+import { setupDriftListeners } from './stores/drift-store';
 import { GlobalDownloadIndicator } from './components/GlobalDownloadIndicator';
 import { useIpcListeners } from './hooks/useIpc';
 import { useGlobalTerminalListeners } from './hooks/useGlobalTerminalListeners';
@@ -155,6 +170,7 @@ export function App() {
   // Remove project confirmation state
   const [showRemoveProjectDialog, setShowRemoveProjectDialog] = useState(false);
   const [removeProjectError, setRemoveProjectError] = useState<string | null>(null);
+  const [deleteDataOption, setDeleteDataOption] = useState<'keep' | 'delete'>('keep');
   const [projectToRemove, setProjectToRemove] = useState<Project | null>(null);
 
   // Setup drag sensors
@@ -182,9 +198,12 @@ export function App() {
     initializeGitHubListeners();
     // Initialize global download progress listener for Ollama model downloads
     const cleanupDownloadListener = initDownloadProgressListener();
+    // Initialize drift monitoring listeners for real-time drift updates
+    const cleanupDriftListeners = setupDriftListeners();
 
     return () => {
       cleanupDownloadListener();
+      cleanupDriftListeners();
     };
   }, []);
 
@@ -634,16 +653,18 @@ export function App() {
     }
   };
 
-  const handleConfirmRemoveProject = () => {
+  const handleConfirmRemoveProject = async () => {
     if (projectToRemove) {
       try {
         // Clear any previous error
         setRemoveProjectError(null);
-        // Remove the project from the app (files are preserved on disk for re-adding later)
-        removeProject(projectToRemove.id);
+        // Remove the project with optional data deletion
+        const deleteData = deleteDataOption === 'delete';
+        await removeProject(projectToRemove.id, deleteData);
         // Only clear dialog state on success
         setShowRemoveProjectDialog(false);
         setProjectToRemove(null);
+        setDeleteDataOption('keep'); // Reset for next use
       } catch (err) {
         // Log error and keep dialog open so user can retry or cancel
         console.error('[App] Failed to remove project:', err);
@@ -659,6 +680,7 @@ export function App() {
     setShowRemoveProjectDialog(false);
     setProjectToRemove(null);
     setRemoveProjectError(null);
+    setDeleteDataOption('keep'); // Reset for next use
   };
 
   // Handle drag start - set the active dragged project
@@ -867,16 +889,24 @@ export function App() {
                   />
                 </div>
                 {activeView === 'discovery' && (activeProjectId || selectedProjectId) && (
-                  <DiscoveryHub projectId={activeProjectId || selectedProjectId!} onGoToTask={handleGoToTask} />
+                  <Suspense fallback={<ViewLoader />}>
+                    <DiscoveryHub projectId={activeProjectId || selectedProjectId!} onGoToTask={handleGoToTask} />
+                  </Suspense>
                 )}
                 {activeView === 'context' && (activeProjectId || selectedProjectId) && (
-                  <Context projectId={activeProjectId || selectedProjectId!} />
+                  <Suspense fallback={<ViewLoader />}>
+                    <Context projectId={activeProjectId || selectedProjectId!} />
+                  </Suspense>
                 )}
                 {activeView === 'repository' && (activeProjectId || selectedProjectId) && (
-                  <RepositoryHub projectId={activeProjectId || selectedProjectId!} />
+                  <Suspense fallback={<ViewLoader />}>
+                    <RepositoryHub projectId={activeProjectId || selectedProjectId!} />
+                  </Suspense>
                 )}
                 {activeView === 'insights' && (activeProjectId || selectedProjectId) && (
-                  <Insights projectId={activeProjectId || selectedProjectId!} />
+                  <Suspense fallback={<ViewLoader />}>
+                    <Insights projectId={activeProjectId || selectedProjectId!} />
+                  </Suspense>
                 )}
                 {/* GitHubHub is always mounted but hidden when not active to preserve PR review state */}
                 {(activeProjectId || selectedProjectId) && (
@@ -892,28 +922,36 @@ export function App() {
                   </div>
                 )}
                 {activeView === 'gitlab-issues' && (activeProjectId || selectedProjectId) && (
-                  <GitLabIssues
-                    onOpenSettings={() => {
-                      setSettingsInitialProjectSection('gitlab');
-                      setIsSettingsDialogOpen(true);
-                    }}
-                    onNavigateToTask={handleGoToTask}
-                  />
+                  <Suspense fallback={<ViewLoader />}>
+                    <GitLabIssues
+                      onOpenSettings={() => {
+                        setSettingsInitialProjectSection('gitlab');
+                        setIsSettingsDialogOpen(true);
+                      }}
+                      onNavigateToTask={handleGoToTask}
+                    />
+                  </Suspense>
                 )}
                 {activeView === 'gitlab-merge-requests' && (activeProjectId || selectedProjectId) && (
-                  <GitLabMergeRequests
-                    projectId={activeProjectId || selectedProjectId!}
-                    onOpenSettings={() => {
-                      setSettingsInitialProjectSection('gitlab');
-                      setIsSettingsDialogOpen(true);
-                    }}
-                  />
+                  <Suspense fallback={<ViewLoader />}>
+                    <GitLabMergeRequests
+                      projectId={activeProjectId || selectedProjectId!}
+                      onOpenSettings={() => {
+                        setSettingsInitialProjectSection('gitlab');
+                        setIsSettingsDialogOpen(true);
+                      }}
+                    />
+                  </Suspense>
                 )}
                 {activeView === 'changelog' && (activeProjectId || selectedProjectId) && (
-                  <Changelog />
+                  <Suspense fallback={<ViewLoader />}>
+                    <Changelog />
+                  </Suspense>
                 )}
                 {activeView === 'worktrees' && (activeProjectId || selectedProjectId) && (
-                  <Worktrees projectId={activeProjectId || selectedProjectId!} />
+                  <Suspense fallback={<ViewLoader />}>
+                    <Worktrees projectId={activeProjectId || selectedProjectId!} />
+                  </Suspense>
                 )}
               </>
             ) : (
@@ -965,27 +1003,29 @@ export function App() {
           </>
         )}
 
-        <AppSettingsDialog
-          open={isSettingsDialogOpen}
-          onOpenChange={(open) => {
-            setIsSettingsDialogOpen(open);
-            if (!open) {
-              // Reset initial sections when dialog closes
-              setSettingsInitialSection(undefined);
-              setSettingsInitialProjectSection(undefined);
-            }
-          }}
-          initialSection={settingsInitialSection}
-          initialProjectSection={settingsInitialProjectSection}
-          onRerunWizard={() => {
-            // Reset onboarding state to trigger wizard
-            useSettingsStore.getState().updateSettings({ onboardingCompleted: false });
-            // Close settings dialog
-            setIsSettingsDialogOpen(false);
-            // Open onboarding wizard
-            setIsOnboardingWizardOpen(true);
-          }}
-        />
+        <Suspense fallback={null}>
+          <AppSettingsDialog
+            open={isSettingsDialogOpen}
+            onOpenChange={(open) => {
+              setIsSettingsDialogOpen(open);
+              if (!open) {
+                // Reset initial sections when dialog closes
+                setSettingsInitialSection(undefined);
+                setSettingsInitialProjectSection(undefined);
+              }
+            }}
+            initialSection={settingsInitialSection}
+            initialProjectSection={settingsInitialProjectSection}
+            onRerunWizard={() => {
+              // Reset onboarding state to trigger wizard
+              useSettingsStore.getState().updateSettings({ onboardingCompleted: false });
+              // Close settings dialog
+              setIsSettingsDialogOpen(false);
+              // Open onboarding wizard
+              setIsOnboardingWizardOpen(true);
+            }}
+          />
+        </Suspense>
 
         {/* Add Project Modal */}
         <AddProjectModal
@@ -1095,6 +1135,36 @@ export function App() {
                 {t('removeProject.description', { projectName: projectToRemove?.name || '' })}
               </DialogDescription>
             </DialogHeader>
+
+            <RadioGroup
+              value={deleteDataOption}
+              onValueChange={(value) => setDeleteDataOption(value as 'keep' | 'delete')}
+              className="space-y-3 py-4"
+            >
+              <div className="flex items-start space-x-3">
+                <RadioGroupItem value="keep" id="remove-keep" />
+                <div className="grid gap-1">
+                  <Label htmlFor="remove-keep" className="font-medium">
+                    {t('removeProject.keepOption', { defaultValue: 'Remove from app only' })}
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {t('removeProject.keepDescription', { defaultValue: 'Keep the .auto-claude folder. You can re-add the project later.' })}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <RadioGroupItem value="delete" id="remove-delete" />
+                <div className="grid gap-1">
+                  <Label htmlFor="remove-delete" className="font-medium text-destructive">
+                    {t('removeProject.deleteOption', { defaultValue: 'Delete all project data' })}
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {t('removeProject.deleteDescription', { defaultValue: 'Permanently delete the .auto-claude folder and all task data.' })}
+                  </p>
+                </div>
+              </div>
+            </RadioGroup>
+
             {removeProjectError && (
               <div className="flex items-center gap-2 p-3 text-sm text-destructive bg-destructive/10 rounded-md">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -1105,7 +1175,10 @@ export function App() {
               <Button variant="outline" onClick={handleCancelRemoveProject}>
                 {t('removeProject.cancel')}
               </Button>
-              <Button variant="destructive" onClick={handleConfirmRemoveProject}>
+              <Button
+                variant={deleteDataOption === 'delete' ? 'destructive' : 'default'}
+                onClick={handleConfirmRemoveProject}
+              >
                 {t('removeProject.remove')}
               </Button>
             </DialogFooter>
@@ -1119,18 +1192,20 @@ export function App() {
         <SDKRateLimitModal />
 
         {/* Onboarding Wizard - shows on first launch when onboardingCompleted is false */}
-        <OnboardingWizard
-          open={isOnboardingWizardOpen}
-          onOpenChange={setIsOnboardingWizardOpen}
-          onOpenTaskCreator={() => {
-            setIsOnboardingWizardOpen(false);
-            setIsNewTaskDialogOpen(true);
-          }}
-          onOpenSettings={() => {
-            setIsOnboardingWizardOpen(false);
-            setIsSettingsDialogOpen(true);
-          }}
-        />
+        <Suspense fallback={null}>
+          <OnboardingWizard
+            open={isOnboardingWizardOpen}
+            onOpenChange={setIsOnboardingWizardOpen}
+            onOpenTaskCreator={() => {
+              setIsOnboardingWizardOpen(false);
+              setIsNewTaskDialogOpen(true);
+            }}
+            onOpenSettings={() => {
+              setIsOnboardingWizardOpen(false);
+              setIsSettingsDialogOpen(true);
+            }}
+          />
+        </Suspense>
 
         {/* App Update Notification - shows when new app version is available */}
         <AppUpdateNotification />

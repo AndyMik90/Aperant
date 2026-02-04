@@ -35,7 +35,11 @@ from ui import (
 )
 from worktree import WorktreeManager
 
-# Import debug utilities
+# SWEEP-12: Import debug utilities with logging fallback
+import logging
+
+_logger = logging.getLogger(__name__)
+
 try:
     from debug import (
         debug,
@@ -46,7 +50,9 @@ try:
         debug_warning,
         is_debug_enabled,
     )
-except ImportError:
+except ImportError as e:
+    # Log import failure for debugging
+    _logger.warning("Debug module not available, using no-op functions: %s", e)
 
     def debug(*args, **kwargs):
         pass

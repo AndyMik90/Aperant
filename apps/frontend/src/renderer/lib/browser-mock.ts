@@ -332,7 +332,35 @@ const browserMockAPI: ElectronAPI = {
   openLogsFolder: async () => ({ success: false, error: 'Not available in browser mode' }),
   copyDebugInfo: async () => ({ success: false, error: 'Not available in browser mode' }),
   getRecentErrors: async () => [],
-  listLogFiles: async () => []
+  listLogFiles: async () => [],
+
+  // Generic IPC
+  invoke: async <T = unknown>(_channel: string, ..._args: unknown[]): Promise<T> => {
+    console.warn('[Browser Mock] invoke called');
+    return undefined as T;
+  },
+  on: (_channel: string, _callback: (event: unknown, ...args: unknown[]) => void) => {
+    console.warn('[Browser Mock] on called');
+    return () => {};
+  },
+
+  // Task lifecycle events
+  onTaskAgentStopped: (_callback: (taskId: string) => void) => {
+    return () => {};
+  },
+  onTaskSpecReady: (_callback: (taskId: string, specId: string, projectId?: string) => void) => {
+    return () => {};
+  },
+
+  // File operations
+  writeFile: async (_filePath: string, _content: string) => ({
+    success: true
+  }),
+
+  // Build operations
+  startBuild: async (_taskId: string) => ({
+    success: true
+  })
 };
 
 /**

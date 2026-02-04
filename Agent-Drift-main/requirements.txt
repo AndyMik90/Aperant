@@ -1,0 +1,14 @@
+# Core dependencies (none - stdlib only!)
+
+# Test dependencies
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Dashboard dependencies (optional)
+flask>=2.0.0
+flask-socketio>=5.0.0
+python-socketio>=5.0.0
+
+# Development
+black>=23.0.0
+mypy>=1.0.0

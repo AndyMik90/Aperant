@@ -1149,4 +1149,103 @@ if (task.status === 'planning') {
 
 ---
 
+## Code Sweep Issues (2026-02-04)
+
+The following issues were identified during a full codebase sweep. These are primarily Python backend issues that don't have existing tracking.
+
+### CRITICAL - Python Backend
+
+#### SWEEP-1: Bare Exception Handlers in coder.py
+**File:** `apps/backend/agents/coder.py`
+**Lines:** 630-657
+**Issue:** Bare `except:` clauses in pause/resume wait loop silently swallow exceptions without logging.
+**Impact:** Debugging production issues becomes extremely difficult when errors are silently swallowed.
+**Status:** 📋 Documented
+
+#### SWEEP-2: Incomplete Error Handling in file_utils.py
+**File:** `apps/backend/core/file_utils.py`
+**Line:** 77
+**Issue:** `except Exception:` attempts cleanup but doesn't log the exception type. If `os.unlink(tmp_path)` fails, temporary files accumulate silently.
+**Impact:** Disk space can fill up with orphaned `.tmp` files over time.
+**Status:** 📋 Documented
+
+#### SWEEP-3: Generic Exception Handler Masks Root Cause
+**File:** `apps/backend/agents/session.py`
+**Line:** 586
+**Issue:** Broad `except Exception` catches all exceptions but returns generic error message without detailed context.
+**Impact:** Debugging auth failures, network issues, or SDK protocol errors becomes very difficult.
+**Status:** 📋 Documented
+
+### MAJOR - Python Backend
+
+#### SWEEP-4: Race Condition in Pause/Resume Loop
+**File:** `apps/backend/agents/coder.py`
+**Line:** 647
+**Issue:** The loop uses `content` variable from the last iteration to decide whether to break. Multiple messages arriving simultaneously could cause incorrect control flow.
+**Impact:** Unpredictable agent behavior when multiple control messages arrive quickly.
+**Status:** 📋 Documented
+
+#### SWEEP-5: Thread-Unsafe Cache Pattern
+**File:** `apps/backend/core/client.py`
+**Lines:** 42-109
+**Issue:** The `_PROJECT_INDEX_CACHE` uses double-checked locking with a subtle race condition window.
+**Impact:** Wasted computation and potential cache inconsistency in multi-threaded scenarios.
+**Status:** 📋 Documented
+
+#### SWEEP-6: Threading Timer Resource Leak
+**File:** `apps/backend/ui/status.py`
+**Lines:** 175-180
+**Issue:** `_write_timer` (threading.Timer) may still be pending when StatusManager is garbage collected. No `__del__` method exists to cancel pending timers.
+**Impact:** Memory leaks and potential writes to stale data structures.
+**Status:** 📋 Documented
+
+### MAJOR - Test Failures (Pre-existing)
+
+#### SWEEP-7: Failing Integration Test
+**File:** `src/__tests__/integration/subprocess-spawn.test.ts`
+**Issue:** "should track running tasks" test is failing due to timing/environment issues.
+**Impact:** CI pipeline may fail spuriously.
+**Status:** 📋 Documented
+
+#### SWEEP-8: Failing Onboarding Test
+**File:** `src/renderer/components/onboarding/OnboardingWizard.test.tsx`
+**Issue:** Test expects "Sign in with Anthropic" text that may have changed due to i18n updates.
+**Impact:** CI pipeline may fail spuriously.
+**Status:** 📋 Documented
+
+### MINOR - Python Backend
+
+#### SWEEP-9: Silent Failure in SDK Message Emission
+**File:** `apps/backend/agents/session.py`
+**Line:** 70
+**Issue:** `except Exception:` with bare `pass` statement. SDK message emission failures are completely silent.
+**Status:** 📋 Documented
+
+#### SWEEP-10: Silent CI Discovery Errors
+**File:** `apps/backend/analysis/ci_discovery.py`
+**Lines:** 232, 302, 360, 405, 415
+**Issue:** All CI discovery errors are swallowed silently.
+**Status:** 📋 Documented
+
+#### SWEEP-11: Silent Import Failure for Debug Module
+**File:** `apps/backend/core/workspace.py`
+**Lines:** 39-70
+**Issue:** Debug module import wrapped in try-except defines no-op functions on failure, hiding corruption.
+**Status:** 📋 Documented
+
+#### SWEEP-12: Blocking Stdin Read in Thread
+**File:** `apps/backend/agents/user_message_queue.py`
+**Line:** 121
+**Issue:** Reader thread calls `sys.stdin.readline()` which blocks indefinitely. No timeout or watchdog exists.
+**Status:** 📋 Documented
+
+### MINOR - Build/Bundle
+
+#### SWEEP-13: Large Bundle Size
+**Issue:** Main bundle is 3MB, renderer bundle is 5.4MB
+**Impact:** Slower app startup time
+**Status:** 📋 Documented
+
+---
+
 **End of Known Issues Documentation**

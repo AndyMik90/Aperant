@@ -8,11 +8,13 @@ Also provides environment isolation to prevent pre-commit hooks and
 other git configurations from affecting worktree operations.
 
 Separated into its own module to avoid circular imports.
+Thread-safe caching is used to avoid redundant path lookups.
 """
 
 import os
 import shutil
 import subprocess
+import threading
 from pathlib import Path
 
 # Git environment variables that can interfere with worktree operations
@@ -34,6 +36,7 @@ GIT_ENV_VARS_TO_CLEAR = [
 ]
 
 _cached_git_path: str | None = None
+_git_cache_lock = threading.Lock()  # Protects _cached_git_path access
 
 
 def get_isolated_git_env(base_env: dict | None = None) -> dict:
@@ -72,16 +75,27 @@ def get_git_executable() -> str:
     4. Windows 'where' command
 
     Caches the result after first successful find.
+    Thread-safe: uses lock to prevent race conditions during cache access.
     """
     global _cached_git_path
 
-    # Return cached result if available
-    if _cached_git_path is not None:
-        return _cached_git_path
+    # Check cache with lock (double-checked locking pattern)
+    with _git_cache_lock:
+        # Return cached result if available
+        if _cached_git_path is not None:
+            return _cached_git_path
 
-    git_path = _find_git_executable()
-    _cached_git_path = git_path
-    return git_path
+    # Cache miss - find executable (outside lock to avoid blocking)
+    found_path = _find_git_executable()
+
+    # Update cache with lock
+    with _git_cache_lock:
+        # Re-check if another thread populated it while we were finding
+        if _cached_git_path is not None:
+            return _cached_git_path
+        _cached_git_path = found_path
+
+    return found_path
 
 
 def _find_git_executable() -> str:

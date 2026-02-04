@@ -52,6 +52,12 @@ from .utils import (
     sync_spec_to_source,
 )
 
+# Type hint for drift monitor (optional dependency)
+try:
+    from drift import AgentMonitor
+except ImportError:
+    AgentMonitor = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -67,8 +73,9 @@ def emit_sdk_msg(msg_type: str, data: dict[str, Any]) -> None:
     try:
         payload = {"type": msg_type, **data}
         print(f"__SDK_MSG__:{json.dumps(payload)}", flush=True)
-    except Exception:
-        pass  # Don't break execution if emit fails
+    except Exception as e:
+        # SWEEP-10: Log SDK emission failures at debug level
+        logger.debug("SDK message emission failed for type %s: %s", msg_type, e)
 
 
 async def post_session_processing(
@@ -343,6 +350,7 @@ async def run_agent_session(
     verbose: bool = False,
     phase: LogPhase = LogPhase.CODING,
     message_queue: UserMessageQueue | None = None,
+    drift_monitor: "AgentMonitor | None" = None,
 ) -> tuple[str, str]:
     """
     Run a single agent session using Claude Agent SDK with interruptible execution.
@@ -354,6 +362,7 @@ async def run_agent_session(
         verbose: Whether to show detailed output
         phase: Current execution phase for logging
         message_queue: Optional message queue for user interrupts during execution
+        drift_monitor: Optional drift monitor for behavioral tracking
 
     Returns:
         (status, response_text) where status is:
@@ -377,8 +386,12 @@ async def run_agent_session(
     # Track tool state for matching results to tool calls
     current_tool = None
     current_tool_id = None
+    current_tool_start_time = None
     message_count = 0
     tool_count = 0
+
+    # Import time for drift tracking
+    import time
 
     try:
         # Send the query
@@ -446,9 +459,10 @@ async def run_agent_session(
                             full_input=str(inp)[:500] if inp else None,
                         )
 
-                        # Track current tool for result matching
+                        # Track current tool for result matching and drift monitoring
                         current_tool = tool_name
                         current_tool_id = tool_id
+                        current_tool_start_time = time.time()
 
             # Handle UserMessage (tool results)
             elif msg_type == "UserMessage" and hasattr(msg, "content"):
@@ -487,7 +501,20 @@ async def run_agent_session(
                                 result_length=len(str(result_content)),
                             )
 
+                        # Track tool call in drift monitor
+                        if drift_monitor and current_tool:
+                            try:
+                                duration_ms = (time.time() - current_tool_start_time) * 1000 if current_tool_start_time else 100.0
+                                drift_monitor.track_tool(
+                                    tool_name=current_tool,
+                                    success=not is_error,
+                                    duration_ms=duration_ms,
+                                )
+                            except Exception as e:
+                                logger.debug(f"Drift tracking failed: {e}")
+
                         current_tool = None
+                        current_tool_start_time = None
 
                         # PHASE 5: Check for user interrupts after each tool result
                         # This is a safe point - the tool call has completed
@@ -584,6 +611,18 @@ async def run_agent_session(
         return "continue", response_text
 
     except Exception as e:
+        # SWEEP-3: Log with full exception details for debugging
+        logger.error(
+            "Session error: %s: %s",
+            type(e).__name__,
+            str(e),
+            exc_info=True,
+            extra={
+                "message_count": message_count,
+                "tool_count": tool_count,
+                "phase": phase.value,
+            }
+        )
         debug_error(
             "session",
             f"Session error: {e}",
@@ -596,5 +635,7 @@ async def run_agent_session(
             "content": f"Session error: {e}",
             "phase": phase.value,
         })
-        print(f"Error during agent session: {e}")
-        return "error", str(e)
+        # Return error with preserved type info for debugging
+        error_detail = f"{type(e).__name__}: {str(e)[:200]}"
+        print(f"Error during agent session: {error_detail}")
+        return "error", error_detail

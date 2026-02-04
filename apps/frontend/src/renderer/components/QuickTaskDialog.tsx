@@ -68,25 +68,24 @@ export function QuickTaskDialog({
     setError(null);
 
     try {
-      const result = await createTask({
+      // createTask returns Task | null, not a result object
+      const task = await createTask(
         projectId,
-        description: trimmedDescription,
-        title: '', // Auto-generate from description
-        baseBranch: project.defaultBranch,
-        useWorktree: true,
-        ralphWiggumMode: true, // Always enabled (SUG-22)
-        profileId: settings.selectedAgentProfile || 'auto',
-        model: '',
-        thinkingLevel: '',
-        phaseModels: undefined,
-        phaseThinking: undefined,
-      });
+        '', // Auto-generate title from description
+        trimmedDescription,
+        {
+          baseBranch: project.settings?.mainBranch,
+          useWorktree: true,
+          ralphWiggumMode: true, // Always enabled (SUG-22)
+          profileId: settings.selectedAgentProfile || 'auto',
+        }
+      );
 
-      if (result.success && result.task) {
+      if (task) {
         onOpenChange(false);
-        onTaskCreated?.(result.task.id);
+        onTaskCreated?.(task.id);
       } else {
-        setError(result.error || t('wizard.errors.createFailed'));
+        setError(t('wizard.errors.createFailed'));
       }
     } catch (err) {
       console.error('[QuickTaskDialog] Error creating task:', err);

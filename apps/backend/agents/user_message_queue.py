@@ -12,11 +12,16 @@ This enables users to send feedback/guidance to running agents without blocking 
 import asyncio
 import json
 import logging
+import os
+import select
 import sys
 import threading
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
+
+# Platform detection for stdin timeout handling
+IS_WINDOWS = sys.platform == "win32"
 
 logger = logging.getLogger(__name__)
 
@@ -114,10 +119,41 @@ class UserMessageQueue:
             logger.debug("UserMessageQueue: stdin reader thread stopped")
 
     def _stdin_reader(self) -> None:
-        """Background thread that reads JSON messages from stdin."""
+        """Background thread that reads JSON messages from stdin.
+
+        Uses a timeout mechanism to allow clean shutdown when _running is False.
+        On Unix, uses select() for efficient polling. On Windows, uses short sleeps
+        with non-blocking fileno check to avoid indefinite blocking.
+        """
+        # Stdin read timeout in seconds (allows clean shutdown)
+        STDIN_TIMEOUT = 0.5
+
         while self._running:
             try:
-                # Use readline to get one JSON message per line
+                # Check if stdin has data available (with timeout)
+                if not IS_WINDOWS:
+                    # Unix: use select for efficient polling
+                    readable, _, _ = select.select([sys.stdin], [], [], STDIN_TIMEOUT)
+                    if not readable:
+                        continue
+                else:
+                    # Windows: select doesn't work on stdin, use msvcrt if available
+                    # Fall back to blocking read with thread daemon cleanup
+                    try:
+                        import msvcrt
+
+                        if not msvcrt.kbhit():
+                            # No input available, sleep briefly and check _running
+                            import time
+
+                            time.sleep(STDIN_TIMEOUT)
+                            continue
+                    except (ImportError, OSError):
+                        # msvcrt not available or stdin not a console
+                        # Fall through to blocking read (daemon thread handles cleanup)
+                        pass
+
+                # Read one JSON message per line
                 line = sys.stdin.readline()
                 if not line:
                     # stdin closed (EOF)

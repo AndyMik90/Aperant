@@ -247,6 +247,7 @@ export interface TaskMetadata {
   ralphWiggumMode?: boolean;  // "I'm helping!" - Aggressive iteration mode with higher retry limits
 
   // Agent configuration (from agent profile or manual selection)
+  profileId?: string;  // Agent profile ID ('auto', 'complex', 'balanced', 'quick', 'custom')
   model?: ModelType;  // Claude model to use (haiku, sonnet, opus) - used when not auto profile
   thinkingLevel?: ThinkingLevel;  // Thinking budget level (none, low, medium, high, ultrathink)
   // Auto profile - per-phase model configuration

@@ -66,9 +66,13 @@ def atomic_write(
     # If fdopen fails, close fd and clean up temp file
     try:
         f = os.fdopen(fd, mode, encoding=actual_encoding)
-    except Exception:
+    except Exception as e:
+        logging.error(f"Failed to open temp file {tmp_path}: {e}", exc_info=True)
         os.close(fd)
-        os.unlink(tmp_path)
+        try:
+            os.unlink(tmp_path)
+        except OSError as cleanup_err:
+            logging.warning(f"Failed to cleanup temp file after fdopen error: {cleanup_err}")
         raise
 
     try:

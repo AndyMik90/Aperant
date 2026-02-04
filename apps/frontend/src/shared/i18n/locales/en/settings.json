@@ -354,6 +354,10 @@
     "mcp": {
       "title": "MCP Servers",
       "description": "External tool integrations"
+    },
+    "security": {
+      "title": "Security",
+      "description": "Agent drift monitoring"
     }
   },
   "agentProfile": {

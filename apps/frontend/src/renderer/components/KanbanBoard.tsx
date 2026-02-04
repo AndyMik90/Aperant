@@ -26,7 +26,8 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, RefreshCw, GitPullRequest, X, GripVertical, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, RefreshCw, GitPullRequest, X, GripVertical, ChevronLeft, ChevronRight, Archive, Trash2 } from 'lucide-react';
+import { TaskCardSkeleton } from './TaskCardSkeleton';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
@@ -35,7 +36,7 @@ import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, forceCompleteTask, useTaskStore } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, useTaskStore, archiveTasks } from '../stores/task-store';
 import { useKanbanStore } from '../stores/kanban-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
@@ -69,6 +70,7 @@ interface KanbanBoardProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   hideRefreshButton?: boolean;
+  isLoading?: boolean; // UX-3: Show skeleton loaders while loading
 }
 
 interface DroppableColumnProps {
@@ -440,7 +442,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
   );
 }, droppableColumnPropsAreEqual);
 
-export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing, hideRefreshButton }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing, hideRefreshButton, isLoading }: KanbanBoardProps) {
   const { t } = useTranslation(['tasks', 'dialogs', 'common']);
   const { toast } = useToast();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -597,16 +599,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     return tasks.filter((t) => !t.metadata?.archivedAt);
   }, [tasks, showArchived]);
 
-  // PROP-1: Kanban drag-and-drop is DISABLED
-  // Tasks should only move between columns via explicit user actions:
+  // PROP-1: Cross-column drag is DISABLED
+  // Tasks only move between columns via explicit user actions:
   // - "Start Build" button (planning -> coding)
   // - Review approval/rejection
-  // This prevents accidental status changes and enforces the user-controlled workflow.
-  // To re-enable: restore the original sensor configuration below.
+  //
+  // UX-2: Vertical reordering WITHIN columns is ENABLED
+  // Users can drag tasks up/down within the same column to prioritize.
   const sensors = useSensors(
-    // Disabled: PointerSensor, KeyboardSensor
-    // useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    // useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   // Get task order from store for custom ordering
@@ -893,25 +895,11 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const activeTaskId = active.id as string;
     const overId = over.id as string;
 
-    // Check if dropped on a column
+    // UX-2: Cross-column drag (status changes) is DISABLED
+    // Only allow reordering within the same column
+    // Dropping on a column header is ignored
     if (isValidDropColumn(overId)) {
-      const newStatus = overId;
-      const task = tasks.find((t) => t.id === activeTaskId);
-
-      if (task && task.status !== newStatus) {
-        // Move task to top of target column's order array
-        moveTaskToColumnTop(activeTaskId, newStatus, task.status);
-
-        // Persist task order
-        if (projectId) {
-          saveTaskOrder(projectId);
-        }
-
-        // Persist status change to file and update local state
-        handleStatusChange(activeTaskId, newStatus, task).catch((err) =>
-          console.error('[KanbanBoard] Status change failed:', err)
-        );
-      }
+      // User dropped on a column - ignore (no cross-column moves)
       return;
     }
 
@@ -928,47 +916,63 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       // Skip if either task is done/pr_created (shouldn't happen, but guard)
       if (!taskVisualColumn || !overTaskVisualColumn) return;
 
-      // Same visual column: reorder within column
-      if (taskVisualColumn === overTaskVisualColumn) {
-        // Ensure both tasks are in the order array before reordering
-        // This handles tasks that existed before ordering was enabled
-        const currentColumnOrder = taskOrder?.[taskVisualColumn] ?? [];
-        const activeInOrder = currentColumnOrder.includes(activeTaskId);
-        const overInOrder = currentColumnOrder.includes(overId);
-
-        if (!activeInOrder || !overInOrder) {
-          // Sync the current visual order to the stored order
-          // This ensures existing tasks can be reordered
-          const visualOrder = tasksByStatus[taskVisualColumn].map(t => t.id);
-          setTaskOrder({
-            ...taskOrder,
-            [taskVisualColumn]: visualOrder
-          } as TaskOrderState);
-        }
-
-        // Reorder tasks within the same column using the visual column key
-        reorderTasksInColumn(taskVisualColumn, activeTaskId, overId);
-
-        if (projectId) {
-          saveTaskOrder(projectId);
-        }
+      // UX-2: Only allow reordering within the SAME column
+      // Cross-column moves are blocked (must use explicit actions like "Start Build")
+      if (taskVisualColumn !== overTaskVisualColumn) {
+        // Different columns - ignore (no cross-column moves via drag)
         return;
       }
 
-      // Different visual column: move to that task's column (status change)
-      // Use the visual column key for ordering to ensure consistency
-      moveTaskToColumnTop(activeTaskId, overTaskVisualColumn, taskVisualColumn);
+      // Same visual column: reorder within column
+      // Ensure both tasks are in the order array before reordering
+      // This handles tasks that existed before ordering was enabled
+      const currentColumnOrder = taskOrder?.[taskVisualColumn] ?? [];
+      const activeInOrder = currentColumnOrder.includes(activeTaskId);
+      const overInOrder = currentColumnOrder.includes(overId);
 
-      // Persist task order
+      if (!activeInOrder || !overInOrder) {
+        // Sync the current visual order to the stored order
+        // This ensures existing tasks can be reordered
+        const visualOrder = tasksByStatus[taskVisualColumn].map(t => t.id);
+        setTaskOrder({
+          ...taskOrder,
+          [taskVisualColumn]: visualOrder
+        } as TaskOrderState);
+      }
+
+      // Reorder tasks within the same column using the visual column key
+      reorderTasksInColumn(taskVisualColumn, activeTaskId, overId);
+
       if (projectId) {
         saveTaskOrder(projectId);
       }
-
-      handleStatusChange(activeTaskId, overTask.status, task).catch((err) =>
-        console.error('[KanbanBoard] Status change failed:', err)
-      );
     }
   };
+
+  // UX-3: Show skeleton loaders while loading
+  if (isLoading) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="flex-1 p-6">
+          <div className="grid grid-cols-4 gap-4 h-full">
+            {TASK_STATUS_COLUMNS.map((status) => (
+              <div key={status} className="flex flex-col h-full">
+                <div className="flex items-center gap-2 mb-4 px-3">
+                  <div className="h-5 w-20 bg-muted/60 animate-pulse rounded" />
+                  <div className="h-5 w-6 bg-muted/60 animate-pulse rounded" />
+                </div>
+                <div className="flex-1 space-y-3 px-3">
+                  {[1, 2].map((i) => (
+                    <TaskCardSkeleton key={i} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -1050,6 +1054,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         </DragOverlay>
       </DndContext>
 
+      {/* UX-6: Bulk actions bar */}
       {selectedTaskIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
           <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-border bg-card shadow-lg backdrop-blur-sm">
@@ -1065,6 +1070,24 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
             >
               <GitPullRequest className="h-4 w-4" />
               {t('kanban.createPRs')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={async () => {
+                if (!projectId) return;
+                const taskIds = Array.from(selectedTaskIds);
+                await archiveTasks(projectId, taskIds);
+                deselectAllTasks();
+                toast({
+                  title: t('kanban.archiveSuccess', { defaultValue: 'Tasks archived' }),
+                  description: t('kanban.archiveSuccessDescription', { count: taskIds.length, defaultValue: `${taskIds.length} task(s) archived` }),
+                });
+              }}
+            >
+              <Archive className="h-4 w-4" />
+              {t('kanban.archiveTasks', { defaultValue: 'Archive' })}
             </Button>
             <Button
               variant="ghost"

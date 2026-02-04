@@ -107,6 +107,63 @@
   animation: indeterminate 1.5s ease-in-out infinite;
 }
 
+/* UX-4: Micro-animations utilities */
+@keyframes slide-in-from-bottom-2 {
+  from { transform: translateY(0.5rem); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-in-from-right-full {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slide-out-to-right-full {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+
+.animate-in {
+  animation-fill-mode: both;
+}
+
+.animate-out {
+  animation-fill-mode: both;
+}
+
+.fade-in {
+  animation-name: fade-in;
+}
+
+.fade-out {
+  animation-name: fade-in;
+  animation-direction: reverse;
+}
+
+.slide-in-from-bottom-2 {
+  animation-name: slide-in-from-bottom-2;
+}
+
+.slide-in-from-right-full {
+  animation-name: slide-in-from-right-full;
+}
+
+.slide-out-to-right-full {
+  animation-name: slide-out-to-right-full;
+}
+
+.duration-150 {
+  animation-duration: 150ms;
+}
+
+.duration-200 {
+  animation-duration: 200ms;
+}
+
+.duration-300 {
+  animation-duration: 300ms;
+}
+
 /* CSS variables for light mode (secondary consideration per design system) */
 :root {
   /* Light Mode - Warm off-white tones */

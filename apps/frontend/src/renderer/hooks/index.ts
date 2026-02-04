@@ -8,3 +8,4 @@ export {
   type AgentSettingsSource,
 } from './useResolvedAgentSettings';
 export { useVirtualizedTree } from './useVirtualizedTree';
+export { useKeyboardNavigation, KEYBOARD_SHORTCUTS } from './useKeyboardNavigation';

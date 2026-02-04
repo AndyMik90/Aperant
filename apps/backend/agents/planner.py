@@ -5,6 +5,7 @@ Planner Agent Module
 Handles follow-up planner sessions for adding new subtasks to completed specs.
 """
 
+import asyncio
 import logging
 from pathlib import Path
 
@@ -174,7 +175,13 @@ async def run_followup_planner(
             status_manager.update(state=BuildState.ERROR)
             return False
 
+    except asyncio.CancelledError:
+        # Don't catch cancellation - let it propagate for proper cleanup
+        logger.info("Follow-up planning cancelled")
+        raise
     except Exception as e:
+        # Log with full context for debugging
+        logger.error("Follow-up planning error: %s", e, exc_info=True)
         print()
         print_status(f"Follow-up planning error: {e}", "error")
         if task_logger:

@@ -24,6 +24,7 @@ interface TasksHubProps {
   onNewTaskClick: () => void;
   onRefresh: () => void;
   isRefreshing?: boolean;
+  isLoading?: boolean; // UX-3: Show skeleton loaders
 }
 
 export function TasksHub({
@@ -32,6 +33,7 @@ export function TasksHub({
   onNewTaskClick,
   onRefresh,
   isRefreshing = false,
+  isLoading = false,
 }: TasksHubProps) {
   const { t } = useTranslation(['navigation', 'tasks']);
   const [activeTab, setActiveTab] = useState<'kanban' | 'analytics'>('kanban');
@@ -78,6 +80,7 @@ export function TasksHub({
             onRefresh={onRefresh}
             isRefreshing={isRefreshing}
             hideRefreshButton
+            isLoading={isLoading}
           />
         </TabsContent>
 

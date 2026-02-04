@@ -531,6 +531,18 @@ export const IPC_CHANNELS = {
   MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
   MCP_TEST_CONNECTION: 'mcp:testConnection',     // Full MCP protocol test
 
+  // Agent Drift monitoring
+  DRIFT_GET_REPORT: 'drift:getReport',           // Get drift report for a task
+  DRIFT_GET_BASELINE: 'drift:getBaseline',       // Get baseline info for a task
+  DRIFT_RESET_BASELINE: 'drift:resetBaseline',   // Reset baseline for a task
+  DRIFT_GET_SETTINGS: 'drift:getSettings',       // Get drift monitoring settings
+  DRIFT_SAVE_SETTINGS: 'drift:saveSettings',     // Save drift monitoring settings
+
+  // Agent Drift events (main -> renderer)
+  DRIFT_REPORT_UPDATED: 'drift:reportUpdated',   // New drift report available
+  DRIFT_INTERIM_REPORT: 'drift:interimReport',   // Real-time interim drift data
+  DRIFT_ALERT: 'drift:alert',                    // Drift alert triggered
+
   // Sentry error reporting
   SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes
   GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)

@@ -235,6 +235,11 @@ async def run_planning_agent(
             # Regenerate prompt for continued conversation
             prompt = _generate_continuation_prompt(spec_dir, memory_handlers)
 
+    except asyncio.CancelledError:
+        # Don't catch cancellation - let it propagate for proper cleanup
+        logger.info("Planning agent cancelled")
+        raise
+
     except KeyboardInterrupt:
         print_status("Planning interrupted by user", "warning")
         if task_logger:
@@ -246,7 +251,8 @@ async def run_planning_agent(
         return False
 
     except Exception as e:
-        logger.error(f"Planning agent error: {e}")
+        # Log with full context for debugging
+        logger.error("Planning agent error: %s", e, exc_info=True)
         print_status(f"Planning error: {e}", "error")
         if task_logger:
             task_logger.log_error(f"Planning error: {e}", LogPhase.PLANNING)

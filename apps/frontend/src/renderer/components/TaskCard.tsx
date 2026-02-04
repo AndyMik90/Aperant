@@ -4,11 +4,14 @@ import { useNavigation } from '../contexts/NavigationContext';
 import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, TerminalSquare, Link2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { TaskMonitorChat } from './terminal/TaskMonitorChat';
 import { CompactTerminalPreview } from './terminal/CompactTerminalPreview';
+import { DriftBadge } from './drift/DriftIndicator';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
+import { ANIMATION_CLASSES } from '../lib/animations';
+import { estimateRemainingTime, formatETA, calculateProgress } from '../../shared/progress';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
 import {
   TASK_CATEGORY_LABELS,
@@ -562,6 +565,8 @@ export const TaskCard = memo(function TaskCard({
     <Card
       className={cn(
         'card-surface task-card-enhanced cursor-pointer',
+        ANIMATION_CLASSES.cardEnter,
+        ANIMATION_CLASSES.cardHover,
         // Phase 2: Both planning and coding tasks with agents show the running pulse
         hasActiveAgent && !isStuck && 'ring-2 ring-primary border-primary task-running-pulse',
         isStuck && 'ring-2 ring-warning border-warning task-stuck-pulse',
@@ -666,28 +671,28 @@ export const TaskCard = memo(function TaskCard({
                   EXECUTION_PHASE_BADGE_COLORS[executionPhase]
                 )}
               >
-                {/* Show spinner for active phases (not complete/failed) */}
-                {executionPhase !== 'complete' && executionPhase !== 'failed' && (
-                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                )}
+                {/* Show spinner for active phases (hasActiveExecution already excludes complete/failed) */}
+                <Loader2 className="h-2.5 w-2.5 animate-spin" />
                 {/* Use contextual labels instead of generic phase labels */}
                 {getContextualPhaseLabel(task.status, executionPhase)}
               </Badge>
             )}
+            {/* Drift badge - shows when drift warning/critical detected */}
+            <DriftBadge taskId={task.id} />
              {/* Status badge - hide when execution phase badge is showing */}
              {!hasActiveExecution && (
                <>
                   {task.status === 'pr_created' ? (
                     <Badge
                       variant={getStatusBadgeVariant(task.status)}
-                      className="text-[10px] px-1.5 py-0.5"
+                      className={cn("text-[10px] px-1.5 py-0.5", ANIMATION_CLASSES.statusTransition)}
                     >
                       {getStatusLabel(task.status)}
                     </Badge>
                   ) : (
                    <Badge
                      variant={isStuck ? 'warning' : isIncomplete ? 'warning' : getStatusBadgeVariant(task.status)}
-                     className="text-[10px] px-1.5 py-0.5"
+                     className={cn("text-[10px] px-1.5 py-0.5", ANIMATION_CLASSES.statusTransition)}
                    >
                      {isStuck ? t('labels.needsRecovery') : isIncomplete ? t('labels.needsResume') : getStatusLabel(task.status)}
                    </Badge>
@@ -777,16 +782,32 @@ export const TaskCard = memo(function TaskCard({
 
         {/* Footer */}
         <div className="mt-4 flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            {/* METRICS-1B: Show elapsed time when running, otherwise show relative time */}
-            {hasActiveAgent && elapsedTime !== null ? (
-              <span className="text-primary font-medium">{formatDurationShort(elapsedTime)}</span>
-            ) : task.status === 'done' && task.executionProgress?.startedAt ? (
-              <span>{t('labels.completed')}</span>
-            ) : (
-              <span>{relativeTime}</span>
-            )}
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3 w-3" />
+              {/* METRICS-1B: Show elapsed time when running, otherwise show relative time */}
+              {hasActiveAgent && elapsedTime !== null ? (
+                <span className="text-primary font-medium">{formatDurationShort(elapsedTime)}</span>
+              ) : task.status === 'done' && task.executionProgress?.startedAt ? (
+                <span>{t('labels.completed')}</span>
+              ) : (
+                <span>{relativeTime}</span>
+              )}
+            </div>
+            {/* UX-7: ETA display for running tasks with progress */}
+            {hasActiveAgent && elapsedTime !== null && task.subtasks.length > 0 && (() => {
+              const progress = calculateProgress(task.subtasks);
+              if (progress > 0 && progress < 100 && task.executionProgress?.startedAt) {
+                const startTime = new Date(task.executionProgress.startedAt);
+                const eta = formatETA(estimateRemainingTime(startTime, progress));
+                if (eta) {
+                  return (
+                    <span className="text-muted-foreground/80 italic">{eta}</span>
+                  );
+                }
+              }
+              return null;
+            })()}
           </div>
 
           <div className="flex items-center gap-1.5">

@@ -229,6 +229,7 @@ const DATA_DIRECTORIES = [
 export interface InitializationResult {
   success: boolean;
   error?: string;
+  alreadyInitialized?: boolean;
 }
 
 /**

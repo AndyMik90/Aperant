@@ -82,3 +82,37 @@ export function estimateRemainingTime(
 
   return Math.max(0, Math.round(remaining));
 }
+
+/**
+ * UX-7: Format duration in milliseconds to human-readable string
+ * @param ms Duration in milliseconds
+ * @returns Formatted string like "2m 30s", "1h 15m", etc.
+ */
+export function formatDuration(ms: number): string {
+  if (ms < 0) return '0s';
+
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  const remainingMinutes = minutes % 60;
+  const remainingSeconds = seconds % 60;
+
+  if (hours > 0) {
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  }
+  if (minutes > 0) {
+    return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+  }
+  return `${seconds}s`;
+}
+
+/**
+ * UX-7: Format ETA with tilde prefix to indicate approximation
+ * @param ms Estimated remaining time in milliseconds
+ * @returns Formatted string like "~15m remaining"
+ */
+export function formatETA(ms: number | null): string | null {
+  if (ms === null || ms <= 0) return null;
+  return `~${formatDuration(ms)} remaining`;
+}

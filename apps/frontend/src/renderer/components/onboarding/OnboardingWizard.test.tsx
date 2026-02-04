@@ -35,11 +35,12 @@ vi.mock('react-i18next', () => ({
         'welcome.features.parallel.title': 'Parallel',
         'welcome.features.parallel.description': 'Work in parallel',
         'authChoice.title': 'Choose Your Authentication Method',
-        'authChoice.subtitle': 'Select how you want to authenticate',
-        'authChoice.oauthTitle': 'Sign in with Anthropic',
-        'authChoice.oauthDesc': 'OAuth authentication',
-        'authChoice.apiKeyTitle': 'Use Custom API Key',
-        'authChoice.apiKeyDesc': 'Enter your own API key',
+        'authChoice.description': 'Select how you want to authenticate with Claude. You can change this later in Settings.',
+        'authChoice.oauth.title': 'Sign in with Anthropic',
+        'authChoice.oauth.description': 'Use your Anthropic account to authenticate. Simple and secure OAuth flow.',
+        'authChoice.apiKey.title': 'Use Custom API Key',
+        'authChoice.apiKey.description': 'Bring your own API key from Anthropic or a compatible API provider.',
+        'authChoice.infoText': 'Both options provide full access to Claude Code features. Choose based on your preference.',
         'authChoice.skip': 'Skip for now',
         // Common translations
         'common:actions.close': 'Close'

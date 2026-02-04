@@ -3,6 +3,7 @@ import type { Project, ProjectSettings as ProjectSettingsType, AutoBuildVersionI
 import { SettingsSection } from '../SettingsSection';
 import { GeneralSettings } from '../../project-settings/GeneralSettings';
 import { SecuritySettings } from '../../project-settings/SecuritySettings';
+import { DriftSettings } from '../../drift/DriftSettings';
 import { LinearIntegration } from '../integrations/LinearIntegration';
 import { GitHubIntegration } from '../integrations/GitHubIntegration';
 import { GitLabIntegration } from '../integrations/GitLabIntegration';
@@ -210,6 +211,22 @@ export function SectionRouter({
               envConfig={envConfig}
               updateEnvConfig={updateEnvConfig}
             />
+          </InitializationGuard>
+        </SettingsSection>
+      );
+
+    case 'security':
+      return (
+        <SettingsSection
+          title={t('projectSections.security.title')}
+          description={t('projectSections.security.description')}
+        >
+          <InitializationGuard
+            initialized={!!project.autoBuildPath}
+            title={t('projectSections.security.title')}
+            description={t('projectSections.security.description')}
+          >
+            <DriftSettings projectDir={project.path} />
           </InitializationGuard>
         </SettingsSection>
       );

@@ -354,6 +354,10 @@
     "mcp": {
       "title": "Serveurs MCP",
       "description": "Intégrations d'outils externes"
+    },
+    "security": {
+      "title": "Sécurité",
+      "description": "Surveillance de dérive des agents"
     }
   },
   "agentProfile": {

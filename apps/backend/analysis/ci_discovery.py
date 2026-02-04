@@ -25,10 +25,14 @@ Usage:
 from __future__ import annotations
 
 import json
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+# SWEEP-11: Add logger for CI discovery errors
+logger = logging.getLogger(__name__)
 
 # Try to import yaml, fall back gracefully
 try:
@@ -229,7 +233,8 @@ class CIDiscovery:
                 if isinstance(env, dict):
                     result.environment_variables.extend(env.keys())
 
-            except Exception:
+            except Exception as e:
+                logger.debug("Error parsing GitHub workflow %s: %s", wf_file.name, e)
                 continue
 
         return result
@@ -299,8 +304,8 @@ class CIDiscovery:
             if isinstance(variables, dict):
                 result.environment_variables.extend(variables.keys())
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Error parsing GitLab CI config: %s", e)
 
         return result
 
@@ -357,8 +362,8 @@ class CIDiscovery:
                     )
                 )
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Error parsing CircleCI config: %s", e)
 
         return result
 
@@ -402,8 +407,8 @@ class CIDiscovery:
                     )
                 )
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Error parsing Jenkinsfile: %s", e)
 
         return result
 
@@ -412,7 +417,8 @@ class CIDiscovery:
         if HAS_YAML:
             try:
                 return yaml.safe_load(content)
-            except Exception:
+            except Exception as e:
+                logger.debug("YAML parsing failed: %s", e)
                 return None
 
         # Basic fallback for simple YAML (very limited)

@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-drift-detector"
+version = "0.1.0"
+description = "Runtime behavioral monitoring for AI agents - detects silent compromise through behavioral drift analysis"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Buster", email = "buster@openclaw.ai"}
+]
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: System :: Monitoring",
+]
+keywords = ["ai", "agents", "security", "monitoring", "drift", "detection", "behavioral", "analysis"]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "mypy>=1.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+agent-drift = "src.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/openclaw/agent-drift-detector"
+Documentation = "https://github.com/openclaw/agent-drift-detector#readme"
+Repository = "https://github.com/openclaw/agent-drift-detector"
+Issues = "https://github.com/openclaw/agent-drift-detector/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "W", "I", "N", "D", "UP", "B", "C4", "SIM"]
+ignore = ["D100", "D104", "D107"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v"

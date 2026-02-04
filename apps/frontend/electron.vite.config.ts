@@ -1,6 +1,7 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 /**
  * Sentry configuration embedded at build time.
@@ -52,7 +53,18 @@ export default defineConfig({
           index: resolve(__dirname, 'src/main/index.ts')
         },
         // Only node-pty needs to be external (native module rebuilt by electron-builder)
-        external: ['@lydell/node-pty']
+        external: ['@lydell/node-pty'],
+        // Suppress known harmless warnings from dependencies
+        onwarn(warning, warn) {
+          // Suppress chokidar Stats warning - known issue in chokidar
+          // "Stats" is imported from external module "node:fs" but never used
+          if (warning.code === 'UNUSED_EXTERNAL_IMPORT' &&
+              warning.exporter?.includes('node:fs') &&
+              warning.names?.includes('Stats')) {
+            return;
+          }
+          warn(warning);
+        }
       }
     }
   },
@@ -76,7 +88,16 @@ export default defineConfig({
         }
       }
     },
-    plugins: [react()],
+    plugins: [
+      react(),
+      // Bundle analysis - generates stats.html in out/renderer/
+      visualizer({
+        filename: resolve(__dirname, 'out/renderer/stats.html'),
+        open: false,
+        gzipSize: true,
+        brotliSize: true
+      })
+    ],
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src/renderer'),

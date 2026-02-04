@@ -128,6 +128,7 @@
     "jsdom": "^27.3.0",
     "lint-staged": "^16.2.7",
     "postcss": "^8.5.6",
+    "rollup-plugin-visualizer": "^6.0.5",
     "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3",
     "vite": "^7.2.7",

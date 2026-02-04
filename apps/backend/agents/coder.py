@@ -68,6 +68,14 @@ from .utils import (
     sync_spec_to_source,
 )
 
+# Agent Drift monitoring (optional)
+try:
+    from drift import AgentMonitor
+    DRIFT_AVAILABLE = True
+except ImportError:
+    DRIFT_AVAILABLE = False
+    AgentMonitor = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -106,6 +114,18 @@ async def run_autonomous_agent(
 
     # Initialize task logger for persistent logging
     task_logger = get_task_logger(spec_dir)
+
+    # Initialize drift monitor (if available)
+    drift_monitor = None
+    if DRIFT_AVAILABLE:
+        try:
+            drift_dir = spec_dir / "drift"
+            drift_monitor = AgentMonitor(storage_dir=str(drift_dir))
+            drift_monitor.start_session(run_id=f"spec-{spec_dir.name}")
+            print_status("Agent drift monitoring: ENABLED", "info")
+        except Exception as e:
+            logger.warning("Could not initialize drift monitor: %s", e)
+            drift_monitor = None
 
     # Debug: Print memory system status at startup
     debug_memory_system_status()
@@ -228,6 +248,7 @@ async def run_autonomous_agent(
         message_queue = get_message_queue()
         message_queue.start(asyncio.get_event_loop())
     except Exception as e:
+        logger.warning("Could not initialize message queue: %s", e, exc_info=True)
         print_status(f"Warning: Could not initialize message queue: {e}", "warning")
         message_queue = None
 
@@ -246,6 +267,7 @@ async def run_autonomous_agent(
                 try:
                     user_messages = await message_queue.get_all_messages()
                 except Exception as e:
+                    logger.warning("Error reading user messages: %s", e, exc_info=True)
                     print_status(f"Warning: Error reading user messages: {e}", "warning")
             if user_messages:
                 user_feedback_for_prompt = "\n\n## User Feedback\n"
@@ -462,10 +484,12 @@ async def run_autonomous_agent(
 
             # Run session with async context manager
             # Pass message_queue for interruptible execution (Phase 5)
+            # Pass drift_monitor for behavioral tracking
             async with client:
                 status, response = await run_agent_session(
                     client, prompt, spec_dir, verbose, phase=current_log_phase,
-                    message_queue=message_queue
+                    message_queue=message_queue,
+                    drift_monitor=drift_monitor
                 )
 
             plan_validated = False
@@ -627,33 +651,34 @@ async def run_autonomous_agent(
                 print(muted("Send 'stop' or 'abort' to stop completely."))
 
                 # Wait for resume or stop command
+                resume_cmd: str | None = None
+                stop_requested = False
                 while True:
                     if message_queue:
                         user_msgs = await message_queue.get_all_messages()
                         for msg in user_msgs:
-                            content = msg.content.strip().lower()
-                            if content in ("continue", "resume", "go", "proceed"):
+                            resume_cmd = msg.content.strip().lower()
+                            if resume_cmd in ("continue", "resume", "go", "proceed"):
                                 print_status("Resuming execution...", "success")
                                 status_manager.update(state=BuildState.BUILDING)
                                 break
-                            elif content in ("stop", "halt", "cancel", "abort"):
+                            elif resume_cmd in ("stop", "halt", "cancel", "abort"):
                                 print_status("Stopping execution...", "warning")
+                                stop_requested = True
                                 break
                         else:
                             # No resume or stop command found, keep waiting
                             await asyncio.sleep(0.5)
                             continue
-                        # Got a command, exit the wait loop
-                        if content in ("stop", "halt", "cancel", "abort"):
-                            # Break outer loop
-                            break
+                        # Got a valid command, exit the wait loop
                         break
                     else:
                         # No message queue, can't wait for resume
                         print_status("No message queue available, stopping", "warning")
+                        stop_requested = True
                         break
-                else:
-                    # User sent stop command during pause
+                # If stop was requested during pause, break the main loop
+                if stop_requested:
                     break
 
             # Small delay between sessions
@@ -713,3 +738,19 @@ async def run_autonomous_agent(
         # Clean up user message queue
         if message_queue:
             message_queue.stop()
+
+        # End drift monitoring session and get final report
+        if drift_monitor:
+            try:
+                report = drift_monitor.end_session()
+                if report:
+                    from phase_event import emit_drift_report
+                    emit_drift_report(report.to_dict())
+                    if report.alert_level == "critical":
+                        print_status(f"Drift CRITICAL: {report.overall_drift_score:.3f}", "error")
+                    elif report.alert_level == "warning":
+                        print_status(f"Drift WARNING: {report.overall_drift_score:.3f}", "warning")
+                    else:
+                        print_status(f"Drift score: {report.overall_drift_score:.3f}", "success")
+            except Exception as e:
+                logger.warning("Could not finalize drift report: %s", e)

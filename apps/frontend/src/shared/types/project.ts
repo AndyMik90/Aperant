@@ -32,6 +32,7 @@ export interface NotificationSettings {
   onTaskComplete: boolean;
   onTaskFailed: boolean;
   onReviewNeeded: boolean;
+  onSpecReady?: boolean;
   sound: boolean;
 }
 
@@ -448,6 +449,7 @@ export interface AutoBuildVersionInfo {
 export interface InitializationResult {
   success: boolean;
   error?: string;
+  alreadyInitialized?: boolean;
 }
 
 export interface GitStatus {

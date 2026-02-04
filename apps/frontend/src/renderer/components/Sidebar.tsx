@@ -43,6 +43,7 @@ import { useSettingsStore } from '../stores/settings-store';
 import { useRateLimitStore } from '../stores/rate-limit-store';
 import { AddProjectModal } from './AddProjectModal';
 import { GitSetupModal } from './GitSetupModal';
+import { NotificationCenter } from './NotificationCenter';
 import type { Project, GitStatus, ProjectEnvConfig } from '../../shared/types';
 
 export type SidebarView = 'kanban' | 'terminals' | 'discovery' | 'context' | 'github' | 'gitlab-issues' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'repository';
@@ -320,6 +321,9 @@ export function Sidebar({
               {t('actions.newTask')}
             </TooltipContent>
           </Tooltip>
+
+          {/* UX-1: Notification Center */}
+          <NotificationCenter />
 
           {/* Settings button */}
           <Tooltip>

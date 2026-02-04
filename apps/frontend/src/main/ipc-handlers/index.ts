@@ -33,6 +33,7 @@ import { registerClaudeCodeHandlers } from './claude-code-handlers';
 import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
+import { registerDriftHandlers } from './drift-handlers';
 import { notificationService } from '../notification-service';
 
 /**
@@ -118,6 +119,9 @@ export function setupIpcHandlers(
   // API Profile handlers (custom Anthropic-compatible endpoints)
   registerProfileHandlers();
 
+  // Agent Drift monitoring handlers
+  registerDriftHandlers(getMainWindow);
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -144,5 +148,6 @@ export {
   registerDebugHandlers,
   registerClaudeCodeHandlers,
   registerMcpHandlers,
-  registerProfileHandlers
+  registerProfileHandlers,
+  registerDriftHandlers
 };

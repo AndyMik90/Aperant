@@ -41,6 +41,8 @@ import { TaskWarnings } from './TaskWarnings';
 import { TaskSubtasks } from './TaskSubtasks';
 import { TaskFiles } from './TaskFiles';
 import { TaskReview } from './TaskReview';
+import { DriftTab } from '../drift/DriftTab';
+import { DriftIndicator } from '../drift/DriftIndicator';
 import type { Task, WorktreeCreatePROptions } from '../../../shared/types';
 
 interface TaskDetailModalProps {
@@ -404,6 +406,8 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                           {completedSubtasks}/{totalSubtasks} subtasks
                         </span>
                       )}
+                      {/* Drift indicator */}
+                      <DriftIndicator taskId={task.id} showLabel size="sm" />
                     </div>
                   </DialogPrimitive.Description>
                 </div>
@@ -477,6 +481,13 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                       {t('tasks:files.tab')}
                     </TabsTrigger>
                   )}
+                  <TabsTrigger
+                    value="drift"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm flex items-center gap-1.5"
+                  >
+                    Drift
+                    <DriftIndicator taskId={task.id} size="sm" />
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* Overview Tab */}
@@ -546,6 +557,11 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                     <TaskFiles task={task} />
                   </TabsContent>
                 )}
+
+                {/* Drift Tab */}
+                <TabsContent value="drift" className="flex-1 min-h-0 overflow-hidden mt-0">
+                  <DriftTab taskId={task.id} specDir={task.specsPath || ''} />
+                </TabsContent>
               </Tabs>
             </div>
 

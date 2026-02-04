@@ -44,6 +44,7 @@ export const STATUS_COLORS: Record<TerminalStatus, string> = {
 
 export const PHASE_CONFIG: Record<ExecutionPhase, { label: string; color: string; icon: React.ElementType }> = {
   idle: { label: 'Ready', color: 'bg-muted text-muted-foreground', icon: Circle },
+  starting: { label: 'Starting', color: 'bg-info/20 text-info', icon: Circle },
   planning: { label: 'Planning', color: 'bg-info/20 text-info', icon: Search },
   coding: { label: 'Coding', color: 'bg-primary/20 text-primary', icon: Code2 },
   qa_review: { label: 'QA Review', color: 'bg-warning/20 text-warning', icon: Search },

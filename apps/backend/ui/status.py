@@ -116,6 +116,21 @@ class StatusManager:
         self._write_timer: threading.Timer | None = None
         self._write_lock = threading.Lock()  # Protects _write_pending and _write_timer
 
+    def __del__(self):
+        """SWEEP-6: Cleanup pending timer on garbage collection."""
+        self.close()
+
+    def close(self) -> None:
+        """SWEEP-6: Explicit cleanup method to cancel pending timers.
+
+        Call this for deterministic cleanup instead of relying on __del__.
+        """
+        with self._write_lock:
+            if self._write_timer is not None:
+                self._write_timer.cancel()
+                self._write_timer = None
+            self._write_pending = False
+
     def read(self) -> BuildStatus:
         """Read current status from file."""
         if not self.status_file.exists():

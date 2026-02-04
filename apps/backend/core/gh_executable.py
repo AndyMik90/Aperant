@@ -4,13 +4,16 @@ GitHub CLI Executable Finder
 ============================
 
 Utility to find the gh (GitHub CLI) executable, with platform-specific fallbacks.
+Thread-safe caching is used to avoid redundant path lookups.
 """
 
 import os
 import shutil
 import subprocess
+import threading
 
 _cached_gh_path: str | None = None
+_gh_cache_lock = threading.Lock()  # Protects _cached_gh_path access
 
 
 def invalidate_gh_cache() -> None:
@@ -18,9 +21,11 @@ def invalidate_gh_cache() -> None:
 
     Useful when gh may have been uninstalled, updated, or when
     GITHUB_CLI_PATH environment variable has changed.
+    Thread-safe: uses lock to prevent race conditions.
     """
     global _cached_gh_path
-    _cached_gh_path = None
+    with _gh_cache_lock:
+        _cached_gh_path = None
 
 
 def _verify_gh_executable(path: str) -> bool:
@@ -88,15 +93,27 @@ def get_gh_executable() -> str | None:
 
     Caches the result after first successful find. Use invalidate_gh_cache()
     to force re-detection (e.g., after gh installation/uninstallation).
+    Thread-safe: uses lock to prevent race conditions during cache access.
     """
     global _cached_gh_path
 
-    # Return cached result if available AND still exists
-    if _cached_gh_path is not None and os.path.isfile(_cached_gh_path):
-        return _cached_gh_path
+    # Check cache with lock (double-checked locking pattern)
+    with _gh_cache_lock:
+        # Return cached result if available AND still exists
+        if _cached_gh_path is not None and os.path.isfile(_cached_gh_path):
+            return _cached_gh_path
 
-    _cached_gh_path = _find_gh_executable()
-    return _cached_gh_path
+    # Cache miss - find executable (outside lock to avoid blocking)
+    found_path = _find_gh_executable()
+
+    # Update cache with lock
+    with _gh_cache_lock:
+        # Re-check if another thread populated it while we were finding
+        if _cached_gh_path is not None and os.path.isfile(_cached_gh_path):
+            return _cached_gh_path
+        _cached_gh_path = found_path
+
+    return found_path
 
 
 def _find_gh_executable() -> str | None:

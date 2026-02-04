@@ -144,7 +144,7 @@ export interface TabState {
 export interface ElectronAPI {
   // Project operations
   addProject: (projectPath: string) => Promise<IPCResult<Project>>;
-  removeProject: (projectId: string) => Promise<IPCResult>;
+  removeProject: (projectId: string, deleteData?: boolean) => Promise<IPCResult>;
   getProjects: () => Promise<IPCResult<Project[]>>;
   updateProjectSettings: (projectId: string, settings: Partial<ProjectSettings>) => Promise<IPCResult>;
   initializeProject: (projectId: string) => Promise<IPCResult<InitializationResult>>;
@@ -158,7 +158,7 @@ export interface ElectronAPI {
   getTasks: (projectId: string) => Promise<IPCResult<Task[]>>;
   createTask: (projectId: string, title: string, description: string, metadata?: TaskMetadata) => Promise<IPCResult<Task>>;
   deleteTask: (taskId: string) => Promise<IPCResult>;
-  updateTask: (taskId: string, updates: { title?: string; description?: string }) => Promise<IPCResult<Task>>;
+  updateTask: (taskId: string, updates: { title?: string; description?: string; metadata?: Partial<import('./task').TaskMetadata> }) => Promise<IPCResult<Task>>;
   startTask: (taskId: string, options?: TaskStartOptions) => void;
   stopTask: (taskId: string) => void;
   submitReview: (taskId: string, approved: boolean, feedback?: string, images?: ImageAttachment[]) => Promise<IPCResult>;
@@ -815,6 +815,20 @@ export interface ElectronAPI {
   // MCP Server health check operations
   checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
+
+  // Agent Drift monitoring operations
+  invoke: <T = unknown>(channel: string, ...args: unknown[]) => Promise<T>;
+  on: (channel: string, callback: (event: unknown, ...args: unknown[]) => void) => () => void;
+
+  // Task lifecycle events
+  onTaskAgentStopped: (callback: (taskId: string) => void) => () => void;
+  onTaskSpecReady: (callback: (taskId: string, specId: string, projectId?: string) => void) => () => void;
+
+  // File operations
+  writeFile: (filePath: string, content: string) => Promise<IPCResult>;
+
+  // Build operations
+  startBuild: (taskId: string) => Promise<IPCResult>;
 }
 
 declare global {
