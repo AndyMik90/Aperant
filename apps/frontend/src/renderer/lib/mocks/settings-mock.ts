@@ -55,5 +55,6 @@ export const settingsMock = {
   onAppUpdateDownloaded: () => () => {},
   onAppUpdateProgress: () => () => {},
   onAppUpdateStableDowngrade: () => () => {},
-  onAppUpdateReadOnlyVolume: () => () => {}
+  onAppUpdateReadOnlyVolume: () => () => {},
+  onAppUpdateError: () => () => {}
 };

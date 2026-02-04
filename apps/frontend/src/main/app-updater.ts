@@ -534,14 +534,8 @@ export async function setUpdateChannelWithDowngradeCheck(
   channel: UpdateChannel,
   triggerDowngradeCheck = false
 ): Promise<AppUpdateInfo | null> {
-  autoUpdater.channel = channel;
-  // Enable pre-release scanning when beta channel is selected
-  // This allows electron-updater to find beta releases on GitHub
-  autoUpdater.allowPrerelease = channel === 'beta';
-  // Clear any downloaded update info when channel changes to prevent showing
-  // an Install button for an update from a different channel
-  downloadedUpdateInfo = null;
-  console.warn(`[app-updater] Update channel set to: ${channel}, allowPrerelease: ${autoUpdater.allowPrerelease}`);
+  // Use the shared channel-setting function to avoid code duplication
+  setUpdateChannel(channel);
 
   // If switching to stable and downgrade check requested, look for stable version
   if (channel === 'latest' && triggerDowngradeCheck) {

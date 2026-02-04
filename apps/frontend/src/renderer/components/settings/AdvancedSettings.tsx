@@ -7,7 +7,8 @@ import {
   Sparkles,
   ArrowDownToLine,
   X,
-  AlertTriangle
+  AlertTriangle,
+  AlertCircle
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -67,6 +68,8 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
   const [stableDowngradeInfo, setStableDowngradeInfo] = useState<AppUpdateInfo | null>(null);
   // Read-only volume warning (shown when trying to install from DMG)
   const [showReadOnlyWarning, setShowReadOnlyWarning] = useState(false);
+  // General update error state
+  const [appUpdateError, setAppUpdateError] = useState<string | null>(null);
 
   // Check for updates on mount, including any already-downloaded updates
   useEffect(() => {
@@ -156,12 +159,19 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
       setShowReadOnlyWarning(true);
     });
 
+    // Listen for update errors (e.g., install failures)
+    const cleanupError = window.electronAPI.onAppUpdateError((error) => {
+      setAppUpdateError(error.message);
+      setIsDownloadingAppUpdate(false);
+    });
+
     return () => {
       cleanupAvailable();
       cleanupDownloaded();
       cleanupProgress();
       cleanupStableDowngrade();
       cleanupReadOnlyVolume();
+      cleanupError();
     };
   }, []);
 
@@ -184,6 +194,7 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
 
   const handleDownloadAppUpdate = async () => {
     setIsDownloadingAppUpdate(true);
+    setAppUpdateError(null);
     try {
       const result = await window.electronAPI.downloadAppUpdate();
       if (!result.success) {
@@ -203,6 +214,7 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
 
   const handleDownloadStableVersion = async () => {
     setIsDownloadingAppUpdate(true);
+    setAppUpdateError(null);
     try {
       // Use dedicated stable download API with allowDowngrade enabled
       const result = await window.electronAPI.downloadStableUpdate();
@@ -317,6 +329,14 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
                   <p className="text-xs text-muted-foreground text-right">
                     {(appDownloadProgress.transferred / 1024 / 1024).toFixed(2)} MB / {(appDownloadProgress.total / 1024 / 1024).toFixed(2)} MB
                   </p>
+                </div>
+              )}
+
+              {/* Update Error */}
+              {appUpdateError && (
+                <div className="flex items-center gap-3 text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-lg p-3">
+                  <AlertCircle className="h-5 w-5 shrink-0" />
+                  <span>{appUpdateError}</span>
                 </div>
               )}
 

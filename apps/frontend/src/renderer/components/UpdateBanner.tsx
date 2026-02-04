@@ -142,6 +142,20 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
     return cleanup;
   }, []);
 
+  // Listen for update errors (e.g., install failures)
+  useEffect(() => {
+    if (!window.electronAPI?.onAppUpdateError) {
+      return;
+    }
+
+    const cleanup = window.electronAPI.onAppUpdateError((error) => {
+      setDownloadError(error.message);
+      setIsDownloading(false);
+    });
+
+    return cleanup;
+  }, []);
+
   // Handle update and restart
   const handleUpdate = async () => {
     if (isDownloaded) {

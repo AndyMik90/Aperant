@@ -4,6 +4,7 @@ import type {
   AppUpdateProgress,
   AppUpdateAvailableEvent,
   AppUpdateDownloadedEvent,
+  AppUpdateErrorEvent,
   IPCResult
 } from '../../shared/types';
 import { createIpcListener, invokeIpc, IpcListenerCleanup } from './modules/ipc-utils';
@@ -36,6 +37,9 @@ export interface AppUpdateAPI {
   ) => IpcListenerCleanup;
   onAppUpdateReadOnlyVolume: (
     callback: (info: { appPath: string }) => void
+  ) => IpcListenerCleanup;
+  onAppUpdateError: (
+    callback: (error: AppUpdateErrorEvent) => void
   ) => IpcListenerCleanup;
 }
 
@@ -87,5 +91,10 @@ export const createAppUpdateAPI = (): AppUpdateAPI => ({
   onAppUpdateReadOnlyVolume: (
     callback: (info: { appPath: string }) => void
   ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.APP_UPDATE_READONLY_VOLUME, callback)
+    createIpcListener(IPC_CHANNELS.APP_UPDATE_READONLY_VOLUME, callback),
+
+  onAppUpdateError: (
+    callback: (error: AppUpdateErrorEvent) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.APP_UPDATE_ERROR, callback)
 });

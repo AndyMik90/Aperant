@@ -115,6 +115,16 @@ export function AppUpdateNotification() {
     return cleanup;
   }, []);
 
+  // Listen for update errors (e.g., install failures)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onAppUpdateError((error) => {
+      setDownloadError(error.message);
+      setIsDownloading(false);
+    });
+
+    return cleanup;
+  }, []);
+
   const handleDownload = async () => {
     setIsDownloading(true);
     setDownloadError(null);

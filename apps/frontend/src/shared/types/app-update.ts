@@ -23,3 +23,8 @@ export interface AppUpdateAvailableEvent {
 export interface AppUpdateDownloadedEvent {
   version: string;
 }
+
+export interface AppUpdateErrorEvent {
+  message: string;
+  stack?: string;
+}
