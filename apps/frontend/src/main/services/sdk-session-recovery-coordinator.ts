@@ -1,6 +1,19 @@
 /**
  * SDK Session Recovery Coordinator
  *
+ * @deprecated This module is deprecated in favor of ClaudeOperationRegistry
+ * (src/main/claude-profile/operation-registry.ts). The OperationRegistry provides
+ * similar functionality with a simpler API and is actively integrated with
+ * AgentManager and UsageMonitor. This module is retained for backward compatibility
+ * but should not be used for new code.
+ *
+ * Migration guide:
+ * - Use getOperationRegistry() from '../claude-profile/operation-registry'
+ * - registerOperation() -> operationRegistry.registerOperation()
+ * - unregisterOperation() -> operationRegistry.unregisterOperation()
+ * - getOperationsByProfile() -> operationRegistry.getOperationsByProfile()
+ *
+ * Original description:
  * Central coordinator for all SDK operations and rate limit recovery.
  * Part of the intelligent rate limit recovery system (Phase 9: Unified Coordination).
  *
@@ -96,6 +109,9 @@ interface PendingNotification {
 
 /**
  * SDKSessionRecoveryCoordinator - Central manager for SDK operations and recovery
+ *
+ * @deprecated Use ClaudeOperationRegistry from '../claude-profile/operation-registry' instead.
+ * This class is retained for backward compatibility but is no longer actively maintained.
  *
  * This singleton coordinates all SDK operations across the application:
  * - Tasks (via AgentManager)
@@ -531,6 +547,7 @@ export class SDKSessionRecoveryCoordinator extends EventEmitter {
 
 /**
  * Get the global coordinator instance
+ * @deprecated Use getOperationRegistry() from '../claude-profile/operation-registry' instead.
  */
 export function getRecoveryCoordinator(): SDKSessionRecoveryCoordinator {
   return SDKSessionRecoveryCoordinator.getInstance();

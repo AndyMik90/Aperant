@@ -93,6 +93,28 @@ const BILLING_FAILURE_PATTERNS = [
 ];
 
 /**
+ * Maximum length for error messages sent to renderer.
+ * Truncates to prevent exposing excessive internal details.
+ */
+const MAX_ERROR_LENGTH = 500;
+
+/**
+ * Sanitize error output before sending to renderer.
+ * Truncates long output and only includes in debug mode for security.
+ */
+function sanitizeErrorOutput(output: string): string | undefined {
+  // Only include error details in debug mode to limit exposure
+  if (process.env.DEBUG !== 'true') {
+    return undefined;
+  }
+  // Truncate long output
+  if (output.length > MAX_ERROR_LENGTH) {
+    return output.substring(0, MAX_ERROR_LENGTH) + '... (truncated)';
+  }
+  return output;
+}
+
+/**
  * Result of rate limit detection
  */
 export interface RateLimitDetectionResult {
@@ -109,7 +131,7 @@ export interface RateLimitDetectionResult {
     id: string;
     name: string;
   };
-  /** Original error message */
+  /** Original error message (truncated, only in DEBUG mode) */
   originalError?: string;
 }
 
@@ -193,7 +215,7 @@ export function detectRateLimit(
         id: bestProfile.id,
         name: bestProfile.name
       } : undefined,
-      originalError: output
+      originalError: sanitizeErrorOutput(output)
     };
   }
 
@@ -211,7 +233,7 @@ export function detectRateLimit(
           id: bestProfile.id,
           name: bestProfile.name
         } : undefined,
-        originalError: output
+        originalError: sanitizeErrorOutput(output)
       };
     }
   }
@@ -331,7 +353,7 @@ export function detectAuthFailure(
         profileId: effectiveProfileId,
         failureType,
         message: getAuthFailureMessage(failureType),
-        originalError: output
+        originalError: sanitizeErrorOutput(output)
       };
     }
   }
@@ -373,7 +395,7 @@ export function detectBillingFailure(
         profileId: effectiveProfileId,
         failureType,
         message: getBillingFailureMessage(failureType),
-        originalError: output
+        originalError: sanitizeErrorOutput(output)
       };
     }
   }
@@ -629,7 +651,7 @@ export interface SDKRateLimitInfo {
   };
   /** When detected */
   detectedAt: Date;
-  /** Original error message */
+  /** Original error message (truncated, only in DEBUG mode) */
   originalError?: string;
 
   // Auto-swap information

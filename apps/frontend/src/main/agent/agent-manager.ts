@@ -34,6 +34,8 @@ export class AgentManager extends EventEmitter {
     baseBranch?: string;
     swapCount: number;
     projectId?: string;
+    /** Generation counter to prevent stale cleanup after restart */
+    generation: number;
   }> = new Map();
 
   constructor() {
@@ -58,11 +60,21 @@ export class AgentManager extends EventEmitter {
       // 1. Task completed successfully (code === 0), or
       // 2. Task failed and won't be restarted (handled by auto-swap logic)
 
+      // Capture generation at exit time to prevent race conditions with restarts
+      const contextAtExit = this.taskExecutionContext.get(taskId);
+      const generationAtExit = contextAtExit?.generation;
+
       // Note: Auto-swap restart happens BEFORE this exit event is processed,
       // so we need a small delay to allow restart to preserve context
       setTimeout(() => {
         const context = this.taskExecutionContext.get(taskId);
         if (!context) return; // Already cleaned up or restarted
+
+        // Check if the context's generation matches - if not, a restart incremented it
+        // and this cleanup is for a stale exit event that shouldn't affect the new task
+        if (generationAtExit !== undefined && context.generation !== generationAtExit) {
+          return; // Stale exit event - task was restarted, don't clean up new context
+        }
 
         // If task completed successfully, always clean up
         if (code === 0) {
@@ -446,6 +458,8 @@ export class AgentManager extends EventEmitter {
     // Preserve swapCount if context already exists (for restarts)
     const existingContext = this.taskExecutionContext.get(taskId);
     const swapCount = existingContext?.swapCount ?? 0;
+    // Increment generation on each store (restarts) to invalidate pending cleanup callbacks
+    const generation = (existingContext?.generation ?? 0) + 1;
 
     this.taskExecutionContext.set(taskId, {
       projectPath,
@@ -457,7 +471,8 @@ export class AgentManager extends EventEmitter {
       metadata,
       baseBranch,
       swapCount, // Preserve existing count instead of resetting
-      projectId
+      projectId,
+      generation, // Incremented to prevent stale exit cleanup
     });
   }
 

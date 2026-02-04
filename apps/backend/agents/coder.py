@@ -6,8 +6,11 @@ Main autonomous agent loop that runs the coder agent to implement subtasks.
 """
 
 import asyncio
+import json
 import logging
 import os
+import re
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from core.client import create_client
@@ -174,9 +177,6 @@ def parse_rate_limit_reset_time(error_info: dict | None) -> int | None:
     Returns:
         Unix timestamp of reset time, or None if not parseable
     """
-    import re
-    from datetime import datetime, timedelta
-
     if not error_info:
         return None
 
@@ -197,23 +197,31 @@ def parse_rate_limit_reset_time(error_info: dict | None) -> int | None:
     # Pattern: "at HH:MM" (12 or 24 hour)
     at_time_match = re.search(r"at\s+(\d{1,2}):(\d{2})(?:\s*(am|pm))?", message, re.I)
     if at_time_match:
-        hour = int(at_time_match.group(1))
-        minute = int(at_time_match.group(2))
-        meridiem = at_time_match.group(3)
-        if meridiem:
-            if meridiem.lower() == "pm" and hour < 12:
-                hour += 12
-            elif meridiem.lower() == "am" and hour == 12:
-                hour = 0
+        try:
+            hour = int(at_time_match.group(1))
+            minute = int(at_time_match.group(2))
+            meridiem = at_time_match.group(3)
+            if meridiem:
+                if meridiem.lower() == "pm" and hour < 12:
+                    hour += 12
+                elif meridiem.lower() == "am" and hour == 12:
+                    hour = 0
 
-        now = datetime.now()
-        reset_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-        if reset_time <= now:
-            reset_time += timedelta(days=1)
-        return int(reset_time.timestamp())
+            # Validate hour and minute ranges
+            if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                return None
 
-    # Default: 5 hour wait (typical session reset)
-    return int((datetime.now() + timedelta(hours=5)).timestamp())
+            now = datetime.now()
+            reset_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if reset_time <= now:
+                reset_time += timedelta(days=1)
+            return int(reset_time.timestamp())
+        except ValueError:
+            # Invalid time values - return None to fall back to standard retry
+            return None
+
+    # No pattern matched - return None to let caller decide retry behavior
+    return None
 
 
 async def run_autonomous_agent(
@@ -828,8 +836,6 @@ async def run_autonomous_agent(
 
                 reset_timestamp = parse_rate_limit_reset_time(error_info)
                 if reset_timestamp:
-                    from datetime import datetime
-
                     wait_seconds = reset_timestamp - datetime.now().timestamp()
 
                     # Handle negative wait_seconds (reset time in the past)
@@ -868,8 +874,6 @@ async def run_autonomous_agent(
                         )
 
                         # Create pause file for frontend detection
-                        import json
-
                         pause_data = {
                             "paused_at": datetime.now().isoformat(),
                             "reset_timestamp": reset_timestamp,
@@ -912,9 +916,6 @@ async def run_autonomous_agent(
                 )
 
                 # Create pause file for frontend detection
-                import json
-                from datetime import datetime
-
                 pause_data = {
                     "paused_at": datetime.now().isoformat(),
                     "error": error_info.get("message", "Authentication failed"),
