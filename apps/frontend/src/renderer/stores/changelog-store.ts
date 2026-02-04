@@ -196,7 +196,7 @@ export const useChangelogStore = create<ChangelogState>((set, get) => ({
     // Auto-suggest next version if we found a previous version
     if (changelog?.lastVersion) {
       const parts = changelog.lastVersion.split('.').map(Number);
-      if (parts.length === 3 && !parts.some(isNaN)) {
+      if (parts.length === 3 && !parts.some(Number.isNaN)) {
         const [major, minor, patch] = parts;
         set({ version: `${major}.${minor}.${patch + 1}` });
       }

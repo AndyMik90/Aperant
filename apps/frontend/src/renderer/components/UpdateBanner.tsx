@@ -52,7 +52,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
           releaseDate: result.data.releaseDate,
         });
       }
-    } catch (err) {
+    } catch (_err) {
       // Silent failure - update check is non-critical
     }
   }, []);
@@ -165,7 +165,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
         setDownloadError(result.error || t("navigation:updateBanner.downloadError"));
         setIsDownloading(false);
       }
-    } catch (error) {
+    } catch (_error) {
       setDownloadError(t("navigation:updateBanner.downloadError"));
       setIsDownloading(false);
     }

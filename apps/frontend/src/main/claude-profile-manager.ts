@@ -32,7 +32,6 @@ import {
   clearRateLimitEvents as clearRateLimitEventsImpl
 } from './claude-profile/rate-limit-manager';
 import {
-  loadProfileStore,
   loadProfileStoreAsync,
   saveProfileStore,
   ProfileStoreData,
@@ -194,31 +193,6 @@ export class ClaudeProfileManager {
    */
   isInitialized(): boolean {
     return this.initialized;
-  }
-
-  /**
-   * Load profiles from disk
-   */
-  private load(): ProfileStoreData {
-    const loadedData = loadProfileStore(this.storePath);
-    if (loadedData) {
-      if (process.env.DEBUG === 'true') {
-        console.warn('[ClaudeProfileManager] Loaded profiles:', {
-          count: loadedData.profiles.length,
-          activeProfileId: loadedData.activeProfileId,
-          profiles: loadedData.profiles.map(p => ({
-            id: p.id,
-            name: p.name,
-            email: p.email,
-            isDefault: p.isDefault
-          }))
-        });
-      }
-      return loadedData;
-    }
-
-    // Return default with a single "Default" profile
-    return this.createDefaultData();
   }
 
   /**

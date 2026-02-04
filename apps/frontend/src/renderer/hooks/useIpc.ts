@@ -386,7 +386,7 @@ export function useIpcListeners(): void {
       cleanupAuthFailure();
       cleanupNotificationSound();
     };
-  }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, batchAppendLogs, setError]);
+  }, [appendLog, setError]);
 }
 
 /**

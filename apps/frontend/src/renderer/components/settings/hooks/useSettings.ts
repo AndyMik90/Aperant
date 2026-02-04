@@ -43,7 +43,7 @@ export function useSettings() {
       colorTheme: currentSettings.colorTheme,
       uiScale: currentSettings.uiScale ?? UI_SCALE_DEFAULT
     };
-  }, []);
+  }, [currentSettings.colorTheme, currentSettings.theme, currentSettings.uiScale]);
 
   const saveSettings = async () => {
     setIsSaving(true);
