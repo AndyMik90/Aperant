@@ -1,4 +1,4 @@
-import { useState, useRef, useLayoutEffect } from 'react';
+import { useState, useRef, useLayoutEffect, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Target,
@@ -63,6 +63,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasOverflow, setHasOverflow] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const contentId = useId();
 
   // Handle JSON error description with i18n
   const displayDescription = (() => {
@@ -182,6 +183,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
           <div className="relative">
             <div
               ref={contentRef}
+              id={contentId}
               className={cn(
                 'prose prose-sm dark:prose-invert max-w-none overflow-hidden prose-p:text-foreground/90 prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground prose-li:text-foreground/90 prose-ul:my-2 prose-li:my-0.5 prose-a:break-all prose-pre:overflow-x-auto prose-img:max-w-full [&_img]:!max-w-full [&_img]:h-auto [&_code]:break-all [&_code]:whitespace-pre-wrap [&_*]:max-w-full',
                 !isExpanded && hasOverflow && 'max-h-[200px]'
@@ -207,15 +209,17 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
                 size="sm"
                 onClick={() => setIsExpanded(!isExpanded)}
                 className="text-muted-foreground hover:text-foreground"
+                aria-expanded={isExpanded}
+                aria-controls={contentId}
               >
                 {isExpanded ? (
                   <>
-                    <ChevronUp className="h-4 w-4 mr-1" />
+                    <ChevronUp className="h-4 w-4 mr-1" aria-hidden="true" />
                     {t('tasks:metadata.showLess')}
                   </>
                 ) : (
                   <>
-                    <ChevronDown className="h-4 w-4 mr-1" />
+                    <ChevronDown className="h-4 w-4 mr-1" aria-hidden="true" />
                     {t('tasks:metadata.showMore')}
                   </>
                 )}
