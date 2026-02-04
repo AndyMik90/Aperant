@@ -30,3 +30,8 @@ RESUME_FILE = "RESUME"  # Created by frontend to signal resume
 # Maximum time to wait for rate limit reset (2 hours)
 # If reset time is beyond this, task should fail rather than wait indefinitely
 MAX_RATE_LIMIT_WAIT_SECONDS = 7200
+
+# Wait intervals for pause/resume checking
+RATE_LIMIT_CHECK_INTERVAL_SECONDS = 30  # Check for RESUME file every 30 seconds during rate limit wait
+AUTH_RESUME_CHECK_INTERVAL_SECONDS = 10  # Check for re-authentication every 10 seconds
+AUTH_RESUME_MAX_WAIT_SECONDS = 86400  # Maximum wait for re-authentication (24 hours)

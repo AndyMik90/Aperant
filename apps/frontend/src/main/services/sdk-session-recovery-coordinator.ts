@@ -7,6 +7,12 @@
  * AgentManager and UsageMonitor. This module is retained for backward compatibility
  * but should not be used for new code.
  *
+ * TODO: Target removal in v0.5.0 (Q2 2026). Before removal:
+ * 1. Identify any remaining usages in the codebase
+ * 2. Migrate all remaining consumers to ClaudeOperationRegistry
+ * 3. Remove this file and associated tests
+ * 4. Update imports across the codebase
+ *
  * Migration guide:
  * - Use getOperationRegistry() from '../claude-profile/operation-registry'
  * - registerOperation() -> operationRegistry.registerOperation()

@@ -153,7 +153,10 @@ export function runPythonSubprocess<T = unknown>(
     if (activeProfile) {
       const operationRegistry = getOperationRegistry();
 
-      // Create a stop function that kills the subprocess
+      // Create a stop function that kills the subprocess.
+      // Note: This sends SIGTERM and returns immediately without waiting for process exit.
+      // RestartFn implementations should handle potential overlap between process termination
+      // and restart initialization.
       const stopFn = async () => {
         if (child.pid) {
           try {

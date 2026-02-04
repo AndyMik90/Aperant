@@ -61,12 +61,15 @@ from ui import (
 
 from .base import (
     AUTH_FAILURE_PAUSE_FILE,
+    AUTH_RESUME_CHECK_INTERVAL_SECONDS,
+    AUTH_RESUME_MAX_WAIT_SECONDS,
     AUTO_CONTINUE_DELAY_SECONDS,
     HUMAN_INTERVENTION_FILE,
     INITIAL_RETRY_DELAY_SECONDS,
     MAX_CONCURRENCY_RETRIES,
     MAX_RATE_LIMIT_WAIT_SECONDS,
     MAX_RETRY_DELAY_SECONDS,
+    RATE_LIMIT_CHECK_INTERVAL_SECONDS,
     RATE_LIMIT_PAUSE_FILE,
     RESUME_FILE,
 )
@@ -94,7 +97,6 @@ async def wait_for_rate_limit_reset(spec_dir: Path, wait_seconds: float) -> bool
     Returns:
         True if resumed early, False if waited full duration
     """
-    CHECK_INTERVAL = 30  # Check every 30 seconds
     elapsed = 0.0
     resume_file = spec_dir / RESUME_FILE
     pause_file = spec_dir / RATE_LIMIT_PAUSE_FILE
@@ -110,7 +112,7 @@ async def wait_for_rate_limit_reset(spec_dir: Path, wait_seconds: float) -> bool
             return True
 
         # Wait for next check interval or remaining time
-        sleep_time = min(CHECK_INTERVAL, wait_seconds - elapsed)
+        sleep_time = min(RATE_LIMIT_CHECK_INTERVAL_SECONDS, wait_seconds - elapsed)
         await asyncio.sleep(sleep_time)
         elapsed += sleep_time
 
@@ -135,13 +137,11 @@ async def wait_for_auth_resume(spec_dir: Path) -> None:
     Args:
         spec_dir: Spec directory to monitor for signal files
     """
-    CHECK_INTERVAL = 10  # Check every 10 seconds
-    MAX_WAIT_TIMEOUT = 86400  # 24 hours maximum wait
     elapsed = 0.0
     resume_file = spec_dir / RESUME_FILE
     pause_file = spec_dir / AUTH_FAILURE_PAUSE_FILE
 
-    while elapsed < MAX_WAIT_TIMEOUT:
+    while elapsed < AUTH_RESUME_MAX_WAIT_SECONDS:
         # Check for resume signals
         if resume_file.exists() or not pause_file.exists():
             try:
@@ -151,8 +151,8 @@ async def wait_for_auth_resume(spec_dir: Path) -> None:
                 pass
             return
 
-        await asyncio.sleep(CHECK_INTERVAL)
-        elapsed += CHECK_INTERVAL
+        await asyncio.sleep(AUTH_RESUME_CHECK_INTERVAL_SECONDS)
+        elapsed += AUTH_RESUME_CHECK_INTERVAL_SECONDS
 
     # Timeout reached - clean up and return
     print_status(
@@ -201,6 +201,12 @@ def parse_rate_limit_reset_time(error_info: dict | None) -> int | None:
             hour = int(at_time_match.group(1))
             minute = int(at_time_match.group(2))
             meridiem = at_time_match.group(3)
+
+            # Validate hour range when meridiem is present
+            # Hours should be 1-12 for AM/PM format
+            if meridiem and not (1 <= hour <= 12):
+                return None
+
             if meridiem:
                 if meridiem.lower() == "pm" and hour < 12:
                     hour += 12

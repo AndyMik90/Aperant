@@ -77,6 +77,7 @@ export interface OperationRegistryEvents {
   'operation-unregistered': (operationId: string, type: OperationType) => void;
   'operation-restarted': (operationId: string, oldProfileId: string, newProfileId: string) => void;
   'operations-restarted': (count: number, oldProfileId: string, newProfileId: string) => void;
+  'operation-profile-updated': (operationId: string, oldProfileId: string, newProfileId: string) => void;
 }
 
 /**
@@ -258,10 +259,13 @@ class ClaudeOperationRegistry extends EventEmitter {
         const success = await op.restartFn(newProfileId);
 
         if (success) {
-          // Update the operation's profile info
-          op.profileId = newProfileId;
-          op.profileName = newProfileName;
           restartedCount++;
+
+          // Update the profile for operations that weren't re-registered during restart.
+          // For AgentManager tasks, restartFn may create a NEW object in the Map,
+          // in which case this update is harmless (updates the stale reference).
+          // For other operations, this ensures the profile is properly updated.
+          this.updateOperationProfile(op.id, newProfileId, newProfileName);
 
           console.log('[OperationRegistry] Operation restarted successfully:', {
             id: op.id,
@@ -305,6 +309,7 @@ class ClaudeOperationRegistry extends EventEmitter {
         from: oldProfileId,
         to: newProfileId,
       });
+      this.emit('operation-profile-updated', id, oldProfileId, newProfileId);
     }
   }
 
@@ -314,6 +319,51 @@ class ClaudeOperationRegistry extends EventEmitter {
   clear(): void {
     this.operations.clear();
     this.debugLog('All operations cleared');
+  }
+
+  /**
+   * Type-safe event subscription: operation-registered
+   * Subscribe to operation registration events
+   */
+  onOperationRegistered(callback: (operation: RegisteredOperation) => void): () => void {
+    this.on('operation-registered', callback);
+    return () => this.off('operation-registered', callback);
+  }
+
+  /**
+   * Type-safe event subscription: operation-unregistered
+   * Subscribe to operation unregistration events
+   */
+  onOperationUnregistered(callback: (operationId: string, type: OperationType) => void): () => void {
+    this.on('operation-unregistered', callback);
+    return () => this.off('operation-unregistered', callback);
+  }
+
+  /**
+   * Type-safe event subscription: operation-restarted
+   * Subscribe to individual operation restart events
+   */
+  onOperationRestarted(callback: (operationId: string, oldProfileId: string, newProfileId: string) => void): () => void {
+    this.on('operation-restarted', callback);
+    return () => this.off('operation-restarted', callback);
+  }
+
+  /**
+   * Type-safe event subscription: operations-restarted
+   * Subscribe to batch operation restart events
+   */
+  onOperationsRestarted(callback: (count: number, oldProfileId: string, newProfileId: string) => void): () => void {
+    this.on('operations-restarted', callback);
+    return () => this.off('operations-restarted', callback);
+  }
+
+  /**
+   * Type-safe event subscription: operation-profile-updated
+   * Subscribe to operation profile update events
+   */
+  onOperationProfileUpdated(callback: (operationId: string, oldProfileId: string, newProfileId: string) => void): () => void {
+    this.on('operation-profile-updated', callback);
+    return () => this.off('operation-profile-updated', callback);
   }
 }
 
