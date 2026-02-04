@@ -110,6 +110,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
       setIsDownloaded(false);
       setDownloadProgress(null);
       setDownloadError(null);
+      setShowReadOnlyWarning(false);
     });
 
     return cleanup;
@@ -273,7 +274,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
         size="sm"
         className="w-full h-7 text-xs gap-1.5"
         onClick={handleUpdate}
-        disabled={isDownloading}
+        disabled={isDownloading || showReadOnlyWarning}
       >
         {isDownloading ? (
           <>

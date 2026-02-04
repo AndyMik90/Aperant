@@ -91,6 +91,7 @@ export function AppUpdateNotification() {
       setIsDownloaded(false);
       setDownloadProgress(null);
       setDownloadError(null);
+      setShowReadOnlyWarning(false);
     });
 
     return cleanup;
@@ -309,7 +310,7 @@ export function AppUpdateNotification() {
           </Button>
 
           {isDownloaded ? (
-            <Button onClick={handleInstall}>
+            <Button onClick={handleInstall} disabled={showReadOnlyWarning}>
               <RefreshCw className="mr-2 h-4 w-4" />
               {t("dialogs:appUpdate.installAndRestart", "Install and Restart")}
             </Button>
