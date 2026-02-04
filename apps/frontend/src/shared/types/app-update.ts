@@ -26,5 +26,4 @@ export interface AppUpdateDownloadedEvent {
 
 export interface AppUpdateErrorEvent {
   message: string;
-  stack?: string;
 }

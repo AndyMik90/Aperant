@@ -193,8 +193,7 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
     console.error('[app-updater] Update error:', error);
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.APP_UPDATE_ERROR, {
-        message: error.message,
-        stack: error.stack
+        message: error.message
       });
     }
   });
@@ -324,9 +323,12 @@ function isRunningFromReadOnlyVolume(): boolean {
     // Try to check if we can write to the app's parent directory
     accessSync(path.dirname(appBundlePath), fsConstants.W_OK);
     return false;
-  } catch {
-    // If we can't write, it's likely read-only
-    return true;
+  } catch (error: unknown) {
+    // Only treat as read-only if the filesystem itself is read-only (EROFS).
+    // Permission errors (EACCES) in managed/enterprise environments should not
+    // block updates — the updater may still have elevated access.
+    const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
+    return code === 'EROFS';
   }
 }
 

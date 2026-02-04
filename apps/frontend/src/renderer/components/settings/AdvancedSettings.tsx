@@ -155,12 +155,12 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
     });
 
     // Listen for read-only volume warning (when trying to install from DMG)
-    const cleanupReadOnlyVolume = window.electronAPI.onAppUpdateReadOnlyVolume(() => {
+    const cleanupReadOnlyVolume = window.electronAPI?.onAppUpdateReadOnlyVolume?.(() => {
       setShowReadOnlyWarning(true);
     });
 
     // Listen for update errors (e.g., install failures)
-    const cleanupError = window.electronAPI.onAppUpdateError((error) => {
+    const cleanupError = window.electronAPI?.onAppUpdateError?.((error) => {
       setAppUpdateError(error.message);
       setIsDownloadingAppUpdate(false);
     });
@@ -170,8 +170,8 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
       cleanupDownloaded();
       cleanupProgress();
       cleanupStableDowngrade();
-      cleanupReadOnlyVolume();
-      cleanupError();
+      cleanupReadOnlyVolume?.();
+      cleanupError?.();
     };
   }, []);
 
