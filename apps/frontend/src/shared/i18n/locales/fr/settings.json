@@ -351,7 +351,7 @@
         "autoDetect": "Détection automatique (main/master)",
         "searchPlaceholder": "Rechercher des branches...",
         "noBranchesFound": "Aucune branche trouvée",
-        "selectedBranchHelp": "Toutes les nouvelles tâches partiront de {{branch}}",
+        "selectedBranchHelp": "Toutes les nouvelles tâches partiront de {{branch}}"
       }
     },
     "gitlab": {
