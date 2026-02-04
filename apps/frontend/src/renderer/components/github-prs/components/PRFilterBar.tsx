@@ -310,11 +310,46 @@ function SortDropdown({
 }) {
   const { t } = useTranslation('common');
   const [isOpen, setIsOpen] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
 
   const currentOption = options.find((opt) => opt.value === value) || options[0];
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (options.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setFocusedIndex((prev) => (prev < options.length - 1 ? prev + 1 : 0));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setFocusedIndex((prev) => (prev > 0 ? prev - 1 : options.length - 1));
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        if (focusedIndex >= 0 && focusedIndex < options.length) {
+          onChange(options[focusedIndex].value);
+          setIsOpen(false);
+        }
+        break;
+      case 'Escape':
+        setIsOpen(false);
+        break;
+    }
+  }, [options, focusedIndex, onChange]);
+
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+    <DropdownMenu
+      open={isOpen}
+      onOpenChange={(open) => {
+        setIsOpen(open);
+        if (!open) {
+          setFocusedIndex(-1);
+        }
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
@@ -335,9 +370,15 @@ function SortDropdown({
             {title}
           </div>
         </div>
-        <div className="p-1">
-          {options.map((option) => {
+        <div
+          className="p-1"
+          role="listbox"
+          tabIndex={0}
+          onKeyDown={handleKeyDown}
+        >
+          {options.map((option, index) => {
             const isSelected = value === option.value;
+            const isFocused = focusedIndex === index;
             const Icon = option.icon;
             return (
               <div
@@ -346,7 +387,8 @@ function SortDropdown({
                 aria-selected={isSelected}
                 className={cn(
                   "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-2 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground",
-                  isSelected && "bg-accent/50"
+                  isSelected && "bg-accent/50",
+                  isFocused && "bg-accent text-accent-foreground"
                 )}
                 onClick={() => {
                   onChange(option.value);
