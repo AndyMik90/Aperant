@@ -124,7 +124,7 @@ export function usePtyProcess({
 
     // Normal skip (not during recreation) - just return
     if (skipCreation) {
-      debugLog(`[usePtyProcess] Skipping PTY creation for terminal: ${terminalId} - dimensions not ready`);
+      debugLog(`[usePtyProcess] Skipping PTY creation for terminal: ${terminalId} - dimensions not ready (skipCreation=true)`);
       return;
     }
     if (isCreatingRef.current || isCreatedRef.current) {
@@ -140,7 +140,9 @@ export function usePtyProcess({
     const alreadyRunning = terminalState?.status === 'running' || terminalState?.status === 'claude-active';
     const isRestored = terminalState?.isRestored;
 
-    debugLog(`[usePtyProcess] Starting PTY creation for terminal: ${terminalId}, isRestored: ${isRestored}, status: ${terminalState?.status}, cols: ${cols}, rows: ${rows}`);
+    debugLog(`[usePtyProcess] Starting PTY creation for terminal: ${terminalId}`);
+    debugLog(`[usePtyProcess] Terminal ${terminalId} state: isRestored=${isRestored}, status=${terminalState?.status}`);
+    debugLog(`[usePtyProcess] Terminal ${terminalId} dimensions for PTY: cols=${cols}, rows=${rows}`);
 
     // When recreating (e.g., worktree switching), reset status from 'exited' to 'idle'
     // This allows proper recreation after deliberate terminal destruction
