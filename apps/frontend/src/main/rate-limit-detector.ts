@@ -93,6 +93,25 @@ const BILLING_FAILURE_PATTERNS = [
 ];
 
 /**
+ * Maximum length for error messages sent to renderer.
+ * Truncates to prevent exposing excessive internal details.
+ */
+const MAX_ERROR_LENGTH = 500;
+
+/**
+ * Sanitize error output before sending to renderer.
+ * Truncates long output to prevent exposing excessive internal details
+ * like full paths, API responses, or stack traces.
+ */
+function sanitizeErrorOutput(output: string): string {
+  // Truncate long output to limit exposure of internal details
+  if (output.length > MAX_ERROR_LENGTH) {
+    return output.substring(0, MAX_ERROR_LENGTH) + '... (truncated)';
+  }
+  return output;
+}
+
+/**
  * Result of rate limit detection
  */
 export interface RateLimitDetectionResult {
@@ -109,7 +128,7 @@ export interface RateLimitDetectionResult {
     id: string;
     name: string;
   };
-  /** Original error message */
+  /** Original error message (truncated to 500 chars for security) */
   originalError?: string;
 }
 
@@ -193,7 +212,7 @@ export function detectRateLimit(
         id: bestProfile.id,
         name: bestProfile.name
       } : undefined,
-      originalError: output
+      originalError: sanitizeErrorOutput(output)
     };
   }
 
@@ -211,7 +230,7 @@ export function detectRateLimit(
           id: bestProfile.id,
           name: bestProfile.name
         } : undefined,
-        originalError: output
+        originalError: sanitizeErrorOutput(output)
       };
     }
   }
@@ -265,7 +284,6 @@ function getAuthFailureMessage(failureType: 'missing' | 'invalid' | 'expired' | 
       return 'Your Claude session has expired. Please re-authenticate in Settings > Claude Profiles.';
     case 'invalid':
       return 'Invalid Claude credentials. Please check your OAuth token or re-authenticate in Settings > Claude Profiles.';
-    case 'unknown':
     default:
       return 'Claude authentication failed. Please verify your authentication in Settings > Claude Profiles.';
   }
@@ -303,7 +321,6 @@ function getBillingFailureMessage(failureType: 'insufficient_credits' | 'payment
       return 'A billing error occurred with your Claude API account. Please check your payment method or switch to another profile in Settings > Claude Profiles.';
     case 'subscription_inactive':
       return 'Your Claude API subscription is inactive or expired. Please renew your subscription or switch to another profile in Settings > Claude Profiles.';
-    case 'unknown':
     default:
       return 'A billing issue was detected with your Claude API account. Please check your account status or switch to another profile in Settings > Claude Profiles.';
   }
@@ -333,7 +350,7 @@ export function detectAuthFailure(
         profileId: effectiveProfileId,
         failureType,
         message: getAuthFailureMessage(failureType),
-        originalError: output
+        originalError: sanitizeErrorOutput(output)
       };
     }
   }
@@ -375,7 +392,7 @@ export function detectBillingFailure(
         profileId: effectiveProfileId,
         failureType,
         message: getBillingFailureMessage(failureType),
-        originalError: output
+        originalError: sanitizeErrorOutput(output)
       };
     }
   }
@@ -631,7 +648,7 @@ export interface SDKRateLimitInfo {
   };
   /** When detected */
   detectedAt: Date;
-  /** Original error message */
+  /** Original error message (truncated to 500 chars for security) */
   originalError?: string;
 
   // Auto-swap information

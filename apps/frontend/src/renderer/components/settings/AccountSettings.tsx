@@ -255,6 +255,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
       // This bypasses the 1-minute cache to ensure accurate duplicate detection
       loadProfileUsageData(true);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, loadProfileUsageData]);
 
   // Subscribe to usage updates for real-time data
@@ -339,7 +340,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           });
         }
       }
-    } catch (err) {
+    } catch (_err) {
       toast({
         variant: 'destructive',
         title: t('accounts.toast.addProfileFailed'),
@@ -369,7 +370,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           description: result.error || t('accounts.toast.tryAgain'),
         });
       }
-    } catch (err) {
+    } catch (_err) {
       toast({
         variant: 'destructive',
         title: t('accounts.toast.deleteProfileFailed'),
@@ -404,7 +405,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           description: result.error || t('accounts.toast.tryAgain'),
         });
       }
-    } catch (err) {
+    } catch (_err) {
       toast({
         variant: 'destructive',
         title: t('accounts.toast.renameProfileFailed'),
@@ -435,7 +436,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           description: result.error || t('accounts.toast.tryAgain'),
         });
       }
-    } catch (err) {
+    } catch (_err) {
       toast({
         variant: 'destructive',
         title: t('accounts.toast.setActiveProfileFailed'),
@@ -487,7 +488,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
     setAuthTerminal(null);
     setAuthenticatingProfileId(null);
     await loadClaudeProfiles();
-  }, []);
+  }, [loadClaudeProfiles]);
 
   const handleAuthTerminalError = useCallback(() => {
     // Don't auto-close on error
@@ -534,7 +535,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           description: result.error || t('accounts.toast.tryAgain'),
         });
       }
-    } catch (err) {
+    } catch (_err) {
       toast({
         variant: 'destructive',
         title: t('accounts.toast.tokenSaveFailed'),
@@ -645,7 +646,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           description: result.error || t('accounts.toast.tryAgain'),
         });
       }
-    } catch (err) {
+    } catch (_err) {
       toast({
         variant: 'destructive',
         title: t('accounts.toast.settingsUpdateFailed'),
@@ -1328,11 +1329,11 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                           <input
                             id="session-threshold"
                             type="range"
-                            min="70"
+                            min="0"
                             max="99"
                             step="1"
                             value={autoSwitchSettings?.sessionThreshold ?? 95}
-                            onChange={(e) => handleUpdateAutoSwitch({ sessionThreshold: parseInt(e.target.value) })}
+                            onChange={(e) => handleUpdateAutoSwitch({ sessionThreshold: parseInt(e.target.value, 10) })}
                             disabled={isLoadingAutoSwitch}
                             className="w-full"
                             aria-describedby="session-threshold-description"
@@ -1351,11 +1352,11 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                           <input
                             id="weekly-threshold"
                             type="range"
-                            min="70"
+                            min="0"
                             max="99"
                             step="1"
                             value={autoSwitchSettings?.weeklyThreshold ?? 99}
-                            onChange={(e) => handleUpdateAutoSwitch({ weeklyThreshold: parseInt(e.target.value) })}
+                            onChange={(e) => handleUpdateAutoSwitch({ weeklyThreshold: parseInt(e.target.value, 10) })}
                             disabled={isLoadingAutoSwitch}
                             className="w-full"
                             aria-describedby="weekly-threshold-description"
@@ -1383,6 +1384,23 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                       <Switch
                         checked={autoSwitchSettings?.autoSwitchOnRateLimit ?? false}
                         onCheckedChange={(value) => handleUpdateAutoSwitch({ autoSwitchOnRateLimit: value })}
+                        disabled={isLoadingAutoSwitch}
+                      />
+                    </div>
+
+                    {/* Auto-switch on auth failure */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-medium">
+                          {t('accounts.autoSwitching.autoSwitchOnAuthFailure')}
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {t('accounts.autoSwitching.autoSwitchOnAuthFailureDescription')}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={autoSwitchSettings?.autoSwitchOnAuthFailure ?? false}
+                        onCheckedChange={(value) => handleUpdateAutoSwitch({ autoSwitchOnAuthFailure: value })}
                         disabled={isLoadingAutoSwitch}
                       />
                     </div>

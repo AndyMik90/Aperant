@@ -199,7 +199,7 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
 
       // Get features for this phase in the new order
       const phaseFeatures = featureIds
-        .map((id) => state.roadmap!.features.find((f) => f.id === id))
+        .map((id) => state.roadmap?.features.find((f) => f.id === id))
         .filter((f): f is RoadmapFeature => f !== undefined);
 
       // Get features from other phases (unchanged)
@@ -283,7 +283,7 @@ export async function loadRoadmap(projectId: string): Promise<void> {
       const parseDate = (dateStr: string | undefined): Date | undefined => {
         if (!dateStr) return undefined;
         const date = new Date(dateStr);
-        return isNaN(date.getTime()) ? undefined : date;
+        return Number.isNaN(date.getTime()) ? undefined : date;
       };
 
       store.setGenerationStatus({
