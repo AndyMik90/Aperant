@@ -171,7 +171,9 @@ export function runPythonSubprocess<T = unknown>(
             if (!isWindows()) {
               process.kill(-child.pid, 'SIGTERM');
             } else {
-              execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], () => {});
+              execFile(getTaskkillExePath(), ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
+                if (err) console.warn('[SubprocessRunner] taskkill error (process may have already exited):', err.message);
+              });
             }
           } catch {
             child.kill('SIGTERM');

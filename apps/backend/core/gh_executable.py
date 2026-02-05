@@ -134,7 +134,7 @@ def _find_gh_executable() -> str | None:
             if os.path.isfile(path) and _verify_gh_executable(path):
                 return path
 
-        # 5. Try 'where' command with shell=True (more reliable on Windows)
+        # 5. Try 'where' command with full path (works even when System32 isn't in PATH)
         return _run_where_command()
 
     return None
