@@ -709,7 +709,11 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     set((state) => ({
       terminals: state.terminals.map((t) => {
         if (t.id === id) {
-          t.parser?.clear();
+          try {
+            t.parser?.clear();
+          } catch (error) {
+            console.error('[TerminalStore] Error clearing parser:', error);
+          }
           return {
             ...t,
             messages: [],

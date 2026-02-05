@@ -28,6 +28,9 @@ CANNOT:
 
 Uses Anthropic memory tool (memory_20250818) for conversation persistence.
 Memory files are stored in spec_dir/memories/ and auto-loaded on session resume.
+
+After planning is complete, generates a Ralph-compatible prompt for autonomous execution.
+The prompt is saved to RALPH_PROMPT.md in the spec directory.
 """
 
 import asyncio
@@ -38,6 +41,7 @@ from typing import Optional
 from core.client import create_client
 from phase_config import get_phase_model, get_phase_thinking_budget
 from phase_event import ExecutionPhase, emit_phase
+from prompts_pkg.ralph_prompt_generator import RalphPromptGenerator
 from task_logger import LogPhase, get_task_logger
 from ui import (
     BuildState,
@@ -193,6 +197,9 @@ async def run_planning_agent(
             plan_file = spec_dir / "implementation_plan.json"
 
             if spec_file.exists() and plan_file.exists():
+                # Planning complete - generate Ralph prompt for autonomous execution
+                ralph_prompt_file = _generate_ralph_prompt_file(spec_dir, project_dir)
+
                 # Planning complete - wait for user to approve
                 print()
                 content = [
@@ -200,10 +207,14 @@ async def run_planning_agent(
                     "",
                     f"Spec: {highlight('spec.md')} - Created",
                     f"Plan: {highlight('implementation_plan.json')} - Created",
+                ]
+                if ralph_prompt_file:
+                    content.append(f"Ralph: {highlight('RALPH_PROMPT.md')} - Generated")
+                content.extend([
                     "",
                     muted("Review the plan and click 'Start Build' when ready."),
                     muted("You can continue chatting to refine the plan."),
-                ]
+                ])
                 print(box(content, width=70, style="heavy"))
                 print()
                 status_manager.update(state=BuildState.PAUSED)
@@ -426,3 +437,41 @@ def _generate_continuation_prompt(spec_dir: Path, memory_handlers: MemoryHandler
     ])
 
     return "\n".join(prompt_parts)
+
+
+def _generate_ralph_prompt_file(spec_dir: Path, project_dir: Path) -> Optional[Path]:
+    """
+    Generate a Ralph-compatible prompt file after planning completes.
+
+    The generated RALPH_PROMPT.md contains a ready-to-use /ralph-loop command
+    that can be copy-pasted into Claude Code for autonomous execution.
+
+    Args:
+        spec_dir: Directory containing spec.md and implementation_plan.json
+        project_dir: Root directory of the project
+
+    Returns:
+        Path to the generated file, or None if generation failed
+    """
+    try:
+        generator = RalphPromptGenerator()
+        generator.analyze_patterns()
+
+        output_file = generator.save_prompt(spec_dir, project_dir)
+
+        logger.info(f"Ralph prompt generated: {output_file}")
+        print_status(f"Ralph prompt saved to {output_file.name}", "success")
+
+        return output_file
+
+    except FileNotFoundError as e:
+        logger.warning(f"Could not generate Ralph prompt: {e}")
+        return None
+
+    except ValueError as e:
+        logger.warning(f"Could not generate Ralph prompt (no tasks found): {e}")
+        return None
+
+    except Exception as e:
+        logger.error(f"Error generating Ralph prompt: {e}", exc_info=True)
+        return None

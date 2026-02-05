@@ -30,6 +30,10 @@ except (ImportError, ValueError, SystemError):
 # Configure logger
 logger = logging.getLogger(__name__)
 
+# Pagination safety limits to prevent unbounded loops
+MAX_FILE_PAGES = 50  # 5000 files max (100 per page)
+MAX_COMMIT_PAGES = 10  # 1000 commits max (100 per page)
+
 
 class GHTimeoutError(Exception):
     """Raised when gh CLI command times out after all retry attempts."""
@@ -1048,10 +1052,10 @@ class GHClient:
 
             page += 1
 
-            # Safety limit to prevent infinite loops
-            if page > 50:
+            # Hard safety limit to prevent unbounded pagination
+            if page >= MAX_FILE_PAGES:
                 logger.warning(
-                    f"PR #{pr_number} has more than 5000 files, stopping pagination"
+                    f"PR #{pr_number} reached max file pages ({MAX_FILE_PAGES}), stopping pagination at {len(files)} files"
                 )
                 break
 
@@ -1100,10 +1104,10 @@ class GHClient:
 
             page += 1
 
-            # Safety limit
-            if page > 10:
+            # Hard safety limit to prevent unbounded pagination
+            if page >= MAX_COMMIT_PAGES:
                 logger.warning(
-                    f"PR #{pr_number} has more than 1000 commits, stopping pagination"
+                    f"PR #{pr_number} reached max commit pages ({MAX_COMMIT_PAGES}), stopping pagination at {len(commits)} commits"
                 )
                 break
 

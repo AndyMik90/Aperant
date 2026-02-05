@@ -49,6 +49,16 @@ cat > spec.md << 'EOF'
 - [ ] [Primary verification - how to know the change works]
 - [ ] No console errors
 
+## Task Scope
+
+**In Scope:** [One line describing what's included]
+
+**Out of Scope:** [One line describing what's excluded]
+
+## Workflow Type
+
+**Type**: simple
+
 ---
 
 ## ⚠️ EXECUTION RULES

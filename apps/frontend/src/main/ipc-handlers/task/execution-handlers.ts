@@ -344,7 +344,14 @@ export function registerTaskExecutionHandlers(
           specDir,
           task.metadata,
           baseBranch
-        );
+        ).catch((err: Error) => {
+          console.error('[TASK_START] Failed to start planning agent:', err);
+          mainWindow.webContents.send(
+            IPC_CHANNELS.TASK_ERROR,
+            taskId,
+            `Failed to start planning agent: ${err.message}`
+          );
+        });
       } else if (task.status === 'coding') {
         // Coding tasks use the task execution agent
         console.warn('[TASK_START] Starting task execution for:', task.specId);
@@ -363,7 +370,14 @@ export function registerTaskExecutionHandlers(
             baseBranch,
             useWorktree: task.metadata?.useWorktree
           }
-        );
+        ).catch((err: Error) => {
+          console.error('[TASK_START] Failed to start task execution:', err);
+          mainWindow.webContents.send(
+            IPC_CHANNELS.TASK_ERROR,
+            taskId,
+            `Failed to start task execution: ${err.message}`
+          );
+        });
       } else {
         // Other statuses (todo, ai_review, human_review, pr_created, done, archived)
         // should not start any agent via TASK_START

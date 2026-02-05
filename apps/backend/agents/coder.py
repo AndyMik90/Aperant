@@ -771,6 +771,12 @@ async def run_autonomous_agent(
             status_manager.update(state=BuildState.COMPLETE)
         else:
             status_manager.update(state=BuildState.PAUSED)
+    except asyncio.CancelledError:
+        # Handle graceful cancellation (e.g., from SIGINT or task cancellation)
+        logger.info("Coder agent cancelled, performing graceful shutdown")
+        print_status("Agent cancelled - shutting down gracefully", "warning")
+        status_manager.update(state=BuildState.PAUSED)
+        raise  # Re-raise to propagate cancellation
     finally:
         # Clean up user message queue
         if message_queue:

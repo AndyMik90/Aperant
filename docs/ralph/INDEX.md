@@ -1,6 +1,6 @@
 # Ralph Task Index
 
-**Updated:** 2026-02-04
+**Updated:** 2026-02-05
 **Purpose:** Master index linking Ralph prompts to their execution results
 
 ---
@@ -23,10 +23,33 @@ Compare what Ralph was asked to do vs what Ralph delivered.
 | ONBOARDING-SIMPLIFY | [prompts/ONBOARDING_SIMPLIFY.md](prompts/ONBOARDING_SIMPLIFY.md) | - | 5m 41s | COMPLETE |
 | TERM-POLISH | [prompts/TERM_POLISH.md](prompts/TERM_POLISH.md) | - | 5m 21s | COMPLETE |
 | FIX-25-32 | [prompts/FIX_25_32_UX_POLISH.md](prompts/FIX_25_32_UX_POLISH.md) | - | 17m 9s | COMPLETE |
+| P0-CRITICAL | [prompts/P0_CRITICAL_FIXES.md](prompts/P0_CRITICAL_FIXES.md) | [results/P0_CRITICAL_FIXES.md](results/P0_CRITICAL_FIXES.md) | 1m 15s | COMPLETE |
+| P1-EFFICIENCY | [prompts/P1_EFFICIENCY.md](prompts/P1_EFFICIENCY.md) | [results/P1_EFFICIENCY.md](results/P1_EFFICIENCY.md) | 3m 28s | COMPLETE |
+| P2-CI-TEST | [prompts/P2_CI_TEST.md](prompts/P2_CI_TEST.md) | [results/P2_CI_TEST.md](results/P2_CI_TEST.md) | 1m 55s | COMPLETE |
+| P0-P1-P2-VERIFY | [prompts/P0_P1_P2_VERIFY.md](prompts/P0_P1_P2_VERIFY.md) | [results/P0_P1_P2_VERIFY.md](results/P0_P1_P2_VERIFY.md) | 42s | COMPLETE |
+| UI-CHAT-UX | [prompts/UI_CHAT_UX.md](prompts/UI_CHAT_UX.md) | [results/UI_CHAT_UX.md](results/UI_CHAT_UX.md) | 5m 21s | COMPLETE |
+| UI-LAYOUT-FIXES | [prompts/UI_LAYOUT_FIXES.md](prompts/UI_LAYOUT_FIXES.md) | [results/UI_LAYOUT_FIXES.md](results/UI_LAYOUT_FIXES.md) | 6m 22s | COMPLETE |
+| UI-TERMINAL-VIEWS | [prompts/UI_TERMINAL_VIEWS.md](prompts/UI_TERMINAL_VIEWS.md) | [results/UI_TERMINAL_VIEWS.md](results/UI_TERMINAL_VIEWS.md) | 5m 46s | COMPLETE |
 
 ---
 
 ## Completed Runs
+
+### 2026-02-05
+
+| Run | Tasks | Duration | Avg/Task |
+|-----|-------|----------|----------|
+| P0-CRITICAL | 3 | 1m 15s | ~25s |
+| P1-EFFICIENCY | 3 | 3m 28s | ~1.2m |
+| P2-CI-TEST | 2 | 1m 55s | ~58s |
+| P0-P1-P2-VERIFY | 6 checks | 42s | ~7s |
+| UI-CHAT-UX | 4 | 5m 21s | ~1.3m |
+| UI-LAYOUT-FIXES | 2 | 6m 22s | ~3.2m |
+| UI-TERMINAL-VIEWS | 2 | 5m 46s | ~2.9m |
+
+**Total (2026-02-05):** 22 tasks + 6 checks in ~24m 49s
+
+---
 
 ### 2026-02-04
 
@@ -82,6 +105,13 @@ docs/ralph/
 │   ├── LIFECYCLE.md
 │   ├── METRICS_1.md
 │   ├── ONBOARDING_SIMPLIFY.md
+│   ├── P0_CRITICAL_FIXES.md
+│   ├── P0_P1_P2_VERIFY.md
+│   ├── P1_EFFICIENCY.md
+│   ├── P2_CI_TEST.md
+│   ├── UI_CHAT_UX.md             ← NEW
+│   ├── UI_LAYOUT_FIXES.md        ← NEW
+│   ├── UI_TERMINAL_VIEWS.md      ← NEW
 │   ├── TERM_PHASE7.md
 │   ├── TERM_7B.md
 │   └── TERM_POLISH.md
@@ -91,6 +121,13 @@ docs/ralph/
     ├── LIFECYCLE.md
     ├── TERM_PHASE7A.md
     ├── METRICS_1.md
+    ├── P0_CRITICAL_FIXES.md
+    ├── P0_P1_P2_VERIFY.md
+    ├── P1_EFFICIENCY.md
+    ├── P2_CI_TEST.md
+    ├── UI_CHAT_UX.md             ← NEW
+    ├── UI_LAYOUT_FIXES.md        ← NEW
+    ├── UI_TERMINAL_VIEWS.md      ← NEW
     ├── SPEC_AUDIT.md
     ├── ONBOARDING_SIMPLIFY.md
     └── TERM_POLISH.md

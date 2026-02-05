@@ -147,20 +147,29 @@ export const useFileExplorerStore = create<FileExplorerState>((set, get) => ({
     const state = get();
     const result: FileNode[] = [];
 
-    const collectVisibleNodes = (dirPath: string): void => {
-      const nodes = state.files.get(dirPath);
-      if (!nodes) return;
+    // Use iterative approach with explicit stack tracking directory paths to process
+    // Stack items: [dirPath, nextIndex] - process nodes starting at nextIndex
+    const stack: Array<{ dirPath: string; index: number }> = [{ dirPath: rootPath, index: 0 }];
 
-      for (const node of nodes) {
-        result.push(node);
-        // If this is an expanded directory, recursively collect its children
-        if (node.isDirectory && state.expandedFolders.has(node.path)) {
-          collectVisibleNodes(node.path);
-        }
+    while (stack.length > 0) {
+      const current = stack[stack.length - 1];
+      const nodes = state.files.get(current.dirPath);
+
+      if (!nodes || current.index >= nodes.length) {
+        stack.pop();
+        continue;
       }
-    };
 
-    collectVisibleNodes(rootPath);
+      const node = nodes[current.index];
+      current.index++;
+      result.push(node);
+
+      // If this is an expanded directory, push it to process its children next
+      if (node.isDirectory && state.expandedFolders.has(node.path)) {
+        stack.push({ dirPath: node.path, index: 0 });
+      }
+    }
+
     return result;
   },
 

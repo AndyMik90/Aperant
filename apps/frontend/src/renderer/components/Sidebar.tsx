@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Plus,
   Settings,
   LayoutGrid,
   Terminal,
@@ -50,7 +49,6 @@ export type SidebarView = 'kanban' | 'terminals' | 'discovery' | 'context' | 'gi
 
 interface SidebarProps {
   onSettingsClick: () => void;
-  onNewTaskClick: () => void;
   activeView?: SidebarView;
   onViewChange?: (view: SidebarView) => void;
 }
@@ -80,7 +78,6 @@ const navItems: NavItem[] = [
 
 export function Sidebar({
   onSettingsClick,
-  onNewTaskClick,
   activeView = 'kanban',
   onViewChange
 }: SidebarProps) {
@@ -304,24 +301,6 @@ export function Sidebar({
 
         {/* Bottom section */}
         <div className="flex flex-col items-center py-2 space-y-1 border-t border-border">
-          {/* New Task button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onNewTaskClick}
-                disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
-                className="h-10 w-10"
-              >
-                <Plus className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={8}>
-              {t('actions.newTask')}
-            </TooltipContent>
-          </Tooltip>
-
           {/* UX-1: Notification Center */}
           <NotificationCenter />
 

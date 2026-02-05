@@ -96,6 +96,21 @@ cat > spec.md << 'SPEC_EOF'
 
 **Type**: [from requirements.json: feature|refactor|investigation|migration|simple]
 
+## Task Scope
+
+### In Scope
+- [List specific deliverables from requirements.json]
+- [Features/changes that ARE part of this task]
+
+### Out of Scope
+- [Explicitly list what this task does NOT include]
+- [Related features that should be separate tasks]
+- [Refactoring or improvements beyond the ask]
+
+### Boundaries
+- Services affected: [from requirements.json services_involved]
+- Files touched: [estimated count from context.json]
+
 ---
 
 ## ⚠️ EXECUTION RULES (READ BEFORE STARTING)

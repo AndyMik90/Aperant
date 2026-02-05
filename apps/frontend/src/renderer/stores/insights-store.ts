@@ -65,6 +65,7 @@ interface InsightsState {
   finalizeStreamingMessage: (suggestedTask?: InsightsChatMessage['suggestedTask']) => void;
   clearSession: () => void;
   setLoadingSessions: (loading: boolean) => void;
+  markTaskCreated: (messageId: string, taskId: string) => void;
 }
 
 const initialStatus: InsightsChatStatus = {
@@ -219,8 +220,48 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
       streamingContent: '',
       currentTool: null,
       toolsUsed: []
+    }),
+
+  markTaskCreated: (messageId, taskId) =>
+    set((state) => {
+      if (!state.session) return state;
+
+      const messages = state.session.messages.map(msg =>
+        msg.id === messageId ? { ...msg, taskCreatedId: taskId } : msg
+      );
+
+      return {
+        session: {
+          ...state.session,
+          messages,
+          updatedAt: new Date()
+        }
+      };
     })
 }));
+
+/**
+ * Mark a message's task as created (persists to disk)
+ */
+export async function markTaskCreatedPersistent(
+  projectId: string,
+  sessionId: string,
+  messageId: string,
+  taskId: string
+): Promise<boolean> {
+  // Update local store immediately for UI responsiveness
+  useInsightsStore.getState().markTaskCreated(messageId, taskId);
+
+  // Persist to disk via IPC
+  const result = await window.electronAPI.markInsightsTaskCreated(
+    projectId,
+    sessionId,
+    messageId,
+    taskId
+  );
+
+  return result.success;
+}
 
 // Helper functions
 

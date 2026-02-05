@@ -260,7 +260,9 @@ class EmbeddingProvider:
         try:
             import httpx
 
-            async with httpx.AsyncClient() as client:
+            # Configure explicit timeout to prevent hanging connections
+            timeout = httpx.Timeout(30.0, connect=10.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.post(
                     "https://api.voyageai.com/v1/embeddings",
                     headers={"Authorization": f"Bearer {self.api_key}"},
@@ -269,8 +271,24 @@ class EmbeddingProvider:
                         "input": text[:8000],
                     },
                 )
+                response.raise_for_status()
                 data = response.json()
                 return data["data"][0]["embedding"]
+        except httpx.TimeoutException as e:
+            logger.error(f"Voyage embedding timeout: {e}")
+            raise Exception(
+                f"Voyage embeddings timed out: {e}. Check network connectivity."
+            )
+        except httpx.ConnectError as e:
+            logger.error(f"Voyage embedding connection error: {e}")
+            raise Exception(
+                f"Voyage embeddings connection failed: {e}. Check network connectivity."
+            )
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Voyage embedding HTTP error: {e.response.status_code}")
+            raise Exception(
+                f"Voyage embeddings HTTP error {e.response.status_code}: {e}. Check API key and model."
+            )
         except Exception as e:
             logger.error(f"Voyage embedding error: {e}")
             raise Exception(

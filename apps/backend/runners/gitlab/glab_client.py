@@ -134,7 +134,11 @@ class GitLabClient:
                             f"Invalid JSON response from GitLab: {e}"
                         ) from e
             except urllib.error.HTTPError as e:
-                error_body = e.read().decode("utf-8") if e.fp else ""
+                try:
+                    error_body = e.read().decode("utf-8") if e.fp else ""
+                finally:
+                    # Always close the HTTPError file pointer to prevent resource leak
+                    e.close()
                 last_error = e
 
                 # Handle rate limit (429) with exponential backoff

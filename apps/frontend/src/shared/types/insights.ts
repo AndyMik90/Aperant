@@ -188,6 +188,8 @@ export interface InsightsChatMessage {
   };
   // Tools used during this response (assistant messages only)
   toolsUsed?: InsightsToolUsage[];
+  // Track if a task was created from this suggestion (persists across navigation)
+  taskCreatedId?: string;
 }
 
 export interface InsightsSession {

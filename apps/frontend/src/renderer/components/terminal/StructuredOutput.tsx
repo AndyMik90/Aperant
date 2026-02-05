@@ -6,6 +6,8 @@
  * - File paths and tool names for each operation
  * - Status icons (success/running/error)
  * - Collapsed view for quick scanning of agent progress
+ * - Timestamps for each action
+ * - Action + target format (e.g., "Read → config.ts")
  */
 
 import { useMemo, useEffect, useRef } from 'react';
@@ -23,7 +25,9 @@ import {
   Loader2,
   GitBranch,
   Code,
-  FileCode
+  FileCode,
+  Clock,
+  ChevronRight
 } from 'lucide-react';
 import type { ParsedMessage, ContentBlock, ToolUseContent } from '../../lib/claude-output-parser';
 import { cn } from '../../lib/utils';
@@ -49,7 +53,7 @@ const TOOL_ICONS: Record<string, React.ElementType> = {
   text: MessageSquare,
 };
 
-// Color mapping for tool types (for the timeline line)
+// Color mapping for tool types (for the timeline dot)
 const TOOL_COLORS: Record<string, string> = {
   Read: 'bg-blue-500',
   Write: 'bg-green-500',
@@ -63,6 +67,40 @@ const TOOL_COLORS: Record<string, string> = {
   thinking: 'bg-amber-500',
   text: 'bg-muted-foreground',
 };
+
+// Text color mapping for tool types
+const TOOL_TEXT_COLORS: Record<string, string> = {
+  Read: 'text-blue-400',
+  Write: 'text-green-400',
+  Edit: 'text-green-400',
+  Bash: 'text-purple-400',
+  Grep: 'text-orange-400',
+  Glob: 'text-pink-400',
+  WebFetch: 'text-cyan-400',
+  WebSearch: 'text-cyan-400',
+  Task: 'text-indigo-400',
+  thinking: 'text-amber-400',
+  text: 'text-muted-foreground',
+};
+
+// Format relative timestamp
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+
+  if (diff < 1000) return 'just now';
+  if (diff < 60000) return `${Math.floor(diff / 1000)}s ago`;
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return new Date(timestamp).toLocaleDateString();
+}
+
+// Format elapsed time in seconds
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
+}
 
 // Status icon component
 function StatusIcon({ status }: { status?: 'pending' | 'success' | 'error' | 'running' }) {
@@ -82,58 +120,77 @@ function StatusIcon({ status }: { status?: 'pending' | 'success' | 'error' | 'ru
 }
 
 // Extract displayable info from a tool block
-function getToolDisplayInfo(tool: ToolUseContent): { label: string; detail: string } {
+function getToolDisplayInfo(tool: ToolUseContent): { action: string; target: string; fullPath?: string } {
   const input = tool.input || {};
 
   switch (tool.toolName) {
     case 'Read': {
       const filePath = input.file_path as string || '';
       const fileName = filePath.split(/[/\\]/).pop() || filePath;
-      return { label: 'Read', detail: fileName };
+      return { action: 'Read', target: fileName, fullPath: filePath };
     }
     case 'Write': {
       const filePath = input.file_path as string || '';
       const fileName = filePath.split(/[/\\]/).pop() || filePath;
-      return { label: 'Write', detail: fileName };
+      const content = input.content as string || '';
+      const lineCount = content ? content.split('\n').length : 0;
+      return { action: 'Write', target: `${fileName} (+${lineCount} lines)`, fullPath: filePath };
     }
     case 'Edit': {
       const filePath = input.file_path as string || '';
       const fileName = filePath.split(/[/\\]/).pop() || filePath;
-      return { label: 'Edit', detail: fileName };
+      return { action: 'Edit', target: fileName, fullPath: filePath };
     }
     case 'Bash': {
       const description = input.description as string || '';
-      return { label: 'Bash', detail: description || 'Run command' };
+      const command = input.command as string || '';
+      // Show description if available, otherwise truncated command
+      const target = description || (command.length > 40 ? command.slice(0, 40) + '...' : command) || 'run command';
+      return { action: 'Bash', target };
     }
     case 'Grep': {
       const pattern = input.pattern as string || '';
-      return { label: 'Grep', detail: pattern ? `"${pattern}"` : 'Search' };
+      const path = input.path as string || '';
+      const pathName = path ? path.split(/[/\\]/).pop() : '';
+      return { action: 'Search', target: `"${pattern}"${pathName ? ` in ${pathName}` : ''}` };
     }
     case 'Glob': {
       const pattern = input.pattern as string || '';
-      return { label: 'Glob', detail: pattern ? `"${pattern}"` : 'Find files' };
+      return { action: 'Find', target: `"${pattern}"` };
     }
-    case 'WebFetch':
+    case 'WebFetch': {
+      const url = input.url as string || '';
+      try {
+        const hostname = new URL(url).hostname;
+        return { action: 'Fetch', target: hostname };
+      } catch {
+        return { action: 'Fetch', target: url.slice(0, 30) };
+      }
+    }
     case 'WebSearch': {
-      const url = input.url as string || input.query as string || '';
-      return { label: tool.toolName, detail: url };
+      const query = input.query as string || '';
+      return { action: 'Search web', target: `"${query}"` };
     }
     case 'Task': {
       const description = input.description as string || '';
-      return { label: 'Task', detail: description || 'Spawn agent' };
+      return { action: 'Spawn', target: description || 'subagent' };
     }
     default:
-      return { label: tool.toolName, detail: '' };
+      return { action: tool.toolName, target: '' };
   }
 }
 
-// Timeline step component
+// Timeline step component with improved formatting
 function TimelineStep({
   block,
-  isLast
+  isLast,
+  timestamp,
+  duration
 }: {
   block: ContentBlock;
   isLast: boolean;
+  timestamp?: number;
+  duration?: number;
 }) {
   // Skip empty text blocks
   if (block.type === 'text' && !block.text?.trim()) {
@@ -143,45 +200,85 @@ function TimelineStep({
   // Get icon and color based on block type
   let Icon: React.ElementType = MessageSquare;
   let color = 'bg-muted-foreground';
-  let label = '';
-  let detail = '';
+  let textColor = 'text-muted-foreground';
+  let action = '';
+  let target = '';
+  let fullPath: string | undefined;
   let status: 'pending' | 'success' | 'error' | 'running' | undefined;
+  let isPhase = false;
 
   if (block.type === 'tool_use') {
     Icon = TOOL_ICONS[block.toolName] ?? Code;
     color = TOOL_COLORS[block.toolName] || 'bg-gray-500';
+    textColor = TOOL_TEXT_COLORS[block.toolName] || 'text-muted-foreground';
     const info = getToolDisplayInfo(block);
-    label = info.label;
-    detail = info.detail;
+    action = info.action;
+    target = info.target;
+    fullPath = info.fullPath;
     status = block.status;
   } else if (block.type === 'thinking') {
     Icon = Brain;
     color = TOOL_COLORS.thinking;
-    label = 'Thinking';
-    detail = block.text?.slice(0, 50) + (block.text && block.text.length > 50 ? '...' : '') || '';
+    textColor = TOOL_TEXT_COLORS.thinking;
+    action = 'Thinking';
+    target = block.text?.slice(0, 50) + (block.text && block.text.length > 50 ? '...' : '') || '';
   } else if (block.type === 'text') {
     Icon = MessageSquare;
     color = TOOL_COLORS.text;
-    label = 'Output';
+    textColor = TOOL_TEXT_COLORS.text;
     // Check for phase markers
     if (block.text?.startsWith('[Phase:')) {
-      label = 'Phase';
-      detail = block.text.replace(/[\[\]]/g, '').replace('Phase:', '').trim();
+      action = 'Phase';
+      target = block.text.replace(/[\[\]]/g, '').replace('Phase:', '').trim();
+      isPhase = true;
+      color = 'bg-cyan-500';
+      textColor = 'text-cyan-400';
     } else if (block.text?.startsWith('[Subphase:')) {
-      label = 'Subphase';
-      detail = block.text.replace(/[\[\]]/g, '').replace('Subphase:', '').trim();
+      action = 'Subphase';
+      target = block.text.replace(/[\[\]]/g, '').replace('Subphase:', '').trim();
+      isPhase = true;
+      color = 'bg-cyan-400';
+      textColor = 'text-cyan-300';
     } else {
-      detail = block.text?.slice(0, 60) + (block.text && block.text.length > 60 ? '...' : '') || '';
+      action = 'Output';
+      target = block.text?.slice(0, 60) + (block.text && block.text.length > 60 ? '...' : '') || '';
     }
   } else if (block.type === 'code_block') {
     Icon = FileCode;
     color = 'bg-purple-500';
-    label = 'Code';
-    detail = block.filename || block.language || '';
+    textColor = 'text-purple-400';
+    action = 'Code';
+    target = block.filename || block.language || '';
+  }
+
+  // Phase markers get special styling
+  if (isPhase) {
+    return (
+      <div className="flex items-center gap-3 relative py-2 my-2">
+        {/* Timeline connector line */}
+        {!isLast && (
+          <div className="absolute left-[11px] top-full w-0.5 h-4 bg-border" />
+        )}
+
+        {/* Phase indicator */}
+        <div className={cn(
+          "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 z-10",
+          color
+        )}>
+          <Icon className="h-3 w-3 text-white" />
+        </div>
+
+        {/* Phase content */}
+        <div className="flex-1 min-w-0 flex items-center gap-2">
+          <span className={cn("text-sm font-semibold", textColor)}>{action}:</span>
+          <span className="text-sm font-medium text-foreground">{target}</span>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="flex items-start gap-3 relative">
+    <div className="flex items-start gap-3 relative group">
       {/* Timeline connector line */}
       {!isLast && (
         <div className="absolute left-[11px] top-6 w-0.5 h-[calc(100%-8px)] bg-border" />
@@ -189,21 +286,48 @@ function TimelineStep({
 
       {/* Step indicator dot */}
       <div className={cn(
-        "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 z-10",
+        "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 z-10 transition-transform group-hover:scale-110",
         color
       )}>
         <Icon className="h-3 w-3 text-white" />
       </div>
 
       {/* Step content */}
-      <div className="flex-1 min-w-0 pb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground">{label}</span>
+      <div className="flex-1 min-w-0 pb-3">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Action label */}
+          <span className={cn("text-sm font-medium", textColor)}>{action}</span>
+
+          {/* Arrow separator */}
+          {target && (
+            <>
+              <ChevronRight className="h-3 w-3 text-muted-foreground/50 flex-shrink-0" />
+              {/* Target */}
+              <span className="text-sm text-foreground truncate max-w-[250px]" title={fullPath || target}>
+                {target}
+              </span>
+            </>
+          )}
+
+          {/* Status indicator */}
           {status && <StatusIcon status={status} />}
+
+          {/* Timestamp - show on hover */}
+          {timestamp && (
+            <span className="text-[10px] text-muted-foreground/50 ml-auto opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+              <Clock className="h-2.5 w-2.5" />
+              {formatRelativeTime(timestamp)}
+              {duration && duration > 100 && (
+                <span className="text-muted-foreground/40">({formatDuration(duration)})</span>
+              )}
+            </span>
+          )}
         </div>
-        {detail && (
-          <p className="text-xs text-muted-foreground truncate mt-0.5" title={detail}>
-            {detail}
+
+        {/* Full path on second line for file operations */}
+        {fullPath && fullPath !== target && (
+          <p className="text-[10px] text-muted-foreground/50 truncate mt-0.5 pl-0" title={fullPath}>
+            {fullPath}
           </p>
         )}
       </div>
@@ -215,35 +339,70 @@ function TimelineStep({
  * StructuredOutput - Timeline view component
  *
  * Displays agent activity as a vertical timeline with:
- * - Tool type icons
+ * - Tool type icons with action → target format
  * - File names and descriptions
  * - Success/error/running status indicators
+ * - Timestamps on hover
  * - Auto-scroll to bottom on new content
  */
 export function StructuredOutput({ messages, className, autoScroll = true }: StructuredOutputProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Flatten all content blocks from all messages into a timeline
+  // Flatten all content blocks from all messages into a timeline with timestamps
   const timelineSteps = useMemo(() => {
-    const steps: { block: ContentBlock; key: string }[] = [];
+    const steps: { block: ContentBlock; key: string; timestamp: number; duration?: number }[] = [];
+    let lastTimestamp = 0;
 
     messages.forEach((message, msgIdx) => {
       // Skip user messages in structured view - focus on agent activity
       if (message.role === 'user') return;
 
+      const messageTimestamp = message.timestamp || Date.now();
+
       message.content.forEach((block, blockIdx) => {
         // Skip empty text blocks
         if (block.type === 'text' && !block.text?.trim()) return;
 
+        // Estimate duration based on time between steps
+        const duration = lastTimestamp > 0 ? messageTimestamp - lastTimestamp : undefined;
+
         steps.push({
           block,
-          key: `${msgIdx}-${blockIdx}`
+          key: `${msgIdx}-${blockIdx}`,
+          timestamp: messageTimestamp,
+          duration
         });
+
+        lastTimestamp = messageTimestamp;
       });
     });
 
     return steps;
   }, [messages]);
+
+  // Calculate summary stats
+  const stats = useMemo(() => {
+    const toolCalls = timelineSteps.filter(s => s.block.type === 'tool_use').length;
+    const filesModified = new Set<string>();
+    let reads = 0;
+    let edits = 0;
+    let bashes = 0;
+
+    timelineSteps.forEach(step => {
+      if (step.block.type === 'tool_use') {
+        const tool = step.block as ToolUseContent;
+        if (tool.toolName === 'Read') reads++;
+        else if (tool.toolName === 'Edit' || tool.toolName === 'Write') {
+          edits++;
+          const filePath = tool.input?.file_path as string;
+          if (filePath) filesModified.add(filePath);
+        }
+        else if (tool.toolName === 'Bash') bashes++;
+      }
+    });
+
+    return { toolCalls, filesModified: filesModified.size, reads, edits, bashes };
+  }, [timelineSteps]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -266,13 +425,28 @@ export function StructuredOutput({ messages, className, autoScroll = true }: Str
   return (
     <div className={cn("p-4", className)}>
       {/* Timeline header with summary stats */}
-      <div className="flex items-center gap-4 mb-4 pb-3 border-b border-border">
-        <span className="text-xs text-muted-foreground">
+      <div className="flex items-center gap-3 mb-4 pb-3 border-b border-border flex-wrap">
+        <span className="text-xs text-muted-foreground font-medium">
           {timelineSteps.length} steps
         </span>
+        <span className="text-xs text-muted-foreground">•</span>
         <span className="text-xs text-muted-foreground">
-          {timelineSteps.filter(s => s.block.type === 'tool_use').length} tool calls
+          <span className="text-blue-400">{stats.reads}</span> reads
         </span>
+        <span className="text-xs text-muted-foreground">
+          <span className="text-green-400">{stats.edits}</span> edits
+        </span>
+        <span className="text-xs text-muted-foreground">
+          <span className="text-purple-400">{stats.bashes}</span> commands
+        </span>
+        {stats.filesModified > 0 && (
+          <>
+            <span className="text-xs text-muted-foreground">•</span>
+            <span className="text-xs text-muted-foreground">
+              <span className="text-foreground">{stats.filesModified}</span> files modified
+            </span>
+          </>
+        )}
       </div>
 
       {/* Timeline */}
@@ -282,6 +456,8 @@ export function StructuredOutput({ messages, className, autoScroll = true }: Str
             key={step.key}
             block={step.block}
             isLast={idx === timelineSteps.length - 1}
+            timestamp={step.timestamp}
+            duration={step.duration}
           />
         ))}
       </div>

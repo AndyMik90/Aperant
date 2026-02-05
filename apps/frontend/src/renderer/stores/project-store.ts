@@ -371,8 +371,16 @@ export async function removeProject(projectId: string, deleteData: boolean = fal
       }
       // Clear localStorage data when deleting all project data
       if (deleteData) {
-        useTaskStore.getState().clearTaskOrder(projectId);
-        clearDraft(projectId);
+        try {
+          useTaskStore.getState().clearTaskOrder(projectId);
+        } catch (e) {
+          console.warn('[ProjectStore] Failed to clear task order:', e);
+        }
+        try {
+          clearDraft(projectId);
+        } catch (e) {
+          console.warn('[ProjectStore] Failed to clear draft:', e);
+        }
       }
       return true;
     }

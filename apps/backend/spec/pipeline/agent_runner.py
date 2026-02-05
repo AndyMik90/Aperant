@@ -25,6 +25,72 @@ from task_logger import (
 # By deferring the import, we break the circular dependency.
 
 
+class FileReadCache:
+    """
+    Session-level cache tracking which files have been read.
+
+    This prevents agents from redundantly re-reading the same files multiple times
+    during a planning session, improving efficiency.
+    """
+
+    def __init__(self):
+        self.read_files: set[str] = set()
+        self.read_count: dict[str, int] = {}  # Track how many times each file was read
+
+    def track_read(self, file_path: str) -> bool:
+        """
+        Track a file read and return whether it was already read.
+
+        Args:
+            file_path: Path to the file being read
+
+        Returns:
+            True if this is a duplicate read, False if first read
+        """
+        # Normalize path for consistent tracking
+        normalized = str(Path(file_path).resolve())
+        is_duplicate = normalized in self.read_files
+        self.read_files.add(normalized)
+        self.read_count[normalized] = self.read_count.get(normalized, 0) + 1
+        return is_duplicate
+
+    def get_read_files_context(self) -> str:
+        """
+        Generate context string listing already-read files.
+
+        Returns:
+            Markdown-formatted list of files already read in this session
+        """
+        if not self.read_files:
+            return ""
+
+        duplicates = [f for f, count in self.read_count.items() if count > 1]
+        if duplicates:
+            lines = ["## Files Already Read (from cache)"]
+            lines.append("The following files have already been read in this session.")
+            lines.append("You can reference their contents without re-reading:\n")
+            for f in sorted(self.read_files):
+                count = self.read_count[f]
+                if count > 1:
+                    lines.append(f"- `{f}` (read {count}x - use cached content)")
+                else:
+                    lines.append(f"- `{f}`")
+            return "\n".join(lines)
+        return ""
+
+    def get_stats(self) -> dict:
+        """Get cache statistics."""
+        total_reads = sum(self.read_count.values())
+        unique_files = len(self.read_files)
+        duplicate_reads = total_reads - unique_files
+        return {
+            "total_reads": total_reads,
+            "unique_files": unique_files,
+            "duplicate_reads": duplicate_reads,
+            "cache_hit_rate": duplicate_reads / total_reads if total_reads > 0 else 0,
+        }
+
+
 class AgentRunner:
     """Manages agent execution with logging and error handling."""
 
@@ -47,6 +113,8 @@ class AgentRunner:
         self.spec_dir = spec_dir
         self.model = model
         self.task_logger = task_logger
+        # Session-level file read cache to prevent duplicate reads
+        self.file_cache = FileReadCache()
 
     async def run_agent(
         self,
@@ -111,6 +179,16 @@ class AgentRunner:
                 "agent_runner",
                 "Added additional context",
                 context_length=len(additional_context),
+            )
+
+        # Add file cache context to prevent duplicate reads
+        cache_context = self.file_cache.get_read_files_context()
+        if cache_context:
+            prompt += f"\n{cache_context}\n"
+            debug_detailed(
+                "agent_runner",
+                "Added file cache context",
+                cached_files=len(self.file_cache.read_files),
             )
 
         # Create client with thinking budget
@@ -181,6 +259,19 @@ class AgentRunner:
                                     tool_input=tool_input_display,
                                 )
 
+                                # Track file reads for caching
+                                if tool_name == "Read" and isinstance(inp, dict):
+                                    file_path = inp.get("file_path", "")
+                                    if file_path:
+                                        is_duplicate = self.file_cache.track_read(
+                                            file_path
+                                        )
+                                        if is_duplicate:
+                                            debug(
+                                                "agent_runner",
+                                                f"Cache HIT: {file_path} already read",
+                                            )
+
                                 if self.task_logger:
                                     self.task_logger.tool_start(
                                         tool_name,
@@ -223,6 +314,19 @@ class AgentRunner:
                                 current_tool = None
 
                 print()
+
+                # Log file cache statistics
+                cache_stats = self.file_cache.get_stats()
+                if cache_stats["total_reads"] > 0:
+                    debug(
+                        "agent_runner",
+                        "File cache stats",
+                        total_reads=cache_stats["total_reads"],
+                        unique_files=cache_stats["unique_files"],
+                        duplicate_reads=cache_stats["duplicate_reads"],
+                        cache_hit_rate=f"{cache_stats['cache_hit_rate']:.1%}",
+                    )
+
                 debug_success(
                     "agent_runner",
                     "Agent session completed successfully",

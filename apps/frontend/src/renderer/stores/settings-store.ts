@@ -86,6 +86,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     try {
       const result = await window.electronAPI.saveAPIProfile(profile);
       if (result.success && result.data) {
+        // Capture saved profile for use in fallback paths
+        const savedProfile = result.data;
         // Re-fetch profiles from backend to get authoritative activeProfileId
         // (backend only auto-activates the first profile)
         try {
@@ -99,14 +101,14 @@ export const useSettingsStore = create<SettingsState>((set) => ({
           } else {
             // Fallback: add profile locally but don't assume activeProfileId
             set((state) => ({
-              profiles: [...state.profiles, result.data!],
+              profiles: [...state.profiles, savedProfile],
               profilesLoading: false
             }));
           }
         } catch {
           // Fallback on fetch error: add profile locally
           set((state) => ({
-            profiles: [...state.profiles, result.data!],
+            profiles: [...state.profiles, savedProfile],
             profilesLoading: false
           }));
         }
@@ -272,6 +274,13 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       const result = await window.electronAPI.discoverModels(baseUrl, apiKey, signal);
       console.log('[settings-store] discoverModels result:', result);
 
+      // Check if request was aborted before caching results
+      if (signal?.aborted) {
+        console.log('[settings-store] Request was aborted, discarding results');
+        set({ modelsLoading: false });
+        return null;
+      }
+
       if (result.success && result.data) {
         const models = result.data.models;
         // Cache the results
@@ -286,6 +295,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       set({ modelsError: result.error || 'Failed to discover models', modelsLoading: false });
       return null;
     } catch (error) {
+      // Don't report aborted requests as errors
+      if (signal?.aborted) {
+        set({ modelsLoading: false });
+        return null;
+      }
       set({
         modelsError: error instanceof Error ? error.message : 'Failed to discover models',
         modelsLoading: false

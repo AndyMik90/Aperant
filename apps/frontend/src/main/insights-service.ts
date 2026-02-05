@@ -194,6 +194,13 @@ export class InsightsService extends EventEmitter {
   updateSessionModelConfig(projectPath: string, sessionId: string, modelConfig: InsightsModelConfig): boolean {
     return this.sessionManager.updateSessionModelConfig(projectPath, sessionId, modelConfig);
   }
+
+  /**
+   * Mark a message's task as created (persists across navigation/app restart)
+   */
+  markTaskCreated(projectPath: string, sessionId: string, messageId: string, taskId: string): boolean {
+    return this.sessionManager.markTaskCreated(projectPath, sessionId, messageId, taskId);
+  }
 }
 
 // Singleton instance

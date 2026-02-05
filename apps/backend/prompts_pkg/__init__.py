@@ -32,6 +32,13 @@ from .prompts import (
     is_first_run,
 )
 
+# Import Ralph prompt generator
+from .ralph_prompt_generator import (
+    RalphPromptGenerator,
+    RalphPromptPatterns,
+    generate_ralph_prompt,
+)
+
 __all__ = [
     # prompt_generator functions
     "get_relative_spec_path",
@@ -52,4 +59,8 @@ __all__ = [
     "detect_project_capabilities",
     "get_mcp_tools_for_project",
     "should_refresh_project_index",
+    # ralph_prompt_generator
+    "RalphPromptGenerator",
+    "RalphPromptPatterns",
+    "generate_ralph_prompt",
 ]

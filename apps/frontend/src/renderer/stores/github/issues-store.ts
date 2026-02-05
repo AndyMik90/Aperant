@@ -179,7 +179,8 @@ export async function loadMoreGitHubIssues(
     // This prevents appending stale data from a different filter
     const currentState = useIssuesStore.getState();
     if (currentState.filterState !== originalFilterState) {
-      // Filter changed while loading - discard results
+      // Filter changed while loading - discard results and reset loading state
+      store.setLoadingMore(false);
       return;
     }
 

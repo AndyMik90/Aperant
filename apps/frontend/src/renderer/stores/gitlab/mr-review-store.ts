@@ -195,21 +195,30 @@ export function initializeMRReviewListeners(): void {
   const progressHandler = (projectId: string, progress: GitLabMRReviewProgress) => {
     store.setMRReviewProgress(projectId, progress);
   };
-  window.electronAPI.onGitLabMRReviewProgress(progressHandler);
+  const progressUnsubscribe = window.electronAPI.onGitLabMRReviewProgress(progressHandler);
+  if (typeof progressUnsubscribe === 'function') {
+    cleanupFunctions.push(progressUnsubscribe);
+  }
 
   // Listen for MR review completion events
   const completeHandler = (projectId: string, result: GitLabMRReviewResult) => {
     store.setMRReviewResult(projectId, result);
   };
-  window.electronAPI.onGitLabMRReviewComplete(completeHandler);
+  const completeUnsubscribe = window.electronAPI.onGitLabMRReviewComplete(completeHandler);
+  if (typeof completeUnsubscribe === 'function') {
+    cleanupFunctions.push(completeUnsubscribe);
+  }
 
   // Listen for MR review error events
   const errorHandler = (projectId: string, data: { mrIid: number; error: string }) => {
     store.setMRReviewError(projectId, data.mrIid, data.error);
   };
-  window.electronAPI.onGitLabMRReviewError(errorHandler);
+  const errorUnsubscribe = window.electronAPI.onGitLabMRReviewError(errorHandler);
+  if (typeof errorUnsubscribe === 'function') {
+    cleanupFunctions.push(errorUnsubscribe);
+  }
 
-  // Store cleanup functions if the API supports removeListener
+  // Fallback: Store cleanup functions if the API supports removeListener methods
   // Note: These are optional methods that may not exist in the ElectronAPI
   const api = window.electronAPI as unknown as Record<string, unknown>;
   if (typeof api.removeGitLabMRReviewProgress === 'function') {

@@ -35,7 +35,8 @@ import {
   renameSession,
   updateModelConfig,
   createTaskFromSuggestion,
-  setupInsightsListeners
+  setupInsightsListeners,
+  markTaskCreatedPersistent
 } from '../stores/insights-store';
 import { loadTasks } from '../stores/task-store';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
@@ -106,7 +107,6 @@ export function Insights({ projectId }: InsightsProps) {
 
   const [inputValue, setInputValue] = useState('');
   const [creatingTask, setCreatingTask] = useState<string | null>(null);
-  const [taskCreated, setTaskCreated] = useState<Set<string>>(new Set());
   const [showSidebar, setShowSidebar] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -138,11 +138,6 @@ export function Insights({ projectId }: InsightsProps) {
     textareaRef.current?.focus();
   }, []);
 
-  // Reset taskCreated when switching sessions
-  useEffect(() => {
-    setTaskCreated(new Set());
-  }, [session?.id]);
-
   const handleSend = () => {
     const message = inputValue.trim();
     if (!message || status.phase === 'thinking' || status.phase === 'streaming') return;
@@ -160,7 +155,6 @@ export function Insights({ projectId }: InsightsProps) {
 
   const handleNewSession = async () => {
     await newSession(projectId);
-    setTaskCreated(new Set());
     textareaRef.current?.focus();
   };
 
@@ -179,7 +173,7 @@ export function Insights({ projectId }: InsightsProps) {
   };
 
   const handleCreateTask = async (message: InsightsChatMessage) => {
-    if (!message.suggestedTask) return;
+    if (!message.suggestedTask || !session) return;
 
     setCreatingTask(message.id);
     try {
@@ -191,7 +185,8 @@ export function Insights({ projectId }: InsightsProps) {
       );
 
       if (task) {
-        setTaskCreated(prev => new Set(prev).add(message.id));
+        // Mark task as created - persists to disk for survival across navigation/restart
+        await markTaskCreatedPersistent(projectId, session.id, message.id, task.id);
         // Reload tasks to show the new task in the kanban
         loadTasks(projectId);
       }
@@ -248,14 +243,6 @@ export function Insights({ projectId }: InsightsProps) {
               onConfigChange={handleModelConfigChange}
               disabled={isLoading}
             />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleNewSession}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              New Chat
-            </Button>
           </div>
         </div>
 
@@ -304,7 +291,7 @@ export function Insights({ projectId }: InsightsProps) {
                 markdownComponents={markdownComponents}
                 onCreateTask={() => handleCreateTask(message)}
                 isCreatingTask={creatingTask === message.id}
-                taskCreated={taskCreated.has(message.id)}
+                taskCreated={!!message.taskCreatedId}
                 onSeeInKanban={() => setActiveView('kanban')}
               />
             ))}
@@ -334,15 +321,14 @@ export function Insights({ projectId }: InsightsProps) {
               </div>
             )}
 
-            {/* Thinking indicator */}
+            {/* Thinking indicator with animated dots */}
             {status.phase === 'thinking' && !streamingContent && !currentTool && (
               <div className="flex gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
                   <Bot className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Thinking...
+                  <TypingIndicator />
                 </div>
               </div>
             )}
@@ -368,9 +354,12 @@ export function Insights({ projectId }: InsightsProps) {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about your codebase..."
-            className="min-h-[80px] resize-none"
+            placeholder={isLoading ? "Waiting for response..." : "Ask about your codebase..."}
             disabled={isLoading}
+            className={cn(
+              "min-h-[80px] resize-none",
+              isLoading && "opacity-60 cursor-not-allowed"
+            )}
           />
           <Button
             onClick={handleSend}
@@ -384,9 +373,6 @@ export function Insights({ projectId }: InsightsProps) {
             )}
           </Button>
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Press Enter to send, Shift+Enter for new line
-        </p>
       </div>
       </div>
     </div>
@@ -671,6 +657,24 @@ function ToolIndicator({ name, input }: ToolIndicatorProps) {
           {input}
         </span>
       )}
+    </div>
+  );
+}
+
+/**
+ * Animated thinking indicator with sparkle icon
+ * VS Code Copilot-style indicator while agent is processing
+ */
+function TypingIndicator() {
+  return (
+    <div className="flex items-center gap-2 text-primary/80">
+      <Sparkles className="h-4 w-4 animate-pulse" />
+      <span className="text-sm font-medium">Thinking</span>
+      <span className="flex gap-0.5">
+        <span className="h-1.5 w-1.5 rounded-full bg-current animate-[bounce_1s_ease-in-out_infinite]" style={{ animationDelay: '0ms' }} />
+        <span className="h-1.5 w-1.5 rounded-full bg-current animate-[bounce_1s_ease-in-out_infinite]" style={{ animationDelay: '150ms' }} />
+        <span className="h-1.5 w-1.5 rounded-full bg-current animate-[bounce_1s_ease-in-out_infinite]" style={{ animationDelay: '300ms' }} />
+      </span>
     </div>
   );
 }

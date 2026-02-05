@@ -57,9 +57,9 @@ DEFAULT_PHASE_MODELS: dict[str, str] = {
 
 DEFAULT_PHASE_THINKING: dict[str, str] = {
     "spec": "medium",
-    "planning": "high",
+    "planning": "medium",
     "coding": "medium",
-    "qa": "high",
+    "qa": "medium",
 }
 
 

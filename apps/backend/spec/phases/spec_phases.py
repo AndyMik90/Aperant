@@ -30,6 +30,8 @@ class SpecPhaseMixin:
             )
 
         errors = []
+        last_validation_result = None  # Track validation errors for injection
+
         for attempt in range(MAX_RETRIES):
             self.ui.print_status(
                 f"Running quick spec agent (attempt {attempt + 1})...", "progress"
@@ -47,6 +49,13 @@ Create:
 1. A concise spec.md with just the essential sections
 2. A simple implementation_plan.json with 1-2 subtasks
 """
+            # Inject validation errors from previous attempt if any
+            if last_validation_result and not last_validation_result.valid:
+                error_context = self._build_validation_error_context(
+                    last_validation_result, attempt
+                )
+                context_str += error_context
+
             success, output = await self.run_agent_fn(
                 "spec_quick.md",
                 additional_context=context_str,
@@ -54,6 +63,17 @@ Create:
             )
 
             if success and spec_file.exists():
+                # Validate the spec document
+                result = self.spec_validator.validate_spec_document()
+                if not result.valid:
+                    # Store for next attempt's error injection
+                    last_validation_result = result
+                    errors.append(f"Attempt {attempt + 1}: Spec invalid - {result.errors}")
+                    self.ui.print_status(
+                        f"Spec created but invalid: {result.errors}", "warning"
+                    )
+                    continue
+
                 # Create minimal plan if agent didn't
                 if not plan_file.exists():
                     writer.create_minimal_plan(self.spec_dir, self.task_description)
@@ -81,13 +101,24 @@ Create:
             )
 
         errors = []
+        last_validation_result = None  # Track validation errors for injection
+
         for attempt in range(MAX_RETRIES):
             self.ui.print_status(
                 f"Running spec writer (attempt {attempt + 1})...", "progress"
             )
 
+            # Build additional context with validation errors from previous attempt
+            additional_context = ""
+            if last_validation_result and not last_validation_result.valid:
+                error_injection = self._build_validation_error_context(
+                    last_validation_result, attempt
+                )
+                additional_context = error_injection
+
             success, output = await self.run_agent_fn(
                 "spec_writer.md",
+                additional_context=additional_context,
                 phase_name="spec_writing",
             )
 
@@ -99,6 +130,8 @@ Create:
                         "spec_writing", True, [str(spec_file)], [], attempt
                     )
                 else:
+                    # Store validation result for next attempt's error injection
+                    last_validation_result = result
                     errors.append(
                         f"Attempt {attempt + 1}: Spec invalid - {result.errors}"
                     )
@@ -109,6 +142,66 @@ Create:
                 errors.append(f"Attempt {attempt + 1}: Agent did not create spec.md")
 
         return PhaseResult("spec_writing", False, [], errors, MAX_RETRIES)
+
+    def _build_validation_error_context(self, validation_result, attempt: int) -> str:
+        """
+        Build context string with validation errors for agent retry.
+
+        This injects specific error feedback into the agent's context so it can
+        self-correct rather than blindly retrying with the same approach.
+
+        Args:
+            validation_result: The ValidationResult from the previous attempt
+            attempt: The current attempt number (0-indexed)
+
+        Returns:
+            Formatted string with error details and fix suggestions
+        """
+        lines = [
+            "",
+            "=" * 60,
+            f"⚠️  VALIDATION FAILED (Attempt {attempt + 1})",
+            "=" * 60,
+            "",
+            "Your spec.md is missing required sections or has errors.",
+            "",
+            "## Errors Found",
+            "",
+        ]
+
+        for error in validation_result.errors:
+            lines.append(f"- ❌ {error}")
+
+        if validation_result.warnings:
+            lines.append("")
+            lines.append("## Warnings")
+            lines.append("")
+            for warning in validation_result.warnings:
+                lines.append(f"- ⚠️ {warning}")
+
+        if validation_result.fixes:
+            lines.append("")
+            lines.append("## Suggested Fixes")
+            lines.append("")
+            for fix in validation_result.fixes:
+                lines.append(f"- → {fix}")
+
+        lines.extend(
+            [
+                "",
+                "## Required Actions",
+                "",
+                "1. Read the existing spec.md file",
+                "2. Identify the missing sections listed above",
+                "3. Add ONLY the missing sections - do NOT rewrite the entire spec",
+                "4. Ensure all required sections have proper content (not placeholders)",
+                "",
+                "Required sections: Overview, Workflow Type, Task Scope, Success Criteria",
+                "",
+            ]
+        )
+
+        return "\n".join(lines)
 
     async def phase_self_critique(self) -> PhaseResult:
         """Self-critique the spec using extended thinking."""

@@ -195,7 +195,8 @@ Current question: {message}"""
             "model": resolve_model_id(model),  # Resolve via API Profile if configured
             "system_prompt": system_prompt,
             "allowed_tools": ["Read", "Glob", "Grep"],
-            "max_turns": 30,  # Allow sufficient turns for codebase exploration
+            "disallowed_tools": ["Task"],  # Block subagent spawning in Jerry Chat
+            "max_turns": 15,  # Reduced for faster responses
             "cwd": str(project_path),
         }
 

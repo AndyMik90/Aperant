@@ -348,6 +348,34 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
     }
   );
 
+  // Mark a message's task as created (persists across navigation/app restart)
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_MARK_TASK_CREATED,
+    async (
+      _,
+      projectId: string,
+      sessionId: string,
+      messageId: string,
+      taskId: string
+    ): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: "Project not found" };
+      }
+
+      const success = insightsService.markTaskCreated(
+        project.path,
+        sessionId,
+        messageId,
+        taskId
+      );
+      if (success) {
+        return { success: true };
+      }
+      return { success: false, error: "Failed to mark task as created" };
+    }
+  );
+
   // ============================================
   // Insights Event Forwarding (Service -> Renderer)
   // ============================================

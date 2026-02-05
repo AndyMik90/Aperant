@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import tempfile
 import time
@@ -30,6 +31,8 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 _IS_WINDOWS = os.name == "nt"
 _WINDOWS_LOCK_SIZE = 1024 * 1024
@@ -177,8 +180,8 @@ class FileLock:
             try:
                 _unlock(self._fd)
                 os.close(self._fd)
-            except Exception:
-                pass  # Best effort cleanup
+            except Exception as e:
+                logger.warning(f"Error releasing file lock: {e}")
             finally:
                 self._fd = None
 
@@ -186,8 +189,8 @@ class FileLock:
         if self._lock_file and self._lock_file.exists():
             try:
                 self._lock_file.unlink()
-            except Exception:
-                pass  # Best effort cleanup
+            except Exception as e:
+                logger.warning(f"Error cleaning up lock file {self._lock_file}: {e}")
 
     def __enter__(self):
         """Synchronous context manager entry."""

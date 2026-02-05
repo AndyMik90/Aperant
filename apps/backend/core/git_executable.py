@@ -135,7 +135,8 @@ def _find_git_executable() -> str:
             try:
                 if os.path.isfile(path):
                     return path
-            except OSError:
+            except (OSError, ValueError):
+                # OSError: filesystem errors, ValueError: invalid path on Windows
                 continue
 
         # 4. Try 'where' command with shell=True (more reliable on Windows)

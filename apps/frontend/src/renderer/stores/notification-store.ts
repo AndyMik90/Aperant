@@ -75,11 +75,16 @@ export const useNotificationStore = create<NotificationStore>()(
             return state;
           }
 
+          const updatedNotifications = state.notifications.map((n) =>
+            n.id === id ? { ...n, read: true } : n
+          );
+
+          // Compute unread count from actual state to prevent race conditions
+          const newUnreadCount = updatedNotifications.filter((n) => !n.read).length;
+
           return {
-            notifications: state.notifications.map((n) =>
-              n.id === id ? { ...n, read: true } : n
-            ),
-            unreadCount: Math.max(0, state.unreadCount - 1),
+            notifications: updatedNotifications,
+            unreadCount: newUnreadCount,
           };
         });
       },
@@ -115,12 +120,17 @@ export const useNotificationStore = create<NotificationStore>()(
       clearOlderThan: (hours) => {
         const cutoff = Date.now() - hours * 60 * 60 * 1000;
         set((state) => {
-          const keptNotifications = state.notifications.filter(
-            (n) => n.timestamp > cutoff
-          );
-          const removedUnread = state.notifications.filter(
-            (n) => n.timestamp <= cutoff && !n.read
-          ).length;
+          // Single-pass: filter and count removed unread simultaneously
+          const keptNotifications: typeof state.notifications = [];
+          let removedUnread = 0;
+
+          for (const n of state.notifications) {
+            if (n.timestamp > cutoff) {
+              keptNotifications.push(n);
+            } else if (!n.read) {
+              removedUnread++;
+            }
+          }
 
           return {
             notifications: keptNotifications,

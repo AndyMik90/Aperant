@@ -31,6 +31,7 @@ export interface InsightsAPI {
   deleteInsightsSession: (projectId: string, sessionId: string) => Promise<IPCResult>;
   renameInsightsSession: (projectId: string, sessionId: string, newTitle: string) => Promise<IPCResult>;
   updateInsightsModelConfig: (projectId: string, sessionId: string, modelConfig: InsightsModelConfig) => Promise<IPCResult>;
+  markInsightsTaskCreated: (projectId: string, sessionId: string, messageId: string, taskId: string) => Promise<IPCResult>;
 
   // Event Listeners
   onInsightsStreamChunk: (
@@ -83,6 +84,9 @@ export const createInsightsAPI = (): InsightsAPI => ({
 
   updateInsightsModelConfig: (projectId: string, sessionId: string, modelConfig: InsightsModelConfig): Promise<IPCResult> =>
     invokeIpc(IPC_CHANNELS.INSIGHTS_UPDATE_MODEL_CONFIG, projectId, sessionId, modelConfig),
+
+  markInsightsTaskCreated: (projectId: string, sessionId: string, messageId: string, taskId: string): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.INSIGHTS_MARK_TASK_CREATED, projectId, sessionId, messageId, taskId),
 
   // Event Listeners
   onInsightsStreamChunk: (

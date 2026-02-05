@@ -833,7 +833,6 @@ export function App() {
         {/* Sidebar */}
         <Sidebar
           onSettingsClick={() => setIsSettingsDialogOpen(true)}
-          onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
           activeView={activeView}
           onViewChange={setActiveView}
         />
@@ -873,8 +872,8 @@ export function App() {
             </DndContext>
           )}
 
-          {/* Main content area */}
-          <main className="flex-1 overflow-hidden">
+          {/* Main content area - shrinks automatically via flex when bottom panel opens */}
+          <main className="flex-1 overflow-hidden min-h-0">
             {selectedProject ? (
               <>
                 {activeView === 'kanban' && (
@@ -971,6 +970,16 @@ export function App() {
               />
             )}
           </main>
+
+          {/* Bottom Panel Terminal - VS Code-style bottom panel that persists across navigation */}
+          {/* Placed inside flex column so main content shrinks when panel opens */}
+          <BottomPanelTerminal
+            taskId={bottomPanel.taskId}
+            taskTitle={bottomPanel.taskTitle}
+            isOpen={bottomPanel.isOpen}
+            onClose={closeBottomPanel}
+            onMinimize={minimizeBottomPanel}
+          />
         </div>
 
         {/* Task detail modal */}
@@ -1196,15 +1205,6 @@ export function App() {
 
         {/* SDK Rate Limit Modal - shows when SDK/CLI operations hit limits (changelog, tasks, etc.) */}
         <SDKRateLimitModal />
-
-        {/* Bottom Panel Terminal - VS Code-style bottom panel that persists across navigation */}
-        <BottomPanelTerminal
-          taskId={bottomPanel.taskId}
-          taskTitle={bottomPanel.taskTitle}
-          isOpen={bottomPanel.isOpen}
-          onClose={closeBottomPanel}
-          onMinimize={minimizeBottomPanel}
-        />
 
         {/* Onboarding Wizard - shows on first launch when onboardingCompleted is false */}
         <Suspense fallback={null}>

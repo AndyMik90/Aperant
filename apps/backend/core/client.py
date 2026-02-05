@@ -50,19 +50,25 @@ def _get_cached_project_data(
     """
     Get project index and capabilities with caching.
 
+    Thread-safe implementation using simple locking pattern.
+    SWEEP-15: Fixed double-checked locking race condition by holding lock
+    during entire load operation. This prevents wasted computation when
+    multiple threads hit cache miss simultaneously.
+
     Args:
         project_dir: Path to the project directory
 
     Returns:
         Tuple of (project_index, project_capabilities)
     """
-
     key = str(project_dir.resolve())
-    now = time.time()
     debug = os.environ.get("DEBUG", "").lower() in ("true", "1")
 
-    # Check cache with lock
+    # Thread-safe: hold lock for entire operation to prevent race conditions
     with _CACHE_LOCK:
+        now = time.time()
+
+        # Check cache
         if key in _PROJECT_INDEX_CACHE:
             cached_index, cached_capabilities, cached_time = _PROJECT_INDEX_CACHE[key]
             cache_age = now - cached_time
@@ -79,37 +85,24 @@ def _get_cached_project_data(
                     f"[ClientCache] Cache EXPIRED for project index (age: {cache_age:.1f}s > TTL: {_CACHE_TTL_SECONDS}s)"
                 )
 
-    # Cache miss or expired - load fresh data (outside lock to avoid blocking)
-    load_start = time.time()
-    logger.debug(f"Loading project index for {project_dir}")
-    project_index = load_project_index(project_dir)
-    project_capabilities = detect_project_capabilities(project_index)
+        # Cache miss or expired - load fresh data while holding lock
+        # This prevents multiple threads from loading simultaneously
+        load_start = time.time()
+        logger.debug(f"Loading project index for {project_dir}")
+        project_index = load_project_index(project_dir)
+        project_capabilities = detect_project_capabilities(project_index)
 
-    if debug:
-        load_duration = (time.time() - load_start) * 1000
-        print(
-            f"[ClientCache] Cache MISS - loaded project index in {load_duration:.1f}ms"
-        )
+        if debug:
+            load_duration = (time.time() - load_start) * 1000
+            print(
+                f"[ClientCache] Cache MISS - loaded project index in {load_duration:.1f}ms"
+            )
 
-    # Store in cache with lock - use double-checked locking pattern
-    # Re-check if another thread populated the cache while we were loading
-    with _CACHE_LOCK:
-        if key in _PROJECT_INDEX_CACHE:
-            cached_index, cached_capabilities, cached_time = _PROJECT_INDEX_CACHE[key]
-            cache_age = time.time() - cached_time
-            if cache_age < _CACHE_TTL_SECONDS:
-                # Another thread already cached valid data while we were loading
-                if debug:
-                    print(
-                        "[ClientCache] Cache was populated by another thread, using cached data"
-                    )
-                # Return deep copies to prevent callers from corrupting the cache
-                return copy.deepcopy(cached_index), copy.deepcopy(cached_capabilities)
-        # Either no cache entry or it's expired - store our fresh data
+        # Store in cache
         _PROJECT_INDEX_CACHE[key] = (project_index, project_capabilities, time.time())
 
-    # Return the freshly loaded data (no need to copy since it's not from cache)
-    return project_index, project_capabilities
+        # Return the freshly loaded data (no need to copy since it's not from cache)
+        return project_index, project_capabilities
 
 
 def invalidate_project_cache(project_dir: Path | None = None) -> None:
@@ -1032,7 +1025,7 @@ def create_client(
                 HookMatcher(matcher="Bash", hooks=[bash_security_hook]),
             ],
         },
-        "max_turns": 1000,
+        "max_turns": 100,
         "cwd": str(project_dir.resolve()),
         "settings": str(settings_file.resolve()),
         "env": sdk_env,  # Pass ANTHROPIC_BASE_URL etc. to subprocess

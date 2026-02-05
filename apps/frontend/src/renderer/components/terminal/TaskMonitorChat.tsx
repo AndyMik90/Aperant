@@ -14,7 +14,7 @@
  * - TERM-8: Message timestamps
  */
 
-import { useEffect, useLayoutEffect, useRef, useState, useCallback, createContext, useContext, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, createContext, useContext, useMemo, memo } from 'react';
 import { useTerminalStore } from '../../stores/terminal-store';
 import { useTaskStore } from '../../stores/task-store';
 import { Button } from '../ui/button';
@@ -344,163 +344,503 @@ function ThinkingBlock({ content }: { content: string }) {
 }
 
 /**
- * Tool block - Raw Claude Code terminal style
- * Simple text output with minimal styling
+ * DiffLine - Renders a single diff line with proper background colors
+ * Matches Claude Code terminal style
+ */
+function DiffLine({ line, type, lineNumber }: { line: string; type: 'add' | 'remove' | 'context'; lineNumber?: number }) {
+  const bgClass = type === 'add'
+    ? 'bg-green-500/20'
+    : type === 'remove'
+      ? 'bg-red-500/20'
+      : '';
+  const textClass = type === 'add'
+    ? 'text-green-400'
+    : type === 'remove'
+      ? 'text-red-400'
+      : 'text-muted-foreground';
+  const prefix = type === 'add' ? '+' : type === 'remove' ? '-' : ' ';
+
+  return (
+    <div className={cn("flex", bgClass)}>
+      {lineNumber !== undefined && (
+        <span className="text-muted-foreground/50 w-8 text-right pr-2 select-none flex-shrink-0">
+          {lineNumber}
+        </span>
+      )}
+      <span className={cn("flex-1", textClass)}>
+        <span className="select-none">{prefix} </span>
+        {line || ' '}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Tool block - Claude Code terminal style
+ * Features: colored bullets, diff backgrounds, collapsible sections
  */
 function ToolBlock({ tool }: { tool: ToolUseContent }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { searchQuery } = useContext(SearchContext);
 
-  // Render Bash tool - simple command/output format
+  // Get bullet color based on tool type
+  const getBulletColor = (toolName: string) => {
+    const colors: Record<string, string> = {
+      Read: 'text-blue-400',
+      Write: 'text-green-400',
+      Edit: 'text-green-400',
+      Bash: 'text-purple-400',
+      Grep: 'text-orange-400',
+      Glob: 'text-pink-400',
+      WebFetch: 'text-cyan-400',
+      WebSearch: 'text-cyan-400',
+      Task: 'text-indigo-400',
+    };
+    return colors[toolName] || 'text-cyan-400';
+  };
+
+  // Check if output should be collapsed by default
+  const shouldCollapseByDefault = (output: string | undefined) => {
+    if (!output) return false;
+    const lineCount = output.split('\n').length;
+    return lineCount > 15;
+  };
+
+  // Render status indicator
+  const StatusIndicator = ({ status }: { status?: string }) => {
+    if (status === 'success') return <span className="text-green-500 ml-1">✓</span>;
+    if (status === 'error') return <span className="text-red-500 ml-1">✗</span>;
+    if (status === 'running') return <span className="text-blue-400 ml-1 animate-pulse">●</span>;
+    return null;
+  };
+
+  // Render Bash tool - command/output format with colored bullet
   if (tool.toolName === 'Bash') {
     const command = tool.input?.command as string || '';
     const description = tool.input?.description as string || '';
+    const hasOutput = Boolean(tool.output);
+    const isCollapsible = shouldCollapseByDefault(tool.output);
 
     return (
-      <div className="py-1 font-mono text-xs">
-        <div className="text-muted-foreground">
-          <span className="text-purple-400">❯ </span>
-          <span className="text-foreground">{command || '(no command)'}</span>
-          {description && <span className="text-muted-foreground/60 ml-2">// {description}</span>}
+      <div className="py-1.5 font-mono text-xs group">
+        <div className="flex items-start gap-2">
+          <span className={cn("flex-shrink-0", getBulletColor('Bash'))}>●</span>
+          <div className="flex-1 min-w-0">
+            <button
+              onClick={() => hasOutput && setIsExpanded(!isExpanded)}
+              className="flex items-center gap-1 text-left hover:underline cursor-pointer"
+            >
+              <span className="text-purple-400 font-medium">Bash</span>
+              <span className="text-cyan-400">(</span>
+              <span className="text-foreground truncate max-w-[400px]">{command || 'command'}</span>
+              <span className="text-cyan-400">)</span>
+              <StatusIndicator status={tool.status} />
+              {hasOutput && isCollapsible && !isExpanded && (
+                <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
+              )}
+            </button>
+            {description && (
+              <div className="text-muted-foreground/60 mt-0.5 text-[10px]">// {description}</div>
+            )}
+          </div>
         </div>
-        {tool.output && (
-          <pre className={cn(
-            "mt-1 pl-4 whitespace-pre-wrap break-all max-h-48 overflow-y-auto",
-            tool.status === 'error' ? 'text-red-400' : 'text-muted-foreground'
+        {tool.output && (isExpanded || !isCollapsible) && (
+          <div className={cn(
+            "mt-2 ml-4 rounded border overflow-hidden",
+            tool.status === 'error' ? 'border-red-500/30 bg-red-500/5' : 'border-border bg-muted/30'
           )}>
-            {tool.output}
-          </pre>
+            <pre className={cn(
+              "p-2 whitespace-pre-wrap break-all max-h-64 overflow-y-auto text-[11px]",
+              tool.status === 'error' ? 'text-red-400' : 'text-muted-foreground'
+            )}>
+              {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
+            </pre>
+          </div>
+        )}
+        {tool.output && isCollapsible && isExpanded && (
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
+          >
+            (click to collapse)
+          </button>
         )}
       </div>
     );
   }
 
-  // Render Edit tool - simple diff format
+  // Render Edit tool - diff format with green/red backgrounds
   if (tool.toolName === 'Edit') {
     const filePath = tool.input?.file_path as string || '';
     const oldString = tool.input?.old_string as string || '';
     const newString = tool.input?.new_string as string || '';
     const hasDiff = oldString || newString;
+    const fileName = filePath.split(/[/\\]/).pop() || filePath;
 
     return (
-      <div className="py-1 font-mono text-xs">
-        <button
-          onClick={() => hasDiff && setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1 hover:underline cursor-pointer"
-        >
-          <span className="text-green-400">✎ Edit:</span>
-          <span className="text-foreground">{filePath}</span>
-          {hasDiff && <span className="text-muted-foreground/60">[{isExpanded ? '-' : '+'}]</span>}
-        </button>
+      <div className="py-1.5 font-mono text-xs group">
+        <div className="flex items-start gap-2">
+          <span className={cn("flex-shrink-0", getBulletColor('Edit'))}>●</span>
+          <div className="flex-1 min-w-0">
+            <button
+              onClick={() => hasDiff && setIsExpanded(!isExpanded)}
+              className="flex items-center gap-1 text-left hover:underline cursor-pointer"
+            >
+              <span className="text-green-400 font-medium">Edit</span>
+              <span className="text-cyan-400">(</span>
+              <span className="text-foreground">{fileName}</span>
+              <span className="text-cyan-400">)</span>
+              <StatusIndicator status={tool.status} />
+              {hasDiff && !isExpanded && (
+                <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
+              )}
+            </button>
+            <div className="text-muted-foreground/50 text-[10px] truncate" title={filePath}>
+              {filePath}
+            </div>
+          </div>
+        </div>
         {isExpanded && hasDiff && (
-          <div className="mt-1 pl-4 max-h-64 overflow-y-auto">
-            {oldString && oldString.split('\n').map((line, i) => (
-              <div key={`old-${i}`} className="text-red-400">- {line || ' '}</div>
-            ))}
-            {newString && newString.split('\n').map((line, i) => (
-              <div key={`new-${i}`} className="text-green-400">+ {line || ' '}</div>
-            ))}
+          <div className="mt-2 ml-4 rounded border border-border overflow-hidden bg-muted/30">
+            <div className="max-h-80 overflow-y-auto text-[11px]">
+              {oldString && oldString.split('\n').map((line, i) => (
+                <DiffLine key={`old-${i}`} line={line} type="remove" lineNumber={i + 1} />
+              ))}
+              {oldString && newString && (
+                <div className="border-t border-border/50 my-1" />
+              )}
+              {newString && newString.split('\n').map((line, i) => (
+                <DiffLine key={`new-${i}`} line={line} type="add" lineNumber={i + 1} />
+              ))}
+            </div>
           </div>
         )}
+        {hasDiff && isExpanded && (
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
+          >
+            (click to collapse)
+          </button>
+        )}
       </div>
     );
   }
 
-  // Render Read tool - simple file path with expandable content
+  // Render Write tool - similar to Edit but showing new content
+  if (tool.toolName === 'Write') {
+    const filePath = tool.input?.file_path as string || '';
+    const content = tool.input?.content as string || '';
+    const hasContent = Boolean(content);
+    const fileName = filePath.split(/[/\\]/).pop() || filePath;
+    const lineCount = content ? content.split('\n').length : 0;
+
+    return (
+      <div className="py-1.5 font-mono text-xs group">
+        <div className="flex items-start gap-2">
+          <span className={cn("flex-shrink-0", getBulletColor('Write'))}>●</span>
+          <div className="flex-1 min-w-0">
+            <button
+              onClick={() => hasContent && setIsExpanded(!isExpanded)}
+              className="flex items-center gap-1 text-left hover:underline cursor-pointer"
+            >
+              <span className="text-green-400 font-medium">Write</span>
+              <span className="text-cyan-400">(</span>
+              <span className="text-foreground">{fileName}</span>
+              <span className="text-cyan-400">)</span>
+              <span className="text-muted-foreground/50 ml-1">+{lineCount} lines</span>
+              <StatusIndicator status={tool.status} />
+              {hasContent && !isExpanded && (
+                <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
+              )}
+            </button>
+            <div className="text-muted-foreground/50 text-[10px] truncate" title={filePath}>
+              {filePath}
+            </div>
+          </div>
+        </div>
+        {isExpanded && hasContent && (
+          <div className="mt-2 ml-4 rounded border border-border overflow-hidden bg-green-500/5">
+            <div className="max-h-80 overflow-y-auto text-[11px]">
+              {content.split('\n').map((line, i) => (
+                <DiffLine key={i} line={line} type="add" lineNumber={i + 1} />
+              ))}
+            </div>
+          </div>
+        )}
+        {hasContent && isExpanded && (
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
+          >
+            (click to collapse)
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Render Read tool - file path with expandable content
   if (tool.toolName === 'Read') {
     const filePath = tool.input?.file_path as string || '';
-    const lines = tool.input?.offset && tool.input?.limit
-      ? ` (${tool.input.offset}-${(tool.input.offset as number) + (tool.input.limit as number)})`
+    const offset = tool.input?.offset as number | undefined;
+    const limit = tool.input?.limit as number | undefined;
+    const lineRange = offset !== undefined && limit !== undefined
+      ? ` lines ${offset}-${offset + limit}`
       : '';
+    const fileName = filePath.split(/[/\\]/).pop() || filePath;
+    const hasOutput = Boolean(tool.output);
+    const isCollapsible = shouldCollapseByDefault(tool.output);
 
     return (
-      <div className="py-1 font-mono text-xs">
-        <button
-          onClick={() => tool.output && setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1 hover:underline cursor-pointer"
-        >
-          <span className="text-blue-400">📄 Read:</span>
-          <span className="text-foreground">{filePath}{lines}</span>
-          {tool.output && <span className="text-muted-foreground/60">[{isExpanded ? '-' : '+'}]</span>}
-        </button>
-        {isExpanded && tool.output && (
-          <pre className="mt-1 pl-4 text-muted-foreground whitespace-pre-wrap max-h-64 overflow-y-auto">
-            {tool.output}
-          </pre>
+      <div className="py-1.5 font-mono text-xs group">
+        <div className="flex items-start gap-2">
+          <span className={cn("flex-shrink-0", getBulletColor('Read'))}>●</span>
+          <div className="flex-1 min-w-0">
+            <button
+              onClick={() => hasOutput && setIsExpanded(!isExpanded)}
+              className="flex items-center gap-1 text-left hover:underline cursor-pointer"
+            >
+              <span className="text-blue-400 font-medium">Read</span>
+              <span className="text-cyan-400">(</span>
+              <span className="text-foreground">{fileName}</span>
+              <span className="text-cyan-400">)</span>
+              {lineRange && <span className="text-muted-foreground/50">{lineRange}</span>}
+              <StatusIndicator status={tool.status} />
+              {hasOutput && isCollapsible && !isExpanded && (
+                <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
+              )}
+            </button>
+            <div className="text-muted-foreground/50 text-[10px] truncate" title={filePath}>
+              {filePath}
+            </div>
+          </div>
+        </div>
+        {tool.output && (isExpanded || !isCollapsible) && (
+          <div className="mt-2 ml-4 rounded border border-border overflow-hidden bg-muted/30">
+            <pre className="p-2 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
+              {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
+            </pre>
+          </div>
+        )}
+        {tool.output && isCollapsible && isExpanded && (
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
+          >
+            (click to collapse)
+          </button>
         )}
       </div>
     );
   }
 
-  // Render Grep tool - simple pattern with results
+  // Render Grep tool - pattern with results count
   if (tool.toolName === 'Grep') {
     const pattern = tool.input?.pattern as string || '';
-    const outputLines = tool.output ? tool.output.split('\n').filter(l => l.trim()).length : 0;
+    const path = tool.input?.path as string || '';
+    const hasOutput = Boolean(tool.output);
+    const matchCount = tool.output ? tool.output.split('\n').filter(l => l.trim()).length : 0;
+    const isCollapsible = shouldCollapseByDefault(tool.output);
 
     return (
-      <div className="py-1 font-mono text-xs">
-        <button
-          onClick={() => tool.output && setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1 hover:underline cursor-pointer"
-        >
-          <span className="text-orange-400">🔍 Grep:</span>
-          <span className="text-foreground">"{pattern}"</span>
-          {tool.output && (
-            <span className="text-muted-foreground/60">
-              ({outputLines} matches) [{isExpanded ? '-' : '+'}]
-            </span>
-          )}
-        </button>
-        {isExpanded && tool.output && (
-          <pre className="mt-1 pl-4 text-muted-foreground whitespace-pre-wrap max-h-64 overflow-y-auto">
-            {tool.output}
-          </pre>
+      <div className="py-1.5 font-mono text-xs group">
+        <div className="flex items-start gap-2">
+          <span className={cn("flex-shrink-0", getBulletColor('Grep'))}>●</span>
+          <div className="flex-1 min-w-0">
+            <button
+              onClick={() => hasOutput && setIsExpanded(!isExpanded)}
+              className="flex items-center gap-1 text-left hover:underline cursor-pointer"
+            >
+              <span className="text-orange-400 font-medium">Grep</span>
+              <span className="text-cyan-400">(</span>
+              <span className="text-yellow-300">"{pattern}"</span>
+              <span className="text-cyan-400">)</span>
+              {hasOutput && (
+                <span className="text-muted-foreground/50 ml-1">
+                  {matchCount} {matchCount === 1 ? 'match' : 'matches'}
+                </span>
+              )}
+              <StatusIndicator status={tool.status} />
+              {hasOutput && isCollapsible && !isExpanded && (
+                <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
+              )}
+            </button>
+            {path && (
+              <div className="text-muted-foreground/50 text-[10px] truncate">in {path}</div>
+            )}
+          </div>
+        </div>
+        {tool.output && (isExpanded || !isCollapsible) && (
+          <div className="mt-2 ml-4 rounded border border-border overflow-hidden bg-muted/30">
+            <pre className="p-2 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
+              {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
+            </pre>
+          </div>
+        )}
+        {tool.output && isCollapsible && isExpanded && (
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
+          >
+            (click to collapse)
+          </button>
         )}
       </div>
     );
   }
 
-  // Render Glob tool - simple pattern with file count
+  // Render Glob tool - pattern with file count
   if (tool.toolName === 'Glob') {
     const pattern = tool.input?.pattern as string || '';
-    const outputLines = tool.output ? tool.output.split('\n').filter(l => l.trim()).length : 0;
+    const path = tool.input?.path as string || '';
+    const hasOutput = Boolean(tool.output);
+    const fileCount = tool.output ? tool.output.split('\n').filter(l => l.trim()).length : 0;
+    const isCollapsible = shouldCollapseByDefault(tool.output);
 
     return (
-      <div className="py-1 font-mono text-xs">
-        <button
-          onClick={() => tool.output && setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1 hover:underline cursor-pointer"
-        >
-          <span className="text-pink-400">📁 Glob:</span>
-          <span className="text-foreground">"{pattern}"</span>
-          {tool.output && (
-            <span className="text-muted-foreground/60">
-              ({outputLines} files) [{isExpanded ? '-' : '+'}]
-            </span>
-          )}
-        </button>
-        {isExpanded && tool.output && (
-          <pre className="mt-1 pl-4 text-muted-foreground whitespace-pre-wrap max-h-64 overflow-y-auto">
-            {tool.output}
-          </pre>
+      <div className="py-1.5 font-mono text-xs group">
+        <div className="flex items-start gap-2">
+          <span className={cn("flex-shrink-0", getBulletColor('Glob'))}>●</span>
+          <div className="flex-1 min-w-0">
+            <button
+              onClick={() => hasOutput && setIsExpanded(!isExpanded)}
+              className="flex items-center gap-1 text-left hover:underline cursor-pointer"
+            >
+              <span className="text-pink-400 font-medium">Glob</span>
+              <span className="text-cyan-400">(</span>
+              <span className="text-yellow-300">"{pattern}"</span>
+              <span className="text-cyan-400">)</span>
+              {hasOutput && (
+                <span className="text-muted-foreground/50 ml-1">
+                  {fileCount} {fileCount === 1 ? 'file' : 'files'}
+                </span>
+              )}
+              <StatusIndicator status={tool.status} />
+              {hasOutput && isCollapsible && !isExpanded && (
+                <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
+              )}
+            </button>
+            {path && (
+              <div className="text-muted-foreground/50 text-[10px] truncate">in {path}</div>
+            )}
+          </div>
+        </div>
+        {tool.output && (isExpanded || !isCollapsible) && (
+          <div className="mt-2 ml-4 rounded border border-border overflow-hidden bg-muted/30">
+            <pre className="p-2 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
+              {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
+            </pre>
+          </div>
+        )}
+        {tool.output && isCollapsible && isExpanded && (
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
+          >
+            (click to collapse)
+          </button>
         )}
       </div>
     );
   }
 
-  // Default tool rendering - simple format
+  // Render Task tool - subagent spawning
+  if (tool.toolName === 'Task') {
+    const description = tool.input?.description as string || '';
+    const prompt = tool.input?.prompt as string || '';
+    const hasOutput = Boolean(tool.output);
+    const isCollapsible = shouldCollapseByDefault(tool.output);
+
+    return (
+      <div className="py-1.5 font-mono text-xs group">
+        <div className="flex items-start gap-2">
+          <span className={cn("flex-shrink-0", getBulletColor('Task'))}>●</span>
+          <div className="flex-1 min-w-0">
+            <button
+              onClick={() => hasOutput && setIsExpanded(!isExpanded)}
+              className="flex items-center gap-1 text-left hover:underline cursor-pointer"
+            >
+              <span className="text-indigo-400 font-medium">Task</span>
+              <span className="text-cyan-400">(</span>
+              <span className="text-foreground truncate max-w-[300px]">{description || 'subagent'}</span>
+              <span className="text-cyan-400">)</span>
+              <StatusIndicator status={tool.status} />
+              {hasOutput && isCollapsible && !isExpanded && (
+                <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
+              )}
+            </button>
+            {prompt && (
+              <div className="text-muted-foreground/50 text-[10px] truncate max-w-[500px]" title={prompt}>
+                {prompt.slice(0, 100)}{prompt.length > 100 ? '...' : ''}
+              </div>
+            )}
+          </div>
+        </div>
+        {tool.output && (isExpanded || !isCollapsible) && (
+          <div className="mt-2 ml-4 rounded border border-border overflow-hidden bg-muted/30">
+            <pre className="p-2 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
+              {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
+            </pre>
+          </div>
+        )}
+        {tool.output && isCollapsible && isExpanded && (
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
+          >
+            (click to collapse)
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Default tool rendering - generic format with colored bullet
   const input = tool.input || {};
-  const firstValue = Object.values(input).find(v => typeof v === 'string' && v.length < 100);
+  const inputValues = Object.values(input);
+  const firstValue = inputValues.find((v): v is string => typeof v === 'string' && v.length < 100);
+  const hasOutput = Boolean(tool.output);
+  const isCollapsible = shouldCollapseByDefault(tool.output);
 
   return (
-    <div className="py-1 font-mono text-xs">
-      <div className="text-muted-foreground">
-        <span className="text-cyan-400">[{tool.toolName}]</span>
-        {firstValue && <span className="text-foreground ml-1">{firstValue as string}</span>}
+    <div className="py-1.5 font-mono text-xs group">
+      <div className="flex items-start gap-2">
+        <span className={cn("flex-shrink-0", getBulletColor(tool.toolName))}>●</span>
+        <div className="flex-1 min-w-0">
+          <button
+            onClick={() => hasOutput && setIsExpanded(!isExpanded)}
+            className="flex items-center gap-1 text-left hover:underline cursor-pointer"
+          >
+            <span className="text-cyan-400 font-medium">{tool.toolName}</span>
+            {firstValue && (
+              <>
+                <span className="text-cyan-400">(</span>
+                <span className="text-foreground truncate max-w-[300px]">{firstValue}</span>
+                <span className="text-cyan-400">)</span>
+              </>
+            )}
+            <StatusIndicator status={tool.status} />
+            {hasOutput && isCollapsible && !isExpanded && (
+              <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
+            )}
+          </button>
+        </div>
       </div>
-      {tool.output && (
-        <pre className="mt-1 pl-4 text-muted-foreground whitespace-pre-wrap max-h-48 overflow-y-auto">
-          {tool.output}
-        </pre>
+      {tool.output && (isExpanded || !isCollapsible) && (
+        <div className="mt-2 ml-4 rounded border border-border overflow-hidden bg-muted/30">
+          <pre className="p-2 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
+            {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
+          </pre>
+        </div>
+      )}
+      {tool.output && isCollapsible && isExpanded && (
+        <button
+          onClick={() => setIsExpanded(false)}
+          className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
+        >
+          (click to collapse)
+        </button>
       )}
     </div>
   );
@@ -537,8 +877,9 @@ function TextBlock({ content }: { content: string }) {
 
 /**
  * Render a content block based on its type
+ * Memoized to prevent re-rendering unchanged blocks during rapid message updates
  */
-function ContentBlockRenderer({ block }: { block: ContentBlock }) {
+const ContentBlockRenderer = memo(function ContentBlockRenderer({ block }: { block: ContentBlock }) {
   switch (block.type) {
     case 'text':
       return <TextBlock content={block.text} />;
@@ -595,7 +936,7 @@ function ContentBlockRenderer({ block }: { block: ContentBlock }) {
     default:
       return null;
   }
-}
+});
 
 /**
  * User message bubble component
@@ -721,12 +1062,7 @@ export function TaskMonitorChat({ terminal, terminalRef, isActive = false, isMin
   const [elapsedTime, setElapsedTime] = useState(0);
   const taskStartTimeRef = useRef<number | null>(null);
 
-  // TERM-4: File changes tracking state
-  const [fileChanges, setFileChanges] = useState<{
-    filesModified: Set<string>;
-    linesAdded: number;
-    linesRemoved: number;
-  }>({ filesModified: new Set(), linesAdded: 0, linesRemoved: 0 });
+  // TERM-4: File changes tracking is now computed via useMemo below (after messages are defined)
 
   // Get taskId from terminal (task monitors have taskId)
   const taskId = terminal.taskId;
@@ -795,6 +1131,15 @@ export function TaskMonitorChat({ terminal, terminalRef, isActive = false, isMin
     }
   }, [terminal.id, terminal.parser, initializeParser]);
 
+  // Cleanup scroll debounce timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Scroll to bottom immediately on mount (before paint) - no visible scroll animation
   useLayoutEffect(() => {
     if (scrollContainerRef.current) {
@@ -847,7 +1192,9 @@ export function TaskMonitorChat({ terminal, terminalRef, isActive = false, isMin
   };
 
   // TERM-4: Track file changes from Edit/Write tool results
-  useEffect(() => {
+  // Optimized: Use useMemo to avoid re-scanning all messages on every render
+  // and only recalculate when messages array reference changes
+  const fileChanges = useMemo(() => {
     const filesModified = new Set<string>();
     let linesAdded = 0;
     let linesRemoved = 0;
@@ -887,23 +1234,35 @@ export function TaskMonitorChat({ terminal, terminalRef, isActive = false, isMin
       }
     }
 
-    setFileChanges({ filesModified, linesAdded, linesRemoved });
+    return { filesModified, linesAdded, linesRemoved };
   }, [messages]);
 
   // Handle scroll to detect if user scrolled up
+  // Debounced to prevent excessive state updates during rapid scrolling
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const handleScroll = useCallback(() => {
     if (!scrollContainerRef.current) return;
 
-    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-
-    if (isNearBottom) {
-      setAutoScroll(true);
-      setUserScrolledUp(false);
-    } else {
-      setAutoScroll(false);
-      setUserScrolledUp(true);
+    // Clear existing timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
     }
+
+    // Debounce scroll handling by 50ms
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (!scrollContainerRef.current) return;
+
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+
+      if (isNearBottom) {
+        setAutoScroll(true);
+        setUserScrolledUp(false);
+      } else {
+        setAutoScroll(false);
+        setUserScrolledUp(true);
+      }
+    }, 50);
   }, []);
 
   // Scroll to bottom handler

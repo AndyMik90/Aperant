@@ -68,13 +68,23 @@ class PlanningPhaseMixin:
 
         # Fall back to agent
         self.ui.print_status("Falling back to planner agent...", "progress")
+        last_validation_result = None  # Track validation errors for injection
+
         for attempt in range(MAX_RETRIES):
             self.ui.print_status(
                 f"Running planner agent (attempt {attempt + 1})...", "progress"
             )
 
+            # Build additional context with validation errors from previous attempt
+            additional_context = ""
+            if last_validation_result and not last_validation_result.valid:
+                additional_context = self._build_plan_validation_error_context(
+                    last_validation_result, attempt
+                )
+
             success, output = await self.run_agent_fn(
                 "planner.md",
+                additional_context=additional_context,
                 phase_name="planning",
             )
 
@@ -95,12 +105,71 @@ class PlanningPhaseMixin:
                             return PhaseResult(
                                 "planning", True, [str(plan_file)], [], attempt
                             )
+                    # Store validation result for next attempt's error injection
+                    last_validation_result = result
                     errors.append(f"Agent attempt {attempt + 1}: {result.errors}")
                     self.ui.print_status("Plan created but invalid", "error")
             else:
                 errors.append(f"Agent attempt {attempt + 1}: Did not create plan file")
 
         return PhaseResult("planning", False, [], errors, MAX_RETRIES)
+
+    def _build_plan_validation_error_context(
+        self, validation_result, attempt: int
+    ) -> str:
+        """
+        Build context string with plan validation errors for agent retry.
+
+        Args:
+            validation_result: The ValidationResult from the previous attempt
+            attempt: The current attempt number (0-indexed)
+
+        Returns:
+            Formatted string with error details and fix suggestions
+        """
+        lines = [
+            "",
+            "=" * 60,
+            f"⚠️  PLAN VALIDATION FAILED (Attempt {attempt + 1})",
+            "=" * 60,
+            "",
+            "Your implementation_plan.json has validation errors.",
+            "",
+            "## Errors Found",
+            "",
+        ]
+
+        for error in validation_result.errors:
+            lines.append(f"- ❌ {error}")
+
+        if validation_result.warnings:
+            lines.append("")
+            lines.append("## Warnings")
+            lines.append("")
+            for warning in validation_result.warnings:
+                lines.append(f"- ⚠️ {warning}")
+
+        if validation_result.fixes:
+            lines.append("")
+            lines.append("## Suggested Fixes")
+            lines.append("")
+            for fix in validation_result.fixes:
+                lines.append(f"- → {fix}")
+
+        lines.extend(
+            [
+                "",
+                "## Required Actions",
+                "",
+                "1. Read the existing implementation_plan.json file",
+                "2. Fix the errors listed above",
+                "3. Ensure the JSON structure is valid",
+                "4. Make sure all required fields are present",
+                "",
+            ]
+        )
+
+        return "\n".join(lines)
 
     async def phase_validation(self) -> PhaseResult:
         """Final validation of all spec files with auto-fix retry."""

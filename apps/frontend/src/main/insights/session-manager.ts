@@ -172,4 +172,35 @@ export class SessionManager {
   clearCache(projectId: string): void {
     this.sessions.delete(projectId);
   }
+
+  /**
+   * Mark a message's task as created (persists the taskCreatedId on the message)
+   */
+  markTaskCreated(projectPath: string, sessionId: string, messageId: string, taskId: string): boolean {
+    const session = this.storage.loadSessionById(projectPath, sessionId);
+    if (!session) return false;
+
+    // Find and update the message
+    const message = session.messages.find(m => m.id === messageId);
+    if (!message) return false;
+
+    message.taskCreatedId = taskId;
+    session.updatedAt = new Date();
+    this.storage.saveSession(projectPath, session);
+
+    // Update cache if this session is cached
+    for (const [projectId, cachedSession] of this.sessions) {
+      if (cachedSession.id === sessionId) {
+        const cachedMessage = cachedSession.messages.find(m => m.id === messageId);
+        if (cachedMessage) {
+          cachedMessage.taskCreatedId = taskId;
+          cachedSession.updatedAt = new Date();
+          this.sessions.set(projectId, cachedSession);
+        }
+        break;
+      }
+    }
+
+    return true;
+  }
 }

@@ -398,13 +398,31 @@ export function registerAgenteventsHandlers(
           }
         } else {
           notificationService.notifyTaskFailed(taskTitle, project.id, taskId);
-          persistStatus("human_review");
+
+          // FIX: Determine failure status based on current phase/status
+          // - Planning failure → stay in "planning" (user can retry or fix spec)
+          // - Coding failure → stay in "coding" (user can retry)
+          // - QA failure → move to "human_review" (needs human intervention)
+          let failureStatus: TaskStatus = "human_review";
+          const currentPhase = task.executionProgress?.phase;
+          const currentStatus = task.status;
+
+          if (currentStatus === "planning" || currentPhase === "planning") {
+            // Planning phase failure - keep in planning status
+            failureStatus = "planning";
+          } else if (currentStatus === "coding" && currentPhase !== "qa_review" && currentPhase !== "qa_fixing") {
+            // Coding phase failure (not during QA) - keep in coding status
+            failureStatus = "coding";
+          }
+          // Otherwise (QA failure or other) → human_review (default)
+
+          persistStatus(failureStatus);
           // Include projectId for multi-project filtering (issue #723)
           safeSendToRenderer(
             getMainWindow,
             IPC_CHANNELS.TASK_STATUS_CHANGE,
             taskId,
-            "human_review" as TaskStatus,
+            failureStatus,
             projectId
           );
         }
