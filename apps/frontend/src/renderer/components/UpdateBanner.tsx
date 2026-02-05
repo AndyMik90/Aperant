@@ -139,6 +139,8 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
       setIsDownloading(false);
       setIsDownloaded(true);
       setDownloadProgress(null);
+      setDownloadError(null);
+      setShowReadOnlyWarning(false);
     });
 
     return cleanup;
@@ -146,10 +148,6 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
 
   // Listen for update errors (e.g., install failures)
   useEffect(() => {
-    if (!window.electronAPI?.onAppUpdateError) {
-      return;
-    }
-
     const cleanup = window.electronAPI.onAppUpdateError((error) => {
       setDownloadError(error.message);
       setIsDownloading(false);
@@ -160,10 +158,6 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
 
   // Listen for read-only volume warning (when trying to install from DMG on macOS)
   useEffect(() => {
-    if (!window.electronAPI?.onAppUpdateReadOnlyVolume) {
-      return;
-    }
-
     const cleanup = window.electronAPI.onAppUpdateReadOnlyVolume(() => {
       setShowReadOnlyWarning(true);
     });
