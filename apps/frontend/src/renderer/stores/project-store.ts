@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Project, ProjectSettings, AutoBuildVersionInfo, InitializationResult } from '../../shared/types';
+import { useTaskStore, clearDraft } from './task-store';
 
 // localStorage keys for persisting project state (legacy - now using IPC)
 const LAST_SELECTED_PROJECT_KEY = 'lastSelectedProjectId';
@@ -367,6 +368,11 @@ export async function removeProject(projectId: string, deleteData: boolean = fal
       // Also close the tab if it's open
       if (store.openProjectIds.includes(projectId)) {
         store.closeProjectTab(projectId);
+      }
+      // Clear localStorage data when deleting all project data
+      if (deleteData) {
+        useTaskStore.getState().clearTaskOrder(projectId);
+        clearDraft(projectId);
       }
       return true;
     }
