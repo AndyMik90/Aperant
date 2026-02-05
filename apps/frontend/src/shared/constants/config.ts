@@ -24,7 +24,7 @@ export const UI_SCALE_STEP = 5;
 // ============================================
 
 export const DEFAULT_APP_SETTINGS = {
-  theme: 'system' as const,
+  theme: 'dark' as const,
   colorTheme: 'default' as const,
   defaultModel: 'opus',
   agentFramework: 'auto-claude',

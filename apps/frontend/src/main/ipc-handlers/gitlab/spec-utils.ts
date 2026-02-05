@@ -8,7 +8,7 @@ import path from 'path';
 import type { Project } from '../../../shared/types';
 import type { GitLabAPIIssue, GitLabConfig } from './types';
 import { labelMatchesWholeWord } from '../shared/label-utils';
-import { stripControlChars, sanitizeText, sanitizeStringArray } from '../shared/sanitize';
+import { sanitizeText, sanitizeStringArray } from '../shared/sanitize';
 
 /**
  * Simplified task info returned when creating a spec from a GitLab issue.

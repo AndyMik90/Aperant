@@ -157,8 +157,7 @@ function createWindow(): void {
     const display = screen.getPrimaryDisplay();
     // Validate the returned object has expected structure with valid dimensions
     if (
-      display &&
-      display.workAreaSize &&
+      display?.workAreaSize &&
       typeof display.workAreaSize.width === 'number' &&
       typeof display.workAreaSize.height === 'number' &&
       display.workAreaSize.width > 0 &&
@@ -495,7 +494,7 @@ app.whenReady().then(() => {
         // Setup event forwarding from usage monitor to renderer
         initializeUsageMonitorForwarding(mainWindow);
 
-        // Start the usage monitor
+        // Start the usage monitor (uses unified OperationRegistry for proactive restart)
         const usageMonitor = getUsageMonitor();
         usageMonitor.start();
         console.warn('[main] Usage monitor initialized and started (after profile load)');

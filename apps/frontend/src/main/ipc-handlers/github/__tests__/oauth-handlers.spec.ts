@@ -518,7 +518,7 @@ describe('GitHub OAuth Handlers', () => {
       mockFindExecutable.mockReturnValue('/usr/local/bin/gh');
 
       // Mock execFileSync for version check
-      mockExecFileSync.mockImplementation((cmd: string, args?: string[]) => {
+      mockExecFileSync.mockImplementation((_cmd: string, args?: string[]) => {
         if (args && args[0] === '--version') {
           return 'gh version 2.65.0 (2024-01-15)\n';
         }
@@ -553,7 +553,7 @@ describe('GitHub OAuth Handlers', () => {
 
   describe('gh Auth Check Handler', () => {
     it('should return authenticated: true with username when logged in', async () => {
-      mockExecFileSync.mockImplementation((cmd: string, args?: string[]) => {
+      mockExecFileSync.mockImplementation((_cmd: string, args?: string[]) => {
         if (args && args[0] === 'auth' && args[1] === 'status') {
           return 'Logged in to github.com as testuser\n';
         }
