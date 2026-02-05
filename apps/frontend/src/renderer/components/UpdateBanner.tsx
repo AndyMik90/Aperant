@@ -33,18 +33,16 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
   // Check for updates
   const checkForUpdate = useCallback(async () => {
     try {
-      if (!window.electronAPI?.checkAppUpdate) {
-        return;
-      }
-
       const result = await window.electronAPI.checkAppUpdate();
       if (result.success && result.data) {
         const newVersion = result.data.version;
         // New update available - show banner (unless same version already dismissed)
         if (currentVersionRef.current !== newVersion) {
           setIsDismissed(false);
-          // Reset downloaded state when a newer version is found
+          // Reset stale state when a newer version is found
           setIsDownloaded(false);
+          setShowReadOnlyWarning(false);
+          setDownloadError(null);
           currentVersionRef.current = newVersion;
         }
         setUpdateInfo({
@@ -62,9 +60,6 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
   useEffect(() => {
     const checkDownloaded = async () => {
       try {
-        if (!window.electronAPI?.getDownloadedAppUpdate) {
-          return;
-        }
         const result = await window.electronAPI.getDownloadedAppUpdate();
         if (result.success && result.data) {
           currentVersionRef.current = result.data.version;
@@ -157,7 +152,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
   const handleUpdate = async () => {
     if (isDownloaded) {
       // Already downloaded - just install
-      window.electronAPI?.installAppUpdate?.();
+      window.electronAPI.installAppUpdate();
       return;
     }
 
@@ -166,11 +161,6 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
     setDownloadError(null);
 
     try {
-      if (!window.electronAPI?.downloadAppUpdate) {
-        setDownloadError(t("navigation:updateBanner.downloadError"));
-        setIsDownloading(false);
-        return;
-      }
       const result = await window.electronAPI.downloadAppUpdate();
       if (!result.success) {
         setDownloadError(result.error || t("navigation:updateBanner.downloadError"));

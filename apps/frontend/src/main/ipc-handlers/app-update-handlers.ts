@@ -95,10 +95,8 @@ export function registerAppUpdateHandlers(): void {
     IPC_CHANNELS.APP_UPDATE_INSTALL,
     async (): Promise<IPCResult> => {
       try {
-        const installed = quitAndInstall();
-        return installed
-          ? { success: true }
-          : { success: false, error: 'Running from read-only volume' };
+        quitAndInstall();
+        return { success: true };
       } catch (error) {
         console.error('[app-update-handlers] Install update failed:', error);
         return {
