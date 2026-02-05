@@ -6,7 +6,7 @@ import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, Implemen
 import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir, JSON_ERROR_PREFIX, JSON_ERROR_TITLE_SUFFIX, TASK_STATUS_PRIORITY } from '../shared/constants';
 import { getAutoBuildPath, isInitialized } from './project-initializer';
 import { getTaskWorktreeDir } from './worktree-paths';
-import { isValidTaskId, findAllSpecPaths } from './utils/spec-path-helpers';
+import { findAllSpecPaths } from './utils/spec-path-helpers';
 
 interface TabState {
   openProjectIds: string[];
@@ -389,10 +389,10 @@ export class ProjectStore {
    */
   private loadTasksFromSpecsDir(
     specsDir: string,
-    basePath: string,
+    _basePath: string,
     location: 'main' | 'worktree',
     projectId: string,
-    specsBaseDir: string
+    _specsBaseDir: string
   ): Task[] {
     const tasks: Task[] = [];
     let specDirs: Dirent[] = [];
@@ -519,7 +519,7 @@ export class ProjectStore {
             // "# Specification: Title" -> "Title"
             // "# Title" -> "Title"
             const titleMatch = specContent.match(/^#\s+(?:Quick Spec:|Specification:)?\s*(.+)$/m);
-            if (titleMatch && titleMatch[1]) {
+            if (titleMatch?.[1]) {
               title = titleMatch[1].trim();
             }
           } catch {

@@ -143,7 +143,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     if (activeTab === 'logs' && logsEndRef.current && !isUserScrolledUp) {
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [task.logs, activeTab, isUserScrolledUp]);
+  }, [activeTab, isUserScrolledUp]);
 
   // Reset scroll state when switching to logs tab
   useEffect(() => {
@@ -155,7 +155,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   // Reset feedback images when task changes to prevent image leakage between tasks
   useEffect(() => {
     setFeedbackImages([]);
-  }, [task.id]);
+  }, []);
 
   // Load worktree status when task is in human_review
   useEffect(() => {

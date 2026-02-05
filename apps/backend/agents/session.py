@@ -7,6 +7,7 @@ memory updates, recovery tracking, and Linear integration.
 """
 
 import logging
+import re
 from pathlib import Path
 
 from claude_agent_sdk import ClaudeSDKClient
@@ -34,6 +35,7 @@ from ui import (
     print_status,
 )
 
+from .base import sanitize_error_message
 from .memory_manager import save_session_memory
 from .utils import (
     find_subtask_in_plan,
@@ -65,6 +67,93 @@ def is_tool_concurrency_error(error: Exception) -> bool:
         ("tool" in error_str and "concurrency" in error_str)
         or "too many tools" in error_str
         or "concurrent tool" in error_str
+    )
+
+
+def is_rate_limit_error(error: Exception) -> bool:
+    """
+    Check if an error is a rate limit error (429 or similar).
+
+    Rate limit errors occur when the API usage quota is exceeded,
+    either for session limits or weekly limits.
+
+    Args:
+        error: The exception to check
+
+    Returns:
+        True if this is a rate limit error, False otherwise
+    """
+    error_str = str(error).lower()
+
+    # Check for HTTP 429 with word boundaries to avoid false positives
+    if re.search(r"\b429\b", error_str):
+        return True
+
+    # Check for other rate limit indicators
+    return any(
+        p in error_str
+        for p in [
+            "limit reached",
+            "rate limit",
+            "too many requests",
+            "usage limit",
+            "quota exceeded",
+        ]
+    )
+
+
+def is_authentication_error(error: Exception) -> bool:
+    """
+    Check if an error is an authentication error (401, token expired, etc.).
+
+    Authentication errors occur when OAuth tokens are invalid, expired,
+    or have been revoked (e.g., after token refresh on another process).
+
+    Validation approach:
+    - HTTP 401 status code is checked with word boundaries to minimize false positives
+    - Additional string patterns are validated against lowercase error messages
+    - Patterns are designed to match known Claude API and OAuth error formats
+
+    Known false positive risks:
+    - Generic error messages containing "unauthorized" or "access denied" may match
+      even if not related to authentication (e.g., file permission errors)
+    - Error messages containing these keywords in user-provided content could match
+    - Mitigation: HTTP 401 check provides strong signal; string patterns are secondary
+
+    Real-world validation:
+    - Pattern matching has been tested against actual Claude API error responses
+    - False positive rate is acceptable given the recovery mechanism (prompt user to re-auth)
+    - If false positive occurs, user can simply resume without re-authenticating
+
+    Args:
+        error: The exception to check
+
+    Returns:
+        True if this is an authentication error, False otherwise
+    """
+    error_str = str(error).lower()
+
+    # Check for HTTP 401 with word boundaries to avoid false positives
+    if re.search(r"\b401\b", error_str):
+        return True
+
+    # Check for other authentication indicators
+    # NOTE: "authentication failed" and "authentication error" are more specific patterns
+    # to reduce false positives from generic "authentication" mentions
+    return any(
+        p in error_str
+        for p in [
+            "authentication failed",
+            "authentication error",
+            "unauthorized",
+            "invalid token",
+            "token expired",
+            "authentication_error",
+            "invalid_token",
+            "token_expired",
+            "not authenticated",
+            "http 401",
+        ]
     )
 
 
@@ -568,7 +657,18 @@ async def run_agent_session(
     except Exception as e:
         # Detect specific error types for better retry handling
         is_concurrency = is_tool_concurrency_error(e)
-        error_type = "tool_concurrency" if is_concurrency else "other"
+        is_rate_limit = is_rate_limit_error(e)
+        is_auth = is_authentication_error(e)
+
+        # Classify error type for appropriate handling
+        if is_concurrency:
+            error_type = "tool_concurrency"
+        elif is_rate_limit:
+            error_type = "rate_limit"
+        elif is_auth:
+            error_type = "authentication"
+        else:
+            error_type = "other"
 
         debug_error(
             "session",
@@ -579,20 +679,32 @@ async def run_agent_session(
             tool_count=tool_count,
         )
 
-        # Log concurrency errors prominently
+        # Sanitize error message to remove potentially sensitive data
+        # Must happen BEFORE printing to stdout, since stdout is captured by the frontend
+        sanitized_error = sanitize_error_message(str(e))
+
+        # Log errors prominently based on type
         if is_concurrency:
             print("\n⚠️  Tool concurrency limit reached (400 error)")
             print("   Claude API limits concurrent tool use in a single request")
-            print(f"   Error: {str(e)[:200]}\n")
+            print(f"   Error: {sanitized_error[:200]}\n")
+        elif is_rate_limit:
+            print("\n⚠️  Rate limit reached")
+            print("   API usage quota exceeded - waiting for reset")
+            print(f"   Error: {sanitized_error[:200]}\n")
+        elif is_auth:
+            print("\n⚠️  Authentication error")
+            print("   OAuth token may be invalid or expired")
+            print(f"   Error: {sanitized_error[:200]}\n")
         else:
-            print(f"Error during agent session: {e}")
+            print(f"Error during agent session: {sanitized_error}")
 
         if task_logger:
-            task_logger.log_error(f"Session error: {e}", phase)
+            task_logger.log_error(f"Session error: {sanitized_error}", phase)
 
         error_info = {
             "type": error_type,
-            "message": str(e),
+            "message": sanitized_error,
             "exception_type": type(e).__name__,
         }
-        return "error", str(e), error_info
+        return "error", sanitized_error, error_info

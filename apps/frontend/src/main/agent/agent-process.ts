@@ -281,7 +281,11 @@ export class AgentProcessManager {
     } : 'NONE');
 
     if (!bestProfile) {
-      console.log('[AgentProcess] No alternative profile available - falling back to manual modal');
+      // Single account case: let backend handle with intelligent pause
+      // Don't show manual modal - backend will pause intelligently and resume when ready
+      console.log('[AgentProcess] No alternative profile - backend will handle with intelligent pause');
+      // Return false to let handleProcessFailure emit sdk-rate-limit event
+      // The frontend can then show appropriate UI (e.g., "Paused until X time")
       return false;
     }
 
@@ -306,19 +310,84 @@ export class AgentProcessManager {
     console.log('[AgentProcess] No rate limit detected - checking for auth failure');
     const authFailureDetection = detectAuthFailure(allOutput);
 
-    if (authFailureDetection.isAuthFailure) {
-      console.log('[AgentProcess] Auth failure detected:', authFailureDetection);
+    if (!authFailureDetection.isAuthFailure) {
+      console.log('[AgentProcess] Process failed but no rate limit or auth failure detected');
+      return false;
+    }
+
+    console.log('[AgentProcess] Auth failure detected:', authFailureDetection);
+
+    // Try auto-swap if enabled
+    const wasHandled = this.handleAuthFailureWithAutoSwap(taskId, authFailureDetection);
+
+    if (!wasHandled) {
+      // Fall back to UI notification
       this.emitter.emit('auth-failure', taskId, {
         profileId: authFailureDetection.profileId,
         failureType: authFailureDetection.failureType,
         message: authFailureDetection.message,
         originalError: authFailureDetection.originalError
       });
-      return true;
     }
 
-    console.log('[AgentProcess] Process failed but no rate limit or auth failure detected');
-    return false;
+    return true;
+  }
+
+  /**
+   * Attempt to auto-swap to another profile on authentication failure.
+   * Only works when autoSwitchOnAuthFailure is enabled and an alternative
+   * authenticated profile is available.
+   */
+  private handleAuthFailureWithAutoSwap(
+    taskId: string,
+    authFailureDetection: ReturnType<typeof detectAuthFailure>
+  ): boolean {
+    const profileManager = getClaudeProfileManager();
+    const autoSwitchSettings = profileManager.getAutoSwitchSettings();
+
+    console.log('[AgentProcess] Auth failure auto-switch settings:', {
+      enabled: autoSwitchSettings.enabled,
+      autoSwitchOnAuthFailure: autoSwitchSettings.autoSwitchOnAuthFailure
+    });
+
+    // Check if auto-switch on auth failure is enabled
+    if (!autoSwitchSettings.enabled || !autoSwitchSettings.autoSwitchOnAuthFailure) {
+      console.log('[AgentProcess] Auth failure auto-switch disabled - falling back to UI');
+      return false;
+    }
+
+    const currentProfileId = authFailureDetection.profileId;
+    const bestProfile = profileManager.getBestAvailableProfile(currentProfileId);
+
+    console.log('[AgentProcess] Best available profile for auth failure swap:', bestProfile ? {
+      id: bestProfile.id,
+      name: bestProfile.name,
+      isAuthenticated: bestProfile.isAuthenticated
+    } : 'NONE');
+
+    // Verify the best profile is actually authenticated
+    if (!bestProfile || !bestProfile.isAuthenticated) {
+      console.log('[AgentProcess] No authenticated alternative profile - falling back to UI');
+      return false;
+    }
+
+    console.log('[AgentProcess] AUTH-FAILURE AUTO-SWAP:', currentProfileId, '->', bestProfile.id);
+    profileManager.setActiveProfile(bestProfile.id);
+
+    // Emit auth-failure event with swap metadata for UI notification
+    this.emitter.emit('auth-failure', taskId, {
+      profileId: authFailureDetection.profileId,
+      failureType: authFailureDetection.failureType,
+      message: authFailureDetection.message,
+      originalError: authFailureDetection.originalError,
+      wasAutoSwapped: true,
+      swappedToProfile: { id: bestProfile.id, name: bestProfile.name }
+    });
+
+    // Reuse existing restart event
+    console.log('[AgentProcess] Emitting auto-swap-restart-task event for auth failure:', taskId);
+    this.emitter.emit('auto-swap-restart-task', taskId, bestProfile.id);
+    return true;
   }
 
   /**

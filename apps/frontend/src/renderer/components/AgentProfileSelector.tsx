@@ -86,7 +86,7 @@ export function AgentProfileSelector({
   const [showPhaseDetails, setShowPhaseDetails] = useState(false);
 
   const isCustom = profileId === 'custom';
-  const isAuto = profileId === 'auto';
+  const _isAuto = profileId === 'auto';
 
   // Use provided phase configs or defaults
   const currentPhaseModels = phaseModels || DEFAULT_PHASE_MODELS;
