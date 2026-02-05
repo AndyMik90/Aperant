@@ -282,8 +282,8 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, p
           {!hasEntries ? (
             <p className="text-xs text-muted-foreground italic">No logs yet</p>
           ) : (
-            displayedEntries.map((entry, idx) => (
-              <LogEntry key={`${entry.timestamp}-${idx}`} entry={entry} />
+            displayedEntries.map((entry) => (
+              <LogEntry key={`${entry.timestamp}-${entry.type}-${entry.content}`} entry={entry} />
             ))
           )}
         </div>
