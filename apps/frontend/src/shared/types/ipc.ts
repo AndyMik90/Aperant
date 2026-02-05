@@ -204,6 +204,7 @@ export interface ElectronAPI {
   updateTaskStatus: (taskId: string, status: TaskStatus, options?: { forceCleanup?: boolean }) => Promise<IPCResult & { worktreeExists?: boolean; worktreePath?: string }>;
   recoverStuckTask: (taskId: string, options?: TaskRecoveryOptions) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
+  resumePausedTask: (taskId: string) => Promise<IPCResult>;
 
   // Image operations
   loadImageThumbnail: (projectPath: string, specId: string, imagePath: string) => Promise<IPCResult<string>>;
@@ -238,7 +239,7 @@ export interface ElectronAPI {
   createTerminal: (options: TerminalCreateOptions) => Promise<IPCResult>;
   destroyTerminal: (id: string) => Promise<IPCResult>;
   sendTerminalInput: (id: string, data: string) => void;
-  resizeTerminal: (id: string, cols: number, rows: number) => void;
+  resizeTerminal: (id: string, cols: number, rows: number) => Promise<IPCResult<{ success: boolean }>>;
   invokeClaudeInTerminal: (id: string, cwd?: string) => void;
   generateTerminalName: (command: string, cwd?: string) => Promise<IPCResult<string>>;
   setTerminalTitle: (id: string, title: string) => void;
@@ -916,9 +917,18 @@ export interface ElectronAPI {
   queue: import('../../preload/api/queue-api').QueueAPI;
 }
 
+/** Platform information exposed via contextBridge for platform-specific behavior */
+export interface PlatformInfo {
+  isWindows: boolean;
+  isMacOS: boolean;
+  isLinux: boolean;
+  isUnix: boolean;
+}
+
 declare global {
   interface Window {
     electronAPI: ElectronAPI;
     DEBUG: boolean;
+    platform?: PlatformInfo;
   }
 }

@@ -241,7 +241,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     const state = get();
     const index = findTaskIndex(state.tasks, taskId);
     if (index === -1) {
-      console.warn('[updateTaskStatus] Task not found:', taskId);
+      debugLog('[updateTaskStatus] Task not found:', taskId);
       return;
     }
     const oldTask = state.tasks[index];
@@ -262,29 +262,38 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
     // Perform the state update
     set((state) => {
-      const updatedTasks = updateTaskAtIndex(state.tasks, index, (t) => {
-        // Determine execution progress based on status transition
-        let executionProgress = t.executionProgress;
+      return {
+        tasks: updateTaskAtIndex(state.tasks, index, (t) => {
+          // Determine execution progress based on status transition
+          let executionProgress = t.executionProgress;
 
-        if (status === 'backlog') {
-          // When status goes to backlog, reset execution progress to idle
-          // This ensures the planning/coding animation stops when task is stopped
-          executionProgress = { phase: 'idle' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
-        } else if (status === 'in_progress' && !t.executionProgress?.phase) {
-          // When starting a task and no phase is set yet, default to planning
-          // This prevents the "no active phase" UI state during startup race condition
-          executionProgress = { phase: 'planning' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
-        }
+          // Track status transition for debugging flip-flop issues
+          const previousStatus = t.status;
+          const statusChanged = previousStatus !== status;
 
-        return { ...t, status, reviewReason, executionProgress, updatedAt: new Date() };
-      });
+          if (status === 'backlog') {
+            // When status goes to backlog, reset execution progress to idle
+            // This ensures the planning/coding animation stops when task is stopped
+            executionProgress = { phase: 'idle' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
+          } else if (status === 'in_progress' && !t.executionProgress?.phase) {
+            // When starting a task and no phase is set yet, default to planning
+            // This prevents the "no active phase" UI state during startup race condition
+            executionProgress = { phase: 'planning' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
+          }
 
-      debugLog('[updateTaskStatus] AFTER set():', {
-        taskId,
-        allInProgress: updatedTasks.filter((t: Task) => t.status === 'in_progress' && !t.metadata?.archivedAt).map(t => t.id)
-      });
+          // Log status transitions to help diagnose flip-flop issues
+          debugLog('[updateTaskStatus] Status transition:', {
+            taskId,
+            previousStatus,
+            newStatus: status,
+            statusChanged,
+            currentPhase: t.executionProgress?.phase,
+            newPhase: executionProgress?.phase
+          });
 
-      return { tasks: updatedTasks };
+          return { ...t, status, reviewReason, executionProgress, updatedAt: new Date() };
+        })
+      };
     });
 
     // Notify listeners after state update (schedule after current tick)
@@ -723,17 +732,7 @@ export async function persistTaskStatus(
     }
 
     // Only update local state after backend confirms success
-    debugLog(`[persistTaskStatus] BEFORE store.updateTaskStatus:`, {
-      taskId,
-      newStatus: status,
-      currentStoreStatus: store.tasks.find(t => t.id === taskId)?.status
-    });
     store.updateTaskStatus(taskId, status);
-    debugLog(`[persistTaskStatus] AFTER store.updateTaskStatus:`, {
-      taskId,
-      updatedStoreStatus: store.tasks.find(t => t.id === taskId)?.status,
-      allInProgress: store.tasks.filter(t => t.status === 'in_progress' && !t.metadata?.archivedAt).map(t => t.id)
-    });
     return { success: true };
   } catch (error) {
     console.error('Error persisting task status:', error);

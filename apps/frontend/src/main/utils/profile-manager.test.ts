@@ -6,8 +6,6 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { promises as fsPromises } from 'fs';
-import path from 'path';
-import { app } from 'electron';
 import {
   loadProfilesFile,
   saveProfilesFile,
@@ -48,7 +46,7 @@ vi.mock('fs', () => {
 });
 
 describe('profile-manager', () => {
-  const mockProfilesPath = '/mock/userdata/profiles.json';
+  const _mockProfilesPath = '/mock/userdata/profiles.json';
 
   beforeEach(() => {
     vi.clearAllMocks();

@@ -39,7 +39,7 @@ export function usePtyProcess({
   const currentCwdRef = useRef(cwd);
   // Trigger state to force re-creation after resetForRecreate()
   // Refs don't trigger re-renders, so we need a state to ensure the effect runs
-  const [recreationTrigger, setRecreationTrigger] = useState(0);
+  const [_recreationTrigger, setRecreationTrigger] = useState(0);
   // Track retry attempts during recreation when dimensions aren't ready
   const recreationRetryCountRef = useRef(0);
   const recreationRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -124,7 +124,7 @@ export function usePtyProcess({
 
     // Normal skip (not during recreation) - just return
     if (skipCreation) {
-      debugLog(`[usePtyProcess] Skipping PTY creation for terminal: ${terminalId} - dimensions not ready`);
+      debugLog(`[usePtyProcess] Skipping PTY creation for terminal: ${terminalId} - dimensions not ready (skipCreation=true)`);
       return;
     }
     if (isCreatingRef.current || isCreatedRef.current) {
@@ -140,7 +140,9 @@ export function usePtyProcess({
     const alreadyRunning = terminalState?.status === 'running' || terminalState?.status === 'claude-active';
     const isRestored = terminalState?.isRestored;
 
-    debugLog(`[usePtyProcess] Starting PTY creation for terminal: ${terminalId}, isRestored: ${isRestored}, status: ${terminalState?.status}, cols: ${cols}, rows: ${rows}`);
+    debugLog(`[usePtyProcess] Starting PTY creation for terminal: ${terminalId}`);
+    debugLog(`[usePtyProcess] Terminal ${terminalId} state: isRestored=${isRestored}, status=${terminalState?.status}`);
+    debugLog(`[usePtyProcess] Terminal ${terminalId} dimensions for PTY: cols=${cols}, rows=${rows}`);
 
     // When recreating (e.g., worktree switching), reset status from 'exited' to 'idle'
     // This allows proper recreation after deliberate terminal destruction
@@ -232,7 +234,7 @@ export function usePtyProcess({
       });
     }
 
-  }, [terminalId, cwd, projectPath, cols, rows, skipCreation, recreationTrigger, getStore, onCreated, onError, clearRetryTimer, scheduleRetryOrFail, isRecreatingRef]);
+  }, [terminalId, cwd, projectPath, cols, rows, skipCreation, getStore, onCreated, clearRetryTimer, scheduleRetryOrFail, isRecreatingRef]);
 
   // Function to prepare for recreation by preventing the effect from running
   // Call this BEFORE updating the store cwd to avoid race condition

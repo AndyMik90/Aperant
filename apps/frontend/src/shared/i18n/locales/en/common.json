@@ -243,6 +243,12 @@
     "selectedCount": "{{count}} selected",
     "noResultsFound": "No results found",
     "reset": "Reset",
+    "sort": {
+      "label": "Sort",
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "largest": "Largest"
+    },
     "pullRequests": "Pull Requests",
     "open": "open",
     "selectPRToView": "Select a pull request to view details",
@@ -361,6 +367,8 @@
     "branchUpdateFailed": "Failed to update branch",
     "allPRsLoaded": "All PRs loaded",
     "maxPRsShown": "Showing first 100 PRs",
+    "loadMore": "Load More",
+    "loadingMore": "Loading...",
     "workflowsAwaitingApproval": "{{count}} Workflow Awaiting Approval",
     "workflowsAwaitingApproval_plural": "{{count}} Workflows Awaiting Approval",
     "blockedByWorkflows": "Blocked",
@@ -478,8 +486,7 @@
     "clickToOpenSettings": "Click to open Settings →",
     "sessionShort": "5-hour session usage",
     "weeklyShort": "7-day weekly usage",
-    "swap": "Swap",
-    "account": "Account"
+    "swap": "Swap"
   },
   "oauth": {
     "enterCode": "Manual Code Entry (Fallback)",

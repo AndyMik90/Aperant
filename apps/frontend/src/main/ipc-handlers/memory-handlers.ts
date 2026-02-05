@@ -483,7 +483,7 @@ export function registerMemoryHandlers(): void {
           };
         } else {
           // Basic validation for other providers
-          llmResult = config.apiKey && config.apiKey.trim()
+          llmResult = config.apiKey?.trim()
             ? {
                 success: true,
                 message: `${config.llmProvider} API key format appears valid`,
@@ -703,7 +703,7 @@ export function registerMemoryHandlers(): void {
      async (
        event,
        modelName: string,
-       baseUrl?: string
+       _baseUrl?: string
      ): Promise<IPCResult<OllamaPullResult>> => {
       try {
         // Use configured Python path (venv if ready, otherwise bundled/system)
