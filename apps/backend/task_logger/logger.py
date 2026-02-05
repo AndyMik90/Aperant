@@ -2,9 +2,9 @@
 Main TaskLogger class for logging task execution.
 """
 
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
-import threading
 
 from core.debug import debug, debug_error, debug_info, debug_success, is_debug_enabled
 
