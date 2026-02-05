@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Check,
@@ -133,7 +133,7 @@ export function OllamaModelSelector({
    * @param {AbortSignal} [abortSignal] - Optional abort signal to cancel the request
    * @returns {Promise<void>}
    */
-  const checkInstalledModels = async (abortSignal?: AbortSignal) => {
+  const checkInstalledModels = useCallback(async (abortSignal?: AbortSignal) => {
     setIsLoading(true);
     setError(null);
     setOllamaState('checking');
@@ -217,7 +217,7 @@ export function OllamaModelSelector({
         setIsLoading(false);
       }
     }
-  };
+  }, [baseUrl]);
 
   /**
    * Install Ollama by opening terminal with the official install command.
