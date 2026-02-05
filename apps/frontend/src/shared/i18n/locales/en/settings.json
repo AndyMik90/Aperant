@@ -185,6 +185,12 @@
     "comfortable": "Comfortable",
     "large": "Large"
   },
+  "logOrder": {
+    "label": "Log Order",
+    "description": "Choose how logs are displayed in the task detail view",
+    "chronological": "Chronological (oldest first)",
+    "reverseChronological": "Reverse-chronological (newest first)"
+  },
   "general": {
     "otherAgentSettings": "Other Agent Settings",
     "otherAgentSettingsDescription": "Additional agent configuration options",
