@@ -208,7 +208,7 @@ export function ModelSearchableSelect({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
   // Cleanup on unmount
   useEffect(() => {
