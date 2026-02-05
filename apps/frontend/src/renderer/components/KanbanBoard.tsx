@@ -38,10 +38,10 @@ import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants'
 import { cn } from '../lib/utils';
 import { persistTaskStatus, forceCompleteTask, useTaskStore, archiveTasks } from '../stores/task-store';
 import { useKanbanStore } from '../stores/kanban-store';
+import { useTerminalStore } from '../stores/terminal-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import { BulkPRDialog } from './BulkPRDialog';
-import { BottomPanelTerminal } from './terminal/BottomPanelTerminal';
 import type { Task, TaskStatus, TaskOrderState } from '../../shared/types';
 
 // Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
@@ -557,39 +557,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     error: undefined
   });
 
-  // FIX-29c: Bottom panel terminal state
-  const [bottomPanelState, setBottomPanelState] = useState<{
-    isOpen: boolean;
-    taskId: string | null;
-    taskTitle: string;
-  }>({
-    isOpen: false,
-    taskId: null,
-    taskTitle: ''
-  });
-
-  // FIX-29b: Callback to open bottom panel terminal
-  const handleOpenBottomPanel = useCallback((taskId: string, taskTitle: string) => {
-    setBottomPanelState({
-      isOpen: true,
-      taskId,
-      taskTitle
-    });
-  }, []);
-
-  const handleCloseBottomPanel = useCallback(() => {
-    setBottomPanelState(prev => ({
-      ...prev,
-      isOpen: false
-    }));
-  }, []);
-
-  const handleMinimizeBottomPanel = useCallback(() => {
-    setBottomPanelState(prev => ({
-      ...prev,
-      isOpen: false
-    }));
-  }, []);
+  // FIX-29c: Bottom panel terminal - now managed globally in terminal-store
+  const openBottomPanel = useTerminalStore((state) => state.openBottomPanel);
 
   // Filter tasks based on archive status
   const filteredTasks = useMemo(() => {
@@ -1031,7 +1000,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                     onToggleSelect={status === 'human_review' ? toggleTaskSelection : undefined}
                     isCollapsed={collapsedColumns.has(status)}
                     onToggleCollapse={() => toggleColumnCollapse(status)}
-                    onOpenBottomPanel={handleOpenBottomPanel}
+                    onOpenBottomPanel={openBottomPanel}
                   />
                 </div>
               </Panel>
@@ -1123,15 +1092,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         tasks={selectedTasks}
         onOpenChange={setBulkPRDialogOpen}
         onComplete={handleBulkPRComplete}
-      />
-
-      {/* FIX-29c: Bottom panel terminal */}
-      <BottomPanelTerminal
-        taskId={bottomPanelState.taskId}
-        taskTitle={bottomPanelState.taskTitle}
-        isOpen={bottomPanelState.isOpen}
-        onClose={handleCloseBottomPanel}
-        onMinimize={handleMinimizeBottomPanel}
       />
     </div>
   );

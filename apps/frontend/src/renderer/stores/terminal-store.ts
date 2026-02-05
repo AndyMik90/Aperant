@@ -146,6 +146,13 @@ interface TerminalState {
   maxTerminals: number;
   hasRestoredSessions: boolean;  // Track if we've restored sessions for this project
 
+  // Bottom panel terminal state (persists across navigation)
+  bottomPanel: {
+    isOpen: boolean;
+    taskId: string | null;
+    taskTitle: string;
+  };
+
   // Actions
   addTerminal: (cwd?: string, projectPath?: string) => Terminal | null;
   addClaudeCodeTerminal: (cwd?: string, projectPath?: string) => Terminal | null;
@@ -175,6 +182,11 @@ interface TerminalState {
   initializeParser: (id: string) => void;
   clearMessages: (id: string) => void;
   addUserMessage: (id: string, content: string) => void;
+
+  // Bottom panel actions
+  openBottomPanel: (taskId: string, taskTitle: string) => void;
+  closeBottomPanel: () => void;
+  minimizeBottomPanel: () => void;
 
   // Selectors
   getTerminal: (id: string) => Terminal | undefined;
@@ -211,6 +223,13 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   // Each terminal maintains a scrollback buffer and associated xterm.js state.
   maxTerminals: 12,
   hasRestoredSessions: false,
+
+  // Bottom panel state - persists across navigation
+  bottomPanel: {
+    isOpen: false,
+    taskId: null,
+    taskTitle: ''
+  },
 
   addTerminal: (cwd?: string, projectPath?: string) => {
     const state = get();
@@ -744,6 +763,35 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   getWorktreeCount: () => {
     return get().terminals.filter(t => t.worktreeConfig).length;
+  },
+
+  // Bottom panel actions
+  openBottomPanel: (taskId: string, taskTitle: string) => {
+    set({
+      bottomPanel: {
+        isOpen: true,
+        taskId,
+        taskTitle
+      }
+    });
+  },
+
+  closeBottomPanel: () => {
+    set((state) => ({
+      bottomPanel: {
+        ...state.bottomPanel,
+        isOpen: false
+      }
+    }));
+  },
+
+  minimizeBottomPanel: () => {
+    set((state) => ({
+      bottomPanel: {
+        ...state.bottomPanel,
+        isOpen: false
+      }
+    }));
   },
 }));
 

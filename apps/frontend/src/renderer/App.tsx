@@ -38,6 +38,7 @@ import { GlobalSearchDialog } from './components/GlobalSearchDialog';
 import type { AppSection } from './components/settings/AppSettings';
 import type { ProjectSettingsSection } from './components/settings/ProjectSettingsContent';
 import { TerminalGrid } from './components/TerminalGrid';
+import { BottomPanelTerminal } from './components/terminal/BottomPanelTerminal';
 import { GitHubHub } from './components/GitHubHub';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { RateLimitModal } from './components/RateLimitModal';
@@ -138,6 +139,11 @@ export function App() {
   // API Profile state
   const profiles = useSettingsStore((state) => state.profiles);
   const activeProfileId = useSettingsStore((state) => state.activeProfileId);
+
+  // Bottom panel terminal state (persists across navigation)
+  const bottomPanel = useTerminalStore((state) => state.bottomPanel);
+  const closeBottomPanel = useTerminalStore((state) => state.closeBottomPanel);
+  const minimizeBottomPanel = useTerminalStore((state) => state.minimizeBottomPanel);
 
   // Claude Profile state (OAuth)
   const claudeProfiles = useClaudeProfileStore((state) => state.profiles);
@@ -1190,6 +1196,15 @@ export function App() {
 
         {/* SDK Rate Limit Modal - shows when SDK/CLI operations hit limits (changelog, tasks, etc.) */}
         <SDKRateLimitModal />
+
+        {/* Bottom Panel Terminal - VS Code-style bottom panel that persists across navigation */}
+        <BottomPanelTerminal
+          taskId={bottomPanel.taskId}
+          taskTitle={bottomPanel.taskTitle}
+          isOpen={bottomPanel.isOpen}
+          onClose={closeBottomPanel}
+          onMinimize={minimizeBottomPanel}
+        />
 
         {/* Onboarding Wizard - shows on first launch when onboardingCompleted is false */}
         <Suspense fallback={null}>

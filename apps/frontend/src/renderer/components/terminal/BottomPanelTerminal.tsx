@@ -108,7 +108,7 @@ export function BottomPanelTerminal({
     <div
       ref={panelRef}
       className={cn(
-        'fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50',
+        'fixed bottom-0 left-12 right-0 bg-background border-t border-border shadow-lg z-40',
         'flex flex-col',
         'transition-[height] duration-200',
         isDragging && 'transition-none select-none'
