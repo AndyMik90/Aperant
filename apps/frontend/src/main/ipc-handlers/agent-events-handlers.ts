@@ -301,6 +301,14 @@ export function registerAgenteventsHandlers(
           );
         }
       }
+
+      // Notify frontend that the planning agent has stopped so the
+      // "Start Build" button becomes visible in the TaskCard UI
+      safeSendToRenderer(
+        getMainWindow,
+        IPC_CHANNELS.TASK_AGENT_STOPPED,
+        taskId
+      );
       return;
     }
 
