@@ -40,12 +40,15 @@ const LEGACY_PATTERNS = {
 const ANSI_CODES = /\x1b\[[0-9;]*m/g;
 
 /**
- * Safe JSON parse with fallback
+ * Safe JSON parse with fallback and error logging
  */
 function safeJsonParse(jsonStr: string): Record<string, unknown> | null {
   try {
     return JSON.parse(jsonStr);
-  } catch {
+  } catch (e) {
+    // Log parsing errors for debugging (truncate long strings)
+    const preview = jsonStr.length > 200 ? jsonStr.slice(0, 200) + '...' : jsonStr;
+    console.warn('[SDKOutputParser] JSON parse error:', e, 'Input:', preview);
     return null;
   }
 }

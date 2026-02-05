@@ -8,7 +8,7 @@
  * - Collapsed view for quick scanning of agent progress
  */
 
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import {
   FileText,
   PenLine,
@@ -31,6 +31,7 @@ import { cn } from '../../lib/utils';
 interface StructuredOutputProps {
   messages: ParsedMessage[];
   className?: string;
+  autoScroll?: boolean;
 }
 
 // Icon mapping for different tool types
@@ -217,8 +218,11 @@ function TimelineStep({
  * - Tool type icons
  * - File names and descriptions
  * - Success/error/running status indicators
+ * - Auto-scroll to bottom on new content
  */
-export function StructuredOutput({ messages, className }: StructuredOutputProps) {
+export function StructuredOutput({ messages, className, autoScroll = true }: StructuredOutputProps) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+
   // Flatten all content blocks from all messages into a timeline
   const timelineSteps = useMemo(() => {
     const steps: { block: ContentBlock; key: string }[] = [];
@@ -240,6 +244,13 @@ export function StructuredOutput({ messages, className }: StructuredOutputProps)
 
     return steps;
   }, [messages]);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (autoScroll && bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [timelineSteps, autoScroll]);
 
   if (timelineSteps.length === 0) {
     return (
@@ -274,6 +285,9 @@ export function StructuredOutput({ messages, className }: StructuredOutputProps)
           />
         ))}
       </div>
+
+      {/* Auto-scroll anchor */}
+      <div ref={bottomRef} />
     </div>
   );
 }

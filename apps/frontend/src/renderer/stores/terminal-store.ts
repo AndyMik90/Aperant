@@ -509,6 +509,13 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 
   appendStructuredBlock: (id: string, block: StructuredBlock) => {
+    // Debug log to track structured block flow
+    console.log(`[TerminalStore] appendStructuredBlock for ${id}:`, {
+      type: block.type,
+      ...(block.type === 'tool_use' ? { name: block.name, hasInput: !!block.input, inputKeys: block.input ? Object.keys(block.input) : [] } : {}),
+      ...(block.type === 'text' ? { contentLength: block.content?.length } : {}),
+    });
+
     set((state) => ({
       terminals: state.terminals.map((t) => {
         if (t.id !== id || !t.isTaskMonitor) return t;

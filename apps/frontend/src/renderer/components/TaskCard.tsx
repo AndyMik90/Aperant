@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '../contexts/NavigationContext';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, TerminalSquare, Link2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
-import { TaskMonitorChat } from './terminal/TaskMonitorChat';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, TerminalSquare, Link2 } from 'lucide-react';
 import { CompactTerminalPreview } from './terminal/CompactTerminalPreview';
 import { DriftBadge } from './drift/DriftIndicator';
 import { Card, CardContent } from './ui/card';
@@ -227,9 +226,6 @@ export const TaskCard = memo(function TaskCard({
   const addTerminal = useTerminalStore((state) => state.addTerminal);
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
-  // FIX-21: Inline terminal expansion instead of modal
-  const [isTerminalExpanded, setIsTerminalExpanded] = useState(false);
-  const terminalRef = useRef<HTMLDivElement>(null);
   const stuckCheckRef = useRef<{ timeout: NodeJS.Timeout | null; interval: NodeJS.Timeout | null }>({
     timeout: null,
     interval: null
@@ -433,35 +429,13 @@ export const TaskCard = memo(function TaskCard({
     }
   };
 
-  // FIX-21: Toggle inline terminal expansion instead of modal
+  // Open terminal in bottom panel
   const handleViewTerminal = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsTerminalExpanded(!isTerminalExpanded);
-  };
-
-  // FIX-21: Get or create task monitor terminal for inline display
-  const taskTerminalId = `task-${task.id}`;
-  const taskTerminal = useMemo(() => {
-    return terminals.find(t => t.id === taskTerminalId);
-  }, [terminals, taskTerminalId]);
-
-  // FIX-21: Create terminal if expanded and doesn't exist
-  useEffect(() => {
-    if (isTerminalExpanded && !taskTerminal && selectedProject?.path) {
-      // Create the task monitor terminal via electron API
-      window.electronAPI.createTerminal({
-        id: taskTerminalId,
-        cwd: selectedProject.path,
-        projectPath: selectedProject.path,
-        isTaskMonitor: true,
-        taskId: task.id,
-        specId: task.specId,
-        taskTitle: task.title
-      }).catch((err: unknown) => {
-        console.error('[TaskCard] Failed to create task terminal:', err);
-      });
+    if (onOpenBottomPanel) {
+      onOpenBottomPanel(task.id, task.title);
     }
-  }, [isTerminalExpanded, taskTerminal, selectedProject?.path, taskTerminalId, task.id, task.specId, task.title]);
+  };
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -571,9 +545,7 @@ export const TaskCard = memo(function TaskCard({
         hasActiveAgent && !isStuck && 'ring-2 ring-primary border-primary task-running-pulse',
         isStuck && 'ring-2 ring-warning border-warning task-stuck-pulse',
         isArchived && 'opacity-60 hover:opacity-80',
-        isSelectable && isSelected && 'ring-2 ring-ring border-ring bg-accent/10',
-        // FIX-21: Expand when terminal is open
-        isTerminalExpanded && 'ring-2 ring-primary/50'
+        isSelectable && isSelected && 'ring-2 ring-ring border-ring bg-accent/10'
       )}
       onClick={onClick}
     >
@@ -967,52 +939,30 @@ export const TaskCard = memo(function TaskCard({
               </Button>
             )}
 
-            {/* View Terminal button - show for active task statuses */}
+            {/* View Terminal button - opens in bottom panel */}
             {/* TERM-4b: Added status indicator dot next to terminal button */}
-            {(task.status === 'coding' || task.status === 'ai_review' || task.status === 'human_review' || task.status === 'planning') && (
-              <>
-                <Button
-                  variant={isTerminalExpanded ? 'default' : 'ghost'}
-                  size="sm"
-                  className="h-7 px-2 cursor-pointer"
-                  onClick={handleViewTerminal}
-                  title={t('tooltips.viewTerminal')}
-                >
-                  {/* TERM-4b: Status indicator dot */}
-                  <span className={cn(
-                    "w-2 h-2 rounded-full mr-1.5",
-                    // Green = actively running (coding/planning with agent running)
-                    hasActiveAgent && !isStuck ? "bg-green-500 animate-pulse" :
-                    // Red = error/stuck state
-                    isStuck ? "bg-red-500" :
-                    // Yellow = needs attention (human_review, ai_review)
-                    (task.status === 'human_review' || task.status === 'ai_review') ? "bg-yellow-500" :
-                    // Gray = idle (stopped but has terminal)
-                    "bg-gray-400"
-                  )} />
-                  <TerminalSquare className="h-3 w-3 mr-1" />
-                  {isTerminalExpanded ? (
-                    <ChevronUp className="h-3 w-3" />
-                  ) : (
-                    <ChevronDown className="h-3 w-3" />
-                  )}
-                </Button>
-                {/* FIX-29b: Pop out button to open in bottom panel */}
-                {onOpenBottomPanel && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenBottomPanel(task.id, task.title);
-                    }}
-                    title={t('tooltips.popOutTerminal', { defaultValue: 'Open in bottom panel' })}
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </Button>
-                )}
-              </>
+            {(task.status === 'coding' || task.status === 'ai_review' || task.status === 'human_review' || task.status === 'planning') && onOpenBottomPanel && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 cursor-pointer"
+                onClick={handleViewTerminal}
+                title={t('tooltips.viewTerminal')}
+              >
+                {/* TERM-4b: Status indicator dot */}
+                <span className={cn(
+                  "w-2 h-2 rounded-full mr-1.5",
+                  // Green = actively running (coding/planning with agent running)
+                  hasActiveAgent && !isStuck ? "bg-green-500 animate-pulse" :
+                  // Red = error/stuck state
+                  isStuck ? "bg-red-500" :
+                  // Yellow = needs attention (human_review, ai_review)
+                  (task.status === 'human_review' || task.status === 'ai_review') ? "bg-yellow-500" :
+                  // Gray = idle (stopped but has terminal)
+                  "bg-gray-400"
+                )} />
+                <TerminalSquare className="h-3 w-3" />
+              </Button>
             )}
 
           </div>
@@ -1023,33 +973,9 @@ export const TaskCard = memo(function TaskCard({
         </div>
 
         {/* FIX-29a: Compact terminal preview (always visible for running tasks) */}
-        {hasActiveAgent && !isTerminalExpanded && (
+        {hasActiveAgent && (
           <div onClick={(e) => e.stopPropagation()}>
             <CompactTerminalPreview taskId={task.id} />
-          </div>
-        )}
-
-        {/* FIX-21: Inline terminal expansion */}
-        {isTerminalExpanded && (
-          <div
-            className="mt-4 border-t border-border pt-3"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="h-64 rounded-lg overflow-hidden bg-card/50 border border-border">
-              {taskTerminal ? (
-                <TaskMonitorChat
-                  terminal={taskTerminal}
-                  terminalRef={terminalRef}
-                  isActive={true}
-                  isMinimized={false}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  {t('terminal.waitingForOutput')}
-                </div>
-              )}
-            </div>
           </div>
         )}
       </CardContent>

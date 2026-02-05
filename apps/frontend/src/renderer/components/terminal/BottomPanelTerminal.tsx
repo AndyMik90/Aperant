@@ -109,6 +109,7 @@ export function BottomPanelTerminal({
       ref={panelRef}
       className={cn(
         'fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50',
+        'flex flex-col',
         'transition-[height] duration-200',
         isDragging && 'transition-none select-none'
       )}
@@ -117,14 +118,14 @@ export function BottomPanelTerminal({
       {/* Drag handle for resizing */}
       <div
         className={cn(
-          'absolute top-0 left-0 right-0 h-1 cursor-ns-resize hover:bg-primary/50',
+          'absolute top-0 left-0 right-0 h-1 cursor-ns-resize hover:bg-primary/50 z-10',
           isDragging && 'bg-primary'
         )}
         onMouseDown={handleMouseDown}
       />
 
-      {/* Header bar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/50">
+      {/* Header bar - fixed at top */}
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 border-b border-border bg-muted/50">
         <div className="flex items-center gap-2">
           <ChevronDown className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium truncate max-w-[300px]" title={displayTitle}>
@@ -162,11 +163,8 @@ export function BottomPanelTerminal({
         </div>
       </div>
 
-      {/* Terminal content area */}
-      <div
-        className="flex-1 overflow-hidden"
-        style={{ height: `calc(100% - 41px)` }} // 41px = header height
-      >
+      {/* Terminal content area - flex-1 to fill remaining space */}
+      <div className="flex-1 min-h-0 overflow-hidden">
         {terminal ? (
           <TaskMonitorChat
             terminal={terminal}

@@ -22,6 +22,9 @@ from task_logger import (
     get_task_logger,
 )
 
+# Import SDK message emitter for rich terminal UI
+from agents.session import emit_sdk_msg
+
 from .criteria import get_qa_signoff_status
 
 # Configuration
@@ -85,6 +88,12 @@ async def run_qa_fixer_session(
     print(f"  QA FIXER SESSION {fix_session}")
     print("  Applying fixes from QA_FIX_REQUEST.md...")
     print(f"{'=' * 70}\n")
+
+    # Emit SDK marker for session start
+    emit_sdk_msg("phase_start", {
+        "phase": "qa_fixer",
+        "message": f"QA Fixer Session {fix_session} - Applying fixes",
+    })
 
     # Get task logger for streaming markers
     task_logger = get_task_logger(spec_dir)
@@ -199,6 +208,13 @@ async def run_qa_fixer_session(
                                 print(f"   Input: {input_str}", flush=True)
                         current_tool = tool_name
 
+                        # Emit SDK marker for tool use
+                        emit_sdk_msg("tool_use", {
+                            "id": getattr(block, "id", f"tool_{tool_count}"),
+                            "name": tool_name,
+                            "input": inp if inp else {},
+                        })
+
             elif msg_type == "UserMessage" and hasattr(msg, "content"):
                 for block in msg.content:
                     block_type = type(block).__name__
@@ -224,6 +240,14 @@ async def run_qa_fixer_session(
                                     detail=str(result_content),
                                     phase=LogPhase.VALIDATION,
                                 )
+
+                            # Emit SDK marker for tool error
+                            emit_sdk_msg("tool_result", {
+                                "tool_use_id": getattr(block, "tool_use_id", ""),
+                                "name": current_tool or "Unknown",
+                                "content": error_str,
+                                "is_error": True,
+                            })
                         else:
                             debug_detailed(
                                 "qa_fixer",
@@ -254,6 +278,14 @@ async def run_qa_fixer_session(
                                     detail=detail_content,
                                     phase=LogPhase.VALIDATION,
                                 )
+
+                            # Emit SDK marker for tool success
+                            emit_sdk_msg("tool_result", {
+                                "tool_use_id": getattr(block, "tool_use_id", ""),
+                                "name": current_tool or "Unknown",
+                                "content": str(result_content)[:500] if result_content else "Success",
+                                "is_error": False,
+                            })
 
                         current_tool = None
 
@@ -293,6 +325,14 @@ async def run_qa_fixer_session(
                 subtasks_completed=[f"qa_fixer_{fix_session}"],
                 discoveries=fixer_discoveries,
             )
+
+            # Emit SDK markers for success
+            emit_sdk_msg("text", {"content": "✅ Fixes applied successfully"})
+            emit_sdk_msg("phase_end", {
+                "phase": "qa_fixer",
+                "success": True,
+                "message": "Fixes applied, ready for QA revalidation",
+            })
             return "fixed", response_text
         else:
             # Fixer didn't update the status properly, but we'll trust it worked
@@ -307,6 +347,14 @@ async def run_qa_fixer_session(
                 subtasks_completed=[f"qa_fixer_{fix_session}"],
                 discoveries=fixer_discoveries,
             )
+
+            # Emit SDK markers for assumed success
+            emit_sdk_msg("text", {"content": "✅ Fixes applied (status not updated)"})
+            emit_sdk_msg("phase_end", {
+                "phase": "qa_fixer",
+                "success": True,
+                "message": "Fixes applied",
+            })
             return "fixed", response_text
 
     except Exception as e:

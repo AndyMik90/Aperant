@@ -29,6 +29,9 @@ from task_logger import (
     get_task_logger,
 )
 
+# Import SDK message emitter for rich terminal UI
+from agents.session import emit_sdk_msg
+
 from .criteria import (
     get_qa_iteration_count,
     get_qa_signoff_status,
@@ -114,6 +117,13 @@ async def run_qa_validation_loop(
     print("  QA VALIDATION LOOP")
     print("  Self-validating quality assurance")
     print("=" * 70)
+
+    # Emit SDK marker for rich UI
+    emit_sdk_msg("phase_start", {
+        "phase": "qa_validation",
+        "message": "Starting QA validation loop",
+        "max_iterations": max_qa_iterations,
+    })
 
     # Initialize task logger for the validation phase
     task_logger = get_task_logger(spec_dir)
@@ -228,6 +238,11 @@ async def run_qa_validation_loop(
             ExecutionPhase.QA_REVIEW, f"Running QA review iteration {qa_iteration}"
         )
 
+        # Emit SDK marker for iteration start
+        emit_sdk_msg("text", {
+            "content": f"🔍 QA Iteration {qa_iteration}/{max_qa_iterations} - Reviewing implementation..."
+        })
+
         # Run QA reviewer with phase-specific model and thinking budget
         qa_model = get_phase_model(spec_dir, "qa", model)
         qa_thinking_budget = get_phase_thinking_budget(spec_dir, "qa")
@@ -290,6 +305,16 @@ async def run_qa_validation_loop(
             print("  1. Review the auto-claude/* branch")
             print("  2. Create a PR and merge to main")
 
+            # Emit SDK markers for rich UI
+            emit_sdk_msg("text", {
+                "content": "✅ QA APPROVED - All acceptance criteria verified"
+            })
+            emit_sdk_msg("phase_end", {
+                "phase": "qa_validation",
+                "success": True,
+                "message": f"QA approved after {qa_iteration} iteration(s)",
+            })
+
             # End validation phase successfully
             if task_logger:
                 task_logger.end_phase(
@@ -317,6 +342,11 @@ async def run_qa_validation_loop(
                 duration=f"{iteration_duration:.1f}s",
             )
             print(f"\n❌ QA found issues. Iteration {qa_iteration}/{max_qa_iterations}")
+
+            # Emit SDK marker for rejection
+            emit_sdk_msg("text", {
+                "content": f"❌ QA found issues - Iteration {qa_iteration}/{max_qa_iterations}"
+            })
 
             # Get issues from QA report
             qa_status = get_qa_signoff_status(spec_dir)
@@ -393,6 +423,13 @@ async def run_qa_validation_loop(
             emit_phase(ExecutionPhase.QA_FIXING, "Fixing QA issues")
             print("\nRunning QA Fixer Agent...")
 
+            # Emit SDK marker for fixer start
+            emit_sdk_msg("tool_use", {
+                "name": "QA Fixer",
+                "id": f"qa_fixer_{qa_iteration}",
+                "input": {"iteration": qa_iteration, "action": "Fixing QA issues"},
+            })
+
             fix_client = create_client(
                 project_dir,
                 spec_dir,
@@ -427,6 +464,17 @@ async def run_qa_validation_loop(
             debug_success("qa_loop", "Fixes applied, re-running QA validation")
             print("\n✅ Fixes applied. Re-running QA validation...")
 
+            # Emit SDK markers for fix completion
+            emit_sdk_msg("tool_result", {
+                "tool_use_id": f"qa_fixer_{qa_iteration}",
+                "name": "QA Fixer",
+                "content": "Fixes applied successfully",
+                "is_error": False,
+            })
+            emit_sdk_msg("text", {
+                "content": "✅ Fixes applied. Re-running QA validation..."
+            })
+
         elif status == "error":
             consecutive_errors += 1
             debug_error(
@@ -439,6 +487,12 @@ async def run_qa_validation_loop(
             print(
                 f"   Consecutive errors: {consecutive_errors}/{max_consecutive_errors}"
             )
+
+            # Emit SDK error marker
+            emit_sdk_msg("error", {
+                "content": f"QA error: {response[:200]}",
+                "phase": "qa_validation",
+            })
             record_iteration(
                 spec_dir,
                 qa_iteration,
@@ -493,6 +547,16 @@ async def run_qa_validation_loop(
     print("=" * 70)
     print(f"\nReached maximum iterations ({max_qa_iterations}) without approval.")
     print("\nRemaining issues require human review:")
+
+    # Emit SDK markers for incomplete validation
+    emit_sdk_msg("text", {
+        "content": f"⚠️ QA validation incomplete after {max_qa_iterations} iterations"
+    })
+    emit_sdk_msg("phase_end", {
+        "phase": "qa_validation",
+        "success": False,
+        "message": "Max iterations reached - requires human review",
+    })
 
     # Show iteration summary
     history = get_iteration_history(spec_dir)

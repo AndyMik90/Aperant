@@ -28,14 +28,16 @@ import {
   AlertTriangle,
   Pencil,
   X,
-  GitPullRequest
+  GitPullRequest,
+  Link2
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { calculateProgress } from '../../lib/utils';
-import { startTask, stopTask, submitReview, recoverStuckTask, deleteTask, useTaskStore } from '../../stores/task-store';
+import { startTask, stopTask, startBuild, submitReview, recoverStuckTask, deleteTask, useTaskStore, isTaskBlocked } from '../../stores/task-store';
 import { TASK_STATUS_LABELS } from '../../../shared/constants';
 import { TaskEditDialog } from '../TaskEditDialog';
 import { useTaskDetail } from './hooks/useTaskDetail';
+import { blurAndClose } from '../../hooks/useSafeDialogClose';
 import { TaskMetadata } from './TaskMetadata';
 import { TaskWarnings } from './TaskWarnings';
 import { TaskSubtasks } from './TaskSubtasks';
@@ -86,6 +88,15 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
   const completedSubtasks = task.subtasks.filter(s => s.status === 'completed').length;
   const totalSubtasks = task.subtasks.length;
 
+  // Get all tasks for dependency checking
+  const allTasks = useTaskStore((state) => state.tasks);
+  // Track if agent is explicitly stopped (for Resume button UI)
+  const isAgentStopped = useTaskStore((state) => state.isAgentStopped(task.id));
+  // Check if this is a planning phase task
+  const isPlanning = task.status === 'planning';
+  // Check if task is blocked by dependencies
+  const isBlocked = isTaskBlocked(task, allTasks);
+
   // Event Handlers
   const handleStartStop = async () => {
     if (state.isRunning && !state.isStuck) {
@@ -135,8 +146,11 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
     state.setDeleteError(null);
     const result = await deleteTask(task.id);
     if (result.success) {
-      state.setShowDeleteDialog(false);
-      onOpenChange(false);
+      // Use safe close to prevent aria-hidden focus errors
+      blurAndClose(() => {
+        state.setShowDeleteDialog(false);
+        onOpenChange(false);
+      });
     } else {
       state.setDeleteError(result.error || 'Failed to delete task');
     }
@@ -213,7 +227,8 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
         duration: 4000,
       });
     }
-    onOpenChange(false);
+    // Use safe close to prevent aria-hidden focus errors
+    blurAndClose(() => onOpenChange(false));
   };
 
   // Helper function to get status badge variant
@@ -232,7 +247,14 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
     }
   };
 
-  // Render primary action button based on state
+  // Handle start build transition (from planning to coding)
+  const handleStartBuild = async () => {
+    if (!isBlocked) {
+      await startBuild(task.id);
+    }
+  };
+
+  // Render primary action button based on state - matching TaskCard.tsx gated workflow
   const renderPrimaryAction = () => {
     if (state.isStuck) {
       return (
@@ -244,12 +266,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           {state.isRecovering ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Recovering...
+              {t('tasks:actions.recovering', { defaultValue: 'Recovering...' })}
             </>
           ) : (
             <>
               <RotateCcw className="mr-2 h-4 w-4" />
-              Recover Task
+              {t('tasks:actions.recover', { defaultValue: 'Recover Task' })}
             </>
           )}
         </Button>
@@ -262,19 +284,72 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           {state.isLoadingPlan ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Loading Plan...
+              {t('tasks:actions.loadingPlan', { defaultValue: 'Loading Plan...' })}
             </>
           ) : (
             <>
               <Play className="mr-2 h-4 w-4" />
-              Resume Task
+              {t('tasks:actions.resume', { defaultValue: 'Resume Task' })}
             </>
           )}
         </Button>
       );
     }
 
-    if (task.status === 'planning' || task.status === 'coding') {
+    // Planning phase - gated workflow matching TaskCard.tsx:880-940
+    if (isPlanning) {
+      if (isAgentStopped) {
+        // Agent was stopped - show Resume + Start Build (spec may be ready)
+        return (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleStartStop}
+              title={t('tasks:tooltips.resumePlanningAgent', { defaultValue: 'Resume planning agent' })}
+            >
+              <Play className="mr-2 h-4 w-4" />
+              {t('tasks:actions.resume', { defaultValue: 'Resume' })}
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleStartBuild}
+              disabled={isBlocked}
+              title={isBlocked
+                ? t('tasks:dependencies.blockedTooltip', { defaultValue: 'Cannot start: waiting for dependencies to complete' })
+                : t('tasks:tooltips.startBuild', { defaultValue: 'Start build' })
+              }
+            >
+              {isBlocked ? (
+                <>
+                  <Link2 className="mr-2 h-4 w-4" />
+                  {t('tasks:dependencies.blocked', { defaultValue: 'Blocked' })}
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 h-4 w-4" />
+                  {t('tasks:actions.startBuild', { defaultValue: 'Start Build' })}
+                </>
+              )}
+            </Button>
+          </div>
+        );
+      } else {
+        // Agent is running - show Stop button only (no Start Build during active planning)
+        return (
+          <Button
+            variant="destructive"
+            onClick={handleStartStop}
+            title={t('tasks:tooltips.stopPlanningAgent', { defaultValue: 'Stop planning agent' })}
+          >
+            <Square className="mr-2 h-4 w-4" />
+            {t('tasks:actions.stop', { defaultValue: 'Stop' })}
+          </Button>
+        );
+      }
+    }
+
+    // Coding phase
+    if (task.status === 'coding') {
       return (
         <Button
           variant={state.isRunning ? 'destructive' : 'default'}
@@ -283,12 +358,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           {state.isRunning ? (
             <>
               <Square className="mr-2 h-4 w-4" />
-              Stop Task
+              {t('tasks:actions.stop', { defaultValue: 'Stop Task' })}
             </>
           ) : (
             <>
               <Play className="mr-2 h-4 w-4" />
-              Start Task
+              {isAgentStopped ? t('tasks:actions.resume', { defaultValue: 'Resume' }) : t('tasks:actions.run', { defaultValue: 'Run' })}
             </>
           )}
         </Button>

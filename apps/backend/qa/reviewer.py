@@ -24,6 +24,9 @@ from task_logger import (
     get_task_logger,
 )
 
+# Import SDK message emitter for rich terminal UI
+from agents.session import emit_sdk_msg
+
 from .criteria import get_qa_signoff_status
 
 # =============================================================================
@@ -71,6 +74,12 @@ async def run_qa_agent_session(
     print(f"  QA REVIEWER SESSION {qa_session}")
     print("  Validating all acceptance criteria...")
     print(f"{'=' * 70}\n")
+
+    # Emit SDK marker for session start
+    emit_sdk_msg("phase_start", {
+        "phase": "qa_review",
+        "message": f"QA Reviewer Session {qa_session} - Validating acceptance criteria",
+    })
 
     # Get task logger for streaming markers
     task_logger = get_task_logger(spec_dir)
@@ -257,6 +266,13 @@ This is attempt {previous_error.get("consecutive_errors", 1) + 1}. If you fail t
                                 print(f"   Input: {input_str}", flush=True)
                         current_tool = tool_name
 
+                        # Emit SDK marker for tool use
+                        emit_sdk_msg("tool_use", {
+                            "id": getattr(block, "id", f"tool_{tool_count}"),
+                            "name": tool_name,
+                            "input": inp if inp else {},
+                        })
+
             elif msg_type == "UserMessage" and hasattr(msg, "content"):
                 for block in msg.content:
                     block_type = type(block).__name__
@@ -282,6 +298,14 @@ This is attempt {previous_error.get("consecutive_errors", 1) + 1}. If you fail t
                                     detail=str(result_content),
                                     phase=LogPhase.VALIDATION,
                                 )
+
+                            # Emit SDK marker for tool error
+                            emit_sdk_msg("tool_result", {
+                                "tool_use_id": getattr(block, "tool_use_id", ""),
+                                "name": current_tool or "Unknown",
+                                "content": error_str,
+                                "is_error": True,
+                            })
                         else:
                             debug_detailed(
                                 "qa_reviewer",
@@ -312,6 +336,14 @@ This is attempt {previous_error.get("consecutive_errors", 1) + 1}. If you fail t
                                     detail=detail_content,
                                     phase=LogPhase.VALIDATION,
                                 )
+
+                            # Emit SDK marker for tool success
+                            emit_sdk_msg("tool_result", {
+                                "tool_use_id": getattr(block, "tool_use_id", ""),
+                                "name": current_tool or "Unknown",
+                                "content": str(result_content)[:500] if result_content else "Success",
+                                "is_error": False,
+                            })
 
                         current_tool = None
 
@@ -350,6 +382,14 @@ This is attempt {previous_error.get("consecutive_errors", 1) + 1}. If you fail t
                 subtasks_completed=[f"qa_reviewer_{qa_session}"],
                 discoveries=qa_discoveries,
             )
+
+            # Emit SDK markers for approval
+            emit_sdk_msg("text", {"content": "✅ QA Review: APPROVED"})
+            emit_sdk_msg("phase_end", {
+                "phase": "qa_review",
+                "success": True,
+                "message": "All acceptance criteria validated",
+            })
             return "approved", response_text
         elif status and status.get("status") == "rejected":
             debug_error("qa_reviewer", "QA REJECTED")
@@ -369,6 +409,15 @@ This is attempt {previous_error.get("consecutive_errors", 1) + 1}. If you fail t
                 subtasks_completed=[],
                 discoveries=qa_discoveries,
             )
+
+            # Emit SDK markers for rejection
+            issues_summary = ", ".join([i.get("title", "Issue") for i in issues[:3]])
+            emit_sdk_msg("text", {"content": f"❌ QA Review: REJECTED - {issues_summary}"})
+            emit_sdk_msg("phase_end", {
+                "phase": "qa_review",
+                "success": False,
+                "message": f"Found {len(issues)} issue(s) to fix",
+            })
             return "rejected", response_text
         else:
             # Agent didn't update the status properly - provide detailed error

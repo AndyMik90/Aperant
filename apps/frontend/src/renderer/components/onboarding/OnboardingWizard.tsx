@@ -16,7 +16,7 @@ import { AuthChoiceStep } from './AuthChoiceStep';
 import { OAuthStep } from './OAuthStep';
 import { ClaudeCodeStep } from './ClaudeCodeStep';
 import { DevToolsStep } from './DevToolsStep';
-import { PrivacyStep } from './PrivacyStep';
+// PrivacyStep removed - this is a local app, no telemetry
 // GraphitiStep removed from wizard (ONBOARD-1) - still used in Settings
 import { CompletionStep } from './CompletionStep';
 import { useSettingsStore } from '../../stores/settings-store';
@@ -28,17 +28,16 @@ interface OnboardingWizardProps {
   onOpenSettings?: () => void;
 }
 
-// Wizard step identifiers (ONBOARD-1: graphiti removed - now 7 steps)
-type WizardStepId = 'welcome' | 'auth-choice' | 'oauth' | 'claude-code' | 'devtools' | 'privacy' | 'completion';
+// Wizard step identifiers (privacy step removed - local app, no telemetry)
+type WizardStepId = 'welcome' | 'auth-choice' | 'oauth' | 'claude-code' | 'devtools' | 'completion';
 
-// Step configuration with translation keys (ONBOARD-1: graphiti step removed)
+// Step configuration with translation keys
 const WIZARD_STEPS: { id: WizardStepId; labelKey: string }[] = [
   { id: 'welcome', labelKey: 'steps.welcome' },
   { id: 'auth-choice', labelKey: 'steps.authChoice' },
   { id: 'oauth', labelKey: 'steps.auth' },
   { id: 'claude-code', labelKey: 'steps.claudeCode' },
   { id: 'devtools', labelKey: 'steps.devtools' },
-  { id: 'privacy', labelKey: 'steps.privacy' },
   { id: 'completion', labelKey: 'steps.done' }
 ];
 
@@ -92,8 +91,8 @@ export function OnboardingWizard({
   }, [currentStepIndex, currentStepId]);
 
   const goToPreviousStep = useCallback(() => {
-    // ONBOARD-1: If going back from privacy and oauth was bypassed, go back to auth-choice (skip oauth)
-    if (currentStepId === 'privacy' && oauthBypassed) {
+    // If going back from completion and oauth was bypassed, go back to auth-choice (skip oauth)
+    if (currentStepId === 'completion' && oauthBypassed) {
       // Find index of auth-choice step
       const authChoiceIndex = WIZARD_STEPS.findIndex(step => step.id === 'auth-choice');
       setCurrentStepIndex(authChoiceIndex);
@@ -213,14 +212,7 @@ export function OnboardingWizard({
             onBack={goToPreviousStep}
           />
         );
-      case 'privacy':
-        return (
-          <PrivacyStep
-            onNext={goToNextStep}
-            onBack={goToPreviousStep}
-          />
-        );
-      // ONBOARD-1: graphiti case removed - GraphitiStep still available in Settings
+      // Privacy step removed - this is a local app, no telemetry needed
       case 'completion':
         return (
           <CompletionStep

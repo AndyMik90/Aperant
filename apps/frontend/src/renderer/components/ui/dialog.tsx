@@ -35,11 +35,16 @@ interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof Dialo
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, hideCloseButton, ...props }, ref) => (
+>(({ className, children, hideCloseButton, onCloseAutoFocus, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      // Fix aria-hidden focus error: blur active element before dialog closes
+      onCloseAutoFocus={(e) => {
+        (document.activeElement as HTMLElement)?.blur();
+        onCloseAutoFocus?.(e);
+      }}
       className={cn(
         'fixed left-[50%] top-[50%] z-50 w-full max-w-lg max-h-[90vh]',
         'translate-x-[-50%] translate-y-[-50%]',

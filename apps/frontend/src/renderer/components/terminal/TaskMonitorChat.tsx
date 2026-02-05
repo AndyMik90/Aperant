@@ -14,7 +14,7 @@
  * - TERM-8: Message timestamps
  */
 
-import { useEffect, useRef, useState, useCallback, createContext, useContext, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, createContext, useContext, useMemo } from 'react';
 import { useTerminalStore } from '../../stores/terminal-store';
 import { useTaskStore } from '../../stores/task-store';
 import { Button } from '../ui/button';
@@ -344,368 +344,164 @@ function ThinkingBlock({ content }: { content: string }) {
 }
 
 /**
- * Tool block matching Claude Code style - Read, Edit, Bash, etc.
- * FIX-5: Enhanced with file paths, commands, and status colors
+ * Tool block - Raw Claude Code terminal style
+ * Simple text output with minimal styling
  */
 function ToolBlock({ tool }: { tool: ToolUseContent }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const bulletColor = BULLET_COLORS[tool.toolName] || 'bg-gray-500';
-  const statusColor = tool.status ? STATUS_COLORS[tool.status] || '' : '';
 
-  // Format the tool header based on tool type
-  const getToolHeader = () => {
-    const input = tool.input || {};
-
-    if (tool.toolName === 'Read') {
-      const filePath = input.file_path as string || '';
-      const lines = input.offset && input.limit
-        ? ` (lines ${input.offset}-${(input.offset as number) + (input.limit as number)})`
-        : '';
-      return <span className="font-mono text-xs truncate">{filePath}{lines}</span>;
-    }
-
-    if (tool.toolName === 'Edit' || tool.toolName === 'Write') {
-      const filePath = input.file_path as string || '';
-      return <span className="font-mono text-xs truncate">{filePath}</span>;
-    }
-
-    if (tool.toolName === 'Bash') {
-      const description = input.description as string || 'Run command';
-      return <span className="text-xs text-muted-foreground truncate">{description}</span>;
-    }
-
-    if (tool.toolName === 'Grep' || tool.toolName === 'Glob') {
-      const pattern = input.pattern as string || '';
-      return <span className="font-mono text-xs truncate">{pattern}</span>;
-    }
-
-    // Default: show first meaningful input value
-    const firstValue = Object.values(input).find(v => typeof v === 'string' && v.length < 100);
-    return firstValue ? <span className="font-mono text-xs truncate">{firstValue as string}</span> : null;
-  };
-
-  // Render Bash tool with IN/OUT format - FIX-5: Enhanced command display
-  // TERM-5: Syntax highlighting for bash commands
-  // TERM-6: Copy button for command and output
+  // Render Bash tool - simple command/output format
   if (tool.toolName === 'Bash') {
     const command = tool.input?.command as string || '';
     const description = tool.input?.description as string || '';
 
     return (
-      <div className={cn("flex gap-3 py-1 pl-1 border-l-2", statusColor || 'border-l-transparent')}>
-        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${bulletColor}`} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 text-sm">
-            <span className="font-semibold text-purple-500">Bash</span>
-            {description && <span className="text-xs text-muted-foreground truncate">{description}</span>}
-            {tool.status && (
-              <span className={cn(
-                "text-xs px-1.5 py-0.5 rounded ml-auto",
-                tool.status === 'success' && 'bg-green-500/20 text-green-400',
-                tool.status === 'error' && 'bg-red-500/20 text-red-400',
-                tool.status === 'running' && 'bg-blue-500/20 text-blue-400'
-              )}>
-                {tool.status}
-              </span>
-            )}
-          </div>
-
-          {/* Command input - FIX-5: Always show command prominently */}
-          <div className="mt-2 rounded bg-muted/50 border border-border overflow-hidden group">
-            <div className="flex relative">
-              <div className={cn(
-                "px-2 py-1.5 text-xs font-medium border-r border-border min-w-[36px] text-center",
-                tool.status === 'error' ? 'bg-red-500/20 text-red-400' : 'bg-muted/80 text-muted-foreground'
-              )}>
-                IN
-              </div>
-              {/* TERM-5: Syntax highlighted bash command */}
-              <div
-                className="px-3 py-1.5 font-mono text-xs flex-1 overflow-x-auto whitespace-pre-wrap break-all text-foreground hljs"
-                dangerouslySetInnerHTML={{ __html: highlightCode(command || '(no command)', 'bash') }}
-              />
-              {/* TERM-6: Copy button for command */}
-              {command && (
-                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <CopyButton content={command} />
-                </div>
-              )}
-            </div>
-
-            {/* Command output */}
-            {tool.output && (
-              <div className="flex border-t border-border relative">
-                <div className={cn(
-                  "px-2 py-1.5 text-xs font-medium border-r border-border min-w-[36px] text-center",
-                  tool.status === 'error' ? 'bg-red-500/20 text-red-400' : 'bg-muted/80 text-muted-foreground'
-                )}>
-                  OUT
-                </div>
-                <div className={cn(
-                  "px-3 py-1.5 font-mono text-xs flex-1 overflow-x-auto whitespace-pre-wrap max-h-48 overflow-y-auto",
-                  tool.status === 'error' ? 'text-red-400' : 'text-muted-foreground'
-                )}>
-                  {tool.output}
-                </div>
-                {/* TERM-6: Copy button for output */}
-                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <CopyButton content={tool.output} />
-                </div>
-              </div>
-            )}
-          </div>
+      <div className="py-1 font-mono text-xs">
+        <div className="text-muted-foreground">
+          <span className="text-purple-400">❯ </span>
+          <span className="text-foreground">{command || '(no command)'}</span>
+          {description && <span className="text-muted-foreground/60 ml-2">// {description}</span>}
         </div>
+        {tool.output && (
+          <pre className={cn(
+            "mt-1 pl-4 whitespace-pre-wrap break-all max-h-48 overflow-y-auto",
+            tool.status === 'error' ? 'text-red-400' : 'text-muted-foreground'
+          )}>
+            {tool.output}
+          </pre>
+        )}
       </div>
     );
   }
 
-  // Render Edit tool with collapsible unified diff view - FIX-5: Show file path prominently
+  // Render Edit tool - simple diff format
   if (tool.toolName === 'Edit') {
     const filePath = tool.input?.file_path as string || '';
     const oldString = tool.input?.old_string as string || '';
     const newString = tool.input?.new_string as string || '';
     const hasDiff = oldString || newString;
-    const oldLinesArr = oldString ? oldString.split('\n') : [];
-    const newLinesArr = newString ? newString.split('\n') : [];
 
     return (
-      <div className={cn("flex gap-3 py-1 pl-1 border-l-2", statusColor || 'border-l-transparent')}>
-        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${bulletColor}`} />
-        <div className="flex-1 min-w-0">
-          <button
-            onClick={() => hasDiff && setIsExpanded(!isExpanded)}
-            className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity w-full text-left"
-          >
-            <span className="font-semibold text-green-500">Edit:</span>
-            <span className="font-mono text-xs text-foreground truncate">{filePath || '(no path)'}</span>
-            {tool.status && (
-              <span className={cn(
-                "text-xs px-1.5 py-0.5 rounded",
-                tool.status === 'success' && 'bg-green-500/20 text-green-400',
-                tool.status === 'error' && 'bg-red-500/20 text-red-400',
-                tool.status === 'running' && 'bg-blue-500/20 text-blue-400'
-              )}>
-                {tool.status === 'success' ? 'Modified' : tool.status}
-              </span>
-            )}
-            {hasDiff && (
-              <span className="ml-auto flex-shrink-0">
-                {isExpanded ? (
-                  <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                )}
-              </span>
-            )}
-          </button>
-
-          {/* Unified diff view - collapsible with line numbers */}
-          {isExpanded && hasDiff && (
-            <div className="mt-2 rounded border border-border overflow-hidden">
-              <div className="text-xs font-mono max-h-64 overflow-y-auto">
-                {/* Removed lines (red) with line numbers */}
-                {oldLinesArr.map((line, i) => {
-                  const lineNum = i + 1;
-                  const lineNumWidth = Math.max(oldLinesArr.length, newLinesArr.length).toString().length;
-                  return (
-                    <div key={`old-${i}`} className="bg-red-500/10 text-red-400 px-2 py-0.5 border-l-2 border-red-500 flex">
-                      <span className="select-none text-gray-500 mr-2" style={{ minWidth: `${lineNumWidth + 1}ch` }}>
-                        {lineNum.toString().padStart(lineNumWidth, ' ')}
-                      </span>
-                      <span className="select-none opacity-60 mr-2">-</span>
-                      <span className="whitespace-pre-wrap break-all flex-1">{line || ' '}</span>
-                    </div>
-                  );
-                })}
-                {/* Added lines (green) with line numbers */}
-                {newLinesArr.map((line, i) => {
-                  const lineNum = i + 1;
-                  const lineNumWidth = Math.max(oldLinesArr.length, newLinesArr.length).toString().length;
-                  return (
-                    <div key={`new-${i}`} className="bg-green-500/10 text-green-400 px-2 py-0.5 border-l-2 border-green-500 flex">
-                      <span className="select-none text-gray-500 mr-2" style={{ minWidth: `${lineNumWidth + 1}ch` }}>
-                        {lineNum.toString().padStart(lineNumWidth, ' ')}
-                      </span>
-                      <span className="select-none opacity-60 mr-2">+</span>
-                      <span className="whitespace-pre-wrap break-all flex-1">{line || ' '}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+      <div className="py-1 font-mono text-xs">
+        <button
+          onClick={() => hasDiff && setIsExpanded(!isExpanded)}
+          className="flex items-center gap-1 hover:underline cursor-pointer"
+        >
+          <span className="text-green-400">✎ Edit:</span>
+          <span className="text-foreground">{filePath}</span>
+          {hasDiff && <span className="text-muted-foreground/60">[{isExpanded ? '-' : '+'}]</span>}
+        </button>
+        {isExpanded && hasDiff && (
+          <div className="mt-1 pl-4 max-h-64 overflow-y-auto">
+            {oldString && oldString.split('\n').map((line, i) => (
+              <div key={`old-${i}`} className="text-red-400">- {line || ' '}</div>
+            ))}
+            {newString && newString.split('\n').map((line, i) => (
+              <div key={`new-${i}`} className="text-green-400">+ {line || ' '}</div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
 
-  // Render Read tool with expandable content - FIX-5: Show file path prominently
-  // TERM-5: Syntax highlighting based on file extension
-  // TERM-6: Copy button for file content
+  // Render Read tool - simple file path with expandable content
   if (tool.toolName === 'Read') {
     const filePath = tool.input?.file_path as string || '';
     const lines = tool.input?.offset && tool.input?.limit
-      ? ` (lines ${tool.input.offset}-${(tool.input.offset as number) + (tool.input.limit as number)})`
+      ? ` (${tool.input.offset}-${(tool.input.offset as number) + (tool.input.limit as number)})`
       : '';
-    // TERM-5: Detect language from file path
-    const detectedLanguage = detectLanguageFromPath(filePath);
 
     return (
-      <div className={cn("flex gap-3 py-1 pl-1 border-l-2", statusColor || 'border-l-transparent')}>
-        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${bulletColor}`} />
-        <div className="flex-1 min-w-0">
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity w-full text-left"
-          >
-            <span className="font-semibold text-blue-500">Read:</span>
-            <span className="font-mono text-xs text-foreground truncate">{filePath || '(no path)'}{lines}</span>
-            {tool.status && (
-              <span className={cn(
-                "text-xs px-1.5 py-0.5 rounded",
-                tool.status === 'success' && 'bg-green-500/20 text-green-400',
-                tool.status === 'error' && 'bg-red-500/20 text-red-400',
-                tool.status === 'running' && 'bg-blue-500/20 text-blue-400'
-              )}>
-                {tool.status}
-              </span>
-            )}
-            {tool.output && (
-              <span className="ml-auto flex-shrink-0">
-                {isExpanded ? (
-                  <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                )}
-              </span>
-            )}
-          </button>
-
-          {isExpanded && tool.output && (
-            <div className="mt-2 rounded bg-muted/30 border border-border p-2 overflow-x-auto max-h-96 overflow-y-auto">
-              <TruncatedOutput
-                content={tool.output}
-                showLineNumbers
-                language={detectedLanguage}
-                showCopyButton
-              />
-            </div>
-          )}
-        </div>
+      <div className="py-1 font-mono text-xs">
+        <button
+          onClick={() => tool.output && setIsExpanded(!isExpanded)}
+          className="flex items-center gap-1 hover:underline cursor-pointer"
+        >
+          <span className="text-blue-400">📄 Read:</span>
+          <span className="text-foreground">{filePath}{lines}</span>
+          {tool.output && <span className="text-muted-foreground/60">[{isExpanded ? '-' : '+'}]</span>}
+        </button>
+        {isExpanded && tool.output && (
+          <pre className="mt-1 pl-4 text-muted-foreground whitespace-pre-wrap max-h-64 overflow-y-auto">
+            {tool.output}
+          </pre>
+        )}
       </div>
     );
   }
 
-  // Render Grep tool with line count and expandable output
+  // Render Grep tool - simple pattern with results
   if (tool.toolName === 'Grep') {
     const pattern = tool.input?.pattern as string || '';
     const outputLines = tool.output ? tool.output.split('\n').filter(l => l.trim()).length : 0;
 
     return (
-      <div className="flex gap-3 py-1">
-        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${bulletColor}`} />
-        <div className="flex-1 min-w-0">
-          <button
-            onClick={() => tool.output && setIsExpanded(!isExpanded)}
-            className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity w-full text-left"
-          >
-            <span className="font-semibold text-orange-500">Grep</span>
-            <span className="font-mono text-xs truncate">"{pattern}"</span>
-            {tool.output && (
-              <>
-                <span className="text-xs text-muted-foreground ml-auto mr-2">
-                  {outputLines} lines of output
-                </span>
-                <span className="flex-shrink-0">
-                  {isExpanded ? (
-                    <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  )}
-                </span>
-              </>
-            )}
-          </button>
-
-          {isExpanded && tool.output && (
-            <div className="mt-2 rounded bg-muted/30 border border-border overflow-hidden p-2 max-h-96 overflow-y-auto">
-              <TruncatedOutput content={tool.output} />
-            </div>
+      <div className="py-1 font-mono text-xs">
+        <button
+          onClick={() => tool.output && setIsExpanded(!isExpanded)}
+          className="flex items-center gap-1 hover:underline cursor-pointer"
+        >
+          <span className="text-orange-400">🔍 Grep:</span>
+          <span className="text-foreground">"{pattern}"</span>
+          {tool.output && (
+            <span className="text-muted-foreground/60">
+              ({outputLines} matches) [{isExpanded ? '-' : '+'}]
+            </span>
           )}
-        </div>
+        </button>
+        {isExpanded && tool.output && (
+          <pre className="mt-1 pl-4 text-muted-foreground whitespace-pre-wrap max-h-64 overflow-y-auto">
+            {tool.output}
+          </pre>
+        )}
       </div>
     );
   }
 
-  // Render Glob tool with file count and expandable output
+  // Render Glob tool - simple pattern with file count
   if (tool.toolName === 'Glob') {
     const pattern = tool.input?.pattern as string || '';
     const outputLines = tool.output ? tool.output.split('\n').filter(l => l.trim()).length : 0;
 
     return (
-      <div className="flex gap-3 py-1">
-        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${bulletColor}`} />
-        <div className="flex-1 min-w-0">
-          <button
-            onClick={() => tool.output && setIsExpanded(!isExpanded)}
-            className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity w-full text-left"
-          >
-            <span className="font-semibold text-pink-500">Glob</span>
-            <span className="font-mono text-xs truncate">"{pattern}"</span>
-            {tool.output && (
-              <>
-                <span className="text-xs text-muted-foreground ml-auto mr-2">
-                  {outputLines} {outputLines === 1 ? 'file' : 'files'} found
-                </span>
-                <span className="flex-shrink-0">
-                  {isExpanded ? (
-                    <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  )}
-                </span>
-              </>
-            )}
-          </button>
-
-          {isExpanded && tool.output && (
-            <div className="mt-2 rounded bg-muted/30 border border-border overflow-hidden p-2 max-h-96 overflow-y-auto">
-              <TruncatedOutput content={tool.output} />
-            </div>
+      <div className="py-1 font-mono text-xs">
+        <button
+          onClick={() => tool.output && setIsExpanded(!isExpanded)}
+          className="flex items-center gap-1 hover:underline cursor-pointer"
+        >
+          <span className="text-pink-400">📁 Glob:</span>
+          <span className="text-foreground">"{pattern}"</span>
+          {tool.output && (
+            <span className="text-muted-foreground/60">
+              ({outputLines} files) [{isExpanded ? '-' : '+'}]
+            </span>
           )}
-        </div>
+        </button>
+        {isExpanded && tool.output && (
+          <pre className="mt-1 pl-4 text-muted-foreground whitespace-pre-wrap max-h-64 overflow-y-auto">
+            {tool.output}
+          </pre>
+        )}
       </div>
     );
   }
 
-  // Default tool rendering
-  return (
-    <div className="flex gap-3 py-1">
-      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${bulletColor}`} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold">{tool.toolName}</span>
-          {getToolHeader()}
-          {tool.status && (
-            <span className={cn(
-              "text-xs px-1.5 py-0.5 rounded",
-              tool.status === 'success' && 'bg-green-500/20 text-green-400',
-              tool.status === 'error' && 'bg-red-500/20 text-red-400',
-              tool.status === 'running' && 'bg-blue-500/20 text-blue-400'
-            )}>
-              {tool.status}
-            </span>
-          )}
-        </div>
+  // Default tool rendering - simple format
+  const input = tool.input || {};
+  const firstValue = Object.values(input).find(v => typeof v === 'string' && v.length < 100);
 
-        {tool.output && (
-          <div className="mt-2 rounded bg-muted/30 border border-border p-2">
-            <pre className="font-mono text-xs text-muted-foreground whitespace-pre-wrap max-h-48 overflow-y-auto">
-              {tool.output}
-            </pre>
-          </div>
-        )}
+  return (
+    <div className="py-1 font-mono text-xs">
+      <div className="text-muted-foreground">
+        <span className="text-cyan-400">[{tool.toolName}]</span>
+        {firstValue && <span className="text-foreground ml-1">{firstValue as string}</span>}
       </div>
+      {tool.output && (
+        <pre className="mt-1 pl-4 text-muted-foreground whitespace-pre-wrap max-h-48 overflow-y-auto">
+          {tool.output}
+        </pre>
+      )}
     </div>
   );
 }
@@ -721,34 +517,20 @@ function TextBlock({ content }: { content: string }) {
   // Skip empty content
   if (!content.trim()) return null;
 
-  // Check if this is a phase marker - FIX-5: Enhanced phase headers
+  // Phase markers - simple terminal style
   if (content.startsWith('[Phase:') || content.startsWith('[Subphase:')) {
     const phaseText = content.replace(/[\[\]]/g, '');
-    const isMainPhase = content.startsWith('[Phase:');
-
     return (
-      <div className={cn(
-        "my-3 py-2 px-3 rounded border-l-4",
-        isMainPhase
-          ? "border-l-cyan-500 bg-cyan-500/10"
-          : "border-l-muted-foreground/50 bg-muted/30"
-      )}>
-        <span className={cn(
-          "text-xs font-semibold uppercase tracking-wider",
-          isMainPhase ? "text-cyan-400" : "text-muted-foreground"
-        )}>
-          {searchQuery ? highlightSearchMatches(phaseText, searchQuery) : phaseText}
-        </span>
+      <div className="py-2 font-mono text-xs">
+        <span className="text-cyan-400">═══ {phaseText} ═══</span>
       </div>
     );
   }
 
+  // Regular text - simple terminal output
   return (
-    <div className="flex gap-3 py-1">
-      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${BULLET_COLORS.text}`} />
-      <div className="flex-1 min-w-0 text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed break-words">
-        {searchQuery ? highlightSearchMatches(content, searchQuery) : content}
-      </div>
+    <div className="py-0.5 font-mono text-xs text-foreground/90 whitespace-pre-wrap">
+      {searchQuery ? highlightSearchMatches(content, searchQuery) : content}
     </div>
   );
 }
@@ -1013,6 +795,13 @@ export function TaskMonitorChat({ terminal, terminalRef, isActive = false, isMin
     }
   }, [terminal.id, terminal.parser, initializeParser]);
 
+  // Scroll to bottom immediately on mount (before paint) - no visible scroll animation
+  useLayoutEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
+  }, []);
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (autoScroll && scrollContainerRef.current) {
@@ -1151,7 +940,7 @@ export function TaskMonitorChat({ terminal, terminalRef, isActive = false, isMin
   return (
     <ThinkingExpandContext.Provider value={{ allExpanded: thinkingExpanded, toggleAll: toggleThinking }}>
       <SearchContext.Provider value={{ searchQuery, currentMatchIndex, totalMatches: searchMatches.total }}>
-        <div className="flex flex-col flex-1 min-h-0 bg-background relative">
+        <div className="flex flex-col h-full min-h-0 bg-background relative">
           {/* TERM-3b: View mode toggle button */}
           <div className="absolute top-2 left-2 z-20">
             <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden shadow-sm">
@@ -1248,8 +1037,8 @@ export function TaskMonitorChat({ terminal, terminalRef, isActive = false, isMin
           >
             {/* TERM-3b: Conditional rendering based on view mode */}
             {viewMode === 'structured' ? (
-              /* Structured timeline view */
-              <StructuredOutput messages={messages} />
+              /* Structured timeline view with auto-scroll */
+              <StructuredOutput messages={messages} autoScroll={autoScroll} />
             ) : (
               /* Raw view - existing implementation */
               messages.length === 0 ? (
@@ -1340,11 +1129,6 @@ export function TaskMonitorChat({ terminal, terminalRef, isActive = false, isMin
         {/* Bottom input area - only show when terminal is active */}
         {isActive && (
           <div className="border-t border-border p-3 bg-muted/20">
-            <div className="text-xs text-center text-muted-foreground/70 mb-2">
-              {isTaskRunning
-                ? "Send feedback to the running agent (processed at next iteration)"
-                : "Add notes or instructions (will be sent when task starts)"}
-            </div>
             <div className="flex items-end gap-2">
               <div className="flex-1 relative">
                 <textarea

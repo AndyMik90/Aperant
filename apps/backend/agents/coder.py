@@ -58,7 +58,7 @@ from ui import (
 
 from .base import AUTO_CONTINUE_DELAY_SECONDS, HUMAN_INTERVENTION_FILE
 from .memory_manager import debug_memory_system_status, get_graphiti_context
-from .session import post_session_processing, run_agent_session
+from .session import emit_sdk_msg, post_session_processing, run_agent_session
 from .user_message_queue import get_message_queue
 from .utils import (
     find_phase_for_subtask,
@@ -203,6 +203,12 @@ async def run_autonomous_agent(
         emit_phase(ExecutionPhase.PLANNING, "Creating implementation plan")
         is_planning_phase = True
         current_log_phase = LogPhase.PLANNING
+
+        # Emit SDK marker for planning phase
+        emit_sdk_msg("phase_start", {
+            "phase": "planning",
+            "message": "Creating implementation plan from spec",
+        })
 
         # Start planning phase in task logger
         if task_logger:
@@ -471,6 +477,15 @@ async def run_autonomous_agent(
                     print_status(f"Previous attempts: {attempt_count}", "warning")
                 print()
 
+                # Emit SDK marker for subtask start
+                emit_sdk_msg("phase_start", {
+                    "phase": "coding",
+                    "message": f"Working on subtask: {subtask_id}",
+                })
+                emit_sdk_msg("text", {
+                    "content": f"🔧 Subtask: {next_subtask.get('description', 'No description')}"
+                })
+
             # Set subtask info in logger
             if task_logger and subtask_id:
                 task_logger.set_subtask(subtask_id)
@@ -582,6 +597,14 @@ async def run_autonomous_agent(
                 print_build_complete_banner(spec_dir)
                 status_manager.update(state=BuildState.COMPLETE)
 
+                # Emit SDK markers for build completion
+                emit_sdk_msg("text", {"content": "✅ All subtasks completed!"})
+                emit_sdk_msg("phase_end", {
+                    "phase": "coding",
+                    "success": True,
+                    "message": "All subtasks completed, ready for QA",
+                })
+
                 if task_logger:
                     task_logger.end_phase(
                         LogPhase.CODING,
@@ -602,6 +625,13 @@ async def run_autonomous_agent(
                     )
                 )
                 print_progress_summary(spec_dir)
+
+                # Emit SDK marker for subtask completion (moving to next)
+                emit_sdk_msg("phase_end", {
+                    "phase": "coding",
+                    "success": True,
+                    "message": f"Subtask completed, continuing to next...",
+                })
 
                 # Update state back to building
                 status_manager.update(
@@ -629,6 +659,13 @@ async def run_autonomous_agent(
                 print_status("Session encountered an error", "error")
                 print(muted("Will retry with a fresh session..."))
                 status_manager.update(state=BuildState.ERROR)
+
+                # Emit SDK error marker
+                emit_sdk_msg("error", {
+                    "content": "Session encountered an error - will retry",
+                    "phase": "coding",
+                })
+
                 await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
 
             elif status == "stopped":

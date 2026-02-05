@@ -173,9 +173,9 @@
   --card: #FFFFFF;
   --card-foreground: #0B0B0F;
 
-  /* Accent - Muted olive/yellow for light mode */
-  --primary: #A5A66A;
-  --primary-foreground: #0B0B0F;
+  /* Accent - Bright blue for light mode */
+  --primary: #479FFA;
+  --primary-foreground: #FFFFFF;
 
   --secondary: #E8E8E3;
   --secondary-foreground: #0B0B0F;
@@ -183,15 +183,15 @@
   --muted: #EDEDE8;
   --muted-foreground: #5C6974;
 
-  --accent: #EFEFE0;
-  --accent-foreground: #A5A66A;
+  --accent: #E8F4FF;
+  --accent-foreground: #479FFA;
 
   --destructive: #D84F68;
   --destructive-foreground: #FFFFFF;
 
   --border: #DEDED9;
   --input: #DEDED9;
-  --ring: #A5A66A;
+  --ring: #479FFA;
 
   --sidebar: #FFFFFF;
   --sidebar-foreground: #0B0B0F;
@@ -203,9 +203,9 @@
   --success: #4EBE96;
   --success-foreground: #FFFFFF;
   --success-light: #E0F5ED;
-  --warning: #D2D714;
+  --warning: #F59E0B;
   --warning-foreground: #0B0B0F;
-  --warning-light: #F5F5D0;
+  --warning-light: #FEF3C7;
   --info: #479FFA;
   --info-foreground: #FFFFFF;
   --info-light: #E8F4FF;
@@ -217,7 +217,7 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
-  --shadow-focus: 0 0 0 3px rgba(165, 166, 106, 0.2);
+  --shadow-focus: 0 0 0 3px rgba(71, 159, 250, 0.2);
 
   /* Border radius - UI-3: Sharp corners for Tron Grid aesthetic */
   --radius: 0px;
@@ -233,8 +233,8 @@
   --card: #121216;
   --card-foreground: #E6E6E6;
 
-  /* Accent - Saturated yellow for vibrant contrast */
-  --primary: #D6D876;
+  /* Accent - Bright blue for vibrant contrast */
+  --primary: #479FFA;
   --primary-foreground: #0B0B0F;
 
   --secondary: #1A1A1F;
@@ -243,8 +243,8 @@
   --muted: #1A1A1F;
   --muted-foreground: #868F97;
 
-  --accent: #2A2A1F;
-  --accent-foreground: #D6D876;
+  --accent: #1A2230;
+  --accent-foreground: #479FFA;
 
   --destructive: #FF5C5C;
   --destructive-foreground: #0B0B0F;
@@ -252,7 +252,7 @@
   /* Subtle dark borders for card definition */
   --border: #232323;
   --input: #232323;
-  --ring: #D6D876;
+  --ring: #479FFA;
 
   --sidebar: #0E0E12;
   --sidebar-foreground: #E6E6E6;
@@ -264,7 +264,7 @@
   --success: #4EBE96;
   --success-foreground: #0B0B0F;
   --success-light: #1A2924;
-  --warning: #D2D714;
+  --warning: #F59E0B;
   --warning-foreground: #0B0B0F;
   --warning-light: #262618;
   --info: #479FFA;
@@ -278,12 +278,12 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.7);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.8);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.9);
-  --shadow-focus: 0 0 0 2px rgba(214, 216, 118, 0.2);
+  --shadow-focus: 0 0 0 2px rgba(71, 159, 250, 0.3);
 }
 
 /* ============================================
    DUSK THEME (Light)
-   Warm, muted palette inspired by Fey/Oscura
+   Clean blue accent theme
    ============================================ */
 [data-theme="dusk"] {
   /* Backgrounds */
@@ -294,9 +294,9 @@
   --card: #FFFFFF;
   --card-foreground: #131419;
 
-  /* Primary accent - muted olive/yellow */
-  --primary: #B8B978;
-  --primary-foreground: #131419;
+  /* Primary accent - bright blue */
+  --primary: #479FFA;
+  --primary-foreground: #FFFFFF;
 
   /* Secondary */
   --secondary: #EAEAE5;
@@ -307,8 +307,8 @@
   --muted-foreground: #5C6974;
 
   /* Accent */
-  --accent: #F0F0E0;
-  --accent-foreground: #B8B978;
+  --accent: #E8F4FF;
+  --accent-foreground: #479FFA;
 
   /* Destructive */
   --destructive: #D84F68;
@@ -317,7 +317,7 @@
   /* Borders and inputs */
   --border: #E0E0DB;
   --input: #E0E0DB;
-  --ring: #B8B978;
+  --ring: #479FFA;
 
   /* Sidebar */
   --sidebar: #FFFFFF;
@@ -331,9 +331,9 @@
   --success: #4EBE96;
   --success-foreground: #FFFFFF;
   --success-light: #E0F5ED;
-  --warning: #D2D714;
+  --warning: #F59E0B;
   --warning-foreground: #131419;
-  --warning-light: #F5F5D0;
+  --warning-light: #FEF3C7;
   --info: #479FFA;
   --info-foreground: #FFFFFF;
   --info-light: #E8F4FF;
@@ -345,12 +345,12 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
-  --shadow-focus: 0 0 0 3px rgba(184, 185, 120, 0.2);
+  --shadow-focus: 0 0 0 3px rgba(71, 159, 250, 0.2);
 }
 
 /* ============================================
    DUSK THEME (Dark)
-   Fey-inspired dark theme
+   Clean blue accent dark theme
    ============================================ */
 [data-theme="dusk"].dark {
   /* Backgrounds */
@@ -361,9 +361,9 @@
   --card: #1A1B21;
   --card-foreground: #E6E6E6;
 
-  /* Primary accent - pale yellow */
-  --primary: #E6E7A3;
-  --primary-foreground: #131419;
+  /* Primary accent - bright blue */
+  --primary: #479FFA;
+  --primary-foreground: #0B0B0F;
 
   /* Secondary */
   --secondary: #222329;
@@ -374,8 +374,8 @@
   --muted-foreground: #868F97;
 
   /* Accent */
-  --accent: #2A2B1F;
-  --accent-foreground: #E6E7A3;
+  --accent: #1A2433;
+  --accent-foreground: #479FFA;
 
   /* Destructive */
   --destructive: #D84F68;
@@ -384,7 +384,7 @@
   /* Borders and inputs */
   --border: #282828;
   --input: #282828;
-  --ring: #E6E7A3;
+  --ring: #479FFA;
 
   /* Sidebar */
   --sidebar: #16171D;
@@ -398,9 +398,9 @@
   --success: #4EBE96;
   --success-foreground: #131419;
   --success-light: #1A2E28;
-  --warning: #D2D714;
+  --warning: #F59E0B;
   --warning-foreground: #131419;
-  --warning-light: #2A2B1A;
+  --warning-light: #2A2518;
   --info: #479FFA;
   --info-foreground: #131419;
   --info-light: #1A2433;
@@ -412,7 +412,7 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
-  --shadow-focus: 0 0 0 2px rgba(230, 231, 163, 0.25);
+  --shadow-focus: 0 0 0 2px rgba(71, 159, 250, 0.3);
 }
 
 /* ============================================

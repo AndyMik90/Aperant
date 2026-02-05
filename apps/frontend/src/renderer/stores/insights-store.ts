@@ -16,6 +16,29 @@ interface ToolUsage {
   input?: string;
 }
 
+// Counter for generating unique IDs within the same millisecond
+let messageIdCounter = 0;
+
+/**
+ * Generate a unique message ID using timestamp and counter.
+ * This ensures unique IDs even when multiple messages are created
+ * in quick succession (e.g., multi-task creation from chat).
+ */
+function generateUniqueMessageId(): string {
+  const timestamp = Date.now();
+  const counter = messageIdCounter++;
+  return `msg-${timestamp}-${counter}`;
+}
+
+/**
+ * Generate a unique session ID
+ */
+function generateUniqueSessionId(): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return `session-${timestamp}-${random}`;
+}
+
 interface InsightsState {
   // Data
   session: InsightsSession | null;
@@ -73,23 +96,27 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
 
   addMessage: (message) =>
     set((state) => {
+      // Ensure message has a unique ID
+      const messageWithId = message.id ? message : { ...message, id: generateUniqueMessageId() };
+
       if (!state.session) {
         // Create new session if none exists
         return {
           session: {
-            id: `session-${Date.now()}`,
+            id: generateUniqueSessionId(),
             projectId: '',
-            messages: [message],
+            messages: [messageWithId],
             createdAt: new Date(),
             updatedAt: new Date()
           }
         };
       }
 
+      // Append to existing messages (never replace)
       return {
         session: {
           ...state.session,
-          messages: [...state.session.messages, message],
+          messages: [...state.session.messages, messageWithId],
           updatedAt: new Date()
         }
       };
@@ -148,8 +175,9 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
         return { streamingContent: '', toolsUsed: [] };
       }
 
+      // Generate unique ID for each message to prevent duplicates
       const newMessage: InsightsChatMessage = {
-        id: `msg-${Date.now()}`,
+        id: generateUniqueMessageId(),
         role: 'assistant',
         content,
         timestamp: new Date(),
@@ -162,7 +190,7 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
           streamingContent: '',
           toolsUsed: [],
           session: {
-            id: `session-${Date.now()}`,
+            id: generateUniqueSessionId(),
             projectId: '',
             messages: [newMessage],
             createdAt: new Date(),
@@ -171,6 +199,7 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
         };
       }
 
+      // Always append messages, never replace existing ones
       return {
         streamingContent: '',
         toolsUsed: [],
@@ -226,9 +255,9 @@ export function sendMessage(projectId: string, message: string, modelConfig?: In
   const store = useInsightsStore.getState();
   const session = store.session;
 
-  // Add user message to session
+  // Add user message to session with unique ID
   const userMessage: InsightsChatMessage = {
-    id: `msg-${Date.now()}`,
+    id: generateUniqueMessageId(),
     role: 'user',
     content: message,
     timestamp: new Date()

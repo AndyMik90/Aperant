@@ -97,13 +97,14 @@ export function useGlobalTerminalListeners(): void {
       }));
     });
 
-    // Register structured output listener for rich task monitor UI
+    // Register structured output listener for task monitor UI
     // This receives pre-parsed blocks from main process for efficient rendering
+    // IMPORTANT: Always process blocks regardless of view mode so data is always available
     const cleanupStructuredOutput = window.electronAPI.onTerminalStructuredOutput(
       (terminalId: string, block: StructuredBlock) => {
-        // Only process for task monitor terminals in rich mode
+        // Process for ALL task monitor terminals (both raw and rich modes)
         const terminal = useTerminalStore.getState().terminals.find(t => t.id === terminalId);
-        if (terminal?.isTaskMonitor && terminal.viewMode === 'rich') {
+        if (terminal?.isTaskMonitor) {
           useTerminalStore.getState().appendStructuredBlock(terminalId, block);
           debugLog(
             `[GlobalTerminalListeners] Processed structured block for ${terminalId}: ${block.type}`

@@ -31,11 +31,16 @@ FullScreenDialogOverlay.displayName = 'FullScreenDialogOverlay';
 const FullScreenDialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, onCloseAutoFocus, ...props }, ref) => (
   <FullScreenDialogPortal>
     <FullScreenDialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      // Fix aria-hidden focus error: blur active element before dialog closes
+      onCloseAutoFocus={(e) => {
+        (document.activeElement as HTMLElement)?.blur();
+        onCloseAutoFocus?.(e);
+      }}
       className={cn(
         'fixed inset-4 z-50 flex flex-col',
         'bg-card border border-border rounded-2xl',

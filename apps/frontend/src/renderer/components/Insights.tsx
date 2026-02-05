@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   MessageSquare,
@@ -119,10 +119,19 @@ export function Insights({ projectId }: InsightsProps) {
     return cleanup;
   }, [projectId]);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom when messages change (smooth animation)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (session?.messages?.length || streamingContent) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [session?.messages, streamingContent]);
+
+  // Scroll to bottom on mount - use useLayoutEffect to prevent visible scroll
+  useLayoutEffect(() => {
+    if (session?.messages?.length) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+    }
+  }, [session?.id]);
 
   // Focus textarea on mount
   useEffect(() => {
@@ -219,31 +228,20 @@ export function Insights({ projectId }: InsightsProps) {
       {/* Main Chat Area */}
       <div className="flex flex-1 flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setShowSidebar(!showSidebar)}
-              title={showSidebar ? 'Hide sidebar' : 'Show sidebar'}
-            >
-              {showSidebar ? (
-                <PanelLeftClose className="h-4 w-4" />
-              ) : (
-                <PanelLeft className="h-4 w-4" />
-              )}
-            </Button>
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Sparkles className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h2 className="font-semibold text-foreground">Chat</h2>
-              <p className="text-sm text-muted-foreground">
-                Ask questions about your codebase
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center justify-between border-b border-border px-4 py-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setShowSidebar(!showSidebar)}
+            title={showSidebar ? 'Hide sidebar' : 'Show sidebar'}
+          >
+            {showSidebar ? (
+              <PanelLeftClose className="h-4 w-4" />
+            ) : (
+              <PanelLeft className="h-4 w-4" />
+            )}
+          </Button>
           <div className="flex items-center gap-2">
             <InsightsModelSelector
               currentConfig={session?.modelConfig}

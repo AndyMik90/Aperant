@@ -29,11 +29,16 @@ AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, ...props }, ref) => (
+>(({ className, onCloseAutoFocus, ...props }, ref) => (
   <AlertDialogPortal>
     <AlertDialogOverlay />
     <AlertDialogPrimitive.Content
       ref={ref}
+      onCloseAutoFocus={(e) => {
+        // Fix aria-hidden focus error by blurring before dialog closes
+        (document.activeElement as HTMLElement)?.blur();
+        onCloseAutoFocus?.(e);
+      }}
       className={cn(
         'fixed left-[50%] top-[50%] z-50 w-full max-w-lg max-h-[90vh]',
         'translate-x-[-50%] translate-y-[-50%]',

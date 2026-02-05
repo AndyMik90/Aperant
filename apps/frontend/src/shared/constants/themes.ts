@@ -17,14 +17,14 @@ export const COLOR_THEMES: ColorThemeDefinition[] = [
   {
     id: 'default',
     name: 'Default',
-    description: 'Oscura-inspired with pale yellow accent',
-    previewColors: { bg: '#F2F2ED', accent: '#E6E7A3', darkBg: '#0B0B0F', darkAccent: '#E6E7A3' }
+    description: 'Clean dark theme with bright blue accent',
+    previewColors: { bg: '#F2F2ED', accent: '#479FFA', darkBg: '#0B0B0F', darkAccent: '#479FFA' }
   },
   {
     id: 'dusk',
     name: 'Dusk',
-    description: 'Warmer variant with slightly lighter dark mode',
-    previewColors: { bg: '#F5F5F0', accent: '#E6E7A3', darkBg: '#131419', darkAccent: '#E6E7A3' }
+    description: 'Warmer variant with blue accents',
+    previewColors: { bg: '#F5F5F0', accent: '#479FFA', darkBg: '#131419', darkAccent: '#479FFA' }
   },
   {
     id: 'lime',
