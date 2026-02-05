@@ -6,6 +6,7 @@ import { FileDown } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTerminalStore } from '../stores/terminal-store';
 import { useSettingsStore } from '../stores/settings-store';
+import { useClaudeProfileStore } from '../stores/claude-profile-store';
 import { useToast } from '../hooks/use-toast';
 import type { TerminalProps } from './terminal/types';
 import type { TerminalWorktreeConfig } from '../../shared/types';
@@ -74,6 +75,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
 
   // Settings store for IDE preferences
   const { settings } = useSettingsStore();
+
+  // Claude profile store for active profile ID
+  const { activeProfileId } = useClaudeProfileStore();
 
   // Toast for user feedback
   const { toast } = useToast();
@@ -276,8 +280,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
 
   const handleInvokeClaude = useCallback(() => {
     setClaudeMode(id, true);
-    window.electronAPI.invokeClaudeInTerminal(id, effectiveCwd);
-  }, [id, effectiveCwd, setClaudeMode]);
+    window.electronAPI.invokeClaudeInTerminal(id, effectiveCwd, activeProfileId);
+  }, [id, effectiveCwd, activeProfileId, setClaudeMode]);
 
   const handleClick = useCallback(() => {
     onActivate();

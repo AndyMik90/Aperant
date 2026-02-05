@@ -211,7 +211,7 @@ export interface ElectronAPI {
   destroyTerminal: (id: string) => Promise<IPCResult>;
   sendTerminalInput: (id: string, data: string) => void;
   resizeTerminal: (id: string, cols: number, rows: number) => void;
-  invokeClaudeInTerminal: (id: string, cwd?: string) => void;
+  invokeClaudeInTerminal: (id: string, cwd?: string, profileId?: string) => void;
   generateTerminalName: (command: string, cwd?: string) => Promise<IPCResult<string>>;
   setTerminalTitle: (id: string, title: string) => void;
   setTerminalWorktreeConfig: (id: string, config: TerminalWorktreeConfig | undefined) => void;
