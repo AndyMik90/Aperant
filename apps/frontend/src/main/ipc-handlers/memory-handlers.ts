@@ -201,6 +201,10 @@ function getOllamaInstallCommand(): string {
  * Spawns a subprocess to run Ollama detection/management commands with a 10-second timeout.
  * Used to check Ollama status, list models, and manage downloads.
  *
+ * Includes deduplication: identical command+baseUrl requests within 2s return the cached
+ * result/promise instead of spawning a new subprocess. This prevents runaway subprocess
+ * spawning from React re-render loops.
+ *
  * Supported commands:
  * - 'check-status': Verify Ollama service is running
  * - 'list-models': Get all available models
@@ -212,7 +216,41 @@ function getOllamaInstallCommand(): string {
  * @param {string} [baseUrl] - Optional Ollama API base URL (defaults to http://localhost:11434)
  * @returns {Promise<{success, data?, error?}>} Result object with success flag and data/error
  */
+// Deduplication cache to prevent rapid-fire subprocess spawning (e.g., from React re-render loops)
+const ollamaDetectorCache = new Map<string, { promise: Promise<{ success: boolean; data?: unknown; error?: string }>; timestamp: number }>();
+const OLLAMA_CACHE_TTL_MS = 2000; // Cache results for 2 seconds
+
 async function executeOllamaDetector(
+  command: string,
+  baseUrl?: string
+): Promise<{ success: boolean; data?: unknown; error?: string }> {
+  // Deduplication: return cached promise for identical requests within TTL
+  const cacheKey = `${command}:${baseUrl || 'default'}`;
+  const cached = ollamaDetectorCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < OLLAMA_CACHE_TTL_MS) {
+    if (process.env.DEBUG) {
+      console.log('[OllamaDetector] Returning cached result for:', command);
+    }
+    return cached.promise;
+  }
+
+  const promise = executeOllamaDetectorImpl(command, baseUrl);
+  ollamaDetectorCache.set(cacheKey, { promise, timestamp: Date.now() });
+
+  // Clean up cache entry after TTL
+  promise.finally(() => {
+    setTimeout(() => {
+      const entry = ollamaDetectorCache.get(cacheKey);
+      if (entry && entry.promise === promise) {
+        ollamaDetectorCache.delete(cacheKey);
+      }
+    }, OLLAMA_CACHE_TTL_MS);
+  });
+
+  return promise;
+}
+
+async function executeOllamaDetectorImpl(
   command: string,
   baseUrl?: string
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
