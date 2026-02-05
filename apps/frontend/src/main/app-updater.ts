@@ -309,13 +309,9 @@ function isRunningFromReadOnlyVolume(): boolean {
 
   const appPath = app.getAppPath();
 
-  // Check if running from /Volumes/ (mounted DMG)
-  if (appPath.startsWith('/Volumes/')) {
-    return true;
-  }
-
-  // Additional check: try to determine if the filesystem is read-only
-  // Apps in DMGs typically have paths like /Volumes/App-Name/App.app
+  // Check if the filesystem is read-only by testing write access.
+  // We don't use a /Volumes/ prefix check because writable external drives
+  // (USB, external SSDs) are also mounted under /Volumes/ on macOS.
   try {
     // Navigate from app.asar to the Contents/ directory (app.asar -> Resources -> Contents)
     const contentsPath = path.resolve(appPath, '..', '..');

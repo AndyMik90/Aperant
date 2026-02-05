@@ -95,10 +95,6 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
 
   // Listen for push notifications about updates
   useEffect(() => {
-    if (!window.electronAPI?.onAppUpdateAvailable) {
-      return;
-    }
-
     const cleanup = window.electronAPI.onAppUpdateAvailable((info) => {
       // New update notification - reset dismiss state if new version
       if (currentVersionRef.current !== info.version) {
@@ -118,10 +114,6 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
 
   // Listen for download progress
   useEffect(() => {
-    if (!window.electronAPI?.onAppUpdateProgress) {
-      return;
-    }
-
     const cleanup = window.electronAPI.onAppUpdateProgress((progress) => {
       setDownloadProgress(progress);
     });
@@ -131,10 +123,6 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
 
   // Listen for download completed
   useEffect(() => {
-    if (!window.electronAPI?.onAppUpdateDownloaded) {
-      return;
-    }
-
     const cleanup = window.electronAPI.onAppUpdateDownloaded(() => {
       setIsDownloading(false);
       setIsDownloaded(true);
