@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Terminal,
   Loader2,
@@ -21,6 +21,7 @@ import {
 import { Badge } from '../ui/badge';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../ui/collapsible';
 import { cn } from '../../lib/utils';
+import { useSettingsStore } from '../../stores/settings-store';
 import type { Task, TaskLogs, TaskLogPhase, TaskPhaseLog, TaskLogEntry, TaskMetadata } from '../../../shared/types';
 import type { PhaseModelConfig, ThinkingLevel, ModelTypeShort } from '../../../shared/types/settings';
 
@@ -176,8 +177,16 @@ interface PhaseLogSectionProps {
 
 function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, phaseConfig }: PhaseLogSectionProps) {
   const Icon = PHASE_ICONS[phase];
+  const logOrder = useSettingsStore(s => s.settings.logOrder);
   const status = phaseLog?.status || 'pending';
   const hasEntries = (phaseLog?.entries.length || 0) > 0;
+
+  // Memoize sorted entries to avoid re-calculating on every render
+  // Entries are naturally in chronological order (oldest first from append())
+  const displayedEntries = useMemo(() => {
+    const entries = phaseLog?.entries || [];
+    return logOrder === 'reverse-chronological' ? [...entries].reverse() : entries;
+  }, [phaseLog?.entries, logOrder]);
 
   const getStatusBadge = () => {
     switch (status) {
@@ -273,8 +282,8 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, p
           {!hasEntries ? (
             <p className="text-xs text-muted-foreground italic">No logs yet</p>
           ) : (
-            phaseLog?.entries.map((entry, idx) => (
-              <LogEntry key={`${entry.timestamp}-${idx}`} entry={entry} />
+            displayedEntries.map((entry) => (
+              <LogEntry key={`${entry.timestamp}-${entry.type}-${entry.content}`} entry={entry} />
             ))
           )}
         </div>
@@ -314,7 +323,8 @@ function LogEntry({ entry }: LogEntryProps) {
   const formatTime = (timestamp: string) => {
     try {
       const date = new Date(timestamp);
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      // Use system locale for date and time formatting
+      return date.toLocaleString();
     } catch {
       return '';
     }
