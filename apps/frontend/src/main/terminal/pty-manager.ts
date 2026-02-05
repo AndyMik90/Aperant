@@ -168,6 +168,7 @@ export function spawnPtyProcess(
   const shellArgs = isWindows() ? [] : ['-l'];
 
   debugLog('[PtyManager] Spawning shell:', shell, shellArgs, '(preferred:', preferredTerminal || 'system', ', shellType:', shellType, ')');
+  debugLog('[PtyManager] PTY dimensions requested - cols:', cols, 'rows:', rows, 'cwd:', cwd || os.homedir());
 
   // Create a clean environment without DEBUG to prevent Claude Code from
   // enabling debug mode when the Electron app is run in development mode.
@@ -355,10 +356,30 @@ export function writeToPty(terminal: TerminalProcess, data: string): void {
 }
 
 /**
- * Resize a PTY process
+ * Resize a PTY process with validation and error handling.
+ * @param terminal The terminal process to resize
+ * @param cols New column count
+ * @param rows New row count
+ * @returns true if resize was successful, false otherwise
  */
-export function resizePty(terminal: TerminalProcess, cols: number, rows: number): void {
-  terminal.pty.resize(cols, rows);
+export function resizePty(terminal: TerminalProcess, cols: number, rows: number): boolean {
+  // Validate dimensions
+  if (cols <= 0 || rows <= 0 || !Number.isFinite(cols) || !Number.isFinite(rows)) {
+    debugError('[PtyManager] Invalid resize dimensions - terminal:', terminal.id, 'cols:', cols, 'rows:', rows);
+    return false;
+  }
+
+  try {
+    const prevCols = terminal.pty.cols;
+    const prevRows = terminal.pty.rows;
+    debugLog('[PtyManager] Resizing PTY - terminal:', terminal.id, 'from:', prevCols, 'x', prevRows, 'to:', cols, 'x', rows);
+    terminal.pty.resize(cols, rows);
+    debugLog('[PtyManager] PTY resized - actual dimensions now:', terminal.pty.cols, 'x', terminal.pty.rows);
+    return true;
+  } catch (error) {
+    debugError('[PtyManager] Resize failed for terminal:', terminal.id, 'error:', error);
+    return false;
+  }
 }
 
 /**

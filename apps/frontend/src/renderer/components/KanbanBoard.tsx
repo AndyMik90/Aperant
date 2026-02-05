@@ -28,7 +28,6 @@ import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { QueueSettingsModal } from './QueueSettingsModal';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
-import { debugLog } from '../../shared/utils/debug-logger';
 import { cn } from '../lib/utils';
 import { persistTaskStatus, forceCompleteTask, archiveTasks, deleteTasks, useTaskStore } from '../stores/task-store';
 import { updateProjectSettings, useProjectStore } from '../stores/project-store';
@@ -1068,74 +1067,29 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     isProcessingQueueRef.current = true;
 
     try {
-      // Track tasks we've already processed in this call to prevent duplicates
-      // This is critical because store updates happen synchronously but we need to ensure
-      // we never process the same task twice, even if there are timing issues
-      const processedTaskIds = new Set<string>();
+      // Track tasks we've already attempted to promote (to avoid infinite retries)
+      const attemptedTaskIds = new Set<string>();
       let consecutiveFailures = 0;
       const MAX_CONSECUTIVE_FAILURES = 10; // Safety limit to prevent infinite loop
 
-      // Track promotions in this call to enforce max parallel tasks limit
-      let promotedInThisCall = 0;
-
-      // Log initial state
-      const initialTasks = useTaskStore.getState().tasks;
-      const initialInProgress = initialTasks.filter((t) => t.status === 'in_progress' && !t.metadata?.archivedAt);
-      const initialQueued = initialTasks.filter((t) => t.status === 'queue' && !t.metadata?.archivedAt);
-      debugLog(`[Queue] === PROCESS QUEUE START ===`, {
-        maxParallelTasks,
-        initialInProgressCount: initialInProgress.length,
-        initialInProgressIds: initialInProgress.map(t => t.id),
-        initialQueuedCount: initialQueued.length,
-        initialQueuedIds: initialQueued.map(t => t.id),
-        projectId
-      });
-
       // Loop until capacity is full or queue is empty
-      let iteration = 0;
       while (true) {
-        iteration++;
-        // Calculate total in-progress count: tasks that were already in progress + tasks promoted in this call
-        const totalInProgressCount = initialInProgress.length + promotedInThisCall;
-
-        debugLog(`[Queue] --- Iteration ${iteration} ---`, {
-          initialInProgressCount: initialInProgress.length,
-          promotedInThisCall,
-          totalInProgressCount,
-          capacityCheck: totalInProgressCount >= maxParallelTasks,
-          processedCount: processedTaskIds.size
-        });
-
-        // Stop if no capacity (initial in-progress + promoted in this call)
-        if (totalInProgressCount >= maxParallelTasks) {
-          debugLog(`[Queue] Capacity reached (${totalInProgressCount}/${maxParallelTasks}), stopping queue processing`);
-          break;
-        }
-
-        // Get CURRENT state from store to find queued tasks
-        const latestTasks = useTaskStore.getState().tasks;
-        const latestInProgress = latestTasks.filter((t) => t.status === 'in_progress' && !t.metadata?.archivedAt);
-        const queuedTasks = latestTasks.filter((t) =>
-          t.status === 'queue' && !t.metadata?.archivedAt && !processedTaskIds.has(t.id)
+        // Get CURRENT state from store to ensure accuracy
+        const currentTasks = useTaskStore.getState().tasks;
+        const inProgressCount = currentTasks.filter((t) =>
+          t.status === 'in_progress' && !t.metadata?.archivedAt
+        ).length;
+        const queuedTasks = currentTasks.filter((t) =>
+          t.status === 'queue' && !t.metadata?.archivedAt && !attemptedTaskIds.has(t.id)
         );
 
-        debugLog(`[Queue] Current store state:`, {
-          totalTasks: latestTasks.length,
-          inProgressCount: latestInProgress.length,
-          inProgressIds: latestInProgress.map(t => t.id),
-          queuedCount: queuedTasks.length,
-          queuedIds: queuedTasks.map(t => t.id),
-          processedIds: Array.from(processedTaskIds)
-        });
-
-        // Stop if no queued tasks or too many consecutive failures
-        if (queuedTasks.length === 0) {
-          debugLog('[Queue] No more queued tasks to process');
+        // Stop if no capacity, no queued tasks, or too many consecutive failures
+        if (inProgressCount >= maxParallelTasks || queuedTasks.length === 0) {
           break;
         }
 
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-          debugLog(`[Queue] Stopping queue processing after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`);
+          console.warn(`[Queue] Stopping queue processing after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`);
           break;
         }
 
@@ -1146,62 +1100,28 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           return dateA - dateB; // Ascending order (oldest first)
         })[0];
 
-        debugLog(`[Queue] Selected task for promotion:`, {
-          id: nextTask.id,
-          currentStatus: nextTask.status,
-          title: nextTask.title?.substring(0, 50)
-        });
-
-        // Mark task as processed BEFORE attempting promotion to prevent duplicates
-        processedTaskIds.add(nextTask.id);
-
-        debugLog(`[Queue] Promoting task ${nextTask.id} (${promotedInThisCall + 1}/${maxParallelTasks})`);
+        console.log(`[Queue] Auto-promoting task ${nextTask.id} from Queue to In Progress (${inProgressCount + 1}/${maxParallelTasks})`);
         const result = await persistTaskStatus(nextTask.id, 'in_progress');
 
-        // Check store state after promotion
-        const afterPromoteTasks = useTaskStore.getState().tasks;
-        const afterPromoteInProgress = afterPromoteTasks.filter((t) => t.status === 'in_progress' && !t.metadata?.archivedAt);
-        const afterPromoteQueued = afterPromoteTasks.filter((t) => t.status === 'queue' && !t.metadata?.archivedAt);
-
-        debugLog(`[Queue] After promotion attempt:`, {
-          resultSuccess: result.success,
-          promotedInThisCall,
-          inProgressCount: afterPromoteInProgress.length,
-          inProgressIds: afterPromoteInProgress.map(t => t.id),
-          queuedCount: afterPromoteQueued.length,
-          queuedIds: afterPromoteQueued.map(t => t.id)
-        });
-
         if (result.success) {
-          // Increment our local promotion counter
-          promotedInThisCall++;
           // Reset consecutive failures on success
           consecutiveFailures = 0;
         } else {
-          // If promotion failed, log error and continue to next task
+          // If promotion failed, log error, mark as attempted, and skip to next task
           console.error(`[Queue] Failed to promote task ${nextTask.id} to In Progress:`, result.error);
+          attemptedTaskIds.add(nextTask.id);
           consecutiveFailures++;
         }
       }
 
-      // Log summary
-      debugLog(`[Queue] === PROCESS QUEUE COMPLETE ===`, {
-        totalIterations: iteration,
-        tasksProcessed: processedTaskIds.size,
-        tasksPromoted: promotedInThisCall,
-        processedIds: Array.from(processedTaskIds)
-      });
-
-      // Trigger UI refresh if tasks were promoted to ensure UI reflects all changes
-      // This handles the case where store updates are batched/delayed via IPC events
-      if (promotedInThisCall > 0 && onRefresh) {
-        debugLog('[Queue] Triggering UI refresh after queue promotion');
-        onRefresh();
+      // Log if we had failed tasks
+      if (attemptedTaskIds.size > 0) {
+        console.warn(`[Queue] Skipped ${attemptedTaskIds.size} task(s) that failed to promote`);
       }
     } finally {
       isProcessingQueueRef.current = false;
     }
-  }, [maxParallelTasks, projectId, onRefresh]);
+  }, [maxParallelTasks]);
 
   // Register task status change listener for queue auto-promotion
   // This ensures processQueue() is called whenever a task leaves in_progress
@@ -1210,7 +1130,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       (taskId, oldStatus, newStatus) => {
         // When a task leaves in_progress (e.g., goes to human_review), process the queue
         if (oldStatus === 'in_progress' && newStatus !== 'in_progress') {
-          debugLog(`[Queue] Task ${taskId} left in_progress, processing queue to fill slot`);
+          console.log(`[Queue] Task ${taskId} left in_progress, processing queue to fill slot`);
           processQueue();
         }
       }

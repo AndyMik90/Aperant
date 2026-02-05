@@ -29,8 +29,6 @@ export class LogService {
 
   // Flush logs to disk every 2 seconds to balance performance vs data safety
   private readonly FLUSH_INTERVAL_MS = 2000;
-  // Maximum log file size before rotation (10MB)
-  private readonly MAX_LOG_SIZE_BYTES = 10 * 1024 * 1024;
   // Keep last N sessions
   private readonly MAX_SESSIONS_TO_KEEP = 10;
 
@@ -205,7 +203,7 @@ export class LogService {
       const sessionId = file.replace('session-', '').replace('.log', '');
 
       // Parse session ID back to date
-      const dateStr = sessionId.replace(/-/g, (match, offset) => {
+      const dateStr = sessionId.replace(/-/g, (_match, offset) => {
         // Replace first 2 dashes with actual dashes, rest with colons
         if (offset < 10) return '-';
         if (offset === 10) return 'T';

@@ -46,7 +46,7 @@ vi.mock('../../lib/terminal-font-constants', () => ({
 describe('terminal-font-settings-store', () => {
   let useTerminalFontSettingsStore: typeof import('../terminal-font-settings-store').useTerminalFontSettingsStore;
   let TERMINAL_PRESETS: typeof import('../terminal-font-settings-store').TERMINAL_PRESETS;
-  let getOS: typeof import('../../lib/os-detection').getOS;
+  let _getOS: typeof import('../../lib/os-detection').getOS;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -90,7 +90,7 @@ describe('terminal-font-settings-store', () => {
     const storeModule = await import('../terminal-font-settings-store');
     useTerminalFontSettingsStore = storeModule.useTerminalFontSettingsStore;
     TERMINAL_PRESETS = storeModule.TERMINAL_PRESETS;
-    getOS = (await import('../../lib/os-detection')).getOS;
+    _getOS = (await import('../../lib/os-detection')).getOS;
   });
 
   afterEach(() => {
