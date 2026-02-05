@@ -159,6 +159,11 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     }
   }, [activeTab, isUserScrolledUp, logOrder, phaseLogs]);
 
+  // Reset scroll state when log order changes to re-anchor to the correct position
+  useEffect(() => {
+    setIsUserScrolledUp(false);
+  }, [logOrder]);
+
   // Reset scroll state when switching to logs tab
   useEffect(() => {
     if (activeTab === 'logs') {
