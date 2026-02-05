@@ -16,6 +16,8 @@ export interface TerminalProcess {
   cwd: string;
   claudeSessionId?: string;
   claudeProfileId?: string;
+  /** Tracks the config directory used for this terminal to detect profile changes */
+  claudeConfigDir?: string;
   outputBuffer: string;
   title: string;
   /** Associated worktree configuration (persisted across restarts) */
