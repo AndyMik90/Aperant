@@ -162,7 +162,9 @@
     "updateDownloaded": "Update downloaded successfully! Click Install to restart and apply the update.",
     "downloadError": "Failed to download update",
     "claudeCodeChangelog": "View Claude Code Changelog",
-    "claudeCodeChangelogAriaLabel": "View Claude Code Changelog (opens in new window)"
+    "claudeCodeChangelogAriaLabel": "View Claude Code Changelog (opens in new window)",
+    "readOnlyVolumeTitle": "Cannot install from disk image",
+    "readOnlyVolumeDescription": "Please move Auto Claude to your Applications folder before updating."
   },
   "versionWarning": {
     "title": "Action Required",
