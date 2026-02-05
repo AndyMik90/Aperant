@@ -302,7 +302,10 @@
     "stableDowngradeAvailable": "Version stable disponible",
     "stableDowngradeDescription": "Vous êtes actuellement sur une version bêta. Comme vous avez désactivé les mises à jour bêta, vous pouvez passer à la dernière version stable.",
     "stableVersion": "Version stable",
-    "downloadStableVersion": "Télécharger la version stable"
+    "downloadStableVersion": "Télécharger la version stable",
+    "readOnlyVolumeTitle": "Impossible d'installer depuis l'image disque",
+    "readOnlyVolumeDescription": "Auto Claude s'exécute depuis une image disque en lecture seule (DMG). Veuillez glisser l'application dans votre dossier Applications et la relancer depuis cet emplacement pour installer les mises à jour.",
+    "downloadError": "Échec du téléchargement de la mise à jour"
   },
   "notifications": {
     "title": "Notifications",

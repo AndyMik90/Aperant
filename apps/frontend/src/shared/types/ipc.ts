@@ -74,7 +74,7 @@ import type {
   TerminalProfileChangedEvent
 } from './agent';
 import type { AppSettings, SourceEnvConfig, SourceEnvCheckResult } from './settings';
-import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent } from './app-update';
+import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent, AppUpdateErrorEvent } from './app-update';
 import type {
   ChangelogTask,
   TaskSpecContent,
@@ -709,6 +709,12 @@ export interface ElectronAPI {
   ) => () => void;
   onAppUpdateStableDowngrade: (
     callback: (info: AppUpdateInfo) => void
+  ) => () => void;
+  onAppUpdateReadOnlyVolume: (
+    callback: (info: { appPath: string }) => void
+  ) => () => void;
+  onAppUpdateError: (
+    callback: (error: AppUpdateErrorEvent) => void
   ) => () => void;
 
   // Shell operations

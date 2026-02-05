@@ -302,7 +302,10 @@
     "stableDowngradeAvailable": "Stable Version Available",
     "stableDowngradeDescription": "You're currently on a beta version. Since you've disabled beta updates, you can switch to the latest stable release.",
     "stableVersion": "Stable Version",
-    "downloadStableVersion": "Download Stable Version"
+    "downloadStableVersion": "Download Stable Version",
+    "readOnlyVolumeTitle": "Cannot Install from Disk Image",
+    "readOnlyVolumeDescription": "Auto Claude is running from a read-only disk image (DMG). Please drag the app to your Applications folder and relaunch it from there to install updates.",
+    "downloadError": "Failed to download update"
   },
   "notifications": {
     "title": "Notifications",
