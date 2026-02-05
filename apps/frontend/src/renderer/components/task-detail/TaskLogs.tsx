@@ -182,9 +182,10 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, p
   const hasEntries = (phaseLog?.entries.length || 0) > 0;
 
   // Memoize sorted entries to avoid re-calculating on every render
+  // Entries are naturally in chronological order (oldest first from append())
   const displayedEntries = useMemo(() => {
     const entries = phaseLog?.entries || [];
-    return logOrder === 'chronological' ? [...entries].reverse() : entries;
+    return logOrder === 'reverse-chronological' ? [...entries].reverse() : entries;
   }, [phaseLog?.entries, logOrder]);
 
   const getStatusBadge = () => {
@@ -322,7 +323,8 @@ function LogEntry({ entry }: LogEntryProps) {
   const formatTime = (timestamp: string) => {
     try {
       const date = new Date(timestamp);
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      // Use system locale for date and time formatting
+      return date.toLocaleString();
     } catch {
       return '';
     }

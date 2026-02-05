@@ -263,7 +263,7 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
               <SelectTrigger id="logOrder" className="w-72">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">
                 <SelectItem value="chronological">
                   {t('logOrder.chronological')}
                 </SelectItem>

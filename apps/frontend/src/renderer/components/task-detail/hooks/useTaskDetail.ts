@@ -157,7 +157,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
         logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
       }
     }
-  }, [activeTab, isUserScrolledUp, logOrder]);
+  }, [activeTab, isUserScrolledUp, logOrder, phaseLogs]);
 
   // Reset scroll state when switching to logs tab
   useEffect(() => {
