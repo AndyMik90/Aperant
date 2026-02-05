@@ -94,7 +94,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [isCreatingPR, setIsCreatingPR] = useState(false);
 
   const selectedProject = useProjectStore((state) => state.getSelectedProject());
-  const { settings } = useSettingsStore();
+  const logOrder = useSettingsStore(s => s.settings.logOrder);
   const isRunning = task.status === 'in_progress';
   // isActiveTask includes ai_review for stuck detection (CHANGELOG documents this feature)
   const isActiveTask = task.status === 'in_progress' || task.status === 'ai_review';
@@ -136,7 +136,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   // Handle scroll events in logs to detect if user scrolled away from anchor
   const handleLogsScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
-    const isReverseOrder = settings.logOrder === 'reverse-chronological';
+    const isReverseOrder = logOrder === 'reverse-chronological';
 
     // Check distance from top for reverse order, bottom for chronological
     const isAtAnchor = isReverseOrder
@@ -148,7 +148,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
 
   // Auto-scroll logs to anchor (top for reverse, bottom for chronological) only if user hasn't scrolled away
   useEffect(() => {
-    const isReverseOrder = settings.logOrder === 'reverse-chronological';
+    const isReverseOrder = logOrder === 'reverse-chronological';
 
     if (activeTab === 'logs' && !isUserScrolledUp) {
       if (isReverseOrder && logsContainerRef.current) {
@@ -157,7 +157,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
         logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
       }
     }
-  }, [activeTab, isUserScrolledUp, settings.logOrder]);
+  }, [activeTab, isUserScrolledUp, logOrder]);
 
   // Reset scroll state when switching to logs tab
   useEffect(() => {

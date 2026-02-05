@@ -177,15 +177,15 @@ interface PhaseLogSectionProps {
 
 function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, phaseConfig }: PhaseLogSectionProps) {
   const Icon = PHASE_ICONS[phase];
-  const { settings } = useSettingsStore();
+  const logOrder = useSettingsStore(s => s.settings.logOrder);
   const status = phaseLog?.status || 'pending';
   const hasEntries = (phaseLog?.entries.length || 0) > 0;
 
   // Memoize sorted entries to avoid re-calculating on every render
   const displayedEntries = useMemo(() => {
     const entries = phaseLog?.entries || [];
-    return settings.logOrder === 'chronological' ? [...entries].reverse() : entries;
-  }, [phaseLog?.entries, settings.logOrder]);
+    return logOrder === 'chronological' ? [...entries].reverse() : entries;
+  }, [phaseLog?.entries, logOrder]);
 
   const getStatusBadge = () => {
     switch (status) {
