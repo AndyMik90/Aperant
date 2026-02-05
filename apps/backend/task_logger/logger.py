@@ -4,6 +4,7 @@ Main TaskLogger class for logging task execution.
 
 from datetime import datetime, timezone
 from pathlib import Path
+import threading
 
 from core.debug import debug, debug_error, debug_info, debug_success, is_debug_enabled
 
@@ -48,6 +49,7 @@ class TaskLogger:
         self.current_subtask: str | None = None
         self.storage = LogStorage(spec_dir)
         self._entry_sequence = 0  # Monotonic counter for unique entry IDs
+        self._id_lock = threading.Lock()  # Thread-safe ID generation
 
     @property
     def _data(self) -> dict:
@@ -60,8 +62,9 @@ class TaskLogger:
 
     def _next_id(self) -> str:
         """Generate unique entry ID: timestamp + monotonic sequence."""
-        self._entry_sequence += 1
-        return f"{self._timestamp()}-{self._entry_sequence}"
+        with self._id_lock:
+            self._entry_sequence += 1
+            return f"{self._timestamp()}-{self._entry_sequence}"
 
     def _emit(self, marker_type: str, data: dict) -> None:
         """Emit a streaming marker to stdout for UI consumption."""

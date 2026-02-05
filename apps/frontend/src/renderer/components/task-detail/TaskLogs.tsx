@@ -185,7 +185,9 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, p
   // Entries are naturally in chronological order (oldest first from append())
   const displayedEntries = useMemo(() => {
     const entries = phaseLog?.entries || [];
-    return logOrder === 'reverse-chronological' ? [...entries].reverse() : entries;
+    // Add original index for stable fallback keys
+    const indexedEntries = entries.map((entry, idx) => ({ ...entry, originalIndex: idx }));
+    return logOrder === 'reverse-chronological' ? indexedEntries.reverse() : indexedEntries;
   }, [phaseLog?.entries, logOrder]);
 
   const getStatusBadge = () => {
@@ -283,7 +285,7 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, p
             <p className="text-xs text-muted-foreground italic">No logs yet</p>
           ) : (
             displayedEntries.map((entry) => (
-              <LogEntry key={entry.id || `${entry.timestamp}-${entry.type}-${entry.content}`} entry={entry} />
+              <LogEntry key={entry.id || `${entry.timestamp}-${entry.originalIndex}`} entry={entry} />
             ))
           )}
         </div>
