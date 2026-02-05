@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Terminal,
   Loader2,
@@ -181,6 +181,12 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, p
   const status = phaseLog?.status || 'pending';
   const hasEntries = (phaseLog?.entries.length || 0) > 0;
 
+  // Memoize sorted entries to avoid re-calculating on every render
+  const displayedEntries = useMemo(() => {
+    const entries = phaseLog?.entries || [];
+    return settings.logOrder === 'chronological' ? [...entries].reverse() : entries;
+  }, [phaseLog?.entries, settings.logOrder]);
+
   const getStatusBadge = () => {
     switch (status) {
       case 'active':
@@ -275,10 +281,7 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, p
           {!hasEntries ? (
             <p className="text-xs text-muted-foreground italic">No logs yet</p>
           ) : (
-            (settings.logOrder === 'chronological'
-              ? [...(phaseLog?.entries || [])].reverse()
-              : (phaseLog?.entries || [])
-            ).map((entry, idx) => (
+            displayedEntries.map((entry, idx) => (
               <LogEntry key={`${entry.timestamp}-${idx}`} entry={entry} />
             ))
           )}
