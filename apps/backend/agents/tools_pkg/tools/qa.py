@@ -155,7 +155,18 @@ def create_qa_tools(spec_dir: Path, project_dir: Path) -> list:
         except json.JSONDecodeError as e:
             # Attempt to auto-fix the plan and retry
             # Lazy import to avoid circular dependency
-            from spec.validate_pkg.auto_fix import auto_fix_plan
+            try:
+                from spec.validate_pkg.auto_fix import auto_fix_plan
+            except ImportError as import_err:
+                logging.warning(f"auto_fix_plan import failed: {import_err}")
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"Error: auto-fix unavailable ({import_err}). Original JSON error: {e}",
+                        }
+                    ]
+                }
 
             if auto_fix_plan(spec_dir):
                 # Retry after fix

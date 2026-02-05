@@ -446,11 +446,9 @@ async function fetchLatestStableRelease(): Promise<AppUpdateInfo | null> {
     let data = '';
 
     request.on('response', (response) => {
-      // Validate HTTP status code
       const statusCode = response.statusCode;
       if (statusCode !== 200) {
-        // Sanitize statusCode to prevent log injection
-        // Convert to number and validate range to ensure it's a valid HTTP status code
+        // Sanitize statusCode for safe logging (valid HTTP status codes only)
         const numericCode = Number(statusCode);
         const safeStatusCode = (Number.isInteger(numericCode) && numericCode >= 100 && numericCode < 600)
           ? String(numericCode)

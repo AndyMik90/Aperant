@@ -37,15 +37,11 @@ for (const envPath of possibleEnvPaths) {
 
 import { app, BrowserWindow, shell, nativeImage, session, screen, Menu, MenuItem } from 'electron';
 import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
-import { isDev, isMacOS, isWindows, isLinux, joinPaths } from './platform';
+import { isDev, isMacOS, isWindows, joinPaths } from './platform';
 
-// Platform detection wrapper for backward compatibility
-// Uses centralized platform module (apps/frontend/src/main/platform/)
+// Shorthand for isDev() used throughout this file
 const is = {
-  get dev() { return isDev(); },
-  get mac() { return isMacOS(); },
-  get windows() { return isWindows(); },
-  get linux() { return isLinux(); }
+  get dev() { return isDev(); }
 };
 import { setupIpcHandlers } from './ipc-setup';
 import { AgentManager } from './agent';
@@ -142,8 +138,7 @@ function getIconPath(): string {
     iconName = 'icon.png';
   }
 
-  const iconPath = joinPaths(resourcesPath, iconName);
-  return iconPath;
+  return joinPaths(resourcesPath, iconName);
 }
 
 // Keep a global reference of the window object to prevent garbage collection
@@ -208,7 +203,7 @@ function createWindow(): void {
     trafficLightPosition: { x: 15, y: 10 },
     icon: getIconPath(),
     webPreferences: {
-      preload: joinPaths(__dirname, '../preload/index.js'),
+      preload: joinPaths(__dirname, '../preload/index.cjs'),
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
@@ -358,7 +353,7 @@ try {
     // Force the name to appear in dock on macOS
     app.name = 'Auto Claude';
   }
-} catch (e) {
+} catch (_e) {
   // App not ready yet (WSL2), will be set in whenReady handler
   console.warn('[main] App not ready for pre-initialization, will set name after ready');
 }
@@ -371,7 +366,7 @@ app.whenReady().then(() => {
     if (isMacOS()) {
       app.name = 'Auto Claude';
     }
-  } catch (e) {
+  } catch (_e) {
     // Ignore - already set
   }
 

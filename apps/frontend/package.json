@@ -8,7 +8,7 @@
     "type": "git",
     "url": "https://github.com/AndyMik90/Auto-Claude.git"
   },
-  "main": "./out/main/index.js",
+  "main": "./out/main/index.cjs",
   "author": {
     "name": "Auto Claude Team",
     "email": "119136210+AndyMik90@users.noreply.github.com"
