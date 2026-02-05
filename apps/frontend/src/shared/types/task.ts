@@ -69,6 +69,7 @@ export type TaskLogPhaseStatus = 'pending' | 'active' | 'completed' | 'failed';
 export type TaskLogEntryType = 'text' | 'tool_start' | 'tool_end' | 'phase_start' | 'phase_end' | 'error' | 'success' | 'info';
 
 export interface TaskLogEntry {
+  id?: string;  // Unique identifier (timestamp + sequence), optional for backward compatibility
   timestamp: string;
   type: TaskLogEntryType;
   content: string;

@@ -47,6 +47,7 @@ class TaskLogger:
         self.current_session: int | None = None
         self.current_subtask: str | None = None
         self.storage = LogStorage(spec_dir)
+        self._entry_sequence = 0  # Monotonic counter for unique entry IDs
 
     @property
     def _data(self) -> dict:
@@ -56,6 +57,11 @@ class TaskLogger:
     def _timestamp(self) -> str:
         """Get current timestamp in ISO format."""
         return datetime.now(timezone.utc).isoformat()
+
+    def _next_id(self) -> str:
+        """Generate unique entry ID: timestamp + monotonic sequence."""
+        self._entry_sequence += 1
+        return f"{self._timestamp()}-{self._entry_sequence}"
 
     def _emit(self, marker_type: str, data: dict) -> None:
         """Emit a streaming marker to stdout for UI consumption."""
@@ -144,6 +150,7 @@ class TaskLogger:
                 )
                 # Add a log entry noting the auto-close
                 auto_close_entry = LogEntry(
+                    id=self._next_id(),
                     timestamp=self._timestamp(),
                     type=LogEntryType.PHASE_END.value,
                     content=f"{other_phase_key} phase auto-closed on resume",
@@ -162,7 +169,7 @@ class TaskLogger:
         # Add phase start entry
         phase_message = message or f"Starting {phase_key} phase"
         phase_message = strip_ansi_codes(phase_message)
-        entry = LogEntry(
+        entry = LogEntry(id=self._next_id(),
             timestamp=self._timestamp(),
             type=LogEntryType.PHASE_START.value,
             content=phase_message,
@@ -206,7 +213,7 @@ class TaskLogger:
         )
         phase_message = strip_ansi_codes(phase_message)
 
-        entry = LogEntry(
+        entry = LogEntry(id=self._next_id(),
             timestamp=self._timestamp(),
             type=LogEntryType.PHASE_END.value,
             content=phase_message,
@@ -249,7 +256,7 @@ class TaskLogger:
 
         phase_key = (phase or self.current_phase or LogPhase.CODING).value
 
-        entry = LogEntry(
+        entry = LogEntry(id=self._next_id(),
             timestamp=self._timestamp(),
             type=entry_type.value,
             content=content,
@@ -321,7 +328,7 @@ class TaskLogger:
         if detail:
             detail = strip_ansi_codes(detail)
 
-        entry = LogEntry(
+        entry = LogEntry(id=self._next_id(),
             timestamp=self._timestamp(),
             type=entry_type.value,
             content=content,
@@ -381,7 +388,7 @@ class TaskLogger:
         if subphase:
             subphase = strip_ansi_codes(subphase)
 
-        entry = LogEntry(
+        entry = LogEntry(id=self._next_id(),
             timestamp=self._timestamp(),
             type=LogEntryType.INFO.value,
             content=f"Starting {subphase}",
@@ -433,7 +440,7 @@ class TaskLogger:
         if display_input and len(display_input) > 300:
             display_input = display_input[:297] + "..."
 
-        entry = LogEntry(
+        entry = LogEntry(id=self._next_id(),
             timestamp=self._timestamp(),
             type=LogEntryType.TOOL_START.value,
             content=f"[{tool_name}] {display_input or ''}".strip(),
@@ -503,7 +510,7 @@ class TaskLogger:
                 + f"\n\n... [truncated - full output was {sanitized_len} chars]"
             )
 
-        entry = LogEntry(
+        entry = LogEntry(id=self._next_id(),
             timestamp=self._timestamp(),
             type=LogEntryType.TOOL_END.value,
             content=content,
