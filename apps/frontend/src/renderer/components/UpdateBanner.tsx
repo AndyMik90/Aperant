@@ -134,6 +134,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
     const cleanup = window.electronAPI.onAppUpdateError((error) => {
       setDownloadError(error.message);
       setIsDownloading(false);
+      setDownloadProgress(null);
     });
 
     return cleanup;
@@ -222,7 +223,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
           <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
             <div
               className="h-full bg-info transition-all duration-300"
-              style={{ width: `${downloadProgress.percent}%` }}
+              style={{ width: `${Math.min(100, Math.max(0, downloadProgress.percent))}%` }}
             />
           </div>
         </div>

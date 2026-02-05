@@ -10,7 +10,7 @@ import {
   AlertTriangle,
   AlertCircle
 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
@@ -32,12 +32,30 @@ import type {
  * GitHub release notes come as HTML, so we detect and handle both formats.
  * Uses ReactMarkdown with rehype-sanitize to prevent XSS attacks.
  */
+/** Safe link component that opens external URLs in the default browser */
+const safeMarkdownComponents: Components = {
+  a: ({ href, children, ...props }) => {
+    const isExternal = href?.startsWith('http://') || href?.startsWith('https://');
+    return (
+      <a
+        href={href}
+        {...props}
+        {...(isExternal && { target: '_blank', rel: 'noopener noreferrer' })}
+        className="text-primary hover:underline"
+      >
+        {children}
+      </a>
+    );
+  }
+};
+
 function ReleaseNotesRenderer({ content }: { content: string }) {
   return (
     <div className="text-sm text-muted-foreground leading-relaxed prose prose-sm dark:prose-invert max-w-none [&_ul]:ml-4 [&_ol]:ml-4">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw, rehypeSanitize]}
+        components={safeMarkdownComponents}
       >
         {content}
       </ReactMarkdown>
@@ -166,6 +184,7 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
     const cleanupError = window.electronAPI.onAppUpdateError((error) => {
       setAppUpdateError(error.message);
       setIsDownloadingAppUpdate(false);
+      setAppDownloadProgress(null);
     });
 
     return () => {

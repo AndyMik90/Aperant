@@ -124,6 +124,7 @@ export function AppUpdateNotification() {
     const cleanup = window.electronAPI.onAppUpdateError((error) => {
       setDownloadError(error.message);
       setIsDownloading(false);
+      setDownloadProgress(null);
     });
 
     return cleanup;
