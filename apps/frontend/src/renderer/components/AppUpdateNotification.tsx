@@ -230,7 +230,7 @@ export function AppUpdateNotification() {
             variant="link"
             size="sm"
             className="w-full text-xs text-muted-foreground gap-1"
-            onClick={() => window.electronAPI?.openExternal?.(CLAUDE_CODE_CHANGELOG_URL)}
+            onClick={() => window.electronAPI.openExternal(CLAUDE_CODE_CHANGELOG_URL)}
             aria-label={t(
               "dialogs:appUpdate.claudeCodeChangelogAriaLabel",
               "View Claude Code Changelog (opens in new window)"
