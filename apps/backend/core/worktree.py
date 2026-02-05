@@ -734,11 +734,11 @@ class WorktreeManager:
         # Remove .auto-claude files from git index in the new worktree
         # This prevents files that were tracked in the base branch from
         # being tracked in the worktree
-        result = self._run_git(
+        ls_result = self._run_git(
             ["ls-files", ".auto-claude/"],
             cwd=worktree_path,
         )
-        if result.returncode == 0 and result.stdout.strip():
+        if ls_result.returncode == 0 and ls_result.stdout.strip():
             print("Removing .auto-claude files from git index in worktree...")
             rm_result = self._run_git(
                 ["rm", "-r", "--cached", "--ignore-unmatch", "--", ".auto-claude/"],
