@@ -260,7 +260,7 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
                 logOrder: value as 'chronological' | 'reverse-chronological'
               })}
             >
-              <SelectTrigger id="logOrder" className="w-56">
+              <SelectTrigger id="logOrder" className="w-72">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
