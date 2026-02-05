@@ -58,7 +58,9 @@ export const createAppUpdateAPI = (): AppUpdateAPI => ({
     invokeIpc(IPC_CHANNELS.APP_UPDATE_DOWNLOAD_STABLE),
 
   installAppUpdate: (): void => {
-    invokeIpc(IPC_CHANNELS.APP_UPDATE_INSTALL);
+    invokeIpc(IPC_CHANNELS.APP_UPDATE_INSTALL).catch((err) =>
+      console.error('[app-update] Install failed:', err)
+    );
   },
 
   getAppVersion: (): Promise<string> =>

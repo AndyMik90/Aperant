@@ -317,11 +317,11 @@ function isRunningFromReadOnlyVolume(): boolean {
   // Additional check: try to determine if the filesystem is read-only
   // Apps in DMGs typically have paths like /Volumes/App-Name/App.app
   try {
-    // Get the app bundle path (parent of Resources/app.asar)
-    const appBundlePath = path.resolve(appPath, '..', '..');
+    // Navigate from app.asar to the Contents/ directory (app.asar -> Resources -> Contents)
+    const contentsPath = path.resolve(appPath, '..', '..');
 
-    // Try to check if we can write to the app's parent directory
-    accessSync(path.dirname(appBundlePath), fsConstants.W_OK);
+    // Try to check if we can write to the app bundle's parent directory
+    accessSync(path.dirname(contentsPath), fsConstants.W_OK);
     return false;
   } catch (error: unknown) {
     // Only treat as read-only if the filesystem itself is read-only (EROFS).

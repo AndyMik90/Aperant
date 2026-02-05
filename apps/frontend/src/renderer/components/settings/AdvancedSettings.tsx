@@ -133,6 +133,7 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
       setAppUpdateInfo(info);
       setIsCheckingAppUpdate(false);
       setShowReadOnlyWarning(false);
+      setAppUpdateError(null);
     });
 
     const cleanupDownloaded = window.electronAPI.onAppUpdateDownloaded((info) => {
@@ -144,6 +145,7 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
       setStableDowngradeInfo(null);
       // Reset read-only warning when a new update is downloaded
       setShowReadOnlyWarning(false);
+      setAppUpdateError(null);
     });
 
     const cleanupProgress = window.electronAPI.onAppUpdateProgress((progress) => {
@@ -156,12 +158,12 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
     });
 
     // Listen for read-only volume warning (when trying to install from DMG)
-    const cleanupReadOnlyVolume = window.electronAPI.onAppUpdateReadOnlyVolume(() => {
+    const cleanupReadOnlyVolume = window.electronAPI?.onAppUpdateReadOnlyVolume?.(() => {
       setShowReadOnlyWarning(true);
     });
 
     // Listen for update errors (e.g., install failures)
-    const cleanupError = window.electronAPI.onAppUpdateError((error) => {
+    const cleanupError = window.electronAPI?.onAppUpdateError?.((error) => {
       setAppUpdateError(error.message);
       setIsDownloadingAppUpdate(false);
     });
@@ -171,8 +173,8 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
       cleanupDownloaded();
       cleanupProgress();
       cleanupStableDowngrade();
-      cleanupReadOnlyVolume();
-      cleanupError();
+      cleanupReadOnlyVolume?.();
+      cleanupError?.();
     };
   }, []);
 
@@ -357,14 +359,6 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
                     <p className="font-medium text-warning">{t('updates.readOnlyVolumeTitle')}</p>
                     <p className="text-muted-foreground">{t('updates.readOnlyVolumeDescription')}</p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 shrink-0 ml-auto"
-                    onClick={() => setShowReadOnlyWarning(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
                 </div>
               )}
 
