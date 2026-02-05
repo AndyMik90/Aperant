@@ -914,13 +914,16 @@ function executeProfileCommand(options: ExecuteProfileCommandOptions): boolean {
     logPrefix,
   } = options;
 
-  if (!needsEnvOverride || !activeProfile || activeProfile.isDefault) {
+  if (!needsEnvOverride || !activeProfile) {
     return false; // Use default method
   }
 
   // Prefer configDir over token because CLAUDE_CONFIG_DIR lets Claude Code
   // read full Keychain credentials including subscriptionType ("max") and rateLimitTier.
   // Using CLAUDE_CODE_OAUTH_TOKEN alone lacks tier info, causing "Claude API" display.
+  //
+  // IMPORTANT: Even default profiles now have configDir (since migration to isolated directories).
+  // We should NOT check isDefault here - all profiles with configDir should use config-dir method.
   if (activeProfile.configDir) {
     const command = buildClaudeShellCommand(
       cwdCommand,
@@ -992,13 +995,16 @@ async function executeProfileCommandAsync(options: ExecuteProfileCommandOptions)
     logPrefix,
   } = options;
 
-  if (!needsEnvOverride || !activeProfile || activeProfile.isDefault) {
+  if (!needsEnvOverride || !activeProfile) {
     return false; // Use default method
   }
 
   // Prefer configDir over token because CLAUDE_CONFIG_DIR lets Claude Code
   // read full Keychain credentials including subscriptionType ("max") and rateLimitTier.
   // Using CLAUDE_CODE_OAUTH_TOKEN alone lacks tier info, causing "Claude API" display.
+  //
+  // IMPORTANT: Even default profiles now have configDir (since migration to isolated directories).
+  // We should NOT check isDefault here - all profiles with configDir should use config-dir method.
   if (activeProfile.configDir) {
     const command = buildClaudeShellCommand(
       cwdCommand,
@@ -1131,9 +1137,9 @@ export function invokeClaude(
       return; // Command already executed via configDir or temp-file method
     }
 
-    // Fall back to default method
-    if (activeProfile && !activeProfile.isDefault) {
-      debugLog('[ClaudeIntegration:invokeClaude] Using terminal environment for non-default profile:', activeProfile.name);
+    // Fall back to default method (no configDir available)
+    if (activeProfile && !activeProfile.configDir) {
+      debugLog('[ClaudeIntegration:invokeClaude] Profile has no configDir, using terminal environment:', activeProfile.name);
     }
 
     const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'default' }, extraFlags);
@@ -1335,9 +1341,9 @@ export async function invokeClaudeAsync(
       return; // Command already executed via configDir or temp-file method
     }
 
-    // Fall back to default method
-    if (activeProfile && !activeProfile.isDefault) {
-      debugLog('[ClaudeIntegration:invokeClaudeAsync] Using terminal environment for non-default profile:', activeProfile.name);
+    // Fall back to default method (no configDir available)
+    if (activeProfile && !activeProfile.configDir) {
+      debugLog('[ClaudeIntegration:invokeClaudeAsync] Profile has no configDir, using terminal environment:', activeProfile.name);
     }
 
     const command = buildClaudeShellCommand(cwdCommand, pathPrefix, escapedClaudeCmd, { method: 'default' }, extraFlags);
