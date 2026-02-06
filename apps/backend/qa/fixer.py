@@ -12,6 +12,7 @@ Memory Integration:
 from pathlib import Path
 
 # Memory integration for cross-session learning
+from agents.base import sanitize_error_message
 from agents.memory_manager import get_graphiti_context, save_session_memory
 from claude_agent_sdk import ClaudeSDKClient
 from core.error_utils import is_tool_concurrency_error
@@ -333,20 +334,25 @@ async def run_qa_fixer_session(
             tool_count=tool_count,
         )
 
+        # Sanitize error message to remove potentially sensitive data
+        sanitized_error = sanitize_error_message(str(e))
+
         # Log concurrency errors prominently
         if is_concurrency:
             print("\n⚠️  Tool concurrency limit reached (400 error)")
             print("   Claude API limits concurrent tool use in a single request")
-            print(f"   Error: {str(e)[:200]}\n")
+            print(f"   Error: {sanitized_error[:200]}\n")
         else:
-            print(f"Error during fixer session: {e}")
+            print(f"Error during fixer session: {sanitized_error}")
 
         if task_logger:
-            task_logger.log_error(f"QA fixer error: {e}", LogPhase.VALIDATION)
+            task_logger.log_error(
+                f"QA fixer error: {sanitized_error}", LogPhase.VALIDATION
+            )
 
         error_info = {
             "type": error_type,
-            "message": str(e),
+            "message": sanitized_error,
             "exception_type": type(e).__name__,
         }
-        return "error", str(e), error_info
+        return "error", sanitized_error, error_info
