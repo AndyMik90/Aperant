@@ -22,7 +22,7 @@ import { detectAuthFailure, detectBillingFailure } from '../../../rate-limit-det
 import { getClaudeProfileManager } from '../../../claude-profile-manager';
 import { getOperationRegistry, type OperationType } from '../../../claude-profile/operation-registry';
 import { isWindows, isMacOS } from '../../../platform';
-import { getTaskkillExePath } from '../../../utils/windows-paths';
+import { getTaskkillExePath, getWhereExePath } from '../../../utils/windows-paths';
 
 const execAsync = promisify(exec);
 
@@ -614,7 +614,7 @@ export async function validateGitHubModule(project: Project): Promise<GitHubModu
 
   // 2. Check gh CLI installation (cross-platform)
   try {
-    const whichCommand = isWindows() ? 'where gh' : 'which gh';
+    const whichCommand = isWindows() ? `"${getWhereExePath()}" gh` : 'which gh';
     await execAsync(whichCommand);
     result.ghCliInstalled = true;
   } catch {
