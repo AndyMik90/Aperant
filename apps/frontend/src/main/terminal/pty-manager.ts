@@ -9,6 +9,7 @@ import { existsSync } from 'fs';
 import type { TerminalProcess, WindowGetter, WindowsShellType } from './types';
 import { isWindows, getWindowsShellPaths } from '../platform';
 import { IPC_CHANNELS } from '../../shared/constants';
+import { safeSendToRenderer } from '../ipc-handlers/utils';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { readSettingsFile } from '../settings-utils';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
@@ -221,11 +222,9 @@ export function setupPtyHandlers(
     // Call custom data handler
     onDataCallback(terminal, data);
 
-    // Send to renderer
-    const win = getWindow();
-    if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_OUTPUT, id, data);
-    }
+    // Send to renderer with isDestroyed() check to prevent crashes
+    // when the window is closed during terminal activity
+    safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_OUTPUT, id, data);
   });
 
   // Handle terminal exit
@@ -245,10 +244,9 @@ export function setupPtyHandlers(
     // to avoid pty.node SIGABRT from destroyed BrowserWindow resources
     if (isShuttingDown) return;
 
-    const win = getWindow();
-    if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_EXIT, id, exitCode);
-    }
+    // Send to renderer with isDestroyed() check to prevent crashes
+    // when the window is closed during terminal exit
+    safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_EXIT, id, exitCode);
 
     // Call custom exit handler
     onExitCallback(terminal);

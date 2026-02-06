@@ -145,7 +145,7 @@ class GraphitiConfig:
 
     # OpenRouter settings (multi-provider aggregator)
     openrouter_api_key: str = ""
-    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_base_url: str = "https://openrouter.ai/api"
     openrouter_llm_model: str = "anthropic/claude-sonnet-4"
     openrouter_embedding_model: str = "openai/text-embedding-3-small"
 
@@ -207,7 +207,7 @@ class GraphitiConfig:
         # OpenRouter settings
         openrouter_api_key = os.environ.get("OPENROUTER_API_KEY", "")
         openrouter_base_url = os.environ.get(
-            "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+            "OPENROUTER_BASE_URL", "https://openrouter.ai/api"
         )
         openrouter_llm_model = os.environ.get(
             "OPENROUTER_LLM_MODEL", "anthropic/claude-sonnet-4"
