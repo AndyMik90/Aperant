@@ -133,6 +133,9 @@ export function useGitHubPRs(
         previousResult: state.previousResult,
         error: state.error,
         newCommitsCheck: state.newCommitsCheck,
+        checksStatus: state.checksStatus,
+        reviewsStatus: state.reviewsStatus,
+        mergeableState: state.mergeableState,
       };
     },
     [projectId, getPRReviewState]
