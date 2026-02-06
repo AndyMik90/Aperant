@@ -30,6 +30,14 @@ export {
 
 export { mergeClaudeCodeSettings } from './merger';
 
+export {
+  sanitizeEnvVars,
+  isDangerousEnvVar,
+  isWarningEnvVar,
+  getDangerousEnvVars,
+  getWarningEnvVars,
+} from './env-sanitizer';
+
 import { readAllSettings as _readAllSettings } from './reader';
 
 /**

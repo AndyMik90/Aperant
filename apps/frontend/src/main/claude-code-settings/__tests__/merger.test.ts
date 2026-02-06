@@ -437,4 +437,158 @@ describe('mergeClaudeCodeSettings', () => {
     expect(result.env).toBeUndefined();
     expect(result.permissions).toBeUndefined();
   });
+
+  // Security: Env var sanitization tests
+  describe('environment variable sanitization', () => {
+    it('blocks dangerous env vars from projectShared level', () => {
+      const hierarchy: ClaudeCodeSettingsHierarchy = {
+        user: undefined,
+        projectShared: {
+          env: {
+            LD_PRELOAD: '/tmp/malicious.so',
+            NODE_OPTIONS: '--require evil.js',
+            SAFE_VAR: 'safe-value',
+          },
+        },
+        projectLocal: undefined,
+        managed: undefined,
+        merged: {},
+      };
+
+      const result = mergeClaudeCodeSettings(hierarchy);
+
+      // Dangerous vars should be filtered out, safe var should remain
+      expect(result.env).toEqual({ SAFE_VAR: 'safe-value' });
+      expect(result.env).not.toHaveProperty('LD_PRELOAD');
+      expect(result.env).not.toHaveProperty('NODE_OPTIONS');
+    });
+
+    it('blocks dangerous env vars from projectLocal level', () => {
+      const hierarchy: ClaudeCodeSettingsHierarchy = {
+        user: undefined,
+        projectShared: undefined,
+        projectLocal: {
+          env: {
+            DYLD_INSERT_LIBRARIES: '/tmp/backdoor.dylib',
+            PYTHONSTARTUP: '/tmp/evil.py',
+            SAFE_VAR: 'safe-value',
+          },
+        },
+        managed: undefined,
+        merged: {},
+      };
+
+      const result = mergeClaudeCodeSettings(hierarchy);
+
+      expect(result.env).toEqual({ SAFE_VAR: 'safe-value' });
+      expect(result.env).not.toHaveProperty('DYLD_INSERT_LIBRARIES');
+      expect(result.env).not.toHaveProperty('PYTHONSTARTUP');
+    });
+
+    it('allows user-level env vars (trusted)', () => {
+      const hierarchy: ClaudeCodeSettingsHierarchy = {
+        user: {
+          env: {
+            NODE_ENV: 'development',
+            CUSTOM_PATH: '/custom/bin',
+          },
+        },
+        projectShared: undefined,
+        projectLocal: undefined,
+        managed: undefined,
+        merged: {},
+      };
+
+      const result = mergeClaudeCodeSettings(hierarchy);
+
+      expect(result.env).toEqual({
+        NODE_ENV: 'development',
+        CUSTOM_PATH: '/custom/bin',
+      });
+    });
+
+    it('blocks dangerous vars even when mixed with safe vars across levels', () => {
+      const hierarchy: ClaudeCodeSettingsHierarchy = {
+        user: {
+          env: {
+            USER_VAR: 'user-value',
+          },
+        },
+        projectShared: {
+          env: {
+            LD_PRELOAD: '/tmp/evil.so',
+            SHARED_VAR: 'shared-value',
+          },
+        },
+        projectLocal: {
+          env: {
+            NODE_OPTIONS: '--require evil.js',
+            LOCAL_VAR: 'local-value',
+          },
+        },
+        managed: {
+          env: {
+            MANAGED_VAR: 'managed-value',
+          },
+        },
+        merged: {},
+      };
+
+      const result = mergeClaudeCodeSettings(hierarchy);
+
+      // Safe vars from all levels should be present
+      expect(result.env).toEqual({
+        USER_VAR: 'user-value',
+        SHARED_VAR: 'shared-value',
+        LOCAL_VAR: 'local-value',
+        MANAGED_VAR: 'managed-value',
+      });
+      // Dangerous vars should be filtered
+      expect(result.env).not.toHaveProperty('LD_PRELOAD');
+      expect(result.env).not.toHaveProperty('NODE_OPTIONS');
+    });
+
+    it('removes env object entirely if all vars are dangerous', () => {
+      const hierarchy: ClaudeCodeSettingsHierarchy = {
+        user: undefined,
+        projectShared: {
+          env: {
+            LD_PRELOAD: '/tmp/evil.so',
+            NODE_OPTIONS: '--require evil.js',
+            PYTHONSTARTUP: '/tmp/evil.py',
+          },
+        },
+        projectLocal: undefined,
+        managed: undefined,
+        merged: {},
+      };
+
+      const result = mergeClaudeCodeSettings(hierarchy);
+
+      // All vars are dangerous, so env should be removed entirely
+      expect(result.env).toBeUndefined();
+    });
+
+    it('allows PATH and SHELL (warning vars) from all levels', () => {
+      const hierarchy: ClaudeCodeSettingsHierarchy = {
+        user: {
+          env: { PATH: '/user/bin:/usr/bin' },
+        },
+        projectShared: {
+          env: { SHELL: '/bin/zsh' },
+        },
+        projectLocal: undefined,
+        managed: undefined,
+        merged: {},
+      };
+
+      const result = mergeClaudeCodeSettings(hierarchy);
+
+      // PATH and SHELL should be allowed (they only trigger warnings)
+      expect(result.env).toEqual({
+        PATH: '/user/bin:/usr/bin',
+        SHELL: '/bin/zsh',
+      });
+    });
+  });
 });

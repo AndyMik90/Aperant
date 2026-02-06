@@ -88,16 +88,12 @@ describe('reader', () => {
     });
 
     it('returns undefined when file contains invalid JSON', () => {
-      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { /* suppress */ });
-
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('{ invalid json }');
 
       const result = readUserGlobalSettings();
 
       expect(result).toBeUndefined();
-
-      consoleWarnSpy.mockRestore();
     });
 
     it('uses CLAUDE_CONFIG_DIR env var when set', () => {
@@ -118,6 +114,236 @@ describe('reader', () => {
       readUserGlobalSettings();
 
       expect(mockExistsSync).toHaveBeenCalledWith(USER_SETTINGS);
+    });
+
+    it('sanitizes env field when it is a string instead of object', () => {
+      const invalidSettings = {
+        model: 'valid-model',
+        env: 'not-an-object',
+      };
+
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(invalidSettings));
+
+      const result = readUserGlobalSettings();
+
+      // Should keep valid fields, remove invalid env
+      expect(result).toEqual({
+        model: 'valid-model',
+      });
+    });
+
+    it('sanitizes env field when it is an array', () => {
+      const invalidSettings = {
+        model: 'valid-model',
+        env: ['VAR1=value1', 'VAR2=value2'],
+      };
+
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(invalidSettings));
+
+      const result = readUserGlobalSettings();
+
+      // Should keep valid fields, remove invalid env
+      expect(result).toEqual({
+        model: 'valid-model',
+      });
+    });
+
+    it('sanitizes env field when it is a number', () => {
+      const invalidSettings = {
+        model: 'valid-model',
+        env: 12345,
+      };
+
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(invalidSettings));
+
+      const result = readUserGlobalSettings();
+
+      // Should keep valid fields, remove invalid env
+      expect(result).toEqual({
+        model: 'valid-model',
+      });
+    });
+
+    it('sanitizes env field with non-string values, keeping only valid entries', () => {
+      const invalidSettings = {
+        model: 'valid-model',
+        env: {
+          VALID_STRING: 'value',
+          INVALID_NUMBER: 123,
+          INVALID_BOOLEAN: true,
+          INVALID_NULL: null,
+          INVALID_OBJECT: { nested: 'object' },
+          ANOTHER_VALID: 'another-value',
+        },
+      };
+
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(invalidSettings));
+
+      const result = readUserGlobalSettings();
+
+      // Should keep valid fields and only valid env entries
+      expect(result).toEqual({
+        model: 'valid-model',
+        env: {
+          VALID_STRING: 'value',
+          ANOTHER_VALID: 'another-value',
+        },
+      });
+    });
+
+    it('removes env field if all entries are invalid', () => {
+      const invalidSettings = {
+        model: 'valid-model',
+        env: {
+          NUMBER: 123,
+          BOOLEAN: false,
+          NULL: null,
+        },
+      };
+
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(invalidSettings));
+
+      const result = readUserGlobalSettings();
+
+      // Should keep valid fields, remove env entirely
+      expect(result).toEqual({
+        model: 'valid-model',
+      });
+    });
+
+    it('sanitizes invalid model field (non-string)', () => {
+      const invalidSettings = {
+        model: 12345,
+        env: { VALID: 'value' },
+      };
+
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(invalidSettings));
+
+      const result = readUserGlobalSettings();
+
+      // Should keep valid fields, remove invalid model
+      expect(result).toEqual({
+        env: { VALID: 'value' },
+      });
+    });
+
+    it('sanitizes invalid alwaysThinkingEnabled field (non-boolean)', () => {
+      const invalidSettings = {
+        model: 'valid-model',
+        alwaysThinkingEnabled: 'yes',
+      };
+
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(invalidSettings));
+
+      const result = readUserGlobalSettings();
+
+      // Should keep valid fields, remove invalid alwaysThinkingEnabled
+      expect(result).toEqual({
+        model: 'valid-model',
+      });
+    });
+
+    it('sanitizes invalid permissions field (non-object)', () => {
+      const invalidSettings = {
+        model: 'valid-model',
+        permissions: 'not-an-object',
+      };
+
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(invalidSettings));
+
+      const result = readUserGlobalSettings();
+
+      // Should keep valid fields, remove invalid permissions
+      expect(result).toEqual({
+        model: 'valid-model',
+      });
+    });
+
+    it('sanitizes permissions with invalid array entries, keeping valid ones', () => {
+      const invalidSettings = {
+        model: 'valid-model',
+        permissions: {
+          allow: ['git', 123, 'npm', false, null],
+          deny: [456, true],
+        },
+      };
+
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(invalidSettings));
+
+      const result = readUserGlobalSettings();
+
+      // Should keep valid strings in arrays, remove deny if empty after sanitization
+      expect(result).toEqual({
+        model: 'valid-model',
+        permissions: {
+          allow: ['git', 'npm'],
+        },
+      });
+    });
+
+    it('sanitizes permissions with invalid defaultMode', () => {
+      const invalidSettings = {
+        model: 'valid-model',
+        permissions: {
+          defaultMode: 'invalid-mode',
+          allow: ['git'],
+        },
+      };
+
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(invalidSettings));
+
+      const result = readUserGlobalSettings();
+
+      // Should keep valid fields, remove invalid defaultMode
+      expect(result).toEqual({
+        model: 'valid-model',
+        permissions: {
+          allow: ['git'],
+        },
+      });
+    });
+
+    it('keeps valid defaultMode values (ask, acceptEdits, plan)', () => {
+      const validSettings = {
+        model: 'valid-model',
+        permissions: {
+          defaultMode: 'ask',
+        },
+      };
+
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(validSettings));
+
+      const result = readUserGlobalSettings();
+
+      expect(result).toEqual(validSettings);
+    });
+
+    it('returns undefined when all fields are invalid', () => {
+      const invalidSettings = {
+        model: 12345,
+        env: 'not-an-object',
+        alwaysThinkingEnabled: 'yes',
+        permissions: 'not-an-object',
+      };
+
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(invalidSettings));
+
+      const result = readUserGlobalSettings();
+
+      // Should return undefined because no valid fields remain
+      expect(result).toBeUndefined();
     });
   });
 
@@ -148,16 +374,12 @@ describe('reader', () => {
     });
 
     it('returns undefined when file contains invalid JSON', () => {
-      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { /* suppress */ });
-
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('not valid json');
 
       const result = readProjectSharedSettings('/project/path');
 
       expect(result).toBeUndefined();
-
-      consoleWarnSpy.mockRestore();
     });
   });
 
@@ -353,15 +575,11 @@ describe('reader', () => {
         return '{}';
       });
 
-      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { /* suppress */ });
-
       const result = readAllSettings('/project');
 
       expect(result.user).toEqual({ model: 'valid' });
       expect(result.projectShared).toBeUndefined();
       expect(result.merged).toEqual({ model: 'valid' });
-
-      consoleWarnSpy.mockRestore();
     });
 
     it('returns empty merged object when all levels are undefined', () => {
@@ -421,6 +639,134 @@ describe('reader', () => {
       expect(result.merged.permissions).toEqual({
         allow: ['user-tool', 'shared-tool'],
         deny: ['dangerous'],
+      });
+    });
+
+    it('sanitizes invalid env values across multiple levels and merges correctly', () => {
+      mockExistsSync.mockReturnValue(true);
+
+      mockReadFileSync.mockImplementation((p) => {
+        const s = String(p);
+        if (s === USER_SETTINGS) {
+          return JSON.stringify({
+            model: 'user-model',
+            env: 'not-an-object', // Invalid - should be removed
+          });
+        }
+        if (s === projectSettings('/project')) {
+          return JSON.stringify({
+            env: { VALID: 'shared', INVALID: 123 }, // Partial sanitization
+          });
+        }
+        if (s === projectLocalSettings('/project')) {
+          return JSON.stringify({
+            env: { OVERRIDE: 'local' },
+          });
+        }
+        return '{}';
+      });
+
+      const result = readAllSettings('/project');
+
+      // User env should be removed, project shared should be sanitized, project local should be kept
+      expect(result.user).toEqual({ model: 'user-model' });
+      expect(result.projectShared).toEqual({ env: { VALID: 'shared' } });
+      expect(result.projectLocal).toEqual({ env: { OVERRIDE: 'local' } });
+      expect(result.merged).toEqual({
+        model: 'user-model',
+        env: {
+          VALID: 'shared',
+          OVERRIDE: 'local',
+        },
+      });
+    });
+
+    it('sanitizes invalid permissions across multiple levels and merges correctly', () => {
+      mockExistsSync.mockReturnValue(true);
+
+      mockReadFileSync.mockImplementation((p) => {
+        const s = String(p);
+        if (s === USER_SETTINGS) {
+          return JSON.stringify({
+            permissions: {
+              allow: ['git', 123, 'npm'], // Mixed valid/invalid
+              defaultMode: 'invalid', // Invalid - should be removed
+            },
+          });
+        }
+        if (s === projectSettings('/project')) {
+          return JSON.stringify({
+            permissions: 'not-an-object', // Invalid - should be removed entirely
+          });
+        }
+        if (s === LINUX_MANAGED) {
+          return JSON.stringify({
+            permissions: {
+              deny: ['rm', false, 'sudo'], // Mixed valid/invalid
+              defaultMode: 'ask', // Valid
+            },
+          });
+        }
+        return '{}';
+      });
+
+      const result = readAllSettings('/project');
+
+      // User permissions should be sanitized, project shared should be removed, managed should be sanitized
+      expect(result.user).toEqual({
+        permissions: {
+          allow: ['git', 'npm'],
+        },
+      });
+      expect(result.projectShared).toBeUndefined();
+      expect(result.managed).toEqual({
+        permissions: {
+          deny: ['rm', 'sudo'],
+          defaultMode: 'ask',
+        },
+      });
+      expect(result.merged).toEqual({
+        permissions: {
+          allow: ['git', 'npm'],
+          deny: ['rm', 'sudo'],
+          defaultMode: 'ask',
+        },
+      });
+    });
+
+    it('handles completely invalid settings at one level while keeping valid levels', () => {
+      mockExistsSync.mockReturnValue(true);
+
+      mockReadFileSync.mockImplementation((p) => {
+        const s = String(p);
+        if (s === USER_SETTINGS) {
+          return JSON.stringify({
+            model: 12345, // Invalid
+            env: 'not-an-object', // Invalid
+            alwaysThinkingEnabled: 'yes', // Invalid
+            permissions: 'not-an-object', // Invalid
+          });
+        }
+        if (s === projectSettings('/project')) {
+          return JSON.stringify({
+            model: 'valid-project-model',
+            env: { VALID: 'value' },
+          });
+        }
+        return '{}';
+      });
+
+      const result = readAllSettings('/project');
+
+      // User settings should be completely removed, project settings should be kept
+      expect(result.user).toBeUndefined();
+      expect(result.projectShared).toEqual({
+        model: 'valid-project-model',
+        env: { VALID: 'value' },
+      });
+      expect(result.merged).toEqual({
+        model: 'valid-project-model',
+        env: { VALID: 'value' },
       });
     });
   });

@@ -23,10 +23,141 @@ import { debugLog, debugError } from '../../shared/utils/debug-logger';
 const LOG_PREFIX = '[ClaudeCodeSettings]';
 
 /**
- * Validate that a parsed JSON object has the expected structure for ClaudeCodeSettings.
+ * Check if a value is a plain object (not null, not array, not other special object types)
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Validate and sanitize the env field to ensure it's a Record<string, string>.
+ * Returns undefined if the field is invalid or empty after sanitization.
+ */
+function sanitizeEnv(env: unknown): Record<string, string> | undefined {
+  if (!isPlainObject(env)) {
+    return undefined;
+  }
+
+  const sanitized: Record<string, string> = {};
+  let hasValidEntries = false;
+
+  for (const [key, value] of Object.entries(env)) {
+    if (typeof key === 'string' && typeof value === 'string') {
+      sanitized[key] = value;
+      hasValidEntries = true;
+    } else {
+      debugLog(`${LOG_PREFIX} Skipping invalid env entry:`, { key, value: typeof value });
+    }
+  }
+
+  return hasValidEntries ? sanitized : undefined;
+}
+
+/**
+ * Validate and sanitize the permissions field structure.
+ * Returns undefined if the field is invalid or empty after sanitization.
+ */
+function sanitizePermissions(permissions: unknown): ClaudeCodeSettings['permissions'] | undefined {
+  if (!isPlainObject(permissions)) {
+    return undefined;
+  }
+
+  const result: ClaudeCodeSettings['permissions'] = {};
+  let hasValidFields = false;
+
+  // Validate and sanitize string arrays (allow, deny, ask, additionalDirectories)
+  for (const arrayField of ['allow', 'deny', 'ask', 'additionalDirectories'] as const) {
+    const value = (permissions as Record<string, unknown>)[arrayField];
+    if (Array.isArray(value)) {
+      const sanitizedArray = value.filter((item): item is string => typeof item === 'string');
+      if (sanitizedArray.length > 0) {
+        result[arrayField] = sanitizedArray;
+        hasValidFields = true;
+      } else {
+        debugLog(`${LOG_PREFIX} Skipping empty or invalid array field:`, arrayField);
+      }
+    }
+  }
+
+  // Validate defaultMode (must be one of the allowed values)
+  const defaultMode = (permissions as Record<string, unknown>).defaultMode;
+  if (typeof defaultMode === 'string' && ['ask', 'acceptEdits', 'plan'].includes(defaultMode)) {
+    result.defaultMode = defaultMode as 'ask' | 'acceptEdits' | 'plan';
+    hasValidFields = true;
+  } else if (defaultMode !== undefined) {
+    debugLog(`${LOG_PREFIX} Skipping invalid defaultMode:`, defaultMode);
+  }
+
+  return hasValidFields ? result : undefined;
+}
+
+/**
+ * Validate and sanitize a parsed JSON object to ensure it has the expected structure for ClaudeCodeSettings.
+ * Invalid fields are removed, valid fields are kept.
+ * Returns undefined if the entire object is invalid or empty after sanitization.
  */
 function isValidSettings(obj: unknown): obj is ClaudeCodeSettings {
-  return typeof obj === 'object' && obj !== null && !Array.isArray(obj);
+  if (!isPlainObject(obj)) {
+    return false;
+  }
+
+  // Start with a clean object
+  const sanitized: ClaudeCodeSettings = {};
+  let hasValidFields = false;
+
+  // Validate and sanitize model field
+  if ('model' in obj) {
+    if (typeof obj.model === 'string') {
+      sanitized.model = obj.model;
+      hasValidFields = true;
+    } else {
+      debugLog(`${LOG_PREFIX} Skipping invalid model field:`, typeof obj.model);
+    }
+  }
+
+  // Validate and sanitize alwaysThinkingEnabled field
+  if ('alwaysThinkingEnabled' in obj) {
+    if (typeof obj.alwaysThinkingEnabled === 'boolean') {
+      sanitized.alwaysThinkingEnabled = obj.alwaysThinkingEnabled;
+      hasValidFields = true;
+    } else {
+      debugLog(`${LOG_PREFIX} Skipping invalid alwaysThinkingEnabled field:`, typeof obj.alwaysThinkingEnabled);
+    }
+  }
+
+  // Validate and sanitize env field
+  if ('env' in obj) {
+    const sanitizedEnv = sanitizeEnv(obj.env);
+    if (sanitizedEnv) {
+      sanitized.env = sanitizedEnv;
+      hasValidFields = true;
+    } else {
+      debugError(`${LOG_PREFIX} Invalid or empty env field, skipping`);
+    }
+  }
+
+  // Validate and sanitize permissions field
+  if ('permissions' in obj) {
+    const sanitizedPermissions = sanitizePermissions(obj.permissions);
+    if (sanitizedPermissions) {
+      sanitized.permissions = sanitizedPermissions;
+      hasValidFields = true;
+    } else {
+      debugError(`${LOG_PREFIX} Invalid or empty permissions field, skipping`);
+    }
+  }
+
+  // If we have at least one valid field, mutate the original object to contain only sanitized fields
+  if (hasValidFields) {
+    // Clear the original object and copy sanitized fields
+    for (const key of Object.keys(obj)) {
+      delete (obj as Record<string, unknown>)[key];
+    }
+    Object.assign(obj, sanitized);
+    return true;
+  }
+
+  return false;
 }
 
 /**
