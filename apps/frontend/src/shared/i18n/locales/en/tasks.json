@@ -253,6 +253,13 @@
     "classificationOptional": "Classification (optional)",
     "requireReviewLabel": "Require human review before coding",
     "requireReviewDescription": "When enabled, you'll be prompted to review the spec and implementation plan before the coding phase begins. This allows you to approve, request changes, or provide feedback.",
+    "postQaActionLabel": "After successful AI review",
+    "postQaActionDescription": "Choose what happens automatically after AI review passes. Tasks will be auto-archived when using auto options.",
+    "postQaAction": {
+      "do_nothing": "Do nothing - Manual review required",
+      "auto_create_pr": "Auto-create PR",
+      "auto_merge": "Auto-merge to base branch"
+    },
     "errors": {
       "descriptionRequired": "Please provide a description",
       "maxImagesReached": "Maximum of 5 images allowed",

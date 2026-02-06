@@ -120,6 +120,11 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     task.metadata?.requireReviewBeforeCoding ?? false
   );
 
+  // Post-QA action setting
+  const [postQaAction, setPostQaAction] = useState<'do_nothing' | 'auto_create_pr' | 'auto_merge'>(
+    task.metadata?.postQaAction ?? 'do_nothing'
+  );
+
   // Reset form when task changes or dialog opens
   useEffect(() => {
     if (open) {
@@ -160,6 +165,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
 
       setImages(task.metadata?.attachedImages || []);
       setRequireReviewBeforeCoding(task.metadata?.requireReviewBeforeCoding ?? false);
+      setPostQaAction(task.metadata?.postQaAction ?? 'do_nothing');
       setError(null);
 
       // Auto-expand classification if it has content
@@ -232,6 +238,10 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     // Always set attachedImages to persist removal when all images are deleted
     metadataUpdates.attachedImages = images.length > 0 ? images : [];
     metadataUpdates.requireReviewBeforeCoding = requireReviewBeforeCoding;
+    // Only set postQaAction if not the default
+    if (postQaAction !== 'do_nothing') {
+      metadataUpdates.postQaAction = postQaAction;
+    }
 
     const success = await persistUpdateTask(task.id, {
       title: trimmedTitle,
@@ -311,6 +321,8 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         onImagesChange={setImages}
         requireReviewBeforeCoding={requireReviewBeforeCoding}
         onRequireReviewChange={setRequireReviewBeforeCoding}
+        postQaAction={postQaAction}
+        onPostQaActionChange={setPostQaAction}
         disabled={isSaving}
         error={error}
         onError={setError}

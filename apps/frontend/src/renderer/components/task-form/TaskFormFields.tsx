@@ -17,6 +17,13 @@ import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Checkbox } from '../ui/checkbox';
 import { Button } from '../ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 import { AgentProfileSelector } from '../AgentProfileSelector';
 import { ClassificationFields } from './ClassificationFields';
 import { useImageUpload, type FileReferenceData } from './useImageUpload';
@@ -86,6 +93,10 @@ interface TaskFormFieldsProps {
   requireReviewBeforeCoding: boolean;
   onRequireReviewChange: (require: boolean) => void;
 
+  // Post-QA action
+  postQaAction: 'do_nothing' | 'auto_create_pr' | 'auto_merge';
+  onPostQaActionChange: (action: 'do_nothing' | 'auto_create_pr' | 'auto_merge') => void;
+
   // Form state
   disabled?: boolean;
   error?: string | null;
@@ -135,6 +146,8 @@ export function TaskFormFields({
   onImagesChange,
   requireReviewBeforeCoding,
   onRequireReviewChange,
+  postQaAction,
+  onPostQaActionChange,
   disabled = false,
   error,
   onError,
@@ -531,6 +544,36 @@ export function TaskFormFields({
               {t('tasks:form.requireReviewDescription')}
             </p>
           </div>
+        </div>
+
+        {/* Post-QA Action Dropdown */}
+        <div className="space-y-2">
+          <Label htmlFor={`${prefix}post-qa-action`} className="text-sm font-medium text-foreground">
+            {t('tasks:form.postQaActionLabel')}
+          </Label>
+          <Select
+            value={postQaAction}
+            onValueChange={(value) => onPostQaActionChange(value as 'do_nothing' | 'auto_create_pr' | 'auto_merge')}
+            disabled={disabled}
+          >
+            <SelectTrigger id={`${prefix}post-qa-action`}>
+              <SelectValue placeholder={t('tasks:form.postQaAction.do_nothing')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="do_nothing">
+                {t('tasks:form.postQaAction.do_nothing')}
+              </SelectItem>
+              <SelectItem value="auto_create_pr">
+                {t('tasks:form.postQaAction.auto_create_pr')}
+              </SelectItem>
+              <SelectItem value="auto_merge">
+                {t('tasks:form.postQaAction.auto_merge')}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            {t('tasks:form.postQaActionDescription')}
+          </p>
         </div>
 
         {/* Error Display */}

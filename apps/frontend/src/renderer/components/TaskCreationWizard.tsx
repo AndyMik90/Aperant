@@ -123,6 +123,9 @@ export function TaskCreationWizard({
   // Review setting
   const [requireReviewBeforeCoding, setRequireReviewBeforeCoding] = useState(false);
 
+  // Post-QA action setting
+  const [postQaAction, setPostQaAction] = useState<'do_nothing' | 'auto_create_pr' | 'auto_merge'>('do_nothing');
+
   // Draft state
   const [isDraftRestored, setIsDraftRestored] = useState(false);
 
@@ -161,6 +164,7 @@ export function TaskCreationWizard({
         setImages(draft.images);
         setReferencedFiles(draft.referencedFiles ?? []);
         setRequireReviewBeforeCoding(draft.requireReviewBeforeCoding ?? false);
+        setPostQaAction(draft.postQaAction ?? 'do_nothing');
         setIsDraftRestored(true);
 
         if (draft.category || draft.priority || draft.complexity || draft.impact) {
@@ -259,8 +263,9 @@ export function TaskCreationWizard({
     images,
     referencedFiles,
     requireReviewBeforeCoding,
+    postQaAction,
     savedAt: new Date()
-  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, requireReviewBeforeCoding]);
+  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, requireReviewBeforeCoding, postQaAction]);
 
   /**
    * Detect @ mention being typed and show autocomplete
@@ -429,6 +434,7 @@ export function TaskCreationWizard({
       if (images.length > 0) metadata.attachedImages = images;
       if (allReferencedFiles.length > 0) metadata.referencedFiles = allReferencedFiles;
       if (requireReviewBeforeCoding) metadata.requireReviewBeforeCoding = true;
+      if (postQaAction !== 'do_nothing') metadata.postQaAction = postQaAction;
       // Always include baseBranch - resolve PROJECT_DEFAULT_BRANCH to actual branch name
       // This ensures the backend always knows which branch to use for worktree creation
       if (baseBranch === PROJECT_DEFAULT_BRANCH) {
@@ -473,6 +479,7 @@ export function TaskCreationWizard({
     setImages([]);
     setReferencedFiles([]);
     setRequireReviewBeforeCoding(false);
+    setPostQaAction('do_nothing');
     setBaseBranch(PROJECT_DEFAULT_BRANCH);
     setUseWorktree(true);
     setError(null);
@@ -655,6 +662,8 @@ export function TaskCreationWizard({
           onImagesChange={setImages}
           requireReviewBeforeCoding={requireReviewBeforeCoding}
           onRequireReviewChange={setRequireReviewBeforeCoding}
+          postQaAction={postQaAction}
+          onPostQaActionChange={setPostQaAction}
           disabled={isCreating}
           error={error}
           onError={setError}

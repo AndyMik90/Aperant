@@ -154,6 +154,7 @@ export interface TaskDraft {
   images: ImageAttachment[];
   referencedFiles: ReferencedFile[];
   requireReviewBeforeCoding?: boolean;
+  postQaAction?: 'do_nothing' | 'auto_create_pr' | 'auto_merge';
   savedAt: Date;
 }
 
@@ -224,6 +225,7 @@ export interface TaskMetadata {
 
   // Review settings
   requireReviewBeforeCoding?: boolean;  // Require human review of spec/plan before coding starts
+  postQaAction?: 'do_nothing' | 'auto_create_pr' | 'auto_merge';  // What to do after successful AI review
 
   // Agent configuration (from agent profile or manual selection)
   model?: ModelType;  // Claude model to use (haiku, sonnet, opus) - used when not auto profile
