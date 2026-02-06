@@ -11,7 +11,6 @@ import {
 import type {
   IPCResult,
   Roadmap,
-  RoadmapFeature,
   RoadmapFeatureStatus,
   RoadmapGenerationStatus,
   PersistedRoadmapProgress,

@@ -227,7 +227,7 @@ export function isAPIProfileAuthenticated(profile: APIProfile): boolean {
  * Expand ~ in path to home directory
  */
 export function expandHomePath(path: string): string {
-  if (path && path.startsWith('~')) {
+  if (path?.startsWith('~')) {
     const home = homedir();
     return path.replace(/^~/, home);
   }

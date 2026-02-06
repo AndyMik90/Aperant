@@ -24,7 +24,7 @@ export const UI_SCALE_STEP = 5;
 // ============================================
 
 export const DEFAULT_APP_SETTINGS = {
-  theme: 'system' as const,
+  theme: 'dark' as const,
   colorTheme: 'default' as const,
   defaultModel: 'opus',
   agentFramework: 'auto-claude',
@@ -53,6 +53,8 @@ export const DEFAULT_APP_SETTINGS = {
   changelogEmojiLevel: 'none' as const,
   // UI Scale (default 100% - standard size)
   uiScale: UI_SCALE_DEFAULT,
+  // Log order setting for task detail view (default chronological - oldest first)
+  logOrder: 'chronological' as const,
   // Beta updates opt-in (receive pre-release versions)
   betaUpdates: false,
   // Language preference (default to English)
