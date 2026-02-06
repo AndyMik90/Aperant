@@ -73,8 +73,10 @@ export function TerminalHeader({
   const backlogTasks = tasks.filter((t) => t.status === 'backlog');
 
   // Check if 2+ terminals have pending Claude resume
-  const terminals = useTerminalStore((state) => state.terminals);
-  const pendingResumeCount = terminals.filter((t) => t.pendingClaudeResume === true).length;
+  // Use a derived selector returning a primitive to avoid re-renders on unrelated terminal changes
+  const pendingResumeCount = useTerminalStore(
+    (state) => state.terminals.filter((t) => t.pendingClaudeResume === true).length
+  );
   const showResumeAllButton = pendingResumeCount >= 2;
 
   return (

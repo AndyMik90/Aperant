@@ -449,11 +449,12 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     // Iterate through terminals with staggered delays
     for (let i = 0; i < pendingTerminals.length; i++) {
       const terminal = pendingTerminals[i];
+      // Clear the pending flag BEFORE IPC call to prevent race condition
+      // with auto-resume effect in Terminal.tsx (which checks this flag on a 100ms timeout)
+      get().setPendingClaudeResume(terminal.id, false);
+
       debugLog(`[TerminalStore] Activating deferred Claude resume for terminal: ${terminal.id}`);
       window.electronAPI.activateDeferredClaudeResume(terminal.id);
-
-      // Clear the pending flag
-      get().setPendingClaudeResume(terminal.id, false);
 
       // Wait 500ms before processing next terminal (staggered delay)
       if (i < pendingTerminals.length - 1) {
