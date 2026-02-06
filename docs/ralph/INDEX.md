@@ -15,7 +15,9 @@
 
 ## Ready to Run
 
-*No pending tasks.*
+| Task ID | Prompt | Tasks | Description |
+|---------|--------|-------|-------------|
+| TASK-SIDEBAR | [INSIGHTS_TASK_SIDEBAR.md](prompts/INSIGHTS_TASK_SIDEBAR.md) | 6 | Fix task disappearing bug, add persistent sidebar |
 
 ---
 
