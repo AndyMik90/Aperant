@@ -8,7 +8,9 @@ import type {
   GitHubInvestigationResult,
   IPCResult,
   VersionSuggestion,
-  PaginatedIssuesResult
+  PaginatedIssuesResult,
+  PRStatusUpdate,
+  PollingMetadata
 } from '../../../shared/types';
 import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
 
@@ -305,6 +307,20 @@ export interface GitHubAPI {
   ) => IpcListenerCleanup;
   onPRReviewError: (
     callback: (projectId: string, error: { prNumber: number; error: string }) => void
+  ) => IpcListenerCleanup;
+
+  // PR status polling operations
+  /** Start background polling for PR status (CI checks, reviews, mergeability) */
+  startStatusPolling: (projectId: string, prNumbers: number[]) => Promise<boolean>;
+  /** Stop background polling for a project */
+  stopStatusPolling: (projectId: string) => Promise<boolean>;
+  /** Get current polling metadata (rate limits, errors, etc.) */
+  getPollingMetadata: (projectId: string) => Promise<PollingMetadata | null>;
+
+  // PR status polling event listener
+  /** Subscribe to PR status updates from background polling */
+  onPRStatusUpdate: (
+    callback: (update: PRStatusUpdate) => void
   ) => IpcListenerCleanup;
 }
 
@@ -753,5 +769,21 @@ export const createGitHubAPI = (): GitHubAPI => ({
   onPRReviewError: (
     callback: (projectId: string, error: { prNumber: number; error: string }) => void
   ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR, callback)
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR, callback),
+
+  // PR status polling operations
+  startStatusPolling: (projectId: string, prNumbers: number[]): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_STATUS_POLL_START, projectId, prNumbers),
+
+  stopStatusPolling: (projectId: string): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_STATUS_POLL_STOP, projectId),
+
+  getPollingMetadata: (projectId: string): Promise<PollingMetadata | null> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_STATUS_UPDATE, projectId),
+
+  // PR status polling event listener
+  onPRStatusUpdate: (
+    callback: (update: PRStatusUpdate) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_STATUS_UPDATE, callback)
 });

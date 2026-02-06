@@ -235,7 +235,12 @@ const browserMockAPI: ElectronAPI = {
     approveBatches: async () => ({ success: true, batches: [] }),
     onAnalyzePreviewProgress: () => () => {},
     onAnalyzePreviewComplete: () => () => {},
-    onAnalyzePreviewError: () => () => {}
+    onAnalyzePreviewError: () => () => {},
+    // PR status polling
+    startStatusPolling: async () => true,
+    stopStatusPolling: async () => true,
+    getPollingMetadata: async () => null,
+    onPRStatusUpdate: () => () => {}
   },
 
   // Queue Routing API (rate limit recovery)

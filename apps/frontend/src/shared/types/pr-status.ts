@@ -126,9 +126,9 @@ export interface StopPollingRequest {
 }
 
 /**
- * Rate limit info - extracted from GitHub API response headers
+ * GitHub API rate limit info - extracted from response headers
  */
-export interface RateLimitInfo {
+export interface GitHubRateLimitInfo {
   /** Requests remaining in current window */
   remaining: number;
   /** Total requests allowed in window */
@@ -148,7 +148,7 @@ export interface GitHubFetchResult<T = unknown> {
   /** New ETag from response (if provided) */
   etag: string | null;
   /** Rate limit info from response headers */
-  rateLimit: RateLimitInfo | null;
+  rateLimit: GitHubRateLimitInfo | null;
 }
 
 /**

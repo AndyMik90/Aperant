@@ -23,7 +23,7 @@ import type {
   ReviewsStatus,
   MergeableState,
   PRPollingTier,
-  RateLimitInfo,
+  GitHubRateLimitInfo,
 } from '../../shared/types/pr-status';
 import {
   POLLING_INTERVALS,
@@ -118,7 +118,7 @@ export class PRStatusPoller {
   private contexts: Map<string, ProjectPollingContext> = new Map();
 
   /** Rate limit state */
-  private rateLimitInfo: RateLimitInfo | null = null;
+  private rateLimitInfo: GitHubRateLimitInfo | null = null;
   private isPausedForRateLimit = false;
   private rateLimitResumeTimeout: NodeJS.Timeout | null = null;
 
@@ -459,7 +459,7 @@ export class PRStatusPoller {
       // Fetch PR data (for updated_at and mergeable state)
       const prEndpoint = `/repos/${owner}/${repo}/pulls/${prNumber}`;
       const prResult = await githubFetchWithETag(token, prEndpoint);
-      this.updateRateLimitInfo(prResult.rateLimitInfo);
+      this.updateGitHubRateLimitInfo(prResult.rateLimitInfo);
 
       const prData = prResult.data as PRData;
 
@@ -522,7 +522,7 @@ export class PRStatusPoller {
       // Get PR head SHA first (from cached PR data or fetch it)
       const prEndpoint = `/repos/${owner}/${repo}/pulls/${prNumber}`;
       const prResult = await githubFetchWithETag(token, prEndpoint);
-      this.updateRateLimitInfo(prResult.rateLimitInfo);
+      this.updateGitHubRateLimitInfo(prResult.rateLimitInfo);
 
       const prData = prResult.data as { head: { sha: string } };
       const headSha = prData.head.sha;
@@ -530,14 +530,14 @@ export class PRStatusPoller {
       // Fetch combined status
       const statusEndpoint = `/repos/${owner}/${repo}/commits/${headSha}/status`;
       const statusResult = await githubFetchWithETag(token, statusEndpoint);
-      this.updateRateLimitInfo(statusResult.rateLimitInfo);
+      this.updateGitHubRateLimitInfo(statusResult.rateLimitInfo);
 
       const statusData = statusResult.data as CombinedStatusResponse;
 
       // Fetch check runs
       const checksEndpoint = `/repos/${owner}/${repo}/commits/${headSha}/check-runs`;
       const checksResult = await githubFetchWithETag(token, checksEndpoint);
-      this.updateRateLimitInfo(checksResult.rateLimitInfo);
+      this.updateGitHubRateLimitInfo(checksResult.rateLimitInfo);
 
       const checksData = checksResult.data as CheckRunsResponse;
 
@@ -604,7 +604,7 @@ export class PRStatusPoller {
     try {
       const endpoint = `/repos/${owner}/${repo}/pulls/${prNumber}/reviews`;
       const result = await githubFetchWithETag(token, endpoint);
-      this.updateRateLimitInfo(result.rateLimitInfo);
+      this.updateGitHubRateLimitInfo(result.rateLimitInfo);
 
       const reviews = result.data as ReviewsResponse[];
 
@@ -721,7 +721,7 @@ export class PRStatusPoller {
   /**
    * Update rate limit info and check thresholds
    */
-  private updateRateLimitInfo(info: { remaining: number; reset: Date; limit: number } | null): void {
+  private updateGitHubRateLimitInfo(info: { remaining: number; reset: Date; limit: number } | null): void {
     if (!info) {
       return;
     }
