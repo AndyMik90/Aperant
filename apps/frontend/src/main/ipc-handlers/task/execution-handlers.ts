@@ -526,7 +526,18 @@ export function registerTaskExecutionHandlers(
       status: TaskStatus,
       options?: { forceCleanup?: boolean }
     ): Promise<IPCResult & { worktreeExists?: boolean; worktreePath?: string }> => {
-      // Find task and project first (needed for worktree check)
+      // IMPORTANT: Clear TaskStateManager's internal cache AND refresh projectStore cache
+      // TaskStateManager has its own cache (taskContextById) that must be cleared
+      taskStateManager.clearTask(taskId);
+
+      // Also refresh the projectStore cache to ensure fresh data from files
+      const cached = findTaskAndProject(taskId);
+      if (cached.project) {
+        // Force refresh ensures the cache is immediately updated from files
+        projectStore.getTasks(cached.project.id, { forceRefresh: true });
+      }
+
+      // Now find task and project again with fresh data from file
       const { task, project } = findTaskAndProject(taskId);
 
       if (!task || !project) {
@@ -658,6 +669,10 @@ export function registerTaskExecutionHandlers(
             // Invalidate cache after creating new plan
             projectStore.invalidateTasksCache(project.id);
           }
+        } else {
+          // TaskStateManager handled the status change - invalidate cache to ensure fresh data
+          // This prevents stale task data from being used after status transitions
+          projectStore.invalidateTasksCache(project.id);
         }
 
         // Auto-stop task when status changes AWAY from 'in_progress' and process IS running

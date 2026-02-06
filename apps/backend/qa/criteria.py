@@ -8,6 +8,7 @@ Manages acceptance criteria validation and status tracking.
 import json
 from pathlib import Path
 
+from core.file_utils import write_json_atomic
 from progress import is_build_complete
 
 # =============================================================================
@@ -28,11 +29,30 @@ def load_implementation_plan(spec_dir: Path) -> dict | None:
 
 
 def save_implementation_plan(spec_dir: Path, plan: dict) -> bool:
-    """Save the implementation plan JSON."""
+    """Save the implementation plan JSON while preserving frontend fields."""
     plan_file = spec_dir / "implementation_plan.json"
+
+    # Read existing file to preserve frontend fields (status, planStatus, etc.)
     try:
-        with open(plan_file, "w", encoding="utf-8") as f:
-            json.dump(plan, f, indent=2)
+        with open(plan_file, "r", encoding="utf-8") as f:
+            existing = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        existing = {}
+
+    # Frontend fields to preserve (may not be in the plan dict)
+    frontend_fields = ["status", "planStatus", "reviewReason", "xstateState", "executionPhase", "recoveryNote"]
+    preserved_fields = []
+    for field in frontend_fields:
+        if field in existing and field not in plan:
+            plan[field] = existing[field]
+            preserved_fields.append(field)
+
+    # Merge qa_stats if present in existing but not in plan
+    if "qa_stats" in existing and "qa_stats" not in plan:
+        plan["qa_stats"] = existing["qa_stats"]
+
+    try:
+        write_json_atomic(plan_file, plan, indent=2, ensure_ascii=False)
         return True
     except OSError:
         return False

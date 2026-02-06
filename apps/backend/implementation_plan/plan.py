@@ -56,15 +56,15 @@ class ImplementationPlan:
             "updated_at": self.updated_at,
             "spec_file": self.spec_file,
         }
-        # Include status fields if set (synced with UI)
-        if self.status:
-            result["status"] = self.status
-        if self.planStatus:
-            result["planStatus"] = self.planStatus
+        # Always include status fields - provide defaults if None
+        # Frontend expects these fields to exist for proper state management
+        result["status"] = self.status or "backlog"
+        result["planStatus"] = self.planStatus or "pending"
         if self.recoveryNote:
             result["recoveryNote"] = self.recoveryNote
         if self.qa_signoff:
             result["qa_signoff"] = self.qa_signoff
+
         return result
 
     @classmethod
