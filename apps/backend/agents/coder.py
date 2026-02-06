@@ -87,7 +87,9 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 # Retry configuration for subtask execution
-MAX_SUBTASK_RETRIES = 5  # Maximum number of retry attempts before marking subtask as stuck
+MAX_SUBTASK_RETRIES = (
+    5  # Maximum number of retry attempts before marking subtask as stuck
+)
 
 
 # =============================================================================
