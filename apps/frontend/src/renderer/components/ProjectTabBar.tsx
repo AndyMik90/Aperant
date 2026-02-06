@@ -48,7 +48,7 @@ export function ProjectTabBar({
       // Cmd/Ctrl + 1-9: Switch to tab N
       if (e.key >= '1' && e.key <= '9') {
         e.preventDefault();
-        const index = parseInt(e.key) - 1;
+        const index = parseInt(e.key, 10) - 1;
         if (index < projects.length) {
           onProjectSelect(projects[index].id);
         }

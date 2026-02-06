@@ -9,3 +9,11 @@ contextBridge.exposeInMainWorld('electronAPI', electronAPI);
 
 // Expose debug flag for debug logging
 contextBridge.exposeInMainWorld('DEBUG', process.env.DEBUG === 'true');
+
+// Expose platform information for platform-specific behavior (e.g., PTY resize timing)
+contextBridge.exposeInMainWorld('platform', {
+  isWindows: process.platform === 'win32',
+  isMacOS: process.platform === 'darwin',
+  isLinux: process.platform === 'linux',
+  isUnix: process.platform !== 'win32',
+});

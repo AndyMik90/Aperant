@@ -246,7 +246,7 @@ export function registerTaskExecutionHandlers(
         // Start spec creation process - pass the existing spec directory
         // so spec_runner uses it instead of creating a new one
         // Also pass baseBranch so worktrees are created from the correct branch
-        agentManager.startSpecCreation(taskId, project.path, taskDescription, specDir, task.metadata, baseBranch);
+        agentManager.startSpecCreation(taskId, project.path, taskDescription, specDir, task.metadata, baseBranch, project.id);
       } else if (needsImplementation) {
         // Spec exists but no subtasks - run run.py to create implementation plan and execute
         // Read the spec.md to get the task description
@@ -268,8 +268,10 @@ export function registerTaskExecutionHandlers(
             parallel: false,  // Sequential for planning phase
             workers: 1,
             baseBranch,
-            useWorktree: task.metadata?.useWorktree
-          }
+            useWorktree: task.metadata?.useWorktree,
+            useLocalBranch: task.metadata?.useLocalBranch
+          },
+          project.id
         );
       } else {
         // Task has subtasks, start normal execution
@@ -284,8 +286,10 @@ export function registerTaskExecutionHandlers(
             parallel: false,
             workers: 1,
             baseBranch,
-            useWorktree: task.metadata?.useWorktree
-          }
+            useWorktree: task.metadata?.useWorktree,
+            useLocalBranch: task.metadata?.useLocalBranch
+          },
+          project.id
         );
       }
     }
@@ -495,7 +499,7 @@ export function registerTaskExecutionHandlers(
         // The QA process needs to run where the implementation_plan.json with completed subtasks is
         const qaProjectPath = hasWorktree ? worktreePath : project.path;
         console.warn('[TASK_REVIEW] Starting QA process with projectPath:', qaProjectPath);
-        agentManager.startQAProcess(taskId, qaProjectPath, task.specId);
+        agentManager.startQAProcess(taskId, qaProjectPath, task.specId, project.id);
 
         taskStateManager.handleUiEvent(
           taskId,
@@ -727,7 +731,7 @@ export function registerTaskExecutionHandlers(
             // No spec file - need to run spec_runner.py to create the spec
             const taskDescription = task.description || task.title;
             console.warn('[TASK_UPDATE_STATUS] Starting spec creation for:', task.specId);
-            agentManager.startSpecCreation(taskId, project.path, taskDescription, specDir, task.metadata, baseBranchForUpdate);
+            agentManager.startSpecCreation(taskId, project.path, taskDescription, specDir, task.metadata, baseBranchForUpdate, project.id);
           } else if (needsImplementation) {
             // Spec exists but no subtasks - run run.py to create implementation plan and execute
             console.warn('[TASK_UPDATE_STATUS] Starting task execution (no subtasks) for:', task.specId);
@@ -739,8 +743,10 @@ export function registerTaskExecutionHandlers(
                 parallel: false,
                 workers: 1,
                 baseBranch: baseBranchForUpdate,
-                useWorktree: task.metadata?.useWorktree
-              }
+                useWorktree: task.metadata?.useWorktree,
+                useLocalBranch: task.metadata?.useLocalBranch
+              },
+              project.id
             );
           } else {
             // Task has subtasks, start normal execution
@@ -754,8 +760,10 @@ export function registerTaskExecutionHandlers(
                 parallel: false,
                 workers: 1,
                 baseBranch: baseBranchForUpdate,
-                useWorktree: task.metadata?.useWorktree
-              }
+                useWorktree: task.metadata?.useWorktree,
+                useLocalBranch: task.metadata?.useLocalBranch
+              },
+              project.id
             );
           }
 
@@ -789,6 +797,73 @@ export function registerTaskExecutionHandlers(
     async (_, taskId: string): Promise<IPCResult<boolean>> => {
       const isRunning = agentManager.isRunning(taskId);
       return { success: true, data: isRunning };
+    }
+  );
+
+  /**
+   * Resume a paused task (rate limited or auth failure paused)
+   * This writes a RESUME file to the spec directory to signal the backend to continue
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_RESUME_PAUSED,
+    async (_, taskId: string): Promise<IPCResult> => {
+      // Find task and project
+      const { task, project } = findTaskAndProject(taskId);
+
+      if (!task || !project) {
+        return { success: false, error: 'Task not found' };
+      }
+
+      // Get the spec directory - use task.specsPath if available (handles worktree vs main)
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
+      const specDir = task.specsPath || path.join(
+        project.path,
+        specsBaseDir,
+        task.specId
+      );
+
+      // Write RESUME file to signal backend to continue
+      const resumeFilePath = path.join(specDir, 'RESUME');
+
+      try {
+        const resumeContent = JSON.stringify({
+          resumed_at: new Date().toISOString(),
+          resumed_by: 'user'
+        });
+        atomicWriteFileSync(resumeFilePath, resumeContent);
+        console.log(`[TASK_RESUME_PAUSED] Wrote RESUME file to: ${resumeFilePath}`);
+
+        // Also write to worktree if it exists (backend may be running inside the worktree)
+        const worktreePath = findTaskWorktree(project.path, task.specId);
+        if (worktreePath) {
+          const worktreeResumeFilePath = path.join(worktreePath, specsBaseDir, task.specId, 'RESUME');
+          try {
+            atomicWriteFileSync(worktreeResumeFilePath, resumeContent);
+            console.log(`[TASK_RESUME_PAUSED] Also wrote RESUME file to worktree: ${worktreeResumeFilePath}`);
+          } catch (worktreeError) {
+            // Non-fatal - main spec dir RESUME is sufficient
+            console.warn(`[TASK_RESUME_PAUSED] Could not write to worktree (non-fatal):`, worktreeError);
+          }
+        } else if (
+          task.executionProgress?.phase === 'rate_limit_paused' ||
+          task.executionProgress?.phase === 'auth_failure_paused'
+        ) {
+          // Warn if worktree not found for a paused task - the backend is likely
+          // running inside the worktree and may not see the RESUME file in the main spec dir
+          console.warn(
+            `[TASK_RESUME_PAUSED] Worktree not found for paused task ${task.specId}. ` +
+            `Backend may not detect the RESUME file if running inside a worktree.`
+          );
+        }
+
+        return { success: true };
+      } catch (error) {
+        console.error('[TASK_RESUME_PAUSED] Failed to write RESUME file:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to signal resume'
+        };
+      }
     }
   );
 
@@ -1108,7 +1183,7 @@ export function registerTaskExecutionHandlers(
               // No spec file - need to run spec_runner.py to create the spec
               const taskDescription = task.description || task.title;
               console.warn(`[Recovery] Starting spec creation for: ${task.specId}`);
-              agentManager.startSpecCreation(taskId, project.path, taskDescription, specDirForWatcher, task.metadata, baseBranchForRecovery);
+              agentManager.startSpecCreation(taskId, project.path, taskDescription, specDirForWatcher, task.metadata, baseBranchForRecovery, project.id);
             } else {
               // Spec exists - run task execution
               console.warn(`[Recovery] Starting task execution for: ${task.specId}`);
@@ -1120,8 +1195,10 @@ export function registerTaskExecutionHandlers(
                   parallel: false,
                   workers: 1,
                   baseBranch: baseBranchForRecovery,
-                  useWorktree: task.metadata?.useWorktree
-                }
+                  useWorktree: task.metadata?.useWorktree,
+                  useLocalBranch: task.metadata?.useLocalBranch
+                },
+                project.id
               );
             }
 
