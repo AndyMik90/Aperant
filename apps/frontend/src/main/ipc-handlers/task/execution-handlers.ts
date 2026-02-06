@@ -533,8 +533,7 @@ export function registerTaskExecutionHandlers(
       // Also refresh the projectStore cache to ensure fresh data from files
       const cached = findTaskAndProject(taskId);
       if (cached.project) {
-        // Force refresh ensures the cache is immediately updated from files
-        projectStore.getTasks(cached.project.id, { forceRefresh: true });
+        projectStore.invalidateTasksCache(cached.project.id);
       }
 
       // Now find task and project again with fresh data from file
