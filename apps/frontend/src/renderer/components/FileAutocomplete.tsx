@@ -109,7 +109,7 @@ export function FileAutocomplete({
   // Reset selection when results change
   useEffect(() => {
     setSelectedIndex(0);
-  }, [filteredFiles]);
+  }, []);
 
   // Scroll selected item into view
   useEffect(() => {
