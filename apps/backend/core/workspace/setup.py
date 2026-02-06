@@ -325,6 +325,7 @@ def setup_workspace(
     mode: WorkspaceMode,
     source_spec_dir: Path | None = None,
     base_branch: str | None = None,
+    use_local_branch: bool = False,
 ) -> tuple[Path, WorktreeManager | None, Path | None]:
     """
     Set up the workspace based on user's choice.
@@ -337,6 +338,7 @@ def setup_workspace(
         mode: The workspace mode to use
         source_spec_dir: Optional source spec directory to copy to worktree
         base_branch: Base branch for worktree creation (default: current branch)
+        use_local_branch: If True, use local branch directly instead of preferring origin/branch
 
     Returns:
         Tuple of (working_directory, worktree_manager or None, localized_spec_dir or None)
@@ -357,7 +359,9 @@ def setup_workspace(
     # Ensure timeline tracking hook is installed (once per session)
     ensure_timeline_hook_installed(project_dir)
 
-    manager = WorktreeManager(project_dir, base_branch=base_branch)
+    manager = WorktreeManager(
+        project_dir, base_branch=base_branch, use_local_branch=use_local_branch
+    )
     manager.setup()
 
     # Get or create worktree for THIS SPECIFIC SPEC
