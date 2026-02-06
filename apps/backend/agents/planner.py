@@ -106,6 +106,7 @@ async def run_followup_planner(
         project_dir,
         spec_dir,
         planning_model,
+        agent_type="planner",
         betas=planning_betas,
         **thinking_kwargs,
     )

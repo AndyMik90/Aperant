@@ -27,7 +27,7 @@ MODEL_BETAS_MAP: dict[str, list[str]] = {
 
 # Thinking level to budget tokens mapping (None = no extended thinking)
 # Values must match auto-claude-ui/src/shared/constants/models.ts THINKING_BUDGET_MAP
-THINKING_BUDGET_MAP: dict[str, int | None] = {
+THINKING_BUDGET_MAP: dict[str, int] = {
     "low": 1024,
     "medium": 4096,  # Moderate analysis
     "high": 16384,  # Deep thinking for QA review
@@ -163,7 +163,7 @@ def get_model_betas(model_short: str) -> list[str]:
     return MODEL_BETAS_MAP.get(model_short, [])
 
 
-def get_thinking_budget(thinking_level: str) -> int | None:
+def get_thinking_budget(thinking_level: str) -> int:
     """
     Get the thinking budget for a thinking level.
 
@@ -171,7 +171,7 @@ def get_thinking_budget(thinking_level: str) -> int | None:
         thinking_level: Thinking level (low, medium, high)
 
     Returns:
-        Token budget or None for no extended thinking
+        Token budget for extended thinking
     """
     import logging
 
@@ -179,8 +179,7 @@ def get_thinking_budget(thinking_level: str) -> int | None:
     if thinking_level in LEGACY_THINKING_MAP:
         mapped = LEGACY_THINKING_MAP[thinking_level]
         logging.warning(
-            f"Thinking level '{thinking_level}' is deprecated. "
-            f"Mapped to '{mapped}'."
+            f"Thinking level '{thinking_level}' is deprecated. Mapped to '{mapped}'."
         )
         thinking_level = mapped
 
@@ -344,7 +343,7 @@ def get_phase_thinking_budget(
     spec_dir: Path,
     phase: Phase,
     cli_thinking: str | None = None,
-) -> int | None:
+) -> int:
     """
     Get the thinking budget tokens for a specific execution phase.
 
@@ -354,7 +353,7 @@ def get_phase_thinking_budget(
         cli_thinking: Thinking level from CLI argument (optional)
 
     Returns:
-        Token budget or None for no extended thinking
+        Token budget for extended thinking
     """
     thinking_level = get_phase_thinking(spec_dir, phase, cli_thinking)
     return get_thinking_budget(thinking_level)
@@ -446,7 +445,7 @@ def get_phase_client_thinking_kwargs(
     return get_thinking_kwargs_for_model(phase_model, thinking_level)
 
 
-def get_spec_phase_thinking_budget(phase_name: str) -> int | None:
+def get_spec_phase_thinking_budget(phase_name: str) -> int:
     """
     Get the thinking budget for a specific spec runner phase.
 
@@ -457,7 +456,7 @@ def get_spec_phase_thinking_budget(phase_name: str) -> int | None:
         phase_name: Name of the spec phase (e.g., 'discovery', 'spec_writing')
 
     Returns:
-        Token budget for extended thinking, or None for no extended thinking
+        Token budget for extended thinking
     """
     thinking_level = SPEC_PHASE_THINKING_LEVELS.get(phase_name, "medium")
     return get_thinking_budget(thinking_level)
