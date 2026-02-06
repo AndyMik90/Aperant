@@ -13,29 +13,34 @@ from typing import Literal, TypedDict
 
 # Model shorthand to full model ID mapping
 MODEL_ID_MAP: dict[str, str] = {
-    "opus": "claude-opus-4-5-20251101",
+    "opus": "claude-opus-4-6",
+    "opus-1m": "claude-opus-4-6",
     "sonnet": "claude-sonnet-4-5-20250929",
     "haiku": "claude-haiku-4-5-20251001",
+}
+
+# Model shorthand to required SDK beta headers
+# Maps model shorthands that need special beta flags (e.g., 1M context window)
+MODEL_BETAS_MAP: dict[str, list[str]] = {
+    "opus-1m": ["context-1m-2025-08-07"],
 }
 
 # Thinking level to budget tokens mapping (None = no extended thinking)
 # Values must match auto-claude-ui/src/shared/constants/models.ts THINKING_BUDGET_MAP
 THINKING_BUDGET_MAP: dict[str, int | None] = {
-    "none": None,
     "low": 1024,
     "medium": 4096,  # Moderate analysis
     "high": 16384,  # Deep thinking for QA review
-    "ultrathink": 63999,  # Maximum reasoning depth (API requires max_tokens >= budget + 1, so 63999 + 1 = 64000 limit)
 }
 
 # Spec runner phase-specific thinking levels
-# Heavy phases use ultrathink for deep analysis
+# Heavy phases use high for deep analysis
 # Light phases use medium after compaction
 SPEC_PHASE_THINKING_LEVELS: dict[str, str] = {
-    # Heavy phases - ultrathink (discovery, spec creation, self-critique)
-    "discovery": "ultrathink",
-    "spec_writing": "ultrathink",
-    "self_critique": "ultrathink",
+    # Heavy phases - high (discovery, spec creation, self-critique)
+    "discovery": "high",
+    "spec_writing": "high",
+    "self_critique": "high",
     # Light phases - medium (after first invocation with compaction)
     "requirements": "medium",
     "research": "medium",
@@ -112,6 +117,7 @@ def resolve_model_id(model: str) -> str:
             "haiku": "ANTHROPIC_DEFAULT_HAIKU_MODEL",
             "sonnet": "ANTHROPIC_DEFAULT_SONNET_MODEL",
             "opus": "ANTHROPIC_DEFAULT_OPUS_MODEL",
+            "opus-1m": "ANTHROPIC_DEFAULT_OPUS_MODEL",
         }
         env_var = env_var_map.get(model)
         if env_var:
@@ -126,12 +132,28 @@ def resolve_model_id(model: str) -> str:
     return model
 
 
+def get_model_betas(model_short: str) -> list[str]:
+    """
+    Get required SDK beta headers for a model shorthand.
+
+    Some model configurations (e.g., opus-1m for 1M context window) require
+    passing beta headers to the Claude Agent SDK.
+
+    Args:
+        model_short: Model shorthand (e.g., 'opus', 'opus-1m', 'sonnet')
+
+    Returns:
+        List of beta header strings, or empty list if none required
+    """
+    return MODEL_BETAS_MAP.get(model_short, [])
+
+
 def get_thinking_budget(thinking_level: str) -> int | None:
     """
     Get the thinking budget for a thinking level.
 
     Args:
-        thinking_level: Thinking level (none, low, medium, high, ultrathink)
+        thinking_level: Thinking level (low, medium, high)
 
     Returns:
         Token budget or None for no extended thinking
@@ -212,6 +234,43 @@ def get_phase_model(
 
     # Fall back to default phase configuration
     return resolve_model_id(DEFAULT_PHASE_MODELS[phase])
+
+
+def get_phase_model_betas(
+    spec_dir: Path,
+    phase: Phase,
+    cli_model: str | None = None,
+) -> list[str]:
+    """
+    Get required SDK beta headers for the model selected for a specific phase.
+
+    Uses the same priority logic as get_phase_model() to determine which model
+    shorthand is selected, then looks up any required beta headers.
+
+    Args:
+        spec_dir: Path to the spec directory
+        phase: Execution phase (spec, planning, coding, qa)
+        cli_model: Model from CLI argument (optional)
+
+    Returns:
+        List of beta header strings, or empty list if none required
+    """
+    # Determine the model shorthand (before resolution to full ID)
+    if cli_model:
+        return get_model_betas(cli_model)
+
+    metadata = load_task_metadata(spec_dir)
+
+    if metadata:
+        if metadata.get("isAutoProfile") and metadata.get("phaseModels"):
+            phase_models = metadata["phaseModels"]
+            model_short = phase_models.get(phase, DEFAULT_PHASE_MODELS[phase])
+            return get_model_betas(model_short)
+
+        if metadata.get("model"):
+            return get_model_betas(metadata["model"])
+
+    return get_model_betas(DEFAULT_PHASE_MODELS[phase])
 
 
 def get_phase_thinking(

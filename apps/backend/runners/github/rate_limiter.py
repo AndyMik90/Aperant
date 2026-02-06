@@ -163,6 +163,10 @@ AI_PRICING = {
     # Claude 4.5 models (current)
     "claude-sonnet-4-5-20250929": {"input": 3.00, "output": 15.00},
     "claude-opus-4-5-20251101": {"input": 15.00, "output": 75.00},
+    "claude-opus-4-6": {"input": 15.00, "output": 75.00},
+    # Note: Opus 4.6 with 1M context (opus-1m) uses the same model ID with a beta
+    # header, so it shares the same pricing key. Requests >200K tokens incur premium
+    # rates (2x input, 1.5x output) automatically on the API side.
     "claude-haiku-4-5-20251001": {"input": 0.80, "output": 4.00},
     # Extended thinking models (higher output costs)
     "claude-sonnet-4-5-20250929-thinking": {"input": 3.00, "output": 15.00},

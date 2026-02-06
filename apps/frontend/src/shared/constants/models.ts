@@ -10,25 +10,25 @@ import type { AgentProfile, PhaseModelConfig, FeatureModelConfig, FeatureThinkin
 // ============================================
 
 export const AVAILABLE_MODELS = [
-  { value: 'opus', label: 'Claude Opus 4.5' },
+  { value: 'opus', label: 'Claude Opus 4.6' },
+  { value: 'opus-1m', label: 'Claude Opus 4.6 (1M)' },
   { value: 'sonnet', label: 'Claude Sonnet 4.5' },
   { value: 'haiku', label: 'Claude Haiku 4.5' }
 ] as const;
 
 // Maps model shorthand to actual Claude model IDs
 export const MODEL_ID_MAP: Record<string, string> = {
-  opus: 'claude-opus-4-5-20251101',
+  opus: 'claude-opus-4-6',
+  'opus-1m': 'claude-opus-4-6',
   sonnet: 'claude-sonnet-4-5-20250929',
   haiku: 'claude-haiku-4-5-20251001'
 } as const;
 
 // Maps thinking levels to budget tokens (null = no extended thinking)
 export const THINKING_BUDGET_MAP: Record<string, number | null> = {
-  none: null,
   low: 1024,
   medium: 4096,
-  high: 16384,
-  ultrathink: 63999 // Maximum reasoning depth (API requires max_tokens >= budget + 1, so 63999 + 1 = 64000 limit)
+  high: 16384
 } as const;
 
 // ============================================
@@ -37,11 +37,9 @@ export const THINKING_BUDGET_MAP: Record<string, number | null> = {
 
 // Thinking levels for Claude model (budget token allocation)
 export const THINKING_LEVELS = [
-  { value: 'none', label: 'None', description: 'No extended thinking' },
   { value: 'low', label: 'Low', description: 'Brief consideration' },
   { value: 'medium', label: 'Medium', description: 'Moderate analysis' },
-  { value: 'high', label: 'High', description: 'Deep thinking' },
-  { value: 'ultrathink', label: 'Ultra Think', description: 'Maximum reasoning depth' }
+  { value: 'high', label: 'High', description: 'Deep thinking' }
 ] as const;
 
 // ============================================
@@ -60,13 +58,13 @@ export const AUTO_PHASE_MODELS: PhaseModelConfig = {
 };
 
 export const AUTO_PHASE_THINKING: import('../types/settings').PhaseThinkingConfig = {
-  spec: 'ultrathink',   // Deep thinking for comprehensive spec creation
+  spec: 'high',   // Deep thinking for comprehensive spec creation
   planning: 'high',     // High thinking for planning complex features
   coding: 'low',        // Faster coding iterations
   qa: 'low'             // Efficient QA review
 };
 
-// Complex Tasks - Opus with ultrathink across all phases
+// Complex Tasks - Opus with high thinking across all phases
 export const COMPLEX_PHASE_MODELS: PhaseModelConfig = {
   spec: 'opus',
   planning: 'opus',
@@ -75,10 +73,10 @@ export const COMPLEX_PHASE_MODELS: PhaseModelConfig = {
 };
 
 export const COMPLEX_PHASE_THINKING: import('../types/settings').PhaseThinkingConfig = {
-  spec: 'ultrathink',
-  planning: 'ultrathink',
-  coding: 'ultrathink',
-  qa: 'ultrathink'
+  spec: 'high',
+  planning: 'high',
+  coding: 'high',
+  qa: 'high'
 };
 
 // Balanced - Sonnet with medium thinking across all phases
@@ -167,7 +165,7 @@ export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
     name: 'Complex Tasks',
     description: 'For intricate, multi-step implementations requiring deep analysis',
     model: 'opus',
-    thinkingLevel: 'ultrathink',
+    thinkingLevel: 'high',
     icon: 'Brain',
     phaseModels: COMPLEX_PHASE_MODELS,
     phaseThinking: COMPLEX_PHASE_THINKING
