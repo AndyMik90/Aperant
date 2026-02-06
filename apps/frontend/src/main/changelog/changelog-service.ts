@@ -69,8 +69,6 @@ export class ChangelogService extends EventEmitter {
     // Check process.env first
     if (
       process.env.DEBUG === 'true' ||
-      process.env.DEBUG === '1' ||
-      process.env.DEBUG === 'true' ||
       process.env.DEBUG === '1'
     ) {
       this.debugEnabled = true;

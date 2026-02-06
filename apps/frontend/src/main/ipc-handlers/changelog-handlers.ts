@@ -399,12 +399,13 @@ export function registerChangelogHandlers(
         const base64Data = imageData.includes(',') ? imageData.split(',')[1] : imageData;
         const buffer = Buffer.from(base64Data, 'base64');
 
-        // Save image file
-        const imagePath = path.join(assetsDir, filename);
+        // Sanitize filename to prevent path traversal
+        const safeFilename = path.basename(filename);
+        const imagePath = path.join(assetsDir, safeFilename);
         writeFileSync(imagePath, buffer);
 
         // Return relative path for use in markdown
-        const relativePath = `.github/assets/${filename}`;
+        const relativePath = `.github/assets/${safeFilename}`;
         // For GitHub releases, we'll use the relative path which will work when the release is created
         const url = relativePath;
 
@@ -422,8 +423,11 @@ export function registerChangelogHandlers(
     IPC_CHANNELS.CHANGELOG_READ_LOCAL_IMAGE,
     async (_, projectPath: string, relativePath: string): Promise<IPCResult<string>> => {
       try {
-        // Construct full path from project path and relative path
-        const fullPath = path.join(projectPath, relativePath);
+        // Construct full path and validate it stays within project directory
+        const fullPath = path.resolve(projectPath, relativePath);
+        if (!fullPath.startsWith(path.resolve(projectPath))) {
+          return { success: false, error: 'Invalid path' };
+        }
 
         // Verify the file exists
         if (!existsSync(fullPath)) {
