@@ -191,7 +191,7 @@ class TestGetDefaultThinkingLevel:
     """Tests for get_default_thinking_level() function."""
 
     def test_returns_low_for_coder(self):
-        """Coder should return 'low' effort level (minimal thinking)."""
+        """Coder should return 'low' thinking level."""
         from agents.tools_pkg.models import get_default_thinking_level
 
         result = get_default_thinking_level("coder")
@@ -205,7 +205,7 @@ class TestGetDefaultThinkingLevel:
         assert result == "high"
 
     def test_returns_high_for_spec_critic(self):
-        """Spec critic should return 'high' effort level."""
+        """Spec critic should return 'high' thinking level."""
         from agents.tools_pkg.models import get_default_thinking_level
 
         result = get_default_thinking_level("spec_critic")
