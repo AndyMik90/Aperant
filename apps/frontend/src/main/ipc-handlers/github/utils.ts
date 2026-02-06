@@ -15,6 +15,80 @@ import { getToolPath } from '../../cli-tool-manager';
 const execFileAsync = promisify(execFile);
 
 /**
+ * ETag cache entry for conditional requests
+ */
+export interface ETagCacheEntry {
+  etag: string;
+  data: unknown;
+  lastUpdated: Date;
+}
+
+/**
+ * ETag cache for storing conditional request data
+ */
+export interface ETagCache {
+  [url: string]: ETagCacheEntry;
+}
+
+/**
+ * Rate limit information extracted from GitHub API response headers
+ */
+export interface RateLimitInfo {
+  remaining: number;
+  reset: Date;
+  limit: number;
+}
+
+/**
+ * Response from githubFetchWithETag including cache status and rate limit info
+ */
+export interface GitHubFetchWithETagResult {
+  data: unknown;
+  fromCache: boolean;
+  rateLimitInfo: RateLimitInfo | null;
+}
+
+/**
+ * Module-level ETag cache instance
+ */
+const etagCache: ETagCache = {};
+
+/**
+ * Get the ETag cache (for testing or external access)
+ */
+export function getETagCache(): ETagCache {
+  return etagCache;
+}
+
+/**
+ * Clear the ETag cache (for testing or when switching projects)
+ */
+export function clearETagCache(): void {
+  for (const key of Object.keys(etagCache)) {
+    delete etagCache[key];
+  }
+}
+
+/**
+ * Extract rate limit information from GitHub API response headers
+ */
+export function extractRateLimitInfo(response: Response): RateLimitInfo | null {
+  const remaining = response.headers.get('X-RateLimit-Remaining');
+  const reset = response.headers.get('X-RateLimit-Reset');
+  const limit = response.headers.get('X-RateLimit-Limit');
+
+  if (remaining === null || reset === null) {
+    return null;
+  }
+
+  return {
+    remaining: parseInt(remaining, 10),
+    reset: new Date(parseInt(reset, 10) * 1000),
+    limit: limit ? parseInt(limit, 10) : 5000
+  };
+}
+
+/**
  * Get GitHub token from gh CLI if available (async to avoid blocking main thread)
  * Uses augmented PATH to find gh CLI in common locations (e.g., Homebrew on macOS)
  */
@@ -141,4 +215,73 @@ export async function githubFetch(
   }
 
   return response.json();
+}
+
+/**
+ * Make a request to the GitHub API with ETag caching support
+ * Uses If-None-Match header for conditional requests.
+ * Returns 304 responses from cache without counting against rate limit.
+ */
+export async function githubFetchWithETag(
+  token: string,
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<GitHubFetchWithETagResult> {
+  const url = endpoint.startsWith('http')
+    ? endpoint
+    : `https://api.github.com${endpoint}`;
+
+  const cached = etagCache[url];
+  const headers: Record<string, string> = {
+    'Accept': 'application/vnd.github+json',
+    'Authorization': `Bearer ${token}`,
+    'User-Agent': 'Auto-Claude-UI'
+  };
+
+  // Add If-None-Match header if we have a cached ETag
+  if (cached?.etag) {
+    headers['If-None-Match'] = cached.etag;
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...headers,
+      ...options.headers
+    }
+  });
+
+  const rateLimitInfo = extractRateLimitInfo(response);
+
+  // Handle 304 Not Modified - return cached data
+  if (response.status === 304 && cached) {
+    return {
+      data: cached.data,
+      fromCache: true,
+      rateLimitInfo
+    };
+  }
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`GitHub API error: ${response.status} ${response.statusText} - ${errorBody}`);
+  }
+
+  const data = await response.json();
+
+  // Store new ETag if present
+  const newETag = response.headers.get('ETag');
+  if (newETag) {
+    etagCache[url] = {
+      etag: newETag,
+      data,
+      lastUpdated: new Date()
+    };
+  }
+
+  return {
+    data,
+    fromCache: false,
+    rateLimitInfo
+  };
 }
