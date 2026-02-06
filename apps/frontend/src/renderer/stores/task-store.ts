@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment, TaskOrderState } from '../../shared/types';
-import { debugLog } from '../../shared/utils/debug-logger';
+import { debugLog, debugWarn } from '../../shared/utils/debug-logger';
 
 interface TaskState {
   tasks: Task[];
@@ -191,7 +191,30 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   error: null,
   taskOrder: null,
 
-  setTasks: (tasks) => set({ tasks }),
+  setTasks: (tasks) => {
+    debugLog('[TaskStore.setTasks] Hydrating tasks:', {
+      count: tasks.length,
+      taskIds: tasks.map(t => ({
+        id: t.id,
+        status: t.status,
+        logCount: t.logs?.length || 0,
+        hasExecutionProgress: !!t.executionProgress,
+        phase: t.executionProgress?.phase
+      }))
+    });
+
+    // Log detailed info for each task with logs
+    tasks.forEach(task => {
+      if (task.logs && task.logs.length > 0) {
+        debugLog(`[TaskStore.setTasks] Task ${task.id} has ${task.logs.length} logs:`, {
+          firstLogPreview: task.logs[0]?.substring(0, 100),
+          lastLogPreview: task.logs[task.logs.length - 1]?.substring(0, 100)
+        });
+      }
+    });
+
+    return set({ tasks });
+  },
 
   addTask: (task) =>
     set((state) => {
@@ -432,7 +455,18 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   appendLog: (taskId, log) =>
     set((state) => {
       const index = findTaskIndex(state.tasks, taskId);
-      if (index === -1) return state;
+      if (index === -1) {
+        debugWarn('[TaskStore.appendLog] Task not found:', taskId);
+        return state;
+      }
+
+      const currentLogCount = state.tasks[index].logs?.length || 0;
+      debugLog('[TaskStore.appendLog] Appending log:', {
+        taskId,
+        currentLogCount,
+        newLogCount: currentLogCount + 1,
+        logPreview: log.substring(0, 100)
+      });
 
       return {
         tasks: updateTaskAtIndex(state.tasks, index, (t) => ({
@@ -447,9 +481,25 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     // Record activity for stuck detection — log output proves the task is alive
     recordTaskActivity(taskId);
     return set((state) => {
-      if (logs.length === 0) return state;
+      if (logs.length === 0) {
+        debugLog('[TaskStore.batchAppendLogs] No logs to append for task:', taskId);
+        return state;
+      }
       const index = findTaskIndex(state.tasks, taskId);
-      if (index === -1) return state;
+      if (index === -1) {
+        debugWarn('[TaskStore.batchAppendLogs] Task not found:', taskId);
+        return state;
+      }
+
+      const currentLogCount = state.tasks[index].logs?.length || 0;
+      const newLogCount = currentLogCount + logs.length;
+      debugLog('[TaskStore.batchAppendLogs] Batch appending logs:', {
+        taskId,
+        currentLogCount,
+        newLogsCount: logs.length,
+        newLogCount,
+        firstLogPreview: logs[0]?.substring(0, 100)
+      });
 
       return {
         tasks: updateTaskAtIndex(state.tasks, index, (t) => ({
@@ -523,12 +573,13 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   loadTaskOrder: (projectId) => {
     try {
       const key = getTaskOrderKey(projectId);
+      debugLog('[TaskStore.loadTaskOrder] Loading task order:', { projectId, key });
       const stored = localStorage.getItem(key);
       if (stored) {
         const parsed = JSON.parse(stored);
         // Validate structure before assigning - type assertion is compile-time only
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-          console.warn('Invalid task order data in localStorage, resetting to empty');
+          debugWarn('[TaskStore.loadTaskOrder] Invalid task order data in localStorage, resetting to empty');
           set({ taskOrder: createEmptyTaskOrder() });
           return;
         }
@@ -550,12 +601,17 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           error: isValidColumnArray(parsed.error) ? parsed.error : emptyOrder.error
         };
 
+        debugLog('[TaskStore.loadTaskOrder] Loaded task order:', {
+          projectId,
+          columnCounts: Object.entries(validatedOrder).map(([col, ids]) => ({ col, count: ids.length }))
+        });
         set({ taskOrder: validatedOrder });
       } else {
+        debugLog('[TaskStore.loadTaskOrder] No stored task order found, using empty order');
         set({ taskOrder: createEmptyTaskOrder() });
       }
     } catch (error) {
-      console.error('Failed to load task order:', error);
+      debugWarn('[TaskStore.loadTaskOrder] Failed to load task order:', error);
       set({ taskOrder: createEmptyTaskOrder() });
     }
   },
@@ -617,14 +673,35 @@ export async function loadTasks(projectId: string, options?: { forceRefresh?: bo
   store.setLoading(true);
   store.setError(null);
 
+  debugLog('[TaskStore.loadTasks] Loading tasks for project:', {
+    projectId,
+    forceRefresh: options?.forceRefresh || false,
+    currentTaskCount: store.tasks.length
+  });
+
   try {
     const result = await window.electronAPI.getTasks(projectId, options);
+
+    debugLog('[TaskStore.loadTasks] Received result from IPC:', {
+      success: result.success,
+      dataPresent: !!result.data,
+      taskCount: result.data?.length || 0,
+      error: result.error
+    });
+
     if (result.success && result.data) {
+      debugLog('[TaskStore.loadTasks] Tasks loaded successfully:', {
+        count: result.data.length,
+        tasksWithLogs: result.data.filter(t => t.logs && t.logs.length > 0).length,
+        totalLogCount: result.data.reduce((sum, t) => sum + (t.logs?.length || 0), 0)
+      });
       store.setTasks(result.data);
     } else {
+      debugWarn('[TaskStore.loadTasks] Failed to load tasks:', result.error);
       store.setError(result.error || 'Failed to load tasks');
     }
   } catch (error) {
+    debugWarn('[TaskStore.loadTasks] Exception while loading tasks:', error);
     store.setError(error instanceof Error ? error.message : 'Unknown error');
   } finally {
     store.setLoading(false);
