@@ -263,7 +263,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
     terminals.forEach((terminal) => {
       if (terminal.status === 'running' && !terminal.isClaudeMode) {
         setClaudeMode(terminal.id, true);
-        window.electronAPI.invokeClaudeInTerminal(terminal.id, projectPath);
+        window.electronAPI.invokeClaudeInTerminal(terminal.id, terminal.cwd || projectPath);
       }
     });
   }, [terminals, setClaudeMode, projectPath]);
