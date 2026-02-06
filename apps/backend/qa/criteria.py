@@ -36,7 +36,7 @@ def save_implementation_plan(spec_dir: Path, plan: dict) -> bool:
     try:
         with open(plan_file, encoding="utf-8") as f:
             existing = json.load(f)
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         existing = {}
 
     # Create a shallow copy to avoid mutating the caller's dict
