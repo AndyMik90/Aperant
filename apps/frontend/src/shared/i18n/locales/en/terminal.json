@@ -40,6 +40,8 @@
     "alreadyExists": "A worktree with this name already exists",
     "deleteTitle": "Delete Worktree?",
     "deleteDescription": "This will permanently delete the worktree and its branch. Any uncommitted changes will be lost.",
-    "detached": "(detached)"
+    "detached": "(detached)",
+    "remotePushFailed": "Remote Tracking Not Set Up",
+    "remotePushFailedDescription": "Worktree created but the branch could not be pushed to remote. You may need to run git push -u manually."
   }
 }
