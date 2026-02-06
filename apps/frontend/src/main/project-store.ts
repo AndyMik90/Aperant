@@ -7,6 +7,7 @@ import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir, JSON_ERROR_PRE
 import { getAutoBuildPath, isInitialized } from './project-initializer';
 import { getTaskWorktreeDir } from './worktree-paths';
 import { findAllSpecPaths } from './utils/spec-path-helpers';
+import { ensureAbsolutePath } from './utils/path-helpers';
 
 interface TabState {
   openProjectIds: string[];
@@ -61,7 +62,7 @@ export class ProjectStore {
         data.projects = data.projects.map((p: Project) => ({
           ...p,
           // Ensure project.path is always absolute (critical for dev mode path resolution)
-          path: path.isAbsolute(p.path) ? p.path : path.resolve(p.path),
+          path: ensureAbsolutePath(p.path),
           createdAt: new Date(p.createdAt),
           updatedAt: new Date(p.updatedAt)
         }));
@@ -86,7 +87,7 @@ export class ProjectStore {
   addProject(projectPath: string, name?: string): Project {
     // CRITICAL: Normalize to absolute path for dev mode compatibility
     // This prevents path resolution issues after app restart
-    const absolutePath = path.isAbsolute(projectPath) ? projectPath : path.resolve(projectPath);
+    const absolutePath = ensureAbsolutePath(projectPath);
 
     // Check if project already exists (using absolute path for comparison)
     const existing = this.data.projects.find((p) => p.path === absolutePath);
@@ -511,33 +512,9 @@ export class ProjectStore {
         // Auto-correct status to human_review if all subtasks are completed
         // This handles cases where task completed but app restarted before XState persisted the status
         // (e.g., QA_PASSED event emitted but not processed before shutdown)
-        let correctedStatus = finalStatus;
-        let correctedReviewReason = finalReviewReason;
-        if (subtasks.length > 0 && !hasJsonError) {
-          const completedCount = subtasks.filter(s => s.status === 'completed').length;
-          const allCompleted = completedCount === subtasks.length;
-
-          // If all subtasks are done but status isn't human_review or done, auto-correct
-          if (allCompleted && finalStatus !== 'human_review' && finalStatus !== 'done' && finalStatus !== 'pr_created') {
-            console.warn(`[ProjectStore] Auto-correcting task ${dir.name}: all ${subtasks.length} subtasks completed but status was ${finalStatus}. Setting to human_review.`);
-            correctedStatus = 'human_review';
-            correctedReviewReason = 'completed';
-
-            // Persist the corrected status to the plan file to prevent repeated corrections
-            if (plan) {
-              plan.status = 'human_review';
-              plan.planStatus = 'review';
-              plan.reviewReason = 'completed';
-              plan.updated_at = new Date().toISOString();
-              try {
-                writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
-                console.warn(`[ProjectStore] Persisted corrected status for task ${dir.name}`);
-              } catch (writeError) {
-                console.error(`[ProjectStore] Failed to persist corrected status for task ${dir.name}:`, writeError);
-              }
-            }
-          }
-        }
+        const { status: correctedStatus, reviewReason: correctedReviewReason } = this.correctStaleTaskStatus(
+          subtasks, hasJsonError, finalStatus, finalReviewReason, plan, planPath, dir.name
+        );
 
         // Extract staged status from plan (set when changes are merged with --no-commit)
         const planWithStaged = plan as unknown as { stagedInMainProject?: boolean; stagedAt?: string } | null;
@@ -600,6 +577,53 @@ export class ProjectStore {
     }
 
     return tasks;
+  }
+
+  /**
+   * Correct stale task status when all subtasks are completed but status wasn't persisted.
+   * Extracted from loadTasksFromSpecsDir to keep read/write separation clear.
+   */
+  private correctStaleTaskStatus(
+    subtasks: { status: string }[],
+    hasJsonError: boolean,
+    finalStatus: TaskStatus,
+    finalReviewReason: ReviewReason | undefined,
+    plan: ImplementationPlan | null,
+    planPath: string,
+    taskName: string
+  ): { status: TaskStatus; reviewReason: ReviewReason | undefined } {
+    if (subtasks.length === 0 || hasJsonError) {
+      return { status: finalStatus, reviewReason: finalReviewReason };
+    }
+
+    const completedCount = subtasks.filter(s => s.status === 'completed').length;
+    const allCompleted = completedCount === subtasks.length;
+
+    // Only auto-correct if all subtasks are done and status is in an incomplete coding state.
+    // Preserve ai_review (QA in progress), error (needs investigation), human_review, done, pr_created.
+    if (!allCompleted || finalStatus === 'human_review' || finalStatus === 'done' || finalStatus === 'pr_created' || finalStatus === 'ai_review' || finalStatus === 'error') {
+      return { status: finalStatus, reviewReason: finalReviewReason };
+    }
+
+    console.warn(`[ProjectStore] Auto-correcting task ${taskName}: all ${subtasks.length} subtasks completed but status was ${finalStatus}. Setting to human_review.`);
+
+    if (plan) {
+      plan.status = 'human_review';
+      plan.planStatus = 'review';
+      plan.reviewReason = 'completed';
+      plan.updated_at = new Date().toISOString();
+      // Keep xstateState and executionPhase consistent with corrected status
+      (plan as unknown as Record<string, unknown>).xstateState = 'human_review';
+      (plan as unknown as Record<string, unknown>).executionPhase = 'complete';
+      try {
+        writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+        console.warn(`[ProjectStore] Persisted corrected status for task ${taskName}`);
+      } catch (writeError) {
+        console.error(`[ProjectStore] Failed to persist corrected status for task ${taskName}:`, writeError);
+      }
+    }
+
+    return { status: 'human_review', reviewReason: 'completed' };
   }
 
   /**

@@ -39,6 +39,28 @@ vi.mock('../../../task-log-service', () => ({
   }
 }));
 
+vi.mock('../../../utils/spec-path-helpers', () => ({
+  isValidTaskId: vi.fn((id: string) => {
+    if (!id || typeof id !== 'string') return false;
+    if (id.includes('/') || id.includes('\\')) return false;
+    if (id === '.' || id === '..') return false;
+    if (id.includes('\0')) return false;
+    return true;
+  })
+}));
+
+vi.mock('../../../../shared/utils/debug-logger', () => ({
+  debugLog: vi.fn(),
+  debugWarn: vi.fn()
+}));
+
+vi.mock('../../../utils/path-helpers', () => ({
+  ensureAbsolutePath: vi.fn((p: string) => {
+    const pathMod = require('path');
+    return pathMod.isAbsolute(p) ? p : pathMod.resolve(p);
+  })
+}));
+
 describe('Task Logs Integration (IPC → Service → State)', () => {
   let ipcHandlers: Record<string, Function>;
   let mockMainWindow: Partial<BrowserWindow>;
@@ -179,6 +201,14 @@ describe('Task Logs Integration (IPC → Service → State)', () => {
       expect(path.isAbsolute(loadLogsCall[1])).toBe(true);
     });
 
+    it('should reject invalid specId with path traversal characters', async () => {
+      const handler = ipcHandlers['task:logsGet'];
+      const result = await handler({}, 'project-123', '../../../etc/passwd') as IPCResult<TaskLogs>;
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Invalid spec ID');
+    });
+
     it('should return error when project not found', async () => {
       const { projectStore } = await import('../../../project-store');
 
@@ -283,6 +313,14 @@ describe('Task Logs Integration (IPC → Service → State)', () => {
         '/absolute/path/to/project',
         '.auto-claude/specs'
       );
+    });
+
+    it('should reject invalid specId with path traversal characters', async () => {
+      const handler = ipcHandlers['task:logsWatch'];
+      const result = await handler({}, 'project-123', '../../../etc/passwd') as IPCResult;
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Invalid spec ID');
     });
 
     it('should return error when project not found', async () => {

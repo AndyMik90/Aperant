@@ -5,6 +5,9 @@ import path from 'path';
 import { existsSync } from 'fs';
 import { projectStore } from '../../project-store';
 import { taskLogService } from '../../task-log-service';
+import { isValidTaskId } from '../../utils/spec-path-helpers';
+import { debugLog, debugWarn } from '../../../shared/utils/debug-logger';
+import { ensureAbsolutePath } from '../../utils/path-helpers';
 
 /**
  * Register task logs handlers
@@ -18,40 +21,36 @@ export function registerTaskLogsHandlers(getMainWindow: () => BrowserWindow | nu
     IPC_CHANNELS.TASK_LOGS_GET,
     async (_, projectId: string, specId: string): Promise<IPCResult<TaskLogs | null>> => {
       try {
+        if (!isValidTaskId(specId)) {
+          return { success: false, error: 'Invalid spec ID' };
+        }
+
         const project = projectStore.getProject(projectId);
         if (!project) {
           console.error('[TASK_LOGS_GET] Project not found:', projectId);
           return { success: false, error: 'Project not found' };
         }
 
-        // CRITICAL: Ensure project.path is absolute for path resolution consistency
-        const absoluteProjectPath = path.isAbsolute(project.path)
-          ? project.path
-          : path.resolve(project.path);
-
+        const absoluteProjectPath = ensureAbsolutePath(project.path);
         const specsRelPath = getSpecsDir(project.autoBuildPath);
         const specDir = path.join(absoluteProjectPath, specsRelPath, specId);
 
-        // Enhanced debug logging for path resolution diagnosis
-        console.log('[TASK_LOGS_GET] Path resolution:', {
+        debugLog('[TASK_LOGS_GET] Path resolution:', {
           projectId,
           specId,
-          projectPath: project.path,
           absoluteProjectPath,
           specsRelPath,
           specDir,
-          specDirExists: existsSync(specDir),
-          logFileExists: existsSync(path.join(specDir, 'task_logs.json'))
         });
 
         if (!existsSync(specDir)) {
-          console.warn('[TASK_LOGS_GET] Spec directory not found:', specDir);
+          debugWarn('[TASK_LOGS_GET] Spec directory not found:', specDir);
           return { success: false, error: 'Spec directory not found' };
         }
 
         const logs = taskLogService.loadLogs(specDir, absoluteProjectPath, specsRelPath, specId);
 
-        console.log('[TASK_LOGS_GET] Logs loaded:', {
+        debugLog('[TASK_LOGS_GET] Logs loaded:', {
           specId,
           hasLogs: !!logs,
           phaseCounts: logs ? {
@@ -79,31 +78,29 @@ export function registerTaskLogsHandlers(getMainWindow: () => BrowserWindow | nu
     IPC_CHANNELS.TASK_LOGS_WATCH,
     async (_, projectId: string, specId: string): Promise<IPCResult> => {
       try {
+        if (!isValidTaskId(specId)) {
+          return { success: false, error: 'Invalid spec ID' };
+        }
+
         const project = projectStore.getProject(projectId);
         if (!project) {
           console.error('[TASK_LOGS_WATCH] Project not found:', projectId);
           return { success: false, error: 'Project not found' };
         }
 
-        // CRITICAL: Ensure project.path is absolute for path resolution consistency
-        const absoluteProjectPath = path.isAbsolute(project.path)
-          ? project.path
-          : path.resolve(project.path);
-
+        const absoluteProjectPath = ensureAbsolutePath(project.path);
         const specsRelPath = getSpecsDir(project.autoBuildPath);
         const specDir = path.join(absoluteProjectPath, specsRelPath, specId);
 
-        console.log('[TASK_LOGS_WATCH] Starting watch:', {
+        debugLog('[TASK_LOGS_WATCH] Starting watch:', {
           projectId,
           specId,
-          projectPath: project.path,
           absoluteProjectPath,
           specDir,
-          exists: existsSync(specDir)
         });
 
         if (!existsSync(specDir)) {
-          console.warn('[TASK_LOGS_WATCH] Spec directory not found:', specDir);
+          debugWarn('[TASK_LOGS_WATCH] Spec directory not found:', specDir);
           return { success: false, error: 'Spec directory not found' };
         }
 
