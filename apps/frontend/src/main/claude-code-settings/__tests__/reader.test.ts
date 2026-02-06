@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import path from 'path';
 import type { ClaudeCodeSettings } from '../types';
 
 // Mock fs module
@@ -35,6 +36,13 @@ const _mockHomedir = vi.mocked(homedir);
 const mockIsWindows = vi.mocked(isWindows);
 const mockIsMacOS = vi.mocked(isMacOS);
 
+// Build cross-platform expected paths using path.join so tests work on Windows too
+const HOME = '/home/testuser';
+const USER_SETTINGS = path.join(HOME, '.claude', 'settings.json');
+const LINUX_MANAGED = '/etc/claude-code/managed-settings.json';
+const projectSettings = (projectPath: string) => path.join(projectPath, '.claude', 'settings.json');
+const projectLocalSettings = (projectPath: string) => path.join(projectPath, '.claude', 'settings.local.json');
+
 // Import module under test after mocks
 import { readAllSettings, readUserGlobalSettings, readProjectSharedSettings, readProjectLocalSettings, readManagedSettings } from '../reader';
 
@@ -66,8 +74,8 @@ describe('reader', () => {
       const result = readUserGlobalSettings();
 
       expect(result).toEqual(expectedSettings);
-      expect(mockExistsSync).toHaveBeenCalledWith('/home/testuser/.claude/settings.json');
-      expect(mockReadFileSync).toHaveBeenCalledWith('/home/testuser/.claude/settings.json', 'utf-8');
+      expect(mockExistsSync).toHaveBeenCalledWith(USER_SETTINGS);
+      expect(mockReadFileSync).toHaveBeenCalledWith(USER_SETTINGS, 'utf-8');
     });
 
     it('returns undefined when file does not exist', () => {
@@ -100,7 +108,7 @@ describe('reader', () => {
 
       readUserGlobalSettings();
 
-      expect(mockExistsSync).toHaveBeenCalledWith('/custom/config/settings.json');
+      expect(mockExistsSync).toHaveBeenCalledWith(path.join('/custom/config', 'settings.json'));
     });
 
     it('falls back to ~/.claude when no profile manager', () => {
@@ -109,7 +117,7 @@ describe('reader', () => {
 
       readUserGlobalSettings();
 
-      expect(mockExistsSync).toHaveBeenCalledWith('/home/testuser/.claude/settings.json');
+      expect(mockExistsSync).toHaveBeenCalledWith(USER_SETTINGS);
     });
   });
 
@@ -127,8 +135,8 @@ describe('reader', () => {
       const result = readProjectSharedSettings('/project/path');
 
       expect(result).toEqual(expectedSettings);
-      expect(mockExistsSync).toHaveBeenCalledWith('/project/path/.claude/settings.json');
-      expect(mockReadFileSync).toHaveBeenCalledWith('/project/path/.claude/settings.json', 'utf-8');
+      expect(mockExistsSync).toHaveBeenCalledWith(projectSettings('/project/path'));
+      expect(mockReadFileSync).toHaveBeenCalledWith(projectSettings('/project/path'), 'utf-8');
     });
 
     it('returns undefined when file does not exist', () => {
@@ -165,8 +173,8 @@ describe('reader', () => {
       const result = readProjectLocalSettings('/project/path');
 
       expect(result).toEqual(expectedSettings);
-      expect(mockExistsSync).toHaveBeenCalledWith('/project/path/.claude/settings.local.json');
-      expect(mockReadFileSync).toHaveBeenCalledWith('/project/path/.claude/settings.local.json', 'utf-8');
+      expect(mockExistsSync).toHaveBeenCalledWith(projectLocalSettings('/project/path'));
+      expect(mockReadFileSync).toHaveBeenCalledWith(projectLocalSettings('/project/path'), 'utf-8');
     });
 
     it('returns undefined when file does not exist', () => {
@@ -187,7 +195,7 @@ describe('reader', () => {
 
       const result = readManagedSettings();
 
-      expect(mockExistsSync).toHaveBeenCalledWith('/etc/claude-code/managed-settings.json');
+      expect(mockExistsSync).toHaveBeenCalledWith(LINUX_MANAGED);
       expect(result).toEqual({ model: 'managed' });
     });
 
@@ -248,15 +256,17 @@ describe('reader', () => {
     });
 
     it('reads only user and managed settings when no project path', () => {
-      mockExistsSync.mockImplementation((path) => {
-        return path === '/home/testuser/.claude/settings.json' || path === '/etc/claude-code/managed-settings.json';
+      mockExistsSync.mockImplementation((p) => {
+        const s = String(p);
+        return s === USER_SETTINGS || s === LINUX_MANAGED;
       });
 
-      mockReadFileSync.mockImplementation((path) => {
-        if (path === '/home/testuser/.claude/settings.json') {
+      mockReadFileSync.mockImplementation((p) => {
+        const s = String(p);
+        if (s === USER_SETTINGS) {
           return JSON.stringify({ model: 'user-model' });
         }
-        if (path === '/etc/claude-code/managed-settings.json') {
+        if (s === LINUX_MANAGED) {
           return JSON.stringify({ alwaysThinkingEnabled: false });
         }
         return '{}';
@@ -277,17 +287,18 @@ describe('reader', () => {
     it('reads all 4 levels when project path is provided', () => {
       mockExistsSync.mockReturnValue(true);
 
-      mockReadFileSync.mockImplementation((path) => {
-        if (path === '/home/testuser/.claude/settings.json') {
+      mockReadFileSync.mockImplementation((p) => {
+        const s = String(p);
+        if (s === USER_SETTINGS) {
           return JSON.stringify({ model: 'user-model' });
         }
-        if (path === '/project/.claude/settings.json') {
+        if (s === projectSettings('/project')) {
           return JSON.stringify({ env: { PROJECT: 'shared' } });
         }
-        if (path === '/project/.claude/settings.local.json') {
+        if (s === projectLocalSettings('/project')) {
           return JSON.stringify({ alwaysThinkingEnabled: true });
         }
-        if (path === '/etc/claude-code/managed-settings.json') {
+        if (s === LINUX_MANAGED) {
           return JSON.stringify({ permissions: { deny: ['rm'] } });
         }
         return '{}';
@@ -308,12 +319,12 @@ describe('reader', () => {
     });
 
     it('handles missing files by returning undefined for those levels', () => {
-      mockExistsSync.mockImplementation((path) => {
-        return path === '/home/testuser/.claude/settings.json';
+      mockExistsSync.mockImplementation((p) => {
+        return String(p) === USER_SETTINGS;
       });
 
-      mockReadFileSync.mockImplementation((path) => {
-        if (path === '/home/testuser/.claude/settings.json') {
+      mockReadFileSync.mockImplementation((p) => {
+        if (String(p) === USER_SETTINGS) {
           return JSON.stringify({ model: 'user-only' });
         }
         return '{}';
@@ -331,11 +342,12 @@ describe('reader', () => {
     it('handles invalid JSON by returning undefined for that level', () => {
       mockExistsSync.mockReturnValue(true);
 
-      mockReadFileSync.mockImplementation((path) => {
-        if (path === '/home/testuser/.claude/settings.json') {
+      mockReadFileSync.mockImplementation((p) => {
+        const s = String(p);
+        if (s === USER_SETTINGS) {
           return JSON.stringify({ model: 'valid' });
         }
-        if (path === '/project/.claude/settings.json') {
+        if (s === projectSettings('/project')) {
           return '{ invalid json';
         }
         return '{}';
@@ -367,27 +379,28 @@ describe('reader', () => {
     it('merges settings with correct precedence', () => {
       mockExistsSync.mockReturnValue(true);
 
-      mockReadFileSync.mockImplementation((path) => {
-        if (path === '/home/testuser/.claude/settings.json') {
+      mockReadFileSync.mockImplementation((p) => {
+        const s = String(p);
+        if (s === USER_SETTINGS) {
           return JSON.stringify({
             model: 'user-model',
             env: { A: 'user', B: 'user' },
             permissions: { allow: ['user-tool'] },
           });
         }
-        if (path === '/project/.claude/settings.json') {
+        if (s === projectSettings('/project')) {
           return JSON.stringify({
             model: 'shared-model',
             env: { B: 'shared', C: 'shared' },
             permissions: { allow: ['shared-tool'] },
           });
         }
-        if (path === '/project/.claude/settings.local.json') {
+        if (s === projectLocalSettings('/project')) {
           return JSON.stringify({
             env: { C: 'local', D: 'local' },
           });
         }
-        if (path === '/etc/claude-code/managed-settings.json') {
+        if (s === LINUX_MANAGED) {
           return JSON.stringify({
             model: 'managed-model',
             permissions: { deny: ['dangerous'] },
