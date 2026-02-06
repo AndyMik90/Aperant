@@ -106,28 +106,40 @@ def validate_subtask_files(subtask: dict, project_dir: Path) -> dict:
         - success (bool): True if all files exist
         - error (str): Error message if validation fails
         - missing_files (list): List of missing file paths
+        - invalid_paths (list): List of paths that resolve outside the project
         - suggestion (str): Actionable suggestion for resolution
     """
     missing_files = []
+    invalid_paths = []
 
     resolved_project = Path(project_dir).resolve()
     for file_path in subtask.get("files_to_modify", []):
         full_path = (resolved_project / file_path).resolve()
         if not full_path.is_relative_to(resolved_project):
-            missing_files.append(file_path)
+            invalid_paths.append(file_path)
             continue
         if not full_path.exists():
             missing_files.append(file_path)
+
+    if invalid_paths:
+        return {
+            "success": False,
+            "error": f"Paths resolve outside project boundary: {', '.join(invalid_paths)}",
+            "missing_files": missing_files,
+            "invalid_paths": invalid_paths,
+            "suggestion": "Update implementation plan to use paths within the project directory",
+        }
 
     if missing_files:
         return {
             "success": False,
             "error": f"Planned files do not exist: {', '.join(missing_files)}",
             "missing_files": missing_files,
+            "invalid_paths": [],
             "suggestion": "Update implementation plan with correct filenames or create missing files",
         }
 
-    return {"success": True, "missing_files": []}
+    return {"success": True, "missing_files": [], "invalid_paths": []}
 
 
 def _check_and_clear_resume_file(
