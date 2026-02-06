@@ -56,6 +56,14 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
   // Ref to track active cleanup timers — avoids including pendingCleanup in effect deps
   const cleanupTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
+  // Helper to clear all active cleanup timers
+  const clearAllCleanupTimers = useCallback(() => {
+    for (const timer of cleanupTimersRef.current.values()) {
+      clearTimeout(timer);
+    }
+    cleanupTimersRef.current.clear();
+  }, []);
+
   // Filter terminals to show only those belonging to the current project
   // Also include legacy terminals without projectPath (created before this change)
   // Keep exited terminals in DOM during grace period to allow react-resizable-panels to reconcile
@@ -82,6 +90,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
   // Manage grace period timers for exited terminals
   // When a terminal exits, add it to pendingCleanup and schedule its removal
   // Uses cleanupTimersRef to track scheduled timers, avoiding pendingCleanup in deps
+  // No cleanup function here — timers must survive dependency changes
   useEffect(() => {
     const filtered = projectPath
       ? allTerminals.filter(t => t.projectPath === projectPath || !t.projectPath)
@@ -107,15 +116,12 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
         cleanupTimersRef.current.set(terminal.id, timer);
       }
     }
-
-    // Cleanup on unmount only — timers must survive dependency changes
-    return () => {
-      for (const timer of cleanupTimersRef.current.values()) {
-        clearTimeout(timer);
-      }
-      cleanupTimersRef.current.clear();
-    };
   }, [allTerminals, projectPath]);
+
+  // Clear all cleanup timers on unmount
+  useEffect(() => {
+    return clearAllCleanupTimers;
+  }, [clearAllCleanupTimers]);
 
   const activeTerminalId = useTerminalStore((state) => state.activeTerminalId);
   const addTerminal = useTerminalStore((state) => state.addTerminal);
@@ -144,12 +150,8 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
   useEffect(() => {
     setExpandedTerminalId(null);
     setPendingCleanup(new Map());
-    // Clear any active cleanup timers
-    for (const timer of cleanupTimersRef.current.values()) {
-      clearTimeout(timer);
-    }
-    cleanupTimersRef.current.clear();
-  }, [projectPath]);
+    clearAllCleanupTimers();
+  }, [projectPath, clearAllCleanupTimers]);
 
   // Fetch available session dates when project changes
   useEffect(() => {
