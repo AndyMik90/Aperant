@@ -81,3 +81,19 @@ class TestThinkingLevelValidation:
         assert get_thinking_budget("low") == 1024
         assert get_thinking_budget("medium") == 4096
         assert get_thinking_budget("high") == 16384
+
+    def test_legacy_none_maps_to_low(self, caplog):
+        """Test that legacy 'none' level maps to 'low' with deprecation warning."""
+        with caplog.at_level(logging.WARNING):
+            budget = get_thinking_budget("none")
+            assert budget == THINKING_BUDGET_MAP["low"]
+            assert "deprecated" in caplog.text
+            assert "Mapped to 'low'" in caplog.text
+
+    def test_legacy_ultrathink_maps_to_high(self, caplog):
+        """Test that legacy 'ultrathink' level maps to 'high' with deprecation warning."""
+        with caplog.at_level(logging.WARNING):
+            budget = get_thinking_budget("ultrathink")
+            assert budget == THINKING_BUDGET_MAP["high"]
+            assert "deprecated" in caplog.text
+            assert "Mapped to 'high'" in caplog.text

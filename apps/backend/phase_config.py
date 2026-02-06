@@ -33,6 +33,13 @@ THINKING_BUDGET_MAP: dict[str, int | None] = {
     "high": 16384,  # Deep thinking for QA review
 }
 
+# Legacy thinking level mapping for backward compatibility
+# Maps removed levels to their closest current equivalents
+LEGACY_THINKING_MAP: dict[str, str] = {
+    "none": "low",
+    "ultrathink": "high",
+}
+
 # Effort level mapping for adaptive thinking models (e.g., Opus 4.6)
 # These models support CLAUDE_CODE_EFFORT_LEVEL env var for effort-based routing
 EFFORT_LEVEL_MAP: dict[str, str] = {"low": "low", "medium": "medium", "high": "high"}
@@ -167,6 +174,15 @@ def get_thinking_budget(thinking_level: str) -> int | None:
         Token budget or None for no extended thinking
     """
     import logging
+
+    # Map legacy thinking levels to current equivalents
+    if thinking_level in LEGACY_THINKING_MAP:
+        mapped = LEGACY_THINKING_MAP[thinking_level]
+        logging.warning(
+            f"Thinking level '{thinking_level}' is deprecated. "
+            f"Mapped to '{mapped}'."
+        )
+        thinking_level = mapped
 
     if thinking_level not in THINKING_BUDGET_MAP:
         valid_levels = ", ".join(THINKING_BUDGET_MAP.keys())

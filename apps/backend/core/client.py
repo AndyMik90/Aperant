@@ -466,10 +466,9 @@ def create_client(
         agent_type: Agent type identifier from AGENT_CONFIGS
                    (e.g., 'coder', 'planner', 'qa_reviewer', 'spec_gatherer')
         max_thinking_tokens: Token budget for extended thinking (None = disabled)
-                            - ultrathink: 16000 (spec creation)
-                            - high: 10000 (QA review)
-                            - medium: 5000 (planning, validation)
-                            - None: disabled (coding)
+                            - high: 16384 (spec creation, QA review)
+                            - medium: 4096 (planning, validation)
+                            - low: 1024 (coding)
         output_format: Optional structured output format for validated JSON responses.
                       Use {"type": "json_schema", "schema": Model.model_json_schema()}
                       See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
