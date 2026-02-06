@@ -526,17 +526,18 @@ export function registerTaskExecutionHandlers(
       status: TaskStatus,
       options?: { forceCleanup?: boolean }
     ): Promise<IPCResult & { worktreeExists?: boolean; worktreePath?: string }> => {
-      // IMPORTANT: Clear TaskStateManager's internal cache AND refresh projectStore cache
+      // IMPORTANT: Clear both caches to ensure fresh data is loaded from files
       // TaskStateManager has its own cache (taskContextById) that must be cleared
-      taskStateManager.clearTask(taskId);
+      // Preserve sequence number to prevent duplicate/stale event processing
+      taskStateManager.clearTaskPreserveSequence(taskId);
 
-      // Also refresh the projectStore cache to ensure fresh data from files
+      // Invalidate projectStore cache so findTaskAndProject() below reloads from disk
       const cached = findTaskAndProject(taskId);
       if (cached.project) {
         projectStore.invalidateTasksCache(cached.project.id);
       }
 
-      // Now find task and project again with fresh data from file
+      // Now find task and project again - cache miss ensures fresh data from file
       const { task, project } = findTaskAndProject(taskId);
 
       if (!task || !project) {

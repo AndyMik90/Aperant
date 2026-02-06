@@ -188,6 +188,23 @@ export class TaskStateManager {
   }
 
   /**
+   * Clear task state while preserving the sequence number.
+   * Use this when you need to refresh state but still want to reject
+   * duplicate/stale events by sequence number.
+   */
+  clearTaskPreserveSequence(taskId: string): void {
+    this.lastStateByTask.delete(taskId);
+    this.terminalEventSeen.delete(taskId);
+    this.taskContextById.delete(taskId);
+    const actor = this.actors.get(taskId);
+    if (actor) {
+      actor.stop();
+      this.actors.delete(taskId);
+    }
+    // Note: lastSequenceByTask is NOT deleted, preserving duplicate detection
+  }
+
+  /**
    * Clear all task state. Called by TASK_LIST handler when forceRefresh is true.
    * This ensures actors are recreated with fresh task data when the user
    * triggers a manual refresh from the UI.

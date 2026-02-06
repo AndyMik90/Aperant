@@ -39,20 +39,26 @@ def save_implementation_plan(spec_dir: Path, plan: dict) -> bool:
     except (OSError, json.JSONDecodeError):
         existing = {}
 
-    # Frontend fields to preserve (may not be in the plan dict)
-    frontend_fields = ["status", "planStatus", "reviewReason", "xstateState", "executionPhase", "recoveryNote"]
-    preserved_fields = []
-    for field in frontend_fields:
-        if field in existing and field not in plan:
-            plan[field] = existing[field]
-            preserved_fields.append(field)
+    # Create a shallow copy to avoid mutating the caller's dict
+    new_plan = dict(plan)
 
-    # Merge qa_stats if present in existing but not in plan
-    if "qa_stats" in existing and "qa_stats" not in plan:
-        plan["qa_stats"] = existing["qa_stats"]
+    # Preserve fields from existing file that aren't in the new plan dict
+    # Includes frontend fields (status, planStatus, etc.) and qa_stats
+    preserve_fields = [
+        "status",
+        "planStatus",
+        "reviewReason",
+        "xstateState",
+        "executionPhase",
+        "recoveryNote",
+        "qa_stats",
+    ]
+    for field in preserve_fields:
+        if field in existing and field not in new_plan:
+            new_plan[field] = existing[field]
 
     try:
-        write_json_atomic(plan_file, plan, indent=2, ensure_ascii=False)
+        write_json_atomic(plan_file, new_plan, indent=2, ensure_ascii=False)
         return True
     except OSError:
         return False
