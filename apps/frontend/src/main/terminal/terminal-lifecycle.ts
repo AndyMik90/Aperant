@@ -17,6 +17,7 @@ import type {
 } from './types';
 import { isWindows } from '../platform';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
+import { safeSendToRenderer } from '../ipc-handlers/utils';
 
 /**
  * Options for terminal restoration
@@ -205,13 +206,11 @@ export async function restoreTerminal(
   }
 
   // Send title change event for all restored terminals so renderer updates
-  const win = getWindow();
-  if (win) {
-    win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, session.id, session.title);
-    // Always sync worktreeConfig to renderer (even if undefined) to ensure correct state
-    // This handles both: showing labels after recovery AND clearing stale labels when worktrees are deleted
-    win.webContents.send(IPC_CHANNELS.TERMINAL_WORKTREE_CONFIG_CHANGE, session.id, terminal.worktreeConfig);
-  }
+  // Use safeSendToRenderer with isDestroyed() check to prevent crashes
+  safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_TITLE_CHANGE, session.id, session.title);
+  // Always sync worktreeConfig to renderer (even if undefined) to ensure correct state
+  // This handles both: showing labels after recovery AND clearing stale labels when worktrees are deleted
+  safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_WORKTREE_CONFIG_CHANGE, session.id, terminal.worktreeConfig);
 
   // Defer Claude resume until terminal becomes active (is viewed by user)
   // This prevents all terminals from resuming Claude simultaneously on app startup,
@@ -230,9 +229,8 @@ export async function restoreTerminal(
 
     // Notify renderer that this terminal has a pending Claude resume
     // The renderer will trigger the resume when the terminal tab becomes active
-    if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_PENDING_RESUME, terminal.id, storedClaudeSessionId);
-    }
+    // Use safeSendToRenderer with isDestroyed() check to prevent crashes
+    safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_PENDING_RESUME, terminal.id, storedClaudeSessionId);
 
     // Persist the Claude mode and pending resume state
     if (terminal.projectPath) {
