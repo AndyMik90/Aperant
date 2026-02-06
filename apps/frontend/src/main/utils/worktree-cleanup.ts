@@ -38,6 +38,8 @@ export interface WorktreeCleanupOptions {
   logPrefix?: string;
   /** Whether to delete the associated branch (default: true) */
   deleteBranch?: boolean;
+  /** Explicit branch name to use for deletion (overrides auto-detection fallback) */
+  branchName?: string;
   /** Timeout in milliseconds for git operations (default: 30000) */
   timeout?: number;
   /** Maximum retries for directory deletion on Windows (default: 3) */
@@ -63,7 +65,7 @@ export interface WorktreeCleanupResult {
 /**
  * Gets the worktree branch name based on spec ID
  */
-function getWorktreeBranch(worktreePath: string, specId: string, timeout: number): string | null {
+function getWorktreeBranch(worktreePath: string, specId: string, timeout: number, explicitBranchName?: string): string | null {
   // First try to get branch from the worktree's HEAD
   if (existsSync(worktreePath)) {
     try {
@@ -78,8 +80,13 @@ function getWorktreeBranch(worktreePath: string, specId: string, timeout: number
         return branch;
       }
     } catch {
-      // Worktree might be corrupted, fall back to naming convention
+      // Worktree might be corrupted, fall back to explicit name or naming convention
     }
+  }
+
+  // Use explicit branch name if provided (e.g., terminal worktrees use terminal/{name})
+  if (explicitBranchName) {
+    return explicitBranchName;
   }
 
   // Fall back to the naming convention: auto-claude/{spec-id}
@@ -171,6 +178,7 @@ export async function cleanupWorktree(options: WorktreeCleanupOptions): Promise<
     commitMessage = 'Auto-save before deletion',
     logPrefix = '[WORKTREE_CLEANUP]',
     deleteBranch = true,
+    branchName,
     timeout = 30000,
     maxRetries = 3,
     retryDelay = 500
@@ -195,7 +203,7 @@ export async function cleanupWorktree(options: WorktreeCleanupOptions): Promise<
   }
 
   // 1. Get the branch name before we delete the directory
-  const branch = getWorktreeBranch(worktreePath, specId, timeout);
+  const branch = getWorktreeBranch(worktreePath, specId, timeout, branchName);
   console.warn(`${logPrefix} Starting cleanup for worktree: ${worktreePath}`);
   if (branch) {
     console.warn(`${logPrefix} Associated branch: ${branch}`);

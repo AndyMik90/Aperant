@@ -902,7 +902,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <AlertDialog open={showDeleteConfirm} onOpenChange={(open) => !open && !isDeleting && setShowDeleteConfirm(false)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Worktree?</AlertDialogTitle>
@@ -986,7 +986,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
       </AlertDialog>
 
       {/* Bulk Delete Confirmation Dialog */}
-      <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+      <AlertDialog open={showBulkDeleteConfirm} onOpenChange={(open) => !open && !isBulkDeleting && setShowBulkDeleteConfirm(false)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">

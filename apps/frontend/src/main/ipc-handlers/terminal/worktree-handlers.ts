@@ -746,6 +746,7 @@ async function removeTerminalWorktree(
       specId: name,
       logPrefix: '[TerminalWorktree]',
       deleteBranch: deleteBranch && config.hasGitBranch,
+      branchName: config.branchName || undefined,
       commitMessage: 'Auto-save before terminal worktree deletion',
     });
 
