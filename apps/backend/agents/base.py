@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 AUTO_CONTINUE_DELAY_SECONDS = 3
 HUMAN_INTERVENTION_FILE = "PAUSE"
 
+# Retry configuration for subtask execution
+MAX_SUBTASK_RETRIES = 5  # Maximum attempts before marking subtask as stuck
+
 # Retry configuration for 400 tool concurrency errors
 MAX_CONCURRENCY_RETRIES = 5  # Maximum number of retries for tool concurrency errors
 INITIAL_RETRY_DELAY_SECONDS = (
