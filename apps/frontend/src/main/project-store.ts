@@ -348,8 +348,6 @@ export class ProjectStore {
         const newIsMain = task.location === 'main';
 
         if (existingIsMain && !newIsMain) {
-          // Main wins, keep existing
-          continue;
         } else if (!existingIsMain && newIsMain) {
           // New is main, replace existing worktree
           taskMap.set(task.id, task);
@@ -603,6 +601,15 @@ export class ProjectStore {
     // Preserve ai_review (QA in progress), error (needs investigation), human_review, done, pr_created.
     if (!allCompleted || finalStatus === 'human_review' || finalStatus === 'done' || finalStatus === 'pr_created' || finalStatus === 'ai_review' || finalStatus === 'error') {
       return { status: finalStatus, reviewReason: finalReviewReason };
+    }
+
+    // Skip auto-correction if plan was recently updated (backend may still be writing)
+    if (plan?.updated_at) {
+      const updatedAt = new Date(plan.updated_at).getTime();
+      const ageMs = Date.now() - updatedAt;
+      if (ageMs < 30_000) {
+        return { status: finalStatus, reviewReason: finalReviewReason };
+      }
     }
 
     console.warn(`[ProjectStore] Auto-correcting task ${taskName}: all ${subtasks.length} subtasks completed but status was ${finalStatus}. Setting to human_review.`);

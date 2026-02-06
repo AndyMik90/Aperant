@@ -123,6 +123,10 @@ export function registerTaskLogsHandlers(getMainWindow: () => BrowserWindow | nu
     IPC_CHANNELS.TASK_LOGS_UNWATCH,
     async (_, specId: string): Promise<IPCResult> => {
       try {
+        if (!isValidTaskId(specId)) {
+          return { success: false, error: 'Invalid spec ID' };
+        }
+
         taskLogService.stopWatching(specId);
         return { success: true };
       } catch (error) {
