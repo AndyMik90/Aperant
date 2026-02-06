@@ -6,13 +6,11 @@ Manages acceptance criteria validation and status tracking.
 """
 
 import json
-import os
-import time
 from pathlib import Path
 
 from core.file_utils import write_json_atomic
-from core.platform import is_windows
 from progress import is_build_complete
+from runners.github.file_lock import FileLock, FileLockTimeout
 
 
 def load_implementation_plan(spec_dir: Path) -> dict | None:
@@ -30,95 +28,41 @@ def load_implementation_plan(spec_dir: Path) -> dict | None:
 def save_implementation_plan(spec_dir: Path, plan: dict) -> bool:
     """Save the implementation plan JSON while preserving frontend fields."""
     plan_file = spec_dir / "implementation_plan.json"
-    lock_file = plan_file.with_suffix(".lock")
-    lock_timeout = 5.0  # seconds
-
-    # Create lock file parent directory if needed
-    lock_file.parent.mkdir(parents=True, exist_ok=True)
-
-    # Open lock file for locking
-    try:
-        lock_fd = os.open(str(lock_file), os.O_CREAT | os.O_RDWR)
-    except OSError:
-        return False
-
-    # Try to acquire lock with timeout
-    start_time = time.time()
-    lock_acquired = False
 
     try:
-        while time.time() - start_time < lock_timeout:
+        with FileLock(plan_file, timeout=5.0):
+            # Read existing plan
             try:
-                if is_windows():
-                    import msvcrt
+                with open(plan_file, encoding="utf-8") as f:
+                    existing = json.load(f)
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                existing = {}
 
-                    msvcrt.locking(lock_fd, msvcrt.LK_NBLCK, 1024 * 1024)
-                else:
-                    import fcntl
+            # Create a shallow copy to avoid mutating the caller's dict
+            new_plan = dict(plan)
 
-                    fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                lock_acquired = True
-                break
-            except (BlockingIOError, OSError):
-                # Lock held by another process, retry after short delay
-                time.sleep(0.01)
+            # Preserve fields from existing file that aren't in the new plan dict
+            # Includes frontend fields (status, planStatus, etc.) and qa_stats
+            preserve_fields = [
+                "status",
+                "planStatus",
+                "reviewReason",
+                "xstateState",
+                "executionPhase",
+                "recoveryNote",
+                "qa_stats",
+            ]
+            for field in preserve_fields:
+                if field in existing and field not in new_plan:
+                    new_plan[field] = existing[field]
 
-        if not lock_acquired:
-            # Timeout - failed to acquire lock
-            return False
-
-        # Lock acquired - now do read-merge-write atomically
-        try:
-            with open(plan_file, encoding="utf-8") as f:
-                existing = json.load(f)
-        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-            existing = {}
-
-        # Create a shallow copy to avoid mutating the caller's dict
-        new_plan = dict(plan)
-
-        # Preserve fields from existing file that aren't in the new plan dict
-        # Includes frontend fields (status, planStatus, etc.) and qa_stats
-        preserve_fields = [
-            "status",
-            "planStatus",
-            "reviewReason",
-            "xstateState",
-            "executionPhase",
-            "recoveryNote",
-            "qa_stats",
-        ]
-        for field in preserve_fields:
-            if field in existing and field not in new_plan:
-                new_plan[field] = existing[field]
-
-        try:
-            write_json_atomic(plan_file, new_plan, indent=2, ensure_ascii=False)
-            return True
-        except OSError:
-            return False
-    finally:
-        # Always release the lock and close the file descriptor
-        try:
-            if lock_acquired:
-                if is_windows():
-                    import msvcrt
-
-                    msvcrt.locking(lock_fd, msvcrt.LK_UNLCK, 1024 * 1024)
-                else:
-                    import fcntl
-
-                    fcntl.flock(lock_fd, fcntl.LOCK_UN)
-            os.close(lock_fd)
-        except Exception:
-            pass  # Best-effort cleanup
-
-        # Clean up lock file
-        try:
-            if lock_file.exists():
-                lock_file.unlink()
-        except Exception:
-            pass  # Best-effort cleanup
+            try:
+                write_json_atomic(plan_file, new_plan, indent=2, ensure_ascii=False)
+                return True
+            except OSError:
+                return False
+    except FileLockTimeout:
+        return False
 
 
 # =============================================================================
