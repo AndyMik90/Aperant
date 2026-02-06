@@ -286,11 +286,7 @@ export function WorktreeSelector({
   // Handle open/close state changes
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
-    if (open) {
-      requestAnimationFrame(() => {
-        searchInputRef.current?.focus();
-      });
-    } else {
+    if (!open) {
       setSearchQuery('');
       setFocusedIndex(0);
     }
@@ -449,6 +445,9 @@ export function WorktreeSelector({
           <input
             ref={searchInputRef}
             type="search"
+            role="combobox"
+            aria-expanded={isOpen}
+            aria-haspopup="listbox"
             aria-controls={listboxId}
             aria-activedescendant={activeDescendant}
             value={searchQuery}
