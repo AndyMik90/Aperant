@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { Combobox } from '../ui/combobox';
+import { useToast } from '../../hooks/use-toast';
 import { buildBranchOptions } from '../../lib/branch-utils';
 import type { Task, TerminalWorktreeConfig, GitBranchDetail } from '../../../shared/types';
 import { useProjectStore } from '../../stores/project-store';
@@ -84,6 +85,7 @@ export function CreateWorktreeDialog({
   onWorktreeCreated,
 }: CreateWorktreeDialogProps) {
   const { t } = useTranslation(['terminal', 'common']);
+  const { toast } = useToast();
   const [name, setName] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string | undefined>();
   const [createGitBranch, setCreateGitBranch] = useState(true);
@@ -225,6 +227,14 @@ export function CreateWorktreeDialog({
         setName('');
         setSelectedTaskId(undefined);
         setCreateGitBranch(true);
+        // Notify user if remote tracking could not be set up
+        if (result.warning) {
+          toast({
+            title: t('terminal:worktree.remotePushFailed'),
+            description: result.warning || t('terminal:worktree.remotePushFailedDescription'),
+            variant: 'destructive',
+          });
+        }
       } else {
         setError(result.error || t('common:errors.generic'));
       }
