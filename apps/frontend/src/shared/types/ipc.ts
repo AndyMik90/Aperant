@@ -74,7 +74,7 @@ import type {
   TerminalProfileChangedEvent
 } from './agent';
 import type { AppSettings, SourceEnvConfig, SourceEnvCheckResult } from './settings';
-import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent } from './app-update';
+import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent, AppUpdateErrorEvent } from './app-update';
 import type {
   ChangelogTask,
   TaskSpecContent,
@@ -204,6 +204,7 @@ export interface ElectronAPI {
   updateTaskStatus: (taskId: string, status: TaskStatus, options?: { forceCleanup?: boolean }) => Promise<IPCResult & { worktreeExists?: boolean; worktreePath?: string }>;
   recoverStuckTask: (taskId: string, options?: TaskRecoveryOptions) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
+  resumePausedTask: (taskId: string) => Promise<IPCResult>;
 
   // Image operations
   loadImageThumbnail: (projectPath: string, specId: string, imagePath: string) => Promise<IPCResult<string>>;
@@ -708,6 +709,12 @@ export interface ElectronAPI {
   ) => () => void;
   onAppUpdateStableDowngrade: (
     callback: (info: AppUpdateInfo) => void
+  ) => () => void;
+  onAppUpdateReadOnlyVolume: (
+    callback: (info: { appPath: string }) => void
+  ) => () => void;
+  onAppUpdateError: (
+    callback: (error: AppUpdateErrorEvent) => void
   ) => () => void;
 
   // Shell operations

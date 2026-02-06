@@ -507,7 +507,7 @@ describe('Rate Limit Edge Cases', () => {
       ];
 
       for (const msg of falsePositives) {
-        const result = detectRateLimit(msg);
+        const _result = detectRateLimit(msg);
         // Note: Some may still match secondary indicators - that's intentional
         // The primary pattern should NOT match these
         const primaryPattern = /Limit reached\s*[·•]\s*resets/i;

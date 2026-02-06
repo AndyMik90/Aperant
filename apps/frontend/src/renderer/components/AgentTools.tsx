@@ -32,7 +32,6 @@ import {
   Terminal,
   Loader2,
   RefreshCw,
-  AlertTriangle,
   Lock
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -48,7 +47,7 @@ import {
 } from './ui/dialog';
 import { useSettingsStore } from '../stores/settings-store';
 import { useProjectStore } from '../stores/project-store';
-import type { ProjectEnvConfig, AgentMcpOverrides, AgentMcpOverride, CustomMcpServer, McpHealthCheckResult, McpHealthStatus } from '../../shared/types';
+import type { ProjectEnvConfig, AgentMcpOverride, CustomMcpServer, McpHealthCheckResult, } from '../../shared/types';
 import { CustomMcpDialog } from './CustomMcpDialog';
 import { useTranslation } from 'react-i18next';
 import {
@@ -59,7 +58,6 @@ import {
   useResolvedAgentSettings,
   resolveAgentSettings as resolveAgentModelConfig,
   type AgentSettingsSource,
-  type ResolvedAgentSettings,
 } from '../hooks';
 import type { ModelTypeShort, ThinkingLevel } from '../../shared/types/settings';
 
@@ -912,7 +910,7 @@ export function AgentTools() {
             [server.id]: result.data!,
           }));
         }
-      } catch (error) {
+      } catch (_error) {
         setServerHealthStatus(prev => ({
           ...prev,
           [server.id]: {
@@ -945,14 +943,14 @@ export function AgentTools() {
           ...prev,
           [server.id]: {
             serverId: server.id,
-            status: result.data!.success ? 'healthy' : 'unhealthy',
-            message: result.data!.message,
-            responseTime: result.data!.responseTime,
+            status: result.data?.success ? 'healthy' : 'unhealthy',
+            message: result.data?.message,
+            responseTime: result.data?.responseTime,
             checkedAt: new Date().toISOString(),
           }
         }));
       }
-    } catch (error) {
+    } catch (_error) {
       setServerHealthStatus(prev => ({
         ...prev,
         [server.id]: {
