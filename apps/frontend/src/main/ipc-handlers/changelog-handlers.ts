@@ -60,7 +60,7 @@ export function registerChangelogHandlers(
     }
   };
 
-  const rateLimitHandler = (projectId: string, rateLimitInfo: import('../../shared/types').SDKRateLimitInfo) => {
+  const rateLimitHandler = (_projectId: string, rateLimitInfo: import('../../shared/types').SDKRateLimitInfo) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);

@@ -93,7 +93,7 @@ describe('PythonEnvManager', () => {
       const sitePackagesPath = 'C:\\test\\site-packages';
 
       // Access private property for testing
-      (manager as any).sitePackagesPath = sitePackagesPath;
+      (manager as unknown as { sitePackagesPath: string }).sitePackagesPath = sitePackagesPath;
 
       const env = manager.getPythonEnv();
 
@@ -106,7 +106,7 @@ describe('PythonEnvManager', () => {
       const sitePackagesPath = 'C:\\test\\site-packages';
 
       // Access private property for testing
-      (manager as any).sitePackagesPath = sitePackagesPath;
+      (manager as unknown as { sitePackagesPath: string }).sitePackagesPath = sitePackagesPath;
 
       const env = manager.getPythonEnv();
 
@@ -125,7 +125,7 @@ describe('PythonEnvManager', () => {
       const sitePackagesPath = '/test/site-packages';
 
       // Access private property for testing
-      (manager as any).sitePackagesPath = sitePackagesPath;
+      (manager as unknown as { sitePackagesPath: string }).sitePackagesPath = sitePackagesPath;
 
       const env = manager.getPythonEnv();
 
@@ -144,7 +144,7 @@ describe('PythonEnvManager', () => {
       const sitePackagesPath = 'C:\\test\\site-packages';
 
       // Access private property for testing
-      (manager as any).sitePackagesPath = sitePackagesPath;
+      (manager as unknown as { sitePackagesPath: string }).sitePackagesPath = sitePackagesPath;
 
       // Save and clear existing PATH, then set lowercase 'Path'
       // This simulates a Windows environment where the system has 'Path' instead of 'PATH'
