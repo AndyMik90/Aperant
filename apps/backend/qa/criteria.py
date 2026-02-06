@@ -64,7 +64,7 @@ def save_implementation_plan(spec_dir: Path, plan: dict) -> bool:
                 return True
             except OSError:
                 return False
-    except FileLockTimeout:
+    except (FileLockTimeout, OSError):
         return False
 
 
