@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useId, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { FolderGit, Plus, ChevronDown, Loader2, Trash2, ListTodo, GitFork, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { TerminalWorktreeConfig, WorktreeListItem, OtherWorktreeInfo } from '../../../shared/types';
@@ -17,6 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../ui/alert-dialog';
+import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '../../lib/utils';
 import { useProjectStore } from '../../stores/project-store';
 
@@ -77,6 +78,7 @@ export function WorktreeSelector({
   onSelectWorktree,
 }: WorktreeSelectorProps) {
   const { t } = useTranslation(['terminal', 'common']);
+  const listboxId = useId();
   const [worktrees, setWorktrees] = useState<TerminalWorktreeConfig[]>([]);
   const [taskWorktrees, setTaskWorktrees] = useState<WorktreeListItem[]>([]);
   const [otherWorktrees, setOtherWorktrees] = useState<OtherWorktreeInfo[]>([]);
@@ -88,6 +90,8 @@ export function WorktreeSelector({
   const [focusedIndex, setFocusedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  const getOptionId = (index: number) => `${listboxId}-option-${index}`;
 
   // Get project ID from projectPath for task worktrees API
   const project = useProjectStore((state) =>
@@ -200,6 +204,11 @@ export function WorktreeSelector({
       ...filteredItems.otherItems,
     ];
   }, [filteredItems]);
+
+  // Compute active descendant for aria
+  const activeDescendant = allItems.length > 0 && focusedIndex < allItems.length
+    ? getOptionId(focusedIndex)
+    : undefined;
 
   // Select the focused item
   const selectItem = useCallback((item: NavigableItem) => {
@@ -317,9 +326,6 @@ export function WorktreeSelector({
     }
   };
 
-  // Track running index across groups for keyboard navigation
-  let runningIndex = 0;
-
   const renderWorktreeItem = (item: NavigableItem, index: number) => {
     const isFocused = index === focusedIndex;
     const key = getItemKey(item);
@@ -340,6 +346,7 @@ export function WorktreeSelector({
     return (
       <div
         key={key}
+        id={getOptionId(index)}
         ref={(el) => {
           if (el) itemRefs.current.set(index, el);
           else itemRefs.current.delete(index);
@@ -441,6 +448,9 @@ export function WorktreeSelector({
           <Search className="h-3 w-3 mr-2 text-muted-foreground shrink-0" />
           <input
             ref={searchInputRef}
+            type="search"
+            aria-controls={listboxId}
+            aria-activedescendant={activeDescendant}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -452,62 +462,55 @@ export function WorktreeSelector({
         <div className="border-t border-border" />
 
         {/* Scrollable results */}
-        <div className="max-h-[300px] overflow-y-auto p-1" role="listbox">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-2">
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            </div>
-          ) : !hasResults ? (
-            <div className="py-2 text-center text-xs text-muted-foreground">
-              {t('terminal:worktree.noResults')}
-            </div>
-          ) : (
-            <>
-              {/* Terminal Worktrees */}
-              {terminalItems.length > 0 && (
-                <>
-                  <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                    {t('terminal:worktree.existing')}
-                  </div>
-                  {terminalItems.map((item) => {
-                    const idx = runningIndex++;
-                    return renderWorktreeItem(item, idx);
-                  })}
-                </>
-              )}
+        <ScrollArea className="max-h-[300px]">
+          <div id={listboxId} role="listbox" aria-label={t('terminal:worktree.searchPlaceholder')} className="p-1">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-2">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : !hasResults ? (
+              <div className="py-2 text-center text-xs text-muted-foreground">
+                {t('terminal:worktree.noResults')}
+              </div>
+            ) : (
+              <>
+                {/* Terminal Worktrees */}
+                {terminalItems.length > 0 && (
+                  <>
+                    <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                      {t('terminal:worktree.existing')}
+                    </div>
+                    {terminalItems.map((item, i) => renderWorktreeItem(item, i))}
+                  </>
+                )}
 
-              {/* Task Worktrees */}
-              {taskItems.length > 0 && (
-                <>
-                  {terminalItems.length > 0 && <div className="border-t border-border my-1" />}
-                  <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                    {t('terminal:worktree.taskWorktrees')}
-                  </div>
-                  {taskItems.map((item) => {
-                    const idx = runningIndex++;
-                    return renderWorktreeItem(item, idx);
-                  })}
-                </>
-              )}
+                {/* Task Worktrees */}
+                {taskItems.length > 0 && (
+                  <>
+                    {terminalItems.length > 0 && <div className="border-t border-border my-1" />}
+                    <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                      {t('terminal:worktree.taskWorktrees')}
+                    </div>
+                    {taskItems.map((item, i) => renderWorktreeItem(item, terminalItems.length + i))}
+                  </>
+                )}
 
-              {/* Other Worktrees */}
-              {otherItems.length > 0 && (
-                <>
-                  {(terminalItems.length > 0 || taskItems.length > 0) && (
-                    <div className="border-t border-border my-1" />
-                  )}
-                  <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                    {t('terminal:worktree.otherWorktrees')}
-                  </div>
-                  {otherItems.map((item) => {
-                    const idx = runningIndex++;
-                    return renderWorktreeItem(item, idx);
-                  })}
-                </>
-              )}
-            </>
-          )}
-        </div>
+                {/* Other Worktrees */}
+                {otherItems.length > 0 && (
+                  <>
+                    {(terminalItems.length > 0 || taskItems.length > 0) && (
+                      <div className="border-t border-border my-1" />
+                    )}
+                    <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                      {t('terminal:worktree.otherWorktrees')}
+                    </div>
+                    {otherItems.map((item, i) => renderWorktreeItem(item, terminalItems.length + taskItems.length + i))}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </ScrollArea>
       </PopoverContent>
     </Popover>
 
