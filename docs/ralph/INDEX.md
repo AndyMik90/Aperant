@@ -1,6 +1,6 @@
 # Ralph Task Index
 
-**Updated:** 2026-02-05
+**Updated:** 2026-02-06
 **Purpose:** Master index linking Ralph prompts to their execution results
 
 ---
@@ -74,7 +74,9 @@ Compare what Ralph was asked to do vs what Ralph delivered.
 
 ## Ready to Run
 
-*No pending tasks. All queued prompts have been executed.*
+| Task ID | Prompt | Tasks | Est. Time | Status |
+|---------|--------|-------|-----------|--------|
+| ADAPTIVE-ROUTING | [prompts/ADAPTIVE_TASK_ROUTING.md](prompts/ADAPTIVE_TASK_ROUTING.md) | 8 | ~15m | READY |
 
 ---
 
@@ -93,8 +95,9 @@ From RALPH_IMPLEMENTATION_GUIDE.md:
 
 ```
 docs/ralph/
-├── INDEX.md           ← You are here
-├── prompts/           ← What Ralph was asked to do
+├── INDEX.md                ← You are here
+├── RALPH_PROMPT_GUIDE.md   ← How to write Ralph prompts
+├── prompts/                ← What Ralph was asked to do
 │   ├── FIX_17.md
 │   ├── FIX_18_19.md
 │   ├── FIX_20_SETTINGS.md
@@ -111,7 +114,8 @@ docs/ralph/
 │   ├── P2_CI_TEST.md
 │   ├── UI_CHAT_UX.md             ← NEW
 │   ├── UI_LAYOUT_FIXES.md        ← NEW
-│   ├── UI_TERMINAL_VIEWS.md      ← NEW
+│   ├── UI_TERMINAL_VIEWS.md
+│   ├── ADAPTIVE_TASK_ROUTING.md  ← NEW (ready to run)
 │   ├── TERM_PHASE7.md
 │   ├── TERM_7B.md
 │   └── TERM_POLISH.md
@@ -145,6 +149,7 @@ docs/ralph/
 
 ## Related Documents
 
+- [RALPH_PROMPT_GUIDE.md](RALPH_PROMPT_GUIDE.md) - How to write effective Ralph prompts
 - [REMAINING_WORK.md](../plans/REMAINING_WORK.md) - Completion status (all done)
 - [TASK_DURATION_LOG.md](../metrics/TASK_DURATION_LOG.md) - Duration metrics
 - [TASK_DURATION_TRACKING.md](../architecture/TASK_DURATION_TRACKING.md) - Duration tracking architecture
