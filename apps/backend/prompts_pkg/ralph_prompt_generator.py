@@ -456,7 +456,7 @@ class RalphPromptGenerator:
         project_root: str | Path,
         output_file: str | Path | None = None,
         **kwargs
-    ) -> Path:
+    ) -> Path | None:
         """
         Generate and save a Ralph prompt to a file.
 
@@ -467,9 +467,15 @@ class RalphPromptGenerator:
             **kwargs: Additional arguments passed to generate_prompt()
 
         Returns:
-            Path to the saved file
+            Path to the saved file, or None if generation was skipped
         """
         spec_dir = Path(spec_dir)
+
+        # Early return if implementation_plan.json doesn't exist
+        plan_file = spec_dir / "implementation_plan.json"
+        if not plan_file.exists():
+            logger.info(f"No implementation_plan.json in {spec_dir}, skipping Ralph prompt generation")
+            return None
 
         if output_file is None:
             output_file = spec_dir / "RALPH_PROMPT.md"

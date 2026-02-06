@@ -81,7 +81,13 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
 
   ipcMain.on(
     IPC_CHANNELS.INSIGHTS_SEND_MESSAGE,
-    async (_, projectId: string, message: string, modelConfig?: InsightsModelConfig) => {
+    async (
+      _,
+      projectId: string,
+      message: string,
+      modelConfig?: InsightsModelConfig,
+      attachments?: Array<{ id: string; name: string; path: string; type: 'image' | 'text'; size: number }>
+    ) => {
       const project = projectStore.getProject(projectId);
       if (!project) {
         safeSendToRenderer(
@@ -106,6 +112,14 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         model: configWithSettings.model,
         thinkingLevel: configWithSettings.thinkingLevel,
       });
+
+      // Log attachments if provided (for future implementation)
+      if (attachments && attachments.length > 0) {
+        console.log("[Insights Handler] Attachments received:", attachments.length, "files");
+        // TODO: Process attachments when Python backend supports them
+        // Images should be converted to base64 and included in the API message
+        // Text files should be read and included as content
+      }
 
       // Await the async sendMessage to ensure proper error handling and
       // that all async operations (like getProcessEnv) complete before
@@ -160,6 +174,22 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         return { success: false, error: "Auto Claude not initialized for this project" };
       }
 
+      // Input validation
+      if (!title || typeof title !== "string" || !title.trim()) {
+        return { success: false, error: "Title is required" };
+      }
+      if (title.length > 200) {
+        return { success: false, error: "Title must be 200 characters or fewer" };
+      }
+      // Sanitize title for filesystem safety (remove characters unsafe for directory names)
+      title = title.replace(/[/\\:*?"<>|]/g, "-").replace(/-{2,}/g, "-").trim();
+      if (!title) {
+        return { success: false, error: "Title contains only invalid characters" };
+      }
+      if (description && description.length > 10000) {
+        return { success: false, error: "Description must be 10,000 characters or fewer" };
+      }
+
       try {
         // Generate a unique spec ID based on existing specs
         // Get specs directory path
@@ -191,11 +221,30 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-|-$/g, "")
           .substring(0, 50);
-        const specId = `${String(specNumber).padStart(3, "0")}-${slugifiedTitle}`;
 
-        // Create spec directory
-        const specDir = path.join(specsDir, specId);
-        mkdirSync(specDir, { recursive: true });
+        // Atomic directory creation with retry to prevent duplicate spec IDs under concurrency
+        let specId = "";
+        let specDir = "";
+        const MAX_RETRIES = 10;
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+          specId = `${String(specNumber).padStart(3, "0")}-${slugifiedTitle}`;
+          specDir = path.join(specsDir, specId);
+          try {
+            // Ensure parent exists, then try non-recursive mkdir (atomic)
+            mkdirSync(specsDir, { recursive: true });
+            mkdirSync(specDir, { recursive: false });
+            break; // Success — directory created
+          } catch (err: unknown) {
+            if (err && typeof err === "object" && "code" in err && (err as { code: string }).code === "EEXIST") {
+              specNumber++;
+              if (attempt === MAX_RETRIES - 1) {
+                return { success: false, error: "Failed to create unique spec directory after multiple retries" };
+              }
+              continue;
+            }
+            throw err; // Rethrow unexpected errors
+          }
+        }
 
         // Build metadata with source type
         const taskMetadata: TaskMetadata = {
@@ -297,11 +346,16 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         return { success: false, error: "Project not found" };
       }
 
-      const success = insightsService.deleteSession(projectId, project.path, sessionId);
-      if (success) {
-        return { success: true };
+      try {
+        const success = insightsService.deleteSession(projectId, project.path, sessionId);
+        if (success) {
+          return { success: true };
+        }
+        return { success: false, error: "Failed to delete session" };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return { success: false, error: `Failed to delete session: ${errorMessage}` };
       }
-      return { success: false, error: "Failed to delete session" };
     }
   );
 
@@ -314,11 +368,16 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         return { success: false, error: "Project not found" };
       }
 
-      const success = insightsService.renameSession(project.path, sessionId, newTitle);
-      if (success) {
-        return { success: true };
+      try {
+        const success = insightsService.renameSession(project.path, sessionId, newTitle);
+        if (success) {
+          return { success: true };
+        }
+        return { success: false, error: "Failed to rename session" };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return { success: false, error: `Failed to rename session: ${errorMessage}` };
       }
-      return { success: false, error: "Failed to rename session" };
     }
   );
 
@@ -336,15 +395,20 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         return { success: false, error: "Project not found" };
       }
 
-      const success = insightsService.updateSessionModelConfig(
-        project.path,
-        sessionId,
-        modelConfig
-      );
-      if (success) {
-        return { success: true };
+      try {
+        const success = insightsService.updateSessionModelConfig(
+          project.path,
+          sessionId,
+          modelConfig
+        );
+        if (success) {
+          return { success: true };
+        }
+        return { success: false, error: "Failed to update model configuration" };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return { success: false, error: `Failed to update model configuration: ${errorMessage}` };
       }
-      return { success: false, error: "Failed to update model configuration" };
     }
   );
 
@@ -363,16 +427,21 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         return { success: false, error: "Project not found" };
       }
 
-      const success = insightsService.markTaskCreated(
-        project.path,
-        sessionId,
-        messageId,
-        taskId
-      );
-      if (success) {
-        return { success: true };
+      try {
+        const success = insightsService.markTaskCreated(
+          project.path,
+          sessionId,
+          messageId,
+          taskId
+        );
+        if (success) {
+          return { success: true };
+        }
+        return { success: false, error: "Failed to mark task as created" };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return { success: false, error: `Failed to mark task as created: ${errorMessage}` };
       }
-      return { success: false, error: "Failed to mark task as created" };
     }
   );
 
@@ -399,4 +468,22 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
   insightsService.on("sdk-rate-limit", (rateLimitInfo: unknown) => {
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
   });
+
+  // Cancel/abort insights generation
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_CANCEL,
+    async (_, projectId: string): Promise<IPCResult<void>> => {
+      try {
+        const wasCanceled = insightsService.cancelSession(projectId);
+        if (!wasCanceled) {
+          // No active generation to cancel — not an error, just a no-op
+          return { success: true };
+        }
+        return { success: true };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return { success: false, error: errorMessage };
+      }
+    }
+  );
 }

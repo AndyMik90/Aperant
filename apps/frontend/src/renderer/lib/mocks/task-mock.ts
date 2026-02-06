@@ -76,6 +76,8 @@ export const taskMock = {
 
   sendMessageToTask: async (_taskId: string, _message: string) => ({ success: true, data: true }),
 
+  readSpecFile: async (_taskId: string, _fileName: string) => ({ success: true, data: null }),
+
   // Task logs operations
   getTaskLogs: async () => ({
     success: true,

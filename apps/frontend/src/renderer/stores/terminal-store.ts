@@ -379,6 +379,9 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 
   removeTerminal: (id: string) => {
+    // Mark as disposing to prevent recreation during removal
+    disposingTerminals.add(id);
+
     // Clean up buffer manager and output callback
     terminalBufferManager.dispose(id);
     xtermCallbacks.delete(id);
@@ -394,6 +397,9 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         activeTerminalId: newActiveId,
       };
     });
+
+    // Clear disposing flag after state update
+    disposingTerminals.delete(id);
   },
 
   updateTerminal: (id: string, updates: Partial<Terminal>) => {
@@ -802,6 +808,9 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 // Track in-progress restore operations to prevent race conditions
 const restoringProjects = new Set<string>();
 
+// Track terminals being disposed to prevent recreation during disposal
+const disposingTerminals = new Set<string>();
+
 /**
  * Restore terminal sessions for a project from persisted storage
  */
@@ -949,6 +958,12 @@ export async function recreateTaskMonitorTerminals(
 
     for (const task of tasksNeedingTerminals) {
       const expectedTerminalId = `task-${task.id}`;
+
+      // Skip if terminal is currently being disposed (prevents recreation race condition)
+      if (disposingTerminals.has(expectedTerminalId)) {
+        console.log(`[TerminalStore] Skipping recreation of terminal ${expectedTerminalId} - currently disposing`);
+        continue;
+      }
 
       // Check if terminal already exists
       const existingTerminal = store.terminals.find(t => t.id === expectedTerminalId);

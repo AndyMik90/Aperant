@@ -10,13 +10,15 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Minus, Square, X, AlignLeft, List } from 'lucide-react';
+import { Minus, Square, X, AlignLeft, List, FileText, Code } from 'lucide-react';
 import { Button } from '../ui/button';
+import { ErrorBoundary } from '../ui/error-boundary';
 import { TaskMonitorChat } from './TaskMonitorChat';
+import { SpecDocView } from './SpecDocView';
 import { useTerminalStore, type Terminal } from '../../stores/terminal-store';
 import { cn } from '../../lib/utils';
 
-export type ViewMode = 'raw' | 'structured';
+export type ViewMode = 'raw' | 'structured' | 'spec' | 'prompt';
 
 interface BottomPanelTerminalProps {
   taskId: string | null;
@@ -131,7 +133,7 @@ export function BottomPanelTerminal({
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 border-b border-border bg-muted/50">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           {/* View mode toggle - at the left */}
-          <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden flex-shrink-0">
+          <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden flex-shrink-0" role="tablist" aria-label={t('terminal:bottomPanel.viewModeSelector', { defaultValue: 'View mode' })}>
             <button
               onClick={() => setViewMode('raw')}
               className={cn(
@@ -141,6 +143,8 @@ export function BottomPanelTerminal({
                   : "hover:bg-muted text-muted-foreground"
               )}
               title="Raw output view"
+              aria-label={t('terminal:bottomPanel.viewRawOutput', { defaultValue: 'View raw output' })}
+              aria-pressed={viewMode === 'raw'}
             >
               <AlignLeft className="h-3.5 w-3.5" />
               Raw
@@ -154,9 +158,41 @@ export function BottomPanelTerminal({
                   : "hover:bg-muted text-muted-foreground"
               )}
               title="Structured timeline view"
+              aria-label={t('terminal:bottomPanel.viewTimeline', { defaultValue: 'View timeline' })}
+              aria-pressed={viewMode === 'structured'}
             >
               <List className="h-3.5 w-3.5" />
               Timeline
+            </button>
+            <button
+              onClick={() => setViewMode('spec')}
+              className={cn(
+                "px-2.5 py-1 text-xs flex items-center gap-1.5 transition-colors",
+                viewMode === 'spec'
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted text-muted-foreground"
+              )}
+              title="Task specification"
+              aria-label={t('terminal:bottomPanel.viewSpecification', { defaultValue: 'View specification' })}
+              aria-pressed={viewMode === 'spec'}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Spec
+            </button>
+            <button
+              onClick={() => setViewMode('prompt')}
+              className={cn(
+                "px-2.5 py-1 text-xs flex items-center gap-1.5 transition-colors",
+                viewMode === 'prompt'
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted text-muted-foreground"
+              )}
+              title="Coding prompt"
+              aria-label={t('terminal:bottomPanel.viewCodingPrompt', { defaultValue: 'View coding prompt' })}
+              aria-pressed={viewMode === 'prompt'}
+            >
+              <Code className="h-3.5 w-3.5" />
+              Prompt
             </button>
           </div>
           {/* Task title */}
@@ -197,19 +233,25 @@ export function BottomPanelTerminal({
 
       {/* Terminal content area - flex-1 to fill remaining space */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        {terminal ? (
-          <TaskMonitorChat
-            terminal={terminal}
-            terminalRef={terminalRef}
-            isActive={true}
-            isMinimized={false}
-            viewMode={viewMode}
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-            {t('terminal:waitingForOutput', { defaultValue: 'Waiting for terminal output...' })}
-          </div>
-        )}
+        <ErrorBoundary>
+          {viewMode === 'spec' ? (
+            <SpecDocView taskId={taskId} fileName="spec.md" title="Spec" />
+          ) : viewMode === 'prompt' ? (
+            <SpecDocView taskId={taskId} fileName="ralph_prompt.md" title="Prompt" />
+          ) : terminal ? (
+            <TaskMonitorChat
+              terminal={terminal}
+              terminalRef={terminalRef}
+              isActive={true}
+              isMinimized={false}
+              viewMode={viewMode}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+              {t('terminal:waitingForOutput', { defaultValue: 'Waiting for terminal output...' })}
+            </div>
+          )}
+        </ErrorBoundary>
       </div>
     </div>
   );

@@ -353,4 +353,63 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
 
     tools.append(get_session_context)
 
+    # -------------------------------------------------------------------------
+    # Tool: append_project_memory
+    # -------------------------------------------------------------------------
+    @tool(
+        "append_project_memory",
+        "Record a cross-task learning to the project-level memory. Use this ONLY for insights that apply across multiple tasks (e.g., architectural decisions, recurring patterns, gotchas that affect the whole project). Do NOT use for task-specific details.",
+        {"section": str, "content": str, "task_id": str},
+    )
+    async def append_project_memory(args: dict[str, Any]) -> dict[str, Any]:
+        """Append an entry to PROJECT_MEMORY.md."""
+        section = args["section"]
+        content = args["content"]
+        task_id = args.get("task_id", "agent")
+
+        valid_sections = ["architecture", "patterns", "gotchas", "testing", "learnings"]
+        if section not in valid_sections:
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Invalid section '{section}'. Must be one of: {valid_sections}",
+                    }
+                ]
+            }
+
+        try:
+            from memory.project_memory import append_to_project_memory
+
+            source = f"Task {task_id}" if task_id != "agent" else "Agent"
+            added = append_to_project_memory(project_dir, section, content, source)
+
+            if added:
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"Recorded to project memory [{section}]: {content}",
+                        }
+                    ]
+                }
+            else:
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"Skipped (duplicate or empty): {content[:50]}",
+                        }
+                    ]
+                }
+
+        except Exception as e:
+            return {
+                "content": [
+                    {"type": "text", "text": f"Error recording to project memory: {e}"}
+                ]
+            }
+
+    tools.append(append_project_memory)
+
     return tools

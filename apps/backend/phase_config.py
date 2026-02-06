@@ -340,6 +340,16 @@ def get_spec_phase_thinking_budget(phase_name: str) -> int | None:
     return get_thinking_budget(thinking_level)
 
 
+# Companion Agent Configuration
+# Read-only conversational agent for between-phase interactions
+COMPANION_CONFIG = {
+    "model": "sonnet",  # Default model for companion agent
+    "thinking_budget": 2048,  # Low budget - this is Q&A, not deep analysis
+    "allowed_tools": ["Read", "Glob", "Grep"],  # Read-only tools
+    "max_turns": 25,  # Maximum conversational turns before timeout
+}
+
+
 # Ralph Wiggum Mode configuration
 # "I'm helping!" - Aggressive iteration mode with higher retry limits
 RALPH_WIGGUM_CONFIG = {

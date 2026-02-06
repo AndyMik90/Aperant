@@ -223,6 +223,22 @@ async def post_session_processing(
             logger.warning(f"Error saving session memory: {e}")
             print_status("Memory save failed", "warning")
 
+        # Promote patterns and gotchas to project-level memory
+        if extracted_insights:
+            try:
+                from memory.project_memory import append_to_project_memory
+
+                for pattern in extracted_insights.get("patterns_discovered", []):
+                    append_to_project_memory(
+                        project_dir, "patterns", pattern, f"Task {subtask_id}"
+                    )
+                for gotcha in extracted_insights.get("gotchas_discovered", []):
+                    append_to_project_memory(
+                        project_dir, "gotchas", gotcha, f"Task {subtask_id}"
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to promote insights to project memory: {e}")
+
         return True
 
     elif subtask_status == "in_progress":

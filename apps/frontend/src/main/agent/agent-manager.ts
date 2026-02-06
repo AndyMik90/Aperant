@@ -9,14 +9,15 @@ import { getClaudeProfileManager, initializeClaudeProfileManager } from '../clau
 import {
   SpecCreationMetadata,
   TaskExecutionOptions,
-  RoadmapConfig
+  RoadmapConfig,
+  type ProcessType
 } from './types';
 import type { IdeationConfig } from '../../shared/types';
 
 /**
  * Phase 6: Agent mode for multi-agent support
  */
-export type AgentMode = 'planning' | 'coding' | 'reviewing' | 'idle';
+export type AgentMode = 'planning' | 'coding' | 'reviewing' | 'idle' | 'companion';
 
 /**
  * Phase 6: Agent statistics for monitoring
@@ -26,6 +27,7 @@ export interface AgentStats {
   coding: number;
   reviewing: number;
   idle: number;
+  companion: number;
   total: number;
 }
 
@@ -56,6 +58,11 @@ export class AgentManager extends EventEmitter {
    */
   private agentModes: Map<string, AgentMode> = new Map();
 
+  /**
+   * Track tasks with active companion agents
+   */
+  private companionTasks: Set<string> = new Set();
+
   constructor() {
     super();
 
@@ -73,7 +80,15 @@ export class AgentManager extends EventEmitter {
     });
 
     // Listen for task completion to clean up context (prevent memory leak)
-    this.on('exit', (taskId: string, code: number | null) => {
+    this.on('exit', (taskId: string, code: number | null, processType: ProcessType) => {
+      // Handle companion exit separately - don't trigger status changes or restarts
+      if (processType === 'companion') {
+        console.log('[AgentManager] Companion agent exited:', { taskId, code });
+        this.companionTasks.delete(taskId);
+        this.agentModes.delete(taskId);
+        return;
+      }
+
       // Clean up context when:
       // 1. Task completed successfully (code === 0), or
       // 2. Task failed and won't be restarted (handled by auto-swap logic)
@@ -81,11 +96,31 @@ export class AgentManager extends EventEmitter {
       // Phase 6: Clean up agent mode when process exits
       this.agentModes.delete(taskId);
 
+      // Auto-spawn companion after successful execution exit
+      // Can be disabled with DISABLE_COMPANION_AUTOSPAWN=true environment variable
+      const autoSpawnDisabled = process.env.DISABLE_COMPANION_AUTOSPAWN === 'true';
+      if (code === 0 && !autoSpawnDisabled) {
+        console.log('[AgentManager] Execution succeeded, scheduling companion spawn');
+        setTimeout(() => {
+          const context = this.taskExecutionContext.get(taskId);
+          if (context && !this.state.hasProcess(taskId)) {
+            // Only spawn if task still has context and no process is running
+            this.startCompanion(taskId).catch(err => {
+              console.error('[AgentManager] Failed to auto-spawn companion:', err);
+            });
+          }
+        }, 1500); // Delay to let exit events propagate
+      }
+
       // Note: Auto-swap restart happens BEFORE this exit event is processed,
       // so we need a small delay to allow restart to preserve context
+      // AUDIT-03 FIX: Delay must be AFTER companion spawn (1500ms) to avoid race condition
       setTimeout(() => {
         const context = this.taskExecutionContext.get(taskId);
         if (!context) return; // Already cleaned up or restarted
+
+        // Don't delete context if companion is now running — it needs it
+        if (this.companionTasks.has(taskId)) return;
 
         // If task completed successfully, always clean up
         if (code === 0) {
@@ -98,7 +133,7 @@ export class AgentManager extends EventEmitter {
           this.taskExecutionContext.delete(taskId);
         }
         // Otherwise keep context for potential restart
-      }, 1000); // Delay to allow restart logic to run first
+      }, 2000); // Delay AFTER companion spawn (1500ms) to avoid race
     });
   }
 
@@ -194,6 +229,11 @@ export class AgentManager extends EventEmitter {
       args.push('--direct');
     }
 
+    // Pass complexity override to skip expensive AI classification
+    if (metadata?.complexityOverride) {
+      args.push('--complexity', metadata.complexityOverride);
+    }
+
     // Store context for potential restart
     this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch);
 
@@ -230,6 +270,9 @@ export class AgentManager extends EventEmitter {
     metadata?: SpecCreationMetadata,
     baseBranch?: string
   ): Promise<boolean> {
+    // Stop companion agent before starting planning
+    await this.stopCompanion(taskId);
+
     console.log('[AgentManager] Starting planning agent for task:', taskId);
 
     // Pre-flight auth check: Verify active profile has valid authentication
@@ -306,6 +349,11 @@ export class AgentManager extends EventEmitter {
       args.push('--direct');
     }
 
+    // Pass complexity override to skip expensive AI classification
+    if (metadata?.complexityOverride) {
+      args.push('--complexity', metadata.complexityOverride);
+    }
+
     // Store context for potential restart (mark as planning mode)
     this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch);
 
@@ -334,6 +382,9 @@ export class AgentManager extends EventEmitter {
     specId: string,
     options: TaskExecutionOptions = {}
   ): Promise<void> {
+    // Stop companion agent before starting execution
+    await this.stopCompanion(taskId);
+
     // Pre-flight auth check: Verify active profile has valid authentication
     // Ensure profile manager is initialized to prevent race condition
     let profileManager;
@@ -668,6 +719,7 @@ export class AgentManager extends EventEmitter {
       coding: 0,
       reviewing: 0,
       idle: 0,
+      companion: 0,
       total: 0
     };
 
@@ -677,6 +729,119 @@ export class AgentManager extends EventEmitter {
     }
 
     return stats;
+  }
+
+  /**
+   * Start companion agent for a task
+   * The companion provides read-only conversational interface between phases
+   */
+  async startCompanion(taskId: string): Promise<void> {
+    const context = this.taskExecutionContext.get(taskId);
+    if (!context) {
+      console.warn('[AgentManager] No execution context for task:', taskId);
+      return;
+    }
+
+    // Don't start companion for completed/failed tasks
+    const task = this.state.getProcess(taskId);
+    if (task && this.state.hasProcess(taskId)) {
+      console.log('[AgentManager] Task already has active process, skipping companion spawn');
+      return;
+    }
+
+    // Check if companion is already running
+    if (this.companionTasks.has(taskId)) {
+      console.log('[AgentManager] Companion already running for task:', taskId);
+      return;
+    }
+
+    const { specDir, projectPath, taskDescription } = context;
+    if (!specDir || !projectPath || !taskDescription) {
+      console.warn('[AgentManager] Missing required context for companion:', { specDir, projectPath, taskDescription });
+      return;
+    }
+
+    // Determine current phase based on task state
+    const currentPhase = this.getCompanionPhase('coding_complete'); // Default to coding_complete
+
+    console.log('[AgentManager] Starting companion agent:', {
+      taskId,
+      currentPhase,
+      specDir
+    });
+
+    try {
+      await this.processManager.spawnCompanion(
+        taskId,
+        specDir,
+        projectPath,
+        taskDescription,
+        currentPhase
+      );
+
+      // Track companion mode
+      this.agentModes.set(taskId, 'companion');
+      this.companionTasks.add(taskId);
+
+      // Emit event for IPC handlers
+      this.emit('companion-spawned', taskId);
+    } catch (error) {
+      console.error('[AgentManager] Failed to start companion:', error);
+      this.companionTasks.delete(taskId);
+      this.agentModes.delete(taskId);
+    }
+  }
+
+  /**
+   * Stop companion agent for a task
+   */
+  async stopCompanion(taskId: string): Promise<void> {
+    if (!this.companionTasks.has(taskId)) {
+      console.log('[AgentManager] No companion running for task:', taskId);
+      return;
+    }
+
+    console.log('[AgentManager] Stopping companion agent:', taskId);
+
+    try {
+      this.processManager.stopCompanion(taskId);
+      this.companionTasks.delete(taskId);
+      this.agentModes.delete(taskId);
+
+      // Wait briefly for cleanup
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Emit event for IPC handlers
+      this.emit('companion-stopped', taskId);
+    } catch (error) {
+      console.error('[AgentManager] Error stopping companion:', error);
+      // Still clean up tracking even if kill failed
+      this.companionTasks.delete(taskId);
+      this.agentModes.delete(taskId);
+    }
+  }
+
+  /**
+   * Check if a companion agent is running for a given task
+   */
+  isCompanionRunning(taskId: string): boolean {
+    return this.companionTasks.has(taskId);
+  }
+
+  /**
+   * Map task status to companion phase string
+   */
+  private getCompanionPhase(taskStatus: string): string {
+    // Map internal status to companion phase
+    const phaseMap: Record<string, string> = {
+      'spec_complete': 'spec_complete',
+      'planning': 'planning',
+      'coding_complete': 'coding_complete',
+      'qa_complete': 'qa_complete',
+      'human_review': 'human_review'
+    };
+
+    return phaseMap[taskStatus] || 'coding_complete';
   }
 
   /**

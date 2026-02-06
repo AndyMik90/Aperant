@@ -2154,9 +2154,10 @@ export function registerWorktreeHandlers(
                 staged = true;
               } else {
                 // Full merge (not stage-only)
-                newStatus = 'done';
+                // Stay in human_review so user can confirm with "Mark as Done" button
+                newStatus = 'human_review';
                 planStatus = 'completed';
-                message = 'Changes merged successfully';
+                message = 'Changes merged successfully. Click "Mark as Done" to complete the task.';
                 staged = false;
 
                 // Clean up worktree after successful full merge (fixes #243)
@@ -2240,6 +2241,9 @@ export function registerWorktreeHandlers(
                         plan.stagedAt = new Date().toISOString();
                         plan.stagedInMainProject = true;
                       }
+                      if (planStatus === 'completed' && !staged) {
+                        plan.mergedAt = new Date().toISOString();
+                      }
                       await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
 
                       // Verify the write succeeded by reading back
@@ -2304,6 +2308,7 @@ export function registerWorktreeHandlers(
                   success: true,
                   message,
                   staged,
+                  merged: planStatus === 'completed' && !staged,
                   projectPath: staged ? project.path : undefined,
                   suggestedCommitMessage
                 }

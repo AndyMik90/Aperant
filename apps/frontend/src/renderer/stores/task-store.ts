@@ -14,6 +14,7 @@ interface TaskState {
   error: string | null;
   taskOrder: TaskOrderState | null;  // Per-column task ordering for kanban board
   stoppedAgents: Set<string>;  // Track which tasks have stopped agents (for UI feedback)
+  companionActive: Set<string>;  // Track which tasks have active companion agents
 
   // Actions
   setTasks: (tasks: Task[]) => void;
@@ -38,6 +39,9 @@ interface TaskState {
   // Track agent running state (for stop button visual feedback)
   setAgentStopped: (taskId: string, stopped: boolean) => void;
   isAgentStopped: (taskId: string) => boolean;
+  // Track companion agent state
+  setCompanionActive: (taskId: string, active: boolean) => void;
+  hasCompanion: (taskId: string) => boolean;
 
   // Selectors
   getSelectedTask: () => Task | undefined;
@@ -152,6 +156,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   error: null,
   taskOrder: null,
   stoppedAgents: new Set<string>(),
+  companionActive: new Set<string>(),
 
   setTasks: (tasks) => set({ tasks }),
 
@@ -632,6 +637,22 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     return get().stoppedAgents.has(taskId);
   },
 
+  setCompanionActive: (taskId, active) => {
+    set((state) => {
+      const newSet = new Set(state.companionActive);
+      if (active) {
+        newSet.add(taskId);
+      } else {
+        newSet.delete(taskId);
+      }
+      return { companionActive: newSet };
+    });
+  },
+
+  hasCompanion: (taskId) => {
+    return get().companionActive.has(taskId);
+  },
+
   getSelectedTask: () => {
     const state = get();
     return state.tasks.find((t) => t.id === state.selectedTaskId);
@@ -958,6 +979,9 @@ export async function deleteTask(
     if (result.success) {
       // Remove from local state
       store.setTasks(store.tasks.filter(t => t.id !== taskId && t.specId !== taskId));
+      // AUDIT-04: Clean up companion tracking to prevent memory leak
+      store.setCompanionActive(taskId, false);
+      store.setAgentStopped(taskId, false);
       // Clear selection if this task was selected
       if (store.selectedTaskId === taskId) {
         store.selectTask(null);
@@ -1053,7 +1077,13 @@ export function loadDraft(projectId: string): TaskDraft | null {
     const stored = localStorage.getItem(key);
     if (!stored) return null;
 
-    const draft = JSON.parse(stored);
+    let draft;
+    try {
+      draft = JSON.parse(stored);
+    } catch (parseError) {
+      console.error('Failed to parse draft JSON:', parseError);
+      return null;
+    }
     // Convert savedAt back to Date
     draft.savedAt = new Date(draft.savedAt);
     return draft as TaskDraft;
@@ -1135,7 +1165,17 @@ export function loadTemplates(): TaskTemplate[] {
     const stored = localStorage.getItem(TEMPLATES_KEY);
     if (!stored) return [];
 
-    const templates = JSON.parse(stored);
+    let templates;
+    try {
+      templates = JSON.parse(stored);
+    } catch (parseError) {
+      console.error('Failed to parse templates JSON:', parseError);
+      return [];
+    }
+    if (!Array.isArray(templates)) {
+      console.warn('Invalid templates data in localStorage, expected array');
+      return [];
+    }
     // Convert dates back to Date objects
     return templates.map((t: TaskTemplate) => ({
       ...t,

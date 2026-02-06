@@ -105,6 +105,9 @@ export const insightsMock = {
     }
   }),
 
+  markInsightsTaskCreated: async () => ({ success: true }),
+  cancelInsights: async () => ({ success: true }),
+
   onInsightsStreamChunk: () => () => {},
   onInsightsStatus: () => () => {},
   onInsightsError: () => () => {}

@@ -503,10 +503,11 @@ export class ProjectStore {
           }));
         }) || [];
 
-        // Extract staged status from plan (set when changes are merged with --no-commit)
-        const planWithStaged = plan as unknown as { stagedInMainProject?: boolean; stagedAt?: string } | null;
+        // Extract staged/merged status from plan
+        const planWithStaged = plan as unknown as { stagedInMainProject?: boolean; stagedAt?: string; mergedAt?: string } | null;
         const stagedInMainProject = planWithStaged?.stagedInMainProject;
         const stagedAt = planWithStaged?.stagedAt;
+        const mergedAt = planWithStaged?.mergedAt;
 
         // Determine title - check if feature looks like a spec ID (e.g., "054-something-something")
         // For JSON error tasks, use directory name with marker for i18n suffix
@@ -541,6 +542,7 @@ export class ProjectStore {
           ...(finalReviewReason !== undefined && { reviewReason: finalReviewReason }),
           stagedInMainProject,
           stagedAt,
+          mergedAt,
           location, // Add location metadata (main vs worktree)
           specsPath: specPath, // Add full path to specs directory
           createdAt: new Date(plan?.created_at || Date.now()),

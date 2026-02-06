@@ -25,6 +25,7 @@ from graphiti_config import get_graphiti_status, is_graphiti_enabled
 # Now safe since this module is named memory_manager (not memory)
 from memory import save_session_insights as save_file_based_memory
 from memory.graphiti_helpers import get_graphiti_memory
+from memory.project_memory import load_project_memory
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,15 @@ async def get_graphiti_context(
     if not is_graphiti_enabled():
         if is_debug_enabled():
             debug("memory", "Graphiti not enabled, skipping context retrieval")
+        # Still try to load project memory even without Graphiti
+        if project_dir is not None:
+            try:
+                project_mem = load_project_memory(project_dir)
+                if project_mem:
+                    logger.debug("Project memory loaded")
+                    return "## Project Memory\n\n" + project_mem
+            except Exception as e:
+                logger.warning(f"Failed to load project memory: {e}")
         return None
 
     memory = None
@@ -222,12 +232,35 @@ async def get_graphiti_context(
                 "memory", "Graphiti context formatted", total_sections=len(sections)
             )
 
-        return "\n".join(sections)
+        context_str = "\n".join(sections)
+
+        # Append project memory if available
+        if project_dir is not None:
+            try:
+                project_mem = load_project_memory(project_dir)
+                if project_mem:
+                    context_str += "\n\n## Project Memory\n\n" + project_mem
+                    logger.debug("Project memory loaded")
+            except Exception as e:
+                logger.warning(f"Failed to load project memory: {e}")
+
+        return context_str
 
     except Exception as e:
         logger.warning(f"Failed to get Graphiti context: {e}")
         if is_debug_enabled():
             debug_error("memory", "Graphiti context retrieval failed", error=str(e))
+
+        # Even if Graphiti fails, try to return project memory
+        if project_dir is not None:
+            try:
+                project_mem = load_project_memory(project_dir)
+                if project_mem:
+                    logger.debug("Project memory loaded")
+                    return "## Project Memory\n\n" + project_mem
+            except Exception:
+                pass
+
         return None
     finally:
         # Always close the memory connection (swallow exceptions to avoid overriding)

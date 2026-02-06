@@ -25,6 +25,8 @@ export interface ActivityEntry {
   taskId: string;
   taskTitle: string;
   timestamp: string;
+  duration?: number; // Duration in milliseconds
+  phaseInfo?: string; // Which phase completed (e.g., "Planning", "Coding", "QA")
   details?: {
     fromStatus?: TaskStatus;
     toStatus?: TaskStatus;
@@ -33,7 +35,7 @@ export interface ActivityEntry {
 }
 
 const ACTIVITY_KEY = 'activity-feed';
-const MAX_ACTIVITIES = 50;
+const MAX_ACTIVITIES = 200;
 
 /**
  * Load activities from localStorage
@@ -67,7 +69,9 @@ function saveActivities(activities: ActivityEntry[]): void {
 export function addActivity(
   type: ActivityType,
   task: { id: string; title: string },
-  details?: ActivityEntry['details']
+  details?: ActivityEntry['details'],
+  duration?: number,
+  phaseInfo?: string
 ): void {
   const activities = loadActivities();
   const newActivity: ActivityEntry = {
@@ -76,6 +80,8 @@ export function addActivity(
     taskId: task.id,
     taskTitle: task.title,
     timestamp: new Date().toISOString(),
+    duration,
+    phaseInfo,
     details,
   };
   saveActivities([newActivity, ...activities]);

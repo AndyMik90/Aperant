@@ -39,8 +39,12 @@ import {
   markTaskCreatedPersistent
 } from '../stores/insights-store';
 import { loadTasks } from '../stores/task-store';
+import { useInsightsTaskQueueStore } from '../stores/insights-task-queue-store';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
 import { InsightsModelSelector } from './InsightsModelSelector';
+import { TaskQueueSidebar } from './insights/TaskQueueSidebar';
+import { ChatInput } from './insights/ChatInput';
+import { ResizeHandle } from './insights/ResizeHandle';
 import { useNavigation } from '../contexts/NavigationContext';
 import type { InsightsChatMessage, InsightsModelConfig } from '../../shared/types';
 import {
@@ -108,9 +112,47 @@ export function Insights({ projectId }: InsightsProps) {
   const [inputValue, setInputValue] = useState('');
   const [creatingTask, setCreatingTask] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState(256); // Chat History width
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(280); // Task Queue width
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const leftSidebarStartWidth = useRef(256);
+  const rightSidebarStartWidth = useRef(280);
+
+  // Load sidebar widths from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('insights-sidebar-widths');
+      if (stored) {
+        const widths = JSON.parse(stored);
+        if (typeof widths.left === 'number') {
+          const clampedLeft = Math.min(Math.max(widths.left, 200), Math.floor(window.innerWidth * 0.5));
+          setLeftSidebarWidth(clampedLeft);
+          leftSidebarStartWidth.current = clampedLeft;
+        }
+        if (typeof widths.right === 'number') {
+          const clampedRight = Math.min(Math.max(widths.right, 48), Math.floor(window.innerWidth * 0.5));
+          setRightSidebarWidth(clampedRight);
+          rightSidebarStartWidth.current = clampedRight;
+        }
+      }
+    } catch (error) {
+      console.error('[Insights] Failed to load sidebar widths from localStorage:', error);
+    }
+  }, []);
+
+  // Save sidebar widths to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('insights-sidebar-widths', JSON.stringify({
+        left: leftSidebarWidth,
+        right: rightSidebarWidth
+      }));
+    } catch (error) {
+      console.error('[Insights] Failed to save sidebar widths to localStorage:', error);
+    }
+  }, [leftSidebarWidth, rightSidebarWidth]);
 
   // Load session and set up listeners on mount
   useEffect(() => {
@@ -138,19 +180,17 @@ export function Insights({ projectId }: InsightsProps) {
     textareaRef.current?.focus();
   }, []);
 
-  const handleSend = () => {
-    const message = inputValue.trim();
-    if (!message || status.phase === 'thinking' || status.phase === 'streaming') return;
+  const handleSend = (message: string, attachments?: any[]) => {
+    if (!message.trim() && (!attachments || attachments.length === 0)) return;
+    if (status.phase === 'thinking' || status.phase === 'streaming') return;
 
     setInputValue('');
-    sendMessage(projectId, message);
+    sendMessage(projectId, message, undefined, attachments);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+  const handleCancel = async () => {
+    const cancelGeneration = useInsightsStore.getState().cancelGeneration;
+    await cancelGeneration(projectId);
   };
 
   const handleNewSession = async () => {
@@ -177,19 +217,16 @@ export function Insights({ projectId }: InsightsProps) {
 
     setCreatingTask(message.id);
     try {
-      const task = await createTaskFromSuggestion(
+      // Add task to sidebar queue (doesn't create actual task yet)
+      await createTaskFromSuggestion(
         projectId,
         message.suggestedTask.title,
         message.suggestedTask.description,
         message.suggestedTask.metadata
       );
 
-      if (task) {
-        // Mark task as created - persists to disk for survival across navigation/restart
-        await markTaskCreatedPersistent(projectId, session.id, message.id, task.id);
-        // Reload tasks to show the new task in the kanban
-        loadTasks(projectId);
-      }
+      // Mark message as having queued the task (to disable button)
+      await markTaskCreatedPersistent(projectId, session.id, message.id, 'queued');
     } finally {
       setCreatingTask(null);
     }
@@ -202,6 +239,48 @@ export function Insights({ projectId }: InsightsProps) {
     }
   };
 
+  const handleLeftSidebarResize = (delta: number) => {
+    const newWidth = leftSidebarStartWidth.current + delta;
+    const MIN_WIDTH = 200;
+    // Cap at 50% of viewport width to prevent covering entire screen
+    const MAX_WIDTH = Math.min(400, Math.floor(window.innerWidth * 0.5));
+
+    if (newWidth < MIN_WIDTH) {
+      // Collapse sidebar when dragged below minimum
+      setShowSidebar(false);
+    } else {
+      const clampedWidth = Math.min(Math.max(newWidth, MIN_WIDTH), MAX_WIDTH);
+      setLeftSidebarWidth(clampedWidth);
+      leftSidebarStartWidth.current = clampedWidth;
+    }
+  };
+
+  const handleRightSidebarResize = (delta: number) => {
+    // Right sidebar resizes in opposite direction (dragging left makes it wider)
+    const newWidth = rightSidebarStartWidth.current - delta;
+    const MIN_WIDTH = 200;
+    // Cap at 50% of viewport width to prevent covering entire screen
+    const MAX_WIDTH = Math.min(450, Math.floor(window.innerWidth * 0.5));
+    const COLLAPSED_WIDTH = 48;
+
+    if (newWidth < MIN_WIDTH) {
+      // Collapse to icon strip when dragged below minimum
+      setRightSidebarWidth(COLLAPSED_WIDTH);
+      rightSidebarStartWidth.current = COLLAPSED_WIDTH;
+      // Trigger collapse in the TaskQueue store
+      useInsightsTaskQueueStore.getState().toggleCollapsed();
+    } else {
+      const clampedWidth = Math.min(Math.max(newWidth, MIN_WIDTH), MAX_WIDTH);
+      setRightSidebarWidth(clampedWidth);
+      rightSidebarStartWidth.current = clampedWidth;
+      // Ensure it's not collapsed
+      const currentState = useInsightsTaskQueueStore.getState();
+      if (currentState.isCollapsed) {
+        currentState.toggleCollapsed();
+      }
+    }
+  };
+
   const isLoading = status.phase === 'thinking' || status.phase === 'streaming';
   const messages = session?.messages || [];
 
@@ -209,21 +288,25 @@ export function Insights({ projectId }: InsightsProps) {
     <div className="flex h-full">
       {/* Chat History Sidebar */}
       {showSidebar && (
-        <ChatHistorySidebar
-          sessions={sessions}
-          currentSessionId={session?.id || null}
-          isLoading={isLoadingSessions}
-          onNewSession={handleNewSession}
-          onSelectSession={handleSelectSession}
-          onDeleteSession={handleDeleteSession}
-          onRenameSession={handleRenameSession}
-        />
+        <>
+          <ChatHistorySidebar
+            sessions={sessions}
+            currentSessionId={session?.id || null}
+            isLoading={isLoadingSessions}
+            onNewSession={handleNewSession}
+            onSelectSession={handleSelectSession}
+            onDeleteSession={handleDeleteSession}
+            onRenameSession={handleRenameSession}
+            width={leftSidebarWidth}
+          />
+          <ResizeHandle onResize={handleLeftSidebarResize} />
+        </>
       )}
 
       {/* Main Chat Area */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col min-w-0">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-4 py-2">
+        <div className="h-12 flex items-center justify-between border-b border-border px-3">
           <Button
             variant="ghost"
             size="icon"
@@ -348,33 +431,20 @@ export function Insights({ projectId }: InsightsProps) {
 
       {/* Input */}
       <div className="border-t border-border p-4">
-        <div className="flex gap-2">
-          <Textarea
-            ref={textareaRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={isLoading ? "Waiting for response..." : "Ask about your codebase..."}
-            disabled={isLoading}
-            className={cn(
-              "min-h-[80px] resize-none",
-              isLoading && "opacity-60 cursor-not-allowed"
-            )}
-          />
-          <Button
-            onClick={handleSend}
-            disabled={!inputValue.trim() || isLoading}
-            className="self-end"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
+        <ChatInput
+          value={inputValue}
+          onChange={setInputValue}
+          onSend={handleSend}
+          onCancel={handleCancel}
+          isLoading={isLoading}
+          placeholder={isLoading ? "Waiting for response..." : "Ask about your codebase..."}
+        />
       </div>
       </div>
+
+      {/* Task Queue Sidebar (right side) */}
+      <ResizeHandle onResize={handleRightSidebarResize} />
+      <TaskQueueSidebar width={rightSidebarWidth} />
     </div>
   );
 }
@@ -480,31 +550,20 @@ function MessageBubble({
                   {isCreatingTask ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
+                      Adding to Queue...
                     </>
                   ) : taskCreated ? (
                     <>
                       <CheckCircle2 className="mr-2 h-4 w-4" />
-                      Task Created
+                      Added to Queue
                     </>
                   ) : (
                     <>
                       <Plus className="mr-2 h-4 w-4" />
-                      Create Task
+                      Add to Queue
                     </>
                   )}
                 </Button>
-                {taskCreated && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={onSeeInKanban}
-                    className="border-[var(--glow-cyan)]/50 text-[var(--glow-cyan)] hover:bg-[var(--glow-cyan)]/10"
-                  >
-                    See in Kanban
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                )}
               </div>
             </CardContent>
           </Card>

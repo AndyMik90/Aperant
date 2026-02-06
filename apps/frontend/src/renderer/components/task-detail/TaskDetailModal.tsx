@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { calculateProgress } from '../../lib/utils';
-import { startTask, stopTask, startBuild, submitReview, recoverStuckTask, deleteTask, useTaskStore, isTaskBlocked } from '../../stores/task-store';
+import { startTask, stopTask, startBuild, submitReview, recoverStuckTask, deleteTask, persistTaskStatus, useTaskStore, isTaskBlocked } from '../../stores/task-store';
 import { TASK_STATUS_LABELS } from '../../../shared/constants';
 import { TaskEditDialog } from '../TaskEditDialog';
 import { useTaskDetail } from './hooks/useTaskDetail';
@@ -168,6 +168,10 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           state.setStagedSuccess(result.data.message || 'Changes staged in main project');
           state.setStagedProjectPath(result.data.projectPath);
           state.setSuggestedCommitMessage(result.data.suggestedCommitMessage);
+        } else if (result.data.merged) {
+          // Full merge completed - show success with "Mark as Done" button
+          state.setWorkspaceError(null);
+          state.setMergedSuccess(result.data.message || 'Changes merged successfully');
         } else {
           onOpenChange(false);
         }
@@ -215,6 +219,15 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
       return { success: false, error: error instanceof Error ? error.message : undefined, prUrl: undefined, alreadyExists: false };
     } finally {
       state.setIsCreatingPR(false);
+    }
+  };
+
+  const handleMarkDone = async () => {
+    const result = await persistTaskStatus(task.id, 'done');
+    if (result.success) {
+      onOpenChange(false);
+    } else {
+      state.setWorkspaceError(result.error || 'Failed to mark task as done');
     }
   };
 
@@ -592,6 +605,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             stagedSuccess={state.stagedSuccess}
                             stagedProjectPath={state.stagedProjectPath}
                             suggestedCommitMessage={state.suggestedCommitMessage}
+                            mergedSuccess={state.mergedSuccess}
                             mergePreview={state.mergePreview}
                             isLoadingPreview={state.isLoadingPreview}
                             showConflictDialog={state.showConflictDialog}
@@ -600,6 +614,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             images={state.feedbackImages}
                             onImagesChange={state.setFeedbackImages}
                             onMerge={handleMerge}
+                            onMarkDone={handleMarkDone}
                             onDiscard={handleDiscard}
                             onShowDiscardDialog={state.setShowDiscardDialog}
                             onShowDiffDialog={state.setShowDiffDialog}

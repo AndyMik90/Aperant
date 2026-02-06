@@ -13,15 +13,99 @@
 
 ---
 
-## Ready to Run
+## Completed — Audit Fix Batches (6 prompts, 37 tasks, 36m 15s)
 
-| Task ID | Prompt | Tasks | Description |
-|---------|--------|-------|-------------|
-| TASK-SIDEBAR | [INSIGHTS_TASK_SIDEBAR.md](prompts/INSIGHTS_TASK_SIDEBAR.md) | 6 | Fix task disappearing bug, add persistent sidebar |
+**Source:** [MASTER_AUDIT_REPORT.md](../MASTER_AUDIT_REPORT.md) (UI Audit + Code Sweep #2)
+**Result:** ALL 37 TASKS COMPLETE. All builds pass. Vite warning eliminated.
+
+| # | Prompt | Tasks | Priority | Description |
+|---|--------|-------|----------|-------------|
+| 1 | [FIX_COMPANION_CRITICAL.md](prompts/FIX_COMPANION_CRITICAL.md) | 4 | CRITICAL | ✅ 3m 44s — 3 fixed, 1 false positive (preload bridge already worked) |
+| 2 | [FIX_HIGH_LEAKS_SECURITY.md](prompts/FIX_HIGH_LEAKS_SECURITY.md) | 6 | HIGH | ✅ 6m 7s — 5 fixed, 1 no-leak-found (listeners already clean) |
+| 3 | [FIX_MAJOR_STABILITY.md](prompts/FIX_MAJOR_STABILITY.md) | 8 | MAJOR | ✅ 4m 15s — 7 fixed, 1 verified correct (create_agent_session sync) |
+| 4 | [FIX_MAJOR_STORES.md](prompts/FIX_MAJOR_STORES.md) | 7 | MAJOR | ✅ 7m 16s — 7 fixed (terminal race, JSON safety, sidebar clamp, cancel guard) |
+| 5 | [FIX_MINOR_POLISH.md](prompts/FIX_MINOR_POLISH.md) | 6 | MINOR | ✅ 3m 53s — 5 fixed, 1 already implemented (copy feedback existed) |
+| 6 | [FIX_MINOR_CLEANUP.md](prompts/FIX_MINOR_CLEANUP.md) | 6 | MINOR | ✅ 11m 13s — 6 fixed (dead code, format util, Vite warning, type safety) |
+
+---
+
+## Completed — Mega Stress Test (14 tasks in one loop)
+
+**Design Docs:** [MEMORY_LEARNING_ARCHITECTURE.md](../plans/MEMORY_LEARNING_ARCHITECTURE.md), [PERSISTENT_AGENT.md](../plans/PERSISTENT_AGENT.md)
+**Strategy:** Try mega loop first → fallback to 2 smaller loops if needed
+
+| # | Prompt | Tasks | Description |
+|---|--------|-------|-------------|
+| ~~MEGA~~ | [MEGA_MEMORY_PROMPTGEN_TABS.md](prompts/MEGA_MEMORY_PROMPTGEN_TABS.md) | ~~14~~ | ❌ Too long — CLI crashed on input (~6000 words exceeds shell limit) |
+| FALLBACK-A | [MEGA_FALLBACK_A_BACKEND.md](prompts/MEGA_FALLBACK_A_BACKEND.md) | 10 | ✅ 6m 2s — Backend: Memory + QA Bridge + Ralph Gen |
+| FALLBACK-B | [MEGA_FALLBACK_B_FRONTEND.md](prompts/MEGA_FALLBACK_B_FRONTEND.md) | 4 | ✅ 18m 28s — Frontend: Spec + Prompt tabs |
+
+---
+
+## Completed — Persistent Companion Agent (4 prompts, 17 tasks)
+
+**Design Doc:** [docs/plans/PERSISTENT_AGENT.md](../plans/PERSISTENT_AGENT.md)
+
+| # | Task ID | Prompt | Tasks | Duration | Description |
+|---|---------|--------|-------|----------|-------------|
+| 1 | COMP-BACK | [COMPANION_BACKEND.md](prompts/COMPANION_BACKEND.md) | 4 | 3m 18s | ✅ Create companion_runner.py + companion_agent.py + context builder |
+| 2 | COMP-LIFE | [COMPANION_LIFECYCLE.md](prompts/COMPANION_LIFECYCLE.md) | 5 | 4m 22s | ✅ ProcessType, spawnCompanion, stopCompanion, auto-spawn, handoff |
+| 3 | COMP-IPC | [COMPANION_IPC_STATE.md](prompts/COMPANION_IPC_STATE.md) | 4 | 6m 32s | ✅ IPC channels, event handlers, task-store state, useIpc listeners |
+| 4 | COMP-UI | [COMPANION_UI.md](prompts/COMPANION_UI.md) | 4 | 4m 37s | ✅ TaskCard badge, terminal companion mode, chat input, styling |
 
 ---
 
 ## Completed Prompts
+
+### Kanban + Terminal + Timeline (2026-02-06)
+**Design Doc:** [docs/plans/KANBAN_TERMINAL_TIMELINE.md](../plans/KANBAN_TERMINAL_TIMELINE.md)
+
+| Task ID | Prompt | Tasks | Duration | Status |
+|---------|--------|-------|----------|--------|
+| KANBAN-BTN | [KANBAN_BUILD_BUTTON.md](prompts/KANBAN_BUILD_BUTTON.md) | 3 | 3m 45s | ✅ |
+| TERM-POLISH | [TERMINAL_OUTPUT_POLISH.md](prompts/TERMINAL_OUTPUT_POLISH.md) | 5 | 8m 41s | ✅ |
+| TIMELINE | [TIMELINE_REDESIGN.md](prompts/TIMELINE_REDESIGN.md) | 5 | 3m 21s | ✅ |
+
+**Files modified:**
+- `main/ipc-handlers/agent-events-handlers.ts` — Emit TASK_AGENT_STOPPED on planning exit
+- `components/TaskCard.tsx` — Show Start Build when subtasks exist and no active agent
+- `stores/task-store.ts` — Clear agent stopped state on restart
+- `components/terminal/TaskMonitorChat.tsx` — Tool block cards, thinking UX, code blocks, status bar
+- `components/ActivityFeed.tsx` — Full timeline redesign with vertical line, date groups, cards, filters
+- `utils/activity-tracker.ts` — Duration tracking, phaseInfo, MAX_ACTIVITIES=200
+
+### Chat Overhaul (2026-02-06)
+**Design Doc:** [docs/plans/CHAT_OVERHAUL.md](../plans/CHAT_OVERHAUL.md)
+
+| Task ID | Prompt | Tasks | Duration | Status |
+|---------|--------|-------|----------|--------|
+| CHAT-ALIGN | [CHAT_UI_ALIGNMENT.md](prompts/CHAT_UI_ALIGNMENT.md) | 4 | 2m 4s | ✅ |
+| CHAT-INPUT | [CHAT_INPUT_REDESIGN.md](prompts/CHAT_INPUT_REDESIGN.md) | 7 | 6m 34s | ✅ |
+| CHAT-RESIZE | [CHAT_RESIZABLE_SIDEBARS.md](prompts/CHAT_RESIZABLE_SIDEBARS.md) | 4 | 5m 17s | ✅ |
+
+**Files created:**
+- `components/insights/ChatInput.tsx` — Send inside input, stop button, attachments
+- `components/insights/ResizeHandle.tsx` — Drag-to-resize handle
+
+**Files modified:**
+- `components/Insights.tsx` — New layout with ChatInput, resize handles, localStorage persistence
+- `components/ChatHistorySidebar.tsx` — Dynamic width prop, h-12 header
+- `components/insights/TaskQueueSidebar.tsx` — Dynamic width prop, h-12 header
+- `stores/insights-store.ts` — cancelGeneration action, attachment support
+- `main/ipc-handlers/insights-handlers.ts` — insights:cancel IPC handler
+- `preload/api/modules/insights-api.ts` — cancelInsights bridge
+
+### Task Queue Sidebar (2026-02-06)
+| Task ID | Prompt | Tasks | Duration | Status |
+|---------|--------|-------|----------|--------|
+| TASK-SIDEBAR | [INSIGHTS_TASK_SIDEBAR.md](prompts/INSIGHTS_TASK_SIDEBAR.md) | 6 | 4m 40s | ✅ |
+
+**Files created/modified:**
+- `apps/frontend/src/renderer/stores/insights-task-queue-store.ts` (NEW)
+- `apps/frontend/src/renderer/components/insights/TaskQueueCard.tsx` (NEW)
+- `apps/frontend/src/renderer/components/insights/TaskQueueSidebar.tsx` (NEW)
+- `apps/frontend/src/renderer/components/Insights.tsx` - Sidebar layout
+- `apps/frontend/src/renderer/stores/insights-store.ts` - Queue integration
 
 ### Adaptive Task Routing (2026-02-06)
 | Task ID | Prompt | Tasks | Duration | Status |
@@ -95,6 +179,14 @@
 
 ## Statistics
 
+### 2026-02-06
+- **Tasks completed:** 110 tasks (Features 73 + Audit Fixes 37)
+- **Feature tasks:** Adaptive Routing 8 + Task Sidebar 6 + Chat Overhaul 15 + Kanban Fix 3 + Terminal Polish 5 + Timeline 5 + Companion Agent 17 + Memory/Ralph/Tabs 14
+- **Audit fix tasks:** Batch 1 (4) + Batch 2 (6) + Batch 3 (8) + Batch 4 (7) + Batch 5 (6) + Batch 6 (6)
+- **Total duration:** ~121 minutes (features ~85m + fixes ~36m)
+- **Average per task:** ~66 seconds
+- **Issues found:** 65 (all fixed, 0 open)
+
 ### 2026-02-05
 - **Tasks completed:** 22+ tasks
 - **Total duration:** ~45 minutes
@@ -114,7 +206,10 @@ docs/ralph/
 ├── INDEX.md                  # This file
 ├── RALPH_PROMPT_GUIDE.md     # How to write prompts
 ├── prompts/                  # All prompt files
-│   ├── ADAPTIVE_TASK_ROUTING.md  ← Ready to run
+│   ├── ADAPTIVE_TASK_ROUTING.md  ← Completed
+│   ├── CHAT_UI_ALIGNMENT.md      ← Ready (1/3)
+│   ├── CHAT_INPUT_REDESIGN.md    ← Ready (2/3)
+│   ├── CHAT_RESIZABLE_SIDEBARS.md ← Ready (3/3)
 │   ├── SWEEP_*.md                ← Code sweep prompts
 │   ├── UI_*.md                   ← UI improvement prompts
 │   ├── FIX_*.md                  ← Bug fix prompts

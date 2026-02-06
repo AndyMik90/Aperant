@@ -780,6 +780,79 @@ export class AgentProcessManager {
   }
 
   /**
+   * Spawn companion agent process
+   * The companion provides a read-only conversational interface between task phases
+   */
+  async spawnCompanion(
+    taskId: string,
+    specDir: string,
+    projectDir: string,
+    taskTitle: string,
+    currentPhase: string,
+    model?: string
+  ): Promise<void> {
+    const companionRunnerPath = path.join(this.autoBuildSourcePath, 'runners', 'companion_runner.py');
+
+    // Check if companion_runner.py exists
+    if (!existsSync(companionRunnerPath)) {
+      console.error('[AgentProcess] companion_runner.py not found at:', companionRunnerPath);
+      throw new Error('Companion runner not found');
+    }
+
+    const args = [
+      companionRunnerPath,
+      '--spec-dir',
+      specDir,
+      '--project-dir',
+      projectDir,
+      '--task-title',
+      taskTitle,
+      '--current-phase',
+      currentPhase,
+      '--task-id',
+      taskId,
+      '--model',
+      model || 'sonnet'
+    ];
+
+    // Get combined environment (includes memory config, API profiles, etc.)
+    const combinedEnv = this.getCombinedEnv(projectDir);
+
+    console.log('[AgentProcess] Spawning companion agent:', {
+      taskId,
+      currentPhase,
+      model: model || 'sonnet'
+    });
+
+    await this.spawnProcess(taskId, this.autoBuildSourcePath, args, combinedEnv, 'companion');
+  }
+
+  /**
+   * Stop companion agent process
+   */
+  stopCompanion(taskId: string): boolean {
+    const agentProcess = this.state.getProcess(taskId);
+    if (!agentProcess) {
+      console.log('[AgentProcess] No companion process to stop for task:', taskId);
+      return false;
+    }
+
+    console.log('[AgentProcess] Stopping companion agent for task:', taskId);
+
+    // Mark this specific spawn as killed so its exit handler knows to ignore
+    this.state.markSpawnAsKilled(agentProcess.spawnId);
+
+    // Use shared platform-aware kill utility with SIGTERM
+    killProcessGracefully(agentProcess.process, {
+      debugPrefix: '[AgentProcess]',
+      debug: process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development'
+    });
+
+    this.state.deleteProcess(taskId);
+    return true;
+  }
+
+  /**
    * Get combined environment variables for a project
    *
    * Priority (later sources override earlier):

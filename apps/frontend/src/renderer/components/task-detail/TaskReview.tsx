@@ -1,3 +1,5 @@
+import { CheckCircle2 } from 'lucide-react';
+import { Button } from '../ui/button';
 import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, ImageAttachment, WorktreeCreatePRResult } from '../../../shared/types';
 import {
   StagedSuccessMessage,
@@ -28,6 +30,7 @@ interface TaskReviewProps {
   stagedSuccess: string | null;
   stagedProjectPath: string | undefined;
   suggestedCommitMessage: string | undefined;
+  mergedSuccess: string | null;
   mergePreview: { files: string[]; conflicts: MergeConflict[]; summary: MergeStats; gitConflicts?: GitConflictInfo; uncommittedChanges?: { hasChanges: boolean; files: string[]; count: number } | null } | null;
   isLoadingPreview: boolean;
   showConflictDialog: boolean;
@@ -38,6 +41,7 @@ interface TaskReviewProps {
   /** Callback when images change */
   onImagesChange?: (images: ImageAttachment[]) => void;
   onMerge: () => void;
+  onMarkDone: () => void;
   onDiscard: () => void;
   onShowDiscardDialog: (show: boolean) => void;
   onShowDiffDialog: (show: boolean) => void;
@@ -80,6 +84,7 @@ export function TaskReview({
   stagedSuccess,
   stagedProjectPath,
   suggestedCommitMessage,
+  mergedSuccess,
   mergePreview,
   isLoadingPreview,
   showConflictDialog,
@@ -88,6 +93,7 @@ export function TaskReview({
   images,
   onImagesChange,
   onMerge,
+  onMarkDone,
   onDiscard,
   onShowDiscardDialog,
   onShowDiffDialog,
@@ -116,12 +122,27 @@ export function TaskReview({
         />
       )}
 
-      {/* Workspace Status - priority: loading > fresh staging success > already staged (persisted) > worktree exists > no workspace */}
+      {/* Workspace Status - priority: loading > fresh staging > merged (Mark as Done) > already staged > worktree exists > no workspace */}
       {isLoadingWorktree ? (
         <LoadingMessage />
       ) : stagedSuccess ? (
         /* Fresh staging just completed - StagedSuccessMessage is rendered above */
         null
+      ) : mergedSuccess || task.mergedAt ? (
+        /* Merged - show "Mark as Done" button */
+        <div className="rounded-xl border border-success/30 bg-success/10 p-4">
+          <h3 className="font-medium text-sm text-foreground mb-2 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-success" />
+            Changes Merged Successfully
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            {mergedSuccess || 'Your changes have been merged into the project. Click "Mark as Done" to complete this task.'}
+          </p>
+          <Button variant="success" onClick={onMarkDone} className="w-full">
+            <CheckCircle2 className="mr-2 h-4 w-4" />
+            Mark as Done
+          </Button>
+        </div>
       ) : task.stagedInMainProject ? (
         /* Task was previously staged (persisted state) - show even if worktree still exists */
         <StagedInProjectMessage

@@ -112,7 +112,19 @@
     "justNow": "À l'instant",
     "minutesAgo": "Il y a {{count}} min",
     "hoursAgo": "Il y a {{count}}h",
-    "daysAgo": "Il y a {{count}}j"
+    "daysAgo": "Il y a {{count}}j",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier"
+  },
+  "chat": {
+    "history": "Historique des conversations",
+    "noConversations": "Aucune conversation",
+    "deleteTitle": "Supprimer la conversation ?",
+    "deleteDescription": "Cette action supprimera définitivement cette conversation et tous ses messages. Cette action est irréversible.",
+    "messageCount": "{{count}} message",
+    "messageCount_other": "{{count}} messages",
+    "rename": "Renommer",
+    "daysAgo": "Il y a {{count}} jours"
   },
   "errors": {
     "generic": "Une erreur s'est produite",

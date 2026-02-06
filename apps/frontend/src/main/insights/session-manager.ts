@@ -180,8 +180,15 @@ export class SessionManager {
     const session = this.storage.loadSessionById(projectPath, sessionId);
     if (!session) return false;
 
-    // Find and update the message
-    const message = session.messages.find(m => m.id === messageId);
+    // Find message by ID first, then fallback to matching by suggestedTask title
+    // (frontend and backend generate different message IDs, so exact ID match may fail)
+    let message = session.messages.find(m => m.id === messageId);
+    if (!message) {
+      // Fallback: find the last assistant message with a suggestedTask that hasn't been marked yet
+      message = [...session.messages].reverse().find(
+        m => m.role === 'assistant' && m.suggestedTask && !m.taskCreatedId
+      );
+    }
     if (!message) return false;
 
     message.taskCreatedId = taskId;
@@ -191,7 +198,13 @@ export class SessionManager {
     // Update cache if this session is cached
     for (const [projectId, cachedSession] of this.sessions) {
       if (cachedSession.id === sessionId) {
-        const cachedMessage = cachedSession.messages.find(m => m.id === messageId);
+        // Match in cache the same way
+        let cachedMessage = cachedSession.messages.find(m => m.id === message!.id);
+        if (!cachedMessage) {
+          cachedMessage = [...cachedSession.messages].reverse().find(
+            m => m.role === 'assistant' && m.suggestedTask && !m.taskCreatedId
+          );
+        }
         if (cachedMessage) {
           cachedMessage.taskCreatedId = taskId;
           cachedSession.updatedAt = new Date();

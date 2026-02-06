@@ -112,7 +112,19 @@
     "justNow": "Just now",
     "minutesAgo": "{{count}}m ago",
     "hoursAgo": "{{count}}h ago",
-    "daysAgo": "{{count}}d ago"
+    "daysAgo": "{{count}}d ago",
+    "today": "Today",
+    "yesterday": "Yesterday"
+  },
+  "chat": {
+    "history": "Chat History",
+    "noConversations": "No conversations yet",
+    "deleteTitle": "Delete conversation?",
+    "deleteDescription": "This will permanently delete this conversation and all its messages. This action cannot be undone.",
+    "messageCount": "{{count}} message",
+    "messageCount_other": "{{count}} messages",
+    "rename": "Rename",
+    "daysAgo": "{{count}} days ago"
   },
   "errors": {
     "generic": "An error occurred",

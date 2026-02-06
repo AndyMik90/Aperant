@@ -208,8 +208,15 @@ export function parseSDKOutput(rawLine: string): StructuredBlock | null {
     }
   }
 
-  // No pattern matched - return null (don't emit raw text)
-  // This is intentional: we only want recognized markers in the rich UI
+  // No SDK/legacy marker matched — emit as text block if line has meaningful content.
+  // This captures spec runner output (phase text, analysis) that isn't marker-formatted,
+  // so the timeline view works for planning/review phases too (not just coding).
+  // Skip decorative lines (box drawing, pure symbols, very short noise).
+  const stripped = line.replace(/[─│┌┐└┘├┤┬┴┼═║╔╗╚╝╠╣╦╩╬●◆◇■□▪▫★☆▶▷►▻✓✗✔✘→←↑↓⬆⬇⬅➡☐☑▸▹·•]/g, '').trim();
+  if (stripped.length >= 5 && !line.startsWith('__')) {
+    return { type: 'text', content: line } satisfies TextBlock;
+  }
+
   return null;
 }
 

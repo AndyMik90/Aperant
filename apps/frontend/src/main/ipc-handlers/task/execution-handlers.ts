@@ -23,6 +23,29 @@ import { v4 as uuidv4 } from 'uuid';
 import { recordTaskTimestamp } from '../../utils/task-timestamps';
 
 /**
+ * Map frontend TaskComplexity values to backend spec_runner --complexity values.
+ * Frontend: trivial | small | medium | large | complex
+ * Backend:  simple  | standard | complex
+ */
+function mapComplexityToOverride(
+  complexity: string | undefined
+): 'simple' | 'standard' | 'complex' | undefined {
+  if (!complexity) return undefined;
+  switch (complexity) {
+    case 'trivial':
+    case 'small':
+      return 'simple';
+    case 'medium':
+      return 'standard';
+    case 'large':
+    case 'complex':
+      return 'complex';
+    default:
+      return undefined;
+  }
+}
+
+/**
  * Atomic file write to prevent TOCTOU race conditions.
  * Writes to a temporary file first, then atomically renames to target.
  * This ensures the target file is never in an inconsistent state.
@@ -336,13 +359,19 @@ export function registerTaskExecutionHandlers(
         const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
         recordTaskTimestamp(planPath, 'planning_started');
 
+        // Map chat-suggested complexity to backend override (skips expensive AI classification)
+        const complexityOverride = mapComplexityToOverride(task.metadata?.complexity);
+        const specMetadata = complexityOverride
+          ? { ...task.metadata, complexityOverride }
+          : task.metadata;
+
         // Start planning agent - it will handle spec creation or continue planning
         agentManager.startPlanningAgent(
           task.specId,
           project.path,
           taskDescription,
           specDir,
-          task.metadata,
+          specMetadata,
           baseBranch
         ).catch((err: Error) => {
           console.error('[TASK_START] Failed to start planning agent:', err);
@@ -534,6 +563,9 @@ export function registerTaskExecutionHandlers(
     IPC_CHANNELS.TASK_START_BUILD,
     async (_, taskId: string): Promise<IPCResult> => {
       console.log('[TASK_START_BUILD] Transitioning task to coding:', taskId);
+
+      // Stop companion agent if running (transitioning from planning to coding)
+      await agentManager.stopCompanion(taskId);
 
       const mainWindow = getMainWindow();
       if (!mainWindow) {
@@ -1057,6 +1089,30 @@ export function registerTaskExecutionHandlers(
   );
 
   /**
+   * Send a chat message to a running companion agent.
+   * The message is queued and processed at the next iteration boundary.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_SEND_COMPANION_MESSAGE,
+    async (_, taskId: string, message: string): Promise<IPCResult<boolean>> => {
+      console.log('[TASK_SEND_COMPANION_MESSAGE] Sending message to companion:', taskId, 'length:', message.length);
+
+      // Check if companion is running first
+      if (!agentManager.isCompanionRunning(taskId)) {
+        console.warn('[TASK_SEND_COMPANION_MESSAGE] Companion is not running for task:', taskId);
+        return { success: false, error: 'Companion is not running' };
+      }
+
+      const sent = agentManager.sendMessageToTask(taskId, message);
+      if (!sent) {
+        return { success: false, error: 'Failed to send message to companion' };
+      }
+
+      return { success: true, data: true };
+    }
+  );
+
+  /**
    * Recover a stuck task (status says coding but no process running)
    */
   ipcMain.handle(
@@ -1476,6 +1532,44 @@ export function registerTaskExecutionHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to recover task'
+        };
+      }
+    }
+  );
+
+  // Read a file from the spec directory (spec.md, ralph_prompt.md, etc.)
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_READ_SPEC_FILE,
+    async (_event, taskId: string, fileName: string): Promise<IPCResult<string | null>> => {
+      try {
+        // Validate fileName to prevent path traversal
+        if (!fileName || typeof fileName !== 'string') {
+          return { success: false, error: 'Invalid file name' };
+        }
+
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          return { success: false, error: 'Task or project not found' };
+        }
+
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const specDir = task.specsPath || path.join(project.path, specsBaseDir, task.specId);
+        const filePath = path.resolve(specDir, fileName);
+        const resolvedSpecDir = path.resolve(specDir);
+
+        // SWEEP-27: Prevent path traversal attacks
+        if (!filePath.startsWith(resolvedSpecDir + path.sep) && filePath !== resolvedSpecDir) {
+          console.warn(`[readSpecFile] Path traversal attempt blocked: ${fileName}`);
+          return { success: false, error: 'Invalid file path' };
+        }
+
+        const content = safeReadFileSync(filePath);
+        return { success: true, data: content };
+      } catch (error) {
+        console.error(`[readSpecFile] Error reading spec file:`, error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to read spec file'
         };
       }
     }

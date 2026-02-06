@@ -221,7 +221,7 @@ function TimelineStep({
     color = TOOL_COLORS.thinking;
     textColor = TOOL_TEXT_COLORS.thinking;
     action = 'Thinking';
-    target = block.text?.slice(0, 50) + (block.text && block.text.length > 50 ? '...' : '') || '';
+    target = block.text || '';
   } else if (block.type === 'text') {
     Icon = MessageSquare;
     color = TOOL_COLORS.text;
@@ -241,7 +241,7 @@ function TimelineStep({
       textColor = 'text-cyan-300';
     } else {
       action = 'Output';
-      target = block.text?.slice(0, 60) + (block.text && block.text.length > 60 ? '...' : '') || '';
+      target = block.text || '';
     }
   } else if (block.type === 'code_block') {
     Icon = FileCode;
@@ -303,7 +303,7 @@ function TimelineStep({
             <>
               <ChevronRight className="h-3 w-3 text-muted-foreground/50 flex-shrink-0" />
               {/* Target */}
-              <span className="text-sm text-foreground truncate max-w-[250px]" title={fullPath || target}>
+              <span className="text-sm text-foreground break-words" title={fullPath || undefined}>
                 {target}
               </span>
             </>

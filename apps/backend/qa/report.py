@@ -7,6 +7,7 @@ and report generation.
 """
 
 import json
+import logging
 from collections import Counter
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
@@ -103,6 +104,7 @@ def persist_issues_to_memory(
     spec_dir: Path,
     issues: list[dict[str, Any]],
     iteration: int,
+    project_dir: Path | None = None,
 ) -> None:
     """
     Persist QA issues to memories/issues.md for future planning context.
@@ -202,6 +204,43 @@ repeating similar mistakes.
         # Append to existing file
         with open(issues_file, "a") as f:
             f.write(content)
+
+    # Promote prevention tips to spec-level gotchas
+    try:
+        from memory.patterns import append_gotcha
+
+        for issue in issues:
+            prevention = issue.get("prevention", "").strip()
+            if prevention and prevention != "Review code changes carefully":
+                append_gotcha(spec_dir, f"[QA] {prevention} (from QA iteration {iteration})")
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Failed to promote gotchas: {e}")
+
+    # Promote prevention tips to project-level memory
+    # Derive project_dir from spec_dir if not provided
+    # spec_dir is typically: {project_dir}/.auto-claude/specs/XXX-name/
+    _project_dir = project_dir
+    if _project_dir is None:
+        try:
+            _project_dir = spec_dir.parent.parent.parent
+        except Exception:
+            _project_dir = None
+
+    if _project_dir is not None:
+        try:
+            from memory.project_memory import append_to_project_memory
+
+            for issue in issues:
+                prevention = issue.get("prevention", "").strip()
+                if prevention and prevention != "Review code changes carefully":
+                    append_to_project_memory(
+                        _project_dir,
+                        section="gotchas",
+                        content=prevention,
+                        source=f"QA iteration {iteration}",
+                    )
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Failed to append to project memory: {e}")
 
 
 # =============================================================================

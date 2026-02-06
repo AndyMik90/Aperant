@@ -146,8 +146,11 @@ class SpecOrchestrator:
         """
         runner = self._get_agent_runner()
 
-        # Use user's configured thinking level for all spec phases
-        thinking_budget = get_thinking_budget(self.thinking_level)
+        # Cap thinking budget for SIMPLE tasks — no need for ultrathink on trivial work
+        effective_thinking = self.thinking_level
+        if self._is_simple_task() and effective_thinking in ("high", "ultrathink"):
+            effective_thinking = "medium"
+        thinking_budget = get_thinking_budget(effective_thinking)
 
         # Format prior phase summaries for context
         prior_summaries = format_phase_summaries(self._phase_summaries)
@@ -292,8 +295,9 @@ class SpecOrchestrator:
                 LogPhase.PLANNING, success=False, message="Discovery failed"
             )
             return False
-        # Store summary for subsequent phases (compaction)
-        await self._store_phase_summary("discovery")
+        # Store summary for subsequent phases (compaction) — skip for SIMPLE to save API calls
+        if not self._is_simple_task():
+            await self._store_phase_summary("discovery")
 
         # === PHASE 2: REQUIREMENTS GATHERING ===
         result = await run_phase(
@@ -308,8 +312,9 @@ class SpecOrchestrator:
                 message="Requirements gathering failed",
             )
             return False
-        # Store summary for subsequent phases (compaction)
-        await self._store_phase_summary("requirements")
+        # Store summary for subsequent phases (compaction) — skip for SIMPLE
+        if not self._is_simple_task():
+            await self._store_phase_summary("requirements")
 
         # Rename spec folder with better name from requirements
         rename_spec_dir_from_requirements(self.spec_dir)
@@ -377,8 +382,8 @@ class SpecOrchestrator:
             results.append(result)
             phases_executed.append(phase_name)
 
-            # Store summary for subsequent phases (compaction)
-            if result.success:
+            # Store summary for subsequent phases (compaction) — skip for SIMPLE
+            if result.success and not self._is_simple_task():
                 await self._store_phase_summary(phase_name)
 
             if not result.success:
@@ -407,6 +412,24 @@ class SpecOrchestrator:
 
         # Summary
         self._print_completion_summary(results, phases_executed)
+
+        # === RALPH PROMPT GENERATION ===
+        # Generate ralph_prompt.md from the implementation plan (if it exists)
+        try:
+            plan_file = self.spec_dir / "implementation_plan.json"
+            if plan_file.exists():
+                from prompts_pkg.ralph_prompt_generator import RalphPromptGenerator
+
+                generator = RalphPromptGenerator()
+                generator.save_prompt(
+                    self.spec_dir,
+                    self.project_dir,
+                    output_file=self.spec_dir / "ralph_prompt.md",
+                )
+                print_status("Ralph prompt generated: ralph_prompt.md", "success")
+        except Exception as e:
+            # Don't break the pipeline if Ralph prompt generation fails
+            print_status(f"Ralph prompt generation skipped: {e}", "warning")
 
         # End planning phase successfully
         task_logger.end_phase(
@@ -520,6 +543,14 @@ class SpecOrchestrator:
 **Constraints**:
 {chr(10).join(f"- {c}" for c in req.get("constraints", []))}
 """
+
+    def _is_simple_task(self) -> bool:
+        """Check if this task is classified as SIMPLE (via override or assessment)."""
+        if self.complexity_override == "simple":
+            return True
+        if self.assessment and self.assessment.complexity == complexity.Complexity.SIMPLE:
+            return True
+        return False
 
     def _create_override_assessment(self) -> complexity.ComplexityAssessment:
         """Create a complexity assessment from manual override.

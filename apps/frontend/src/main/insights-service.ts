@@ -196,6 +196,14 @@ export class InsightsService extends EventEmitter {
   }
 
   /**
+   * Cancel an active insights generation session.
+   * Returns true if a session was found and canceled, false if no active session.
+   */
+  cancelSession(projectId: string): boolean {
+    return this.executor.cancelSession(projectId);
+  }
+
+  /**
    * Mark a message's task as created (persists across navigation/app restart)
    */
   markTaskCreated(projectPath: string, sessionId: string, messageId: string, taskId: string): boolean {

@@ -18,7 +18,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useCallback, createContex
 import { useTerminalStore } from '../../stores/terminal-store';
 import { useTaskStore } from '../../stores/task-store';
 import { Button } from '../ui/button';
-import { ChevronUp, ChevronDown, Paperclip, Send, ArrowDown, Copy, Check, Search, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, Paperclip, Send, ArrowDown, Copy, Check, Search, X, Bot } from 'lucide-react';
 import type { Terminal as TerminalType } from '../../stores/terminal-store';
 import type { ContentBlock, ToolUseContent } from '../../lib/claude-output-parser';
 import { cn } from '../../lib/utils';
@@ -93,6 +93,16 @@ function detectLanguageFromPath(filePath: string): string | undefined {
   return ext ? extMap[ext] : undefined;
 }
 
+// Escape HTML entities to prevent XSS when hljs fallback returns raw text
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // TERM-5: Highlight code with language detection
 function highlightCode(code: string, language?: string): string {
   if (language && hljs.getLanguage(language)) {
@@ -106,7 +116,8 @@ function highlightCode(code: string, language?: string): string {
   try {
     return hljs.highlightAuto(code).value;
   } catch {
-    return code;
+    // hljs escapes HTML internally, but fallback must escape manually
+    return escapeHtml(code);
   }
 }
 
@@ -198,146 +209,44 @@ interface TaskMonitorChatProps {
   viewMode?: 'raw' | 'structured';
 }
 
-// Bullet colors for different block types (matching Claude Code extension)
-const BULLET_COLORS: Record<string, string> = {
-  Read: 'bg-blue-500',
-  Write: 'bg-green-500',
-  Edit: 'bg-green-500',
-  Bash: 'bg-purple-500',
-  Grep: 'bg-orange-500',
-  Glob: 'bg-pink-500',
-  WebFetch: 'bg-cyan-500',
-  WebSearch: 'bg-cyan-500',
-  Task: 'bg-indigo-500',
-  thinking: 'bg-amber-500',
-  text: 'bg-foreground/50',
-};
-
-// Status colors for success/error indication
-const STATUS_COLORS: Record<string, string> = {
-  success: 'border-l-green-500 bg-green-500/5',
-  error: 'border-l-red-500 bg-red-500/5',
-  running: 'border-l-blue-500 bg-blue-500/5',
-  pending: 'border-l-muted-foreground bg-muted/5',
-};
-
-// TERM-2: Constants for expandable long outputs
-const MAX_VISIBLE_LINES = 20;
-const PREVIEW_LINES = 15;
-
-/**
- * TruncatedOutput - Shows truncated content with expand option
- * TERM-2: Expandable long outputs feature
- * TERM-5: Now supports syntax highlighting
- * TERM-6: Now includes copy button
- */
-function TruncatedOutput({
-  content,
-  className = '',
-  showLineNumbers = false,
-  language,
-  showCopyButton = false
-}: {
-  content: string;
-  className?: string;
-  showLineNumbers?: boolean;
-  language?: string;
-  showCopyButton?: boolean;
-}) {
-  const [isFullyExpanded, setIsFullyExpanded] = useState(false);
-  const { searchQuery } = useContext(SearchContext);
-  const lines = content.split('\n');
-  const totalLines = lines.length;
-  const shouldTruncate = totalLines > MAX_VISIBLE_LINES;
-  const hiddenCount = totalLines - PREVIEW_LINES;
-
-  const displayLines = shouldTruncate && !isFullyExpanded
-    ? lines.slice(0, PREVIEW_LINES)
-    : lines;
-
-  const lineNumWidth = totalLines.toString().length;
-
-  // TERM-5: Apply syntax highlighting if language is specified
-  const highlightedContent = useMemo(() => {
-    if (!language) return null;
-    return highlightCode(displayLines.join('\n'), language);
-  }, [displayLines, language]);
-
-  return (
-    <div className={cn("relative group", className)}>
-      {/* TERM-6: Copy button */}
-      {showCopyButton && (
-        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <CopyButton content={content} />
-        </div>
-      )}
-      {highlightedContent ? (
-        // TERM-5: Syntax highlighted output
-        <pre
-          className="font-mono text-xs whitespace-pre-wrap hljs"
-          dangerouslySetInnerHTML={{ __html: highlightedContent }}
-        />
-      ) : (
-        // Plain text output with optional line numbers and search highlighting
-        <pre className="font-mono text-xs text-muted-foreground whitespace-pre-wrap">
-          {displayLines.map((line, i) => (
-            <div key={i} className="flex">
-              {showLineNumbers && (
-                <span className="select-none text-gray-500 mr-3" style={{ minWidth: `${lineNumWidth}ch` }}>
-                  {(i + 1).toString().padStart(lineNumWidth, ' ')}
-                </span>
-              )}
-              <span className="select-none opacity-50 mr-2">|</span>
-              <span className="flex-1">{searchQuery ? highlightSearchMatches(line || ' ', searchQuery) : (line || ' ')}</span>
-            </div>
-          ))}
-        </pre>
-      )}
-      {shouldTruncate && !isFullyExpanded && (
-        <button
-          onClick={() => setIsFullyExpanded(true)}
-          className="mt-1 text-xs text-blue-500 hover:text-blue-400 hover:underline"
-        >
-          ... +{hiddenCount} lines (click to expand)
-        </button>
-      )}
-      {shouldTruncate && isFullyExpanded && (
-        <button
-          onClick={() => setIsFullyExpanded(false)}
-          className="mt-1 text-xs text-blue-500 hover:text-blue-400 hover:underline"
-        >
-          (click to collapse)
-        </button>
-      )}
-    </div>
-  );
-}
-
 /**
  * Collapsible thinking block matching Claude Code style
  * Uses context to toggle all thinking blocks together
+ * TERMINAL_OUTPUT_POLISH: Collapsed by default with pulsing indicator, purple border when expanded
  */
 function ThinkingBlock({ content }: { content: string }) {
   const { allExpanded, toggleAll } = useContext(ThinkingExpandContext);
 
   return (
-    <div className="flex gap-3 py-1">
-      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${BULLET_COLORS.thinking}`} />
-      <div className="flex-1 min-w-0">
+    <div className="py-1.5 font-mono text-xs">
+      <div className={cn(
+        "rounded-lg border overflow-hidden transition-all",
+        allExpanded ? "border-primary/30 bg-primary/5" : "border-border/50 bg-card"
+      )}>
+        {/* Header */}
         <button
           onClick={toggleAll}
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/50 transition-colors"
         >
-          <span className="italic">Thinking</span>
+          {/* Animated pulsing dot when collapsed */}
+          {!allExpanded && (
+            <span className="w-2 h-2 rounded-full bg-primary/60 animate-pulse flex-shrink-0" />
+          )}
+          <span className="text-muted-foreground italic flex-1 text-left">
+            {allExpanded ? 'Thinking...' : 'Thinking...'}
+          </span>
           {allExpanded ? (
-            <ChevronUp className="h-3.5 w-3.5" />
+            <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
           ) : (
-            <ChevronDown className="h-3.5 w-3.5" />
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
           )}
         </button>
+        {/* Content - muted and italic when expanded */}
         {allExpanded && (
-          <div className="mt-2 text-sm text-muted-foreground/80 italic whitespace-pre-wrap">
-            {content}
+          <div className="px-3 py-2 border-t border-primary/20 bg-primary/5">
+            <div className="text-[11px] text-muted-foreground/80 italic whitespace-pre-wrap leading-relaxed">
+              {content}
+            </div>
           </div>
         )}
       </div>
@@ -348,17 +257,18 @@ function ThinkingBlock({ content }: { content: string }) {
 /**
  * DiffLine - Renders a single diff line with proper background colors
  * Matches Claude Code terminal style
+ * TERMINAL_OUTPUT_POLISH: Enhanced green/red visibility
  */
 function DiffLine({ line, type, lineNumber }: { line: string; type: 'add' | 'remove' | 'context'; lineNumber?: number }) {
   const bgClass = type === 'add'
-    ? 'bg-green-500/20'
+    ? 'bg-green-500/25 border-l-2 border-green-500/50'
     : type === 'remove'
-      ? 'bg-red-500/20'
+      ? 'bg-red-500/25 border-l-2 border-red-500/50'
       : '';
   const textClass = type === 'add'
-    ? 'text-green-400'
+    ? 'text-green-300'
     : type === 'remove'
-      ? 'text-red-400'
+      ? 'text-red-300'
       : 'text-muted-foreground';
   const prefix = type === 'add' ? '+' : type === 'remove' ? '-' : ' ';
 
@@ -385,22 +295,6 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { searchQuery } = useContext(SearchContext);
 
-  // Get bullet color based on tool type
-  const getBulletColor = (toolName: string) => {
-    const colors: Record<string, string> = {
-      Read: 'text-blue-400',
-      Write: 'text-green-400',
-      Edit: 'text-green-400',
-      Bash: 'text-purple-400',
-      Grep: 'text-orange-400',
-      Glob: 'text-pink-400',
-      WebFetch: 'text-cyan-400',
-      WebSearch: 'text-cyan-400',
-      Task: 'text-indigo-400',
-    };
-    return colors[toolName] || 'text-cyan-400';
-  };
-
   // Check if output should be collapsed by default
   const shouldCollapseByDefault = (output: string | undefined) => {
     if (!output) return false;
@@ -416,7 +310,7 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
     return null;
   };
 
-  // Render Bash tool - command/output format with colored bullet
+  // Render Bash tool - command/output format with card-like container
   if (tool.toolName === 'Bash') {
     const command = tool.input?.command as string || '';
     const description = tool.input?.description as string || '';
@@ -424,54 +318,48 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
     const isCollapsible = shouldCollapseByDefault(tool.output);
 
     return (
-      <div className="py-1.5 font-mono text-xs group">
-        <div className="flex items-start gap-2">
-          <span className={cn("flex-shrink-0", getBulletColor('Bash'))}>●</span>
-          <div className="flex-1 min-w-0">
-            <button
-              onClick={() => hasOutput && setIsExpanded(!isExpanded)}
-              className="flex items-center gap-1 text-left hover:underline cursor-pointer"
-            >
-              <span className="text-purple-400 font-medium">Bash</span>
-              <span className="text-cyan-400">(</span>
-              <span className="text-foreground truncate max-w-[400px]">{command || 'command'}</span>
-              <span className="text-cyan-400">)</span>
-              <StatusIndicator status={tool.status} />
-              {hasOutput && isCollapsible && !isExpanded && (
-                <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
-              )}
-            </button>
-            {description && (
-              <div className="text-muted-foreground/60 mt-0.5 text-[10px]">// {description}</div>
+      <div className="py-1.5 font-mono text-xs">
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          {/* Header bar */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-purple-500/10 border-b border-border">
+            <span className="text-purple-400 font-medium">Bash</span>
+            <span className="text-muted-foreground/70 truncate flex-1">{command || 'command'}</span>
+            <StatusIndicator status={tool.status} />
+            {hasOutput && isCollapsible && (
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isExpanded ? 'collapse' : 'expand'}
+              </button>
             )}
           </div>
-        </div>
-        {tool.output && (isExpanded || !isCollapsible) && (
-          <div className={cn(
-            "mt-2 ml-4 rounded border overflow-hidden",
-            tool.status === 'error' ? 'border-red-500/30 bg-red-500/5' : 'border-border bg-muted/30'
-          )}>
-            <pre className={cn(
-              "p-2 whitespace-pre-wrap break-all max-h-64 overflow-y-auto text-[11px]",
-              tool.status === 'error' ? 'text-red-400' : 'text-muted-foreground'
+          {/* Description */}
+          {description && (
+            <div className="px-3 py-1 text-muted-foreground/60 text-[10px] bg-muted/20 border-b border-border/50">
+              {description}
+            </div>
+          )}
+          {/* Output */}
+          {tool.output && (isExpanded || !isCollapsible) && (
+            <div className={cn(
+              "overflow-hidden",
+              tool.status === 'error' ? 'bg-red-500/5' : 'bg-muted/30'
             )}>
-              {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
-            </pre>
-          </div>
-        )}
-        {tool.output && isCollapsible && isExpanded && (
-          <button
-            onClick={() => setIsExpanded(false)}
-            className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
-          >
-            (click to collapse)
-          </button>
-        )}
+              <pre className={cn(
+                "p-3 whitespace-pre-wrap break-all max-h-64 overflow-y-auto text-[11px]",
+                tool.status === 'error' ? 'text-red-400' : 'text-muted-foreground'
+              )}>
+                {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
+              </pre>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
-  // Render Edit tool - diff format with green/red backgrounds
+  // Render Edit tool - diff format with card-like container
   if (tool.toolName === 'Edit') {
     const filePath = tool.input?.file_path as string || '';
     const oldString = tool.input?.old_string as string || '';
@@ -480,31 +368,29 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
     const fileName = filePath.split(/[/\\]/).pop() || filePath;
 
     return (
-      <div className="py-1.5 font-mono text-xs group">
-        <div className="flex items-start gap-2">
-          <span className={cn("flex-shrink-0", getBulletColor('Edit'))}>●</span>
-          <div className="flex-1 min-w-0">
-            <button
-              onClick={() => hasDiff && setIsExpanded(!isExpanded)}
-              className="flex items-center gap-1 text-left hover:underline cursor-pointer"
-            >
-              <span className="text-green-400 font-medium">Edit</span>
-              <span className="text-cyan-400">(</span>
-              <span className="text-foreground">{fileName}</span>
-              <span className="text-cyan-400">)</span>
-              <StatusIndicator status={tool.status} />
-              {hasDiff && !isExpanded && (
-                <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
-              )}
-            </button>
-            <div className="text-muted-foreground/50 text-[10px] truncate" title={filePath}>
-              {filePath}
-            </div>
+      <div className="py-1.5 font-mono text-xs">
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          {/* Header bar */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border-b border-border">
+            <span className="text-green-400 font-medium">Edit</span>
+            <span className="text-muted-foreground/70 truncate flex-1">{fileName}</span>
+            <StatusIndicator status={tool.status} />
+            {hasDiff && (
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isExpanded ? 'collapse' : 'expand'}
+              </button>
+            )}
           </div>
-        </div>
-        {isExpanded && hasDiff && (
-          <div className="mt-2 ml-4 rounded border border-border overflow-hidden bg-muted/30">
-            <div className="max-h-80 overflow-y-auto text-[11px]">
+          {/* File path */}
+          <div className="px-3 py-1 text-muted-foreground/60 text-[10px] bg-muted/20 border-b border-border/50 truncate" title={filePath}>
+            {filePath}
+          </div>
+          {/* Diff content */}
+          {isExpanded && hasDiff && (
+            <div className="bg-muted/30 max-h-80 overflow-y-auto text-[11px]">
               {oldString && oldString.split('\n').map((line, i) => (
                 <DiffLine key={`old-${i}`} line={line} type="remove" lineNumber={i + 1} />
               ))}
@@ -515,16 +401,8 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
                 <DiffLine key={`new-${i}`} line={line} type="add" lineNumber={i + 1} />
               ))}
             </div>
-          </div>
-        )}
-        {hasDiff && isExpanded && (
-          <button
-            onClick={() => setIsExpanded(false)}
-            className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
-          >
-            (click to collapse)
-          </button>
-        )}
+          )}
+        </div>
       </div>
     );
   }
@@ -538,46 +416,36 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
     const lineCount = content ? content.split('\n').length : 0;
 
     return (
-      <div className="py-1.5 font-mono text-xs group">
-        <div className="flex items-start gap-2">
-          <span className={cn("flex-shrink-0", getBulletColor('Write'))}>●</span>
-          <div className="flex-1 min-w-0">
-            <button
-              onClick={() => hasContent && setIsExpanded(!isExpanded)}
-              className="flex items-center gap-1 text-left hover:underline cursor-pointer"
-            >
-              <span className="text-green-400 font-medium">Write</span>
-              <span className="text-cyan-400">(</span>
-              <span className="text-foreground">{fileName}</span>
-              <span className="text-cyan-400">)</span>
-              <span className="text-muted-foreground/50 ml-1">+{lineCount} lines</span>
-              <StatusIndicator status={tool.status} />
-              {hasContent && !isExpanded && (
-                <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
-              )}
-            </button>
-            <div className="text-muted-foreground/50 text-[10px] truncate" title={filePath}>
-              {filePath}
-            </div>
+      <div className="py-1.5 font-mono text-xs">
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          {/* Header bar */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border-b border-border">
+            <span className="text-green-400 font-medium">Write</span>
+            <span className="text-muted-foreground/70 truncate flex-1">{fileName}</span>
+            <span className="text-muted-foreground/50 text-[10px]">+{lineCount} lines</span>
+            <StatusIndicator status={tool.status} />
+            {hasContent && (
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isExpanded ? 'collapse' : 'expand'}
+              </button>
+            )}
           </div>
-        </div>
-        {isExpanded && hasContent && (
-          <div className="mt-2 ml-4 rounded border border-border overflow-hidden bg-green-500/5">
-            <div className="max-h-80 overflow-y-auto text-[11px]">
+          {/* File path */}
+          <div className="px-3 py-1 text-muted-foreground/60 text-[10px] bg-muted/20 border-b border-border/50 truncate" title={filePath}>
+            {filePath}
+          </div>
+          {/* Content */}
+          {isExpanded && hasContent && (
+            <div className="bg-green-500/5 max-h-80 overflow-y-auto text-[11px]">
               {content.split('\n').map((line, i) => (
                 <DiffLine key={i} line={line} type="add" lineNumber={i + 1} />
               ))}
             </div>
-          </div>
-        )}
-        {hasContent && isExpanded && (
-          <button
-            onClick={() => setIsExpanded(false)}
-            className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
-          >
-            (click to collapse)
-          </button>
-        )}
+          )}
+        </div>
       </div>
     );
   }
@@ -595,44 +463,36 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
     const isCollapsible = shouldCollapseByDefault(tool.output);
 
     return (
-      <div className="py-1.5 font-mono text-xs group">
-        <div className="flex items-start gap-2">
-          <span className={cn("flex-shrink-0", getBulletColor('Read'))}>●</span>
-          <div className="flex-1 min-w-0">
-            <button
-              onClick={() => hasOutput && setIsExpanded(!isExpanded)}
-              className="flex items-center gap-1 text-left hover:underline cursor-pointer"
-            >
-              <span className="text-blue-400 font-medium">Read</span>
-              <span className="text-cyan-400">(</span>
-              <span className="text-foreground">{fileName}</span>
-              <span className="text-cyan-400">)</span>
-              {lineRange && <span className="text-muted-foreground/50">{lineRange}</span>}
-              <StatusIndicator status={tool.status} />
-              {hasOutput && isCollapsible && !isExpanded && (
-                <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
-              )}
-            </button>
-            <div className="text-muted-foreground/50 text-[10px] truncate" title={filePath}>
-              {filePath}
+      <div className="py-1.5 font-mono text-xs">
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          {/* Header bar */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-blue-500/10 border-b border-border">
+            <span className="text-blue-400 font-medium">Read</span>
+            <span className="text-muted-foreground/70 truncate flex-1">{fileName}</span>
+            {lineRange && <span className="text-muted-foreground/50 text-[10px]">{lineRange}</span>}
+            <StatusIndicator status={tool.status} />
+            {hasOutput && isCollapsible && (
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isExpanded ? 'collapse' : 'expand'}
+              </button>
+            )}
+          </div>
+          {/* File path */}
+          <div className="px-3 py-1 text-muted-foreground/60 text-[10px] bg-muted/20 border-b border-border/50 truncate" title={filePath}>
+            {filePath}
+          </div>
+          {/* Output content */}
+          {tool.output && (isExpanded || !isCollapsible) && (
+            <div className="bg-muted/30">
+              <pre className="p-3 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
+                {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
+              </pre>
             </div>
-          </div>
+          )}
         </div>
-        {tool.output && (isExpanded || !isCollapsible) && (
-          <div className="mt-2 ml-4 rounded border border-border overflow-hidden bg-muted/30">
-            <pre className="p-2 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
-              {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
-            </pre>
-          </div>
-        )}
-        {tool.output && isCollapsible && isExpanded && (
-          <button
-            onClick={() => setIsExpanded(false)}
-            className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
-          >
-            (click to collapse)
-          </button>
-        )}
       </div>
     );
   }
@@ -646,48 +506,42 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
     const isCollapsible = shouldCollapseByDefault(tool.output);
 
     return (
-      <div className="py-1.5 font-mono text-xs group">
-        <div className="flex items-start gap-2">
-          <span className={cn("flex-shrink-0", getBulletColor('Grep'))}>●</span>
-          <div className="flex-1 min-w-0">
-            <button
-              onClick={() => hasOutput && setIsExpanded(!isExpanded)}
-              className="flex items-center gap-1 text-left hover:underline cursor-pointer"
-            >
-              <span className="text-orange-400 font-medium">Grep</span>
-              <span className="text-cyan-400">(</span>
-              <span className="text-yellow-300">"{pattern}"</span>
-              <span className="text-cyan-400">)</span>
-              {hasOutput && (
-                <span className="text-muted-foreground/50 ml-1">
-                  {matchCount} {matchCount === 1 ? 'match' : 'matches'}
-                </span>
-              )}
-              <StatusIndicator status={tool.status} />
-              {hasOutput && isCollapsible && !isExpanded && (
-                <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
-              )}
-            </button>
-            {path && (
-              <div className="text-muted-foreground/50 text-[10px] truncate">in {path}</div>
+      <div className="py-1.5 font-mono text-xs">
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          {/* Header bar */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-orange-500/10 border-b border-border">
+            <span className="text-orange-400 font-medium">Grep</span>
+            <span className="text-yellow-300 truncate flex-1">"{pattern}"</span>
+            {hasOutput && (
+              <span className="text-muted-foreground/50 text-[10px]">
+                {matchCount} {matchCount === 1 ? 'match' : 'matches'}
+              </span>
+            )}
+            <StatusIndicator status={tool.status} />
+            {hasOutput && isCollapsible && (
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isExpanded ? 'collapse' : 'expand'}
+              </button>
             )}
           </div>
+          {/* Search path */}
+          {path && (
+            <div className="px-3 py-1 text-muted-foreground/60 text-[10px] bg-muted/20 border-b border-border/50 truncate">
+              in {path}
+            </div>
+          )}
+          {/* Results */}
+          {tool.output && (isExpanded || !isCollapsible) && (
+            <div className="bg-muted/30">
+              <pre className="p-3 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
+                {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
+              </pre>
+            </div>
+          )}
         </div>
-        {tool.output && (isExpanded || !isCollapsible) && (
-          <div className="mt-2 ml-4 rounded border border-border overflow-hidden bg-muted/30">
-            <pre className="p-2 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
-              {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
-            </pre>
-          </div>
-        )}
-        {tool.output && isCollapsible && isExpanded && (
-          <button
-            onClick={() => setIsExpanded(false)}
-            className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
-          >
-            (click to collapse)
-          </button>
-        )}
       </div>
     );
   }
@@ -701,48 +555,42 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
     const isCollapsible = shouldCollapseByDefault(tool.output);
 
     return (
-      <div className="py-1.5 font-mono text-xs group">
-        <div className="flex items-start gap-2">
-          <span className={cn("flex-shrink-0", getBulletColor('Glob'))}>●</span>
-          <div className="flex-1 min-w-0">
-            <button
-              onClick={() => hasOutput && setIsExpanded(!isExpanded)}
-              className="flex items-center gap-1 text-left hover:underline cursor-pointer"
-            >
-              <span className="text-pink-400 font-medium">Glob</span>
-              <span className="text-cyan-400">(</span>
-              <span className="text-yellow-300">"{pattern}"</span>
-              <span className="text-cyan-400">)</span>
-              {hasOutput && (
-                <span className="text-muted-foreground/50 ml-1">
-                  {fileCount} {fileCount === 1 ? 'file' : 'files'}
-                </span>
-              )}
-              <StatusIndicator status={tool.status} />
-              {hasOutput && isCollapsible && !isExpanded && (
-                <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
-              )}
-            </button>
-            {path && (
-              <div className="text-muted-foreground/50 text-[10px] truncate">in {path}</div>
+      <div className="py-1.5 font-mono text-xs">
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          {/* Header bar */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-pink-500/10 border-b border-border">
+            <span className="text-pink-400 font-medium">Glob</span>
+            <span className="text-yellow-300 truncate flex-1">"{pattern}"</span>
+            {hasOutput && (
+              <span className="text-muted-foreground/50 text-[10px]">
+                {fileCount} {fileCount === 1 ? 'file' : 'files'}
+              </span>
+            )}
+            <StatusIndicator status={tool.status} />
+            {hasOutput && isCollapsible && (
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isExpanded ? 'collapse' : 'expand'}
+              </button>
             )}
           </div>
+          {/* Search path */}
+          {path && (
+            <div className="px-3 py-1 text-muted-foreground/60 text-[10px] bg-muted/20 border-b border-border/50 truncate">
+              in {path}
+            </div>
+          )}
+          {/* Files list */}
+          {tool.output && (isExpanded || !isCollapsible) && (
+            <div className="bg-muted/30">
+              <pre className="p-3 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
+                {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
+              </pre>
+            </div>
+          )}
         </div>
-        {tool.output && (isExpanded || !isCollapsible) && (
-          <div className="mt-2 ml-4 rounded border border-border overflow-hidden bg-muted/30">
-            <pre className="p-2 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
-              {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
-            </pre>
-          </div>
-        )}
-        {tool.output && isCollapsible && isExpanded && (
-          <button
-            onClick={() => setIsExpanded(false)}
-            className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
-          >
-            (click to collapse)
-          </button>
-        )}
       </div>
     );
   }
@@ -755,50 +603,42 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
     const isCollapsible = shouldCollapseByDefault(tool.output);
 
     return (
-      <div className="py-1.5 font-mono text-xs group">
-        <div className="flex items-start gap-2">
-          <span className={cn("flex-shrink-0", getBulletColor('Task'))}>●</span>
-          <div className="flex-1 min-w-0">
-            <button
-              onClick={() => hasOutput && setIsExpanded(!isExpanded)}
-              className="flex items-center gap-1 text-left hover:underline cursor-pointer"
-            >
-              <span className="text-indigo-400 font-medium">Task</span>
-              <span className="text-cyan-400">(</span>
-              <span className="text-foreground truncate max-w-[300px]">{description || 'subagent'}</span>
-              <span className="text-cyan-400">)</span>
-              <StatusIndicator status={tool.status} />
-              {hasOutput && isCollapsible && !isExpanded && (
-                <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
-              )}
-            </button>
-            {prompt && (
-              <div className="text-muted-foreground/50 text-[10px] truncate max-w-[500px]" title={prompt}>
-                {prompt.slice(0, 100)}{prompt.length > 100 ? '...' : ''}
-              </div>
+      <div className="py-1.5 font-mono text-xs">
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          {/* Header bar */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 border-b border-border">
+            <span className="text-indigo-400 font-medium">Task</span>
+            <span className="text-muted-foreground/70 truncate flex-1">{description || 'subagent'}</span>
+            <StatusIndicator status={tool.status} />
+            {hasOutput && isCollapsible && (
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isExpanded ? 'collapse' : 'expand'}
+              </button>
             )}
           </div>
+          {/* Prompt */}
+          {prompt && (
+            <div className="px-3 py-1 text-muted-foreground/60 text-[10px] bg-muted/20 border-b border-border/50 truncate" title={prompt}>
+              {prompt.slice(0, 100)}{prompt.length > 100 ? '...' : ''}
+            </div>
+          )}
+          {/* Output */}
+          {tool.output && (isExpanded || !isCollapsible) && (
+            <div className="bg-muted/30">
+              <pre className="p-3 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
+                {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
+              </pre>
+            </div>
+          )}
         </div>
-        {tool.output && (isExpanded || !isCollapsible) && (
-          <div className="mt-2 ml-4 rounded border border-border overflow-hidden bg-muted/30">
-            <pre className="p-2 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
-              {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
-            </pre>
-          </div>
-        )}
-        {tool.output && isCollapsible && isExpanded && (
-          <button
-            onClick={() => setIsExpanded(false)}
-            className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
-          >
-            (click to collapse)
-          </button>
-        )}
       </div>
     );
   }
 
-  // Default tool rendering - generic format with colored bullet
+  // Default tool rendering - generic format with card container
   const input = tool.input || {};
   const inputValues = Object.values(input);
   const firstValue = inputValues.find((v): v is string => typeof v === 'string' && v.length < 100);
@@ -806,44 +646,33 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
   const isCollapsible = shouldCollapseByDefault(tool.output);
 
   return (
-    <div className="py-1.5 font-mono text-xs group">
-      <div className="flex items-start gap-2">
-        <span className={cn("flex-shrink-0", getBulletColor(tool.toolName))}>●</span>
-        <div className="flex-1 min-w-0">
-          <button
-            onClick={() => hasOutput && setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-left hover:underline cursor-pointer"
-          >
-            <span className="text-cyan-400 font-medium">{tool.toolName}</span>
-            {firstValue && (
-              <>
-                <span className="text-cyan-400">(</span>
-                <span className="text-foreground truncate max-w-[300px]">{firstValue}</span>
-                <span className="text-cyan-400">)</span>
-              </>
-            )}
-            <StatusIndicator status={tool.status} />
-            {hasOutput && isCollapsible && !isExpanded && (
-              <span className="text-muted-foreground/50 ml-2">(click to expand)</span>
-            )}
-          </button>
+    <div className="py-1.5 font-mono text-xs">
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        {/* Header bar */}
+        <div className="flex items-center gap-2 px-3 py-2 bg-cyan-500/10 border-b border-border">
+          <span className="text-cyan-400 font-medium">{tool.toolName}</span>
+          {firstValue && (
+            <span className="text-muted-foreground/70 truncate flex-1">{firstValue}</span>
+          )}
+          <StatusIndicator status={tool.status} />
+          {hasOutput && isCollapsible && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {isExpanded ? 'collapse' : 'expand'}
+            </button>
+          )}
         </div>
+        {/* Output */}
+        {tool.output && (isExpanded || !isCollapsible) && (
+          <div className="bg-muted/30">
+            <pre className="p-3 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
+              {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
+            </pre>
+          </div>
+        )}
       </div>
-      {tool.output && (isExpanded || !isCollapsible) && (
-        <div className="mt-2 ml-4 rounded border border-border overflow-hidden bg-muted/30">
-          <pre className="p-2 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
-            {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
-          </pre>
-        </div>
-      )}
-      {tool.output && isCollapsible && isExpanded && (
-        <button
-          onClick={() => setIsExpanded(false)}
-          className="mt-1 ml-4 text-[10px] text-blue-400 hover:underline"
-        >
-          (click to collapse)
-        </button>
-      )}
     </div>
   );
 }
@@ -897,22 +726,32 @@ const ContentBlockRenderer = memo(function ContentBlockRenderer({ block }: { blo
       const codeLanguage = block.filename ? detectLanguageFromPath(block.filename) : block.language;
       const highlightedCode = highlightCode(block.code || '', codeLanguage);
       return (
-        <div className="flex gap-3 py-1">
-          <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0 bg-purple-500" />
-          <div className="flex-1 min-w-0">
-            {block.filename && (
-              <div className="text-xs font-mono text-muted-foreground mb-1">{block.filename}</div>
-            )}
-            <div className="rounded bg-muted/50 border border-border overflow-hidden relative group">
-              {/* TERM-6: Copy button */}
-              {block.code && (
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                  <CopyButton content={block.code} />
-                </div>
+        <div className="py-1.5 font-mono text-xs">
+          <div className="rounded-lg border border-border bg-muted/90 overflow-hidden relative group">
+            {/* Header with filename and language label */}
+            <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b border-border/50">
+              {block.filename ? (
+                <span className="text-[11px] text-muted-foreground truncate">{block.filename}</span>
+              ) : (
+                <span className="text-[11px] text-muted-foreground/60 italic">code</span>
               )}
-              {/* TERM-5: Syntax highlighted code */}
+              <div className="flex items-center gap-2">
+                {/* Language label */}
+                {codeLanguage && (
+                  <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wider px-1.5 py-0.5 rounded bg-muted/50">
+                    {codeLanguage}
+                  </span>
+                )}
+                {/* Copy button */}
+                {block.code && (
+                  <CopyButton content={block.code} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+                )}
+              </div>
+            </div>
+            {/* Code content with dark background */}
+            <div className="bg-[#0d1117]">
               <pre
-                className="p-3 font-mono text-xs overflow-x-auto max-h-96 overflow-y-auto hljs"
+                className="p-3 font-mono text-[11px] overflow-x-auto max-h-96 overflow-y-auto hljs"
                 dangerouslySetInnerHTML={{ __html: highlightedCode }}
               />
             </div>
@@ -953,6 +792,77 @@ function UserMessageBlock({ content }: { content: string }) {
   );
 }
 
+/**
+ * Status bar showing current execution state
+ * TERMINAL_OUTPUT_POLISH Task 5: Sticky status indicator
+ */
+function StatusBar({
+  isRunning,
+  currentTool,
+  startTime
+}: {
+  isRunning: boolean;
+  currentTool?: string;
+  startTime?: number;
+}) {
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // Update elapsed time every second when running
+  useEffect(() => {
+    if (!isRunning || !startTime) {
+      setElapsedSeconds(0);
+      return;
+    }
+
+    const updateElapsed = () => {
+      setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+    };
+
+    updateElapsed();
+    const interval = setInterval(updateElapsed, 1000);
+    return () => clearInterval(interval);
+  }, [isRunning, startTime]);
+
+  // Format elapsed time as MM:SS
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  if (!isRunning && !currentTool) {
+    return null; // Don't show if nothing to display
+  }
+
+  return (
+    <div className="sticky top-0 z-10 px-4 py-2 bg-muted/80 backdrop-blur-sm border-b border-border">
+      <div className="flex items-center gap-3 text-xs font-mono">
+        {isRunning ? (
+          <>
+            {/* Pulsing indicator */}
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" />
+            {/* Tool name */}
+            {currentTool && (
+              <span className="text-foreground/90 font-medium">{currentTool}</span>
+            )}
+            {/* Elapsed time */}
+            <span className="text-muted-foreground">{formatTime(elapsedSeconds)}</span>
+          </>
+        ) : (
+          <>
+            {/* Completed indicator */}
+            <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+            <span className="text-muted-foreground">Completed</span>
+            {startTime && elapsedSeconds > 0 && (
+              <span className="text-muted-foreground/70">({formatTime(elapsedSeconds)})</span>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function TaskMonitorChat({
   terminal,
   terminalRef,
@@ -963,6 +873,8 @@ export function TaskMonitorChat({
   const { messages = [] } = terminal;
   const initializeParser = useTerminalStore((state) => state.initializeParser);
   const addUserMessage = useTerminalStore((state) => state.addUserMessage);
+  // Check if companion is active for this task
+  const hasCompanion = useTaskStore((state) => state.hasCompanion(terminal.taskId || ''));
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -979,14 +891,17 @@ export function TaskMonitorChat({
   }, []);
 
   // TERM-3b: View mode - use external prop if provided, otherwise internal state
-  const [internalViewMode, setInternalViewMode] = useState<'raw' | 'structured'>('raw');
+  const [internalViewMode] = useState<'raw' | 'structured'>('raw');
   const viewMode = externalViewMode ?? internalViewMode;
-  const setViewMode = setInternalViewMode;
 
   // TERM-7: Search state
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+
+  // Task 5: Status bar state - track current running tool
+  const [currentRunningTool, setCurrentRunningTool] = useState<string | undefined>(undefined);
+  const [executionStartTime, setExecutionStartTime] = useState<number | undefined>(undefined);
 
   // TERM-7: Count matches in messages
   const searchMatches = useMemo(() => {
@@ -1111,7 +1026,7 @@ export function TaskMonitorChat({
     } finally {
       setIsSending(false);
     }
-  }, [inputValue, taskId, isSending, isTaskRunning, terminal.id, addUserMessage]);
+  }, [inputValue, taskId, isSending, isTaskRunning, terminal.id, addUserMessage, task?.status]);
 
   // Handle key press in textarea
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1205,6 +1120,51 @@ export function TaskMonitorChat({
 
     return { filesModified, linesAdded, linesRemoved };
   }, [messages]);
+
+  // Task 5: Detect currently running tool from messages
+  useEffect(() => {
+    if (messages.length === 0) {
+      setCurrentRunningTool(undefined);
+      setExecutionStartTime(undefined);
+      return;
+    }
+
+    // Find the last message with tool blocks
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage || lastMessage.role !== 'assistant') {
+      setCurrentRunningTool(undefined);
+      return;
+    }
+
+    // Find the last tool use block
+    let lastToolBlock: ToolUseContent | undefined;
+    for (let i = lastMessage.content.length - 1; i >= 0; i--) {
+      const block = lastMessage.content[i];
+      if (block.type === 'tool_use') {
+        lastToolBlock = block;
+        break;
+      }
+    }
+
+    if (lastToolBlock) {
+      // Check if this tool is still running (no output yet, or status is 'running')
+      if (!lastToolBlock.output || lastToolBlock.status === 'running') {
+        setCurrentRunningTool(lastToolBlock.toolName);
+        // Set start time to message timestamp if not already set
+        if (!executionStartTime) {
+          setExecutionStartTime(lastMessage.timestamp);
+        }
+      } else {
+        // Tool completed
+        setCurrentRunningTool(undefined);
+        // Keep execution start time to show total duration
+      }
+    } else if (!isTaskRunning) {
+      // No tools found and task not running - clear everything
+      setCurrentRunningTool(undefined);
+      setExecutionStartTime(undefined);
+    }
+  }, [messages, isTaskRunning, executionStartTime]);
 
   // Handle scroll to detect if user scrolled up
   // Debounced to prevent excessive state updates during rapid scrolling
@@ -1327,6 +1287,15 @@ export function TaskMonitorChat({
             </div>
           )}
 
+          {/* Task 5: Status bar showing current execution state */}
+          {messages.length > 0 && (
+            <StatusBar
+              isRunning={isTaskRunning && !!currentRunningTool}
+              currentTool={currentRunningTool}
+              startTime={executionStartTime}
+            />
+          )}
+
           {/* Message list - scrollable container */}
           <div
             ref={scrollContainerRef}
@@ -1371,15 +1340,48 @@ export function TaskMonitorChat({
                               )
                             ))
                           ) : (
-                            // Render assistant messages with tool blocks, thinking, etc.
-                            message.content.map((block, blockIndex) => (
-                              <ContentBlockRenderer key={blockIndex} block={block} />
-                            ))
+                            // Render assistant messages with visual separation and role indicator
+                            <div className={cn(
+                              "py-2",
+                              index > 0 && "border-t border-border/30 mt-3 pt-3",
+                              hasCompanion && "border-l-2 border-green-500/30 bg-green-500/5 rounded-md px-2"
+                            )}>
+                              {/* Assistant/Companion role indicator */}
+                              <div className="flex items-center gap-2 mb-2 px-1">
+                                <Bot className={cn(
+                                  "h-3.5 w-3.5",
+                                  hasCompanion ? "text-green-400/70" : "text-primary/70"
+                                )} />
+                                <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">
+                                  {hasCompanion ? 'Companion' : 'Assistant'}
+                                </span>
+                              </div>
+                              {/* Assistant message content with slight left padding for nesting */}
+                              <div className="pl-2">
+                                {message.content.map((block, blockIndex) => (
+                                  <ContentBlockRenderer key={blockIndex} block={block} />
+                                ))}
+                              </div>
+                            </div>
                           )}
                         </div>
                       ))}
                     </div>
                   ))}
+
+                  {/* Companion ready indicator - shown at the bottom when companion is active */}
+                  {hasCompanion && (
+                    <div className="px-4 mt-4 mb-4">
+                      <div className="border-t-2 border-green-500/30 mb-3" />
+                      <div className="flex items-center gap-3 py-2 px-3 rounded-md bg-green-500/5">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        <div className="flex-1">
+                          <div className="text-green-400 font-medium text-sm">Agent Ready</div>
+                          <div className="text-muted-foreground text-xs mt-0.5">Ask questions about this task</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             )}

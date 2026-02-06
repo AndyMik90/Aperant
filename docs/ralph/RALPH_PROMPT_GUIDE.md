@@ -185,7 +185,41 @@ Prevents Ralph from:
 | 2-4 | 40-50 | Simple |
 | 5-8 | 60-80 | Medium |
 | 9-12 | 100-120 | Complex |
-| 13+ | Consider splitting | Too large |
+| 13+ | **Must split** | Exceeds input limit |
+
+### Prompt Length Limit (IMPORTANT)
+
+**Ralph Loop has a maximum input string length.** Discovered 2026-02-06: a 14-task mega prompt (~6000 words) caused Claude Code to crash on input — the command string was too long for the shell/CLI to accept.
+
+**Hard limits observed:**
+- **10 tasks with medium detail** — Works reliably (Fallback A: 10 tasks, ~3000 words)
+- **14 tasks with full detail** — Crashes on input (Mega: 14 tasks, ~6000 words)
+- **Sweet spot: 4-8 tasks** — Best reliability and quality
+
+**If you need 10+ tasks:** Split into domain-based batches (e.g., backend + frontend) rather than one mega prompt. Keep each batch under ~4000 words of prompt text.
+
+**Workaround for large feature sets:**
+1. Write the mega prompt as documentation (for reference)
+2. Split into 2-3 domain-focused prompts
+3. Run sequentially with dependencies noted
+4. Compare: smaller prompts consistently outperform mega prompts in reliability
+
+### Stress Test Results (2026-02-06)
+
+Attempted 14 tasks across 4 features. Results:
+
+| Attempt | Tasks | Duration | Per Task | Result |
+|---------|-------|----------|----------|--------|
+| Mega (14 tasks) | 0/14 | N/A | N/A | ❌ CLI crashed — input too long |
+| Fallback A (10 backend) | 10/10 | 6m 2s | **36s** | ✅ Record speed |
+| Fallback B (4 frontend) | 4/4 | 18m 28s | 4m 37s | ✅ Slow but complete |
+
+**Key findings:**
+1. **10 backend tasks in 6 min** — proof that high task counts work when domain is consistent (all Python, no build checks between tasks)
+2. **4 frontend tasks took 18 min** — frontend tasks with IPC+component creation are inherently slower (more files to read, build verification)
+3. **Backend-only prompts are fastest** — no build overhead, Python imports verify quickly
+4. **Split by domain, not by size** — 10 backend tasks (6 min) was faster than 4 frontend tasks (18 min)
+5. **Per-task speed varies wildly by complexity** — simple Python modifications: ~36s, new React components + IPC: ~4.5 min
 
 ---
 

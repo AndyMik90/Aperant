@@ -41,6 +41,7 @@ interface ChatHistorySidebarProps {
   onSelectSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => Promise<boolean>;
   onRenameSession: (sessionId: string, newTitle: string) => Promise<boolean>;
+  width?: number; // Width in pixels
 }
 
 export function ChatHistorySidebar({
@@ -50,7 +51,8 @@ export function ChatHistorySidebar({
   onNewSession,
   onSelectSession,
   onDeleteSession,
-  onRenameSession
+  onRenameSession,
+  width = 256
 }: ChatHistorySidebarProps) {
   const { t } = useTranslation('common');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -89,11 +91,11 @@ export function ChatHistorySidebar({
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
-      return 'Today';
+      return t('time.today', { defaultValue: 'Today' });
     } else if (diffDays === 1) {
-      return 'Yesterday';
+      return t('time.yesterday', { defaultValue: 'Yesterday' });
     } else if (diffDays < 7) {
-      return `${diffDays} days ago`;
+      return t('chat.daysAgo', { count: diffDays, defaultValue: `${diffDays} days ago` });
     } else {
       return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     }
@@ -110,10 +112,10 @@ export function ChatHistorySidebar({
   }, {} as Record<string, InsightsSessionSummary[]>);
 
   return (
-    <div className="flex h-full w-64 flex-col border-r border-border bg-muted/30">
+    <div className="flex h-full flex-col border-r border-border bg-muted/30" style={{ width: `${width}px` }}>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-3 py-3">
-        <h3 className="text-sm font-medium text-foreground">Chat History</h3>
+      <div className="h-12 flex items-center justify-between border-b border-border px-3">
+        <h3 className="text-sm font-semibold text-foreground">{t('chat.history', { defaultValue: 'Chat History' })}</h3>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -138,7 +140,7 @@ export function ChatHistorySidebar({
           </div>
         ) : sessions.length === 0 ? (
           <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-            No conversations yet
+            {t('chat.noConversations', { defaultValue: 'No conversations yet' })}
           </div>
         ) : (
           <div className="py-2">
@@ -172,15 +174,14 @@ export function ChatHistorySidebar({
       <AlertDialog open={!!deleteSessionId} onOpenChange={() => setDeleteSessionId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+            <AlertDialogTitle>{t('chat.deleteTitle', { defaultValue: 'Delete conversation?' })}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this conversation and all its messages.
-              This action cannot be undone.
+              {t('chat.deleteDescription', { defaultValue: 'This will permanently delete this conversation and all its messages. This action cannot be undone.' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            <AlertDialogCancel>{t('buttons.cancel', { defaultValue: 'Cancel' })}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>{t('buttons.delete', { defaultValue: 'Delete' })}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -281,7 +282,7 @@ function SessionItem({
             {session.title}
           </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            {session.messageCount} message{session.messageCount !== 1 ? 's' : ''}
+            {t('chat.messageCount', { count: session.messageCount, defaultValue: `${session.messageCount} message${session.messageCount !== 1 ? 's' : ''}` })}
           </p>
         </div>
       </div>
@@ -301,14 +302,14 @@ function SessionItem({
         <DropdownMenuContent align="end" sideOffset={5} className="w-36 z-[100]">
           <DropdownMenuItem onSelect={onStartEdit}>
             <Pencil className="mr-2 h-3.5 w-3.5" />
-            Rename
+            {t('chat.rename', { defaultValue: 'Rename' })}
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={onDelete}
             className="text-destructive focus:text-destructive"
           >
             <Trash2 className="mr-2 h-3.5 w-3.5" />
-            Delete
+            {t('buttons.delete', { defaultValue: 'Delete' })}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

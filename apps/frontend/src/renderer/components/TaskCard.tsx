@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigation } from '../contexts/NavigationContext';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, TerminalSquare, Link2 } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, TerminalSquare, Link2, Send } from 'lucide-react';
 import { CompactTerminalPreview } from './terminal/CompactTerminalPreview';
 import { DriftBadge } from './drift/DriftIndicator';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
+import { Input } from './ui/input';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
 import { ANIMATION_CLASSES } from '../lib/animations';
 import { estimateRemainingTime, formatETA, calculateProgress } from '../../shared/progress';
+import { IPC_CHANNELS } from '../../shared/constants';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
 import {
   TASK_CATEGORY_LABELS,
@@ -27,8 +28,7 @@ import {
   JSON_ERROR_TITLE_SUFFIX
 } from '../../shared/constants';
 import { startTask, stopTask, startBuild, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, useTaskStore, isTaskBlocked, getBlockingTasks } from '../stores/task-store';
-import { useTerminalStore } from '../stores/terminal-store';
-import { useProjectStore } from '../stores/project-store';
+import { formatDurationShort } from '../utils/format-time';
 import type { Task, TaskCategory, ReviewReason, TaskStatus } from '../../shared/types';
 
 // Category icon mapping
@@ -59,27 +59,7 @@ function shouldSkipStuckCheck(phase: string | undefined): boolean {
   return STUCK_CHECK_SKIP_PHASES.includes(phase as typeof STUCK_CHECK_SKIP_PHASES[number]);
 }
 
-/**
- * METRICS-1B: Format duration for display
- * @param ms - Duration in milliseconds
- * @returns Formatted string like "5s", "2m", "1h 30m"
- */
-function formatDurationShort(ms: number): string {
-  if (ms < 0) return '0s';
-
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (hours > 0) {
-    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m`;
-  }
-  return `${seconds}s`;
-}
+// METRICS-1B: formatDurationShort imported from ../utils/format-time
 
 /**
  * METRICS-1C: Duration breakdown display for completed tasks
@@ -108,11 +88,11 @@ function DurationBreakdown({ durations }: DurationBreakdownProps) {
       <div className="text-muted-foreground mb-2 font-medium">AI Work Time</div>
       {/* Phase breakdown bars */}
       <div className="flex h-1.5 rounded-full overflow-hidden mb-2 bg-muted">
-        {phases.map((phase, i) => {
+        {phases.map((phase) => {
           const percent = (phase.ms / total) * 100;
           return (
             <div
-              key={i}
+              key={phase.name}
               className={cn(phase.color)}
               style={{ width: `${percent}%` }}
               title={`${phase.name}: ${formatDurationShort(phase.ms)} (${Math.round(percent)}%)`}
@@ -122,10 +102,10 @@ function DurationBreakdown({ durations }: DurationBreakdownProps) {
       </div>
       {/* Phase labels */}
       <div className="flex flex-wrap gap-x-3 gap-y-1">
-        {phases.map((phase, i) => {
+        {phases.map((phase) => {
           const percent = Math.round((phase.ms / total) * 100);
           return (
-            <div key={i} className="flex items-center gap-1">
+            <div key={phase.name} className="flex items-center gap-1">
               <div className={cn('w-2 h-2 rounded-full', phase.color)} />
               <span className="text-muted-foreground">
                 {phase.name}: {formatDurationShort(phase.ms)} ({percent}%)
@@ -191,13 +171,13 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.reviewReason === nextTask.reviewReason &&
     prevTask.executionProgress?.phase === nextTask.executionProgress?.phase &&
     prevTask.executionProgress?.phaseProgress === nextTask.executionProgress?.phaseProgress &&
-    prevTask.subtasks.length === nextTask.subtasks.length &&
+    (prevTask.subtasks?.length ?? 0) === (nextTask.subtasks?.length ?? 0) &&
     prevTask.metadata?.category === nextTask.metadata?.category &&
     prevTask.metadata?.complexity === nextTask.metadata?.complexity &&
     prevTask.metadata?.archivedAt === nextTask.metadata?.archivedAt &&
     prevTask.metadata?.prUrl === nextTask.metadata?.prUrl &&
     // Check if any subtask statuses changed (compare all subtasks)
-    prevTask.subtasks.every((s, i) => s.status === nextTask.subtasks[i]?.status)
+    (prevTask.subtasks ?? []).every((s, i) => s.status === (nextTask.subtasks ?? [])[i]?.status)
   );
 
   // Only log when actually re-rendering (reduces noise significantly)
@@ -207,8 +187,8 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     if (prevTask.executionProgress?.phase !== nextTask.executionProgress?.phase) {
       changes.push(`phase: ${prevTask.executionProgress?.phase} -> ${nextTask.executionProgress?.phase}`);
     }
-    if (prevTask.subtasks.length !== nextTask.subtasks.length) {
-      changes.push(`subtasks: ${prevTask.subtasks.length} -> ${nextTask.subtasks.length}`);
+    if ((prevTask.subtasks?.length ?? 0) !== (nextTask.subtasks?.length ?? 0)) {
+      changes.push(`subtasks: ${prevTask.subtasks?.length ?? 0} -> ${nextTask.subtasks?.length ?? 0}`);
     }
     console.log(`[TaskCard] Re-render: ${prevTask.id} | ${changes.join(', ') || 'other fields'}`);
   }
@@ -226,17 +206,14 @@ export const TaskCard = memo(function TaskCard({
   onOpenBottomPanel
 }: TaskCardProps) {
   const { t } = useTranslation(['tasks', 'errors']);
-  const { setActiveView } = useNavigation();
-  const selectedProject = useProjectStore((state) => state.projects.find(p => p.id === state.selectedProjectId));
-  const terminals = useTerminalStore((state) => state.terminals);
-  const setActiveTerminal = useTerminalStore((state) => state.setActiveTerminal);
-  const addTerminal = useTerminalStore((state) => state.addTerminal);
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const stuckCheckRef = useRef<{ timeout: NodeJS.Timeout | null; interval: NodeJS.Timeout | null }>({
     timeout: null,
     interval: null
   });
+  // Companion chat input state
+  const [companionMessage, setCompanionMessage] = useState('');
 
   // Coding tasks have active execution agents
   const isRunning = task.status === 'coding';
@@ -244,6 +221,8 @@ export const TaskCard = memo(function TaskCard({
   const isPlanning = task.status === 'planning';
   // Check if the agent was stopped (for visual feedback on stop button)
   const isAgentStopped = useTaskStore((state) => state.isAgentStopped(task.id));
+  // Check if companion agent is active
+  const hasCompanion = useTaskStore((state) => state.hasCompanion(task.id));
   // Both planning and coding tasks can be considered "active" for visual purposes
   // But only if agent hasn't been stopped
   const hasActiveAgent = (task.status === 'coding' || task.status === 'planning') && !isAgentStopped;
@@ -441,6 +420,30 @@ export const TaskCard = memo(function TaskCard({
     e.stopPropagation();
     if (onOpenBottomPanel) {
       onOpenBottomPanel(task.id, task.title);
+    }
+  };
+
+  // Send message to companion agent
+  const handleSendCompanionMessage = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!companionMessage.trim()) return;
+
+    try {
+      await window.electronAPI.invoke(IPC_CHANNELS.TASK_SEND_COMPANION_MESSAGE, task.id, companionMessage);
+      setCompanionMessage(''); // Clear input after sending
+    } catch (error) {
+      console.error('[TaskCard] Failed to send companion message:', error);
+    }
+  };
+
+  // Handle Enter key in companion input
+  const handleCompanionKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendCompanionMessage();
     }
   };
 
@@ -748,6 +751,16 @@ export const TaskCard = memo(function TaskCard({
                 {task.metadata.securitySeverity} {t('metadata.severity')}
               </Badge>
             )}
+            {/* Companion agent ready badge */}
+            {hasCompanion && task.status && (
+              <Badge
+                variant="outline"
+                className="text-xs border-green-500/50 text-green-400 flex items-center gap-1.5"
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                Agent Ready
+              </Badge>
+            )}
           </div>
         )}
 
@@ -870,9 +883,11 @@ export const TaskCard = memo(function TaskCard({
             ) : isPlanning ? (
               // Phase 2: Planning tasks - show Stop while agent runs, Start Build only when spec is ready
               // FIX-14: "Start Build" only shown when agent is stopped (spec may be ready)
+              // KANBAN_BUILD_BUTTON: Also show Start Build when planning completes naturally
+              // Show Start Build when: (1) agent manually stopped, OR (2) planning completed (has subtasks + not actively planning)
               <div className="flex items-center gap-1">
-                {isAgentStopped ? (
-                  // Agent was stopped - show Resume + Start Build (spec may be ready)
+                {isAgentStopped || (task.subtasks && task.subtasks.length > 0 && !hasActiveAgent) ? (
+                  // Agent was stopped OR planning completed naturally - show Resume + Start Build (spec may be ready)
                   <>
                     <Button
                       variant="outline"
@@ -993,6 +1008,29 @@ export const TaskCard = memo(function TaskCard({
         {hasActiveAgent && (
           <div onClick={(e) => e.stopPropagation()}>
             <CompactTerminalPreview taskId={task.id} />
+          </div>
+        )}
+
+        {/* Companion chat input - shown when companion is active and terminal is visible */}
+        {hasCompanion && hasActiveAgent && (
+          <div className="border-t border-border p-2" onClick={(e) => e.stopPropagation()}>
+            <form onSubmit={handleSendCompanionMessage} className="flex items-center gap-2">
+              <Input
+                value={companionMessage}
+                onChange={(e) => setCompanionMessage(e.target.value)}
+                onKeyDown={handleCompanionKeyDown}
+                placeholder="Ask the agent about this task..."
+                className="flex-1 h-8 text-sm"
+              />
+              <Button
+                type="submit"
+                size="sm"
+                disabled={!companionMessage.trim()}
+                className="h-8 px-3"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </Button>
+            </form>
           </div>
         )}
       </CardContent>

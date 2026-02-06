@@ -32,6 +32,12 @@ import { parseRalphPromise } from "../agent/parsers/ralph-promise-parser";
 import type { StepCompleteBlock, TaskCompleteBlock } from "../../shared/types/structured-output";
 import { recordTaskTimestamp } from "../utils/task-timestamps";
 
+/** Data emitted by the complexity classification event */
+interface ComplexityClassificationData {
+  complexity: 'SIMPLE' | 'MEDIUM' | 'COMPLEX';
+  reason: string;
+}
+
 // Track SDK output parsers per task for stateful parsing
 const taskParsers = new Map<string, SDKOutputParser>();
 
@@ -153,7 +159,7 @@ function validateStatusTransition(
 export function registerAgenteventsHandlers(
   agentManager: AgentManager,
   getMainWindow: () => BrowserWindow | null,
-  terminalManager: TerminalManager
+  _terminalManager: TerminalManager
 ): void {
   // ============================================
   // Agent Manager Events → Renderer
@@ -161,7 +167,7 @@ export function registerAgenteventsHandlers(
 
   agentManager.on("log", (taskId: string, log: string) => {
     // Include projectId for multi-project filtering (issue #723)
-    const { project, task } = findTaskAndProject(taskId);
+    const { project } = findTaskAndProject(taskId);
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_LOG, taskId, log, project?.id);
 
     // Also forward log to task monitor terminal if it exists
@@ -257,27 +263,59 @@ export function registerAgenteventsHandlers(
   });
 
   // Handle task complexity classification events
-  agentManager.on("complexity-classified", (taskId: string, complexityData: { complexity: 'SIMPLE' | 'MEDIUM' | 'COMPLEX'; reason: string }) => {
+  agentManager.on("complexity-classified", (taskId: string, complexityData: ComplexityClassificationData) => {
     const { project, task } = findTaskAndProject(taskId);
-    if (project && task) {
-      // Update task metadata with adaptive complexity
-      const updatedMetadata = {
-        ...task.metadata,
-        adaptiveComplexity: complexityData.complexity,
-        complexityReason: complexityData.reason,
-      };
-
-      // Update task in project store
-      projectStore.updateTask(project.id, taskId, {
-        ...task,
-        metadata: updatedMetadata,
-      });
-
-      console.log(`[AgentEventsHandlers] Task ${taskId} complexity set to ${complexityData.complexity}: ${complexityData.reason}`);
+    if (!project || !task) {
+      console.warn(`[AgentEventsHandlers] complexity-classified: task or project not found for ${taskId}`);
+      return;
     }
+
+    // Backend writes complexity to task_metadata.json — invalidate cache so next read picks it up
+    projectStore.invalidateTasksCache(project.id);
+
+    console.log(`[AgentEventsHandlers] Task ${taskId} complexity set to ${complexityData.complexity}: ${complexityData.reason}`);
+  });
+
+  // Handle companion agent spawned event
+  agentManager.on("companion-spawned", (taskId: string) => {
+    console.log(`[Task ${taskId}] Companion agent spawned`);
+    const { project } = findTaskAndProject(taskId);
+    safeSendToRenderer(
+      getMainWindow,
+      IPC_CHANNELS.TASK_COMPANION_SPAWNED,
+      taskId,
+      project?.id
+    );
+  });
+
+  // Handle companion agent stopped event
+  agentManager.on("companion-stopped", (taskId: string) => {
+    console.log(`[Task ${taskId}] Companion agent stopped`);
+    const { project } = findTaskAndProject(taskId);
+    safeSendToRenderer(
+      getMainWindow,
+      IPC_CHANNELS.TASK_COMPANION_STOPPED,
+      taskId,
+      project?.id
+    );
   });
 
   agentManager.on("exit", (taskId: string, code: number | null, processType: ProcessType) => {
+    // Early return for companion exit - just notify renderer, no status changes
+    if (processType === "companion") {
+      console.log(`[Task ${taskId}] Companion agent exited with code ${code}`);
+      // Clean up parser created during companion session (prevents memory leak)
+      cleanupTaskParser(taskId);
+      const { project } = findTaskAndProject(taskId);
+      safeSendToRenderer(
+        getMainWindow,
+        IPC_CHANNELS.TASK_COMPANION_STOPPED,
+        taskId,
+        project?.id
+      );
+      return;
+    }
+
     // Get project info early for multi-project filtering (issue #723)
     const { project: exitProject } = findTaskAndProject(taskId);
     const exitProjectId = exitProject?.id;
@@ -331,6 +369,18 @@ export function registerAgenteventsHandlers(
         taskId
       );
       return;
+    }
+
+    // KANBAN_BUILD_BUTTON FIX: Also emit TASK_AGENT_STOPPED for planning process type
+    // This ensures the "Start Build" button appears when planning completes naturally
+    if (processType === "planning") {
+      console.warn(`[Task ${taskId}] Planning process completed with code ${code}`);
+      safeSendToRenderer(
+        getMainWindow,
+        IPC_CHANNELS.TASK_AGENT_STOPPED,
+        taskId
+      );
+      // Continue processing below for status updates
     }
 
     let task: Task | undefined;

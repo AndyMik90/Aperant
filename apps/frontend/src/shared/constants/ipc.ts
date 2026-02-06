@@ -29,6 +29,10 @@ export const IPC_CHANNELS = {
   TASK_CHECK_RUNNING: 'task:checkRunning',
   TASK_SEND_MESSAGE: 'task:sendMessage',  // Send chat message to running task agent
   TASK_START_BUILD: 'task:startBuild',  // Phase 4: Transition from planning → coding
+  TASK_COMPANION_SPAWNED: 'task:companion-spawned',  // Companion agent spawned
+  TASK_COMPANION_STOPPED: 'task:companion-stopped',  // Companion agent stopped
+  TASK_SEND_COMPANION_MESSAGE: 'task:send-companion-message',  // Send message to companion agent
+  TASK_READ_SPEC_FILE: 'task:read-spec-file',  // Read a file from spec directory (spec.md, ralph_prompt.md)
 
   // Workspace management (for human review)
   // Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
@@ -472,6 +476,7 @@ export const IPC_CHANNELS = {
   INSIGHTS_RENAME_SESSION: 'insights:renameSession',
   INSIGHTS_UPDATE_MODEL_CONFIG: 'insights:updateModelConfig',
   INSIGHTS_MARK_TASK_CREATED: 'insights:markTaskCreated',
+  INSIGHTS_CANCEL: 'insights:cancel',
 
   // Insights events (main -> renderer)
   INSIGHTS_STREAM_CHUNK: 'insights:streamChunk',

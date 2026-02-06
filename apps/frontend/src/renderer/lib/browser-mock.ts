@@ -351,6 +351,12 @@ const browserMockAPI: ElectronAPI = {
   onTaskSpecReady: (_callback: (taskId: string, specId: string, projectId?: string) => void) => {
     return () => {};
   },
+  onTaskCompanionSpawned: (_callback: (taskId: string, projectId?: string) => void) => {
+    return () => {};
+  },
+  onTaskCompanionStopped: (_callback: (taskId: string, projectId?: string) => void) => {
+    return () => {};
+  },
 
   // File operations
   writeFile: async (_filePath: string, _content: string) => ({

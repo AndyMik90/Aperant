@@ -191,6 +191,9 @@ export interface ElectronAPI {
   onTaskLog: (callback: (taskId: string, log: string) => void) => () => void;
   onTaskStatusChange: (callback: (taskId: string, status: TaskStatus) => void) => () => void;
   onTaskExecutionProgress: (callback: (taskId: string, progress: ExecutionProgress) => void) => () => void;
+  onTaskCompanionSpawned: (callback: (taskId: string, projectId?: string) => void) => () => void;
+  onTaskCompanionStopped: (callback: (taskId: string, projectId?: string) => void) => () => void;
+  readSpecFile: (taskId: string, fileName: string) => Promise<IPCResult<string | null>>;
 
   // Terminal operations
   createTerminal: (options: TerminalCreateOptions) => Promise<IPCResult>;
@@ -682,7 +685,7 @@ export interface ElectronAPI {
 
   // Insights operations
   getInsightsSession: (projectId: string) => Promise<IPCResult<InsightsSession | null>>;
-  sendInsightsMessage: (projectId: string, message: string, modelConfig?: InsightsModelConfig) => void;
+  sendInsightsMessage: (projectId: string, message: string, modelConfig?: InsightsModelConfig, attachments?: Array<{ id: string; name: string; path: string; type: 'image' | 'text'; size: number }>) => void;
   clearInsightsSession: (projectId: string) => Promise<IPCResult>;
   createTaskFromInsights: (
     projectId: string,
@@ -696,6 +699,8 @@ export interface ElectronAPI {
   deleteInsightsSession: (projectId: string, sessionId: string) => Promise<IPCResult>;
   renameInsightsSession: (projectId: string, sessionId: string, newTitle: string) => Promise<IPCResult>;
   updateInsightsModelConfig: (projectId: string, sessionId: string, modelConfig: InsightsModelConfig) => Promise<IPCResult>;
+  markInsightsTaskCreated: (projectId: string, sessionId: string, messageId: string, taskId: string) => Promise<IPCResult>;
+  cancelInsights: (projectId: string) => Promise<IPCResult>;
 
   // Insights event listeners
   onInsightsStreamChunk: (

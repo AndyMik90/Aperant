@@ -4,6 +4,7 @@ import { useTaskStore } from '../stores/task-store';
 import { useRoadmapStore } from '../stores/roadmap-store';
 import { useRateLimitStore } from '../stores/rate-limit-store';
 import { useProjectStore } from '../stores/project-store';
+import { useInsightsTaskQueueStore } from '../stores/insights-task-queue-store';
 import { toast } from './use-toast';  // FIX-7: Import toast for spec-ready notification
 import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo, SDKRateLimitInfo } from '../../shared/types';
 
@@ -47,15 +48,21 @@ let batchTimeout: NodeJS.Timeout | null = null;
 let storeActionsRef: StoreActions | null = null;
 
 function flushBatch(): void {
-  if (batchQueue.size === 0 || !storeActionsRef) return;
+  if (batchQueue.size === 0) return;
 
   const flushStart = performance.now();
   const updateCount = batchQueue.size;
   let totalUpdates = 0;
   let totalLogs = 0;
 
-  // Capture current actions reference to avoid stale closures during batch processing
-  const actions = storeActionsRef;
+  // Use get() for current state to avoid stale closures from timer callbacks
+  const store = useTaskStore.getState();
+  const actions: StoreActions = {
+    updateTaskStatus: store.updateTaskStatus,
+    updateExecutionProgress: store.updateExecutionProgress,
+    updateTaskFromPlan: store.updateTaskFromPlan,
+    batchAppendLogs: store.batchAppendLogs,
+  };
 
   // Batch all React updates together
   unstable_batchedUpdates(() => {
@@ -202,6 +209,15 @@ export function useIpcListeners(): void {
         // Filter by project to prevent multi-project interference
         if (!isTaskForCurrentProject(projectId)) return;
         queueUpdate(taskId, { status });
+
+        // Sync insights task queue: mark queue task as complete when Kanban task is done
+        if (status === 'done') {
+          const queueStore = useInsightsTaskQueueStore.getState();
+          const queueTask = queueStore.tasks.find((t) => t.taskId === taskId);
+          if (queueTask && queueTask.status === 'running') {
+            queueStore.setTaskCompleted(queueTask.id);
+          }
+        }
       }
     );
 
@@ -219,6 +235,25 @@ export function useIpcListeners(): void {
       (taskId: string) => {
         // Mark agent as stopped for UI feedback
         useTaskStore.getState().setAgentStopped(taskId, true);
+      }
+    );
+
+    // Companion agent event listeners
+    const cleanupCompanionSpawned = window.electronAPI.onTaskCompanionSpawned(
+      (taskId: string, projectId?: string) => {
+        // Filter by project to prevent multi-project interference
+        if (!isTaskForCurrentProject(projectId)) return;
+        // Mark companion as active
+        useTaskStore.getState().setCompanionActive(taskId, true);
+      }
+    );
+
+    const cleanupCompanionStopped = window.electronAPI.onTaskCompanionStopped(
+      (taskId: string, projectId?: string) => {
+        // Filter by project to prevent multi-project interference
+        if (!isTaskForCurrentProject(projectId)) return;
+        // Mark companion as inactive
+        useTaskStore.getState().setCompanionActive(taskId, false);
       }
     );
 
@@ -374,6 +409,8 @@ export function useIpcListeners(): void {
       cleanupStatus();
       cleanupExecutionProgress();
       cleanupAgentStopped();
+      cleanupCompanionSpawned();
+      cleanupCompanionStopped();
       cleanupSpecReady();  // FIX-7
       cleanupRoadmapProgress();
       cleanupRoadmapComplete();

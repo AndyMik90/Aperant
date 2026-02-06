@@ -73,6 +73,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [stagedSuccess, setStagedSuccess] = useState<string | null>(null);
   const [stagedProjectPath, setStagedProjectPath] = useState<string | undefined>(undefined);
   const [suggestedCommitMessage, setSuggestedCommitMessage] = useState<string | undefined>(undefined);
+  const [mergedSuccess, setMergedSuccess] = useState<string | null>(null);
   const [phaseLogs, setPhaseLogs] = useState<TaskLogs | null>(null);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [expandedPhases, setExpandedPhases] = useState<Set<TaskLogPhase>>(new Set());
@@ -508,6 +509,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     stagedSuccess,
     stagedProjectPath,
     suggestedCommitMessage,
+    mergedSuccess,
     phaseLogs,
     isLoadingLogs,
     expandedPhases,
@@ -552,6 +554,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     setStagedSuccess,
     setStagedProjectPath,
     setSuggestedCommitMessage,
+    setMergedSuccess,
     setPhaseLogs,
     setIsLoadingLogs,
     setExpandedPhases,

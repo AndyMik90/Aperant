@@ -27,7 +27,7 @@ export interface ExecutionProgressData {
   completedPhases?: CompletablePhase[];
 }
 
-export type ProcessType = 'spec-creation' | 'task-execution' | 'qa-process' | 'planning';
+export type ProcessType = 'spec-creation' | 'task-execution' | 'qa-process' | 'planning' | 'companion';
 
 export interface AgentManagerEvents {
   log: (taskId: string, log: string) => void;
@@ -70,6 +70,8 @@ export interface SpecCreationMetadata {
   thinkingLevel?: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
   // Workspace mode - whether to use worktree isolation
   useWorktree?: boolean; // If false, use --direct mode (no worktree isolation)
+  // Complexity override - skip AI classification in backend pipeline
+  complexityOverride?: 'simple' | 'standard' | 'complex';
 }
 
 export interface IdeationProgressData {

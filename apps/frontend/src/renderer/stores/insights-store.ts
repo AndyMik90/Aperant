@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useInsightsTaskQueueStore } from './insights-task-queue-store';
 import type {
   InsightsSession,
   InsightsSessionSummary,
@@ -66,6 +67,7 @@ interface InsightsState {
   clearSession: () => void;
   setLoadingSessions: (loading: boolean) => void;
   markTaskCreated: (messageId: string, taskId: string) => void;
+  cancelGeneration: (projectId: string) => Promise<void>;
 }
 
 const initialStatus: InsightsChatStatus = {
@@ -237,7 +239,21 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
           updatedAt: new Date()
         }
       };
-    })
+    }),
+
+  cancelGeneration: async (projectId: string) => {
+    try {
+      await window.electronAPI.cancelInsights(projectId);
+      // Reset status to idle
+      set({
+        status: { phase: 'idle', message: '' },
+        streamingContent: '',
+        currentTool: null
+      });
+    } catch (error) {
+      console.error('[Insights] Failed to cancel generation:', error);
+    }
+  }
 }));
 
 /**
@@ -284,6 +300,17 @@ export async function loadInsightsSessions(projectId: string): Promise<void> {
 export async function loadInsightsSession(projectId: string): Promise<void> {
   const result = await window.electronAPI.getInsightsSession(projectId);
   if (result.success && result.data) {
+    // Cross-reference messages with queue store to restore "Added to Queue" state
+    // This handles cases where backend persist failed (e.g., message ID mismatch)
+    const queueTasks = useInsightsTaskQueueStore.getState().tasks;
+    if (queueTasks.length > 0) {
+      const queueTitles = new Set(queueTasks.map(t => t.title));
+      for (const msg of result.data.messages) {
+        if (msg.suggestedTask && !msg.taskCreatedId && queueTitles.has(msg.suggestedTask.title)) {
+          msg.taskCreatedId = 'queued';
+        }
+      }
+    }
     useInsightsStore.getState().setSession(result.data);
   } else {
     useInsightsStore.getState().setSession(null);
@@ -292,7 +319,12 @@ export async function loadInsightsSession(projectId: string): Promise<void> {
   await loadInsightsSessions(projectId);
 }
 
-export function sendMessage(projectId: string, message: string, modelConfig?: InsightsModelConfig): void {
+export function sendMessage(
+  projectId: string,
+  message: string,
+  modelConfig?: InsightsModelConfig,
+  attachments?: Array<{ id: string; name: string; path: string; type: 'image' | 'text'; size: number }>
+): void {
   const store = useInsightsStore.getState();
   const session = store.session;
 
@@ -317,8 +349,8 @@ export function sendMessage(projectId: string, message: string, modelConfig?: In
   // Use provided modelConfig, or fall back to session's config
   const configToUse = modelConfig || session?.modelConfig;
 
-  // Send to main process
-  window.electronAPI.sendInsightsMessage(projectId, message, configToUse);
+  // Send to main process (with attachments support for future backend implementation)
+  window.electronAPI.sendInsightsMessage(projectId, message, configToUse, attachments);
 }
 
 export async function clearSession(projectId: string): Promise<void> {
@@ -396,16 +428,21 @@ export async function createTaskFromSuggestion(
   description: string,
   metadata?: TaskMetadata
 ): Promise<Task | null> {
-  const result = await window.electronAPI.createTaskFromInsights(
-    projectId,
+  // Instead of creating task immediately, add it to the sidebar queue
+  const queuedTaskId = useInsightsTaskQueueStore.getState().addTask({
     title,
     description,
-    metadata
-  );
+    metadata: {
+      category: metadata?.category,
+      complexity: metadata?.complexity,
+      priority: metadata?.priority,
+    },
+  });
 
-  if (result.success && result.data) {
-    return result.data;
-  }
+  console.log('[Insights] Task added to sidebar queue:', queuedTaskId);
+
+  // Return null since task isn't created yet (it's queued)
+  // The sidebar will handle actual task creation when user clicks Start
   return null;
 }
 
