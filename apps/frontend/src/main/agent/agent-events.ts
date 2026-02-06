@@ -192,4 +192,19 @@ export class AgentEvents {
 
     return { phase, progress };
   }
+
+  /**
+   * Parse task complexity classification from log output
+   * Format: "Task complexity: SIMPLE - Single file UI change"
+   */
+  parseComplexityClassification(log: string): { complexity: 'SIMPLE' | 'MEDIUM' | 'COMPLEX'; reason: string } | null {
+    const match = log.match(/Task complexity:\s+(SIMPLE|MEDIUM|COMPLEX)\s+-\s+(.+)/i);
+    if (match) {
+      return {
+        complexity: match[1].toUpperCase() as 'SIMPLE' | 'MEDIUM' | 'COMPLEX',
+        reason: match[2].trim()
+      };
+    }
+    return null;
+  }
 }

@@ -247,6 +247,18 @@ def handle_build_command(
         # Run QA validation BEFORE finalization (while worktree still exists)
         # QA must sign off before the build is considered complete
         qa_approved = True  # Default to approved if QA is skipped
+
+        # Check if QA should be skipped for SIMPLE tasks
+        from agents.complexity_classifier import get_task_complexity
+        task_complexity = get_task_complexity(spec_dir)
+        if task_complexity == "SIMPLE":
+            print("\n" + "=" * 70)
+            print("  ⚡ SIMPLE TASK - SKIPPING QA VALIDATION")
+            print("=" * 70)
+            print("\nTask classified as SIMPLE - QA validation is not required.")
+            print("Build marked as complete.\n")
+            skip_qa = True
+
         if not skip_qa and should_run_qa(spec_dir):
             print("\n" + "=" * 70)
             print("  SUBTASKS COMPLETE - STARTING QA VALIDATION")

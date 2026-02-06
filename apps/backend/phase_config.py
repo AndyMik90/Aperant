@@ -62,6 +62,26 @@ DEFAULT_PHASE_THINKING: dict[str, str] = {
     "qa": "medium",
 }
 
+# Complexity-based phase configuration for adaptive task routing
+# Routes tasks to appropriate models based on complexity classification
+COMPLEXITY_PHASE_CONFIG: dict[str, dict[str, str]] = {
+    "SIMPLE": {
+        "planning": "haiku",
+        "coding": "haiku",
+        "qa": "skip",  # Skip QA for simple tasks
+    },
+    "MEDIUM": {
+        "planning": "sonnet",
+        "coding": "sonnet",
+        "qa": "haiku",
+    },
+    "COMPLEX": {
+        "planning": "opus",
+        "coding": "sonnet",
+        "qa": "sonnet",
+    },
+}
+
 
 class PhaseModelConfig(TypedDict, total=False):
     spec: str

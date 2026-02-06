@@ -44,6 +44,13 @@ const CategoryIcon: Record<TaskCategory, typeof Zap> = {
   testing: FileCode
 };
 
+// Adaptive complexity badge colors (for model routing)
+const ADAPTIVE_COMPLEXITY_COLORS = {
+  SIMPLE: 'bg-green-500/10 text-green-500 border-green-500/30',
+  MEDIUM: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30',
+  COMPLEX: 'bg-red-500/10 text-red-500 border-red-500/30',
+} as const;
+
 // Phases where stuck detection should be skipped (terminal states + initial planning)
 // Defined outside component to avoid recreation on every render
 const STUCK_CHECK_SKIP_PHASES = ['complete', 'failed', 'planning'] as const;
@@ -711,6 +718,16 @@ export const TaskCard = memo(function TaskCard({
                 className={cn('text-[10px] px-1.5 py-0', TASK_COMPLEXITY_COLORS[task.metadata.complexity])}
               >
                 {TASK_COMPLEXITY_LABELS[task.metadata.complexity]}
+              </Badge>
+            )}
+            {/* Adaptive complexity badge (for model routing) */}
+            {task.metadata?.adaptiveComplexity && (
+              <Badge
+                variant="outline"
+                className={cn('text-[10px] px-1.5 py-0', ADAPTIVE_COMPLEXITY_COLORS[task.metadata.adaptiveComplexity])}
+                title={task.metadata.complexityReason || 'Task complexity for adaptive routing'}
+              >
+                {task.metadata.adaptiveComplexity}
               </Badge>
             )}
             {/* Priority badge - only show urgent/high */}

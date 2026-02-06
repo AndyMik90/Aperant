@@ -15,13 +15,26 @@
 
 ## Ready to Run
 
-| Task ID | Prompt | Tasks | Description |
-|---------|--------|-------|-------------|
-| ADAPTIVE-ROUTING | [ADAPTIVE_TASK_ROUTING.md](prompts/ADAPTIVE_TASK_ROUTING.md) | 8 | Intelligent model selection based on task complexity |
+*No pending tasks.*
 
 ---
 
 ## Completed Prompts
+
+### Adaptive Task Routing (2026-02-06)
+| Task ID | Prompt | Tasks | Duration | Status |
+|---------|--------|-------|----------|--------|
+| ADAPTIVE-ROUTING | [ADAPTIVE_TASK_ROUTING.md](prompts/ADAPTIVE_TASK_ROUTING.md) | 8 | 8m 1s | ✅ |
+
+**Files created/modified:**
+- `apps/backend/agents/complexity_classifier.py` (NEW)
+- `apps/backend/phase_config.py` - COMPLEXITY_PHASE_CONFIG
+- `apps/backend/spec/pipeline/orchestrator.py` - Integration
+- `apps/backend/cli/build_commands.py` - QA skip logic
+- `apps/frontend/src/shared/types/task.ts` - AdaptiveComplexity type
+- `apps/frontend/src/main/agent/agent-events.ts` - Parser
+- `apps/frontend/src/main/agent/agent-process.ts` - Event emission
+- `apps/frontend/src/renderer/components/TaskCard.tsx` - Badge
 
 ### Code Sweeps (2026-02-05)
 | Task ID | Prompt | Tasks | Duration | Status |

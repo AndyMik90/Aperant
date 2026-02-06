@@ -324,6 +324,11 @@ class SpecOrchestrator:
         # === CREATE LINEAR TASK (if enabled) ===
         await self._create_linear_task_if_enabled()
 
+        # === TASK COMPLEXITY CLASSIFICATION (for adaptive routing) ===
+        # Classify task complexity before running the spec phases
+        # This determines model selection and whether to skip QA
+        await self._classify_task_complexity()
+
         # === PHASE 3: AI COMPLEXITY ASSESSMENT ===
         result = await run_phase(
             "complexity_assessment",
@@ -428,6 +433,29 @@ class SpecOrchestrator:
             print_status(f"Linear task created: {linear_state.task_id}", "success")
         else:
             print_status("Linear task creation failed (continuing without)", "warning")
+
+    async def _classify_task_complexity(self) -> None:
+        """Classify task complexity for adaptive routing (SIMPLE/MEDIUM/COMPLEX).
+
+        This classification determines:
+        - Which models to use for each phase (planning, coding, qa)
+        - Whether to skip QA phase for simple tasks
+        """
+        from agents.complexity_classifier import classify_task_complexity
+
+        if not self.task_description:
+            return
+
+        print_status("Classifying task complexity...", "progress")
+        complexity, reason = classify_task_complexity(
+            task_description=self.task_description,
+            project_dir=self.project_dir,
+            spec_dir=self.spec_dir,
+        )
+        print_status(
+            f"Task classified as {highlight(complexity)}: {reason}",
+            "success",
+        )
 
     async def _phase_complexity_assessment_with_requirements(
         self,

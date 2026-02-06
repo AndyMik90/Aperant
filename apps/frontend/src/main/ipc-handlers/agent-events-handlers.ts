@@ -256,6 +256,27 @@ export function registerAgenteventsHandlers(
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
   });
 
+  // Handle task complexity classification events
+  agentManager.on("complexity-classified", (taskId: string, complexityData: { complexity: 'SIMPLE' | 'MEDIUM' | 'COMPLEX'; reason: string }) => {
+    const { project, task } = findTaskAndProject(taskId);
+    if (project && task) {
+      // Update task metadata with adaptive complexity
+      const updatedMetadata = {
+        ...task.metadata,
+        adaptiveComplexity: complexityData.complexity,
+        complexityReason: complexityData.reason,
+      };
+
+      // Update task in project store
+      projectStore.updateTask(project.id, taskId, {
+        ...task,
+        metadata: updatedMetadata,
+      });
+
+      console.log(`[AgentEventsHandlers] Task ${taskId} complexity set to ${complexityData.complexity}: ${complexityData.reason}`);
+    }
+  });
+
   agentManager.on("exit", (taskId: string, code: number | null, processType: ProcessType) => {
     // Get project info early for multi-project filtering (issue #723)
     const { project: exitProject } = findTaskAndProject(taskId);

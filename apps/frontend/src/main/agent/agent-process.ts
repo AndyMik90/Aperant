@@ -561,6 +561,13 @@ export class AgentProcessManager {
         console.log(`[PhaseDebug:${taskId}] Found marker in line: "${line.substring(0, 200)}"`);
       }
 
+      // Check for complexity classification output
+      const complexityData = this.events.parseComplexityClassification(line);
+      if (complexityData) {
+        console.log(`[AgentProcess] Task complexity classified:`, complexityData);
+        this.emitter.emit('complexity-classified', taskId, complexityData);
+      }
+
       const phaseUpdate = this.events.parseExecutionPhase(line, currentPhase, isSpecRunner);
 
       if (isDebug && hasMarker) {

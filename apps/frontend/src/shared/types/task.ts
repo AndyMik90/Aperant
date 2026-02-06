@@ -182,6 +182,9 @@ export interface TaskTemplate {
 export type TaskComplexity = 'trivial' | 'small' | 'medium' | 'large' | 'complex';
 export type TaskImpact = 'low' | 'medium' | 'high' | 'critical';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+// Adaptive routing complexity (for model selection and QA skipping)
+export type AdaptiveComplexity = 'SIMPLE' | 'MEDIUM' | 'COMPLEX';
 // Re-export ThinkingLevel (defined in settings.ts) for convenience
 export type { ThinkingLevel };
 export type ModelType = 'haiku' | 'sonnet' | 'opus';
@@ -217,6 +220,10 @@ export interface TaskMetadata {
   complexity?: TaskComplexity;
   impact?: TaskImpact;
   priority?: TaskPriority;
+
+  // Adaptive routing complexity (SIMPLE/MEDIUM/COMPLEX for model selection)
+  adaptiveComplexity?: AdaptiveComplexity;
+  complexityReason?: string;  // Reasoning for the adaptive complexity classification
 
   // Context
   rationale?: string;  // Why this task matters
