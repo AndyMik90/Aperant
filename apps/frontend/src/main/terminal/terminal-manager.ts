@@ -137,12 +137,14 @@ export class TerminalManager {
 
   /**
    * Resize a terminal
+   * @returns true if resize was successful, false otherwise
    */
-  resize(id: string, cols: number, rows: number): void {
+  resize(id: string, cols: number, rows: number): boolean {
     const terminal = this.terminals.get(id);
-    if (terminal) {
-      PtyManager.resizePty(terminal, cols, rows);
+    if (!terminal) {
+      return false;
     }
+    return PtyManager.resizePty(terminal, cols, rows);
   }
 
   /**

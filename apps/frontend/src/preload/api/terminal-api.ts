@@ -33,7 +33,7 @@ export interface TerminalAPI {
   createTerminal: (options: TerminalCreateOptions) => Promise<IPCResult>;
   destroyTerminal: (id: string) => Promise<IPCResult>;
   sendTerminalInput: (id: string, data: string) => void;
-  resizeTerminal: (id: string, cols: number, rows: number) => void;
+  resizeTerminal: (id: string, cols: number, rows: number) => Promise<IPCResult<{ success: boolean }>>;
   invokeClaudeInTerminal: (id: string, cwd?: string) => void;
   generateTerminalName: (command: string, cwd?: string) => Promise<IPCResult<string>>;
   setTerminalTitle: (id: string, title: string) => void;
@@ -137,8 +137,8 @@ export const createTerminalAPI = (): TerminalAPI => ({
   sendTerminalInput: (id: string, data: string): void =>
     ipcRenderer.send(IPC_CHANNELS.TERMINAL_INPUT, id, data),
 
-  resizeTerminal: (id: string, cols: number, rows: number): void =>
-    ipcRenderer.send(IPC_CHANNELS.TERMINAL_RESIZE, id, cols, rows),
+  resizeTerminal: (id: string, cols: number, rows: number): Promise<IPCResult<{ success: boolean }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_RESIZE, id, cols, rows),
 
   invokeClaudeInTerminal: (id: string, cwd?: string): void =>
     ipcRenderer.send(IPC_CHANNELS.TERMINAL_INVOKE_CLAUDE, id, cwd),
