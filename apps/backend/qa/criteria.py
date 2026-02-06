@@ -8,6 +8,7 @@ Manages acceptance criteria validation and status tracking.
 import json
 from pathlib import Path
 
+from core.file_lock import FileLock, FileLockTimeout
 from core.file_utils import write_json_atomic
 from progress import is_build_complete
 
@@ -26,10 +27,6 @@ def load_implementation_plan(spec_dir: Path) -> dict | None:
 
 def save_implementation_plan(spec_dir: Path, plan: dict) -> bool:
     """Save the implementation plan JSON while preserving frontend fields."""
-    # Lazy import to avoid circular import with runners.github.file_lock
-    # which imports runners.__init__ which imports ideation_runner which imports cli
-    from runners.github.file_lock import FileLock, FileLockTimeout
-
     plan_file = spec_dir / "implementation_plan.json"
 
     try:
