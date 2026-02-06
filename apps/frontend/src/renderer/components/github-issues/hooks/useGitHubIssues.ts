@@ -6,7 +6,6 @@ import {
   loadMoreGitHubIssues,
   loadAllGitHubIssues,
   checkGitHubConnection,
-  type IssueFilterState,
 } from "../../../stores/github";
 import type { FilterState } from "../types";
 
@@ -36,7 +35,7 @@ export function useGitHubIssues(projectId: string | undefined) {
   // Reset search state when projectId changes to prevent incorrect fetchAll mode
   useEffect(() => {
     setIsSearchActive(false);
-  }, [projectId]);
+  }, []);
 
   // Always check connection when component mounts or projectId changes
   useEffect(() => {
@@ -57,7 +56,7 @@ export function useGitHubIssues(projectId: string | undefined) {
       loadGitHubIssues(projectId, filterState, isSearchActive);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, filterState, syncStatus?.connected]);
+  }, [projectId, filterState, syncStatus?.connected, isSearchActive]);
 
   const handleRefresh = useCallback(() => {
     if (projectId) {

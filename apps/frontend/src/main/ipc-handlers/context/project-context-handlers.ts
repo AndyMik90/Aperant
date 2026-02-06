@@ -12,9 +12,6 @@ import type {
 } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 import { getMemoryService, isKuzuAvailable } from '../../memory-service';
-import {
-  getGraphitiDatabaseDetails
-} from './utils';
 import { getEffectiveSourcePath } from '../../updater/path-resolver';
 import {
   loadGraphitiStateFromSpecs,

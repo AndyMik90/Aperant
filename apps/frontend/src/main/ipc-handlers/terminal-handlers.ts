@@ -8,7 +8,7 @@ import { TerminalManager } from '../terminal-manager';
 import { projectStore } from '../project-store';
 import { terminalNameGenerator } from '../terminal-name-generator';
 import { readSettingsFileAsync } from '../settings-utils';
-import { debugLog, debugError } from '../../shared/utils/debug-logger';
+import { debugLog, } from '../../shared/utils/debug-logger';
 import { migrateSession } from '../claude-profile/session-utils';
 import { createProfileDirectory } from '../claude-profile/profile-utils';
 import { isValidConfigDir } from '../utils/config-path-validator';
@@ -55,10 +55,11 @@ export function registerTerminalHandlers(
     }
   );
 
-  ipcMain.on(
+  ipcMain.handle(
     IPC_CHANNELS.TERMINAL_RESIZE,
-    (_, id: string, cols: number, rows: number) => {
-      terminalManager.resize(id, cols, rows);
+    async (_, id: string, cols: number, rows: number): Promise<IPCResult<{ success: boolean }>> => {
+      const success = terminalManager.resize(id, cols, rows);
+      return { success, data: { success } };
     }
   );
 

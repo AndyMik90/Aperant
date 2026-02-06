@@ -58,6 +58,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
   const {
     prs,
     isLoading,
+    isLoadingMore,
     isLoadingPRDetails,
     error,
     selectedPRNumber,
@@ -78,6 +79,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
     assignPR,
     markReviewPosted,
     refresh,
+    loadMore,
     isConnected,
     repoFullName,
     getReviewStateForPR,
@@ -96,6 +98,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
     setSearchQuery,
     setContributors,
     setStatuses,
+    setSortBy,
     clearFilters,
     hasActiveFilters,
   } = usePRFiltering(prs, getReviewStateForPR);
@@ -226,6 +229,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
               onSearchChange={setSearchQuery}
               onContributorsChange={setContributors}
               onStatusesChange={setStatuses}
+              onSortChange={setSortBy}
               onClearFilters={clearFilters}
             />
             <PRList
@@ -236,6 +240,8 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
               error={error}
               getReviewStateForPR={getReviewStateForPR}
               onSelectPR={selectPR}
+              onLoadMore={loadMore}
+              isLoadingMore={isLoadingMore}
             />
           </div>
         }

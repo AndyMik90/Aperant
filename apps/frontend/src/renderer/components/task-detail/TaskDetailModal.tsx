@@ -33,6 +33,7 @@ import {
 import { cn } from '../../lib/utils';
 import { calculateProgress } from '../../lib/utils';
 import { startTask, stopTask, submitReview, recoverStuckTask, deleteTask, useTaskStore } from '../../stores/task-store';
+import { useProjectStore } from '../../stores/project-store';
 import { TASK_STATUS_LABELS } from '../../../shared/constants';
 import { TaskEditDialog } from '../TaskEditDialog';
 import { useTaskDetail } from './hooks/useTaskDetail';
@@ -80,6 +81,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
   const { t } = useTranslation(['tasks']);
   const { toast } = useToast();
   const state = useTaskDetail({ task });
+  const activeProject = useProjectStore(s => s.getActiveProject());
   const showFilesTab = isFilesTabEnabled();
   const progressPercent = calculateProgress(task.subtasks);
   const completedSubtasks = task.subtasks.filter(s => s.status === 'completed').length;
@@ -303,7 +305,11 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
            {task.metadata?.prUrl && (
              <button
                type="button"
-               onClick={() => window.electronAPI?.openExternal(task.metadata!.prUrl!)}
+               onClick={() => {
+                 if (task.metadata?.prUrl) {
+                   window.electronAPI?.openExternal(task.metadata.prUrl);
+                 }
+               }}
                className="completion-state text-sm flex items-center gap-2 text-info cursor-pointer hover:underline bg-transparent border-none p-0"
              >
               <GitPullRequest className="h-5 w-5" />
@@ -372,12 +378,10 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                           Stuck
                         </Badge>
                       ) : state.isIncomplete ? (
-                        <>
-                          <Badge variant="warning" className="text-xs flex items-center gap-1">
+                        <Badge variant="warning" className="text-xs flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3" />
                             Incomplete
                           </Badge>
-                        </>
                       ) : (
                         <>
                            <Badge
@@ -410,6 +414,8 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                   {window.DEBUG && (
                     <div className="mt-1 text-[11px] text-muted-foreground font-mono">
                       status={task.status} reviewReason={task.reviewReason ?? 'none'} phase={task.executionProgress?.phase ?? 'none'} reviewRequired={task.metadata?.requireReviewBeforeCoding ? 'true' : 'false'}
+                      <br />
+                      projectId={activeProject?.id ?? 'none'} projectName={activeProject?.name ?? 'none'}
                     </div>
                   )}
                 </div>
