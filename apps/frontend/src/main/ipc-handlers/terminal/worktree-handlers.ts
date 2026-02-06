@@ -45,6 +45,18 @@ const GIT_PORCELAIN = {
 } as const;
 
 /**
+ * Check if an error was caused by a timeout (execFileAsync with timeout sets killed=true).
+ * This helper centralizes the timeout detection logic to avoid duplication.
+ */
+function isTimeoutError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    'killed' in error &&
+    (error as NodeJS.ErrnoException & { killed?: boolean }).killed === true
+  );
+}
+
+/**
  * Fix repositories that are incorrectly marked with core.bare=true.
  * This can happen when git worktree operations incorrectly set bare=true
  * on a working repository that has source files.
@@ -399,12 +411,12 @@ async function createTerminalWorktree(
     const isRemoteRef = baseBranch.startsWith('origin/');
     const remoteBranchName = isRemoteRef ? baseBranch.replace('origin/', '') : baseBranch;
 
-    // Fetch the branch from remote
+    // Fetch the branch from remote (async to avoid blocking main process)
     try {
-      execFileSync(getToolPath('git'), ['fetch', 'origin', remoteBranchName], {
+      await execFileAsync(getToolPath('git'), ['fetch', 'origin', remoteBranchName], {
         cwd: projectPath,
         encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 30000,
         env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Fetched latest from origin/' + remoteBranchName);
@@ -426,10 +438,10 @@ async function createTerminalWorktree(
     } else {
       // Default behavior: check if remote version exists and use it for latest code
       try {
-        execFileSync(getToolPath('git'), ['rev-parse', '--verify', `origin/${baseBranch}`], {
+        await execFileAsync(getToolPath('git'), ['rev-parse', '--verify', `origin/${baseBranch}`], {
           cwd: projectPath,
           encoding: 'utf-8',
-          stdio: ['pipe', 'pipe', 'pipe'],
+          timeout: 10000,
           env: getIsolatedGitEnv(),
         });
         baseRef = `origin/${baseBranch}`;
@@ -443,18 +455,20 @@ async function createTerminalWorktree(
       // Use --no-track to prevent the new branch from inheriting upstream tracking
       // from the base ref (e.g., origin/main). This ensures users can push with -u
       // to correctly set up tracking to their own remote branch.
-      execFileSync(getToolPath('git'), ['worktree', 'add', '-b', branchName, '--no-track', worktreePath, baseRef], {
+      // Use async to avoid blocking the main process on large repos.
+      await execFileAsync(getToolPath('git'), ['worktree', 'add', '-b', branchName, '--no-track', worktreePath, baseRef], {
         cwd: projectPath,
         encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 60000,
         env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Created worktree with branch:', branchName, 'from', baseRef);
     } else {
-      execFileSync(getToolPath('git'), ['worktree', 'add', '--detach', worktreePath, baseRef], {
+      // Use async to avoid blocking the main process on large repos.
+      await execFileAsync(getToolPath('git'), ['worktree', 'add', '--detach', worktreePath, baseRef], {
         cwd: projectPath,
         encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 60000,
         env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Created worktree in detached HEAD mode from', baseRef);
@@ -507,9 +521,16 @@ async function createTerminalWorktree(
       }
     }
 
+    // Check if error was due to timeout
+    const isTimeout = isTimeoutError(error);
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to create worktree',
+      error: isTimeout
+        ? 'Git operation timed out. The repository may be too large or the network connection is slow. Please try again.'
+        : error instanceof Error
+          ? error.message
+          : 'Failed to create worktree',
     };
   }
 }
@@ -718,10 +739,11 @@ async function removeTerminalWorktree(
 
   try {
     if (existsSync(worktreePath)) {
-      execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+      // Use async to avoid blocking the main process on large repos
+      await execFileAsync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
         cwd: projectPath,
         encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 60000,
         env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Removed git worktree');
@@ -733,10 +755,11 @@ async function removeTerminalWorktree(
         debugError('[TerminalWorktree] Invalid branch name in config:', config.branchName);
       } else {
         try {
-          execFileSync(getToolPath('git'), ['branch', '-D', config.branchName], {
+          // Use async to avoid blocking the main process
+          await execFileAsync(getToolPath('git'), ['branch', '-D', config.branchName], {
             cwd: projectPath,
             encoding: 'utf-8',
-            stdio: ['pipe', 'pipe', 'pipe'],
+            timeout: 30000,
             env: getIsolatedGitEnv(),
           });
           debugLog('[TerminalWorktree] Deleted branch:', config.branchName);
@@ -760,9 +783,17 @@ async function removeTerminalWorktree(
     return { success: true };
   } catch (error) {
     debugError('[TerminalWorktree] Error removing worktree:', error);
+
+    // Check if error was due to timeout
+    const isTimeout = isTimeoutError(error);
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to remove worktree',
+      error: isTimeout
+        ? 'Git operation timed out. The repository may be too large. Please try again.'
+        : error instanceof Error
+          ? error.message
+          : 'Failed to remove worktree',
     };
   }
 }
