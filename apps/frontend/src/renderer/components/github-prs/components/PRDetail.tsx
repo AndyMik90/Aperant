@@ -122,19 +122,19 @@ export function PRDetail({
   //
   // Backend (PRLogCollector in pr-handlers.ts):
   //   - Writes logs to disk every 3 entries: .auto-claude/github/pr/logs_${prNumber}.json
-  //   - Emits IPC events (GITHUB_PR_LOGS_UPDATED) after each save
+  //   - Emits GITHUB_PR_LOGS_UPDATED IPC events after each save
   //   - Tracks phase status: pending → active → completed/failed
   //
   // Frontend (this component):
-  //   - Polls via onGetLogs() every 1.5s while isReviewing = true
-  //   - Receives push notifications via IPC events (optional optimization)
+  //   - Subscribes to GITHUB_PR_LOGS_UPDATED push events for instant updates
+  //   - Falls back to polling via onGetLogs() every 1.5s while isReviewing
   //   - Displays logs in collapsible PRLogs component with phase indicators
   //
   // Data Flow:
   //   1. Backend: PRLogCollector.processLine() → PRLogCollector.save()
   //   2. Backend: savePRLogs() writes JSON to disk
-  //   3. Backend: Emits GITHUB_PR_LOGS_UPDATED IPC event
-  //   4. Frontend: Polling interval calls onGetLogs() → loadPRLogs() → reads JSON
+  //   3. Backend: Emits GITHUB_PR_LOGS_UPDATED IPC event → triggers immediate refresh
+  //   4. Fallback: Polling interval calls onGetLogs() every 1.5s during review
   //   5. Frontend: setPrLogs() triggers UI update with new log content
   //
   // ========================================================================
@@ -282,6 +282,22 @@ export function PRDetail({
     }
   }, [reviewResult?.success, isReviewing]);
 
+  // Subscribe to push-based log updates from backend for instant refresh
+  useEffect(() => {
+    if (!isReviewing) return;
+
+    const cleanup = window.electronAPI.github.onPRLogsUpdated(
+      (_projectId: string, data: { prNumber: number; entryCount: number }) => {
+        if (data.prNumber !== pr.number) return;
+        onGetLogs()
+          .then(logs => setPrLogs(logs))
+          .catch(() => {});
+      }
+    );
+
+    return cleanup;
+  }, [isReviewing, pr.number, onGetLogs]);
+
   /**
    * Initial log load when user expands the logs section
    *
@@ -301,7 +317,7 @@ export function PRDetail({
           setPrLogs(logs);
         })
         .catch((err) => {
-          console.error('[PR Review Debug] Failed to load initial logs:', err);
+          console.error('Failed to load initial PR review logs:', err);
           setPrLogs(null);
         })
         .finally(() => setIsLoadingLogs(false));
@@ -369,7 +385,7 @@ export function PRDetail({
         const logs = await onGetLogs();
         setPrLogs(logs);
       } catch (err) {
-        console.error('[PR Review Debug] Failed to refresh logs during polling:', err);
+        console.error('Failed to refresh PR review logs during polling:', err);
         // Ignore errors during refresh - don't stop polling
       }
     };
@@ -437,7 +453,7 @@ export function PRDetail({
           setPrLogs(logs);
         })
         .catch(err => {
-          console.error('[PR Review Debug] Failed to load fallback logs:', err);
+          console.error('Failed to load fallback PR review logs:', err);
         })
         .finally(() => {
           setIsLoadingLogs(false);

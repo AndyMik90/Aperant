@@ -1275,10 +1275,9 @@ class PRLogCollector {
     savePRLogs(this.project, this.logs);
 
     // Step 2: Emit IPC event to notify renderer of log update (push-based)
-    // This enables push-based updates instead of relying solely on polling
+    // Uses standard (projectId, data) pattern matching other IPC communicators
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send(IPC_CHANNELS.GITHUB_PR_LOGS_UPDATED, {
-        projectId: this.project.id,
+      this.mainWindow.webContents.send(IPC_CHANNELS.GITHUB_PR_LOGS_UPDATED, this.project.id, {
         prNumber: this.logs.pr_number,
         phaseStatus: {
           context: this.logs.phases.context.status,
