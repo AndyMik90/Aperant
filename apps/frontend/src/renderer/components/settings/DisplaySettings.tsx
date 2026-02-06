@@ -7,6 +7,7 @@ import { SettingsSection } from './SettingsSection';
 import { useSettingsStore } from '../../stores/settings-store';
 import { UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT, UI_SCALE_STEP } from '../../../shared/constants';
 import type { AppSettings } from '../../../shared/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface DisplaySettingsProps {
   settings: AppSettings;
@@ -238,6 +239,39 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>{UI_SCALE_MIN}%</span>
             <span>{UI_SCALE_MAX}%</span>
+          </div>
+        </div>
+
+        {/* Log Order Setting */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between max-w-md">
+            <div className="space-y-1">
+              <Label htmlFor="logOrder" className="text-sm font-medium text-foreground">
+                {t('logOrder.label')}
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                {t('logOrder.description')}
+              </p>
+            </div>
+            <Select
+              value={settings.logOrder || 'chronological'}
+              onValueChange={(value) => onSettingsChange({
+                ...settings,
+                logOrder: value as 'chronological' | 'reverse-chronological'
+              })}
+            >
+              <SelectTrigger id="logOrder" className="w-72">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-60 overflow-y-auto">
+                <SelectItem value="chronological">
+                  {t('logOrder.chronological')}
+                </SelectItem>
+                <SelectItem value="reverse-chronological">
+                  {t('logOrder.reverseChronological')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>

@@ -604,12 +604,11 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
         postCreationTimeoutRef.current = null;
       }
 
-      setTimeout(() => {
-        if (!isMountedRef.current) {
-          dispose();
-          isCreatedRef.current = false;
-        }
-      }, 100);
+      // Dispose synchronously on unmount to prevent race conditions
+      // where a new terminal mounts before the old one is cleaned up.
+      // The previous 100ms delay created a window where both terminals existed.
+      dispose();
+      isCreatedRef.current = false;
     };
   }, [id, dispose, cleanupAutoNaming]);
 
