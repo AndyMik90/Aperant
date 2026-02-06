@@ -166,7 +166,7 @@ async def run_qa_validation_loop(
         )
 
         async with fix_client:
-            fix_status, fix_response, fix_error_info = await run_qa_fixer_session(
+            fix_status, fix_response, _fix_error_info = await run_qa_fixer_session(
                 fix_client,
                 spec_dir,
                 0,
@@ -459,7 +459,7 @@ async def run_qa_validation_loop(
             )
 
             async with fix_client:
-                fix_status, fix_response, fix_error_info = await run_qa_fixer_session(
+                fix_status, fix_response, _fix_error_info = await run_qa_fixer_session(
                     fix_client, spec_dir, qa_iteration, verbose
                 )
 

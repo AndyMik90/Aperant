@@ -445,7 +445,7 @@ export async function createPlanIfNotExists(
 export async function resetStuckSubtasks(planPath: string, projectId?: string): Promise<{ success: boolean; resetCount: number }> {
   return withPlanLock(planPath, async () => {
     try {
-      console.warn(`[plan-file-utils] Reading implementation_plan.json to reset stuck subtasks`, { planPath });
+      console.log(`[plan-file-utils] Reading implementation_plan.json to reset stuck subtasks`, { planPath });
 
       // Read file directly without existence check to avoid TOCTOU race condition
       const planContent = readFileSync(planPath, 'utf-8');
@@ -466,7 +466,7 @@ export async function resetStuckSubtasks(planPath: string, projectId?: string): 
                 subtask.started_at = null;
                 subtask.completed_at = null;
                 resetCount++;
-                console.warn(`[plan-file-utils] Reset subtask ${subtask.id} from ${originalStatus} to pending`);
+                console.log(`[plan-file-utils] Reset subtask ${subtask.id} from ${originalStatus} to pending`);
               }
             }
           }
@@ -486,14 +486,14 @@ export async function resetStuckSubtasks(planPath: string, projectId?: string): 
           try { unlinkSync(tempPath); } catch { /* ignore cleanup */ }
           throw writeError;
         }
-        console.warn(`[plan-file-utils] Successfully reset ${resetCount} stuck subtask(s) in implementation_plan.json`);
+        console.log(`[plan-file-utils] Successfully reset ${resetCount} stuck subtask(s) in implementation_plan.json`);
 
         // Invalidate tasks cache since subtask status changed
         if (projectId) {
           projectStore.invalidateTasksCache(projectId);
         }
       } else {
-        console.warn(`[plan-file-utils] No stuck subtasks found to reset`);
+        console.log(`[plan-file-utils] No stuck subtasks found to reset`);
       }
 
       return { success: true, resetCount };
