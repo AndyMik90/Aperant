@@ -385,47 +385,48 @@ async function executeSemanticQuery(
       stderr += data.toString('utf-8');
     });
 
+    // Single timeout mechanism to avoid race condition
+    const timeoutId = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        proc.kill();
+        resolve({ success: false, error: 'Semantic search timed out' });
+      }
+    }, timeout);
+
     proc.on('close', (code) => {
       if (resolved) return;
+      resolved = true;
+      clearTimeout(timeoutId);
 
       // The Python script outputs JSON to stdout (even for errors)
       if (stdout) {
         try {
           const result = JSON.parse(stdout);
-          resolved = true;
           resolve(result);
           return;
         } catch {
           if (code !== 0) {
             const errorMsg = stderr || stdout || `Process exited with code ${code}`;
             console.error('[MemoryService] Semantic search error:', errorMsg);
-            resolved = true;
             resolve({ success: false, error: errorMsg });
             return;
           }
-          resolved = true;
           resolve({ success: false, error: `Invalid JSON response: ${stdout}` });
           return;
         }
       }
       const errorMsg = stderr || `Process exited with code ${code}`;
       console.error('[MemoryService] Semantic search error (no stdout):', errorMsg);
-      resolved = true;
       resolve({ success: false, error: errorMsg });
     });
 
     proc.on('error', (err) => {
       if (resolved) return;
       resolved = true;
+      clearTimeout(timeoutId);
       resolve({ success: false, error: err.message });
     });
-
-    setTimeout(() => {
-      if (resolved) return;
-      resolved = true;
-      proc.kill();
-      resolve({ success: false, error: 'Semantic search timed out' });
-    }, timeout);
   });
 }
 
