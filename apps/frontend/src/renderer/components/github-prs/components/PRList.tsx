@@ -1,6 +1,7 @@
-import { GitPullRequest, User, Clock, FileDiff } from 'lucide-react';
+import { GitPullRequest, User, Clock, FileDiff, Loader2 } from 'lucide-react';
 import { ScrollArea } from '../../ui/scroll-area';
 import { Badge } from '../../ui/badge';
+import { Button } from '../../ui/button';
 import { cn } from '../../../lib/utils';
 import type { PRData, PRReviewProgress, PRReviewResult } from '../hooks/useGitHubPRs';
 import type { NewCommitsCheck } from '../../../../preload/api/modules/github-api';
@@ -170,6 +171,10 @@ interface PRListProps {
   error: string | null;
   getReviewStateForPR: (prNumber: number) => PRReviewInfo | null;
   onSelectPR: (prNumber: number) => void;
+  /** Callback to load more PRs when hasMore is true */
+  onLoadMore?: () => void;
+  /** Whether additional PRs are currently being loaded */
+  isLoadingMore?: boolean;
 }
 
 function formatDate(dateString: string): string {
@@ -200,6 +205,8 @@ export function PRList({
   error,
   getReviewStateForPR,
   onSelectPR,
+  onLoadMore,
+  isLoadingMore,
 }: PRListProps) {
   const { t } = useTranslation('common');
 
@@ -306,12 +313,30 @@ export function PRList({
           );
         })}
 
-        {/* Status indicator */}
+        {/* Status indicator / Load More button */}
         {prs.length > 0 && (
           <div className="py-4 flex justify-center">
-            <span className="text-xs text-muted-foreground opacity-50">
-              {hasMore ? t('prReview.maxPRsShown') : t('prReview.allPRsLoaded')}
-            </span>
+            {hasMore && onLoadMore ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onLoadMore}
+                disabled={isLoadingMore}
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t('prReview.loadingMore')}
+                  </>
+                ) : (
+                  t('prReview.loadMore')
+                )}
+              </Button>
+            ) : (
+              <span className="text-xs text-muted-foreground opacity-50">
+                {t('prReview.allPRsLoaded')}
+              </span>
+            )}
           </div>
         )}
       </div>

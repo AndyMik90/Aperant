@@ -91,11 +91,14 @@ class IdeationGenerator:
             prompt += f"\n{additional_context}\n"
 
         # Create client with thinking budget
+        # Use agent_type="ideation" to avoid loading unnecessary MCP servers
+        # which can cause 60-second timeout delays
         client = create_client(
             self.project_dir,
             self.output_dir,
             resolve_model_id(self.model),
             max_thinking_tokens=self.thinking_budget,
+            agent_type="ideation",
         )
 
         try:
@@ -184,11 +187,13 @@ Common fixes:
 Write the fixed JSON to the file now.
 """
 
+        # Use agent_type="ideation" for recovery agent as well
         client = create_client(
             self.project_dir,
             self.output_dir,
             resolve_model_id(self.model),
             max_thinking_tokens=self.thinking_budget,
+            agent_type="ideation",
         )
 
         try:

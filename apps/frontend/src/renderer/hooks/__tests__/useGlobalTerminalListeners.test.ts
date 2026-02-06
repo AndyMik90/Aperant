@@ -154,7 +154,7 @@ describe('useGlobalTerminalListeners', () => {
 
       // Simulate terminal output
       expect(terminalOutputCallback).not.toBeNull();
-      terminalOutputCallback!('terminal-123', 'Hello, World!');
+      terminalOutputCallback?.('terminal-123', 'Hello, World!');
 
       expect(mockWriteToTerminal).toHaveBeenCalledWith('terminal-123', 'Hello, World!');
     });
@@ -180,7 +180,7 @@ describe('useGlobalTerminalListeners', () => {
       renderHook(() => freshHook());
 
       // Simulate terminal output
-      terminalOutputCallback!('terminal-456', 'Test output');
+      terminalOutputCallback?.('terminal-456', 'Test output');
 
       expect(mockDebugLog).toHaveBeenCalledWith(
         '[GlobalTerminalListeners] Processed output for terminal-456, buffer size: 100'
@@ -208,9 +208,9 @@ describe('useGlobalTerminalListeners', () => {
       renderHook(() => freshHook());
 
       // Simulate output from multiple terminals
-      terminalOutputCallback!('terminal-1', 'Output 1');
-      terminalOutputCallback!('terminal-2', 'Output 2');
-      terminalOutputCallback!('terminal-3', 'Output 3');
+      terminalOutputCallback?.('terminal-1', 'Output 1');
+      terminalOutputCallback?.('terminal-2', 'Output 2');
+      terminalOutputCallback?.('terminal-3', 'Output 3');
 
       expect(mockWriteToTerminal).toHaveBeenCalledTimes(3);
       expect(mockWriteToTerminal).toHaveBeenNthCalledWith(1, 'terminal-1', 'Output 1');
@@ -324,7 +324,7 @@ describe('useGlobalTerminalListeners', () => {
       renderHook(() => freshHook());
 
       // Simulate empty output
-      terminalOutputCallback!('terminal-123', '');
+      terminalOutputCallback?.('terminal-123', '');
 
       expect(mockWriteToTerminal).toHaveBeenCalledWith('terminal-123', '');
     });
@@ -351,7 +351,7 @@ describe('useGlobalTerminalListeners', () => {
 
       // Simulate output with ANSI escape codes and special characters
       const specialOutput = '\x1b[32mGreen text\x1b[0m\nNew line\t\ttabs';
-      terminalOutputCallback!('terminal-123', specialOutput);
+      terminalOutputCallback?.('terminal-123', specialOutput);
 
       expect(mockWriteToTerminal).toHaveBeenCalledWith('terminal-123', specialOutput);
     });
@@ -378,7 +378,7 @@ describe('useGlobalTerminalListeners', () => {
 
       // Simulate rapid outputs
       for (let i = 0; i < 100; i++) {
-        terminalOutputCallback!('terminal-123', `Line ${i}\n`);
+        terminalOutputCallback?.('terminal-123', `Line ${i}\n`);
       }
 
       expect(mockWriteToTerminal).toHaveBeenCalledTimes(100);

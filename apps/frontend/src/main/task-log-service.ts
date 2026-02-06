@@ -1,5 +1,5 @@
 import path from 'path';
-import { existsSync, readFileSync, watchFile } from 'fs';
+import { existsSync, readFileSync, } from 'fs';
 import { EventEmitter } from 'events';
 import type { TaskLogs, TaskLogPhase, TaskLogStreamChunk, TaskPhaseLog } from '../shared/types';
 import { findTaskWorktree } from './worktree-paths';
@@ -26,7 +26,6 @@ function findWorktreeSpecDir(projectPath: string, specId: string, specsRelPath: 
  * watches both locations and merges logs from both sources.
  */
 export class TaskLogService extends EventEmitter {
-  private watchers: Map<string, { watcher: ReturnType<typeof watchFile>; specDir: string }> = new Map();
   private logCache: Map<string, TaskLogs> = new Map();
   private pollIntervals: Map<string, NodeJS.Timeout> = new Map();
   // Store paths being watched for each specId (main + worktree)
@@ -34,10 +33,6 @@ export class TaskLogService extends EventEmitter {
 
   // Poll interval for watching log changes (more reliable than fs.watch on some systems)
   private readonly POLL_INTERVAL_MS = 1000;
-
-  constructor() {
-    super();
-  }
 
   /**
    * Load task logs from a single spec directory
@@ -125,7 +120,7 @@ export class TaskLogService extends EventEmitter {
 
     let worktreeSpecDir: string | null = null;
 
-    if (watchedInfo && watchedInfo[1].worktreeSpecDir) {
+    if (watchedInfo?.[1].worktreeSpecDir) {
       worktreeSpecDir = watchedInfo[1].worktreeSpecDir;
     } else if (projectPath && specsRelPath && specId) {
       // Calculate worktree path from provided params
