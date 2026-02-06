@@ -4,6 +4,12 @@ import type {
   PRReviewResult,
   NewCommitsCheck
 } from '../../../preload/api/modules/github-api';
+import type {
+  ChecksStatus,
+  ReviewsStatus,
+  MergeableState,
+  PRStatusUpdate
+} from '../../../shared/types/pr-status';
 
 /**
  * PR review state for a single PR
@@ -21,6 +27,14 @@ interface PRReviewState {
   error: string | null;
   /** Cached result of new commits check - updated when detail view checks */
   newCommitsCheck: NewCommitsCheck | null;
+  /** CI checks status from polling */
+  checksStatus: ChecksStatus | null;
+  /** Review status from polling */
+  reviewsStatus: ReviewsStatus | null;
+  /** Mergeable state from polling */
+  mergeableState: MergeableState | null;
+  /** Timestamp of last status poll (ISO 8601 string) */
+  lastPolled: string | null;
 }
 
 interface PRReviewStoreState {
@@ -36,6 +50,15 @@ interface PRReviewStoreState {
   setPRReviewError: (projectId: string, prNumber: number, error: string) => void;
   setNewCommitsCheck: (projectId: string, prNumber: number, check: NewCommitsCheck) => void;
   clearPRReview: (projectId: string, prNumber: number) => void;
+  /** Update PR status from polling (CI checks, reviews, mergeability) */
+  setPRStatus: (projectId: string, prNumber: number, status: {
+    checksStatus: ChecksStatus;
+    reviewsStatus: ReviewsStatus;
+    mergeableState: MergeableState;
+    lastPolled: string;
+  }) => void;
+  /** Clear PR status fields for a specific PR */
+  clearPRStatus: (projectId: string, prNumber: number) => void;
 
   // Selectors
   getPRReviewState: (projectId: string, prNumber: number) => PRReviewState | null;
@@ -62,7 +85,11 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           result: null,
           previousResult: null,
           error: null,
-          newCommitsCheck: existing?.newCommitsCheck ?? null
+          newCommitsCheck: existing?.newCommitsCheck ?? null,
+          checksStatus: existing?.checksStatus ?? null,
+          reviewsStatus: existing?.reviewsStatus ?? null,
+          mergeableState: existing?.mergeableState ?? null,
+          lastPolled: existing?.lastPolled ?? null
         }
       }
     };
@@ -92,7 +119,11 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           result: null,
           previousResult: existing?.result ?? null,  // Preserve for follow-up continuity
           error: null,
-          newCommitsCheck: existing?.newCommitsCheck ?? null
+          newCommitsCheck: existing?.newCommitsCheck ?? null,
+          checksStatus: existing?.checksStatus ?? null,
+          reviewsStatus: existing?.reviewsStatus ?? null,
+          mergeableState: existing?.mergeableState ?? null,
+          lastPolled: existing?.lastPolled ?? null
         }
       }
     };
@@ -113,7 +144,11 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           result: existing?.result ?? null,
           previousResult: existing?.previousResult ?? null,
           error: null,
-          newCommitsCheck: existing?.newCommitsCheck ?? null
+          newCommitsCheck: existing?.newCommitsCheck ?? null,
+          checksStatus: existing?.checksStatus ?? null,
+          reviewsStatus: existing?.reviewsStatus ?? null,
+          mergeableState: existing?.mergeableState ?? null,
+          lastPolled: existing?.lastPolled ?? null
         }
       }
     };
@@ -136,7 +171,11 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           error: result.error ?? null,
           // Clear new commits check when review completes (it was just reviewed)
           // BUT preserve it during preload/refresh to avoid race condition
-          newCommitsCheck: options?.preserveNewCommitsCheck ? (existing?.newCommitsCheck ?? null) : null
+          newCommitsCheck: options?.preserveNewCommitsCheck ? (existing?.newCommitsCheck ?? null) : null,
+          checksStatus: existing?.checksStatus ?? null,
+          reviewsStatus: existing?.reviewsStatus ?? null,
+          mergeableState: existing?.mergeableState ?? null,
+          lastPolled: existing?.lastPolled ?? null
         }
       }
     };
@@ -157,7 +196,11 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           result: existing?.result ?? null,
           previousResult: existing?.previousResult ?? null,
           error,
-          newCommitsCheck: existing?.newCommitsCheck ?? null
+          newCommitsCheck: existing?.newCommitsCheck ?? null,
+          checksStatus: existing?.checksStatus ?? null,
+          reviewsStatus: existing?.reviewsStatus ?? null,
+          mergeableState: existing?.mergeableState ?? null,
+          lastPolled: existing?.lastPolled ?? null
         }
       }
     };
@@ -180,7 +223,11 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
             result: null,
             previousResult: null,
             error: null,
-            newCommitsCheck: check
+            newCommitsCheck: check,
+            checksStatus: null,
+            reviewsStatus: null,
+            mergeableState: null,
+            lastPolled: null
           }
         }
       };
@@ -200,6 +247,71 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
     const key = `${projectId}:${prNumber}`;
     const { [key]: _, ...rest } = state.prReviews;
     return { prReviews: rest };
+  }),
+
+  setPRStatus: (projectId: string, prNumber: number, status: {
+    checksStatus: ChecksStatus;
+    reviewsStatus: ReviewsStatus;
+    mergeableState: MergeableState;
+    lastPolled: string;
+  }) => set((state) => {
+    const key = `${projectId}:${prNumber}`;
+    const existing = state.prReviews[key];
+    if (!existing) {
+      // Create a minimal state if none exists
+      return {
+        prReviews: {
+          ...state.prReviews,
+          [key]: {
+            prNumber,
+            projectId,
+            isReviewing: false,
+            startedAt: null,
+            progress: null,
+            result: null,
+            previousResult: null,
+            error: null,
+            newCommitsCheck: null,
+            checksStatus: status.checksStatus,
+            reviewsStatus: status.reviewsStatus,
+            mergeableState: status.mergeableState,
+            lastPolled: status.lastPolled
+          }
+        }
+      };
+    }
+    return {
+      prReviews: {
+        ...state.prReviews,
+        [key]: {
+          ...existing,
+          checksStatus: status.checksStatus,
+          reviewsStatus: status.reviewsStatus,
+          mergeableState: status.mergeableState,
+          lastPolled: status.lastPolled
+        }
+      }
+    };
+  }),
+
+  clearPRStatus: (projectId: string, prNumber: number) => set((state) => {
+    const key = `${projectId}:${prNumber}`;
+    const existing = state.prReviews[key];
+    if (!existing) {
+      return state;
+    }
+    return {
+      prReviews: {
+        ...state.prReviews,
+        [key]: {
+          ...existing,
+          checksStatus: null,
+          reviewsStatus: null,
+          mergeableState: null,
+          lastPolled: null
+        }
+      }
+    };
   }),
 
   // Selectors
@@ -261,6 +373,21 @@ export function initializePRReviewListeners(): void {
       );
       // Clear all PR review state since the token has changed
       usePRReviewStore.setState({ prReviews: {} });
+    }
+  );
+
+  // Listen for PR status polling updates (CI checks, reviews, mergeability)
+  window.electronAPI.github.onPRStatusUpdate(
+    (update: PRStatusUpdate) => {
+      const { projectId, statuses } = update;
+      for (const status of statuses) {
+        store.setPRStatus(projectId, status.prNumber, {
+          checksStatus: status.checksStatus,
+          reviewsStatus: status.reviewsStatus,
+          mergeableState: status.mergeableState,
+          lastPolled: status.lastPolled ?? new Date().toISOString()
+        });
+      }
     }
   );
 
