@@ -77,6 +77,17 @@ export function usePostQaAutomation(options: PostQaAutomationOptions = {}) {
 
         // Trigger automation after a short delay to ensure state is settled
         const timeoutId = setTimeout(async () => {
+          // Re-validate task state before executing to prevent race conditions
+          const currentTask = tasks.find(t => t.id === task.id);
+          if (!currentTask ||
+              currentTask.status !== 'human_review' ||
+              currentTask.reviewReason !== 'completed' ||
+              currentTask.metadata?.postQaAction !== postQaAction) {
+            console.log(`[PostQaAutomation] Task ${task.id} state changed, skipping automation`);
+            processedTasks.current.delete(task.id);
+            return;
+          }
+
           try {
             if (postQaAction === 'auto_create_pr') {
               await handleAutoCreatePR(task, project, onAutomationProgress);

@@ -239,10 +239,8 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     // Always set attachedImages to persist removal when all images are deleted
     metadataUpdates.attachedImages = images.length > 0 ? images : [];
     metadataUpdates.requireReviewBeforeCoding = requireReviewBeforeCoding;
-    // Only set postQaAction if not the default
-    if (postQaAction !== 'do_nothing') {
-      metadataUpdates.postQaAction = postQaAction;
-    }
+    // Always set postQaAction to ensure we can clear it when set to 'do_nothing'
+    metadataUpdates.postQaAction = postQaAction;
 
     const success = await persistUpdateTask(task.id, {
       title: trimmedTitle,
