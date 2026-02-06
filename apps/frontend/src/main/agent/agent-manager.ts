@@ -155,8 +155,8 @@ export class AgentManager extends EventEmitter {
 
             totalScanned++;
 
-            // Reset stuck subtasks
-            const { success, resetCount } = await resetStuckSubtasks(planPath);
+            // Reset stuck subtasks (pass project.id to invalidate tasks cache)
+            const { success, resetCount } = await resetStuckSubtasks(planPath, project.id);
 
             if (success && resetCount > 0) {
               totalReset += resetCount;

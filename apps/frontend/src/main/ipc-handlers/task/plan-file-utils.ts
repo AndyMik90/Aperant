@@ -18,7 +18,7 @@
  */
 
 import path from 'path';
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, renameSync, unlinkSync } from 'fs';
 import { AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { TaskStatus, Project, Task } from '../../../shared/types';
 import { projectStore } from '../../project-store';
@@ -476,7 +476,16 @@ export async function resetStuckSubtasks(planPath: string, projectId?: string): 
       // Only write if we actually reset something
       if (resetCount > 0) {
         plan.updated_at = new Date().toISOString();
-        writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+        const content = JSON.stringify(plan, null, 2);
+        // Atomic write: write to temp file then rename to prevent corruption on crash
+        const tempPath = `${planPath}.${process.pid}.tmp`;
+        try {
+          writeFileSync(tempPath, content, 'utf-8');
+          renameSync(tempPath, planPath);
+        } catch (writeError) {
+          try { unlinkSync(tempPath); } catch { /* ignore cleanup */ }
+          throw writeError;
+        }
         console.warn(`[plan-file-utils] Successfully reset ${resetCount} stuck subtask(s) in implementation_plan.json`);
 
         // Invalidate tasks cache since subtask status changed

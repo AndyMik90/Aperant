@@ -175,7 +175,17 @@ async def run_qa_validation_loop(
 
         if fix_status == "error":
             debug_error("qa_loop", f"Fixer error: {fix_response[:200]}")
+            task_event_emitter.emit(
+                "QA_FIXING_FAILED",
+                {"iteration": 0, "error": fix_response[:200]},
+            )
             print(f"\n❌ Fixer encountered error: {fix_response}")
+            # Clean up fix request file to prevent re-processing on next run
+            try:
+                fix_request_file.unlink()
+                debug("qa_loop", "Removed QA_FIX_REQUEST.md after fixer error")
+            except OSError:
+                pass
             return False
 
         debug_success("qa_loop", "Human feedback fixes applied")

@@ -1051,6 +1051,7 @@ export function registerTaskExecutionHandlers(
           // Use shared utility to reset stuck subtasks in ALL plan file locations
           let totalResetCount = 0;
           let resetSucceeded = false;
+          let resetFailedCount = 0;
           for (const pathToUpdate of planPathsToUpdate) {
             try {
               const resetResult = await resetStuckSubtasks(pathToUpdate, project.id);
@@ -1060,8 +1061,11 @@ export function registerTaskExecutionHandlers(
                 if (resetResult.resetCount > 0) {
                   console.log(`[Recovery] Reset ${resetResult.resetCount} stuck subtask(s) in: ${pathToUpdate}`);
                 }
+              } else {
+                resetFailedCount++;
               }
             } catch (resetError) {
+              resetFailedCount++;
               console.error(`[Recovery] Failed to reset stuck subtasks at ${pathToUpdate}:`, resetError);
             }
           }
@@ -1071,6 +1075,10 @@ export function registerTaskExecutionHandlers(
               success: false,
               error: 'Failed to reset stuck subtasks during recovery'
             };
+          }
+
+          if (resetFailedCount > 0) {
+            console.warn(`[Recovery] Partial reset: ${totalResetCount} subtask(s) reset, but ${resetFailedCount} location(s) failed`);
           }
 
           console.log(`[Recovery] Total ${totalResetCount} subtask(s) reset across all locations`);
