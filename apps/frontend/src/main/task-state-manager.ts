@@ -131,7 +131,7 @@ export class TaskStateManager {
       case 'backlog':
         this.handleUiEvent(taskId, { type: 'USER_STOPPED', hasPlan: false }, task, project);
         return true;
-      case 'human_review':
+      case 'human_review': {
         // IMPORTANT: Must persist status to file, not just emit!
         // Previously this only emitted the status event, causing the file to have stale data.
         // Now we persist the status to ensure the implementation_plan.json is updated.
@@ -141,6 +141,7 @@ export class TaskStateManager {
         this.persistStatus(task, project, 'human_review', reviewReason, xstateState, executionPhase);
         this.emitStatus(taskId, 'human_review', reviewReason, project.id);
         return true;
+      }
       default:
         return false;
     }

@@ -34,7 +34,7 @@ def save_implementation_plan(spec_dir: Path, plan: dict) -> bool:
 
     # Read existing file to preserve frontend fields (status, planStatus, etc.)
     try:
-        with open(plan_file, "r", encoding="utf-8") as f:
+        with open(plan_file, encoding="utf-8") as f:
             existing = json.load(f)
     except (OSError, json.JSONDecodeError):
         existing = {}
