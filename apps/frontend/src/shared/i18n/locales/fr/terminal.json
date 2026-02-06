@@ -38,6 +38,8 @@
     "openInIDE": "Ouvrir dans IDE",
     "maxReached": "Maximum de 12 worktrees terminal atteint",
     "alreadyExists": "Un worktree avec ce nom existe deja",
+    "searchPlaceholder": "Rechercher des worktrees...",
+    "noResults": "Aucun worktree trouvé",
     "deleteTitle": "Supprimer le Worktree?",
     "deleteDescription": "Ceci supprimera definitivement le worktree et sa branche. Les modifications non committées seront perdues.",
     "detached": "(détaché)"
