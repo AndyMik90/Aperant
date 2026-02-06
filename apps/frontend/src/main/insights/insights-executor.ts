@@ -15,6 +15,11 @@ import { InsightsConfig } from './config';
 import { detectRateLimit, createSDKRateLimitInfo } from '../rate-limit-detector';
 
 /**
+ * CLI flag for YOLO mode (dangerously skip permissions)
+ */
+const YOLO_MODE_FLAG = '--dangerously-skip-permissions';
+
+/**
  * Message processor result
  */
 interface ProcessorResult {
@@ -63,7 +68,8 @@ export class InsightsExecutor extends EventEmitter {
     projectPath: string,
     message: string,
     conversationHistory: Array<{ role: string; content: string }>,
-    modelConfig?: InsightsModelConfig
+    modelConfig?: InsightsModelConfig,
+    dangerouslySkipPermissions?: boolean
   ): Promise<ProcessorResult> {
     // Cancel any existing session
     this.cancelSession(projectId);
@@ -115,6 +121,11 @@ export class InsightsExecutor extends EventEmitter {
       const modelId = MODEL_ID_MAP[modelConfig.model] || MODEL_ID_MAP['sonnet'];
       args.push('--model', modelId);
       args.push('--thinking-level', modelConfig.thinkingLevel);
+    }
+
+    // Add YOLO mode flag if dangerouslySkipPermissions is enabled
+    if (dangerouslySkipPermissions) {
+      args.push(YOLO_MODE_FLAG);
     }
 
     // Spawn Python process

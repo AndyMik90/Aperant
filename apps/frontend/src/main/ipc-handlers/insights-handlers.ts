@@ -23,6 +23,7 @@ import type {
 import { projectStore } from "../project-store";
 import { insightsService } from "../insights-service";
 import { safeSendToRenderer } from "./utils";
+import { readSettingsFileAsync } from "../settings-utils";
 
 /**
  * Read insights feature settings from the settings file
@@ -107,12 +108,16 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         thinkingLevel: configWithSettings.thinkingLevel,
       });
 
+      // Read settings asynchronously to check for YOLO mode (dangerously skip permissions)
+      const settings = await readSettingsFileAsync();
+      const dangerouslySkipPermissions = settings?.dangerouslySkipPermissions === true;
+
       // Await the async sendMessage to ensure proper error handling and
       // that all async operations (like getProcessEnv) complete before
       // the handler returns. This fixes race conditions on Windows where
       // environment setup wouldn't complete before process spawn.
       try {
-        await insightsService.sendMessage(projectId, project.path, message, configWithSettings);
+        await insightsService.sendMessage(projectId, project.path, message, configWithSettings, dangerouslySkipPermissions);
       } catch (error) {
         // Errors during sendMessage (executor errors) are already emitted via
         // the 'error' event, but we catch here to prevent unhandled rejection

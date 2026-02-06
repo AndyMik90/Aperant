@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
-Insights Runner - AI chat for codebase insights using Claude SDK
+Insights Runner - Interactive codebase Q&A with Claude SDK
 
-This script provides an AI-powered chat interface for asking questions
-about a codebase. It can also suggest tasks based on the conversation.
+A chat interface for exploring and understanding codebases using Claude Agent SDK.
+Provides conversational AI assistance for code analysis, architecture questions,
+and technical documentation.
+
+Usage:
+    python insights_runner.py <project_dir> --message "Your question here"
+    python insights_runner.py <project_dir> --history-file <path_to_history.json>
 """
 
 import argparse
@@ -15,117 +20,77 @@ from pathlib import Path
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Validate platform-specific dependencies BEFORE any imports that might
-# trigger graphiti_core -> real_ladybug -> pywintypes import chain (ACS-253)
-from core.dependency_validator import validate_platform_dependencies
-
-validate_platform_dependencies()
-
-# Load .env file with centralized error handling
-from cli.utils import import_dotenv
-
-load_dotenv = import_dotenv()
-
-env_file = Path(__file__).parent.parent / ".env"
-if env_file.exists():
-    load_dotenv(env_file)
-
 try:
     from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
     SDK_AVAILABLE = True
 except ImportError:
     SDK_AVAILABLE = False
-    ClaudeAgentOptions = None
-    ClaudeSDKClient = None
+    print("Warning: Claude SDK not available", file=sys.stderr)
 
 from core.auth import ensure_claude_code_oauth_token, get_auth_token
-from debug import (
-    debug,
-    debug_detailed,
-    debug_error,
-    debug_section,
-    debug_success,
-)
-from phase_config import get_thinking_budget, resolve_model_id
+from integrations.models import resolve_model_id
+from utils.logging import debug, debug_error, debug_success
 
 
-def load_project_context(project_dir: str) -> str:
-    """Load project context for the AI."""
-    context_parts = []
+def get_thinking_budget(thinking_level: str) -> int | None:
+    """Convert thinking level string to token budget.
 
-    # Load project index if available (from .auto-claude - the installed instance)
-    index_path = Path(project_dir) / ".auto-claude" / "project_index.json"
-    if index_path.exists():
-        try:
-            with open(index_path, encoding="utf-8") as f:
-                index = json.load(f)
-            # Summarize the index for context
-            summary = {
-                "project_root": index.get("project_root", ""),
-                "project_type": index.get("project_type", "unknown"),
-                "services": list(index.get("services", {}).keys()),
-                "infrastructure": index.get("infrastructure", {}),
-            }
-            context_parts.append(
-                f"## Project Structure\n```json\n{json.dumps(summary, indent=2)}\n```"
-            )
-        except Exception:
-            pass
+    Args:
+        thinking_level: One of "none", "low", "medium", "high", or "ultrathink"
 
-    # Load roadmap if available
-    roadmap_path = Path(project_dir) / ".auto-claude" / "roadmap" / "roadmap.json"
-    if roadmap_path.exists():
-        try:
-            with open(roadmap_path, encoding="utf-8") as f:
-                roadmap = json.load(f)
-            # Summarize roadmap
-            features = roadmap.get("features", [])
-            feature_summary = [
-                {"title": f.get("title", ""), "status": f.get("status", "")}
-                for f in features[:10]
-            ]
-            context_parts.append(
-                f"## Roadmap Features\n```json\n{json.dumps(feature_summary, indent=2)}\n```"
-            )
-        except Exception:
-            pass
+    Returns:
+        Token budget integer, or None if thinking_level is "none"
 
-    # Load existing tasks
-    tasks_path = Path(project_dir) / ".auto-claude" / "specs"
-    if tasks_path.exists():
-        try:
-            task_dirs = [d for d in tasks_path.iterdir() if d.is_dir()]
-            task_names = [d.name for d in task_dirs[:10]]
-            if task_names:
-                context_parts.append(
-                    "## Existing Tasks/Specs\n- " + "\n- ".join(task_names)
-                )
-        except Exception:
-            pass
+    Raises:
+        ValueError: If thinking_level is not a valid option
+    """
+    THINKING_BUDGETS = {
+        "none": None,
+        "low": 5000,
+        "medium": 10000,
+        "high": 16000,
+        "ultrathink": 16000,  # Max budget
+    }
 
-    return (
-        "\n\n".join(context_parts)
-        if context_parts
-        else "No project context available yet."
-    )
+    if thinking_level not in THINKING_BUDGETS:
+        raise ValueError(
+            f"Invalid thinking level: {thinking_level}. "
+            f"Valid options: {', '.join(THINKING_BUDGETS.keys())}"
+        )
+
+    return THINKING_BUDGETS[thinking_level]
 
 
 def build_system_prompt(project_dir: str) -> str:
-    """Build the system prompt for the insights agent."""
-    context = load_project_context(project_dir)
+    """Build the system prompt for the insights agent.
 
-    return f"""You are an AI assistant helping developers understand and work with their codebase.
-You have access to the following project context:
+    Args:
+        project_dir: Path to the project directory to analyze
 
-{context}
+    Returns:
+        Formatted system prompt string with project context
+    """
+    return f"""You are an expert code analysis assistant helping users understand and explore a codebase.
 
-Your capabilities:
-1. Answer questions about the codebase structure, patterns, and architecture
-2. Suggest improvements, features, or bug fixes based on the code
-3. Help plan implementation of new features
-4. Provide code examples and explanations
+Project location: {project_dir}
 
+Your role is to:
+- Answer questions about code structure, patterns, and architecture
+- Explain how specific features or modules work
+- Help locate relevant code for specific functionality
+- Provide insights about code organization and best practices
+- Suggest improvements when asked
+- Create tasks when appropriate (see task suggestion format below)
+
+Guidelines:
+- Use Read, Glob, and Grep tools to explore the codebase
+- Provide specific file paths and line numbers when referencing code
+- Explain technical concepts clearly and concisely
+- When unsure, explore the codebase to find accurate information
+- Focus on facts from the actual code, not assumptions
+
+Task Suggestions:
 When the user asks you to create a task, wants to turn the conversation into a task, or when you believe creating a task would be helpful, output a task suggestion in this exact format on a SINGLE LINE:
 __TASK_SUGGESTION__:{{"title": "Task title here", "description": "Detailed description of what the task involves", "metadata": {{"category": "feature", "complexity": "medium", "impact": "medium"}}}}
 
@@ -143,8 +108,21 @@ async def run_with_sdk(
     history: list,
     model: str = "sonnet",  # Shorthand - resolved via API Profile if configured
     thinking_level: str = "medium",
+    dangerously_skip_permissions: bool = False,
 ) -> None:
-    """Run the chat using Claude SDK with streaming."""
+    """Run the chat using Claude SDK with streaming.
+
+    Args:
+        project_dir: Path to the project directory to analyze
+        message: The user's message/question
+        history: List of previous messages in the conversation
+        model: Model name to use (default: "sonnet")
+        thinking_level: Extended reasoning level (default: "medium")
+        dangerously_skip_permissions: If True, bypasses all permission checks (DANGEROUS)
+
+    Raises:
+        Exception: If SDK initialization or query execution fails
+    """
     if not SDK_AVAILABLE:
         print("Claude SDK not available, falling back to simple mode", file=sys.stderr)
         run_simple(project_dir, message, history)
@@ -187,6 +165,7 @@ Current question: {message}"""
         model=model,
         thinking_level=thinking_level,
         max_thinking_tokens=max_thinking_tokens,
+        dangerously_skip_permissions=dangerously_skip_permissions,
     )
 
     try:
@@ -203,6 +182,17 @@ Current question: {message}"""
         if max_thinking_tokens is not None:
             options_kwargs["max_thinking_tokens"] = max_thinking_tokens
 
+        # Configure permission mode based on YOLO setting
+        if dangerously_skip_permissions:
+            debug("insights_runner", "YOLO mode enabled - bypassing all permissions")
+            options_kwargs["permissionMode"] = "bypassPermissions"
+            options_kwargs["allowDangerouslySkipPermissions"] = True
+        else:
+            debug(
+                "insights_runner", "Standard mode - using acceptEdits permission mode"
+            )
+            options_kwargs["permissionMode"] = "acceptEdits"
+
         # Create Claude SDK client with appropriate settings for insights
         client = ClaudeSDKClient(options=ClaudeAgentOptions(**options_kwargs))
 
@@ -213,145 +203,114 @@ Current question: {message}"""
 
             # Stream the response
             response_text = ""
-            current_tool = None
+            task_suggestions = []
 
-            async for msg in client.receive_response():
-                msg_type = type(msg).__name__
-                debug_detailed("insights_runner", "Received message", msg_type=msg_type)
-
-                if msg_type == "AssistantMessage" and hasattr(msg, "content"):
-                    for block in msg.content:
-                        block_type = type(block).__name__
-                        debug_detailed(
-                            "insights_runner", "Processing block", block_type=block_type
-                        )
-                        if block_type == "TextBlock" and hasattr(block, "text"):
-                            text = block.text
-                            debug_detailed(
-                                "insights_runner", "Text block", text_length=len(text)
-                            )
-                            # Print text with newline to ensure proper line separation for parsing
-                            print(text, flush=True)
-                            response_text += text
-                        elif block_type == "ToolUseBlock" and hasattr(block, "name"):
-                            # Emit tool start marker for UI feedback
-                            tool_name = block.name
-                            tool_input = ""
-
-                            # Extract a brief description of what the tool is doing
-                            if hasattr(block, "input") and block.input:
-                                inp = block.input
-                                if isinstance(inp, dict):
-                                    if "pattern" in inp:
-                                        tool_input = f"pattern: {inp['pattern']}"
-                                    elif "file_path" in inp:
-                                        # Shorten path for display
-                                        fp = inp["file_path"]
-                                        if len(fp) > 50:
-                                            fp = "..." + fp[-47:]
-                                        tool_input = fp
-                                    elif "path" in inp:
-                                        tool_input = inp["path"]
-
-                            current_tool = tool_name
-                            print(
-                                f"__TOOL_START__:{json.dumps({'name': tool_name, 'input': tool_input})}",
-                                flush=True,
+            async for chunk in client.stream():
+                # Track content for task extraction
+                if hasattr(chunk, "text"):
+                    response_text += chunk.text
+                    # Look for task suggestions
+                    if "__TASK_SUGGESTION__:" in chunk.text:
+                        try:
+                            # Extract JSON after the marker
+                            marker_pos = chunk.text.find("__TASK_SUGGESTION__:")
+                            json_start = marker_pos + len("__TASK_SUGGESTION__:")
+                            # Find the end of the JSON (assume it's on one line)
+                            json_end = chunk.text.find("\n", json_start)
+                            if json_end == -1:
+                                json_end = len(chunk.text)
+                            task_json = chunk.text[json_start:json_end].strip()
+                            task_data = json.loads(task_json)
+                            task_suggestions.append(task_data)
+                        except json.JSONDecodeError as e:
+                            debug_error(
+                                "insights_runner",
+                                "Failed to parse task suggestion JSON",
+                                error=str(e),
                             )
 
-                elif msg_type == "ToolResult":
-                    # Tool finished executing
-                    if current_tool:
-                        print(
-                            f"__TOOL_END__:{json.dumps({'name': current_tool})}",
-                            flush=True,
-                        )
-                        current_tool = None
+                # Print the chunk to stdout for the frontend to capture
+                print(
+                    json.dumps({"type": "chunk", "data": chunk.model_dump()}),
+                    flush=True,
+                )
 
-            # Ensure we have a newline at the end
-            if response_text and not response_text.endswith("\n"):
-                print()
-
-            debug(
-                "insights_runner",
-                "Response complete",
-                response_length=len(response_text),
-            )
+            # Send task suggestions if any were found
+            if task_suggestions:
+                debug(
+                    "insights_runner",
+                    "Found task suggestions",
+                    count=len(task_suggestions),
+                )
+                print(
+                    json.dumps({"type": "task_suggestions", "data": task_suggestions}),
+                    flush=True,
+                )
 
     except Exception as e:
-        print(f"Error using Claude SDK: {e}", file=sys.stderr)
+        debug_error(
+            "insights_runner",
+            "SDK query failed, falling back to simple mode",
+            error=str(e),
+        )
+
         import traceback
 
         traceback.print_exc(file=sys.stderr)
         run_simple(project_dir, message, history)
 
+    debug_success("insights_runner", "Query completed")
+
 
 def run_simple(project_dir: str, message: str, history: list) -> None:
-    """Simple fallback mode without SDK - uses subprocess to call claude CLI."""
-    import subprocess
+    """Fallback simple response when SDK is unavailable.
 
-    system_prompt = build_system_prompt(project_dir)
-
-    # Build conversation context
-    conversation_context = ""
-    for msg in history[:-1]:
-        role = "User" if msg.get("role") == "user" else "Assistant"
-        conversation_context += f"\n{role}: {msg['content']}\n"
-
-    # Create the full prompt
-    full_prompt = f"""{system_prompt}
-
-Previous conversation:
-{conversation_context}
-
-User: {message}
-Assistant:"""
-
-    try:
-        # Try to use claude CLI with --print for simple output
-        result = subprocess.run(
-            ["claude", "--print", "-p", full_prompt],
-            capture_output=True,
-            text=True,
-            cwd=project_dir,
-            timeout=120,
-        )
-
-        if result.returncode == 0:
-            print(result.stdout)
-        else:
-            # Fallback response if claude CLI fails
-            print(
-                f"I apologize, but I encountered an issue processing your request. "
-                f"Please ensure Claude CLI is properly configured.\n\n"
-                f"Your question was: {message}\n\n"
-                f"Based on the project context available, I can help you with:\n"
-                f"- Understanding the codebase structure\n"
-                f"- Suggesting improvements\n"
-                f"- Planning new features\n\n"
-                f"Please try again or check your Claude CLI configuration."
+    Args:
+        project_dir: Path to the project directory
+        message: The user's message
+        history: List of previous messages in the conversation
+    """
+    response = {
+        "type": "simple_response",
+        "data": {
+            "content": (
+                "I'm currently unable to access the Claude SDK for code analysis. "
+                "This could be due to:\n"
+                "1. Missing authentication token (run `claude` and type `/login`)\n"
+                "2. Claude SDK package not installed\n"
+                "3. Network connectivity issues\n\n"
+                "Please check your configuration and try again."
             )
-
-    except subprocess.TimeoutExpired:
-        print("Request timed out. Please try a shorter query.")
-    except FileNotFoundError:
-        print("Claude CLI not found. Please ensure it is installed and in your PATH.")
-    except Exception as e:
-        print(f"Error: {e}")
+        },
+    }
+    print(json.dumps(response), flush=True)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Insights AI Chat Runner")
-    parser.add_argument("--project-dir", required=True, help="Project directory path")
-    parser.add_argument("--message", required=True, help="User message")
-    parser.add_argument("--history", default="[]", help="JSON conversation history")
+    """CLI entry point for insights runner.
+
+    Parses command-line arguments and initiates the insights query.
+    """
+    parser = argparse.ArgumentParser(
+        description="Insights Chat - Interactive codebase Q&A with Claude SDK"
+    )
     parser.add_argument(
-        "--history-file", help="Path to JSON file containing conversation history"
+        "project_dir",
+        help="Project directory to analyze",
+    )
+    parser.add_argument(
+        "--message",
+        required=True,
+        help="User message/question",
+    )
+    parser.add_argument(
+        "--history-file",
+        help="JSON file containing conversation history",
     )
     parser.add_argument(
         "--model",
         default="sonnet",
-        help="Model to use (haiku, sonnet, opus, or full model ID)",
+        help="Model to use (default: sonnet)",
     )
     parser.add_argument(
         "--thinking-level",
@@ -359,50 +318,37 @@ def main():
         choices=["none", "low", "medium", "high", "ultrathink"],
         help="Thinking level for extended reasoning (default: medium)",
     )
-    args = parser.parse_args()
-
-    debug_section("insights_runner", "Starting Insights Chat")
-
-    project_dir = args.project_dir
-    user_message = args.message
-    model = args.model
-    thinking_level = args.thinking_level
-
-    debug(
-        "insights_runner",
-        "Arguments",
-        project_dir=project_dir,
-        message_length=len(user_message),
-        model=model,
-        thinking_level=thinking_level,
+    parser.add_argument(
+        "--dangerously-skip-permissions",
+        action="store_true",
+        help="DANGEROUS: Bypasses all filesystem permission checks. Only use in fully trusted environments where you control the code being executed. This gives the AI unrestricted file system access.",
     )
 
-    # Load history from file if provided, otherwise parse inline JSON
-    try:
-        if args.history_file:
-            debug(
-                "insights_runner", "Loading history from file", file=args.history_file
-            )
-            with open(args.history_file, encoding="utf-8") as f:
-                history = json.load(f)
-            debug_detailed(
-                "insights_runner",
-                "Loaded history from file",
-                history_length=len(history),
-            )
-        else:
-            history = json.loads(args.history)
-            debug_detailed(
-                "insights_runner", "Parsed inline history", history_length=len(history)
-            )
-    except (json.JSONDecodeError, FileNotFoundError, OSError) as e:
-        debug_error("insights_runner", f"Failed to load history: {e}")
-        history = []
+    args = parser.parse_args()
 
-    # Run the async SDK function
-    debug("insights_runner", "Running SDK query")
-    asyncio.run(run_with_sdk(project_dir, user_message, history, model, thinking_level))
-    debug_success("insights_runner", "Query completed")
+    # Load history if provided
+    history = []
+    if args.history_file:
+        try:
+            with open(args.history_file) as f:
+                history = json.load(f)
+        except Exception as e:
+            print(f"Warning: Failed to load history file: {e}", file=sys.stderr)
+
+    # Add current message to history
+    history.append({"role": "user", "content": args.message})
+
+    # Run the query
+    asyncio.run(
+        run_with_sdk(
+            args.project_dir,
+            args.message,
+            history,
+            args.model,
+            args.thinking_level,
+            args.dangerously_skip_permissions,
+        )
+    )
 
 
 if __name__ == "__main__":

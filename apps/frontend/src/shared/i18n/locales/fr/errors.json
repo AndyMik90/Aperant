@@ -5,5 +5,8 @@
       "titleSuffix": "(Erreur JSON)",
       "description": "⚠️ Erreur d'analyse JSON : {{error}}\n\nLe fichier implementation_plan.json est malformé. Exécutez la correction automatique du backend ou réparez le fichier manuellement."
     }
+  },
+  "insights": {
+    "sendMessageFailed": "Échec de l'envoi du message : {{error}}"
   }
 }

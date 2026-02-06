@@ -116,7 +116,8 @@ export class InsightsService extends EventEmitter {
     projectId: string,
     projectPath: string,
     message: string,
-    modelConfig?: InsightsModelConfig
+    modelConfig?: InsightsModelConfig,
+    dangerouslySkipPermissions?: boolean
   ): Promise<void> {
     // Cancel any existing session
     this.executor.cancelSession(projectId);
@@ -166,7 +167,8 @@ export class InsightsService extends EventEmitter {
         projectPath,
         message,
         conversationHistory,
-        configToUse
+        configToUse,
+        dangerouslySkipPermissions
       );
 
       // Add assistant message to session
