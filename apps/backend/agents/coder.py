@@ -69,6 +69,7 @@ from .base import (
     MAX_CONCURRENCY_RETRIES,
     MAX_RATE_LIMIT_WAIT_SECONDS,
     MAX_RETRY_DELAY_SECONDS,
+    MAX_SUBTASK_RETRIES,
     RATE_LIMIT_CHECK_INTERVAL_SECONDS,
     RATE_LIMIT_PAUSE_FILE,
     RESUME_FILE,
@@ -85,11 +86,6 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Retry configuration for subtask execution
-MAX_SUBTASK_RETRIES = (
-    5  # Maximum number of retry attempts before marking subtask as stuck
-)
 
 
 # =============================================================================
@@ -114,8 +110,12 @@ def validate_subtask_files(subtask: dict, project_dir: Path) -> dict:
     """
     missing_files = []
 
+    resolved_project = Path(project_dir).resolve()
     for file_path in subtask.get("files_to_modify", []):
-        full_path = Path(project_dir) / file_path
+        full_path = (resolved_project / file_path).resolve()
+        if not full_path.is_relative_to(resolved_project):
+            missing_files.append(file_path)
+            continue
         if not full_path.exists():
             missing_files.append(file_path)
 
@@ -673,8 +673,9 @@ async def run_autonomous_agent(
                 # Record the validation failure in recovery manager
                 recovery_manager.record_attempt(
                     subtask_id=subtask_id,
-                    session_num=iteration,
-                    status="failed",
+                    session=iteration,
+                    success=False,
+                    approach="File validation failed before execution",
                     error=error_msg,
                 )
 
@@ -682,6 +683,23 @@ async def run_autonomous_agent(
                 if task_logger:
                     task_logger.log_error(
                         f"File validation failed: {error_msg}", LogPhase.CODING
+                    )
+
+                # Check if subtask has exceeded max retries
+                attempt_count = recovery_manager.get_attempt_count(subtask_id)
+                if attempt_count >= MAX_SUBTASK_RETRIES:
+                    recovery_manager.mark_subtask_stuck(
+                        subtask_id,
+                        f"File validation failed after {attempt_count} attempts: {error_msg}",
+                    )
+                    print_status(
+                        f"Subtask {subtask_id} marked as STUCK after {attempt_count} failed validation attempts",
+                        "error",
+                    )
+                    print(
+                        muted(
+                            "Consider: update implementation plan with correct filenames"
+                        )
                     )
 
                 # Update status
