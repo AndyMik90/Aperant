@@ -5,7 +5,8 @@
   },
   "resume": {
     "pending": "Resume Available",
-    "pendingTooltip": "Click to resume previous Claude session"
+    "pendingTooltip": "Click to resume previous Claude session",
+    "resumeAllSessions": "Resume All"
   },
   "auth": {
     "terminalTitle": "Auth: {{profileName}}",
@@ -42,6 +43,8 @@
     "noResults": "No worktrees found",
     "deleteTitle": "Delete Worktree?",
     "deleteDescription": "This will permanently delete the worktree and its branch. Any uncommitted changes will be lost.",
-    "detached": "(detached)"
+    "detached": "(detached)",
+    "remotePushFailed": "Remote Tracking Not Set Up",
+    "remotePushFailedDescription": "Worktree created but the branch could not be pushed to remote. You may need to run git push -u manually."
   }
 }
