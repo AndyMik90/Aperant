@@ -90,8 +90,6 @@ export async function deleteProfile(id: string): Promise<void> {
     throw new Error('Profile not found');
   }
 
-  const profile = file.profiles[profileIndex];
-
   // Active Profile Check: Cannot delete active profile (AC3)
   if (file.activeProfileId === id) {
     throw new Error('Cannot delete active profile. Please switch to another profile or OAuth first.');

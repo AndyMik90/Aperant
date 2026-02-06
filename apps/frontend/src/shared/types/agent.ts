@@ -231,6 +231,9 @@ export interface ClaudeAutoSwitchSettings {
   // Reactive recovery
   /** Whether to automatically switch on unexpected rate limit (vs. prompting user) */
   autoSwitchOnRateLimit: boolean;
+
+  /** Whether to automatically switch on authentication failure (vs. prompting user) */
+  autoSwitchOnAuthFailure: boolean;
 }
 
 export interface ClaudeAuthResult {

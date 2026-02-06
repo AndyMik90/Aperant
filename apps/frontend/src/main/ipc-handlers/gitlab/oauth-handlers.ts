@@ -248,13 +248,13 @@ export function registerStartGlabAuth(): void {
             env: getAugmentedEnv()
           });
 
-          let output = '';
+          let _output = '';
           let errorOutput = '';
           let browserOpened = false;
 
           glabProcess.stdout?.on('data', (data) => {
             const chunk = data.toString('utf-8');
-            output += chunk;
+            _output += chunk;
             debugLog('glab stdout:', chunk);
 
             // Try to open browser if URL detected

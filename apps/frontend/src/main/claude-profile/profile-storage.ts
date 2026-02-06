@@ -26,6 +26,7 @@ export const DEFAULT_AUTO_SWITCH_SETTINGS: ClaudeAutoSwitchSettings = {
   sessionThreshold: 95,  // Consider switching at 95% session usage
   weeklyThreshold: 99,   // Consider switching at 99% weekly usage
   autoSwitchOnRateLimit: false,  // Prompt user by default
+  autoSwitchOnAuthFailure: false,  // Prompt user by default on auth failures
   usageCheckInterval: 30000  // Check every 30s when enabled (0 = disabled)
 };
 

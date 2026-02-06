@@ -72,7 +72,7 @@ export class SpecNumberLock {
           const pidStr = readFileSync(this.lockFile, 'utf-8').trim();
           const pid = parseInt(pidStr, 10);
 
-          if (!isNaN(pid) && !this.isProcessRunning(pid)) {
+          if (!Number.isNaN(pid) && !this.isProcessRunning(pid)) {
             // Stale lock - remove it
             try {
               unlinkSync(this.lockFile);
@@ -194,7 +194,7 @@ export class SpecNumberLock {
           const match = entry.name.match(/^(\d{3})-/);
           if (match) {
             const num = parseInt(match[1], 10);
-            if (!isNaN(num)) {
+            if (!Number.isNaN(num)) {
               maxNum = Math.max(maxNum, num);
             }
           }
