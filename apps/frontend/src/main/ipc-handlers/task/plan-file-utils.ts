@@ -461,11 +461,12 @@ export async function resetStuckSubtasks(planPath: string, projectId?: string): 
               // Only reset subtasks that are stuck (in_progress or failed)
               // NEVER reset completed subtasks to avoid redoing work
               if (subtask.status === 'in_progress' || subtask.status === 'failed') {
+                const originalStatus = subtask.status;
                 subtask.status = 'pending';
                 subtask.started_at = null;
                 subtask.completed_at = null;
                 resetCount++;
-                console.warn(`[plan-file-utils] Reset subtask ${subtask.id} from ${subtask.status} to pending`);
+                console.warn(`[plan-file-utils] Reset subtask ${subtask.id} from ${originalStatus} to pending`);
               }
             }
           }

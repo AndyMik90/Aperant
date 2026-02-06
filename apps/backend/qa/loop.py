@@ -255,7 +255,7 @@ async def run_qa_validation_loop(
 
         async with client:
             debug("qa_loop", "Running QA reviewer agent session...")
-            status, response = await run_qa_agent_session(
+            status, response, _error_info = await run_qa_agent_session(
                 client,
                 project_dir,  # Pass project_dir for capability-based tool injection
                 spec_dir,

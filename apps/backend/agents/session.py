@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 
 from claude_agent_sdk import ClaudeSDKClient
+from core.error_utils import is_tool_concurrency_error
 from core.file_utils import write_json_atomic
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from insight_extractor import extract_session_insights
@@ -47,26 +48,36 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
-def is_tool_concurrency_error(error: Exception) -> bool:
-    """
-    Check if an error is a 400 tool concurrency error from Claude API.
+def _execute_recovery_action(
+    recovery_action,
+    recovery_manager: RecoveryManager,
+    spec_dir: Path,
+    project_dir: Path,
+    subtask_id: str,
+) -> None:
+    """Execute a recovery action (rollback/retry/skip/escalate)."""
+    if not recovery_action:
+        return
 
-    Tool concurrency errors occur when too many tools are used simultaneously
-    in a single API request, hitting Claude's concurrent tool use limit.
+    print_status(f"Recovery action: {recovery_action.action}", "info")
+    print_status(f"Reason: {recovery_action.reason}", "info")
 
-    Args:
-        error: The exception to check
+    if recovery_action.action == "rollback":
+        print_status(f"Rolling back to {recovery_action.target[:8]}", "warning")
+        if recovery_manager.rollback_to_commit(recovery_action.target):
+            print_status("Rollback successful", "success")
+        else:
+            print_status("Rollback failed", "error")
 
-    Returns:
-        True if this is a tool concurrency error, False otherwise
-    """
-    error_str = str(error).lower()
-    # Check for 400 status AND tool concurrency keywords
-    return "400" in error_str and (
-        ("tool" in error_str and "concurrency" in error_str)
-        or "too many tools" in error_str
-        or "concurrent tool" in error_str
-    )
+    elif recovery_action.action == "retry":
+        print_status(f"Resetting subtask {subtask_id} for retry", "info")
+        reset_subtask(spec_dir, project_dir, subtask_id)
+        print_status("Subtask reset - will retry with different approach", "success")
+
+    elif recovery_action.action in ("skip", "escalate"):
+        print_status(f"Marking subtask {subtask_id} as stuck", "warning")
+        recovery_manager.mark_subtask_stuck(subtask_id, recovery_action.reason)
+        print_status("Subtask marked for human intervention", "warning")
 
 
 async def post_session_processing(
@@ -232,8 +243,7 @@ async def post_session_processing(
 
         # Check if this was a rate limit error - if so, reset subtask to pending for retry
         is_rate_limit_error = (
-            error_info
-            and error_info.get("type") == "tool_concurrency"
+            error_info and error_info.get("type") == "tool_concurrency"
         )
 
         if is_rate_limit_error:
@@ -271,13 +281,14 @@ async def post_session_processing(
                             f"Subtask {subtask_id} reset to pending status", "success"
                         )
                     except Exception as e:
-                        logger.error(f"Failed to save implementation plan after reset: {e}")
-                        print_status(
-                            "Failed to save plan after reset", "error"
+                        logger.error(
+                            f"Failed to save implementation plan after reset: {e}"
                         )
+                        print_status("Failed to save plan after reset", "error")
                 else:
                     print_status(
-                        f"Warning: Could not find subtask {subtask_id} in plan", "warning"
+                        f"Warning: Could not find subtask {subtask_id} in plan",
+                        "warning",
                     )
             else:
                 print_status(
@@ -285,7 +296,11 @@ async def post_session_processing(
                 )
         else:
             # Non-rate-limit error - use automatic recovery flow
-            error_message = error_info.get("message", "Subtask not marked as completed") if error_info else "Subtask not marked as completed"
+            error_message = (
+                error_info.get("message", "Subtask not marked as completed")
+                if error_info
+                else "Subtask not marked as completed"
+            )
 
             recovery_action = check_and_recover(
                 spec_dir=spec_dir,
@@ -293,30 +308,9 @@ async def post_session_processing(
                 subtask_id=subtask_id,
                 error=error_message,
             )
-
-            if recovery_action:
-                print_status(f"Recovery action: {recovery_action.action}", "info")
-                print_status(f"Reason: {recovery_action.reason}", "info")
-
-                if recovery_action.action == "rollback":
-                    # Rollback to last good commit
-                    print_status(f"Rolling back to {recovery_action.target[:8]}", "warning")
-                    if recovery_manager.rollback_to_commit(recovery_action.target):
-                        print_status("Rollback successful", "success")
-                    else:
-                        print_status("Rollback failed", "error")
-
-                elif recovery_action.action == "retry":
-                    # Reset subtask for retry with different approach
-                    print_status(f"Resetting subtask {subtask_id} for retry", "info")
-                    reset_subtask(spec_dir, project_dir, subtask_id)
-                    print_status("Subtask reset - will retry with different approach", "success")
-
-                elif recovery_action.action in ("skip", "escalate"):
-                    # Mark subtask as stuck for human intervention
-                    print_status(f"Marking subtask {subtask_id} as stuck", "warning")
-                    recovery_manager.mark_subtask_stuck(subtask_id, recovery_action.reason)
-                    print_status("Subtask marked for human intervention", "warning")
+            _execute_recovery_action(
+                recovery_action, recovery_manager, spec_dir, project_dir, subtask_id
+            )
 
         # Still record commit if one was made (partial progress)
         if commit_after and commit_after != commit_before:
@@ -392,30 +386,9 @@ async def post_session_processing(
             subtask_id=subtask_id,
             error=error_message,
         )
-
-        if recovery_action:
-            print_status(f"Recovery action: {recovery_action.action}", "info")
-            print_status(f"Reason: {recovery_action.reason}", "info")
-
-            if recovery_action.action == "rollback":
-                # Rollback to last good commit
-                print_status(f"Rolling back to {recovery_action.target[:8]}", "warning")
-                if recovery_manager.rollback_to_commit(recovery_action.target):
-                    print_status("Rollback successful", "success")
-                else:
-                    print_status("Rollback failed", "error")
-
-            elif recovery_action.action == "retry":
-                # Reset subtask for retry with different approach
-                print_status(f"Resetting subtask {subtask_id} for retry", "info")
-                reset_subtask(spec_dir, project_dir, subtask_id)
-                print_status("Subtask reset - will retry with different approach", "success")
-
-            elif recovery_action.action in ("skip", "escalate"):
-                # Mark subtask as stuck for human intervention
-                print_status(f"Marking subtask {subtask_id} as stuck", "warning")
-                recovery_manager.mark_subtask_stuck(subtask_id, recovery_action.reason)
-                print_status("Subtask marked for human intervention", "warning")
+        _execute_recovery_action(
+            recovery_action, recovery_manager, spec_dir, project_dir, subtask_id
+        )
 
         # Record Linear session result (if enabled)
         if linear_enabled:

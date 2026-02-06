@@ -103,10 +103,38 @@ function readPlan() {
   return JSON.parse(content);
 }
 
+// Types for plan structure
+interface Subtask {
+  id: string;
+  description: string;
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+  service: string;
+}
+
+interface Phase {
+  id: string;
+  name: string;
+  type: string;
+  subtasks: Subtask[];
+}
+
+interface Plan {
+  feature: string;
+  workflow_type: string;
+  services_involved: string[];
+  phases: Phase[];
+  status: string;
+  planStatus: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // Helper to find subtask in plan
-function findSubtask(plan: any, subtaskId: string) {
+function findSubtask(plan: Plan, subtaskId: string): Subtask | null {
   for (const phase of plan.phases) {
-    const subtask = phase.subtasks.find((s: any) => s.id === subtaskId);
+    const subtask = phase.subtasks.find((s) => s.id === subtaskId);
     if (subtask) return subtask;
   }
   return null;
@@ -132,7 +160,8 @@ describe('Rate Limit Subtask Recovery - End-to-End', () => {
 
       // Verify initial state
       const initialPlan = readPlan();
-      const inProgressSubtask = findSubtask(initialPlan, 'subtask-1-2');
+      const inProgressSubtask = findSubtask(initialPlan, 'subtask-1-2')!;
+      expect(inProgressSubtask).toBeTruthy();
       expect(inProgressSubtask.status).toBe('in_progress');
       expect(inProgressSubtask.started_at).toBeTruthy();
 
@@ -152,7 +181,8 @@ describe('Rate Limit Subtask Recovery - End-to-End', () => {
 
       // Verify: subtask reset to pending
       const updatedPlan = readPlan();
-      const resetSubtask = findSubtask(updatedPlan, 'subtask-1-2');
+      const resetSubtask = findSubtask(updatedPlan, 'subtask-1-2')!;
+      expect(resetSubtask).toBeTruthy();
       expect(resetSubtask.status).toBe('pending');
       expect(resetSubtask.started_at).toBeNull();
       expect(resetSubtask.completed_at).toBeNull();
@@ -164,7 +194,8 @@ describe('Rate Limit Subtask Recovery - End-to-End', () => {
 
       // Verify initial state
       const initialPlan = readPlan();
-      const failedSubtask = findSubtask(initialPlan, 'subtask-1-4');
+      const failedSubtask = findSubtask(initialPlan, 'subtask-1-4')!;
+      expect(failedSubtask).toBeTruthy();
       expect(failedSubtask.status).toBe('failed');
 
       // Simulate reset
@@ -182,7 +213,8 @@ describe('Rate Limit Subtask Recovery - End-to-End', () => {
 
       // Verify: failed subtask reset
       const updatedPlan = readPlan();
-      const resetSubtask = findSubtask(updatedPlan, 'subtask-1-4');
+      const resetSubtask = findSubtask(updatedPlan, 'subtask-1-4')!;
+      expect(resetSubtask).toBeTruthy();
       expect(resetSubtask.status).toBe('pending');
       expect(resetSubtask.started_at).toBeNull();
     });
@@ -193,7 +225,8 @@ describe('Rate Limit Subtask Recovery - End-to-End', () => {
 
       // Get completed subtask before reset
       const initialPlan = readPlan();
-      const completedSubtask = findSubtask(initialPlan, 'subtask-1-1');
+      const completedSubtask = findSubtask(initialPlan, 'subtask-1-1')!;
+      expect(completedSubtask).toBeTruthy();
       expect(completedSubtask.status).toBe('completed');
       const originalCompletedAt = completedSubtask.completed_at;
 
@@ -212,7 +245,8 @@ describe('Rate Limit Subtask Recovery - End-to-End', () => {
 
       // Verify: completed subtask unchanged
       const updatedPlan = readPlan();
-      const preservedSubtask = findSubtask(updatedPlan, 'subtask-1-1');
+      const preservedSubtask = findSubtask(updatedPlan, 'subtask-1-1')!;
+      expect(preservedSubtask).toBeTruthy();
       expect(preservedSubtask.status).toBe('completed');
       expect(preservedSubtask.completed_at).toBe(originalCompletedAt);
     });
@@ -283,9 +317,9 @@ describe('Rate Limit Subtask Recovery - End-to-End', () => {
 
       // Simulate get_next_subtask logic
       const resumedPlan = readPlan();
-      let nextSubtask = null;
+      let nextSubtask: Subtask | null = null;
       for (const phase of resumedPlan.phases) {
-        const pending = phase.subtasks.find((s: any) => s.status === 'pending');
+        const pending = phase.subtasks.find((s: Subtask) => s.status === 'pending');
         if (pending) {
           nextSubtask = pending;
           break;
@@ -294,8 +328,8 @@ describe('Rate Limit Subtask Recovery - End-to-End', () => {
 
       // Verify: task can find next subtask to resume
       expect(nextSubtask).toBeTruthy();
-      expect(nextSubtask.id).toBe('subtask-1-2'); // Previously stuck, now pending
-      expect(nextSubtask.status).toBe('pending');
+      expect(nextSubtask!.id).toBe('subtask-1-2'); // Previously stuck, now pending
+      expect(nextSubtask!.status).toBe('pending');
     });
 
     it('should maintain correct subtask order after reset', () => {
@@ -493,7 +527,8 @@ describe('Rate Limit Subtask Recovery - End-to-End', () => {
       writeFileSync(PLAN_PATH, JSON.stringify(plan, null, 2));
 
       const initialPlan = readPlan();
-      const originalSubtask = findSubtask(initialPlan, 'subtask-1-2');
+      const originalSubtask = findSubtask(initialPlan, 'subtask-1-2')!;
+      expect(originalSubtask).toBeTruthy();
       const originalDescription = originalSubtask.description;
       const originalService = originalSubtask.service;
 
@@ -511,7 +546,8 @@ describe('Rate Limit Subtask Recovery - End-to-End', () => {
       writeFileSync(PLAN_PATH, JSON.stringify(initialPlan, null, 2));
 
       const updatedPlan = readPlan();
-      const resetSubtask = findSubtask(updatedPlan, 'subtask-1-2');
+      const resetSubtask = findSubtask(updatedPlan, 'subtask-1-2')!;
+      expect(resetSubtask).toBeTruthy();
 
       expect(resetSubtask.description).toBe(originalDescription);
       expect(resetSubtask.service).toBe(originalService);
@@ -537,7 +573,7 @@ describe('Integration with Recovery Flow', () => {
     writeFileSync(PLAN_PATH, JSON.stringify(plan, null, 2));
 
     const initialPlan = readPlan();
-    expect(findSubtask(initialPlan, 'subtask-1-2').status).toBe('in_progress');
+    expect(findSubtask(initialPlan, 'subtask-1-2')!.status).toBe('in_progress');
 
     // Step 2: Rate limit error occurs → subtask reset
     for (const phase of initialPlan.phases) {
@@ -552,12 +588,12 @@ describe('Integration with Recovery Flow', () => {
     writeFileSync(PLAN_PATH, JSON.stringify(initialPlan, null, 2));
 
     const resetPlan = readPlan();
-    expect(findSubtask(resetPlan, 'subtask-1-2').status).toBe('pending');
+    expect(findSubtask(resetPlan, 'subtask-1-2')!.status).toBe('pending');
 
     // Step 3: Task resumes → finds next pending subtask
-    let nextSubtask = null;
+    let nextSubtask: Subtask | null = null;
     for (const phase of resetPlan.phases) {
-      const pending = phase.subtasks.find((s: any) => s.status === 'pending');
+      const pending = phase.subtasks.find((s: Subtask) => s.status === 'pending');
       if (pending) {
         nextSubtask = pending;
         break;
@@ -565,14 +601,14 @@ describe('Integration with Recovery Flow', () => {
     }
 
     expect(nextSubtask).toBeTruthy();
-    expect(nextSubtask.id).toBe('subtask-1-2');
+    expect(nextSubtask!.id).toBe('subtask-1-2');
 
     // Step 4: Subtask execution starts → status updates to in_progress
-    nextSubtask.status = 'in_progress';
-    nextSubtask.started_at = new Date().toISOString();
+    nextSubtask!.status = 'in_progress';
+    nextSubtask!.started_at = new Date().toISOString();
     writeFileSync(PLAN_PATH, JSON.stringify(resetPlan, null, 2));
 
     const resumedPlan = readPlan();
-    expect(findSubtask(resumedPlan, 'subtask-1-2').status).toBe('in_progress');
+    expect(findSubtask(resumedPlan, 'subtask-1-2')!.status).toBe('in_progress');
   });
 });
