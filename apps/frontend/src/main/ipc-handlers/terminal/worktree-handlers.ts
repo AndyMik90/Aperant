@@ -451,6 +451,9 @@ async function createTerminalWorktree(
       }
     }
 
+    let remoteTrackingSetUp = false;
+    let remotePushWarning: string | undefined;
+
     if (createGitBranch) {
       // Use --no-track to prevent the new branch from inheriting upstream tracking
       // from the base ref (e.g., origin/main). This ensures users can push with -u
@@ -463,6 +466,44 @@ async function createTerminalWorktree(
         env: getIsolatedGitEnv(),
       });
       debugLog('[TerminalWorktree] Created worktree with branch:', branchName, 'from', baseRef);
+
+      // Push the new branch to remote and set up tracking so subsequent
+      // git push/pull operations work correctly from the worktree.
+      // This prevents branches from accumulating local-only commits with
+      // no upstream configured, which causes confusion when pushing later.
+      // Check if 'origin' remote exists — silently skip for local-only repos
+      let hasOrigin = false;
+      try {
+        await execFileAsync(getToolPath('git'), ['remote', 'get-url', 'origin'], {
+          cwd: projectPath,
+          encoding: 'utf-8',
+          timeout: 5000,
+          env: getIsolatedGitEnv(),
+        });
+        hasOrigin = true;
+      } catch {
+        // No origin remote — local-only repo, nothing to push to
+        debugLog('[TerminalWorktree] No origin remote found, skipping push for local-only repo');
+      }
+
+      if (hasOrigin) {
+        try {
+          await execFileAsync(getToolPath('git'), ['push', '-u', 'origin', branchName], {
+            cwd: worktreePath,
+            encoding: 'utf-8',
+            timeout: 30000,
+            env: getIsolatedGitEnv(),
+          });
+          remoteTrackingSetUp = true;
+          debugLog('[TerminalWorktree] Pushed branch to remote with tracking:', branchName);
+        } catch (pushError) {
+          // Worktree was created successfully — don't fail the operation,
+          // but surface a warning so the user knows tracking isn't set up.
+          const message = pushError instanceof Error ? pushError.message : 'Unknown push error';
+          remotePushWarning = message;
+          debugLog('[TerminalWorktree] Could not push to remote (worktree still usable):', message);
+        }
+      }
     } else {
       // Use async to avoid blocking the main process on large repos.
       await execFileAsync(getToolPath('git'), ['worktree', 'add', '--detach', worktreePath, baseRef], {
@@ -490,12 +531,13 @@ async function createTerminalWorktree(
       taskId,
       createdAt: new Date().toISOString(),
       terminalId,
+      remoteTrackingSetUp,
     };
 
     saveWorktreeConfig(projectPath, name, config);
     debugLog('[TerminalWorktree] Saved config for worktree:', name);
 
-    return { success: true, config };
+    return { success: true, config, warning: remotePushWarning };
   } catch (error) {
     debugError('[TerminalWorktree] Error creating worktree:', error);
 
