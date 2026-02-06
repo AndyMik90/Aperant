@@ -59,6 +59,12 @@ function getItemBranch(item: NavigableItem): string {
   }
 }
 
+const ITEM_ICONS = {
+  terminal: <FolderGit className="h-3 w-3 mr-2 text-amber-500/70 shrink-0" />,
+  task: <ListTodo className="h-3 w-3 mr-2 text-cyan-500/70 shrink-0" />,
+  other: <GitFork className="h-3 w-3 mr-2 text-purple-500/70 shrink-0" />,
+};
+
 function getItemKey(item: NavigableItem): string {
   switch (item.type) {
     case 'terminal':
@@ -328,12 +334,6 @@ export function WorktreeSelector({
     const name = getItemName(item);
     const branch = getItemBranch(item);
 
-    const iconMap = {
-      terminal: <FolderGit className="h-3 w-3 mr-2 text-amber-500/70 shrink-0" />,
-      task: <ListTodo className="h-3 w-3 mr-2 text-cyan-500/70 shrink-0" />,
-      other: <GitFork className="h-3 w-3 mr-2 text-purple-500/70 shrink-0" />,
-    };
-
     const branchLabel =
       item.type === 'other' && item.data.branch === null
         ? `${item.data.commitSha} ${t('terminal:worktree.detached')}`
@@ -361,14 +361,11 @@ export function WorktreeSelector({
           selectItem(item);
         }}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            selectItem(item);
-          }
+          if (e.key === 'Enter') selectItem(item);
         }}
         onMouseEnter={() => setFocusedIndex(index)}
       >
-        {iconMap[item.type]}
+        {ITEM_ICONS[item.type]}
         <div className="flex flex-col min-w-0 flex-1">
           <span className="truncate font-medium">{name}</span>
           {branchLabel && (
@@ -386,6 +383,7 @@ export function WorktreeSelector({
               setDeleteWorktree(item.data);
             }}
             className="ml-2 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            aria-label={t('common:delete')}
             title={t('common:delete')}
           >
             <Trash2 className="h-3 w-3" />
