@@ -13,7 +13,7 @@ from typing import Literal, TypedDict
 
 # Model shorthand to full model ID mapping
 MODEL_ID_MAP: dict[str, str] = {
-    "opus": "claude-opus-4-5-20251101",
+    "opus": "claude-opus-4-6",
     "sonnet": "claude-sonnet-4-5-20250929",
     "haiku": "claude-haiku-4-5-20251001",
 }
