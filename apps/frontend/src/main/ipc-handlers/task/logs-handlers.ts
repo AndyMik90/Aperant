@@ -31,6 +31,8 @@ export function registerTaskLogsHandlers(getMainWindow: () => BrowserWindow | nu
           return { success: false, error: 'Project not found' };
         }
 
+        // Defense-in-depth: project.path is normally absolute from ProjectStore,
+        // but we guard here against edge cases (e.g., manually edited store file)
         const absoluteProjectPath = ensureAbsolutePath(project.path);
         const specsRelPath = getSpecsDir(project.autoBuildPath);
         const specDir = path.join(absoluteProjectPath, specsRelPath, specId);

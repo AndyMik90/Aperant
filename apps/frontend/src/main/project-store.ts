@@ -580,6 +580,10 @@ export class ProjectStore {
   /**
    * Correct stale task status when all subtasks are completed but status wasn't persisted.
    * Extracted from loadTasksFromSpecsDir to keep read/write separation clear.
+   *
+   * NOTE: This method intentionally writes to implementation_plan.json to persist the
+   * correction and prevent repeated auto-corrections on every getTasks() call. The plan
+   * object is NOT mutated unless the write succeeds, preserving memory/disk consistency.
    */
   private correctStaleTaskStatus(
     subtasks: { status: string }[],
@@ -615,18 +619,27 @@ export class ProjectStore {
     console.warn(`[ProjectStore] Auto-correcting task ${taskName}: all ${subtasks.length} subtasks completed but status was ${finalStatus}. Setting to human_review.`);
 
     if (plan) {
-      plan.status = 'human_review';
-      plan.planStatus = 'review';
-      plan.reviewReason = 'completed';
-      plan.updated_at = new Date().toISOString();
-      // Keep xstateState and executionPhase consistent with corrected status
-      (plan as unknown as Record<string, unknown>).xstateState = 'human_review';
-      (plan as unknown as Record<string, unknown>).executionPhase = 'complete';
+      // Clone before mutation — only apply to the original plan object if the write succeeds
+      const correctedPlan = {
+        ...plan,
+        status: 'human_review' as const,
+        planStatus: 'review',
+        reviewReason: 'completed' as ReviewReason,
+        updated_at: new Date().toISOString(),
+        xstateState: 'human_review',
+        executionPhase: 'complete'
+      };
       try {
-        writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+        writeFileSync(planPath, JSON.stringify(correctedPlan, null, 2), 'utf-8');
+        // Write succeeded — apply mutations to the in-memory plan so the rest of
+        // loadTasksFromSpecsDir sees the corrected values (e.g., executionProgress)
+        Object.assign(plan, correctedPlan);
         console.warn(`[ProjectStore] Persisted corrected status for task ${taskName}`);
       } catch (writeError) {
+        // Write failed — leave the plan object unchanged and return the original status
+        // so there's no memory/disk inconsistency
         console.error(`[ProjectStore] Failed to persist corrected status for task ${taskName}:`, writeError);
+        return { status: finalStatus, reviewReason: finalReviewReason };
       }
     }
 
