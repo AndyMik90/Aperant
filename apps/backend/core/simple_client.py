@@ -44,7 +44,6 @@ def create_simple_client(
     cwd: Path | None = None,
     max_turns: int = 1,
     max_thinking_tokens: int | None = None,
-    betas: list[str] | None = None,
 ) -> ClaudeSDKClient:
     """
     Create a minimal Claude SDK client for single-turn utility operations.
@@ -66,7 +65,6 @@ def create_simple_client(
         max_turns: Maximum conversation turns (default: 1 for single-turn)
         max_thinking_tokens: Override thinking budget (None = use agent default from
                             AGENT_CONFIGS, converted using phase_config.THINKING_BUDGET_MAP)
-        betas: Optional list of SDK beta header strings (e.g., ["context-1m-2025-08-07"])
 
     Returns:
         Configured ClaudeSDKClient for single-turn operations
@@ -109,10 +107,6 @@ def create_simple_client(
     # Only add max_thinking_tokens if not None (Haiku doesn't support extended thinking)
     if max_thinking_tokens is not None:
         options_kwargs["max_thinking_tokens"] = max_thinking_tokens
-
-    # Add beta headers if specified (e.g., for 1M context window)
-    if betas:
-        options_kwargs["betas"] = betas
 
     # Optional: Allow CLI path override via environment variable
     env_cli_path = os.environ.get("CLAUDE_CLI_PATH")

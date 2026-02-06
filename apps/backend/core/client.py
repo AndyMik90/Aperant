@@ -449,7 +449,6 @@ def create_client(
     max_thinking_tokens: int | None = None,
     output_format: dict | None = None,
     agents: dict | None = None,
-    betas: list[str] | None = None,
 ) -> ClaudeSDKClient:
     """
     Create a Claude Agent SDK client with multi-layered security.
@@ -476,8 +475,6 @@ def create_client(
                Format: {"agent-name": {"description": "...", "prompt": "...",
                         "tools": [...], "model": "inherit"}}
                See: https://platform.claude.com/docs/en/agent-sdk/subagents
-        betas: Optional list of SDK beta header strings (e.g., ["context-1m-2025-08-07"]
-               for 1M context window). Use get_phase_model_betas() to compute from config.
 
     Returns:
         Configured ClaudeSDKClient
@@ -836,9 +833,5 @@ def create_client(
     # See: https://platform.claude.com/docs/en/agent-sdk/subagents
     if agents:
         options_kwargs["agents"] = agents
-
-    # Add beta headers if specified (e.g., for 1M context window)
-    if betas:
-        options_kwargs["betas"] = betas
 
     return ClaudeSDKClient(options=ClaudeAgentOptions(**options_kwargs))

@@ -57,10 +57,10 @@ export interface SpecCreationMetadata {
   // Auto profile - phase-based model and thinking configuration
   isAutoProfile?: boolean;
   phaseModels?: {
-    spec: 'haiku' | 'sonnet' | 'opus' | 'opus-1m';
-    planning: 'haiku' | 'sonnet' | 'opus' | 'opus-1m';
-    coding: 'haiku' | 'sonnet' | 'opus' | 'opus-1m';
-    qa: 'haiku' | 'sonnet' | 'opus' | 'opus-1m';
+    spec: 'haiku' | 'sonnet' | 'opus';
+    planning: 'haiku' | 'sonnet' | 'opus';
+    coding: 'haiku' | 'sonnet' | 'opus';
+    qa: 'haiku' | 'sonnet' | 'opus';
   };
   phaseThinking?: {
     spec: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
@@ -69,7 +69,7 @@ export interface SpecCreationMetadata {
     qa: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
   };
   // Non-auto profile - single model and thinking level
-  model?: 'haiku' | 'sonnet' | 'opus' | 'opus-1m';
+  model?: 'haiku' | 'sonnet' | 'opus';
   thinkingLevel?: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
   // Workspace mode - whether to use worktree isolation
   useWorktree?: boolean; // If false, use --direct mode (no worktree isolation)

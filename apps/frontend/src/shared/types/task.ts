@@ -163,7 +163,7 @@ export type TaskImpact = 'low' | 'medium' | 'high' | 'critical';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 // Re-export ThinkingLevel (defined in settings.ts) for convenience
 export type { ThinkingLevel };
-export type ModelType = 'haiku' | 'sonnet' | 'opus' | 'opus-1m';
+export type ModelType = 'haiku' | 'sonnet' | 'opus';
 export type TaskCategory =
   | 'feature'
   | 'bug_fix'

@@ -107,8 +107,7 @@
       "defaultPlaceholder": "e.g., claude-sonnet-4-5-20250929",
       "haikuPlaceholder": "e.g., claude-haiku-4-5-20251001",
       "sonnetPlaceholder": "e.g., claude-sonnet-4-5-20250929",
-      "opusPlaceholder": "e.g., claude-opus-4-6",
-      "opus1mPlaceholder": "e.g., claude-opus-4-6 (1M context)"
+      "opusPlaceholder": "e.g., claude-opus-4-5-20251101"
     },
     "empty": {
       "title": "No API profiles configured",

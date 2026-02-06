@@ -17,7 +17,6 @@ while still verifying the critical implementation patterns that prevent regressi
 of the hardcoded fallback bug (ACS-294).
 """
 
-import json
 import os
 import sys
 from collections.abc import Generator
@@ -29,13 +28,7 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
-from phase_config import (
-    MODEL_BETAS_MAP,
-    MODEL_ID_MAP,
-    get_model_betas,
-    get_phase_model_betas,
-    resolve_model_id,
-)
+from phase_config import MODEL_ID_MAP, resolve_model_id
 
 # Common paths - extracted to avoid duplication and ease maintenance
 GITHUB_RUNNER_DIR = (
@@ -329,120 +322,3 @@ class TestParallelReviewerImportResolution:
         # Verify resolve_model_id is imported and used
         assert "resolve_model_id" in orchestrator_content
         assert "resolve_model_id" in followup_content
-
-
-class TestModelBetasMap:
-    """Tests for MODEL_BETAS_MAP configuration."""
-
-    def test_model_betas_map_exists(self):
-        """MODEL_BETAS_MAP is a dict with expected entries."""
-        assert isinstance(MODEL_BETAS_MAP, dict)
-
-    def test_opus_1m_has_context_beta(self):
-        """opus-1m entry has the 1M context window beta header."""
-        assert "opus-1m" in MODEL_BETAS_MAP
-        assert MODEL_BETAS_MAP["opus-1m"] == ["context-1m-2025-08-07"]
-
-    def test_regular_models_not_in_betas_map(self):
-        """Regular model shorthands (opus, sonnet, haiku) are not in MODEL_BETAS_MAP."""
-        assert "opus" not in MODEL_BETAS_MAP
-        assert "sonnet" not in MODEL_BETAS_MAP
-        assert "haiku" not in MODEL_BETAS_MAP
-
-
-class TestGetModelBetas:
-    """Tests for get_model_betas() function."""
-
-    def test_opus_1m_returns_context_beta(self):
-        """get_model_betas('opus-1m') returns the 1M context beta header."""
-        result = get_model_betas("opus-1m")
-        assert result == ["context-1m-2025-08-07"]
-
-    def test_opus_returns_empty_list(self):
-        """get_model_betas('opus') returns empty list (no betas needed)."""
-        result = get_model_betas("opus")
-        assert result == []
-
-    def test_sonnet_returns_empty_list(self):
-        """get_model_betas('sonnet') returns empty list."""
-        result = get_model_betas("sonnet")
-        assert result == []
-
-    def test_unknown_returns_empty_list(self):
-        """get_model_betas('unknown') returns empty list."""
-        result = get_model_betas("unknown")
-        assert result == []
-
-
-class TestOpus1mModelResolution:
-    """Tests for opus-1m model ID resolution."""
-
-    def test_opus_1m_resolves_to_opus_model_id(self, clean_env):
-        """resolve_model_id('opus-1m') returns the same model ID as regular opus."""
-        result = resolve_model_id("opus-1m")
-        assert result == "claude-opus-4-6"
-
-    def test_opus_resolves_to_opus_model_id(self, clean_env):
-        """resolve_model_id('opus') returns claude-opus-4-6."""
-        result = resolve_model_id("opus")
-        assert result == "claude-opus-4-6"
-
-    def test_opus_1m_and_opus_resolve_to_same_id(self, clean_env):
-        """opus-1m and opus both resolve to the same underlying model ID."""
-        assert resolve_model_id("opus-1m") == resolve_model_id("opus")
-
-    def test_opus_1m_respects_env_override(self):
-        """opus-1m respects ANTHROPIC_DEFAULT_OPUS_MODEL environment variable."""
-        custom_model = "custom-opus-model"
-        with patch.dict(os.environ, {"ANTHROPIC_DEFAULT_OPUS_MODEL": custom_model}):
-            result = resolve_model_id("opus-1m")
-            assert result == custom_model
-
-
-class TestGetPhaseModelBetas:
-    """Tests for get_phase_model_betas() function."""
-
-    def test_cli_model_opus_1m_returns_betas(self, tmp_path):
-        """get_phase_model_betas with cli_model='opus-1m' returns the betas."""
-        result = get_phase_model_betas(tmp_path, "coding", cli_model="opus-1m")
-        assert result == ["context-1m-2025-08-07"]
-
-    def test_cli_model_opus_returns_empty(self, tmp_path):
-        """get_phase_model_betas with cli_model='opus' returns empty list."""
-        result = get_phase_model_betas(tmp_path, "coding", cli_model="opus")
-        assert result == []
-
-    def test_cli_model_sonnet_returns_empty(self, tmp_path):
-        """get_phase_model_betas with cli_model='sonnet' returns empty list."""
-        result = get_phase_model_betas(tmp_path, "coding", cli_model="sonnet")
-        assert result == []
-
-    def test_metadata_with_opus_1m_returns_betas(self, tmp_path):
-        """get_phase_model_betas reads opus-1m from task_metadata and returns betas."""
-        metadata = {"model": "opus-1m"}
-        metadata_path = tmp_path / "task_metadata.json"
-        metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
-
-        result = get_phase_model_betas(tmp_path, "coding")
-        assert result == ["context-1m-2025-08-07"]
-
-    def test_metadata_auto_profile_with_opus_1m_returns_betas(self, tmp_path):
-        """get_phase_model_betas reads opus-1m from auto profile phase config."""
-        metadata = {
-            "isAutoProfile": True,
-            "phaseModels": {"coding": "opus-1m", "qa": "sonnet"},
-        }
-        metadata_path = tmp_path / "task_metadata.json"
-        metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
-
-        result = get_phase_model_betas(tmp_path, "coding")
-        assert result == ["context-1m-2025-08-07"]
-
-        # QA phase should have no betas (sonnet)
-        result_qa = get_phase_model_betas(tmp_path, "qa")
-        assert result_qa == []
-
-    def test_no_metadata_returns_empty(self, tmp_path):
-        """get_phase_model_betas with no metadata returns empty list (defaults are sonnet)."""
-        result = get_phase_model_betas(tmp_path, "coding")
-        assert result == []

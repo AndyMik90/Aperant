@@ -66,7 +66,6 @@ const LOG_PHASE_TO_CONFIG_PHASE: Record<TaskLogPhase, keyof PhaseModelConfig> = 
 // Short labels for models
 const MODEL_SHORT_LABELS: Record<ModelTypeShort, string> = {
   opus: 'Opus',
-  'opus-1m': 'Opus (1M)',
   sonnet: 'Sonnet',
   haiku: 'Haiku'
 };

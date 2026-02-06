@@ -21,11 +21,7 @@ from linear_updater import (
     linear_task_started,
     linear_task_stuck,
 )
-from phase_config import (
-    get_phase_model,
-    get_phase_model_betas,
-    get_phase_thinking_budget,
-)
+from phase_config import get_phase_model, get_phase_thinking_budget
 from phase_event import ExecutionPhase, emit_phase
 from progress import (
     count_subtasks,
@@ -529,7 +525,6 @@ async def run_autonomous_agent(
         current_phase = "planning" if first_run else "coding"
         phase_model = get_phase_model(spec_dir, current_phase, model)
         phase_thinking_budget = get_phase_thinking_budget(spec_dir, current_phase)
-        phase_betas = get_phase_model_betas(spec_dir, current_phase, model)
 
         # Create client (fresh context) with phase-specific model and thinking
         # Use appropriate agent_type for correct tool permissions and thinking budget
@@ -539,7 +534,6 @@ async def run_autonomous_agent(
             phase_model,
             agent_type="planner" if first_run else "coder",
             max_thinking_tokens=phase_thinking_budget,
-            betas=phase_betas,
         )
 
         # Generate appropriate prompt

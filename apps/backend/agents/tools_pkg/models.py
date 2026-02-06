@@ -158,7 +158,7 @@ AGENT_CONFIGS = {
         "tools": BASE_READ_TOOLS,
         "mcp_servers": [],  # Self-critique, no external tools
         "auto_claude_tools": [],
-        "thinking_default": "ultrathink",
+        "thinking_default": "high",
     },
     "spec_discovery": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
@@ -210,7 +210,7 @@ AGENT_CONFIGS = {
             TOOL_RECORD_GOTCHA,
             TOOL_GET_SESSION_CONTEXT,
         ],
-        "thinking_default": "none",  # Coding doesn't use extended thinking
+        "thinking_default": "low",  # Coding uses minimal thinking (effort: low for Opus, 1024 tokens for Sonnet/Haiku)
     },
     # ═══════════════════════════════════════════════════════════════════════
     # QA PHASES (Read + test + browser + Graphiti memory)
@@ -247,9 +247,9 @@ AGENT_CONFIGS = {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": [],
         "auto_claude_tools": [],
-        # Note: Default to "none" because insight_extractor uses Haiku which doesn't support thinking
-        # If using Sonnet/Opus models, override max_thinking_tokens in create_simple_client()
-        "thinking_default": "none",
+        # Note: Default to "low" for minimal thinking overhead
+        # Haiku doesn't support thinking; create_simple_client() handles this
+        "thinking_default": "low",
     },
     "merge_resolver": {
         "tools": [],  # Text-only analysis
@@ -524,7 +524,7 @@ def get_default_thinking_level(agent_type: str) -> str:
         agent_type: The agent type identifier
 
     Returns:
-        Thinking level string (none, low, medium, high, ultrathink)
+        Thinking level string (low, medium, high)
     """
     config = get_agent_config(agent_type)
     return config.get("thinking_default", "medium")
