@@ -6,6 +6,7 @@ from services.recovery import (
     RecoveryManager,
     check_and_recover,
     get_recovery_context,
+    reset_subtask,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "RecoveryAction",
     "check_and_recover",
     "get_recovery_context",
+    "reset_subtask",
 ]
