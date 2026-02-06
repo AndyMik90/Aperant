@@ -13,7 +13,7 @@ function createMockProcess() {
   return {
     stdout: { on: vi.fn() },
     stderr: { on: vi.fn() },
-    on: vi.fn((event: string, callback: any) => {
+    on: vi.fn((event: string, callback: (code: number) => void) => {
       if (event === 'exit') {
         // Simulate immediate exit with code 0
         setTimeout(() => callback(0), 10);
