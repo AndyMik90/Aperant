@@ -62,7 +62,7 @@ async def get_graph_hints(
     try:
         from pathlib import Path
 
-        from graphiti_memory import GraphitiMemory, GroupIdMode
+        from integrations.graphiti.memory import GraphitiMemory, GroupIdMode
 
         # Determine project directory from project_id or use current dir
         project_dir = Path.cwd()
