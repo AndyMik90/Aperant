@@ -12,7 +12,7 @@ export const API_PROVIDER_PRESETS: readonly ApiProviderPreset[] = [
   },
   {
     id: 'openrouter',
-    baseUrl: 'https://openrouter.ai/api/v1',
+    baseUrl: 'https://openrouter.ai/api',
     labelKey: 'settings:apiProfiles.presets.openrouter'
   },
   {
