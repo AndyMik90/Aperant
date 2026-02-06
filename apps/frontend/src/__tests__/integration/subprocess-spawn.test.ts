@@ -297,7 +297,7 @@ describe('Subprocess Spawn Integration', () => {
       // Simulate stdout data (must include newline for buffered output processing)
       mockStdout.emit('data', Buffer.from('Test log output\n'));
 
-      expect(logHandler).toHaveBeenCalledWith('task-1', 'Test log output\n');
+      expect(logHandler).toHaveBeenCalledWith('task-1', 'Test log output\n', undefined);
     }, 30000);  // Increase timeout for Windows CI (dynamic imports are slow)
 
     it('should emit log events from stderr', async () => {
@@ -313,7 +313,7 @@ describe('Subprocess Spawn Integration', () => {
       // Simulate stderr data (must include newline for buffered output processing)
       mockStderr.emit('data', Buffer.from('Progress: 50%\n'));
 
-      expect(logHandler).toHaveBeenCalledWith('task-1', 'Progress: 50%\n');
+      expect(logHandler).toHaveBeenCalledWith('task-1', 'Progress: 50%\n', undefined);
     }, 30000);  // Increase timeout for Windows CI (dynamic imports are slow)
 
     it('should emit exit event when process exits', async () => {
@@ -329,8 +329,8 @@ describe('Subprocess Spawn Integration', () => {
       // Simulate process exit
       mockProcess.emit('exit', 0);
 
-      // Exit event includes taskId, exit code, and process type
-      expect(exitHandler).toHaveBeenCalledWith('task-1', 0, expect.any(String));
+      // Exit event includes taskId, exit code, process type, and optional projectId
+      expect(exitHandler).toHaveBeenCalledWith('task-1', 0, expect.any(String), undefined);
     }, 30000);  // Increase timeout for Windows CI (dynamic imports are slow)
 
     it('should emit error event when process errors', async () => {
@@ -346,7 +346,7 @@ describe('Subprocess Spawn Integration', () => {
       // Simulate process error
       mockProcess.emit('error', new Error('Spawn failed'));
 
-      expect(errorHandler).toHaveBeenCalledWith('task-1', 'Spawn failed');
+      expect(errorHandler).toHaveBeenCalledWith('task-1', 'Spawn failed', undefined);
     }, 30000);  // Increase timeout for Windows CI (dynamic imports are slow)
 
     it('should kill task and remove from tracking', async () => {

@@ -74,7 +74,7 @@ export function GenerationProgressScreen({
     if (logsEndRef.current && showLogs) {
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [logs, showLogs]);
+  }, [showLogs]);
 
   const getStreamingIdeasByType = (type: IdeationType): Idea[] => {
     if (!session) return [];

@@ -60,7 +60,7 @@ const LOGIN_SUCCESS_PATTERN = /(?:Login successful|Successfully logged in|Logged
 export function extractClaudeSessionId(data: string): string | null {
   for (const pattern of CLAUDE_SESSION_PATTERNS) {
     const match = data.match(pattern);
-    if (match && match[1]) {
+    if (match?.[1]) {
       return match[1];
     }
   }
@@ -159,7 +159,7 @@ export function extractEmail(data: string): string | null {
 
   for (const pattern of EMAIL_PATTERNS) {
     const match = cleanData.match(pattern);
-    if (match && match[1]) {
+    if (match?.[1]) {
       return match[1];
     }
   }

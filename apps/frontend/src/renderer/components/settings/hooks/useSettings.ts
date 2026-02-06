@@ -34,16 +34,19 @@ export function useSettings() {
     setSettings(currentSettings);
   }, [currentSettings]);
 
-  // Load settings on mount and capture original theme
+  // Load settings on mount
   useEffect(() => {
     loadSettingsFromStore();
-    // Update the original theme ref when settings load
+  }, []);
+
+  // Capture original theme/scale when store values change (for revert on cancel)
+  useEffect(() => {
     originalThemeRef.current = {
       theme: currentSettings.theme,
       colorTheme: currentSettings.colorTheme,
       uiScale: currentSettings.uiScale ?? UI_SCALE_DEFAULT
     };
-  }, []);
+  }, [currentSettings.colorTheme, currentSettings.theme, currentSettings.uiScale]);
 
   const saveSettings = async () => {
     setIsSaving(true);

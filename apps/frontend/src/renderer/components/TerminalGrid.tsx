@@ -84,7 +84,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
   // Reset expanded terminal when project changes
   useEffect(() => {
     setExpandedTerminalId(null);
-  }, [projectPath]);
+  }, []);
 
   // Fetch available session dates when project changes
   useEffect(() => {
@@ -263,7 +263,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
     terminals.forEach((terminal) => {
       if (terminal.status === 'running' && !terminal.isClaudeMode) {
         setClaudeMode(terminal.id, true);
-        window.electronAPI.invokeClaudeInTerminal(terminal.id, projectPath);
+        window.electronAPI.invokeClaudeInTerminal(terminal.id, terminal.cwd || projectPath);
       }
     });
   }, [terminals, setClaudeMode, projectPath]);
@@ -356,7 +356,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
       // Insert the file path into the terminal with a trailing space
       window.electronAPI.sendTerminalInput(terminalId, quotedPath + ' ');
     }
-  }, [reorderTerminals, terminals]);
+  }, [reorderTerminals, terminals, projectPath]);
 
   // Calculate grid layout based on number of terminals
   const gridLayout = useMemo(() => {
