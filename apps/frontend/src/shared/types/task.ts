@@ -7,6 +7,9 @@ import type { ExecutionPhase as ExecutionPhaseType, CompletablePhase } from '../
 
 export type TaskStatus = 'backlog' | 'queue' | 'in_progress' | 'ai_review' | 'human_review' | 'done' | 'pr_created' | 'error';
 
+// Post-QA automation actions
+export type PostQaAction = 'do_nothing' | 'auto_create_pr' | 'auto_merge';
+
 // Maps task status columns to ordered task IDs for kanban board reordering
 export type TaskOrderState = Record<TaskStatus, string[]>;
 
@@ -154,7 +157,7 @@ export interface TaskDraft {
   images: ImageAttachment[];
   referencedFiles: ReferencedFile[];
   requireReviewBeforeCoding?: boolean;
-  postQaAction?: 'do_nothing' | 'auto_create_pr' | 'auto_merge';
+  postQaAction?: PostQaAction;
   savedAt: Date;
 }
 
@@ -225,7 +228,7 @@ export interface TaskMetadata {
 
   // Review settings
   requireReviewBeforeCoding?: boolean;  // Require human review of spec/plan before coding starts
-  postQaAction?: 'do_nothing' | 'auto_create_pr' | 'auto_merge';  // What to do after successful AI review
+  postQaAction?: PostQaAction;  // What to do after successful AI review
 
   // Agent configuration (from agent profile or manual selection)
   model?: ModelType;  // Claude model to use (haiku, sonnet, opus) - used when not auto profile
