@@ -51,7 +51,10 @@ The `env-sanitizer.ts` module filters dangerous environment variables before the
 - **Python Injection**: PYTHONSTARTUP, PYTHONPATH, PYTHONINSPECT
 - **Ruby Injection**: RUBYOPT, RUBYLIB
 - **Perl Injection**: PERL5OPT, PERLLIB, PERL5LIB
-- **Shell Initialization**: BASH_ENV, ENV, PROMPT_COMMAND
+- **Shell Initialization**: BASH_ENV, ENV, ZDOTDIR, PROMPT_COMMAND, INPUTRC
+- **JVM Injection**: JAVA_TOOL_OPTIONS, _JAVA_OPTIONS, MAVEN_OPTS, GRADLE_OPTS
+- **Package Manager Hijacking**: NPM_CONFIG_PREFIX, YARN_RC_FILENAME, COMPOSER_HOME
+- **Python Additional**: PYTHONUSERBASE
 - **Path Manipulation**: CDPATH
 - **Git Command Injection**: GIT_TRACE, GIT_SSH_COMMAND, GIT_ALLOW_PROTOCOL
 
@@ -75,8 +78,11 @@ const sanitizedHigher = sanitizeEnvVars(higher, higherLevel);
 ```
 
 **Trust Levels:**
-- **user** and **managed** settings: Fully trusted, no warnings for PATH/SHELL
-- **projectShared** and **projectLocal**: Untrusted, dangerous vars blocked + warnings for PATH/SHELL
+
+Dangerous env vars (LD_PRELOAD, NODE_OPTIONS, etc.) are blocked from **ALL** levels unconditionally.
+The trust level only affects warning behavior for PATH/SHELL/TERM:
+- **user** and **managed** settings: No warnings for PATH/SHELL
+- **projectShared** and **projectLocal**: Warnings logged for PATH/SHELL
 
 ### Logging and Observability
 

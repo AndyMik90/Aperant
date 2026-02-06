@@ -28,7 +28,9 @@ const LOG_PREFIX = '[EnvSanitizer]';
  * Categories:
  * - Dynamic linker injection (LD_*, DYLD_*)
  * - Runtime module loaders (NODE_OPTIONS, PYTHON*, RUBY*, PERL*)
- * - Shell initialization (BASH_ENV, ENV)
+ * - Shell initialization (BASH_ENV, ENV, ZDOTDIR, INPUTRC)
+ * - JVM injection (JAVA_TOOL_OPTIONS, MAVEN_OPTS, GRADLE_OPTS)
+ * - Package manager hijacking (NPM_CONFIG_PREFIX, YARN_RC_FILENAME, COMPOSER_HOME)
  * - Path manipulation that can hijack commands (CDPATH)
  */
 const DANGEROUS_ENV_VARS = new Set([
@@ -69,12 +71,28 @@ const DANGEROUS_ENV_VARS = new Set([
   // Shell initialization - allows running arbitrary commands
   'BASH_ENV',
   'ENV',
+  'ZDOTDIR', // zsh startup directory hijacking
   'PROMPT_COMMAND',
+  'INPUTRC', // readline command injection
 
   // Path manipulation - can cause 'cd' to execute malicious code
   'CDPATH',
 
-  // Other dangerous variables
+  // JVM injection - allows arbitrary agent/code loading
+  'JAVA_TOOL_OPTIONS',
+  '_JAVA_OPTIONS',
+  'MAVEN_OPTS',
+  'GRADLE_OPTS',
+
+  // Python additional - user site-packages hijacking
+  'PYTHONUSERBASE',
+
+  // Package manager hijacking
+  'NPM_CONFIG_PREFIX',
+  'YARN_RC_FILENAME',
+  'COMPOSER_HOME',
+
+  // Git injection
   'GIT_TRACE',
   'GIT_TRACE_PACKET',
   'GIT_TRACE_PERFORMANCE',

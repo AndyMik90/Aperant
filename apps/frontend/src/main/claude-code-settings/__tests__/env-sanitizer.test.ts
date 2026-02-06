@@ -372,6 +372,57 @@ describe('env-sanitizer', () => {
       expect(errorCalls).toContain('CDPATH');
     });
 
+    it('blocks JVM injection variables', () => {
+      const env = {
+        JAVA_TOOL_OPTIONS: '-javaagent:/tmp/evil.jar',
+        _JAVA_OPTIONS: '-Xbootclasspath/p:/tmp/evil.jar',
+        MAVEN_OPTS: '-javaagent:/tmp/evil.jar',
+        GRADLE_OPTS: '-javaagent:/tmp/evil.jar',
+        SAFE_VAR: 'value',
+      };
+
+      const result = sanitizeEnvVars(env);
+
+      expect(result).toEqual({ SAFE_VAR: 'value' });
+      expect(debugError).toHaveBeenCalledWith(
+        expect.stringContaining('Blocked 4 dangerous'),
+        expect.anything()
+      );
+    });
+
+    it('blocks package manager hijacking variables', () => {
+      const env = {
+        NPM_CONFIG_PREFIX: '/tmp/evil',
+        YARN_RC_FILENAME: '/tmp/evil/.yarnrc',
+        COMPOSER_HOME: '/tmp/evil',
+        SAFE_VAR: 'value',
+      };
+
+      const result = sanitizeEnvVars(env);
+
+      expect(result).toEqual({ SAFE_VAR: 'value' });
+      expect(debugError).toHaveBeenCalledWith(
+        expect.stringContaining('Blocked 3 dangerous'),
+        expect.anything()
+      );
+    });
+
+    it('blocks shell startup hijacking variables', () => {
+      const env = {
+        ZDOTDIR: '/tmp/evil',
+        INPUTRC: '/tmp/evil/.inputrc',
+        SAFE_VAR: 'value',
+      };
+
+      const result = sanitizeEnvVars(env);
+
+      expect(result).toEqual({ SAFE_VAR: 'value' });
+      expect(debugError).toHaveBeenCalledWith(
+        expect.stringContaining('Blocked 2 dangerous'),
+        expect.anything()
+      );
+    });
+
     it('blocks Git tracing and command injection variables', () => {
       const env = {
         GIT_TRACE: '1',
@@ -482,6 +533,56 @@ describe('env-sanitizer', () => {
       // Check sorted
       const sorted = [...vars].sort();
       expect(vars).toEqual(sorted);
+    });
+  });
+
+  describe('encoding bypass resistance', () => {
+    // JavaScript's toUpperCase() handles standard ASCII correctly.
+    // These tests document that encoding tricks don't bypass the blocklist.
+
+    it('blocks variable names with trailing whitespace', () => {
+      // Env var names with spaces are technically valid in some systems
+      // but toUpperCase + Set.has handles them correctly (no match = allowed)
+      const env = { 'LD_PRELOAD ': '/tmp/evil.so', SAFE: 'ok' };
+      const result = sanitizeEnvVars(env);
+      // Trailing space means it won't match the blocklist — this is safe because
+      // the OS also won't interpret "LD_PRELOAD " as LD_PRELOAD
+      expect(result).toEqual({ 'LD_PRELOAD ': '/tmp/evil.so', SAFE: 'ok' });
+    });
+
+    it('blocks variable names with null bytes stripped by JS runtime', () => {
+      // JavaScript strings can contain \0 but they're distinct characters.
+      // "LD_PRELOAD\0" !== "LD_PRELOAD" so it won't match the blocklist,
+      // but the OS also won't interpret it as LD_PRELOAD.
+      const env = { 'LD_PRELOAD\0': '/tmp/evil.so', SAFE: 'ok' };
+      const result = sanitizeEnvVars(env);
+      expect(result).toEqual({ 'LD_PRELOAD\0': '/tmp/evil.so', SAFE: 'ok' });
+    });
+
+    it('blocks exact matches regardless of Unicode homoglyphs', () => {
+      // Unicode homoglyphs (e.g., Cyrillic "А" U+0410 vs Latin "A" U+0041)
+      // are different characters. toUpperCase won't normalize them to ASCII.
+      // This means homoglyphs won't match the blocklist — which is SAFE because
+      // the OS also won't interpret them as the real variable.
+      const cyrillicA = '\u0410'; // Cyrillic Capital А (looks like Latin A)
+      const env = { [`LD_PRELO${cyrillicA}D`]: '/tmp/evil.so', SAFE: 'ok' };
+      const result = sanitizeEnvVars(env);
+      // Homoglyph version passes through — this is safe (OS won't match it either)
+      expect(result).toHaveProperty(`LD_PRELO${cyrillicA}D`);
+      expect(result).toHaveProperty('SAFE');
+    });
+
+    it('still blocks the real variable even when homoglyph variant is present', () => {
+      const cyrillicA = '\u0410';
+      const env = {
+        [`LD_PRELO${cyrillicA}D`]: '/tmp/fake.so', // homoglyph — passes through
+        LD_PRELOAD: '/tmp/real-evil.so', // real — blocked
+        SAFE: 'ok',
+      };
+      const result = sanitizeEnvVars(env);
+      expect(result).not.toHaveProperty('LD_PRELOAD');
+      expect(result).toHaveProperty(`LD_PRELO${cyrillicA}D`);
+      expect(result).toHaveProperty('SAFE');
     });
   });
 });
