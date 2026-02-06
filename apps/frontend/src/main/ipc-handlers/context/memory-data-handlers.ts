@@ -31,8 +31,12 @@ export function loadFileBasedMemories(
 
   const recentSpecDirs = readdirSync(specsDir)
     .filter((f: string) => {
-      const specPath = path.join(specsDir, f);
-      return statSync(specPath).isDirectory();
+      try {
+        const specPath = path.join(specsDir, f);
+        return statSync(specPath).isDirectory();
+      } catch {
+        return false;
+      }
     })
     .sort()
     .reverse()
@@ -118,8 +122,12 @@ export function searchFileBasedMemories(
 
   const allSpecDirs = readdirSync(specsDir)
     .filter((f: string) => {
-      const specPath = path.join(specsDir, f);
-      return statSync(specPath).isDirectory();
+      try {
+        const specPath = path.join(specsDir, f);
+        return statSync(specPath).isDirectory();
+      } catch {
+        return false;
+      }
     });
 
   for (const specDir of allSpecDirs) {
