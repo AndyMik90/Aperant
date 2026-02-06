@@ -416,6 +416,11 @@ export const IPC_CHANNELS = {
   // GitHub PR Logs (for viewing AI review logs)
   GITHUB_PR_GET_LOGS: 'github:pr:getLogs',
 
+  // GitHub PR Status Polling (production system checks)
+  GITHUB_PR_STATUS_POLL_START: 'github:pr:statusPollStart',   // Start polling PR status
+  GITHUB_PR_STATUS_POLL_STOP: 'github:pr:statusPollStop',     // Stop polling PR status
+  GITHUB_PR_STATUS_UPDATE: 'github:pr:statusUpdate',          // Event: PR status updated (main -> renderer)
+
   // GitHub PR Memory operations (saves review insights to memory layer)
   GITHUB_PR_MEMORY_GET: 'github:pr:memory:get',        // Get PR review memories
   GITHUB_PR_MEMORY_SEARCH: 'github:pr:memory:search',  // Search PR review memories
