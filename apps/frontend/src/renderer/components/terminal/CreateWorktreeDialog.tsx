@@ -231,7 +231,7 @@ export function CreateWorktreeDialog({
         if (result.warning) {
           toast({
             title: t('terminal:worktree.remotePushFailed'),
-            description: t('terminal:worktree.remotePushFailedDescription'),
+            description: result.warning || t('terminal:worktree.remotePushFailedDescription'),
             variant: 'destructive',
           });
         }

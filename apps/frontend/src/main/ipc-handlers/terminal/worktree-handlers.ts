@@ -471,30 +471,38 @@ async function createTerminalWorktree(
       // git push/pull operations work correctly from the worktree.
       // This prevents branches from accumulating local-only commits with
       // no upstream configured, which causes confusion when pushing later.
+      // Check if 'origin' remote exists — silently skip for local-only repos
+      let hasOrigin = false;
       try {
-        // First check if 'origin' remote exists — skip push for local-only repos
         await execFileAsync(getToolPath('git'), ['remote', 'get-url', 'origin'], {
           cwd: projectPath,
           encoding: 'utf-8',
           timeout: 5000,
           env: getIsolatedGitEnv(),
         });
+        hasOrigin = true;
+      } catch {
+        // No origin remote — local-only repo, nothing to push to
+        debugLog('[TerminalWorktree] No origin remote found, skipping push for local-only repo');
+      }
 
-        // Origin exists — push with tracking
-        await execFileAsync(getToolPath('git'), ['push', '-u', 'origin', branchName], {
-          cwd: worktreePath,
-          encoding: 'utf-8',
-          timeout: 30000,
-          env: getIsolatedGitEnv(),
-        });
-        remoteTrackingSetUp = true;
-        debugLog('[TerminalWorktree] Pushed branch to remote with tracking:', branchName);
-      } catch (pushError) {
-        // Worktree was created successfully — don't fail the operation,
-        // but surface a warning so the user knows tracking isn't set up.
-        const message = pushError instanceof Error ? pushError.message : 'Unknown push error';
-        remotePushWarning = `Worktree created but could not push branch to remote: ${message}`;
-        debugLog('[TerminalWorktree] Could not push to remote (worktree still usable):', message);
+      if (hasOrigin) {
+        try {
+          await execFileAsync(getToolPath('git'), ['push', '-u', 'origin', branchName], {
+            cwd: worktreePath,
+            encoding: 'utf-8',
+            timeout: 30000,
+            env: getIsolatedGitEnv(),
+          });
+          remoteTrackingSetUp = true;
+          debugLog('[TerminalWorktree] Pushed branch to remote with tracking:', branchName);
+        } catch (pushError) {
+          // Worktree was created successfully — don't fail the operation,
+          // but surface a warning so the user knows tracking isn't set up.
+          const message = pushError instanceof Error ? pushError.message : 'Unknown push error';
+          remotePushWarning = message;
+          debugLog('[TerminalWorktree] Could not push to remote (worktree still usable):', message);
+        }
       }
     } else {
       // Use async to avoid blocking the main process on large repos.
