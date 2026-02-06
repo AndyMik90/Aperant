@@ -93,7 +93,7 @@ export function QueueSettingsModal({
     }
 
     const value = parseInt(inputValue, 10);
-    if (!isNaN(value)) {
+    if (!Number.isNaN(value)) {
       setMaxParallel(value);
       setError(null);
     }

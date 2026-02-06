@@ -93,7 +93,7 @@ export function IntegrationSettings({
   // This allows auto-detection to run for a new repo within the same project
   useEffect(() => {
     hasDetectedMainBranch.current = false;
-  }, [project.path, envConfig?.githubRepo]);
+  }, []);
 
   // Load branches function wrapped in useCallback
   // Note: We use refs for mainBranch check and detection tracking to avoid stale closures

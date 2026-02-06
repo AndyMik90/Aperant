@@ -19,8 +19,7 @@ import { getWhichCommand } from '../../platform';
  */
 function checkGhCli(): { installed: boolean; error?: string } {
   try {
-    const checkCmd = `${getWhichCommand()} gh`;
-    execSync(checkCmd, { encoding: 'utf-8', stdio: 'pipe' });
+    execFileSync(getWhichCommand(), ['gh'], { encoding: 'utf-8', stdio: 'pipe' });
     return { installed: true };
   } catch {
     return {
