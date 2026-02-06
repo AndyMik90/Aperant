@@ -6,6 +6,8 @@ import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { AgentQueueManager } from './agent-queue';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
+import type { ClaudeProfileManager } from '../claude-profile-manager';
+import { getOperationRegistry } from '../claude-profile/operation-registry';
 import {
   SpecCreationMetadata,
   TaskExecutionOptions,
@@ -32,6 +34,9 @@ export class AgentManager extends EventEmitter {
     metadata?: SpecCreationMetadata;
     baseBranch?: string;
     swapCount: number;
+    projectId?: string;
+    /** Generation counter to prevent stale cleanup after restart */
+    generation: number;
   }> = new Map();
 
   constructor() {
@@ -51,10 +56,14 @@ export class AgentManager extends EventEmitter {
     });
 
     // Listen for task completion to clean up context (prevent memory leak)
-    this.on('exit', (taskId: string, code: number | null) => {
+    this.on('exit', (taskId: string, code: number | null, _processType?: string, _projectId?: string) => {
       // Clean up context when:
       // 1. Task completed successfully (code === 0), or
       // 2. Task failed and won't be restarted (handled by auto-swap logic)
+
+      // Capture generation at exit time to prevent race conditions with restarts
+      const contextAtExit = this.taskExecutionContext.get(taskId);
+      const generationAtExit = contextAtExit?.generation;
 
       // Note: Auto-swap restart happens BEFORE this exit event is processed,
       // so we need a small delay to allow restart to preserve context
@@ -62,15 +71,25 @@ export class AgentManager extends EventEmitter {
         const context = this.taskExecutionContext.get(taskId);
         if (!context) return; // Already cleaned up or restarted
 
+        // Check if the context's generation matches - if not, a restart incremented it
+        // and this cleanup is for a stale exit event that shouldn't affect the new task
+        if (generationAtExit !== undefined && context.generation !== generationAtExit) {
+          return; // Stale exit event - task was restarted, don't clean up new context
+        }
+
         // If task completed successfully, always clean up
         if (code === 0) {
           this.taskExecutionContext.delete(taskId);
+          // Unregister from OperationRegistry
+          getOperationRegistry().unregisterOperation(taskId);
           return;
         }
 
         // If task failed and hit max retries, clean up
         if (context.swapCount >= 2) {
           this.taskExecutionContext.delete(taskId);
+          // Unregister from OperationRegistry
+          getOperationRegistry().unregisterOperation(taskId);
         }
         // Otherwise keep context for potential restart
       }, 1000); // Delay to allow restart logic to run first
@@ -85,6 +104,46 @@ export class AgentManager extends EventEmitter {
   }
 
   /**
+   * Register a task with the unified OperationRegistry for proactive swap support.
+   * Extracted helper to avoid code duplication between spec creation and task execution.
+   * @private
+   */
+  private registerTaskWithOperationRegistry(
+    taskId: string,
+    operationType: 'spec-creation' | 'task-execution',
+    metadata: Record<string, unknown>
+  ): void {
+    const profileManager = getClaudeProfileManager();
+    const activeProfile = profileManager.getActiveProfile();
+    if (!activeProfile) {
+      return;
+    }
+
+    // Keep internal state tracking for backward compatibility
+    this.assignProfileToTask(taskId, activeProfile.id, activeProfile.name, 'proactive');
+
+    // Register with unified registry for proactive swap
+    // Note: We don't provide a stopFn because restartTask() already handles stopping
+    // the task internally via killTask() before restarting. Providing a separate
+    // stopFn would cause a redundant double-kill during profile swaps.
+    const operationRegistry = getOperationRegistry();
+    operationRegistry.registerOperation(
+      taskId,
+      operationType,
+      activeProfile.id,
+      activeProfile.name,
+      (newProfileId: string) => this.restartTask(taskId, newProfileId),
+      { metadata }
+    );
+    console.log('[AgentManager] Task registered with OperationRegistry:', {
+      taskId,
+      profileId: activeProfile.id,
+      profileName: activeProfile.name,
+      type: operationType
+    });
+  }
+
+  /**
    * Start spec creation process
    */
   async startSpecCreation(
@@ -93,11 +152,12 @@ export class AgentManager extends EventEmitter {
     taskDescription: string,
     specDir?: string,
     metadata?: SpecCreationMetadata,
-    baseBranch?: string
+    baseBranch?: string,
+    projectId?: string
   ): Promise<void> {
     // Pre-flight auth check: Verify active profile has valid authentication
     // Ensure profile manager is initialized to prevent race condition
-    let profileManager;
+    let profileManager: ClaudeProfileManager;
     try {
       profileManager = await initializeClaudeProfileManager();
     } catch (error) {
@@ -173,10 +233,13 @@ export class AgentManager extends EventEmitter {
     }
 
     // Store context for potential restart
-    this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch);
+    this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch, projectId);
+
+    // Register with unified OperationRegistry for proactive swap support
+    this.registerTaskWithOperationRegistry(taskId, 'spec-creation', { projectPath, taskDescription, specDir });
 
     // Note: This is spec-creation but it chains to task-execution via run.py
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
+    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution', projectId);
   }
 
   /**
@@ -186,11 +249,12 @@ export class AgentManager extends EventEmitter {
     taskId: string,
     projectPath: string,
     specId: string,
-    options: TaskExecutionOptions = {}
+    options: TaskExecutionOptions = {},
+    projectId?: string
   ): Promise<void> {
     // Pre-flight auth check: Verify active profile has valid authentication
     // Ensure profile manager is initialized to prevent race condition
-    let profileManager;
+    let profileManager: ClaudeProfileManager;
     try {
       profileManager = await initializeClaudeProfileManager();
     } catch (error) {
@@ -251,9 +315,12 @@ export class AgentManager extends EventEmitter {
     // which allows per-phase configuration for planner, coder, and QA phases
 
     // Store context for potential restart
-    this.storeTaskContext(taskId, projectPath, specId, options, false);
+    this.storeTaskContext(taskId, projectPath, specId, options, false, undefined, undefined, undefined, undefined, projectId);
 
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
+    // Register with unified OperationRegistry for proactive swap support
+    this.registerTaskWithOperationRegistry(taskId, 'task-execution', { projectPath, specId, options });
+
+    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution', projectId);
   }
 
   /**
@@ -262,7 +329,8 @@ export class AgentManager extends EventEmitter {
   async startQAProcess(
     taskId: string,
     projectPath: string,
-    specId: string
+    specId: string,
+    projectId?: string
   ): Promise<void> {
     // Ensure Python environment is ready before spawning process (prevents exit code 127 race condition)
     const pythonStatus = await this.processManager.ensurePythonEnvReady('AgentManager');
@@ -290,7 +358,7 @@ export class AgentManager extends EventEmitter {
 
     const args = [runPath, '--spec', specId, '--project-dir', projectPath, '--qa'];
 
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'qa-process');
+    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'qa-process', projectId);
   }
 
   /**
@@ -387,11 +455,14 @@ export class AgentManager extends EventEmitter {
     taskDescription?: string,
     specDir?: string,
     metadata?: SpecCreationMetadata,
-    baseBranch?: string
+    baseBranch?: string,
+    projectId?: string
   ): void {
     // Preserve swapCount if context already exists (for restarts)
     const existingContext = this.taskExecutionContext.get(taskId);
     const swapCount = existingContext?.swapCount ?? 0;
+    // Increment generation on each store (restarts) to invalidate pending cleanup callbacks
+    const generation = (existingContext?.generation ?? 0) + 1;
 
     this.taskExecutionContext.set(taskId, {
       projectPath,
@@ -402,7 +473,9 @@ export class AgentManager extends EventEmitter {
       specDir,
       metadata,
       baseBranch,
-      swapCount // Preserve existing count instead of resetting
+      swapCount, // Preserve existing count instead of resetting
+      projectId,
+      generation, // Incremented to prevent stale exit cleanup
     });
   }
 
@@ -458,13 +531,18 @@ export class AgentManager extends EventEmitter {
       console.log('[AgentManager] Restarting task now:', taskId);
       if (context.isSpecCreation) {
         console.log('[AgentManager] Restarting as spec creation');
+        if (!context.taskDescription) {
+          console.error('[AgentManager] Cannot restart spec creation: taskDescription is missing');
+          return;
+        }
         this.startSpecCreation(
           taskId,
           context.projectPath,
-          context.taskDescription!,
+          context.taskDescription,
           context.specDir,
           context.metadata,
-          context.baseBranch
+          context.baseBranch,
+          context.projectId
         );
       } else {
         console.log('[AgentManager] Restarting as task execution');
@@ -472,11 +550,58 @@ export class AgentManager extends EventEmitter {
           taskId,
           context.projectPath,
           context.specId,
-          context.options
+          context.options,
+          context.projectId
         );
       }
     }, 500);
 
     return true;
+  }
+
+  // ============================================
+  // Queue Routing Methods (Rate Limit Recovery)
+  // ============================================
+
+  /**
+   * Get running tasks grouped by profile
+   * Used by queue routing to determine profile load
+   */
+  getRunningTasksByProfile(): { byProfile: Record<string, string[]>; totalRunning: number } {
+    return this.state.getRunningTasksByProfile();
+  }
+
+  /**
+   * Assign a profile to a task
+   * Records which profile is being used for a task
+   */
+  assignProfileToTask(
+    taskId: string,
+    profileId: string,
+    profileName: string,
+    reason: 'proactive' | 'reactive' | 'manual'
+  ): void {
+    this.state.assignProfileToTask(taskId, profileId, profileName, reason);
+  }
+
+  /**
+   * Get the profile assignment for a task
+   */
+  getTaskProfileAssignment(taskId: string): { profileId: string; profileName: string; reason: string } | undefined {
+    return this.state.getTaskProfileAssignment(taskId);
+  }
+
+  /**
+   * Update the session ID for a task (for session resume)
+   */
+  updateTaskSession(taskId: string, sessionId: string): void {
+    this.state.updateTaskSession(taskId, sessionId);
+  }
+
+  /**
+   * Get the session ID for a task
+   */
+  getTaskSessionId(taskId: string): string | undefined {
+    return this.state.getTaskSessionId(taskId);
   }
 }

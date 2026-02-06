@@ -21,6 +21,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const os = require('os');
 const nodeCrypto = require('crypto');
+const { toNodePlatform } = require('../src/shared/platform.cjs');
 
 // Python version to bundle (must be 3.10+ for claude-agent-sdk, 3.12+ for full Graphiti support)
 const PYTHON_VERSION = '3.12.8';
@@ -104,7 +105,10 @@ const STRIP_PATTERNS = {
   // Format: 'package_name/subpath' - removes the entire subpath
   packagePaths: [
     'googleapiclient/discovery_cache/documents',  // Cached Google API discovery docs (92MB!)
-    'claude_agent_sdk/_bundled',                  // Bundled Claude CLI (224MB!) - users have it installed separately
+    // NOTE: claude_agent_sdk/_bundled is NO LONGER excluded.
+    // On Windows, the system-installed Claude CLI is claude.cmd (a batch script),
+    // which cannot be executed by anyio.open_process() / asyncio.create_subprocess_exec().
+    // The SDK's bundled claude.exe is a proper executable and works correctly.
   ],
   // Packages that should NEVER be bundled (too large, specialized)
   // If these appear in dependencies, warn and skip
@@ -145,6 +149,16 @@ const CHECKSUMS = {
   'linux-arm64': 'fb983ec85952513f5f013674fcbf4306b1a142c50fcfd914c2c3f00c61a874b0',
 };
 
+// Platform-specific critical packages that must be bundled
+// pywin32 is platform-critical for Windows (ACS-306) - required by MCP library
+// secretstorage is platform-critical for Linux (ACS-310) - required for OAuth token storage
+// NOTE: python-env-manager.ts treats secretstorage as optional (falls back to .env)
+// while this script validates it during build to ensure it's bundled
+const PLATFORM_CRITICAL_PACKAGES = {
+  'win32': ['pywintypes'],   // Check for 'pywintypes' instead of 'pywin32' (pywin32 installs top-level modules)
+  'linux': ['secretstorage'] // Linux OAuth token storage via Freedesktop.org Secret Service
+};
+
 // Map Node.js platform names to electron-builder platform names
 function toElectronBuilderPlatform(nodePlatform) {
   const map = {
@@ -153,18 +167,6 @@ function toElectronBuilderPlatform(nodePlatform) {
     'linux': 'linux',
   };
   return map[nodePlatform] || nodePlatform;
-}
-
-// Map electron-builder platform names to Node.js platform names (for internal use)
-function toNodePlatform(platform) {
-  const map = {
-    'mac': 'darwin',
-    'win': 'win32',
-    'darwin': 'darwin',
-    'win32': 'win32',
-    'linux': 'linux',
-  };
-  return map[platform] || platform;
 }
 
 /**
@@ -454,6 +456,71 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function hasPackage(sitePackagesDir, pkg) {
+  const pkgPath = path.join(sitePackagesDir, pkg);
+  const initPath = path.join(pkgPath, '__init__.py');
+  const moduleFile = path.join(sitePackagesDir, pkg + '.py');
+  return (fs.existsSync(pkgPath) && fs.existsSync(initPath)) || fs.existsSync(moduleFile);
+}
+
+function hasPydanticCoreBinary(sitePackagesDir) {
+  const pkgDir = path.join(sitePackagesDir, 'pydantic_core');
+  if (!fs.existsSync(pkgDir)) return false;
+
+  let entries;
+  try {
+    entries = fs.readdirSync(pkgDir);
+  } catch {
+    return false;
+  }
+  return entries.some((name) => {
+    if (!name.startsWith('_pydantic_core')) return false;
+    const lower = name.toLowerCase();
+    return lower.endsWith('.so') || lower.endsWith('.pyd') || lower.endsWith('.dylib');
+  });
+}
+
+function getPinnedPydanticCoreVersion(sitePackagesDir) {
+  let entries;
+  try {
+    entries = fs.readdirSync(sitePackagesDir);
+  } catch {
+    return null;
+  }
+
+  const distInfo = entries.find((entry) => {
+    return entry.startsWith('pydantic-')
+      && !entry.startsWith('pydantic_core-')
+      && entry.endsWith('.dist-info');
+  });
+  if (!distInfo) return null;
+
+  const metadataPath = path.join(sitePackagesDir, distInfo, 'METADATA');
+  if (!fs.existsSync(metadataPath)) return null;
+
+  let metadata;
+  try {
+    metadata = fs.readFileSync(metadataPath, 'utf-8');
+  } catch {
+    return null;
+  }
+
+  for (const line of metadata.split(/\r?\n/)) {
+    if (!line.startsWith('Requires-Dist: pydantic-core')) continue;
+    const match = line.match(/pydantic-core==([0-9A-Za-z.+-]+)/);
+    if (match) return match[1];
+  }
+
+  return null;
+}
+
+function isCriticalPackageMissing(sitePackagesDir, pkg) {
+  if (pkg === 'pydantic_core') {
+    return !hasPackage(sitePackagesDir, pkg) || !hasPydanticCoreBinary(sitePackagesDir);
+  }
+  return !hasPackage(sitePackagesDir, pkg);
+}
+
 /**
  * Strip unnecessary files from site-packages to reduce bundle size.
  * This removes tests, docs, cache files, and other non-essential content.
@@ -594,6 +661,143 @@ function checkForBlockedPackages(requirementsPath) {
 }
 
 /**
+ * Fix pywin32 installation for bundled packages.
+ *
+ * When pip installs pywin32 with --target, the post-install script doesn't run,
+ * and the .pth file isn't processed (since PYTHONPATH doesn't process .pth files).
+ *
+ * This means:
+ * 1. `import pywintypes` fails because pywintypes.py is in win32/lib/, not at root
+ * 2. `import _win32sysloader` fails because it's in win32/, not at root
+ * 3. pywin32_system32 needs an __init__.py to be importable as a package
+ *
+ * The fix copies the necessary files to site-packages root so they're directly importable.
+ */
+function fixPywin32(sitePackagesDir) {
+  const pywin32System32 = path.join(sitePackagesDir, 'pywin32_system32');
+  const win32Dir = path.join(sitePackagesDir, 'win32');
+  const win32LibDir = path.join(win32Dir, 'lib');
+
+  if (!fs.existsSync(pywin32System32)) {
+    // pywin32 not installed or not on Windows - nothing to fix
+    return;
+  }
+
+  console.log(`[download-python] Fixing pywin32 for bundled packages...`);
+
+  // 1. Copy pywintypes.py and pythoncom.py from win32/lib/ to root
+  // These are the Python modules that load the DLLs
+  const pyModules = ['pywintypes.py', 'pythoncom.py'];
+  for (const pyModule of pyModules) {
+    const srcPath = path.join(win32LibDir, pyModule);
+    const destPath = path.join(sitePackagesDir, pyModule);
+
+    if (fs.existsSync(srcPath)) {
+      try {
+        fs.copyFileSync(srcPath, destPath);
+        console.log(`[download-python] Copied ${pyModule} to site-packages root`);
+      } catch (err) {
+        console.warn(`[download-python] Failed to copy ${pyModule}: ${err.message}`);
+      }
+    }
+  }
+
+  // 2. Copy _win32sysloader.pyd from win32/ to root
+  // This is required by pywintypes.py to locate and load the DLLs
+  // Filter for .pyd extension to avoid matching unrelated files
+  if (!fs.existsSync(win32Dir)) {
+    console.warn(`[download-python] win32 directory not found: ${win32Dir}`);
+    return;
+  }
+  const sysloaderFiles = fs.readdirSync(win32Dir).filter(f => f.startsWith('_win32sysloader') && f.endsWith('.pyd'));
+  for (const sysloader of sysloaderFiles) {
+    const srcPath = path.join(win32Dir, sysloader);
+    const destPath = path.join(sitePackagesDir, sysloader);
+
+    try {
+      fs.copyFileSync(srcPath, destPath);
+      console.log(`[download-python] Copied ${sysloader} to site-packages root`);
+    } catch (err) {
+      console.warn(`[download-python] Failed to copy ${sysloader}: ${err.message}`);
+    }
+  }
+
+  // 3. Create __init__.py in pywin32_system32/ to make it importable as a package
+  // pywintypes.py does `import pywin32_system32` and then uses pywin32_system32.__path__
+  const initPath = path.join(pywin32System32, '__init__.py');
+  try {
+    // The __init__.py sets up __path__ so pywintypes.py can find the DLLs
+    const initContent = `# Auto-generated for bundled pywin32
+import os
+__path__ = [os.path.dirname(__file__)]
+`;
+    // Use 'wx' flag for atomic exclusive write - fails if file exists (EEXIST)
+    // This avoids TOCTOU race condition where existsSync + writeFileSync could
+    // allow another process to create/modify the file between check and write.
+    // See: https://nodejs.org/api/fs.html#file-system-flags
+    fs.writeFileSync(initPath, initContent, { flag: 'wx' });
+    console.log(`[download-python] Created pywin32_system32/__init__.py`);
+  } catch (err) {
+    // EEXIST means file already exists - that's fine, we wanted to avoid overwriting
+    if (err.code !== 'EEXIST') {
+      console.warn(`[download-python] Failed to create __init__.py: ${err.message}`);
+    }
+  }
+
+  // 4. Copy DLLs to multiple locations for maximum compatibility
+  //
+  // Why we copy DLLs to pywin32_system32/, win32/, AND site-packages root:
+  // - pywin32_system32/: Primary location, used by os.add_dll_directory() in bootstrap
+  // - win32/: Fallback for pywintypes.py's __file__-relative search
+  // - site-packages root: Fallback when other search mechanisms fail
+  //
+  // Trade-off: This duplicates DLLs ~3x (~2MB extra), but ensures pywin32 works
+  // regardless of which DLL search mechanism succeeds. The alternative (single
+  // location) caused intermittent failures depending on Python version and how
+  // the process was spawned. Bundle size trade-off is acceptable for reliability.
+  //
+  // See: https://github.com/AndyMik90/Auto-Claude/issues/810
+  const dllFiles = fs.readdirSync(pywin32System32).filter(f => f.endsWith('.dll'));
+  for (const dll of dllFiles) {
+    const srcPath = path.join(pywin32System32, dll);
+    const destPath = path.join(win32Dir, dll);
+
+    try {
+      fs.copyFileSync(srcPath, destPath);
+      console.log(`[download-python] Copied ${dll} to win32/`);
+    } catch (err) {
+      console.warn(`[download-python] Failed to copy ${dll} to win32/: ${err.message}`);
+    }
+  }
+
+  // 5. Also copy DLLs to site-packages root for maximum compatibility
+  for (const dll of dllFiles) {
+    const srcPath = path.join(pywin32System32, dll);
+    const destPath = path.join(sitePackagesDir, dll);
+
+    try {
+      fs.copyFileSync(srcPath, destPath);
+      console.log(`[download-python] Copied ${dll} to site-packages root`);
+    } catch (err) {
+      console.warn(`[download-python] Failed to copy ${dll}: ${err.message}`);
+    }
+  }
+
+  // Note: We intentionally do NOT create a PYTHONSTARTUP bootstrap script.
+  // PYTHONSTARTUP only runs in interactive Python mode (python REPL), NOT when
+  // running scripts (python script.py). Since all our Python invocations pass
+  // scripts as arguments, PYTHONSTARTUP would never execute.
+  //
+  // The DLL copying above (steps 4 and 5) is what actually makes pywin32 work -
+  // it places DLLs in locations where Python's default DLL search finds them.
+  // The PATH modification in python-env-manager.ts provides an additional fallback.
+  //
+  // See: https://docs.python.org/3/using/cmdline.html (PYTHONSTARTUP documentation)
+
+  console.log(`[download-python] pywin32 fix complete`);
+}
+
+/**
  * Install Python packages into a site-packages directory.
  * Uses pip with optimizations for smaller output.
  */
@@ -644,8 +848,49 @@ function installPackages(pythonBin, requirementsPath, targetSitePackages) {
 
   console.log(`[download-python] Packages installed successfully`);
 
+  // Fix pywin32 for Windows builds (must be done BEFORE stripping)
+  fixPywin32(targetSitePackages);
+
   // Strip unnecessary files
   stripSitePackages(targetSitePackages);
+
+  if (!hasPydanticCoreBinary(targetSitePackages)) {
+    console.warn('[download-python] pydantic_core binary missing after strip; reinstalling pydantic-core...');
+    const pinnedVersion = getPinnedPydanticCoreVersion(targetSitePackages);
+    const coreSpec = pinnedVersion ? `pydantic-core==${pinnedVersion}` : 'pydantic-core';
+    if (pinnedVersion) {
+      console.log(`[download-python] Reinstalling pydantic-core ${pinnedVersion} to match pydantic metadata`);
+    } else {
+      console.warn('[download-python] Unable to determine pydantic-core pin; reinstalling latest');
+    }
+    const pipArgs = [
+      '-m', 'pip', 'install',
+      '--no-compile',
+      '--only-binary', 'pydantic-core',
+      '--no-deps',
+      '--target', targetSitePackages,
+      coreSpec,
+    ];
+    const result = spawnSync(pythonBin, pipArgs, {
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        PYTHONDONTWRITEBYTECODE: '1',
+        PYTHONIOENCODING: 'utf-8',
+      },
+    });
+
+    if (result.error) {
+      throw new Error(`Failed to reinstall pydantic-core: ${result.error.message}`);
+    }
+    if (result.status !== 0) {
+      throw new Error(`pydantic-core reinstall failed with exit code ${result.status}`);
+    }
+
+    if (!hasPydanticCoreBinary(targetSitePackages)) {
+      throw new Error('pydantic_core binary missing after reinstall');
+    }
+  }
 
   // Remove bin/Scripts directory (we don't need console scripts)
   const binDir = path.join(targetSitePackages, 'bin');
@@ -707,21 +952,12 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
 
       // Verify critical packages exist (fixes GitHub issue #416)
       // Without this check, corrupted caches with missing packages would be accepted
-      // Note: Same list exists in python-env-manager.ts - keep them in sync
       // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)
-      // pywin32 is platform-critical for Windows (ACS-306) - required by MCP library
-      // Note: We check for 'pywintypes' instead of 'pywin32' because pywin32 installs
-      // top-level modules (pywintypes, win32api, win32con, win32com) without a pywin32/__init__.py
+      // NOTE: python-env-manager.ts treats secretstorage as optional (falls back to .env)
+      // while this script validates it during build to ensure it's bundled
       const criticalPackages = ['claude_agent_sdk', 'dotenv', 'pydantic_core']
-        .concat(info.nodePlatform === 'win32' ? ['pywintypes'] : []);
-      const missingPackages = criticalPackages.filter(pkg => {
-        const pkgPath = path.join(sitePackagesDir, pkg);
-        const initFile = path.join(pkgPath, '__init__.py');
-        // For single-file modules (like pywintypes.py), check for the file directly
-        const moduleFile = path.join(sitePackagesDir, pkg + '.py');
-        // Package is valid if directory+__init__.py exists OR single-file module exists
-        return !fs.existsSync(initFile) && !fs.existsSync(moduleFile);
-      });
+        .concat(PLATFORM_CRITICAL_PACKAGES[info.nodePlatform] || []);
+      const missingPackages = criticalPackages.filter(pkg => isCriticalPackageMissing(sitePackagesDir, pkg));
 
       if (missingPackages.length > 0) {
         console.log(`[download-python] Critical packages missing or incomplete: ${missingPackages.join(', ')}`);
@@ -816,21 +1052,12 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
       installPackages(pythonBin, requirementsPath, sitePackagesDir);
 
       // Verify critical packages were installed before creating marker (fixes #416)
-      // Note: Same list exists in python-env-manager.ts - keep them in sync
       // This validation assumes traditional Python packages with __init__.py (not PEP 420 namespace packages)
-      // pywin32 is platform-critical for Windows (ACS-306) - required by MCP library
-      // Note: We check for 'pywintypes' instead of 'pywin32' because pywin32 installs
-      // top-level modules (pywintypes, win32api, win32con, win32com) without a pywin32/__init__.py
+      // NOTE: python-env-manager.ts treats secretstorage as optional (falls back to .env)
+      // while this script validates it during build to ensure it's bundled
       const criticalPackages = ['claude_agent_sdk', 'dotenv', 'pydantic_core']
-        .concat(info.nodePlatform === 'win32' ? ['pywintypes'] : []);
-      const postInstallMissing = criticalPackages.filter(pkg => {
-        const pkgPath = path.join(sitePackagesDir, pkg);
-        const initFile = path.join(pkgPath, '__init__.py');
-        // For single-file modules (like pywintypes.py), check for the file directly
-        const moduleFile = path.join(sitePackagesDir, pkg + '.py');
-        // Package is valid if directory+__init__.py exists OR single-file module exists
-        return !fs.existsSync(initFile) && !fs.existsSync(moduleFile);
-      });
+        .concat(PLATFORM_CRITICAL_PACKAGES[info.nodePlatform] || []);
+      const postInstallMissing = criticalPackages.filter(pkg => isCriticalPackageMissing(sitePackagesDir, pkg));
 
       if (postInstallMissing.length > 0) {
         throw new Error(`Package installation failed - missing critical packages: ${postInstallMissing.join(', ')}`);
@@ -891,6 +1118,7 @@ function validateInput(value, validValues, name) {
 
   // Remove any control characters or newlines (ASCII 0-31 and 127)
   // eslint-disable-next-line no-control-regex
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentional - sanitizing input by removing control characters
   const sanitized = String(value).replace(/[\x00-\x1f\x7f]/g, '');
 
   if (!validValues.includes(sanitized)) {

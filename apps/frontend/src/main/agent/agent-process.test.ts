@@ -13,7 +13,7 @@ function createMockProcess() {
   return {
     stdout: { on: vi.fn() },
     stderr: { on: vi.fn() },
-    on: vi.fn((event: string, callback: any) => {
+    on: vi.fn((event: string, callback: (code: number) => void) => {
       if (event === 'exit') {
         // Simulate immediate exit with code 0
         setTimeout(() => callback(0), 10);
@@ -84,7 +84,12 @@ vi.mock('../services/profile', () => ({
 }));
 
 vi.mock('../rate-limit-detector', () => ({
-  getProfileEnv: vi.fn(() => ({})),
+  getBestAvailableProfileEnv: vi.fn(() => ({
+    env: {},
+    profileId: 'default',
+    profileName: 'Default',
+    wasSwapped: false
+  })),
   detectRateLimit: vi.fn(() => ({ isRateLimited: false })),
   createSDKRateLimitInfo: vi.fn(),
   detectAuthFailure: vi.fn(() => ({ isAuthFailure: false }))
@@ -113,7 +118,18 @@ vi.mock('electron', () => ({
 
 // Mock cli-tool-manager to avoid blocking tool detection on Windows
 vi.mock('../cli-tool-manager', () => ({
-  getToolInfo: vi.fn(() => ({ found: false, path: null, source: 'mock' })),
+  getToolInfo: vi.fn((tool: string) => {
+    if (tool === 'gh') {
+      // Default: gh CLI not found
+      return { found: false, path: undefined, source: 'user-config', message: 'gh CLI not found' };
+    }
+    if (tool === 'claude') {
+      return { found: false, path: undefined, source: 'user-config', message: 'Claude CLI not found' };
+    }
+    return { found: false, path: undefined, source: 'user-config', message: `${tool} not found` };
+  }),
+  // getClaudeCliPathForSdk returns null by default (simulates not found or .cmd file on Windows)
+  getClaudeCliPathForSdk: vi.fn(() => null),
   deriveGitBashPath: vi.fn(() => null),
   clearCache: vi.fn()
 }));
@@ -150,6 +166,7 @@ import { AgentEvents } from './agent-events';
 import * as profileService from '../services/profile';
 import * as rateLimitDetector from '../rate-limit-detector';
 import { pythonEnvManager } from '../python-env-manager';
+import { getToolInfo, getClaudeCliPathForSdk } from '../cli-tool-manager';
 
 describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
   let processManager: AgentProcessManager;
@@ -166,6 +183,9 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
     delete process.env.ANTHROPIC_AUTH_TOKEN;
     delete process.env.ANTHROPIC_BASE_URL;
     delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    // Clear CLI path env vars so tests use mocked getToolInfo
+    delete process.env.CLAUDE_CLI_PATH;
+    delete process.env.GITHUB_CLI_PATH;
 
     // Initialize components
     state = new AgentState();
@@ -272,8 +292,11 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
 
       // Set OAuth token via getProfileEnv (existing flow)
-      vi.mocked(rateLimitDetector.getProfileEnv).mockReturnValue({
-        CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-123'
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+        env: { CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-123' },
+        profileId: 'default',
+        profileName: 'Default',
+        wasSwapped: false
       });
 
       await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
@@ -304,8 +327,11 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
 
       // Set OAuth token
-      vi.mocked(rateLimitDetector.getProfileEnv).mockReturnValue({
-        CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-456'
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+        env: { CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-456' },
+        profileId: 'default',
+        profileName: 'Default',
+        wasSwapped: false
       });
 
       await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
@@ -328,8 +354,11 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
 
       // OAuth mode
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
-      vi.mocked(rateLimitDetector.getProfileEnv).mockReturnValue({
-        CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-789'
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+        env: { CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-789' },
+        profileId: 'default',
+        profileName: 'Default',
+        wasSwapped: false
       });
 
       await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
@@ -483,7 +512,12 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
         ANTHROPIC_BASE_URL: 'https://api-profile.com'
       };
 
-      vi.mocked(rateLimitDetector.getProfileEnv).mockReturnValue(profileEnv);
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+        env: profileEnv,
+        profileId: 'default',
+        profileName: 'Default',
+        wasSwapped: false
+      });
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue(apiProfileEnv);
 
       await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], extraEnv, 'task-execution');
@@ -633,6 +667,136 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       expect(result.ready).toBe(false);
       expect(result.error).toBe('initialization failed');
       expect(pythonEnvManager.initialize).toHaveBeenCalledWith('/fake/auto-build');
+    });
+  });
+
+  describe('GITHUB_CLI_PATH Environment Variable (ACS-321)', () => {
+    let originalEnv: NodeJS.ProcessEnv;
+
+    beforeEach(() => {
+      // Save original environment before each test
+      originalEnv = { ...process.env };
+      // Clear GITHUB_CLI_PATH if set
+      delete process.env.GITHUB_CLI_PATH;
+    });
+
+    afterEach(() => {
+      // Restore original environment after each test
+      process.env = originalEnv;
+    });
+
+    it('should NOT set GITHUB_CLI_PATH when gh CLI is not found', async () => {
+      // Mock gh CLI as not found
+      vi.mocked(getToolInfo).mockReturnValue({
+        found: false,
+        path: undefined,
+        source: 'user-config',
+        message: 'gh CLI not found'
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // GITHUB_CLI_PATH should not be set
+      expect(envArg.GITHUB_CLI_PATH).toBeUndefined();
+    });
+
+    it('should set GITHUB_CLI_PATH when gh CLI is found by getToolInfo', async () => {
+      // Mock gh CLI as found
+      vi.mocked(getToolInfo).mockReturnValue({
+        found: true,
+        path: '/opt/homebrew/bin/gh',
+        source: 'homebrew',
+        message: 'gh CLI found via Homebrew'
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // GITHUB_CLI_PATH should be set to the detected path
+      expect(envArg.GITHUB_CLI_PATH).toBe('/opt/homebrew/bin/gh');
+    });
+
+    it('should NOT override existing GITHUB_CLI_PATH from process.env', async () => {
+      // Set GITHUB_CLI_PATH in process environment
+      process.env.GITHUB_CLI_PATH = '/existing/path/to/gh';
+
+      // Mock gh CLI as found at different path
+      vi.mocked(getToolInfo).mockReturnValue({
+        found: true,
+        path: '/opt/homebrew/bin/gh',
+        source: 'homebrew',
+        message: 'gh CLI found via Homebrew'
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // Should use existing GITHUB_CLI_PATH from process.env, not detected one
+      expect(envArg.GITHUB_CLI_PATH).toBe('/existing/path/to/gh');
+    });
+
+    it('should detect gh CLI from system-path source', async () => {
+      // Mock gh CLI found in system PATH
+      vi.mocked(getToolInfo).mockReturnValue({
+        found: true,
+        path: 'C:\\Program Files\\GitHub CLI\\gh.exe',
+        source: 'system-path',
+        message: 'gh CLI found in system PATH'
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      expect(envArg.GITHUB_CLI_PATH).toBe('C:\\Program Files\\GitHub CLI\\gh.exe');
+    });
+
+    it('should handle getToolInfo errors gracefully', async () => {
+      // Mock getToolInfo to throw an error
+      vi.mocked(getToolInfo).mockImplementation(() => {
+        throw new Error('Tool detection failed');
+      });
+
+      // Should not throw - should fall back to not setting GITHUB_CLI_PATH
+      await expect(
+        processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution')
+      ).resolves.not.toThrow();
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // GITHUB_CLI_PATH should not be set on error
+      expect(envArg.GITHUB_CLI_PATH).toBeUndefined();
+    });
+
+    it('should set GITHUB_CLI_PATH with same precedence as CLAUDE_CLI_PATH', async () => {
+      // Mock Claude CLI via getClaudeCliPathForSdk (returns path directly, not .cmd file)
+      vi.mocked(getClaudeCliPathForSdk).mockReturnValue('/opt/homebrew/bin/claude');
+
+      // Mock gh CLI via getToolInfo (gh still uses standard detection)
+      vi.mocked(getToolInfo).mockImplementation((tool: string) => {
+        if (tool === 'gh') {
+          return { found: true, path: '/opt/homebrew/bin/gh', source: 'homebrew', message: 'gh CLI found via Homebrew' };
+        }
+        return { found: false, path: undefined, source: 'user-config', message: `${tool} not found` };
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // Both should be set
+      expect(envArg.CLAUDE_CLI_PATH).toBe('/opt/homebrew/bin/claude');
+      expect(envArg.GITHUB_CLI_PATH).toBe('/opt/homebrew/bin/gh');
     });
   });
 });

@@ -340,7 +340,7 @@ class MultiRepoConfig:
             "repos": [c.to_dict() for c in self.repos.values()],
             "last_updated": datetime.now(timezone.utc).isoformat(),
         }
-        with open(file_path, "w") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
     @classmethod
@@ -349,7 +349,7 @@ class MultiRepoConfig:
         if not config_file.exists():
             return cls()
 
-        with open(config_file) as f:
+        with open(config_file, encoding="utf-8") as f:
             data = json.load(f)
 
         repos = [RepoConfig.from_dict(r) for r in data.get("repos", [])]

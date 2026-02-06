@@ -38,7 +38,7 @@ def load_qa_fixer_prompt() -> str:
     prompt_file = QA_PROMPTS_DIR / "qa_fixer.md"
     if not prompt_file.exists():
         raise FileNotFoundError(f"QA fixer prompt not found: {prompt_file}")
-    return prompt_file.read_text()
+    return prompt_file.read_text(encoding="utf-8")
 
 
 # =============================================================================

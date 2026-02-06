@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { ScrollArea } from '../../ui/scroll-area';
 import { IssueListItem } from './IssueListItem';
@@ -19,6 +19,7 @@ export function IssueList({
 }: IssueListProps) {
   const { t } = useTranslation('common');
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+  const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
 
   // Intersection Observer for infinite scroll
   const handleIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
@@ -30,10 +31,10 @@ export function IssueList({
 
   useEffect(() => {
     const trigger = loadMoreTriggerRef.current;
-    if (!trigger || !onLoadMore) return;
+    if (!trigger || !onLoadMore || !viewportElement) return;
 
     const observer = new IntersectionObserver(handleIntersection, {
-      root: null,
+      root: viewportElement,
       rootMargin: '100px',
       threshold: 0
     });
@@ -43,7 +44,7 @@ export function IssueList({
     return () => {
       observer.disconnect();
     };
-  }, [handleIntersection, onLoadMore]);
+  }, [handleIntersection, onLoadMore, viewportElement]);
 
   // Only show blocking error view when no issues are loaded
   // Load-more errors are shown inline near the load-more trigger
@@ -71,7 +72,7 @@ export function IssueList({
   }
 
   return (
-    <ScrollArea className="flex-1">
+    <ScrollArea className="flex-1" onViewportRef={setViewportElement}>
       <div className="p-2 space-y-1">
         {issues.map((issue) => (
           <IssueListItem

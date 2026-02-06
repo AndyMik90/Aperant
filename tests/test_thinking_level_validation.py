@@ -9,10 +9,8 @@ import logging
 import sys
 from pathlib import Path
 
-import pytest
-
 # Add auto-claude to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from phase_config import THINKING_BUDGET_MAP, get_thinking_budget
 
@@ -34,8 +32,8 @@ class TestThinkingLevelValidation:
         assert get_thinking_budget("none") is None
 
     def test_ultrathink_max_budget(self):
-        """Test that 'ultrathink' returns maximum budget."""
-        assert get_thinking_budget("ultrathink") == 60000
+        """Test that 'ultrathink' returns maximum budget (63999 so max_tokens = 63999 + 1 = 64000 limit)."""
+        assert get_thinking_budget("ultrathink") == 63999
 
     def test_invalid_level_logs_warning(self, caplog):
         """Test that invalid thinking level logs a warning."""
@@ -91,4 +89,4 @@ class TestThinkingLevelValidation:
         assert get_thinking_budget("low") == 1024
         assert get_thinking_budget("medium") == 4096
         assert get_thinking_budget("high") == 16384
-        assert get_thinking_budget("ultrathink") == 60000
+        assert get_thinking_budget("ultrathink") == 63999

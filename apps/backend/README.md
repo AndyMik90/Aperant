@@ -17,12 +17,14 @@ python -m pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Set your Claude API token in `.env`:
-```
-CLAUDE_CODE_OAUTH_TOKEN=your-token-here
+Authenticate with Claude Code (token auto-saved to Keychain):
+```bash
+claude
+# Type: /login
+# Press Enter to open browser
 ```
 
-Get your token by running: `claude setup-token`
+Token is auto-detected from macOS Keychain / Windows Credential Manager.
 
 ### 3. Run
 

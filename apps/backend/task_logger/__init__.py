@@ -14,6 +14,8 @@ Key features:
 
 # Export models
 # Export streaming capture
+# Export utility functions
+from .ansi import strip_ansi_codes
 from .capture import StreamingLogCapture
 
 # Export main logger
@@ -22,9 +24,11 @@ from .models import LogEntry, LogEntryType, LogPhase, PhaseLog
 
 # Export storage utilities
 from .storage import get_active_phase, load_task_logs
-
-# Export utility functions
-from .utils import clear_task_logger, get_task_logger, update_task_logger_path
+from .utils import (
+    clear_task_logger,
+    get_task_logger,
+    update_task_logger_path,
+)
 
 __all__ = [
     # Models
@@ -41,6 +45,7 @@ __all__ = [
     "get_task_logger",
     "clear_task_logger",
     "update_task_logger_path",
+    "strip_ansi_codes",
     # Streaming capture
     "StreamingLogCapture",
 ]

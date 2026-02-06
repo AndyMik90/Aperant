@@ -14,10 +14,11 @@
 import * as os from 'os';
 import * as path from 'path';
 import { existsSync } from 'fs';
+import { spawn, ChildProcess } from 'child_process';
 import { OS, ShellType, PathConfig, ShellConfig, BinaryDirectories } from './types';
 
 // Re-export from paths.ts for backward compatibility
-export { getWindowsShellPaths } from './paths';
+export { getWindowsShellPaths, getOllamaExecutablePaths, getOllamaInstallCommand, getWhichCommand } from './paths';
 
 /**
  * Get the current operating system
@@ -242,7 +243,7 @@ function getWindowsShellConfig(preferredShell?: ShellType): ShellConfig {
 /**
  * Get Unix shell configuration
  */
-function getUnixShellConfig(preferredShell?: ShellType): ShellConfig {
+function getUnixShellConfig(_preferredShell?: ShellType): ShellConfig {
   const shellPath = process.env.SHELL || '/bin/zsh';
 
   return {
@@ -285,8 +286,8 @@ export function getNpxCommand(): string {
  * or environment variable expansion.
  */
 export function isSecurePath(candidatePath: string): boolean {
-  // Reject empty strings to maintain cross-platform consistency
-  if (!candidatePath) return false;
+  // Reject empty or whitespace-only strings to maintain cross-platform consistency with backend
+  if (!candidatePath || !candidatePath.trim()) return false;
 
   // Security validation: reject paths with dangerous patterns
   const dangerousPatterns = [
@@ -294,7 +295,7 @@ export function isSecurePath(candidatePath: string): boolean {
     /%[^%]+%/,                   // Windows environment variable expansion
     /\.\.\//,                    // Unix directory traversal
     /\.\.\\/,                    // Windows directory traversal
-    /[\r\n]/                     // Newlines (command injection)
+    /[\r\n\x00]/                 // Newlines (command injection), null bytes (path truncation)
   ];
 
   for (const pattern of dangerousPatterns) {
@@ -398,4 +399,106 @@ export function getPlatformDescription(): string {
 
   const arch = os.arch();
   return `${osName} (${arch})`;
+}
+
+/**
+ * Grace period (ms) before force-killing a process after graceful termination.
+ * Used for SIGTERM->SIGKILL (Unix) and kill()->taskkill (Windows) patterns.
+ */
+export const GRACEFUL_KILL_TIMEOUT_MS = 5000;
+
+export interface KillProcessOptions {
+  /** Custom timeout in ms (defaults to GRACEFUL_KILL_TIMEOUT_MS) */
+  timeoutMs?: number;
+  /** Debug logging prefix */
+  debugPrefix?: string;
+  /** Whether debug logging is enabled */
+  debug?: boolean;
+}
+
+/**
+ * Platform-aware process termination with graceful shutdown and forced fallback.
+ *
+ * Windows: .kill() then taskkill /f /t as fallback
+ * Unix: SIGTERM then SIGKILL as fallback
+ *
+ * IMPORTANT: Taskkill/SIGKILL runs OUTSIDE the .kill() try-catch to ensure
+ * fallback executes even if graceful kill throws.
+ */
+export function killProcessGracefully(
+  childProcess: ChildProcess,
+  options: KillProcessOptions = {}
+): void {
+  const {
+    timeoutMs = GRACEFUL_KILL_TIMEOUT_MS,
+    debugPrefix = '[ProcessKill]',
+    debug = false
+  } = options;
+
+  const pid = childProcess.pid;
+  const log = (...args: unknown[]) => {
+    if (debug) console.warn(debugPrefix, ...args);
+  };
+
+  // Track if process exits before force-kill timeout
+  let hasExited = false;
+  let forceKillTimer: NodeJS.Timeout | null = null;
+
+  const cleanup = () => {
+    hasExited = true;
+    if (forceKillTimer) {
+      clearTimeout(forceKillTimer);
+      forceKillTimer = null;
+    }
+  };
+
+  if (typeof childProcess.once === 'function') {
+    childProcess.once('exit', cleanup);
+    childProcess.once('error', cleanup);  // Also cleanup on error
+  } else {
+    log('process.once unavailable, cannot track exit state');
+  }
+
+  // Attempt graceful termination (may throw if process dead)
+  try {
+    if (isWindows()) {
+      childProcess.kill();  // Windows: no signal argument
+    } else {
+      childProcess.kill('SIGTERM');
+    }
+    log('Graceful kill signal sent');
+  } catch (err) {
+    log('Graceful kill failed (process likely dead):',
+      err instanceof Error ? err.message : String(err));
+  }
+
+  // ALWAYS schedule force-kill fallback OUTSIDE the try-catch
+  // This ensures fallback runs even if .kill() threw
+  if (pid) {
+    forceKillTimer = setTimeout(() => {
+      if (hasExited) {
+        log('Process already exited, skipping force kill');
+        return;
+      }
+
+      try {
+        if (isWindows()) {
+          log('Running taskkill for PID:', pid);
+          spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'], {
+            stdio: 'ignore',
+            detached: true
+          }).unref();
+        } else if (!childProcess.killed) {
+          log('Sending SIGKILL to PID:', pid);
+          childProcess.kill('SIGKILL');
+        }
+      } catch (err) {
+        log('Force kill failed:',
+          err instanceof Error ? err.message : String(err));
+      }
+    }, timeoutMs);
+
+    // Unref timer so it doesn't prevent Node.js from exiting
+    forceKillTimer.unref();
+  }
 }

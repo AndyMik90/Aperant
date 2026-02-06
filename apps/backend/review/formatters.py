@@ -159,7 +159,7 @@ def display_plan_summary(spec_dir: Path) -> None:
         return
 
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan = json.load(f)
     except (OSError, json.JSONDecodeError) as e:
         print_status(f"Could not read implementation_plan.json: {e}", "error")

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.3.11/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "assist": {
+    "enabled": false
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "a11y": "warn",
+      "complexity": {
+        "recommended": true,
+        "noBannedTypes": "off",
+        "noExcessiveLinesPerFunction": "off",
+        "useLiteralKeys": "off",
+        "useArrowFunction": "off"
+      },
+      "correctness": {
+        "recommended": true,
+        "noNodejsModules": "off",
+        "useImportExtensions": "off",
+        "noUnusedFunctionParameters": "warn",
+        "noUnusedVariables": "warn",
+        "useExhaustiveDependencies": "warn"
+      },
+      "security": {
+        "recommended": true,
+        // noSecrets: disabled due to excessive false positives (2700+ warnings)
+        // It flags normal strings like "Settings", "Integrations", etc. as potential secrets
+        "noSecrets": "off",
+        // noDangerouslySetInnerHtml: warn (not error) because this Electron app has legitimate
+        // uses for dangerouslySetInnerHTML (e.g., rendering sanitized markdown in terminal output,
+        // code highlighting). All usages are reviewed and sanitized. Set to warn for visibility.
+        "noDangerouslySetInnerHtml": "warn"
+      },
+      "style": {
+        "recommended": true,
+        "noDefaultExport": "off",
+        "useNamingConvention": "off",
+        "noProcessEnv": "off",
+        "useNodejsImportProtocol": "off",
+        "useImportType": "off",
+        "useTemplate": "off"
+      },
+      "suspicious": {
+        "recommended": true,
+        "noConsole": "off",
+        "noEmptyBlockStatements": "warn",
+        "noAssignInExpressions": "warn",
+        "useAwait": "off",
+        "noExplicitAny": "warn",
+        "noImplicitAnyLet": "warn",
+        "useIterableCallbackReturn": "off",
+        "noControlCharactersInRegex": "warn",
+        "noArrayIndexKey": "warn",
+        "noShadowRestrictedNames": "warn",
+        "noRedeclare": "warn",
+        "noSelfCompare": "warn"
+      }
+    }
+  },
+  // Formatter disabled - using Prettier for formatting
+  // Biome linter used only for linting, keeping formatter separate
+  "formatter": {
+    "enabled": false
+  },
+  "files": {
+    "includes": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.mjs", "**/*.cjs", "**/*.json"],
+    "ignoreUnknown": true
+  }
+}

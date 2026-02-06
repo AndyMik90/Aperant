@@ -123,7 +123,7 @@ Output your findings to competitor_analysis.json.
         Returns RoadmapPhaseResult if validation succeeds, None otherwise.
         """
         try:
-            with open(self.analysis_file) as f:
+            with open(self.analysis_file, encoding="utf-8") as f:
                 data = json.load(f)
 
             if "competitors" in data:
@@ -146,7 +146,7 @@ Output your findings to competitor_analysis.json.
 
     def _create_disabled_analysis_file(self):
         """Create an analysis file indicating the feature is disabled."""
-        with open(self.analysis_file, "w") as f:
+        with open(self.analysis_file, "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "enabled": False,
@@ -181,5 +181,5 @@ Output your findings to competitor_analysis.json.
         if errors:
             data["errors"] = errors
 
-        with open(self.analysis_file, "w") as f:
+        with open(self.analysis_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)

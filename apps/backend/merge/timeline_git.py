@@ -17,6 +17,8 @@ import logging
 import subprocess
 from pathlib import Path
 
+from core.git_executable import get_isolated_git_env
+
 logger = logging.getLogger(__name__)
 
 # Import debug utilities
@@ -62,6 +64,7 @@ class TimelineGitHelper:
                 capture_output=True,
                 text=True,
                 check=True,
+                env=get_isolated_git_env(),
             )
             return result.stdout.strip()
         except subprocess.CalledProcessError:
@@ -86,6 +89,7 @@ class TimelineGitHelper:
                 cwd=self.project_path,
                 capture_output=True,
                 text=True,
+                env=get_isolated_git_env(),
             )
             if result.returncode == 0:
                 return result.stdout
@@ -117,6 +121,7 @@ class TimelineGitHelper:
                 capture_output=True,
                 text=True,
                 check=True,
+                env=get_isolated_git_env(),
             )
             return [f for f in result.stdout.strip().split("\n") if f]
         except subprocess.CalledProcessError:
@@ -133,33 +138,34 @@ class TimelineGitHelper:
             Dictionary with keys: message, author, diff_summary
         """
         info = {}
+        env = get_isolated_git_env()
         try:
-            # Get commit message
             result = subprocess.run(
                 ["git", "log", "-1", "--format=%s", commit_hash],
                 cwd=self.project_path,
                 capture_output=True,
                 text=True,
+                env=env,
             )
             if result.returncode == 0:
                 info["message"] = result.stdout.strip()
 
-            # Get author
             result = subprocess.run(
                 ["git", "log", "-1", "--format=%an", commit_hash],
                 cwd=self.project_path,
                 capture_output=True,
                 text=True,
+                env=env,
             )
             if result.returncode == 0:
                 info["author"] = result.stdout.strip()
 
-            # Get diff stat
             result = subprocess.run(
                 ["git", "diff-tree", "--stat", "--no-commit-id", commit_hash],
                 cwd=self.project_path,
                 capture_output=True,
                 text=True,
+                env=env,
             )
             if result.returncode == 0:
                 info["diff_summary"] = (
@@ -226,6 +232,7 @@ class TimelineGitHelper:
                 cwd=worktree_path,
                 capture_output=True,
                 text=True,
+                env=get_isolated_git_env(),
             )
 
             if result.returncode != 0:
@@ -259,6 +266,7 @@ class TimelineGitHelper:
                 cwd=worktree_path,
                 capture_output=True,
                 text=True,
+                env=get_isolated_git_env(),
             )
 
             if result.returncode != 0:
@@ -284,24 +292,23 @@ class TimelineGitHelper:
         Returns:
             The detected target branch name, defaults to 'main' if detection fails
         """
-        # Try to get the upstream tracking branch
+        env = get_isolated_git_env()
         try:
             result = subprocess.run(
                 ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
                 cwd=worktree_path,
                 capture_output=True,
                 text=True,
+                env=env,
             )
             if result.returncode == 0 and result.stdout.strip():
                 upstream = result.stdout.strip()
-                # Extract branch name from origin/branch format
                 if "/" in upstream:
                     return upstream.split("/", 1)[1]
                 return upstream
         except Exception:
             pass
 
-        # Try common branch names and find which one has a valid merge-base
         for branch in ["main", "master", "develop"]:
             try:
                 result = subprocess.run(
@@ -309,13 +316,13 @@ class TimelineGitHelper:
                     cwd=worktree_path,
                     capture_output=True,
                     text=True,
+                    env=env,
                 )
                 if result.returncode == 0:
                     return branch
             except Exception:
                 continue
 
-        # Default to main
         return "main"
 
     def count_commits_between(self, from_commit: str, to_commit: str) -> int:
@@ -335,6 +342,7 @@ class TimelineGitHelper:
                 cwd=self.project_path,
                 capture_output=True,
                 text=True,
+                env=get_isolated_git_env(),
             )
 
             if result.returncode == 0:

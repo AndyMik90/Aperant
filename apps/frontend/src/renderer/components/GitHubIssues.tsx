@@ -28,7 +28,6 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   const tasks = useTaskStore((state) => state.tasks);
 
   const {
-    issues,
     syncStatus,
     isLoading,
     isLoadingMore,

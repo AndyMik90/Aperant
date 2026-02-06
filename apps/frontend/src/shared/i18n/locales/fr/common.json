@@ -77,9 +77,23 @@
     "discard": "Abandonner",
     "switch": "Changer",
     "add": "Ajouter",
+    "apply": "Appliquer",
     "gotIt": "Compris",
     "continue": "Continuer",
-    "saving": "Enregistrement..."
+    "saving": "Enregistrement...",
+    "deleting": "Suppression..."
+  },
+  "actions": {
+    "save": "Enregistrer",
+    "apply": "Appliquer",
+    "delete": "Supprimer",
+    "settings": "Paramètres"
+  },
+  "os": {
+    "windows": "Windows",
+    "macos": "macOS",
+    "linux": "Linux",
+    "unknown": "Inconnu"
   },
   "labels": {
     "loading": "Chargement...",
@@ -91,7 +105,18 @@
     "noData": "Aucune donnée",
     "optional": "Optionnel",
     "required": "Requis",
-    "dismiss": "Ignorer"
+    "dismiss": "Ignorer",
+    "important": "Important",
+    "orphaned": "(orphelin)"
+  },
+  "selection": {
+    "select": "Sélectionner",
+    "done": "Terminé",
+    "selected": "{{count}} sélectionné(s)",
+    "selectAll": "Tout sélectionner",
+    "clearSelection": "Effacer la sélection",
+    "deleteSelected": "Supprimer la sélection",
+    "selectedOfTotal": "{{selected}} sur {{total}} sélectionné(s)"
   },
   "time": {
     "justNow": "À l'instant",
@@ -105,7 +130,17 @@
     "operationFailed": "Opération échouée",
     "networkError": "Erreur réseau",
     "notFound": "Non trouvé",
-    "unauthorized": "Non autorisé"
+    "unauthorized": "Non autorisé",
+    "bulkDeletePartialFailure": "Certains worktrees n'ont pas pu être supprimés :",
+    "taskNotFoundForWorktree": "Tâche introuvable pour le worktree : {{specName}}",
+    "failedToDeleteTaskWorktree": "Échec de la suppression du worktree de tâche : {{specName}}",
+    "terminalWorktreeNotFound": "Worktree terminal introuvable : {{name}}",
+    "failedToDeleteTerminalWorktree": "Échec de la suppression du worktree terminal : {{name}}"
+  },
+  "worktrees": {
+    "deleteSuccess": "Worktree '{{branch}}' supprimé avec succès",
+    "bulkDeleteSuccess": "{{count}} worktree supprimé avec succès",
+    "bulkDeleteSuccess_plural": "{{count}} worktrees supprimés avec succès"
   },
   "notification": {
     "accountSwitched": "Compte changé",
@@ -208,6 +243,12 @@
     "selectedCount": "{{count}} sélectionné(s)",
     "noResultsFound": "Aucun résultat trouvé",
     "reset": "Réinitialiser",
+    "sort": {
+      "label": "Trier",
+      "newest": "Plus récent",
+      "oldest": "Plus ancien",
+      "largest": "Plus grand"
+    },
     "pullRequests": "Pull Requests",
     "open": "ouvert",
     "selectPRToView": "Sélectionnez une pull request pour voir les détails",
@@ -329,9 +370,14 @@
     "initial": "Initial",
     "rerunFollowup": "Relancer la revue de suivi",
     "rerunReview": "Relancer la revue",
-    "loadingMore": "Chargement des PRs...",
-    "scrollForMore": "Défiler pour plus",
+    "updateBranch": "Mettre à jour la branche",
+    "updatingBranch": "Mise à jour...",
+    "branchUpdated": "Branche mise à jour",
+    "branchUpdateFailed": "Échec de la mise à jour de la branche",
     "allPRsLoaded": "Tous les PRs chargés",
+    "maxPRsShown": "Affichage des 100 premières PRs",
+    "loadMore": "Charger plus",
+    "loadingMore": "Chargement...",
     "workflowsAwaitingApproval": "{{count}} workflow en attente d'approbation",
     "workflowsAwaitingApproval_plural": "{{count}} workflows en attente d'approbation",
     "blockedByWorkflows": "Bloqué",
@@ -389,5 +435,257 @@
     "loadingMore": "Chargement...",
     "scrollForMore": "Défiler pour plus",
     "allLoaded": "Toutes les issues chargées"
+  },
+  "usage": {
+    "dataUnavailable": "Données d'utilisation non disponibles",
+    "dataUnavailableDescription": "Le point de terminaison de surveillance d'utilisation pour ce fournisseur n'est pas disponible ou n'est pas pris en charge.",
+    "activeAccount": "Compte actif",
+    "usageAlert": "Alerte d'utilisation",
+    "accountExceedsThreshold": "L'utilisation du compte dépasse le seuil de 90 %",
+    "authentication": "Authentification",
+    "authenticationAriaLabel": "Authentification : {{provider}}",
+    "authenticationDetails": "Détails de l'authentification",
+    "apiProfile": "Profil API",
+    "apiKey": "Clé API",
+    "oauth": "OAuth",
+    "claudeCode": "Claude Code",
+    "claudeCodeSubscription": "Abonnement Claude Code",
+    "subscription": "Abonnement",
+    "provider": "Fournisseur",
+    "providerAnthropic": "Anthropic",
+    "providerZai": "z.ai",
+    "providerZhipu": "ZHIPU AI",
+    "providerUnknown": "Inconnu",
+    "profile": "Profil",
+    "id": "ID",
+    "created": "Créé",
+    "apiEndpoint": "Point de terminaison API",
+    "sessionQuota": "Quota de session",
+    "notAvailable": "N/A",
+    "usageStatusAriaLabel": "Statut d'utilisation",
+    "usageBreakdown": "Répartition de l'utilisation",
+    "used": "utilisé",
+    "loading": "Chargement...",
+    "sessionDefault": "Session",
+    "weeklyDefault": "Hebdomadaire",
+    "resetsInHours": "Réinitialisation dans {{hours}}h {{minutes}}m",
+    "resetsInDays": "Réinitialisation dans {{days}}j {{hours}}h",
+    "window5Hour": "Fenêtre de 5 heures",
+    "window7Day": "Fenêtre de 7 jours",
+    "window5HoursQuota": "Quota de 5 heures",
+    "windowMonthlyToolsQuota": "Quota mensuel d'outils",
+    "otherAccounts": "Autres comptes",
+    "next": "Suivant",
+    "weeklyLimitReached": "Limite hebdomadaire atteinte",
+    "sessionLimitReached": "Limite de session atteinte",
+    "notAuthenticated": "Non authentifié",
+    "needsReauth": "Réauth requise",
+    "reauthRequired": "Ré-authentification requise",
+    "reauthRequiredDescription": "Votre session a expiré. Ré-authentifiez-vous pour voir l'utilisation et continuer à utiliser ce compte.",
+    "reauthButton": "Ré-authentifier",
+    "clickToOpenSettings": "Cliquez pour ouvrir les Paramètres →",
+    "sessionShort": "Utilisation session 5 heures",
+    "weeklyShort": "Utilisation hebdomadaire 7 jours",
+    "swap": "Changer"
+  },
+  "oauth": {
+    "enterCode": "Saisie manuelle du code (secours)",
+    "enterCodeDescription": "Ce dialogue n'est nécessaire que si le navigateur n'a pas redirigé automatiquement. Si l'authentification est déjà terminée dans votre navigateur, vous pouvez fermer ce dialogue.",
+    "fallbackNote": "N'utilisez ceci que si vous voyez une page « Collez ceci dans Claude Code » dans votre navigateur.",
+    "step1": "Complétez l'autorisation dans votre navigateur",
+    "step2": "Si vous voyez une page de code, copiez le code affiché",
+    "step3": "Collez le code ci-dessous et cliquez sur Soumettre",
+    "codeLabel": "Code d'autorisation",
+    "codePlaceholder": "Collez votre code ici (seulement si nécessaire)...",
+    "codeHint": "Le code est une longue chaîne affichée uniquement si la redirection automatique a échoué",
+    "submit": "Soumettre",
+    "submitting": "Soumission...",
+    "codeSubmitted": "Code soumis",
+    "codeSubmittedDescription": "L'authentification devrait se terminer bientôt. Vérifiez le terminal pour confirmation.",
+    "codeSubmitFailed": "Échec de la soumission du code",
+    "codeSubmitFailedDescription": "Veuillez réessayer ou copier le code manuellement dans le terminal.",
+    "authenticateTitle": "S'authentifier avec Claude",
+    "authenticateDescription": "Auto Claude nécessite l'authentification Claude AI pour les fonctionnalités basées sur l'IA comme la génération de feuille de route, l'automatisation des tâches et l'idéation.",
+    "authenticateTerminalInfo": "Cela ouvrira un terminal avec Claude CLI où vous pourrez vous authentifier. Vos identifiants sont stockés de manière sécurisée et sont valides pendant 1 an.",
+    "completeAuthTitle": "Terminer l'authentification",
+    "terminalOpened": "Une fenêtre de terminal s'est ouverte avec Claude CLI.",
+    "completeStepsTitle": "Complétez ces étapes dans le terminal :",
+    "stepTypeLogin": "Tapez <code>/login</code> et appuyez sur Entrée",
+    "stepBrowserOpen": "Votre navigateur s'ouvrira pour l'authentification Claude",
+    "stepCompleteOAuth": "Complétez le flux OAuth dans votre navigateur",
+    "stepReturnAndVerify": "Revenez ici et cliquez sur <strong>Vérifier l'authentification</strong>",
+    "verifyAuth": "Vérifier l'authentification",
+    "verifyingAuth": "Vérification de l'authentification...",
+    "checkingCredentials": "Vérification de vos identifiants Claude.",
+    "successTitle": "Authentification réussie !",
+    "connectedAs": "Connecté en tant que {{email}}",
+    "credentialsSaved": "Vos identifiants Claude ont été sauvegardés",
+    "canUseFeatures": "Vous pouvez maintenant utiliser toutes les fonctionnalités IA d'Auto Claude",
+    "authFailed": "Échec de l'authentification",
+    "skipForNow": "Passer pour l'instant",
+    "manualTokenEntry": "Saisie manuelle du jeton",
+    "tokenCommandHint": "Exécutez <code>claude setup-token</code> pour obtenir votre jeton",
+    "emailOptionalPlaceholder": "Email (optionnel, pour affichage)",
+    "saveToken": "Enregistrer le jeton",
+    "accountNamePlaceholder": "Nom du compte (ex. Travail, Personnel)",
+    "hasAuthenticatedAccount": "Vous avez au moins un compte Claude authentifié. Vous pouvez passer à l'étape suivante.",
+    "authNotDetected": "Authentification non détectée. Veuillez d'abord compléter /login dans le terminal.",
+    "noProfileSelected": "Aucun profil sélectionné pour la vérification",
+    "alerts": {
+      "profileCreatedAuthFailed": "Profil créé, mais échec du démarrage de l'authentification : {{error}}",
+      "authPrepareFailed": "Échec de la préparation de l'authentification : {{error}}",
+      "authStartFailedMessage": "Échec du démarrage de l'authentification. Veuillez réessayer."
+    },
+    "badges": {
+      "default": "Par défaut",
+      "active": "Actif",
+      "authenticated": "Authentifié",
+      "needsAuth": "Auth requise"
+    },
+    "buttons": {
+      "authenticate": "Authentifier",
+      "setActive": "Définir comme actif",
+      "back": "Retour",
+      "skip": "Passer",
+      "continue": "Continuer"
+    },
+    "toast": {
+      "tokenSaved": "Jeton enregistré",
+      "tokenSavedDescription": "Votre jeton Claude a été enregistré de manière sécurisée.",
+      "tokenSaveFailed": "Échec de l'enregistrement du jeton",
+      "addProfileFailed": "Échec de l'ajout du profil",
+      "tryAgain": "Veuillez réessayer."
+    },
+    "configureTitle": "Configurer les comptes Claude",
+    "addAccountsDesc": "Ajoutez et authentifiez vos comptes Claude pour utiliser les fonctionnalités IA.",
+    "multiAccountInfo": "Vous pouvez ajouter plusieurs comptes Claude. Le compte actif sera utilisé pour les fonctionnalités IA. Vous pouvez changer de compte à tout moment.",
+    "keychainTitle": "Stockage sécurisé",
+    "keychainDescription": "Vos jetons d'authentification sont stockés de manière sécurisée dans le trousseau macOS.",
+    "noAccountsYet": "Aucun compte ajouté. Ajoutez votre premier compte Claude ci-dessous."
+  },
+  "authTerminal": {
+    "failedToCreate": "Échec de la création du terminal",
+    "unknownError": "Erreur inconnue",
+    "instructionTitle": "Authentification Claude",
+    "step1": "Appuyez sur Entrée pour démarrer l'authentification",
+    "step2": "Complétez l'authentification dans votre navigateur",
+    "step3": "Revenez ici - l'authentification sera détectée automatiquement",
+    "authFailed": "Échec de l'authentification",
+    "connecting": "Connexion...",
+    "authenticate": "Authentifier : {{profileName}}",
+    "completeSetup": "Terminer la configuration : {{profileName}}",
+    "authenticatedAs": "Authentifié en tant que {{email}}",
+    "authenticated": "Authentifié !",
+    "authError": "Erreur d'authentification",
+    "onboardingMessage": "Jeton reçu ! Terminez la configuration de Claude Code ci-dessous - cette fenêtre se fermera automatiquement une fois terminé.",
+    "successMessage": "Authentification réussie ! Fermeture..."
+  },
+  "profileCreated": {
+    "title": "Le profil « {{profileName}} » a été créé.",
+    "instructions": "Pour authentifier ce profil :",
+    "step1": "Allez dans Paramètres > Intégrations",
+    "step2": "Trouvez le profil dans la section Comptes Claude",
+    "step3": "Cliquez sur « Authentifier » pour terminer la connexion",
+    "footer": "Le compte sera disponible une fois l'authentification terminée."
+  },
+  "roadmapGeneration": {
+    "progress": "Progression",
+    "elapsed": "Écoulé : {{time}}",
+    "stillWorking": "Toujours en cours...",
+    "stopping": "Arrêt...",
+    "stop": "Arrêter",
+    "stopTooltip": "Arrêter la génération",
+    "phases": {
+      "analyzing": {
+        "label": "Analyse",
+        "description": "Analyse de la structure et du code du projet..."
+      },
+      "discovering": {
+        "label": "Découverte",
+        "description": "Découverte du public cible et des besoins des utilisateurs..."
+      },
+      "generating": {
+        "label": "Génération",
+        "description": "Génération de la feuille de route des fonctionnalités..."
+      },
+      "complete": {
+        "label": "Terminé",
+        "description": "Génération de la feuille de route terminée !"
+      },
+      "error": {
+        "label": "Erreur",
+        "description": "La génération a échoué"
+      }
+    },
+    "steps": {
+      "analyze": "Analyser",
+      "discover": "Découvrir",
+      "generate": "Générer"
+    }
+  },
+  "auth": {
+    "failure": {
+      "title": "Authentification requise",
+      "profileLabel": "Profil",
+      "unknownProfile": "Profil inconnu",
+      "tokenExpired": "Votre jeton d'authentification a expiré.",
+      "tokenInvalid": "Votre jeton d'authentification est invalide.",
+      "tokenMissing": "Aucun jeton d'authentification trouvé.",
+      "authFailed": "Échec de l'authentification.",
+      "description": "Veuillez vous ré-authentifier pour continuer à utiliser Auto Claude.",
+      "taskAffected": "Tâche affectée",
+      "technicalDetails": "Détails techniques",
+      "goToSettings": "Aller aux paramètres"
+    }
+  },
+  "git": {
+    "branchGroups": {
+      "local": "Branches Locales",
+      "remote": "Branches Distantes"
+    },
+    "branchType": {
+      "local": "Locale",
+      "remote": "Distante"
+    }
+  },
+  "roadmapProgress": {
+    "elapsedTime": "Écoulé",
+    "lastActivity": "Dernière activité",
+    "staleWarning": "Aucune activité depuis un moment",
+    "staleWarningTooltip": "Cette tâche n'a eu aucune activité depuis {{minutes}} minutes",
+    "phases": {
+      "analyzing": {
+        "label": "Analyse",
+        "description": "Analyse de la structure du projet et du code..."
+      },
+      "discovering": {
+        "label": "Découverte",
+        "description": "Découverte du public cible et des besoins utilisateurs..."
+      },
+      "generating": {
+        "label": "Génération",
+        "description": "Génération de la feuille de route..."
+      },
+      "complete": {
+        "label": "Terminé",
+        "description": "Génération de la feuille de route terminée !"
+      },
+      "error": {
+        "label": "Erreur",
+        "description": "La génération a échoué"
+      }
+    },
+    "steps": {
+      "analyze": "Analyser",
+      "discover": "Découvrir",
+      "generate": "Générer"
+    },
+    "processing": "En cours",
+    "processActiveTooltip": "Le processus est en cours d'exécution",
+    "stopGeneration": "Arrêter la génération",
+    "stopping": "Arrêt...",
+    "progress": "Progression",
+    "lastActivityPrefix": "dernière activité",
+    "lastProgressUpdateTooltip": "Dernière mise à jour de progression reçue"
   }
 }

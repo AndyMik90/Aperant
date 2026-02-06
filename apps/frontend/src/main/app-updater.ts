@@ -17,12 +17,16 @@
  * - APP_UPDATE_ERROR: Error during update process
  */
 
+import { accessSync, constants as fsConstants } from 'fs';
+import path from 'path';
 import { autoUpdater } from 'electron-updater';
+import type { UpdateInfo } from 'electron-updater';
 import { app, net } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../shared/constants';
 import type { AppUpdateInfo } from '../shared/types';
 import { compareVersions } from './updater/version-manager';
+import { isMacOS } from './platform';
 
 // GitHub repo info for API calls
 const GITHUB_OWNER = 'AndyMik90';
@@ -38,6 +42,49 @@ autoUpdater.autoInstallOnAppQuit = true;  // Automatically install on app quit
 // Update channels: 'latest' for stable, 'beta' for pre-release
 type UpdateChannel = 'latest' | 'beta';
 
+// Store interval ID for cleanup during shutdown
+let periodicCheckIntervalId: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Convert releaseNotes from electron-updater to a markdown string.
+ * releaseNotes can be:
+ * - string: Return as-is
+ * - ReleaseNoteInfo[]: Convert to markdown with version headers
+ * - null/undefined: Return undefined
+ */
+function formatReleaseNotes(releaseNotes: UpdateInfo['releaseNotes']): string | undefined {
+  if (!releaseNotes) {
+    return undefined;
+  }
+
+  // If it's already a string, return as-is
+  if (typeof releaseNotes === 'string') {
+    return releaseNotes;
+  }
+
+  // It's an array of ReleaseNoteInfo objects
+  // Format: [{ version: "1.0.0", note: "changes..." }, ...]
+  if (Array.isArray(releaseNotes)) {
+    // Return undefined for empty arrays for consistency with null/undefined handling
+    if (releaseNotes.length === 0) {
+      return undefined;
+    }
+
+    const formattedNotes = releaseNotes
+      .filter(item => item.note) // Filter out entries with null/undefined notes
+      .map(item => {
+        // Each item has version and note properties
+        const versionHeader = item.version ? `## ${item.version}\n` : '';
+        return `${versionHeader}${item.note}`;
+      })
+      .join('\n\n');
+
+    return formattedNotes || undefined;
+  }
+
+  return undefined;
+}
+
 /**
  * Set the update channel for electron-updater.
  * - 'latest': Only receive stable releases (default)
@@ -47,10 +94,13 @@ type UpdateChannel = 'latest' | 'beta';
  */
 export function setUpdateChannel(channel: UpdateChannel): void {
   autoUpdater.channel = channel;
+  // Enable pre-release scanning when beta channel is selected
+  // This allows electron-updater to find beta releases on GitHub
+  autoUpdater.allowPrerelease = channel === 'beta';
   // Clear any downloaded update info when channel changes to prevent showing
   // an Install button for an update from a different channel
   downloadedUpdateInfo = null;
-  console.warn(`[app-updater] Update channel set to: ${channel}`);
+  console.warn(`[app-updater] Update channel set to: ${channel}, allowPrerelease: ${autoUpdater.allowPrerelease}`);
 }
 
 // Enable more verbose logging in debug mode
@@ -104,7 +154,7 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.APP_UPDATE_AVAILABLE, {
         version: info.version,
-        releaseNotes: info.releaseNotes,
+        releaseNotes: formatReleaseNotes(info.releaseNotes),
         releaseDate: info.releaseDate
       });
     }
@@ -114,18 +164,14 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
   autoUpdater.on('update-downloaded', (info) => {
     console.warn('[app-updater] Update downloaded:', info.version);
     // Store downloaded update info so it persists across Settings page navigations
-    // releaseNotes can be string | ReleaseNoteInfo[] | null | undefined, only use if string
     downloadedUpdateInfo = {
       version: info.version,
-      releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
+      releaseNotes: formatReleaseNotes(info.releaseNotes),
       releaseDate: info.releaseDate
     };
     if (mainWindow) {
-      mainWindow.webContents.send(IPC_CHANNELS.APP_UPDATE_DOWNLOADED, {
-        version: info.version,
-        releaseNotes: info.releaseNotes,
-        releaseDate: info.releaseDate
-      });
+      // Reuse downloadedUpdateInfo instead of calling formatReleaseNotes again
+      mainWindow.webContents.send(IPC_CHANNELS.APP_UPDATE_DOWNLOADED, downloadedUpdateInfo);
     }
   });
 
@@ -147,8 +193,7 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
     console.error('[app-updater] Update error:', error);
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.APP_UPDATE_ERROR, {
-        message: error.message,
-        stack: error.stack
+        message: error.message
       });
     }
   });
@@ -189,7 +234,7 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
   const FOUR_HOURS = 4 * 60 * 60 * 1000;
   console.warn(`[app-updater] Periodic checks scheduled every ${FOUR_HOURS / 1000 / 60 / 60} hours`);
 
-  setInterval(() => {
+  periodicCheckIntervalId = setInterval(() => {
     console.warn('[app-updater] Performing periodic update check');
     autoUpdater.checkForUpdates().catch((error) => {
       console.error('[app-updater] ❌ Periodic update check failed:', error.message);
@@ -228,10 +273,9 @@ export async function checkForUpdates(): Promise<AppUpdateInfo | null> {
       return null;
     }
 
-    // releaseNotes can be string | ReleaseNoteInfo[] | null | undefined, only use if string
     return {
       version: result.updateInfo.version,
-      releaseNotes: typeof result.updateInfo.releaseNotes === 'string' ? result.updateInfo.releaseNotes : undefined,
+      releaseNotes: formatReleaseNotes(result.updateInfo.releaseNotes),
       releaseDate: result.updateInfo.releaseDate
     };
   } catch (error) {
@@ -255,12 +299,56 @@ export async function downloadUpdate(): Promise<void> {
 }
 
 /**
+ * Check if the app is running from a read-only volume (e.g., DMG on macOS)
+ * Returns true if the app cannot be updated in place
+ */
+function isRunningFromReadOnlyVolume(): boolean {
+  if (!isMacOS()) {
+    return false;
+  }
+
+  const appPath = app.getAppPath();
+
+  // Check if the filesystem is read-only by testing write access.
+  // We don't use a /Volumes/ prefix check because writable external drives
+  // (USB, external SSDs) are also mounted under /Volumes/ on macOS.
+  try {
+    // Navigate from app.asar to the Contents/ directory (app.asar -> Resources -> Contents)
+    const contentsPath = path.resolve(appPath, '..', '..');
+
+    // Try to check if we can write to the app bundle's parent directory
+    accessSync(path.dirname(contentsPath), fsConstants.W_OK);
+    return false;
+  } catch (error: unknown) {
+    // Only treat as read-only if the filesystem itself is read-only (EROFS).
+    // Permission errors (EACCES) in managed/enterprise environments should not
+    // block updates — the updater may still have elevated access.
+    const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
+    return code === 'EROFS';
+  }
+}
+
+/**
  * Quit and install update
  * Called from IPC handler when user confirms installation
+ * Returns false if running from a read-only volume (update cannot proceed)
  */
-export function quitAndInstall(): void {
+export function quitAndInstall(): boolean {
+  // Check if running from read-only volume before attempting install
+  if (isRunningFromReadOnlyVolume()) {
+    console.warn('[app-updater] Cannot install: running from read-only volume');
+
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.APP_UPDATE_READONLY_VOLUME, {
+        appPath: app.getAppPath()
+      });
+    }
+    return false;
+  }
+
   console.warn('[app-updater] Quitting and installing update');
   autoUpdater.quitAndInstall(false, true);
+  return true;
 }
 
 /**
@@ -329,7 +417,7 @@ async function fetchLatestStableRelease(): Promise<AppUpdateInfo | null> {
       }
 
       response.on('data', (chunk) => {
-        data += chunk.toString();
+        data += chunk.toString('utf-8');
       });
 
       response.on('end', () => {
@@ -363,7 +451,7 @@ async function fetchLatestStableRelease(): Promise<AppUpdateInfo | null> {
 
           const version = latestStable.tag_name.replace(/^v/, '');
           // Sanitize version string for logging (remove control characters and limit length)
-          // eslint-disable-next-line no-control-regex
+          // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
           const safeVersion = String(version).replace(/[\x00-\x1f\x7f]/g, '').slice(0, 50);
           console.warn('[app-updater] Found latest stable release:', safeVersion);
 
@@ -444,11 +532,8 @@ export async function setUpdateChannelWithDowngradeCheck(
   channel: UpdateChannel,
   triggerDowngradeCheck = false
 ): Promise<AppUpdateInfo | null> {
-  autoUpdater.channel = channel;
-  // Clear any downloaded update info when channel changes to prevent showing
-  // an Install button for an update from a different channel
-  downloadedUpdateInfo = null;
-  console.warn(`[app-updater] Update channel set to: ${channel}`);
+  // Use the shared channel-setting function to avoid code duplication
+  setUpdateChannel(channel);
 
   // If switching to stable and downgrade check requested, look for stable version
   if (channel === 'latest' && triggerDowngradeCheck) {
@@ -470,8 +555,8 @@ export async function setUpdateChannelWithDowngradeCheck(
  * Uses electron-updater with allowDowngrade enabled to download older stable versions
  */
 export async function downloadStableVersion(): Promise<void> {
-  // Switch to stable channel
-  autoUpdater.channel = 'latest';
+  // Switch to stable channel (resets allowPrerelease and clears downloadedUpdateInfo)
+  setUpdateChannel('latest');
   // Enable downgrade to allow downloading older versions (e.g., stable when on beta)
   autoUpdater.allowDowngrade = true;
   console.warn('[app-updater] Downloading stable version (allowDowngrade=true)...');
@@ -490,5 +575,16 @@ export async function downloadStableVersion(): Promise<void> {
   } finally {
     // Reset allowDowngrade to prevent unintended downgrades in normal update checks
     autoUpdater.allowDowngrade = false;
+  }
+}
+
+/**
+ * Stop periodic update checks - called during app shutdown
+ */
+export function stopPeriodicUpdates(): void {
+  if (periodicCheckIntervalId) {
+    clearInterval(periodicCheckIntervalId);
+    periodicCheckIntervalId = null;
+    console.warn('[app-updater] Periodic update checks stopped');
   }
 }

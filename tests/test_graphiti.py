@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 
 # Add auto-claude to path
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from graphiti_config import is_graphiti_enabled, get_graphiti_status, GraphitiConfig
 

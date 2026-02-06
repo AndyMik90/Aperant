@@ -8,9 +8,11 @@ import { app } from 'electron';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { EventEmitter } from 'events';
-import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
+import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv } from './rate-limit-detector';
 import { parsePythonCommand, getValidatedPythonPath } from './python-detector';
 import { getConfiguredPythonPath } from './python-env-manager';
+import { getAPIProfileEnv } from './services/profile';
+import { getOAuthModeClearVars } from './agent/env-utils';
 
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
@@ -142,8 +144,36 @@ export class TitleGenerator extends EventEmitter {
       hasOAuthToken: !!autoBuildEnv.CLAUDE_CODE_OAUTH_TOKEN
     });
 
-    // Get active Claude profile environment (CLAUDE_CONFIG_DIR if not default)
-    const profileEnv = getProfileEnv();
+    // Get active API profile environment variables (ANTHROPIC_* vars)
+    const apiProfileEnv = await getAPIProfileEnv();
+    const isApiProfileActive = Object.keys(apiProfileEnv).length > 0;
+
+    // Only get OAuth profile env if no API profile is active to avoid conflicts
+    let profileEnv: Record<string, string> = {};
+    if (!isApiProfileActive) {
+      // Use centralized function that automatically handles rate limits and capacity
+      const profileResult = getBestAvailableProfileEnv();
+      profileEnv = profileResult.env;
+
+      if (profileResult.wasSwapped) {
+        debug('Using alternative profile for title generation:', {
+          originalProfile: profileResult.originalProfile?.name,
+          selectedProfile: profileResult.profileName,
+          reason: profileResult.swapReason
+        });
+      }
+    }
+
+    // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
+
+    // Debug: Log the final environment that will be used
+    // Note: profileEnv from getBestAvailableProfileEnv() already includes CLAUDE_CODE_OAUTH_TOKEN=''
+    // when CLAUDE_CONFIG_DIR is set, ensuring the subprocess uses the correct credentials
+    debug('Final subprocess environment:', {
+      profileEnvCLAUDE_CONFIG_DIR: profileEnv.CLAUDE_CONFIG_DIR,
+      profileEnvClearsOAuthToken: profileEnv.CLAUDE_CODE_OAUTH_TOKEN === ''
+    });
 
     return new Promise((resolve) => {
       // Parse Python command to handle space-separated commands like "py -3"
@@ -153,7 +183,9 @@ export class TitleGenerator extends EventEmitter {
         env: {
           ...process.env,
           ...autoBuildEnv,
-          ...profileEnv, // Include active Claude profile config
+          ...profileEnv, // Claude OAuth profile - includes CLAUDE_CONFIG_DIR and clears CLAUDE_CODE_OAUTH_TOKEN
+          ...apiProfileEnv, // API profile (ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, etc.)
+          ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
           PYTHONUNBUFFERED: '1',
           PYTHONIOENCODING: 'utf-8',
           PYTHONUTF8: '1'
@@ -169,11 +201,11 @@ export class TitleGenerator extends EventEmitter {
       }, 60000); // 60 second timeout for SDK initialization + API call
 
       childProcess.stdout?.on('data', (data: Buffer) => {
-        output += data.toString();
+        output += data.toString('utf-8');
       });
 
       childProcess.stderr?.on('data', (data: Buffer) => {
-        errorOutput += data.toString();
+        errorOutput += data.toString('utf-8');
       });
 
       childProcess.on('exit', (code: number | null) => {

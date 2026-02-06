@@ -57,7 +57,7 @@ def create_progress_tools(spec_dir: Path, project_dir: Path) -> list:
             }
 
         try:
-            with open(plan_file) as f:
+            with open(plan_file, encoding="utf-8") as f:
                 plan = json.load(f)
 
             stats = {

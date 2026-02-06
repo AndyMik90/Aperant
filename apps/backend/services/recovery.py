@@ -86,7 +86,7 @@ class RecoveryManager:
                 "last_updated": datetime.now().isoformat(),
             },
         }
-        with open(self.attempt_history_file, "w") as f:
+        with open(self.attempt_history_file, "w", encoding="utf-8") as f:
             json.dump(initial_data, f, indent=2)
 
     def _init_build_commits(self) -> None:
@@ -99,39 +99,39 @@ class RecoveryManager:
                 "last_updated": datetime.now().isoformat(),
             },
         }
-        with open(self.build_commits_file, "w") as f:
+        with open(self.build_commits_file, "w", encoding="utf-8") as f:
             json.dump(initial_data, f, indent=2)
 
     def _load_attempt_history(self) -> dict:
         """Load attempt history from JSON file."""
         try:
-            with open(self.attempt_history_file) as f:
+            with open(self.attempt_history_file, encoding="utf-8") as f:
                 return json.load(f)
-        except (OSError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
             self._init_attempt_history()
-            with open(self.attempt_history_file) as f:
+            with open(self.attempt_history_file, encoding="utf-8") as f:
                 return json.load(f)
 
     def _save_attempt_history(self, data: dict) -> None:
         """Save attempt history to JSON file."""
         data["metadata"]["last_updated"] = datetime.now().isoformat()
-        with open(self.attempt_history_file, "w") as f:
+        with open(self.attempt_history_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
     def _load_build_commits(self) -> dict:
         """Load build commits from JSON file."""
         try:
-            with open(self.build_commits_file) as f:
+            with open(self.build_commits_file, encoding="utf-8") as f:
                 return json.load(f)
-        except (OSError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
             self._init_build_commits()
-            with open(self.build_commits_file) as f:
+            with open(self.build_commits_file, encoding="utf-8") as f:
                 return json.load(f)
 
     def _save_build_commits(self, data: dict) -> None:
         """Save build commits to JSON file."""
         data["metadata"]["last_updated"] = datetime.now().isoformat()
-        with open(self.build_commits_file, "w") as f:
+        with open(self.build_commits_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
     def classify_failure(self, error: str, subtask_id: str) -> FailureType:

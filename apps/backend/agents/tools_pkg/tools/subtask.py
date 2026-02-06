@@ -113,7 +113,7 @@ def create_subtask_tools(spec_dir: Path, project_dir: Path) -> list:
             }
 
         try:
-            with open(plan_file) as f:
+            with open(plan_file, encoding="utf-8") as f:
                 plan = json.load(f)
 
             subtask_found = _update_subtask_in_plan(plan, subtask_id, status, notes)
@@ -145,7 +145,7 @@ def create_subtask_tools(spec_dir: Path, project_dir: Path) -> list:
             if auto_fix_plan(spec_dir):
                 # Retry after fix
                 try:
-                    with open(plan_file) as f:
+                    with open(plan_file, encoding="utf-8") as f:
                         plan = json.load(f)
 
                     subtask_found = _update_subtask_in_plan(

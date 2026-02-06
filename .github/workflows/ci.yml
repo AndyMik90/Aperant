@@ -3,16 +3,36 @@
 # Tests on all target platforms (Linux, Windows, macOS) to catch
 # platform-specific bugs before they merge. ALL platforms must pass.
 #
-# Why this matters: Platform-specific code often breaks when developers
-# commit from one OS without testing on others. This CI prevents that.
+# Optimized: Reduced matrix (4 jobs vs 6), merged integration tests,
+# coverage on Linux only, path filters to skip on docs-only changes.
 
 name: CI
 
 on:
   push:
     branches: [main, develop]
+    paths:
+      - 'apps/**'
+      - 'tests/**'
+      - 'package*.json'
+      - 'requirements*.txt'
+      - 'pyproject.toml'
+      - 'tsconfig*.json'
+      - 'biome.jsonc'
+      - '.github/workflows/ci.yml'
+      - '.github/actions/**'
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'apps/**'
+      - 'tests/**'
+      - 'package*.json'
+      - 'requirements*.txt'
+      - 'pyproject.toml'
+      - 'tsconfig*.json'
+      - 'biome.jsonc'
+      - '.github/workflows/ci.yml'
+      - '.github/actions/**'
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
@@ -24,41 +44,38 @@ permissions:
 
 jobs:
   # --------------------------------------------------------------------------
-  # Python Backend Tests - All Platforms
+  # Python Backend Tests - Optimized Matrix (4 jobs instead of 6)
   # --------------------------------------------------------------------------
   test-python:
     name: test-python (${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
 
     strategy:
-      fail-fast: false  # Don't cancel all jobs if one platform fails
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.12', '3.13']
+        # 3.12 on all OS for cross-platform coverage
+        # 3.13 on Linux only for compatibility check (saves 2 jobs)
+        include:
+          - os: ubuntu-latest
+            python-version: '3.12'
+          - os: ubuntu-latest
+            python-version: '3.13'
+          - os: windows-latest
+            python-version: '3.12'
+          - os: macos-latest
+            python-version: '3.12'
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Setup Python backend
+        uses: ./.github/actions/setup-python-backend
         with:
           python-version: ${{ matrix.python-version }}
+          install-test-deps: 'true'
 
-      - name: Install uv package manager
-        uses: astral-sh/setup-uv@v4
-        with:
-          version: "latest"
-
-      - name: Install dependencies
-        working-directory: apps/backend
-        shell: bash
-        run: |
-          uv venv
-          uv pip install -r requirements.txt
-          uv pip install -r ../../tests/requirements-test.txt
-
-      - name: Run tests
+      - name: Run all tests (including platform-specific)
         working-directory: apps/backend
         shell: bash
         env:
@@ -71,22 +88,18 @@ jobs:
           fi
           pytest ../../tests/ -v --tb=short -x
 
-      - name: Run coverage (Python 3.12 only)
-        if: matrix.python-version == '3.12'
+      - name: Run coverage (Linux + Python 3.12 only)
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         working-directory: apps/backend
         shell: bash
         env:
           PYTHONPATH: ${{ github.workspace }}/apps/backend
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            source .venv/Scripts/activate
-          else
-            source .venv/bin/activate
-          fi
+          source .venv/bin/activate
           pytest ../../tests/ -v --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=10
 
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.12'
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: codecov/codecov-action@v4
         with:
           file: ./apps/backend/coverage.xml
@@ -110,26 +123,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js frontend
+        uses: ./.github/actions/setup-node-frontend
         with:
-          node-version: '24'
-
-      - name: Get npm cache directory
-        id: npm-cache
-        shell: bash
-        run: echo "dir=$(npm config get cache)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache npm dependencies
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.npm-cache.outputs.dir }}
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-npm-
-
-      - name: Install dependencies
-        working-directory: apps/frontend
-        run: npm ci --ignore-scripts
+          ignore-scripts: 'true'
 
       - name: Run TypeScript type check
         working-directory: apps/frontend
@@ -144,75 +141,23 @@ jobs:
         run: npm run build
 
   # --------------------------------------------------------------------------
-  # Platform-Specific Integration Tests
-  # --------------------------------------------------------------------------
-  test-platform-integration:
-    name: test-integration (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-
-    # Only run integration tests after basic tests pass
-    needs: [test-python, test-frontend]
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          version: "latest"
-
-      - name: Install backend dependencies
-        working-directory: apps/backend
-        shell: bash
-        run: |
-          uv venv
-          uv pip install -r requirements.txt
-          uv pip install -r ../../tests/requirements-test.txt
-
-      - name: Run platform-specific tests
-        working-directory: apps/backend
-        shell: bash
-        env:
-          PYTHONPATH: ${{ github.workspace }}/apps/backend
-        run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            source .venv/Scripts/activate
-          else
-            source .venv/bin/activate
-          fi
-          pytest ../../tests/test_platform.py -v --tb=short
-
-  # --------------------------------------------------------------------------
   # Gate Job - Single check for branch protection
   # --------------------------------------------------------------------------
   ci-complete:
     name: CI Complete
     runs-on: ubuntu-latest
-    needs: [test-python, test-frontend, test-platform-integration]
+    needs: [test-python, test-frontend]
     if: always()
     steps:
       - name: Check all CI jobs passed
         run: |
           echo "CI Job Results:"
-          echo "  test-python:               ${{ needs.test-python.result }}"
-          echo "  test-frontend:             ${{ needs.test-frontend.result }}"
-          echo "  test-platform-integration: ${{ needs.test-platform-integration.result }}"
+          echo "  test-python:   ${{ needs.test-python.result }}"
+          echo "  test-frontend: ${{ needs.test-frontend.result }}"
           echo ""
 
           if [[ "${{ needs.test-python.result }}" != "success" ]] || \
-             [[ "${{ needs.test-frontend.result }}" != "success" ]] || \
-             [[ "${{ needs.test-platform-integration.result }}" != "success" ]]; then
+             [[ "${{ needs.test-frontend.result }}" != "success" ]]; then
             echo "❌ One or more CI jobs failed"
             exit 1
           fi

@@ -19,7 +19,8 @@
     "view": "Voir les détails",
     "viewPR": "Voir la PR",
     "moveTo": "Déplacer vers",
-    "taskActions": "Actions de la tâche"
+    "taskActions": "Actions de la tâche",
+    "selectTask": "Sélectionner la tâche : {{title}}"
   },
   "labels": {
     "running": "En cours",
@@ -36,7 +37,8 @@
     "completed": "Terminé",
     "hasErrors": "Contient des erreurs",
     "qaIssues": "Problèmes QA",
-    "approvePlan": "Approuver le plan"
+    "approvePlan": "Approuver le plan",
+    "stopped": "Arrêté"
   },
   "tooltips": {
     "archiveTask": "Archiver la tâche",
@@ -54,15 +56,19 @@
   },
   "columns": {
     "backlog": "Planification",
+    "queue": "File d'attente",
     "in_progress": "En cours",
     "ai_review": "Révision IA",
     "human_review": "Révision humaine",
     "done": "Terminé",
-    "pr_created": "PR créée"
+    "pr_created": "PR créée",
+    "error": "Erreur"
   },
   "kanban": {
     "emptyBacklog": "Aucune tâche planifiée",
     "emptyBacklogHint": "Ajoutez une tâche pour commencer",
+    "emptyQueue": "La file d'attente est vide",
+    "emptyQueueHint": "Les tâches attendront ici lorsque la limite de tâches parallèles sera atteinte",
     "emptyInProgress": "Rien en cours",
     "emptyInProgressHint": "Démarrez une tâche depuis le Backlog",
     "emptyAiReview": "Aucune tâche en révision",
@@ -75,6 +81,7 @@
     "dropHere": "Déposer ici",
     "showArchived": "Afficher les archivées",
     "addTaskAriaLabel": "Ajouter une nouvelle tâche au backlog",
+    "queueAllAriaLabel": "Déplacer toutes les tâches vers la file d'attente",
     "closeTaskDetailsAriaLabel": "Fermer les détails de la tâche",
     "editTask": "Modifier la tâche",
     "cannotEditWhileRunning": "Impossible de modifier pendant l'exécution",
@@ -83,13 +90,59 @@
     "worktreeCleanupNotStaged": "Cette tâche possède un worktree avec des changements non fusionnés. Supprimez le worktree pour marquer comme terminé, ou annulez pour réviser les changements d'abord.",
     "keepWorktree": "Garder le Worktree",
     "deleteWorktree": "Supprimer le Worktree & Marquer Terminé",
-    "refreshTasks": "Actualiser les tâches"
+    "refreshTasks": "Actualiser les tâches",
+    "queueSettings": "Paramètres de la file d'attente",
+    "orderSaveFailedTitle": "Réorganisation non enregistrée",
+    "orderSaveFailedDescription": "Votre changement d'ordre des tâches a été appliqué mais n'a pas pu être sauvegardé. Il sera perdu lors du rafraîchissement.",
+    "selectAll": "Tout sélectionner",
+    "deselectAll": "Tout désélectionner",
+    "selectedCount": "{{count}} sélectionné(s)",
+    "selectedCountOne": "{{count}} tâche sélectionnée",
+    "selectedCountOther": "{{count}} tâches sélectionnées",
+    "createPRs": "Créer les PRs",
+    "deleteSelected": "Supprimer",
+    "deleteConfirmTitle": "Supprimer les tâches sélectionnées",
+    "deleteConfirmDescription": "Êtes-vous sûr de vouloir supprimer définitivement ces tâches ?",
+    "deleteWarning": "Cette action est irréversible. Tous les fichiers de tâche, y compris le spec, le plan d'implémentation et tout code généré seront définitivement supprimés du projet.",
+    "tasksToDelete": "Tâches à supprimer",
+    "deleteConfirmButton": "Supprimer {{count}} tâches",
+    "deleteSuccess": "{{count}} tâche(s) supprimée(s) avec succès",
+    "deleteError": "Échec de la suppression de certaines tâches",
+    "clearSelection": "Effacer la sélection",
+    "collapseColumn": "Réduire la colonne",
+    "expandColumn": "Développer la colonne",
+    "resizeColumn": "Redimensionner la colonne",
+    "lockColumn": "Verrouiller la largeur de la colonne",
+    "unlockColumn": "Déverrouiller la largeur de la colonne",
+    "columnLocked": "La largeur de la colonne est verrouillée",
+    "expandAll": "Développer toutes les colonnes"
+  },
+  "queue": {
+    "limitReached": "Limite de tâches parallèles atteinte ({{current}}/{{max}}). Tâche déplacée vers la file d'attente.",
+    "movedToQueue": "Tâche déplacée vers la file d'attente.",
+    "autoPromoted": "Tâche auto-promue de la file d'attente vers En cours.",
+    "capacityAvailable": "{{count}} emplacement(s) disponible(s) dans En cours.",
+    "queueAll": "Tout ajouter à la file d'attente",
+    "queueAllSuccess": "{{count}} tâches déplacées vers la file d'attente.",
+    "settings": {
+      "title": "Paramètres de la file d'attente",
+      "description": "Configurer le nombre maximal de tâches pouvant s'exécuter en parallèle dans le tableau \"En cours\"",
+      "maxParallelLabel": "Tâches parallèles maximales",
+      "minValueError": "Doit être au moins 1",
+      "maxValueError": "Ne peut pas dépasser 10",
+      "hint": "Lorsque cette limite est atteinte, les nouvelles tâches attendront dans la file avant de passer à \"En cours\"",
+      "saved": "Paramètres de la file d'attente enregistrés",
+      "saveFailed": "Échec de l'enregistrement des paramètres",
+      "retry": "Veuillez réessayer"
+    }
   },
   "execution": {
     "phases": {
       "idle": "Inactif",
       "planning": "Planification",
       "coding": "Codage",
+      "rate_limit_paused": "Limite atteinte",
+      "auth_failure_paused": "Auth requise",
       "reviewing": "Révision",
       "fixing": "Correction",
       "complete": "Terminé",
@@ -122,11 +175,20 @@
   },
   "metadata": {
     "severity": "sévérité",
-    "pullRequest": "Pull Request"
+    "pullRequest": "Pull Request",
+    "showMore": "Afficher plus",
+    "showLess": "Afficher moins"
   },
   "images": {
     "removeImageAriaLabel": "Supprimer l'image {{filename}}",
     "pasteHint": "Astuce : Collez des captures d'écran directement avec {{shortcut}} pour ajouter des images de référence."
+  },
+  "imagePreview": {
+    "close": "Fermer l'aperçu",
+    "unavailable": "Image indisponible",
+    "description": "Aperçu de {{filename}}",
+    "doubleClickHint": "Double-cliquez pour agrandir",
+    "lowResolution": "Aperçu basse résolution"
   },
   "notifications": {
     "backgroundTaskTitle": "La tâche continue en arrière-plan",
@@ -151,6 +213,8 @@
       "baseBranchLabel": "Branche de base (optionnel)",
       "useProjectDefault": "Utiliser la branche par défaut du projet",
       "useProjectDefaultWithBranch": "Utiliser la branche par défaut du projet ({{branch}})",
+      "searchBranches": "Rechercher des branches...",
+      "noBranchesFound": "Aucune branche trouvée",
       "helpText": "Remplacez la branche à partir de laquelle le worktree de cette tâche sera créé. Laissez vide pour utiliser la branche par défaut configurée du projet.",
       "useWorktreeLabel": "Utiliser un espace de travail isolé (recommandé)",
       "useWorktreeDescription": "Crée les changements dans un worktree git séparé pour une révision sécurisée avant la fusion. Désactivez pour travailler directement dans votre projet (plus rapide mais risqué)."
@@ -237,5 +301,36 @@
   },
   "subtasks": {
     "untitled": "Sous-tâche sans titre"
+  },
+  "bulkPR": {
+    "selectAllInColumn": "Sélectionner toutes les tâches de la colonne",
+    "deselectAllInColumn": "Désélectionner toutes les tâches",
+    "selectionMode": "Mode sélection actif",
+    "exitSelectionMode": "Quitter le mode sélection",
+    "noTasksToSelect": "Aucune tâche disponible à sélectionner",
+    "confirmBulkAction": "Confirmer l'action groupée pour {{count}} tâches",
+    "processingTasks": "Traitement des tâches sélectionnées..."
+  },
+  "screenshot": {
+    "title": "Prendre une capture d'écran",
+    "description": "Sélectionnez un écran ou une fenêtre à capturer comme image de référence",
+    "capture": "Capturer",
+    "capturing": "Capture...",
+    "noSources": "Aucun écran ou fenêtre trouvé",
+    "errors": {
+      "getSources": "Échec de l'obtention des sources de capture d'écran",
+      "fetchSources": "Échec de la récupération des sources de capture d'écran",
+      "capture": "Échec de la capture d'écran",
+      "captureFailed": "Échec de la capture d'écran"
+    },
+    "devMode": {
+      "title": "Capture d'écran non disponible",
+      "description": "La capture d'écran n'est pas disponible en mode développement en raison des restrictions de permissions système.",
+      "hint": "Utilisez un outil de capture d'écran externe et collez directement dans la description de la tâche avec {{shortcut}}."
+    }
+  },
+  "referenceImages": {
+    "title": "Images de référence (facultatif)",
+    "description": "Ajoutez des références visuelles comme des captures d'écran ou des conceptions pour aider l'IA à comprendre vos exigences."
   }
 }

@@ -365,6 +365,31 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
           )}
         </div>
 
+        {/* Auto-name Claude Terminals Toggle */}
+        <div className="space-y-3 pt-2 border-t border-border">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="auto-name-claude-terminals" className="text-sm font-medium">
+                {t('devtools.autoNameClaude.label', 'Auto-name Claude terminals')}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t('devtools.autoNameClaude.description', 'Use AI to generate a descriptive name for Claude terminals based on your first message')}
+              </p>
+            </div>
+            {/* Fallback to true for existing users who don't have this setting in persisted config */}
+            <Switch
+              id="auto-name-claude-terminals"
+              checked={settings.autoNameClaudeTerminals ?? true}
+              onCheckedChange={(checked) => {
+                onSettingsChange({
+                  ...settings,
+                  autoNameClaudeTerminals: checked
+                });
+              }}
+            />
+          </div>
+        </div>
+
         {/* YOLO Mode Toggle */}
         <div className="space-y-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-4">
           <div className="flex items-center justify-between">

@@ -184,7 +184,7 @@ class MRReviewResult:
         mr_dir.mkdir(parents=True, exist_ok=True)
 
         review_file = mr_dir / f"review_{self.mr_iid}.json"
-        with open(review_file, "w") as f:
+        with open(review_file, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, indent=2)
 
     @classmethod
@@ -194,7 +194,7 @@ class MRReviewResult:
         if not review_file.exists():
             return None
 
-        with open(review_file) as f:
+        with open(review_file, encoding="utf-8") as f:
             return cls.from_dict(json.load(f))
 
 

@@ -43,7 +43,7 @@ class ImplementationPlanValidator:
             return ValidationResult(False, "plan", errors, warnings, fixes)
 
         try:
-            with open(plan_file) as f:
+            with open(plan_file, encoding="utf-8") as f:
                 plan = json.load(f)
         except json.JSONDecodeError as e:
             errors.append(f"implementation_plan.json is invalid JSON: {e}")

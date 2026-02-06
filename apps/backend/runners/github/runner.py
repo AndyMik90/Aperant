@@ -100,26 +100,21 @@ def print_progress(callback: ProgressCallback) -> None:
 
 def get_config(args) -> GitHubRunnerConfig:
     """Build config from CLI args and environment."""
-    import shutil
     import subprocess
+
+    from core.gh_executable import get_gh_executable
 
     token = args.token or os.environ.get("GITHUB_TOKEN", "")
     bot_token = args.bot_token or os.environ.get("GITHUB_BOT_TOKEN")
-    repo = args.repo or os.environ.get("GITHUB_REPO", "")
 
-    # Find gh CLI - use shutil.which for cross-platform support
-    gh_path = shutil.which("gh")
-    if not gh_path and sys.platform == "win32":
-        # Fallback: check common Windows installation paths
-        common_paths = [
-            r"C:\Program Files\GitHub CLI\gh.exe",
-            r"C:\Program Files (x86)\GitHub CLI\gh.exe",
-            os.path.expandvars(r"%LOCALAPPDATA%\Programs\GitHub CLI\gh.exe"),
-        ]
-        for path in common_paths:
-            if os.path.exists(path):
-                gh_path = path
-                break
+    # Repo detection priority:
+    # 1. Explicit --repo flag (highest priority)
+    # 2. Auto-detect from project's git remote (primary for multi-project setups)
+    # 3. GITHUB_REPO env var (fallback only)
+    repo = args.repo  # Only use explicit CLI flag initially
+
+    # Find gh CLI - use get_gh_executable for cross-platform support
+    gh_path = get_gh_executable()
 
     if os.environ.get("DEBUG"):
         safe_print(f"[DEBUG] gh CLI path: {gh_path}")
@@ -141,8 +136,8 @@ def get_config(args) -> GitHubRunnerConfig:
         except FileNotFoundError:
             pass  # gh not installed or not in PATH
 
+    # Auto-detect repo from project's git remote (takes priority over env var)
     if not repo and gh_path:
-        # Try to detect from git remote
         try:
             result = subprocess.run(
                 [
@@ -164,6 +159,10 @@ def get_config(args) -> GitHubRunnerConfig:
                 safe_print(f"[DEBUG] gh repo view failed: {result.stderr}")
         except FileNotFoundError:
             pass  # gh not installed or not in PATH
+
+    # Fall back to environment variable only if auto-detection failed
+    if not repo:
+        repo = os.environ.get("GITHUB_REPO", "")
 
     if not token:
         safe_print(
@@ -623,9 +622,9 @@ async def cmd_approve_batches(args) -> int:
 
     # Load approved batches from file
     try:
-        with open(args.batch_file) as f:
+        with open(args.batch_file, encoding="utf-8") as f:
             approved_batches = json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError) as e:
+    except (json.JSONDecodeError, FileNotFoundError, UnicodeDecodeError) as e:
         safe_print(f"Error loading batch file: {e}")
         return 1
 

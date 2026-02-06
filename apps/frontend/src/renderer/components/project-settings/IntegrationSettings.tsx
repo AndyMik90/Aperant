@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Zap,
   Eye,
@@ -79,25 +79,39 @@ export function IntegrationSettings({
   const [branches, setBranches] = useState<string[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
 
-  // Load branches when GitHub section expands
-  useEffect(() => {
-    if (githubExpanded && project.path) {
-      loadBranches();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadBranches is intentionally excluded to avoid infinite loops
-  }, [githubExpanded, project.path]);
+  // Track whether initial branch detection has been done to prevent double-execution
+  const hasDetectedMainBranch = useRef(false);
+  // Track mainBranch in a ref to avoid stale closure issues in loadBranches callback
+  const mainBranchRef = useRef(settings.mainBranch);
 
-  const loadBranches = async () => {
+  // Keep mainBranchRef in sync with settings.mainBranch
+  useEffect(() => {
+    mainBranchRef.current = settings.mainBranch;
+  }, [settings.mainBranch]);
+
+  // Reset detection flag when project OR GitHub repo changes
+  // This allows auto-detection to run for a new repo within the same project
+  useEffect(() => {
+    hasDetectedMainBranch.current = false;
+  }, []);
+
+  // Load branches function wrapped in useCallback
+  // Note: We use refs for mainBranch check and detection tracking to avoid stale closures
+  const loadBranches = useCallback(async () => {
     setIsLoadingBranches(true);
     try {
       const result = await window.electronAPI.getGitBranches(project.path);
       if (result.success && result.data) {
         setBranches(result.data);
-        // Auto-detect main branch if not set
-        if (!settings.mainBranch) {
+        // Auto-detect main branch if not set and not already detected
+        // Use mainBranchRef to avoid stale closure issues
+        if (!mainBranchRef.current && !hasDetectedMainBranch.current) {
+          hasDetectedMainBranch.current = true;
           const detectResult = await window.electronAPI.detectMainBranch(project.path);
-          if (detectResult.success && detectResult.data) {
-            setSettings(prev => ({ ...prev, mainBranch: detectResult.data! }));
+          // Re-check mainBranchRef after await - user may have selected a branch during detection
+          if (detectResult.success && detectResult.data !== null && detectResult.data !== undefined && !mainBranchRef.current) {
+            const detectedBranch = detectResult.data;
+            setSettings(prev => ({ ...prev, mainBranch: detectedBranch }));
           }
         }
       }
@@ -106,7 +120,24 @@ export function IntegrationSettings({
     } finally {
       setIsLoadingBranches(false);
     }
-  };
+    // settings.mainBranch not in deps - we use mainBranchRef to avoid stale closures
+    // hasDetectedMainBranch ref tracks whether detection has run this session
+  }, [project.path, setSettings]);
+
+  // Load branches when GitHub section expands or GitHub connection changes
+  useEffect(() => {
+    // Only load branches when:
+    // 1. GitHub section is expanded
+    // 2. Project path exists
+    // 3. GitHub is enabled with repo configured
+    if (!githubExpanded || !project.path) return;
+    if (!envConfig?.githubEnabled || !envConfig?.githubRepo) return;
+
+    // Only load branches when we have a successful connection
+    if (gitHubConnectionStatus?.connected) {
+      loadBranches();
+    }
+  }, [githubExpanded, project.path, envConfig?.githubEnabled, envConfig?.githubRepo, gitHubConnectionStatus?.connected, loadBranches]);
 
   if (!envConfig) return null;
 

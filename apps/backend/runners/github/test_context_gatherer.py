@@ -75,11 +75,11 @@ def test_find_test_files(tmp_path):
 
     # Create source file
     source_file = src_dir / "utils.ts"
-    source_file.write_text("export const add = (a, b) => a + b;")
+    source_file.write_text("export const add = (a, b) => a + b;", encoding="utf-8")
 
     # Create test file
     test_file = src_dir / "utils.test.ts"
-    test_file.write_text("import { add } from './utils';")
+    test_file.write_text("import { add } from './utils';", encoding="utf-8")
 
     gatherer = PRContextGatherer(project_dir, 1)
 
@@ -99,11 +99,11 @@ def test_resolve_import_path(tmp_path):
 
     # Create imported file
     utils_file = src_dir / "utils.ts"
-    utils_file.write_text("export const helper = () => {};")
+    utils_file.write_text("export const helper = () => {};", encoding="utf-8")
 
     # Create importing file
     app_file = src_dir / "app.ts"
-    app_file.write_text("import { helper } from './utils';")
+    app_file.write_text("import { helper } from './utils';", encoding="utf-8")
 
     gatherer = PRContextGatherer(project_dir, 1)
 
@@ -128,7 +128,7 @@ def test_detect_repo_structure_monorepo(tmp_path):
 
     # Create package.json with workspaces
     package_json = project_dir / "package.json"
-    package_json.write_text('{"workspaces": ["apps/*"]}')
+    package_json.write_text('{"workspaces": ["apps/*"]}', encoding="utf-8")
 
     gatherer = PRContextGatherer(project_dir, 1)
 
@@ -147,7 +147,7 @@ def test_detect_repo_structure_python(tmp_path):
 
     # Create pyproject.toml
     pyproject = project_dir / "pyproject.toml"
-    pyproject.write_text("[tool.poetry]\\nname = 'test'")
+    pyproject.write_text("[tool.poetry]\nname = 'test'", encoding="utf-8")
 
     gatherer = PRContextGatherer(project_dir, 1)
 
@@ -163,8 +163,8 @@ def test_find_config_files(tmp_path):
     src_dir.mkdir(parents=True)
 
     # Create config files
-    (src_dir / "tsconfig.json").write_text("{}")
-    (src_dir / "package.json").write_text("{}")
+    (src_dir / "tsconfig.json").write_text("{}", encoding="utf-8")
+    (src_dir / "package.json").write_text("{}", encoding="utf-8")
 
     gatherer = PRContextGatherer(project_dir, 1)
 

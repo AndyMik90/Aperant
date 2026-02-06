@@ -58,7 +58,7 @@ def load_project_context(project_dir: str) -> str:
     index_path = Path(project_dir) / ".auto-claude" / "project_index.json"
     if index_path.exists():
         try:
-            with open(index_path) as f:
+            with open(index_path, encoding="utf-8") as f:
                 index = json.load(f)
             # Summarize the index for context
             summary = {
@@ -77,7 +77,7 @@ def load_project_context(project_dir: str) -> str:
     roadmap_path = Path(project_dir) / ".auto-claude" / "roadmap" / "roadmap.json"
     if roadmap_path.exists():
         try:
-            with open(roadmap_path) as f:
+            with open(roadmap_path, encoding="utf-8") as f:
                 roadmap = json.load(f)
             # Summarize roadmap
             features = roadmap.get("features", [])

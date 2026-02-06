@@ -1,0 +1,87 @@
+name: 'Submit macOS Notarization'
+description: 'Submit a macOS DMG file for Apple notarization asynchronously'
+
+inputs:
+  apple-id:
+    description: 'Apple ID for notarization'
+    required: true
+  apple-app-specific-password:
+    description: 'Apple app-specific password'
+    required: true
+  apple-team-id:
+    description: 'Apple Team ID'
+    required: true
+  dmg-path:
+    description: 'Path to the dist directory containing the DMG file'
+    required: false
+    default: 'apps/frontend/dist'
+
+outputs:
+  notarization-id:
+    description: 'The notarization request ID'
+    value: ${{ steps.submit.outputs.notarization_id }}
+  dmg-file:
+    description: 'The DMG filename that was submitted'
+    value: ${{ steps.submit.outputs.dmg_file }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Submit notarization (async)
+      id: submit
+      shell: bash
+      env:
+        APPLE_ID: ${{ inputs.apple-id }}
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ inputs.apple-app-specific-password }}
+        APPLE_TEAM_ID: ${{ inputs.apple-team-id }}
+        DMG_PATH: ${{ inputs.dmg-path }}
+      run: |
+        if [ -z "$APPLE_ID" ]; then
+          echo "Skipping notarization: APPLE_ID not configured"
+          echo "notarization_id=" >> "$GITHUB_OUTPUT"
+          echo "dmg_file=" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # Find the DMG file
+        DMG_FILE=$(find "$DMG_PATH" -name "*.dmg" -type f | head -1)
+        if [ -z "$DMG_FILE" ]; then
+          echo "::error::No DMG file found in $DMG_PATH"
+          exit 1
+        fi
+
+        echo "Submitting $DMG_FILE for notarization (async)..."
+
+        # Submit for notarization without waiting
+        # Capture both stdout and exit code
+        set +e
+        RESULT=$(xcrun notarytool submit "$DMG_FILE" \
+          --apple-id "$APPLE_ID" \
+          --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+          --team-id "$APPLE_TEAM_ID" \
+          --no-wait \
+          --output-format json 2>&1)
+        SUBMIT_EXIT_CODE=$?
+        set -e
+
+        echo "$RESULT"
+
+        # Check if submission command itself failed (not just missing ID)
+        if [ $SUBMIT_EXIT_CODE -ne 0 ]; then
+          echo "::error::notarytool submit failed with exit code $SUBMIT_EXIT_CODE"
+          exit 1
+        fi
+
+        # Extract the notarization ID from JSON response
+        # jq is always available on macOS runners
+        NOTARIZATION_ID=$(echo "$RESULT" | jq -r '.id // empty' 2>/dev/null)
+
+        if [ -z "$NOTARIZATION_ID" ]; then
+          echo "::error::Failed to get notarization ID from response"
+          echo "Response was: $RESULT"
+          exit 1
+        fi
+
+        echo "Notarization submitted with ID: $NOTARIZATION_ID"
+        echo "notarization_id=$NOTARIZATION_ID" >> "$GITHUB_OUTPUT"
+        echo "dmg_file=$(basename "$DMG_FILE")" >> "$GITHUB_OUTPUT"

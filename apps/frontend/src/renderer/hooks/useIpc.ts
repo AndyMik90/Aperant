@@ -3,8 +3,9 @@ import { unstable_batchedUpdates } from 'react-dom';
 import { useTaskStore } from '../stores/task-store';
 import { useRoadmapStore } from '../stores/roadmap-store';
 import { useRateLimitStore } from '../stores/rate-limit-store';
+import { useAuthFailureStore } from '../stores/auth-failure-store';
 import { useProjectStore } from '../stores/project-store';
-import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo, SDKRateLimitInfo } from '../../shared/types';
+import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo, SDKRateLimitInfo, AuthFailureInfo } from '../../shared/types';
 
 /**
  * Batched update queue for IPC events.
@@ -13,6 +14,7 @@ import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, 
  */
 interface BatchedUpdate {
   status?: TaskStatus;
+  reviewReason?: import('../../shared/types').ReviewReason;
   progress?: ExecutionProgress;
   plan?: ImplementationPlan;
   logs?: string[]; // Batched log lines
@@ -23,7 +25,7 @@ interface BatchedUpdate {
  * Store action references type for batch flushing.
  */
 interface StoreActions {
-  updateTaskStatus: (taskId: string, status: TaskStatus) => void;
+  updateTaskStatus: (taskId: string, status: TaskStatus, reviewReason?: import('../../shared/types').ReviewReason) => void;
   updateExecutionProgress: (taskId: string, progress: ExecutionProgress) => void;
   updateTaskFromPlan: (taskId: string, plan: ImplementationPlan) => void;
   batchAppendLogs: (taskId: string, logs: string[]) => void;
@@ -65,7 +67,7 @@ function flushBatch(): void {
         totalUpdates++;
       }
       if (updates.status) {
-        actions.updateTaskStatus(taskId, updates.status);
+        actions.updateTaskStatus(taskId, updates.status, updates.reviewReason);
         totalUpdates++;
       }
       if (updates.progress) {
@@ -197,10 +199,17 @@ export function useIpcListeners(): void {
     );
 
     const cleanupStatus = window.electronAPI.onTaskStatusChange(
-      (taskId: string, status: TaskStatus, projectId?: string) => {
+      (taskId: string, status: TaskStatus, projectId?: string, reviewReason?: import('../../shared/types').ReviewReason) => {
+        // Debug: Log received status change
+        console.log(`[useIpc] Received TASK_STATUS_CHANGE:`, {
+          taskId,
+          status,
+          reviewReason,
+          projectId
+        });
         // Filter by project to prevent multi-project interference
         if (!isTaskForCurrentProject(projectId)) return;
-        queueUpdate(taskId, { status });
+        queueUpdate(taskId, { status, reviewReason });
       }
     );
 
@@ -333,6 +342,20 @@ export function useIpcListeners(): void {
       }
     );
 
+    // Auth failure listener (401 errors requiring re-authentication)
+    const showAuthFailureModal = useAuthFailureStore.getState().showAuthFailureModal;
+    const cleanupAuthFailure = window.electronAPI.onAuthFailure(
+      (info: AuthFailureInfo) => {
+        // Convert detectedAt string to Date if needed
+        showAuthFailureModal({
+          ...info,
+          detectedAt: typeof info.detectedAt === 'string'
+            ? new Date(info.detectedAt)
+            : info.detectedAt
+        });
+      }
+    );
+
     // Cleanup on unmount
     return () => {
       // Flush any pending batched updates before cleanup
@@ -352,8 +375,9 @@ export function useIpcListeners(): void {
       cleanupRoadmapStopped();
       cleanupRateLimit();
       cleanupSDKRateLimit();
+      cleanupAuthFailure();
     };
-  }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, batchAppendLogs, setError]);
+  }, [appendLog, setError]);
 }
 
 /**

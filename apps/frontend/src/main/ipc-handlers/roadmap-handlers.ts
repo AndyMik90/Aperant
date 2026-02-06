@@ -11,9 +11,9 @@ import {
 import type {
   IPCResult,
   Roadmap,
-  RoadmapFeature,
   RoadmapFeatureStatus,
   RoadmapGenerationStatus,
+  PersistedRoadmapProgress,
   Task,
   TaskMetadata,
   CompetitorAnalysis,
@@ -21,7 +21,7 @@ import type {
 } from "../../shared/types";
 import type { RoadmapConfig } from "../agent/types";
 import path from "path";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from "fs";
 import { projectStore } from "../project-store";
 import { AgentManager } from "../agent";
 import { debugLog, debugError } from "../../shared/utils/debug-logger";
@@ -34,24 +34,24 @@ function getFeatureSettings(): { model?: string; thinkingLevel?: string } {
   const settingsPath = path.join(app.getPath("userData"), "settings.json");
 
   try {
-    if (existsSync(settingsPath)) {
-      const content = readFileSync(settingsPath, "utf-8");
-      const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...JSON.parse(content) };
+    const content = readFileSync(settingsPath, "utf-8");
+    const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...JSON.parse(content) };
 
-      // Get roadmap-specific settings
-      const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
-      const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
+    // Get roadmap-specific settings
+    const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
+    const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
 
-      return {
-        model: featureModels.roadmap,
-        thinkingLevel: featureThinking.roadmap,
-      };
-    }
+    return {
+      model: featureModels.roadmap,
+      thinkingLevel: featureThinking.roadmap,
+    };
   } catch (error) {
-    debugError("[Roadmap Handler] Failed to read feature settings:", error);
+    // Return defaults if settings file doesn't exist (ENOENT) or fails to parse
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      debugError("[Roadmap Handler] Failed to read feature settings:", error);
+    }
   }
 
-  // Return defaults if settings file doesn't exist or fails to parse
   return {
     model: DEFAULT_FEATURE_MODELS.roadmap,
     thinkingLevel: DEFAULT_FEATURE_THINKING.roadmap,
@@ -377,12 +377,16 @@ export function registerRoadmapHandlers(
         AUTO_BUILD_PATHS.ROADMAP_FILE
       );
 
-      if (!existsSync(roadmapPath)) {
-        return { success: false, error: "Roadmap not found" };
-      }
-
       try {
-        const content = readFileSync(roadmapPath, "utf-8");
+        let content: string;
+        try {
+          content = readFileSync(roadmapPath, "utf-8");
+        } catch (readErr: unknown) {
+          if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+            return { success: false, error: "Roadmap not found" };
+          }
+          throw readErr;
+        }
         const existingRoadmap = JSON.parse(content);
 
         // Transform camelCase features back to snake_case for JSON file
@@ -407,7 +411,7 @@ export function registerRoadmapHandlers(
         existingRoadmap.metadata = existingRoadmap.metadata || {};
         existingRoadmap.metadata.updated_at = new Date().toISOString();
 
-        writeFileSync(roadmapPath, JSON.stringify(existingRoadmap, null, 2));
+        writeFileSync(roadmapPath, JSON.stringify(existingRoadmap, null, 2), 'utf-8');
 
         return { success: true };
       } catch (error) {
@@ -438,12 +442,16 @@ export function registerRoadmapHandlers(
         AUTO_BUILD_PATHS.ROADMAP_FILE
       );
 
-      if (!existsSync(roadmapPath)) {
-        return { success: false, error: "Roadmap not found" };
-      }
-
       try {
-        const content = readFileSync(roadmapPath, "utf-8");
+        let content: string;
+        try {
+          content = readFileSync(roadmapPath, "utf-8");
+        } catch (readErr: unknown) {
+          if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+            return { success: false, error: "Roadmap not found" };
+          }
+          throw readErr;
+        }
         const roadmap = JSON.parse(content);
 
         // Find and update the feature
@@ -456,7 +464,7 @@ export function registerRoadmapHandlers(
         roadmap.metadata = roadmap.metadata || {};
         roadmap.metadata.updated_at = new Date().toISOString();
 
-        writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2));
+        writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2), 'utf-8');
 
         return { success: true };
       } catch (error) {
@@ -482,12 +490,16 @@ export function registerRoadmapHandlers(
         AUTO_BUILD_PATHS.ROADMAP_FILE
       );
 
-      if (!existsSync(roadmapPath)) {
-        return { success: false, error: "Roadmap not found" };
-      }
-
       try {
-        const content = readFileSync(roadmapPath, "utf-8");
+        let content: string;
+        try {
+          content = readFileSync(roadmapPath, "utf-8");
+        } catch (readErr: unknown) {
+          if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+            return { success: false, error: "Roadmap not found" };
+          }
+          throw readErr;
+        }
         const roadmap = JSON.parse(content);
 
         // Find the feature
@@ -561,7 +573,8 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         };
         writeFileSync(
           path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
-          JSON.stringify(implementationPlan, null, 2)
+          JSON.stringify(implementationPlan, null, 2),
+          'utf-8'
         );
 
         // Create requirements.json
@@ -571,11 +584,12 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         };
         writeFileSync(
           path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS),
-          JSON.stringify(requirements, null, 2)
+          JSON.stringify(requirements, null, 2),
+          'utf-8'
         );
 
         // Create spec.md (required by backend spec creation process)
-        writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE), taskDescription);
+        writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE), taskDescription, 'utf-8');
 
         // Build metadata
         const metadata: TaskMetadata = {
@@ -583,7 +597,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
           featureId: feature.id,
           category: "feature",
         };
-        writeFileSync(path.join(specDir, "task_metadata.json"), JSON.stringify(metadata, null, 2));
+        writeFileSync(path.join(specDir, "task_metadata.json"), JSON.stringify(metadata, null, 2), 'utf-8');
 
         // NOTE: We do NOT auto-start spec creation here - user should explicitly start the task
         // from the kanban board when they're ready
@@ -593,7 +607,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         feature.linked_spec_id = specId;
         roadmap.metadata = roadmap.metadata || {};
         roadmap.metadata.updated_at = new Date().toISOString();
-        writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2));
+        writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2), 'utf-8');
 
         // Create task object
         const task: Task = {
@@ -615,6 +629,148 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         return {
           success: false,
           error: error instanceof Error ? error.message : "Failed to convert feature to spec",
+        };
+      }
+    }
+  );
+
+  // ============================================
+  // Roadmap Progress Persistence
+  // Note: SAVE and CLEAR handlers are exposed for API completeness and future use.
+  // Currently, progress is saved internally by agent-queue.ts and cleared when
+  // generation completes. The LOAD handler is used by the renderer to restore
+  // persisted progress state on app restart or project switch.
+  // ============================================
+
+  ipcMain.handle(
+    IPC_CHANNELS.ROADMAP_PROGRESS_SAVE,
+    async (
+      _,
+      projectId: string,
+      progressData: PersistedRoadmapProgress
+    ): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: "Project not found" };
+      }
+
+      const roadmapDir = path.join(project.path, AUTO_BUILD_PATHS.ROADMAP_DIR);
+      const progressPath = path.join(roadmapDir, AUTO_BUILD_PATHS.GENERATION_PROGRESS);
+
+      try {
+        // Ensure roadmap directory exists
+        if (!existsSync(roadmapDir)) {
+          mkdirSync(roadmapDir, { recursive: true });
+        }
+
+        // Derive isRunning from phase (active phases are running)
+        const isRunning = progressData.phase !== 'idle' && progressData.phase !== 'complete' && progressData.phase !== 'error';
+
+        // Transform camelCase to snake_case for JSON file
+        const fileData = {
+          phase: progressData.phase,
+          progress: progressData.progress,
+          message: progressData.message,
+          started_at: progressData.startedAt || new Date().toISOString(),
+          last_update_at: progressData.lastActivityAt || new Date().toISOString(),
+          is_running: isRunning,
+        };
+
+        writeFileSync(progressPath, JSON.stringify(fileData, null, 2), 'utf-8');
+        debugLog("[Roadmap Handler] Saved progress checkpoint:", { projectId, phase: progressData.phase });
+
+        return { success: true };
+      } catch (error) {
+        debugError("[Roadmap Handler] Failed to save progress:", error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to save progress",
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.ROADMAP_PROGRESS_LOAD,
+    async (
+      _,
+      projectId: string
+    ): Promise<IPCResult<PersistedRoadmapProgress | null>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: "Project not found" };
+      }
+
+      const progressPath = path.join(
+        project.path,
+        AUTO_BUILD_PATHS.ROADMAP_DIR,
+        AUTO_BUILD_PATHS.GENERATION_PROGRESS
+      );
+
+      if (!existsSync(progressPath)) {
+        return { success: true, data: null };
+      }
+
+      try {
+        const content = readFileSync(progressPath, "utf-8");
+        const rawData = JSON.parse(content);
+
+        // Valid phase values that the frontend expects
+        const validPhases = ['idle', 'analyzing', 'discovering', 'generating', 'complete', 'error'];
+
+        // Validate required fields exist and phase is valid
+        if (!rawData.phase || typeof rawData.progress !== 'number' || !validPhases.includes(rawData.phase)) {
+          debugLog("[Roadmap Handler] Invalid progress file structure or phase, ignoring:", { projectId, phase: rawData.phase });
+          return { success: true, data: null };
+        }
+
+        // Transform snake_case to camelCase for frontend
+        const progressData: PersistedRoadmapProgress = {
+          phase: rawData.phase,
+          progress: rawData.progress,
+          message: rawData.message || '',
+          startedAt: rawData.started_at,
+          lastActivityAt: rawData.last_update_at,
+        };
+
+        debugLog("[Roadmap Handler] Loaded progress checkpoint:", { projectId, phase: progressData.phase });
+
+        return { success: true, data: progressData };
+      } catch (error) {
+        debugError("[Roadmap Handler] Failed to load progress:", error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to load progress",
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.ROADMAP_PROGRESS_CLEAR,
+    async (_, projectId: string): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: "Project not found" };
+      }
+
+      const progressPath = path.join(
+        project.path,
+        AUTO_BUILD_PATHS.ROADMAP_DIR,
+        AUTO_BUILD_PATHS.GENERATION_PROGRESS
+      );
+
+      try {
+        if (existsSync(progressPath)) {
+          unlinkSync(progressPath);
+          debugLog("[Roadmap Handler] Cleared progress checkpoint:", { projectId });
+        }
+        return { success: true };
+      } catch (error) {
+        debugError("[Roadmap Handler] Failed to clear progress:", error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to clear progress",
         };
       }
     }

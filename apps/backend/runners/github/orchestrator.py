@@ -280,6 +280,33 @@ class GitHubOrchestrator:
                 )
 
     # =========================================================================
+    # Helper Methods
+    # =========================================================================
+
+    async def _create_skip_result(
+        self, pr_number: int, skip_reason: str
+    ) -> PRReviewResult:
+        """Create and save a skip result for a PR that should not be reviewed.
+
+        Args:
+            pr_number: The PR number
+            skip_reason: Reason why the review was skipped
+
+        Returns:
+            PRReviewResult with success=True and skip reason in summary
+        """
+        result = PRReviewResult(
+            pr_number=pr_number,
+            repo=self.config.repo,
+            success=True,
+            findings=[],
+            summary=f"Skipped review: {skip_reason}",
+            overall_status="comment",
+        )
+        await result.save(self.github_dir)
+        return result
+
+    # =========================================================================
     # PR REVIEW WORKFLOW
     # =========================================================================
 
@@ -349,7 +376,9 @@ class GitHubOrchestrator:
                 # instead of creating a new empty "skipped" result
                 if "Already reviewed" in skip_reason:
                     existing_review = PRReviewResult.load(self.github_dir, pr_number)
-                    if existing_review:
+                    # Only return existing review if it was successful
+                    # A failed review should not block re-review attempts
+                    if existing_review and existing_review.success:
                         safe_print(
                             "[BOT DETECTION] Returning existing review (no new commits)",
                             flush=True,
@@ -357,18 +386,24 @@ class GitHubOrchestrator:
                         # Don't overwrite - return the existing review as-is
                         # The frontend will see "no new commits" via the newCommitsCheck
                         return existing_review
+                    elif existing_review and not existing_review.success:
+                        safe_print(
+                            "[BOT DETECTION] Previous review failed, allowing re-review",
+                            flush=True,
+                        )
+                        # Fall through to perform a new review (don't return here)
+                    else:
+                        # No existing review found, create skip result
+                        return await self._create_skip_result(pr_number, skip_reason)
+                else:
+                    # For other skip reasons (bot-authored, cooling off, in-progress), create a skip result
+                    return await self._create_skip_result(pr_number, skip_reason)
 
-                # For other skip reasons (bot-authored, cooling off), create a skip result
-                result = PRReviewResult(
-                    pr_number=pr_number,
-                    repo=self.config.repo,
-                    success=True,
-                    findings=[],
-                    summary=f"Skipped review: {skip_reason}",
-                    overall_status="comment",
-                )
-                await result.save(self.github_dir)
-                return result
+            # Mark review as started (prevents concurrent reviews)
+            self.bot_detector.mark_review_started(pr_number)
+            safe_print(
+                f"[BOT DETECTION] Marked PR #{pr_number} review as started", flush=True
+            )
 
             self._report_progress(
                 "analyzing", 30, "Running multi-pass review...", pr_number=pr_number
@@ -543,6 +578,13 @@ class GitHubOrchestrator:
         except Exception as e:
             import traceback
 
+            # Mark review as finished with error
+            self.bot_detector.mark_review_finished(pr_number, success=False)
+            safe_print(
+                f"[BOT DETECTION] Marked PR #{pr_number} review as finished (error)",
+                flush=True,
+            )
+
             # Log full exception details for debugging
             error_details = f"{type(e).__name__}: {e}"
             full_traceback = traceback.format_exc()
@@ -603,6 +645,13 @@ class GitHubOrchestrator:
             10,
             f"Gathering follow-up context for PR #{pr_number}...",
             pr_number=pr_number,
+        )
+
+        # Mark review as started (prevents concurrent reviews)
+        self.bot_detector.mark_review_started(pr_number)
+        safe_print(
+            f"[BOT DETECTION] Marked PR #{pr_number} follow-up review as started",
+            flush=True,
         )
 
         try:
@@ -927,6 +976,13 @@ class GitHubOrchestrator:
             return result
 
         except Exception as e:
+            # Mark review as finished with error
+            self.bot_detector.mark_review_finished(pr_number, success=False)
+            safe_print(
+                f"[BOT DETECTION] Marked PR #{pr_number} follow-up review as finished (error)",
+                flush=True,
+            )
+
             result = PRReviewResult(
                 pr_number=pr_number,
                 repo=self.config.repo,

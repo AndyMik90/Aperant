@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import type { Mock } from 'vitest';
-import { renderHook, act, render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import React from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { useXterm } from '../useXterm';
@@ -26,8 +26,21 @@ vi.mock('@xterm/xterm', () => ({
     onData: vi.fn(),
     onResize: vi.fn(),
     dispose: vi.fn(),
+    write: vi.fn(),
     cols: 80,
-    rows: 24
+    rows: 24,
+    options: {
+      cursorBlink: true,
+      cursorStyle: 'block',
+      fontSize: 14,
+      fontFamily: 'monospace',
+      fontWeight: 'normal',
+      lineHeight: 1,
+      letterSpacing: 0,
+      theme: { cursorAccent: '#000000' },
+      scrollback: 1000
+    },
+    refresh: vi.fn()
   }))
 }));
 
@@ -94,7 +107,19 @@ async function setupMockXterm(overrides: {
       dispose: vi.fn(),
       write: vi.fn(),
       cols: 80,
-      rows: 24
+      rows: 24,
+      options: {
+        cursorBlink: true,
+        cursorStyle: 'block',
+        fontSize: 14,
+        fontFamily: 'monospace',
+        fontWeight: 'normal',
+        lineHeight: 1,
+        letterSpacing: 0,
+        theme: { cursorAccent: '#000000' },
+        scrollback: 1000
+      },
+      refresh: vi.fn()
     };
   });
 
@@ -427,7 +452,7 @@ describe('useXterm keyboard handlers', () => {
         });
 
         if (keyEventHandler) {
-          keyEventHandler!(event);
+          keyEventHandler?.(event);
           // Wait for clipboard write
           await vi.advanceTimersByTimeAsync(0);
         }
@@ -442,7 +467,7 @@ describe('useXterm keyboard handlers', () => {
         });
 
         if (keyEventHandler) {
-          keyEventHandler!(event);
+          keyEventHandler?.(event);
           // Wait for clipboard write
           await vi.advanceTimersByTimeAsync(0);
         }
@@ -472,7 +497,7 @@ describe('useXterm keyboard handlers', () => {
         });
 
         if (keyEventHandler) {
-          const handled = keyEventHandler!(event);
+          const handled = keyEventHandler?.(event);
           expect(handled).toBe(false); // Should prevent literal ^V
 
           // Wait for clipboard read and paste
@@ -593,7 +618,7 @@ describe('useXterm keyboard handlers', () => {
         });
 
         if (keyEventHandler) {
-          keyEventHandler!(event);
+          keyEventHandler?.(event);
         }
       });
 
@@ -715,7 +740,7 @@ describe('useXterm keyboard handlers', () => {
         });
 
         if (keyEventHandler) {
-          keyEventHandler!(event);
+          keyEventHandler?.(event);
         }
       });
 
@@ -736,7 +761,7 @@ describe('useXterm keyboard handlers', () => {
         });
 
         if (keyEventHandler) {
-          keyEventHandler!(event);
+          keyEventHandler?.(event);
         }
       });
 
@@ -756,7 +781,7 @@ describe('useXterm keyboard handlers', () => {
           });
 
           if (keyEventHandler) {
-            const handled = keyEventHandler!(event);
+            const handled = keyEventHandler?.(event);
             expect(handled).toBe(false); // Should bubble to window handler
           }
         });

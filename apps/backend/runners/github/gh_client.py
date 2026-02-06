@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from core.gh_executable import get_gh_executable
+
 try:
     from .rate_limiter import RateLimiter, RateLimitExceeded
 except (ImportError, ValueError, SystemError):
@@ -129,7 +131,12 @@ class GHClient:
             GHCommandError: If command fails and raise_on_error is True
         """
         timeout = timeout or self.default_timeout
-        cmd = ["gh"] + args
+        gh_exec = get_gh_executable()
+        if not gh_exec:
+            raise GHCommandError(
+                "GitHub CLI (gh) not found. Install from https://cli.github.com/"
+            )
+        cmd = [gh_exec] + args
         start_time = asyncio.get_event_loop().time()
 
         # Pre-flight rate limit check

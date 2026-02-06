@@ -69,7 +69,7 @@ def get_project_index_stats(spec_dir: Path) -> dict:
         return {}
 
     try:
-        with open(spec_index) as f:
+        with open(spec_index, encoding="utf-8") as f:
             index_data = json.load(f)
 
         # Support both old and new analyzer formats

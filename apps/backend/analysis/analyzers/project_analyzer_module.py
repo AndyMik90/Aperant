@@ -287,6 +287,6 @@ class ProjectAnalyzer:
 
     def _read_file(self, path: str) -> str:
         try:
-            return (self.project_dir / path).read_text()
+            return (self.project_dir / path).read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             return ""

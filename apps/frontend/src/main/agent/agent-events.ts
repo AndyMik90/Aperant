@@ -3,6 +3,7 @@ import { parsePhaseEvent } from './phase-event-parser';
 import {
   wouldPhaseRegress,
   isTerminalPhase,
+  isPausePhase,
   isValidExecutionPhase,
   type ExecutionPhase
 } from '../../shared/constants/phase-protocol';
@@ -13,18 +14,48 @@ export class AgentEvents {
     log: string,
     currentPhase: ExecutionProgressData['phase'],
     isSpecRunner: boolean
-  ): { phase: ExecutionProgressData['phase']; message?: string; currentSubtask?: string } | null {
+  ): {
+    phase: ExecutionProgressData['phase'];
+    message?: string;
+    currentSubtask?: string;
+    resetTimestamp?: number;
+    profileId?: string;
+  } | null {
     const structuredEvent = parsePhaseEvent(log);
     if (structuredEvent) {
-      return {
-        phase: structuredEvent.phase as ExecutionProgressData['phase'],
+      // structuredEvent.phase is validated as BackendPhase (via Zod schema),
+      // which is a subset of ExecutionPhase, so this assertion is safe
+      const result: {
+        phase: ExecutionProgressData['phase'];
+        message?: string;
+        currentSubtask?: string;
+        resetTimestamp?: number;
+        profileId?: string;
+      } = {
+        phase: structuredEvent.phase as ExecutionPhase,
         message: structuredEvent.message,
         currentSubtask: structuredEvent.subtask
       };
+
+      // Include pause phase metadata if present
+      if (structuredEvent.reset_timestamp !== undefined) {
+        result.resetTimestamp = structuredEvent.reset_timestamp;
+      }
+      if (structuredEvent.profile_id !== undefined) {
+        result.profileId = structuredEvent.profile_id;
+      }
+
+      return result;
     }
 
     // Terminal states can't be changed by fallback matching
-    if (isTerminalPhase(currentPhase as ExecutionPhase)) {
+    if (isTerminalPhase(currentPhase)) {
+      return null;
+    }
+
+    // Pause phases should only be changed by structured events
+    // Don't allow fallback text matching to transition out of pause phases
+    if (isPausePhase(currentPhase)) {
       return null;
     }
 
@@ -43,6 +74,7 @@ export class AgentEvents {
     const lowerLog = log.toLowerCase();
 
     // Spec runner phase detection (all part of "planning")
+    // IMPORTANT: Spec runner should NEVER transition to coding/qa phases via fallback matching
     if (isSpecRunner) {
       if (lowerLog.includes('discovering') || lowerLog.includes('discovery')) {
         return { phase: 'planning', message: 'Discovering project context...' };
@@ -59,6 +91,8 @@ export class AgentEvents {
       if (lowerLog.includes('spec complete') || lowerLog.includes('specification complete')) {
         return { phase: 'planning', message: 'Specification complete' };
       }
+      // Spec runner: don't fall through to run.py patterns (would incorrectly detect coding phase)
+      return null;
     }
 
     // Run.py phase detection
@@ -171,24 +205,105 @@ export class AgentEvents {
 
   /**
    * Parse roadmap progress from log output
+   * Provides granular progress updates (8+ intermediate points) for better UX feedback
    */
   parseRoadmapProgress(log: string, currentPhase: string, currentProgress: number): { phase: string; progress: number } {
+    // Define roadmap phase order to prevent regression
+    const ROADMAP_PHASE_ORDER: Record<string, number> = {
+      'idle': 0,
+      'analyzing': 1,
+      'discovering': 2,
+      'generating': 3,
+      'complete': 4,
+      'error': 5,
+    };
+
+    const wouldRoadmapPhaseRegress = (current: string, next: string): boolean => {
+      const currentOrder = ROADMAP_PHASE_ORDER[current] ?? -1;
+      const nextOrder = ROADMAP_PHASE_ORDER[next] ?? -1;
+      // Allow progression to error from any phase, but otherwise prevent regression
+      if (next === 'error') return false;
+      return nextOrder < currentOrder;
+    };
+
     let phase = currentPhase;
     let progress = currentProgress;
+    let detectedPhase = currentPhase;
 
+    // Phase 1: Project Analysis (10-25%)
     if (log.includes('PROJECT ANALYSIS')) {
-      phase = 'analyzing';
+      detectedPhase = 'analyzing';
+      progress = 10;
+    } else if (log.includes('Copied existing project_index')) {
+      detectedPhase = 'analyzing';
+      progress = 15;
+    } else if (log.includes('Running project analyzer')) {
+      detectedPhase = 'analyzing';
       progress = 20;
-    } else if (log.includes('PROJECT DISCOVERY')) {
-      phase = 'discovering';
+    } else if (log.includes('project_index.json already exists')) {
+      detectedPhase = 'analyzing';
+      progress = 22;
+    } else if (log.includes('Created project_index')) {
+      detectedPhase = 'analyzing';
+      progress = 25;
+    }
+
+    // Phase 2: Discovery (30-50%)
+    else if (log.includes('PROJECT DISCOVERY')) {
+      detectedPhase = 'discovering';
+      progress = 30;
+    } else if (log.includes('Analyzing project')) {
+      detectedPhase = 'discovering';
+      progress = 35;
+    } else if (log.includes('Running discovery agent')) {
+      detectedPhase = 'discovering';
       progress = 40;
-    } else if (log.includes('FEATURE GENERATION')) {
-      phase = 'generating';
-      progress = 70;
-    } else if (log.includes('ROADMAP GENERATED')) {
-      phase = 'complete';
+    } else if (log.includes('Discovery attempt')) {
+      detectedPhase = 'discovering';
+      progress = 45;
+    } else if (
+      log.includes('roadmap_discovery.json') &&
+      !log.toLowerCase().includes('failed') &&
+      !log.toLowerCase().includes('error')
+    ) {
+      detectedPhase = 'discovering';
+      progress = 50;
+    }
+
+    // Phase 3: Feature Generation (55-95%)
+    else if (log.includes('FEATURE GENERATION')) {
+      detectedPhase = 'generating';
+      progress = 55;
+    } else if (log.includes('Generating features')) {
+      detectedPhase = 'generating';
+      progress = 60;
+    } else if (log.includes('Features attempt')) {
+      detectedPhase = 'generating';
+      progress = 65;
+    } else if (log.includes('Prioritizing features')) {
+      detectedPhase = 'generating';
+      progress = 75;
+    } else if (log.includes('Creating roadmap file')) {
+      detectedPhase = 'generating';
+      progress = 85;
+    } else if (log.includes('Created valid roadmap')) {
+      detectedPhase = 'generating';
+      progress = 90;
+    }
+
+    // Complete
+    else if (log.includes('ROADMAP GENERATED')) {
+      detectedPhase = 'complete';
       progress = 100;
     }
+
+    // Apply phase only if it doesn't regress (prevents visual inconsistency)
+    if (!wouldRoadmapPhaseRegress(currentPhase, detectedPhase)) {
+      phase = detectedPhase;
+    }
+
+    // Ensure progress only moves forward (never backward) and stays within bounds (0-100)
+    progress = Math.min(100, Math.max(progress, currentProgress));
 
     return { phase, progress };
   }

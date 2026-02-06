@@ -77,9 +77,23 @@
     "discard": "Discard",
     "switch": "Switch",
     "add": "Add",
+    "apply": "Apply",
     "gotIt": "Got it",
     "continue": "Continue",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "deleting": "Deleting..."
+  },
+  "actions": {
+    "save": "Save",
+    "apply": "Apply",
+    "delete": "Delete",
+    "settings": "Settings"
+  },
+  "os": {
+    "windows": "Windows",
+    "macos": "macOS",
+    "linux": "Linux",
+    "unknown": "your OS"
   },
   "labels": {
     "loading": "Loading...",
@@ -91,7 +105,18 @@
     "noData": "No data",
     "optional": "Optional",
     "required": "Required",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "important": "Important",
+    "orphaned": "(orphaned)"
+  },
+  "selection": {
+    "select": "Select",
+    "done": "Done",
+    "selected": "{{count}} selected",
+    "selectAll": "Select All",
+    "clearSelection": "Clear Selection",
+    "deleteSelected": "Delete Selected",
+    "selectedOfTotal": "{{selected}} of {{total}} selected"
   },
   "time": {
     "justNow": "Just now",
@@ -105,7 +130,17 @@
     "operationFailed": "Operation failed",
     "networkError": "Network error",
     "notFound": "Not found",
-    "unauthorized": "Unauthorized"
+    "unauthorized": "Unauthorized",
+    "bulkDeletePartialFailure": "Some worktrees could not be deleted:",
+    "taskNotFoundForWorktree": "Task not found for worktree: {{specName}}",
+    "failedToDeleteTaskWorktree": "Failed to delete task worktree: {{specName}}",
+    "terminalWorktreeNotFound": "Terminal worktree not found: {{name}}",
+    "failedToDeleteTerminalWorktree": "Failed to delete terminal worktree: {{name}}"
+  },
+  "worktrees": {
+    "deleteSuccess": "Worktree '{{branch}}' deleted successfully",
+    "bulkDeleteSuccess": "{{count}} worktree deleted successfully",
+    "bulkDeleteSuccess_plural": "{{count}} worktrees deleted successfully"
   },
   "notification": {
     "accountSwitched": "Account Switched",
@@ -208,6 +243,12 @@
     "selectedCount": "{{count}} selected",
     "noResultsFound": "No results found",
     "reset": "Reset",
+    "sort": {
+      "label": "Sort",
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "largest": "Largest"
+    },
     "pullRequests": "Pull Requests",
     "open": "open",
     "selectPRToView": "Select a pull request to view details",
@@ -320,9 +361,14 @@
     "initial": "Initial",
     "rerunFollowup": "Re-run follow-up review",
     "rerunReview": "Re-run review",
-    "loadingMore": "Loading more PRs...",
-    "scrollForMore": "Scroll for more",
+    "updateBranch": "Update Branch",
+    "updatingBranch": "Updating...",
+    "branchUpdated": "Branch updated",
+    "branchUpdateFailed": "Failed to update branch",
     "allPRsLoaded": "All PRs loaded",
+    "maxPRsShown": "Showing first 100 PRs",
+    "loadMore": "Load More",
+    "loadingMore": "Loading...",
     "workflowsAwaitingApproval": "{{count}} Workflow Awaiting Approval",
     "workflowsAwaitingApproval_plural": "{{count}} Workflows Awaiting Approval",
     "blockedByWorkflows": "Blocked",
@@ -389,5 +435,257 @@
     "loadingMore": "Loading more...",
     "scrollForMore": "Scroll for more",
     "allLoaded": "All issues loaded"
+  },
+  "usage": {
+    "dataUnavailable": "Usage data unavailable",
+    "dataUnavailableDescription": "The usage monitoring endpoint for this provider is not available or not supported.",
+    "activeAccount": "Active Account",
+    "usageAlert": "Usage Alert",
+    "accountExceedsThreshold": "Account usage exceeds 90% threshold",
+    "authentication": "Authentication",
+    "authenticationAriaLabel": "Authentication: {{provider}}",
+    "authenticationDetails": "Authentication Details",
+    "apiProfile": "API Profile",
+    "apiKey": "API Key",
+    "oauth": "OAuth",
+    "claudeCode": "Claude Code",
+    "claudeCodeSubscription": "Claude Code subscription",
+    "subscription": "Subscription",
+    "provider": "Provider",
+    "providerAnthropic": "Anthropic",
+    "providerZai": "z.ai",
+    "providerZhipu": "ZHIPU AI",
+    "providerUnknown": "Unknown",
+    "profile": "Profile",
+    "id": "ID",
+    "created": "Created",
+    "apiEndpoint": "API Endpoint",
+    "sessionQuota": "Session Quota",
+    "notAvailable": "N/A",
+    "usageStatusAriaLabel": "Usage status",
+    "usageBreakdown": "Usage Breakdown",
+    "used": "used",
+    "loading": "Loading...",
+    "sessionDefault": "Session",
+    "weeklyDefault": "Weekly",
+    "resetsInHours": "Resets in {{hours}}h {{minutes}}m",
+    "resetsInDays": "Resets in {{days}}d {{hours}}h",
+    "window5Hour": "5-hour window",
+    "window7Day": "7-day window",
+    "window5HoursQuota": "5 Hours Quota",
+    "windowMonthlyToolsQuota": "Monthly Tools Quota",
+    "otherAccounts": "Other Accounts",
+    "next": "Next",
+    "weeklyLimitReached": "Weekly limit reached",
+    "sessionLimitReached": "Session limit reached",
+    "notAuthenticated": "Not authenticated",
+    "needsReauth": "Needs re-auth",
+    "reauthRequired": "Re-authentication required",
+    "reauthRequiredDescription": "Your session has expired. Re-authenticate to view usage and continue using this account.",
+    "reauthButton": "Re-authenticate",
+    "clickToOpenSettings": "Click to open Settings →",
+    "sessionShort": "5-hour session usage",
+    "weeklyShort": "7-day weekly usage",
+    "swap": "Swap"
+  },
+  "oauth": {
+    "enterCode": "Manual Code Entry (Fallback)",
+    "enterCodeDescription": "This dialog is only needed if the browser didn't redirect automatically. If authentication already completed in your browser, you can close this dialog.",
+    "fallbackNote": "Only use this if you see a \"Paste this into Claude Code\" page in your browser.",
+    "step1": "Complete the authorization in your browser",
+    "step2": "If you see a code page, copy the code shown",
+    "step3": "Paste the code below and click Submit",
+    "codeLabel": "Authorization Code",
+    "codePlaceholder": "Paste your code here (only if needed)...",
+    "codeHint": "The code is a long string shown only if automatic redirect failed",
+    "submit": "Submit",
+    "submitting": "Submitting...",
+    "codeSubmitted": "Code Submitted",
+    "codeSubmittedDescription": "Authentication should complete shortly. Check the terminal for confirmation.",
+    "codeSubmitFailed": "Failed to Submit Code",
+    "codeSubmitFailedDescription": "Please try again or copy the code manually to the terminal.",
+    "authenticateTitle": "Authenticate with Claude",
+    "authenticateDescription": "Auto Claude requires Claude AI authentication for AI-powered features like Roadmap generation, Task automation, and Ideation.",
+    "authenticateTerminalInfo": "This will open a terminal with Claude CLI where you can authenticate. Your credentials are stored securely and are valid for 1 year.",
+    "completeAuthTitle": "Complete Authentication",
+    "terminalOpened": "A terminal window has opened with Claude CLI.",
+    "completeStepsTitle": "Complete these steps in the terminal:",
+    "stepTypeLogin": "Type <code>/login</code> and press Enter",
+    "stepBrowserOpen": "Your browser will open for Claude authentication",
+    "stepCompleteOAuth": "Complete the OAuth flow in your browser",
+    "stepReturnAndVerify": "Return here and click <strong>Verify Authentication</strong>",
+    "verifyAuth": "Verify Authentication",
+    "verifyingAuth": "Verifying Authentication...",
+    "checkingCredentials": "Checking your Claude credentials.",
+    "successTitle": "Successfully Authenticated!",
+    "connectedAs": "Connected as {{email}}",
+    "credentialsSaved": "Your Claude credentials have been saved",
+    "canUseFeatures": "You can now use all Auto Claude AI features",
+    "authFailed": "Authentication Failed",
+    "skipForNow": "Skip for now",
+    "manualTokenEntry": "Manual Token Entry",
+    "tokenCommandHint": "Run <code>claude setup-token</code> to get your token",
+    "emailOptionalPlaceholder": "Email (optional, for display)",
+    "saveToken": "Save Token",
+    "accountNamePlaceholder": "Account name (e.g., Work, Personal)",
+    "hasAuthenticatedAccount": "You have at least one authenticated Claude account. You can continue to the next step.",
+    "authNotDetected": "Authentication not detected. Please complete /login in the terminal first.",
+    "noProfileSelected": "No profile selected for verification",
+    "alerts": {
+      "profileCreatedAuthFailed": "Profile created, but failed to start authentication: {{error}}",
+      "authPrepareFailed": "Failed to prepare authentication: {{error}}",
+      "authStartFailedMessage": "Failed to start authentication. Please try again."
+    },
+    "badges": {
+      "default": "Default",
+      "active": "Active",
+      "authenticated": "Authenticated",
+      "needsAuth": "Needs Auth"
+    },
+    "buttons": {
+      "authenticate": "Authenticate",
+      "setActive": "Set Active",
+      "back": "Back",
+      "skip": "Skip",
+      "continue": "Continue"
+    },
+    "toast": {
+      "tokenSaved": "Token Saved",
+      "tokenSavedDescription": "Your Claude token has been saved securely.",
+      "tokenSaveFailed": "Failed to Save Token",
+      "addProfileFailed": "Failed to Add Profile",
+      "tryAgain": "Please try again."
+    },
+    "configureTitle": "Configure Claude Accounts",
+    "addAccountsDesc": "Add and authenticate your Claude accounts to use AI features.",
+    "multiAccountInfo": "You can add multiple Claude accounts. The active account will be used for AI features. You can switch accounts at any time.",
+    "keychainTitle": "Secure Storage",
+    "keychainDescription": "Your authentication tokens are stored securely in macOS Keychain.",
+    "noAccountsYet": "No accounts added yet. Add your first Claude account below."
+  },
+  "authTerminal": {
+    "failedToCreate": "Failed to create terminal",
+    "unknownError": "Unknown error",
+    "instructionTitle": "Claude Authentication",
+    "step1": "Press Enter to start authentication",
+    "step2": "Complete authentication in your browser",
+    "step3": "Return here - auth will be detected automatically",
+    "authFailed": "Authentication failed",
+    "connecting": "Connecting...",
+    "authenticate": "Authenticate: {{profileName}}",
+    "completeSetup": "Complete setup: {{profileName}}",
+    "authenticatedAs": "Authenticated as {{email}}",
+    "authenticated": "Authenticated!",
+    "authError": "Authentication Error",
+    "onboardingMessage": "Token received! Complete the Claude Code setup below - this window will close automatically when done.",
+    "successMessage": "Authentication successful! Closing..."
+  },
+  "profileCreated": {
+    "title": "Profile \"{{profileName}}\" has been created.",
+    "instructions": "To authenticate this profile:",
+    "step1": "Go to Settings > Integrations",
+    "step2": "Find the profile in the Claude Accounts section",
+    "step3": "Click \"Authenticate\" to complete login",
+    "footer": "The account will be available once you complete authentication."
+  },
+  "roadmapGeneration": {
+    "progress": "Progress",
+    "elapsed": "Elapsed: {{time}}",
+    "stillWorking": "Still working...",
+    "stopping": "Stopping...",
+    "stop": "Stop",
+    "stopTooltip": "Stop generation",
+    "phases": {
+      "analyzing": {
+        "label": "Analyzing",
+        "description": "Analyzing project structure and codebase..."
+      },
+      "discovering": {
+        "label": "Discovering",
+        "description": "Discovering target audience and user needs..."
+      },
+      "generating": {
+        "label": "Generating",
+        "description": "Generating feature roadmap..."
+      },
+      "complete": {
+        "label": "Complete",
+        "description": "Roadmap generation complete!"
+      },
+      "error": {
+        "label": "Error",
+        "description": "Generation failed"
+      }
+    },
+    "steps": {
+      "analyze": "Analyze",
+      "discover": "Discover",
+      "generate": "Generate"
+    }
+  },
+  "auth": {
+    "failure": {
+      "title": "Authentication Required",
+      "profileLabel": "Profile",
+      "unknownProfile": "Unknown Profile",
+      "tokenExpired": "Your authentication token has expired.",
+      "tokenInvalid": "Your authentication token is invalid.",
+      "tokenMissing": "No authentication token found.",
+      "authFailed": "Authentication failed.",
+      "description": "Please re-authenticate your Claude profile to continue using Auto Claude.",
+      "taskAffected": "Task affected",
+      "technicalDetails": "Technical details",
+      "goToSettings": "Go to Settings"
+    }
+  },
+  "git": {
+    "branchGroups": {
+      "local": "Local Branches",
+      "remote": "Remote Branches"
+    },
+    "branchType": {
+      "local": "Local",
+      "remote": "Remote"
+    }
+  },
+  "roadmapProgress": {
+    "elapsedTime": "Elapsed",
+    "lastActivity": "Last activity",
+    "staleWarning": "No activity for a while",
+    "staleWarningTooltip": "This task has had no activity for {{minutes}} minutes",
+    "phases": {
+      "analyzing": {
+        "label": "Analyzing",
+        "description": "Analyzing project structure and codebase..."
+      },
+      "discovering": {
+        "label": "Discovering",
+        "description": "Discovering target audience and user needs..."
+      },
+      "generating": {
+        "label": "Generating",
+        "description": "Generating feature roadmap..."
+      },
+      "complete": {
+        "label": "Complete",
+        "description": "Roadmap generation complete!"
+      },
+      "error": {
+        "label": "Error",
+        "description": "Generation failed"
+      }
+    },
+    "steps": {
+      "analyze": "Analyze",
+      "discover": "Discover",
+      "generate": "Generate"
+    },
+    "processing": "Processing",
+    "processActiveTooltip": "Process is actively running",
+    "stopGeneration": "Stop generation",
+    "stopping": "Stopping...",
+    "progress": "Progress",
+    "lastActivityPrefix": "last activity",
+    "lastProgressUpdateTooltip": "Last progress update received"
   }
 }

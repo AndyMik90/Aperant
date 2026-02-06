@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Check,
@@ -28,6 +28,7 @@ interface OllamaModelSelectorProps {
   onModelSelect: (model: string, dim: number) => void;
   disabled?: boolean;
   className?: string;
+  baseUrl?: string;
 }
 
 // Recommended embedding models for Auto Claude Memory
@@ -73,7 +74,6 @@ const RECOMMENDED_MODELS: OllamaModel[] = [
   },
 ];
 
-
 /**
  * OllamaModelSelector Component
  *
@@ -107,6 +107,7 @@ export function OllamaModelSelector({
   onModelSelect,
   disabled = false,
   className,
+  baseUrl,
 }: OllamaModelSelectorProps) {
   const { t } = useTranslation('onboarding');
   const [models, setModels] = useState<OllamaModel[]>(RECOMMENDED_MODELS);
@@ -132,7 +133,7 @@ export function OllamaModelSelector({
    * @param {AbortSignal} [abortSignal] - Optional abort signal to cancel the request
    * @returns {Promise<void>}
    */
-  const checkInstalledModels = async (abortSignal?: AbortSignal) => {
+  const checkInstalledModels = useCallback(async (abortSignal?: AbortSignal) => {
     setIsLoading(true);
     setError(null);
     setOllamaState('checking');
@@ -149,7 +150,7 @@ export function OllamaModelSelector({
       }
 
       // Ollama is installed, now check if it's running
-      const statusResult = await window.electronAPI.checkOllamaStatus();
+      const statusResult = await window.electronAPI.checkOllamaStatus(baseUrl);
       if (abortSignal?.aborted) return;
 
       if (!statusResult?.success || !statusResult?.data?.running) {
@@ -161,7 +162,7 @@ export function OllamaModelSelector({
       setOllamaState('available');
 
       // Get list of installed embedding models
-      const result = await window.electronAPI.listOllamaEmbeddingModels();
+      const result = await window.electronAPI.listOllamaEmbeddingModels(baseUrl);
       if (abortSignal?.aborted) return;
 
       if (result?.success && result?.data?.embedding_models) {
@@ -216,7 +217,7 @@ export function OllamaModelSelector({
         setIsLoading(false);
       }
     }
-  };
+  }, [baseUrl]);
 
   /**
    * Install Ollama by opening terminal with the official install command.
@@ -258,7 +259,7 @@ export function OllamaModelSelector({
         clearTimeout(installCheckTimeoutRef.current);
       }
     };
-  }, []);
+  }, [checkInstalledModels]);
 
   // Progress is now handled globally by the download store listener initialized in App.tsx
 

@@ -52,7 +52,7 @@ class JobsDetector(BaseAnalyzer):
         tasks = []
         for task_file in celery_files:
             try:
-                content = task_file.read_text()
+                content = task_file.read_text(encoding="utf-8")
                 # Find @celery.task or @shared_task decorators
                 task_pattern = r"@(?:celery\.task|shared_task|app\.task)\s*(?:\([^)]*\))?\s*def\s+(\w+)"
                 task_matches = re.findall(task_pattern, content)

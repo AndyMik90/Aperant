@@ -38,7 +38,7 @@ class ConfigParser:
     def read_json(self, filename: str) -> dict | None:
         """Read a JSON file from project root."""
         try:
-            with open(self.project_dir / filename) as f:
+            with open(self.project_dir / filename, encoding="utf-8") as f:
                 return json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             return None
@@ -59,7 +59,7 @@ class ConfigParser:
     def read_text(self, filename: str) -> str | None:
         """Read a text file from project root."""
         try:
-            with open(self.project_dir / filename) as f:
+            with open(self.project_dir / filename, encoding="utf-8") as f:
                 return f.read()
         except (OSError, FileNotFoundError):
             return None

@@ -325,6 +325,7 @@ def setup_workspace(
     mode: WorkspaceMode,
     source_spec_dir: Path | None = None,
     base_branch: str | None = None,
+    use_local_branch: bool = False,
 ) -> tuple[Path, WorktreeManager | None, Path | None]:
     """
     Set up the workspace based on user's choice.
@@ -337,6 +338,7 @@ def setup_workspace(
         mode: The workspace mode to use
         source_spec_dir: Optional source spec directory to copy to worktree
         base_branch: Base branch for worktree creation (default: current branch)
+        use_local_branch: If True, use local branch directly instead of preferring origin/branch
 
     Returns:
         Tuple of (working_directory, worktree_manager or None, localized_spec_dir or None)
@@ -357,7 +359,9 @@ def setup_workspace(
     # Ensure timeline tracking hook is installed (once per session)
     ensure_timeline_hook_installed(project_dir)
 
-    manager = WorktreeManager(project_dir, base_branch=base_branch)
+    manager = WorktreeManager(
+        project_dir, base_branch=base_branch, use_local_branch=use_local_branch
+    )
     manager.setup()
 
     # Get or create worktree for THIS SPECIFIC SPEC
@@ -412,10 +416,10 @@ def setup_workspace(
         if PROFILE_FILENAME in security_files_copied:
             profile_path = worktree_info.path / PROFILE_FILENAME
             try:
-                with open(profile_path) as f:
+                with open(profile_path, encoding="utf-8") as f:
                     profile_data = json.load(f)
                 profile_data["inherited_from"] = str(project_dir.resolve())
-                with open(profile_path, "w") as f:
+                with open(profile_path, "w", encoding="utf-8") as f:
                     json.dump(profile_data, f, indent=2)
                 debug(
                     MODULE, f"Marked security profile as inherited from {project_dir}"
@@ -474,7 +478,7 @@ def ensure_timeline_hook_installed(project_dir: Path) -> None:
 
         # Handle worktrees (where .git is a file, not directory)
         if git_dir.is_file():
-            content = git_dir.read_text().strip()
+            content = git_dir.read_text(encoding="utf-8").strip()
             if content.startswith("gitdir:"):
                 git_dir = Path(content.split(":", 1)[1].strip())
             else:
@@ -484,7 +488,7 @@ def ensure_timeline_hook_installed(project_dir: Path) -> None:
 
         # Check if hook already installed
         if hook_path.exists():
-            if "FileTimelineTracker" in hook_path.read_text():
+            if "FileTimelineTracker" in hook_path.read_text(encoding="utf-8"):
                 debug(MODULE, "FileTimelineTracker hook already installed")
                 return
 
@@ -522,7 +526,7 @@ def initialize_timeline_tracking(
         if source_spec_dir:
             plan_path = source_spec_dir / "implementation_plan.json"
             if plan_path.exists():
-                with open(plan_path) as f:
+                with open(plan_path, encoding="utf-8") as f:
                     plan = json.load(f)
                 task_title = plan.get("title", spec_name)
                 task_intent = plan.get("description", "")
@@ -533,6 +537,7 @@ def initialize_timeline_tracking(
                         files_to_modify.extend(subtask.get("files", []))
 
         # Get the current branch point commit
+        # Note: run_git() already handles capture_output and encoding internally
         result = run_git(
             ["rev-parse", "HEAD"],
             cwd=project_dir,

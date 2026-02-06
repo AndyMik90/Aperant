@@ -1,5 +1,10 @@
 name: Release
 # Triggers on version tags (v*) to build and publish releases
+#
+# IMPORTANT: If branch protection is enabled on 'main', the update-readme job
+# requires a PAT or GitHub App token with bypass permissions to push directly.
+# Currently uses GITHUB_TOKEN which works if "Allow GitHub Actions to create
+# and approve pull requests" is enabled OR branch protection is not configured.
 
 on:
   push:
@@ -18,37 +23,25 @@ jobs:
   # Note: macos-15-intel is the last Intel runner, supported until Fall 2027
   build-macos-intel:
     runs-on: macos-15-intel
+    outputs:
+      notarization_id: ${{ steps.notarize.outputs.notarization-id }}
+      dmg_file: ${{ steps.notarize.outputs.dmg-file }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Get npm cache directory
-        id: npm-cache
-        run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
-
-      - uses: actions/cache@v4
-        with:
-          path: ${{ steps.npm-cache.outputs.dir }}
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-npm-
-
-      - name: Install dependencies
-        run: cd apps/frontend && npm ci
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node-frontend
 
       - name: Install Rust toolchain (for building native Python packages)
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache pip wheel cache (for compiled packages like real_ladybug)
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/Library/Caches/pip
           key: pip-wheel-${{ runner.os }}-x64-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -56,7 +49,7 @@ jobs:
             pip-wheel-${{ runner.os }}-x64-
 
       - name: Cache bundled Python
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: apps/frontend/python-runtime
           key: python-bundle-${{ runner.os }}-x64-3.12.8-rust-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -80,27 +73,13 @@ jobs:
           SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
           SENTRY_PROFILES_SAMPLE_RATE: ${{ secrets.SENTRY_PROFILES_SAMPLE_RATE }}
 
-      - name: Notarize macOS Intel app
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          if [ -z "$APPLE_ID" ]; then
-            echo "Skipping notarization: APPLE_ID not configured"
-            exit 0
-          fi
-          cd apps/frontend
-          for dmg in dist/*.dmg; do
-            echo "Notarizing $dmg..."
-            xcrun notarytool submit "$dmg" \
-              --apple-id "$APPLE_ID" \
-              --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-              --team-id "$APPLE_TEAM_ID" \
-              --wait
-            xcrun stapler staple "$dmg"
-            echo "Successfully notarized and stapled $dmg"
-          done
+      - name: Submit notarization (async)
+        id: notarize
+        uses: ./.github/actions/submit-macos-notarization
+        with:
+          apple-id: ${{ secrets.APPLE_ID }}
+          apple-app-specific-password: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          apple-team-id: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -115,34 +94,22 @@ jobs:
   # Apple Silicon build on ARM64 runner for native compilation
   build-macos-arm64:
     runs-on: macos-15
+    outputs:
+      notarization_id: ${{ steps.notarize.outputs.notarization-id }}
+      dmg_file: ${{ steps.notarize.outputs.dmg-file }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Get npm cache directory
-        id: npm-cache
-        run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
-
-      - uses: actions/cache@v4
-        with:
-          path: ${{ steps.npm-cache.outputs.dir }}
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-npm-
-
-      - name: Install dependencies
-        run: cd apps/frontend && npm ci
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node-frontend
 
       - name: Cache pip wheel cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/Library/Caches/pip
           key: pip-wheel-${{ runner.os }}-arm64-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -150,7 +117,7 @@ jobs:
             pip-wheel-${{ runner.os }}-arm64-
 
       - name: Cache bundled Python
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: apps/frontend/python-runtime
           key: python-bundle-${{ runner.os }}-arm64-3.12.8-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -174,27 +141,13 @@ jobs:
           SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
           SENTRY_PROFILES_SAMPLE_RATE: ${{ secrets.SENTRY_PROFILES_SAMPLE_RATE }}
 
-      - name: Notarize macOS ARM64 app
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          if [ -z "$APPLE_ID" ]; then
-            echo "Skipping notarization: APPLE_ID not configured"
-            exit 0
-          fi
-          cd apps/frontend
-          for dmg in dist/*.dmg; do
-            echo "Notarizing $dmg..."
-            xcrun notarytool submit "$dmg" \
-              --apple-id "$APPLE_ID" \
-              --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-              --team-id "$APPLE_TEAM_ID" \
-              --wait
-            xcrun stapler staple "$dmg"
-            echo "Successfully notarized and stapled $dmg"
-          done
+      - name: Submit notarization (async)
+        id: notarize
+        uses: ./.github/actions/submit-macos-notarization
+        with:
+          apple-id: ${{ secrets.APPLE_ID }}
+          apple-app-specific-password: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          apple-team-id: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -218,31 +171,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Get npm cache directory
-        id: npm-cache
-        shell: bash
-        run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
-
-      - uses: actions/cache@v4
-        with:
-          path: ${{ steps.npm-cache.outputs.dir }}
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-npm-
-
-      - name: Install dependencies
-        run: cd apps/frontend && npm ci
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node-frontend
 
       - name: Cache pip wheel cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~\AppData\Local\pip\Cache
           key: pip-wheel-${{ runner.os }}-x64-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -250,7 +187,7 @@ jobs:
             pip-wheel-${{ runner.os }}-x64-
 
       - name: Cache bundled Python
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: apps/frontend/python-runtime
           key: python-bundle-${{ runner.os }}-x64-3.12.8-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -400,38 +337,23 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node-frontend
 
-      - name: Get npm cache directory
-        id: npm-cache
-        run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
-
-      - uses: actions/cache@v4
-        with:
-          path: ${{ steps.npm-cache.outputs.dir }}
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-npm-
-
-      - name: Install dependencies
-        run: cd apps/frontend && npm ci
-
-      - name: Setup Flatpak
+      - name: Setup Flatpak and verification tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
+          sudo apt-get install -y flatpak flatpak-builder libarchive-tools
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install -y --user flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
           flatpak install -y --user flathub org.electronjs.Electron2.BaseApp//25.08
 
       - name: Cache pip wheel cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: pip-wheel-${{ runner.os }}-x64-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -439,7 +361,7 @@ jobs:
             pip-wheel-${{ runner.os }}-x64-
 
       - name: Cache bundled Python
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: apps/frontend/python-runtime
           key: python-bundle-${{ runner.os }}-x64-3.12.8-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -461,6 +383,9 @@ jobs:
           SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
           SENTRY_PROFILES_SAMPLE_RATE: ${{ secrets.SENTRY_PROFILES_SAMPLE_RATE }}
 
+      - name: Verify Linux packages
+        run: cd apps/frontend && npm run verify:linux
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -472,8 +397,50 @@ jobs:
             apps/frontend/dist/*.yml
             apps/frontend/dist/*.blockmap
 
+  # Finalize macOS notarization (runs in parallel with Windows/Linux builds)
+  finalize-notarization:
+    needs: [build-macos-intel, build-macos-arm64]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Intel DMG
+        uses: actions/download-artifact@v7
+        with:
+          name: macos-intel-builds
+          path: intel
+
+      - name: Download ARM64 DMG
+        uses: actions/download-artifact@v7
+        with:
+          name: macos-arm64-builds
+          path: arm64
+
+      - name: Wait for notarization and staple
+        uses: ./.github/actions/finalize-macos-notarization
+        with:
+          apple-id: ${{ secrets.APPLE_ID }}
+          apple-app-specific-password: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          apple-team-id: ${{ secrets.APPLE_TEAM_ID }}
+          intel-notarization-id: ${{ needs.build-macos-intel.outputs.notarization_id }}
+          arm64-notarization-id: ${{ needs.build-macos-arm64.outputs.notarization_id }}
+          intel-dmg-file: ${{ needs.build-macos-intel.outputs.dmg_file }}
+          arm64-dmg-file: ${{ needs.build-macos-arm64.outputs.dmg_file }}
+
+      - name: Upload stapled Intel DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-intel-stapled
+          path: intel/*.dmg
+
+      - name: Upload stapled ARM64 DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64-stapled
+          path: arm64/*.dmg
+
   create-release:
-    needs: [build-macos-intel, build-macos-arm64, build-windows, build-linux]
+    needs: [build-macos-intel, build-macos-arm64, finalize-notarization, build-windows, build-linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -483,7 +450,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: dist
 
@@ -491,8 +458,20 @@ jobs:
         run: |
           mkdir -p release-assets
 
-          # Copy binary artifacts (these have unique names per architecture)
-          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" -o -name "*.blockmap" \) -exec cp {} release-assets/ \;
+          # Copy stapled macOS DMGs (from finalize-notarization job)
+          # Validate that stapled DMGs exist before copying
+          if ! find dist/macos-intel-stapled dist/macos-arm64-stapled -type f -name "*.dmg" 2>/dev/null | grep -q .; then
+            echo "::warning::No stapled DMGs found. Using un-stapled DMGs from build artifacts."
+            find dist/macos-intel-builds dist/macos-arm64-builds -type f -name "*.dmg" -exec cp {} release-assets/ \; 2>/dev/null || true
+          else
+            find dist/macos-intel-stapled dist/macos-arm64-stapled -type f -name "*.dmg" -exec cp {} release-assets/ \; 2>/dev/null || true
+          fi
+
+          # Copy other macOS artifacts (zip, yml, blockmap) from original build
+          find dist/macos-intel-builds dist/macos-arm64-builds -type f \( -name "*.zip" -o -name "*.yml" -o -name "*.blockmap" \) -exec cp {} release-assets/ \; 2>/dev/null || true
+
+          # Copy Windows and Linux artifacts
+          find dist/windows-builds dist/linux-builds -type f \( -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" -o -name "*.yml" -o -name "*.blockmap" \) -exec cp {} release-assets/ \; 2>/dev/null || true
 
           # Validate that installer files exist
           installer_count=$(find release-assets -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" \) | wc -l)
@@ -655,7 +634,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Use PAT_TOKEN to bypass branch protection rules on main
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Extract version and detect release type
         id: version
@@ -675,95 +655,14 @@ jobs:
 
       - name: Update README.md
         run: |
-          python3 << 'EOF'
-          import re
-          import sys
+          VERSION="${{ steps.version.outputs.version }}"
+          IS_PRERELEASE="${{ steps.version.outputs.is_prerelease }}"
 
-          version = "${{ steps.version.outputs.version }}"
-          is_prerelease = "${{ steps.version.outputs.is_prerelease }}" == "true"
-
-          # Shields.io escapes hyphens as --
-          version_badge = version.replace("-", "--")
-
-          # Read README
-          with open("README.md", "r") as f:
-              content = f.read()
-
-          # Semver pattern: matches X.Y.Z or X.Y.Z-prerelease (e.g., 2.7.2, 2.7.2-beta.10)
-          # Prerelease MUST contain a dot (beta.10, alpha.1, rc.1) to avoid matching platform suffixes (win32, darwin)
-          semver = r'\d+\.\d+\.\d+(?:-[a-zA-Z]+\.[a-zA-Z0-9.]+)?'
-          # Shields.io escaped pattern (hyphens as --)
-          semver_badge = r'\d+\.\d+\.\d+(?:--[a-zA-Z]+\.[a-zA-Z0-9.]+)?'
-
-          def update_section(text, start_marker, end_marker, replacements):
-              """Update content between markers with given replacements."""
-              pattern = f'({re.escape(start_marker)})(.*?)({re.escape(end_marker)})'
-              def replace_section(match):
-                  section = match.group(2)
-                  for old_pattern, new_value in replacements:
-                      section = re.sub(old_pattern, new_value, section)
-                  return match.group(1) + section + match.group(3)
-              return re.sub(pattern, replace_section, text, flags=re.DOTALL)
-
-          if is_prerelease:
-              print(f"Updating BETA section to {version} (badge: {version_badge})")
-
-              # Update beta badge
-              content = re.sub(
-                  rf'beta-{semver_badge}-orange',
-                  f'beta-{version_badge}-orange',
-                  content
-              )
-
-              # Update beta version badge link
-              content = update_section(content,
-                  '<!-- BETA_VERSION_BADGE -->', '<!-- BETA_VERSION_BADGE_END -->',
-                  [(rf'tag/v{semver}\)', f'tag/v{version})')])
-
-              # Update beta downloads
-              content = update_section(content,
-                  '<!-- BETA_DOWNLOADS -->', '<!-- BETA_DOWNLOADS_END -->',
-                  [
-                      (rf'Auto-Claude-{semver}', f'Auto-Claude-{version}'),
-                      (rf'download/v{semver}/', f'download/v{version}/'),
-                  ])
-          else:
-              print(f"Updating STABLE section to {version} (badge: {version_badge})")
-
-              # Update top version badge
-              content = update_section(content,
-                  '<!-- TOP_VERSION_BADGE -->', '<!-- TOP_VERSION_BADGE_END -->',
-                  [
-                      (rf'version-{semver_badge}-blue', f'version-{version_badge}-blue'),
-                      (rf'tag/v{semver}\)', f'tag/v{version})'),
-                  ])
-
-              # Update stable badge
-              content = re.sub(
-                  rf'stable-{semver_badge}-blue',
-                  f'stable-{version_badge}-blue',
-                  content
-              )
-
-              # Update stable version badge link
-              content = update_section(content,
-                  '<!-- STABLE_VERSION_BADGE -->', '<!-- STABLE_VERSION_BADGE_END -->',
-                  [(rf'tag/v{semver}\)', f'tag/v{version})')])
-
-              # Update stable downloads
-              content = update_section(content,
-                  '<!-- STABLE_DOWNLOADS -->', '<!-- STABLE_DOWNLOADS_END -->',
-                  [
-                      (rf'Auto-Claude-{semver}', f'Auto-Claude-{version}'),
-                      (rf'download/v{semver}/', f'download/v{version}/'),
-                  ])
-
-          # Write updated README
-          with open("README.md", "w") as f:
-              f.write(content)
-
-          print(f"README.md updated for {version} (prerelease={is_prerelease})")
-          EOF
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            python3 scripts/update-readme.py "$VERSION" --prerelease
+          else
+            python3 scripts/update-readme.py "$VERSION"
+          fi
 
           echo "--- Verifying update ---"
           grep -E "(stable-|beta-|version-)[0-9]" README.md | head -5

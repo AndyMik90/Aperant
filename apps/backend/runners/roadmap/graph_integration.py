@@ -81,7 +81,7 @@ class GraphHintsProvider:
 
     def _create_disabled_hints_file(self):
         """Create a hints file indicating Graphiti is disabled."""
-        with open(self.hints_file, "w") as f:
+        with open(self.hints_file, "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "enabled": False,
@@ -95,7 +95,7 @@ class GraphHintsProvider:
 
     def _save_hints(self, hints: list):
         """Save retrieved hints to file."""
-        with open(self.hints_file, "w") as f:
+        with open(self.hints_file, "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "enabled": True,
@@ -109,7 +109,7 @@ class GraphHintsProvider:
 
     def _save_error_hints(self, error: str):
         """Save error information to hints file."""
-        with open(self.hints_file, "w") as f:
+        with open(self.hints_file, "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "enabled": True,

@@ -25,7 +25,7 @@ THINKING_BUDGET_MAP: dict[str, int | None] = {
     "low": 1024,
     "medium": 4096,  # Moderate analysis
     "high": 16384,  # Deep thinking for QA review
-    "ultrathink": 60000,  # Maximum reasoning depth (must be < Opus 4.5's 64000 limit)
+    "ultrathink": 63999,  # Maximum reasoning depth (API requires max_tokens >= budget + 1, so 63999 + 1 = 64000 limit)
 }
 
 # Spec runner phase-specific thinking levels
@@ -164,7 +164,7 @@ def load_task_metadata(spec_dir: Path) -> TaskMetadataConfig | None:
         return None
 
     try:
-        with open(metadata_path) as f:
+        with open(metadata_path, encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
         return None

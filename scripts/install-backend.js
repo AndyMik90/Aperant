@@ -103,6 +103,13 @@ async function main() {
     process.exit(1);
   }
 
+  // Install test dependencies (needed for pre-commit hooks and development)
+  console.log('\nInstalling test dependencies...');
+  if (!run(`"${pip}" install -r ../../tests/requirements-test.txt`)) {
+    console.error('Failed to install test dependencies');
+    process.exit(1);
+  }
+
   // Create .env file from .env.example if it doesn't exist
   const envPath = path.join(backendDir, '.env');
   const envExamplePath = path.join(backendDir, '.env.example');
@@ -126,8 +133,10 @@ async function main() {
     console.warn('Please create a .env file manually if your configuration requires it.');
   }
 
-  console.log('\nBackend installation complete!');
-  console.log(`Virtual environment: ${venvDir}`);
+  console.log('\n✓ Backend installation complete!');
+  console.log(`  Virtual environment: ${venvDir}`);
+  console.log('  Runtime dependencies: installed');
+  console.log('  Test dependencies: installed (pytest, etc.)');
 }
 
 main().catch((err) => {

@@ -33,6 +33,21 @@ Follow conventional commits: `<type>: <subject>`
 
 **Example:** `feat: add user authentication system`
 
+## AI Disclosure
+
+<!-- Check the box below if any part of this PR was written with AI assistance. -->
+
+- [ ] This PR includes AI-generated code (Claude, Codex, Copilot, etc.)
+
+<!-- If checked, please also fill in: -->
+**Tool(s) used:** <!-- e.g., Claude Code, GitHub Copilot, ChatGPT -->
+**Testing level:**
+- [ ] Untested -- AI output not yet verified
+- [ ] Lightly tested -- ran the app / spot-checked key paths
+- [ ] Fully tested -- all tests pass, manually verified behavior
+
+- [ ] I understand what this PR does and how the underlying code works
+
 ## Checklist
 
 - [ ] I've synced with `develop` branch

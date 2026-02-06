@@ -507,7 +507,7 @@ class GraphitiState:
     def save(self, spec_dir: Path) -> None:
         """Save state to the spec directory."""
         marker_file = spec_dir / GRAPHITI_STATE_MARKER
-        with open(marker_file, "w") as f:
+        with open(marker_file, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, indent=2)
 
     @classmethod
@@ -518,9 +518,9 @@ class GraphitiState:
             return None
 
         try:
-            with open(marker_file) as f:
+            with open(marker_file, encoding="utf-8") as f:
                 return cls.from_dict(json.load(f))
-        except (OSError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
             return None
 
     def record_error(self, error_msg: str) -> None:

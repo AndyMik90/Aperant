@@ -48,7 +48,7 @@ class IdeaPrioritizer:
             }
 
         try:
-            content = output_file.read_text()
+            content = output_file.read_text(encoding="utf-8")
             data = json.loads(content)
             debug_verbose(
                 "ideation_prioritizer",
@@ -102,7 +102,7 @@ class IdeaPrioritizer:
             return {
                 "success": False,
                 "error": f"Invalid JSON: {e}",
-                "current_content": output_file.read_text()
+                "current_content": output_file.read_text(encoding="utf-8")
                 if output_file.exists()
                 else "",
                 "count": 0,

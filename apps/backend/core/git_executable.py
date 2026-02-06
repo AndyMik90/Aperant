@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
-Git Executable Finder
-======================
+Git Executable Finder and Isolation
+====================================
 
 Utility to find the git executable, with Windows-specific fallbacks.
+Also provides environment isolation to prevent pre-commit hooks and
+other git configurations from affecting worktree operations.
+
 Separated into its own module to avoid circular imports.
 """
 
@@ -12,7 +15,51 @@ import shutil
 import subprocess
 from pathlib import Path
 
+# Git environment variables that can interfere with worktree operations
+# when set by pre-commit hooks or other git configurations.
+# These must be cleared to prevent cross-worktree contamination.
+GIT_ENV_VARS_TO_CLEAR = [
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    # Identity variables that could be set by hooks
+    "GIT_AUTHOR_NAME",
+    "GIT_AUTHOR_EMAIL",
+    "GIT_AUTHOR_DATE",
+    "GIT_COMMITTER_NAME",
+    "GIT_COMMITTER_EMAIL",
+    "GIT_COMMITTER_DATE",
+]
+
 _cached_git_path: str | None = None
+
+
+def get_isolated_git_env(base_env: dict | None = None) -> dict:
+    """
+    Create an isolated environment for git operations.
+
+    Clears git environment variables that may be set by pre-commit hooks
+    or other git configurations, preventing cross-worktree contamination
+    and ensuring git operations target the intended repository.
+
+    Args:
+        base_env: Base environment dict to copy from. If None, uses os.environ.
+
+    Returns:
+        Environment dict safe for git subprocess operations.
+    """
+    env = dict(base_env) if base_env is not None else os.environ.copy()
+
+    for key in GIT_ENV_VARS_TO_CLEAR:
+        env.pop(key, None)
+
+    # Disable user's pre-commit hooks during Auto-Claude managed git operations
+    # to prevent double-hook execution and potential conflicts
+    env["HUSKY"] = "0"
+
+    return env
 
 
 def get_git_executable() -> str:
@@ -102,19 +149,27 @@ def run_git(
     cwd: Path | str | None = None,
     timeout: int = 60,
     input_data: str | None = None,
+    env: dict | None = None,
+    isolate_env: bool = True,
 ) -> subprocess.CompletedProcess:
-    """Run a git command with proper executable finding.
+    """Run a git command with proper executable finding and environment isolation.
 
     Args:
         args: Git command arguments (without 'git' prefix)
         cwd: Working directory for the command
         timeout: Command timeout in seconds (default: 60)
         input_data: Optional string data to pass to stdin
+        env: Custom environment dict. If None and isolate_env=True, uses isolated env.
+        isolate_env: If True (default), clears git env vars to prevent hook interference.
 
     Returns:
         CompletedProcess with command results.
     """
     git = get_git_executable()
+
+    if env is None and isolate_env:
+        env = get_isolated_git_env()
+
     try:
         return subprocess.run(
             [git] + args,
@@ -125,6 +180,7 @@ def run_git(
             encoding="utf-8",
             errors="replace",
             timeout=timeout,
+            env=env,
         )
     except subprocess.TimeoutExpired:
         return subprocess.CompletedProcess(

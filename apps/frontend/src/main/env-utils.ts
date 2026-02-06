@@ -16,9 +16,24 @@ import { promises as fsPromises } from 'fs';
 import { execFileSync, execFile } from 'child_process';
 import { promisify } from 'util';
 import { getSentryEnvForSubprocess } from './sentry';
-import { isWindows, isUnix, getPathDelimiter } from './platform';
+import { isWindows, isUnix, getPathDelimiter, getNpmCommand } from './platform';
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Windows npm global fallback path
+ *
+ * On Windows, npm global packages are installed in %APPDATA%\npm by default.
+ * This constant provides the fallback path construction for when the npm
+ * command itself is not in PATH (e.g., packaged Electron apps launched from GUI).
+ *
+ * Uses process.env.APPDATA for enterprise environments with redirected profiles,
+ * falling back to the default home directory location.
+ */
+const WINDOWS_NPM_FALLBACK_PATH = (): string => {
+  const appDataPath = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+  return path.join(appDataPath, 'npm');
+};
 
 /**
  * Check if a path exists asynchronously (non-blocking)
@@ -38,7 +53,7 @@ export async function existsAsync(filePath: string): Promise<boolean> {
 }
 
 // Cache for npm global prefix to avoid repeated async calls
-let npmGlobalPrefixCache: string | null | undefined = undefined;
+let npmGlobalPrefixCache: string | null | undefined ;
 let npmGlobalPrefixCachePromise: Promise<string | null> | null = null;
 
 /**
@@ -54,8 +69,8 @@ let npmGlobalPrefixCachePromise: Promise<string | null> | null = null;
  */
 function getNpmGlobalPrefix(): string | null {
   try {
-    // On Windows, use npm.cmd for proper command resolution
-    const npmCommand = isWindows() ? 'npm.cmd' : 'npm';
+    // Use platform module helper for npm command name
+    const npmCommand = getNpmCommand();
 
     // Use --location=global to bypass workspace context and avoid ENOWORKSPACES error
     const rawPrefix = execFileSync(npmCommand, ['config', 'get', 'prefix', '--location=global'], {
@@ -80,7 +95,16 @@ function getNpmGlobalPrefix(): string | null {
     const normalizedPath = path.normalize(binPath);
 
     return fs.existsSync(normalizedPath) ? normalizedPath : null;
-  } catch {
+  } catch (_error) {
+    // Fallback for Windows: try default npm global location when npm.cmd is not in PATH
+    // This happens when the packaged app launches from GUI without full shell environment
+    if (isWindows()) {
+      const defaultNpmPath = WINDOWS_NPM_FALLBACK_PATH();
+      if (fs.existsSync(defaultNpmPath)) {
+        console.warn('[env-utils] npm command not found, using default npm path:', defaultNpmPath);
+        return defaultNpmPath;
+      }
+    }
     return null;
   }
 }
@@ -111,6 +135,13 @@ export const COMMON_BIN_PATHS: Record<string, string[]> = {
     // Windows usually handles PATH better, but we can add common locations
     'C:\\Program Files\\Git\\cmd',
     'C:\\Program Files\\GitHub CLI',
+    // Node.js and npm paths - critical for packaged Electron apps that don't inherit full PATH
+    'C:\\Program Files\\nodejs',                  // Standard Node.js installer (64-bit)
+    'C:\\Program Files (x86)\\nodejs',            // 32-bit Node.js on 64-bit Windows
+    '~\\AppData\\Local\\Programs\\nodejs',        // NVM for Windows / user install
+    '~\\AppData\\Roaming\\npm',                   // npm global scripts (claude.cmd lives here)
+    '~\\scoop\\apps\\nodejs\\current',            // Scoop package manager
+    'C:\\ProgramData\\chocolatey\\bin',           // Chocolatey package manager
   ],
 };
 
@@ -314,7 +345,8 @@ async function getNpmGlobalPrefixAsync(): Promise<string | null> {
   // Start the async fetch
   npmGlobalPrefixCachePromise = (async () => {
     try {
-      const npmCommand = isWindows() ? 'npm.cmd' : 'npm';
+      // Use platform module helper for npm command name
+      const npmCommand = getNpmCommand();
 
       const { stdout } = await execFileAsync(npmCommand, ['config', 'get', 'prefix', '--location=global'], {
         encoding: 'utf-8',
@@ -338,6 +370,16 @@ async function getNpmGlobalPrefixAsync(): Promise<string | null> {
       npmGlobalPrefixCache = await existsAsync(normalizedPath) ? normalizedPath : null;
       return npmGlobalPrefixCache;
     } catch (error) {
+      // Fallback for Windows: try default npm global location when npm.cmd is not in PATH
+      // This happens when the packaged app launches from GUI without full shell environment
+      if (isWindows()) {
+        const defaultNpmPath = WINDOWS_NPM_FALLBACK_PATH();
+        if (await existsAsync(defaultNpmPath)) {
+          console.warn('[env-utils] npm command not found, using default npm path:', defaultNpmPath);
+          npmGlobalPrefixCache = defaultNpmPath;
+          return defaultNpmPath;
+        }
+      }
       console.warn(`[env-utils] Failed to get npm global prefix: ${error}`);
       npmGlobalPrefixCache = null;
       return null;

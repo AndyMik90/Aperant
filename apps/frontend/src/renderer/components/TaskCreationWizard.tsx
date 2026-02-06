@@ -15,13 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Loader2, ChevronDown, ChevronUp, RotateCcw, FolderTree, GitBranch, Info } from 'lucide-react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from './ui/select';
+import { Combobox } from './ui/combobox';
 import { TaskModalLayout } from './task-form/TaskModalLayout';
 import { TaskFormFields } from './task-form/TaskFormFields';
 import { type FileReferenceData } from './task-form/useImageUpload';
@@ -29,8 +23,9 @@ import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { FileAutocomplete } from './FileAutocomplete';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
+import { buildBranchOptions } from '../lib/branch-utils';
 import { cn } from '../lib/utils';
-import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile } from '../../shared/types';
+import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile, GitBranchDetail } from '../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
 import {
   DEFAULT_AGENT_PROFILES,
@@ -68,8 +63,8 @@ export function TaskCreationWizard({
   const [showFileExplorer, setShowFileExplorer] = useState(false);
   const [showGitOptions, setShowGitOptions] = useState(false);
 
-  // Git options state
-  const [branches, setBranches] = useState<string[]>([]);
+  // Git options state - using structured GitBranchDetail for type indicators
+  const [branches, setBranches] = useState<GitBranchDetail[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [baseBranch, setBaseBranch] = useState<string>(PROJECT_DEFAULT_BRANCH);
   const [projectDefaultBranch, setProjectDefaultBranch] = useState<string>('');
@@ -82,6 +77,27 @@ export function TaskCreationWizard({
     const project = projects.find((p) => p.id === projectId);
     return project?.path ?? null;
   }, [projects, projectId]);
+
+  // Build branch options using shared utility - groups by local/remote with type indicators
+  const branchOptions = useMemo(() => {
+    return buildBranchOptions(branches, {
+      t,
+      includeProjectDefault: {
+        value: PROJECT_DEFAULT_BRANCH,
+        branchName: projectDefaultBranch,
+        labelKey: projectDefaultBranch
+          ? 'tasks:wizard.gitOptions.useProjectDefaultWithBranch'
+          : 'tasks:wizard.gitOptions.useProjectDefault',
+      },
+    });
+  }, [branches, projectDefaultBranch, t]);
+
+  // Determine if the selected branch is local (for useLocalBranch flag)
+  const isSelectedBranchLocal = useMemo(() => {
+    if (baseBranch === PROJECT_DEFAULT_BRANCH) return false;
+    const selectedGitBranchDetail = branches.find((b) => b.name === baseBranch);
+    return selectedGitBranchDetail?.type === 'local';
+  }, [baseBranch, branches]);
 
   // Classification fields
   const [category, setCategory] = useState<TaskCategory | ''>('');
@@ -151,17 +167,33 @@ export function TaskCreationWizard({
           setShowClassification(true);
         }
       } else {
-        // No draft - initialize from selected profile
+        // No draft - reset to clean state for new task creation
+        // This ensures no stale data from previous task creation persists
+        setTitle('');
+        setDescription('');
+        setCategory('');
+        setPriority('');
+        setComplexity('');
+        setImpact('');
         setProfileId(settings.selectedAgentProfile || 'auto');
         setModel(selectedProfile.model);
         setThinkingLevel(selectedProfile.thinkingLevel);
         setPhaseModels(settings.customPhaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
         setPhaseThinking(settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
+        setImages([]);
+        setReferencedFiles([]);
+        setRequireReviewBeforeCoding(false);
+        setBaseBranch(PROJECT_DEFAULT_BRANCH);
+        setUseWorktree(true);
+        setIsDraftRestored(false);
+        setShowClassification(false);
+        setShowFileExplorer(false);
+        setShowGitOptions(false);
       }
     }
   }, [open, projectId, settings.selectedAgentProfile, settings.customPhaseModels, settings.customPhaseThinking, selectedProfile.model, selectedProfile.thinkingLevel, selectedProfile.phaseModels, selectedProfile.phaseThinking]);
 
-  // Fetch branches when dialog opens
+  // Fetch branches when dialog opens - using structured branch data with type indicators
   useEffect(() => {
     let isMounted = true;
 
@@ -169,7 +201,8 @@ export function TaskCreationWizard({
       if (!projectPath) return;
       if (isMounted) setIsLoadingBranches(true);
       try {
-        const result = await window.electronAPI.getGitBranches(projectPath);
+        // Use structured branch data with type indicators
+        const result = await window.electronAPI.getGitBranchesWithInfo(projectPath);
         if (isMounted && result.success && result.data) {
           setBranches(result.data);
         }
@@ -406,6 +439,9 @@ export function TaskCreationWizard({
       }
       // Pass worktree preference - false means use --direct mode
       if (!useWorktree) metadata.useWorktree = false;
+      // Set useLocalBranch when user explicitly selects a local branch
+      // This preserves gitignored files (.env, configs) by not switching to origin
+      if (isSelectedBranchLocal) metadata.useLocalBranch = true;
 
       const task = await createTask(projectId, title.trim(), description.trim(), metadata);
       if (task) {
@@ -672,31 +708,20 @@ export function TaskCreationWizard({
               <Label htmlFor="base-branch" className="text-sm font-medium text-foreground">
                 {t('tasks:wizard.gitOptions.baseBranchLabel')}
               </Label>
-              <Select
+              <Combobox
+                id="base-branch"
                 value={baseBranch}
                 onValueChange={setBaseBranch}
+                options={branchOptions}
+                placeholder={projectDefaultBranch
+                  ? t('tasks:wizard.gitOptions.useProjectDefaultWithBranch', { branch: projectDefaultBranch })
+                  : t('tasks:wizard.gitOptions.useProjectDefault')
+                }
+                searchPlaceholder={t('tasks:wizard.gitOptions.searchBranches')}
+                emptyMessage={t('tasks:wizard.gitOptions.noBranchesFound')}
                 disabled={isCreating || isLoadingBranches}
-              >
-                <SelectTrigger id="base-branch" className="h-9">
-                  <SelectValue placeholder={projectDefaultBranch
-                    ? t('tasks:wizard.gitOptions.useProjectDefaultWithBranch', { branch: projectDefaultBranch })
-                    : t('tasks:wizard.gitOptions.useProjectDefault')
-                  } />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={PROJECT_DEFAULT_BRANCH}>
-                    {projectDefaultBranch
-                      ? t('tasks:wizard.gitOptions.useProjectDefaultWithBranch', { branch: projectDefaultBranch })
-                      : t('tasks:wizard.gitOptions.useProjectDefault')
-                    }
-                  </SelectItem>
-                  {branches.map((branch) => (
-                    <SelectItem key={branch} value={branch}>
-                      {branch}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                className="h-9"
+              />
               <p className="text-xs text-muted-foreground">
                 {t('tasks:wizard.gitOptions.helpText')}
               </p>

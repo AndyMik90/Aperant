@@ -69,7 +69,7 @@ class ProjectAnalyzer:
             return None
 
         try:
-            with open(profile_path) as f:
+            with open(profile_path, encoding="utf-8") as f:
                 data = json.load(f)
             return SecurityProfile.from_dict(data)
         except (OSError, json.JSONDecodeError, KeyError):
@@ -80,7 +80,7 @@ class ProjectAnalyzer:
         profile_path = self.get_profile_path()
         profile_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(profile_path, "w") as f:
+        with open(profile_path, "w", encoding="utf-8") as f:
             json.dump(profile.to_dict(), f, indent=2)
 
     def compute_project_hash(self) -> str:

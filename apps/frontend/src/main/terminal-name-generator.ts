@@ -8,7 +8,7 @@ import { app } from 'electron';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { EventEmitter } from 'events';
-import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
+import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv } from './rate-limit-detector';
 import { parsePythonCommand } from './python-detector';
 import { pythonEnvManager } from './python-env-manager';
 
@@ -163,8 +163,17 @@ export class TerminalNameGenerator extends EventEmitter {
       hasOAuthToken: !!autoBuildEnv.CLAUDE_CODE_OAUTH_TOKEN
     });
 
-    // Get active Claude profile environment (CLAUDE_CONFIG_DIR if not default)
-    const profileEnv = getProfileEnv();
+    // Use centralized function that automatically handles rate limits and capacity
+    const profileResult = getBestAvailableProfileEnv();
+    const profileEnv = profileResult.env;
+
+    if (profileResult.wasSwapped) {
+      debug('Using alternative profile for terminal name generation:', {
+        originalProfile: profileResult.originalProfile?.name,
+        selectedProfile: profileResult.profileName,
+        reason: profileResult.swapReason
+      });
+    }
 
     return new Promise((resolve) => {
       // Use the venv Python where claude_agent_sdk is installed
@@ -190,11 +199,11 @@ export class TerminalNameGenerator extends EventEmitter {
       }, 30000); // 30 second timeout
 
       childProcess.stdout?.on('data', (data: Buffer) => {
-        output += data.toString();
+        output += data.toString('utf-8');
       });
 
       childProcess.stderr?.on('data', (data: Buffer) => {
-        errorOutput += data.toString();
+        errorOutput += data.toString('utf-8');
       });
 
       childProcess.on('exit', (code: number | null) => {

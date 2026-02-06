@@ -1,6 +1,6 @@
 {
   "name": "auto-claude-ui",
-  "version": "2.7.4",
+  "version": "2.7.6-beta.2",
   "type": "module",
   "description": "Desktop UI for Auto Claude autonomous coding framework",
   "homepage": "https://github.com/AndyMik90/Auto-Claude",
@@ -31,11 +31,13 @@
     "python:download": "node scripts/download-python.cjs",
     "python:download:all": "node scripts/download-python.cjs --all",
     "python:verify": "node scripts/verify-python-bundling.cjs",
-    "package": "npm run python:download && electron-vite build && electron-builder --publish never",
-    "package:mac": "npm run python:download && electron-vite build && electron-builder --mac --publish never",
-    "package:win": "npm run python:download && electron-vite build && electron-builder --win --publish never",
-    "package:linux": "npm run python:download && electron-vite build && electron-builder --linux --publish never",
-    "package:flatpak": "npm run python:download && electron-vite build && electron-builder --linux flatpak --publish never",
+    "package": "node scripts/package-with-python.cjs",
+    "package:mac": "node scripts/package-with-python.cjs --mac",
+    "package:win": "node scripts/package-with-python.cjs --win",
+    "package:linux": "node scripts/package-with-python.cjs --linux",
+    "package:flatpak": "node scripts/package-with-python.cjs --linux flatpak",
+    "verify:linux": "node scripts/verify-linux-packages.cjs dist",
+    "test:verify-linux": "node --test scripts/verify-linux-packages.test.mjs",
     "start:packaged:mac": "open dist/mac-arm64/Auto-Claude.app || open dist/mac/Auto-Claude.app",
     "start:packaged:win": "start \"\" \"dist\\win-unpacked\\Auto-Claude.exe\"",
     "start:packaged:linux": "./dist/linux-unpacked/auto-claude",
@@ -43,8 +45,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "npx playwright test --config=e2e/playwright.config.ts",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -80,7 +83,7 @@
     "chokidar": "^5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "dotenv": "^16.6.1",
+    "dotenv": "^17.2.3",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.6.2",
     "i18next": "^25.7.3",
@@ -93,55 +96,56 @@
     "react-i18next": "^16.5.0",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.2.0",
+    "rehype-raw": "^7.0.0",
+    "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "semver": "^7.7.3",
     "tailwind-merge": "^3.4.0",
     "uuid": "^13.0.0",
+    "xstate": "^5.26.0",
     "zod": "^4.2.1",
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.3.11",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@electron/rebuild": "^4.0.2",
-    "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.52.0",
     "@tailwindcss/postcss": "^4.1.17",
+    "@testing-library/dom": "^10.0.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.1.0",
-    "@types/minimatch": "^5.1.2",
+    "@types/minimatch": "^6.0.0",
     "@types/node": "^25.0.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/semver": "^7.7.1",
-    "@types/uuid": "^10.0.0",
+    "@types/uuid": "^11.0.0",
     "@vitejs/plugin-react": "^5.1.2",
     "autoprefixer": "^10.4.22",
     "cross-env": "^10.1.0",
-    "electron": "39.2.7",
-    "electron-builder": "^26.0.12",
+    "electron": "40.0.0",
+    "electron-builder": "^26.4.0",
     "electron-vite": "^5.0.0",
-    "eslint": "^9.39.1",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "globals": "^17.0.0",
     "husky": "^9.1.7",
     "jsdom": "^27.3.0",
     "lint-staged": "^16.2.7",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.50.1",
     "vite": "^7.2.7",
     "vitest": "^4.0.16"
   },
   "overrides": {
     "electron-builder-squirrel-windows": "^26.0.12",
-    "dmg-builder": "^26.0.12"
+    "dmg-builder": "^26.0.12",
+    "@electron/rebuild": "4.0.2"
   },
   "build": {
     "appId": "com.autoclaude.ui",
     "productName": "Auto-Claude",
+    "npmRebuild": false,
     "artifactName": "${productName}-${version}-${platform}-${arch}.${ext}",
     "publish": [
       {
@@ -158,18 +162,13 @@
       "out/**/*",
       "package.json"
     ],
+    "asarUnpack": [
+      "out/main/node_modules/@lydell/node-pty-*/**"
+    ],
     "extraResources": [
       {
         "from": "resources/icon.ico",
         "to": "icon.ico"
-      },
-      {
-        "from": "python-runtime/${os}-${arch}/python",
-        "to": "python"
-      },
-      {
-        "from": "python-runtime/${os}-${arch}/site-packages",
-        "to": "python-site-packages"
       },
       {
         "from": "../backend",
@@ -200,6 +199,16 @@
       "target": [
         "dmg",
         "zip"
+      ],
+      "extraResources": [
+        {
+          "from": "python-runtime/${os}-${arch}/python",
+          "to": "python"
+        },
+        {
+          "from": "python-runtime/${os}-${arch}/site-packages",
+          "to": "python-site-packages"
+        }
       ]
     },
     "win": {
@@ -207,6 +216,16 @@
       "target": [
         "nsis",
         "zip"
+      ],
+      "extraResources": [
+        {
+          "from": "python-runtime/${os}-${arch}/python",
+          "to": "python"
+        },
+        {
+          "from": "python-runtime/${os}-${arch}/site-packages",
+          "to": "python-site-packages"
+        }
       ]
     },
     "linux": {
@@ -216,7 +235,17 @@
         "deb",
         "flatpak"
       ],
-      "category": "Development"
+      "category": "Development",
+      "extraResources": [
+        {
+          "from": "python-runtime/${os}-${arch}/python",
+          "to": "python"
+        },
+        {
+          "from": "python-runtime/${os}-${arch}/site-packages",
+          "to": "python-site-packages"
+        }
+      ]
     },
     "flatpak": {
       "runtime": "org.freedesktop.Platform",
@@ -236,8 +265,8 @@
     }
   },
   "lint-staged": {
-    "*.{ts,tsx}": [
-      "eslint --fix"
+    "*.{ts,tsx,js,jsx,json}": [
+      "biome check --write --no-errors-on-unmatched"
     ]
   }
 }

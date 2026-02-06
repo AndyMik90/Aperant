@@ -99,7 +99,7 @@ class BaseAnalyzer:
     def _read_file(self, path: str) -> str:
         """Read a file relative to the analyzer's path."""
         try:
-            return (self.path / path).read_text()
+            return (self.path / path).read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             return ""
 

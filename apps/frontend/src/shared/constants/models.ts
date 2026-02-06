@@ -28,7 +28,7 @@ export const THINKING_BUDGET_MAP: Record<string, number | null> = {
   low: 1024,
   medium: 4096,
   high: 16384,
-  ultrathink: 60000 // Maximum reasoning depth (must be < Opus 4.5's 64000 limit)
+  ultrathink: 63999 // Maximum reasoning depth (API requires max_tokens >= budget + 1, so 63999 + 1 = 64000 limit)
 } as const;
 
 // ============================================

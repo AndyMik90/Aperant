@@ -391,8 +391,10 @@ export async function updateProjectSettings(
     if (result.success) {
       const project = store.projects.find((p) => p.id === projectId);
       if (project) {
+        // Merge settings properly, handling the case where project.settings might be undefined
+        const currentSettings = project.settings || {};
         store.updateProject(projectId, {
-          settings: { ...project.settings, ...settings }
+          settings: { ...currentSettings, ...settings }
         });
       }
       return true;

@@ -3,6 +3,10 @@
     "expand": "Expand terminal",
     "collapse": "Collapse terminal"
   },
+  "resume": {
+    "pending": "Resume Available",
+    "pendingTooltip": "Click to resume previous Claude session"
+  },
   "auth": {
     "terminalTitle": "Auth: {{profileName}}",
     "maxTerminalsReached": "Cannot open auth terminal: maximum terminals reached. Close a terminal first."
@@ -12,6 +16,7 @@
     "createNew": "New Worktree",
     "existing": "Terminal Worktrees",
     "taskWorktrees": "Task Worktrees",
+    "otherWorktrees": "Others",
     "createTitle": "Create Terminal Worktree",
     "createDescription": "Create an isolated workspace for this terminal. All work will happen in the worktree directory.",
     "name": "Worktree Name",
@@ -34,6 +39,7 @@
     "maxReached": "Maximum of 12 terminal worktrees reached",
     "alreadyExists": "A worktree with this name already exists",
     "deleteTitle": "Delete Worktree?",
-    "deleteDescription": "This will permanently delete the worktree and its branch. Any uncommitted changes will be lost."
+    "deleteDescription": "This will permanently delete the worktree and its branch. Any uncommitted changes will be lost.",
+    "detached": "(detached)"
   }
 }

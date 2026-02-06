@@ -26,6 +26,8 @@ export interface ProjectSettings {
   mainBranch?: string;
   /** Include CLAUDE.md instructions in agent system prompt (default: true) */
   useClaudeMd?: boolean;
+  /** Maximum parallel tasks allowed (default: 3) */
+  maxParallelTasks?: number;
 }
 
 export interface NotificationSettings {

@@ -53,7 +53,7 @@ def _get_version() -> str:
         if package_json.exists():
             import json
 
-            with open(package_json) as f:
+            with open(package_json, encoding="utf-8") as f:
                 data = json.load(f)
                 return data.get("version", "0.0.0")
     except Exception as e:
@@ -257,17 +257,28 @@ def init_sentry(
         event_level=logging.ERROR,  # Send ERROR and above as events
     )
 
-    # Initialize Sentry
-    sentry_sdk.init(
-        dsn=dsn,
-        environment=environment,
-        release=f"auto-claude@{version}",
-        traces_sample_rate=traces_sample_rate,
-        before_send=_before_send,
-        integrations=[logging_integration],
-        # Don't send PII
-        send_default_pii=False,
-    )
+    # Initialize Sentry with exception handling for malformed DSN
+    try:
+        sentry_sdk.init(
+            dsn=dsn,
+            environment=environment,
+            release=f"auto-claude@{version}",
+            traces_sample_rate=traces_sample_rate,
+            before_send=_before_send,
+            integrations=[logging_integration],
+            # Don't send PII
+            send_default_pii=False,
+        )
+    except Exception as e:
+        # Handle malformed DSN (e.g., missing public key) gracefully
+        # This prevents crashes when SENTRY_DSN is misconfigured
+        logger.warning(
+            f"[Sentry] Failed to initialize - invalid DSN configuration: {e}"
+        )
+        logger.debug(
+            "[Sentry] DSN should be in format: https://PUBLIC_KEY@o123.ingest.sentry.io/PROJECT_ID"
+        )
+        return False
 
     # Set component tag
     sentry_sdk.set_tag("component", component)

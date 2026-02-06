@@ -23,7 +23,7 @@ interface UseGitHubPRsOptions {
 interface UseGitHubPRsResult {
   prs: PRData[];
   isLoading: boolean;
-  isLoadingMore: boolean;
+  isLoadingMore: boolean; // Loading additional PRs via pagination
   isLoadingPRDetails: boolean; // Loading full PR details including files
   error: string | null;
   selectedPR: PRData | null;
@@ -36,10 +36,10 @@ interface UseGitHubPRsResult {
   isConnected: boolean;
   repoFullName: string | null;
   activePRReviews: number[]; // PR numbers currently being reviewed
-  hasMore: boolean; // Whether there are more PRs to load
+  hasMore: boolean; // True when 100 PRs returned (GitHub limit) - more may exist
   selectPR: (prNumber: number | null) => void;
   refresh: () => Promise<void>;
-  loadMore: () => Promise<void>;
+  loadMore: () => Promise<void>; // Load next page of PRs
   runReview: (prNumber: number) => void;
   runFollowupReview: (prNumber: number) => void;
   checkNewCommits: (prNumber: number) => Promise<NewCommitsCheck>;
@@ -52,6 +52,7 @@ interface UseGitHubPRsResult {
   postComment: (prNumber: number, body: string) => Promise<boolean>;
   mergePR: (prNumber: number, mergeMethod?: "merge" | "squash" | "rebase") => Promise<boolean>;
   assignPR: (prNumber: number, username: string) => Promise<boolean>;
+  markReviewPosted: (prNumber: number) => Promise<void>;
   getReviewStateForPR: (prNumber: number) => {
     isReviewing: boolean;
     startedAt: string | null;
@@ -70,15 +71,15 @@ export function useGitHubPRs(
   const { isActive = true } = options;
   const [prs, setPrs] = useState<PRData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoadingPRDetails, setIsLoadingPRDetails] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPRNumber, setSelectedPRNumber] = useState<number | null>(null);
   const [selectedPRDetails, setSelectedPRDetails] = useState<PRData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [repoFullName, setRepoFullName] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [endCursor, setEndCursor] = useState<string | null>(null);
 
   // Track previous isActive state to detect tab navigation
   const wasActiveRef = useRef(isActive);
@@ -86,9 +87,15 @@ export function useGitHubPRs(
   const hasLoadedRef = useRef(false);
   // Track the current PR being fetched (for race condition prevention)
   const currentFetchPRNumberRef = useRef<number | null>(null);
+  // AbortController for cancelling pending checkNewCommits calls on rapid PR switching
+  const checkNewCommitsAbortRef = useRef<AbortController | null>(null);
+  // Track current projectId for staleness checks in async operations
+  const currentProjectIdRef = useRef(projectId);
+  // Counter to detect stale loadMore responses after a refresh
+  const fetchGenerationRef = useRef(0);
 
   // Get PR review state from the global store
-  const prReviews = usePRReviewStore((state) => state.prReviews);
+  const _prReviews = usePRReviewStore((state) => state.prReviews);
   const getPRReviewState = usePRReviewStore((state) => state.getPRReviewState);
   const getActivePRReviews = usePRReviewStore((state) => state.getActivePRReviews);
   const setNewCommitsCheckAction = usePRReviewStore((state) => state.setNewCommitsCheck);
@@ -97,7 +104,7 @@ export function useGitHubPRs(
   const selectedPRReviewState = useMemo(() => {
     if (!projectId || selectedPRNumber === null) return null;
     return getPRReviewState(projectId, selectedPRNumber);
-  }, [projectId, selectedPRNumber, prReviews, getPRReviewState]);
+  }, [projectId, selectedPRNumber, getPRReviewState]);
 
   // Derive values from store state - all from the same source to ensure consistency
   const reviewResult = selectedPRReviewState?.result ?? null;
@@ -110,7 +117,7 @@ export function useGitHubPRs(
   const activePRReviews = useMemo(() => {
     if (!projectId) return [];
     return getActivePRReviews(projectId).map((review) => review.prNumber);
-  }, [projectId, prReviews, getActivePRReviews]);
+  }, [projectId, getActivePRReviews]);
 
   // Helper to get review state for any PR
   const getReviewStateForPR = useCallback(
@@ -128,7 +135,7 @@ export function useGitHubPRs(
         newCommitsCheck: state.newCommitsCheck,
       };
     },
-    [projectId, prReviews, getPRReviewState]
+    [projectId, getPRReviewState]
   );
 
   // Use detailed PR data if available (includes files), otherwise fall back to list data
@@ -141,14 +148,13 @@ export function useGitHubPRs(
 
   // Check connection and fetch PRs
   const fetchPRs = useCallback(
-    async (page: number = 1, append: boolean = false) => {
+    async () => {
       if (!projectId) return;
 
-      if (append) {
-        setIsLoadingMore(true);
-      } else {
-        setIsLoading(true);
-      }
+      // Increment generation to invalidate any in-flight loadMore requests
+      fetchGenerationRef.current += 1;
+
+      setIsLoading(true);
       setError(null);
 
       try {
@@ -159,27 +165,18 @@ export function useGitHubPRs(
           setRepoFullName(connectionResult.data.repoFullName || null);
 
           if (connectionResult.data.connected) {
-            // Fetch PRs with pagination
-            const result = await window.electronAPI.github.listPRs(projectId, page);
+            // Fetch PRs (returns up to 100 open PRs at once - GitHub GraphQL limit)
+            const result = await window.electronAPI.github.listPRs(projectId);
             if (result) {
-              // Check if there are more PRs to load (GitHub returns up to 100 per page)
-              setHasMore(result.length === 100);
-              setCurrentPage(page);
-
-              if (append) {
-                // Append to existing PRs, deduplicating by PR number
-                setPrs((prevPrs) => {
-                  const existingNumbers = new Set(prevPrs.map((pr) => pr.number));
-                  const newPrs = result.filter((pr) => !existingNumbers.has(pr.number));
-                  return [...prevPrs, ...newPrs];
-                });
-              } else {
-                setPrs(result);
-              }
+              // Use hasNextPage from API to determine if more PRs exist
+              setHasMore(result.hasNextPage);
+              // Store endCursor for pagination
+              setEndCursor(result.endCursor ?? null);
+              setPrs(result.prs);
 
               // Batch preload review results for PRs not in store (single IPC call)
               // Skip PRs that are currently being reviewed - their state is managed by IPC listeners
-              const prsNeedingPreload = result.filter((pr) => {
+              const prsNeedingPreload = result.prs.filter((pr) => {
                 const existingState = getPRReviewState(projectId, pr.number);
                 return !existingState?.result && !existingState?.isReviewing;
               });
@@ -215,7 +212,6 @@ export function useGitHubPRs(
         setIsConnected(false);
       } finally {
         setIsLoading(false);
-        setIsLoadingMore(false);
       }
     },
     [projectId, getPRReviewState]
@@ -225,7 +221,7 @@ export function useGitHubPRs(
   useEffect(() => {
     if (projectId && !hasLoadedRef.current) {
       hasLoadedRef.current = true;
-      fetchPRs(1, false);
+      fetchPRs();
     }
   }, [projectId, fetchPRs]);
 
@@ -233,28 +229,51 @@ export function useGitHubPRs(
   useEffect(() => {
     // Only refresh if transitioning from inactive to active AND we've loaded before
     if (isActive && !wasActiveRef.current && hasLoadedRef.current) {
-      // Reset to first page and refresh
-      setCurrentPage(1);
-      setHasMore(true);
-      fetchPRs(1, false);
+      fetchPRs();
     }
     wasActiveRef.current = isActive;
   }, [isActive, fetchPRs]);
 
-  // Reset pagination and selected PR when project changes
+  // Reset state and selected PR when project changes
   useEffect(() => {
+    currentProjectIdRef.current = projectId;
+    fetchGenerationRef.current += 1;
     hasLoadedRef.current = false;
-    setCurrentPage(1);
-    setHasMore(true);
+    setHasMore(false);
+    setEndCursor(null);
     setPrs([]);
     setSelectedPRNumber(null);
     setSelectedPRDetails(null);
-  }, [projectId]);
+    setIsLoadingMore(false);
+    currentFetchPRNumberRef.current = null;
+    // Cancel any pending checkNewCommits request
+    if (checkNewCommitsAbortRef.current) {
+      checkNewCommitsAbortRef.current.abort();
+      checkNewCommitsAbortRef.current = null;
+    }
+  }, []);
+
+  // Cleanup abort controller on unmount to prevent memory leaks
+  // and avoid state updates on unmounted components
+  useEffect(() => {
+    return () => {
+      if (checkNewCommitsAbortRef.current) {
+        checkNewCommitsAbortRef.current.abort();
+      }
+    };
+  }, []);
 
   // No need for local IPC listeners - they're handled globally in github-store
 
   const selectPR = useCallback(
     (prNumber: number | null) => {
+      // Abort any pending checkNewCommits request from previous PR selection
+      // This prevents stale data from appearing when user switches PRs rapidly
+      if (checkNewCommitsAbortRef.current) {
+        checkNewCommitsAbortRef.current.abort();
+        checkNewCommitsAbortRef.current = null;
+      }
+
       setSelectedPRNumber(prNumber);
       // Note: Don't reset review result - it comes from the store now
       // and persists across navigation
@@ -290,12 +309,63 @@ export function useGitHubPRs(
             }
           });
 
+        // Helper function to check for new commits with race condition protection
+        // This is called after review state is available (from store or disk)
+        // Uses AbortController pattern to cancel pending checks when user switches PRs rapidly
+        const checkNewCommitsForPR = (reviewedCommitSha: string | undefined) => {
+          // Skip if no commit SHA to compare against
+          if (!reviewedCommitSha) {
+            return;
+          }
+
+          // Skip if user has already switched to a different PR (race condition prevention)
+          if (prNumber !== currentFetchPRNumberRef.current) {
+            return;
+          }
+
+          // Cancel any pending checkNewCommits request before starting a new one
+          if (checkNewCommitsAbortRef.current) {
+            checkNewCommitsAbortRef.current.abort();
+          }
+          checkNewCommitsAbortRef.current = new AbortController();
+          const currentAbortController = checkNewCommitsAbortRef.current;
+
+          window.electronAPI.github
+            .checkNewCommits(projectId, prNumber)
+            .then((newCommitsResult) => {
+              // Check if request was aborted (user switched PRs)
+              if (currentAbortController.signal.aborted) {
+                return;
+              }
+
+              // Final race condition check before updating store
+              if (prNumber !== currentFetchPRNumberRef.current) {
+                return;
+              }
+
+              setNewCommitsCheckAction(projectId, prNumber, newCommitsResult);
+            })
+            .catch((err) => {
+              // Don't log errors for aborted requests
+              if (currentAbortController.signal.aborted) {
+                return;
+              }
+              console.warn(`Failed to check new commits for PR #${prNumber}:`, err);
+            });
+        };
+
         // Load existing review from disk if not already in store
         const existingState = getPRReviewState(projectId, prNumber);
+
         // Only fetch from disk if we don't have a result in the store AND no review is running
         // If a review is in progress, the state is managed by IPC listeners - don't overwrite it
         if (!existingState?.result && !existingState?.isReviewing) {
           window.electronAPI.github.getPRReview(projectId, prNumber).then((result) => {
+            // Race condition check: skip if user switched PRs
+            if (prNumber !== currentFetchPRNumberRef.current) {
+              return;
+            }
+
             if (result) {
               // Update store with the loaded result
               // Preserve newCommitsCheck when loading existing review from disk
@@ -305,48 +375,109 @@ export function useGitHubPRs(
 
               // Always check for new commits when selecting a reviewed PR
               // This ensures fresh data even if we have a cached check from earlier in the session
-              const reviewedCommitSha = result.reviewedCommitSha;
-              if (reviewedCommitSha) {
-                window.electronAPI.github
-                  .checkNewCommits(projectId, prNumber)
-                  .then((newCommitsResult) => {
-                    setNewCommitsCheckAction(projectId, prNumber, newCommitsResult);
-                  })
-                  .catch((err) => {
-                    console.warn(`Failed to check new commits for PR #${prNumber}:`, err);
-                  });
-              }
+              // CRITICAL: This runs AFTER store is updated with review result
+              checkNewCommitsForPR(result.reviewedCommitSha);
             }
           });
         } else if (existingState?.result) {
           // Review already in store - always check for new commits to get fresh status
-          const reviewedCommitSha = existingState.result.reviewedCommitSha;
-          if (reviewedCommitSha) {
-            window.electronAPI.github
-              .checkNewCommits(projectId, prNumber)
-              .then((newCommitsResult) => {
-                setNewCommitsCheckAction(projectId, prNumber, newCommitsResult);
-              })
-              .catch((err) => {
-                console.warn(`Failed to check new commits for PR #${prNumber}:`, err);
-              });
-          }
+          // CRITICAL: Review state is already available, check for new commits immediately
+          checkNewCommitsForPR(existingState.result.reviewedCommitSha);
         }
+        // If existingState?.isReviewing, state is managed by IPC listeners - do nothing
       }
     },
     [projectId, getPRReviewState, setNewCommitsCheckAction]
   );
 
   const refresh = useCallback(async () => {
-    setCurrentPage(1);
-    setHasMore(true);
-    await fetchPRs(1, false);
+    await fetchPRs();
   }, [fetchPRs]);
 
+  // Load more PRs using cursor-based pagination
   const loadMore = useCallback(async () => {
-    if (!hasMore || isLoadingMore || isLoading) return;
-    await fetchPRs(currentPage + 1, true);
-  }, [fetchPRs, hasMore, isLoadingMore, isLoading, currentPage]);
+    if (!projectId || !endCursor || !hasMore || isLoadingMore) return;
+
+    // Capture current state for staleness checks
+    const requestProjectId = projectId;
+    const requestGeneration = fetchGenerationRef.current;
+
+    setIsLoadingMore(true);
+    setError(null);
+
+    try {
+      const result = await window.electronAPI.github.listMorePRs(projectId, endCursor);
+
+      // Discard response if project changed or a refresh happened while loading
+      if (
+        requestProjectId !== currentProjectIdRef.current ||
+        requestGeneration !== fetchGenerationRef.current
+      ) {
+        return;
+      }
+
+      if (result) {
+        // Check if this is a failure response (empty result with no next page)
+        // In this case, preserve existing pagination state to allow retry
+        const isFailureResponse = result.prs.length === 0 && !result.hasNextPage && !result.endCursor;
+
+        if (!isFailureResponse) {
+          // Update pagination state only on successful response
+          setHasMore(result.hasNextPage);
+          setEndCursor(result.endCursor ?? null);
+
+          // Append new PRs to existing list, deduplicating by PR number
+          // (handles edge case where PR shifts position between pagination requests)
+          setPrs((prevPrs) => {
+            const existingNumbers = new Set(prevPrs.map((pr) => pr.number));
+            const newPrs = result.prs.filter((pr) => !existingNumbers.has(pr.number));
+            return [...prevPrs, ...newPrs];
+          });
+        }
+
+        // Batch preload review results for new PRs not in store
+        const prsNeedingPreload = result.prs.filter((pr) => {
+          const existingState = getPRReviewState(requestProjectId, pr.number);
+          return !existingState?.result && !existingState?.isReviewing;
+        });
+
+        if (prsNeedingPreload.length > 0) {
+          const prNumbers = prsNeedingPreload.map((pr) => pr.number);
+          const batchReviews = await window.electronAPI.github.getPRReviewsBatch(
+            requestProjectId,
+            prNumbers
+          );
+
+          // Check staleness again after async batch fetch
+          if (
+            requestProjectId !== currentProjectIdRef.current ||
+            requestGeneration !== fetchGenerationRef.current
+          ) {
+            return;
+          }
+
+          // Update store with loaded results
+          for (const reviewResult of Object.values(batchReviews)) {
+            if (reviewResult) {
+              usePRReviewStore.getState().setPRReviewResult(requestProjectId, reviewResult, {
+                preserveNewCommitsCheck: true,
+              });
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // Only show error if still relevant
+      if (
+        requestProjectId === currentProjectIdRef.current &&
+        requestGeneration === fetchGenerationRef.current
+      ) {
+        setError(err instanceof Error ? err.message : "Failed to load more PRs");
+      }
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [projectId, endCursor, hasMore, isLoadingMore, getPRReviewState]);
 
   const runReview = useCallback(
     (prNumber: number) => {
@@ -394,12 +525,14 @@ export function useGitHubPRs(
 
       try {
         const success = await window.electronAPI.github.cancelPRReview(projectId, prNumber);
-        if (success) {
-          // Update store to mark review as cancelled
-          usePRReviewStore
-            .getState()
-            .setPRReviewError(projectId, prNumber, "Review cancelled by user");
-        }
+        // Always update store state to exit the "reviewing" state
+        // Use different messages based on whether the process was found and killed
+        const message = success
+          ? "Review cancelled by user"
+          : "Review stopped - process not found";
+        usePRReviewStore
+          .getState()
+          .setPRReviewError(projectId, prNumber, message);
         return success;
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to cancel review");
@@ -498,6 +631,41 @@ export function useGitHubPRs(
     [projectId, fetchPRs]
   );
 
+  const markReviewPosted = useCallback(
+    async (prNumber: number): Promise<void> => {
+      if (!projectId) return;
+
+      // Persist to disk first
+      const success = await window.electronAPI.github.markReviewPosted(projectId, prNumber);
+      if (!success) return;
+
+      // Get the current timestamp for consistent update
+      const postedAt = new Date().toISOString();
+
+      // Update the in-memory store
+      const existingState = getPRReviewState(projectId, prNumber);
+      if (existingState?.result) {
+        // If we have the result loaded, update it with hasPostedFindings and postedAt
+        usePRReviewStore.getState().setPRReviewResult(
+          projectId,
+          { ...existingState.result, hasPostedFindings: true, postedAt },
+          { preserveNewCommitsCheck: true }
+        );
+      } else {
+        // If result not loaded yet (race condition), reload from disk to get updated state
+        const result = await window.electronAPI.github.getPRReview(projectId, prNumber);
+        if (result) {
+          usePRReviewStore.getState().setPRReviewResult(
+            projectId,
+            result,
+            { preserveNewCommitsCheck: true }
+          );
+        }
+      }
+    },
+    [projectId, getPRReviewState]
+  );
+
   return {
     prs,
     isLoading,
@@ -526,6 +694,7 @@ export function useGitHubPRs(
     postComment,
     mergePR,
     assignPR,
+    markReviewPosted,
     getReviewStateForPR,
   };
 }

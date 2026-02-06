@@ -3,12 +3,13 @@
  */
 
 import { readFile, access } from 'fs/promises';
-import { execSync, execFileSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import path from 'path';
 import type { Project } from '../../../shared/types';
 import { parseEnvFile } from '../utils';
 import type { GitLabConfig } from './types';
 import { getAugmentedEnv } from '../../env-utils';
+import { getIsolatedGitEnv } from '../../utils/git-isolation';
 
 const DEFAULT_GITLAB_URL = 'https://gitlab.com';
 
@@ -357,7 +358,7 @@ export function detectGitLabProjectFromRemote(projectPath: string): { project: s
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: 'pipe',
-      env: getAugmentedEnv()
+      env: getIsolatedGitEnv()
     }).trim();
 
     if (!remoteUrl) return null;

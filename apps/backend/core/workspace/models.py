@@ -93,7 +93,7 @@ class MergeLock:
                 os.close(fd)
 
                 # Write our PID to the lock file
-                self.lock_file.write_text(str(os.getpid()))
+                self.lock_file.write_text(str(os.getpid()), encoding="utf-8")
                 self.acquired = True
                 return self
 
@@ -101,7 +101,7 @@ class MergeLock:
                 # Lock file exists - check if process is still running
                 if self.lock_file.exists():
                     try:
-                        pid = int(self.lock_file.read_text().strip())
+                        pid = int(self.lock_file.read_text(encoding="utf-8").strip())
                         # Import locally to avoid circular dependency
                         import os as _os
 
@@ -183,7 +183,7 @@ class SpecNumberLock:
                 os.close(fd)
 
                 # Write our PID to the lock file
-                self.lock_file.write_text(str(os.getpid()))
+                self.lock_file.write_text(str(os.getpid()), encoding="utf-8")
                 self.acquired = True
                 return self
 
@@ -191,7 +191,7 @@ class SpecNumberLock:
                 # Lock file exists - check if process is still running
                 if self.lock_file.exists():
                     try:
-                        pid = int(self.lock_file.read_text().strip())
+                        pid = int(self.lock_file.read_text(encoding="utf-8").strip())
                         import os as _os
 
                         try:

@@ -26,7 +26,7 @@
  * />
  * ```
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
@@ -34,6 +34,7 @@ import { TaskModalLayout } from './task-form/TaskModalLayout';
 import { TaskFormFields } from './task-form/TaskFormFields';
 import { type FileReferenceData } from './task-form/useImageUpload';
 import { persistUpdateTask } from '../stores/task-store';
+import { useProjectStore } from '../stores/project-store';
 import type { Task, ImageAttachment, TaskCategory, TaskPriority, TaskComplexity, TaskImpact, ModelType, ThinkingLevel } from '../../shared/types';
 import {
   DEFAULT_AGENT_PROFILES,
@@ -64,6 +65,13 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
   const selectedProfile = DEFAULT_AGENT_PROFILES.find(
     p => p.id === settings.selectedAgentProfile
   ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto')!;
+
+  // Get project path for loading image thumbnails from disk
+  const projects = useProjectStore((state) => state.projects);
+  const projectPath = useMemo(() => {
+    const project = projects.find(p => p.id === task.projectId);
+    return project?.path;
+  }, [projects, task.projectId]);
 
   // Form state
   const [title, setTitle] = useState(task.title);
@@ -269,6 +277,8 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       }
     >
       <TaskFormFields
+        projectPath={projectPath}
+        specId={task.specId}
         description={description}
         onDescriptionChange={setDescription}
         title={title}

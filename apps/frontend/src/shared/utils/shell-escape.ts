@@ -6,6 +6,10 @@
  */
 
 import { isWindows } from '../platform';
+import type { WindowsShellType } from '../types/terminal';
+
+// Re-export for convenience
+export type { WindowsShellType };
 
 /**
  * Escape a string for safe use as a shell argument.
@@ -48,9 +52,11 @@ export function escapeShellPath(path: string): string {
  * and uses escapeForWindowsDoubleQuote for proper escaping inside double quotes.
  *
  * @param path - The directory path
- * @returns A safe "cd '<path>' && " string, or empty string if path is undefined
+ * @param shellType - On Windows, specify 'powershell' or 'cmd' for correct command chaining.
+ *                    PowerShell 5.1 doesn't support '&&', so ';' is used instead.
+ * @returns A safe "cd '<path>' && " or "cd '<path>'; " string, or empty string if path is undefined
  */
-export function buildCdCommand(path: string | undefined): string {
+export function buildCdCommand(path: string | undefined, shellType?: WindowsShellType): string {
   if (!path) {
     return '';
   }
@@ -61,7 +67,10 @@ export function buildCdCommand(path: string | undefined): string {
     // For values inside double quotes, use escapeForWindowsDoubleQuote() because
     // caret is literal inside double quotes in cmd.exe (only double quotes need escaping).
     const escaped = escapeForWindowsDoubleQuote(path);
-    return `cd /d "${escaped}" && `;
+    // PowerShell 5.1 doesn't support '&&' - use ';' instead
+    // cmd.exe uses '&&' for conditional execution
+    const separator = shellType === 'powershell' ? '; ' : ' && ';
+    return `cd /d "${escaped}"${separator}`;
   }
 
   return `cd ${escapeShellPath(path)} && `;

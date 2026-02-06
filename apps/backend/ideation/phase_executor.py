@@ -85,7 +85,7 @@ class PhaseExecutor:
 
         if not is_graphiti_enabled():
             print_status("Graphiti not enabled, skipping graph hints", "info")
-            with open(hints_file, "w") as f:
+            with open(hints_file, "w", encoding="utf-8") as f:
                 json.dump(
                     {
                         "enabled": False,
@@ -131,7 +131,7 @@ class PhaseExecutor:
                 total_hints += len(result)
 
         # Save hints
-        with open(hints_file, "w") as f:
+        with open(hints_file, "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "enabled": True,
@@ -178,11 +178,11 @@ class PhaseExecutor:
         graph_hints = {}
         if hints_file.exists():
             try:
-                with open(hints_file) as f:
+                with open(hints_file, encoding="utf-8") as f:
                     hints_data = json.load(f)
                     graph_hints = hints_data.get("hints_by_type", {})
-            except (OSError, json.JSONDecodeError):
-                pass
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                pass  # Use empty hints if file is corrupted/unreadable
 
         # Write context file
         context_data = {
@@ -200,7 +200,7 @@ class PhaseExecutor:
             "created_at": datetime.now().isoformat(),
         }
 
-        with open(context_file, "w") as f:
+        with open(context_file, "w", encoding="utf-8") as f:
             json.dump(context_data, f, indent=2)
 
         print_status("Created ideation_context.json", "success")
@@ -252,7 +252,7 @@ class PhaseExecutor:
         if output_file.exists() and not self.refresh:
             # Load and validate existing ideas - only skip if we have valid ideas
             try:
-                with open(output_file) as f:
+                with open(output_file, encoding="utf-8") as f:
                     data = json.load(f)
                     count = len(data.get(ideation_type, []))
 

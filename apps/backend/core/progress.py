@@ -43,7 +43,7 @@ def count_subtasks(spec_dir: Path) -> tuple[int, int]:
         return 0, 0
 
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan = json.load(f)
 
         total = 0
@@ -56,7 +56,7 @@ def count_subtasks(spec_dir: Path) -> tuple[int, int]:
                     completed += 1
 
         return completed, total
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return 0, 0
 
 
@@ -81,7 +81,7 @@ def count_subtasks_detailed(spec_dir: Path) -> dict:
         return result
 
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan = json.load(f)
 
         for phase in plan.get("phases", []):
@@ -94,7 +94,7 @@ def count_subtasks_detailed(spec_dir: Path) -> dict:
                     result["pending"] += 1
 
         return result
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return result
 
 
@@ -182,7 +182,7 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
 
         # Phase summary
         try:
-            with open(spec_dir / "implementation_plan.json") as f:
+            with open(spec_dir / "implementation_plan.json", encoding="utf-8") as f:
                 plan = json.load(f)
 
             print("\nPhases:")
@@ -230,8 +230,8 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
                         f"  {icon(Icons.ARROW_RIGHT)} Next: {highlight(next_id)} - {next_desc}"
                     )
 
-        except (OSError, json.JSONDecodeError):
-            pass
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            pass  # Ignore corrupted/unreadable progress files
     else:
         print()
         print_status("No implementation subtasks yet - planner needs to run", "pending")
@@ -302,7 +302,7 @@ def get_plan_summary(spec_dir: Path) -> dict:
         }
 
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan = json.load(f)
 
         summary = {
@@ -355,7 +355,7 @@ def get_plan_summary(spec_dir: Path) -> dict:
 
         return summary
 
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return {
             "workflow_type": None,
             "total_phases": 0,
@@ -376,7 +376,7 @@ def get_current_phase(spec_dir: Path) -> dict | None:
         return None
 
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan = json.load(f)
 
         for phase in plan.get("phases", []):
@@ -396,7 +396,7 @@ def get_current_phase(spec_dir: Path) -> dict | None:
 
         return None
 
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return None
 
 
@@ -470,7 +470,7 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
 
         return None
 
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return None
 
 

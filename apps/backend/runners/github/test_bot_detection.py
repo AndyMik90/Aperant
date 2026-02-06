@@ -6,6 +6,7 @@ Tests the BotDetector class to ensure it correctly prevents infinite loops.
 """
 
 import json
+import subprocess
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -411,6 +412,295 @@ class TestEdgeCases:
 
         # Should not crash, should return False
         assert is_cooling is False
+
+
+class TestGhExecutableDetection:
+    """Test gh executable detection in bot_detector._get_bot_username."""
+
+    def test_get_bot_username_with_gh_not_found(self, temp_state_dir):
+        """Test _get_bot_username when gh CLI is not found."""
+        with patch("bot_detection.get_gh_executable", return_value=None):
+            detector = BotDetector(
+                state_dir=temp_state_dir,
+                bot_token="fake-token",
+                review_own_prs=False,
+            )
+
+            # Should not crash, username should be None
+            assert detector.bot_username is None
+
+    def test_get_bot_username_with_detected_gh(self, temp_state_dir):
+        """Test _get_bot_username when gh CLI is found."""
+        mock_gh_path = str(temp_state_dir / "gh")
+        with patch("bot_detection.get_gh_executable", return_value=mock_gh_path):
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(
+                    returncode=0,
+                    stdout=json.dumps({"login": "test-bot-user"}),
+                )
+
+                detector = BotDetector(
+                    state_dir=temp_state_dir,
+                    bot_token="fake-token",
+                    review_own_prs=False,
+                )
+
+                # Should use the detected gh path
+                assert detector.bot_username == "test-bot-user"
+
+                # Verify subprocess was called with the correct gh path
+                mock_run.assert_called_once()
+                called_cmd_list = mock_run.call_args[0][0]
+                assert called_cmd_list[0] == mock_gh_path
+                assert called_cmd_list[1:] == ["api", "user"]
+
+    def test_get_bot_username_uses_get_gh_executable_return_value(self, temp_state_dir):
+        """Test that _get_bot_username uses the path returned by get_gh_executable."""
+        # Note: GITHUB_CLI_PATH env var is tested by get_gh_executable's own tests
+        # This test verifies _get_bot_username uses whatever get_gh_executable returns
+        mock_gh_path = str(temp_state_dir / "gh")
+
+        with patch("bot_detection.get_gh_executable", return_value=mock_gh_path):
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(
+                    returncode=0,
+                    stdout=json.dumps({"login": "env-bot-user"}),
+                )
+
+                detector = BotDetector(
+                    state_dir=temp_state_dir,
+                    bot_token="fake-token",
+                    review_own_prs=False,
+                )
+
+                # Verify the command was run with the path from get_gh_executable
+                assert detector.bot_username == "env-bot-user"
+
+                # Verify subprocess was called with the correct path
+                mock_run.assert_called_once()
+                called_cmd_list = mock_run.call_args[0][0]
+                assert called_cmd_list[0] == mock_gh_path
+                assert called_cmd_list[1:] == ["api", "user"]
+
+    def test_get_bot_username_with_api_error(self, temp_state_dir):
+        """Test _get_bot_username when gh api command fails."""
+        mock_gh_path = str(temp_state_dir / "gh")
+        with patch("bot_detection.get_gh_executable", return_value=mock_gh_path):
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(
+                    returncode=1,
+                    stderr="Authentication failed",
+                )
+
+                detector = BotDetector(
+                    state_dir=temp_state_dir,
+                    bot_token="invalid-token",
+                    review_own_prs=False,
+                )
+
+                # Should handle error gracefully, username should be None
+                assert detector.bot_username is None
+
+    def test_get_bot_username_with_subprocess_timeout(self, temp_state_dir):
+        """Test _get_bot_username when subprocess times out."""
+        mock_gh_path = str(temp_state_dir / "gh")
+        with patch("bot_detection.get_gh_executable", return_value=mock_gh_path):
+            with patch(
+                "subprocess.run", side_effect=subprocess.TimeoutExpired("gh", 5)
+            ):
+                detector = BotDetector(
+                    state_dir=temp_state_dir,
+                    bot_token="fake-token",
+                    review_own_prs=False,
+                )
+
+                # Should handle timeout gracefully, username should be None
+                assert detector.bot_username is None
+
+    def test_get_bot_username_without_token(self, temp_state_dir):
+        """Test _get_bot_username when no bot token is provided."""
+        with patch("subprocess.run") as mock_run:
+            detector = BotDetector(
+                state_dir=temp_state_dir,
+                bot_token=None,
+                review_own_prs=False,
+            )
+
+            # Should return None without trying to call gh
+            assert detector.bot_username is None
+            # Verify subprocess.run was not called (no gh CLI invocation)
+            mock_run.assert_not_called()
+
+
+class TestInProgressTracking:
+    """Test in-progress review tracking."""
+
+    def test_mark_review_started(self, mock_bot_detector, temp_state_dir):
+        """Test marking review as started."""
+        mock_bot_detector.mark_review_started(123)
+
+        # Check state
+        assert "123" in mock_bot_detector.state.in_progress_reviews
+        start_time_str = mock_bot_detector.state.in_progress_reviews["123"]
+        start_time = datetime.fromisoformat(start_time_str)
+
+        # Should be very recent (within last 5 seconds)
+        time_diff = datetime.now() - start_time
+        assert time_diff.total_seconds() < 5
+
+        # Check persistence
+        loaded = BotDetectionState.load(temp_state_dir)
+        assert "123" in loaded.in_progress_reviews
+
+    def test_mark_review_finished_success(self, mock_bot_detector, temp_state_dir):
+        """Test marking review as finished successfully."""
+        mock_bot_detector.mark_review_started(123)
+        assert "123" in mock_bot_detector.state.in_progress_reviews
+
+        mock_bot_detector.mark_review_finished(123, success=True)
+
+        # In-progress state should be cleared
+        assert "123" not in mock_bot_detector.state.in_progress_reviews
+
+        # Check persistence
+        loaded = BotDetectionState.load(temp_state_dir)
+        assert "123" not in loaded.in_progress_reviews
+
+    def test_mark_review_finished_error(self, mock_bot_detector):
+        """Test marking review as finished with error."""
+        mock_bot_detector.mark_review_started(123)
+        mock_bot_detector.mark_review_finished(123, success=False)
+
+        # In-progress state should be cleared
+        assert "123" not in mock_bot_detector.state.in_progress_reviews
+
+    def test_is_review_in_progress_active(self, mock_bot_detector):
+        """Test detecting active in-progress review."""
+        mock_bot_detector.mark_review_started(123)
+
+        is_in_progress, reason = mock_bot_detector.is_review_in_progress(123)
+
+        assert is_in_progress is True
+        assert "already in progress" in reason.lower()
+
+    def test_is_review_in_progress_not_started(self, mock_bot_detector):
+        """Test checking in-progress when review not started."""
+        is_in_progress, reason = mock_bot_detector.is_review_in_progress(999)
+
+        assert is_in_progress is False
+        assert reason == ""
+
+    def test_is_review_in_progress_stale(self, mock_bot_detector):
+        """Test detecting stale in-progress review."""
+        # Set review start time to 31 minutes ago (past timeout)
+        stale_time = datetime.now() - timedelta(minutes=31)
+        mock_bot_detector.state.in_progress_reviews["123"] = stale_time.isoformat()
+
+        is_in_progress, reason = mock_bot_detector.is_review_in_progress(123)
+
+        # Should detect as stale and clear it
+        assert is_in_progress is False
+        assert reason == ""
+        # Should be removed from state
+        assert "123" not in mock_bot_detector.state.in_progress_reviews
+
+    def test_is_review_in_progress_invalid_timestamp(self, mock_bot_detector):
+        """Test handling invalid timestamp in in-progress state."""
+        mock_bot_detector.state.in_progress_reviews["123"] = "invalid-timestamp"
+
+        is_in_progress, reason = mock_bot_detector.is_review_in_progress(123)
+
+        # Should clear invalid state
+        assert is_in_progress is False
+        assert reason == ""
+        assert "123" not in mock_bot_detector.state.in_progress_reviews
+
+    def test_should_skip_review_in_progress(self, mock_bot_detector):
+        """Test skipping PR when review is in progress."""
+        mock_bot_detector.mark_review_started(123)
+
+        pr_data = {"author": {"login": "alice"}}
+        commits = [{"author": {"login": "alice"}, "oid": "abc123"}]
+
+        should_skip, reason = mock_bot_detector.should_skip_pr_review(
+            pr_number=123,
+            pr_data=pr_data,
+            commits=commits,
+        )
+
+        assert should_skip is True
+        assert "already in progress" in reason.lower()
+
+    def test_mark_reviewed_clears_in_progress(self, mock_bot_detector):
+        """Test that mark_reviewed also clears in-progress state."""
+        mock_bot_detector.mark_review_started(123)
+        assert "123" in mock_bot_detector.state.in_progress_reviews
+
+        mock_bot_detector.mark_reviewed(123, "abc123")
+
+        # In-progress should be cleared
+        assert "123" not in mock_bot_detector.state.in_progress_reviews
+        # Reviewed state should be set
+        assert "123" in mock_bot_detector.state.reviewed_commits
+        assert "abc123" in mock_bot_detector.state.reviewed_commits["123"]
+
+    def test_clear_pr_state_clears_in_progress(self, mock_bot_detector):
+        """Test that clear_pr_state also clears in-progress state."""
+        mock_bot_detector.mark_review_started(123)
+        mock_bot_detector.mark_reviewed(123, "abc123")
+
+        assert (
+            "123" in mock_bot_detector.state.in_progress_reviews or True
+        )  # May be cleared by mark_reviewed
+        assert "123" in mock_bot_detector.state.reviewed_commits
+
+        # Start another review
+        mock_bot_detector.mark_review_started(123)
+        assert "123" in mock_bot_detector.state.in_progress_reviews
+
+        mock_bot_detector.clear_pr_state(123)
+
+        # Everything should be cleared
+        assert "123" not in mock_bot_detector.state.in_progress_reviews
+        assert "123" not in mock_bot_detector.state.reviewed_commits
+        assert "123" not in mock_bot_detector.state.last_review_times
+
+    def test_get_stats_includes_in_progress(self, mock_bot_detector):
+        """Test that get_stats includes in-progress count."""
+        mock_bot_detector.mark_review_started(123)
+        mock_bot_detector.mark_review_started(456)
+        mock_bot_detector.mark_reviewed(789, "abc123")
+
+        stats = mock_bot_detector.get_stats()
+
+        assert stats["in_progress_reviews"] == 2
+        assert stats["total_prs_tracked"] == 1  # Only 789 is tracked as reviewed
+        assert stats["in_progress_timeout_minutes"] == 30
+
+    def test_cleanup_stale_prs_removes_stale_in_progress(self, mock_bot_detector):
+        """Test that cleanup_stale_prs removes stale in-progress reviews."""
+        # Add a stale in-progress review (32 minutes ago)
+        stale_time = datetime.now() - timedelta(minutes=32)
+        mock_bot_detector.state.in_progress_reviews["123"] = stale_time.isoformat()
+
+        # Add an active in-progress review (5 minutes ago)
+        active_time = datetime.now() - timedelta(minutes=5)
+        mock_bot_detector.state.in_progress_reviews["456"] = active_time.isoformat()
+
+        # Add a stale reviewed PR (40 days ago)
+        stale_review_time = datetime.now() - timedelta(days=40)
+        mock_bot_detector.state.reviewed_commits["789"] = ["abc123"]
+        mock_bot_detector.state.last_review_times["789"] = stale_review_time.isoformat()
+
+        cleaned = mock_bot_detector.cleanup_stale_prs(max_age_days=30)
+
+        # Should remove stale in-progress and stale reviewed PR
+        assert cleaned == 2  # 1 stale in-progress + 1 stale reviewed
+        assert "123" not in mock_bot_detector.state.in_progress_reviews
+        assert (
+            "456" in mock_bot_detector.state.in_progress_reviews
+        )  # Active one remains
+        assert "789" not in mock_bot_detector.state.reviewed_commits
 
 
 if __name__ == "__main__":

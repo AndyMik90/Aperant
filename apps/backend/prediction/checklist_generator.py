@@ -146,6 +146,22 @@ class ChecklistGenerator:
                     f"Test in browser: {verification.get('scenario', 'Check functionality')}"
                 )
             elif ver_type == "command":
-                reminders.append(f"Run command: {verification.get('run', '')}")
+                reminders.append(
+                    f"Run command: {verification.get('run', verification.get('command', ''))}"
+                )
+            elif ver_type == "e2e":
+                steps = verification.get("steps", [])
+                if steps:
+                    reminders.append(
+                        f"E2E verification: {len(steps)} steps to complete"
+                    )
+                else:
+                    reminders.append("E2E verification required")
+            elif ver_type == "manual":
+                reminders.append(
+                    f"Manual check: {verification.get('instructions', 'Verify manually')}"
+                )
+            elif ver_type == "none":
+                pass  # No reminder needed
 
         return reminders

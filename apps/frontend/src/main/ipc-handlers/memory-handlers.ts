@@ -10,7 +10,7 @@ import { spawn, execFileSync } from 'child_process';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import * as fs from 'fs';
-import * as os from 'os';
+import { getOllamaExecutablePaths, getOllamaInstallCommand as getPlatformOllamaInstallCommand, getWhichCommand, getCurrentOS } from '../platform';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -109,38 +109,11 @@ interface OllamaInstallStatus {
  * @returns {OllamaInstallStatus} Installation status with path if found
  */
 function checkOllamaInstalled(): OllamaInstallStatus {
-  const platform = process.platform;
-
-  // Common paths to check based on platform
-  const pathsToCheck: string[] = [];
-
-  if (platform === 'win32') {
-    // Windows: Check common installation paths
-    const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-    pathsToCheck.push(
-      path.join(localAppData, 'Programs', 'Ollama', 'ollama.exe'),
-      path.join(localAppData, 'Ollama', 'ollama.exe'),
-      'C:\\Program Files\\Ollama\\ollama.exe',
-      'C:\\Program Files (x86)\\Ollama\\ollama.exe'
-    );
-  } else if (platform === 'darwin') {
-    // macOS: Check common paths
-    pathsToCheck.push(
-      '/usr/local/bin/ollama',
-      '/opt/homebrew/bin/ollama',
-      path.join(os.homedir(), '.local', 'bin', 'ollama')
-    );
-  } else {
-    // Linux: Check common paths
-    pathsToCheck.push(
-      '/usr/local/bin/ollama',
-      '/usr/bin/ollama',
-      path.join(os.homedir(), '.local', 'bin', 'ollama')
-    );
-  }
+  // Get platform-specific paths from the platform module
+  const pathsToCheck = getOllamaExecutablePaths();
 
   // Check each path
-  // SECURITY NOTE: ollamaPath values come from the hardcoded pathsToCheck array above,
+  // SECURITY NOTE: ollamaPath values come from the platform module's hardcoded paths,
   // not from user input or environment variables. These are known system installation paths.
   for (const ollamaPath of pathsToCheck) {
     if (fs.existsSync(ollamaPath)) {
@@ -172,7 +145,7 @@ function checkOllamaInstalled(): OllamaInstallStatus {
   // Also check if ollama is in PATH using where/which command
   // Use execFileSync with explicit command to avoid shell injection
   try {
-    const whichCmd = platform === 'win32' ? 'where.exe' : 'which';
+    const whichCmd = getWhichCommand();
     const ollamaPath = execFileSync(whichCmd, ['ollama'], {
       encoding: 'utf-8',
       timeout: 5000,
@@ -211,42 +184,26 @@ function checkOllamaInstalled(): OllamaInstallStatus {
 
 /**
  * Get the platform-specific install command for Ollama
- * Uses the official Ollama installation methods
+ * Uses the official Ollama installation methods from the platform module.
  *
  * Windows: Uses winget (Windows Package Manager)
- * - Official method per https://winstall.app/apps/Ollama.Ollama
- * - Winget is pre-installed on Windows 10 (1709+) and Windows 11
- *
- * macOS: Uses Homebrew (most common package manager on macOS)
- * - Official method: brew install ollama
- * - Reference: https://ollama.com/download/mac
- *
+ * macOS: Uses Homebrew
  * Linux: Uses official install script from https://ollama.com/download
  *
  * @returns {string} The install command to run in terminal
  */
 function getOllamaInstallCommand(): string {
-  if (process.platform === 'win32') {
-    // Windows: Use winget (Windows Package Manager)
-    // This is an official installation method for Ollama on Windows
-    // Reference: https://winstall.app/apps/Ollama.Ollama
-    return 'winget install --id Ollama.Ollama --accept-source-agreements';
-  } else if (process.platform === 'darwin') {
-    // macOS: Use Homebrew (most widely used package manager on macOS)
-    // Official Ollama installation method for macOS
-    // Reference: https://ollama.com/download/mac
-    return 'brew install ollama';
-  } else {
-    // Linux: Use shell script from official Ollama
-    // Reference: https://ollama.com/download
-    return 'curl -fsSL https://ollama.com/install.sh | sh';
-  }
+  return getPlatformOllamaInstallCommand();
 }
 
 /**
  * Execute the ollama_model_detector.py Python script.
  * Spawns a subprocess to run Ollama detection/management commands with a 10-second timeout.
  * Used to check Ollama status, list models, and manage downloads.
+ *
+ * Includes deduplication: identical command+baseUrl requests within 2s return the cached
+ * result/promise instead of spawning a new subprocess. This prevents runaway subprocess
+ * spawning from React re-render loops.
  *
  * Supported commands:
  * - 'check-status': Verify Ollama service is running
@@ -259,7 +216,41 @@ function getOllamaInstallCommand(): string {
  * @param {string} [baseUrl] - Optional Ollama API base URL (defaults to http://localhost:11434)
  * @returns {Promise<{success, data?, error?}>} Result object with success flag and data/error
  */
+// Deduplication cache to prevent rapid-fire subprocess spawning (e.g., from React re-render loops)
+const ollamaDetectorCache = new Map<string, { promise: Promise<{ success: boolean; data?: unknown; error?: string }>; timestamp: number }>();
+const OLLAMA_CACHE_TTL_MS = 2000; // Cache results for 2 seconds
+
 async function executeOllamaDetector(
+  command: string,
+  baseUrl?: string
+): Promise<{ success: boolean; data?: unknown; error?: string }> {
+  // Deduplication: return cached promise for identical requests within TTL
+  const cacheKey = `${command}:${baseUrl || 'default'}`;
+  const cached = ollamaDetectorCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < OLLAMA_CACHE_TTL_MS) {
+    if (process.env.DEBUG) {
+      console.log('[OllamaDetector] Returning cached result for:', command);
+    }
+    return cached.promise;
+  }
+
+  const promise = executeOllamaDetectorImpl(command, baseUrl);
+  ollamaDetectorCache.set(cacheKey, { promise, timestamp: Date.now() });
+
+  // Clean up cache entry after TTL
+  promise.finally(() => {
+    setTimeout(() => {
+      const entry = ollamaDetectorCache.get(cacheKey);
+      if (entry && entry.promise === promise) {
+        ollamaDetectorCache.delete(cacheKey);
+      }
+    }, OLLAMA_CACHE_TTL_MS);
+  });
+
+  return promise;
+}
+
+async function executeOllamaDetectorImpl(
   command: string,
   baseUrl?: string
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
@@ -319,11 +310,11 @@ async function executeOllamaDetector(
     let stderr = '';
 
     proc.stdout.on('data', (data) => {
-      stdout += data.toString();
+      stdout += data.toString('utf-8');
     });
 
     proc.stderr.on('data', (data) => {
-      stderr += data.toString();
+      stderr += data.toString('utf-8');
     });
 
     // Single timeout mechanism to avoid race condition
@@ -530,7 +521,7 @@ export function registerMemoryHandlers(): void {
           };
         } else {
           // Basic validation for other providers
-          llmResult = config.apiKey && config.apiKey.trim()
+          llmResult = config.apiKey?.trim()
             ? {
                 success: true,
                 message: `${config.llmProvider} API key format appears valid`,
@@ -615,7 +606,7 @@ export function registerMemoryHandlers(): void {
     async (): Promise<IPCResult<{ command: string }>> => {
       try {
         const command = getOllamaInstallCommand();
-        console.log('[Ollama] Platform:', process.platform);
+        console.log('[Ollama] Platform:', getCurrentOS());
         console.log('[Ollama] Install command:', command);
         console.log('[Ollama] Opening terminal...');
 
@@ -750,7 +741,7 @@ export function registerMemoryHandlers(): void {
      async (
        event,
        modelName: string,
-       baseUrl?: string
+       _baseUrl?: string
      ): Promise<IPCResult<OllamaPullResult>> => {
       try {
         // Use configured Python path (venv if ready, otherwise bundled/system)
@@ -796,11 +787,11 @@ export function registerMemoryHandlers(): void {
           let stderrBuffer = ''; // Buffer for NDJSON parsing
 
           proc.stdout.on('data', (data) => {
-            stdout += data.toString();
+            stdout += data.toString('utf-8');
           });
 
           proc.stderr.on('data', (data) => {
-            const chunk = data.toString();
+            const chunk = data.toString('utf-8');
             stderr += chunk;
             stderrBuffer += chunk;
 

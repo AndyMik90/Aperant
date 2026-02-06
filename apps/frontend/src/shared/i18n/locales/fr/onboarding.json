@@ -74,6 +74,11 @@
       "tokenSavedDescription": "Votre jeton a été enregistré avec succès.",
       "tokenSaveFailed": "Échec de l'enregistrement du jeton",
       "tryAgain": "Veuillez réessayer."
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "Profil créé mais échec de la préparation de l'authentification : {{error}}",
+      "authPrepareFailed": "Échec de la préparation de l'authentification : {{error}}",
+      "authStartFailedMessage": "Échec du démarrage de l'authentification. Veuillez réessayer."
     }
   },
   "memory": {

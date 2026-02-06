@@ -72,7 +72,7 @@ def build_task_context(
 
     if output_file:
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2)
         print(f"Task context saved to: {output_file}")
 

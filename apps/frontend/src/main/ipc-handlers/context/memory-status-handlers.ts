@@ -47,7 +47,6 @@ export function loadGraphitiStateFromSpecs(
         const stateContent = readFileSync(statePath, 'utf-8');
         return JSON.parse(stateContent);
       } catch {
-        continue;
       }
     }
   }

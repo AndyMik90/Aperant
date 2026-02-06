@@ -1,13 +1,11 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { useTerminalStore } from '../../stores/terminal-store';
-import { terminalBufferManager } from '../../lib/terminal-buffer-manager';
 
 interface UseTerminalEventsOptions {
   terminalId: string;
   // Track deliberate recreation scenarios (e.g., worktree switching)
   // When true, skips auto-removal to allow proper recreation
   isRecreatingRef?: RefObject<boolean>;
-  onOutput?: (data: string) => void;
   onExit?: (exitCode: number) => void;
   onTitleChange?: (title: string) => void;
   onClaudeSession?: (sessionId: string) => void;
@@ -16,23 +14,17 @@ interface UseTerminalEventsOptions {
 export function useTerminalEvents({
   terminalId,
   isRecreatingRef,
-  onOutput,
   onExit,
   onTitleChange,
   onClaudeSession,
 }: UseTerminalEventsOptions) {
   // Use refs to always have the latest callbacks without re-registering listeners
   // This prevents duplicate listener registration when callbacks change identity
-  const onOutputRef = useRef(onOutput);
   const onExitRef = useRef(onExit);
   const onTitleChangeRef = useRef(onTitleChange);
   const onClaudeSessionRef = useRef(onClaudeSession);
 
   // Keep refs updated with latest callbacks
-  useEffect(() => {
-    onOutputRef.current = onOutput;
-  }, [onOutput]);
-
   useEffect(() => {
     onExitRef.current = onExit;
   }, [onExit]);
@@ -44,19 +36,6 @@ export function useTerminalEvents({
   useEffect(() => {
     onClaudeSessionRef.current = onClaudeSession;
   }, [onClaudeSession]);
-
-  // Handle terminal output from main process
-  // Only depends on terminalId (stable) to prevent listener re-registration
-  useEffect(() => {
-    const cleanup = window.electronAPI.onTerminalOutput((id, data) => {
-      if (id === terminalId) {
-        terminalBufferManager.append(terminalId, data);
-        onOutputRef.current?.(data);
-      }
-    });
-
-    return cleanup;
-  }, [terminalId]);
 
   // Handle terminal exit
   useEffect(() => {
@@ -100,7 +79,7 @@ export function useTerminalEvents({
     });
 
     return cleanup;
-  }, [terminalId]);
+  }, [terminalId, isRecreatingRef]);
 
   // Handle terminal title change
   useEffect(() => {

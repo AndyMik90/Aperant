@@ -1,0 +1,126 @@
+name: 'Setup Node.js Frontend'
+description: 'Set up Node.js with npm and cached dependencies for the frontend'
+
+inputs:
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '24'
+  ignore-scripts:
+    description: 'Whether to use --ignore-scripts flag during npm ci'
+    required: false
+    default: 'false'
+
+outputs:
+  cache-hit:
+    description: 'Whether npm cache was hit'
+    value: ${{ steps.cache.outputs.cache-hit }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js ${{ inputs.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Get npm cache directory
+      id: npm-cache-dir
+      shell: bash
+      run: echo "dir=$(npm config get cache)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache npm dependencies
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.npm-cache-dir.outputs.dir }}
+        key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
+        restore-keys: ${{ runner.os }}-npm-
+
+    - name: Install dependencies
+      shell: bash
+      # Run npm ci from root to properly handle workspace dependencies.
+      # With npm workspaces, the lock file is at root and dependencies are hoisted there.
+      # Running npm ci in apps/frontend would fail to populate node_modules correctly.
+      run: |
+        if [ "${{ inputs.ignore-scripts }}" == "true" ]; then
+          npm ci --ignore-scripts
+        else
+          npm ci
+        fi
+
+    - name: Link node_modules for electron-builder
+      shell: bash
+      # electron-builder expects node_modules in apps/frontend for native module rebuilding.
+      # With npm workspaces, packages are hoisted to root. Create a link so electron-builder
+      # can find the modules during packaging and code signing.
+      # Uses symlink on Unix, directory junction on Windows (works without admin privileges).
+      #
+      # IMPORTANT: npm workspaces may create a partial node_modules in apps/frontend for
+      # packages that couldn't be hoisted. We must remove it and create a proper link to root.
+      run: |
+        # Verify npm ci succeeded
+        if [ ! -d "node_modules" ]; then
+          echo "::error::Root node_modules does not exist. npm ci may have failed."
+          exit 1
+        fi
+
+        # Remove any existing node_modules in apps/frontend
+        # This handles: partial directories from npm workspaces, AND broken symlinks
+        if [ -e "apps/frontend/node_modules" ] || [ -L "apps/frontend/node_modules" ]; then
+          # Check if it's a valid symlink pointing to root node_modules
+          if [ -L "apps/frontend/node_modules" ]; then
+            target=$(readlink apps/frontend/node_modules 2>/dev/null || echo "")
+            if [ "$target" = "../../node_modules" ] && [ -d "apps/frontend/node_modules" ]; then
+              echo "Correct symlink already exists: apps/frontend/node_modules -> ../../node_modules"
+            else
+              echo "Removing incorrect/broken symlink (was: $target)..."
+              rm -f "apps/frontend/node_modules"
+            fi
+          else
+            echo "Removing partial node_modules directory created by npm workspaces..."
+            rm -rf "apps/frontend/node_modules"
+          fi
+        fi
+
+        # Create link if it doesn't exist or was removed
+        if [ ! -L "apps/frontend/node_modules" ]; then
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            # Use directory junction on Windows (works without admin privileges)
+            # Use PowerShell's New-Item -ItemType Junction for reliable path handling
+            abs_target=$(cygpath -w "$(pwd)/node_modules")
+            link_path=$(cygpath -w "$(pwd)/apps/frontend/node_modules")
+            powershell -Command "New-Item -ItemType Junction -Path '$link_path' -Target '$abs_target'" > /dev/null
+            if [ $? -eq 0 ]; then
+              echo "Created junction: apps/frontend/node_modules -> $abs_target"
+            else
+              echo "::error::Failed to create directory junction on Windows"
+              exit 1
+            fi
+          else
+            # Use symlink on Unix (macOS/Linux)
+            if ln -s ../../node_modules apps/frontend/node_modules; then
+              echo "Created symlink: apps/frontend/node_modules -> ../../node_modules"
+            else
+              echo "::error::Failed to create symlink"
+              exit 1
+            fi
+          fi
+        fi
+
+        # Final verification - the link must exist and resolve correctly
+        # Note: On Windows, junctions don't show as symlinks (-L), so we check if the directory exists
+        # and can be listed. On Unix, we also verify it's a symlink.
+        if [ "$RUNNER_OS" != "Windows" ] && [ ! -L "apps/frontend/node_modules" ]; then
+          echo "::error::apps/frontend/node_modules symlink was not created"
+          exit 1
+        fi
+        # Verify the link resolves to a valid directory with content
+        if ! ls apps/frontend/node_modules/electron >/dev/null 2>&1; then
+          echo "::error::apps/frontend/node_modules does not resolve correctly (electron not found)"
+          ls -la apps/frontend/ || true
+          ls apps/frontend/node_modules 2>&1 | head -5 || true
+          exit 1
+        fi
+        count=$(ls apps/frontend/node_modules 2>/dev/null | wc -l)
+        echo "Verified: apps/frontend/node_modules resolves correctly ($count entries)"

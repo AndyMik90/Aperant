@@ -38,7 +38,7 @@ class PatternDiscoverer:
         for match in reference_files[:max_files]:
             try:
                 file_path = self.project_dir / match.path
-                content = file_path.read_text(errors="ignore")
+                content = file_path.read_text(encoding="utf-8", errors="ignore")
 
                 # Look for common patterns
                 for keyword in keywords:

@@ -1,6 +1,10 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
+import { config as dotenvConfig } from 'dotenv';
+
+// Load .env file for build-time constants (Sentry DSN, etc.)
+dotenvConfig({ path: resolve(__dirname, '.env') });
 
 /**
  * Sentry configuration embedded at build time.
@@ -25,6 +29,12 @@ export default defineConfig({
       exclude: [
         'uuid',
         'chokidar',
+        'dotenv',
+        'electron-log',
+        'proper-lockfile',
+        'semver',
+        'zod',
+        '@anthropic-ai/sdk',
         'kuzu',
         'electron-updater',
         '@electron-toolkit/utils',
@@ -35,7 +45,11 @@ export default defineConfig({
         '@sentry/utils',
         '@opentelemetry/instrumentation',
         'debug',
-        'ms'
+        'ms',
+        // Minimatch for glob pattern matching in worktree handlers
+        'minimatch',
+        // XState for task state machine
+        'xstate'
       ]
     })],
     build: {

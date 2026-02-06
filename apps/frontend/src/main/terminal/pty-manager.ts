@@ -6,15 +6,59 @@
 import * as pty from '@lydell/node-pty';
 import * as os from 'os';
 import { existsSync } from 'fs';
-import type { TerminalProcess, WindowGetter } from './types';
+import type { TerminalProcess, WindowGetter, WindowsShellType } from './types';
 import { isWindows, getWindowsShellPaths } from '../platform';
 import { IPC_CHANNELS } from '../../shared/constants';
+import { safeSendToRenderer } from '../ipc-handlers/utils';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { readSettingsFile } from '../settings-utils';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import type { SupportedTerminal } from '../../shared/types/settings';
 
 // Windows shell paths are now imported from the platform module via getWindowsShellPaths()
+
+/**
+ * Shutdown flag to prevent PTY handlers from accessing destroyed resources
+ * (e.g., BrowserWindow.webContents) during app shutdown.
+ * Follows the same pattern as isShuttingDown in pty-daemon-client.ts.
+ *
+ * Part of the shutdown guard pattern for GitHub issue #1469: without this flag,
+ * PTY onData/onExit callbacks can fire after BrowserWindow is destroyed,
+ * causing pty.node's native ThreadSafeFunction to SIGABRT.
+ */
+let isShuttingDown = false;
+
+/**
+ * Set the shutting down flag. Call this during app quit/before-quit
+ * to prevent PTY handlers from accessing destroyed resources.
+ */
+export function setShuttingDown(value: boolean): void {
+  isShuttingDown = value;
+}
+
+/**
+ * Check if the PTY manager is in shutting down state.
+ */
+export function getIsShuttingDown(): boolean {
+  return isShuttingDown;
+}
+
+/**
+ * Result of spawning a PTY process
+ */
+export interface SpawnPtyResult {
+  pty: pty.IPty;
+  /** Shell type for Windows (affects command chaining syntax) */
+  shellType?: WindowsShellType;
+}
+
+/**
+ * Result of Windows shell detection
+ */
+interface WindowsShellResult {
+  shell: string;
+  shellType: WindowsShellType;
+}
 
 /**
  * Track pending exit promises for terminals being destroyed.
@@ -54,12 +98,30 @@ export function waitForPtyExit(terminalId: string, timeoutMs?: number): Promise<
 }
 
 /**
+ * Determine shell type from shell path.
+ * Only PowerShell 5.1 (powershell.exe) needs special handling with ';' separator.
+ * PowerShell 7+ (pwsh.exe) supports '&&' like cmd.exe.
+ */
+function detectShellType(shellPath: string): WindowsShellType {
+  // Extract just the filename from the path
+  const filename = shellPath.split(/[/\\]/).pop()?.toLowerCase() || '';
+  // Only powershell.exe (PS 5.1) needs ';' separator
+  // pwsh.exe (PS 7+) supports '&&' so we treat it like cmd
+  if (filename === 'powershell.exe') {
+    return 'powershell';
+  }
+  // Everything else (cmd, pwsh, bash, etc.) uses && syntax
+  return 'cmd';
+}
+
+/**
  * Get the Windows shell executable based on preferred terminal setting
  */
-function getWindowsShell(preferredTerminal: SupportedTerminal | undefined): string {
+function getWindowsShell(preferredTerminal: SupportedTerminal | undefined): WindowsShellResult {
   // If no preference or 'system', use COMSPEC (usually cmd.exe)
   if (!preferredTerminal || preferredTerminal === 'system') {
-    return process.env.COMSPEC || 'cmd.exe';
+    const shell = process.env.COMSPEC || 'cmd.exe';
+    return { shell, shellType: detectShellType(shell) };
   }
 
   // Check if we have paths defined for this terminal type (from platform module)
@@ -69,13 +131,14 @@ function getWindowsShell(preferredTerminal: SupportedTerminal | undefined): stri
     // Find the first existing shell
     for (const shellPath of paths) {
       if (existsSync(shellPath)) {
-        return shellPath;
+        return { shell: shellPath, shellType: detectShellType(shellPath) };
       }
     }
   }
 
   // Fallback to COMSPEC for unrecognized terminals
-  return process.env.COMSPEC || 'cmd.exe';
+  const shell = process.env.COMSPEC || 'cmd.exe';
+  return { shell, shellType: detectShellType(shell) };
 }
 
 /**
@@ -86,18 +149,27 @@ export function spawnPtyProcess(
   cols: number,
   rows: number,
   profileEnv?: Record<string, string>
-): pty.IPty {
+): SpawnPtyResult {
   // Read user's preferred terminal setting
   const settings = readSettingsFile();
   const preferredTerminal = settings?.preferredTerminal as SupportedTerminal | undefined;
 
-  const shell = isWindows()
-    ? getWindowsShell(preferredTerminal)
-    : process.env.SHELL || '/bin/zsh';
+  let shell: string;
+  let shellType: WindowsShellType | undefined;
+
+  if (isWindows()) {
+    const windowsShell = getWindowsShell(preferredTerminal);
+    shell = windowsShell.shell;
+    shellType = windowsShell.shellType;
+  } else {
+    shell = process.env.SHELL || '/bin/zsh';
+    shellType = undefined; // Not applicable on Unix
+  }
 
   const shellArgs = isWindows() ? [] : ['-l'];
 
-  debugLog('[PtyManager] Spawning shell:', shell, shellArgs, '(preferred:', preferredTerminal || 'system', ')');
+  debugLog('[PtyManager] Spawning shell:', shell, shellArgs, '(preferred:', preferredTerminal || 'system', ', shellType:', shellType, ')');
+  debugLog('[PtyManager] PTY dimensions requested - cols:', cols, 'rows:', rows, 'cwd:', cwd || os.homedir());
 
   // Create a clean environment without DEBUG to prevent Claude Code from
   // enabling debug mode when the Electron app is run in development mode.
@@ -107,7 +179,7 @@ export function spawnPtyProcess(
   // show "Claude API" instead of "Claude Max" when ANTHROPIC_API_KEY is set.
   const { DEBUG: _DEBUG, ANTHROPIC_API_KEY: _ANTHROPIC_API_KEY, ...cleanEnv } = process.env;
 
-  return pty.spawn(shell, shellArgs, {
+  const ptyProcess = pty.spawn(shell, shellArgs, {
     name: 'xterm-256color',
     cols,
     rows,
@@ -117,8 +189,13 @@ export function spawnPtyProcess(
       ...profileEnv,
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
+      // Suppress zsh's partial line indicator (%) that appears when output
+      // doesn't end with a newline. This prevents rendering artifacts in the terminal.
+      PROMPT_EOL_MARK: '',
     },
   });
+
+  return { pty: ptyProcess, shellType };
 }
 
 /**
@@ -135,24 +212,27 @@ export function setupPtyHandlers(
 
   // Handle data from terminal
   ptyProcess.onData((data) => {
+    // Shutdown guard (GitHub #1469): skip processing to avoid accessing
+    // destroyed BrowserWindow.webContents, which triggers pty.node SIGABRT
+    if (isShuttingDown) return;
+
     // Append to output buffer (limit to 100KB)
     terminal.outputBuffer = (terminal.outputBuffer + data).slice(-100000);
 
     // Call custom data handler
     onDataCallback(terminal, data);
 
-    // Send to renderer
-    const win = getWindow();
-    if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_OUTPUT, id, data);
-    }
+    // Send to renderer with isDestroyed() check to prevent crashes
+    // when the window is closed during terminal activity
+    safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_OUTPUT, id, data);
   });
 
   // Handle terminal exit
   ptyProcess.onExit(({ exitCode }) => {
     debugLog('[PtyManager] Terminal exited:', id, 'code:', exitCode);
 
-    // Resolve any pending exit promise FIRST (before other cleanup)
+    // Always resolve pending exit promises, even during shutdown
+    // (needed for waitForPtyExit callers to complete)
     const pendingExit = pendingExitPromises.get(id);
     if (pendingExit) {
       clearTimeout(pendingExit.timeoutId);
@@ -160,10 +240,13 @@ export function setupPtyHandlers(
       pendingExit.resolve();
     }
 
-    const win = getWindow();
-    if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_EXIT, id, exitCode);
-    }
+    // Shutdown guard (GitHub #1469): skip accessing win.webContents and callbacks
+    // to avoid pty.node SIGABRT from destroyed BrowserWindow resources
+    if (isShuttingDown) return;
+
+    // Send to renderer with isDestroyed() check to prevent crashes
+    // when the window is closed during terminal exit
+    safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_EXIT, id, exitCode);
 
     // Call custom exit handler
     onExitCallback(terminal);
@@ -271,10 +354,30 @@ export function writeToPty(terminal: TerminalProcess, data: string): void {
 }
 
 /**
- * Resize a PTY process
+ * Resize a PTY process with validation and error handling.
+ * @param terminal The terminal process to resize
+ * @param cols New column count
+ * @param rows New row count
+ * @returns true if resize was successful, false otherwise
  */
-export function resizePty(terminal: TerminalProcess, cols: number, rows: number): void {
-  terminal.pty.resize(cols, rows);
+export function resizePty(terminal: TerminalProcess, cols: number, rows: number): boolean {
+  // Validate dimensions
+  if (cols <= 0 || rows <= 0 || !Number.isFinite(cols) || !Number.isFinite(rows)) {
+    debugError('[PtyManager] Invalid resize dimensions - terminal:', terminal.id, 'cols:', cols, 'rows:', rows);
+    return false;
+  }
+
+  try {
+    const prevCols = terminal.pty.cols;
+    const prevRows = terminal.pty.rows;
+    debugLog('[PtyManager] Resizing PTY - terminal:', terminal.id, 'from:', prevCols, 'x', prevRows, 'to:', cols, 'x', rows);
+    terminal.pty.resize(cols, rows);
+    debugLog('[PtyManager] PTY resized - actual dimensions now:', terminal.pty.cols, 'x', terminal.pty.rows);
+    return true;
+  } catch (error) {
+    debugError('[PtyManager] Resize failed for terminal:', terminal.id, 'error:', error);
+    return false;
+  }
 }
 
 /**

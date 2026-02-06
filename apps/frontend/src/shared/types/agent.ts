@@ -29,22 +29,106 @@ export interface ClaudeUsageData {
  * Returned from API or CLI usage check
  */
 export interface ClaudeUsageSnapshot {
-  /** Session usage percentage (0-100) */
+  /** Session usage percentage (0-100) - represents 5-hour window for most providers */
   sessionPercent: number;
-  /** Weekly usage percentage (0-100) */
+  /** Weekly usage percentage (0-100) - represents 7-day window for Anthropic, monthly for z.ai */
   weeklyPercent: number;
-  /** When the session limit resets (human-readable or ISO) */
+  /**
+   * When the session limit resets (human-readable or ISO)
+   *
+   * NOTE: This value may contain hardcoded English strings ('Unknown', 'Expired', 'Resets in ...')
+   * from the main process. Renderer components should use the sessionResetTimestamp field
+   * with formatTimeRemaining() to generate localized countdown text when available.
+   */
   sessionResetTime?: string;
-  /** When the weekly limit resets (human-readable or ISO) */
+  /**
+   * When the weekly limit resets (human-readable or ISO)
+   *
+   * NOTE: This value may contain hardcoded English strings ('Unknown', '1st of January', etc.)
+   * from the main process. Renderer components should localize these values before display.
+   */
   weeklyResetTime?: string;
+  /** ISO timestamp of when the session limit resets (for dynamic countdown calculation) */
+  sessionResetTimestamp?: string;
+  /** ISO timestamp of when the weekly limit resets (for dynamic countdown calculation) */
+  weeklyResetTimestamp?: string;
   /** Profile ID this snapshot belongs to */
   profileId: string;
   /** Profile name for display */
   profileName: string;
+  /** Email address associated with the profile (from Keychain or profile data) */
+  profileEmail?: string;
   /** When this snapshot was captured */
   fetchedAt: Date;
   /** Which limit is closest to threshold ('session' or 'weekly') */
   limitType?: 'session' | 'weekly';
+  /** Usage window types for this provider */
+  usageWindows?: {
+    /** Label for the session window (e.g., '5-hour', '5-hour window') */
+    sessionWindowLabel: string;
+    /** Label for the weekly window (e.g., '7-day', 'monthly', 'calendar month') */
+    weeklyWindowLabel: string;
+  };
+  /** Raw session usage value (e.g., tokens used) */
+  sessionUsageValue?: number;
+  /** Session usage limit (total quota) */
+  sessionUsageLimit?: number;
+  /** Raw weekly usage value (e.g., tools used) */
+  weeklyUsageValue?: number;
+  /** Weekly usage limit (total quota) */
+  weeklyUsageLimit?: number;
+  /** True if profile has invalid refresh token and needs re-authentication */
+  needsReauthentication?: boolean;
+}
+
+/**
+ * Profile usage summary for multi-profile display
+ * Contains the essential data needed to rank and display profiles in the usage indicator
+ */
+export interface ProfileUsageSummary {
+  /** Profile ID */
+  profileId: string;
+  /** Profile name for display */
+  profileName: string;
+  /** Email address (from Keychain or profile) */
+  profileEmail?: string;
+  /** Session usage percentage (0-100) */
+  sessionPercent: number;
+  /** Weekly usage percentage (0-100) */
+  weeklyPercent: number;
+  /** ISO timestamp of when the session limit resets */
+  sessionResetTimestamp?: string;
+  /** ISO timestamp of when the weekly limit resets */
+  weeklyResetTimestamp?: string;
+  /** Whether this profile is authenticated */
+  isAuthenticated: boolean;
+  /** Whether this profile is currently rate limited */
+  isRateLimited: boolean;
+  /** Type of rate limit if limited */
+  rateLimitType?: 'session' | 'weekly';
+  /** Availability score (higher = more available, used for sorting) */
+  availabilityScore: number;
+  /** Whether this is the currently active profile */
+  isActive: boolean;
+  /** When this data was last fetched (ISO timestamp) */
+  lastFetchedAt?: string;
+  /** Error message if usage fetch failed */
+  fetchError?: string;
+  /** True if profile has invalid refresh token and needs re-authentication */
+  needsReauthentication?: boolean;
+}
+
+/**
+ * All profiles usage data for the usage indicator
+ * Emitted alongside the active profile's detailed snapshot
+ */
+export interface AllProfilesUsage {
+  /** Detailed snapshot for the active profile */
+  activeProfile: ClaudeUsageSnapshot;
+  /** Summary usage data for all profiles (sorted by availability, best first) */
+  allProfiles: ProfileUsageSummary[];
+  /** When this data was collected */
+  fetchedAt: Date;
 }
 
 /**
@@ -95,6 +179,22 @@ export interface ClaudeProfile {
   usage?: ClaudeUsageData;
   /** Recent rate limit events for this profile */
   rateLimitEvents?: ClaudeRateLimitEvent[];
+  /**
+   * Whether this profile has valid authentication.
+   * Computed server-side by checking configDir for credential files.
+   * This is NOT persisted, it's computed dynamically on each getSettings() call.
+   */
+  isAuthenticated?: boolean;
+  /**
+   * Subscription type from OAuth credentials (e.g., "max" for Claude Max subscription).
+   * Used to display "Max" vs "Pro" in the UI. Populated from Keychain credentials.
+   */
+  subscriptionType?: string;
+  /**
+   * Rate limit tier from OAuth credentials (e.g., "default_claude_max_20x").
+   * Indicates the user's rate limit tier level. Populated from Keychain credentials.
+   */
+  rateLimitTier?: string;
 }
 
 /**
@@ -131,10 +231,62 @@ export interface ClaudeAutoSwitchSettings {
   // Reactive recovery
   /** Whether to automatically switch on unexpected rate limit (vs. prompting user) */
   autoSwitchOnRateLimit: boolean;
+
+  /** Whether to automatically switch on authentication failure (vs. prompting user) */
+  autoSwitchOnAuthFailure: boolean;
 }
 
 export interface ClaudeAuthResult {
   success: boolean;
   authenticated: boolean;
   error?: string;
+}
+
+/**
+ * Payload for TERMINAL_PROFILE_CHANGED event.
+ * Sent when profile switches and terminals need to be refreshed.
+ */
+export interface TerminalProfileChangedEvent {
+  previousProfileId: string;
+  newProfileId: string;
+  terminals: Array<{
+    id: string;
+    /** Session ID if terminal had an active Claude session */
+    sessionId?: string;
+    /** Whether the session was successfully migrated to new profile */
+    sessionMigrated?: boolean;
+  }>;
+}
+
+// ============================================
+// Queue Routing Types (Rate Limit Recovery)
+// ============================================
+
+/**
+ * Reason for profile assignment to a task
+ */
+export type ProfileAssignmentReason = 'proactive' | 'reactive' | 'manual';
+
+/**
+ * Tracking of running tasks grouped by profile
+ */
+export interface RunningTasksByProfile {
+  /** Map of profileId → array of task IDs running on that profile */
+  byProfile: Record<string, string[]>;
+  /** Total number of running tasks across all profiles */
+  totalRunning: number;
+}
+
+/**
+ * Profile swap record for tracking history
+ */
+export interface ProfileSwapRecord {
+  fromProfileId: string;
+  fromProfileName: string;
+  toProfileId: string;
+  toProfileName: string;
+  swappedAt: string;
+  reason: 'capacity' | 'rate_limit' | 'manual' | 'recovery';
+  sessionId?: string;
+  sessionResumed: boolean;
 }

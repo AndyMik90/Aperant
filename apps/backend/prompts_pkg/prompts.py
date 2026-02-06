@@ -81,6 +81,31 @@ def get_base_branch_from_metadata(spec_dir: Path) -> str | None:
     return None
 
 
+def get_use_local_branch_from_metadata(spec_dir: Path) -> bool:
+    """
+    Read useLocalBranch from task_metadata.json if it exists.
+
+    When True, the worktree should be created from the local branch directly
+    instead of preferring origin/branch. This preserves gitignored files
+    (.env, configs) that may not exist on the remote.
+
+    Args:
+        spec_dir: Directory containing the spec files
+
+    Returns:
+        True if useLocalBranch is set in metadata, False otherwise
+    """
+    metadata_path = spec_dir / "task_metadata.json"
+    if metadata_path.exists():
+        try:
+            with open(metadata_path, encoding="utf-8") as f:
+                metadata = json.load(f)
+                return bool(metadata.get("useLocalBranch", False))
+        except (json.JSONDecodeError, OSError):
+            pass
+    return False
+
+
 # Alias for backwards compatibility (internal use)
 _get_base_branch_from_metadata = get_base_branch_from_metadata
 
@@ -173,7 +198,7 @@ def get_planner_prompt(spec_dir: Path) -> str:
             "Make sure the auto-claude/prompts/planner.md file exists."
         )
 
-    prompt = prompt_file.read_text()
+    prompt = prompt_file.read_text(encoding="utf-8")
 
     # Inject spec directory information at the beginning
     spec_context = f"""## SPEC LOCATION
@@ -216,7 +241,7 @@ def get_coding_prompt(spec_dir: Path) -> str:
             "Make sure the auto-claude/prompts/coder.md file exists."
         )
 
-    prompt = prompt_file.read_text()
+    prompt = prompt_file.read_text(encoding="utf-8")
 
     spec_context = f"""## SPEC LOCATION
 
@@ -240,7 +265,7 @@ The project root is the parent of auto-claude/. All code goes in the project roo
     # Check for human input file
     human_input_file = spec_dir / "HUMAN_INPUT.md"
     if human_input_file.exists():
-        human_input = human_input_file.read_text().strip()
+        human_input = human_input_file.read_text(encoding="utf-8").strip()
         if human_input:
             spec_context += f"""## HUMAN INPUT (READ THIS FIRST!)
 
@@ -275,7 +300,7 @@ def _get_recovery_context(spec_dir: Path) -> str:
         return ""
 
     try:
-        with open(attempt_history_file) as f:
+        with open(attempt_history_file, encoding="utf-8") as f:
             history = json.load(f)
 
         # Check for stuck subtasks
@@ -321,7 +346,7 @@ Subtasks with previous attempts:
 
         return ""
 
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return ""
 
 
@@ -344,7 +369,7 @@ def get_followup_planner_prompt(spec_dir: Path) -> str:
             "Make sure the auto-claude/prompts/followup_planner.md file exists."
         )
 
-    prompt = prompt_file.read_text()
+    prompt = prompt_file.read_text(encoding="utf-8")
 
     # Inject spec directory information at the beginning
     spec_context = f"""## SPEC LOCATION (FOLLOW-UP MODE)
@@ -405,7 +430,7 @@ def is_first_run(spec_dir: Path) -> bool:
         # Check if any phase has subtasks
         total_subtasks = sum(len(phase.get("subtasks", [])) for phase in phases)
         return total_subtasks == 0
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         # If we can't read the file, treat as first run
         return True
 
@@ -426,7 +451,7 @@ def _load_prompt_file(filename: str) -> str:
     prompt_file = PROMPTS_DIR / filename
     if not prompt_file.exists():
         raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
-    return prompt_file.read_text()
+    return prompt_file.read_text(encoding="utf-8")
 
 
 def get_qa_reviewer_prompt(spec_dir: Path, project_dir: Path) -> str:

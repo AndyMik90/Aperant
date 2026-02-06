@@ -76,7 +76,7 @@ def save_session_insights(
     }
 
     # Write to file (always use file-based storage)
-    with open(session_file, "w") as f:
+    with open(session_file, "w", encoding="utf-8") as f:
         json.dump(session_data, f, indent=2)
 
     # Also save to Graphiti if enabled (non-blocking, errors logged but not raised)
@@ -110,9 +110,9 @@ def load_all_insights(spec_dir: Path) -> list[dict[str, Any]]:
     insights = []
     for session_file in session_files:
         try:
-            with open(session_file) as f:
+            with open(session_file, encoding="utf-8") as f:
                 insights.append(json.load(f))
-        except (OSError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
             # Skip corrupted files
             continue
 

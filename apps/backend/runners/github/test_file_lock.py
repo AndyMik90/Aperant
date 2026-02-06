@@ -28,7 +28,7 @@ async def test_basic_file_lock():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         test_file = Path(tmpdir) / "test.txt"
-        test_file.write_text("initial content")
+        test_file.write_text("initial content", encoding="utf-8")
 
         # Acquire lock and hold it
         async with FileLock(test_file, timeout=5.0):
@@ -55,7 +55,7 @@ async def test_locked_write():
         print(f"✓ Written to {test_file.name}")
 
         # Verify data was written correctly
-        with open(test_file) as f:
+        with open(test_file, encoding="utf-8") as f:
             loaded = json.load(f)
             assert loaded == data
             print(f"✓ Data verified: {loaded}")
@@ -113,12 +113,12 @@ async def test_concurrent_updates_without_lock():
         test_file = Path(tmpdir) / "unsafe.json"
 
         # Initialize counter
-        test_file.write_text(json.dumps({"count": 0}))
+        test_file.write_text(json.dumps({"count": 0}), encoding="utf-8")
 
         async def unsafe_increment():
             """Increment without locking - RACE CONDITION!"""
             # Read
-            with open(test_file) as f:
+            with open(test_file, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Simulate some processing
@@ -126,14 +126,14 @@ async def test_concurrent_updates_without_lock():
 
             # Write
             data["count"] += 1
-            with open(test_file, "w") as f:
+            with open(test_file, "w", encoding="utf-8") as f:
                 json.dump(data, f)
 
         # Run 10 concurrent increments
         await asyncio.gather(*[unsafe_increment() for _ in range(10)])
 
         # Check final count
-        with open(test_file) as f:
+        with open(test_file, encoding="utf-8") as f:
             final = json.load(f)
 
         print("✗ Expected count: 10")
@@ -182,7 +182,7 @@ async def test_lock_timeout():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         test_file = Path(tmpdir) / "timeout.json"
-        test_file.write_text(json.dumps({"data": "test"}))
+        test_file.write_text(json.dumps({"data": "test"}), encoding="utf-8")
 
         # Acquire lock and hold it
         lock1 = FileLock(test_file, timeout=1.0)

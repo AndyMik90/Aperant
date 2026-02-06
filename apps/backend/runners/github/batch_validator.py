@@ -230,7 +230,7 @@ class BatchValidator:
             }
 
             settings_file = self.project_dir / ".batch_validator_settings.json"
-            with open(settings_file, "w") as f:
+            with open(settings_file, "w", encoding="utf-8") as f:
                 json.dump(settings, f)
 
             try:

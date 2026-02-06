@@ -300,7 +300,7 @@ class OverrideManager:
         if not grace_file.exists():
             return None
 
-        with open(grace_file) as f:
+        with open(grace_file, encoding="utf-8") as f:
             data = json.load(f)
 
         entry_data = data.get("entries", {}).get(str(issue_number))
@@ -778,7 +778,7 @@ class OverrideManager:
         if not history_file.exists():
             return []
 
-        with open(history_file) as f:
+        with open(history_file, encoding="utf-8") as f:
             data = json.load(f)
 
         records = []
@@ -809,7 +809,7 @@ class OverrideManager:
         if not history_file.exists():
             return {"total": 0, "by_type": {}, "by_actor": {}}
 
-        with open(history_file) as f:
+        with open(history_file, encoding="utf-8") as f:
             data = json.load(f)
 
         stats = {

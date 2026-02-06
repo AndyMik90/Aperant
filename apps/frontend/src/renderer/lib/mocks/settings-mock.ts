@@ -20,14 +20,24 @@ export const settingsMock = {
   getSentryDsn: async () => '',  // No DSN in browser mode
   getSentryConfig: async () => ({ dsn: '', tracesSampleRate: 0, profilesSampleRate: 0 }),
 
+  // Spell check (no-op in browser mode)
+  setSpellCheckLanguages: async () => ({ success: true, data: { success: true } }),
+
   getCliToolsInfo: async () => ({
     success: true,
     data: {
       python: { found: false, source: 'fallback' as const, message: 'Not available in browser mode' },
       git: { found: false, source: 'fallback' as const, message: 'Not available in browser mode' },
       gh: { found: false, source: 'fallback' as const, message: 'Not available in browser mode' },
+      glab: { found: false, source: 'fallback' as const, message: 'Not available in browser mode' },
       claude: { found: false, source: 'fallback' as const, message: 'Not available in browser mode' }
     }
+  }),
+
+  // Claude Code onboarding status (mock - always returns false in browser mode)
+  getClaudeCodeOnboardingStatus: async () => ({
+    success: true,
+    data: { hasCompletedOnboarding: false }
   }),
 
   // App Info
@@ -44,5 +54,7 @@ export const settingsMock = {
   onAppUpdateAvailable: () => () => {},
   onAppUpdateDownloaded: () => () => {},
   onAppUpdateProgress: () => () => {},
-  onAppUpdateStableDowngrade: () => () => {}
+  onAppUpdateStableDowngrade: () => () => {},
+  onAppUpdateReadOnlyVolume: () => () => {},
+  onAppUpdateError: () => () => {}
 };

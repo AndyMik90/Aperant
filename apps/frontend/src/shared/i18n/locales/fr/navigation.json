@@ -21,7 +21,9 @@
   "actions": {
     "settings": "Paramètres",
     "help": "Aide & Feedback",
-    "newTask": "Nouvelle tâche"
+    "newTask": "Nouvelle tâche",
+    "collapseSidebar": "Réduire la barre latérale",
+    "expandSidebar": "Développer la barre latérale"
   },
   "tooltips": {
     "settings": "Paramètres de l'application",
@@ -37,7 +39,8 @@
     "installAndRestart": "Installer et redémarrer",
     "downloading": "Téléchargement...",
     "dismiss": "Ignorer",
-    "downloadError": "Échec du téléchargement de la mise à jour"
+    "downloadError": "Échec du téléchargement de la mise à jour",
+    "readOnlyVolumeWarning": "Déplacez l'app dans le dossier Applications pour mettre à jour"
   },
   "claudeCode": {
     "checking": "Vérification de Claude Code...",
@@ -58,7 +61,8 @@
     "viewChangelogAriaLabel": "Voir le journal des modifications Claude Code (s'ouvre dans une nouvelle fenêtre)",
     "updateWarningTitle": "Mettre à jour Claude Code ?",
     "updateWarningDescription": "La mise à jour fermera toutes les sessions Claude Code en cours. Tout travail non sauvegardé dans ces sessions pourrait être perdu. Assurez-vous de sauvegarder votre travail avant de continuer.",
-    "updateAnyway": "Mettre à jour quand même",
+    "updateWarningTerminalNote": "Une fenêtre de terminal s'ouvrira pour exécuter la commande d'installation. Veuillez attendre la fin de l'installation avant de continuer.",
+    "updateAnyway": "Ouvrir le terminal et mettre à jour",
     "switchVersion": "Changer de version",
     "selectVersion": "Sélectionner une version",
     "loadingVersions": "Chargement des versions...",
@@ -66,7 +70,8 @@
     "installingVersion": "Installation de la version {{version}}...",
     "rollbackWarningTitle": "Passer à la version {{version}} ?",
     "rollbackWarningDescription": "Le changement de version fermera toutes les sessions Claude Code en cours. Tout travail non sauvegardé dans ces sessions pourrait être perdu. Assurez-vous de sauvegarder votre travail avant de continuer.",
-    "switchAnyway": "Changer quand même",
+    "rollbackWarningTerminalNote": "Une fenêtre de terminal s'ouvrira pour exécuter la commande d'installation. Veuillez attendre la fin de l'installation avant de continuer.",
+    "switchAnyway": "Ouvrir le terminal et changer",
     "currentVersion": "Actuelle",
     "switchInstallation": "Changer d'installation",
     "selectInstallation": "Sélectionner une installation",

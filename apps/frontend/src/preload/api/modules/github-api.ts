@@ -189,6 +189,11 @@ export interface GitHubAPI {
     callback: (data: { deviceCode: string; authUrl: string; browserOpened: boolean }) => void
   ) => IpcListenerCleanup;
 
+  // OAuth event listener - notifies when GitHub account changes (via gh auth login)
+  onGitHubAuthChanged: (
+    callback: (data: { oldUsername: string | null; newUsername: string }) => void
+  ) => IpcListenerCleanup;
+
   // Repository detection and management
   detectGitHubRepo: (projectPath: string) => Promise<IPCResult<string>>;
   getGitHubBranches: (repo: string, token: string) => Promise<IPCResult<string[]>>;
@@ -262,8 +267,10 @@ export interface GitHubAPI {
     callback: (projectId: string, error: { error: string }) => void
   ) => IpcListenerCleanup;
 
-  // PR operations
-  listPRs: (projectId: string, page?: number) => Promise<PRData[]>;
+  // PR operations (fetches up to 100 open PRs at once - GitHub GraphQL limit)
+  listPRs: (projectId: string) => Promise<PRListResult>;
+  /** Load more PRs using cursor-based pagination */
+  listMorePRs: (projectId: string, cursor: string) => Promise<PRListResult>;
   getPR: (projectId: string, prNumber: number) => Promise<PRData | null>;
   runPRReview: (projectId: string, prNumber: number) => void;
   cancelPRReview: (projectId: string, prNumber: number) => Promise<boolean>;
@@ -272,12 +279,14 @@ export interface GitHubAPI {
   postPRComment: (projectId: string, prNumber: number, body: string) => Promise<boolean>;
   mergePR: (projectId: string, prNumber: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<boolean>;
   assignPR: (projectId: string, prNumber: number, username: string) => Promise<boolean>;
+  markReviewPosted: (projectId: string, prNumber: number) => Promise<boolean>;
   getPRReview: (projectId: string, prNumber: number) => Promise<PRReviewResult | null>;
   getPRReviewsBatch: (projectId: string, prNumbers: number[]) => Promise<Record<number, PRReviewResult | null>>;
 
   // Follow-up review operations
   checkNewCommits: (projectId: string, prNumber: number) => Promise<NewCommitsCheck>;
   checkMergeReadiness: (projectId: string, prNumber: number) => Promise<MergeReadiness>;
+  updatePRBranch: (projectId: string, prNumber: number) => Promise<{ success: boolean; error?: string }>;
   runFollowupReview: (projectId: string, prNumber: number) => void;
 
   // PR logs
@@ -323,6 +332,15 @@ export interface PRData {
   createdAt: string;
   updatedAt: string;
   htmlUrl: string;
+}
+
+/**
+ * PR list result with pagination info
+ */
+export interface PRListResult {
+  prs: PRData[];
+  hasNextPage: boolean; // True if more PRs exist beyond the 100 limit
+  endCursor?: string | null; // Cursor for fetching next page (null if no more pages)
 }
 
 /**
@@ -530,6 +548,12 @@ export const createGitHubAPI = (): GitHubAPI => ({
   ): IpcListenerCleanup =>
     createIpcListener(IPC_CHANNELS.GITHUB_AUTH_DEVICE_CODE, callback),
 
+  // OAuth event listener - notifies when GitHub account changes (via gh auth login)
+  onGitHubAuthChanged: (
+    callback: (data: { oldUsername: string | null; newUsername: string }) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_AUTH_CHANGED, callback),
+
   // Repository detection and management
   detectGitHubRepo: (projectPath: string): Promise<IPCResult<string>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_DETECT_REPO, projectPath),
@@ -650,8 +674,13 @@ export const createGitHubAPI = (): GitHubAPI => ({
     createIpcListener(IPC_CHANNELS.GITHUB_AUTOFIX_ANALYZE_PREVIEW_ERROR, callback),
 
   // PR operations
-  listPRs: (projectId: string, page: number = 1): Promise<PRData[]> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_PR_LIST, projectId, page),
+  // Fetches up to 100 open PRs at once (GitHub GraphQL limit)
+  listPRs: (projectId: string): Promise<PRListResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_LIST, projectId),
+
+  // Load more PRs using cursor-based pagination
+  listMorePRs: (projectId: string, cursor: string): Promise<PRListResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_LIST_MORE, projectId, cursor),
 
   getPR: (projectId: string, prNumber: number): Promise<PRData | null> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_GET, projectId, prNumber),
@@ -677,6 +706,9 @@ export const createGitHubAPI = (): GitHubAPI => ({
   assignPR: (projectId: string, prNumber: number, username: string): Promise<boolean> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_ASSIGN, projectId, prNumber, username),
 
+  markReviewPosted: (projectId: string, prNumber: number): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_MARK_REVIEW_POSTED, projectId, prNumber),
+
   getPRReview: (projectId: string, prNumber: number): Promise<PRReviewResult | null> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_GET_REVIEW, projectId, prNumber),
 
@@ -689,6 +721,9 @@ export const createGitHubAPI = (): GitHubAPI => ({
 
   checkMergeReadiness: (projectId: string, prNumber: number): Promise<MergeReadiness> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_CHECK_MERGE_READINESS, projectId, prNumber),
+
+  updatePRBranch: (projectId: string, prNumber: number): Promise<{ success: boolean; error?: string }> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_UPDATE_BRANCH, projectId, prNumber),
 
   runFollowupReview: (projectId: string, prNumber: number): void =>
     sendIpc(IPC_CHANNELS.GITHUB_PR_FOLLOWUP_REVIEW, projectId, prNumber),

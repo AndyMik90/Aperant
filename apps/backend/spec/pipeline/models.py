@@ -218,7 +218,7 @@ def rename_spec_dir_from_requirements(spec_dir: Path) -> bool:
         return False
 
     try:
-        with open(requirements_file) as f:
+        with open(requirements_file, encoding="utf-8") as f:
             req = json.load(f)
 
         task_desc = req.get("task_description", "")

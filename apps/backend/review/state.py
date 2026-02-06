@@ -85,7 +85,7 @@ class ReviewState:
     def save(self, spec_dir: Path) -> None:
         """Save state to the spec directory."""
         state_file = Path(spec_dir) / REVIEW_STATE_FILE
-        with open(state_file, "w") as f:
+        with open(state_file, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, indent=2)
 
     @classmethod
@@ -100,9 +100,9 @@ class ReviewState:
             return cls()
 
         try:
-            with open(state_file) as f:
+            with open(state_file, encoding="utf-8") as f:
                 return cls.from_dict(json.load(f))
-        except (OSError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
             return cls()
 
     def is_approved(self) -> bool:

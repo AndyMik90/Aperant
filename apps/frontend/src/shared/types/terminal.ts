@@ -2,12 +2,24 @@
  * Terminal-related types
  */
 
+/**
+ * Shell type for Windows terminals.
+ * Used to determine correct command chaining syntax:
+ * - 'powershell': Uses ';' (PowerShell 5.1 doesn't support '&&')
+ * - 'cmd': Uses '&&' (cmd.exe, PowerShell 7+, bash, etc.)
+ */
+export type WindowsShellType = 'powershell' | 'cmd';
+
 export interface TerminalCreateOptions {
   id: string;
   cwd?: string;
   cols?: number;
   rows?: number;
   projectPath?: string;
+  /** Skip injecting OAuth token into terminal environment (used for auth terminals) */
+  skipOAuthToken?: boolean;
+  /** Custom environment variables to add to the terminal (merged with defaults) */
+  env?: Record<string, string>;
 }
 
 export interface TerminalResizeOptions {
@@ -29,6 +41,8 @@ export interface TerminalSession {
   outputBuffer: string;
   createdAt: string;
   lastActiveAt: string;
+  /** Display order for tab persistence (lower = further left) */
+  displayOrder?: number;
   /** Associated worktree configuration (validated on restore) */
   worktreeConfig?: TerminalWorktreeConfig;
 }
@@ -122,6 +136,51 @@ export interface SDKRateLimitInfo {
 }
 
 /**
+ * Authentication failure information for SDK/CLI operations.
+ * Emitted when Claude CLI encounters a 401 or other auth error,
+ * indicating the token needs to be refreshed via re-authentication.
+ */
+export interface AuthFailureInfo {
+  /** The profile ID that failed to authenticate */
+  profileId: string;
+  /** The profile name for display */
+  profileName?: string;
+  /** Type of auth failure */
+  failureType: 'missing' | 'invalid' | 'expired' | 'unknown';
+  /** User-friendly message describing the failure */
+  message: string;
+  /** Original error message from the process output */
+  originalError?: string;
+  /** Task ID if applicable (for task-related auth failures) */
+  taskId?: string;
+  /** When detected (Note: serialized as ISO string over IPC) */
+  detectedAt: Date;
+}
+
+/**
+ * Billing/credit exhaustion failure information for SDK/CLI operations.
+ * Emitted when Claude API returns billing-related errors (HTTP 400 with
+ * invalid_request_error), indicating the account has insufficient credits,
+ * exceeded usage limits, or has a billing configuration issue.
+ */
+export interface BillingFailureInfo {
+  /** The profile ID that has billing issues */
+  profileId: string;
+  /** The profile name for display */
+  profileName?: string;
+  /** Type of billing failure */
+  failureType: 'insufficient_credits' | 'payment_required' | 'subscription_inactive' | 'unknown';
+  /** User-friendly message describing the failure */
+  message: string;
+  /** Original error message from the process output */
+  originalError?: string;
+  /** Task ID if applicable (for task-related billing failures) */
+  taskId?: string;
+  /** When detected (Note: serialized as ISO string over IPC) */
+  detectedAt: Date;
+}
+
+/**
  * Request to retry a rate-limited operation with a different profile
  */
 export interface RetryWithProfileRequest {
@@ -178,6 +237,12 @@ export interface CreateTerminalWorktreeRequest {
   projectPath: string;
   /** Optional base branch to create worktree from (defaults to project default) */
   baseBranch?: string;
+  /**
+   * When true, use the local branch directly without auto-switching to remote.
+   * This preserves gitignored files (.env, configs) that may not exist on remote.
+   * When false or undefined, the default behavior prefers origin/branch if it exists.
+   */
+  useLocalBranch?: boolean;
 }
 
 /**
@@ -187,4 +252,19 @@ export interface TerminalWorktreeResult {
   success: boolean;
   config?: TerminalWorktreeConfig;
   error?: string;
+}
+
+/**
+ * Information about a worktree not managed by Auto Claude
+ * Discovered via `git worktree list` excluding Auto Claude paths
+ */
+export interface OtherWorktreeInfo {
+  /** Full path to the worktree */
+  path: string;
+  /** Git branch name, or null if in detached HEAD state */
+  branch: string | null;
+  /** Short commit SHA (first 8 chars) */
+  commitSha: string;
+  /** Display name (last directory component of path) */
+  displayName: string;
 }

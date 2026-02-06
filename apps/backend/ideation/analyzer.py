@@ -51,7 +51,7 @@ class ProjectAnalyzer:
         project_index_path = self.project_dir / ".auto-claude" / "project_index.json"
         if project_index_path.exists():
             try:
-                with open(project_index_path) as f:
+                with open(project_index_path, encoding="utf-8") as f:
                     index = json.load(f)
                     # Extract tech stack from services
                     for service_name, service_info in index.get("services", {}).items():
@@ -70,7 +70,7 @@ class ProjectAnalyzer:
             )
             if roadmap_path.exists():
                 try:
-                    with open(roadmap_path) as f:
+                    with open(roadmap_path, encoding="utf-8") as f:
                         roadmap = json.load(f)
                         # Extract planned features
                         for feature in roadmap.get("features", []):
@@ -87,7 +87,7 @@ class ProjectAnalyzer:
             )
             if discovery_path.exists() and not context["target_audience"]:
                 try:
-                    with open(discovery_path) as f:
+                    with open(discovery_path, encoding="utf-8") as f:
                         discovery = json.load(f)
                         audience = discovery.get("target_audience", {})
                         context["target_audience"] = audience.get("primary_persona")
@@ -109,7 +109,7 @@ class ProjectAnalyzer:
                         spec_file = spec_dir / "spec.md"
                         if spec_file.exists():
                             # Extract title from spec
-                            content = spec_file.read_text()
+                            content = spec_file.read_text(encoding="utf-8")
                             lines = content.split("\n")
                             for line in lines:
                                 if line.startswith("# "):

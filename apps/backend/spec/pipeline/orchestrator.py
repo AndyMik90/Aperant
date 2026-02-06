@@ -10,6 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from analysis.analyzers import analyze_project
+from core.task_event import TaskEventEmitter
 from core.workspace.models import SpecNumberLock
 from phase_config import get_thinking_budget
 from prompts_pkg.project_context import should_refresh_project_index
@@ -234,6 +235,7 @@ class SpecOrchestrator:
         # Initialize task logger for planning phase
         task_logger = get_task_logger(self.spec_dir)
         task_logger.start_phase(LogPhase.PLANNING, "Starting spec creation process")
+        TaskEventEmitter.from_spec_dir(self.spec_dir).emit("PLANNING_STARTED")
 
         print(
             box(
@@ -408,6 +410,28 @@ class SpecOrchestrator:
             LogPhase.PLANNING, success=True, message="Spec creation complete"
         )
 
+        # Load task metadata to check requireReviewBeforeCoding setting
+        task_metadata_file = self.spec_dir / "task_metadata.json"
+        require_review_before_coding = False
+        if task_metadata_file.exists():
+            with open(task_metadata_file, encoding="utf-8") as f:
+                task_metadata = json.load(f)
+                require_review_before_coding = task_metadata.get(
+                    "requireReviewBeforeCoding", False
+                )
+
+        # Emit PLANNING_COMPLETE event for XState machine transition
+        # This signals the frontend that spec creation is done
+        task_emitter = TaskEventEmitter.from_spec_dir(self.spec_dir)
+        task_emitter.emit(
+            "PLANNING_COMPLETE",
+            {
+                "hasSubtasks": False,  # Spec creation doesn't have subtasks yet
+                "subtaskCount": 0,
+                "requireReviewBeforeCoding": require_review_before_coding,
+            },
+        )
+
         # === HUMAN REVIEW CHECKPOINT ===
         return self._run_review_checkpoint(auto_approve)
 
@@ -478,7 +502,7 @@ class SpecOrchestrator:
         if not requirements_file.exists():
             return ""
 
-        with open(requirements_file) as f:
+        with open(requirements_file, encoding="utf-8") as f:
             req = json.load(f)
             self.task_description = req.get("task_description", self.task_description)
             return f"""
@@ -581,7 +605,7 @@ class SpecOrchestrator:
         project_index = {}
         auto_build_index = self.project_dir / "auto-claude" / "project_index.json"
         if auto_build_index.exists():
-            with open(auto_build_index) as f:
+            with open(auto_build_index, encoding="utf-8") as f:
                 project_index = json.load(f)
 
         analyzer = complexity.ComplexityAnalyzer(project_index)

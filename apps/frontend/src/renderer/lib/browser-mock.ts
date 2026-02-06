@@ -90,6 +90,11 @@ const browserMockAPI: ElectronAPI = {
 
   stopRoadmap: async () => ({ success: true }),
 
+  // Roadmap Progress Persistence
+  saveRoadmapProgress: async () => ({ success: true }),
+  loadRoadmapProgress: async () => ({ success: true, data: null }),
+  clearRoadmapProgress: async () => ({ success: true }),
+
   // Roadmap Event Listeners
   onRoadmapProgress: () => () => {},
   onRoadmapComplete: () => () => {},
@@ -184,6 +189,7 @@ const browserMockAPI: ElectronAPI = {
     addGitRemote: async () => ({ success: true, data: { remoteUrl: '' } }),
     listGitHubOrgs: async () => ({ success: true, data: { orgs: [] } }),
     onGitHubAuthDeviceCode: () => () => {},
+    onGitHubAuthChanged: () => () => {},
     onGitHubInvestigationProgress: () => () => {},
     onGitHubInvestigationComplete: () => () => {},
     onGitHubInvestigationError: () => () => {},
@@ -196,7 +202,8 @@ const browserMockAPI: ElectronAPI = {
     onAutoFixProgress: () => () => {},
     onAutoFixComplete: () => () => {},
     onAutoFixError: () => () => {},
-    listPRs: async () => [],
+    listPRs: async () => ({ prs: [], hasNextPage: false }),
+    listMorePRs: async () => ({ prs: [], hasNextPage: false }),
     getPR: async () => null,
     runPRReview: () => {},
     cancelPRReview: async () => true,
@@ -204,11 +211,13 @@ const browserMockAPI: ElectronAPI = {
     postPRComment: async () => true,
     mergePR: async () => true,
     assignPR: async () => true,
+    markReviewPosted: async () => true,
     getPRReview: async () => null,
     getPRReviewsBatch: async () => ({}),
     deletePRReview: async () => true,
     checkNewCommits: async () => ({ hasNewCommits: false, newCommitCount: 0 }),
     checkMergeReadiness: async () => ({ isDraft: false, mergeable: 'UNKNOWN' as const, isBehind: false, ciStatus: 'none' as const, blockers: [] }),
+    updatePRBranch: async () => ({ success: true }),
     runFollowupReview: () => {},
     getPRLogs: async () => null,
     getWorkflowsAwaitingApproval: async () => ({ awaiting_approval: 0, workflow_runs: [], can_approve: false }),
@@ -227,6 +236,18 @@ const browserMockAPI: ElectronAPI = {
     onAnalyzePreviewProgress: () => () => {},
     onAnalyzePreviewComplete: () => () => {},
     onAnalyzePreviewError: () => () => {}
+  },
+
+  // Queue Routing API (rate limit recovery)
+  queue: {
+    getRunningTasksByProfile: async () => ({ success: true, data: { byProfile: {}, totalRunning: 0 } }),
+    getBestProfileForTask: async () => ({ success: true, data: null }),
+    assignProfileToTask: async () => ({ success: true }),
+    updateTaskSession: async () => ({ success: true }),
+    getTaskSession: async () => ({ success: true, data: null }),
+    onQueueProfileSwapped: () => () => {},
+    onQueueSessionCaptured: () => () => {},
+    onQueueBlockedNoProfiles: () => () => {}
   },
 
   // Claude Code Operations
@@ -292,6 +313,10 @@ const browserMockAPI: ElectronAPI = {
     success: false,
     error: 'Not available in browser mode'
   }),
+  listOtherWorktrees: async () => ({
+    success: true,
+    data: []
+  }),
 
   // MCP Server Health Check Operations
   checkMcpHealth: async (server) => ({
@@ -310,6 +335,16 @@ const browserMockAPI: ElectronAPI = {
       success: false,
       message: 'Connection test not available in browser mode'
     }
+  }),
+
+  // Screenshot capture operations
+  getSources: async () => ({
+    success: true,
+    data: []
+  }),
+  capture: async (_options: { sourceId: string }) => ({
+    success: false,
+    error: 'Screenshot capture not available in browser mode'
   }),
 
   // Debug Operations

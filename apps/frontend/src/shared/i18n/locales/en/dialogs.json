@@ -54,7 +54,11 @@
     "merge": "Merge Worktree",
     "mergeDescription": "Merge changes from this worktree into the base branch.",
     "delete": "Delete Worktree?",
-    "deleteDescription": "This will permanently delete the worktree and all uncommitted changes. This action cannot be undone."
+    "deleteDescription": "This will permanently delete the worktree and all uncommitted changes. This action cannot be undone.",
+    "bulkDeleteTitle": "Delete {{count}} Worktrees?",
+    "bulkDeleteDescription": "This will permanently delete the selected worktrees and all their uncommitted changes. This action cannot be undone.",
+    "deleting": "Deleting...",
+    "deleteSelected": "Delete Selected"
   },
   "worktreeCleanup": {
     "title": "Complete Task",
@@ -158,6 +162,19 @@
     "updateDownloaded": "Update downloaded successfully! Click Install to restart and apply the update.",
     "downloadError": "Failed to download update",
     "claudeCodeChangelog": "View Claude Code Changelog",
-    "claudeCodeChangelogAriaLabel": "View Claude Code Changelog (opens in new window)"
+    "claudeCodeChangelogAriaLabel": "View Claude Code Changelog (opens in new window)",
+    "readOnlyVolumeTitle": "Cannot install from disk image",
+    "readOnlyVolumeDescription": "Please move Auto Claude to your Applications folder before updating."
+  },
+  "versionWarning": {
+    "title": "Action Required",
+    "subtitle": "Version 2.7.5 Update",
+    "description": "Due to authentication changes in this version, you need to re-authenticate your Claude profile.",
+    "instructions": "To re-authenticate:",
+    "step1": "Go to Settings",
+    "step2": "Navigate to App Settings > Integrations",
+    "step3": "Click \"Re-authenticate\" on your profile",
+    "gotIt": "Got It",
+    "goToSettings": "Go to Settings"
   }
 }

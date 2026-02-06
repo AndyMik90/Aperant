@@ -9,6 +9,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { existsSync, readdirSync } from 'fs';
 import { isWindows, isMacOS, getHomebrewPath, joinPaths, getExecutableExtension } from './index';
+import { getWhereExePath } from '../utils/windows-paths';
 
 /**
  * Resolve Claude CLI executable path
@@ -174,7 +175,7 @@ export function getWindowsShellPaths(): Record<string, string[]> {
     return {};
   }
 
-  const systemRoot = process.env.SystemRoot || 'C:\\Windows';
+  const systemRoot = process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows';
 
   // Note: path.join('C:', 'foo') produces 'C:foo' (relative to C: drive), not 'C:\foo'
   // We must use 'C:\\' or raw paths like 'C:\\Program Files' to get absolute paths
@@ -237,6 +238,74 @@ export function expandWindowsEnvVars(pathPattern: string): string {
   }
 
   return expanded;
+}
+
+/**
+ * Resolve Ollama executable paths
+ *
+ * Returns platform-specific paths where Ollama may be installed:
+ * - Windows: LocalAppData, Program Files
+ * - macOS: Homebrew paths, /usr/local/bin
+ * - Linux: /usr/local/bin, /usr/bin, ~/.local/bin
+ */
+export function getOllamaExecutablePaths(): string[] {
+  const homeDir = os.homedir();
+  const paths: string[] = [];
+
+  if (isWindows()) {
+    const localAppData = process.env.LOCALAPPDATA || joinPaths(homeDir, 'AppData', 'Local');
+    paths.push(
+      joinPaths(localAppData, 'Programs', 'Ollama', 'ollama.exe'),
+      joinPaths(localAppData, 'Ollama', 'ollama.exe'),
+      joinPaths('C:\\Program Files', 'Ollama', 'ollama.exe'),
+      joinPaths('C:\\Program Files (x86)', 'Ollama', 'ollama.exe')
+    );
+  } else if (isMacOS()) {
+    paths.push(
+      '/usr/local/bin/ollama',
+      '/opt/homebrew/bin/ollama',
+      joinPaths(homeDir, '.local', 'bin', 'ollama')
+    );
+  } else {
+    // Linux
+    paths.push(
+      '/usr/local/bin/ollama',
+      '/usr/bin/ollama',
+      joinPaths(homeDir, '.local', 'bin', 'ollama')
+    );
+  }
+
+  return paths;
+}
+
+/**
+ * Get the platform-specific install command for Ollama
+ *
+ * Windows: Uses winget (Windows Package Manager)
+ * macOS: Uses Homebrew
+ * Linux: Uses official install script
+ */
+export function getOllamaInstallCommand(): string {
+  if (isWindows()) {
+    return 'winget install --id Ollama.Ollama --accept-source-agreements';
+  } else if (isMacOS()) {
+    return 'brew install ollama';
+  } else {
+    return 'curl -fsSL https://ollama.com/install.sh | sh';
+  }
+}
+
+/**
+ * Get the command to find executables in PATH
+ *
+ * Windows: Full path to where.exe (C:\Windows\System32\where.exe)
+ *          Using full path ensures it works even when System32 isn't in PATH,
+ *          which can happen in restricted environments or when Electron doesn't
+ *          inherit the full system PATH.
+ * Unix: which
+ */
+export function getWhichCommand(): string {
+  return isWindows() ? getWhereExePath() : 'which';
 }
 
 /**

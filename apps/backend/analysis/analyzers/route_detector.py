@@ -66,7 +66,7 @@ class RouteDetector(BaseAnalyzer):
 
         for file_path in files_to_check:
             try:
-                content = file_path.read_text()
+                content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 continue
 
@@ -130,7 +130,7 @@ class RouteDetector(BaseAnalyzer):
 
         for file_path in files_to_check:
             try:
-                content = file_path.read_text()
+                content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 continue
 
@@ -179,7 +179,7 @@ class RouteDetector(BaseAnalyzer):
 
         for file_path in url_files:
             try:
-                content = file_path.read_text()
+                content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 continue
 
@@ -218,7 +218,7 @@ class RouteDetector(BaseAnalyzer):
         files_to_check = js_files + ts_files
         for file_path in files_to_check:
             try:
-                content = file_path.read_text()
+                content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 continue
 
@@ -283,7 +283,7 @@ class RouteDetector(BaseAnalyzer):
                 route_path = re.sub(r"\[([^\]]+)\]", r":\1", route_path)
 
                 try:
-                    content = route_file.read_text()
+                    content = route_file.read_text(encoding="utf-8")
                     # Detect exported methods: export async function GET(request)
                     methods = re.findall(
                         r"export\s+(?:async\s+)?function\s+(GET|POST|PUT|DELETE|PATCH)",
@@ -348,7 +348,7 @@ class RouteDetector(BaseAnalyzer):
 
         for file_path in go_files:
             try:
-                content = file_path.read_text()
+                content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 continue
 
@@ -384,7 +384,7 @@ class RouteDetector(BaseAnalyzer):
 
         for file_path in rust_files:
             try:
-                content = file_path.read_text()
+                content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 continue
 

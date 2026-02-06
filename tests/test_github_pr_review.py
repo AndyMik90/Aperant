@@ -5,12 +5,10 @@ Tests for GitHub PR Review System
 Tests the PR review orchestrator and follow-up review functionality.
 """
 
-import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-from dataclasses import asdict
+from unittest.mock import patch
 
 import pytest
 
@@ -30,12 +28,13 @@ from models import (
     MergeVerdict,
     FollowupReviewContext,
 )
-from bot_detection import BotDetector, BotDetectionState
+from bot_detection import BotDetector
 
 
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def temp_github_dir(tmp_path):
@@ -98,6 +97,7 @@ def mock_bot_detector(tmp_path):
 # PRReviewResult Tests
 # ============================================================================
 
+
 class TestPRReviewResult:
     """Test PRReviewResult model."""
 
@@ -108,7 +108,9 @@ class TestPRReviewResult:
         await sample_review_result.save(temp_github_dir)
 
         # Verify file exists
-        review_file = temp_github_dir / "pr" / f"review_{sample_review_result.pr_number}.json"
+        review_file = (
+            temp_github_dir / "pr" / f"review_{sample_review_result.pr_number}.json"
+        )
         assert review_file.exists()
 
         # Load
@@ -192,6 +194,7 @@ class TestPRReviewFinding:
 # Follow-up Review Context Tests
 # ============================================================================
 
+
 class TestFollowupReviewContext:
     """Test FollowupReviewContext model."""
 
@@ -225,7 +228,9 @@ class TestFollowupReviewContext:
         assert context.error is not None
         assert "Failed to compare commits" in context.error
 
-    def test_context_rebase_detected_files_changed_no_commits(self, sample_review_result):
+    def test_context_rebase_detected_files_changed_no_commits(
+        self, sample_review_result
+    ):
         """Test follow-up context when PR was rebased (files changed but no trackable commits).
 
         After a rebase/force-push, commit SHAs are rewritten so we can't identify "new" commits.
@@ -238,7 +243,10 @@ class TestFollowupReviewContext:
             previous_commit_sha="abc123",  # This SHA no longer exists in PR after rebase
             current_commit_sha="xyz789",
             commits_since_review=[],  # Empty after rebase - can't determine "new" commits
-            files_changed_since_review=["src/db.py", "src/api.py"],  # But blob comparison found changes
+            files_changed_since_review=[
+                "src/db.py",
+                "src/api.py",
+            ],  # But blob comparison found changes
             diff_since_review="--- a/src/db.py\n+++ b/src/db.py\n@@ -1,3 +1,3 @@\n-old\n+new",
         )
 
@@ -253,7 +261,9 @@ class TestFollowupReviewContext:
         has_changes = bool(context.commits_since_review) or bool(
             context.files_changed_since_review
         )
-        assert has_changes is True, "Rebase with file changes should be treated as having changes"
+        assert has_changes is True, (
+            "Rebase with file changes should be treated as having changes"
+        )
 
     def test_context_truly_no_changes(self, sample_review_result):
         """Test follow-up context when there are truly no changes (same SHA, no files)."""
@@ -277,6 +287,7 @@ class TestFollowupReviewContext:
 # ============================================================================
 # Bot Detection Integration Tests
 # ============================================================================
+
 
 class TestBotDetectionIntegration:
     """Test bot detection integration with review flow."""
@@ -332,11 +343,14 @@ class TestBotDetectionIntegration:
 # Orchestrator Skip Logic Tests
 # ============================================================================
 
+
 class TestOrchestratorSkipLogic:
     """Test orchestrator behavior when bot detection skips."""
 
     @pytest.mark.asyncio
-    async def test_skip_returns_existing_review(self, temp_github_dir, sample_review_result):
+    async def test_skip_returns_existing_review(
+        self, temp_github_dir, sample_review_result
+    ):
         """Test that skipping 'Already reviewed' returns existing review."""
         # Save existing review
         await sample_review_result.save(temp_github_dir)
@@ -371,10 +385,38 @@ class TestOrchestratorSkipLogic:
             assert len(result.findings) == 0
             assert "bot user" in result.summary
 
+    @pytest.mark.asyncio
+    async def test_failed_review_model_persistence(self, temp_github_dir):
+        """Test that a failed PRReviewResult can be saved and loaded with success=False.
+
+        This verifies that the model correctly persists failure state, which is
+        a prerequisite for the orchestrator's re-review logic (tested separately
+        in TestOrchestratorReReviewLogic).
+        """
+        failed_review = PRReviewResult(
+            pr_number=789,
+            repo="test/repo",
+            success=False,
+            findings=[],
+            summary="Review failed: SDK validation error",
+            overall_status="comment",
+            error="SDK stream processing failed",
+            reviewed_commit_sha="abc123def456",
+        )
+        await failed_review.save(temp_github_dir)
+
+        # Verify the failed review can be loaded and maintains its failure state
+        loaded_review = PRReviewResult.load(temp_github_dir, 789)
+        assert loaded_review is not None
+        assert loaded_review.success is False
+        assert loaded_review.error == "SDK stream processing failed"
+        assert loaded_review.reviewed_commit_sha == "abc123def456"
+
 
 # ============================================================================
 # Follow-up Review Logic Tests
 # ============================================================================
+
 
 class TestFollowupReviewLogic:
     """Test follow-up review resolution logic."""
@@ -445,6 +487,7 @@ class TestFollowupReviewLogic:
 # Posted Findings Tracking Tests
 # ============================================================================
 
+
 class TestPostedFindingsTracking:
     """Test posted findings tracking for follow-up eligibility."""
 
@@ -462,7 +505,9 @@ class TestPostedFindingsTracking:
         assert len(sample_review_result.posted_finding_ids) == 1
 
     @pytest.mark.asyncio
-    async def test_posted_findings_serialization(self, temp_github_dir, sample_review_result):
+    async def test_posted_findings_serialization(
+        self, temp_github_dir, sample_review_result
+    ):
         """Test that posted findings are serialized correctly."""
         # Set posted findings
         sample_review_result.has_posted_findings = True
@@ -483,6 +528,7 @@ class TestPostedFindingsTracking:
 # ============================================================================
 # Error Handling Tests
 # ============================================================================
+
 
 class TestErrorHandling:
     """Test error handling in review flow."""
@@ -538,6 +584,7 @@ class TestErrorHandling:
 # ============================================================================
 # Blocker Generation Tests
 # ============================================================================
+
 
 class TestBlockerGeneration:
     """Test blocker generation from findings."""

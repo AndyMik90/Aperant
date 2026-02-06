@@ -43,11 +43,19 @@ export const claudeProfileMock = {
       sessionThreshold: 95,
       weeklyThreshold: 99,
       autoSwitchOnRateLimit: false,
+      autoSwitchOnAuthFailure: false,
       usageCheckInterval: 30000
     }
   }),
 
   updateAutoSwitchSettings: async () => ({ success: true }),
+
+  getAccountPriorityOrder: async () => ({
+    success: true,
+    data: [] as string[]
+  }),
+
+  setAccountPriorityOrder: async () => ({ success: true }),
 
   fetchClaudeUsage: async () => ({ success: true }),
 
@@ -58,6 +66,8 @@ export const claudeProfileMock = {
 
   onSDKRateLimit: () => () => {},
 
+  onAuthFailure: () => () => {},
+
   retryWithProfile: async () => ({ success: true }),
 
   // Usage Monitoring (Proactive Account Switching)
@@ -66,7 +76,25 @@ export const claudeProfileMock = {
     data: null
   }),
 
+  requestAllProfilesUsage: async (_forceRefresh?: boolean) => ({
+    success: true,
+    data: null
+  }),
+
   onUsageUpdated: () => () => {},
 
-  onProactiveSwapNotification: () => () => {}
+  onAllProfilesUsageUpdated: () => () => {},
+
+  onProactiveSwapNotification: () => () => {},
+
+  // Returns terminal config for embedded authentication
+  authenticateClaudeProfile: async (profileId: string) => ({
+    success: true,
+    data: { terminalId: `claude-login-${profileId}-${Date.now()}`, configDir: '/mock/config' }
+  }),
+
+  verifyClaudeProfileAuth: async (_profileId: string) => ({
+    success: true,
+    data: { authenticated: false, email: undefined }
+  })
 };

@@ -8,6 +8,8 @@ interface PhaseProgressIndicatorProps {
   phase?: ExecutionPhase;
   subtasks: Subtask[];
   phaseLogs?: TaskLogs | null;
+  /** Fallback progress percentage (0-100) when phaseLogs unavailable */
+  phaseProgress?: number;
   isStuck?: boolean;
   isRunning?: boolean;
   className?: string;
@@ -18,6 +20,8 @@ const PHASE_COLORS: Record<ExecutionPhase, { color: string; bgColor: string }> =
   idle: { color: 'bg-muted-foreground', bgColor: 'bg-muted' },
   planning: { color: 'bg-amber-500', bgColor: 'bg-amber-500/20' },
   coding: { color: 'bg-info', bgColor: 'bg-info/20' },
+  rate_limit_paused: { color: 'bg-orange-500', bgColor: 'bg-orange-500/20' },
+  auth_failure_paused: { color: 'bg-red-500', bgColor: 'bg-red-500/20' },
   qa_review: { color: 'bg-purple-500', bgColor: 'bg-purple-500/20' },
   qa_fixing: { color: 'bg-orange-500', bgColor: 'bg-orange-500/20' },
   complete: { color: 'bg-success', bgColor: 'bg-success/20' },
@@ -29,6 +33,8 @@ const PHASE_LABEL_KEYS: Record<ExecutionPhase, string> = {
   idle: 'execution.phases.idle',
   planning: 'execution.phases.planning',
   coding: 'execution.phases.coding',
+  rate_limit_paused: 'execution.phases.rate_limit_paused',
+  auth_failure_paused: 'execution.phases.auth_failure_paused',
   qa_review: 'execution.phases.reviewing',
   qa_fixing: 'execution.phases.fixing',
   complete: 'execution.phases.complete',
@@ -47,6 +53,7 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
   phase: rawPhase,
   subtasks,
   phaseLogs,
+  phaseProgress,
   isStuck = false,
   isRunning = false,
   className,
@@ -140,6 +147,8 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
             <span className="text-muted-foreground">
               {activeEntries} {activeEntries === 1 ? t('execution.labels.entry') : t('execution.labels.entries')}
             </span>
+          ) : isRunning && isIndeterminatePhase && (phaseProgress ?? 0) > 0 ? (
+            `${Math.round(Math.min(phaseProgress!, 100))}%`
           ) : (
             '—'
           )}
@@ -191,15 +200,6 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
             <motion.div
               key="indeterminate-static"
               className={cn('absolute h-full w-1/3 rounded-full left-1/3', colors.color)}
-            />
-          ) : totalSubtasks > 0 ? (
-            // Static progress based on subtasks (when not running)
-            <motion.div
-              key="static"
-              className={cn('h-full rounded-full', colors.color)}
-              initial={{ width: 0 }}
-              animate={{ width: `${subtaskProgress}%` }}
-              transition={{ duration: 0.5, ease: 'easeOut' }}
             />
           ) : null}
         </AnimatePresence>

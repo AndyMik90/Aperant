@@ -62,19 +62,21 @@ const mockCreateIPCCommunicators = vi.fn(
 const projectRef: { current: Project | null } = { current: null };
 const tempDirs: string[] = [];
 
+class MockBrowserWindow {}
 vi.mock('electron', () => ({
   ipcMain: mockIpcMain,
-  BrowserWindow: class {},
+  BrowserWindow: MockBrowserWindow,
   app: {
     getPath: vi.fn(() => '/tmp'),
     on: vi.fn(),
   },
 }));
 
+class MockAgentManager {
+  startSpecCreation = vi.fn();
+}
 vi.mock('../../../agent/agent-manager', () => ({
-  AgentManager: class {
-    startSpecCreation = vi.fn();
-  },
+  AgentManager: MockAgentManager,
 }));
 
 vi.mock('../utils/ipc-communicator', () => ({

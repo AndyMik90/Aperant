@@ -1,9 +1,10 @@
 import { spawn } from 'child_process';
 import * as os from 'os';
 import type { GitCommit } from '../../shared/types';
-import { getProfileEnv } from '../rate-limit-detector';
+import { getBestAvailableProfileEnv } from '../rate-limit-detector';
 import { parsePythonCommand } from '../python-detector';
 import { getAugmentedEnv } from '../env-utils';
+import { isWindows, requiresShell } from '../platform';
 
 interface VersionSuggestion {
   version: string;
@@ -64,11 +65,11 @@ export class VersionSuggester {
       let errorOutput = '';
 
       childProcess.stdout?.on('data', (data: Buffer) => {
-        output += data.toString();
+        output += data.toString('utf-8');
       });
 
       childProcess.stderr?.on('data', (data: Buffer) => {
-        errorOutput += data.toString();
+        errorOutput += data.toString('utf-8');
       });
 
       childProcess.on('exit', (code: number | null) => {
@@ -126,6 +127,9 @@ Respond with ONLY a JSON object in this exact format (no markdown, no extra text
 
   /**
    * Create Python script to run Claude analysis
+   *
+   * On Windows, .cmd/.bat files require shell=True in subprocess.run() because
+   * they are batch scripts that need cmd.exe to execute, not direct executables.
    */
   private createAnalysisScript(prompt: string): string {
     // Escape the prompt for Python string literal
@@ -133,6 +137,15 @@ Respond with ONLY a JSON object in this exact format (no markdown, no extra text
       .replace(/\\/g, '\\\\')
       .replace(/"/g, '\\"')
       .replace(/\n/g, '\\n');
+
+    // Escape the claude path for Python string (handle Windows backslashes)
+    const escapedClaudePath = this.claudePath
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"');
+
+    // Detect if this is a Windows batch file (.cmd or .bat)
+    // These require shell=True in subprocess.run() because they need cmd.exe to execute
+    const needsShell = requiresShell(this.claudePath);
 
     return `
 import subprocess
@@ -142,11 +155,13 @@ import sys
 prompt = "${escapedPrompt}"
 
 try:
+    # shell=${needsShell ? 'True' : 'False'} - Windows .cmd files require shell execution
     result = subprocess.run(
-        ["${this.claudePath}", "chat", "--model", "haiku", "--prompt", prompt],
+        ["${escapedClaudePath}", "chat", "--model", "haiku", "--prompt", prompt],
         capture_output=True,
         text=True,
-        check=True
+        check=True,
+        shell=${needsShell ? 'True' : 'False'}
     )
     print(result.stdout)
 except subprocess.CalledProcessError as e:
@@ -183,7 +198,6 @@ except Exception as e:
       case 'minor':
         newVersion = `${major}.${minor + 1}.0`;
         break;
-      case 'patch':
       default:
         newVersion = `${major}.${minor}.${patch + 1}`;
         break;
@@ -213,20 +227,20 @@ except Exception as e:
    */
   private buildSpawnEnvironment(): Record<string, string> {
     const homeDir = os.homedir();
-    const isWindows = process.platform === 'win32';
 
     // Use getAugmentedEnv() to ensure common tool paths are available
     // even when app is launched from Finder/Dock
     const augmentedEnv = getAugmentedEnv();
 
-    // Get active Claude profile environment
-    const profileEnv = getProfileEnv();
+    // Get best available Claude profile environment (automatically handles rate limits)
+    const profileResult = getBestAvailableProfileEnv();
+    const profileEnv = profileResult.env;
 
     const spawnEnv: Record<string, string> = {
       ...augmentedEnv,
       ...profileEnv,
       // Ensure critical env vars are set for claude CLI
-      ...(isWindows ? { USERPROFILE: homeDir } : { HOME: homeDir }),
+      ...(isWindows() ? { USERPROFILE: homeDir } : { HOME: homeDir }),
       USER: process.env.USER || process.env.USERNAME || 'user',
       PYTHONUNBUFFERED: '1',
       PYTHONIOENCODING: 'utf-8',

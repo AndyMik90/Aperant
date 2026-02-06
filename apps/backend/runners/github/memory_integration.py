@@ -193,7 +193,7 @@ class GitHubMemoryIntegration:
         insights_file = self.memory_dir / f"{self.repo.replace('/', '_')}_insights.json"
         if insights_file.exists():
             try:
-                with open(insights_file) as f:
+                with open(insights_file, encoding="utf-8") as f:
                     self._local_insights = json.load(f).get("insights", [])
             except (json.JSONDecodeError, KeyError):
                 self._local_insights = []
@@ -201,7 +201,7 @@ class GitHubMemoryIntegration:
     def _save_local_insights(self) -> None:
         """Save insights locally."""
         insights_file = self.memory_dir / f"{self.repo.replace('/', '_')}_insights.json"
-        with open(insights_file, "w") as f:
+        with open(insights_file, "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "repo": self.repo,

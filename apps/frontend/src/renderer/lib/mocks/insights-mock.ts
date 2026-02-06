@@ -107,5 +107,6 @@ export const insightsMock = {
 
   onInsightsStreamChunk: () => () => {},
   onInsightsStatus: () => () => {},
-  onInsightsError: () => () => {}
+  onInsightsError: () => () => {},
+  onInsightsSessionUpdated: () => () => {}
 };

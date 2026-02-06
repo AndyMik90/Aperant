@@ -369,7 +369,7 @@ class AuditLogger:
 
         try:
             log_file = self._get_log_file_path()
-            with open(log_file, "a") as f:
+            with open(log_file, "a", encoding="utf-8") as f:
                 f.write(entry.to_json() + "\n")
         except Exception as e:
             logger.error(f"Failed to write audit log: {e}")
@@ -585,7 +585,7 @@ class AuditLogger:
 
         for log_file in sorted(self.log_dir.glob("audit_*.jsonl"), reverse=True):
             try:
-                with open(log_file) as f:
+                with open(log_file, encoding="utf-8") as f:
                     for line in f:
                         if not line.strip():
                             continue

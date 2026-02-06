@@ -5,7 +5,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { ClaudeProfile, ClaudeProfileSettings, ElectronAPI } from '../../shared/types';
+import type { ClaudeProfile } from '../../shared/types';
 
 // Import browser mock to get full ElectronAPI structure
 import '../lib/browser-mock';
@@ -426,7 +426,7 @@ describe('OAuthStep Profile Management Logic', () => {
     });
 
     it('should show "Active" badge for active profile', () => {
-      const profiles: ClaudeProfile[] = [
+      const _profiles: ClaudeProfile[] = [
         createTestProfile({ id: 'p1' }),
         createTestProfile({ id: 'p2' })
       ];

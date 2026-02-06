@@ -8,6 +8,7 @@ import path from 'path';
 import type { Project } from '../../../shared/types';
 import type { GitLabAPIIssue, GitLabConfig } from './types';
 import { labelMatchesWholeWord } from '../shared/label-utils';
+import { sanitizeText, sanitizeStringArray } from '../shared/sanitize';
 
 /**
  * Simplified task info returned when creating a spec from a GitLab issue.
@@ -102,33 +103,6 @@ function determineCategoryFromLabels(labels: string[]): 'feature' | 'bug_fix' | 
   return 'feature';
 }
 
-function stripControlChars(value: string, allowNewlines: boolean): string {
-  let sanitized = '';
-  for (let i = 0; i < value.length; i += 1) {
-    const code = value.charCodeAt(i);
-    if (code === 0x0A || code === 0x0D || code === 0x09) {
-      if (allowNewlines) {
-        sanitized += value[i];
-      }
-      continue;
-    }
-    if (code <= 0x1F || code === 0x7F) {
-      continue;
-    }
-    sanitized += value[i];
-  }
-  return sanitized;
-}
-
-function sanitizeText(value: unknown, maxLength: number, allowNewlines = false): string {
-  if (typeof value !== 'string') return '';
-  let sanitized = stripControlChars(value, allowNewlines).trim();
-  if (sanitized.length > maxLength) {
-    sanitized = sanitized.substring(0, maxLength);
-  }
-  return sanitized;
-}
-
 function sanitizeIssueNumber(value: unknown): number {
   const issueId = typeof value === 'number' ? value : Number(value);
   if (!Number.isInteger(issueId) || issueId <= 0) {
@@ -139,21 +113,6 @@ function sanitizeIssueNumber(value: unknown): number {
 
 function sanitizeIssueState(value: unknown): 'opened' | 'closed' {
   return value === 'closed' ? 'closed' : 'opened';
-}
-
-function sanitizeStringArray(value: unknown, maxItems: number, maxLength: number): string[] {
-  if (!Array.isArray(value)) return [];
-  const sanitized: string[] = [];
-  for (const entry of value) {
-    const cleanEntry = sanitizeText(entry, maxLength);
-    if (cleanEntry) {
-      sanitized.push(cleanEntry);
-    }
-    if (sanitized.length >= maxItems) {
-      break;
-    }
-  }
-  return sanitized;
 }
 
 function sanitizeAssignees(value: unknown): Array<{ username: string }> {

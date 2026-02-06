@@ -56,7 +56,7 @@ def main() -> int:
         print(f"Run: python analyzer.py --project-dir {args.project_dir} --index")
         return 1
 
-    project_index = json.loads(index_path.read_text())
+    project_index = json.loads(index_path.read_text(encoding="utf-8"))
 
     # Import here to avoid import errors if dependencies are missing
     try:

@@ -1,0 +1,160 @@
+name: 'Finalize macOS Notarization'
+description: 'Wait for Apple notarization to complete and staple tickets to DMG files'
+
+inputs:
+  apple-id:
+    description: 'Apple ID for notarization'
+    required: true
+  apple-app-specific-password:
+    description: 'Apple app-specific password'
+    required: true
+  apple-team-id:
+    description: 'Apple Team ID'
+    required: true
+  intel-notarization-id:
+    description: 'Notarization request ID for Intel build'
+    required: false
+    default: ''
+  arm64-notarization-id:
+    description: 'Notarization request ID for ARM64 build'
+    required: false
+    default: ''
+  intel-dmg-file:
+    description: 'Filename of the Intel DMG'
+    required: false
+    default: ''
+  arm64-dmg-file:
+    description: 'Filename of the ARM64 DMG'
+    required: false
+    default: ''
+  intel-artifact-path:
+    description: 'Path to Intel build artifacts'
+    required: false
+    default: 'intel'
+  arm64-artifact-path:
+    description: 'Path to ARM64 build artifacts'
+    required: false
+    default: 'arm64'
+  timeout:
+    description: 'Timeout in seconds for notarization wait'
+    required: false
+    default: '3600'
+
+outputs:
+  intel-stapled:
+    description: 'Whether Intel DMG was successfully stapled'
+    value: ${{ steps.staple.outputs.intel_stapled }}
+  arm64-stapled:
+    description: 'Whether ARM64 DMG was successfully stapled'
+    value: ${{ steps.staple.outputs.arm64_stapled }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Wait for notarization and staple
+      id: staple
+      shell: bash
+      env:
+        APPLE_ID: ${{ inputs.apple-id }}
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ inputs.apple-app-specific-password }}
+        APPLE_TEAM_ID: ${{ inputs.apple-team-id }}
+        INTEL_NOTARIZATION_ID: ${{ inputs.intel-notarization-id }}
+        ARM64_NOTARIZATION_ID: ${{ inputs.arm64-notarization-id }}
+        INTEL_DMG: ${{ inputs.intel-dmg-file }}
+        ARM64_DMG: ${{ inputs.arm64-dmg-file }}
+        INTEL_PATH: ${{ inputs.intel-artifact-path }}
+        ARM64_PATH: ${{ inputs.arm64-artifact-path }}
+        TIMEOUT: ${{ inputs.timeout }}
+      run: |
+        intel_stapled=false
+        arm64_stapled=false
+
+        if [ -z "$APPLE_ID" ]; then
+          echo "Skipping notarization wait: APPLE_ID not configured"
+          echo "intel_stapled=false" >> "$GITHUB_OUTPUT"
+          echo "arm64_stapled=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # Warn if no notarization IDs provided (could indicate submission failure)
+        if [ -z "$INTEL_NOTARIZATION_ID" ] && [ -z "$ARM64_NOTARIZATION_ID" ]; then
+          echo "::warning::No notarization IDs provided - nothing to finalize. Check if notarization submission succeeded."
+          echo "intel_stapled=false" >> "$GITHUB_OUTPUT"
+          echo "arm64_stapled=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # Wait for Intel notarization
+        if [ -n "$INTEL_NOTARIZATION_ID" ]; then
+          echo "Waiting for Intel notarization: $INTEL_NOTARIZATION_ID"
+          if ! xcrun notarytool wait "$INTEL_NOTARIZATION_ID" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --timeout "$TIMEOUT"; then
+            echo "::error::Intel notarization failed or timed out"
+            exit 1
+          fi
+          # Verify notarization was accepted (not just processed)
+          INTEL_STATUS=$(xcrun notarytool info "$INTEL_NOTARIZATION_ID" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --output-format json | jq -r '.status // "Unknown"')
+          if [ "$INTEL_STATUS" != "Accepted" ]; then
+            echo "::error::Intel notarization status is '$INTEL_STATUS', expected 'Accepted'"
+            exit 1
+          fi
+          echo "Intel notarization status: $INTEL_STATUS"
+          # Verify DMG file exists before stapling
+          if [ ! -f "$INTEL_PATH/$INTEL_DMG" ]; then
+            echo "::error::Intel DMG not found at $INTEL_PATH/$INTEL_DMG"
+            exit 1
+          fi
+          echo "Stapling Intel DMG: $INTEL_PATH/$INTEL_DMG"
+          if ! xcrun stapler staple "$INTEL_PATH/$INTEL_DMG"; then
+            echo "::error::Failed to staple Intel DMG"
+            exit 1
+          fi
+          echo "Successfully stapled Intel DMG"
+          intel_stapled=true
+        fi
+
+        # Wait for ARM64 notarization
+        if [ -n "$ARM64_NOTARIZATION_ID" ]; then
+          echo "Waiting for ARM64 notarization: $ARM64_NOTARIZATION_ID"
+          if ! xcrun notarytool wait "$ARM64_NOTARIZATION_ID" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --timeout "$TIMEOUT"; then
+            echo "::error::ARM64 notarization failed or timed out"
+            exit 1
+          fi
+          # Verify notarization was accepted (not just processed)
+          ARM64_STATUS=$(xcrun notarytool info "$ARM64_NOTARIZATION_ID" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --output-format json | jq -r '.status // "Unknown"')
+          if [ "$ARM64_STATUS" != "Accepted" ]; then
+            echo "::error::ARM64 notarization status is '$ARM64_STATUS', expected 'Accepted'"
+            exit 1
+          fi
+          echo "ARM64 notarization status: $ARM64_STATUS"
+          # Verify DMG file exists before stapling
+          if [ ! -f "$ARM64_PATH/$ARM64_DMG" ]; then
+            echo "::error::ARM64 DMG not found at $ARM64_PATH/$ARM64_DMG"
+            exit 1
+          fi
+          echo "Stapling ARM64 DMG: $ARM64_PATH/$ARM64_DMG"
+          if ! xcrun stapler staple "$ARM64_PATH/$ARM64_DMG"; then
+            echo "::error::Failed to staple ARM64 DMG"
+            exit 1
+          fi
+          echo "Successfully stapled ARM64 DMG"
+          arm64_stapled=true
+        fi
+
+        echo "intel_stapled=$intel_stapled" >> "$GITHUB_OUTPUT"
+        echo "arm64_stapled=$arm64_stapled" >> "$GITHUB_OUTPUT"

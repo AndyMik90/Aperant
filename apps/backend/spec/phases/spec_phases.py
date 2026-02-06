@@ -123,7 +123,7 @@ Create:
             )
 
         if critique_file.exists():
-            with open(critique_file) as f:
+            with open(critique_file, encoding="utf-8") as f:
                 critique = json.load(f)
                 if critique.get("issues_fixed", False) or critique.get(
                     "no_issues_found", False

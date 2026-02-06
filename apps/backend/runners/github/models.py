@@ -76,6 +76,133 @@ BRANCH_BEHIND_REASONING = (
 )
 
 
+# =============================================================================
+# Verdict Helper Functions (testable logic extracted from orchestrator)
+# =============================================================================
+
+
+def verdict_from_severity_counts(
+    critical_count: int = 0,
+    high_count: int = 0,
+    medium_count: int = 0,
+    low_count: int = 0,
+) -> MergeVerdict:
+    """
+    Determine merge verdict based on finding severity counts.
+
+    This is the canonical implementation of severity-to-verdict mapping.
+    Extracted here so it can be tested directly and reused.
+
+    Args:
+        critical_count: Number of critical severity findings
+        high_count: Number of high severity findings
+        medium_count: Number of medium severity findings
+        low_count: Number of low severity findings
+
+    Returns:
+        MergeVerdict based on severity levels
+    """
+    if critical_count > 0:
+        return MergeVerdict.BLOCKED
+    elif high_count > 0 or medium_count > 0:
+        return MergeVerdict.NEEDS_REVISION
+    # Low findings or no findings -> ready to merge
+    return MergeVerdict.READY_TO_MERGE
+
+
+def apply_merge_conflict_override(
+    verdict: MergeVerdict,
+    has_merge_conflicts: bool,
+) -> MergeVerdict:
+    """
+    Apply merge conflict override to verdict.
+
+    Merge conflicts always result in BLOCKED, regardless of other verdicts.
+
+    Args:
+        verdict: The current verdict
+        has_merge_conflicts: Whether PR has merge conflicts
+
+    Returns:
+        BLOCKED if conflicts exist, otherwise original verdict
+    """
+    if has_merge_conflicts:
+        return MergeVerdict.BLOCKED
+    return verdict
+
+
+def apply_branch_behind_downgrade(
+    verdict: MergeVerdict,
+    merge_state_status: str,
+) -> MergeVerdict:
+    """
+    Apply branch-behind status downgrade to verdict.
+
+    BEHIND status downgrades READY_TO_MERGE and MERGE_WITH_CHANGES to NEEDS_REVISION.
+    BLOCKED verdict is preserved (not downgraded).
+
+    Args:
+        verdict: The current verdict
+        merge_state_status: The merge state status (e.g., "BEHIND", "CLEAN")
+
+    Returns:
+        Downgraded verdict if behind, otherwise original
+    """
+    if merge_state_status == "BEHIND":
+        if verdict in (MergeVerdict.READY_TO_MERGE, MergeVerdict.MERGE_WITH_CHANGES):
+            return MergeVerdict.NEEDS_REVISION
+    return verdict
+
+
+def apply_ci_status_override(
+    verdict: MergeVerdict,
+    failing_count: int = 0,
+    pending_count: int = 0,
+) -> MergeVerdict:
+    """
+    Apply CI status override to verdict.
+
+    Failing CI -> BLOCKED (only for READY_TO_MERGE or MERGE_WITH_CHANGES verdicts)
+    Pending CI -> NEEDS_REVISION (only for READY_TO_MERGE or MERGE_WITH_CHANGES verdicts)
+    BLOCKED and NEEDS_REVISION verdicts are preserved as-is.
+
+    Args:
+        verdict: The current verdict
+        failing_count: Number of failing CI checks
+        pending_count: Number of pending CI checks
+
+    Returns:
+        Updated verdict based on CI status
+    """
+    if failing_count > 0:
+        if verdict in (MergeVerdict.READY_TO_MERGE, MergeVerdict.MERGE_WITH_CHANGES):
+            return MergeVerdict.BLOCKED
+    elif pending_count > 0:
+        if verdict in (MergeVerdict.READY_TO_MERGE, MergeVerdict.MERGE_WITH_CHANGES):
+            return MergeVerdict.NEEDS_REVISION
+    return verdict
+
+
+def verdict_to_github_status(verdict: MergeVerdict) -> str:
+    """
+    Map merge verdict to GitHub review overall status.
+
+    Args:
+        verdict: The merge verdict
+
+    Returns:
+        GitHub review status: "approve", "comment", or "request_changes"
+    """
+    if verdict == MergeVerdict.BLOCKED:
+        return "request_changes"
+    elif verdict == MergeVerdict.NEEDS_REVISION:
+        return "request_changes"
+    elif verdict == MergeVerdict.MERGE_WITH_CHANGES:
+        return "comment"
+    else:
+        return "approve"
+
+
 class AICommentVerdict(str, Enum):
     """Verdict on AI tool comments (CodeRabbit, Cursor, Greptile, etc.)."""
 
@@ -240,6 +367,22 @@ class PRReviewFinding:
     validation_evidence: str | None = None  # Code snippet examined during validation
     validation_explanation: str | None = None  # Why finding was validated/dismissed
 
+    # Cross-validation fields
+    # NOTE: confidence field is DEPRECATED - we use evidence-based validation, not confidence scores
+    # The finding-validator determines validity by examining actual code, not by confidence thresholds
+    confidence: float = 0.5  # DEPRECATED: No longer used for filtering
+    source_agents: list[str] = field(
+        default_factory=list
+    )  # Which agents reported this finding
+    cross_validated: bool = (
+        False  # Whether multiple agents agreed on this finding (signal, not filter)
+    )
+
+    # Impact finding flag - indicates this finding is about code OUTSIDE the PR's changed files
+    # (e.g., callers affected by contract changes). Used by _is_finding_in_scope() to allow
+    # findings about related files that aren't directly in the PR diff.
+    is_impact_finding: bool = False
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,
@@ -260,6 +403,12 @@ class PRReviewFinding:
             "validation_status": self.validation_status,
             "validation_evidence": self.validation_evidence,
             "validation_explanation": self.validation_explanation,
+            # Cross-validation and confidence routing fields
+            "confidence": self.confidence,
+            "source_agents": self.source_agents,
+            "cross_validated": self.cross_validated,
+            # Impact finding flag
+            "is_impact_finding": self.is_impact_finding,
         }
 
     @classmethod
@@ -283,6 +432,12 @@ class PRReviewFinding:
             validation_status=data.get("validation_status"),
             validation_evidence=data.get("validation_evidence"),
             validation_explanation=data.get("validation_explanation"),
+            # Cross-validation and confidence routing fields
+            confidence=data.get("confidence", 0.5),
+            source_agents=data.get("source_agents", []),
+            cross_validated=data.get("cross_validated", False),
+            # Impact finding flag
+            is_impact_finding=data.get("is_impact_finding", False),
         )
 
 
@@ -550,7 +705,7 @@ class PRReviewResult:
         if not review_file.exists():
             return None
 
-        with open(review_file) as f:
+        with open(review_file, encoding="utf-8") as f:
             return cls.from_dict(json.load(f))
 
 
@@ -663,7 +818,7 @@ class TriageResult:
         if not triage_file.exists():
             return None
 
-        with open(triage_file) as f:
+        with open(triage_file, encoding="utf-8") as f:
             return cls.from_dict(json.load(f))
 
 
@@ -797,7 +952,7 @@ class AutoFixState:
         if not autofix_file.exists():
             return None
 
-        with open(autofix_file) as f:
+        with open(autofix_file, encoding="utf-8") as f:
             return cls.from_dict(json.load(f))
 
 
@@ -833,9 +988,6 @@ class GitHubRunnerConfig:
     auto_post_reviews: bool = False
     allow_fix_commits: bool = True
     review_own_prs: bool = False  # Whether bot can review its own PRs
-    use_orchestrator_review: bool = (
-        True  # DEPRECATED: No longer used, kept for config compatibility
-    )
     use_parallel_orchestrator: bool = (
         True  # Use SDK subagent parallel orchestrator (default)
     )
@@ -879,7 +1031,7 @@ class GitHubRunnerConfig:
         settings.pop("token", None)
         settings.pop("bot_token", None)
 
-        with open(config_file, "w") as f:
+        with open(config_file, "w", encoding="utf-8") as f:
             json.dump(settings, f, indent=2)
 
     @classmethod
@@ -890,7 +1042,7 @@ class GitHubRunnerConfig:
         config_file = github_dir / "config.json"
 
         if config_file.exists():
-            with open(config_file) as f:
+            with open(config_file, encoding="utf-8") as f:
                 settings = json.load(f)
         else:
             settings = {}

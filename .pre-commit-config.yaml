@@ -76,6 +76,17 @@ repos:
         files: ^package\.json$
         pass_filenames: false
 
+  # Python encoding check - prevent regression of UTF-8 encoding fixes (PR #782)
+  - repo: local
+    hooks:
+      - id: check-file-encoding
+        name: Check file encoding parameters
+        entry: python scripts/check_encoding.py
+        language: system
+        types: [python]
+        files: ^apps/backend/
+        description: Ensures all file operations specify encoding="utf-8"
+
   # Python linting (apps/backend/)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.10
@@ -126,24 +137,24 @@ repos:
         files: ^(apps/backend/.*\.py$|tests/.*\.py$)
         pass_filenames: false
 
-  # Frontend linting (apps/frontend/)
+  # Frontend linting (apps/frontend/) - Biome is 15-25x faster than ESLint
   # NOTE: These hooks check for worktree context to avoid npm/node_modules issues
   - repo: local
     hooks:
-      - id: eslint
-        name: ESLint
+      - id: biome
+        name: Biome (lint + format)
         entry: bash
         args:
           - -c
           - |
-            # Skip in worktrees if node_modules doesn't exist (dependencies not installed)
+            # Skip in worktrees if node_modules doesn't exist (Biome not installed)
             if [ -f ".git" ] && [ ! -d "apps/frontend/node_modules" ]; then
-              echo "Skipping ESLint in worktree (node_modules not found)"
+              echo "Skipping Biome in worktree (node_modules not found)"
               exit 0
             fi
-            cd apps/frontend && npm run lint
+            cd apps/frontend && npx biome check --write --no-errors-on-unmatched .
         language: system
-        files: ^apps/frontend/.*\.(ts|tsx|js|jsx)$
+        files: ^apps/frontend/.*\.(ts|tsx|js|jsx|json)$
         pass_filenames: false
 
       - id: typecheck

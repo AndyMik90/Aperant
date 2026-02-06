@@ -21,7 +21,9 @@
   "actions": {
     "settings": "Settings",
     "help": "Help & Feedback",
-    "newTask": "New Task"
+    "newTask": "New Task",
+    "collapseSidebar": "Collapse Sidebar",
+    "expandSidebar": "Expand Sidebar"
   },
   "tooltips": {
     "settings": "Application Settings",
@@ -37,7 +39,8 @@
     "installAndRestart": "Install and Restart",
     "downloading": "Downloading...",
     "dismiss": "Dismiss",
-    "downloadError": "Failed to download update"
+    "downloadError": "Failed to download update",
+    "readOnlyVolumeWarning": "Move to Applications folder to update"
   },
   "claudeCode": {
     "checking": "Checking Claude Code...",
@@ -58,7 +61,8 @@
     "viewChangelogAriaLabel": "View Claude Code Changelog (opens in new window)",
     "updateWarningTitle": "Update Claude Code?",
     "updateWarningDescription": "Updating will close all running Claude Code sessions. Any unsaved work in those sessions may be lost. Make sure to save your work before proceeding.",
-    "updateAnyway": "Update Anyway",
+    "updateWarningTerminalNote": "A terminal window will open to run the installation command. Please wait for the installation to complete before continuing.",
+    "updateAnyway": "Open Terminal & Update",
     "switchVersion": "Switch Version",
     "selectVersion": "Select version",
     "loadingVersions": "Loading versions...",
@@ -66,7 +70,8 @@
     "installingVersion": "Installing version {{version}}...",
     "rollbackWarningTitle": "Switch to version {{version}}?",
     "rollbackWarningDescription": "Switching versions will close all running Claude Code sessions. Any unsaved work in those sessions may be lost. Make sure to save your work before proceeding.",
-    "switchAnyway": "Switch Anyway",
+    "rollbackWarningTerminalNote": "A terminal window will open to run the installation command. Please wait for the installation to complete before continuing.",
+    "switchAnyway": "Open Terminal & Switch",
     "currentVersion": "Current",
     "switchInstallation": "Switch Installation",
     "selectInstallation": "Select installation",

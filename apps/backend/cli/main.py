@@ -74,12 +74,12 @@ Examples:
   python auto-claude/run.py --spec 001 --qa-status      # Check QA validation status
 
 Prerequisites:
-  1. Create a spec first: claude /spec
-  2. Run 'claude setup-token' and set CLAUDE_CODE_OAUTH_TOKEN
+  1. Authenticate: Run 'claude' and type '/login'
+  2. Create a spec first: claude /spec
 
 Environment Variables:
-  CLAUDE_CODE_OAUTH_TOKEN  Your Claude Code OAuth token (required)
-                           Get it by running: claude setup-token
+  CLAUDE_CODE_OAUTH_TOKEN  Your Claude Code OAuth token (auto-detected from Keychain)
+                           Or authenticate via: claude → /login
   AUTO_BUILD_MODEL         Override default model (optional)
         """,
     )

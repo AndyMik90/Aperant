@@ -126,7 +126,7 @@ class AuthDetector(BaseAnalyzer):
 
         for py_file in all_py_files:
             try:
-                content = py_file.read_text()
+                content = py_file.read_text(encoding="utf-8")
                 # Find custom decorators
                 if (
                     "@require" in content

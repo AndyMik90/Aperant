@@ -121,7 +121,7 @@ def collect_followup_task(spec_dir: Path, max_retries: int = 3) -> str | None:
                 # Expand ~ and resolve path
                 file_path = Path(file_path_str).expanduser().resolve()
                 if file_path.exists():
-                    followup_task = file_path.read_text().strip()
+                    followup_task = file_path.read_text(encoding="utf-8").strip()
                     if followup_task:
                         print_status(
                             f"Loaded {len(followup_task)} characters from file",
@@ -195,7 +195,7 @@ def collect_followup_task(spec_dir: Path, max_retries: int = 3) -> str | None:
 
         # Save to FOLLOWUP_REQUEST.md
         request_file = spec_dir / "FOLLOWUP_REQUEST.md"
-        request_file.write_text(followup_task)
+        request_file.write_text(followup_task, encoding="utf-8")
 
         # Show confirmation
         content = [
@@ -285,7 +285,7 @@ def handle_followup_command(
     # Check for prior follow-ups (for sequential follow-up context)
     prior_followup_count = 0
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan_data = json.load(f)
         phases = plan_data.get("phases", [])
         # Count phases that look like follow-up phases (name contains "Follow" or high phase number)

@@ -62,7 +62,7 @@ def run_context_discovery(
         if result.returncode == 0 and context_file.exists():
             # Validate and fix common schema issues
             try:
-                with open(context_file) as f:
+                with open(context_file, encoding="utf-8") as f:
                     ctx = json.load(f)
 
                 # Check for required field and fix common issues
@@ -73,9 +73,9 @@ def run_context_discovery(
                     else:
                         ctx["task_description"] = task_description or "unknown task"
 
-                    with open(context_file, "w") as f:
+                    with open(context_file, "w", encoding="utf-8") as f:
                         json.dump(ctx, f, indent=2)
-            except (OSError, json.JSONDecodeError):
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
                 context_file.unlink(missing_ok=True)
                 return False, "Invalid context.json created"
 
@@ -105,7 +105,7 @@ def create_minimal_context(
         "created_at": datetime.now().isoformat(),
     }
 
-    with open(context_file, "w") as f:
+    with open(context_file, "w", encoding="utf-8") as f:
         json.dump(minimal_context, f, indent=2)
 
     return context_file
@@ -118,7 +118,7 @@ def get_context_stats(spec_dir: Path) -> dict:
         return {}
 
     try:
-        with open(context_file) as f:
+        with open(context_file, encoding="utf-8") as f:
             ctx = json.load(f)
         return {
             "files_to_modify": len(ctx.get("files_to_modify", [])),

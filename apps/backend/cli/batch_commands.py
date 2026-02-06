@@ -31,7 +31,7 @@ def handle_batch_create_command(batch_file: str, project_dir: str) -> bool:
         return False
 
     try:
-        with open(batch_path) as f:
+        with open(batch_path, encoding="utf-8") as f:
             batch_data = json.load(f)
     except json.JSONDecodeError as e:
         print_status(f"Invalid JSON in batch file: {e}", "error")
@@ -81,7 +81,7 @@ def handle_batch_create_command(batch_file: str, project_dir: str) -> bool:
         }
 
         req_file = spec_dir / "requirements.json"
-        with open(req_file, "w") as f:
+        with open(req_file, "w", encoding="utf-8") as f:
             json.dump(requirements, f, indent=2, default=str)
 
         created_specs.append(
@@ -145,7 +145,7 @@ def handle_batch_status_command(project_dir: str) -> bool:
 
         if req_file.exists():
             try:
-                with open(req_file) as f:
+                with open(req_file, encoding="utf-8") as f:
                     req = json.load(f)
                     title = req.get("task_description", title)
             except json.JSONDecodeError:

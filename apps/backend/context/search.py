@@ -41,7 +41,7 @@ class CodeSearcher:
 
         for file_path in self._iter_code_files(service_path):
             try:
-                content = file_path.read_text(errors="ignore")
+                content = file_path.read_text(encoding="utf-8", errors="ignore")
                 content_lower = content.lower()
 
                 # Score this file

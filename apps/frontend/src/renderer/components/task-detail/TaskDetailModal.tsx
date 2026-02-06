@@ -33,6 +33,7 @@ import {
 import { cn } from '../../lib/utils';
 import { calculateProgress } from '../../lib/utils';
 import { startTask, stopTask, submitReview, recoverStuckTask, deleteTask, useTaskStore } from '../../stores/task-store';
+import { useProjectStore } from '../../stores/project-store';
 import { TASK_STATUS_LABELS } from '../../../shared/constants';
 import { TaskEditDialog } from '../TaskEditDialog';
 import { useTaskDetail } from './hooks/useTaskDetail';
@@ -80,6 +81,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
   const { t } = useTranslation(['tasks']);
   const { toast } = useToast();
   const state = useTaskDetail({ task });
+  const activeProject = useProjectStore(s => s.getActiveProject());
   const showFilesTab = isFilesTabEnabled();
   const progressPercent = calculateProgress(task.subtasks);
   const completedSubtasks = task.subtasks.filter(s => s.status === 'completed').length;
@@ -187,7 +189,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
         // Update single task in store with new status and prUrl (more efficient than reloading all tasks)
         if (result.data.success && result.data.prUrl && !result.data.alreadyExists) {
           useTaskStore.getState().updateTask(task.id, {
-            status: 'pr_created',
+            status: 'done',
             metadata: { ...task.metadata, prUrl: result.data.prUrl }
           });
         }
@@ -220,7 +222,6 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
     if (isStuck) return 'warning';
     switch (status) {
       case 'done':
-      case 'pr_created':
         return 'success';
       case 'human_review':
         return 'purple';
@@ -294,16 +295,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
       );
     }
 
-    if (task.status === 'done') {
-      return (
-        <div className="completion-state text-sm flex items-center gap-2 text-success">
-          <CheckCircle2 className="h-5 w-5" />
-          <span className="font-medium">{t('tasks:status.complete')}</span>
-        </div>
-      );
-    }
-
-    if (task.status === 'pr_created') {
+    if (task.status === 'done' && task.metadata?.prUrl) {
       return (
         <div className="flex items-center gap-4">
           <div className="completion-state text-sm flex items-center gap-2 text-success">
@@ -313,13 +305,26 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
            {task.metadata?.prUrl && (
              <button
                type="button"
-               onClick={() => window.electronAPI?.openExternal(task.metadata!.prUrl!)}
+               onClick={() => {
+                 if (task.metadata?.prUrl) {
+                   window.electronAPI?.openExternal(task.metadata.prUrl);
+                 }
+               }}
                className="completion-state text-sm flex items-center gap-2 text-info cursor-pointer hover:underline bg-transparent border-none p-0"
              >
               <GitPullRequest className="h-5 w-5" />
               <span className="font-medium">{t(TASK_STATUS_LABELS[task.status])}</span>
             </button>
           )}
+        </div>
+      );
+    }
+
+    if (task.status === 'done') {
+      return (
+        <div className="completion-state text-sm flex items-center gap-2 text-success">
+          <CheckCircle2 className="h-5 w-5" />
+          <span className="font-medium">{t('tasks:status.complete')}</span>
         </div>
       );
     }
@@ -373,12 +378,10 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                           Stuck
                         </Badge>
                       ) : state.isIncomplete ? (
-                        <>
-                          <Badge variant="warning" className="text-xs flex items-center gap-1">
+                        <Badge variant="warning" className="text-xs flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3" />
                             Incomplete
                           </Badge>
-                        </>
                       ) : (
                         <>
                            <Badge
@@ -394,7 +397,8 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             >
                               {task.reviewReason === 'completed' ? 'Completed' :
                                task.reviewReason === 'errors' ? 'Has Errors' :
-                               task.reviewReason === 'plan_review' ? 'Approve Plan' : 'QA Issues'}
+                               task.reviewReason === 'plan_review' ? 'Approve Plan' :
+                               task.reviewReason === 'stopped' ? 'Stopped' : 'QA Issues'}
                             </Badge>
                           )}
                         </>
@@ -407,6 +411,13 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                       )}
                     </div>
                   </DialogPrimitive.Description>
+                  {window.DEBUG && (
+                    <div className="mt-1 text-[11px] text-muted-foreground font-mono">
+                      status={task.status} reviewReason={task.reviewReason ?? 'none'} phase={task.executionProgress?.phase ?? 'none'} reviewRequired={task.metadata?.requireReviewBeforeCoding ? 'true' : 'false'}
+                      <br />
+                      projectId={activeProject?.id ?? 'none'} projectName={activeProject?.name ?? 'none'}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0 electron-no-drag">
                   <Button

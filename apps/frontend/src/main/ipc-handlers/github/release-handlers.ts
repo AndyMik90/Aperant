@@ -12,14 +12,14 @@ import { projectStore } from '../../project-store';
 import { changelogService } from '../../changelog-service';
 import type { ReleaseOptions } from './types';
 import { getToolPath } from '../../cli-tool-manager';
+import { getWhichCommand } from '../../platform';
 
 /**
  * Check if gh CLI is installed
  */
 function checkGhCli(): { installed: boolean; error?: string } {
   try {
-    const checkCmd = process.platform === 'win32' ? 'where gh' : 'which gh';
-    execSync(checkCmd, { encoding: 'utf-8', stdio: 'pipe' });
+    execFileSync(getWhichCommand(), ['gh'], { encoding: 'utf-8', stdio: 'pipe' });
     return { installed: true };
   } catch {
     return {

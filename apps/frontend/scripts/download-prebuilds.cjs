@@ -68,7 +68,9 @@ function getLatestRelease() {
     https
       .get(options, (res) => {
         let data = '';
-        res.on('data', (chunk) => (data += chunk));
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
         res.on('end', () => {
           if (res.statusCode === 200) {
             resolve(JSON.parse(data));
@@ -121,7 +123,9 @@ function downloadFile(url, destPath) {
           });
         })
         .on('error', (err) => {
-          fs.unlink(destPath, () => {}); // Delete partial file
+          fs.unlink(destPath, () => {
+            // Intentionally ignoring unlink errors for partial file cleanup
+          });
           reject(err);
         });
     };
