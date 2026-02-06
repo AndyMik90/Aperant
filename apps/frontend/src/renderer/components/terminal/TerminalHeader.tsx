@@ -173,10 +173,10 @@ export function TerminalHeader({
               e.stopPropagation();
               useTerminalStore.getState().resumeAllPendingClaude();
             }}
-            title={t('terminal:resumeAllSessions')}
+            title={t('terminal:resume.resumeAllSessions')}
           >
             <RotateCcw className="h-3 w-3" />
-            {terminalCount < 4 && <span>{t('terminal:resumeAllSessions')}</span>}
+            {terminalCount < 4 && <span>{t('terminal:resume.resumeAllSessions')}</span>}
           </Button>
         )}
         {/* Open in IDE button when worktree exists */}

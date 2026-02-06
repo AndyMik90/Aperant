@@ -447,22 +447,17 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     debugLog(`[TerminalStore] Resuming ${pendingTerminals.length} pending Claude sessions with 500ms stagger`);
 
     // Iterate through terminals with staggered delays
-    for (const terminal of pendingTerminals) {
-      try {
-        debugLog(`[TerminalStore] Activating deferred Claude resume for terminal: ${terminal.id}`);
-        await window.electronAPI.activateDeferredClaudeResume(terminal.id);
+    for (let i = 0; i < pendingTerminals.length; i++) {
+      const terminal = pendingTerminals[i];
+      debugLog(`[TerminalStore] Activating deferred Claude resume for terminal: ${terminal.id}`);
+      window.electronAPI.activateDeferredClaudeResume(terminal.id);
 
-        // Clear the pending flag
-        get().setPendingClaudeResume(terminal.id, false);
+      // Clear the pending flag
+      get().setPendingClaudeResume(terminal.id, false);
 
-        // Wait 500ms before processing next terminal (staggered delay)
-        if (pendingTerminals.indexOf(terminal) < pendingTerminals.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      } catch (error) {
-        debugError(`[TerminalStore] Error resuming Claude for terminal ${terminal.id}:`, error);
-        // Clear the flag even on error to prevent retry loops
-        get().setPendingClaudeResume(terminal.id, false);
+      // Wait 500ms before processing next terminal (staggered delay)
+      if (i < pendingTerminals.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
 
