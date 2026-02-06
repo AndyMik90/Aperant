@@ -302,7 +302,7 @@ export function Sidebar({
         )}
 
         {/* Bottom section */}
-        <div className="flex flex-col items-center py-2 space-y-1 border-t border-border">
+        <div className="flex flex-col items-center py-2 space-y-1">
           {/* UX-1: Notification Center */}
           <NotificationCenter />
 

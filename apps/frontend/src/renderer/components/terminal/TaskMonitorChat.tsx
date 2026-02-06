@@ -18,7 +18,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useCallback, createContex
 import { useTerminalStore } from '../../stores/terminal-store';
 import { useTaskStore } from '../../stores/task-store';
 import { Button } from '../ui/button';
-import { ChevronUp, ChevronDown, Paperclip, Send, ArrowDown, Copy, Check, Search, X, List, AlignLeft } from 'lucide-react';
+import { ChevronUp, ChevronDown, Paperclip, Send, ArrowDown, Copy, Check, Search, X } from 'lucide-react';
 import type { Terminal as TerminalType } from '../../stores/terminal-store';
 import type { ContentBlock, ToolUseContent } from '../../lib/claude-output-parser';
 import { cn } from '../../lib/utils';
@@ -194,6 +194,8 @@ interface TaskMonitorChatProps {
   terminalRef: React.RefObject<HTMLDivElement | null>;
   isActive?: boolean;
   isMinimized?: boolean;
+  /** View mode controlled by parent (BottomPanelTerminal header) */
+  viewMode?: 'raw' | 'structured';
 }
 
 // Bullet colors for different block types (matching Claude Code extension)
@@ -951,7 +953,13 @@ function UserMessageBlock({ content }: { content: string }) {
   );
 }
 
-export function TaskMonitorChat({ terminal, terminalRef, isActive = false, isMinimized = false }: TaskMonitorChatProps) {
+export function TaskMonitorChat({
+  terminal,
+  terminalRef,
+  isActive = false,
+  isMinimized = false,
+  viewMode: externalViewMode
+}: TaskMonitorChatProps) {
   const { messages = [] } = terminal;
   const initializeParser = useTerminalStore((state) => state.initializeParser);
   const addUserMessage = useTerminalStore((state) => state.addUserMessage);
@@ -970,8 +978,10 @@ export function TaskMonitorChat({ terminal, terminalRef, isActive = false, isMin
     setThinkingExpanded(prev => !prev);
   }, []);
 
-  // TERM-3b: State for raw/structured view toggle
-  const [viewMode, setViewMode] = useState<'raw' | 'structured'>('raw');
+  // TERM-3b: View mode - use external prop if provided, otherwise internal state
+  const [internalViewMode, setInternalViewMode] = useState<'raw' | 'structured'>('raw');
+  const viewMode = externalViewMode ?? internalViewMode;
+  const setViewMode = setInternalViewMode;
 
   // TERM-7: Search state
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -1057,10 +1067,6 @@ export function TaskMonitorChat({ terminal, terminalRef, isActive = false, isMin
       );
     }
   }, [searchMatches.total]);
-
-  // TERM-3: Time tracking state
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const taskStartTimeRef = useRef<number | null>(null);
 
   // TERM-4: File changes tracking is now computed via useMemo below (after messages are defined)
 
@@ -1153,43 +1159,6 @@ export function TaskMonitorChat({ terminal, terminalRef, isActive = false, isMin
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
   }, [messages, autoScroll]);
-
-  // TERM-3: Track elapsed time while task is running
-  useEffect(() => {
-    if (isTaskRunning) {
-      // Set start time if not already set
-      if (!taskStartTimeRef.current) {
-        taskStartTimeRef.current = Date.now();
-      }
-
-      // Update elapsed time every second
-      const interval = setInterval(() => {
-        if (taskStartTimeRef.current) {
-          setElapsedTime(Math.floor((Date.now() - taskStartTimeRef.current) / 1000));
-        }
-      }, 1000);
-
-      return () => clearInterval(interval);
-    } else {
-      // Reset when task stops
-      taskStartTimeRef.current = null;
-    }
-  }, [isTaskRunning]);
-
-  // TERM-3: Format elapsed time as Xh Xm Xs, Xm Xs, or Xs
-  const formatElapsedTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${secs}s`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
-    } else {
-      return `${secs}s`;
-    }
-  };
 
   // TERM-4: Track file changes from Edit/Write tool results
   // Optimized: Use useMemo to avoid re-scanning all messages on every render
@@ -1300,37 +1269,7 @@ export function TaskMonitorChat({ terminal, terminalRef, isActive = false, isMin
     <ThinkingExpandContext.Provider value={{ allExpanded: thinkingExpanded, toggleAll: toggleThinking }}>
       <SearchContext.Provider value={{ searchQuery, currentMatchIndex, totalMatches: searchMatches.total }}>
         <div className="flex flex-col h-full min-h-0 bg-background relative">
-          {/* TERM-3b: View mode toggle button */}
-          <div className="absolute top-2 left-2 z-20">
-            <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden shadow-sm">
-              <button
-                onClick={() => setViewMode('raw')}
-                className={cn(
-                  "px-2.5 py-1.5 text-xs flex items-center gap-1.5 transition-colors",
-                  viewMode === 'raw'
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted text-muted-foreground"
-                )}
-                title="Raw output view"
-              >
-                <AlignLeft className="h-3.5 w-3.5" />
-                Raw
-              </button>
-              <button
-                onClick={() => setViewMode('structured')}
-                className={cn(
-                  "px-2.5 py-1.5 text-xs flex items-center gap-1.5 transition-colors",
-                  viewMode === 'structured'
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted text-muted-foreground"
-                )}
-                title="Structured timeline view"
-              >
-                <List className="h-3.5 w-3.5" />
-                Timeline
-              </button>
-            </div>
-          </div>
+          {/* TERM-3b: View mode toggle moved to BottomPanelTerminal header */}
 
           {/* TERM-7: Search bar */}
           {isSearchOpen && (
@@ -1391,7 +1330,7 @@ export function TaskMonitorChat({ terminal, terminalRef, isActive = false, isMin
           {/* Message list - scrollable container */}
           <div
             ref={scrollContainerRef}
-            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pt-12"
+            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pt-2"
             onScroll={handleScroll}
           >
             {/* TERM-3b: Conditional rendering based on view mode */}
@@ -1459,16 +1398,6 @@ export function TaskMonitorChat({ terminal, terminalRef, isActive = false, isMin
             >
               <ArrowDown className="h-4 w-4" />
             </Button>
-          </div>
-        )}
-
-        {/* TERM-3: Time tracking display - shows when task is running */}
-        {isTaskRunning && elapsedTime > 0 && (
-          <div className="px-4 py-2 bg-muted/30 border-t border-border">
-            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-              <span>Working... ({formatElapsedTime(elapsedTime)})</span>
-            </div>
           </div>
         )}
 

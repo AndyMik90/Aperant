@@ -10,11 +10,13 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Minus, Square, X, ChevronDown } from 'lucide-react';
+import { Minus, Square, X, AlignLeft, List } from 'lucide-react';
 import { Button } from '../ui/button';
 import { TaskMonitorChat } from './TaskMonitorChat';
 import { useTerminalStore, type Terminal } from '../../stores/terminal-store';
 import { cn } from '../../lib/utils';
+
+export type ViewMode = 'raw' | 'structured';
 
 interface BottomPanelTerminalProps {
   taskId: string | null;
@@ -39,6 +41,7 @@ export function BottomPanelTerminal({
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('raw');
   const panelRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef(0);
@@ -126,13 +129,42 @@ export function BottomPanelTerminal({
 
       {/* Header bar - fixed at top */}
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 border-b border-border bg-muted/50">
-        <div className="flex items-center gap-2">
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium truncate max-w-[300px]" title={displayTitle}>
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {/* View mode toggle - at the left */}
+          <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden flex-shrink-0">
+            <button
+              onClick={() => setViewMode('raw')}
+              className={cn(
+                "px-2.5 py-1 text-xs flex items-center gap-1.5 transition-colors",
+                viewMode === 'raw'
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted text-muted-foreground"
+              )}
+              title="Raw output view"
+            >
+              <AlignLeft className="h-3.5 w-3.5" />
+              Raw
+            </button>
+            <button
+              onClick={() => setViewMode('structured')}
+              className={cn(
+                "px-2.5 py-1 text-xs flex items-center gap-1.5 transition-colors",
+                viewMode === 'structured'
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted text-muted-foreground"
+              )}
+              title="Structured timeline view"
+            >
+              <List className="h-3.5 w-3.5" />
+              Timeline
+            </button>
+          </div>
+          {/* Task title */}
+          <span className="text-sm font-medium truncate flex-1" title={displayTitle}>
             {t('terminal:bottomPanel.header', { title: displayTitle, defaultValue: `Terminal: ${displayTitle}` })}
           </span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-shrink-0 ml-2">
           <Button
             variant="ghost"
             size="icon"
@@ -171,6 +203,7 @@ export function BottomPanelTerminal({
             terminalRef={terminalRef}
             isActive={true}
             isMinimized={false}
+            viewMode={viewMode}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
