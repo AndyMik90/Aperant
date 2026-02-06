@@ -3,6 +3,7 @@ import { parsePhaseEvent } from './phase-event-parser';
 import {
   wouldPhaseRegress,
   isTerminalPhase,
+  isPausePhase,
   isValidExecutionPhase,
   type ExecutionPhase
 } from '../../shared/constants/phase-protocol';
@@ -13,18 +14,48 @@ export class AgentEvents {
     log: string,
     currentPhase: ExecutionProgressData['phase'],
     isSpecRunner: boolean
-  ): { phase: ExecutionProgressData['phase']; message?: string; currentSubtask?: string } | null {
+  ): {
+    phase: ExecutionProgressData['phase'];
+    message?: string;
+    currentSubtask?: string;
+    resetTimestamp?: number;
+    profileId?: string;
+  } | null {
     const structuredEvent = parsePhaseEvent(log);
     if (structuredEvent) {
-      return {
-        phase: structuredEvent.phase as ExecutionProgressData['phase'],
+      // structuredEvent.phase is validated as BackendPhase (via Zod schema),
+      // which is a subset of ExecutionPhase, so this assertion is safe
+      const result: {
+        phase: ExecutionProgressData['phase'];
+        message?: string;
+        currentSubtask?: string;
+        resetTimestamp?: number;
+        profileId?: string;
+      } = {
+        phase: structuredEvent.phase as ExecutionPhase,
         message: structuredEvent.message,
         currentSubtask: structuredEvent.subtask
       };
+
+      // Include pause phase metadata if present
+      if (structuredEvent.reset_timestamp !== undefined) {
+        result.resetTimestamp = structuredEvent.reset_timestamp;
+      }
+      if (structuredEvent.profile_id !== undefined) {
+        result.profileId = structuredEvent.profile_id;
+      }
+
+      return result;
     }
 
     // Terminal states can't be changed by fallback matching
-    if (isTerminalPhase(currentPhase as ExecutionPhase)) {
+    if (isTerminalPhase(currentPhase)) {
+      return null;
+    }
+
+    // Pause phases should only be changed by structured events
+    // Don't allow fallback text matching to transition out of pause phases
+    if (isPausePhase(currentPhase)) {
       return null;
     }
 

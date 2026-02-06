@@ -141,6 +141,8 @@
       "idle": "Inactif",
       "planning": "Planification",
       "coding": "Codage",
+      "rate_limit_paused": "Limite atteinte",
+      "auth_failure_paused": "Auth requise",
       "reviewing": "Révision",
       "fixing": "Correction",
       "complete": "Terminé",
