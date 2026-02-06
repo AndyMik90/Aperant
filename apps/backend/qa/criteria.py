@@ -11,9 +11,8 @@ from pathlib import Path
 from core.file_utils import write_json_atomic
 from progress import is_build_complete
 
-# =============================================================================
-# IMPLEMENTATION PLAN I/O
-# =============================================================================
+# Use existing FileLock from GitHub runners for cross-process file locking
+from runners.github.file_lock import FileLock
 
 
 def load_implementation_plan(spec_dir: Path) -> dict | None:
@@ -32,36 +31,39 @@ def save_implementation_plan(spec_dir: Path, plan: dict) -> bool:
     """Save the implementation plan JSON while preserving frontend fields."""
     plan_file = spec_dir / "implementation_plan.json"
 
-    # Read existing file to preserve frontend fields (status, planStatus, etc.)
-    try:
-        with open(plan_file, encoding="utf-8") as f:
-            existing = json.load(f)
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-        existing = {}
+    # Acquire cross-process lock to prevent TOCTOU race during read-merge-write
+    # Uses FileLock from runners.github.file_lock for cross-platform locking
+    with FileLock(plan_file, timeout=5.0):
+        # Read existing file to preserve frontend fields (status, planStatus, etc.)
+        try:
+            with open(plan_file, encoding="utf-8") as f:
+                existing = json.load(f)
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            existing = {}
 
-    # Create a shallow copy to avoid mutating the caller's dict
-    new_plan = dict(plan)
+        # Create a shallow copy to avoid mutating the caller's dict
+        new_plan = dict(plan)
 
-    # Preserve fields from existing file that aren't in the new plan dict
-    # Includes frontend fields (status, planStatus, etc.) and qa_stats
-    preserve_fields = [
-        "status",
-        "planStatus",
-        "reviewReason",
-        "xstateState",
-        "executionPhase",
-        "recoveryNote",
-        "qa_stats",
-    ]
-    for field in preserve_fields:
-        if field in existing and field not in new_plan:
-            new_plan[field] = existing[field]
+        # Preserve fields from existing file that aren't in the new plan dict
+        # Includes frontend fields (status, planStatus, etc.) and qa_stats
+        preserve_fields = [
+            "status",
+            "planStatus",
+            "reviewReason",
+            "xstateState",
+            "executionPhase",
+            "recoveryNote",
+            "qa_stats",
+        ]
+        for field in preserve_fields:
+            if field in existing and field not in new_plan:
+                new_plan[field] = existing[field]
 
-    try:
-        write_json_atomic(plan_file, new_plan, indent=2, ensure_ascii=False)
-        return True
-    except OSError:
-        return False
+        try:
+            write_json_atomic(plan_file, new_plan, indent=2, ensure_ascii=False)
+            return True
+        except OSError:
+            return False
 
 
 # =============================================================================
