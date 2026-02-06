@@ -9,7 +9,11 @@ import logging
 from pathlib import Path
 
 from core.client import create_client
-from phase_config import get_phase_model, get_phase_thinking_budget
+from phase_config import (
+    get_phase_model,
+    get_phase_model_betas,
+    get_phase_thinking_budget,
+)
 from phase_event import ExecutionPhase, emit_phase
 from task_logger import (
     LogPhase,
@@ -95,11 +99,13 @@ async def run_followup_planner(
     # Respects task_metadata.json configuration when no CLI override
     planning_model = get_phase_model(spec_dir, "planning", model)
     planning_thinking_budget = get_phase_thinking_budget(spec_dir, "planning")
+    planning_betas = get_phase_model_betas(spec_dir, "planning", model)
     client = create_client(
         project_dir,
         spec_dir,
         planning_model,
         max_thinking_tokens=planning_thinking_budget,
+        betas=planning_betas,
     )
 
     # Generate follow-up planner prompt

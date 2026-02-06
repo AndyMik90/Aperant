@@ -13,9 +13,16 @@ from typing import Literal, TypedDict
 
 # Model shorthand to full model ID mapping
 MODEL_ID_MAP: dict[str, str] = {
-    "opus": "claude-opus-4-5-20251101",
+    "opus": "claude-opus-4-6",
+    "opus-1m": "claude-opus-4-6",
     "sonnet": "claude-sonnet-4-5-20250929",
     "haiku": "claude-haiku-4-5-20251001",
+}
+
+# Model shorthand to required SDK beta headers
+# Maps model shorthands that need special beta flags (e.g., 1M context window)
+MODEL_BETAS_MAP: dict[str, list[str]] = {
+    "opus-1m": ["context-1m-2025-08-07"],
 }
 
 # Thinking level to budget tokens mapping (None = no extended thinking)
@@ -112,6 +119,7 @@ def resolve_model_id(model: str) -> str:
             "haiku": "ANTHROPIC_DEFAULT_HAIKU_MODEL",
             "sonnet": "ANTHROPIC_DEFAULT_SONNET_MODEL",
             "opus": "ANTHROPIC_DEFAULT_OPUS_MODEL",
+            "opus-1m": "ANTHROPIC_DEFAULT_OPUS_MODEL",
         }
         env_var = env_var_map.get(model)
         if env_var:
@@ -124,6 +132,22 @@ def resolve_model_id(model: str) -> str:
 
     # Already a full model ID or unknown shorthand
     return model
+
+
+def get_model_betas(model_short: str) -> list[str]:
+    """
+    Get required SDK beta headers for a model shorthand.
+
+    Some model configurations (e.g., opus-1m for 1M context window) require
+    passing beta headers to the Claude Agent SDK.
+
+    Args:
+        model_short: Model shorthand (e.g., 'opus', 'opus-1m', 'sonnet')
+
+    Returns:
+        List of beta header strings, or empty list if none required
+    """
+    return MODEL_BETAS_MAP.get(model_short, [])
 
 
 def get_thinking_budget(thinking_level: str) -> int | None:
@@ -212,6 +236,43 @@ def get_phase_model(
 
     # Fall back to default phase configuration
     return resolve_model_id(DEFAULT_PHASE_MODELS[phase])
+
+
+def get_phase_model_betas(
+    spec_dir: Path,
+    phase: Phase,
+    cli_model: str | None = None,
+) -> list[str]:
+    """
+    Get required SDK beta headers for the model selected for a specific phase.
+
+    Uses the same priority logic as get_phase_model() to determine which model
+    shorthand is selected, then looks up any required beta headers.
+
+    Args:
+        spec_dir: Path to the spec directory
+        phase: Execution phase (spec, planning, coding, qa)
+        cli_model: Model from CLI argument (optional)
+
+    Returns:
+        List of beta header strings, or empty list if none required
+    """
+    # Determine the model shorthand (before resolution to full ID)
+    if cli_model:
+        return get_model_betas(cli_model)
+
+    metadata = load_task_metadata(spec_dir)
+
+    if metadata:
+        if metadata.get("isAutoProfile") and metadata.get("phaseModels"):
+            phase_models = metadata["phaseModels"]
+            model_short = phase_models.get(phase, DEFAULT_PHASE_MODELS[phase])
+            return get_model_betas(model_short)
+
+        if metadata.get("model"):
+            return get_model_betas(metadata["model"])
+
+    return get_model_betas(DEFAULT_PHASE_MODELS[phase])
 
 
 def get_phase_thinking(

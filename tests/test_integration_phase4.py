@@ -62,7 +62,12 @@ io_utils_module = importlib.util.module_from_spec(io_utils_spec)
 sys.modules["services.io_utils"] = io_utils_module
 io_utils_spec.loader.exec_module(io_utils_module)
 
-# Load pydantic_models
+# Load pydantic_models (mock pydantic if not installed in test env)
+try:
+    import pydantic  # noqa: F401
+except ImportError:
+    pydantic_mock = MagicMock()
+    sys.modules["pydantic"] = pydantic_mock
 pydantic_models_spec = importlib.util.spec_from_file_location(
     "pydantic_models",
     backend_path / "runners" / "github" / "services" / "pydantic_models.py",
