@@ -127,7 +127,7 @@ export class TerminalManager {
     const terminal = this.terminals.get(id);
     if (terminal) {
       // Only log for non-trivial writes to reduce noise from keystrokes
-      if (data.length > PtyManager.DEBUG_LOG_WRITE_THRESHOLD_BYTES) {
+      if (data.length > PtyManager.DEBUG_LOG_WRITE_THRESHOLD_LENGTH) {
         debugLog('[TerminalManager:write] Writing to terminal:', id, 'data length:', data.length);
       }
       PtyManager.writeToPty(terminal, data);

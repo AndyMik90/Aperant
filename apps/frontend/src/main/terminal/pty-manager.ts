@@ -267,11 +267,11 @@ export function setupPtyHandlers(
  *   - Large pastes (>16KB) will still be chunked to avoid blocking
  * CHUNK_SIZE: Size of each chunk when chunking is needed
  *   - 4KB chunks balance between event loop yielding and throughput
- * DEBUG_LOG_WRITE_THRESHOLD_BYTES: Only log writes larger than this to reduce noise
+ * DEBUG_LOG_WRITE_THRESHOLD_LENGTH: Only log writes with string length larger than this to reduce noise
  */
 const CHUNKED_WRITE_THRESHOLD = 16 * 1024; // 16KB
 const CHUNK_SIZE = 4 * 1024; // 4KB
-export const DEBUG_LOG_WRITE_THRESHOLD_BYTES = 100;
+export const DEBUG_LOG_WRITE_THRESHOLD_LENGTH = 100;
 
 /**
  * Write queue per terminal to prevent interleaving of concurrent writes.
@@ -324,7 +324,7 @@ function performWrite(terminal: TerminalProcess, data: string): Promise<void> {
       try {
         terminal.pty.write(data);
         // Only log completion for non-trivial writes
-        if (data.length > DEBUG_LOG_WRITE_THRESHOLD_BYTES) {
+        if (data.length > DEBUG_LOG_WRITE_THRESHOLD_LENGTH) {
           debugLog('[PtyManager:writeToPty] Write completed successfully');
         }
       } catch (error) {
@@ -342,7 +342,7 @@ function performWrite(terminal: TerminalProcess, data: string): Promise<void> {
  */
 export function writeToPty(terminal: TerminalProcess, data: string): void {
   // Only log for non-trivial writes to reduce noise from keystrokes
-  if (data.length > DEBUG_LOG_WRITE_THRESHOLD_BYTES) {
+  if (data.length > DEBUG_LOG_WRITE_THRESHOLD_LENGTH) {
     debugLog('[PtyManager:writeToPty] About to write to pty, data length:', data.length);
   }
 
