@@ -11,7 +11,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useProfileSwapNotifications, useSessionCaptureListener } from './use-profile-swap-notifications';
-import type { QueueProfileSwapEvent, QueueSessionCapturedEvent } from '../../preload/api/queue-api';
+import type { QueueProfileSwapEvent, } from '../../preload/api/queue-api';
 
 // Mock react-i18next
 vi.mock('react-i18next', () => ({

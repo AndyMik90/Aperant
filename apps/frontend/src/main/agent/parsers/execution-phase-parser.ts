@@ -9,6 +9,7 @@ import { BasePhaseParser, type PhaseParseResult, type PhaseParserContext } from 
 import {
   EXECUTION_PHASES,
   TERMINAL_PHASES,
+  isPausePhase,
   type ExecutionPhase
 } from '../../../shared/constants/phase-protocol';
 import { parsePhaseEvent } from '../phase-event-parser';
@@ -40,11 +41,21 @@ export class ExecutionPhaseParser extends BasePhaseParser<ExecutionPhase> {
     // 1. Try structured event first (authoritative source)
     const structuredEvent = parsePhaseEvent(log);
     if (structuredEvent) {
-      return {
+      const result: PhaseParseResult<ExecutionPhase> = {
         phase: structuredEvent.phase as ExecutionPhase,
         message: structuredEvent.message,
         currentSubtask: structuredEvent.subtask
       };
+
+      // Include pause phase metadata if present
+      if (structuredEvent.reset_timestamp !== undefined) {
+        result.resetTimestamp = structuredEvent.reset_timestamp;
+      }
+      if (structuredEvent.profile_id !== undefined) {
+        result.profileId = structuredEvent.profile_id;
+      }
+
+      return result;
     }
 
     // 2. Terminal states can't be changed by fallback matching
@@ -52,7 +63,13 @@ export class ExecutionPhaseParser extends BasePhaseParser<ExecutionPhase> {
       return null;
     }
 
-    // 3. Fall back to text pattern matching
+    // 3. Pause phases should only be changed by structured events
+    // Don't allow fallback text matching to transition out of pause phases
+    if (isPausePhase(context.currentPhase)) {
+      return null;
+    }
+
+    // 4. Fall back to text pattern matching
     return this.parseFallbackPatterns(log, context);
   }
 

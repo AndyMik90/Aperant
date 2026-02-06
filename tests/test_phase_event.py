@@ -44,8 +44,9 @@ class TestExecutionPhaseEnum:
 
     def test_phase_count(self):
         """Expected number of phases exists."""
-        # planning, coding, qa_review, qa_fixing, complete, failed
-        assert len(ExecutionPhase) == 6
+        # planning, coding, qa_review, qa_fixing, complete, failed,
+        # rate_limit_paused, auth_failure_paused
+        assert len(ExecutionPhase) == 8
 
     def test_planning_phase_exists(self):
         """PLANNING phase has correct value."""
