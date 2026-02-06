@@ -16,7 +16,7 @@ import type {
   Task,
   IPCResult
 } from '../../../shared/types';
-import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
+import { createIpcListener, invokeIpc, IpcListenerCleanup } from './ipc-utils';
 
 /**
  * Changelog API operations

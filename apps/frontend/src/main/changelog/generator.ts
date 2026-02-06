@@ -203,13 +203,17 @@ export class ChangelogGenerator extends EventEmitter {
       });
 
       // Clear timeout
-      const timeoutId = this.generationTimeouts.get(projectId);
-      if (timeoutId) {
-        clearTimeout(timeoutId);
+      const existingTimeout = this.generationTimeouts.get(projectId);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
         this.generationTimeouts.delete(projectId);
       }
 
-      this.generationProcesses.delete(projectId);
+      // Guard: if process was already removed (e.g. by timeout or cancel), skip
+      if (!this.generationProcesses.delete(projectId)) {
+        this.debug('Process already cleaned up (timeout or cancel), skipping exit handler');
+        return;
+      }
 
       if (code === 0 && output.trim()) {
         this.emitProgress(projectId, {
