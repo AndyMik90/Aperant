@@ -687,5 +687,31 @@
     "progress": "Progression",
     "lastActivityPrefix": "dernière activité",
     "lastProgressUpdateTooltip": "Dernière mise à jour de progression reçue"
+  },
+  "prStatus": {
+    "ci": {
+      "success": "CI réussie",
+      "pending": "CI en attente",
+      "failure": "CI échouée",
+      "successTooltip": "Toutes les vérifications CI ont réussi",
+      "pendingTooltip": "Les vérifications CI sont en cours",
+      "failureTooltip": "Une ou plusieurs vérifications CI ont échoué"
+    },
+    "review": {
+      "approved": "Approuvée",
+      "changesRequested": "Modifications demandées",
+      "pending": "Révision en attente",
+      "approvedTooltip": "Cette PR a été approuvée",
+      "changesRequestedTooltip": "Des modifications ont été demandées sur cette PR",
+      "pendingTooltip": "En attente de révision"
+    },
+    "merge": {
+      "ready": "Prête à fusionner",
+      "blocked": "Fusion bloquée",
+      "conflict": "Conflits détectés",
+      "readyTooltip": "Cette PR est prête à être fusionnée",
+      "blockedTooltip": "Cette PR ne peut pas être fusionnée en raison de conditions bloquantes",
+      "conflictTooltip": "Cette PR a des conflits de fusion qui doivent être résolus"
+    }
   }
 }

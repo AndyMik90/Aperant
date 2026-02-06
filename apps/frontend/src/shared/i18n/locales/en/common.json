@@ -687,5 +687,31 @@
     "progress": "Progress",
     "lastActivityPrefix": "last activity",
     "lastProgressUpdateTooltip": "Last progress update received"
+  },
+  "prStatus": {
+    "ci": {
+      "success": "CI Passed",
+      "pending": "CI Pending",
+      "failure": "CI Failed",
+      "successTooltip": "All CI checks have passed",
+      "pendingTooltip": "CI checks are still running",
+      "failureTooltip": "One or more CI checks have failed"
+    },
+    "review": {
+      "approved": "Approved",
+      "changesRequested": "Changes Requested",
+      "pending": "Review Pending",
+      "approvedTooltip": "This PR has been approved",
+      "changesRequestedTooltip": "Changes have been requested on this PR",
+      "pendingTooltip": "Waiting for review"
+    },
+    "merge": {
+      "ready": "Ready to Merge",
+      "blocked": "Merge Blocked",
+      "conflict": "Has Conflicts",
+      "readyTooltip": "This PR is ready to be merged",
+      "blockedTooltip": "This PR cannot be merged due to blocking conditions",
+      "conflictTooltip": "This PR has merge conflicts that need to be resolved"
+    }
   }
 }
