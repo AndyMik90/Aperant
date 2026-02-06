@@ -33,6 +33,14 @@ THINKING_BUDGET_MAP: dict[str, int | None] = {
     "high": 16384,  # Deep thinking for QA review
 }
 
+# Effort level mapping for adaptive thinking models (e.g., Opus 4.6)
+# These models support CLAUDE_CODE_EFFORT_LEVEL env var for effort-based routing
+EFFORT_LEVEL_MAP: dict[str, str] = {"low": "low", "medium": "medium", "high": "high"}
+
+# Models that support adaptive thinking via effort level (env var)
+# These models get both max_thinking_tokens AND effort_level
+ADAPTIVE_THINKING_MODELS: set[str] = {"claude-opus-4-6"}
+
 # Spec runner phase-specific thinking levels
 # Heavy phases use high for deep analysis
 # Light phases use medium after compaction
@@ -359,6 +367,67 @@ def get_phase_config(
     thinking_budget = get_thinking_budget(thinking_level)
 
     return model_id, thinking_level, thinking_budget
+
+
+def is_adaptive_model(model_id: str) -> bool:
+    """
+    Check if a model supports adaptive thinking via effort level.
+
+    Adaptive models support the CLAUDE_CODE_EFFORT_LEVEL environment variable
+    for effort-based routing in addition to max_thinking_tokens.
+
+    Args:
+        model_id: Full model ID (e.g., 'claude-opus-4-6')
+
+    Returns:
+        True if the model supports adaptive thinking
+    """
+    return model_id in ADAPTIVE_THINKING_MODELS
+
+
+def get_thinking_kwargs_for_model(model_id: str, thinking_level: str) -> dict:
+    """
+    Get thinking-related kwargs for create_client() based on model type.
+
+    For adaptive models (Opus 4.6): returns both max_thinking_tokens and effort_level.
+    For other models (Sonnet, Haiku): returns only max_thinking_tokens.
+
+    Args:
+        model_id: Full model ID (e.g., 'claude-opus-4-6')
+        thinking_level: Thinking level string (low, medium, high)
+
+    Returns:
+        Dict with 'max_thinking_tokens' and optionally 'effort_level'
+    """
+    kwargs: dict = {"max_thinking_tokens": get_thinking_budget(thinking_level)}
+    if is_adaptive_model(model_id):
+        kwargs["effort_level"] = EFFORT_LEVEL_MAP.get(thinking_level, "medium")
+    return kwargs
+
+
+def get_phase_client_thinking_kwargs(
+    spec_dir: Path,
+    phase: Phase,
+    phase_model: str,
+    cli_thinking: str | None = None,
+) -> dict:
+    """
+    Get thinking kwargs for create_client() for a specific execution phase.
+
+    Combines get_phase_thinking() and get_thinking_kwargs_for_model() to produce
+    the correct kwargs dict based on phase config and model capabilities.
+
+    Args:
+        spec_dir: Path to the spec directory
+        phase: Execution phase (spec, planning, coding, qa)
+        phase_model: Resolved full model ID for this phase
+        cli_thinking: Thinking level from CLI argument (optional)
+
+    Returns:
+        Dict with 'max_thinking_tokens' and optionally 'effort_level'
+    """
+    thinking_level = get_phase_thinking(spec_dir, phase, cli_thinking)
+    return get_thinking_kwargs_for_model(phase_model, thinking_level)
 
 
 def get_spec_phase_thinking_budget(phase_name: str) -> int | None:

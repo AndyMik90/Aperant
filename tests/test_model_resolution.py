@@ -30,10 +30,13 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from phase_config import (
+    ADAPTIVE_THINKING_MODELS,
     MODEL_BETAS_MAP,
     MODEL_ID_MAP,
     get_model_betas,
     get_phase_model_betas,
+    get_thinking_kwargs_for_model,
+    is_adaptive_model,
     resolve_model_id,
 )
 
@@ -446,3 +449,65 @@ class TestGetPhaseModelBetas:
         """get_phase_model_betas with no metadata returns empty list (defaults are sonnet)."""
         result = get_phase_model_betas(tmp_path, "coding")
         assert result == []
+
+
+class TestIsAdaptiveModel:
+    """Tests for is_adaptive_model() function."""
+
+    def test_opus_is_adaptive(self):
+        """claude-opus-4-6 is an adaptive thinking model."""
+        assert is_adaptive_model("claude-opus-4-6") is True
+
+    def test_sonnet_is_not_adaptive(self):
+        """claude-sonnet-4-5-20250929 is not an adaptive thinking model."""
+        assert is_adaptive_model("claude-sonnet-4-5-20250929") is False
+
+    def test_haiku_is_not_adaptive(self):
+        """claude-haiku-4-5-20251001 is not an adaptive thinking model."""
+        assert is_adaptive_model("claude-haiku-4-5-20251001") is False
+
+    def test_unknown_model_is_not_adaptive(self):
+        """Unknown models are not adaptive."""
+        assert is_adaptive_model("some-unknown-model") is False
+
+    def test_adaptive_models_set_contains_opus(self):
+        """ADAPTIVE_THINKING_MODELS set contains opus."""
+        assert "claude-opus-4-6" in ADAPTIVE_THINKING_MODELS
+
+
+class TestGetThinkingKwargsForModel:
+    """Tests for get_thinking_kwargs_for_model() function."""
+
+    def test_opus_gets_effort_level(self):
+        """Opus model gets both max_thinking_tokens and effort_level."""
+        result = get_thinking_kwargs_for_model("claude-opus-4-6", "medium")
+        assert "max_thinking_tokens" in result
+        assert "effort_level" in result
+        assert result["effort_level"] == "medium"
+        assert result["max_thinking_tokens"] == 4096
+
+    def test_opus_high_thinking(self):
+        """Opus with high thinking level gets high effort."""
+        result = get_thinking_kwargs_for_model("claude-opus-4-6", "high")
+        assert result["effort_level"] == "high"
+        assert result["max_thinking_tokens"] == 16384
+
+    def test_opus_low_thinking(self):
+        """Opus with low thinking level gets low effort."""
+        result = get_thinking_kwargs_for_model("claude-opus-4-6", "low")
+        assert result["effort_level"] == "low"
+        assert result["max_thinking_tokens"] == 1024
+
+    def test_sonnet_no_effort_level(self):
+        """Sonnet model gets only max_thinking_tokens, no effort_level."""
+        result = get_thinking_kwargs_for_model("claude-sonnet-4-5-20250929", "medium")
+        assert "max_thinking_tokens" in result
+        assert "effort_level" not in result
+        assert result["max_thinking_tokens"] == 4096
+
+    def test_haiku_no_effort_level(self):
+        """Haiku model gets only max_thinking_tokens, no effort_level."""
+        result = get_thinking_kwargs_for_model("claude-haiku-4-5-20251001", "high")
+        assert "max_thinking_tokens" in result
+        assert "effort_level" not in result
+        assert result["max_thinking_tokens"] == 16384

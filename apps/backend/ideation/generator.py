@@ -17,7 +17,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from client import create_client
-from phase_config import get_model_betas, get_thinking_budget, resolve_model_id
+from phase_config import (
+    get_model_betas,
+    get_thinking_budget,
+    get_thinking_kwargs_for_model,
+    resolve_model_id,
+)
 from ui import print_status
 
 # Ideation types
@@ -93,14 +98,18 @@ class IdeationGenerator:
         # Create client with thinking budget
         # Use agent_type="ideation" to avoid loading unnecessary MCP servers
         # which can cause 60-second timeout delays
+        resolved_model = resolve_model_id(self.model)
         betas = get_model_betas(self.model)
+        thinking_kwargs = get_thinking_kwargs_for_model(
+            resolved_model, self.thinking_level
+        )
         client = create_client(
             self.project_dir,
             self.output_dir,
-            resolve_model_id(self.model),
-            max_thinking_tokens=self.thinking_budget,
+            resolved_model,
             agent_type="ideation",
             betas=betas,
+            **thinking_kwargs,
         )
 
         try:
@@ -190,14 +199,18 @@ Write the fixed JSON to the file now.
 """
 
         # Use agent_type="ideation" for recovery agent as well
+        resolved_model = resolve_model_id(self.model)
         betas = get_model_betas(self.model)
+        thinking_kwargs = get_thinking_kwargs_for_model(
+            resolved_model, self.thinking_level
+        )
         client = create_client(
             self.project_dir,
             self.output_dir,
-            resolve_model_id(self.model),
-            max_thinking_tokens=self.thinking_budget,
+            resolved_model,
             agent_type="ideation",
             betas=betas,
+            **thinking_kwargs,
         )
 
         try:

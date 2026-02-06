@@ -450,6 +450,7 @@ def create_client(
     output_format: dict | None = None,
     agents: dict | None = None,
     betas: list[str] | None = None,
+    effort_level: str | None = None,
 ) -> ClaudeSDKClient:
     """
     Create a Claude Agent SDK client with multi-layered security.
@@ -478,6 +479,10 @@ def create_client(
                See: https://platform.claude.com/docs/en/agent-sdk/subagents
         betas: Optional list of SDK beta header strings (e.g., ["context-1m-2025-08-07"]
                for 1M context window). Use get_phase_model_betas() to compute from config.
+        effort_level: Optional effort level for adaptive thinking models (e.g., "low",
+                     "medium", "high"). When set, injected as CLAUDE_CODE_EFFORT_LEVEL
+                     env var for the SDK subprocess. Only meaningful for models that
+                     support adaptive thinking (e.g., Opus 4.6).
 
     Returns:
         Configured ClaudeSDKClient
@@ -504,6 +509,10 @@ def create_client(
 
     if config_dir:
         logger.info(f"Using CLAUDE_CONFIG_DIR for profile: {config_dir}")
+
+    # Inject effort level for adaptive thinking models (e.g., Opus 4.6)
+    if effort_level:
+        sdk_env["CLAUDE_CODE_EFFORT_LEVEL"] = effort_level
 
     # Debug: Log git-bash path detection on Windows
     if "CLAUDE_CODE_GIT_BASH_PATH" in sdk_env:
@@ -668,7 +677,10 @@ def create_client(
         print("   - Worktree permissions: granted for original project directories")
     print("   - Bash commands restricted to allowlist")
     if max_thinking_tokens:
-        print(f"   - Extended thinking: {max_thinking_tokens:,} tokens")
+        thinking_info = f"{max_thinking_tokens:,} tokens"
+        if effort_level:
+            thinking_info += f" + effort={effort_level}"
+        print(f"   - Extended thinking: {thinking_info}")
     else:
         print("   - Extended thinking: disabled")
 
