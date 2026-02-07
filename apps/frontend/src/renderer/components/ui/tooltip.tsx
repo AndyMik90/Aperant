@@ -1,6 +1,14 @@
+/**
+ * Tooltip - Informational popup on hover
+ *
+ * @see https://ui.shadcn.com/docs/components/tooltip
+ */
+
 import * as React from 'react';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { cn } from '../../lib/utils';
+
+/* -- Components ----------------------------------------------------------- */
 
 const TooltipProvider = TooltipPrimitive.Provider;
 
@@ -27,5 +35,7 @@ const TooltipContent = React.forwardRef<
   />
 ));
 TooltipContent.displayName = TooltipPrimitive.Content.displayName;
+
+/* -- Exports -------------------------------------------------------------- */
 
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };

@@ -1,7 +1,15 @@
+/**
+ * Dialog - Modal dialog overlay for important interactions
+ *
+ * @see https://ui.shadcn.com/docs/components/dialog
+ */
+
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
+
+/* -- Components ----------------------------------------------------------- */
 
 const Dialog = DialogPrimitive.Root;
 
@@ -111,6 +119,8 @@ const DialogDescription = React.forwardRef<
   />
 ));
 DialogDescription.displayName = DialogPrimitive.Description.displayName;
+
+/* -- Exports -------------------------------------------------------------- */
 
 export {
   Dialog,

@@ -1,6 +1,14 @@
+/**
+ * Tabs - Tabbed navigation for switching between content panels
+ *
+ * @see https://ui.shadcn.com/docs/components/tabs
+ */
+
 import * as React from 'react';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 import { cn } from '../../lib/utils';
+
+/* -- Components ----------------------------------------------------------- */
 
 const Tabs = TabsPrimitive.Root;
 
@@ -53,5 +61,7 @@ const TabsContent = React.forwardRef<
   />
 ));
 TabsContent.displayName = TabsPrimitive.Content.displayName;
+
+/* -- Exports -------------------------------------------------------------- */
 
 export { Tabs, TabsList, TabsTrigger, TabsContent };

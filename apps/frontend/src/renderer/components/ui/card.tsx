@@ -1,5 +1,13 @@
+/**
+ * Card - Container for grouping related content
+ *
+ * @see https://ui.shadcn.com/docs/components/card
+ */
+
 import * as React from 'react';
 import { cn } from '../../lib/utils';
+
+/* -- Components ----------------------------------------------------------- */
 
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
@@ -54,5 +62,7 @@ const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
   )
 );
 CardFooter.displayName = 'CardFooter';
+
+/* -- Exports -------------------------------------------------------------- */
 
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent };

@@ -1,8 +1,16 @@
+/**
+ * Combobox - Searchable dropdown selection with keyboard navigation
+ *
+ * @see https://ui.shadcn.com/docs/components/combobox
+ */
+
 import * as React from 'react';
 import { Check, ChevronDown, Search } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { ScrollArea } from './scroll-area';
+
+/* -- Types ---------------------------------------------------------------- */
 
 export interface ComboboxOption {
   value: string;
@@ -36,6 +44,8 @@ interface ComboboxProps {
   /** ID for the trigger element */
   id?: string;
 }
+
+/* -- Components ----------------------------------------------------------- */
 
 const Combobox = React.forwardRef<HTMLButtonElement, ComboboxProps>(
   (
@@ -297,5 +307,7 @@ const Combobox = React.forwardRef<HTMLButtonElement, ComboboxProps>(
 );
 
 Combobox.displayName = 'Combobox';
+
+/* -- Exports -------------------------------------------------------------- */
 
 export { Combobox };

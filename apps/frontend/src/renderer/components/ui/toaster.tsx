@@ -1,9 +1,9 @@
 /**
- * Toaster Component
+ * Toaster - Toast viewport renderer for the application root
  *
- * Renders the toast viewport where toasts are displayed.
- * Should be included once in the app root.
+ * @see https://ui.shadcn.com/docs/components/toast
  */
+
 import {
   Toast,
   ToastClose,
@@ -13,6 +13,8 @@ import {
   ToastViewport,
 } from './toast';
 import { useToast } from '../../hooks/use-toast';
+
+/* -- Components ----------------------------------------------------------- */
 
 export function Toaster() {
   const { toasts } = useToast();

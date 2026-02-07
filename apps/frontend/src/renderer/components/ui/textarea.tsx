@@ -1,6 +1,14 @@
+/**
+ * Textarea - Multi-line text input field
+ *
+ * @see https://ui.shadcn.com/docs/components/textarea
+ */
+
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
+
+/* -- Components ----------------------------------------------------------- */
 
 export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
 
@@ -28,5 +36,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   }
 );
 Textarea.displayName = 'Textarea';
+
+/* -- Exports -------------------------------------------------------------- */
 
 export { Textarea };

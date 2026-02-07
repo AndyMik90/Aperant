@@ -341,8 +341,6 @@ export class ProjectStore {
         const newIsMain = task.location === 'main';
 
         if (existingIsMain && !newIsMain) {
-          // Main wins, keep existing
-          continue;
         } else if (!existingIsMain && newIsMain) {
           // New is main, replace existing worktree
           taskMap.set(task.id, task);

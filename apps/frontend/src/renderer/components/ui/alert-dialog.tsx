@@ -1,7 +1,15 @@
+/**
+ * AlertDialog - Modal dialog for important confirmations
+ *
+ * @see https://ui.shadcn.com/docs/components/alert-dialog
+ */
+
 import * as React from 'react';
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog';
 import { cn } from '../../lib/utils';
 import { buttonVariants } from './button';
+
+/* -- Components ----------------------------------------------------------- */
 
 const AlertDialog = AlertDialogPrimitive.Root;
 
@@ -133,6 +141,8 @@ const AlertDialogCancel = React.forwardRef<
   />
 ));
 AlertDialogCancel.displayName = AlertDialogPrimitive.Cancel.displayName;
+
+/* -- Exports -------------------------------------------------------------- */
 
 export {
   AlertDialog,

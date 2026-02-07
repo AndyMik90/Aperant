@@ -1,6 +1,14 @@
+/**
+ * Switch - Toggle control for on/off states
+ *
+ * @see https://ui.shadcn.com/docs/components/switch
+ */
+
 import * as React from 'react';
 import * as SwitchPrimitives from '@radix-ui/react-switch';
 import { cn } from '../../lib/utils';
+
+/* -- Components ----------------------------------------------------------- */
 
 const Switch = React.forwardRef<
   React.ElementRef<typeof SwitchPrimitives.Root>,
@@ -29,5 +37,7 @@ const Switch = React.forwardRef<
   </SwitchPrimitives.Root>
 ));
 Switch.displayName = SwitchPrimitives.Root.displayName;
+
+/* -- Exports -------------------------------------------------------------- */
 
 export { Switch };

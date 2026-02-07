@@ -1,7 +1,14 @@
+/**
+ * Popover - Floating content panel anchored to a trigger
+ *
+ * @see https://ui.shadcn.com/docs/components/popover
+ */
+
 import * as React from 'react';
 import * as PopoverPrimitive from '@radix-ui/react-popover';
-
 import { cn } from '../../lib/utils';
+
+/* -- Components ----------------------------------------------------------- */
 
 const Popover = PopoverPrimitive.Root;
 
@@ -32,5 +39,7 @@ const PopoverContent = React.forwardRef<
   </PopoverPrimitive.Portal>
 ));
 PopoverContent.displayName = PopoverPrimitive.Content.displayName;
+
+/* -- Exports -------------------------------------------------------------- */
 
 export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor };

@@ -1,7 +1,15 @@
+/**
+ * Checkbox - Toggle control for boolean values
+ *
+ * @see https://ui.shadcn.com/docs/components/checkbox
+ */
+
 import * as React from 'react';
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
 import { Check, Minus } from 'lucide-react';
 import { cn } from '../../lib/utils';
+
+/* -- Components ----------------------------------------------------------- */
 
 const Checkbox = React.forwardRef<
   React.ElementRef<typeof CheckboxPrimitive.Root>,
@@ -32,5 +40,7 @@ const Checkbox = React.forwardRef<
   </CheckboxPrimitive.Root>
 ));
 Checkbox.displayName = CheckboxPrimitive.Root.displayName;
+
+/* -- Exports -------------------------------------------------------------- */
 
 export { Checkbox };

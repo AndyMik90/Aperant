@@ -1,7 +1,15 @@
+/**
+ * Select - Dropdown selection control with search and grouping
+ *
+ * @see https://ui.shadcn.com/docs/components/select
+ */
+
 import * as React from 'react';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../lib/utils';
+
+/* -- Components ----------------------------------------------------------- */
 
 const Select = SelectPrimitive.Root;
 
@@ -151,6 +159,8 @@ const SelectSeparator = React.forwardRef<
   />
 ));
 SelectSeparator.displayName = SelectPrimitive.Separator.displayName;
+
+/* -- Exports -------------------------------------------------------------- */
 
 export {
   Select,

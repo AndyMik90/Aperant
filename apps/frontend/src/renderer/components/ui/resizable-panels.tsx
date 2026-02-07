@@ -1,16 +1,14 @@
 /**
- * ResizablePanels - A split panel layout with a draggable divider
+ * ResizablePanels - Split panel layout with draggable divider
  *
- * Features:
- * - Smooth drag-to-resize functionality
- * - Min/max width constraints
- * - Persists width to localStorage
- * - Visual feedback on hover and drag
- * - Touch support for mobile devices
+ * Features: drag-to-resize, min/max constraints, localStorage persistence,
+ * visual feedback on hover/drag, and touch support.
  */
 
 import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
 import { cn } from '../../lib/utils';
+
+/* -- Types ---------------------------------------------------------------- */
 
 interface ResizablePanelsProps {
   leftPanel: ReactNode;
@@ -21,6 +19,8 @@ interface ResizablePanelsProps {
   storageKey?: string;        // localStorage key for persistence
   className?: string;
 }
+
+/* -- Components ----------------------------------------------------------- */
 
 export function ResizablePanels({
   leftPanel,

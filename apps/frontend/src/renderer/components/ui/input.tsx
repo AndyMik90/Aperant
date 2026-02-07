@@ -1,6 +1,14 @@
+/**
+ * Input - Text input field with form integration
+ *
+ * @see https://ui.shadcn.com/docs/components/input
+ */
+
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
+
+/* -- Components ----------------------------------------------------------- */
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
 
@@ -29,5 +37,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
   }
 );
 Input.displayName = 'Input';
+
+/* -- Exports -------------------------------------------------------------- */
 
 export { Input };

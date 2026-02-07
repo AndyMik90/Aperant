@@ -1,6 +1,14 @@
+/**
+ * Progress - Visual indicator of completion status
+ *
+ * @see https://ui.shadcn.com/docs/components/progress
+ */
+
 import * as React from 'react';
 import * as ProgressPrimitive from '@radix-ui/react-progress';
 import { cn } from '../../lib/utils';
+
+/* -- Components ----------------------------------------------------------- */
 
 interface ProgressProps extends React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root> {
   animated?: boolean;
@@ -28,5 +36,7 @@ const Progress = React.forwardRef<
   </ProgressPrimitive.Root>
 ));
 Progress.displayName = ProgressPrimitive.Root.displayName;
+
+/* -- Exports -------------------------------------------------------------- */
 
 export { Progress };
