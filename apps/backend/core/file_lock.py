@@ -151,27 +151,35 @@ class FileLock:
         # Open lock file
         self._fd = os.open(str(self._lock_file), os.O_CREAT | os.O_RDWR)
 
-        # Try to acquire lock with timeout (use monotonic clock for reliable timeouts)
-        start_time = time.monotonic()
+        try:
+            # Try to acquire lock with timeout (use monotonic clock for reliable timeouts)
+            start_time = time.monotonic()
 
-        while True:
-            try:
-                # Non-blocking lock attempt
-                _try_lock(self._fd, self.exclusive)
-                return  # Lock acquired
-            except (BlockingIOError, OSError):
-                # Lock held by another process
-                elapsed = time.monotonic() - start_time
-                if elapsed >= self.timeout:
+            while True:
+                try:
+                    # Non-blocking lock attempt
+                    _try_lock(self._fd, self.exclusive)
+                    return  # Lock acquired
+                except (BlockingIOError, OSError):
+                    # Lock held by another process
+                    elapsed = time.monotonic() - start_time
+                    if elapsed >= self.timeout:
+                        raise FileLockTimeout(
+                            f"Failed to acquire lock on {self.filepath} within "
+                            f"{self.timeout}s"
+                        )
+
+                    # Wait a bit before retrying
+                    time.sleep(0.01)
+        except Exception:
+            # Close fd on any exception before re-raising
+            if self._fd is not None:
+                try:
                     os.close(self._fd)
-                    self._fd = None
-                    raise FileLockTimeout(
-                        f"Failed to acquire lock on {self.filepath} within "
-                        f"{self.timeout}s"
-                    )
-
-                # Wait a bit before retrying
-                time.sleep(0.01)
+                except Exception:
+                    pass
+                self._fd = None
+            raise
 
     def _release_lock(self) -> None:
         """Release the file lock.
