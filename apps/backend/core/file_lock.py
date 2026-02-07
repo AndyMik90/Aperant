@@ -177,6 +177,7 @@ class FileLock:
                 try:
                     os.close(self._fd)
                 except Exception:
+                    # Best-effort cleanup: ignore errors when closing fd during error handling
                     pass
                 self._fd = None
             raise
