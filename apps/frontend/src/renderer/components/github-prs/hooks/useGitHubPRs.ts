@@ -95,7 +95,7 @@ export function useGitHubPRs(
   const fetchGenerationRef = useRef(0);
 
   // Get PR review state from the global store
-  const prReviews = usePRReviewStore((state) => state.prReviews);
+  const _prReviews = usePRReviewStore((state) => state.prReviews);
   const getPRReviewState = usePRReviewStore((state) => state.getPRReviewState);
   const getActivePRReviews = usePRReviewStore((state) => state.getActivePRReviews);
   const setNewCommitsCheckAction = usePRReviewStore((state) => state.setNewCommitsCheck);
@@ -104,7 +104,7 @@ export function useGitHubPRs(
   const selectedPRReviewState = useMemo(() => {
     if (!projectId || selectedPRNumber === null) return null;
     return getPRReviewState(projectId, selectedPRNumber);
-  }, [projectId, selectedPRNumber, prReviews, getPRReviewState]);
+  }, [projectId, selectedPRNumber, getPRReviewState]);
 
   // Derive values from store state - all from the same source to ensure consistency
   const reviewResult = selectedPRReviewState?.result ?? null;
@@ -117,7 +117,7 @@ export function useGitHubPRs(
   const activePRReviews = useMemo(() => {
     if (!projectId) return [];
     return getActivePRReviews(projectId).map((review) => review.prNumber);
-  }, [projectId, prReviews, getActivePRReviews]);
+  }, [projectId, getActivePRReviews]);
 
   // Helper to get review state for any PR
   const getReviewStateForPR = useCallback(
@@ -135,7 +135,7 @@ export function useGitHubPRs(
         newCommitsCheck: state.newCommitsCheck,
       };
     },
-    [projectId, prReviews, getPRReviewState]
+    [projectId, getPRReviewState]
   );
 
   // Use detailed PR data if available (includes files), otherwise fall back to list data
@@ -251,7 +251,7 @@ export function useGitHubPRs(
       checkNewCommitsAbortRef.current.abort();
       checkNewCommitsAbortRef.current = null;
     }
-  }, [projectId]);
+  }, []);
 
   // Cleanup abort controller on unmount to prevent memory leaks
   // and avoid state updates on unmounted components

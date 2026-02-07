@@ -275,7 +275,7 @@ describe('OnboardingWizard Integration Tests', () => {
 
       // On welcome step, no progress indicator shown
       expect(screen.queryByText(/Welcome/)).toBeInTheDocument();
-      const progressBeforeNav = document.querySelector('[class*="progress"]');
+      const _progressBeforeNav = document.querySelector('[class*="progress"]');
       // Progress indicator may not be visible on welcome step
 
       // Navigate to auth-choice

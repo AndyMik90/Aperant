@@ -178,7 +178,9 @@ describe("safeSendToRenderer", () => {
 
   describe("error handling - non-disposal errors", () => {
     it("catches other errors and returns false", () => {
-      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {
+        /* intentionally empty - suppress console output during tests */
+      });
 
       mockSend.mockImplementation(() => {
         throw new Error("Some other IPC error");
@@ -216,7 +218,9 @@ describe("safeSendToRenderer", () => {
     });
 
     it("logs console.warn only once for multiple consecutive calls to same channel", () => {
-      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {
+        /* intentionally empty - suppress console output during tests */
+      });
 
       mockWindow = {
         isDestroyed: vi.fn(() => true),
@@ -242,7 +246,9 @@ describe("safeSendToRenderer", () => {
     });
 
     it("logs console.warn separately for different channels", () => {
-      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {
+        /* intentionally empty - suppress console output during tests */
+      });
 
       mockWindow = {
         isDestroyed: vi.fn(() => true),
@@ -307,7 +313,9 @@ describe("safeSendToRenderer", () => {
 
   describe("warning pruning logic - 100-entry hard cap", () => {
     it("enforces 100-entry cap by removing oldest entries when exceeded", async () => {
-      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {
+        /* intentionally empty - suppress console output during tests */
+      });
 
       mockWindow = {
         isDestroyed: vi.fn(() => true),
@@ -340,7 +348,9 @@ describe("safeSendToRenderer", () => {
     });
 
     it("handles many unique channels without throwing errors", async () => {
-      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {
+        /* intentionally empty - suppress console output during tests */
+      });
 
       mockWindow = {
         isDestroyed: vi.fn(() => true),

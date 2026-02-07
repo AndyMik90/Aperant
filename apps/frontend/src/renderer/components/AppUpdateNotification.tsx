@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Download, RefreshCw, CheckCircle2, AlertCircle, ExternalLink } from "lucide-react";
+import { Download, RefreshCw, CheckCircle2, AlertCircle, AlertTriangle, ExternalLink } from "lucide-react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import {
@@ -70,6 +72,7 @@ export function AppUpdateNotification() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [showReadOnlyWarning, setShowReadOnlyWarning] = useState(false);
 
   // Create markdown components with translated accessibility text
   const markdownComponents: Components = useMemo(
@@ -88,6 +91,7 @@ export function AppUpdateNotification() {
       setIsDownloaded(false);
       setDownloadProgress(null);
       setDownloadError(null);
+      setShowReadOnlyWarning(false);
     });
 
     return cleanup;
@@ -99,6 +103,8 @@ export function AppUpdateNotification() {
       setIsDownloading(false);
       setIsDownloaded(true);
       setDownloadProgress(null);
+      setDownloadError(null);
+      setShowReadOnlyWarning(false);
     });
 
     return cleanup;
@@ -108,6 +114,26 @@ export function AppUpdateNotification() {
   useEffect(() => {
     const cleanup = window.electronAPI.onAppUpdateProgress((progress) => {
       setDownloadProgress(progress);
+    });
+
+    return cleanup;
+  }, []);
+
+  // Listen for update errors (e.g., install failures)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onAppUpdateError((error) => {
+      setDownloadError(error.message);
+      setIsDownloading(false);
+      setDownloadProgress(null);
+    });
+
+    return cleanup;
+  }, []);
+
+  // Listen for read-only volume warning (when trying to install from DMG on macOS)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onAppUpdateReadOnlyVolume(() => {
+      setShowReadOnlyWarning(true);
     });
 
     return cleanup;
@@ -189,7 +215,11 @@ export function AppUpdateNotification() {
           {updateInfo.releaseNotes && (
             <div className="bg-background rounded-lg p-4 max-h-64 overflow-y-auto border border-border/50">
               <div className="prose prose-sm dark:prose-invert max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                  components={markdownComponents}
+                >
                   {updateInfo.releaseNotes}
                 </ReactMarkdown>
               </div>
@@ -201,7 +231,7 @@ export function AppUpdateNotification() {
             variant="link"
             size="sm"
             className="w-full text-xs text-muted-foreground gap-1"
-            onClick={() => window.electronAPI?.openExternal?.(CLAUDE_CODE_CHANGELOG_URL)}
+            onClick={() => window.electronAPI.openExternal(CLAUDE_CODE_CHANGELOG_URL)}
             aria-label={t(
               "dialogs:appUpdate.claudeCodeChangelogAriaLabel",
               "View Claude Code Changelog (opens in new window)"
@@ -238,8 +268,23 @@ export function AppUpdateNotification() {
             </div>
           )}
 
+          {/* Read-Only Volume Warning (DMG install on macOS) */}
+          {showReadOnlyWarning && (
+            <div className="flex items-start gap-3 text-sm text-warning bg-warning/10 border border-warning/30 rounded-lg p-3">
+              <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-medium">
+                  {t("dialogs:appUpdate.readOnlyVolumeTitle", "Cannot install from disk image")}
+                </p>
+                <p className="text-muted-foreground">
+                  {t("dialogs:appUpdate.readOnlyVolumeDescription", "Please move Auto Claude to your Applications folder before updating.")}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Downloaded Success */}
-          {isDownloaded && (
+          {isDownloaded && !showReadOnlyWarning && (
             <div className="flex items-center gap-3 text-sm text-success bg-success/10 border border-success/30 rounded-lg p-3">
               <CheckCircle2 className="h-5 w-5 shrink-0" />
               <span>
@@ -260,7 +305,7 @@ export function AppUpdateNotification() {
           </Button>
 
           {isDownloaded ? (
-            <Button onClick={handleInstall}>
+            <Button onClick={handleInstall} disabled={showReadOnlyWarning}>
               <RefreshCw className="mr-2 h-4 w-4" />
               {t("dialogs:appUpdate.installAndRestart", "Install and Restart")}
             </Button>

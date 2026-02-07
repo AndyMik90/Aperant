@@ -72,6 +72,13 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       return;
     }
 
+    // Reset refs when (re)initializing xterm
+    // This is critical for React StrictMode which unmounts/remounts components,
+    // causing dispose() to set isDisposedRef.current = true on the first unmount.
+    // Without this reset, the remounted component would still have isDisposed = true.
+    isDisposedRef.current = false;
+    dimensionsReadyCalledRef.current = false;
+
     debugLog(`[useXterm] Initializing xterm for terminal: ${terminalId}`);
 
     const xterm = new XTerm({
@@ -296,7 +303,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     return () => {
       // Cleanup handled by parent component
     };
-  }, [terminalId, onCommandEnter, onResize, onDimensionsReady]);
+  }, [terminalId, onCommandEnter, onResize, onDimensionsReady, fontSettings.cursorAccentColor, fontSettings.cursorBlink, fontSettings.cursorStyle, fontSettings.fontFamily.join, fontSettings.fontSize, fontSettings.fontWeight, fontSettings.letterSpacing, fontSettings.lineHeight, fontSettings.scrollback]);
 
   // Subscribe to font settings changes and update terminal reactively
   // This effect runs after xterm is created and re-runs when terminalId changes,
@@ -337,7 +344,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     );
 
     return unsubscribe;
-  }, [terminalId]); // Only terminalId needed - re-subscribe when terminal changes
+  }, []); // Only terminalId needed - re-subscribe when terminal changes
 
   // Register xterm write callback with terminal-store for global output listener
   // This allows the global listener to write directly to xterm when terminal is visible
@@ -490,16 +497,23 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     // Serialize buffer before disposing to preserve ANSI formatting
     serializeBuffer();
 
-    if (xtermRef.current) {
-      xtermRef.current.dispose();
-      xtermRef.current = null;
+    // Dispose addons explicitly before disposing xterm
+    // While xterm.dispose() handles loaded addons, explicit disposal ensures
+    // resources are freed in a predictable order and prevents potential leaks
+    if (fitAddonRef.current) {
+      fitAddonRef.current.dispose();
+      fitAddonRef.current = null;
     }
     if (serializeAddonRef.current) {
       serializeAddonRef.current.dispose();
       serializeAddonRef.current = null;
     }
-    fitAddonRef.current = null;
-  }, [serializeBuffer]);
+    // Note: webLinksAddon is local and will be disposed when xterm.dispose() is called
+    if (xtermRef.current) {
+      xtermRef.current.dispose();
+      xtermRef.current = null;
+    }
+  }, [serializeBuffer, terminalId]);
 
   return {
     terminalRef,
