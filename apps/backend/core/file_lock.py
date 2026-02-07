@@ -149,8 +149,8 @@ class FileLock:
         # Open lock file
         self._fd = os.open(str(self._lock_file), os.O_CREAT | os.O_RDWR)
 
-        # Try to acquire lock with timeout
-        start_time = time.time()
+        # Try to acquire lock with timeout (use monotonic clock for reliable timeouts)
+        start_time = time.monotonic()
 
         while True:
             try:
@@ -159,7 +159,7 @@ class FileLock:
                 return  # Lock acquired
             except (BlockingIOError, OSError):
                 # Lock held by another process
-                elapsed = time.time() - start_time
+                elapsed = time.monotonic() - start_time
                 if elapsed >= self.timeout:
                     os.close(self._fd)
                     self._fd = None
@@ -431,7 +431,10 @@ async def locked_json_update(
     Args:
         filepath: File path to update
         updater: Function that takes current data (may be None if file doesn't
-            exist) and returns updated data
+            exist) and returns updated data. The updater runs SYNCHRONOUSLY on
+            the event loop and must be CPU-light and non-blocking. For heavy
+            or I/O-bound work, offload via asyncio.get_running_loop().run_in_executor()
+            or make the updater async and await it separately.
         timeout: Lock timeout in seconds (default: 5.0)
         indent: JSON indentation (default: 2)
 
@@ -474,10 +477,26 @@ async def locked_json_update(
                 dir=filepath.parent, prefix=f".{filepath.name}.tmp.", suffix=""
             )
             try:
-                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                # Open fd for writing - ensure fd is closed on any exception
+                try:
+                    f = os.fdopen(fd, "w", encoding="utf-8")
+                except Exception:
+                    # os.fdopen failed - close fd and clean up temp file before raising
+                    os.close(fd)
+                    try:
+                        os.unlink(tmp_path)
+                    except Exception:
+                        pass
+                    raise
+
+                try:
                     json.dump(updated_data, f, indent=indent)
+                finally:
+                    f.close()
+
                 os.replace(tmp_path, filepath)
             except Exception:
+                # Clean up temp file on error (fd already closed by f.close())
                 try:
                     os.unlink(tmp_path)
                 except Exception:
