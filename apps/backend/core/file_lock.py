@@ -339,15 +339,19 @@ async def locked_read(filepath: str | Path, timeout: float = 5.0) -> Any:
     Async context manager for locked file reading.
 
     Acquires shared lock for reading, allowing multiple concurrent readers
-    but blocking writers.
+    but blocking writers. The file contents are read synchronously in the
+    executor and yielded as a string to avoid blocking the event loop.
 
     Args:
         filepath: File path to read
         timeout: Lock timeout in seconds (default: 5.0)
 
     Example:
-        async with locked_read("/path/to/file.json", timeout=5.0) as f:
-            data = json.load(f)
+        async with locked_read("/path/to/file.json", timeout=5.0) as contents:
+            data = json.loads(contents)
+
+    Returns:
+        Yields the file contents as a string (not a file handle)
 
     Raises:
         FileLockTimeout: If lock cannot be acquired within timeout
@@ -358,9 +362,13 @@ async def locked_read(filepath: str | Path, timeout: float = 5.0) -> Any:
     # Acquire shared lock (allows multiple readers) using explicit async context manager
     lock = FileLock(filepath, timeout=timeout, exclusive=False)
     async with lock:
-        # Open file for reading - let open() raise FileNotFoundError if file was removed
-        with open(filepath, encoding="utf-8") as f:
-            yield f
+        # Read file contents in executor to avoid blocking event loop
+        def _read_file():
+            with open(filepath, encoding="utf-8") as f:
+                return f.read()
+
+        contents = await asyncio.get_running_loop().run_in_executor(None, _read_file)
+        yield contents
 
 
 async def locked_json_write(
@@ -404,8 +412,8 @@ async def locked_json_read(filepath: str | Path, timeout: float = 5.0) -> Any:
         FileNotFoundError: If file doesn't exist
         json.JSONDecodeError: If file contains invalid JSON
     """
-    async with locked_read(filepath, timeout=timeout) as f:
-        return json.load(f)
+    async with locked_read(filepath, timeout=timeout) as contents:
+        return json.loads(contents)
 
 
 async def locked_json_update(
