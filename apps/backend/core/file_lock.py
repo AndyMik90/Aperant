@@ -31,7 +31,9 @@ from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 from typing import Any
 
-_IS_WINDOWS = os.name == "nt"
+from core.platform import is_windows
+
+_IS_WINDOWS = is_windows()
 _WINDOWS_LOCK_SIZE = 1024 * 1024
 
 try:
@@ -276,6 +278,10 @@ async def locked_write(
     Acquires exclusive lock, writes to temp file, atomically replaces target.
     This is the recommended way to safely write shared state files.
 
+    Note: Writes to the returned file handle run synchronously on the event
+    loop and can block for large writes. For heavy writes, consider offloading
+    to the executor or using locked_json_update which handles JSON serialization.
+
     Args:
         filepath: Target file path
         timeout: Lock timeout in seconds (default: 5.0)
@@ -481,12 +487,8 @@ async def locked_json_update(
                 try:
                     f = os.fdopen(fd, "w", encoding="utf-8")
                 except Exception:
-                    # os.fdopen failed - close fd and clean up temp file before raising
+                    # os.fdopen failed - close fd before raising
                     os.close(fd)
-                    try:
-                        os.unlink(tmp_path)
-                    except Exception:
-                        pass
                     raise
 
                 try:
