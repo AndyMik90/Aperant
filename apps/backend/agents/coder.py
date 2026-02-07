@@ -69,6 +69,7 @@ from .base import (
     MAX_CONCURRENCY_RETRIES,
     MAX_RATE_LIMIT_WAIT_SECONDS,
     MAX_RETRY_DELAY_SECONDS,
+    MAX_SUBTASK_RETRIES,
     RATE_LIMIT_CHECK_INTERVAL_SECONDS,
     RATE_LIMIT_PAUSE_FILE,
     RESUME_FILE,
@@ -85,6 +86,60 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# FILE VALIDATION UTILITIES
+# =============================================================================
+
+
+def validate_subtask_files(subtask: dict, project_dir: Path) -> dict:
+    """
+    Validate all files_to_modify exist before subtask execution.
+
+    Args:
+        subtask: Subtask dictionary containing files_to_modify array
+        project_dir: Root directory of the project
+
+    Returns:
+        dict with:
+        - success (bool): True if all files exist
+        - error (str): Error message if validation fails
+        - missing_files (list): List of missing file paths
+        - invalid_paths (list): List of paths that resolve outside the project
+        - suggestion (str): Actionable suggestion for resolution
+    """
+    missing_files = []
+    invalid_paths = []
+
+    resolved_project = Path(project_dir).resolve()
+    for file_path in subtask.get("files_to_modify", []):
+        full_path = (resolved_project / file_path).resolve()
+        if not full_path.is_relative_to(resolved_project):
+            invalid_paths.append(file_path)
+            continue
+        if not full_path.exists():
+            missing_files.append(file_path)
+
+    if invalid_paths:
+        return {
+            "success": False,
+            "error": f"Paths resolve outside project boundary: {', '.join(invalid_paths)}",
+            "missing_files": missing_files,
+            "invalid_paths": invalid_paths,
+            "suggestion": "Update implementation plan to use paths within the project directory",
+        }
+
+    if missing_files:
+        return {
+            "success": False,
+            "error": f"Planned files do not exist: {', '.join(missing_files)}",
+            "missing_files": missing_files,
+            "invalid_paths": [],
+            "suggestion": "Update implementation plan with correct filenames or create missing files",
+        }
+
+    return {"success": True, "missing_files": [], "invalid_paths": []}
 
 
 def _check_and_clear_resume_file(
@@ -526,18 +581,16 @@ async def run_autonomous_agent(
         phase_model = get_phase_model(spec_dir, current_phase, model)
         phase_thinking_budget = get_phase_thinking_budget(spec_dir, current_phase)
 
-        # Create client (fresh context) with phase-specific model and thinking
-        # Use appropriate agent_type for correct tool permissions and thinking budget
-        client = create_client(
-            project_dir,
-            spec_dir,
-            phase_model,
-            agent_type="planner" if first_run else "coder",
-            max_thinking_tokens=phase_thinking_budget,
-        )
-
         # Generate appropriate prompt
         if first_run:
+            # Create client for planning phase
+            client = create_client(
+                project_dir,
+                spec_dir,
+                phase_model,
+                agent_type="planner",
+                max_thinking_tokens=phase_thinking_budget,
+            )
             prompt = generate_planner_prompt(spec_dir, project_dir)
             if planning_retry_context:
                 prompt += "\n\n" + planning_retry_context
@@ -614,6 +667,68 @@ async def run_autonomous_agent(
                 if not next_subtask:
                     print("No pending subtasks found - build may be complete!")
                     break
+
+            # Validate that all files_to_modify exist before attempting execution
+            # This prevents infinite retry loops when implementation plan references non-existent files
+            validation_result = validate_subtask_files(next_subtask, project_dir)
+            if not validation_result["success"]:
+                # File validation failed - record error and skip session
+                error_msg = validation_result["error"]
+                suggestion = validation_result.get("suggestion", "")
+
+                print()
+                print_status(f"File validation failed: {error_msg}", "error")
+                if suggestion:
+                    print(muted(f"Suggestion: {suggestion}"))
+                print()
+
+                # Record the validation failure in recovery manager
+                recovery_manager.record_attempt(
+                    subtask_id=subtask_id,
+                    session=iteration,
+                    success=False,
+                    approach="File validation failed before execution",
+                    error=error_msg,
+                )
+
+                # Log the validation failure
+                if task_logger:
+                    task_logger.log_error(
+                        f"File validation failed: {error_msg}", LogPhase.CODING
+                    )
+
+                # Check if subtask has exceeded max retries
+                attempt_count = recovery_manager.get_attempt_count(subtask_id)
+                if attempt_count >= MAX_SUBTASK_RETRIES:
+                    recovery_manager.mark_subtask_stuck(
+                        subtask_id,
+                        f"File validation failed after {attempt_count} attempts: {error_msg}",
+                    )
+                    print_status(
+                        f"Subtask {subtask_id} marked as STUCK after {attempt_count} failed validation attempts",
+                        "error",
+                    )
+                    print(
+                        muted(
+                            "Consider: update implementation plan with correct filenames"
+                        )
+                    )
+
+                # Update status
+                status_manager.update(state=BuildState.ERROR)
+
+                # Small delay before retry
+                await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+                continue  # Skip to next iteration
+
+            # Create client for coding phase (after file validation passes)
+            client = create_client(
+                project_dir,
+                spec_dir,
+                phase_model,
+                agent_type="coder",
+                max_thinking_tokens=phase_thinking_budget,
+            )
 
             # Get attempt count for recovery context
             attempt_count = recovery_manager.get_attempt_count(subtask_id)
@@ -734,7 +849,7 @@ async def run_autonomous_agent(
 
             # Check for stuck subtasks
             attempt_count = recovery_manager.get_attempt_count(subtask_id)
-            if not success and attempt_count >= 3:
+            if not success and attempt_count >= MAX_SUBTASK_RETRIES:
                 recovery_manager.mark_subtask_stuck(
                     subtask_id, f"Failed after {attempt_count} attempts"
                 )

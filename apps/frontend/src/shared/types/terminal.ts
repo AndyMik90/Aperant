@@ -219,6 +219,8 @@ export interface TerminalWorktreeConfig {
   createdAt: string;
   /** Terminal ID this worktree is associated with */
   terminalId: string;
+  /** Whether the branch was pushed to remote with tracking set up */
+  remoteTrackingSetUp?: boolean;
 }
 
 /**
@@ -252,6 +254,8 @@ export interface TerminalWorktreeResult {
   success: boolean;
   config?: TerminalWorktreeConfig;
   error?: string;
+  /** Warning when worktree was created but remote push failed */
+  warning?: string;
 }
 
 /**
