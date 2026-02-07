@@ -172,7 +172,14 @@ class FileLock:
                 time.sleep(0.01)
 
     def _release_lock(self) -> None:
-        """Release the file lock."""
+        """Release the file lock.
+
+        Note: The lock file is intentionally NOT deleted. Removing the lock
+        file after releasing the flock can cause a race condition where another
+        process acquires the lock before the current process has fully released
+        it. Leaving the sentinel file on disk is safe and maintains mutual
+        exclusion.
+        """
         if self._fd is not None:
             try:
                 _unlock(self._fd)
@@ -181,13 +188,6 @@ class FileLock:
                 pass  # Best effort cleanup
             finally:
                 self._fd = None
-
-        # Clean up lock file
-        if self._lock_file and self._lock_file.exists():
-            try:
-                self._lock_file.unlink()
-            except Exception:
-                pass  # Best effort cleanup
 
     def __enter__(self):
         """Synchronous context manager entry."""
@@ -239,8 +239,17 @@ def atomic_write(filepath: str | Path, mode: str = "w", encoding: str = "utf-8")
     try:
         # Open temp file with requested mode and encoding
         # Only use encoding for text modes (not binary modes)
-        with os.fdopen(fd, mode, encoding=encoding if "b" not in mode else None) as f:
+        try:
+            f = os.fdopen(fd, mode, encoding=encoding if "b" not in mode else None)
+        except Exception:
+            # os.fdopen failed - close fd manually before raising
+            os.close(fd)
+            raise
+
+        try:
             yield f
+        finally:
+            f.close()
 
         # Atomic replace - succeeds or fails completely
         os.replace(tmp_path, filepath)
@@ -282,11 +291,9 @@ async def locked_write(
     """
     filepath = Path(filepath)
 
-    # Acquire lock
+    # Acquire lock using explicit async context manager
     lock = FileLock(filepath, timeout=timeout, exclusive=True)
-    await lock.__aenter__()
-
-    try:
+    async with lock:
         # Atomic write in thread pool (since it uses sync file I/O)
         fd, tmp_path = await asyncio.get_running_loop().run_in_executor(
             None,
@@ -298,7 +305,13 @@ async def locked_write(
         try:
             # Open temp file and yield to caller
             # Only use encoding for text modes (not binary modes)
-            f = os.fdopen(fd, mode, encoding=encoding if "b" not in mode else None)
+            try:
+                f = os.fdopen(fd, mode, encoding=encoding if "b" not in mode else None)
+            except Exception:
+                # os.fdopen failed - close fd manually before raising
+                os.close(fd)
+                raise
+
             try:
                 yield f
             finally:
@@ -319,10 +332,6 @@ async def locked_write(
                 pass
             raise
 
-    finally:
-        # Release lock
-        await lock.__aexit__(None, None, None)
-
 
 @asynccontextmanager
 async def locked_read(filepath: str | Path, timeout: float = 5.0) -> Any:
@@ -342,24 +351,16 @@ async def locked_read(filepath: str | Path, timeout: float = 5.0) -> Any:
 
     Raises:
         FileLockTimeout: If lock cannot be acquired within timeout
-        FileNotFoundError: If file doesn't exist
+        FileNotFoundError: If file doesn't exist (raised by open())
     """
     filepath = Path(filepath)
 
-    if not filepath.exists():
-        raise FileNotFoundError(f"File not found: {filepath}")
-
-    # Acquire shared lock (allows multiple readers)
+    # Acquire shared lock (allows multiple readers) using explicit async context manager
     lock = FileLock(filepath, timeout=timeout, exclusive=False)
-    await lock.__aenter__()
-
-    try:
-        # Open file for reading
+    async with lock:
+        # Open file for reading - let open() raise FileNotFoundError if file was removed
         with open(filepath, encoding="utf-8") as f:
             yield f
-    finally:
-        # Release lock
-        await lock.__aexit__(None, None, None)
 
 
 async def locked_json_write(
@@ -421,7 +422,8 @@ async def locked_json_update(
 
     Args:
         filepath: File path to update
-        updater: Function that takes current data and returns updated data
+        updater: Function that takes current data (may be None if file doesn't
+            exist) and returns updated data
         timeout: Lock timeout in seconds (default: 5.0)
         indent: JSON indentation (default: 2)
 
@@ -430,6 +432,8 @@ async def locked_json_update(
 
     Example:
         def add_item(data):
+            if data is None:
+                data = {"items": []}
             data["items"].append({"new": "item"})
             return data
 
@@ -437,14 +441,13 @@ async def locked_json_update(
 
     Raises:
         FileLockTimeout: If lock cannot be acquired within timeout
+        json.JSONDecodeError: If file contains invalid JSON
     """
     filepath = Path(filepath)
 
-    # Acquire exclusive lock
+    # Acquire exclusive lock using explicit async context manager
     lock = FileLock(filepath, timeout=timeout, exclusive=True)
-    await lock.__aenter__()
-
-    try:
+    async with lock:
         # Read current data
         def _read_json():
             if filepath.exists():
@@ -457,32 +460,22 @@ async def locked_json_update(
         # Apply update function
         updated_data = updater(data)
 
-        # Write atomically
-        fd, tmp_path = await asyncio.get_running_loop().run_in_executor(
-            None,
-            lambda: tempfile.mkstemp(
+        # Write atomically - move all blocking I/O into executor
+        def _write_json():
+            fd, tmp_path = tempfile.mkstemp(
                 dir=filepath.parent, prefix=f".{filepath.name}.tmp.", suffix=""
-            ),
-        )
-
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(updated_data, f, indent=indent)
-
-            await asyncio.get_running_loop().run_in_executor(
-                None, os.replace, tmp_path, filepath
             )
-
-        except Exception:
             try:
-                await asyncio.get_running_loop().run_in_executor(
-                    None, os.unlink, tmp_path
-                )
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(updated_data, f, indent=indent)
+                os.replace(tmp_path, filepath)
             except Exception:
-                pass
-            raise
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+                raise
+
+        await asyncio.get_running_loop().run_in_executor(None, _write_json)
 
         return updated_data
-
-    finally:
-        await lock.__aexit__(None, None, None)
