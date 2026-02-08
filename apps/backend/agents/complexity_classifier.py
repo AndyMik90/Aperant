@@ -10,12 +10,19 @@ Complexity Levels:
 - MEDIUM: Multi-file changes, moderate complexity, standard QA
 - COMPLEX: Cross-system changes, integrations, high risk, full QA
 
-Model routing based on complexity:
+Model routing based on complexity (see phase_config.py COMPLEXITY_PHASE_CONFIG):
 | Complexity | Planning | Coding | QA |
 |------------|----------|--------|-----|
-| SIMPLE     | Haiku    | Haiku  | Skip |
-| MEDIUM     | Sonnet   | Sonnet | Haiku |
+| SIMPLE     | Opus     | Haiku  | Skip |
+| MEDIUM     | Opus     | Sonnet | Haiku |
 | COMPLEX    | Opus     | Sonnet | Sonnet |
+
+Thinking levels (see phase_config.py COMPLEXITY_THINKING_CONFIG):
+| Complexity | Planning | Coding | QA |
+|------------|----------|--------|-----|
+| SIMPLE     | Low      | None   | -  |
+| MEDIUM     | Medium   | Low    | Low |
+| COMPLEX    | High     | Medium | Medium |
 """
 
 import json

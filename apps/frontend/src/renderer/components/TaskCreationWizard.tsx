@@ -415,11 +415,27 @@ export function TaskCreationWizard({
       if (impact) metadata.impact = impact;
       if (model) metadata.model = model;
       if (thinkingLevel) metadata.thinkingLevel = thinkingLevel;
-      if (phaseModels && phaseThinking) {
+
+      // Adaptive routing: If profile has isAdaptive flag, DON'T write phaseModels/phaseThinking
+      // This allows the backend to choose models based on task complexity (SIMPLE/MEDIUM/COMPLEX)
+      if (phaseModels && phaseThinking && !selectedProfile.isAdaptive) {
         metadata.isAutoProfile = profileId === 'auto';
         metadata.phaseModels = phaseModels;
         metadata.phaseThinking = phaseThinking;
       }
+
+      // If using Adaptive profile, include custom complexity routing if user has customized it
+      if (selectedProfile.isAdaptive) {
+        if (settings.customComplexityModels) {
+          metadata.customComplexityModels = settings.customComplexityModels;
+        }
+        if (settings.customComplexityThinking) {
+          metadata.customComplexityThinking = settings.customComplexityThinking;
+        }
+      }
+
+      // Store profile ID so we can identify adaptive vs fixed routing in task metadata
+      metadata.profileId = profileId;
       if (images.length > 0) metadata.attachedImages = images;
       if (allReferencedFiles.length > 0) metadata.referencedFiles = allReferencedFiles;
       if (ralphWiggumMode) metadata.ralphWiggumMode = true;

@@ -217,16 +217,12 @@ export class ClaudeProfileManager {
   }
 
   /**
-   * Delete a profile (cannot delete default or last profile)
+   * Delete a profile (cannot delete the last remaining profile)
+   * If the default profile is deleted, another profile is promoted to default.
    */
   deleteProfile(profileId: string): boolean {
     const profile = this.getProfile(profileId);
     if (!profile) {
-      return false;
-    }
-
-    // Cannot delete default profile
-    if (profile.isDefault) {
       return false;
     }
 
@@ -238,7 +234,12 @@ export class ClaudeProfileManager {
     // Remove the profile
     this.data.profiles = this.data.profiles.filter(p => p.id !== profileId);
 
-    // If we deleted the active profile, switch to default
+    // If we deleted the default profile, promote the first remaining one
+    if (profile.isDefault && this.data.profiles.length > 0) {
+      this.data.profiles[0].isDefault = true;
+    }
+
+    // If we deleted the active profile, switch to default or first available
     if (this.data.activeProfileId === profileId) {
       const defaultProfile = this.data.profiles.find(p => p.isDefault);
       this.data.activeProfileId = defaultProfile?.id || this.data.profiles[0].id;
@@ -338,6 +339,30 @@ export class ClaudeProfileManager {
     profile.rateLimitEvents = [];
 
     this.save();
+    return true;
+  }
+
+  /**
+   * Clear the OAuth token for a profile (including default).
+   * Used when the stored token is corrupted, decryption fails,
+   * or the user wants to force re-authentication from scratch.
+   * Unlike deleteProfile(), this works on the default profile.
+   */
+  clearProfileToken(profileId: string): boolean {
+    const profile = this.getProfile(profileId);
+    if (!profile) {
+      return false;
+    }
+
+    // Remove all token-related fields
+    profile.oauthToken = undefined;
+    profile.tokenCreatedAt = undefined;
+    profile.email = undefined;
+    // Clear rate limit events since they're tied to the old token
+    profile.rateLimitEvents = [];
+
+    this.save();
+    console.warn(`[ProfileManager] Cleared token for profile '${profile.name}' (${profileId}). Re-authentication required.`);
     return true;
   }
 

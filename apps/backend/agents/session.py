@@ -285,7 +285,7 @@ async def post_session_processing(
                     write_json_atomic(plan_file, fresh_plan, indent=2)
                     print_status(f"Reset subtask {subtask_id} from in_progress to pending", "info")
         except Exception as e:
-            logging.error(f"CRITICAL: Failed to reset subtask {subtask_id} to pending: {e}")
+            logger.error(f"CRITICAL: Failed to reset subtask {subtask_id} to pending: {e}")
             print_status(
                 f"CRITICAL: Could not reset subtask {subtask_id} — plan file may be corrupted. "
                 "Halting auto-continue to prevent infinite retry loop.",

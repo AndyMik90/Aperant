@@ -3,6 +3,7 @@ import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult, TerminalCreateOptions, ClaudeProfile, ClaudeProfileSettings, ClaudeUsageSnapshot } from '../../shared/types';
 import { getClaudeProfileManager } from '../claude-profile-manager';
+import { expandHomePath } from '../claude-profile/profile-utils';
 import { getUsageMonitor } from '../claude-profile/usage-monitor';
 import { TerminalManager } from '../terminal-manager';
 import { projectStore } from '../project-store';
@@ -142,9 +143,10 @@ export function registerTerminalHandlers(
 
         // Ensure config directory exists for non-default profiles
         if (!profile.isDefault && profile.configDir) {
+          const expandedDir = expandHomePath(profile.configDir);
           const { mkdirSync, existsSync } = await import('fs');
-          if (!existsSync(profile.configDir)) {
-            mkdirSync(profile.configDir, { recursive: true });
+          if (!existsSync(expandedDir)) {
+            mkdirSync(expandedDir, { recursive: true });
           }
         }
 
@@ -166,7 +168,7 @@ export function registerTerminalHandlers(
         const profileManager = getClaudeProfileManager();
         const success = profileManager.deleteProfile(profileId);
         if (!success) {
-          return { success: false, error: 'Cannot delete default or last profile' };
+          return { success: false, error: 'Cannot delete the last remaining profile' };
         }
         return { success: true };
       } catch (error) {
@@ -272,9 +274,10 @@ export function registerTerminalHandlers(
 
         // Ensure the config directory exists for non-default profiles
         if (!profile.isDefault && profile.configDir) {
+          const expandedDir = expandHomePath(profile.configDir);
           const { mkdirSync, existsSync } = await import('fs');
-          if (!existsSync(profile.configDir)) {
-            mkdirSync(profile.configDir, { recursive: true });
+          if (!existsSync(expandedDir)) {
+            mkdirSync(expandedDir, { recursive: true });
           }
         }
 
@@ -369,6 +372,26 @@ export function registerTerminalHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to set OAuth token'
+        };
+      }
+    }
+  );
+
+  // Clear OAuth token for a profile (force re-authentication)
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_PROFILE_CLEAR_TOKEN,
+    async (_, profileId: string): Promise<IPCResult> => {
+      try {
+        const profileManager = getClaudeProfileManager();
+        const success = profileManager.clearProfileToken(profileId);
+        if (!success) {
+          return { success: false, error: 'Profile not found' };
+        }
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to clear OAuth token'
         };
       }
     }

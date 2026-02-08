@@ -4,7 +4,9 @@ import { useTaskStore } from '../stores/task-store';
 import { useRoadmapStore } from '../stores/roadmap-store';
 import { useRateLimitStore } from '../stores/rate-limit-store';
 import { useProjectStore } from '../stores/project-store';
-import { useInsightsTaskQueueStore } from '../stores/insights-task-queue-store';
+// SWEEP-40: Dynamic import to avoid mixed import strategy with lazy-loaded Insights chunk
+const getInsightsTaskQueueStore = () =>
+  import('../stores/insights-task-queue-store').then(m => m.useInsightsTaskQueueStore);
 import { useNotificationStore } from '../stores/notification-store';
 import { toast } from './use-toast';  // FIX-7: Import toast for spec-ready notification
 import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo, SDKRateLimitInfo } from '../../shared/types';
@@ -291,12 +293,17 @@ export function useIpcListeners(): void {
         }
 
         // Sync insights task queue: mark queue task as complete when Kanban task is done
+        // SWEEP-40: Use dynamic import to keep insights-task-queue-store in the lazy chunk
         if (status === 'done') {
-          const queueStore = useInsightsTaskQueueStore.getState();
-          const queueTask = queueStore.tasks.find((t) => t.taskId === taskId);
-          if (queueTask && queueTask.status === 'running') {
-            queueStore.setTaskCompleted(queueTask.id);
-          }
+          getInsightsTaskQueueStore().then(store => {
+            const queueState = store.getState();
+            const queueTask = queueState.tasks.find((t) => t.taskId === taskId);
+            if (queueTask && queueTask.status === 'running') {
+              queueState.setTaskCompleted(queueTask.id);
+            }
+          }).catch(() => {
+            // Non-critical: insights queue sync failure shouldn't block task updates
+          });
         }
       }
     );

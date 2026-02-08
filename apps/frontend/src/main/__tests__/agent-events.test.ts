@@ -215,25 +215,29 @@ describe('AgentEvents', () => {
     });
 
     describe('Fallback Text Matching - Failed Phase', () => {
-      it('should detect failed phase from build failed text', () => {
+      it('should NOT detect failed phase from build failed text via fallback', () => {
+        // Failed phase must come from structured events or process exit handler,
+        // not from text matching (which would cause false positives)
         const line = 'Build failed: compilation error';
         const result = agentEvents.parseExecutionPhase(line, 'coding', false);
 
-        expect(result?.phase).toBe('failed');
+        expect(result?.phase).not.toBe('failed');
       });
 
-      it('should detect failed phase from fatal error text', () => {
+      it('should NOT detect failed phase from fatal error text via fallback', () => {
+        // Fatal error text appears in normal tool output and should not trigger failed
         const line = 'Fatal error: unable to continue';
         const result = agentEvents.parseExecutionPhase(line, 'coding', false);
 
-        expect(result?.phase).toBe('failed');
+        expect(result?.phase).not.toBe('failed');
       });
 
-      it('should detect failed phase from agent failed text', () => {
+      it('should NOT detect failed phase from agent failed text via fallback', () => {
+        // "Agent failed" is a normal phrase in logs and false positives would block transitions
         const line = 'Agent failed to complete task';
         const result = agentEvents.parseExecutionPhase(line, 'coding', false);
 
-        expect(result?.phase).toBe('failed');
+        expect(result?.phase).not.toBe('failed');
       });
 
       it('should NOT detect failed from tool errors', () => {

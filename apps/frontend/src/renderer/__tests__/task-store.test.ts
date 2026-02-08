@@ -320,7 +320,7 @@ describe('Task Store', () => {
       expect(useTaskStore.getState().tasks[0].status).toBe('coding');
     });
 
-    it('should update title from plan feature', () => {
+    it('should preserve original title and not override with plan feature', () => {
       useTaskStore.setState({
         tasks: [createTestTask({ id: 'task-1', title: 'Original Title' })]
       });
@@ -329,7 +329,7 @@ describe('Task Store', () => {
 
       useTaskStore.getState().updateTaskFromPlan('task-1', plan);
 
-      expect(useTaskStore.getState().tasks[0].title).toBe('New Feature Name');
+      expect(useTaskStore.getState().tasks[0].title).toBe('Original Title');
     });
 
     it('should NOT update status when task is in active execution phase (planning)', () => {

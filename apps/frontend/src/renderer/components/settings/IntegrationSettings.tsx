@@ -18,7 +18,8 @@ import {
   ChevronRight,
   RefreshCw,
   Activity,
-  AlertCircle
+  AlertCircle,
+  KeyRound
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -63,6 +64,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
   const [manualTokenEmail, setManualTokenEmail] = useState('');
   const [showManualToken, setShowManualToken] = useState(false);
   const [savingTokenProfileId, setSavingTokenProfileId] = useState<string | null>(null);
+  const [clearingTokenProfileId, setClearingTokenProfileId] = useState<string | null>(null);
 
   // Auto-swap settings state
   const [autoSwitchSettings, setAutoSwitchSettings] = useState<ClaudeAutoSwitchSettings | null>(null);
@@ -235,6 +237,35 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
       });
     } finally {
       setDeletingProfileId(null);
+    }
+  };
+
+  const handleClearProfileToken = async (profileId: string) => {
+    setClearingTokenProfileId(profileId);
+    try {
+      const result = await window.electronAPI.clearClaudeProfileToken(profileId);
+      if (result.success) {
+        await loadClaudeProfiles();
+        toast({
+          title: 'Token cleared',
+          description: 'OAuth token removed. Re-authenticate to get a fresh token.',
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Failed to clear token',
+          description: result.error || t('integrations.toast.tryAgain'),
+        });
+      }
+    } catch (err) {
+      console.warn('[IntegrationSettings] Failed to clear profile token:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to clear token',
+        description: t('integrations.toast.tryAgain'),
+      });
+    } finally {
+      setClearingTokenProfileId(null);
     }
   };
 
@@ -591,6 +622,28 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                               <TooltipContent>{t('common:accessibility.reAuthenticateProfileAriaLabel')}</TooltipContent>
                             </Tooltip>
                           )}
+                          {/* Clear Token button — wipe stored OAuth token to force fresh re-auth */}
+                          {!!(profile.oauthToken) && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleClearProfileToken(profile.id)}
+                                  disabled={clearingTokenProfileId === profile.id}
+                                  className="h-7 w-7 text-warning hover:text-warning hover:bg-warning/10"
+                                  aria-label="Clear stored token"
+                                >
+                                  {clearingTokenProfileId === profile.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <KeyRound className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Clear stored token (force re-auth)</TooltipContent>
+                            </Tooltip>
+                          )}
                           {profile.id !== activeProfileId && (
                             <Button
                               variant="outline"
@@ -637,7 +690,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                             </TooltipTrigger>
                             <TooltipContent>{t('common:accessibility.renameProfileAriaLabel')}</TooltipContent>
                           </Tooltip>
-                          {!profile.isDefault && (
+                          {claudeProfiles.length > 1 && (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button

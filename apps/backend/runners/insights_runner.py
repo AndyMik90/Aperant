@@ -9,8 +9,11 @@ about a codebase. It can also suggest tasks based on the conversation.
 import argparse
 import asyncio
 import json
+import logging
 import sys
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -71,7 +74,8 @@ def load_project_context(project_dir: str) -> str:
                 f"## Project Structure\n```json\n{json.dumps(summary, indent=2)}\n```"
             )
         except Exception:
-            pass
+            # SWEEP-50: Log instead of silently swallowing
+            logger.warning("Failed to load project index from %s", index_path, exc_info=True)
 
     # Load roadmap if available
     roadmap_path = Path(project_dir) / ".auto-claude" / "roadmap" / "roadmap.json"
@@ -89,7 +93,8 @@ def load_project_context(project_dir: str) -> str:
                 f"## Roadmap Features\n```json\n{json.dumps(feature_summary, indent=2)}\n```"
             )
         except Exception:
-            pass
+            # SWEEP-50: Log instead of silently swallowing
+            logger.warning("Failed to load roadmap from %s", roadmap_path, exc_info=True)
 
     # Load existing tasks with IDs, titles, and status for dependency linking
     tasks_path = Path(project_dir) / ".auto-claude" / "specs"
@@ -108,6 +113,8 @@ def load_project_context(project_dir: str) -> str:
                         entry["title"] = plan.get("title", d.name)
                         entry["status"] = plan.get("status", "unknown")
                     except Exception:
+                        # SWEEP-50: Log corrupted plan file
+                        logger.warning("Failed to load plan from %s", plan_path, exc_info=True)
                         entry["title"] = d.name
                         entry["status"] = "unknown"
                 # Try to load metadata for existing dependencies
@@ -119,7 +126,8 @@ def load_project_context(project_dir: str) -> str:
                         if meta.get("dependencies"):
                             entry["dependencies"] = meta["dependencies"]
                     except Exception:
-                        pass
+                        # SWEEP-50: Log corrupted metadata file
+                        logger.warning("Failed to load metadata from %s", meta_path, exc_info=True)
                 task_entries.append(entry)
             if task_entries:
                 task_lines = []
@@ -132,7 +140,8 @@ def load_project_context(project_dir: str) -> str:
                     "## Existing Tasks (use these IDs for dependencies)\n" + "\n".join(task_lines)
                 )
         except Exception:
-            pass
+            # SWEEP-50: Log instead of silently swallowing
+            logger.warning("Failed to load tasks from %s", tasks_path, exc_info=True)
 
     return (
         "\n\n".join(context_parts)
@@ -171,6 +180,13 @@ TASK DEPENDENCIES:
 - Leave as an empty array [] if there are no dependencies.
 - When creating multiple related tasks, suggest dependencies between them if there's a natural ordering.
 
+EXECUTION RULES:
+- When asked to create, write, or modify files, you MUST actually use the Write/Edit tools to do so. Do not just describe what you would do.
+- When asked to perform a multi-step task, complete ALL steps before responding. Do not stop after reading files — follow through with the writes/edits.
+- Each message you receive is an independent request. Previous conversation is provided as summary context only — you may need to re-read files or redo work that was done in a prior turn.
+- If a task requires creating multiple files, create ALL of them before giving your response.
+- Never say "I've already done this" based on conversation history alone — verify with tools and complete any missing work.
+
 Be conversational and helpful. Focus on providing actionable insights and clear explanations.
 Keep responses concise but informative."""
 
@@ -204,18 +220,42 @@ async def run_with_sdk(
     project_path = Path(project_dir).resolve()
 
     # Build conversation context from history
+    # Truncate long assistant messages to prevent the model from seeing previous
+    # work as "already done" and producing abbreviated follow-ups. Keep user
+    # messages in full (they contain the actual requests), but cap assistant
+    # responses so the model focuses on the NEW request.
+    MAX_ASSISTANT_CHARS = 500  # Enough for summary, not full file contents
+    MAX_HISTORY_MESSAGES = 10  # Keep recent context, drop ancient messages
+
+    prior_messages = history[:-1]  # Exclude the latest message
+    # Keep only the most recent messages to avoid context bloat
+    if len(prior_messages) > MAX_HISTORY_MESSAGES:
+        prior_messages = prior_messages[-MAX_HISTORY_MESSAGES:]
+
     conversation_context = ""
-    for msg in history[:-1]:  # Exclude the latest message
+    for msg in prior_messages:
         role = "User" if msg.get("role") == "user" else "Assistant"
-        conversation_context += f"\n{role}: {msg['content']}\n"
+        content = msg.get("content", "")
+        if role == "Assistant" and len(content) > MAX_ASSISTANT_CHARS:
+            # Truncate long assistant responses — keep start + end for context
+            half = MAX_ASSISTANT_CHARS // 2
+            content = (
+                content[:half]
+                + f"\n\n[...truncated {len(content) - MAX_ASSISTANT_CHARS} chars — "
+                f"use tools to read any files if needed...]\n\n"
+                + content[-half:]
+            )
+        conversation_context += f"\n{role}: {content}\n"
 
     # Build the full prompt with conversation history
     full_prompt = message
     if conversation_context.strip():
-        full_prompt = f"""Previous conversation:
+        full_prompt = f"""Previous conversation (summarized):
 {conversation_context}
 
-Current question: {message}"""
+IMPORTANT: The conversation above is a summary. Previous tool outputs and file contents have been truncated. If you need to reference any files mentioned above, use Read/Glob/Grep to access them fresh — do NOT assume previous work is still accurate or complete.
+
+Current request: {message}"""
 
     # If images are attached, add them as context by encoding to base64
     # and including image file references in the prompt
@@ -236,13 +276,27 @@ Current question: {message}"""
             )
 
     # Convert thinking level to token budget
-    max_thinking_tokens = get_thinking_budget(thinking_level)
+    # Auto-scale thinking for follow-up messages with conversation history:
+    # more context means the model needs more thinking to plan its approach
+    effective_thinking = thinking_level
+    history_char_count = sum(len(m.get("content", "")) for m in history)
+    if history_char_count > 2000 and thinking_level in ("none", "low"):
+        effective_thinking = "medium"
+        debug(
+            "insights_runner",
+            "Auto-scaled thinking for large context",
+            original=thinking_level,
+            effective=effective_thinking,
+            history_chars=history_char_count,
+        )
+
+    max_thinking_tokens = get_thinking_budget(effective_thinking)
 
     debug(
         "insights_runner",
         "Using model configuration",
         model=model,
-        thinking_level=thinking_level,
+        thinking_level=effective_thinking,
         max_thinking_tokens=max_thinking_tokens,
     )
 

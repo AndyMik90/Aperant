@@ -67,10 +67,10 @@ describe('IPC Bridge Integration', () => {
       });
 
       it('should have removeProject method', async () => {
-        const removeProject = electronAPI['removeProject'] as (id: string) => Promise<unknown>;
+        const removeProject = electronAPI['removeProject'] as (id: string, deleteData?: boolean) => Promise<unknown>;
         await removeProject('project-id');
 
-        expect(mockIpcRenderer.invoke).toHaveBeenCalledWith('project:remove', 'project-id');
+        expect(mockIpcRenderer.invoke).toHaveBeenCalledWith('project:remove', 'project-id', false);
       });
 
       it('should have getProjects method', async () => {

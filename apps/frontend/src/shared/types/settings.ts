@@ -214,6 +214,9 @@ export interface AgentProfile {
   phaseThinking?: PhaseThinkingConfig;
   /** @deprecated Use phaseModels and phaseThinking for per-phase configuration. Will be removed in v3.0. */
   isAutoProfile?: boolean;
+  // Adaptive routing flag - if true, don't write phaseModels to task metadata,
+  // let backend choose models based on task complexity
+  isAdaptive?: boolean;
 }
 
 export interface AppSettings {
@@ -261,6 +264,17 @@ export interface AppSettings {
   // Feature-specific configuration (insights, ideation, roadmap)
   featureModels?: FeatureModelConfig;
   featureThinking?: FeatureThinkingConfig;
+  // Custom complexity-based routing (overrides backend COMPLEXITY_PHASE_CONFIG)
+  customComplexityModels?: {
+    SIMPLE?: PhaseModelConfig;
+    MEDIUM?: PhaseModelConfig;
+    COMPLEX?: PhaseModelConfig;
+  };
+  customComplexityThinking?: {
+    SIMPLE?: PhaseThinkingConfig;
+    MEDIUM?: PhaseThinkingConfig;
+    COMPLEX?: PhaseThinkingConfig;
+  };
   // Changelog preferences
   changelogFormat?: ChangelogFormat;
   changelogAudience?: ChangelogAudience;

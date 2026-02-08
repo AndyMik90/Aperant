@@ -100,6 +100,7 @@ export interface TerminalAPI {
   switchClaudeProfile: (terminalId: string, profileId: string) => Promise<IPCResult>;
   initializeClaudeProfile: (profileId: string) => Promise<IPCResult>;
   setClaudeProfileToken: (profileId: string, token: string, email?: string) => Promise<IPCResult>;
+  clearClaudeProfileToken: (profileId: string) => Promise<IPCResult>;
   getAutoSwitchSettings: () => Promise<IPCResult<import('../../shared/types').ClaudeAutoSwitchSettings>>;
   updateAutoSwitchSettings: (settings: Partial<import('../../shared/types').ClaudeAutoSwitchSettings>) => Promise<IPCResult>;
   fetchClaudeUsage: (terminalId: string) => Promise<IPCResult>;
@@ -426,6 +427,9 @@ export const createTerminalAPI = (): TerminalAPI => ({
 
   setClaudeProfileToken: (profileId: string, token: string, email?: string): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_SET_TOKEN, profileId, token, email),
+
+  clearClaudeProfileToken: (profileId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_CLEAR_TOKEN, profileId),
 
   getAutoSwitchSettings: (): Promise<IPCResult<import('../../shared/types').ClaudeAutoSwitchSettings>> =>
     ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_AUTO_SWITCH_SETTINGS),

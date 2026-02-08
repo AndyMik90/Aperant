@@ -10,7 +10,7 @@ import type { AgentProfile, PhaseModelConfig, FeatureModelConfig, FeatureThinkin
 // ============================================
 
 export const AVAILABLE_MODELS = [
-  { value: 'opus', label: 'Claude Opus 4.5' },
+  { value: 'opus', label: 'Claude Opus 4.6' },
   { value: 'sonnet', label: 'Claude Sonnet 4.5' },
   { value: 'haiku', label: 'Claude Haiku 4.5' }
 ] as const;
@@ -111,9 +111,20 @@ export const QUICK_PHASE_THINKING: import('../types/settings').PhaseThinkingConf
   qa: 'low'
 };
 
-// Default phase configuration (used for fallback, matches 'Balanced' profile for cost-effectiveness)
-export const DEFAULT_PHASE_MODELS: PhaseModelConfig = BALANCED_PHASE_MODELS;
-export const DEFAULT_PHASE_THINKING: import('../types/settings').PhaseThinkingConfig = BALANCED_PHASE_THINKING;
+// Default phase configuration (used for fallback when no profile selected)
+// Matches backend COMPLEXITY_PHASE_CONFIG['COMPLEX'] for safety
+export const DEFAULT_PHASE_MODELS: PhaseModelConfig = {
+  spec: 'opus',      // Spec creation always uses best model
+  planning: 'opus',  // Backend always uses Opus for planning regardless of complexity
+  coding: 'sonnet',  // Matches COMPLEX routing
+  qa: 'sonnet'       // Matches COMPLEX routing
+};
+export const DEFAULT_PHASE_THINKING: import('../types/settings').PhaseThinkingConfig = {
+  spec: 'ultrathink',  // Deep analysis for spec creation
+  planning: 'high',    // Matches COMPLEX routing
+  coding: 'medium',    // Matches COMPLEX routing
+  qa: 'medium'         // Matches COMPLEX routing
+};
 
 // ============================================
 // Feature Settings (Non-Pipeline Features)
@@ -121,7 +132,7 @@ export const DEFAULT_PHASE_THINKING: import('../types/settings').PhaseThinkingCo
 
 // Default feature model configuration (for insights, ideation, roadmap, github, utility)
 export const DEFAULT_FEATURE_MODELS: FeatureModelConfig = {
-  insights: 'opus',       // Best comprehension for user intent and spec creation
+  insights: 'sonnet',     // Good balance of quality and speed for chat
   ideation: 'opus',       // Creative ideation benefits from Opus
   roadmap: 'opus',        // Strategic planning benefits from Opus
   githubIssues: 'opus',   // Issue triage and analysis benefits from Opus
@@ -131,7 +142,7 @@ export const DEFAULT_FEATURE_MODELS: FeatureModelConfig = {
 
 // Default feature thinking configuration
 export const DEFAULT_FEATURE_THINKING: FeatureThinkingConfig = {
-  insights: 'low',        // Quick Q&A, no deep analysis needed
+  insights: 'medium',     // Enough reasoning depth for multi-step tasks
   ideation: 'high',       // Deep thinking for creative ideas
   roadmap: 'high',        // Strategic thinking for roadmap
   githubIssues: 'medium', // Moderate thinking for issue analysis
@@ -154,11 +165,21 @@ export const FEATURE_LABELS: Record<keyof FeatureModelConfig, { label: string; d
 export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
   {
     id: 'auto',
-    name: 'Auto (Optimized)',
-    description: 'Uses Opus across all phases with optimized thinking levels',
+    name: 'Adaptive (Recommended)',
+    description: 'Automatically selects optimal model based on task complexity. SIMPLE tasks use Haiku for speed, COMPLEX tasks use Sonnet/Opus for quality.',
+    model: 'opus',  // Display only - actual model chosen by backend
+    thinkingLevel: 'medium',  // Display only - actual level based on complexity
+    icon: 'Sparkles',
+    isAdaptive: true  // Signal to skip writing phaseModels to task metadata
+    // phaseModels and phaseThinking intentionally omitted - let backend decide
+  },
+  {
+    id: 'all-opus',
+    name: 'All-Opus',
+    description: 'Maximum quality: Opus for all phases (spec, planning, coding, QA). Expensive but consistent.',
     model: 'opus',
     thinkingLevel: 'high',
-    icon: 'Sparkles',
+    icon: 'Crown',
     phaseModels: AUTO_PHASE_MODELS,
     phaseThinking: AUTO_PHASE_THINKING
   },

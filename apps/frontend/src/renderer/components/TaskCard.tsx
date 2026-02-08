@@ -180,8 +180,13 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.metadata?.complexity === nextTask.metadata?.complexity &&
     prevTask.metadata?.archivedAt === nextTask.metadata?.archivedAt &&
     prevTask.metadata?.prUrl === nextTask.metadata?.prUrl &&
-    // Check if any subtask statuses changed (compare all subtasks)
-    (prevTask.subtasks ?? []).every((s, i) => s.status === (nextTask.subtasks ?? [])[i]?.status)
+    // SWEEP-36: Null-safe subtask status comparison — handle cases where
+    // individual subtask objects may be null/undefined at a given index.
+    (prevTask.subtasks ?? []).every((s, i) => {
+      const nextSubtask = nextTask.subtasks?.[i];
+      if (!s || !nextSubtask) return s === nextSubtask;
+      return s.status === nextSubtask.status;
+    })
   );
 
   // Only log when actually re-rendering (reduces noise significantly)

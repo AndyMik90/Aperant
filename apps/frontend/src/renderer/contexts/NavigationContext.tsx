@@ -51,3 +51,12 @@ export function useNavigation(): NavigationContextValue {
 
   return context;
 }
+
+/**
+ * SWEEP-53: Optional hook that returns null if used outside NavigationProvider.
+ * Useful for components that may render with or without the provider (e.g.,
+ * shared components used in both navigation-aware and standalone contexts).
+ */
+export function useNavigationOptional(): NavigationContextValue | null {
+  return useContext(NavigationContext);
+}

@@ -36,6 +36,9 @@ import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { registerDriftHandlers } from './drift-handlers';
 import { notificationService } from '../notification-service';
 
+// SWEEP-48: Track ideation handler cleanup function to prevent listener leaks
+let ideationCleanup: (() => void) | null = null;
+
 /**
  * Setup all IPC handlers across all domains
  *
@@ -93,7 +96,11 @@ export function setupIpcHandlers(
   registerGitlabHandlers(agentManager, getMainWindow);
 
   // Ideation handlers
-  registerIdeationHandlers(agentManager, getMainWindow);
+  // SWEEP-48: Store and invoke cleanup to prevent listener leaks on re-registration
+  if (ideationCleanup) {
+    ideationCleanup();
+  }
+  ideationCleanup = registerIdeationHandlers(agentManager, getMainWindow);
 
   // Changelog handlers
   registerChangelogHandlers(getMainWindow);

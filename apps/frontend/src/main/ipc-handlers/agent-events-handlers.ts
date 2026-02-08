@@ -87,8 +87,14 @@ function validateStatusTransition(
   newStatus: TaskStatus,
   phase: string
 ): boolean {
-  // Can't validate without task data - allow the transition
-  if (!task) return true;
+  // SWEEP-43: Can't validate without task data — block the transition and log,
+  // since allowing phantom status changes for undefined tasks can corrupt renderer state.
+  if (!task) {
+    console.warn(
+      `[validateStatusTransition] Task not found — blocking transition to '${newStatus}' (phase: ${phase})`
+    );
+    return false;
+  }
 
   // FIX-10: Block automatic planning->coding transitions from agent events
   // This gate ensures users must explicitly click "Start Build" to start coding.

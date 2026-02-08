@@ -38,7 +38,8 @@ import { GlobalSearchDialog } from './components/GlobalSearchDialog';
 import type { AppSection } from './components/settings/AppSettings';
 import type { ProjectSettingsSection } from './components/settings/ProjectSettingsContent';
 import { TerminalGrid } from './components/TerminalGrid';
-import { BottomPanelTerminal } from './components/terminal/BottomPanelTerminal';
+// SWEEP-41: Lazy-load BottomPanelTerminal — pulls in xterm, highlight.js, react-markdown
+// which together add ~1MB to the main bundle. Terminal is not in the critical render path.
 import { GitHubHub } from './components/GitHubHub';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { RateLimitModal } from './components/RateLimitModal';
@@ -58,6 +59,7 @@ const Changelog = lazy(() => import('./components/Changelog').then(m => ({ defau
 const Worktrees = lazy(() => import('./components/Worktrees').then(m => ({ default: m.Worktrees })));
 const OnboardingWizard = lazy(() => import('./components/onboarding').then(m => ({ default: m.OnboardingWizard })));
 const AppSettingsDialog = lazy(() => import('./components/settings/AppSettings').then(m => ({ default: m.AppSettingsDialog })));
+const BottomPanelTerminal = lazy(() => import('./components/terminal/BottomPanelTerminal').then(m => ({ default: m.BottomPanelTerminal })));
 
 // Loading fallback component for lazy-loaded views
 function ViewLoader() {
@@ -1002,21 +1004,23 @@ export function App() {
 
           {/* Bottom Panel Terminal - VS Code-style bottom panel that persists across navigation */}
           {/* Placed inside flex column so main content shrinks when panel opens */}
-          <BottomPanelTerminal
-            taskId={bottomPanel.taskId}
-            taskTitle={bottomPanel.taskTitle}
-            isOpen={bottomPanel.isOpen}
-            openTabs={bottomPanel.openTabs}
-            onClose={closeBottomPanel}
-            onCloseTab={closeBottomPanelTab}
-            onSwitchTab={openBottomPanel}
-            onMinimize={minimizeBottomPanel}
-            splitMode={bottomPanel.splitMode}
-            splitTaskId={bottomPanel.splitTaskId}
-            splitTaskTitle={bottomPanel.splitTaskTitle}
-            onToggleSplit={toggleSplitMode}
-            onSetSplitTask={setSplitTask}
-          />
+          <Suspense fallback={null}>
+            <BottomPanelTerminal
+              taskId={bottomPanel.taskId}
+              taskTitle={bottomPanel.taskTitle}
+              isOpen={bottomPanel.isOpen}
+              openTabs={bottomPanel.openTabs}
+              onClose={closeBottomPanel}
+              onCloseTab={closeBottomPanelTab}
+              onSwitchTab={openBottomPanel}
+              onMinimize={minimizeBottomPanel}
+              splitMode={bottomPanel.splitMode}
+              splitTaskId={bottomPanel.splitTaskId}
+              splitTaskTitle={bottomPanel.splitTaskTitle}
+              onToggleSplit={toggleSplitMode}
+              onSetSplitTask={setSplitTask}
+            />
+          </Suspense>
         </div>
 
         {/* Task detail modal */}

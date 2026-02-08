@@ -188,6 +188,32 @@ export type AdaptiveComplexity = 'SIMPLE' | 'MEDIUM' | 'COMPLEX';
 // Re-export ThinkingLevel (defined in settings.ts) for convenience
 export type { ThinkingLevel };
 export type ModelType = 'haiku' | 'sonnet' | 'opus';
+
+// Custom complexity routing configuration
+// Allows users to customize model/thinking levels for each complexity level
+export interface ComplexityPhaseConfig {
+  planning?: ModelType;
+  coding?: ModelType;
+  qa?: ModelType | 'skip';
+}
+
+export interface ComplexityThinkingConfig {
+  planning?: ThinkingLevel;
+  coding?: ThinkingLevel;
+  qa?: ThinkingLevel;
+}
+
+export interface CustomComplexityModels {
+  SIMPLE?: ComplexityPhaseConfig;
+  MEDIUM?: ComplexityPhaseConfig;
+  COMPLEX?: ComplexityPhaseConfig;
+}
+
+export interface CustomComplexityThinking {
+  SIMPLE?: ComplexityThinkingConfig;
+  MEDIUM?: ComplexityThinkingConfig;
+  COMPLEX?: ComplexityThinkingConfig;
+}
 export type TaskCategory =
   | 'feature'
   | 'bug_fix'
@@ -261,6 +287,9 @@ export interface TaskMetadata {
   isAutoProfile?: boolean;  // True when using Auto (Optimized) profile
   phaseModels?: PhaseModelConfig;  // Per-phase model configuration
   phaseThinking?: PhaseThinkingConfig;  // Per-phase thinking configuration
+  // Custom complexity routing (overrides backend COMPLEXITY_PHASE_CONFIG)
+  customComplexityModels?: CustomComplexityModels;  // User's custom model routing per complexity level
+  customComplexityThinking?: CustomComplexityThinking;  // User's custom thinking routing per complexity level
 
   // Git/Worktree configuration
   baseBranch?: string;  // Override base branch for this task's worktree

@@ -48,11 +48,15 @@ describe('Task Order State Management', () => {
     });
     // Clear localStorage
     localStorage.clear();
+    // Use fake timers for debounced saveTaskOrder tests
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    vi.runAllTimers();
+    vi.useRealTimers();
   });
 
   describe('setTaskOrder', () => {
@@ -324,6 +328,8 @@ describe('Task Order State Management', () => {
       useTaskStore.setState({ taskOrder: order });
 
       useTaskStore.getState().saveTaskOrder('project-1');
+      // saveTaskOrder is debounced, must run timers to execute the save
+      vi.runAllTimers();
 
       const stored = localStorage.getItem('task-order-state-project-1');
       expect(stored).toBeTruthy();
@@ -334,6 +340,7 @@ describe('Task Order State Management', () => {
       useTaskStore.setState({ taskOrder: null });
 
       useTaskStore.getState().saveTaskOrder('project-1');
+      vi.runAllTimers();
 
       const stored = localStorage.getItem('task-order-state-project-1');
       expect(stored).toBeNull();
@@ -344,6 +351,7 @@ describe('Task Order State Management', () => {
       useTaskStore.setState({ taskOrder: order });
 
       useTaskStore.getState().saveTaskOrder('my-project-id');
+      vi.runAllTimers();
 
       expect(localStorage.getItem('task-order-state-my-project-id')).toBeTruthy();
       expect(localStorage.getItem('task-order-state-other-project')).toBeNull();
@@ -367,6 +375,9 @@ describe('Task Order State Management', () => {
         useTaskStore.getState().saveTaskOrder('project-1');
       }).not.toThrow();
 
+      // Run timers to trigger the debounced save
+      vi.runAllTimers();
+
       expect(consoleSpy).toHaveBeenCalledWith('Failed to save task order:', expect.any(Error));
 
       localStorage.setItem = originalSetItem;
@@ -381,6 +392,7 @@ describe('Task Order State Management', () => {
       useTaskStore.setState({ taskOrder: newOrder });
 
       useTaskStore.getState().saveTaskOrder('project-1');
+      vi.runAllTimers();
 
       const stored = JSON.parse(localStorage.getItem('task-order-state-project-1')!);
       expect(stored.planning).toEqual(['new-task-1', 'new-task-2']);
@@ -394,6 +406,7 @@ describe('Task Order State Management', () => {
       useTaskStore.setState({ taskOrder: order });
 
       useTaskStore.getState().clearTaskOrder('project-1');
+      vi.runAllTimers();
 
       expect(localStorage.getItem('task-order-state-project-1')).toBeNull();
       expect(useTaskStore.getState().taskOrder).toBeNull();
@@ -404,6 +417,7 @@ describe('Task Order State Management', () => {
       localStorage.setItem('task-order-state-project-2', JSON.stringify(createTestTaskOrder()));
 
       useTaskStore.getState().clearTaskOrder('project-1');
+      vi.runAllTimers();
 
       expect(localStorage.getItem('task-order-state-project-1')).toBeNull();
       expect(localStorage.getItem('task-order-state-project-2')).toBeTruthy();
@@ -609,7 +623,8 @@ describe('Task Order State Management', () => {
       const order = useTaskStore.getState().taskOrder;
       expect(order?.planning).toEqual(['task-1']);
       expect(order?.coding).toEqual(['task-2']);
-      // Missing columns will be undefined in the stored object
+      // Missing columns will be filled with empty arrays from createEmptyTaskOrder
+      expect(order?.ai_review).toEqual([]);
     });
 
     it('should handle null stored value', () => {
@@ -647,6 +662,7 @@ describe('Task Order State Management', () => {
 
       // Save
       useTaskStore.getState().saveTaskOrder('round-trip-test');
+      vi.runAllTimers();
 
       // Clear state
       useTaskStore.setState({ taskOrder: null });
@@ -665,6 +681,7 @@ describe('Task Order State Management', () => {
 
       const specialProjectId = 'project/with:special@chars!';
       useTaskStore.getState().saveTaskOrder(specialProjectId);
+      vi.runAllTimers();
 
       useTaskStore.setState({ taskOrder: null });
       useTaskStore.getState().loadTaskOrder(specialProjectId);
@@ -680,10 +697,13 @@ describe('Task Order State Management', () => {
         'project-c': createTestTaskOrder({ done: ['c-task-1', 'c-task-2', 'c-task-3'] })
       };
 
-      // Save all three
+      // Save each project individually to account for debounce behavior
+      // The debounce timer is global, so we need to run timers after each save
       for (const [projectId, order] of Object.entries(orders)) {
         useTaskStore.setState({ taskOrder: order });
         useTaskStore.getState().saveTaskOrder(projectId);
+        // Run timers after each save to prevent the next call from canceling it
+        vi.runAllTimers();
       }
 
       // Clear and verify each loads independently
@@ -701,6 +721,8 @@ describe('Task Order State Management', () => {
       useTaskStore.setState({ taskOrder: order });
 
       useTaskStore.getState().saveTaskOrder('many-tasks-project');
+      vi.runAllTimers();
+
       useTaskStore.setState({ taskOrder: null });
       useTaskStore.getState().loadTaskOrder('many-tasks-project');
 
@@ -1128,6 +1150,7 @@ describe('Task Order State Management', () => {
 
       // 4. Save
       useTaskStore.getState().saveTaskOrder('test-project');
+      vi.runAllTimers();
 
       // 5. Clear state
       useTaskStore.setState({ taskOrder: null });
@@ -1147,10 +1170,14 @@ describe('Task Order State Management', () => {
       // Save project 1 order
       useTaskStore.setState({ taskOrder: order1 });
       useTaskStore.getState().saveTaskOrder('project-1');
+      // Run timers after each save to prevent debounce cancellation
+      vi.runAllTimers();
 
       // Save project 2 order
       useTaskStore.setState({ taskOrder: order2 });
       useTaskStore.getState().saveTaskOrder('project-2');
+      // Run timers to flush the debounced save
+      vi.runAllTimers();
 
       // Clear and switch between projects
       useTaskStore.setState({ taskOrder: null });

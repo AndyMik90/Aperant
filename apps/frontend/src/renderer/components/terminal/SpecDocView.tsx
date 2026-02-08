@@ -62,6 +62,16 @@ export function SpecDocView({ taskId, fileName, title }: SpecDocViewProps) {
     loadContent();
   }, [loadContent]);
 
+  // SWEEP-39: Invalidate cache when taskId or fileName changes so stale
+  // data from a previous task/file doesn't persist. The cache is keyed by
+  // taskId:fileName, but clearing it on prop change ensures a fresh fetch
+  // when switching between tasks or files.
+  useEffect(() => {
+    return () => {
+      cacheRef.current = {};
+    };
+  }, [taskId, fileName]);
+
   const handleCopy = useCallback(async () => {
     if (!content) return;
     try {

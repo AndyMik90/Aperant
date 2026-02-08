@@ -276,6 +276,8 @@ export interface ElectronAPI {
   initializeClaudeProfile: (profileId: string) => Promise<IPCResult>;
   /** Set OAuth token for a profile (used when capturing from terminal) */
   setClaudeProfileToken: (profileId: string, token: string, email?: string) => Promise<IPCResult>;
+  /** Clear OAuth token for a profile (force re-authentication) */
+  clearClaudeProfileToken: (profileId: string) => Promise<IPCResult>;
   /** Get auto-switch settings */
   getAutoSwitchSettings: () => Promise<IPCResult<ClaudeAutoSwitchSettings>>;
   /** Update auto-switch settings */

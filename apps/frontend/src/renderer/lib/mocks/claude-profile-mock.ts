@@ -35,6 +35,8 @@ export const claudeProfileMock = {
 
   setClaudeProfileToken: async () => ({ success: true }),
 
+  clearClaudeProfileToken: async () => ({ success: true }),
+
   getAutoSwitchSettings: async () => ({
     success: true,
     data: {

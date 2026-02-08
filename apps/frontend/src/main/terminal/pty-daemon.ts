@@ -259,6 +259,11 @@ class PtyDaemon {
         isDead: false,
       };
 
+      // SWEEP-51: Track logical start index to avoid O(n) Array.shift().
+      // Chunks before bufferStart are logically removed. We compact the array
+      // when the dead zone exceeds half the physical length to bound memory.
+      let bufferStart = 0;
+
       // Capture all output
       ptyProcess.onData((data) => {
         managed.lastDataAt = Date.now();
@@ -267,20 +272,31 @@ class PtyDaemon {
         managed.buffer.push(data);
         managed.bufferSize += data.length;
 
-        // Enforce buffer size limit
-        while (managed.bufferSize > MAX_BUFFER_SIZE && managed.buffer.length > 1) {
-          const removed = managed.buffer.shift();
+        // Enforce buffer size limit (O(1) per removal via index advance)
+        while (managed.bufferSize > MAX_BUFFER_SIZE && (managed.buffer.length - bufferStart) > 1) {
+          const removed = managed.buffer[bufferStart];
           if (removed) {
             managed.bufferSize -= removed.length;
           }
+          managed.buffer[bufferStart] = ''; // Release string reference
+          bufferStart++;
         }
 
         // Also enforce chunk count limit (ring buffer behavior)
-        while (managed.buffer.length > RING_BUFFER_MAX_CHUNKS) {
-          const removed = managed.buffer.shift();
+        while ((managed.buffer.length - bufferStart) > RING_BUFFER_MAX_CHUNKS) {
+          const removed = managed.buffer[bufferStart];
           if (removed) {
             managed.bufferSize -= removed.length;
           }
+          managed.buffer[bufferStart] = ''; // Release string reference
+          bufferStart++;
+        }
+
+        // Compact when dead zone exceeds half the physical array length
+        // to prevent unbounded memory growth from old references
+        if (bufferStart > managed.buffer.length / 2) {
+          managed.buffer = managed.buffer.slice(bufferStart);
+          bufferStart = 0;
         }
 
         // Broadcast to all subscribers

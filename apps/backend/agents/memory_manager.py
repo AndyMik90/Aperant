@@ -264,10 +264,13 @@ async def get_graphiti_context(
         return None
     finally:
         # Always close the memory connection (swallow exceptions to avoid overriding)
+        # SWEEP-49: Use BaseException to also catch asyncio.CancelledError
+        # (which is a BaseException in Python 3.9+), ensuring the connection
+        # is properly closed even if the coroutine is cancelled.
         if memory is not None:
             try:
                 await memory.close()
-            except Exception as e:
+            except BaseException:
                 logger.debug(
                     "Failed to close Graphiti memory connection", exc_info=True
                 )

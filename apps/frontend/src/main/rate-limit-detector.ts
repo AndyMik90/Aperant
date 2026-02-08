@@ -281,13 +281,23 @@ export function getProfileEnv(profileId?: string): Record<string, string> {
         CLAUDE_CODE_OAUTH_TOKEN: decryptedToken
       };
     } else {
-      console.warn('[getProfileEnv] Failed to decrypt token for profile:', profile.name);
+      console.error('[getProfileEnv] Failed to decrypt OAuth token for profile:', profile.name,
+        '— token exists but decryption returned empty. Re-authenticate to fix.');
     }
   }
 
-  // Fallback: If default profile, no env vars needed
+  // FIX: For default profile, also try getActiveProfileEnv() which handles
+  // token decryption via the profile manager. Previously this returned {}
+  // and relied on the Python backend to find the token from the keychain,
+  // which fails when the keychain entry format doesn't match expectations.
   if (profile.isDefault) {
-    console.warn('[getProfileEnv] Using default profile (no env vars)');
+    // Try the profile manager's own env method which handles decryption
+    const profileManagerEnv = profileManager.getActiveProfileEnv();
+    if (profileManagerEnv.CLAUDE_CODE_OAUTH_TOKEN) {
+      console.warn('[getProfileEnv] Using token from profile manager for default profile');
+      return profileManagerEnv;
+    }
+    console.warn('[getProfileEnv] Default profile has no usable token — backend will attempt keychain fallback');
     return {};
   }
 

@@ -126,6 +126,7 @@ export const IPC_CHANNELS = {
   CLAUDE_PROFILE_SWITCH: 'claude:profileSwitch',
   CLAUDE_PROFILE_INITIALIZE: 'claude:profileInitialize',
   CLAUDE_PROFILE_SET_TOKEN: 'claude:profileSetToken',  // Set OAuth token for a profile
+  CLAUDE_PROFILE_CLEAR_TOKEN: 'claude:profileClearToken',  // Clear OAuth token (force re-auth)
   CLAUDE_PROFILE_AUTO_SWITCH_SETTINGS: 'claude:autoSwitchSettings',
   CLAUDE_PROFILE_UPDATE_AUTO_SWITCH: 'claude:updateAutoSwitch',
   CLAUDE_PROFILE_FETCH_USAGE: 'claude:fetchUsage',

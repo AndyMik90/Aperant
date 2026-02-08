@@ -119,6 +119,22 @@ class PhaseThinkingConfig(TypedDict, total=False):
     qa: str
 
 
+class ComplexityPhaseConfig(TypedDict, total=False):
+    """Phase configuration for a specific complexity level"""
+
+    planning: str
+    coding: str
+    qa: str
+
+
+class CustomComplexityConfig(TypedDict, total=False):
+    """Custom complexity-based routing configuration"""
+
+    SIMPLE: ComplexityPhaseConfig
+    MEDIUM: ComplexityPhaseConfig
+    COMPLEX: ComplexityPhaseConfig
+
+
 class TaskMetadataConfig(TypedDict, total=False):
     """Structure of model-related fields in task_metadata.json"""
 
@@ -128,6 +144,10 @@ class TaskMetadataConfig(TypedDict, total=False):
     model: str
     thinkingLevel: str
     ralphWiggumMode: bool  # "I'm helping!" - Aggressive iteration mode
+    complexity: str  # SIMPLE, MEDIUM, or COMPLEX
+    profileId: str  # Profile ID from frontend (e.g., 'auto', 'all-opus')
+    customComplexityModels: CustomComplexityConfig  # User's custom complexity routing (models)
+    customComplexityThinking: CustomComplexityConfig  # User's custom complexity routing (thinking)
 
 
 Phase = Literal["spec", "planning", "coding", "qa"]
@@ -252,6 +272,16 @@ def get_phase_model(
         # Complexity-based routing (from classifier)
         complexity = metadata.get("complexity")
         if complexity and complexity in COMPLEXITY_PHASE_CONFIG:
+            # Check for custom complexity routing first
+            custom_complexity_models = metadata.get("customComplexityModels")
+            if custom_complexity_models and complexity in custom_complexity_models:
+                custom_phase_config = custom_complexity_models[complexity]
+                if phase in custom_phase_config:
+                    model_for_phase = custom_phase_config[phase]
+                    if model_for_phase and model_for_phase != "skip":
+                        return resolve_model_id(model_for_phase)
+
+            # Fall back to default complexity routing
             model_for_phase = COMPLEXITY_PHASE_CONFIG[complexity].get(phase)
             if model_for_phase and model_for_phase != "skip":
                 return resolve_model_id(model_for_phase)
@@ -302,6 +332,16 @@ def get_phase_thinking(
         # Complexity-based thinking
         complexity = metadata.get("complexity")
         if complexity and complexity in COMPLEXITY_THINKING_CONFIG:
+            # Check for custom complexity routing first
+            custom_complexity_thinking = metadata.get("customComplexityThinking")
+            if custom_complexity_thinking and complexity in custom_complexity_thinking:
+                custom_phase_config = custom_complexity_thinking[complexity]
+                if phase in custom_phase_config:
+                    thinking_for_phase = custom_phase_config[phase]
+                    if thinking_for_phase:
+                        return thinking_for_phase
+
+            # Fall back to default complexity routing
             thinking_for_phase = COMPLEXITY_THINKING_CONFIG[complexity].get(phase)
             if thinking_for_phase:
                 return thinking_for_phase

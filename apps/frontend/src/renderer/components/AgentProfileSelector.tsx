@@ -213,8 +213,18 @@ export function AgentProfileSelector({
         </p>
       </div>
 
-      {/* Phase Configuration - shown for all preset profiles */}
-      {!isCustom && (
+      {/* Adaptive Profile Info - explain complexity-based routing */}
+      {isAuto && (
+        <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
+          <p className="text-xs text-muted-foreground">
+            <strong className="text-foreground">Complexity-Based Routing:</strong> This profile automatically selects optimal models based on task complexity (SIMPLE/MEDIUM/COMPLEX). Customize routing in Settings → Agent Profile → Complexity-Based Routing.
+          </p>
+        </div>
+      )}
+
+      {/* Phase Configuration - shown for non-Adaptive preset profiles only */}
+      {/* Adaptive profile uses complexity-based routing configured in Settings */}
+      {!isCustom && !isAuto && (
         <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
           {/* Clickable Header */}
           <button

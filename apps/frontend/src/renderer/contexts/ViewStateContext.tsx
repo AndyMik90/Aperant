@@ -34,13 +34,16 @@ export function ViewStateProvider({ children }: ViewStateProviderProps) {
     setShowArchivedState((prev) => !prev);
   }, []);
 
+  // SWEEP-52: setShowArchived and toggleShowArchived are stable useCallback refs
+  // with empty dependency arrays, so they never change. Only showArchived matters.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const value = useMemo<ViewStateContextValue>(
     () => ({
       showArchived,
       setShowArchived,
       toggleShowArchived,
     }),
-    [showArchived, setShowArchived, toggleShowArchived]
+    [showArchived]
   );
 
   return (

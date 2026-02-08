@@ -39,6 +39,21 @@ export interface AgentStats {
 }
 
 /**
+ * Companion lifecycle states (SWEEP-42 fix).
+ * Replaces fragile setTimeout-based coordination with an explicit state machine.
+ *
+ * Valid transitions:
+ *   idle → spawning  (coder exits successfully, companion auto-spawn begins)
+ *   spawning → ready  (companion process started successfully)
+ *   spawning → idle   (companion spawn failed or was cancelled)
+ *   ready → idle      (companion exited)
+ *
+ * Context cleanup is blocked while state === 'spawning', preventing the race
+ * where cleanup runs before the companion has finished starting.
+ */
+type CompanionState = 'idle' | 'spawning' | 'ready';
+
+/**
  * Main AgentManager - orchestrates agent process lifecycle
  * This is a slim facade that delegates to focused modules
  */
@@ -75,6 +90,13 @@ export class AgentManager extends EventEmitter {
    */
   private supervisorTasks: Set<string> = new Set();
 
+  /**
+   * SWEEP-42: Companion lifecycle state machine.
+   * Tracks per-task companion state to prevent race conditions between
+   * companion spawning and context cleanup.
+   */
+  private companionLifecycle: Map<string, CompanionState> = new Map();
+
   constructor() {
     super();
 
@@ -92,7 +114,7 @@ export class AgentManager extends EventEmitter {
     });
 
     // Listen for task completion to clean up context (prevent memory leak)
-    this.on('exit', (rawTaskId: string, code: number | null, processType: ProcessType) => {
+    this.on('exit', async (rawTaskId: string, code: number | null, processType: ProcessType) => {
       // Strip supervisor- prefix for tracking lookups
       const isSupervisorExit = rawTaskId.startsWith('supervisor-');
       const taskId = isSupervisorExit ? rawTaskId.slice('supervisor-'.length) : rawTaskId;
@@ -105,6 +127,8 @@ export class AgentManager extends EventEmitter {
         } else {
           console.log('[AgentManager] Companion agent exited:', { taskId, code });
           this.companionTasks.delete(taskId);
+          // SWEEP-42: Reset companion lifecycle to idle on exit
+          this.companionLifecycle.set(taskId, 'idle');
         }
         this.agentModes.delete(isSupervisorExit ? rawTaskId : taskId);
         return;
@@ -126,59 +150,58 @@ export class AgentManager extends EventEmitter {
       // Auto-spawn companion after successful execution exit
       // Can be disabled with DISABLE_COMPANION_AUTOSPAWN=true environment variable
       //
-      // FIX-032: This uses a 1.5s delay + promise coordination to avoid a race
-      // condition where context cleanup runs before the companion spawns. The
-      // timing is fragile: if another event (e.g., task restart) fires during the
-      // 1.5s window, the companion may spawn with stale context or not spawn at
-      // all. A proper fix would use a state machine for the companion lifecycle:
-      //   coder_running → coder_exited → spawning_companion → companion_ready
-      // Each state would block invalid transitions (e.g., can't clean up context
-      // while in spawning_companion state).
+      // SWEEP-42 fix: Replaced fragile setTimeout race with explicit state machine.
+      // The lifecycle state blocks context cleanup while companion is spawning.
       const autoSpawnDisabled = process.env.DISABLE_COMPANION_AUTOSPAWN === 'true';
-      let companionSpawnPromise: Promise<void> | null = null;
       if (code === 0 && !autoSpawnDisabled) {
-        console.log('[AgentManager] Execution succeeded, scheduling companion spawn');
-        companionSpawnPromise = new Promise<void>((resolve) => {
-          setTimeout(async () => {
-            try {
-              const context = this.taskExecutionContext.get(taskId);
-              if (context && !this.state.hasProcess(taskId)) {
-                await this.startCompanion(taskId);
-              }
-            } catch (err) {
-              console.error('[AgentManager] Failed to auto-spawn companion:', err);
-            }
-            resolve();
-          }, 1500);
-        });
+        console.log('[AgentManager] Execution succeeded, spawning companion');
+        this.companionLifecycle.set(taskId, 'spawning');
+        try {
+          const context = this.taskExecutionContext.get(taskId);
+          if (context && !this.state.hasProcess(taskId)) {
+            await this.startCompanion(taskId);
+            this.companionLifecycle.set(taskId, 'ready');
+          } else {
+            // Context already gone or process restarted — abort spawn
+            this.companionLifecycle.set(taskId, 'idle');
+          }
+        } catch (err) {
+          console.error('[AgentManager] Failed to auto-spawn companion:', err);
+          this.companionLifecycle.set(taskId, 'idle');
+        }
       }
 
-      // Context cleanup: wait for companion spawn to complete before deciding
-      // This prevents the race where cleanup deletes context before companion finishes starting
-      setTimeout(async () => {
-        if (companionSpawnPromise) {
-          await companionSpawnPromise;
-        }
-
-        const context = this.taskExecutionContext.get(taskId);
-        if (!context) return; // Already cleaned up or restarted
-
-        // Don't delete context if companion is now running — it needs it
-        if (this.companionTasks.has(taskId)) return;
-
-        // If task completed successfully, always clean up
-        if (code === 0) {
-          this.taskExecutionContext.delete(taskId);
-          return;
-        }
-
-        // If task failed and hit max retries, clean up
-        if (context.swapCount >= 2) {
-          this.taskExecutionContext.delete(taskId);
-        }
-        // Otherwise keep context for potential restart
-      }, 2000);
+      // Context cleanup — safe now because companion spawn is complete (or skipped)
+      this.cleanupTaskContext(taskId, code);
     });
+  }
+
+  /**
+   * SWEEP-42: Clean up task execution context after coder exit.
+   * Respects companion lifecycle state — will not delete context if companion
+   * is running or still spawning.
+   */
+  private cleanupTaskContext(taskId: string, exitCode: number | null): void {
+    const context = this.taskExecutionContext.get(taskId);
+    if (!context) return; // Already cleaned up or restarted
+
+    // Don't delete context if companion is running — it needs it
+    const lifecycle = this.companionLifecycle.get(taskId) ?? 'idle';
+    if (lifecycle === 'ready' || this.companionTasks.has(taskId)) return;
+
+    // If task completed successfully, always clean up
+    if (exitCode === 0) {
+      this.taskExecutionContext.delete(taskId);
+      this.companionLifecycle.delete(taskId);
+      return;
+    }
+
+    // If task failed and hit max retries, clean up
+    if (context.swapCount >= 2) {
+      this.taskExecutionContext.delete(taskId);
+      this.companionLifecycle.delete(taskId);
+    }
+    // Otherwise keep context for potential restart
   }
 
   /**

@@ -4,7 +4,10 @@ import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, Task
 import { debugLog } from '../../shared/utils/debug-logger';
 import { isTerminalPhase } from '../../shared/constants/phase-protocol';
 import { useTerminalStore } from './terminal-store';
-import { useInsightsTaskQueueStore } from './insights-task-queue-store';
+// SWEEP-40: Dynamic import to avoid mixed import strategy with lazy-loaded Insights chunk.
+// useInsightsTaskQueueStore is only used at runtime (getState()), so no need for static import.
+const getInsightsTaskQueueStore = () =>
+  import('./insights-task-queue-store').then(m => m.useInsightsTaskQueueStore);
 import { toast } from '../hooks/use-toast';
 import { addActivity } from '../utils/activity-tracker';
 import i18n from '../../shared/i18n';
@@ -290,6 +293,21 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           taskId,
           plan
         });
+        return state;
+      }
+
+      // SWEEP-56: Skip redundant subtask rebuild if plan content hasn't changed.
+      // Build a lightweight fingerprint from phase/subtask descriptions and statuses
+      // to detect whether this update would produce different subtasks.
+      const planFingerprint = plan.phases
+        .flatMap(p => p.subtasks.map(s => `${s.id ?? ''}:${s.description ?? ''}:${s.status ?? ''}`))
+        .join('|');
+      const existingTask = state.tasks[index];
+      const existingFingerprint = (existingTask.subtasks ?? [])
+        .map(s => `${s.id}:${s.description}:${s.status}`)
+        .join('|');
+      if (planFingerprint === existingFingerprint && existingTask.subtasks?.length) {
+        debugLog('[updateTaskFromPlan] Plan unchanged, skipping rebuild');
         return state;
       }
 
@@ -974,17 +992,22 @@ export async function persistTaskStatus(
     store.updateTaskStatus(taskId, status);
 
     // Sync with insights task queue — remove tasks marked as done
+    // SWEEP-40: Use dynamic import to keep insights-task-queue-store in the lazy chunk
     if (status === 'done') {
-      try {
-        const queueStore = useInsightsTaskQueueStore.getState();
-        const queueTask = queueStore.tasks.find(t => t.taskId === taskId);
-        if (queueTask) {
-          queueStore.removeTask(queueTask.id);
+      getInsightsTaskQueueStore().then(store => {
+        try {
+          const queueState = store.getState();
+          const queueTask = queueState.tasks.find(t => t.taskId === taskId);
+          if (queueTask) {
+            queueState.removeTask(queueTask.id);
+          }
+        } catch (e) {
+          // Non-critical: don't block status update if queue sync fails
+          console.warn('[persistTaskStatus] Insights queue sync failed:', e);
         }
-      } catch (e) {
-        // Non-critical: don't block status update if queue sync fails
-        console.warn('[persistTaskStatus] Insights queue sync failed:', e);
-      }
+      }).catch(e => {
+        console.warn('[persistTaskStatus] Failed to load insights queue store:', e);
+      });
     }
 
     return { success: true };

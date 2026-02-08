@@ -228,6 +228,9 @@ function saveTabStateToMain(): void {
       await window.electronAPI.saveTabState(tabState);
     } catch (err) {
       console.error('[ProjectStore] Failed to save tab state:', err);
+      // SWEEP-54: Clear the timer reference on error so subsequent calls
+      // don't skip debounce clearing due to stale reference
+      saveTabStateTimeout = null;
     }
   }, 100);
 }

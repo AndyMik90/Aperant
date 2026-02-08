@@ -23,7 +23,8 @@ interface SettingsState {
   // Model discovery state
   modelsLoading: boolean;
   modelsError: string | null;
-  discoveredModels: Map<string, ModelInfo[]>; // Cache key -> models mapping
+  // SWEEP-57: Use Record instead of Map for JSON-serializability
+  discoveredModels: Record<string, ModelInfo[]>;
 
   // Actions
   setSettings: (settings: AppSettings) => void;
@@ -61,7 +62,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   // Model discovery state
   modelsLoading: false,
   modelsError: null,
-  discoveredModels: new Map<string, ModelInfo[]>(),
+  discoveredModels: {} as Record<string, ModelInfo[]>,
 
   setSettings: (settings) => set({ settings }),
 
@@ -261,7 +262,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
     // Check cache first
     const state = useSettingsStore.getState();
-    const cached = state.discoveredModels.get(cacheKey);
+    const cached = state.discoveredModels[cacheKey];
     if (cached) {
       console.log('[settings-store] Returning cached models');
       return cached;
@@ -285,7 +286,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         const models = result.data.models;
         // Cache the results
         set((state) => ({
-          discoveredModels: new Map(state.discoveredModels).set(cacheKey, models),
+          discoveredModels: { ...state.discoveredModels, [cacheKey]: models },
           modelsLoading: false
         }));
         return models;

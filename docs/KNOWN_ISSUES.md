@@ -1,10 +1,145 @@
 # Known Issues
 
-**Last Updated:** 2026-02-06
-**Source:** CODE_SWEEP_REPORT.md
-**Status:** ⚠️ 13 OPEN ITEMS from Sweep #2 (SWEEP-29 through SWEEP-41)
+**Last Updated:** 2026-02-08 (evening)
+**Source:** CODE_SWEEP_REPORT.md Sweep #4
+**Status:** ⚠️ **18 NEW CRITICAL issues from Sweep #4** + Items from Sweeps #2 and #3
 
 This document tracks known issues that have been identified and their resolution status.
+
+---
+
+## 🚨 NEW: Sweep #4 Critical Issues (0/18 Fixed)
+
+### CRITICAL - Main Process (Electron IPC)
+
+**S4-001: Missing await in TASK_START_BUILD Handler**
+- **File:** `apps/frontend/src/main/ipc-handlers/task/execution-handlers.ts:667-677`
+- **Status:** ❌ OPEN
+- **Issue:** `agentManager.startTaskExecution()` is NOT awaited and has no error handling
+- **Impact:** UI shows success while task never actually starts - complete failure invisible to user
+- **Fix Required:** Add `await` and wrap in try-catch with error response
+
+**S4-002: Unhandled Promise Rejections in setImmediate**
+- **File:** `apps/frontend/src/main/ipc-handlers/task/execution-handlers.ts` (lines 482-497, 541-556, 688-695, 771-778)
+- **Status:** ❌ OPEN
+- **Issue:** Multiple handlers use `setImmediate(async () => {...})` without try-catch
+- **Impact:** Silent failures in plan status persistence - status changes lost
+- **Fix Required:** Wrap all async setImmediate callbacks in try-catch
+
+**S4-003: Event Listener Leak in Ideation Handler**
+- **File:** `apps/frontend/src/main/ipc-handlers/ideation-handlers.ts:116-122`
+- **Status:** ❌ OPEN
+- **Issue:** Event listeners accumulate on `agentManager` if handlers re-registered
+- **Impact:** Memory leak and duplicate event handling on hot reload
+- **Fix Required:** Call cleanup function before re-registering
+
+**S4-004: Race Condition in Memory Service**
+- **File:** `apps/frontend/src/main/ipc-handlers/memory-handlers.ts:309-359`
+- **Status:** ❌ OPEN
+- **Issue:** Timeout callback can fire after error handler, causing promise resolution race
+- **Impact:** Ollama detection failures may not be reported correctly
+- **Fix Required:** Ensure only ONE handler sets resolved flag
+
+### CRITICAL - Renderer (React/Zustand)
+
+**S4-010: Stale Closure in TaskCard performStuckCheck**
+- **File:** `apps/frontend/src/renderer/components/TaskCard.tsx:311-339`
+- **Status:** ❌ OPEN
+- **Issue:** useCallback captures stale `task.executionProgress?.phase` value
+- **Impact:** Stuck detection fires on wrong phase after phase transitions
+- **Fix Required:** Read phase directly from store when callback executes
+
+**S4-011: Missing Null Check in Insights Store**
+- **File:** `apps/frontend/src/renderer/stores/insights-store.ts:325-334`
+- **Status:** ❌ OPEN
+- **Issue:** Accesses `msg.suggestedTask.title` without null check
+- **Impact:** TypeError crash if suggestedTask is undefined
+- **Fix Required:** Add explicit `msg.suggestedTask && msg.suggestedTask.title` check
+
+**S4-012: Race Condition in Terminal Store Recreate**
+- **File:** `apps/frontend/src/renderer/stores/terminal-store.ts:1131-1151`
+- **Status:** ❌ OPEN
+- **Issue:** `pendingRestartTasks` Set can be modified by multiple concurrent calls
+- **Impact:** Duplicate restart attempts if same taskId appears in multiple calls
+- **Fix Required:** Move dedup guard after timeout completes
+
+**S4-013: Unhandled Promise in Terminal recoverStuckTask**
+- **File:** `apps/frontend/src/renderer/stores/terminal-store.ts:1138`
+- **Status:** ❌ OPEN
+- **Issue:** Promise rejection doesn't guarantee `pendingRestartTasks` cleanup
+- **Impact:** Task stuck in dedup set forever if Promise rejects
+- **Fix Required:** Verify finally block executes even on unhandled rejection
+
+### CRITICAL - Backend (Python Agents)
+
+**S4-020: Fire-and-Forget Background Tasks**
+- **File:** `apps/backend/agents/session.py:255,311`
+- **Status:** ❌ OPEN
+- **Issue:** `asyncio.create_task(_background_enrichment(...))` spawned without error handling
+- **Impact:** Silent failures - lost Linear updates, insight extraction, memory saves
+- **Fix Required:** Store task references, add error callbacks or use `asyncio.gather()`
+
+**S4-021: Race Condition in Concurrent Plan Updates**
+- **File:** `apps/backend/agents/tools_pkg/tools/subtask.py:161`
+- **Status:** ❌ OPEN
+- **Issue:** Read-modify-write `implementation_plan.json` without inter-process locking
+- **Impact:** Lost updates when coder, QA, post-session all update concurrently
+- **Fix Required:** Use `write_json_atomic_locked()` instead of `write_json_atomic()`
+
+**S4-022: Missing Completion Gate for Background Enrichment**
+- **File:** `apps/backend/agents/session.py:255,311`
+- **Status:** ❌ OPEN
+- **Issue:** Background tasks started but NO mechanism ensures they complete
+- **Impact:** Violates Ralph/Wiggum pattern - Linear/memory/insights lost if main loop exits early
+- **Fix Required:** Collect task references, await before returning from `post_session_processing()`
+
+**S4-023: Ralph Batch Processing Lacks Synchronization**
+- **File:** `apps/backend/agents/coder.py:~317`
+- **Status:** ❌ OPEN
+- **Issue:** Ralph batches up to 8 subtasks but no gate ensures ALL complete
+- **Impact:** Failed/skipped subtask orphans later subtasks in "in_progress" state
+- **Fix Required:** Add completion gates - verify all subtask statuses resolved before proceeding
+
+### CRITICAL - IPC/Integration
+
+**S4-005: No Timeout on Child Process Lifecycle**
+- **File:** `apps/frontend/src/main/agent/agent-process.ts:677-723`
+- **Status:** ❌ OPEN
+- **Issue:** Child process has no watchdog timer - if hung, stays "running" forever
+- **Impact:** Resource leak, zombie processes, tasks stuck forever
+- **Fix Required:** Add 30-minute timeout that forces SIGKILL
+
+**S4-006: Error Not Caught in Agent Manager Restart**
+- **File:** `apps/frontend/src/main/agent/agent-manager.ts:765-786`
+- **Status:** ❌ OPEN
+- **Issue:** setTimeout callback calls start methods without await/try-catch
+- **Impact:** Restart failures are completely silent
+- **Fix Required:** Wrap in try-catch, emit error event
+
+**S4-024: Blocking Sleep in Async Test**
+- **File:** `apps/backend/runners/github/test_rate_limiter.py:83`
+- **Status:** ❌ OPEN
+- **Issue:** `time.sleep(0.5)` instead of `await asyncio.sleep(0.5)`
+- **Impact:** Blocks entire event loop in tests
+- **Fix Required:** Replace with `await asyncio.sleep(0.5)`
+
+**S4-025: Subprocess Not Properly Terminated on Timeout**
+- **File:** `apps/backend/runners/github/gh_client.py:177-183`
+- **Status:** ❌ OPEN
+- **Issue:** `proc.kill()` exception caught but zombie may persist
+- **Impact:** Resource leak if kill fails
+- **Fix Required:** Drain pipes after kill to prevent deadlock
+
+**S4-026: Blocking File Lock with Signal Handler**
+- **File:** `apps/backend/core/file_utils.py:161-175`
+- **Status:** ❌ OPEN
+- **Issue:** Uses SIGALRM for lock timeout - Unix only, unsafe in multithreaded context
+- **Impact:** Doesn't work on Windows, modifies global state
+- **Fix Required:** Use non-blocking fcntl.flock() with retry loop
+
+---
+
+## Previous Issues from Sweep #3 and Earlier
 
 ---
 
@@ -484,6 +619,128 @@ All AUDIT-13 through AUDIT-37 fixed across Batches 3-6. See [MASTER_AUDIT_REPORT
 | UI Audit Batch 4 | 7 | ✅ Complete (7m 16s) | 2026-02-06 |
 | UI Audit Batch 5 | 6 | ✅ Complete (3m 53s) | 2026-02-06 |
 | UI Audit Batch 6 | 6 | ✅ Complete (11m 13s) | 2026-02-06 |
+
+---
+
+---
+
+## Sweep #3 (2026-02-08) — Fixes Applied (2)
+
+### FIX-S3-01: Wrong Logger Instance in session.py (FIXED)
+**File:** `apps/backend/agents/session.py`
+**Line:** 288
+**Status:** ✅ FIXED (2026-02-08)
+**Issue:** Used `logging.error()` (module-level) instead of `logger.error()` (per-module logger), bypassing configured log routing/filtering.
+**Fix:** Changed to `logger.error(...)`.
+
+### FIX-S3-02: Model Label Mismatch in UI (FIXED)
+**File:** `apps/frontend/src/shared/constants/models.ts`
+**Line:** 13
+**Status:** ✅ FIXED (2026-02-08)
+**Issue:** Opus model dropdown showed "Claude Opus 4.5" but model ID maps to `claude-opus-4-6`.
+**Fix:** Updated label to "Claude Opus 4.6".
+
+---
+
+## Sweep #3 — CRITICAL Issues (1 Open)
+
+### SWEEP-42: Fragile Companion Agent Auto-Spawn Race Condition
+**File:** `apps/frontend/src/main/agent/agent-manager.ts`
+**Lines:** 129-180
+**Status:** ⚠️ OPEN
+**Issue:** Companion auto-spawn uses setTimeout timing (1500ms spawn, 2000ms cleanup) creating overlapping windows where task events can invalidate companion state.
+**Impact:** Companion can spawn with stale context, fail silently, or be cleaned up mid-initialization.
+**Recommendation:** Implement proper state machine with explicit spawn phases.
+
+---
+
+## Sweep #3 — MAJOR Issues (7 Open)
+
+### SWEEP-43: validateStatusTransition Allows Invalid Transitions When Task Not Found
+**File:** `apps/frontend/src/main/ipc-handlers/agent-events-handlers.ts`
+**Line:** 91
+**Status:** ⚠️ OPEN
+**Issue:** Returns `true` when task is undefined, allowing phantom status events to reach renderer.
+**Recommendation:** Return `false` and log warning.
+
+### SWEEP-44: Task Order Tests Out of Sync (14 Failures)
+**File:** `apps/frontend/src/renderer/__tests__/task-order.test.ts`
+**Status:** ⚠️ OPEN
+**Issue:** localStorage persistence tests don't match current implementation.
+**Recommendation:** Update tests to match current store behavior.
+
+### SWEEP-45: updateTaskFromPlan Title Test Out of Sync
+**File:** `apps/frontend/src/renderer/__tests__/task-store.test.ts`
+**Line:** 332
+**Status:** ⚠️ OPEN
+**Issue:** Test expects `plan.feature` to override title; implementation preserves original.
+**Recommendation:** Update test to verify new behavior.
+
+### SWEEP-46: Agent Events Test Failures (3 Failures)
+**File:** `apps/frontend/src/main/__tests__/agent-events.test.ts`
+**Status:** ⚠️ OPEN
+**Issue:** "Failed Phase" fallback text matching tests fail.
+**Recommendation:** Update test expectations to match refactored phase parsing.
+
+### SWEEP-47: IPC Bridge Missing removeProject Method
+**File:** `apps/frontend/src/__tests__/integration/ipc-bridge.test.ts`
+**Status:** ⚠️ OPEN
+**Issue:** Test expects `removeProject` on preload API.
+**Recommendation:** Add method to API or update test.
+
+### SWEEP-48: Ideation Handler Cleanup Functions Never Called
+**File:** `apps/frontend/src/main/ipc-handlers/ideation-handlers.ts`
+**Lines:** 116-132
+**Status:** ⚠️ OPEN
+**Issue:** Cleanup function returned but never invoked; listeners persist for app lifetime.
+**Recommendation:** Store and invoke cleanup on re-registration.
+
+### SWEEP-49: Memory Manager close() Doesn't Handle CancelledError
+**File:** `apps/backend/agents/memory_manager.py`
+**Lines:** 265-273
+**Status:** ⚠️ OPEN
+**Issue:** Finally block catches `Exception` but not `CancelledError` (a `BaseException` in Python 3.9+).
+**Recommendation:** Use `except BaseException` in cleanup.
+
+---
+
+## Sweep #3 — MINOR Issues (8 Open)
+
+### SWEEP-50 through SWEEP-57
+See [CODE_SWEEP_REPORT.md](CODE_SWEEP_REPORT.md) for details on:
+- SWEEP-50: Silent exception swallowing in insights_runner.py
+- SWEEP-51: PTY ring buffer O(n) performance
+- SWEEP-52: ViewStateContext unnecessary memo deps
+- SWEEP-53: NavigationContext no optional hook variant
+- SWEEP-54: Project store debounce timer error handling
+- SWEEP-55: Terminal store linear lookup performance
+- SWEEP-56: Subtask validation without change detection
+- SWEEP-57: Settings store non-serializable Map
+
+---
+
+## Sweep #3 — Resolution Summary
+
+| Severity | Found | Fixed | Open |
+|----------|-------|-------|------|
+| CRITICAL | 1 | 0 | 1 |
+| MAJOR | 7 | 0 | 7 |
+| MINOR | 10 | 2 | 8 |
+| **Total** | **18** | **2** | **16** |
+
+---
+
+## Cumulative Resolution Summary (All Sweeps)
+
+| Sweep | Total Found | Fixed | Open |
+|-------|-------------|-------|------|
+| Sweep #1 (2026-02-05) | 26 | 26 | 0 |
+| Sweep #2 (2026-02-06) | 15 | 2 | 8* |
+| UI Audit (2026-02-06) | 24 | 24 | 0 |
+| Sweep #3 (2026-02-08) | 18 | 2 | 16 |
+| **Cumulative** | **83** | **54** | **24*** |
+
+*Note: Some Sweep #2 items were resolved by UI Audit or found to be false positives. See status review in CODE_SWEEP_REPORT.md.
 
 ---
 
