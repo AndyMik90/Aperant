@@ -185,7 +185,6 @@ async def run_autonomous_agent(
                     spec_file = spec_dir / "spec.md"
                     stale_warning = ""
                     if spec_file.exists():
-                        import os
                         spec_mtime = os.path.getmtime(spec_file)
                         plan_mtime = os.path.getmtime(plan_file)
                         if spec_mtime > plan_mtime:

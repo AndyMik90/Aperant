@@ -459,6 +459,7 @@ export async function createTaskFromSuggestion(
 ): Promise<Task | null> {
   // Instead of creating task immediately, add it to the sidebar queue
   const queuedTaskId = useInsightsTaskQueueStore.getState().addTask({
+    projectId,
     title,
     description,
     metadata: {
@@ -476,13 +477,16 @@ export async function createTaskFromSuggestion(
   return null;
 }
 
-// IPC listener setup - call this once when the app initializes
-export function setupInsightsListeners(): () => void {
+// IPC listener setup - call this from each Insights component instance with its projectId
+export function setupInsightsListeners(currentProjectId: string): () => void {
   const store = useInsightsStore.getState;
 
-  // Listen for streaming chunks
+  // Listen for streaming chunks - ONLY process events for this project
   const unsubStreamChunk = window.electronAPI.onInsightsStreamChunk(
     (projectId, chunk: InsightsStreamChunk) => {
+      // Filter: ignore events from other projects
+      if (projectId !== currentProjectId) return;
+
       switch (chunk.type) {
         case 'text':
           if (chunk.content) {
@@ -541,13 +545,17 @@ export function setupInsightsListeners(): () => void {
     }
   );
 
-  // Listen for status updates
-  const unsubStatus = window.electronAPI.onInsightsStatus((_projectId, status) => {
+  // Listen for status updates - ONLY process events for this project
+  const unsubStatus = window.electronAPI.onInsightsStatus((projectId, status) => {
+    // Filter: ignore events from other projects
+    if (projectId !== currentProjectId) return;
     store().setStatus(status);
   });
 
-  // Listen for errors
-  const unsubError = window.electronAPI.onInsightsError((_projectId, error) => {
+  // Listen for errors - ONLY process events for this project
+  const unsubError = window.electronAPI.onInsightsError((projectId, error) => {
+    // Filter: ignore events from other projects
+    if (projectId !== currentProjectId) return;
     store().setStatus({
       phase: 'error',
       error

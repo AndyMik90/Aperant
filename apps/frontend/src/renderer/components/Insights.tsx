@@ -10,7 +10,8 @@ import {
   AlertCircle,
   PanelLeftClose,
   PanelLeft,
-  Pencil
+  Pencil,
+  X
 } from 'lucide-react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -156,7 +157,8 @@ export function Insights({ projectId }: InsightsProps) {
   // Load session and set up listeners on mount
   useEffect(() => {
     loadInsightsSession(projectId);
-    const cleanup = setupInsightsListeners();
+    // Pass projectId to filter events - only process events for THIS project
+    const cleanup = setupInsightsListeners(projectId);
     return cleanup;
   }, [projectId]);
 
@@ -197,6 +199,30 @@ export function Insights({ projectId }: InsightsProps) {
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
+
+  // Auto-queue Jerry's task suggestions
+  useEffect(() => {
+    if (!session?.messages) return;
+
+    // Find the last message with a suggested task that hasn't been queued yet
+    const lastSuggestionMessage = [...session.messages]
+      .reverse()
+      .find(msg => msg.role === 'assistant' && msg.suggestedTask && !msg.taskCreatedId);
+
+    if (lastSuggestionMessage && lastSuggestionMessage.suggestedTask) {
+      // Auto-queue the suggestion
+      createTaskFromSuggestion(
+        projectId,
+        lastSuggestionMessage.suggestedTask.title,
+        lastSuggestionMessage.suggestedTask.description,
+        lastSuggestionMessage.suggestedTask.metadata
+      );
+
+      // Mark as queued to prevent re-queueing
+      markTaskCreatedPersistent(projectId, session.id, lastSuggestionMessage.id, 'auto-queued');
+      console.log('[Insights] Auto-queued task suggestion:', lastSuggestionMessage.suggestedTask.title);
+    }
+  }, [session?.messages, projectId, session?.id]);
 
   const handleSend = (message: string, images?: PastedImage[]) => {
     if (!message.trim() && (!images || images.length === 0)) return;
@@ -415,7 +441,7 @@ export function Insights({ projectId }: InsightsProps) {
                 markdownComponents={markdownComponents}
                 onCreateTask={() => handleCreateTask(message)}
                 isCreatingTask={creatingTask === message.id}
-                taskCreated={!!message.taskCreatedId}
+                taskCreatedId={message.taskCreatedId}
                 onSeeInKanban={() => setActiveView('kanban')}
               />
             ))}
@@ -524,7 +550,7 @@ interface MessageBubbleProps {
   markdownComponents: Components;
   onCreateTask: () => void;
   isCreatingTask: boolean;
-  taskCreated: boolean;
+  taskCreatedId?: string;
   onSeeInKanban: () => void;
 }
 
@@ -533,7 +559,7 @@ function MessageBubble({
   markdownComponents,
   onCreateTask,
   isCreatingTask,
-  taskCreated,
+  taskCreatedId,
 }: MessageBubbleProps) {
   const isUser = message.role === 'user';
 
@@ -589,7 +615,7 @@ function MessageBubble({
             markdownComponents={markdownComponents}
             onCreateTask={onCreateTask}
             isCreatingTask={isCreatingTask}
-            taskCreated={taskCreated}
+            taskCreatedId={taskCreatedId}
           />
         )}
       </div>
@@ -607,7 +633,7 @@ interface TaskSuggestionCardProps {
   markdownComponents: Components;
   onCreateTask: () => void;
   isCreatingTask: boolean;
-  taskCreated: boolean;
+  taskCreatedId?: string;
 }
 
 function TaskSuggestionCard({
@@ -615,7 +641,7 @@ function TaskSuggestionCard({
   markdownComponents,
   onCreateTask,
   isCreatingTask,
-  taskCreated
+  taskCreatedId
 }: TaskSuggestionCardProps) {
   const [expanded, setExpanded] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -698,27 +724,28 @@ function TaskSuggestionCard({
           </div>
         )}
 
-        {/* Action button */}
+        {/* Status indicator - tasks are auto-queued */}
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            onClick={onCreateTask}
-            disabled={isCreatingTask || taskCreated}
+            variant={taskCreatedId && taskCreatedId !== 'dismissed' ? "outline" : "default"}
+            disabled={taskCreatedId !== 'dismissed' && !!taskCreatedId}
+            onClick={taskCreatedId === 'dismissed' ? onCreateTask : undefined}
           >
-            {isCreatingTask ? (
+            {taskCreatedId === 'dismissed' ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Adding to Queue...
+                <Plus className="mr-2 h-4 w-4" />
+                Re-queue
               </>
-            ) : taskCreated ? (
+            ) : taskCreatedId ? (
               <>
                 <CheckCircle2 className="mr-2 h-4 w-4" />
-                Added to Queue
+                Queued
               </>
             ) : (
               <>
-                <Plus className="mr-2 h-4 w-4" />
-                Add to Queue
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Queueing...
               </>
             )}
           </Button>

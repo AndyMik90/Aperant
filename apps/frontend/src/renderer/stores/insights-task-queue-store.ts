@@ -5,6 +5,7 @@ import { create } from 'zustand';
  */
 export interface InsightsQueuedTask {
   id: string;
+  projectId: string; // Filter queue by project
   title: string;
   description: string;
   status: 'pending' | 'running' | 'complete' | 'failed';
