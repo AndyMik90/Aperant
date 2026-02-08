@@ -39,17 +39,28 @@ export function TaskQueueSidebar({ width = 280 }: TaskQueueSidebarProps = {}) {
     useInsightsTaskQueueStore.getState().loadFromStorage();
   }, []);
 
-  // Reactive sync: remove queue tasks whose main tasks are already done
-  // Handles stale 'running' tasks that completed while sidebar was unmounted
+  // Reactive sync: clean up orphaned and completed queue tasks
+  // 1. Remove queue tasks whose main task is 'done' (completed while sidebar was unmounted)
+  // 2. Remove queue tasks whose main task no longer exists (project deleted)
   useEffect(() => {
+    const mainTaskIds = new Set(mainTasks.map(t => t.id));
     const doneTaskIds = new Set(
       mainTasks.filter(t => t.status === 'done').map(t => t.id)
     );
-    if (doneTaskIds.size === 0) return;
 
     const queueStore = useInsightsTaskQueueStore.getState();
     queueStore.tasks.forEach(qTask => {
-      if (qTask.taskId && doneTaskIds.has(qTask.taskId) && qTask.status !== 'complete') {
+      if (!qTask.taskId) return;
+
+      // Task completed — remove from queue
+      if (doneTaskIds.has(qTask.taskId) && qTask.status !== 'complete') {
+        queueStore.removeTask(qTask.id);
+        return;
+      }
+
+      // Task no longer exists (project deleted or task removed) — remove orphan
+      if (!mainTaskIds.has(qTask.taskId) && (qTask.status === 'running' || qTask.status === 'pending')) {
+        console.log('[TaskQueueSidebar] Removing orphaned queue task:', qTask.id, qTask.title);
         queueStore.removeTask(qTask.id);
       }
     });
