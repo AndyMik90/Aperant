@@ -119,9 +119,12 @@ describe('writeFileAtomic', () => {
 
   describe('error handling', () => {
     it('should throw error when write fails', async () => {
-      const invalidPath = '/invalid/path/that/does/not/exist/file.txt';
+      // Create a regular file where mkdir would need to create a directory.
+      // This fails cross-platform because you can't mkdir inside a file.
+      const blockingFile = path.join(TEST_DIR, 'blocker');
+      await writeFile(blockingFile, 'not a directory');
+      const invalidPath = path.join(blockingFile, 'sub', 'file.txt');
 
-      // On some systems mkdir with recursive might succeed, so we use a truly invalid path
       await expect(
         writeFileAtomic(invalidPath, 'content')
       ).rejects.toThrow();
