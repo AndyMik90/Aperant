@@ -729,7 +729,7 @@ export interface ElectronAPI {
   // Changelog operations
   getChangelogDoneTasks: (projectId: string, tasks?: Task[]) => Promise<IPCResult<ChangelogTask[]>>;
   loadTaskSpecs: (projectId: string, taskIds: string[]) => Promise<IPCResult<TaskSpecContent[]>>;
-  generateChangelog: (request: ChangelogGenerationRequest) => void; // Async with progress events
+  generateChangelog: (request: ChangelogGenerationRequest) => Promise<IPCResult<void>>; // Async with progress events
   saveChangelog: (request: ChangelogSaveRequest) => Promise<IPCResult<ChangelogSaveResult>>;
   readExistingChangelog: (projectId: string) => Promise<IPCResult<ExistingChangelog>>;
   suggestChangelogVersion: (
