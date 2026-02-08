@@ -24,6 +24,7 @@ import {
 } from '../../worktree-paths';
 import { getIsolatedGitEnv } from '../../utils/git-isolation';
 import { getToolPath } from '../../cli-tool-manager';
+import { cleanupWorktree } from '../../utils/worktree-cleanup';
 
 // Promisify execFile for async operations
 const execFileAsync = promisify(execFile);
@@ -780,35 +781,27 @@ async function removeTerminalWorktree(
   }
 
   try {
-    if (existsSync(worktreePath)) {
-      // Use async to avoid blocking the main process on large repos
-      await execFileAsync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
-        cwd: projectPath,
-        encoding: 'utf-8',
-        timeout: 60000,
-        env: getIsolatedGitEnv(),
-      });
-      debugLog('[TerminalWorktree] Removed git worktree');
+    // Use the robust cleanupWorktree utility to handle Windows file locks and orphaned worktrees
+    const cleanupResult = await cleanupWorktree({
+      worktreePath,
+      projectPath,
+      specId: name,
+      logPrefix: '[TerminalWorktree]',
+      deleteBranch: deleteBranch && config.hasGitBranch,
+      branchName: config.branchName || undefined,
+      commitMessage: 'Auto-save before terminal worktree deletion',
+    });
+
+    if (!cleanupResult.success) {
+      return {
+        success: false,
+        error: cleanupResult.warnings.join('; ') || 'Failed to remove worktree',
+      };
     }
 
-    if (deleteBranch && config.hasGitBranch && config.branchName) {
-      // Re-validate branch name from config file (defense in depth - config could be modified)
-      if (!GIT_BRANCH_REGEX.test(config.branchName)) {
-        debugError('[TerminalWorktree] Invalid branch name in config:', config.branchName);
-      } else {
-        try {
-          // Use async to avoid blocking the main process
-          await execFileAsync(getToolPath('git'), ['branch', '-D', config.branchName], {
-            cwd: projectPath,
-            encoding: 'utf-8',
-            timeout: 30000,
-            env: getIsolatedGitEnv(),
-          });
-          debugLog('[TerminalWorktree] Deleted branch:', config.branchName);
-        } catch {
-          debugLog('[TerminalWorktree] Branch not found or already deleted:', config.branchName);
-        }
-      }
+    // Log warnings if any occurred during cleanup
+    if (cleanupResult.warnings.length > 0) {
+      debugLog('[TerminalWorktree] Cleanup completed with warnings:', cleanupResult.warnings);
     }
 
     // Remove metadata file
