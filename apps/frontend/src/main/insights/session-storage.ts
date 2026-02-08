@@ -1,7 +1,11 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
 import path from 'path';
+import os from 'os';
 import type { InsightsSession, InsightsSessionSummary } from '../../shared/types';
 import { InsightsPaths } from './paths';
+
+// Central archive directory (survives project deletion)
+const ARCHIVE_DIR = path.join(os.homedir(), '.auto-claude', 'conversation-archive');
 
 /**
  * Session storage manager
@@ -52,7 +56,7 @@ export class SessionStorage {
   }
 
   /**
-   * Save session to disk
+   * Save session to disk (primary + archive)
    */
   saveSession(projectPath: string, session: InsightsSession): void {
     const sessionsDir = this.paths.getSessionsDir(projectPath);
@@ -60,8 +64,34 @@ export class SessionStorage {
       mkdirSync(sessionsDir, { recursive: true });
     }
 
+    const content = JSON.stringify(session, null, 2);
     const sessionPath = this.paths.getSessionPath(projectPath, session.id);
-    writeFileSync(sessionPath, JSON.stringify(session, null, 2));
+    writeFileSync(sessionPath, content);
+
+    // Archive copy — keyed by project name so conversations survive project deletion
+    this.archiveSession(projectPath, session, content);
+  }
+
+  /**
+   * Archive session to central ~/.auto-claude/conversation-archive/
+   * This is a fire-and-forget safety net — errors are silently ignored
+   */
+  private archiveSession(projectPath: string, session: InsightsSession, content: string): void {
+    try {
+      // Only archive sessions with messages (skip empty "New Conversation")
+      if (!session.messages || session.messages.length === 0) return;
+
+      const projectName = path.basename(projectPath);
+      const archiveProjectDir = path.join(ARCHIVE_DIR, projectName);
+      if (!existsSync(archiveProjectDir)) {
+        mkdirSync(archiveProjectDir, { recursive: true });
+      }
+
+      const archivePath = path.join(archiveProjectDir, `${session.id}.json`);
+      writeFileSync(archivePath, content);
+    } catch {
+      // Archive is best-effort — never block the primary save
+    }
   }
 
   /**
