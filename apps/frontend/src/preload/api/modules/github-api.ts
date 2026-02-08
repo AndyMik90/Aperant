@@ -308,6 +308,9 @@ export interface GitHubAPI {
   onPRReviewError: (
     callback: (projectId: string, error: { prNumber: number; error: string }) => void
   ) => IpcListenerCleanup;
+  onPRLogsUpdated: (
+    callback: (projectId: string, data: { prNumber: number; entryCount: number }) => void
+  ) => IpcListenerCleanup;
 
   // PR status polling operations
   /** Start background polling for PR status (CI checks, reviews, mergeability) */
@@ -771,12 +774,17 @@ export const createGitHubAPI = (): GitHubAPI => ({
   ): IpcListenerCleanup =>
     createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR, callback),
 
+  onPRLogsUpdated: (
+    callback: (projectId: string, data: { prNumber: number; entryCount: number }) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_LOGS_UPDATED, callback),
+
   // PR status polling operations
   startStatusPolling: (projectId: string, prNumbers: number[]): Promise<boolean> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_PR_STATUS_POLL_START, projectId, prNumbers),
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_STATUS_POLL_START, { projectId, prNumbers }),
 
   stopStatusPolling: (projectId: string): Promise<boolean> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_PR_STATUS_POLL_STOP, projectId),
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_STATUS_POLL_STOP, { projectId }),
 
   getPollingMetadata: (projectId: string): Promise<PollingMetadata | null> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_STATUS_UPDATE, projectId),

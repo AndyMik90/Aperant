@@ -46,21 +46,21 @@ function ReviewStatusBadge({ status, className }: ReviewStatusBadgeProps) {
       return (
         <Badge variant="success" className={cn('gap-1', className)}>
           <CheckCircle2 className="h-3 w-3" />
-          {t('prStatus.approved')}
+          {t('prStatus.review.approved')}
         </Badge>
       );
     case 'changes_requested':
       return (
         <Badge variant="destructive" className={cn('gap-1', className)}>
           <AlertTriangle className="h-3 w-3" />
-          {t('prStatus.changesRequested')}
+          {t('prStatus.review.changesRequested')}
         </Badge>
       );
     case 'pending':
       return (
         <Badge variant="warning" className={cn('gap-1', className)}>
           <Circle className="h-3 w-3" />
-          {t('prStatus.reviewPending')}
+          {t('prStatus.review.pending')}
         </Badge>
       );
     case 'none':
@@ -122,6 +122,12 @@ export interface StatusIndicatorProps {
  * Used alongside the existing PRStatusFlow dots component to provide
  * real-time PR status from GitHub's API polling.
  */
+const mergeKeyMap: Record<string, string> = {
+  clean: 'ready',
+  dirty: 'conflict',
+  blocked: 'blocked',
+};
+
 export function StatusIndicator({
   checksStatus,
   reviewsStatus,
@@ -136,6 +142,8 @@ export function StatusIndicator({
   if (!checksStatus && !reviewsStatus && !mergeableState) {
     return null;
   }
+
+  const mergeKey = mergeableState ? mergeKeyMap[mergeableState] : null;
 
   return (
     <div className={cn('flex items-center gap-2', className)}>
@@ -161,12 +169,12 @@ export function StatusIndicator({
       )}
 
       {/* Merge Readiness */}
-      {showMergeStatus && mergeableState && mergeableState !== 'unknown' && (
-        <div className="flex items-center gap-1" title={t(`prStatus.merge.${mergeableState}`)}>
-          <MergeReadinessIcon state={mergeableState} />
+      {showMergeStatus && mergeKey && (
+        <div className="flex items-center gap-1" title={t(`prStatus.merge.${mergeKey}`)}>
+          <MergeReadinessIcon state={mergeableState!} />
           {!compact && (
             <span className="text-xs text-muted-foreground">
-              {t(`prStatus.merge.${mergeableState}`)}
+              {t(`prStatus.merge.${mergeKey}`)}
             </span>
           )}
         </div>

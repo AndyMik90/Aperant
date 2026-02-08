@@ -3,6 +3,7 @@
  */
 
 import type { Task } from '../../../shared/types';
+import { isCompletedTask } from '../../../shared/utils/task-status';
 import { mockTasks } from './mock-data';
 
 export const changelogMock = {
@@ -10,7 +11,7 @@ export const changelogMock = {
   getChangelogDoneTasks: async (_projectId: string, tasks?: Task[]) => ({
     success: true,
     data: (tasks || mockTasks)
-      .filter(t => t.status === 'done')
+      .filter((t): t is Task => isCompletedTask(t.status, (t as Task).reviewReason))
       .map(t => ({
         id: t.id,
         specId: t.specId,
@@ -26,8 +27,9 @@ export const changelogMock = {
     data: []
   }),
 
-  generateChangelog: () => {
+  generateChangelog: async () => {
     console.warn('[Browser Mock] generateChangelog called');
+    return { success: true };
   },
 
   saveChangelog: async () => ({

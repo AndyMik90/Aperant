@@ -20,7 +20,7 @@ import { rm } from 'fs/promises';
 import { existsSync } from 'fs';
 import { getToolPath } from '../cli-tool-manager';
 import { getIsolatedGitEnv } from './git-isolation';
-import { getTaskWorktreeDir, isPathWithinBase } from '../worktree-paths';
+import { getTaskWorktreeDir, getTerminalWorktreeDir, isPathWithinBase } from '../worktree-paths';
 
 /**
  * Options for worktree cleanup operation
@@ -38,6 +38,8 @@ export interface WorktreeCleanupOptions {
   logPrefix?: string;
   /** Whether to delete the associated branch (default: true) */
   deleteBranch?: boolean;
+  /** Explicit branch name to use for deletion (overrides auto-detection fallback) */
+  branchName?: string;
   /** Timeout in milliseconds for git operations (default: 30000) */
   timeout?: number;
   /** Maximum retries for directory deletion on Windows (default: 3) */
@@ -63,7 +65,7 @@ export interface WorktreeCleanupResult {
 /**
  * Gets the worktree branch name based on spec ID
  */
-function getWorktreeBranch(worktreePath: string, specId: string, timeout: number): string | null {
+function getWorktreeBranch(worktreePath: string, specId: string, timeout: number, explicitBranchName?: string): string | null {
   // First try to get branch from the worktree's HEAD
   if (existsSync(worktreePath)) {
     try {
@@ -78,8 +80,13 @@ function getWorktreeBranch(worktreePath: string, specId: string, timeout: number
         return branch;
       }
     } catch {
-      // Worktree might be corrupted, fall back to naming convention
+      // Worktree might be corrupted, fall back to explicit name or naming convention
     }
+  }
+
+  // Use explicit branch name if provided (e.g., terminal worktrees use terminal/{name})
+  if (explicitBranchName) {
+    return explicitBranchName;
   }
 
   // Fall back to the naming convention: auto-claude/{spec-id}
@@ -171,6 +178,7 @@ export async function cleanupWorktree(options: WorktreeCleanupOptions): Promise<
     commitMessage = 'Auto-save before deletion',
     logPrefix = '[WORKTREE_CLEANUP]',
     deleteBranch = true,
+    branchName,
     timeout = 30000,
     maxRetries = 3,
     retryDelay = 500
@@ -179,11 +187,15 @@ export async function cleanupWorktree(options: WorktreeCleanupOptions): Promise<
   const warnings: string[] = [];
   let autoCommitted = false;
 
-  // Security: Validate that worktreePath is within the expected worktree directory
+  // Security: Validate that worktreePath is within the expected worktree directories
   // This prevents path traversal attacks and accidental deletion of wrong directories
-  const expectedBase = getTaskWorktreeDir(projectPath);
-  if (!isPathWithinBase(worktreePath, expectedBase)) {
-    console.error(`${logPrefix} Security: Path validation failed - worktree path is outside expected directory`);
+  // Supports both task worktrees (.auto-claude/worktrees/tasks) and terminal worktrees (.auto-claude/worktrees/terminal)
+  const taskBase = getTaskWorktreeDir(projectPath);
+  const terminalBase = getTerminalWorktreeDir(projectPath);
+  const isValidPath = isPathWithinBase(worktreePath, taskBase) || isPathWithinBase(worktreePath, terminalBase);
+
+  if (!isValidPath) {
+    console.error(`${logPrefix} Security: Path validation failed - worktree path is outside expected directories`);
     return {
       success: false,
       warnings: ['Invalid worktree path']
@@ -191,7 +203,7 @@ export async function cleanupWorktree(options: WorktreeCleanupOptions): Promise<
   }
 
   // 1. Get the branch name before we delete the directory
-  const branch = getWorktreeBranch(worktreePath, specId, timeout);
+  const branch = getWorktreeBranch(worktreePath, specId, timeout, branchName);
   console.warn(`${logPrefix} Starting cleanup for worktree: ${worktreePath}`);
   if (branch) {
     console.warn(`${logPrefix} Associated branch: ${branch}`);
