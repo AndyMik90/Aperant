@@ -39,7 +39,7 @@ export function usePtyProcess({
   const currentCwdRef = useRef(cwd);
   // Trigger state to force re-creation after resetForRecreate()
   // Refs don't trigger re-renders, so we need a state to ensure the effect runs
-  const [recreationTrigger, setRecreationTrigger] = useState(0);
+  const [_recreationTrigger, setRecreationTrigger] = useState(0);
   // Track retry attempts during recreation when dimensions aren't ready
   const recreationRetryCountRef = useRef(0);
   const recreationRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -234,7 +234,7 @@ export function usePtyProcess({
       });
     }
 
-  }, [terminalId, cwd, projectPath, cols, rows, skipCreation, recreationTrigger, getStore, onCreated, onError, clearRetryTimer, scheduleRetryOrFail, isRecreatingRef]);
+  }, [terminalId, cwd, projectPath, cols, rows, skipCreation, getStore, onCreated, clearRetryTimer, scheduleRetryOrFail, isRecreatingRef]);
 
   // Function to prepare for recreation by preventing the effect from running
   // Call this BEFORE updating the store cwd to avoid race condition

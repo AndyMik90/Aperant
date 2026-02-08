@@ -83,6 +83,8 @@ export const EXECUTION_PHASE_LABELS: Record<string, string> = {
   idle: 'Idle',
   planning: 'Planning',
   coding: 'Coding',
+  rate_limit_paused: 'Rate Limited',
+  auth_failure_paused: 'Auth Required',
   qa_review: 'AI Review',
   qa_fixing: 'Fixing Issues',
   complete: 'Complete',
@@ -94,6 +96,8 @@ export const EXECUTION_PHASE_COLORS: Record<string, string> = {
   idle: 'bg-muted text-muted-foreground',
   planning: 'bg-amber-500 text-amber-50',
   coding: 'bg-info text-info-foreground',
+  rate_limit_paused: 'bg-orange-500 text-orange-50',
+  auth_failure_paused: 'bg-red-500 text-red-50',
   qa_review: 'bg-purple-500 text-purple-50',
   qa_fixing: 'bg-warning text-warning-foreground',
   complete: 'bg-success text-success-foreground',
@@ -105,6 +109,8 @@ export const EXECUTION_PHASE_BADGE_COLORS: Record<string, string> = {
   idle: 'bg-muted/50 text-muted-foreground border-muted',
   planning: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
   coding: 'bg-info/10 text-info border-info/30',
+  rate_limit_paused: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
+  auth_failure_paused: 'bg-red-500/10 text-red-400 border-red-500/30',
   qa_review: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
   qa_fixing: 'bg-warning/10 text-warning border-warning/30',
   complete: 'bg-success/10 text-success border-success/30',
@@ -116,6 +122,8 @@ export const EXECUTION_PHASE_WEIGHTS: Record<string, { start: number; end: numbe
   idle: { start: 0, end: 0 },
   planning: { start: 0, end: 20 },
   coding: { start: 20, end: 80 },
+  rate_limit_paused: { start: 20, end: 80 },  // Same as coding (pause during coding)
+  auth_failure_paused: { start: 20, end: 80 },  // Same as coding (pause during coding)
   qa_review: { start: 80, end: 95 },
   qa_fixing: { start: 80, end: 95 },  // Same range as qa_review, cycles back
   complete: { start: 100, end: 100 },

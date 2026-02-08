@@ -1,0 +1,352 @@
+{
+  "feature": "fix(worktrees): Dialog auto-close race condition and terminal worktree deletion failures",
+  "workflow_type": "feature",
+  "workflow_rationale": "While these are bug fixes, they require coordinating async operations, importing utilities, and following established patterns across multiple files—making this a standard feature-level task rather than a simple hotfix.",
+  "phases": [
+    {
+      "id": "phase-1-fix-dialog-autoclose",
+      "name": "Fix Dialog Auto-Close Race Condition",
+      "type": "implementation",
+      "description": "Add e.preventDefault() to AlertDialogAction onClick handlers to prevent Radix UI from auto-closing dialogs before async deletion completes (Bug #1)",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-1-1",
+          "description": "Fix task worktree delete dialog auto-close at line 914",
+          "service": "frontend",
+          "files_to_modify": [
+            "apps/frontend/src/renderer/components/Worktrees.tsx"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/frontend/src/renderer/components/Worktrees.tsx:989-991",
+            "apps/frontend/src/renderer/components/task-detail/task-review/DiscardDialog.tsx:70-72"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Click delete on a task worktree → dialog must stay open with spinner → worktree deletes → dialog closes → list updates"
+          },
+          "status": "completed",
+          "notes": "Wrap handleDelete call with arrow function containing e.preventDefault(). Pattern already exists at line 989 for bulk delete. ✅ Completed - Applied e.preventDefault() pattern at line 914."
+        },
+        {
+          "id": "subtask-1-2",
+          "description": "Fix terminal worktree delete dialog auto-close at line 954",
+          "service": "frontend",
+          "files_to_modify": [
+            "apps/frontend/src/renderer/components/Worktrees.tsx"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/frontend/src/renderer/components/Worktrees.tsx:989-991",
+            "apps/frontend/src/renderer/components/task-detail/task-review/DiscardDialog.tsx:70-72"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Click delete on a terminal worktree → dialog must stay open with spinner → worktree deletes → dialog closes → list updates"
+          },
+          "status": "completed",
+          "notes": "✅ Completed - Fixed race condition by preventing dialog close while isDeletingTerminal is true (line 942). Added success toast notification (lines 446-449). Dialog now stays open with spinner until all async operations complete."
+        }
+      ]
+    },
+    {
+      "id": "phase-2-fix-windows-deletion",
+      "name": "Fix Terminal Worktree Deletion on Windows",
+      "type": "implementation",
+      "description": "Replace direct git worktree remove call with cleanupWorktree() utility to handle Windows file locks and orphaned worktrees (Bug #2)",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-2-1",
+          "description": "Replace execFileSync git call with cleanupWorktree() utility in terminal worktree deletion handler",
+          "service": "frontend",
+          "files_to_modify": [
+            "apps/frontend/src/main/ipc-handlers/terminal/worktree-handlers.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/frontend/src/main/utils/worktree-cleanup.ts"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm run typecheck",
+            "expected": "No TypeScript errors"
+          },
+          "status": "completed",
+          "notes": "✅ Completed - cleanupWorktree() utility already imported and used in removeTerminalWorktree() function. Function is async, handles cleanupResult.success properly, and includes error handling with warnings. TypeScript compilation verified with no errors."
+        }
+      ]
+    },
+    {
+      "id": "phase-3-fix-state-update",
+      "name": "Fix State Update for Empty Arrays",
+      "type": "implementation",
+      "description": "Fix conditional logic to properly update state when terminal worktree list is empty (Bug #3)",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-3-1",
+          "description": "Fix terminalWorktrees state update to handle empty arrays correctly",
+          "service": "frontend",
+          "files_to_modify": [
+            "apps/frontend/src/renderer/components/Worktrees.tsx"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "manual",
+            "instructions": "Delete all worktrees → UI should show empty state, not stale data"
+          },
+          "status": "pending",
+          "notes": "Line 184-189: Change condition from 'if (terminalResult.success && terminalResult.data)' to 'if (terminalResult.success)'. Use 'terminalResult.data || []' fallback."
+        }
+      ]
+    },
+    {
+      "id": "phase-4-bonus-task-execution",
+      "name": "Optional: Add Fallback to Task Execution Handler",
+      "type": "implementation",
+      "description": "Apply same cleanupWorktree() pattern to task execution handler for consistency (Bonus fix)",
+      "depends_on": [
+        "phase-2-fix-windows-deletion"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-4-1",
+          "description": "Add cleanupWorktree() fallback to task execution handler",
+          "service": "frontend",
+          "files_to_modify": [
+            "apps/frontend/src/main/ipc-handlers/task/execution-handlers.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/frontend/src/main/utils/worktree-cleanup.ts"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm run typecheck",
+            "expected": "No TypeScript errors"
+          },
+          "status": "pending",
+          "notes": "Lines 555-561: Same pattern as phase-2 subtask. Replace direct git call with cleanupWorktree() utility. This is optional but recommended for consistency."
+        }
+      ]
+    },
+    {
+      "id": "phase-5-integration",
+      "name": "Integration Testing and Verification",
+      "type": "integration",
+      "description": "Verify all fixes work together: dialogs stay open, Windows deletion succeeds, state updates properly",
+      "depends_on": [
+        "phase-1-fix-dialog-autoclose",
+        "phase-2-fix-windows-deletion",
+        "phase-3-fix-state-update"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-5-1",
+          "description": "Run TypeScript compilation and linting",
+          "service": "frontend",
+          "all_services": false,
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd apps/frontend && npm run typecheck && npm run lint",
+            "expected": "No errors"
+          },
+          "status": "pending",
+          "notes": "Ensure strict TypeScript mode and Biome linting pass"
+        },
+        {
+          "id": "subtask-5-2",
+          "description": "End-to-end manual verification of all deletion flows",
+          "service": "frontend",
+          "all_services": false,
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "e2e",
+            "steps": [
+              "Launch Electron app with 'npm run dev'",
+              "Navigate to Worktrees page",
+              "Delete task worktree - verify dialog stays open with spinner",
+              "Delete terminal worktree - verify dialog stays open with spinner",
+              "Delete all worktrees - verify empty state displays",
+              "Test bulk delete - verify no regression",
+              "Check browser console for errors"
+            ]
+          },
+          "status": "pending",
+          "notes": "Primary UX verification - dialogs must visibly stay open during deletion"
+        },
+        {
+          "id": "subtask-5-3",
+          "description": "Verify Windows-specific fixes (if platform available)",
+          "service": "frontend",
+          "all_services": false,
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "manual",
+            "instructions": "On Windows: Delete terminal worktree with node_modules → should succeed without 'not a working tree' error. Delete orphaned worktree → should succeed."
+          },
+          "status": "pending",
+          "notes": "Windows platform testing recommended but not blocking if unavailable. Bug #2 primarily affects Windows."
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_phases": 5,
+    "total_subtasks": 8,
+    "services_involved": [
+      "frontend"
+    ],
+    "parallelism": {
+      "max_parallel_phases": 3,
+      "parallel_groups": [
+        {
+          "phases": [
+            "phase-1-fix-dialog-autoclose",
+            "phase-2-fix-windows-deletion",
+            "phase-3-fix-state-update"
+          ],
+          "reason": "All three phases have no dependencies and modify different files/lines - can be implemented in parallel"
+        }
+      ],
+      "recommended_workers": 1,
+      "speedup_estimate": "Sequential execution recommended for careful testing of async behavior"
+    },
+    "startup_command": "cd apps/frontend && npm run dev"
+  },
+  "verification_strategy": {
+    "risk_level": "medium",
+    "skip_validation": false,
+    "test_creation_phase": "post_implementation",
+    "test_types_required": [
+      "unit",
+      "integration"
+    ],
+    "security_scanning_required": false,
+    "staging_deployment_required": false,
+    "acceptance_criteria": [
+      "Task worktree delete dialog stays open with loading spinner until completion",
+      "Terminal worktree delete dialog stays open with loading spinner until completion",
+      "Terminal worktrees with untracked files delete successfully on Windows without errors",
+      "Orphaned worktrees delete successfully without 'not a working tree' fatal errors",
+      "Deleting all worktrees results in empty state UI (not stale data)",
+      "Bulk delete continues to work (regression test)",
+      "No console errors during deletion workflows",
+      "TypeScript strict mode compilation succeeds",
+      "Biome linting passes"
+    ],
+    "verification_steps": [
+      {
+        "name": "TypeScript Compilation",
+        "command": "cd apps/frontend && npm run typecheck",
+        "expected_outcome": "No TypeScript errors",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Biome Linting",
+        "command": "cd apps/frontend && npm run lint",
+        "expected_outcome": "No linting errors",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Frontend Unit Tests",
+        "command": "cd apps/frontend && npm test",
+        "expected_outcome": "All tests pass",
+        "type": "test",
+        "required": false,
+        "blocking": false
+      }
+    ],
+    "reasoning": "Medium risk due to async dialog lifecycle and Windows-specific behavior. Unit tests for state logic and integration tests for complete deletion flows required. Manual Windows testing needed for Bug #2."
+  },
+  "qa_acceptance": {
+    "unit_tests": {
+      "required": false,
+      "commands": [
+        "cd apps/frontend && npm test"
+      ],
+      "minimum_coverage": null
+    },
+    "integration_tests": {
+      "required": true,
+      "commands": [
+        "cd apps/frontend && npm run typecheck",
+        "cd apps/frontend && npm run lint"
+      ],
+      "services_to_test": [
+        "frontend"
+      ]
+    },
+    "e2e_tests": {
+      "required": true,
+      "commands": [
+        "cd apps/frontend && npm run dev"
+      ],
+      "flows": [
+        "task-worktree-deletion",
+        "terminal-worktree-deletion",
+        "delete-all-worktrees",
+        "bulk-delete-regression"
+      ]
+    },
+    "browser_verification": {
+      "required": true,
+      "pages": [
+        {
+          "url": "Electron app → Worktrees page",
+          "checks": [
+            "Delete dialogs stay open during async operations",
+            "Loading spinners visible",
+            "No premature dialog closes",
+            "Empty state displays after deleting all worktrees",
+            "No console errors"
+          ]
+        }
+      ]
+    },
+    "database_verification": {
+      "required": false,
+      "checks": []
+    },
+    "platform_specific_testing": {
+      "required": true,
+      "platforms": [
+        "Windows",
+        "macOS",
+        "Linux"
+      ],
+      "notes": "Bug #2 primarily affects Windows - prioritize Windows testing if available"
+    }
+  },
+  "qa_signoff": null,
+  "executionPhase": "coding",
+  "status": "in_progress",
+  "planStatus": "in_progress",
+  "updated_at": "2026-02-02T12:31:54.018Z",
+  "xstateState": "coding",
+  "lastEvent": {
+    "eventId": "6629a4c1-4b4e-434c-b9a4-916845f09d41",
+    "sequence": 0,
+    "type": "PLANNING_COMPLETE",
+    "timestamp": "2026-01-31T22:58:46.447840+00:00"
+  }
+}

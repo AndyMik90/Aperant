@@ -21,6 +21,7 @@ import type {
   GitBranchInfo,
   GitTagInfo
 } from '../../shared/types';
+import { isCompletedTask } from '../../shared/utils/task-status';
 import { ChangelogGenerator } from './generator';
 import { VersionSuggester } from './version-suggester';
 import { parseExistingChangelog } from './parser';
@@ -44,7 +45,6 @@ export class ChangelogService extends EventEmitter {
   private _pythonPath: string | null = null;
   private claudePath: string;
   private autoBuildSourcePath: string = '';
-  private cachedEnv: Record<string, string> | null = null;
   private debugEnabled: boolean | null = null;
   private generator: ChangelogGenerator | null = null;
   private versionSuggester: VersionSuggester | null = null;
@@ -68,8 +68,6 @@ export class ChangelogService extends EventEmitter {
 
     // Check process.env first
     if (
-      process.env.DEBUG === 'true' ||
-      process.env.DEBUG === '1' ||
       process.env.DEBUG === 'true' ||
       process.env.DEBUG === '1'
     ) {
@@ -264,7 +262,7 @@ export class ChangelogService extends EventEmitter {
     const specsDir = path.join(projectPath, specsBaseDir || AUTO_BUILD_PATHS.SPECS_DIR);
 
     return tasks
-      .filter(task => task.status === 'done' && !task.metadata?.archivedAt)
+      .filter(task => isCompletedTask(task.status, task.reviewReason) && !task.metadata?.archivedAt)
       .map(task => {
         const specDir = path.join(specsDir, task.specId);
         const hasSpecs = existsSync(specDir) && existsSync(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE));
@@ -454,7 +452,7 @@ export class ChangelogService extends EventEmitter {
     }
 
     const parts = currentVersion.split('.').map(Number);
-    if (parts.length !== 3 || parts.some(isNaN)) {
+    if (parts.length !== 3 || parts.some(Number.isNaN)) {
       return '1.0.0';
     }
 
@@ -491,7 +489,7 @@ export class ChangelogService extends EventEmitter {
    * Suggest version using AI analysis of git commits
    */
   async suggestVersionFromCommits(
-    projectPath: string,
+    _projectPath: string,
     commits: import('../../shared/types').GitCommit[],
     currentVersion?: string
   ): Promise<{ version: string; reason: string }> {
@@ -502,7 +500,7 @@ export class ChangelogService extends EventEmitter {
       }
 
       const parts = currentVersion.split('.').map(Number);
-      if (parts.length !== 3 || parts.some(isNaN)) {
+      if (parts.length !== 3 || parts.some(Number.isNaN)) {
         return { version: '1.0.0', reason: 'Invalid current version, resetting to 1.0.0' };
       }
 

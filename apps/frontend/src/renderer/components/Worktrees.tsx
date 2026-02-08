@@ -175,17 +175,21 @@ export function Worktrees({ projectId }: WorktreesProps) {
       console.log('[Worktrees] Task worktrees result:', taskResult);
       console.log('[Worktrees] Terminal worktrees result:', terminalResult);
 
-      if (taskResult.success && taskResult.data) {
-        setWorktrees(taskResult.data.worktrees);
+      if (taskResult.success) {
+        // Always update state when successful, even if data is null/undefined
+        setWorktrees(taskResult.data?.worktrees || []);
       } else {
         setError(taskResult.error || 'Failed to load task worktrees');
       }
 
-      if (terminalResult.success && terminalResult.data) {
-        console.log('[Worktrees] Setting terminal worktrees:', terminalResult.data);
-        setTerminalWorktrees(terminalResult.data);
+      if (terminalResult.success) {
+        // Always update state when successful, ensuring a new array reference to force React re-render
+        // This is critical when data is an empty array - we need a new reference to update the UI
+        const newWorktrees = Array.isArray(terminalResult.data) ? [...terminalResult.data] : [];
+        console.log('[Worktrees] Setting terminal worktrees:', newWorktrees);
+        setTerminalWorktrees(newWorktrees);
       } else {
-        console.warn('[Worktrees] Terminal worktrees fetch failed or empty:', terminalResult);
+        console.warn('[Worktrees] Terminal worktrees fetch failed:', terminalResult);
       }
     } catch (err) {
       console.error('[Worktrees] Error loading worktrees:', err);
@@ -443,6 +447,10 @@ export function Worktrees({ projectId }: WorktreesProps) {
       if (result.success) {
         // Refresh worktrees after successful delete
         await loadWorktrees();
+        toast({
+          title: t('common:actions.success'),
+          description: t('common:worktrees.deleteSuccess', { branch: terminalWorktreeToDelete.name }),
+        });
         setTerminalWorktreeToDelete(null);
       } else {
         setError(result.error || 'Failed to delete terminal worktree');
@@ -894,7 +902,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <AlertDialog open={showDeleteConfirm} onOpenChange={(open) => !open && !isDeleting && setShowDeleteConfirm(false)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Worktree?</AlertDialogTitle>
@@ -911,7 +919,10 @@ export function Worktrees({ projectId }: WorktreesProps) {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
@@ -932,7 +943,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
       </AlertDialog>
 
       {/* Terminal Worktree Delete Confirmation Dialog */}
-      <AlertDialog open={!!terminalWorktreeToDelete} onOpenChange={(open) => !open && setTerminalWorktreeToDelete(null)}>
+      <AlertDialog open={!!terminalWorktreeToDelete} onOpenChange={(open) => !open && !isDeletingTerminal && setTerminalWorktreeToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Terminal Worktree?</AlertDialogTitle>
@@ -951,7 +962,10 @@ export function Worktrees({ projectId }: WorktreesProps) {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeletingTerminal}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteTerminalWorktree}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteTerminalWorktree();
+              }}
               disabled={isDeletingTerminal}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
@@ -972,7 +986,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
       </AlertDialog>
 
       {/* Bulk Delete Confirmation Dialog */}
-      <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+      <AlertDialog open={showBulkDeleteConfirm} onOpenChange={(open) => !open && !isBulkDeleting && setShowBulkDeleteConfirm(false)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">

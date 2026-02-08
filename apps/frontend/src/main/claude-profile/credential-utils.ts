@@ -345,7 +345,7 @@ function executeCredentialRead(
   executablePath: string,
   args: string[],
   timeout: number,
-  identifier: string
+  _identifier: string
 ): string | null {
   try {
     const result = execFileSync(executablePath, args, {

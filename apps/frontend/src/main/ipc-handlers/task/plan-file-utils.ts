@@ -18,7 +18,7 @@
  */
 
 import path from 'path';
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, renameSync, unlinkSync } from 'fs';
 import { AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { TaskStatus, Project, Task } from '../../../shared/types';
 import { projectStore } from '../../project-store';
@@ -430,6 +430,82 @@ export async function createPlanIfNotExists(
     }
 
     writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+  });
+}
+
+/**
+ * Reset all stuck subtasks (in_progress or failed) to pending state.
+ * This enables automatic recovery when tasks are interrupted by rate limits or errors.
+ * Thread-safe with withPlanLock.
+ *
+ * @param planPath - Path to the implementation_plan.json file
+ * @param projectId - Optional project ID to invalidate cache (recommended for performance)
+ * @returns Object with success flag and count of reset subtasks
+ */
+export async function resetStuckSubtasks(planPath: string, projectId?: string): Promise<{ success: boolean; resetCount: number }> {
+  return withPlanLock(planPath, async () => {
+    try {
+      console.log(`[plan-file-utils] Reading implementation_plan.json to reset stuck subtasks`, { planPath });
+
+      // Read file directly without existence check to avoid TOCTOU race condition
+      const planContent = readFileSync(planPath, 'utf-8');
+      const plan = JSON.parse(planContent);
+
+      let resetCount = 0;
+
+      // Iterate through all phases and subtasks
+      if (plan.phases && Array.isArray(plan.phases)) {
+        for (const phase of plan.phases) {
+          if (phase.subtasks && Array.isArray(phase.subtasks)) {
+            for (const subtask of phase.subtasks) {
+              // Only reset subtasks that are stuck (in_progress or failed)
+              // NEVER reset completed subtasks to avoid redoing work
+              if (subtask.status === 'in_progress' || subtask.status === 'failed') {
+                const originalStatus = subtask.status;
+                subtask.status = 'pending';
+                subtask.started_at = null;
+                subtask.completed_at = null;
+                resetCount++;
+                console.log(`[plan-file-utils] Reset subtask ${subtask.id} from ${originalStatus} to pending`);
+              }
+            }
+          }
+        }
+      }
+
+      // Only write if we actually reset something
+      if (resetCount > 0) {
+        plan.updated_at = new Date().toISOString();
+        const content = JSON.stringify(plan, null, 2);
+        // Atomic write: write to temp file then rename to prevent corruption on crash
+        const tempPath = `${planPath}.${process.pid}.tmp`;
+        try {
+          writeFileSync(tempPath, content, 'utf-8');
+          renameSync(tempPath, planPath);
+        } catch (writeError) {
+          try { unlinkSync(tempPath); } catch { /* ignore cleanup */ }
+          throw writeError;
+        }
+        console.log(`[plan-file-utils] Successfully reset ${resetCount} stuck subtask(s) in implementation_plan.json`);
+
+        // Invalidate tasks cache since subtask status changed
+        if (projectId) {
+          projectStore.invalidateTasksCache(projectId);
+        }
+      } else {
+        console.log(`[plan-file-utils] No stuck subtasks found to reset`);
+      }
+
+      return { success: true, resetCount };
+    } catch (err) {
+      // File not found is expected - return success with 0 count
+      if (isFileNotFoundError(err)) {
+        console.warn(`[plan-file-utils] implementation_plan.json not found at ${planPath} - no subtasks to reset`);
+        return { success: false, resetCount: 0 };
+      }
+      console.warn(`[plan-file-utils] Could not reset stuck subtasks at ${planPath}:`, err);
+      return { success: false, resetCount: 0 };
+    }
   });
 }
 

@@ -74,7 +74,7 @@ import type {
   TerminalProfileChangedEvent
 } from './agent';
 import type { AppSettings, SourceEnvConfig, SourceEnvCheckResult } from './settings';
-import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent } from './app-update';
+import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent, AppUpdateErrorEvent } from './app-update';
 import type {
   ChangelogTask,
   TaskSpecContent,
@@ -204,6 +204,7 @@ export interface ElectronAPI {
   updateTaskStatus: (taskId: string, status: TaskStatus, options?: { forceCleanup?: boolean }) => Promise<IPCResult & { worktreeExists?: boolean; worktreePath?: string }>;
   recoverStuckTask: (taskId: string, options?: TaskRecoveryOptions) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
+  resumePausedTask: (taskId: string) => Promise<IPCResult>;
 
   // Image operations
   loadImageThumbnail: (projectPath: string, specId: string, imagePath: string) => Promise<IPCResult<string>>;
@@ -709,6 +710,12 @@ export interface ElectronAPI {
   onAppUpdateStableDowngrade: (
     callback: (info: AppUpdateInfo) => void
   ) => () => void;
+  onAppUpdateReadOnlyVolume: (
+    callback: (info: { appPath: string }) => void
+  ) => () => void;
+  onAppUpdateError: (
+    callback: (error: AppUpdateErrorEvent) => void
+  ) => () => void;
 
   // Shell operations
   openExternal: (url: string) => Promise<void>;
@@ -722,7 +729,7 @@ export interface ElectronAPI {
   // Changelog operations
   getChangelogDoneTasks: (projectId: string, tasks?: Task[]) => Promise<IPCResult<ChangelogTask[]>>;
   loadTaskSpecs: (projectId: string, taskIds: string[]) => Promise<IPCResult<TaskSpecContent[]>>;
-  generateChangelog: (request: ChangelogGenerationRequest) => void; // Async with progress events
+  generateChangelog: (request: ChangelogGenerationRequest) => Promise<IPCResult<void>>; // Async with progress events
   saveChangelog: (request: ChangelogSaveRequest) => Promise<IPCResult<ChangelogSaveResult>>;
   readExistingChangelog: (projectId: string) => Promise<IPCResult<ExistingChangelog>>;
   suggestChangelogVersion: (

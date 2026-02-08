@@ -14,7 +14,8 @@ import { taskStateManager } from '../../task-state-manager';
 import {
   getPlanPath,
   persistPlanStatus,
-  createPlanIfNotExists
+  createPlanIfNotExists,
+  resetStuckSubtasks
 } from './plan-file-utils';
 import { findTaskWorktree } from '../../worktree-paths';
 import { projectStore } from '../../project-store';
@@ -213,6 +214,14 @@ export function registerTaskExecutionHandlers(
         // Fresh start - PLANNING_STARTED transitions from backlog to planning
         console.warn('[TASK_START] Fresh start via PLANNING_STARTED');
         taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
+      }
+
+      // Reset any stuck subtasks before starting execution
+      // This handles recovery from previous rate limits or crashes
+      const planPath = getPlanPath(project, task);
+      const resetResult = await resetStuckSubtasks(planPath, project.id);
+      if (resetResult.success && resetResult.resetCount > 0) {
+        console.warn(`[TASK_START] Reset ${resetResult.resetCount} stuck subtask(s) before starting`);
       }
 
       // Start file watcher for this task
@@ -713,6 +722,13 @@ export function registerTaskExecutionHandlers(
 
           console.warn('[TASK_UPDATE_STATUS] Auto-starting task:', taskId);
 
+          // Reset any stuck subtasks before starting execution
+          // This handles recovery from previous rate limits or crashes
+          const resetResult = await resetStuckSubtasks(planPath, project.id);
+          if (resetResult.success && resetResult.resetCount > 0) {
+            console.warn(`[TASK_UPDATE_STATUS] Reset ${resetResult.resetCount} stuck subtask(s) before starting`);
+          }
+
           // Start file watcher for this task
           fileWatcher.watch(taskId, specDir);
 
@@ -797,6 +813,73 @@ export function registerTaskExecutionHandlers(
     async (_, taskId: string): Promise<IPCResult<boolean>> => {
       const isRunning = agentManager.isRunning(taskId);
       return { success: true, data: isRunning };
+    }
+  );
+
+  /**
+   * Resume a paused task (rate limited or auth failure paused)
+   * This writes a RESUME file to the spec directory to signal the backend to continue
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_RESUME_PAUSED,
+    async (_, taskId: string): Promise<IPCResult> => {
+      // Find task and project
+      const { task, project } = findTaskAndProject(taskId);
+
+      if (!task || !project) {
+        return { success: false, error: 'Task not found' };
+      }
+
+      // Get the spec directory - use task.specsPath if available (handles worktree vs main)
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
+      const specDir = task.specsPath || path.join(
+        project.path,
+        specsBaseDir,
+        task.specId
+      );
+
+      // Write RESUME file to signal backend to continue
+      const resumeFilePath = path.join(specDir, 'RESUME');
+
+      try {
+        const resumeContent = JSON.stringify({
+          resumed_at: new Date().toISOString(),
+          resumed_by: 'user'
+        });
+        atomicWriteFileSync(resumeFilePath, resumeContent);
+        console.log(`[TASK_RESUME_PAUSED] Wrote RESUME file to: ${resumeFilePath}`);
+
+        // Also write to worktree if it exists (backend may be running inside the worktree)
+        const worktreePath = findTaskWorktree(project.path, task.specId);
+        if (worktreePath) {
+          const worktreeResumeFilePath = path.join(worktreePath, specsBaseDir, task.specId, 'RESUME');
+          try {
+            atomicWriteFileSync(worktreeResumeFilePath, resumeContent);
+            console.log(`[TASK_RESUME_PAUSED] Also wrote RESUME file to worktree: ${worktreeResumeFilePath}`);
+          } catch (worktreeError) {
+            // Non-fatal - main spec dir RESUME is sufficient
+            console.warn(`[TASK_RESUME_PAUSED] Could not write to worktree (non-fatal):`, worktreeError);
+          }
+        } else if (
+          task.executionProgress?.phase === 'rate_limit_paused' ||
+          task.executionProgress?.phase === 'auth_failure_paused'
+        ) {
+          // Warn if worktree not found for a paused task - the backend is likely
+          // running inside the worktree and may not see the RESUME file in the main spec dir
+          console.warn(
+            `[TASK_RESUME_PAUSED] Worktree not found for paused task ${task.specId}. ` +
+            `Backend may not detect the RESUME file if running inside a worktree.`
+          );
+        }
+
+        return { success: true };
+      } catch (error) {
+        console.error('[TASK_RESUME_PAUSED] Failed to write RESUME file:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to signal resume'
+        };
+      }
     }
   );
 
@@ -965,57 +1048,40 @@ export function registerTaskExecutionHandlers(
 
           // Task is not complete - reset only stuck subtasks for retry
           // Keep completed subtasks as-is so run.py can resume from where it left off
-          if (plan.phases && Array.isArray(plan.phases)) {
-            for (const phase of plan.phases as Array<{ subtasks?: Array<{ status: string; actual_output?: string; started_at?: string; completed_at?: string }> }>) {
-              if (phase.subtasks && Array.isArray(phase.subtasks)) {
-                for (const subtask of phase.subtasks) {
-                  // Reset in_progress subtasks to pending (they were interrupted)
-                  // Keep completed subtasks as-is so run.py can resume
-                  if (subtask.status === 'in_progress') {
-                    const originalStatus = subtask.status;
-                    subtask.status = 'pending';
-                    // Clear execution data to maintain consistency
-                    delete subtask.actual_output;
-                    delete subtask.started_at;
-                    delete subtask.completed_at;
-                    console.log(`[Recovery] Reset stuck subtask: ${originalStatus} -> pending`);
-                  }
-                  // Also reset failed subtasks so they can be retried
-                  if (subtask.status === 'failed') {
-                    subtask.status = 'pending';
-                    // Clear execution data to maintain consistency
-                    delete subtask.actual_output;
-                    delete subtask.started_at;
-                    delete subtask.completed_at;
-                    console.log(`[Recovery] Reset failed subtask for retry`);
-                  }
+          // Use shared utility to reset stuck subtasks in ALL plan file locations
+          let totalResetCount = 0;
+          let resetSucceeded = false;
+          let resetFailedCount = 0;
+          for (const pathToUpdate of planPathsToUpdate) {
+            try {
+              const resetResult = await resetStuckSubtasks(pathToUpdate, project.id);
+              if (resetResult.success) {
+                resetSucceeded = true;
+                totalResetCount += resetResult.resetCount;
+                if (resetResult.resetCount > 0) {
+                  console.log(`[Recovery] Reset ${resetResult.resetCount} stuck subtask(s) in: ${pathToUpdate}`);
                 }
+              } else {
+                resetFailedCount++;
               }
+            } catch (resetError) {
+              resetFailedCount++;
+              console.error(`[Recovery] Failed to reset stuck subtasks at ${pathToUpdate}:`, resetError);
             }
           }
 
-          // Write to ALL plan file locations to ensure consistency
-          const planContent = JSON.stringify(plan, null, 2);
-          let writeSucceeded = false;
-          for (const pathToUpdate of planPathsToUpdate) {
-            try {
-              atomicWriteFileSync(pathToUpdate, planContent);
-              console.log(`[Recovery] Successfully wrote to: ${pathToUpdate}`);
-              writeSucceeded = true;
-            } catch (writeError) {
-              console.error(`[Recovery] Failed to write plan file at ${pathToUpdate}:`, writeError);
-            }
-          }
-          if (!writeSucceeded) {
+          if (!resetSucceeded) {
             return {
               success: false,
-              error: 'Failed to write plan file during recovery'
+              error: 'Failed to reset stuck subtasks during recovery'
             };
           }
 
-          // CRITICAL: Invalidate cache AFTER file writes complete
-          // This ensures getTasks() returns fresh data reflecting the recovery
-          projectStore.invalidateTasksCache(project.id);
+          if (resetFailedCount > 0) {
+            console.warn(`[Recovery] Partial reset: ${totalResetCount} subtask(s) reset, but ${resetFailedCount} location(s) failed`);
+          }
+
+          console.log(`[Recovery] Total ${totalResetCount} subtask(s) reset across all locations`);
         }
 
         // Stop file watcher if it was watching this task
