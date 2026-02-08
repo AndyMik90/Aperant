@@ -22,6 +22,7 @@ from linear_updater import (
     linear_task_stuck,
 )
 from phase_config import (
+    get_fast_mode,
     get_phase_client_thinking_kwargs,
     get_phase_model,
     get_phase_model_betas,
@@ -589,6 +590,8 @@ async def run_autonomous_agent(
         )
 
         # Generate appropriate prompt
+        fast_mode = get_fast_mode(spec_dir)
+
         if first_run:
             # Create client for planning phase
             client = create_client(
@@ -597,6 +600,7 @@ async def run_autonomous_agent(
                 phase_model,
                 agent_type="planner",
                 betas=phase_betas,
+                fast_mode=fast_mode,
                 **thinking_kwargs,
             )
             prompt = generate_planner_prompt(spec_dir, project_dir)
@@ -736,6 +740,7 @@ async def run_autonomous_agent(
                 phase_model,
                 agent_type="coder",
                 betas=phase_betas,
+                fast_mode=fast_mode,
                 **thinking_kwargs,
             )
 

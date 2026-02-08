@@ -293,6 +293,8 @@ export interface AppSettings {
   seenVersionWarnings?: string[];
   // Sidebar collapsed state (icons only when true)
   sidebarCollapsed?: boolean;
+  /** Fast Mode — faster Opus 4.6 output, requires extra usage on Claude subscription */
+  fastMode?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

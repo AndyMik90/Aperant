@@ -33,6 +33,7 @@ from phase_config import (
     ADAPTIVE_THINKING_MODELS,
     MODEL_BETAS_MAP,
     MODEL_ID_MAP,
+    get_fast_mode,
     get_model_betas,
     get_phase_model_betas,
     get_thinking_kwargs_for_model,
@@ -511,3 +512,45 @@ class TestGetThinkingKwargsForModel:
         assert "max_thinking_tokens" in result
         assert "effort_level" not in result
         assert result["max_thinking_tokens"] == 16384
+
+
+
+class TestCreateClientFastMode:
+    """Tests for create_client() fast_mode parameter acceptance."""
+
+    def test_create_client_accepts_fast_mode_parameter(self):
+        """create_client() signature accepts fast_mode parameter."""
+        import inspect
+
+        from core.client import create_client
+
+        sig = inspect.signature(create_client)
+        assert "fast_mode" in sig.parameters
+        # Default should be False
+        assert sig.parameters["fast_mode"].default is False
+
+    def test_create_simple_client_accepts_fast_mode_parameter(self):
+        """create_simple_client() signature accepts fast_mode parameter."""
+        import inspect
+
+        from core.simple_client import create_simple_client
+
+        sig = inspect.signature(create_simple_client)
+        assert "fast_mode" in sig.parameters
+        assert sig.parameters["fast_mode"].default is False
+
+
+class TestGetFastModeIntegration:
+    """Tests for get_fast_mode() integration with task metadata."""
+
+    def test_fast_mode_reads_from_metadata(self, tmp_path):
+        """get_fast_mode reads fastMode from task_metadata.json."""
+        metadata = {"fastMode": True, "model": "opus"}
+        metadata_path = tmp_path / "task_metadata.json"
+        metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+        assert get_fast_mode(tmp_path) is True
+
+    def test_fast_mode_defaults_to_false(self, tmp_path):
+        """get_fast_mode returns False when no metadata exists."""
+        assert get_fast_mode(tmp_path) is False

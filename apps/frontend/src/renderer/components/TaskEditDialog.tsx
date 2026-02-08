@@ -232,6 +232,8 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     // Always set attachedImages to persist removal when all images are deleted
     metadataUpdates.attachedImages = images.length > 0 ? images : [];
     metadataUpdates.requireReviewBeforeCoding = requireReviewBeforeCoding;
+    // Preserve fastMode from original task metadata (set at creation from settings)
+    if (task.metadata?.fastMode) metadataUpdates.fastMode = true;
 
     const success = await persistUpdateTask(task.id, {
       title: trimmedTitle,

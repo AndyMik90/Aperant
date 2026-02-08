@@ -22,6 +22,7 @@ from linear_updater import (
     linear_qa_started,
 )
 from phase_config import (
+    get_fast_mode,
     get_phase_client_thinking_kwargs,
     get_phase_model,
     get_phase_model_betas,
@@ -129,6 +130,8 @@ async def run_qa_validation_loop(
         {"iteration": 1, "maxIterations": MAX_QA_ITERATIONS},
     )
 
+    fast_mode = get_fast_mode(spec_dir)
+
     # Check if there's pending human feedback that needs to be processed
     fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
     has_human_feedback = fix_request_file.exists()
@@ -170,6 +173,7 @@ async def run_qa_validation_loop(
             qa_model,
             agent_type="qa_fixer",
             betas=qa_betas,
+            fast_mode=fast_mode,
             **fixer_thinking_kwargs,
         )
 
@@ -260,6 +264,7 @@ async def run_qa_validation_loop(
             qa_model,
             agent_type="qa_reviewer",
             betas=qa_betas,
+            fast_mode=fast_mode,
             **qa_thinking_kwargs,
         )
 
@@ -459,6 +464,7 @@ async def run_qa_validation_loop(
                 qa_model,
                 agent_type="qa_fixer",
                 betas=fixer_betas,
+                fast_mode=fast_mode,
                 **fixer_thinking_kwargs,
             )
 

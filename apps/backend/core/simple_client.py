@@ -46,6 +46,7 @@ def create_simple_client(
     max_thinking_tokens: int | None = None,
     betas: list[str] | None = None,
     effort_level: str | None = None,
+    fast_mode: bool = False,
 ) -> ClaudeSDKClient:
     """
     Create a minimal Claude SDK client for single-turn utility operations.
@@ -70,6 +71,8 @@ def create_simple_client(
         betas: Optional list of SDK beta header strings (e.g., ["context-1m-2025-08-07"])
         effort_level: Optional effort level for adaptive thinking models (e.g., "low",
                      "medium", "high"). Injected as CLAUDE_CODE_EFFORT_LEVEL env var.
+        fast_mode: Enable Fast Mode for faster Opus 4.6 output. Injected as
+                  CLAUDE_CODE_FAST_MODE=true env var.
 
     Returns:
         Configured ClaudeSDKClient for single-turn operations
@@ -90,6 +93,10 @@ def create_simple_client(
     # Inject effort level for adaptive thinking models (e.g., Opus 4.6)
     if effort_level:
         sdk_env["CLAUDE_CODE_EFFORT_LEVEL"] = effort_level
+
+    # Inject fast mode for faster Opus 4.6 output
+    if fast_mode:
+        sdk_env["CLAUDE_CODE_FAST_MODE"] = "true"
 
     # Get agent configuration (raises ValueError if unknown type)
     config = get_agent_config(agent_type)

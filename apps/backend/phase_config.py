@@ -25,19 +25,12 @@ MODEL_BETAS_MAP: dict[str, list[str]] = {
     "opus-1m": ["context-1m-2025-08-07"],
 }
 
-# Thinking level to budget tokens mapping (None = no extended thinking)
+# Thinking level to budget tokens mapping
 # Values must match auto-claude-ui/src/shared/constants/models.ts THINKING_BUDGET_MAP
 THINKING_BUDGET_MAP: dict[str, int] = {
     "low": 1024,
     "medium": 4096,  # Moderate analysis
     "high": 16384,  # Deep thinking for QA review
-}
-
-# Legacy thinking level mapping for backward compatibility
-# Maps removed levels to their closest current equivalents
-LEGACY_THINKING_MAP: dict[str, str] = {
-    "none": "low",
-    "ultrathink": "high",
 }
 
 # Effort level mapping for adaptive thinking models (e.g., Opus 4.6)
@@ -105,6 +98,7 @@ class TaskMetadataConfig(TypedDict, total=False):
     phaseThinking: PhaseThinkingConfig
     model: str
     thinkingLevel: str
+    fastMode: bool
 
 
 Phase = Literal["spec", "planning", "coding", "qa"]
@@ -174,14 +168,6 @@ def get_thinking_budget(thinking_level: str) -> int:
         Token budget for extended thinking
     """
     import logging
-
-    # Map legacy thinking levels to current equivalents
-    if thinking_level in LEGACY_THINKING_MAP:
-        mapped = LEGACY_THINKING_MAP[thinking_level]
-        logging.warning(
-            f"Thinking level '{thinking_level}' is deprecated. Mapped to '{mapped}'."
-        )
-        thinking_level = mapped
 
     if thinking_level not in THINKING_BUDGET_MAP:
         valid_levels = ", ".join(THINKING_BUDGET_MAP.keys())
@@ -443,6 +429,25 @@ def get_phase_client_thinking_kwargs(
     """
     thinking_level = get_phase_thinking(spec_dir, phase, cli_thinking)
     return get_thinking_kwargs_for_model(phase_model, thinking_level)
+
+
+def get_fast_mode(spec_dir: Path) -> bool:
+    """
+    Check if Fast Mode is enabled for this task.
+
+    Fast Mode provides faster Opus 4.6 output at higher cost.
+    Reads the fastMode flag from task_metadata.json.
+
+    Args:
+        spec_dir: Path to the spec directory
+
+    Returns:
+        True if Fast Mode is enabled, False otherwise
+    """
+    metadata = load_task_metadata(spec_dir)
+    if metadata:
+        return bool(metadata.get("fastMode", False))
+    return False
 
 
 def get_spec_phase_thinking_budget(phase_name: str) -> int:

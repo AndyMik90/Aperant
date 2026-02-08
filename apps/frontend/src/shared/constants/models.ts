@@ -192,6 +192,9 @@ export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
   }
 ];
 
+// Models that support Fast Mode (same model, faster API routing, higher cost)
+export const FAST_MODE_MODELS: readonly string[] = ['opus', 'opus-1m'] as const;
+
 // ============================================
 // Memory Backends
 // ============================================

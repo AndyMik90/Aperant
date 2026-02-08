@@ -400,6 +400,11 @@
     "resetToProfileDefaults": "Réinitialiser aux défauts de {{profile}}",
     "customized": "Personnalisé",
     "phaseConfigNote": "Ces paramètres seront utilisés par défaut lors de la création de nouvelles tâches avec ce profil. Vous pouvez les modifier par tâche dans l'assistant de création.",
+    "fastMode": {
+      "label": "Mode Rapide",
+      "description": "Même modèle Opus 4.6 avec une sortie plus rapide. Coût plus élevé par token.",
+      "extraUsageNotice": "Nécessite « utilisation supplémentaire » activée sur votre abonnement Claude. Revient automatiquement à la vitesse standard si indisponible."
+    },
     "phases": {
       "spec": {
         "label": "Création de spec",

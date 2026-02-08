@@ -71,7 +71,7 @@ class SpecOrchestrator:
             spec_name: Optional spec name (for existing specs)
             spec_dir: Optional existing spec directory (for UI integration)
             model: The model to use for agent execution
-            thinking_level: Thinking level (none, low, medium, high, ultrathink)
+            thinking_level: Thinking level (low, medium, high)
             complexity_override: Force a specific complexity level
             use_ai_assessment: Whether to use AI for complexity assessment
         """

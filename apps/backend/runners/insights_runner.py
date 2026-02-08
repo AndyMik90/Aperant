@@ -356,7 +356,7 @@ def main():
     parser.add_argument(
         "--thinking-level",
         default="medium",
-        choices=["none", "low", "medium", "high", "ultrathink"],
+        choices=["low", "medium", "high"],
         help="Thinking level for extended reasoning (default: medium)",
     )
     args = parser.parse_args()

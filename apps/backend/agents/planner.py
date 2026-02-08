@@ -10,6 +10,7 @@ from pathlib import Path
 
 from core.client import create_client
 from phase_config import (
+    get_fast_mode,
     get_phase_client_thinking_kwargs,
     get_phase_model,
     get_phase_model_betas,
@@ -102,12 +103,14 @@ async def run_followup_planner(
     thinking_kwargs = get_phase_client_thinking_kwargs(
         spec_dir, "planning", planning_model
     )
+    fast_mode = get_fast_mode(spec_dir)
     client = create_client(
         project_dir,
         spec_dir,
         planning_model,
         agent_type="planner",
         betas=planning_betas,
+        fast_mode=fast_mode,
         **thinking_kwargs,
     )
 

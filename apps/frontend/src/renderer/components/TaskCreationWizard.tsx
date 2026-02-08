@@ -442,6 +442,7 @@ export function TaskCreationWizard({
       // Set useLocalBranch when user explicitly selects a local branch
       // This preserves gitignored files (.env, configs) by not switching to origin
       if (isSelectedBranchLocal) metadata.useLocalBranch = true;
+      if (settings.fastMode) metadata.fastMode = true;
 
       const task = await createTask(projectId, title.trim(), description.trim(), metadata);
       if (task) {
