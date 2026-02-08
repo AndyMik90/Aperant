@@ -98,7 +98,7 @@ export function ProjectTabBar({
               key={project.id}
               project={project}
               isActive={isActiveTab}
-              canClose={projects.length > 1}
+              canClose={true}
               tabIndex={index}
               onSelect={() => onProjectSelect(project.id)}
               onClose={(e) => {
