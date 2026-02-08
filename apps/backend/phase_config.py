@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Literal, TypedDict
 
 # Model shorthand to full model ID mapping
+# Values must match auto-claude-ui/src/shared/constants/models.ts MODEL_ID_MAP
 MODEL_ID_MAP: dict[str, str] = {
     "opus": "claude-opus-4-6",
     "opus-1m": "claude-opus-4-6",

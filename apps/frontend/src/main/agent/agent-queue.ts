@@ -19,6 +19,7 @@ import { transformIdeaFromSnakeCase, transformSessionFromSnakeCase } from '../ip
 import { transformRoadmapFromSnakeCase } from '../ipc-handlers/roadmap/transformers';
 import type { RawIdea } from '../ipc-handlers/ideation/types';
 import { getPathDelimiter } from '../platform';
+import { readSettingsFile } from '../settings-utils';
 
 /** Maximum length for status messages displayed in progress UI */
 const STATUS_MESSAGE_MAX_LENGTH = 200;
@@ -285,6 +286,16 @@ export class AgentQueueManager {
     }
     if (config.thinkingLevel) {
       args.push('--thinking-level', config.thinkingLevel);
+    }
+
+    // Pass Fast Mode flag from app settings
+    try {
+      const settings = readSettingsFile();
+      if (settings?.fastMode) {
+        args.push('--fast-mode');
+      }
+    } catch {
+      // Settings read failure is non-fatal
     }
 
     debugLog('[Agent Queue] Spawning ideation process with args:', args);

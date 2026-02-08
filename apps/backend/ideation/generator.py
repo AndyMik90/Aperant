@@ -64,6 +64,7 @@ class IdeationGenerator:
         model: str = "sonnet",  # Changed from "opus" (fix #433)
         thinking_level: str = "medium",
         max_ideas_per_type: int = 5,
+        fast_mode: bool = False,
     ):
         self.project_dir = Path(project_dir)
         self.output_dir = Path(output_dir)
@@ -71,6 +72,7 @@ class IdeationGenerator:
         self.thinking_level = thinking_level
         self.thinking_budget = get_thinking_budget(thinking_level)
         self.max_ideas_per_type = max_ideas_per_type
+        self.fast_mode = fast_mode
         self.prompts_dir = Path(__file__).parent.parent / "prompts"
 
     async def run_agent(
@@ -109,6 +111,7 @@ class IdeationGenerator:
             resolved_model,
             agent_type="ideation",
             betas=betas,
+            fast_mode=self.fast_mode,
             **thinking_kwargs,
         )
 
@@ -210,6 +213,7 @@ Write the fixed JSON to the file now.
             resolved_model,
             agent_type="ideation",
             betas=betas,
+            fast_mode=self.fast_mode,
             **thinking_kwargs,
         )
 
