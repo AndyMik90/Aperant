@@ -180,14 +180,13 @@ export class InsightsExecutor extends EventEmitter {
     }
 
     // Spawn Python process in its own process group (detached) so we can
-    // kill the entire tree (Python + Claude SDK binary) on timeout/cancel
+    // kill the entire tree (Python + Claude SDK binary) on timeout/cancel.
+    // Do NOT unref() — we need stdio pipes to stay open while reading output.
     const proc = spawn(this.config.getPythonPath(), args, {
       cwd: autoBuildSource,
       env: processEnv,
       detached: true
     });
-    // Unref so the detached process doesn't keep the parent alive on exit
-    proc.unref();
 
     this.activeSessions.set(projectId, proc);
 
@@ -278,7 +277,12 @@ export class InsightsExecutor extends EventEmitter {
           this.handleRateLimit(projectId, allInsightsOutput);
         }
 
-        if (code === 0) {
+        // code === 0: normal exit
+        // code === null: killed by signal (timeout/cancel) — still resolve if we got content
+        const wasKilled = code === null;
+        const hasContent = fullResponse.trim().length > 0;
+
+        if (code === 0 || (wasKilled && hasContent)) {
           this.emit('stream-chunk', projectId, {
             type: 'done'
           } as InsightsStreamChunk);
@@ -299,7 +303,8 @@ export class InsightsExecutor extends EventEmitter {
           const stderrSummary = stderrOutput.trim()
             ? `\n\nError output:\n${stderrOutput.slice(-500)}`
             : '';
-          const error = `Process exited with code ${code}${stderrSummary}`;
+          const reason = wasKilled ? 'Process was stopped (timeout or cancelled)' : `Process exited with code ${code}`;
+          const error = `${reason}${stderrSummary}`;
           this.emit('stream-chunk', projectId, {
             type: 'error',
             error
