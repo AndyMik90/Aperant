@@ -95,8 +95,8 @@ export function useGitHubPRs(
   const fetchGenerationRef = useRef(0);
 
   // Get PR review state from the global store
+  const prReviews = usePRReviewStore((state) => state.prReviews);
   const getPRReviewState = usePRReviewStore((state) => state.getPRReviewState);
-  const getActivePRReviews = usePRReviewStore((state) => state.getActivePRReviews);
   const setNewCommitsCheckAction = usePRReviewStore((state) => state.setNewCommitsCheck);
 
   // Get review state for the selected PR from the store - optimized with targeted selector
@@ -114,17 +114,22 @@ export function useGitHubPRs(
   const previousReviewResult = selectedPRReviewState?.previousResult ?? null;
   const startedAt = selectedPRReviewState?.startedAt ?? null;
 
-  // Get list of PR numbers currently being reviewed - optimized with selector
-  const activePRReviews = usePRReviewStore((state) => {
+  // Get list of PR numbers currently being reviewed
+  const activePRReviews = useMemo(() => {
     if (!projectId) return [];
-    return state.getActivePRReviews(projectId).map((review) => review.prNumber);
-  });
+    return Object.values(prReviews)
+      .filter((review) => review.projectId === projectId && review.isReviewing)
+      .map((review) => review.prNumber);
+  }, [projectId, prReviews]);
 
   // Helper to get review state for any PR
+  // Reads directly from prReviews so the callback invalidates when any review state changes,
+  // which is needed for usePRFiltering's memoized filteredPRs to recompute correctly
   const getReviewStateForPR = useCallback(
     (prNumber: number) => {
       if (!projectId) return null;
-      const state = getPRReviewState(projectId, prNumber);
+      const key = `${projectId}:${prNumber}`;
+      const state = prReviews[key];
       if (!state) return null;
       return {
         isReviewing: state.isReviewing,
@@ -136,7 +141,7 @@ export function useGitHubPRs(
         newCommitsCheck: state.newCommitsCheck,
       };
     },
-    [projectId, getPRReviewState]
+    [projectId, prReviews]
   );
 
   // Use detailed PR data if available (includes files), otherwise fall back to list data
