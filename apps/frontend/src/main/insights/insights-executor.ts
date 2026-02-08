@@ -25,6 +25,11 @@ interface ProcessorResult {
   toolsUsed: InsightsToolUsage[];
 }
 
+// Maximum total execution time (5 minutes)
+const MAX_EXECUTION_MS = 5 * 60 * 1000;
+// Kill process if no stdout/stderr activity for this long (90 seconds)
+const ACTIVITY_TIMEOUT_MS = 90 * 1000;
+
 /**
  * Python process executor for insights
  * Handles spawning and managing the Python insights runner process
@@ -32,6 +37,7 @@ interface ProcessorResult {
 export class InsightsExecutor extends EventEmitter {
   private config: InsightsConfig;
   private activeSessions: Map<string, ChildProcess> = new Map();
+  private activeTimers: Map<string, { hard: ReturnType<typeof setTimeout>; activity: ReturnType<typeof setTimeout> }> = new Map();
 
   constructor(config: InsightsConfig) {
     super();
@@ -52,9 +58,38 @@ export class InsightsExecutor extends EventEmitter {
     const existingProcess = this.activeSessions.get(projectId);
     if (!existingProcess) return false;
 
+    this.clearTimers(projectId);
     existingProcess.kill();
     this.activeSessions.delete(projectId);
     return true;
+  }
+
+  /**
+   * Clear timeout timers for a session
+   */
+  private clearTimers(projectId: string): void {
+    const timers = this.activeTimers.get(projectId);
+    if (timers) {
+      clearTimeout(timers.hard);
+      clearTimeout(timers.activity);
+      this.activeTimers.delete(projectId);
+    }
+  }
+
+  /**
+   * Reset the activity timer (called on any stdout/stderr output)
+   */
+  private resetActivityTimer(projectId: string, proc: ChildProcess): void {
+    const timers = this.activeTimers.get(projectId);
+    if (!timers) return;
+
+    clearTimeout(timers.activity);
+    timers.activity = setTimeout(() => {
+      console.warn(`[Insights] Activity timeout for ${projectId} — no output for ${ACTIVITY_TIMEOUT_MS / 1000}s, killing process`);
+      this.activeSessions.delete(projectId);
+      this.activeTimers.delete(projectId);
+      proc.kill();
+    }, ACTIVITY_TIMEOUT_MS);
   }
 
   /**
@@ -133,6 +168,23 @@ export class InsightsExecutor extends EventEmitter {
 
     this.activeSessions.set(projectId, proc);
 
+    // Start timeout timers
+    const hardTimer = setTimeout(() => {
+      console.warn(`[Insights] Hard timeout for ${projectId} — exceeded ${MAX_EXECUTION_MS / 1000}s, killing process`);
+      this.activeSessions.delete(projectId);
+      this.activeTimers.delete(projectId);
+      proc.kill();
+    }, MAX_EXECUTION_MS);
+
+    const activityTimer = setTimeout(() => {
+      console.warn(`[Insights] Activity timeout for ${projectId} — no output for ${ACTIVITY_TIMEOUT_MS / 1000}s, killing process`);
+      this.activeSessions.delete(projectId);
+      this.activeTimers.delete(projectId);
+      proc.kill();
+    }, ACTIVITY_TIMEOUT_MS);
+
+    this.activeTimers.set(projectId, { hard: hardTimer, activity: activityTimer });
+
     return new Promise((resolve, reject) => {
       let fullResponse = '';
       let suggestedTask: InsightsChatMessage['suggestedTask'] | undefined;
@@ -144,6 +196,8 @@ export class InsightsExecutor extends EventEmitter {
 
       proc.stdout?.on('data', (data: Buffer) => {
         const text = data.toString();
+        // Reset activity timer on any output
+        this.resetActivityTimer(projectId, proc);
         // Collect output for rate limit detection (keep last 10KB)
         allInsightsOutput = (allInsightsOutput + text).slice(-10000);
 
@@ -175,6 +229,8 @@ export class InsightsExecutor extends EventEmitter {
 
       proc.stderr?.on('data', (data: Buffer) => {
         const text = data.toString();
+        // Reset activity timer on any output (stderr counts as activity)
+        this.resetActivityTimer(projectId, proc);
         // Collect stderr for rate limit detection and error reporting
         allInsightsOutput = (allInsightsOutput + text).slice(-10000);
         stderrOutput = (stderrOutput + text).slice(-2000);
@@ -182,6 +238,7 @@ export class InsightsExecutor extends EventEmitter {
       });
 
       proc.on('close', (code) => {
+        this.clearTimers(projectId);
         this.activeSessions.delete(projectId);
 
         // Cleanup temp file
@@ -231,6 +288,7 @@ export class InsightsExecutor extends EventEmitter {
       });
 
       proc.on('error', (err) => {
+        this.clearTimers(projectId);
         this.activeSessions.delete(projectId);
 
         // Cleanup temp file
