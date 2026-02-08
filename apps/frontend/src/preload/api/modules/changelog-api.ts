@@ -16,7 +16,7 @@ import type {
   Task,
   IPCResult
 } from '../../../shared/types';
-import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
+import { createIpcListener, invokeIpc, IpcListenerCleanup } from './ipc-utils';
 
 /**
  * Changelog API operations
@@ -25,7 +25,7 @@ export interface ChangelogAPI {
   // Operations
   getChangelogDoneTasks: (projectId: string, tasks?: Task[]) => Promise<IPCResult<ChangelogTask[]>>;
   loadTaskSpecs: (projectId: string, taskIds: string[]) => Promise<IPCResult<TaskSpecContent[]>>;
-  generateChangelog: (request: ChangelogGenerationRequest) => void;
+  generateChangelog: (request: ChangelogGenerationRequest) => Promise<IPCResult<void>>;
   saveChangelog: (request: ChangelogSaveRequest) => Promise<IPCResult<ChangelogSaveResult>>;
   readExistingChangelog: (projectId: string) => Promise<IPCResult<ExistingChangelog>>;
   suggestChangelogVersion: (
@@ -76,8 +76,8 @@ export const createChangelogAPI = (): ChangelogAPI => ({
   loadTaskSpecs: (projectId: string, taskIds: string[]): Promise<IPCResult<TaskSpecContent[]>> =>
     invokeIpc(IPC_CHANNELS.CHANGELOG_LOAD_TASK_SPECS, projectId, taskIds),
 
-  generateChangelog: (request: ChangelogGenerationRequest): void =>
-    sendIpc(IPC_CHANNELS.CHANGELOG_GENERATE, request),
+  generateChangelog: (request: ChangelogGenerationRequest): Promise<IPCResult<void>> =>
+    invokeIpc(IPC_CHANNELS.CHANGELOG_GENERATE, request),
 
   saveChangelog: (request: ChangelogSaveRequest): Promise<IPCResult<ChangelogSaveResult>> =>
     invokeIpc(IPC_CHANNELS.CHANGELOG_SAVE, request),
