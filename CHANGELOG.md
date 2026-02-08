@@ -74,6 +74,8 @@
 
 ### 🐛 Bug Fixes
 
+- Fixed task logs disappearing after app restart in development mode (issue #1657)
+
 - Fixed Kanban board status flip-flopping and multi-location task deletion
 
 - Fixed Windows CLI detection and version selection UX issues
