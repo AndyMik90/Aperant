@@ -425,7 +425,7 @@ export function registerChangelogHandlers(
       try {
         // Construct full path and validate it stays within project directory
         const fullPath = path.resolve(projectPath, relativePath);
-        if (!fullPath.startsWith(path.resolve(projectPath))) {
+        if (!fullPath.startsWith(path.resolve(projectPath) + path.sep) && fullPath !== path.resolve(projectPath)) {
           return { success: false, error: 'Invalid path' };
         }
 

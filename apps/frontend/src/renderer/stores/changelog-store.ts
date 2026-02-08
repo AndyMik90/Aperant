@@ -425,6 +425,17 @@ export async function loadCommitsPreview(projectId: string): Promise<void> {
   }
 }
 
+function handleGenerationError(store: ReturnType<typeof useChangelogStore.getState>, errorMessage: string): void {
+  store.setIsGenerating(false);
+  store.setError(errorMessage);
+  store.setGenerationProgress({
+    stage: 'error',
+    progress: 0,
+    message: errorMessage,
+    error: errorMessage
+  });
+}
+
 export async function generateChangelog(projectId: string): Promise<void> {
   const store = useChangelogStore.getState();
 
@@ -514,25 +525,11 @@ export async function generateChangelog(projectId: string): Promise<void> {
 
     // Check if generation started successfully
     if (!result.success) {
-      store.setIsGenerating(false);
-      store.setError(result.error || 'Failed to start changelog generation');
-      store.setGenerationProgress({
-        stage: 'error',
-        progress: 0,
-        message: result.error || 'Failed to start changelog generation',
-        error: result.error
-      });
+      handleGenerationError(store, result.error || 'Failed to start changelog generation');
     }
   } catch (error) {
-    store.setIsGenerating(false);
     const errorMessage = error instanceof Error ? error.message : 'Failed to start changelog generation';
-    store.setError(errorMessage);
-    store.setGenerationProgress({
-      stage: 'error',
-      progress: 0,
-      message: errorMessage,
-      error: errorMessage
-    });
+    handleGenerationError(store, errorMessage);
   }
 }
 

@@ -275,7 +275,10 @@ export class ChangelogGenerator extends EventEmitter {
         this.generationTimeouts.delete(projectId);
       }
 
-      this.generationProcesses.delete(projectId);
+      if (!this.generationProcesses.delete(projectId)) {
+        this.debug('Process already cleaned up, skipping error handler');
+        return;
+      }
       this.emitError(projectId, err.message);
     });
   }
