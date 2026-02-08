@@ -246,7 +246,28 @@
     "dark": "Sombre",
     "system": "Système",
     "colorTheme": "Thème de couleur",
-    "colorThemeDescription": "Choisissez votre palette de couleurs préférée"
+    "colorThemeDescription": "Choisissez votre palette de couleurs préférée",
+    "customTheme": {
+      "addButton": "Ajouter un thème personnalisé",
+      "dialogTitle": "Importer un thème personnalisé",
+      "dialogDescription": "Collez les variables CSS de tweakcn.com/editor/theme pour créer votre propre thème.",
+      "nameLabel": "Nom du thème",
+      "namePlaceholder": "Mon thème personnalisé",
+      "cssLabel": "CSS du thème",
+      "instructionsMustInclude": "Doit inclure une section :root avec des variables CSS",
+      "instructionsDarkMode": "Devrait inclure une section .dark pour le mode sombre",
+      "instructionsVariables": "Variables comme --background, --foreground, --primary, etc.",
+      "instructionsFormats": "Supporte les formats hex, HSL, RGB",
+      "save": "Enregistrer le thème",
+      "cancel": "Annuler",
+      "deleteTitle": "Supprimer le thème personnalisé",
+      "deleteConfirm": "Supprimer",
+      "validationNameRequired": "Le nom du thème est requis",
+      "validationNameDuplicate": "Un thème avec ce nom existe déjà",
+      "validationCSSEmpty": "Les variables CSS sont requises",
+      "validationCSSInvalid": "Aucune variable CSS valide trouvée",
+      "customDescription": "Thème personnalisé importé"
+    }
   },
   "devtools": {
     "title": "Outils de développement",

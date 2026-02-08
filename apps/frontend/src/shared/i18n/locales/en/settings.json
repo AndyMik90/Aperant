@@ -246,7 +246,28 @@
     "dark": "Dark",
     "system": "System",
     "colorTheme": "Color Theme",
-    "colorThemeDescription": "Choose your preferred color palette"
+    "colorThemeDescription": "Choose your preferred color palette",
+    "customTheme": {
+      "addButton": "Add Custom Theme",
+      "dialogTitle": "Import Custom Theme",
+      "dialogDescription": "Paste CSS variables from tweakcn.com/editor/theme to create your own theme.",
+      "nameLabel": "Theme Name",
+      "namePlaceholder": "My Custom Theme",
+      "cssLabel": "Theme CSS",
+      "instructionsMustInclude": "Must include :root section with CSS variables",
+      "instructionsDarkMode": "Should include .dark section for dark mode support",
+      "instructionsVariables": "Variables like --background, --foreground, --primary, etc.",
+      "instructionsFormats": "Supports hex, HSL, RGB color formats",
+      "save": "Save Theme",
+      "cancel": "Cancel",
+      "deleteTitle": "Delete Custom Theme",
+      "deleteConfirm": "Delete",
+      "validationNameRequired": "Theme name is required",
+      "validationNameDuplicate": "A theme with this name already exists",
+      "validationCSSEmpty": "CSS variables are required",
+      "validationCSSInvalid": "No valid CSS variables found",
+      "customDescription": "Custom imported theme"
+    }
   },
   "devtools": {
     "title": "Developer Tools",

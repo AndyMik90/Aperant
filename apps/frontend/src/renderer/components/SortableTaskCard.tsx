@@ -1,5 +1,5 @@
 import { memo, useCallback } from 'react';
-import { useSortable } from '@dnd-kit/sortable';
+import { useSortable, defaultAnimateLayoutChanges, type AnimateLayoutChanges } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TaskCard } from './TaskCard';
 import { cn } from '../lib/utils';
@@ -32,6 +32,15 @@ function sortableTaskCardPropsAreEqual(
   );
 }
 
+// Skip layout animation when the item is being actively dragged to prevent stutter
+const animateLayoutChanges: AnimateLayoutChanges = (args) => {
+  const { isSorting, wasDragging } = args;
+  if (isSorting || wasDragging) {
+    return defaultAnimateLayoutChanges(args);
+  }
+  return true;
+};
+
 export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, onStatusChange, isSelectable, isSelected, onToggleSelect }: SortableTaskCardProps) {
   const {
     attributes,
@@ -41,11 +50,11 @@ export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, 
     transition,
     isDragging,
     isOver
-  } = useSortable({ id: task.id });
+  } = useSortable({ id: task.id, animateLayoutChanges });
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: transition ?? undefined,
     // Prevent z-index stacking issues during drag
     zIndex: isDragging ? 50 : undefined
   };
@@ -60,7 +69,7 @@ export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, 
       ref={setNodeRef}
       style={style}
       className={cn(
-        'touch-none transition-all duration-200',
+        'touch-none',
         isDragging && 'dragging-placeholder opacity-40 scale-[0.98]',
         isOver && !isDragging && 'ring-2 ring-primary/30 ring-offset-2 ring-offset-background rounded-xl'
       )}

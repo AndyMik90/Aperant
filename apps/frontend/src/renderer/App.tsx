@@ -16,8 +16,8 @@ import {
   SortableContext,
   horizontalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { TooltipProvider } from './components/ui/tooltip';
 import { Button } from './components/ui/button';
+import { SidebarProvider, SidebarInset } from './components/ui/sidebar';
 import { Toaster } from './components/ui/toaster';
 import {
   Dialog,
@@ -67,6 +67,7 @@ import { useIpcListeners } from './hooks/useIpc';
 import { useGlobalTerminalListeners } from './hooks/useGlobalTerminalListeners';
 import { useTerminalProfileChange } from './hooks/useTerminalProfileChange';
 import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../shared/constants';
+import { applyCustomTheme, clearAllCustomVariables } from './lib/theme-utils';
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
 import { AddProjectModal } from './components/AddProjectModal';
@@ -468,27 +469,44 @@ export function App() {
       }
     };
 
-    // Apply color theme via data-theme attribute
-    // Validate colorTheme against known themes, fallback to 'default' if invalid
-    const validThemeIds = COLOR_THEMES.map((t) => t.id);
-    const rawColorTheme = settings.colorTheme ?? 'default';
-    const colorTheme: ColorTheme = validThemeIds.includes(rawColorTheme as ColorTheme)
-      ? (rawColorTheme as ColorTheme)
-      : 'default';
-
-    if (colorTheme === 'default') {
-      root.removeAttribute('data-theme');
-    } else {
-      root.setAttribute('data-theme', colorTheme);
-    }
-
+    // Apply light/dark mode first so isDark check below is accurate
     applyTheme();
+
+    // Apply color theme
+    const rawColorTheme = settings.colorTheme ?? 'default';
+
+    if (rawColorTheme.startsWith('custom:')) {
+      // Custom theme: remove data-theme attribute and apply inline CSS variables
+      root.removeAttribute('data-theme');
+      const customName = rawColorTheme.slice('custom:'.length);
+      const isDark = root.classList.contains('dark');
+      applyCustomTheme(customName, isDark);
+    } else {
+      // Built-in theme: clear any custom overrides and set data-theme attribute
+      clearAllCustomVariables();
+      const validThemeIds = COLOR_THEMES.map((t) => t.id);
+      const colorTheme: ColorTheme = validThemeIds.includes(rawColorTheme as ColorTheme)
+        ? (rawColorTheme as ColorTheme)
+        : 'default';
+
+      if (colorTheme === 'default') {
+        root.removeAttribute('data-theme');
+      } else {
+        root.setAttribute('data-theme', colorTheme);
+      }
+    }
 
     // Listen for system theme changes
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = () => {
       if (settings.theme === 'system') {
         applyTheme();
+        // Re-apply custom theme with updated dark mode state
+        if (rawColorTheme.startsWith('custom:')) {
+          const customName = rawColorTheme.slice('custom:'.length);
+          const isDarkNow = root.classList.contains('dark');
+          applyCustomTheme(customName, isDarkNow);
+        }
       }
     };
     mediaQuery.addEventListener('change', handleChange);
@@ -825,9 +843,11 @@ export function App() {
 
   return (
     <ViewStateProvider>
-      <TooltipProvider>
-        <ProactiveSwapListener />
-      <div className="flex h-screen bg-background">
+      <ProactiveSwapListener />
+      <SidebarProvider
+        open={!settings.sidebarCollapsed}
+        onOpenChange={(open) => saveSettings({ sidebarCollapsed: !open })}
+      >
         {/* Sidebar */}
         <Sidebar
           onSettingsClick={() => setIsSettingsDialogOpen(true)}
@@ -836,43 +856,44 @@ export function App() {
           onViewChange={setActiveView}
         />
 
-        {/* Main content */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Project Tabs */}
+        {/* Main content area */}
+        <SidebarInset>
+          {/* Top bar - project tabs */}
           {projectTabs.length > 0 && (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext items={projectTabs.map(p => p.id)} strategy={horizontalListSortingStrategy}>
-                <ProjectTabBarWithContext
-                  projects={projectTabs}
-                  activeProjectId={activeProjectId}
-                  onProjectSelect={handleProjectTabSelect}
-                  onProjectClose={handleProjectTabClose}
-                  onAddProject={handleAddProject}
-                  onSettingsClick={() => setIsSettingsDialogOpen(true)}
-                />
-              </SortableContext>
+            <header className="shrink-0 border-b border-border">
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext items={projectTabs.map(p => p.id)} strategy={horizontalListSortingStrategy}>
+                  <ProjectTabBarWithContext
+                    projects={projectTabs}
+                    activeProjectId={activeProjectId}
+                    onProjectSelect={handleProjectTabSelect}
+                    onProjectClose={handleProjectTabClose}
+                    onAddProject={handleAddProject}
+                    onSettingsClick={() => setIsSettingsDialogOpen(true)}
+                  />
+                </SortableContext>
 
-              {/* Drag overlay - shows what's being dragged */}
-              <DragOverlay>
-                {activeDragProject && (
-                  <div className="flex items-center gap-2 bg-card border border-border rounded-md px-4 py-2.5 shadow-lg max-w-[200px]">
-                    <div className="w-1 h-4 bg-muted-foreground rounded-full" />
-                    <span className="truncate font-medium text-sm">
-                      {activeDragProject.name}
-                    </span>
-                  </div>
-                )}
-              </DragOverlay>
-            </DndContext>
+                {/* Drag overlay - shows what's being dragged */}
+                <DragOverlay>
+                  {activeDragProject && (
+                    <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/30 rounded-md px-2.5 py-1 shadow-lg max-w-[220px]">
+                      <span className="truncate font-medium text-xs text-primary">
+                        {activeDragProject.name}
+                      </span>
+                    </div>
+                  )}
+                </DragOverlay>
+              </DndContext>
+            </header>
           )}
 
-          {/* Main content area */}
-          <main className="flex-1 overflow-hidden">
+          {/* Page content */}
+          <div className="flex-1 overflow-hidden">
             {selectedProject ? (
               <>
                 {activeView === 'kanban' && (
@@ -963,221 +984,220 @@ export function App() {
                 }}
               />
             )}
-          </main>
-        </div>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
 
-        {/* Task detail modal */}
-        <TaskDetailModal
-          open={!!selectedTask}
-          task={selectedTask}
-          onOpenChange={(open) => !open && handleCloseTaskDetail()}
-          onSwitchToTerminals={() => setActiveView('terminals')}
-          onOpenInbuiltTerminal={handleOpenInbuiltTerminal}
+      {/* Task detail modal */}
+      <TaskDetailModal
+        open={!!selectedTask}
+        task={selectedTask}
+        onOpenChange={(open) => !open && handleCloseTaskDetail()}
+        onSwitchToTerminals={() => setActiveView('terminals')}
+        onOpenInbuiltTerminal={handleOpenInbuiltTerminal}
+      />
+
+      {/* Dialogs */}
+      {(activeProjectId || selectedProjectId) && (
+        <TaskCreationWizard
+          projectId={activeProjectId || selectedProjectId!}
+          open={isNewTaskDialogOpen}
+          onOpenChange={setIsNewTaskDialogOpen}
         />
+      )}
 
-        {/* Dialogs */}
-        {(activeProjectId || selectedProjectId) && (
-          <TaskCreationWizard
-            projectId={activeProjectId || selectedProjectId!}
-            open={isNewTaskDialogOpen}
-            onOpenChange={setIsNewTaskDialogOpen}
-          />
-        )}
-
-        <AppSettingsDialog
-          open={isSettingsDialogOpen}
-          onOpenChange={(open) => {
-            setIsSettingsDialogOpen(open);
-            if (!open) {
-              // Reset initial sections when dialog closes
-              setSettingsInitialSection(undefined);
-              setSettingsInitialProjectSection(undefined);
-            }
-          }}
-          initialSection={settingsInitialSection}
-          initialProjectSection={settingsInitialProjectSection}
-          onRerunWizard={() => {
-            // Reset onboarding state to trigger wizard
-            useSettingsStore.getState().updateSettings({ onboardingCompleted: false });
-            // Close settings dialog
-            setIsSettingsDialogOpen(false);
-            // Open onboarding wizard
-            setIsOnboardingWizardOpen(true);
-          }}
-        />
-
-        {/* Add Project Modal */}
-        <AddProjectModal
-          open={showAddProjectModal}
-          onOpenChange={setShowAddProjectModal}
-          onProjectAdded={handleProjectAdded}
-        />
-
-        {/* Initialize Auto Claude Dialog */}
-        <Dialog open={showInitDialog} onOpenChange={(open) => {
-          console.warn('[InitDialog] onOpenChange called', { open, pendingProject: !!pendingProject, isInitializing, initSuccess });
-          // Only trigger skip if user manually closed the dialog
-          // Don't trigger if: successful init, no pending project, or currently initializing
-          if (!open && pendingProject && !isInitializing && !initSuccess) {
-            handleSkipInit();
+      <AppSettingsDialog
+        open={isSettingsDialogOpen}
+        onOpenChange={(open) => {
+          setIsSettingsDialogOpen(open);
+          if (!open) {
+            // Reset initial sections when dialog closes
+            setSettingsInitialSection(undefined);
+            setSettingsInitialProjectSection(undefined);
           }
-        }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Download className="h-5 w-5" />
-                {t('initialize.title')}
-              </DialogTitle>
-              <DialogDescription>
-                {t('initialize.description')}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-              <div className="rounded-lg bg-muted p-4 text-sm">
-                <p className="font-medium mb-2">{t('initialize.willDo')}</p>
-                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li>{t('initialize.createFolder')}</li>
-                  <li>{t('initialize.copyFramework')}</li>
-                  <li>{t('initialize.setupSpecs')}</li>
-                </ul>
-              </div>
-              {!settings.autoBuildPath && (
-                <div className="mt-4 rounded-lg border border-warning/50 bg-warning/10 p-4 text-sm">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
-                    <div>
-                      <p className="font-medium text-warning">{t('initialize.sourcePathNotConfigured')}</p>
-                      <p className="text-muted-foreground mt-1">
-                        {t('initialize.sourcePathNotConfiguredDescription')}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {initError && (
-                <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-                    <div>
-                      <p className="font-medium text-destructive">{t('initialize.initFailed')}</p>
-                      <p className="text-muted-foreground mt-1">
-                        {initError}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+        }}
+        initialSection={settingsInitialSection}
+        initialProjectSection={settingsInitialProjectSection}
+        onRerunWizard={() => {
+          // Reset onboarding state to trigger wizard
+          useSettingsStore.getState().updateSettings({ onboardingCompleted: false });
+          // Close settings dialog
+          setIsSettingsDialogOpen(false);
+          // Open onboarding wizard
+          setIsOnboardingWizardOpen(true);
+        }}
+      />
+
+      {/* Add Project Modal */}
+      <AddProjectModal
+        open={showAddProjectModal}
+        onOpenChange={setShowAddProjectModal}
+        onProjectAdded={handleProjectAdded}
+      />
+
+      {/* Initialize Auto Claude Dialog */}
+      <Dialog open={showInitDialog} onOpenChange={(open) => {
+        console.warn('[InitDialog] onOpenChange called', { open, pendingProject: !!pendingProject, isInitializing, initSuccess });
+        // Only trigger skip if user manually closed the dialog
+        // Don't trigger if: successful init, no pending project, or currently initializing
+        if (!open && pendingProject && !isInitializing && !initSuccess) {
+          handleSkipInit();
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5" />
+              {t('initialize.title')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('initialize.description')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="rounded-lg bg-muted p-4 text-sm">
+              <p className="font-medium mb-2">{t('initialize.willDo')}</p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                <li>{t('initialize.createFolder')}</li>
+                <li>{t('initialize.copyFramework')}</li>
+                <li>{t('initialize.setupSpecs')}</li>
+              </ul>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={handleSkipInit} disabled={isInitializing}>
-                {t('common:buttons.skip', { ns: 'common' })}
-              </Button>
-              <Button
-                onClick={handleInitialize}
-                disabled={isInitializing || !settings.autoBuildPath}
-              >
-                {isInitializing ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    {t('common:labels.initializing', { ns: 'common' })}
-                  </>
-                ) : (
-                  <>
-                    <Download className="mr-2 h-4 w-4" />
-                    {t('common:buttons.initialize', { ns: 'common' })}
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* GitHub Setup Modal - shows after Auto Claude init to configure GitHub */}
-        {gitHubSetupProject && (
-          <GitHubSetupModal
-            open={showGitHubSetup}
-            onOpenChange={setShowGitHubSetup}
-            project={gitHubSetupProject}
-            onComplete={handleGitHubSetupComplete}
-            onSkip={handleGitHubSetupSkip}
-          />
-        )}
-
-        {/* Remove Project Confirmation Dialog */}
-        <Dialog open={showRemoveProjectDialog} onOpenChange={(open) => {
-          if (!open) handleCancelRemoveProject();
-        }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('removeProject.title')}</DialogTitle>
-              <DialogDescription>
-                {t('removeProject.description', { projectName: projectToRemove?.name || '' })}
-              </DialogDescription>
-            </DialogHeader>
-            {removeProjectError && (
-              <div className="flex items-center gap-2 p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <span>{removeProjectError}</span>
+            {!settings.autoBuildPath && (
+              <div className="mt-4 rounded-lg border border-warning/50 bg-warning/10 p-4 text-sm">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium text-warning">{t('initialize.sourcePathNotConfigured')}</p>
+                    <p className="text-muted-foreground mt-1">
+                      {t('initialize.sourcePathNotConfiguredDescription')}
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
-            <DialogFooter>
-              <Button variant="outline" onClick={handleCancelRemoveProject}>
-                {t('removeProject.cancel')}
-              </Button>
-              <Button variant="destructive" onClick={handleConfirmRemoveProject}>
-                {t('removeProject.remove')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            {initError && (
+              <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium text-destructive">{t('initialize.initFailed')}</p>
+                    <p className="text-muted-foreground mt-1">
+                      {initError}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleSkipInit} disabled={isInitializing}>
+              {t('common:buttons.skip', { ns: 'common' })}
+            </Button>
+            <Button
+              onClick={handleInitialize}
+              disabled={isInitializing || !settings.autoBuildPath}
+            >
+              {isInitializing ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  {t('common:labels.initializing', { ns: 'common' })}
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  {t('common:buttons.initialize', { ns: 'common' })}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        {/* Rate Limit Modal - shows when Claude Code hits usage limits (terminal) */}
-        <RateLimitModal />
+      {/* GitHub Setup Modal - shows after Auto Claude init to configure GitHub */}
+      {gitHubSetupProject && (
+        <GitHubSetupModal
+          open={showGitHubSetup}
+          onOpenChange={setShowGitHubSetup}
+          project={gitHubSetupProject}
+          onComplete={handleGitHubSetupComplete}
+          onSkip={handleGitHubSetupSkip}
+        />
+      )}
 
-        {/* SDK Rate Limit Modal - shows when SDK/CLI operations hit limits (changelog, tasks, etc.) */}
-        <SDKRateLimitModal />
+      {/* Remove Project Confirmation Dialog */}
+      <Dialog open={showRemoveProjectDialog} onOpenChange={(open) => {
+        if (!open) handleCancelRemoveProject();
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('removeProject.title')}</DialogTitle>
+            <DialogDescription>
+              {t('removeProject.description', { projectName: projectToRemove?.name || '' })}
+            </DialogDescription>
+          </DialogHeader>
+          {removeProjectError && (
+            <div className="flex items-center gap-2 p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>{removeProjectError}</span>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelRemoveProject}>
+              {t('removeProject.cancel')}
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmRemoveProject}>
+              {t('removeProject.remove')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        {/* Auth Failure Modal - shows when Claude CLI encounters 401/auth errors */}
-        <AuthFailureModal onOpenSettings={() => {
+      {/* Rate Limit Modal - shows when Claude Code hits usage limits (terminal) */}
+      <RateLimitModal />
+
+      {/* SDK Rate Limit Modal - shows when SDK/CLI operations hit limits (changelog, tasks, etc.) */}
+      <SDKRateLimitModal />
+
+      {/* Auth Failure Modal - shows when Claude CLI encounters 401/auth errors */}
+      <AuthFailureModal onOpenSettings={() => {
+        setSettingsInitialSection('accounts');
+        setIsSettingsDialogOpen(true);
+      }} />
+
+      {/* Version Warning Modal - one-time notice for 2.7.5 re-authentication */}
+      <VersionWarningModal
+        isOpen={isVersionWarningModalOpen}
+        onClose={handleVersionWarningClose}
+        onOpenSettings={() => {
+          handleVersionWarningClose();
           setSettingsInitialSection('accounts');
           setIsSettingsDialogOpen(true);
-        }} />
+        }}
+      />
 
-        {/* Version Warning Modal - one-time notice for 2.7.5 re-authentication */}
-        <VersionWarningModal
-          isOpen={isVersionWarningModalOpen}
-          onClose={handleVersionWarningClose}
-          onOpenSettings={() => {
-            handleVersionWarningClose();
-            setSettingsInitialSection('accounts');
-            setIsSettingsDialogOpen(true);
-          }}
-        />
+      {/* Onboarding Wizard - shows on first launch when onboardingCompleted is false */}
+      <OnboardingWizard
+        open={isOnboardingWizardOpen}
+        onOpenChange={setIsOnboardingWizardOpen}
+        onOpenTaskCreator={() => {
+          setIsOnboardingWizardOpen(false);
+          setIsNewTaskDialogOpen(true);
+        }}
+        onOpenSettings={() => {
+          setIsOnboardingWizardOpen(false);
+          setIsSettingsDialogOpen(true);
+        }}
+      />
 
-        {/* Onboarding Wizard - shows on first launch when onboardingCompleted is false */}
-        <OnboardingWizard
-          open={isOnboardingWizardOpen}
-          onOpenChange={setIsOnboardingWizardOpen}
-          onOpenTaskCreator={() => {
-            setIsOnboardingWizardOpen(false);
-            setIsNewTaskDialogOpen(true);
-          }}
-          onOpenSettings={() => {
-            setIsOnboardingWizardOpen(false);
-            setIsSettingsDialogOpen(true);
-          }}
-        />
+      {/* App Update Notification - shows when new app version is available */}
+      <AppUpdateNotification />
 
-        {/* App Update Notification - shows when new app version is available */}
-        <AppUpdateNotification />
+      {/* Global Download Indicator - shows Ollama model download progress */}
+      <GlobalDownloadIndicator />
 
-        {/* Global Download Indicator - shows Ollama model download progress */}
-        <GlobalDownloadIndicator />
-
-        {/* Toast notifications */}
-        <Toaster />
-      </div>
-      </TooltipProvider>
+      {/* Toast notifications */}
+      <Toaster />
     </ViewStateProvider>
   );
 }

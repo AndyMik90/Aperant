@@ -333,7 +333,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
       <div
         ref={setNodeRef}
         className={cn(
-          'flex flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
+          'flex flex-col rounded-xl border border-border/50 bg-linear-to-b from-muted/40 to-transparent backdrop-blur-sm transition-all duration-200',
           getColumnBorderColor(),
           'border-t-2',
           isOver && 'drop-zone-highlight'
@@ -341,7 +341,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
         style={{ width: COLLAPSED_COLUMN_WIDTH, minWidth: COLLAPSED_COLUMN_WIDTH, maxWidth: COLLAPSED_COLUMN_WIDTH }}
       >
         {/* Expand button at top */}
-        <div className="flex justify-center p-2 border-b border-white/5">
+        <div className="flex justify-center p-2 border-b border-border/20">
           <Tooltip delayDuration={200}>
             <TooltipTrigger asChild>
               <Button
@@ -386,7 +386,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
       <div
         ref={setNodeRef}
         className={cn(
-          'flex flex-1 flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
+          'flex flex-1 flex-col rounded-xl border border-border/50 bg-linear-to-b from-muted/40 to-transparent backdrop-blur-sm transition-all duration-200',
           !columnWidth && 'min-w-80 max-w-[30rem]',
           getColumnBorderColor(),
           'border-t-2',
@@ -394,7 +394,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
         )}
       >
         {/* Column header - enhanced styling */}
-        <div className="flex items-center justify-between p-4 border-b border-white/5">
+        <div className="flex items-center justify-between p-4 border-b border-border/50">
         <div className="flex items-center gap-2.5">
           {/* Collapse button */}
           {onToggleCollapsed && (
@@ -556,12 +556,12 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
 
       {/* Task list */}
       <div className="flex-1 min-h-0">
-        <ScrollArea className="h-full px-3 pb-3 pt-2">
+        <ScrollArea className="h-full pb-3">
           <SortableContext
             items={taskIds}
             strategy={verticalListSortingStrategy}
           >
-            <div className="space-y-3 min-h-[120px]">
+            <div className="space-y-3 min-h-[120px] mx-3 mt-3">
               {tasks.length === 0 ? (
                 <div
                   className={cn(
@@ -1519,7 +1519,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         </div>
 
         {/* Drag overlay - enhanced visual feedback */}
-        <DragOverlay>
+        <DragOverlay dropAnimation={{
+          duration: 250,
+          easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+        }}>
           {activeTask ? (
             <div className="drag-overlay-card">
               <TaskCard task={activeTask} onClick={() => {}} />
