@@ -22,6 +22,7 @@ import { isWindows } from '../platform';
  */
 export class ChangelogGenerator extends EventEmitter {
   private generationProcesses: Map<string, ReturnType<typeof spawn>> = new Map();
+  private generationTimeouts: Map<string, NodeJS.Timeout> = new Map();
   private debugEnabled: boolean;
 
   constructor(
@@ -152,6 +153,25 @@ export class ChangelogGenerator extends EventEmitter {
     this.generationProcesses.set(projectId, childProcess);
     this.debug('Process spawned with PID:', childProcess.pid);
 
+    // Set 5-minute timeout
+    const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    const timeoutId = setTimeout(() => {
+      this.debug('Process timed out after 5 minutes');
+      this.generationTimeouts.delete(projectId);
+
+      // Kill the process
+      const proc = this.generationProcesses.get(projectId);
+      if (proc) {
+        proc.kill('SIGTERM');
+        this.generationProcesses.delete(projectId);
+      }
+
+      // Emit timeout error
+      this.emitError(projectId, 'Changelog generation timed out after 5 minutes');
+    }, TIMEOUT_MS);
+
+    this.generationTimeouts.set(projectId, timeoutId);
+
     let output = '';
     let errorOutput = '';
 
@@ -182,7 +202,18 @@ export class ChangelogGenerator extends EventEmitter {
         errorLength: errorOutput.length
       });
 
-      this.generationProcesses.delete(projectId);
+      // Clear timeout
+      const existingTimeout = this.generationTimeouts.get(projectId);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+        this.generationTimeouts.delete(projectId);
+      }
+
+      // Guard: if process was already removed (e.g. by timeout or cancel), skip
+      if (!this.generationProcesses.delete(projectId)) {
+        this.debug('Process already cleaned up (timeout or cancel), skipping exit handler');
+        return;
+      }
 
       if (code === 0 && output.trim()) {
         this.emitProgress(projectId, {
@@ -236,7 +267,18 @@ export class ChangelogGenerator extends EventEmitter {
 
     childProcess.on('error', (err: Error) => {
       this.debug('Process error', { error: err.message });
-      this.generationProcesses.delete(projectId);
+
+      // Clear timeout
+      const timeoutId = this.generationTimeouts.get(projectId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        this.generationTimeouts.delete(projectId);
+      }
+
+      if (!this.generationProcesses.delete(projectId)) {
+        this.debug('Process already cleaned up, skipping error handler');
+        return;
+      }
       this.emitError(projectId, err.message);
     });
   }
@@ -289,6 +331,13 @@ export class ChangelogGenerator extends EventEmitter {
    * Cancel ongoing generation
    */
   cancel(projectId: string): boolean {
+    // Clear timeout
+    const timeoutId = this.generationTimeouts.get(projectId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      this.generationTimeouts.delete(projectId);
+    }
+
     const process = this.generationProcesses.get(projectId);
     if (process) {
       process.kill('SIGTERM');
