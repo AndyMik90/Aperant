@@ -31,6 +31,25 @@ const MAX_EXECUTION_MS = 5 * 60 * 1000;
 const ACTIVITY_TIMEOUT_MS = 90 * 1000;
 
 /**
+ * Kill a process and all its children by process group.
+ * Spawning with detached=true puts the child in its own process group,
+ * so we can kill the entire group (Python + Claude SDK binary) at once.
+ */
+function killProcessTree(proc: ChildProcess): void {
+  if (!proc.pid) {
+    proc.kill();
+    return;
+  }
+  try {
+    // Negative PID sends signal to entire process group
+    process.kill(-proc.pid, 'SIGTERM');
+  } catch {
+    // Fallback: kill the process directly
+    try { proc.kill('SIGKILL'); } catch { /* already dead */ }
+  }
+}
+
+/**
  * Python process executor for insights
  * Handles spawning and managing the Python insights runner process
  */
@@ -59,7 +78,7 @@ export class InsightsExecutor extends EventEmitter {
     if (!existingProcess) return false;
 
     this.clearTimers(projectId);
-    existingProcess.kill();
+    killProcessTree(existingProcess);
     this.activeSessions.delete(projectId);
     return true;
   }
@@ -88,7 +107,7 @@ export class InsightsExecutor extends EventEmitter {
       console.warn(`[Insights] Activity timeout for ${projectId} — no output for ${ACTIVITY_TIMEOUT_MS / 1000}s, killing process`);
       this.activeSessions.delete(projectId);
       this.activeTimers.delete(projectId);
-      proc.kill();
+      killProcessTree(proc);
     }, ACTIVITY_TIMEOUT_MS);
   }
 
@@ -160,27 +179,31 @@ export class InsightsExecutor extends EventEmitter {
       args.push('--images', JSON.stringify(imagePaths));
     }
 
-    // Spawn Python process
+    // Spawn Python process in its own process group (detached) so we can
+    // kill the entire tree (Python + Claude SDK binary) on timeout/cancel
     const proc = spawn(this.config.getPythonPath(), args, {
       cwd: autoBuildSource,
-      env: processEnv
+      env: processEnv,
+      detached: true
     });
+    // Unref so the detached process doesn't keep the parent alive on exit
+    proc.unref();
 
     this.activeSessions.set(projectId, proc);
 
     // Start timeout timers
     const hardTimer = setTimeout(() => {
-      console.warn(`[Insights] Hard timeout for ${projectId} — exceeded ${MAX_EXECUTION_MS / 1000}s, killing process`);
+      console.warn(`[Insights] Hard timeout for ${projectId} — exceeded ${MAX_EXECUTION_MS / 1000}s, killing process tree`);
       this.activeSessions.delete(projectId);
       this.activeTimers.delete(projectId);
-      proc.kill();
+      killProcessTree(proc);
     }, MAX_EXECUTION_MS);
 
     const activityTimer = setTimeout(() => {
-      console.warn(`[Insights] Activity timeout for ${projectId} — no output for ${ACTIVITY_TIMEOUT_MS / 1000}s, killing process`);
+      console.warn(`[Insights] Activity timeout for ${projectId} — no output for ${ACTIVITY_TIMEOUT_MS / 1000}s, killing process tree`);
       this.activeSessions.delete(projectId);
       this.activeTimers.delete(projectId);
-      proc.kill();
+      killProcessTree(proc);
     }, ACTIVITY_TIMEOUT_MS);
 
     this.activeTimers.set(projectId, { hard: hardTimer, activity: activityTimer });
