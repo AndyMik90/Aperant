@@ -19,6 +19,9 @@ import { existsSync } from 'fs';
 import path from 'path';
 import { randomBytes } from 'crypto';
 
+/** Error codes for transient filesystem errors that are safe to retry */
+const TRANSIENT_ERROR_CODES = ['EBUSY', 'EACCES', 'EAGAIN', 'EPERM', 'EMFILE', 'ENFILE'] as const;
+
 export class AtomicFileError extends Error {
   constructor(message: string) {
     super(message);
@@ -108,8 +111,6 @@ export async function writeFileWithRetry(
   const maxRetries = options?.maxRetries ?? 3;
   const retryDelay = options?.retryDelay ?? 100;
 
-  const transientErrors = ['EBUSY', 'EACCES', 'EAGAIN', 'EPERM', 'EMFILE', 'ENFILE'];
-
   let lastError: Error | undefined;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -124,7 +125,7 @@ export async function writeFileWithRetry(
       lastError = nodeError;
 
       // Check if this is a transient error we should retry
-      const isTransient = nodeError.code && transientErrors.includes(nodeError.code);
+      const isTransient = nodeError.code && (TRANSIENT_ERROR_CODES as readonly string[]).includes(nodeError.code);
 
       if (!isTransient || attempt === maxRetries) {
         // Not transient or out of retries - throw
@@ -169,8 +170,6 @@ export async function readFileWithRetry(
   const maxRetries = options?.maxRetries ?? 3;
   const retryDelay = options?.retryDelay ?? 100;
 
-  const transientErrors = ['EBUSY', 'EACCES', 'EAGAIN', 'EPERM', 'EMFILE', 'ENFILE'];
-
   let lastError: Error | undefined;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -182,7 +181,7 @@ export async function readFileWithRetry(
       lastError = nodeError;
 
       // Check if this is a transient error we should retry
-      const isTransient = nodeError.code && transientErrors.includes(nodeError.code);
+      const isTransient = nodeError.code && (TRANSIENT_ERROR_CODES as readonly string[]).includes(nodeError.code);
 
       if (!isTransient || attempt === maxRetries) {
         // Not transient or out of retries - throw

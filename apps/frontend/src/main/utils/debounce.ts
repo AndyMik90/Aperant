@@ -33,16 +33,15 @@ export function debounce<TArgs extends unknown[], TReturn = void>(
 
   let timeoutId: NodeJS.Timeout | null = null;
   let lastCallTime: number | null = null;
-  let lastInvokeTime = 0;
+  let hasTrailingArgs = false;
 
   const invokeFunc = (args: TArgs) => {
-    lastInvokeTime = Date.now();
     fn(...args);
   };
 
   const debouncedFn = (...args: TArgs): void => {
     const now = Date.now();
-    const isInvoking = lastCallTime === null;
+    const isFirstCall = lastCallTime === null;
 
     lastCallTime = now;
 
@@ -53,20 +52,24 @@ export function debounce<TArgs extends unknown[], TReturn = void>(
     }
 
     // Leading edge: invoke immediately on first call
-    if (leading && isInvoking) {
+    if (leading && isFirstCall) {
       invokeFunc(args);
+      hasTrailingArgs = false;
+    } else {
+      // Mark that there are pending args for trailing invocation
+      hasTrailingArgs = true;
     }
 
     // Trailing edge: schedule invocation after wait period
     if (trailing) {
       timeoutId = setTimeout(() => {
-        // Only invoke if we haven't already invoked recently (for leading edge case)
-        const timeSinceLastInvoke = Date.now() - lastInvokeTime;
-        if (timeSinceLastInvoke >= wait) {
+        // Only invoke trailing if there were calls after the leading invocation
+        if (hasTrailingArgs) {
           invokeFunc(args);
         }
         lastCallTime = null;
         timeoutId = null;
+        hasTrailingArgs = false;
       }, wait);
     } else if (!leading) {
       // Reset state if neither leading nor trailing
@@ -80,6 +83,7 @@ export function debounce<TArgs extends unknown[], TReturn = void>(
       timeoutId = null;
     }
     lastCallTime = null;
+    hasTrailingArgs = false;
   };
 
   return { fn: debouncedFn, cancel };

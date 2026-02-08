@@ -1,6 +1,6 @@
 import { spawn } from 'child_process';
 import path from 'path';
-import { existsSync, writeFileSync, mkdirSync, unlinkSync, promises as fsPromises } from 'fs';
+import { existsSync, mkdirSync, unlinkSync, promises as fsPromises } from 'fs';
 import { EventEmitter } from 'events';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
@@ -20,6 +20,7 @@ import { transformRoadmapFromSnakeCase } from '../ipc-handlers/roadmap/transform
 import type { RawIdea } from '../ipc-handlers/ideation/types';
 import { getPathDelimiter } from '../platform';
 import { debounce } from '../utils/debounce';
+import { writeFileWithRetry } from '../utils/atomic-file';
 
 /** Maximum length for status messages displayed in progress UI */
 const STATUS_MESSAGE_MAX_LENGTH = 200;
@@ -52,6 +53,7 @@ export class AgentQueueManager {
     startedAt: string,
     isRunning: boolean
   ) => void;
+  private cancelPersistRoadmapProgress: () => void;
 
   constructor(
     state: AgentState,
@@ -67,12 +69,13 @@ export class AgentQueueManager {
     // Create debounced version of persistRoadmapProgress (300ms, leading + trailing)
     // This limits file writes to ~3-4 per second while ensuring immediate first write
     // and final state persistence after burst of updates
-    const { fn: debouncedFn } = debounce(
+    const { fn: debouncedFn, cancel } = debounce(
       this.persistRoadmapProgress.bind(this),
       300,
       { leading: true, trailing: true }
     );
     this.debouncedPersistRoadmapProgress = debouncedFn;
+    this.cancelPersistRoadmapProgress = cancel;
   }
 
   /**
@@ -109,14 +112,14 @@ export class AgentQueueManager {
    * @param startedAt - When generation started (ISO string)
    * @param isRunning - Whether generation is actively running
    */
-  private persistRoadmapProgress(
+  private async persistRoadmapProgress(
     projectPath: string,
     phase: string,
     progress: number,
     message: string,
     startedAt: string,
     isRunning: boolean
-  ): void {
+  ): Promise<void> {
     try {
       const roadmapDir = path.join(projectPath, AUTO_BUILD_PATHS.ROADMAP_DIR);
       const progressPath = path.join(roadmapDir, AUTO_BUILD_PATHS.GENERATION_PROGRESS);
@@ -135,7 +138,7 @@ export class AgentQueueManager {
         is_running: isRunning
       };
 
-      writeFileSync(progressPath, JSON.stringify(progressData, null, 2));
+      await writeFileWithRetry(progressPath, JSON.stringify(progressData, null, 2), { encoding: 'utf-8' });
       debugLog('[Agent Queue] Persisted roadmap progress:', { phase, progress });
     } catch (err) {
       debugError('[Agent Queue] Failed to persist roadmap progress:', err);
@@ -149,6 +152,9 @@ export class AgentQueueManager {
    * @param projectPath - The project directory path
    */
   private clearRoadmapProgress(projectPath: string): void {
+    // Cancel any pending debounced write to prevent re-creating the file after deletion
+    this.cancelPersistRoadmapProgress();
+
     try {
       const progressPath = path.join(
         projectPath,
