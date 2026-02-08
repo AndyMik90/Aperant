@@ -7,10 +7,15 @@ memory updates, recovery tracking, and Linear integration.
 """
 
 import logging
-import re
 from pathlib import Path
 
 from claude_agent_sdk import ClaudeSDKClient
+from core.error_utils import (
+    is_authentication_error,
+    is_rate_limit_error,
+    is_tool_concurrency_error,
+)
+from core.file_utils import write_json_atomic
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from insight_extractor import extract_session_insights
 from linear_updater import (
@@ -21,7 +26,7 @@ from progress import (
     count_subtasks_detailed,
     is_build_complete,
 )
-from recovery import RecoveryManager
+from recovery import RecoveryManager, check_and_recover, reset_subtask
 from security.tool_input_validator import get_safe_tool_input
 from task_logger import (
     LogEntryType,
@@ -48,113 +53,36 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
-def is_tool_concurrency_error(error: Exception) -> bool:
-    """
-    Check if an error is a 400 tool concurrency error from Claude API.
+def _execute_recovery_action(
+    recovery_action,
+    recovery_manager: RecoveryManager,
+    spec_dir: Path,
+    project_dir: Path,
+    subtask_id: str,
+) -> None:
+    """Execute a recovery action (rollback/retry/skip/escalate)."""
+    if not recovery_action:
+        return
 
-    Tool concurrency errors occur when too many tools are used simultaneously
-    in a single API request, hitting Claude's concurrent tool use limit.
+    print_status(f"Recovery action: {recovery_action.action}", "info")
+    print_status(f"Reason: {recovery_action.reason}", "info")
 
-    Args:
-        error: The exception to check
+    if recovery_action.action == "rollback":
+        print_status(f"Rolling back to {recovery_action.target[:8]}", "warning")
+        if recovery_manager.rollback_to_commit(recovery_action.target):
+            print_status("Rollback successful", "success")
+        else:
+            print_status("Rollback failed", "error")
 
-    Returns:
-        True if this is a tool concurrency error, False otherwise
-    """
-    error_str = str(error).lower()
-    # Check for 400 status AND tool concurrency keywords
-    return "400" in error_str and (
-        ("tool" in error_str and "concurrency" in error_str)
-        or "too many tools" in error_str
-        or "concurrent tool" in error_str
-    )
+    elif recovery_action.action == "retry":
+        print_status(f"Resetting subtask {subtask_id} for retry", "info")
+        reset_subtask(spec_dir, project_dir, subtask_id)
+        print_status("Subtask reset - will retry with different approach", "success")
 
-
-def is_rate_limit_error(error: Exception) -> bool:
-    """
-    Check if an error is a rate limit error (429 or similar).
-
-    Rate limit errors occur when the API usage quota is exceeded,
-    either for session limits or weekly limits.
-
-    Args:
-        error: The exception to check
-
-    Returns:
-        True if this is a rate limit error, False otherwise
-    """
-    error_str = str(error).lower()
-
-    # Check for HTTP 429 with word boundaries to avoid false positives
-    if re.search(r"\b429\b", error_str):
-        return True
-
-    # Check for other rate limit indicators
-    return any(
-        p in error_str
-        for p in [
-            "limit reached",
-            "rate limit",
-            "too many requests",
-            "usage limit",
-            "quota exceeded",
-        ]
-    )
-
-
-def is_authentication_error(error: Exception) -> bool:
-    """
-    Check if an error is an authentication error (401, token expired, etc.).
-
-    Authentication errors occur when OAuth tokens are invalid, expired,
-    or have been revoked (e.g., after token refresh on another process).
-
-    Validation approach:
-    - HTTP 401 status code is checked with word boundaries to minimize false positives
-    - Additional string patterns are validated against lowercase error messages
-    - Patterns are designed to match known Claude API and OAuth error formats
-
-    Known false positive risks:
-    - Generic error messages containing "unauthorized" or "access denied" may match
-      even if not related to authentication (e.g., file permission errors)
-    - Error messages containing these keywords in user-provided content could match
-    - Mitigation: HTTP 401 check provides strong signal; string patterns are secondary
-
-    Real-world validation:
-    - Pattern matching has been tested against actual Claude API error responses
-    - False positive rate is acceptable given the recovery mechanism (prompt user to re-auth)
-    - If false positive occurs, user can simply resume without re-authenticating
-
-    Args:
-        error: The exception to check
-
-    Returns:
-        True if this is an authentication error, False otherwise
-    """
-    error_str = str(error).lower()
-
-    # Check for HTTP 401 with word boundaries to avoid false positives
-    if re.search(r"\b401\b", error_str):
-        return True
-
-    # Check for other authentication indicators
-    # NOTE: "authentication failed" and "authentication error" are more specific patterns
-    # to reduce false positives from generic "authentication" mentions
-    return any(
-        p in error_str
-        for p in [
-            "authentication failed",
-            "authentication error",
-            "unauthorized",
-            "invalid token",
-            "token expired",
-            "authentication_error",
-            "invalid_token",
-            "token_expired",
-            "not authenticated",
-            "http 401",
-        ]
-    )
+    elif recovery_action.action in ("skip", "escalate"):
+        print_status(f"Marking subtask {subtask_id} as stuck", "warning")
+        recovery_manager.mark_subtask_stuck(subtask_id, recovery_action.reason)
+        print_status("Subtask marked for human intervention", "warning")
 
 
 async def post_session_processing(
@@ -168,6 +96,7 @@ async def post_session_processing(
     linear_enabled: bool = False,
     status_manager: StatusManager | None = None,
     source_spec_dir: Path | None = None,
+    error_info: dict | None = None,
 ) -> bool:
     """
     Process session results and update memory automatically.
@@ -185,6 +114,7 @@ async def post_session_processing(
         linear_enabled: Whether Linear integration is enabled
         status_manager: Optional status manager for ccstatusline
         source_spec_dir: Original spec directory (for syncing back from worktree)
+        error_info: Error information from run_agent_session (for rate limit detection)
 
     Returns:
         True if subtask was completed successfully
@@ -316,6 +246,77 @@ async def post_session_processing(
             error="Subtask not marked as completed",
         )
 
+        # Check if this was a concurrency error - if so, reset subtask to pending for retry
+        is_concurrency_error = (
+            error_info and error_info.get("type") == "tool_concurrency"
+        )
+
+        if is_concurrency_error:
+            print_status(
+                f"Rate limit detected - resetting subtask {subtask_id} to pending for retry",
+                "info",
+            )
+
+            # Use recovery system's reset_subtask for consistency
+            reset_subtask(spec_dir, project_dir, subtask_id)
+
+            # Also reset in implementation plan
+            plan = load_implementation_plan(spec_dir)
+            if plan:
+                # Find and reset the subtask
+                subtask_found = False
+                for phase in plan.get("phases", []):
+                    for subtask in phase.get("subtasks", []):
+                        if subtask.get("id") == subtask_id:
+                            # Reset subtask to pending state
+                            subtask["status"] = "pending"
+                            subtask["started_at"] = None
+                            subtask["completed_at"] = None
+                            subtask_found = True
+                            break
+                    if subtask_found:
+                        break
+
+                if subtask_found:
+                    # Save plan atomically to prevent corruption
+                    try:
+                        plan_path = spec_dir / "implementation_plan.json"
+                        write_json_atomic(plan_path, plan, indent=2)
+                        print_status(
+                            f"Subtask {subtask_id} reset to pending status", "success"
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to save implementation plan after reset: {e}"
+                        )
+                        print_status("Failed to save plan after reset", "error")
+                else:
+                    print_status(
+                        f"Warning: Could not find subtask {subtask_id} in plan",
+                        "warning",
+                    )
+            else:
+                print_status(
+                    "Warning: Could not load implementation plan for reset", "warning"
+                )
+        else:
+            # Non-rate-limit error - use automatic recovery flow
+            error_message = (
+                error_info.get("message", "Subtask not marked as completed")
+                if error_info
+                else "Subtask not marked as completed"
+            )
+
+            recovery_action = check_and_recover(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                subtask_id=subtask_id,
+                error=error_message,
+            )
+            _execute_recovery_action(
+                recovery_action, recovery_manager, spec_dir, project_dir, subtask_id
+            )
+
         # Still record commit if one was made (partial progress)
         if commit_after and commit_after != commit_before:
             recovery_manager.record_good_commit(commit_after, subtask_id)
@@ -377,6 +378,21 @@ async def post_session_processing(
             success=False,
             approach="Session ended without progress",
             error=f"Subtask status is {subtask_status}",
+        )
+
+        # Automatic recovery flow - determine and execute recovery action
+        error_message = f"Subtask status is {subtask_status}"
+        if error_info:
+            error_message = error_info.get("message", error_message)
+
+        recovery_action = check_and_recover(
+            spec_dir=spec_dir,
+            project_dir=project_dir,
+            subtask_id=subtask_id,
+            error=error_message,
+        )
+        _execute_recovery_action(
+            recovery_action, recovery_manager, spec_dir, project_dir, subtask_id
         )
 
         # Record Linear session result (if enabled)

@@ -178,7 +178,7 @@ async def run_qa_validation_loop(
         )
 
         async with fix_client:
-            fix_status, fix_response = await run_qa_fixer_session(
+            fix_status, fix_response, fix_error_info = await run_qa_fixer_session(
                 fix_client,
                 spec_dir,
                 0,
@@ -187,7 +187,31 @@ async def run_qa_validation_loop(
 
         if fix_status == "error":
             debug_error("qa_loop", f"Fixer error: {fix_response[:200]}")
+            task_event_emitter.emit(
+                "QA_FIXING_FAILED",
+                {"iteration": 0, "error": fix_response[:200]},
+            )
             print(f"\n❌ Fixer encountered error: {fix_response}")
+            # Only delete fix request file on permanent errors
+            # Preserve on transient errors (rate limit, concurrency) so user feedback isn't lost
+            is_transient = fix_error_info.get("type") in (
+                "tool_concurrency",
+                "rate_limit",
+            )
+            if is_transient:
+                debug(
+                    "qa_loop",
+                    "Preserving QA_FIX_REQUEST.md (transient error - user feedback retained)",
+                )
+            else:
+                try:
+                    fix_request_file.unlink()
+                    debug(
+                        "qa_loop",
+                        "Removed QA_FIX_REQUEST.md after permanent fixer error",
+                    )
+                except OSError:
+                    pass
             return False
 
         debug_success("qa_loop", "Human feedback fixes applied")
@@ -270,7 +294,7 @@ async def run_qa_validation_loop(
 
         async with client:
             debug("qa_loop", "Running QA reviewer agent session...")
-            status, response = await run_qa_agent_session(
+            status, response, _error_info = await run_qa_agent_session(
                 client,
                 project_dir,  # Pass project_dir for capability-based tool injection
                 spec_dir,
@@ -469,7 +493,7 @@ async def run_qa_validation_loop(
             )
 
             async with fix_client:
-                fix_status, fix_response = await run_qa_fixer_session(
+                fix_status, fix_response, _fix_error_info = await run_qa_fixer_session(
                     fix_client, spec_dir, qa_iteration, verbose
                 )
 
