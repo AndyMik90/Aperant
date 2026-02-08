@@ -350,6 +350,10 @@ export function registerTaskExecutionHandlers(
       // - Other statuses return an error (don't start any agent)
       console.warn('[TASK_START] Routing based on task.status:', task.status);
 
+      // Bug #7 fix: Await spawn so that if it fails, we don't commit status or deliver messages.
+      // Previously used fire-and-forget .catch() which left task stuck in coding with no process.
+      let spawnSucceeded = false;
+
       if (task.status === 'planning') {
         // Planning tasks always use the planning agent
         const taskDescription = task.description || task.title;
@@ -365,22 +369,26 @@ export function registerTaskExecutionHandlers(
           ? { ...task.metadata, complexityOverride }
           : task.metadata;
 
-        // Start planning agent - it will handle spec creation or continue planning
-        agentManager.startPlanningAgent(
-          task.specId,
-          project.path,
-          taskDescription,
-          specDir,
-          specMetadata,
-          baseBranch
-        ).catch((err: Error) => {
+        // Start planning agent - await to detect spawn failures
+        try {
+          await agentManager.startPlanningAgent(
+            task.specId,
+            project.path,
+            taskDescription,
+            specDir,
+            specMetadata,
+            baseBranch
+          );
+          spawnSucceeded = true;
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
           console.error('[TASK_START] Failed to start planning agent:', err);
           mainWindow.webContents.send(
             IPC_CHANNELS.TASK_ERROR,
             taskId,
-            `Failed to start planning agent: ${err.message}`
+            `Failed to start planning agent: ${errMsg}`
           );
-        });
+        }
       } else if (task.status === 'coding') {
         // Coding tasks use the task execution agent
         console.warn('[TASK_START] Starting task execution for:', task.specId);
@@ -389,24 +397,28 @@ export function registerTaskExecutionHandlers(
         const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
         recordTaskTimestamp(planPath, 'coding_started');
 
-        agentManager.startTaskExecution(
-          taskId,
-          project.path,
-          task.specId,
-          {
-            parallel: false,
-            workers: 1,
-            baseBranch,
-            useWorktree: task.metadata?.useWorktree
-          }
-        ).catch((err: Error) => {
+        try {
+          await agentManager.startTaskExecution(
+            taskId,
+            project.path,
+            task.specId,
+            {
+              parallel: false,
+              workers: 1,
+              baseBranch,
+              useWorktree: task.metadata?.useWorktree
+            }
+          );
+          spawnSucceeded = true;
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
           console.error('[TASK_START] Failed to start task execution:', err);
           mainWindow.webContents.send(
             IPC_CHANNELS.TASK_ERROR,
             taskId,
-            `Failed to start task execution: ${err.message}`
+            `Failed to start task execution: ${errMsg}`
           );
-        });
+        }
       } else {
         // Other statuses (todo, ai_review, human_review, pr_created, done, archived)
         // should not start any agent via TASK_START
@@ -416,6 +428,12 @@ export function registerTaskExecutionHandlers(
           taskId,
           `Cannot start task with status '${task.status}'. Only 'planning' and 'coding' tasks can be started.`
         );
+        return;
+      }
+
+      // Only proceed with status updates and message delivery if spawn succeeded
+      if (!spawnSucceeded) {
+        console.warn(`[TASK_START] Spawn failed for task ${taskId}, skipping status update and message delivery`);
         return;
       }
 
@@ -514,16 +532,18 @@ export function registerTaskExecutionHandlers(
     const { task, project } = findTaskAndProject(taskId);
 
     if (task && project) {
-      // Persist status to implementation_plan.json to prevent status flip-flop on refresh
+      // Persist current status to implementation_plan.json to prevent status flip-flop on refresh
       // Uses shared utility for consistency with agent-events-handlers.ts
-      // NOTE: This is now async and non-blocking for better UI responsiveness
+      // NOTE: Persist the CURRENT status, not hardcoded 'planning' - stopping a coding task
+      // should keep it in 'coding' status (agent is just not running)
+      const currentStatus = task.status;
       const planPath = getPlanPath(project, task);
       setImmediate(async () => {
         const persistStart = Date.now();
         try {
-          const persisted = await persistPlanStatus(planPath, 'planning', project.id);
+          const persisted = await persistPlanStatus(planPath, currentStatus, project.id);
           if (persisted) {
-            console.warn('[TASK_STOP] Updated plan status to planning');
+            console.warn(`[TASK_STOP] Persisted current status: ${currentStatus}`);
           }
           if (DEBUG) {
             const delay = persistStart - ipcSentAt;
@@ -604,6 +624,7 @@ export function registerTaskExecutionHandlers(
       if (agentManager.isRunning(taskId)) {
         console.log('[TASK_START_BUILD] Stopping planning agent...');
         agentManager.killTask(taskId);
+        fileWatcher.unwatch(taskId); // Clean up file watcher from killed process
         // Give it a moment to clean up
         await new Promise(resolve => setTimeout(resolve, 500));
       }
@@ -722,6 +743,20 @@ export function registerTaskExecutionHandlers(
           return { success: false, error: 'Failed to write QA report file' };
         }
 
+        // Reset QA rejection counter on approval so future rejection cycles start fresh
+        const approvalPlanPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+        try {
+          const planContent = readFileSync(approvalPlanPath, 'utf-8');
+          const plan = JSON.parse(planContent);
+          if (plan.qaRejectionCount) {
+            plan.qaRejectionCount = 0;
+            plan.updated_at = new Date().toISOString();
+            writeFileSync(approvalPlanPath, JSON.stringify(plan, null, 2));
+          }
+        } catch {
+          // Non-fatal - plan may not exist
+        }
+
         const mainWindow = getMainWindow();
         if (mainWindow) {
           mainWindow.webContents.send(
@@ -730,6 +765,17 @@ export function registerTaskExecutionHandlers(
             'done'
           );
         }
+
+        // Persist 'done' status to plan file to prevent status flip-flop on refresh
+        const planPath = getPlanPath(project, task);
+        setImmediate(async () => {
+          try {
+            await persistPlanStatus(planPath, 'done', project.id);
+            console.warn('[TASK_REVIEW] Persisted approved status: done');
+          } catch (err) {
+            console.error('[TASK_REVIEW] Failed to persist approval status:', err);
+          }
+        });
       } else {
         // Reset and discard all changes from worktree merge in main
         // The worktree still has all changes, so nothing is lost
@@ -852,6 +898,33 @@ export function registerTaskExecutionHandlers(
           // Non-fatal - log but don't fail the review
           console.error('[TASK_REVIEW] Failed to persist human feedback to memory:', error);
         }
+
+        // QA rejection cycle limit: prevent infinite QA loops
+        // Read plan file to check/increment qaRejectionCount
+        const qaLimitPlanPath = path.join(targetSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+        const MAX_QA_REJECTIONS = 5;
+        let qaRejectionCount = 0;
+        try {
+          const planContent = readFileSync(qaLimitPlanPath, 'utf-8');
+          const plan = JSON.parse(planContent);
+          qaRejectionCount = (plan.qaRejectionCount || 0) + 1;
+          plan.qaRejectionCount = qaRejectionCount;
+          plan.updated_at = new Date().toISOString();
+          writeFileSync(qaLimitPlanPath, JSON.stringify(plan, null, 2));
+        } catch {
+          // Plan file may not exist; proceed with default count
+          qaRejectionCount = 1;
+        }
+
+        if (qaRejectionCount > MAX_QA_REJECTIONS) {
+          console.warn(`[TASK_REVIEW] QA rejection limit reached (${qaRejectionCount}/${MAX_QA_REJECTIONS}) for task ${taskId}`);
+          return {
+            success: false,
+            error: `QA rejection limit reached (${MAX_QA_REJECTIONS} cycles). This task may need manual intervention. Consider restarting from planning.`
+          };
+        }
+
+        console.warn(`[TASK_REVIEW] QA rejection cycle ${qaRejectionCount}/${MAX_QA_REJECTIONS}`);
 
         // Restart QA process - use worktree path if it exists, otherwise main project
         // The QA process needs to run where the implementation_plan.json with completed subtasks is
@@ -1016,6 +1089,29 @@ export function registerTaskExecutionHandlers(
         }
       }
 
+      // Validate backward transitions - prevent invalid status regressions
+      // Tasks should generally only move forward in the lifecycle
+      // FIX-016: Pruned to only transitions that actually occur from the UI/backend.
+      // Previously allowed many transitions (e.g. planning→done, coding→archived)
+      // that could never be triggered, creating a false sense of valid state movement.
+      const VALID_TRANSITIONS: Record<string, string[]> = {
+        'planning': ['coding', 'archived'],           // Start Build, or archive
+        'coding': ['planning', 'ai_review', 'human_review'], // reject/retry, build complete, QA skip
+        'ai_review': ['coding', 'human_review'],       // QA reject, QA approved
+        'human_review': ['coding', 'done', 'pr_created'], // reject, mark done, create PR
+        'pr_created': ['done'],                         // mark done after PR
+        'done': ['archived'],                           // archive
+        'archived': ['planning'],                       // un-archive back to planning
+      };
+      const allowedTargets = VALID_TRANSITIONS[task.status];
+      if (allowedTargets && !allowedTargets.includes(status)) {
+        console.warn(`[TASK_UPDATE_STATUS] Blocked invalid transition: ${task.status} -> ${status} for task ${taskId}`);
+        return {
+          success: false,
+          error: `Cannot move task from '${task.status}' to '${status}'.`
+        };
+      }
+
       // Get the spec directory and plan path using shared utility
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specDir = path.join(project.path, specsBaseDir, task.specId);
@@ -1113,6 +1209,30 @@ export function registerTaskExecutionHandlers(
   );
 
   /**
+   * Send a chat message to a running supervisor agent.
+   * The supervisor monitors coding progress and answers questions in real-time.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_SEND_SUPERVISOR_MESSAGE,
+    async (_, taskId: string, message: string): Promise<IPCResult<boolean>> => {
+      console.log('[TASK_SEND_SUPERVISOR_MESSAGE] Sending message to supervisor:', taskId, 'length:', message.length);
+
+      // Check if supervisor is running first
+      if (!agentManager.isSupervisorRunning(taskId)) {
+        console.warn('[TASK_SEND_SUPERVISOR_MESSAGE] Supervisor is not running for task:', taskId);
+        return { success: false, error: 'Supervisor is not running' };
+      }
+
+      const sent = agentManager.sendMessageToSupervisor(taskId, message);
+      if (!sent) {
+        return { success: false, error: 'Failed to send message to supervisor' };
+      }
+
+      return { success: true, data: true };
+    }
+  );
+
+  /**
    * Recover a stuck task (status says coding but no process running)
    */
   ipcMain.handle(
@@ -1198,7 +1318,13 @@ export function registerTaskExecutionHandlers(
         // If targetStatus is explicitly provided, use it; otherwise calculate from subtasks
         let newStatus: TaskStatus = targetStatus || 'planning';
 
-        if (!targetStatus && plan?.phases && Array.isArray(plan.phases)) {
+        // When user clicks "Recover & Restart" on a human_review task (autoRestart=true),
+        // they want to restart from planning - don't let subtask analysis override that
+        const isRestartFromHumanReview = autoRestart && task.status === 'human_review' && !targetStatus;
+        if (isRestartFromHumanReview) {
+          newStatus = 'planning';
+          console.log('[Recovery] Task is in human_review with autoRestart - restarting from planning');
+        } else if (!targetStatus && plan?.phases && Array.isArray(plan.phases)) {
           // Analyze subtask statuses to determine appropriate recovery status
           const { completedCount, totalCount, allCompleted } = checkSubtasksCompletion(plan);
 
@@ -1229,9 +1355,10 @@ export function registerTaskExecutionHandlers(
           plan.recoveryNote = `Task recovered from stuck state at ${new Date().toISOString()}`;
 
           // Check if task is actually stuck or just completed and waiting for merge
+          // BUT skip this early return if user explicitly wants to restart from human_review
           const { allCompleted } = checkSubtasksCompletion(plan);
 
-          if (allCompleted) {
+          if (allCompleted && !isRestartFromHumanReview) {
             console.log('[Recovery] Task is fully complete (all subtasks done), setting to human_review without restart');
             // Don't reset any subtasks - task is done!
             // Just update status in plan file (project store reads from file, no separate update needed)
@@ -1269,6 +1396,23 @@ export function registerTaskExecutionHandlers(
                 autoRestarted: false
               }
             };
+          }
+
+          // When restarting from human_review, reset ALL subtasks so the task can be re-planned
+          if (isRestartFromHumanReview && plan.phases && Array.isArray(plan.phases)) {
+            for (const phase of plan.phases as Array<{ subtasks?: Array<{ status: string; actual_output?: string; started_at?: string; completed_at?: string }> }>) {
+              if (phase.subtasks && Array.isArray(phase.subtasks)) {
+                for (const subtask of phase.subtasks) {
+                  if (subtask.status === 'completed' || subtask.status === 'in_progress' || subtask.status === 'failed') {
+                    subtask.status = 'pending';
+                    delete subtask.actual_output;
+                    delete subtask.started_at;
+                    delete subtask.completed_at;
+                  }
+                }
+              }
+            }
+            console.log('[Recovery] Reset all subtasks for restart from human_review');
           }
 
           // Task is not complete - reset only stuck subtasks for retry
@@ -1392,8 +1536,9 @@ export function registerTaskExecutionHandlers(
 
             // Phase 2: Handle planning tasks differently
             // If task is in 'planning' status, restart as planning agent (not coding)
-            if (task.status === 'planning') {
-              console.log(`[Recovery] Task ${taskId} is in planning status, restarting as planning agent`);
+            // BUT: only restart if planning is actually incomplete (no spec.md yet)
+            if (task.status === 'planning' && !hasSpec) {
+              console.log(`[Recovery] Task ${taskId} is in planning status with no spec, restarting planning agent`);
               newStatus = 'planning';
 
               // Update plan status for restart - keep as planning
@@ -1424,6 +1569,12 @@ export function registerTaskExecutionHandlers(
               );
               autoRestarted = true;
               console.warn(`[Recovery] Auto-restarted planning agent for task ${taskId}`);
+            } else if (task.status === 'planning' && hasSpec) {
+              // Planning is complete (spec.md exists) — don't restart planning, don't auto-start coding
+              // User must click "Start Build" to transition to coding (FIX-10 gate)
+              console.log(`[Recovery] Task ${taskId} planning complete (spec.md exists), awaiting user "Start Build"`);
+              newStatus = 'planning';
+              autoRestarted = false;
             } else if (task.status === 'coding') {
               // FIX-3/FIX-4: Coding tasks should NOT auto-restart on recovery
               // Instead, mark as interrupted so user can click "Resume" button
@@ -1475,8 +1626,43 @@ export function registerTaskExecutionHandlers(
 
               // Do NOT auto-start the QA agent - user must trigger via UI
               autoRestarted = false;
+            } else if (task.status === 'human_review' && isRestartFromHumanReview) {
+              // User explicitly wants to restart this task from planning
+              console.log(`[Recovery] Task ${taskId} is in human_review, restarting as planning agent`);
+              newStatus = 'planning';
+
+              // Update plan status for restart back to planning
+              if (plan) {
+                plan.status = 'planning';
+                plan.planStatus = 'pending';
+                delete plan.interrupted;
+                delete plan.interruptedAt;
+                const restartPlanContent = JSON.stringify(plan, null, 2);
+                for (const pathToUpdate of planPathsToUpdate) {
+                  try {
+                    atomicWriteFileSync(pathToUpdate, restartPlanContent);
+                    console.log(`[Recovery] Wrote restart status (planning) from human_review to: ${pathToUpdate}`);
+                  } catch (writeError) {
+                    console.error(`[Recovery] Failed to write plan file for restart at ${pathToUpdate}:`, writeError);
+                  }
+                }
+              }
+
+              // Start the planning agent
+              const taskDescription = task.description || task.title;
+              console.warn(`[Recovery] Starting planning agent (from human_review) for: ${task.specId}`);
+              await agentManager.startPlanningAgent(
+                task.specId,
+                project.path,
+                taskDescription,
+                specDirForWatcher,
+                task.metadata,
+                baseBranchForRecovery
+              );
+              autoRestarted = true;
+              console.warn(`[Recovery] Auto-restarted planning agent for task ${taskId} (was human_review)`);
             } else {
-              // FIX-18: Other statuses (human_review, todo, done, archived) - no agent restart needed
+              // FIX-18: Other statuses (todo, done, archived, or human_review without restart) - no agent restart needed
               // These are terminal or waiting states that don't have running agents
               console.log(`[Recovery] Task ${taskId} is in ${task.status} status, no agent restart needed`);
               newStatus = task.status;

@@ -456,7 +456,12 @@ export function WorkspaceStatus({
             </Tooltip>
           )}
 
-          {/* Create PR Button */}
+          {/* Create PR Button
+            FIX-037: PR creation requires a worktree to exist. Once the task is
+            marked "done" (after merge), the worktree is deleted and PR creation
+            becomes impossible. Users should create PRs BEFORE merging, or use
+            the push+PR flow before marking done. The backend (FIX-027) now
+            validates that the task is in human_review or pr_created status. */}
           {onShowPRDialog && (
             <Button
               variant="info"

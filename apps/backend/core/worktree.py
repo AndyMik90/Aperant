@@ -15,6 +15,7 @@ This allows:
 """
 
 import asyncio
+import logging
 import os
 import re
 import shutil
@@ -31,6 +32,7 @@ from core.git_executable import get_git_executable, get_isolated_git_env, run_gi
 from debug import debug_warning
 
 T = TypeVar("T")
+logger = logging.getLogger(__name__)
 
 
 def _is_retryable_network_error(stderr: str) -> bool:
@@ -175,6 +177,7 @@ class WorktreeManager:
 
     # Timeout constants for subprocess operations
     GIT_PUSH_TIMEOUT = 120  # 2 minutes for git push (network operations)
+    GIT_MERGE_TIMEOUT = 300  # 5 minutes for merge operations (FIX-023)
     GH_CLI_TIMEOUT = 60  # 1 minute for gh CLI commands
     GH_QUERY_TIMEOUT = 30  # 30 seconds for gh CLI queries
 
@@ -494,6 +497,10 @@ class WorktreeManager:
                 f"  git branch -m {conflicting_branch} {conflicting_branch}-backup"
             )
 
+        # Prune stale worktree references (e.g., from crashed previous runs
+        # that left .git/worktrees/*/locked files behind)
+        self._run_git(["worktree", "prune"])
+
         # Remove existing if present (from crashed previous run)
         if worktree_path.exists():
             self._run_git(["worktree", "remove", "--force", str(worktree_path)])
@@ -595,6 +602,12 @@ class WorktreeManager:
         """
         Merge a spec's worktree branch back to base branch.
 
+        FIX-024: This method is the shared merge implementation used by both CLI
+        and UI paths. However, the CLI finalization flow (finalization.py) runs
+        additional post-merge steps (commit message generation, push, cleanup)
+        that the UI skips — the UI keeps the task in human_review for manual
+        commit/push. This is by design: CLI is fully automated, UI gives user control.
+
         Args:
             spec_name: The spec folder name
             delete_after: Whether to remove worktree and branch after merge
@@ -615,6 +628,59 @@ class WorktreeManager:
         else:
             print(f"Merging {info.branch} into {self.base_branch}...")
 
+        # Stash any uncommitted changes in the main project before merging
+        # to prevent "local changes would be overwritten by merge" errors
+        stashed = False
+        status_result = self._run_git(["status", "--porcelain"])
+        if status_result.stdout.strip():
+            stash_result = self._run_git(
+                ["stash", "push", "-m", f"auto-claude: pre-merge stash for {spec_name}"]
+            )
+            if stash_result.returncode == 0 and "No local changes" not in stash_result.stdout:
+                stashed = True
+                print("Stashed local changes before merge")
+
+        try:
+            merge_result = self._do_merge(info, spec_name, delete_after, no_commit)
+        finally:
+            # Always restore stashed changes (FIX-003)
+            if stashed:
+                pop_result = self._run_git(["stash", "pop"])
+                if pop_result.returncode != 0:
+                    # Show what's in the stash so the user knows what they need to recover
+                    stash_show = self._run_git(["stash", "show", "--stat"])
+                    stash_contents = stash_show.stdout.strip() if stash_show.returncode == 0 else "(could not read stash)"
+                    logger.error(
+                        f"STASH POP FAILED: User's uncommitted changes are stuck in git stash. "
+                        f"Contents:\n{stash_contents}\n"
+                        f"Stash pop error: {pop_result.stderr.strip()}"
+                    )
+                    print()
+                    print("=" * 60)
+                    print("ERROR: Could not restore your stashed changes!")
+                    print("=" * 60)
+                    print(f"Your uncommitted changes are saved in git stash:")
+                    print(f"  {stash_contents}")
+                    print()
+                    print("To recover them, run:")
+                    print(f"  cd {self.project_dir}")
+                    print("  git stash pop")
+                    print()
+                    print("If there are conflicts, use:")
+                    print("  git stash show -p | git apply --3way")
+                    print("=" * 60)
+                    # Return False — the merge may have succeeded but the user's
+                    # working state is not what they expect (FIX-003)
+                    return False
+                else:
+                    print("Restored stashed local changes")
+
+        return merge_result
+
+    def _do_merge(
+        self, info: WorktreeInfo, spec_name: str, delete_after: bool, no_commit: bool
+    ) -> bool:
+        """Execute the actual git merge after stashing is handled."""
         # Switch to base branch in main project, but skip if already on it
         # This avoids triggering git hooks unnecessarily
         current_branch = self._get_current_branch()
@@ -645,9 +711,15 @@ class WorktreeManager:
         else:
             merge_args.extend(["-m", f"auto-claude: Merge {info.branch}"])
 
-        result = self._run_git(merge_args)
+        # FIX-023: Use explicit merge timeout to prevent hangs on complex merges
+        result = self._run_git(merge_args, timeout=self.GIT_MERGE_TIMEOUT)
 
         if result.returncode != 0:
+            # Check for timeout (returncode -1 from _run_git)
+            if result.returncode == -1 and "timeout" in (result.stderr or "").lower():
+                print(f"Merge timed out after {self.GIT_MERGE_TIMEOUT}s. Aborting...")
+                self._run_git(["merge", "--abort"])
+                return False
             # Check if it's "already up to date" - not an error
             output = (result.stdout + result.stderr).lower()
             if "already up to date" in output or "already up-to-date" in output:

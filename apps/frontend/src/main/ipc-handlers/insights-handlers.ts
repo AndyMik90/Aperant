@@ -86,7 +86,7 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
       projectId: string,
       message: string,
       modelConfig?: InsightsModelConfig,
-      attachments?: Array<{ id: string; name: string; path: string; type: 'image' | 'text'; size: number }>
+      attachments?: Array<{ id: string; name: string; path: string; type: 'image' | 'text'; size: number; data?: string }>
     ) => {
       const project = projectStore.getProject(projectId);
       if (!project) {
@@ -113,12 +113,33 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         thinkingLevel: configWithSettings.thinkingLevel,
       });
 
-      // Log attachments if provided (for future implementation)
+      // Process image attachments: save base64 data to temp files
+      const imagePaths: string[] = [];
       if (attachments && attachments.length > 0) {
-        console.log("[Insights Handler] Attachments received:", attachments.length, "files");
-        // TODO: Process attachments when Python backend supports them
-        // Images should be converted to base64 and included in the API message
-        // Text files should be read and included as content
+        const tmpDir = path.join(app.getPath("temp"), "ac-jerry-paste");
+        try {
+          mkdirSync(tmpDir, { recursive: true });
+        } catch {
+          // Directory may already exist
+        }
+
+        for (const attachment of attachments) {
+          if (attachment.type === "image" && attachment.data) {
+            try {
+              // Extract base64 from data URL (data:image/png;base64,...)
+              const base64Match = attachment.data.match(/^data:image\/\w+;base64,(.+)$/);
+              if (base64Match) {
+                const buffer = Buffer.from(base64Match[1], "base64");
+                const filePath = path.join(tmpDir, `${attachment.id}.png`);
+                writeFileSync(filePath, buffer);
+                imagePaths.push(filePath);
+                console.log("[Insights Handler] Saved pasted image:", filePath);
+              }
+            } catch (err) {
+              console.error("[Insights Handler] Failed to save pasted image:", err);
+            }
+          }
+        }
       }
 
       // Await the async sendMessage to ensure proper error handling and
@@ -126,7 +147,13 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
       // the handler returns. This fixes race conditions on Windows where
       // environment setup wouldn't complete before process spawn.
       try {
-        await insightsService.sendMessage(projectId, project.path, message, configWithSettings);
+        await insightsService.sendMessage(
+          projectId,
+          project.path,
+          message,
+          configWithSettings,
+          imagePaths.length > 0 ? imagePaths : undefined
+        );
       } catch (error) {
         // Errors during sendMessage (executor errors) are already emitted via
         // the 'error' event, but we catch here to prevent unhandled rejection

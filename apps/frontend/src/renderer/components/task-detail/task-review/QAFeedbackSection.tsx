@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, type ClipboardEvent, type DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, RotateCcw, Loader2, Image as ImageIcon, X, BookOpen } from 'lucide-react';
+import { AlertCircle, RotateCcw, RefreshCw, Loader2, Image as ImageIcon, X, BookOpen } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Textarea } from '../../ui/textarea';
 import { Checkbox } from '../../ui/checkbox';
@@ -24,6 +24,10 @@ interface QAFeedbackSectionProps {
   isSubmitting: boolean;
   onFeedbackChange: (value: string) => void;
   onReject: () => void;
+  /** Callback to restart the task from planning phase */
+  onRestartFromPlanning?: () => void;
+  /** Whether a restart from planning is in progress */
+  isRestarting?: boolean;
   /** Image attachments for visual feedback - optional for backward compatibility */
   images?: ImageAttachment[];
   /** Callback when images change - optional for backward compatibility */
@@ -43,6 +47,8 @@ export function QAFeedbackSection({
   isSubmitting,
   onFeedbackChange,
   onReject,
+  onRestartFromPlanning,
+  isRestarting = false,
   images = [],
   onImagesChange,
   saveAsLearning = false,
@@ -407,6 +413,27 @@ export function QAFeedbackSection({
           </>
         )}
       </Button>
+
+      {onRestartFromPlanning && (
+        <Button
+          variant="outline"
+          onClick={onRestartFromPlanning}
+          disabled={isRestarting || isSubmitting}
+          className="w-full text-muted-foreground hover:text-foreground"
+        >
+          {isRestarting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {t('feedback.restarting', 'Restarting...')}
+            </>
+          ) : (
+            <>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              {t('feedback.restartFromPlanning', 'Restart from Planning')}
+            </>
+          )}
+        </Button>
+      )}
     </div>
   );
 }

@@ -52,6 +52,7 @@ import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import { preWarmToolCache } from './cli-tool-manager';
 import { initializeClaudeProfileManager } from './claude-profile-manager';
+import { isMacOS, isWindows } from './platform';
 import type { AppSettings } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -106,7 +107,12 @@ function cleanupStaleUpdateMetadata(): void {
         rmSync(stalePath, { recursive: true, force: true });
         console.warn(`[main] Cleaned up stale update metadata: ${stalePath}`);
       } catch (e) {
-        console.warn(`[main] Failed to clean up stale metadata at ${stalePath}:`, e);
+        // FIX 3.15: Only silence ENOENT errors; log all other file errors
+        const error = e as any;
+        if (error?.code && error.code !== 'ENOENT') {
+          console.warn(`[main] Unexpected file error during cleanup at ${stalePath} (code: ${error.code}):`, e);
+        }
+        // ENOENT is expected if path was already deleted - don't log
       }
     }
   }
@@ -121,10 +127,11 @@ function getIconPath(): string {
     : join(process.resourcesPath);
 
   let iconName: string;
-  if (process.platform === 'darwin') {
+  // FIX 3.12: Use platform abstraction instead of hardcoded process.platform
+  if (isMacOS()) {
     // Use PNG in dev mode (works better), ICNS in production
     iconName = is.dev ? 'icon-256.png' : 'icon.icns';
-  } else if (process.platform === 'win32') {
+  } else if (isWindows()) {
     iconName = 'icon.ico';
   } else {
     iconName = 'icon.png';
@@ -232,8 +239,8 @@ function createWindow(): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
   }
 
-  // Open DevTools in development
-  if (is.dev) {
+  // Open DevTools in development (can be disabled with NO_DEVTOOLS=1 environment variable)
+  if (is.dev && process.env.NO_DEVTOOLS !== '1') {
     mainWindow.webContents.openDevTools({ mode: 'right' });
   }
 
@@ -245,13 +252,15 @@ function createWindow(): void {
 
 // Set app name before ready (for dock tooltip on macOS in dev mode)
 app.setName('Jerry');
-if (process.platform === 'darwin') {
+// FIX 3.12: Use platform abstraction instead of hardcoded process.platform
+if (isMacOS()) {
   // Force the name to appear in dock on macOS
   app.name = 'Jerry';
 }
 
 // Fix Windows GPU cache permission errors (0x5 Access Denied)
-if (process.platform === 'win32') {
+// FIX 3.12: Use platform abstraction instead of hardcoded process.platform
+if (isWindows()) {
   app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
   app.commandLine.appendSwitch('disable-gpu-program-cache');
   console.log('[main] Applied Windows GPU cache fixes');
@@ -263,7 +272,8 @@ app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.autoclaude.ui');
 
   // Clear cache on Windows to prevent permission errors from stale cache
-  if (process.platform === 'win32') {
+  // FIX 3.12: Use platform abstraction instead of hardcoded process.platform
+  if (isWindows()) {
     session.defaultSession.clearCache()
       .then(() => console.log('[main] Cleared cache on startup'))
       .catch((err) => console.warn('[main] Failed to clear cache:', err));
@@ -274,7 +284,8 @@ app.whenReady().then(() => {
   cleanupStaleUpdateMetadata();
 
   // Set dock icon on macOS
-  if (process.platform === 'darwin') {
+  // FIX 3.12: Use platform abstraction instead of hardcoded process.platform
+  if (isMacOS()) {
     const iconPath = getIconPath();
     try {
       const icon = nativeImage.createFromPath(iconPath);
@@ -343,7 +354,11 @@ app.whenReady().then(() => {
               writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
               console.log('[main] Successfully saved migrated autoBuildPath to settings');
             } catch (writeError) {
-              console.warn('[main] Failed to save migrated autoBuildPath:', writeError);
+              // FIX 3.15: Only silence ENOENT errors; log all other file errors
+              const error = writeError as any;
+              if (error?.code && error.code !== 'ENOENT') {
+                console.warn('[main] Unexpected file error writing settings (code: ' + error.code + '):', writeError);
+              }
             }
           }
         }
@@ -363,9 +378,14 @@ app.whenReady().then(() => {
       agentManager.configure(settings.pythonPath, validAutoBuildPath);
     }
   } catch (error: unknown) {
-    // ENOENT means no settings file yet - that's fine, use defaults
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
-      // No settings file, use defaults - this is expected on first run
+    // FIX 3.15: Only silence ENOENT errors; log all other file errors
+    if (error && typeof error === 'object' && 'code' in error) {
+      const code = (error as any).code;
+      if (code === 'ENOENT') {
+        // No settings file, use defaults - this is expected on first run
+      } else {
+        console.warn('[main] Unexpected file error loading settings (code: ' + code + '):', error);
+      }
     } else {
       console.warn('[main] Failed to load settings for agent configuration:', error);
     }
@@ -458,29 +478,52 @@ app.whenReady().then(() => {
 
 // Quit when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  // FIX 3.12: Use platform abstraction instead of hardcoded process.platform
+  if (!isMacOS()) {
     app.quit();
   }
 });
 
-// Cleanup before quit
-app.on('before-quit', async () => {
-  // Stop periodic update checks
+// Cleanup before quit — use event.preventDefault() + explicit app.quit()
+// to ensure async cleanup completes before the process exits.
+let isQuitting = false;
+app.on('before-quit', (event) => {
+  // Prevent re-entrant quit loop
+  if (isQuitting) return;
+  isQuitting = true;
+
+  // Prevent Electron from quitting until cleanup is done
+  event.preventDefault();
+
+  // Stop periodic update checks (sync — safe to call inline)
   stopPeriodicUpdates();
 
-  // Stop usage monitor
+  // Stop usage monitor (sync — safe to call inline)
   const usageMonitor = getUsageMonitor();
   usageMonitor.stop();
   console.warn('[main] Usage monitor stopped');
 
-  // Kill all running agent processes
-  if (agentManager) {
-    await agentManager.killAll();
-  }
-  // Kill all terminal processes
-  if (terminalManager) {
-    await terminalManager.killAll();
-  }
+  // Run async cleanup with a hard timeout fallback
+  const QUIT_TIMEOUT_MS = 5000;
+  const cleanupPromise = (async () => {
+    if (agentManager) {
+      await agentManager.killAll();
+    }
+    if (terminalManager) {
+      await terminalManager.killAll();
+    }
+  })();
+
+  const timeoutPromise = new Promise<void>((resolve) =>
+    setTimeout(() => {
+      console.warn('[main] Quit cleanup timed out after 5s — forcing quit');
+      resolve();
+    }, QUIT_TIMEOUT_MS)
+  );
+
+  Promise.race([cleanupPromise, timeoutPromise]).finally(() => {
+    app.quit();
+  });
 });
 
 // Note: Uncaught exceptions and unhandled rejections are now

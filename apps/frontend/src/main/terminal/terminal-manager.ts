@@ -23,6 +23,7 @@ export class TerminalManager {
   private terminals: Map<string, TerminalProcess> = new Map();
   private getWindow: WindowGetter;
   private saveTimer: NodeJS.Timeout | null = null;
+  private isSaving = false; // Mutex to prevent concurrent persistence writes
   private lastNotifiedRateLimitReset: Map<string, string> = new Map();
   private eventCallbacks: TerminalEventHandler.EventHandlerCallbacks;
 
@@ -39,10 +40,20 @@ export class TerminalManager {
     );
 
     // Periodically save session data (every 30 seconds)
+    // Uses a mutex to prevent concurrent writes if persistence takes >30s
     this.saveTimer = setInterval(() => {
-      SessionHandler.persistAllSessionsAsync(this.terminals).catch((error) => {
-        console.error('[TerminalManager] Failed to persist sessions:', error);
-      });
+      if (this.isSaving) {
+        debugLog('[TerminalManager] Skipping save — previous persistence still in progress');
+        return;
+      }
+      this.isSaving = true;
+      SessionHandler.persistAllSessionsAsync(this.terminals)
+        .catch((error) => {
+          console.error('[TerminalManager] Failed to persist sessions:', error);
+        })
+        .finally(() => {
+          this.isSaving = false;
+        });
     }, 30000);
   }
 
@@ -123,12 +134,18 @@ export class TerminalManager {
    * Send input to a terminal
    */
   write(id: string, data: string): void {
-    debugLog('[TerminalManager:write] Writing to terminal:', id, 'data length:', data.length);
+    if (process.env.DEBUG === 'true') {
+      debugLog('[TerminalManager:write] Writing to terminal:', id, 'data length:', data.length);
+    }
     const terminal = this.terminals.get(id);
     if (terminal) {
-      debugLog('[TerminalManager:write] Terminal found, calling writeToPty...');
+      if (process.env.DEBUG === 'true') {
+        debugLog('[TerminalManager:write] Terminal found, calling writeToPty...');
+      }
       PtyManager.writeToPty(terminal, data);
-      debugLog('[TerminalManager:write] writeToPty completed');
+      if (process.env.DEBUG === 'true') {
+        debugLog('[TerminalManager:write] writeToPty completed');
+      }
     } else {
       debugError('[TerminalManager:write] Terminal NOT found:', id);
     }

@@ -443,6 +443,9 @@ class RecoveryManager:
         """
         Mark a subtask as needing human intervention.
 
+        Updates both attempt_history.json (for recovery tracking) and
+        implementation_plan.json (so the coder loop skips it).
+
         Args:
             subtask_id: ID of the subtask
             reason: Why it's stuck
@@ -468,6 +471,24 @@ class RecoveryManager:
             history["subtasks"][subtask_id]["status"] = "stuck"
 
         self._save_attempt_history(history)
+
+        # Also mark the subtask as failed in implementation_plan.json so the
+        # coder loop's get_next_subtask() won't keep retrying it.
+        try:
+            plan_file = self.spec_dir / "implementation_plan.json"
+            if plan_file.exists():
+                plan = json.loads(plan_file.read_text(encoding="utf-8"))
+                for phase in plan.get("phases", []):
+                    for subtask in phase.get("subtasks", []):
+                        if subtask.get("id") == subtask_id:
+                            subtask["status"] = "failed"
+                            subtask["notes"] = f"Stuck: {reason}"
+                            break
+                from core.file_utils import write_json_atomic
+
+                write_json_atomic(plan_file, plan, indent=2)
+        except Exception:
+            pass  # Best-effort — attempt_history is the source of truth
 
     def get_stuck_subtasks(self) -> list[dict]:
         """

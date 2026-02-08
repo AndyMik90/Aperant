@@ -190,16 +190,14 @@ export class ExecutionPhaseParser extends BasePhaseParser<ExecutionPhase> {
       return { phase: 'coding', message: 'Build paused - subtasks still pending' };
     }
 
-    // Error/failure detection - be specific to avoid false positives
-    const isToolError = lowerLog.includes('tool error') || lowerLog.includes('tool_use_error');
-    if (
-      !isToolError &&
-      (lowerLog.includes('build failed') ||
-        lowerLog.includes('fatal error') ||
-        lowerLog.includes('agent failed'))
-    ) {
-      return { phase: 'failed', message: originalLog.trim().substring(0, 200) };
-    }
+    // NOTE: Don't detect 'failed' phase via fallback text matching.
+    // Phrases like "build failed", "fatal error", "agent failed" appear in normal
+    // tool output (npm errors, test failures, etc.) and trigger false positives
+    // while the process is still running. Since 'failed' is a terminal phase,
+    // false positives also block all subsequent phase transitions.
+    // The 'failed' phase is reliably emitted by:
+    //   1. Structured __EXEC_PHASE__ events from the Python backend
+    //   2. The process close handler (agent-process.ts) on non-zero exit
 
     return null;
   }

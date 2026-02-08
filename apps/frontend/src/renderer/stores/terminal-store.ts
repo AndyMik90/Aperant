@@ -151,6 +151,12 @@ interface TerminalState {
     isOpen: boolean;
     taskId: string | null;
     taskTitle: string;
+    // Multi-tab support: array of open terminal tabs
+    openTabs: Array<{ taskId: string; taskTitle: string }>;
+    // Split mode support
+    splitMode: boolean;
+    splitTaskId: string | null;
+    splitTaskTitle: string;
   };
 
   // Actions
@@ -186,7 +192,10 @@ interface TerminalState {
   // Bottom panel actions
   openBottomPanel: (taskId: string, taskTitle: string) => void;
   closeBottomPanel: () => void;
+  closeBottomPanelTab: (taskId: string) => void;
   minimizeBottomPanel: () => void;
+  toggleSplitMode: () => void;
+  setSplitTask: (taskId: string, taskTitle: string) => void;
 
   // Selectors
   getTerminal: (id: string) => Terminal | undefined;
@@ -228,7 +237,11 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   bottomPanel: {
     isOpen: false,
     taskId: null,
-    taskTitle: ''
+    taskTitle: '',
+    openTabs: [],
+    splitMode: false,
+    splitTaskId: null,
+    splitTaskTitle: ''
   },
 
   addTerminal: (cwd?: string, projectPath?: string) => {
@@ -534,13 +547,6 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 
   appendStructuredBlock: (id: string, block: StructuredBlock) => {
-    // Debug log to track structured block flow
-    console.log(`[TerminalStore] appendStructuredBlock for ${id}:`, {
-      type: block.type,
-      ...(block.type === 'tool_use' ? { name: block.name, hasInput: !!block.input, inputKeys: block.input ? Object.keys(block.input) : [] } : {}),
-      ...(block.type === 'text' ? { contentLength: block.content?.length } : {}),
-    });
-
     set((state) => ({
       terminals: state.terminals.map((t) => {
         if (t.id !== id || !t.isTaskMonitor) return t;
@@ -777,12 +783,18 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   // Bottom panel actions
   openBottomPanel: (taskId: string, taskTitle: string) => {
-    set({
-      bottomPanel: {
-        isOpen: true,
-        taskId,
-        taskTitle
-      }
+    set((state) => {
+      const existingTabs = state.bottomPanel.openTabs;
+      const alreadyOpen = existingTabs.some(tab => tab.taskId === taskId);
+      return {
+        bottomPanel: {
+          ...state.bottomPanel,
+          isOpen: true,
+          taskId,
+          taskTitle,
+          openTabs: alreadyOpen ? existingTabs : [...existingTabs, { taskId, taskTitle }]
+        }
+      };
     });
   },
 
@@ -795,11 +807,75 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }));
   },
 
+  closeBottomPanelTab: (taskId: string) => {
+    set((state) => {
+      const newTabs = state.bottomPanel.openTabs.filter(tab => tab.taskId !== taskId);
+      // If we closed the active tab, switch to another tab or close panel
+      if (state.bottomPanel.taskId === taskId) {
+        if (newTabs.length > 0) {
+          const lastTab = newTabs[newTabs.length - 1];
+          return {
+            bottomPanel: {
+              ...state.bottomPanel,
+              isOpen: true,
+              taskId: lastTab.taskId,
+              taskTitle: lastTab.taskTitle,
+              openTabs: newTabs
+            }
+          };
+        }
+        // No tabs left — close panel
+        return {
+          bottomPanel: {
+            isOpen: false,
+            taskId: null,
+            taskTitle: '',
+            openTabs: [],
+            splitMode: false,
+            splitTaskId: null,
+            splitTaskTitle: ''
+          }
+        };
+      }
+      // Closed a non-active tab
+      return {
+        bottomPanel: {
+          ...state.bottomPanel,
+          openTabs: newTabs
+        }
+      };
+    });
+  },
+
   minimizeBottomPanel: () => {
     set((state) => ({
       bottomPanel: {
         ...state.bottomPanel,
         isOpen: false
+      }
+    }));
+  },
+
+  toggleSplitMode: () => {
+    set((state) => ({
+      bottomPanel: {
+        ...state.bottomPanel,
+        splitMode: !state.bottomPanel.splitMode,
+        // Reset split task when disabling split mode
+        ...(state.bottomPanel.splitMode ? {
+          splitTaskId: null,
+          splitTaskTitle: ''
+        } : {})
+      }
+    }));
+  },
+
+  setSplitTask: (taskId: string, taskTitle: string) => {
+    set((state) => ({
+      bottomPanel: {
+        ...state.bottomPanel,
+        splitTaskId: taskId,
+        splitTaskTitle: taskTitle
       }
     }));
   },
@@ -810,6 +886,10 @@ const restoringProjects = new Set<string>();
 
 // Track terminals being disposed to prevent recreation during disposal
 const disposingTerminals = new Set<string>();
+
+// Track tasks that have already been queued for auto-restart to prevent
+// duplicate restarts when recreateTaskMonitorTerminals is called multiple times
+const pendingRestartTasks = new Set<string>();
 
 /**
  * Restore terminal sessions for a project from persisted storage
@@ -1028,11 +1108,13 @@ export async function recreateTaskMonitorTerminals(
 
       // FIX-3: For planning tasks, check if process is running and restart if not
       // Planning agents ARE auto-restarted to resume spec creation after app restart
-      if (task.status === 'planning') {
+      // Main process recoverStuckTask checks hasSpec to skip completed plans
+      if (task.status === 'planning' && !pendingRestartTasks.has(task.id)) {
         try {
           const runningResult = await window.electronAPI.checkTaskRunning(task.id);
           if (runningResult.success && runningResult.data === false) {
             console.log(`[TerminalStore] Task ${task.id} is planning but no process running, will restart planning agent`);
+            pendingRestartTasks.add(task.id);
             tasksToRestart.push(task.id);
           } else if (runningResult.success && runningResult.data === true) {
             console.log(`[TerminalStore] Task ${task.id} planning agent is already running`);
@@ -1061,6 +1143,9 @@ export async function recreateTaskMonitorTerminals(
             }
           } catch (error) {
             debugError(`[TerminalStore] Error restarting task ${taskId}:`, error);
+          } finally {
+            // Clear dedup guard so future restarts (after a real interruption) can proceed
+            pendingRestartTasks.delete(taskId);
           }
         }
       }, 1000); // 1 second delay to let terminals initialize

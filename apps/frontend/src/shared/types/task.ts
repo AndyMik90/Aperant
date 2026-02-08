@@ -267,6 +267,9 @@ export interface TaskMetadata {
   prUrl?: string;  // GitHub PR URL if task has been submitted as a PR
   useWorktree?: boolean;  // If false, use direct mode (no worktree isolation) - default is true for safety
 
+  // Title preservation
+  originalTitle?: string;  // User-provided title at creation time — agents cannot overwrite this
+
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
   archivedInVersion?: string;  // Version in which task was archived (from changelog)

@@ -13,6 +13,11 @@ import { findTaskAndProject } from './shared';
 import { fileWatcher } from '../../file-watcher';
 import { getTaskWorktreeDir } from '../../worktree-paths';
 
+// Serialize task creation to prevent specId race condition.
+// The await in title generation yields control, allowing concurrent TASK_CREATE
+// calls to read the same max spec number from the directory listing.
+let taskCreateLock: Promise<void> = Promise.resolve();
+
 /**
  * Register task CRUD (Create, Read, Update, Delete) handlers
  *
@@ -53,6 +58,18 @@ export function registerTaskCRUDHandlers(
         return { success: false, error: 'Project not found' };
       }
 
+      // Serialize task creation: wait for any previous TASK_CREATE to finish
+      // so that specId generation reads the latest directory state.
+      let resolveCreation!: () => void;
+      const previousLock = taskCreateLock;
+      taskCreateLock = new Promise<void>(r => { resolveCreation = r; });
+      try {
+        await previousLock;
+      } catch {
+        // Previous creation failed - continue anyway
+      }
+
+      try {
       // Auto-generate title if empty using Claude AI
       let finalTitle = title;
       if (!title || !title.trim()) {
@@ -105,7 +122,7 @@ export function registerTaskCRUDHandlers(
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '')
-        .substring(0, 50);
+        .substring(0, 50) || 'task';
       const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
 
       // Create spec directory
@@ -115,7 +132,9 @@ export function registerTaskCRUDHandlers(
       // Build metadata with source type
       const taskMetadata: TaskMetadata = {
         sourceType: 'manual',
-        ...metadata
+        ...metadata,
+        // Preserve the user-provided title so agents can't overwrite it
+        originalTitle: metadata?.originalTitle || finalTitle,
       };
 
       // Process and save attached images
@@ -153,13 +172,16 @@ export function registerTaskCRUDHandlers(
       }
 
       // Create initial implementation_plan.json (task is created but not started)
+      // Status must be 'planning' to match the task object status and prevent
+      // inconsistency when getTasks() reads the file on refresh
       const now = new Date().toISOString();
       const implementationPlan = {
         feature: finalTitle,
         description: description,
         created_at: now,
         updated_at: now,
-        status: 'pending',
+        status: 'planning',
+        planStatus: 'pending',
         phases: []
       };
 
@@ -201,6 +223,8 @@ export function registerTaskCRUDHandlers(
         subtasks: [],
         logs: [],
         metadata: taskMetadata,
+        // SUG-6: Map metadata dependencies to top-level field for blocking logic
+        dependencies: taskMetadata.dependencies?.filter((d): d is string => typeof d === 'string' && d.length > 0) || undefined,
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -300,6 +324,9 @@ export function registerTaskCRUDHandlers(
       }
 
       return { success: true, data: task };
+      } finally {
+        resolveCreation();
+      }
     }
   );
 
@@ -329,7 +356,14 @@ export function registerTaskCRUDHandlers(
       const deletedPaths: string[] = [];
       const errors: string[] = [];
 
-      // FIX-27: Delete from ALL locations - main project AND worktrees
+      // FIX-025: Task delete cleans up spec directories from main project and
+      // worktrees. However, archived tasks that are NOT explicitly deleted will
+      // accumulate in .auto-claude/specs/ indefinitely. There is no automatic GC
+      // for old archived specs. cleanup_old_worktrees() in worktree.py handles
+      // stale worktrees (30+ days) but spec dirs are not covered.
+      // TODO: Add age-based GC for archived spec directories.
+
+      // Delete from ALL locations - main project AND worktrees
 
       // 1. Delete from main project specs directory
       const mainSpecDir = path.join(project.path, specsBaseDir, task.specId);

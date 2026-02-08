@@ -64,8 +64,8 @@
   "columns": {
     "planning": "Planification",
     "coding": "Codage",
-    "ai_review": "Révision IA",
-    "human_review": "Révision humaine",
+    "ai_review": "Tests",
+    "human_review": "Révision utilisateur",
     "done": "Terminé",
     "pr_created": "PR créée"
   },

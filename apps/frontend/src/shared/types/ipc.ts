@@ -166,6 +166,7 @@ export interface ElectronAPI {
   recoverStuckTask: (taskId: string, options?: TaskRecoveryOptions) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
   sendMessageToTask: (taskId: string, message: string) => Promise<IPCResult<boolean>>;
+  sendMessageToSupervisor: (taskId: string, message: string) => Promise<IPCResult<boolean>>;
 
   // Workspace management (for human review)
   // Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
@@ -193,6 +194,8 @@ export interface ElectronAPI {
   onTaskExecutionProgress: (callback: (taskId: string, progress: ExecutionProgress) => void) => () => void;
   onTaskCompanionSpawned: (callback: (taskId: string, projectId?: string) => void) => () => void;
   onTaskCompanionStopped: (callback: (taskId: string, projectId?: string) => void) => () => void;
+  onTaskSupervisorSpawned: (callback: (taskId: string, projectId?: string) => void) => () => void;
+  onTaskSupervisorStopped: (callback: (taskId: string, projectId?: string) => void) => () => void;
   readSpecFile: (taskId: string, fileName: string) => Promise<IPCResult<string | null>>;
 
   // Terminal operations
@@ -685,7 +688,7 @@ export interface ElectronAPI {
 
   // Insights operations
   getInsightsSession: (projectId: string) => Promise<IPCResult<InsightsSession | null>>;
-  sendInsightsMessage: (projectId: string, message: string, modelConfig?: InsightsModelConfig, attachments?: Array<{ id: string; name: string; path: string; type: 'image' | 'text'; size: number }>) => void;
+  sendInsightsMessage: (projectId: string, message: string, modelConfig?: InsightsModelConfig, attachments?: Array<{ id: string; name: string; path: string; type: 'image' | 'text'; size: number; data?: string }>) => void;
   clearInsightsSession: (projectId: string) => Promise<IPCResult>;
   createTaskFromInsights: (
     projectId: string,

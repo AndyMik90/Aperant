@@ -10,6 +10,7 @@ This module emits __SDK_MSG__ markers for the rich task monitor UI.
 See docs/TASK_MONITOR_ARCHITECTURE.md for details.
 """
 
+import asyncio
 import json
 import logging
 from pathlib import Path
@@ -22,6 +23,7 @@ from linear_updater import (
     linear_subtask_completed,
     linear_subtask_failed,
 )
+from core.file_utils import write_json_atomic
 from progress import (
     count_subtasks_detailed,
     is_build_complete,
@@ -75,7 +77,106 @@ def emit_sdk_msg(msg_type: str, data: dict[str, Any]) -> None:
         print(f"__SDK_MSG__:{json.dumps(payload)}", flush=True)
     except Exception as e:
         # SWEEP-10: Log SDK emission failures at debug level
-        logger.debug("SDK message emission failed for type %s: %s", msg_type, e)
+        logger.debug("[Session] SDK message emission failed for type %s: %s", msg_type, e)
+
+
+async def _background_enrichment(
+    spec_dir: Path,
+    project_dir: Path,
+    subtask_id: str,
+    session_num: int,
+    commit_before: str | None,
+    commit_after: str | None,
+    success: bool,
+    recovery_manager: RecoveryManager,
+    linear_enabled: bool = False,
+) -> None:
+    """
+    Background enrichment: insight extraction, memory saves, Linear updates.
+
+    Runs as a fire-and-forget asyncio task so the next subtask can start immediately.
+    None of this work blocks the critical path.
+    """
+    try:
+        # Linear update
+        if linear_enabled:
+            try:
+                if success:
+                    subtasks_detail = count_subtasks_detailed(spec_dir)
+                    await linear_subtask_completed(
+                        spec_dir=spec_dir,
+                        subtask_id=subtask_id,
+                        completed_count=subtasks_detail["completed"],
+                        total_count=subtasks_detail["total"],
+                    )
+                else:
+                    attempt_count = recovery_manager.get_attempt_count(subtask_id)
+                    await linear_subtask_failed(
+                        spec_dir=spec_dir,
+                        subtask_id=subtask_id,
+                        attempt=attempt_count,
+                        error_summary="Session ended without completion",
+                    )
+            except Exception as e:
+                logger.debug(f"[Background] Linear update failed: {e}")
+
+        # Extract insights (LLM call — the expensive part)
+        extracted_insights = None
+        try:
+            extracted_insights = await extract_session_insights(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                subtask_id=subtask_id,
+                session_num=session_num,
+                commit_before=commit_before,
+                commit_after=commit_after,
+                success=success,
+                recovery_manager=recovery_manager,
+            )
+            if success and extracted_insights:
+                insight_count = len(extracted_insights.get("file_insights", []))
+                pattern_count = len(extracted_insights.get("patterns_discovered", []))
+                if insight_count > 0 or pattern_count > 0:
+                    logger.info(
+                        f"[Background] Extracted {insight_count} insights, {pattern_count} patterns for {subtask_id}"
+                    )
+        except Exception as e:
+            logger.debug(f"[Background] Insight extraction failed: {e}")
+
+        # Save session memory (Graphiti or file-based)
+        try:
+            save_success, storage_type = await save_session_memory(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                subtask_id=subtask_id,
+                session_num=session_num,
+                success=success,
+                subtasks_completed=[subtask_id] if success else [],
+                discoveries=extracted_insights,
+            )
+            if save_success:
+                logger.info(f"[Background] Memory saved ({storage_type}) for {subtask_id}")
+        except Exception as e:
+            logger.debug(f"[Background] Memory save failed: {e}")
+
+        # Promote patterns/gotchas to project-level memory
+        if extracted_insights:
+            try:
+                from memory.project_memory import append_to_project_memory
+
+                for pattern in extracted_insights.get("patterns_discovered", []):
+                    append_to_project_memory(
+                        project_dir, "patterns", pattern, f"Task {subtask_id}"
+                    )
+                for gotcha in extracted_insights.get("gotchas_discovered", []):
+                    append_to_project_memory(
+                        project_dir, "gotchas", gotcha, f"Task {subtask_id}"
+                    )
+            except Exception as e:
+                logger.debug(f"[Background] Failed to promote insights: {e}")
+
+    except Exception as e:
+        logger.warning(f"[Background] Enrichment failed for {subtask_id}: {e}")
 
 
 async def post_session_processing(
@@ -91,24 +192,13 @@ async def post_session_processing(
     source_spec_dir: Path | None = None,
 ) -> bool:
     """
-    Process session results and update memory automatically.
+    Process session results — fast critical-path only.
 
-    This runs in Python (100% reliable) instead of relying on agent compliance.
+    Critical path (synchronous): status check, recovery tracking, commit tracking.
+    Expensive work (background): insight extraction, memory saves, Linear updates.
 
-    Args:
-        spec_dir: Spec directory containing memory/
-        project_dir: Project root for git operations
-        subtask_id: The subtask that was being worked on
-        session_num: Current session number
-        commit_before: Git commit hash before session
-        commit_count_before: Number of commits before session
-        recovery_manager: Recovery manager instance
-        linear_enabled: Whether Linear integration is enabled
-        status_manager: Optional status manager for ccstatusline
-        source_spec_dir: Original spec directory (for syncing back from worktree)
-
-    Returns:
-        True if subtask was completed successfully
+    Returns immediately after determining success/failure so the next subtask
+    can start without waiting for LLM insight extraction or network calls.
     """
     print()
     print(muted("--- Post-Session Processing ---"))
@@ -139,10 +229,9 @@ async def post_session_processing(
     print_key_value("New commits", str(new_commits))
 
     if subtask_status == "completed":
-        # Success! Record the attempt and good commit
+        # Success! Record the attempt and good commit (fast, critical)
         print_status(f"Subtask {subtask_id} completed successfully", "success")
 
-        # Update status file
         if status_manager:
             subtasks = count_subtasks_detailed(spec_dir)
             status_manager.update_subtasks(
@@ -151,7 +240,6 @@ async def post_session_processing(
                 in_progress=0,
             )
 
-        # Record successful attempt
         recovery_manager.record_attempt(
             subtask_id=subtask_id,
             session=session_num,
@@ -159,91 +247,51 @@ async def post_session_processing(
             approach=f"Implemented: {subtask.get('description', 'subtask')[:100]}",
         )
 
-        # Record good commit for rollback safety
         if commit_after and commit_after != commit_before:
             recovery_manager.record_good_commit(commit_after, subtask_id)
             print_status(f"Recorded good commit: {commit_after[:8]}", "success")
 
-        # Record Linear session result (if enabled)
-        if linear_enabled:
-            # Get progress counts for the comment
-            subtasks_detail = count_subtasks_detailed(spec_dir)
-            await linear_subtask_completed(
-                spec_dir=spec_dir,
-                subtask_id=subtask_id,
-                completed_count=subtasks_detail["completed"],
-                total_count=subtasks_detail["total"],
-            )
-            print_status("Linear progress recorded", "success")
-
-        # Extract rich insights from session (LLM-powered analysis)
-        try:
-            extracted_insights = await extract_session_insights(
-                spec_dir=spec_dir,
-                project_dir=project_dir,
-                subtask_id=subtask_id,
-                session_num=session_num,
-                commit_before=commit_before,
-                commit_after=commit_after,
-                success=True,
-                recovery_manager=recovery_manager,
-            )
-            insight_count = len(extracted_insights.get("file_insights", []))
-            pattern_count = len(extracted_insights.get("patterns_discovered", []))
-            if insight_count > 0 or pattern_count > 0:
-                print_status(
-                    f"Extracted {insight_count} file insights, {pattern_count} patterns",
-                    "success",
-                )
-        except Exception as e:
-            logger.warning(f"Insight extraction failed: {e}")
-            extracted_insights = None
-
-        # Save session memory (Graphiti=primary, file-based=fallback)
-        try:
-            save_success, storage_type = await save_session_memory(
-                spec_dir=spec_dir,
-                project_dir=project_dir,
-                subtask_id=subtask_id,
-                session_num=session_num,
-                success=True,
-                subtasks_completed=[subtask_id],
-                discoveries=extracted_insights,
-            )
-            if save_success:
-                if storage_type == "graphiti":
-                    print_status("Session saved to Graphiti memory", "success")
-                else:
-                    print_status(
-                        "Session saved to file-based memory (fallback)", "info"
-                    )
-            else:
-                print_status("Failed to save session memory", "warning")
-        except Exception as e:
-            logger.warning(f"Error saving session memory: {e}")
-            print_status("Memory save failed", "warning")
-
-        # Promote patterns and gotchas to project-level memory
-        if extracted_insights:
-            try:
-                from memory.project_memory import append_to_project_memory
-
-                for pattern in extracted_insights.get("patterns_discovered", []):
-                    append_to_project_memory(
-                        project_dir, "patterns", pattern, f"Task {subtask_id}"
-                    )
-                for gotcha in extracted_insights.get("gotchas_discovered", []):
-                    append_to_project_memory(
-                        project_dir, "gotchas", gotcha, f"Task {subtask_id}"
-                    )
-            except Exception as e:
-                logger.warning(f"Failed to promote insights to project memory: {e}")
+        # Fire background enrichment (don't block next subtask)
+        asyncio.create_task(_background_enrichment(
+            spec_dir=spec_dir,
+            project_dir=project_dir,
+            subtask_id=subtask_id,
+            session_num=session_num,
+            commit_before=commit_before,
+            commit_after=commit_after,
+            success=True,
+            recovery_manager=recovery_manager,
+            linear_enabled=linear_enabled,
+        ))
+        print_status("Background enrichment started", "info")
 
         return True
 
     elif subtask_status == "in_progress":
-        # Session ended without completion
+        # Session ended without completion — reset subtask to pending so it can be retried
         print_status(f"Subtask {subtask_id} still in progress", "warning")
+
+        # Reset subtask status to pending so it will be picked up on next run.
+        # Reload the plan fresh to avoid clobbering concurrent changes.
+        # NOTE: If this write fails, the subtask stays in_progress forever and the
+        # auto-continue loop would retry it infinitely. We must propagate the error.
+        plan_file = spec_dir / "implementation_plan.json"
+        try:
+            fresh_plan = load_implementation_plan(spec_dir)
+            if fresh_plan:
+                fresh_subtask = find_subtask_in_plan(fresh_plan, subtask_id)
+                if fresh_subtask and fresh_subtask.get("status") == "in_progress":
+                    fresh_subtask["status"] = "pending"
+                    write_json_atomic(plan_file, fresh_plan, indent=2)
+                    print_status(f"Reset subtask {subtask_id} from in_progress to pending", "info")
+        except Exception as e:
+            logging.error(f"CRITICAL: Failed to reset subtask {subtask_id} to pending: {e}")
+            print_status(
+                f"CRITICAL: Could not reset subtask {subtask_id} — plan file may be corrupted. "
+                "Halting auto-continue to prevent infinite retry loop.",
+                "error",
+            )
+            raise
 
         recovery_manager.record_attempt(
             subtask_id=subtask_id,
@@ -253,52 +301,24 @@ async def post_session_processing(
             error="Subtask not marked as completed",
         )
 
-        # Still record commit if one was made (partial progress)
         if commit_after and commit_after != commit_before:
             recovery_manager.record_good_commit(commit_after, subtask_id)
             print_status(
                 f"Recorded partial progress commit: {commit_after[:8]}", "info"
             )
 
-        # Record Linear session result (if enabled)
-        if linear_enabled:
-            attempt_count = recovery_manager.get_attempt_count(subtask_id)
-            await linear_subtask_failed(
-                spec_dir=spec_dir,
-                subtask_id=subtask_id,
-                attempt=attempt_count,
-                error_summary="Session ended without completion",
-            )
-
-        # Extract insights even from failed sessions (valuable for future attempts)
-        try:
-            extracted_insights = await extract_session_insights(
-                spec_dir=spec_dir,
-                project_dir=project_dir,
-                subtask_id=subtask_id,
-                session_num=session_num,
-                commit_before=commit_before,
-                commit_after=commit_after,
-                success=False,
-                recovery_manager=recovery_manager,
-            )
-        except Exception as e:
-            logger.debug(f"Insight extraction failed for incomplete session: {e}")
-            extracted_insights = None
-
-        # Save failed session memory (to track what didn't work)
-        try:
-            await save_session_memory(
-                spec_dir=spec_dir,
-                project_dir=project_dir,
-                subtask_id=subtask_id,
-                session_num=session_num,
-                success=False,
-                subtasks_completed=[],
-                discoveries=extracted_insights,
-            )
-        except Exception as e:
-            logger.debug(f"Failed to save incomplete session memory: {e}")
+        # Fire background enrichment for failed session too
+        asyncio.create_task(_background_enrichment(
+            spec_dir=spec_dir,
+            project_dir=project_dir,
+            subtask_id=subtask_id,
+            session_num=session_num,
+            commit_before=commit_before,
+            commit_after=commit_after,
+            success=False,
+            recovery_manager=recovery_manager,
+            linear_enabled=linear_enabled,
+        ))
 
         return False
 
@@ -339,7 +359,7 @@ async def post_session_processing(
                 recovery_manager=recovery_manager,
             )
         except Exception as e:
-            logger.debug(f"Insight extraction failed for failed session: {e}")
+            logger.debug(f"[Session] Insight extraction failed for failed session: {e}")
             extracted_insights = None
 
         # Save failed session memory (to track what didn't work)
@@ -354,7 +374,7 @@ async def post_session_processing(
                 discoveries=extracted_insights,
             )
         except Exception as e:
-            logger.debug(f"Failed to save failed session memory: {e}")
+            logger.debug(f"[Session] Failed to save failed session memory: {e}")
 
         return False
 
@@ -406,8 +426,14 @@ async def run_agent_session(
     message_count = 0
     tool_count = 0
 
-    # Import time for drift tracking
+    # Import time for drift tracking and validation
     import time
+
+    # Validate input parameters
+    if not message or not isinstance(message, str):
+        raise ValueError("[Session] Invalid prompt: message must be a non-empty string")
+    if not spec_dir or not spec_dir.exists():
+        raise ValueError(f"[Session] Invalid spec directory: {spec_dir}")
 
     try:
         # Send the query
@@ -526,8 +552,14 @@ async def run_agent_session(
                                     success=not is_error,
                                     duration_ms=duration_ms,
                                 )
+                                # Emit interim drift report every 10 tool calls
+                                if drift_monitor.tool_count % 10 == 0:
+                                    interim = drift_monitor.get_interim_report()
+                                    if interim:
+                                        from phase_event import emit_drift_interim
+                                        emit_drift_interim(interim)
                             except Exception as e:
-                                logger.debug(f"Drift tracking failed: {e}")
+                                logger.debug(f"[Session] Drift tracking failed: {e}")
 
                         current_tool = None
                         current_tool_start_time = None
@@ -559,7 +591,7 @@ async def run_agent_session(
                                             user_message=content,
                                         )
                                     except Exception as e:
-                                        logger.warning(f"Failed to save interrupt state: {e}")
+                                        logger.debug(f"[Session] Failed to save interrupt state: {e}")
                                     return "stopped", response_text
 
                                 if is_pause_command(content):
@@ -581,7 +613,7 @@ async def run_agent_session(
                                             user_message=content,
                                         )
                                     except Exception as e:
-                                        logger.warning(f"Failed to save interrupt state: {e}")
+                                        logger.debug(f"[Session] Failed to save interrupt state: {e}")
                                     return "paused", response_text
 
                                 # Regular message (not a control command)
@@ -602,7 +634,7 @@ async def run_agent_session(
                                         else:
                                             memory_handlers.create(feedback_path, f"# User Feedback Log\n\n{feedback_content}")
                                     except Exception as e:
-                                        logger.warning(f"Failed to save user feedback to memory: {e}")
+                                        logger.debug(f"[Session] Failed to save user feedback to memory: {e}")
 
         print("\n" + "-" * 70 + "\n")
 

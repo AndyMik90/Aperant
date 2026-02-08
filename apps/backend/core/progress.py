@@ -9,6 +9,7 @@ Enhanced with colored output, icons, and better visual formatting.
 """
 
 import json
+import logging
 from pathlib import Path
 
 from core.plan_normalization import normalize_subtask_aliases
@@ -400,6 +401,29 @@ def get_current_phase(spec_dir: Path) -> dict | None:
         return None
 
 
+def _load_stuck_subtask_ids(spec_dir: Path) -> set[str]:
+    """
+    Load the set of subtask IDs that have been marked as stuck in attempt_history.json.
+
+    This provides a defense-in-depth check: even if the plan file wasn't updated
+    to mark a subtask as 'failed', the attempt_history is the source of truth
+    for stuck subtasks (FIX-005).
+    """
+    attempt_file = spec_dir / "memory" / "attempt_history.json"
+    if not attempt_file.exists():
+        return set()
+    try:
+        with open(attempt_file, encoding="utf-8") as f:
+            history = json.load(f)
+        return {
+            entry["subtask_id"]
+            for entry in history.get("stuck_subtasks", [])
+            if isinstance(entry, dict) and "subtask_id" in entry
+        }
+    except (OSError, json.JSONDecodeError):
+        return set()
+
+
 def get_next_subtask(spec_dir: Path) -> dict | None:
     """
     Find the next subtask to work on, respecting phase dependencies.
@@ -420,6 +444,10 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
             plan = json.load(f)
 
         phases = plan.get("phases", [])
+
+        # FIX-005: Load stuck subtask IDs from attempt_history.json as a safety net.
+        # Even if the plan file wasn't updated to mark these as 'failed', skip them.
+        stuck_ids = _load_stuck_subtask_ids(spec_dir)
 
         # Build a map of phase completion
         phase_complete: dict[str, bool] = {}
@@ -459,6 +487,14 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
             for subtask in phase.get("subtasks", phase.get("chunks", [])):
                 status = subtask.get("status", "pending")
                 if status in {"pending", "not_started", "not started"}:
+                    subtask_id = subtask.get("id", "")
+                    # FIX-005: Skip subtasks marked as stuck in attempt_history
+                    if subtask_id and subtask_id in stuck_ids:
+                        logging.info(
+                            "Skipping stuck subtask %s (marked in attempt_history)",
+                            subtask_id,
+                        )
+                        continue
                     subtask_out, _changed = normalize_subtask_aliases(subtask)
                     subtask_out["status"] = "pending"
                     return {
@@ -472,6 +508,140 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
 
     except (OSError, json.JSONDecodeError):
         return None
+
+
+def get_pending_subtasks_batch(spec_dir: Path, max_batch: int = 10) -> list[dict]:
+    """
+    Get a batch of pending subtasks from the current available phase.
+
+    Collects up to `max_batch` pending subtasks from phases whose dependencies
+    are satisfied. This allows the ralph agent to work through multiple subtasks
+    in a single session instead of one-at-a-time.
+
+    FIX-022: Subtasks within a phase are returned in declaration order (the order
+    they appear in implementation_plan.json). The plan generator is responsible for
+    ordering subtasks correctly within each phase. Inter-phase dependencies ARE
+    enforced (a phase's subtasks are only returned when all depends_on phases are
+    complete), but intra-phase subtask ordering relies on the plan's declaration
+    order. If a subtask truly depends on a prior subtask's output, they should be
+    in separate phases with an explicit depends_on relationship.
+
+    Args:
+        spec_dir: Directory containing implementation_plan.json
+        max_batch: Maximum number of subtasks to return (default 10)
+
+    Returns:
+        List of subtask dicts, empty if none available
+    """
+    plan_file = spec_dir / "implementation_plan.json"
+
+    if not plan_file.exists():
+        return []
+
+    try:
+        with open(plan_file, encoding="utf-8") as f:
+            plan = json.load(f)
+
+        phases = plan.get("phases", [])
+
+        # Build phase completion map
+        phase_complete: dict[str, bool] = {}
+        for i, phase in enumerate(phases):
+            phase_id_value = phase.get("id")
+            phase_id_raw = (
+                phase_id_value if phase_id_value is not None else phase.get("phase")
+            )
+            phase_id_key = (
+                str(phase_id_raw) if phase_id_raw is not None else f"unknown:{i}"
+            )
+            subtasks = phase.get("subtasks", phase.get("chunks", []))
+            phase_complete[phase_id_key] = all(
+                s.get("status") == "completed" for s in subtasks
+            )
+
+        # Detect circular/deadlocked dependencies: if every incomplete phase has
+        # unsatisfied deps, no progress can ever be made.
+        incomplete_phases = [
+            p for p in phases
+            if not phase_complete.get(
+                str(p.get("id") if p.get("id") is not None else p.get("phase", "")),
+                True,
+            )
+        ]
+        if incomplete_phases:
+            any_unblocked = False
+            for p in incomplete_phases:
+                dep_raw = p.get("depends_on", [])
+                deps = (
+                    [str(d) for d in dep_raw if d is not None]
+                    if isinstance(dep_raw, list)
+                    else ([] if dep_raw is None else [str(dep_raw)])
+                )
+                if all(phase_complete.get(d, False) for d in deps):
+                    any_unblocked = True
+                    break
+            if not any_unblocked:
+                logging.warning(
+                    "Circular or deadlocked phase dependencies detected — "
+                    "no incomplete phase has all deps satisfied. "
+                    "Phases: %s",
+                    [p.get("id", p.get("phase")) for p in incomplete_phases],
+                )
+
+        # FIX-005: Load stuck subtask IDs from attempt_history.json
+        stuck_ids = _load_stuck_subtask_ids(spec_dir)
+
+        batch = []
+
+        # Collect pending subtasks from all available phases
+        for phase in phases:
+            if len(batch) >= max_batch:
+                break
+
+            phase_id_value = phase.get("id")
+            phase_id = (
+                phase_id_value if phase_id_value is not None else phase.get("phase")
+            )
+            depends_on_raw = phase.get("depends_on", [])
+            if isinstance(depends_on_raw, list):
+                depends_on = [str(d) for d in depends_on_raw if d is not None]
+            elif depends_on_raw is None:
+                depends_on = []
+            else:
+                depends_on = [str(depends_on_raw)]
+
+            # Check dependencies
+            deps_satisfied = all(phase_complete.get(dep, False) for dep in depends_on)
+            if not deps_satisfied:
+                continue
+
+            # Collect pending subtasks from this phase
+            for subtask in phase.get("subtasks", phase.get("chunks", [])):
+                if len(batch) >= max_batch:
+                    break
+                status = subtask.get("status", "pending")
+                if status in {"pending", "not_started", "not started"}:
+                    # FIX-005: Skip subtasks marked as stuck in attempt_history
+                    subtask_id = subtask.get("id", "")
+                    if subtask_id and subtask_id in stuck_ids:
+                        logging.info(
+                            "Skipping stuck subtask %s in batch (marked in attempt_history)",
+                            subtask_id,
+                        )
+                        continue
+                    subtask_out, _changed = normalize_subtask_aliases(subtask)
+                    subtask_out["status"] = "pending"
+                    batch.append({
+                        **subtask_out,
+                        "phase_id": phase_id,
+                        "phase_name": phase.get("name"),
+                        "phase_num": phase.get("phase"),
+                    })
+
+        return batch
+
+    except (OSError, json.JSONDecodeError):
+        return []
 
 
 def format_duration(seconds: float) -> str:

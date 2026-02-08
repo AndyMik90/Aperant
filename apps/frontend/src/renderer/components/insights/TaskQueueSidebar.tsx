@@ -6,9 +6,10 @@ import { cn } from '../../lib/utils';
 import { useInsightsTaskQueueStore } from '../../stores/insights-task-queue-store';
 import { TaskQueueCard } from './TaskQueueCard';
 import { useNavigation } from '../../contexts/NavigationContext';
-import { createTask, startTask } from '../../stores/task-store';
+import { createTask, startTask, useTaskStore } from '../../stores/task-store';
+import { useInsightsStore } from '../../stores/insights-store';
 import { useProjectStore } from '../../stores/project-store';
-import type { TaskMetadata } from '../../../shared/types';
+import type { Task, TaskMetadata } from '../../../shared/types';
 
 interface TaskQueueSidebarProps {
   width?: number; // Width in pixels
@@ -23,10 +24,36 @@ export function TaskQueueSidebar({ width = 280 }: TaskQueueSidebarProps = {}) {
   const updateTaskStatus = useInsightsTaskQueueStore((state) => state.updateTaskStatus);
   const clearCompletedTasks = useInsightsTaskQueueStore((state) => state.clearCompletedTasks);
 
+  // Subscribe to main task store to catch stale running tasks
+  const mainTasks = useTaskStore((state) => state.tasks);
+
+  // Build lookup map for linking queue tasks to real tasks
+  const mainTaskMap = useMemo(() => {
+    const map = new Map<string, Task>();
+    mainTasks.forEach(t => map.set(t.id, t));
+    return map;
+  }, [mainTasks]);
+
   // Load from localStorage on mount
   useEffect(() => {
     useInsightsTaskQueueStore.getState().loadFromStorage();
   }, []);
+
+  // Reactive sync: remove queue tasks whose main tasks are already done
+  // Handles stale 'running' tasks that completed while sidebar was unmounted
+  useEffect(() => {
+    const doneTaskIds = new Set(
+      mainTasks.filter(t => t.status === 'done').map(t => t.id)
+    );
+    if (doneTaskIds.size === 0) return;
+
+    const queueStore = useInsightsTaskQueueStore.getState();
+    queueStore.tasks.forEach(qTask => {
+      if (qTask.taskId && doneTaskIds.has(qTask.taskId) && qTask.status !== 'complete') {
+        queueStore.removeTask(qTask.id);
+      }
+    });
+  }, [mainTasks]);
 
   // Count tasks by status
   const taskCounts = useMemo(() => {
@@ -66,11 +93,8 @@ export function TaskQueueSidebar({ width = 280 }: TaskQueueSidebarProps = {}) {
         // Update queue with actual task ID
         updateTaskStatus(queuedTaskId, 'running', task.id);
 
-        // Start the task
+        // Start the task (don't auto-navigate - user can click card to go to kanban)
         startTask(task.id);
-
-        // Navigate to kanban to see the task
-        setActiveView('kanban');
       } else {
         // Failed to create task
         updateTaskStatus(queuedTaskId, 'failed');
@@ -87,7 +111,22 @@ export function TaskQueueSidebar({ width = 280 }: TaskQueueSidebarProps = {}) {
   };
 
   const handleDeleteTask = (queuedTaskId: string) => {
+    const queuedTask = tasks.find((t) => t.id === queuedTaskId);
     removeTask(queuedTaskId);
+
+    // Revert the chat card's "Added to Queue" button back to "Add to Queue"
+    if (queuedTask) {
+      const insightsStore = useInsightsStore.getState();
+      const session = insightsStore.session;
+      if (session) {
+        const message = session.messages.find(
+          (m) => m.suggestedTask && m.suggestedTask.title === queuedTask.title && m.taskCreatedId
+        );
+        if (message) {
+          insightsStore.markTaskCreated(message.id, '');
+        }
+      }
+    }
   };
 
   const handleClearCompleted = () => {
@@ -121,10 +160,11 @@ export function TaskQueueSidebar({ width = 280 }: TaskQueueSidebarProps = {}) {
         {/* Collapsed task status dots */}
         <ScrollArea className="flex-1">
           <div className="flex flex-col">
-            {tasks.map((task) => (
+            {tasks.filter((t) => t.status !== 'complete').map((task) => (
               <TaskQueueCard
                 key={task.id}
                 task={task}
+                linkedTask={task.taskId ? mainTaskMap.get(task.taskId) : undefined}
                 onStart={handleStartTask}
                 onDelete={handleDeleteTask}
                 onView={handleViewTask}
@@ -138,12 +178,12 @@ export function TaskQueueSidebar({ width = 280 }: TaskQueueSidebarProps = {}) {
   }
 
   return (
-    <div className="border-l border-border bg-background flex flex-col" style={{ width: `${width}px` }}>
+    <div className="border-l border-border bg-background flex flex-col overflow-hidden" style={{ width: `${width}px`, minWidth: `${Math.min(width, 220)}px` }}>
       {/* Header */}
       <div className="h-12 flex items-center justify-between border-b border-border px-3">
-        <div className="flex items-center gap-2">
-          <ListTodo className="w-4 h-4 text-muted-foreground" />
-          <h3 className="font-semibold text-sm">Task Queue</h3>
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <ListTodo className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <h3 className="font-semibold text-sm truncate">Task Queue</h3>
         </div>
         <Button
           variant="ghost"
@@ -156,29 +196,31 @@ export function TaskQueueSidebar({ width = 280 }: TaskQueueSidebarProps = {}) {
         </Button>
       </div>
 
-      {/* Stats */}
-      <div className="px-3 py-2 border-b border-border">
-        <div className="flex gap-2 text-xs text-muted-foreground">
-          {taskCounts.pending > 0 && (
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-blue-500" />
-              {taskCounts.pending} pending
-            </span>
-          )}
-          {taskCounts.running > 0 && (
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-green-500" />
-              {taskCounts.running} running
-            </span>
-          )}
-          {taskCounts.complete > 0 && (
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-emerald-500" />
-              {taskCounts.complete} done
-            </span>
-          )}
+      {/* Stats — only show when there are actual tasks */}
+      {(taskCounts.pending > 0 || taskCounts.running > 0 || taskCounts.complete > 0) && (
+        <div className="px-3 py-2 border-b border-border">
+          <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            {taskCounts.pending > 0 && (
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                {taskCounts.pending} pending
+              </span>
+            )}
+            {taskCounts.running > 0 && (
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                {taskCounts.running} running
+              </span>
+            )}
+            {taskCounts.complete > 0 && (
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                {taskCounts.complete} done
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Task list */}
       <ScrollArea className="flex-1">
@@ -190,10 +232,11 @@ export function TaskQueueSidebar({ width = 280 }: TaskQueueSidebarProps = {}) {
           </div>
         ) : (
           <div className="flex flex-col">
-            {tasks.map((task) => (
+            {tasks.filter((t) => t.status !== 'complete').map((task) => (
               <TaskQueueCard
                 key={task.id}
                 task={task}
+                linkedTask={task.taskId ? mainTaskMap.get(task.taskId) : undefined}
                 onStart={handleStartTask}
                 onDelete={handleDeleteTask}
                 onView={handleViewTask}

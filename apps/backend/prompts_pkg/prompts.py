@@ -546,6 +546,31 @@ This shows only changes made in the spec branch since it diverged from `{base_br
     return spec_context + base_prompt
 
 
+def get_qa_reviewer_prompt_fast(spec_dir: Path, project_dir: Path) -> str:
+    """
+    Load the FAST QA reviewer prompt for re-validation iterations (2+).
+
+    Much shorter than the full prompt — focuses only on verifying specific fixes
+    rather than the full 10-phase review. Dramatically reduces agent reasoning time.
+    """
+    base_prompt = _load_prompt_file("qa_reviewer_fast.md")
+
+    spec_context = f"""## SPEC LOCATION
+
+Your spec and progress files are located at:
+- Spec: `{spec_dir}/spec.md`
+- Implementation plan: `{spec_dir}/implementation_plan.json`
+- Fix request: `{spec_dir}/QA_FIX_REQUEST.md`
+- QA report: `{spec_dir}/qa_report.md`
+
+The project root is: `{project_dir}`
+
+---
+
+"""
+    return spec_context + base_prompt
+
+
 def get_qa_fixer_prompt(spec_dir: Path, project_dir: Path) -> str:
     """
     Load the QA fixer prompt with spec paths injected.
@@ -565,6 +590,57 @@ Your spec and progress files are located at:
 - Spec: `{spec_dir}/spec.md`
 - Implementation plan: `{spec_dir}/implementation_plan.json`
 - QA fix request: `{spec_dir}/QA_FIX_REQUEST.md` (READ THIS FIRST!)
+- QA report: `{spec_dir}/qa_report.md`
+
+The project root is: `{project_dir}`
+
+---
+
+"""
+    return spec_context + base_prompt
+
+
+def get_qa_fixer_prompt_fast(spec_dir: Path, project_dir: Path) -> str:
+    """
+    Load the FAST QA fixer prompt for focused fix iterations (2+).
+
+    Streamlined prompt that skips environment setup, verbose examples, and
+    common fix pattern documentation. Gets the fixer straight to work.
+    """
+    base_prompt = _load_prompt_file("qa_fixer_fast.md")
+
+    spec_context = f"""## SPEC LOCATION
+
+Your spec and progress files are located at:
+- Spec: `{spec_dir}/spec.md`
+- Implementation plan: `{spec_dir}/implementation_plan.json`
+- QA fix request: `{spec_dir}/QA_FIX_REQUEST.md` (READ THIS FIRST!)
+- QA report: `{spec_dir}/qa_report.md`
+
+The project root is: `{project_dir}`
+
+---
+
+"""
+    return spec_context + base_prompt
+
+
+def get_qa_review_and_fix_prompt(spec_dir: Path, project_dir: Path) -> str:
+    """
+    Load the COMBINED review-and-fix prompt for QA iterations 3+.
+
+    Merges reviewer and fixer into a single LLM session: the agent reviews the
+    fixes AND applies corrections itself, eliminating the round-trip between
+    separate reviewer/fixer calls. Saves one full LLM call per iteration.
+    """
+    base_prompt = _load_prompt_file("qa_review_and_fix.md")
+
+    spec_context = f"""## SPEC LOCATION
+
+Your spec and progress files are located at:
+- Spec: `{spec_dir}/spec.md`
+- Implementation plan: `{spec_dir}/implementation_plan.json`
+- QA fix request: `{spec_dir}/QA_FIX_REQUEST.md`
 - QA report: `{spec_dir}/qa_report.md`
 
 The project root is: `{project_dir}`

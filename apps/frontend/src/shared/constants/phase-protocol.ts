@@ -69,7 +69,7 @@ export const PHASE_ORDER_INDEX: Readonly<Record<ExecutionPhase, number>> = {
   qa_review: 2,
   qa_fixing: 3,
   complete: 4,
-  failed: 99
+  failed: 5
 } as const;
 
 /**
@@ -149,8 +149,9 @@ export function isValidPhaseTransition(
     return false;
   }
 
-  // idle can transition to any active phase
-  if (currentPhase === 'idle') {
+  // idle and starting can transition to any active phase
+  // (starting is a frontend-only phase during initialization, before backend emits coding)
+  if (currentPhase === 'idle' || currentPhase === 'starting') {
     return BACKEND_PHASES.includes(newPhase as BackendPhase);
   }
 

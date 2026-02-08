@@ -1,26 +1,20 @@
-import { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
+import { useState, useEffect, useRef, useMemo, useLayoutEffect, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   MessageSquare,
-  Send,
   Loader2,
   Plus,
   Sparkles,
-  User,
   Bot,
   CheckCircle2,
   AlertCircle,
-  Search,
-  FileText,
-  FolderSearch,
   PanelLeftClose,
   PanelLeft,
-  ArrowRight
+  Pencil
 } from 'lucide-react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from './ui/button';
-import { Textarea } from './ui/textarea';
 import { ScrollArea } from './ui/scroll-area';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -38,7 +32,6 @@ import {
   setupInsightsListeners,
   markTaskCreatedPersistent
 } from '../stores/insights-store';
-import { loadTasks } from '../stores/task-store';
 import { useInsightsTaskQueueStore } from '../stores/insights-task-queue-store';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
 import { InsightsModelSelector } from './InsightsModelSelector';
@@ -46,6 +39,8 @@ import { TaskQueueSidebar } from './insights/TaskQueueSidebar';
 import { ChatInput } from './insights/ChatInput';
 import { ResizeHandle } from './insights/ResizeHandle';
 import { useNavigation } from '../contexts/NavigationContext';
+import { ToolBlock } from './chat';
+import type { ToolData, PastedImage } from './chat';
 import type { InsightsChatMessage, InsightsModelConfig } from '../../shared/types';
 import {
   TASK_CATEGORY_LABELS,
@@ -103,6 +98,7 @@ export function Insights({ projectId }: InsightsProps) {
   const streamingContent = useInsightsStore((state) => state.streamingContent);
   const currentTool = useInsightsStore((state) => state.currentTool);
   const isLoadingSessions = useInsightsStore((state) => state.isLoadingSessions);
+  const responseDuration = useInsightsStore((state) => state.responseDuration);
 
   // Create markdown components with translated accessibility text
   const markdownComponents = useMemo(() => ({
@@ -119,6 +115,9 @@ export function Insights({ projectId }: InsightsProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const leftSidebarStartWidth = useRef(256);
   const rightSidebarStartWidth = useRef(280);
+  const lastScrollTime = useRef(0);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const prevMessageCount = useRef(0);
 
   // Load sidebar widths from localStorage on mount
   useEffect(() => {
@@ -161,11 +160,30 @@ export function Insights({ projectId }: InsightsProps) {
     return cleanup;
   }, [projectId]);
 
-  // Auto-scroll to bottom when messages change (smooth animation)
+  // Auto-scroll to bottom — only for NEW messages or streaming, not message updates.
+  // This prevents unwanted scrolling when clicking "Add to Queue" on older messages.
   useEffect(() => {
-    if (session?.messages?.length || streamingContent) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const currentCount = session?.messages?.length || 0;
+    const isNewMessage = currentCount > prevMessageCount.current;
+    prevMessageCount.current = currentCount;
+
+    // Only scroll when a new message arrives or streaming content is active
+    if (isNewMessage || streamingContent) {
+      const now = Date.now();
+      const THROTTLE_MS = 100;
+
+      if (now - lastScrollTime.current >= THROTTLE_MS) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+        lastScrollTime.current = now;
+      } else {
+        clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+          lastScrollTime.current = Date.now();
+        }, THROTTLE_MS);
+      }
     }
+    return () => clearTimeout(scrollTimeoutRef.current);
   }, [session?.messages, streamingContent]);
 
   // Scroll to bottom on mount - use useLayoutEffect to prevent visible scroll
@@ -180,11 +198,22 @@ export function Insights({ projectId }: InsightsProps) {
     textareaRef.current?.focus();
   }, []);
 
-  const handleSend = (message: string, attachments?: any[]) => {
-    if (!message.trim() && (!attachments || attachments.length === 0)) return;
+  const handleSend = (message: string, images?: PastedImage[]) => {
+    if (!message.trim() && (!images || images.length === 0)) return;
     if (status.phase === 'thinking' || status.phase === 'streaming') return;
 
     setInputValue('');
+
+    // Convert pasted images to attachment format for IPC transport
+    const attachments = images?.map((img) => ({
+      id: img.id,
+      name: img.filename,
+      path: '',  // Will be resolved by main process from base64 data
+      type: 'image' as const,
+      size: img.dataUrl.length,
+      data: img.dataUrl,  // Base64 data URL for main process to save
+    }));
+
     sendMessage(projectId, message, undefined, attachments);
   };
 
@@ -280,6 +309,18 @@ export function Insights({ projectId }: InsightsProps) {
       }
     }
   };
+
+  // Split streaming content into committed (memoized) and active (live) portions
+  // This prevents re-parsing the entire markdown on every streaming chunk
+  const { committedContent, activeContent } = useMemo(() => {
+    if (!streamingContent) return { committedContent: '', activeContent: '' };
+    const lastBreak = streamingContent.lastIndexOf('\n\n');
+    if (lastBreak <= 0) return { committedContent: '', activeContent: streamingContent };
+    return {
+      committedContent: streamingContent.substring(0, lastBreak + 2),
+      activeContent: streamingContent.substring(lastBreak + 2),
+    };
+  }, [streamingContent]);
 
   const isLoading = status.phase === 'thinking' || status.phase === 'streaming';
   const messages = session?.messages || [];
@@ -379,46 +420,75 @@ export function Insights({ projectId }: InsightsProps) {
               />
             ))}
 
-            {/* Streaming message */}
+            {/* Streaming message — terminal-rich style */}
             {(streamingContent || currentTool) && (
-              <div className="flex gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  <Bot className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <div className="mb-1 text-sm font-medium text-foreground">
+              <div className="py-2 message-enter">
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <Bot className="h-3.5 w-3.5 text-primary/70" />
+                  <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">
                     Jerry
-                  </div>
+                  </span>
                   {streamingContent && (
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground/60 writing-badge">
+                      <Pencil className="h-3 w-3" />
+                      <span>Writing...</span>
+                    </span>
+                  )}
+                </div>
+                <div className="pl-2">
+                  {streamingContent && (
+                    <div className="prose prose-sm dark:prose-invert max-w-none font-mono text-xs">
+                      {committedContent && (
+                        <CommittedMarkdown content={committedContent} components={markdownComponents} />
+                      )}
                       <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                        {streamingContent}
+                        {activeContent}
                       </ReactMarkdown>
+                      <span className="streaming-cursor" />
                     </div>
                   )}
-                  {/* Tool usage indicator */}
+                  {/* Live tool usage - shown as rich card */}
                   {currentTool && (
-                    <ToolIndicator name={currentTool.name} input={currentTool.input} />
+                    <ToolBlock
+                      tool={{
+                        toolName: currentTool.name,
+                        input: currentTool.input ? { description: currentTool.input } : undefined,
+                        status: 'running',
+                      }}
+                    />
                   )}
                 </div>
               </div>
             )}
 
-            {/* Thinking indicator with animated dots */}
+            {/* Thinking indicator with skeleton loader + elapsed timer */}
             {status.phase === 'thinking' && !streamingContent && !currentTool && (
-              <div className="flex gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  <Bot className="h-4 w-4 text-primary" />
+              <div className="py-2 message-enter">
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <Bot className="h-3.5 w-3.5 text-primary/70" />
+                  <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">
+                    Jerry
+                  </span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <TypingIndicator />
+                <div className="pl-2">
+                  <ThinkingIndicator />
                 </div>
+              </div>
+            )}
+
+            {/* Completion indicator — shows response duration after streaming finishes */}
+            {status.phase === 'complete' && responseDuration !== null && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-1 completion-pop">
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                <span className="elapsed-timer">
+                  Completed in {(responseDuration / 1000).toFixed(1)}s
+                </span>
               </div>
             )}
 
             {/* Error message */}
             {status.phase === 'error' && status.error && (
-              <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+              <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive message-enter">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {status.error}
               </div>
@@ -464,276 +534,257 @@ function MessageBubble({
   onCreateTask,
   isCreatingTask,
   taskCreated,
-  onSeeInKanban
 }: MessageBubbleProps) {
   const isUser = message.role === 'user';
 
-  return (
-    <div className="flex gap-3">
-      <div
-        className={cn(
-          'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-          isUser ? 'bg-muted' : 'bg-primary/10'
-        )}
-      >
-        {isUser ? (
-          <User className="h-4 w-4 text-muted-foreground" />
-        ) : (
-          <Bot className="h-4 w-4 text-primary" />
-        )}
-      </div>
-      <div className="flex-1 space-y-2">
-        <div className="text-sm font-medium text-foreground">
-          {isUser ? 'You' : 'Jerry'}
+  // User messages: right-aligned bubble (matching TaskMonitorChat style)
+  if (isUser) {
+    return (
+      <div className="flex justify-end py-2 message-enter">
+        <div className="max-w-[80%] bg-primary text-primary-foreground px-4 py-2 rounded-2xl rounded-br-sm text-sm whitespace-pre-wrap">
+          {message.content}
         </div>
-        <div className="prose prose-sm dark:prose-invert max-w-none">
+      </div>
+    );
+  }
+
+  // Assistant messages: terminal-rich style with left-aligned bot indicator
+  return (
+    <div className="py-2 message-enter">
+      {/* Role indicator */}
+      <div className="flex items-center gap-2 mb-2 px-1">
+        <Bot className="h-3.5 w-3.5 text-primary/70" />
+        <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">
+          Jerry
+        </span>
+      </div>
+
+      {/* Content */}
+      <div className="pl-2">
+        {/* Markdown text */}
+        <div className="prose prose-sm dark:prose-invert max-w-none font-mono text-xs text-foreground/90">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
             {message.content}
           </ReactMarkdown>
         </div>
 
-        {/* Tool usage history for assistant messages */}
-        {!isUser && message.toolsUsed && message.toolsUsed.length > 0 && (
-          <ToolUsageHistory tools={message.toolsUsed} />
+        {/* Rich tool blocks (replaces old summary list) */}
+        {message.toolsUsed && message.toolsUsed.length > 0 && (
+          <div className="mt-2">
+            {message.toolsUsed.map((tool, index) => {
+              const toolData: ToolData = {
+                toolName: tool.name,
+                input: tool.input ? { description: tool.input } : undefined,
+                status: 'success',
+              };
+              return <ToolBlock key={`${tool.name}-${index}`} tool={toolData} />;
+            })}
+          </div>
         )}
 
         {/* Task suggestion card */}
         {message.suggestedTask && (
-          <Card className="mt-3 border-primary/20 bg-primary/5">
-            <CardContent className="p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium text-primary">
-                  Suggested Task
-                </span>
-              </div>
-              <h4 className="mb-2 font-medium text-foreground">
-                {message.suggestedTask.title}
-              </h4>
-              <p className="mb-3 text-sm text-muted-foreground">
-                {message.suggestedTask.description}
-              </p>
-              {message.suggestedTask.metadata && (
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {message.suggestedTask.metadata.category && (
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        'text-xs',
-                        TASK_CATEGORY_COLORS[message.suggestedTask.metadata.category]
-                      )}
-                    >
-                      {TASK_CATEGORY_LABELS[message.suggestedTask.metadata.category] ||
-                        message.suggestedTask.metadata.category}
-                    </Badge>
-                  )}
-                  {message.suggestedTask.metadata.complexity && (
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        'text-xs',
-                        TASK_COMPLEXITY_COLORS[message.suggestedTask.metadata.complexity]
-                      )}
-                    >
-                      {TASK_COMPLEXITY_LABELS[message.suggestedTask.metadata.complexity] ||
-                        message.suggestedTask.metadata.complexity}
-                    </Badge>
-                  )}
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  onClick={onCreateTask}
-                  disabled={isCreatingTask || taskCreated}
-                >
-                  {isCreatingTask ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Adding to Queue...
-                    </>
-                  ) : taskCreated ? (
-                    <>
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                      Added to Queue
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add to Queue
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <TaskSuggestionCard
+            task={message.suggestedTask}
+            markdownComponents={markdownComponents}
+            onCreateTask={onCreateTask}
+            isCreatingTask={isCreatingTask}
+            taskCreated={taskCreated}
+          />
         )}
       </div>
     </div>
   );
 }
 
-// Tool usage history component for showing tools used in completed messages
-interface ToolUsageHistoryProps {
-  tools: Array<{
-    name: string;
-    input?: string;
-    timestamp: Date;
-  }>;
+/**
+ * Collapsible task suggestion card with markdown rendering.
+ * Renders the description as formatted markdown instead of plain text,
+ * and collapses long descriptions with a "Show more" toggle.
+ */
+interface TaskSuggestionCardProps {
+  task: NonNullable<InsightsChatMessage['suggestedTask']>;
+  markdownComponents: Components;
+  onCreateTask: () => void;
+  isCreatingTask: boolean;
+  taskCreated: boolean;
 }
 
-function ToolUsageHistory({ tools }: ToolUsageHistoryProps) {
+function TaskSuggestionCard({
+  task,
+  markdownComponents,
+  onCreateTask,
+  isCreatingTask,
+  taskCreated
+}: TaskSuggestionCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [needsCollapse, setNeedsCollapse] = useState(false);
+  const COLLAPSED_HEIGHT = 160;
 
-  if (tools.length === 0) return null;
-
-  // Group tools by name for summary
-  const toolCounts = tools.reduce((acc, tool) => {
-    acc[tool.name] = (acc[tool.name] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const getToolIcon = (toolName: string) => {
-    switch (toolName) {
-      case 'Read':
-        return FileText;
-      case 'Glob':
-        return FolderSearch;
-      case 'Grep':
-        return Search;
-      default:
-        return FileText;
+  useEffect(() => {
+    if (contentRef.current) {
+      setNeedsCollapse(contentRef.current.scrollHeight > COLLAPSED_HEIGHT);
     }
-  };
-
-  const getToolColor = (toolName: string) => {
-    switch (toolName) {
-      case 'Read':
-        return 'text-blue-500';
-      case 'Glob':
-        return 'text-amber-500';
-      case 'Grep':
-        return 'text-green-500';
-      default:
-        return 'text-muted-foreground';
-    }
-  };
+  }, [task.description]);
 
   return (
-    <div className="mt-2">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <span className="flex items-center gap-1">
-          {Object.entries(toolCounts).map(([name, count]) => {
-            const Icon = getToolIcon(name);
-            return (
-              <span key={name} className={cn('flex items-center gap-0.5', getToolColor(name))}>
-                <Icon className="h-3 w-3" />
-                <span>{count}</span>
-              </span>
-            );
-          })}
-        </span>
-        <span>{tools.length} tool{tools.length !== 1 ? 's' : ''} used</span>
-        <span className="text-[10px]">{expanded ? '▲' : '▼'}</span>
-      </button>
-
-      {expanded && (
-        <div className="mt-2 space-y-1 rounded-md border border-border bg-muted/30 p-2">
-          {tools.map((tool, index) => {
-            const Icon = getToolIcon(tool.name);
-            return (
-              <div
-                key={`${tool.name}-${index}`}
-                className="flex items-center gap-2 text-xs"
-              >
-                <Icon className={cn('h-3 w-3 shrink-0', getToolColor(tool.name))} />
-                <span className="font-medium">{tool.name}</span>
-                {tool.input && (
-                  <span className="text-muted-foreground truncate max-w-[250px]">
-                    {tool.input}
-                  </span>
-                )}
-              </div>
-            );
-          })}
+    <Card className="mt-3 border-primary/20 bg-primary/5">
+      <CardContent className="p-4">
+        {/* Header */}
+        <div className="mb-2 flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium text-primary">
+            Suggested Task
+          </span>
         </div>
-      )}
-    </div>
+
+        {/* Title */}
+        <h4 className="mb-2 font-medium text-foreground">
+          {task.title}
+        </h4>
+
+        {/* Description — rendered as markdown, collapsible */}
+        <div className="mb-3">
+          <div
+            ref={contentRef}
+            className={cn(
+              'prose prose-sm dark:prose-invert max-w-none overflow-hidden',
+              !expanded && needsCollapse && 'collapsed-fade'
+            )}
+            style={!expanded && needsCollapse ? { maxHeight: `${COLLAPSED_HEIGHT}px` } : undefined}
+          >
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+              {task.description}
+            </ReactMarkdown>
+          </div>
+          {needsCollapse && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="mt-1.5 text-xs font-medium text-primary/80 hover:text-primary transition-colors"
+            >
+              {expanded ? '▲ Show less' : '▼ Show more'}
+            </button>
+          )}
+        </div>
+
+        {/* Metadata badges */}
+        {task.metadata && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {task.metadata.category && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  'text-xs',
+                  TASK_CATEGORY_COLORS[task.metadata.category]
+                )}
+              >
+                {TASK_CATEGORY_LABELS[task.metadata.category] ||
+                  task.metadata.category}
+              </Badge>
+            )}
+            {task.metadata.complexity && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  'text-xs',
+                  TASK_COMPLEXITY_COLORS[task.metadata.complexity]
+                )}
+              >
+                {TASK_COMPLEXITY_LABELS[task.metadata.complexity] ||
+                  task.metadata.complexity}
+              </Badge>
+            )}
+          </div>
+        )}
+
+        {/* Action button */}
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={onCreateTask}
+            disabled={isCreatingTask || taskCreated}
+          >
+            {isCreatingTask ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Adding to Queue...
+              </>
+            ) : taskCreated ? (
+              <>
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Added to Queue
+              </>
+            ) : (
+              <>
+                <Plus className="mr-2 h-4 w-4" />
+                Add to Queue
+              </>
+            )}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
-// Tool indicator component for showing what the AI is currently doing
-interface ToolIndicatorProps {
-  name: string;
-  input?: string;
-}
+// ToolUsageHistory and ToolIndicator have been replaced by shared ToolBlock component
 
-function ToolIndicator({ name, input }: ToolIndicatorProps) {
-  // Get friendly name and icon for each tool
-  const getToolInfo = (toolName: string) => {
-    switch (toolName) {
-      case 'Read':
-        return {
-          icon: FileText,
-          label: 'Reading file',
-          color: 'text-blue-500 bg-blue-500/10'
-        };
-      case 'Glob':
-        return {
-          icon: FolderSearch,
-          label: 'Searching files',
-          color: 'text-amber-500 bg-amber-500/10'
-        };
-      case 'Grep':
-        return {
-          icon: Search,
-          label: 'Searching code',
-          color: 'text-green-500 bg-green-500/10'
-        };
-      default:
-        return {
-          icon: Loader2,
-          label: toolName,
-          color: 'text-primary bg-primary/10'
-        };
-    }
-  };
+/**
+ * Enhanced thinking indicator with skeleton loader and elapsed timer.
+ * Shows animated skeleton content lines while the agent is processing,
+ * with a live elapsed time counter.
+ */
+function ThinkingIndicator() {
+  const [elapsed, setElapsed] = useState(0);
 
-  const { icon: Icon, label, color } = getToolInfo(name);
+  useEffect(() => {
+    setElapsed(0);
+    const timer = setInterval(() => setElapsed(prev => prev + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
-    <div className={cn(
-      'mt-2 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm',
-      color
-    )}>
-      <Icon className="h-4 w-4 animate-pulse" />
-      <span className="font-medium">{label}</span>
-      {input && (
-        <span className="text-muted-foreground truncate max-w-[300px]">
-          {input}
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-primary/80">
+        <Sparkles className="h-4 w-4 animate-pulse" />
+        <span className="text-sm font-medium">Thinking</span>
+        <span className="flex gap-0.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-current animate-[bounce_1s_ease-in-out_infinite]" style={{ animationDelay: '0ms' }} />
+          <span className="h-1.5 w-1.5 rounded-full bg-current animate-[bounce_1s_ease-in-out_infinite]" style={{ animationDelay: '150ms' }} />
+          <span className="h-1.5 w-1.5 rounded-full bg-current animate-[bounce_1s_ease-in-out_infinite]" style={{ animationDelay: '300ms' }} />
         </span>
-      )}
+        {elapsed > 0 && (
+          <span className="text-xs text-muted-foreground elapsed-timer ml-1">
+            {elapsed}s
+          </span>
+        )}
+      </div>
+      {/* Skeleton content lines */}
+      <div className="space-y-2 max-w-[80%]">
+        <div className="skeleton-line h-3 w-full" />
+        <div className="skeleton-line h-3 w-[85%]" style={{ animationDelay: '0.1s' }} />
+        <div className="skeleton-line h-3 w-[65%]" style={{ animationDelay: '0.2s' }} />
+      </div>
     </div>
   );
 }
 
 /**
- * Animated thinking indicator with sparkle icon
- * VS Code Copilot-style indicator while agent is processing
+ * Memoized markdown renderer for committed (unchanging) content portions.
+ * During streaming, only the active paragraph at the end changes — this
+ * component prevents re-parsing the already-committed paragraphs above.
  */
-function TypingIndicator() {
+const CommittedMarkdown = memo(function CommittedMarkdown({
+  content,
+  components
+}: {
+  content: string;
+  components: Components;
+}) {
   return (
-    <div className="flex items-center gap-2 text-primary/80">
-      <Sparkles className="h-4 w-4 animate-pulse" />
-      <span className="text-sm font-medium">Thinking</span>
-      <span className="flex gap-0.5">
-        <span className="h-1.5 w-1.5 rounded-full bg-current animate-[bounce_1s_ease-in-out_infinite]" style={{ animationDelay: '0ms' }} />
-        <span className="h-1.5 w-1.5 rounded-full bg-current animate-[bounce_1s_ease-in-out_infinite]" style={{ animationDelay: '150ms' }} />
-        <span className="h-1.5 w-1.5 rounded-full bg-current animate-[bounce_1s_ease-in-out_infinite]" style={{ animationDelay: '300ms' }} />
-      </span>
-    </div>
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      {content}
+    </ReactMarkdown>
   );
-}
+});

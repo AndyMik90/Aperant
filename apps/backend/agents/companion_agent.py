@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from core.client import create_client
-from phase_config import COMPANION_CONFIG
+from phase_config import COMPANION_CONFIG, resolve_model_id
 
 from .user_message_queue import UserMessageQueue, get_message_queue
 
@@ -36,6 +36,7 @@ class CompanionAgent:
         project_dir: Path,
         task_title: str,
         current_phase: str,
+        supervisor_mode: bool = False,
     ):
         """
         Initialize the companion agent.
@@ -45,11 +46,13 @@ class CompanionAgent:
             project_dir: Root project directory
             task_title: Title of the task
             current_phase: Current phase (spec_complete, planning, coding_complete, qa_complete, human_review)
+            supervisor_mode: If True, runs as live supervisor alongside coder agent
         """
         self.spec_dir = Path(spec_dir)
         self.project_dir = Path(project_dir)
         self.task_title = task_title
         self.current_phase = current_phase
+        self.supervisor_mode = supervisor_mode
         self.message_queue: Optional[UserMessageQueue] = None
 
     def build_context(self) -> str:
@@ -167,11 +170,42 @@ class CompanionAgent:
         Build system prompt with task context and instructions.
 
         Returns:
-            System prompt for the companion agent
+            System prompt for the companion/supervisor agent
         """
         context = self.build_context()
 
-        prompt = f"""You are a helpful companion agent for the Auto-Claude task automation system.
+        if self.supervisor_mode:
+            prompt = f"""You are a live supervisor agent monitoring an active coding session for the Auto-Claude task automation system.
+
+A coding agent is currently implementing this task. You observe its progress and answer user questions about what is happening. You are in READ-ONLY mode.
+
+{context}
+
+## Your Capabilities
+
+You have access to:
+- **get_build_progress**: Check which subtasks are completed, in progress, and remaining
+- **Read**: Read file contents to examine code being written
+- **Glob**: Find files by pattern
+- **Grep**: Search for text patterns in files
+
+You DO NOT have access to Write, Edit, Bash, or Task tools. You cannot modify the build.
+
+## Guidelines
+
+1. **Answer "what are you doing?"**: Use get_build_progress to check current subtask status and report clearly
+2. **Be concise**: The user is multitasking — give brief, direct answers
+3. **Show progress**: Report completed/total subtasks, percentage, current subtask name
+4. **Read code when asked**: If they ask about specific changes, use Read/Grep to check the actual files
+5. **Don't interfere**: You observe and report — the coding agent handles implementation
+
+## Current Context
+
+Phase: {self.current_phase} (LIVE - coding agent is actively running)
+Task: {self.task_title}
+"""
+        else:
+            prompt = f"""You are a helpful companion agent for the Auto-Claude task automation system.
 
 Your role is to help the user understand the current task state and answer questions about the task context. You are in READ-ONLY mode - you can read and analyze files but cannot make changes.
 
@@ -180,6 +214,7 @@ Your role is to help the user understand the current task state and answer quest
 ## Your Capabilities
 
 You have access to the following tools:
+- **get_build_progress**: Check subtask completion status
 - **Read**: Read file contents to examine code, specs, or documentation
 - **Glob**: Find files by pattern (e.g., "**/*.py")
 - **Grep**: Search for text patterns in files
@@ -212,7 +247,7 @@ The user can ask you questions about the task, review the specification, check i
         """
         # Get config from phase_config
         config = COMPANION_CONFIG
-        model = config.get("model", "claude-sonnet-4-5-20250929")
+        model = resolve_model_id(config.get("model", "opus"))
         thinking_budget = config.get("thinking_budget", 2048)
         max_turns = config.get("max_turns", 25)
 
@@ -274,7 +309,12 @@ The user can ask you questions about the task, review the specification, check i
                     # Emit message start marker
                     self._emit_message_start(user_message)
 
-                    # Create agent session
+                    # FIX-031: Each message creates a fresh SDK session. The
+                    # conversation_history list maintains context in Python memory,
+                    # but the SDK session has no memory of prior turns. To enable
+                    # true multi-turn conversations, either pass conversation_history
+                    # as prior messages in the system prompt, or switch to a
+                    # persistent SDK session that accumulates messages.
                     response = client.create_agent_session(
                         name=f"companion-{self.current_phase}",
                         starting_message=user_message,

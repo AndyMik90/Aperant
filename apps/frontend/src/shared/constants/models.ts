@@ -17,7 +17,7 @@ export const AVAILABLE_MODELS = [
 
 // Maps model shorthand to actual Claude model IDs
 export const MODEL_ID_MAP: Record<string, string> = {
-  opus: 'claude-opus-4-5-20251101',
+  opus: 'claude-opus-4-6',
   sonnet: 'claude-sonnet-4-5-20250929',
   haiku: 'claude-haiku-4-5-20251001'
 } as const;
@@ -121,7 +121,7 @@ export const DEFAULT_PHASE_THINKING: import('../types/settings').PhaseThinkingCo
 
 // Default feature model configuration (for insights, ideation, roadmap, github, utility)
 export const DEFAULT_FEATURE_MODELS: FeatureModelConfig = {
-  insights: 'sonnet',     // Fast, responsive chat
+  insights: 'opus',       // Best comprehension for user intent and spec creation
   ideation: 'opus',       // Creative ideation benefits from Opus
   roadmap: 'opus',        // Strategic planning benefits from Opus
   githubIssues: 'opus',   // Issue triage and analysis benefits from Opus
@@ -131,7 +131,7 @@ export const DEFAULT_FEATURE_MODELS: FeatureModelConfig = {
 
 // Default feature thinking configuration
 export const DEFAULT_FEATURE_THINKING: FeatureThinkingConfig = {
-  insights: 'medium',     // Balanced thinking for chat
+  insights: 'low',        // Quick Q&A, no deep analysis needed
   ideation: 'high',       // Deep thinking for creative ideas
   roadmap: 'high',        // Strategic thinking for roadmap
   githubIssues: 'medium', // Moderate thinking for issue analysis

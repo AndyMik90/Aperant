@@ -16,6 +16,7 @@ export interface InsightsQueuedTask {
     category?: string;
     complexity?: string;
     priority?: string;
+    dependencies?: string[];
   };
 }
 

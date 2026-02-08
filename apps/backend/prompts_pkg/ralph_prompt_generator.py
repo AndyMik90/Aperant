@@ -278,6 +278,137 @@ class RalphPromptGenerator:
 
         return prompt
 
+    def generate_execution_protocol(
+        self,
+        spec_dir: str | Path,
+        project_root: str | Path,
+        title: str | None = None,
+        max_iterations: int | None = None,
+    ) -> str:
+        """
+        Generate the raw Ralph execution protocol content for injection into coding prompts.
+
+        Unlike generate_prompt(), this returns just the execution protocol text
+        (identity, task table, anti-skip rules, etc.) without the CLI command wrapper.
+        Designed to be prepended to subtask prompts in the automated build pipeline.
+
+        Args:
+            spec_dir: Directory containing spec.md and implementation_plan.json
+            project_root: Root directory of the project
+            title: Optional title (extracted from spec if not provided)
+            max_iterations: Max iterations (defaults to calculated based on task count)
+
+        Returns:
+            Raw Ralph execution protocol string, or empty string if generation fails
+        """
+        if not self._patterns_analyzed:
+            self.analyze_patterns()
+
+        spec_dir = Path(spec_dir)
+        project_root = Path(project_root)
+
+        # Load spec.md
+        spec_file = spec_dir / "spec.md"
+        if not spec_file.exists():
+            logger.warning(f"spec.md not found in {spec_dir}, skipping Ralph protocol")
+            return ""
+
+        spec_content = spec_file.read_text(encoding="utf-8")
+
+        # Load implementation_plan.json
+        plan_file = spec_dir / "implementation_plan.json"
+        plan = None
+        if plan_file.exists():
+            try:
+                plan = json.loads(plan_file.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse {plan_file}")
+
+        # Extract tasks
+        tasks = self._extract_tasks(spec_content, plan)
+        if not tasks:
+            logger.warning("No tasks found for Ralph protocol generation")
+            return ""
+
+        # Extract or use provided title
+        if not title:
+            title = self._extract_title(spec_content, spec_dir)
+
+        # Calculate max iterations
+        if max_iterations is None:
+            max_iterations = self._calculate_max_iterations(len(tasks))
+
+        # Return just the raw content (no CLI command wrapper)
+        return self._build_prompt_content(
+            title=title,
+            tasks=tasks,
+            project_root=project_root,
+            spec_dir=spec_dir,
+            max_iterations=max_iterations,
+        )
+
+    def generate_batch_protocol(
+        self,
+        spec_dir: str | Path,
+        project_root: str | Path,
+        subtask_batch: list[dict],
+        title: str | None = None,
+    ) -> str:
+        """
+        Generate a Ralph execution protocol for a specific batch of subtasks.
+
+        Each batch gets its own tailored ralph loop with the correct task count,
+        task table, promises, and hard stop rule scoped to those subtasks only.
+
+        Args:
+            spec_dir: Directory containing spec.md
+            project_root: Root directory of the project
+            subtask_batch: List of subtask dicts (each with 'id' and 'description')
+            title: Optional title (extracted from spec if not provided)
+
+        Returns:
+            Raw Ralph execution protocol string for this batch, or empty string
+        """
+        if not self._patterns_analyzed:
+            self.analyze_patterns()
+
+        spec_dir = Path(spec_dir)
+        project_root = Path(project_root)
+
+        if not subtask_batch:
+            return ""
+
+        # Extract title from spec if not provided
+        if not title:
+            spec_file = spec_dir / "spec.md"
+            if spec_file.exists():
+                spec_content = spec_file.read_text(encoding="utf-8")
+                title = self._extract_title(spec_content, spec_dir)
+            else:
+                title = spec_dir.name.replace("-", " ").replace("_", " ").title()
+
+        # Convert subtask dicts to the task format expected by _build_prompt_content
+        tasks = []
+        for subtask in subtask_batch:
+            tasks.append({
+                "id": subtask.get("id", f"TASK_{len(tasks) + 1}"),
+                "description": subtask.get("description", ""),
+                "files": (
+                    subtask.get("files_to_modify", [])
+                    + subtask.get("files_to_create", [])
+                ),
+            })
+
+        max_iterations = self._calculate_max_iterations(len(tasks))
+
+        return self._build_prompt_content(
+            title=title,
+            tasks=tasks,
+            project_root=project_root,
+            spec_dir=spec_dir,
+            max_iterations=max_iterations,
+        )
+
     def _extract_tasks(self, spec_content: str, plan: dict | None) -> list[dict]:
         """Extract tasks from spec content and/or implementation plan."""
         tasks = []
@@ -349,7 +480,7 @@ class RalphPromptGenerator:
 
         return max(50, min(200, calculated))
 
-    def _build_prompt(
+    def _build_prompt_content(
         self,
         title: str,
         tasks: list[dict],
@@ -357,7 +488,7 @@ class RalphPromptGenerator:
         spec_dir: Path,
         max_iterations: int,
     ) -> str:
-        """Build the complete Ralph prompt."""
+        """Build the raw Ralph execution protocol content (no CLI command wrapper)."""
         task_count = len(tasks)
 
         # Generate promise names for each task
@@ -435,9 +566,22 @@ class RalphPromptGenerator:
             task_count=task_count
         ))
 
-        # Build the complete prompt
-        prompt_content = "\n".join(sections)
+        return "\n".join(sections)
 
+    def _build_prompt(
+        self,
+        title: str,
+        tasks: list[dict],
+        project_root: Path,
+        spec_dir: Path,
+        max_iterations: int,
+    ) -> str:
+        """Build the complete Ralph prompt (with CLI command wrapper)."""
+        prompt_content = self._build_prompt_content(
+            title, tasks, project_root, spec_dir, max_iterations
+        )
+
+        base_promise = self._sanitize_promise_name(title)
         # Build the full command
         command = f'/ralph-loop:ralph-loop "\n{prompt_content}\n" --max-iterations {max_iterations} --completion-promise "{base_promise}_COMPLETE"'
 
@@ -455,15 +599,21 @@ class RalphPromptGenerator:
         spec_dir: str | Path,
         project_root: str | Path,
         output_file: str | Path | None = None,
+        max_tasks_per_prompt: int = 8,
         **kwargs
     ) -> Path | None:
         """
-        Generate and save a Ralph prompt to a file.
+        Generate and save Ralph prompt(s) to a file.
+
+        If the task has more subtasks than max_tasks_per_prompt, multiple
+        prompts are generated (one per batch) so each prompt stays focused
+        and the agent doesn't suffer cognitive overload.
 
         Args:
             spec_dir: Directory containing spec.md
             project_root: Root directory of the project
             output_file: Output file path. Defaults to spec_dir/RALPH_PROMPT.md
+            max_tasks_per_prompt: Max subtasks per prompt before splitting (default 8)
             **kwargs: Additional arguments passed to generate_prompt()
 
         Returns:
@@ -482,10 +632,26 @@ class RalphPromptGenerator:
         else:
             output_file = Path(output_file)
 
-        prompt = self.generate_prompt(spec_dir, project_root, **kwargs)
+        # Load plan to check subtask count
+        try:
+            plan = json.loads(plan_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            plan = None
 
-        # Wrap in markdown code block for better readability
-        content = f"""# Ralph Prompt
+        # Count total subtasks
+        total_subtasks = 0
+        all_subtasks: list[dict] = []
+        if plan:
+            for phase in plan.get("phases", []):
+                for subtask in phase.get("subtasks", phase.get("chunks", [])):
+                    total_subtasks += 1
+                    all_subtasks.append(subtask)
+
+        if total_subtasks <= max_tasks_per_prompt:
+            # Small enough — generate a single prompt as before
+            prompt = self.generate_prompt(spec_dir, project_root, **kwargs)
+
+            content = f"""# Ralph Prompt
 
 Generated from: {spec_dir.name}/spec.md
 
@@ -500,6 +666,44 @@ Generated from: {spec_dir.name}/spec.md
 1. Copy the command above
 2. Paste into Claude Code terminal
 3. Wait for completion promise
+
+"""
+        else:
+            # Split into multiple prompts
+            num_batches = (total_subtasks + max_tasks_per_prompt - 1) // max_tasks_per_prompt
+            logger.info(f"Splitting {total_subtasks} subtasks into {num_batches} ralph prompts (max {max_tasks_per_prompt} per prompt)")
+
+            content = f"""# Ralph Prompt
+
+Generated from: {spec_dir.name}/spec.md
+
+**Note:** This task has {total_subtasks} subtasks, split into {num_batches} ralph prompts ({max_tasks_per_prompt} tasks max per prompt).
+Run them in order — each prompt picks up where the last left off.
+
+"""
+
+            for batch_idx in range(num_batches):
+                start = batch_idx * max_tasks_per_prompt
+                end = min(start + max_tasks_per_prompt, total_subtasks)
+                batch = all_subtasks[start:end]
+
+                batch_prompt = self.generate_batch_protocol(
+                    spec_dir, project_root, batch, **kwargs
+                )
+
+                content += f"""## Prompt {batch_idx + 1} of {num_batches} (Tasks {start + 1}-{end})
+
+```bash
+{batch_prompt}
+```
+
+"""
+
+            content += """## Usage
+
+1. Copy Prompt 1 above and paste into Claude Code terminal
+2. Wait for its completion promise
+3. Then copy and run Prompt 2, and so on
 
 """
 
@@ -524,3 +728,48 @@ def generate_ralph_prompt(spec_dir: str | Path, project_root: str | Path, **kwar
     """
     generator = RalphPromptGenerator()
     return generator.generate_prompt(spec_dir, project_root, **kwargs)
+
+
+def generate_ralph_execution_protocol(spec_dir: str | Path, project_root: str | Path, **kwargs) -> str:
+    """
+    Generate the raw Ralph execution protocol for injection into coding prompts.
+
+    Unlike generate_ralph_prompt(), this returns just the execution protocol text
+    without the CLI command wrapper. Use this when feeding ralph into the automated
+    build pipeline (coder agent).
+
+    Args:
+        spec_dir: Directory containing spec.md and implementation_plan.json
+        project_root: Root directory of the project
+        **kwargs: Additional arguments (title, max_iterations)
+
+    Returns:
+        Raw execution protocol string, or empty string on failure
+    """
+    generator = RalphPromptGenerator()
+    return generator.generate_execution_protocol(spec_dir, project_root, **kwargs)
+
+
+def generate_ralph_batch_protocol(
+    spec_dir: str | Path,
+    project_root: str | Path,
+    subtask_batch: list[dict],
+    **kwargs
+) -> str:
+    """
+    Generate a Ralph execution protocol for a specific batch of subtasks.
+
+    Each batch gets its own tailored ralph loop with task count, table, promises,
+    and hard stop rule scoped to those subtasks only.
+
+    Args:
+        spec_dir: Directory containing spec.md
+        project_root: Root directory of the project
+        subtask_batch: List of subtask dicts (each with 'id' and 'description')
+        **kwargs: Additional arguments (title)
+
+    Returns:
+        Raw execution protocol string for this batch, or empty string
+    """
+    generator = RalphPromptGenerator()
+    return generator.generate_batch_protocol(spec_dir, project_root, subtask_batch, **kwargs)

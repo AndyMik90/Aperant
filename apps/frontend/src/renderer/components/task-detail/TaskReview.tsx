@@ -36,6 +36,10 @@ interface TaskReviewProps {
   showConflictDialog: boolean;
   onFeedbackChange: (value: string) => void;
   onReject: () => void;
+  /** Callback to restart the task from planning phase */
+  onRestartFromPlanning?: () => void;
+  /** Whether a restart from planning is in progress */
+  isRestarting?: boolean;
   /** Image attachments for visual feedback */
   images?: ImageAttachment[];
   /** Callback when images change */
@@ -90,6 +94,8 @@ export function TaskReview({
   showConflictDialog,
   onFeedbackChange,
   onReject,
+  onRestartFromPlanning,
+  isRestarting,
   images,
   onImagesChange,
   onMerge,
@@ -184,6 +190,8 @@ export function TaskReview({
         isSubmitting={isSubmitting}
         onFeedbackChange={onFeedbackChange}
         onReject={onReject}
+        onRestartFromPlanning={onRestartFromPlanning}
+        isRestarting={isRestarting}
         images={images}
         onImagesChange={onImagesChange}
       />

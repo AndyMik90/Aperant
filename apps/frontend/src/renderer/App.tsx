@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { debugLog } from '../shared/utils/debug-logger';
@@ -143,7 +143,11 @@ export function App() {
   // Bottom panel terminal state (persists across navigation)
   const bottomPanel = useTerminalStore((state) => state.bottomPanel);
   const closeBottomPanel = useTerminalStore((state) => state.closeBottomPanel);
+  const closeBottomPanelTab = useTerminalStore((state) => state.closeBottomPanelTab);
+  const openBottomPanel = useTerminalStore((state) => state.openBottomPanel);
   const minimizeBottomPanel = useTerminalStore((state) => state.minimizeBottomPanel);
+  const toggleSplitMode = useTerminalStore((state) => state.toggleSplitMode);
+  const setSplitTask = useTerminalStore((state) => state.setSplitTask);
 
   // Claude Profile state (OAuth)
   const claudeProfiles = useClaudeProfileStore((state) => state.profiles);
@@ -433,17 +437,40 @@ export function App() {
     }
   }, [activeProjectId, selectedProjectId, selectedProject?.path, selectedProject?.name]);
 
-  // Recreate task monitor terminals after tasks are loaded (only once per project)
+  // Recreate task monitor terminals after tasks are loaded.
+  // Debounced: tasks.length changes rapidly as tasks are created (10→11→12→13→14),
+  // and each call triggers redundant stuck-task restarts.
+  const recreateTimerRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
-    if (selectedProject?.path && tasks.length > 0) {
+    if (!selectedProject?.path || tasks.length === 0) return;
+
+    // Clear any pending call — only the last one within the debounce window fires
+    if (recreateTimerRef.current) clearTimeout(recreateTimerRef.current);
+
+    recreateTimerRef.current = setTimeout(() => {
       console.log('[App] Tasks loaded, recreating task monitor terminals with', tasks.length, 'tasks');
       const store = useTerminalStore.getState();
-      // Pass a snapshot of current tasks to avoid dependency issues
       const currentTasks = [...tasks];
-      recreateTaskMonitorTerminals(selectedProject.path, store, currentTasks).catch((err) => {
+      recreateTaskMonitorTerminals(selectedProject.path, store, currentTasks).then(() => {
+        // Mark interrupted coding tasks so UI shows Resume button instead of Stop
+        const taskStore = useTaskStore.getState();
+        for (const task of currentTasks) {
+          if (task.status === 'coding') {
+            window.electronAPI.checkTaskRunning(task.id).then(result => {
+              if (result.success && result.data === false) {
+                taskStore.setAgentStopped(task.id, true);
+              }
+            }).catch(() => { /* ignore check errors */ });
+          }
+        }
+      }).catch((err) => {
         console.error('[App] Failed to recreate task monitors:', err);
       });
-    }
+    }, 2000); // 2s debounce — coalesces rapid tasks.length changes
+
+    return () => {
+      if (recreateTimerRef.current) clearTimeout(recreateTimerRef.current);
+    };
     // Only depend on tasks.length and path, NOT the tasks array itself
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks.length, selectedProject?.path]);
@@ -839,6 +866,8 @@ export function App() {
 
         {/* Main content */}
         <div className="flex flex-1 flex-col overflow-hidden">
+          {/* macOS draggable titlebar region — spans content area above tabs */}
+          <div className="electron-drag h-8 w-full flex-shrink-0" />
           {/* Project Tabs */}
           {projectTabs.length > 0 && (
             <DndContext
@@ -977,8 +1006,16 @@ export function App() {
             taskId={bottomPanel.taskId}
             taskTitle={bottomPanel.taskTitle}
             isOpen={bottomPanel.isOpen}
+            openTabs={bottomPanel.openTabs}
             onClose={closeBottomPanel}
+            onCloseTab={closeBottomPanelTab}
+            onSwitchTab={openBottomPanel}
             onMinimize={minimizeBottomPanel}
+            splitMode={bottomPanel.splitMode}
+            splitTaskId={bottomPanel.splitTaskId}
+            splitTaskTitle={bottomPanel.splitTaskTitle}
+            onToggleSplit={toggleSplitMode}
+            onSetSplitTask={setSplitTask}
           />
         </div>
 

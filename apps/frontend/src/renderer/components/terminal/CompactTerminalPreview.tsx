@@ -90,7 +90,7 @@ export function CompactTerminalPreview({ taskId, className }: CompactTerminalPre
   return (
     <div
       className={cn(
-        'mt-2 p-2 rounded bg-muted/30 font-mono text-[10px] leading-tight overflow-hidden',
+        'mt-2 p-2 rounded bg-muted/30 font-mono text-[10px] leading-tight overflow-hidden max-w-full',
         className
       )}
     >

@@ -44,14 +44,14 @@ echo ""
 echo -e "${YELLOW}Analyzing repository for version collisions...${NC}"
 echo ""
 
-# Get all version tags
-tags=$(git tag | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V || true)
+# Get all version tags (including pre-release versions like v1.0.0-beta.1)
+tags=$(git tag | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?$" | sort -V || true)
 
-# Get all local version branches
-local_branches=$(git branch --format='%(refname:short)' | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" || true)
+# Get all local version branches (including pre-release versions)
+local_branches=$(git branch --format='%(refname:short)' | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?$" || true)
 
-# Get all remote version branches
-remote_branches=$(git branch -r --format='%(refname:short)' | sed 's|origin/||' | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" || true)
+# Get all remote version branches (including pre-release versions)
+remote_branches=$(git branch -r --format='%(refname:short)' | sed 's|origin/||' | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?$" || true)
 
 # Find collisions
 colliding_branches=()

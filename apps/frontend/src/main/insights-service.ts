@@ -116,7 +116,8 @@ export class InsightsService extends EventEmitter {
     projectId: string,
     projectPath: string,
     message: string,
-    modelConfig?: InsightsModelConfig
+    modelConfig?: InsightsModelConfig,
+    imagePaths?: string[]
   ): Promise<void> {
     // Cancel any existing session
     this.executor.cancelSession(projectId);
@@ -166,20 +167,49 @@ export class InsightsService extends EventEmitter {
         projectPath,
         message,
         conversationHistory,
-        configToUse
+        configToUse,
+        imagePaths
       );
 
-      // Add assistant message to session
-      const assistantMessage: InsightsChatMessage = {
-        id: `msg-${Date.now()}`,
-        role: 'assistant',
-        content: result.fullResponse,
-        timestamp: new Date(),
-        suggestedTask: result.suggestedTask,
-        toolsUsed: result.toolsUsed.length > 0 ? result.toolsUsed : undefined
-      };
+      // Add assistant message(s) to session
+      // When multiple task suggestions exist, create separate messages for each
+      // so they all persist correctly on reload (fixes bug where only last survives)
+      if (result.suggestedTasks.length > 1) {
+        const now = Date.now();
+        // Create one message per suggestion with its preceding text
+        result.suggestedTasks.forEach(({ task, textBefore }, idx) => {
+          const msg: InsightsChatMessage = {
+            id: `msg-${now}-${idx}`,
+            role: 'assistant',
+            content: textBefore,
+            timestamp: new Date(),
+            suggestedTask: task,
+            toolsUsed: idx === 0 && result.toolsUsed.length > 0 ? result.toolsUsed : undefined
+          };
+          session.messages.push(msg);
+        });
+        // Add trailing text after last suggestion (if any)
+        if (result.trailingText) {
+          session.messages.push({
+            id: `msg-${now}-trail`,
+            role: 'assistant',
+            content: result.trailingText,
+            timestamp: new Date()
+          });
+        }
+      } else {
+        // Single or no suggestion: create one message as before
+        const assistantMessage: InsightsChatMessage = {
+          id: `msg-${Date.now()}`,
+          role: 'assistant',
+          content: result.fullResponse,
+          timestamp: new Date(),
+          suggestedTask: result.suggestedTask,
+          toolsUsed: result.toolsUsed.length > 0 ? result.toolsUsed : undefined
+        };
+        session.messages.push(assistantMessage);
+      }
 
-      session.messages.push(assistantMessage);
       session.updatedAt = new Date();
       this.sessionManager.saveSession(projectPath, session);
     } catch (error) {

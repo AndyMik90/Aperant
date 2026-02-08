@@ -196,6 +196,7 @@ This document tracks known issues that have been identified and their resolution
 **Status:** ⚠️ DOCUMENTED (Not a bug)
 **Issue:** Main bundle is 3MB, renderer assets total over 5MB.
 **Impact:** Slower app startup.
+**Priority:** LOW
 **Recommendations:**
 - Implement code splitting for non-critical features (settings dialogs, onboarding wizard)
 - Lazy load heavy components (terminal emulator, code editor)
@@ -204,15 +205,22 @@ This document tracks known issues that have been identified and their resolution
 
 ### 26. Pre-existing Test Failures
 **Status:** ⚠️ DOCUMENTED (Environment-specific)
+**Severity:** MINOR
 **Files:**
 - `src/__tests__/integration/subprocess-spawn.test.ts` - "should track running tasks"
 - `src/renderer/components/onboarding/OnboardingWizard.test.tsx` - "AC1" test
+
+**Root Cause:** Module mocking conflicts with other tests in the suite
 
 **Analysis:**
 - Tests have been updated with SWEEP-8 fixes (proper `vi.waitFor` usage, async handling)
 - Flaky tests are marked with `.skip` when running in full suite
 - Tests pass in isolation: `npm test -- src/__tests__/integration/subprocess-spawn.test.ts`
-- Root cause: Module mocking conflicts with other tests in the suite
+
+**Reproduction Steps:**
+1. Run: `npm test` in `apps/frontend`
+2. Tests pass individually but fail in full suite
+3. Root cause: Vitest module cache not being reset between tests
 
 **Recommendations:**
 - Run integration tests in separate CI step
@@ -312,7 +320,12 @@ This document tracks known issues that have been identified and their resolution
 ### SWEEP-37: Hardcoded Text Without i18n in ChatHistorySidebar
 **File:** `apps/frontend/src/renderer/components/ChatHistorySidebar.tsx`
 **Status:** ⚠️ OPEN
+**Severity:** MINOR
 **Issue:** Strings like "Today", "Yesterday", "Chat History" are hardcoded without translation keys.
+**Reproduction Steps:**
+1. Open ChatHistorySidebar.tsx
+2. Search for hardcoded strings without useTranslation()
+3. Verify they appear in English regardless of locale settings
 **Recommendation:** Replace with i18n keys per CLAUDE.md guidelines.
 
 ### SWEEP-38: Missing Error State in SpecDocView

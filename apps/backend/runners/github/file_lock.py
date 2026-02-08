@@ -294,7 +294,13 @@ async def locked_write(
 
         try:
             # Open temp file and yield to caller
-            f = os.fdopen(fd, mode)
+            # Wrap os.fdopen in try-except to close the raw fd on failure,
+            # since os.fdopen() takes ownership only on success (fix: FD leak)
+            try:
+                f = os.fdopen(fd, mode)
+            except Exception:
+                os.close(fd)
+                raise
             try:
                 yield f
             finally:
@@ -311,7 +317,7 @@ async def locked_write(
                 await asyncio.get_running_loop().run_in_executor(
                     None, os.unlink, tmp_path
                 )
-            except Exception:
+            except OSError:
                 pass
             raise
 

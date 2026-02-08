@@ -23,7 +23,7 @@ import { titleGenerator } from "../title-generator";
 import { fileWatcher } from "../file-watcher";
 import { projectStore } from "../project-store";
 import { notificationService } from "../notification-service";
-import { persistPlanStatusSync, getPlanPath } from "./task/plan-file-utils";
+import { persistPlanStatus, persistPlanStatusSync, getPlanPath } from "./task/plan-file-utils";
 import { findTaskWorktree } from "../worktree-paths";
 import { findTaskAndProject } from "./task/shared";
 import { safeSendToRenderer } from "./utils";
@@ -31,6 +31,7 @@ import { SDKOutputParser } from "../agent/parsers/sdk-output-parser";
 import { parseRalphPromise } from "../agent/parsers/ralph-promise-parser";
 import type { StepCompleteBlock, TaskCompleteBlock } from "../../shared/types/structured-output";
 import { recordTaskTimestamp } from "../utils/task-timestamps";
+import { parseDriftReport, parseDriftInterim, emitDriftReport, emitDriftInterim } from "./drift-handlers";
 
 /** Data emitted by the complexity classification event */
 interface ComplexityClassificationData {
@@ -95,6 +96,16 @@ function validateStatusTransition(
   if (task.status === "planning" && newStatus === "coding") {
     console.warn(
       `[validateStatusTransition] FIX-10: Blocking auto planning->coding for task ${task.id} (phase: ${phase}). User must click "Start Build".`
+    );
+    return false;
+  }
+
+  // Block planning->human_review transitions from agent events
+  // Planning tasks should stay in planning even if the agent emits "complete" or "failed" phase.
+  // User must click "Start Build" to move to coding, then human_review comes after coding completes.
+  if (task.status === "planning" && newStatus === "human_review") {
+    console.warn(
+      `[validateStatusTransition] Blocking auto planning->human_review for task ${task.id} (phase: ${phase}). Planning tasks must go through coding first.`
     );
     return false;
   }
@@ -165,7 +176,11 @@ export function registerAgenteventsHandlers(
   // Agent Manager Events → Renderer
   // ============================================
 
-  agentManager.on("log", (taskId: string, log: string) => {
+  agentManager.on("log", (rawTaskId: string, log: string) => {
+    // Strip supervisor- prefix so logs route to the real task terminal
+    const isSupervisor = rawTaskId.startsWith('supervisor-');
+    const taskId = isSupervisor ? rawTaskId.slice('supervisor-'.length) : rawTaskId;
+
     // Include projectId for multi-project filtering (issue #723)
     const { project } = findTaskAndProject(taskId);
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_LOG, taskId, log, project?.id);
@@ -188,6 +203,18 @@ export function registerAgenteventsHandlers(
           terminalId,
           structuredBlock
         );
+      }
+
+      // DRIFT: Parse for drift report markers
+      // Detects __DRIFT_REPORT__:{json} and __DRIFT_INTERIM__:{json}
+      const driftReport = parseDriftReport(log);
+      if (driftReport) {
+        console.log(`[Drift] Report received for task ${taskId}: score=${driftReport.overall_drift_score}, alert=${driftReport.alert_level}`);
+        emitDriftReport(mainWindow, taskId, driftReport);
+      }
+      const driftInterim = parseDriftInterim(log);
+      if (driftInterim) {
+        emitDriftInterim(mainWindow, taskId, driftInterim);
       }
 
       // RALPH LOOP: Parse for Ralph promise markers
@@ -300,19 +327,56 @@ export function registerAgenteventsHandlers(
     );
   });
 
-  agentManager.on("exit", (taskId: string, code: number | null, processType: ProcessType) => {
-    // Early return for companion exit - just notify renderer, no status changes
+  // Handle supervisor agent spawned event
+  agentManager.on("supervisor-spawned", (taskId: string) => {
+    console.log(`[Task ${taskId}] Supervisor agent spawned`);
+    const { project } = findTaskAndProject(taskId);
+    safeSendToRenderer(
+      getMainWindow,
+      IPC_CHANNELS.TASK_SUPERVISOR_SPAWNED,
+      taskId,
+      project?.id
+    );
+  });
+
+  // Handle supervisor agent stopped event
+  agentManager.on("supervisor-stopped", (taskId: string) => {
+    console.log(`[Task ${taskId}] Supervisor agent stopped`);
+    const { project } = findTaskAndProject(taskId);
+    safeSendToRenderer(
+      getMainWindow,
+      IPC_CHANNELS.TASK_SUPERVISOR_STOPPED,
+      taskId,
+      project?.id
+    );
+  });
+
+  agentManager.on("exit", (rawTaskId: string, code: number | null, processType: ProcessType) => {
+    // Strip supervisor- prefix so exit events route to the real task
+    const isSupervisorExit = rawTaskId.startsWith('supervisor-');
+    const taskId = isSupervisorExit ? rawTaskId.slice('supervisor-'.length) : rawTaskId;
+
+    // Early return for companion/supervisor exit - just notify renderer, no status changes
     if (processType === "companion") {
-      console.log(`[Task ${taskId}] Companion agent exited with code ${code}`);
+      console.log(`[Task ${taskId}] ${isSupervisorExit ? 'Supervisor' : 'Companion'} agent exited with code ${code}`);
       // Clean up parser created during companion session (prevents memory leak)
       cleanupTaskParser(taskId);
       const { project } = findTaskAndProject(taskId);
-      safeSendToRenderer(
-        getMainWindow,
-        IPC_CHANNELS.TASK_COMPANION_STOPPED,
-        taskId,
-        project?.id
-      );
+      if (isSupervisorExit) {
+        safeSendToRenderer(
+          getMainWindow,
+          IPC_CHANNELS.TASK_SUPERVISOR_STOPPED,
+          taskId,
+          project?.id
+        );
+      } else {
+        safeSendToRenderer(
+          getMainWindow,
+          IPC_CHANNELS.TASK_COMPANION_STOPPED,
+          taskId,
+          project?.id
+        );
+      }
       return;
     }
 
@@ -380,6 +444,18 @@ export function registerAgenteventsHandlers(
         IPC_CHANNELS.TASK_AGENT_STOPPED,
         taskId
       );
+      // FIX-008: Emit explicit error event so the UI shows the failure reason,
+      // not just a silent "agent stopped". Without this, the task appears stuck
+      // in "processing" state with no user-visible error.
+      if (code !== null && code !== 0) {
+        safeSendToRenderer(
+          getMainWindow,
+          IPC_CHANNELS.TASK_ERROR,
+          taskId,
+          `Planning agent exited with code ${code}. Check the task terminal for details.`,
+          exitProjectId
+        );
+      }
       // Continue processing below for status updates
     }
 
@@ -414,36 +490,47 @@ export function registerAgenteventsHandlers(
         const projectPath = project.path;
         const autoBuildPath = project.autoBuildPath;
 
-        // Use shared utility for persisting status (prevents race conditions)
+        // Use async persistPlanStatus to properly participate in the lock mechanism
+        // This prevents race conditions with concurrent execution-progress events
         // Persist to both main project AND worktree (if exists) for consistency
         const persistStatus = (status: TaskStatus) => {
-          // Persist to main project
-          const mainPersisted = persistPlanStatusSync(mainPlanPath, status, projectId);
-          if (mainPersisted) {
-            console.warn(`[Task ${taskId}] Persisted status to main plan: ${status}`);
-          }
-
-          // Also persist to worktree if it exists
-          const worktreePath = findTaskWorktree(projectPath, taskSpecId);
-          if (worktreePath) {
-            const specsBaseDir = getSpecsDir(autoBuildPath);
-            const worktreePlanPath = path.join(
-              worktreePath,
-              specsBaseDir,
-              taskSpecId,
-              AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN
-            );
-            if (existsSync(worktreePlanPath)) {
-              const worktreePersisted = persistPlanStatusSync(worktreePlanPath, status, projectId);
-              if (worktreePersisted) {
-                console.warn(`[Task ${taskId}] Persisted status to worktree plan: ${status}`);
+          // Use setImmediate to run async persistence without blocking the event handler
+          setImmediate(async () => {
+            try {
+              // Persist to main project (async, participates in lock)
+              const mainPersisted = await persistPlanStatus(mainPlanPath, status, projectId);
+              if (mainPersisted) {
+                console.warn(`[Task ${taskId}] Persisted status to main plan: ${status}`);
               }
+
+              // Also persist to worktree if it exists
+              const worktreePath = findTaskWorktree(projectPath, taskSpecId);
+              if (worktreePath) {
+                const specsBaseDir = getSpecsDir(autoBuildPath);
+                const worktreePlanPath = path.join(
+                  worktreePath,
+                  specsBaseDir,
+                  taskSpecId,
+                  AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN
+                );
+                if (existsSync(worktreePlanPath)) {
+                  const worktreePersisted = await persistPlanStatus(worktreePlanPath, status, projectId);
+                  if (worktreePersisted) {
+                    console.warn(`[Task ${taskId}] Persisted status to worktree plan: ${status}`);
+                  }
+                }
+              }
+            } catch (err) {
+              console.error(`[Task ${taskId}] Failed to persist status ${status}:`, err);
             }
-          }
+          });
         };
 
         if (code === 0) {
-          notificationService.notifyReviewNeeded(taskTitle, project.id, taskId);
+          // Only send review notification for non-planning tasks
+          if (task.status !== "planning") {
+            notificationService.notifyReviewNeeded(taskTitle, project.id, taskId);
+          }
 
           // Fallback: Ensure status is updated even if COMPLETE phase event was missed
           // This prevents tasks from getting stuck in ai_review status
@@ -481,7 +568,8 @@ export function registerAgenteventsHandlers(
           // FIX: Determine failure status based on current phase/status
           // - Planning failure → stay in "planning" (user can retry or fix spec)
           // - Coding failure → stay in "coding" (user can retry)
-          // - QA failure → move to "human_review" (needs human intervention)
+          // - ai_review crash → stay in "ai_review" (agent crashed, not actually reviewed)
+          // - QA failure (actual rejection) → move to "human_review" (needs human intervention)
           let failureStatus: TaskStatus = "human_review";
           const currentPhase = task.executionProgress?.phase;
           const currentStatus = task.status;
@@ -492,8 +580,12 @@ export function registerAgenteventsHandlers(
           } else if (currentStatus === "coding" && currentPhase !== "qa_review" && currentPhase !== "qa_fixing") {
             // Coding phase failure (not during QA) - keep in coding status
             failureStatus = "coding";
+          } else if (currentStatus === "ai_review") {
+            // AI review agent crashed - keep in ai_review so user knows review didn't complete
+            // Don't move to human_review as that implies AI review passed
+            failureStatus = "ai_review";
           }
-          // Otherwise (QA failure or other) → human_review (default)
+          // Otherwise (QA rejection after actual review) → human_review (default)
 
           persistStatus(failureStatus);
           // Include projectId for multi-project filtering (issue #723)
@@ -567,7 +659,9 @@ export function registerAgenteventsHandlers(
       qa_review: "ai_review",
       qa_fixing: "ai_review",
       complete: "human_review",
-      failed: "human_review",
+      failed: null,        // Don't auto-transition on failure - let the exit handler determine
+                           // the correct status based on context (coding failure → stay coding,
+                           // QA rejection → human_review, etc.)
     };
 
     // FIX-6: Determine new status based on current task status and phase
@@ -594,34 +688,41 @@ export function registerAgenteventsHandlers(
       // CRITICAL: Persist status to plan file(s) to prevent flip-flop on task list refresh
       // When getTasks() is called, it reads status from the plan file. Without persisting,
       // the status in the file might differ from the UI, causing inconsistent state.
-      // Uses shared utility with locking to prevent race conditions.
+      // Uses async persistPlanStatus to properly participate in the lock mechanism.
       // IMPORTANT: We persist to BOTH main project AND worktree (if exists) to ensure
       // consistency, since getTasks() prefers the worktree version.
       if (task && project) {
-        try {
-          // Persist to main project plan file
-          const mainPlanPath = getPlanPath(project, task);
-          persistPlanStatusSync(mainPlanPath, newStatus, project.id);
+        const capturedNewStatus = newStatus;
+        const capturedProjectId = project.id;
+        const capturedProjectPath = project.path;
+        const capturedSpecId = task.specId;
+        const capturedAutoBuildPath = project.autoBuildPath;
+        setImmediate(async () => {
+          try {
+            // Persist to main project plan file (async, participates in lock)
+            const mainPlanPath = getPlanPath(project, task);
+            await persistPlanStatus(mainPlanPath, capturedNewStatus, capturedProjectId);
 
-          // Also persist to worktree plan file if it exists
-          // This ensures consistency since getTasks() prefers worktree version
-          const worktreePath = findTaskWorktree(project.path, task.specId);
-          if (worktreePath) {
-            const specsBaseDir = getSpecsDir(project.autoBuildPath);
-            const worktreePlanPath = path.join(
-              worktreePath,
-              specsBaseDir,
-              task.specId,
-              AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN
-            );
-            if (existsSync(worktreePlanPath)) {
-              persistPlanStatusSync(worktreePlanPath, newStatus, project.id);
+            // Also persist to worktree plan file if it exists
+            // This ensures consistency since getTasks() prefers worktree version
+            const worktreePath = findTaskWorktree(capturedProjectPath, capturedSpecId);
+            if (worktreePath) {
+              const specsBaseDir = getSpecsDir(capturedAutoBuildPath);
+              const worktreePlanPath = path.join(
+                worktreePath,
+                specsBaseDir,
+                capturedSpecId,
+                AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN
+              );
+              if (existsSync(worktreePlanPath)) {
+                await persistPlanStatus(worktreePlanPath, capturedNewStatus, capturedProjectId);
+              }
             }
+          } catch (err) {
+            // Ignore persistence errors - UI will still work, just might flip on refresh
+            console.warn("[execution-progress] Could not persist status:", err);
           }
-        } catch (err) {
-          // Ignore persistence errors - UI will still work, just might flip on refresh
-          console.warn("[execution-progress] Could not persist status:", err);
-        }
+        });
       }
     }
   });

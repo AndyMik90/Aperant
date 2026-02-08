@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, TerminalSquare, Link2, Send } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, TerminalSquare, Link2, Send, ArrowRight } from 'lucide-react';
 import { CompactTerminalPreview } from './terminal/CompactTerminalPreview';
 import { DriftBadge } from './drift/DriftIndicator';
 import { Card, CardContent } from './ui/card';
@@ -8,6 +8,7 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import { Input } from './ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
 import { ANIMATION_CLASSES } from '../lib/animations';
 import { estimateRemainingTime, formatETA, calculateProgress } from '../../shared/progress';
@@ -27,7 +28,7 @@ import {
   JSON_ERROR_PREFIX,
   JSON_ERROR_TITLE_SUFFIX
 } from '../../shared/constants';
-import { startTask, stopTask, startBuild, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, useTaskStore, isTaskBlocked, getBlockingTasks } from '../stores/task-store';
+import { startTask, stopTask, startBuild, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, useTaskStore, isTaskBlocked, getBlockingTasks, getDependentTasks } from '../stores/task-store';
 import { formatDurationShort } from '../utils/format-time';
 import type { Task, TaskCategory, ReviewReason, TaskStatus } from '../../shared/types';
 
@@ -51,9 +52,12 @@ const ADAPTIVE_COMPLEXITY_COLORS = {
   COMPLEX: 'bg-red-500/10 text-red-500 border-red-500/30',
 } as const;
 
-// Phases where stuck detection should be skipped (terminal states + initial planning)
-// Defined outside component to avoid recreation on every render
-const STUCK_CHECK_SKIP_PHASES = ['complete', 'failed', 'planning'] as const;
+// Phases where stuck detection should be skipped:
+// - Terminal states (complete, failed): task is finished, no process expected
+// - Planning: internal planning within coding agent, process registration may lag
+// - Starting: process is being spawned asynchronously, not yet in process map
+// - Idle: no active execution yet
+const STUCK_CHECK_SKIP_PHASES = ['complete', 'failed', 'planning', 'starting', 'idle'] as const;
 
 function shouldSkipStuckCheck(phase: string | undefined): boolean {
   return STUCK_CHECK_SKIP_PHASES.includes(phase as typeof STUCK_CHECK_SKIP_PHASES[number]);
@@ -215,12 +219,12 @@ export const TaskCard = memo(function TaskCard({
   // Companion chat input state
   const [companionMessage, setCompanionMessage] = useState('');
 
-  // Coding tasks have active execution agents
-  const isRunning = task.status === 'coding';
-  // Phase 2: Planning tasks may have active planning agents
-  const isPlanning = task.status === 'planning';
   // Check if the agent was stopped (for visual feedback on stop button)
   const isAgentStopped = useTaskStore((state) => state.isAgentStopped(task.id));
+  // Coding tasks have active execution agents (but not if agent was stopped/interrupted)
+  const isRunning = task.status === 'coding' && !isAgentStopped;
+  // Phase 2: Planning tasks may have active planning agents
+  const isPlanning = task.status === 'planning';
   // Check if companion agent is active
   const hasCompanion = useTaskStore((state) => state.hasCompanion(task.id));
   // Both planning and coding tasks can be considered "active" for visual purposes
@@ -236,6 +240,7 @@ export const TaskCard = memo(function TaskCard({
   const allTasks = useTaskStore((state) => state.tasks);
   const isBlocked = useMemo(() => isTaskBlocked(task, allTasks), [task, allTasks]);
   const blockingTasks = useMemo(() => getBlockingTasks(task, allTasks), [task, allTasks]);
+  const dependentTasks = useMemo(() => getDependentTasks(task, allTasks), [task, allTasks]);
 
   // METRICS-1B: Elapsed time tracking
   const [elapsedTime, setElapsedTime] = useState<number | null>(null);
@@ -345,8 +350,10 @@ export const TaskCard = memo(function TaskCard({
       return;
     }
 
-    // Initial check after 5s grace period (increased from 2s)
-    stuckCheckRef.current.timeout = setTimeout(performStuckCheck, 5000);
+    // Initial check after 10s grace period (increased from 5s)
+    // Needs to be generous because startTaskExecution() is fire-and-forget —
+    // process may not be registered in the process map for several seconds
+    stuckCheckRef.current.timeout = setTimeout(performStuckCheck, 10000);
 
     // Periodic re-check every 30 seconds (reduced frequency from 15s)
     stuckCheckRef.current.interval = setInterval(performStuckCheck, 30000);
@@ -548,7 +555,7 @@ export const TaskCard = memo(function TaskCard({
   return (
     <Card
       className={cn(
-        'card-surface task-card-enhanced cursor-pointer',
+        'card-surface task-card-enhanced cursor-pointer w-full max-w-full overflow-hidden',
         ANIMATION_CLASSES.cardEnter,
         ANIMATION_CLASSES.cardHover,
         // Phase 2: Both planning and coding tasks with agents show the running pulse
@@ -563,8 +570,8 @@ export const TaskCard = memo(function TaskCard({
       {hasActiveAgent && !isStuck && (
         <div className="h-0.5 bg-gradient-to-r from-primary via-primary/50 to-primary animate-pulse rounded-t-lg" />
       )}
-      <CardContent className="p-4">
-        <div className={isSelectable ? 'flex gap-3' : undefined}>
+      <CardContent className="p-4 overflow-hidden">
+        <div className={isSelectable ? 'flex gap-3 min-w-0' : undefined}>
           {/* Checkbox for selectable mode - stops event propagation */}
           {isSelectable && (
             <div className="flex-shrink-0 pt-0.5">
@@ -577,28 +584,40 @@ export const TaskCard = memo(function TaskCard({
             </div>
           )}
 
-          <div className={isSelectable ? 'flex-1 min-w-0' : undefined}>
+          <div className={isSelectable ? 'flex-1 min-w-0' : 'min-w-0'}>
             {/* Title - single line with ellipsis, full text on hover */}
-            <h3
-              className="font-semibold text-sm text-foreground truncate"
-              title={displayTitle}
-            >
-              {displayTitle}
-            </h3>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <h3 className="font-semibold text-sm text-foreground truncate">
+                    {displayTitle}
+                  </h3>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>{displayTitle}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
         {/* Description - 2-3 lines max with proper word wrap and ellipsis */}
         {sanitizedDescription && (
-          <p
-            className="mt-2 text-xs text-muted-foreground line-clamp-3 break-words"
-            title={task.description}
-          >
-            {sanitizedDescription}
-          </p>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p className="mt-2 text-xs text-muted-foreground line-clamp-3 break-words">
+                  {sanitizedDescription}
+                </p>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>{task.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
 
         {/* Metadata badges */}
-        {(task.metadata || isStuck || isIncomplete || isBlocked || hasActiveExecution || reviewReasonInfo) && (
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
+        {(task.metadata || isStuck || isIncomplete || isBlocked || dependentTasks.length > 0 || hasActiveExecution || reviewReasonInfo) && (
+          <div className="mt-2.5 flex flex-wrap gap-1.5 overflow-hidden max-w-full">
             {/* Stuck indicator - highest priority */}
             {isStuck && (
               <Badge
@@ -611,18 +630,49 @@ export const TaskCard = memo(function TaskCard({
             )}
             {/* SUG-6: Blocked indicator - task has incomplete dependencies */}
             {isBlocked && !isStuck && (
-              <Badge
-                variant="outline"
-                className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 bg-yellow-500/10 text-yellow-500 border-yellow-500/30"
-                title={blockingTasks.map(t => t.title).join(', ')}
-              >
-                <Link2 className="h-2.5 w-2.5" />
-                {t('tasks:dependencies.blockedBy', {
-                  count: blockingTasks.length,
-                  task: blockingTasks[0]?.title?.slice(0, 20) + (blockingTasks[0]?.title?.length > 20 ? '...' : ''),
-                  defaultValue: `Blocked by ${blockingTasks.length} task${blockingTasks.length > 1 ? 's' : ''}`
-                })}
-              </Badge>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 bg-yellow-500/10 text-yellow-500 border-yellow-500/30"
+                      >
+                        <Link2 className="h-2.5 w-2.5" />
+                        {t('tasks:dependencies.blockedBy', {
+                          count: blockingTasks.length,
+                          task: blockingTasks[0]?.title?.slice(0, 20) + (blockingTasks[0]?.title?.length > 20 ? '...' : ''),
+                          defaultValue: `Blocked by ${blockingTasks.length} task${blockingTasks.length > 1 ? 's' : ''}`
+                        })}
+                      </Badge>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{blockingTasks.map(t => t.title).join(', ')}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {/* SUG-6: Dependents indicator - tasks waiting on this one */}
+            {dependentTasks.length > 0 && !isStuck && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 bg-purple-500/10 text-purple-400 border-purple-500/30"
+                      >
+                        <ArrowRight className="h-2.5 w-2.5" />
+                        {dependentTasks.length} waiting
+                      </Badge>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Tasks waiting on this: {dependentTasks.map(t => t.title).join(', ')}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
             {/* Incomplete indicator - task in human_review but no subtasks completed */}
             {isIncomplete && !isStuck && !isBlocked && (
@@ -659,8 +709,8 @@ export const TaskCard = memo(function TaskCard({
                 {getContextualPhaseLabel(task.status, executionPhase)}
               </Badge>
             )}
-            {/* Drift badge - shows when drift warning/critical detected */}
-            <DriftBadge taskId={task.id} />
+            {/* Drift badge - shows drift score from real-time or disk */}
+            <DriftBadge taskId={task.id} specDir={task.specsPath} />
              {/* Status badge - hide when execution phase badge is showing */}
              {!hasActiveExecution && (
                <>
@@ -725,13 +775,23 @@ export const TaskCard = memo(function TaskCard({
             )}
             {/* Adaptive complexity badge (for model routing) */}
             {task.metadata?.adaptiveComplexity && (
-              <Badge
-                variant="outline"
-                className={cn('text-[10px] px-1.5 py-0', ADAPTIVE_COMPLEXITY_COLORS[task.metadata.adaptiveComplexity])}
-                title={task.metadata.complexityReason || 'Task complexity for adaptive routing'}
-              >
-                {task.metadata.adaptiveComplexity}
-              </Badge>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Badge
+                        variant="outline"
+                        className={cn('text-[10px] px-1.5 py-0', ADAPTIVE_COMPLEXITY_COLORS[task.metadata.adaptiveComplexity])}
+                      >
+                        {task.metadata.adaptiveComplexity}
+                      </Badge>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{task.metadata.complexityReason || 'Task complexity for adaptive routing'}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
             {/* Priority badge - only show urgent/high */}
             {task.metadata?.priority && (task.metadata.priority === 'urgent' || task.metadata.priority === 'high') && (
@@ -783,8 +843,8 @@ export const TaskCard = memo(function TaskCard({
         )}
 
         {/* Footer */}
-        <div className="mt-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="mt-4 flex items-center justify-between min-w-0 gap-2">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground min-w-0 truncate">
             <div className="flex items-center gap-1.5">
               <Clock className="h-3 w-3" />
               {/* METRICS-1B: Show elapsed time when running, otherwise show relative time */}
@@ -804,7 +864,7 @@ export const TaskCard = memo(function TaskCard({
                 const eta = formatETA(estimateRemainingTime(startTime, progress));
                 if (eta) {
                   return (
-                    <span className="text-muted-foreground/80 italic">{eta}</span>
+                    <span className="text-muted-foreground/80 italic truncate">{eta}</span>
                   );
                 }
               }
@@ -812,7 +872,7 @@ export const TaskCard = memo(function TaskCard({
             })()}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             {/* Action buttons */}
             {isStuck ? (
               <Button
@@ -847,39 +907,63 @@ export const TaskCard = memo(function TaskCard({
             ) : task.status === 'pr_created' ? (
               <div className="flex gap-1">
                 {task.metadata?.prUrl && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 cursor-pointer"
-                    onClick={handleViewPR}
-                    title={t('tooltips.viewPR')}
-                  >
-                    <GitPullRequest className="h-3 w-3" />
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 cursor-pointer"
+                          onClick={handleViewPR}
+                        >
+                          <GitPullRequest className="h-3 w-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{t('tooltips.viewPR')}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
                 {!task.metadata?.archivedAt && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 cursor-pointer"
-                    onClick={handleArchive}
-                    title={t('tooltips.archiveTask')}
-                  >
-                    <Archive className="h-3 w-3" />
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 cursor-pointer"
+                          onClick={handleArchive}
+                        >
+                          <Archive className="h-3 w-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{t('tooltips.archiveTask')}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
             ) : task.status === 'done' && !task.metadata?.archivedAt ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2.5 hover:bg-muted-foreground/10"
-                onClick={handleArchive}
-                title={t('tooltips.archiveTask')}
-              >
-                <Archive className="mr-1.5 h-3 w-3" />
-                {t('actions.archive')}
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2.5 hover:bg-muted-foreground/10"
+                      onClick={handleArchive}
+                    >
+                      <Archive className="mr-1.5 h-3 w-3" />
+                      {t('actions.archive')}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{t('tooltips.archiveTask')}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ) : isPlanning ? (
               // Phase 2: Planning tasks - show Stop while agent runs, Start Build only when spec is ready
               // FIX-14: "Start Build" only shown when agent is stopped (spec may be ready)
@@ -889,65 +973,91 @@ export const TaskCard = memo(function TaskCard({
                 {isAgentStopped || (task.subtasks && task.subtasks.length > 0 && !hasActiveAgent) ? (
                   // Agent was stopped OR planning completed naturally - show Resume + Start Build (spec may be ready)
                   <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2.5"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startTask(task.id);
-                      }}
-                      title={t('tooltips.resumePlanningAgent')}
-                    >
-                      <Play className="mr-1.5 h-3 w-3" />
-                      {t('actions.resume')}
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="h-7 px-2.5"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!isBlocked) {
-                          startBuild(task.id);
-                        }
-                      }}
-                      disabled={isBlocked}
-                      title={isBlocked
-                        ? t('tasks:dependencies.blockedTooltip', {
-                            defaultValue: 'Cannot start: waiting for dependencies to complete'
-                          })
-                        : t('tooltips.startBuild')
-                      }
-                    >
-                      {isBlocked ? (
-                        <>
-                          <Link2 className="mr-1.5 h-3 w-3" />
-                          {t('tasks:dependencies.blocked', { defaultValue: 'Blocked' })}
-                        </>
-                      ) : (
-                        <>
-                          <Play className="mr-1.5 h-3 w-3" />
-                          {t('actions.startBuild')}
-                        </>
-                      )}
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2.5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startTask(task.id);
+                            }}
+                          >
+                            <Play className="mr-1.5 h-3 w-3" />
+                            {t('actions.resume')}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{t('tooltips.resumePlanningAgent')}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-7 px-2.5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isBlocked) {
+                                startBuild(task.id);
+                              }
+                            }}
+                            disabled={isBlocked}
+                          >
+                            {isBlocked ? (
+                              <>
+                                <Link2 className="mr-1.5 h-3 w-3" />
+                                {t('tasks:dependencies.blocked', { defaultValue: 'Blocked' })}
+                              </>
+                            ) : (
+                              <>
+                                <Play className="mr-1.5 h-3 w-3" />
+                                {t('actions.startBuild')}
+                              </>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            {isBlocked
+                              ? t('tasks:dependencies.blockedTooltip', {
+                                  defaultValue: 'Cannot start: waiting for dependencies to complete'
+                                })
+                              : t('tooltips.startBuild')
+                            }
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </>
                 ) : (
                   // Agent is running - show Stop button only (no Start Build during active planning)
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="h-7 px-2.5"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      stopTask(task.id);
-                    }}
-                    title={t('tooltips.stopPlanningAgent')}
-                  >
-                    <Square className="mr-1.5 h-3 w-3" />
-                    {t('actions.stop')}
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="h-7 px-2.5"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            stopTask(task.id);
+                          }}
+                        >
+                          <Square className="mr-1.5 h-3 w-3" />
+                          {t('actions.stop')}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{t('tooltips.stopPlanningAgent')}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
             ) : task.status === 'coding' && (
@@ -974,27 +1084,35 @@ export const TaskCard = memo(function TaskCard({
             {/* View Terminal button - opens in bottom panel */}
             {/* TERM-4b: Added status indicator dot next to terminal button */}
             {(task.status === 'coding' || task.status === 'ai_review' || task.status === 'human_review' || task.status === 'planning') && onOpenBottomPanel && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 cursor-pointer"
-                onClick={handleViewTerminal}
-                title={t('tooltips.viewTerminal')}
-              >
-                {/* TERM-4b: Status indicator dot */}
-                <span className={cn(
-                  "w-2 h-2 rounded-full mr-1.5",
-                  // Green = actively running (coding/planning with agent running)
-                  hasActiveAgent && !isStuck ? "bg-green-500 animate-pulse" :
-                  // Red = error/stuck state
-                  isStuck ? "bg-red-500" :
-                  // Yellow = needs attention (human_review, ai_review)
-                  (task.status === 'human_review' || task.status === 'ai_review') ? "bg-yellow-500" :
-                  // Gray = idle (stopped but has terminal)
-                  "bg-gray-400"
-                )} />
-                <TerminalSquare className="h-3 w-3" />
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 cursor-pointer"
+                      onClick={handleViewTerminal}
+                    >
+                      {/* TERM-4b: Status indicator dot */}
+                      <span className={cn(
+                        "w-2 h-2 rounded-full mr-1.5",
+                        // Green = actively running (coding/planning with agent running)
+                        hasActiveAgent && !isStuck ? "bg-green-500 animate-pulse" :
+                        // Red = error/stuck state
+                        isStuck ? "bg-red-500" :
+                        // Yellow = needs attention (human_review, ai_review)
+                        (task.status === 'human_review' || task.status === 'ai_review') ? "bg-yellow-500" :
+                        // Gray = idle (stopped but has terminal)
+                        "bg-gray-400"
+                      )} />
+                      <TerminalSquare className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{t('tooltips.viewTerminal')}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
 
           </div>

@@ -5,6 +5,7 @@ import { useRoadmapStore } from '../stores/roadmap-store';
 import { useRateLimitStore } from '../stores/rate-limit-store';
 import { useProjectStore } from '../stores/project-store';
 import { useInsightsTaskQueueStore } from '../stores/insights-task-queue-store';
+import { useNotificationStore } from '../stores/notification-store';
 import { toast } from './use-toast';  // FIX-7: Import toast for spec-ready notification
 import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo, SDKRateLimitInfo } from '../../shared/types';
 
@@ -40,12 +41,13 @@ interface StoreActions {
  * 2. The app has a single main window that uses this hook
  * 3. Batching IPC updates at module level ensures all events within a frame are coalesced
  *
- * The storeActionsRef pattern ensures we always have the latest action references when
- * flushing, avoiding stale closure issues from component re-renders.
+ * flushBatch() pulls fresh actions via useTaskStore.getState() to avoid stale closures.
+ * storeActionsRef is only used for immediate (non-batched) phase change updates.
  */
 const batchQueue = new Map<string, BatchedUpdate>();
 let batchTimeout: NodeJS.Timeout | null = null;
 let storeActionsRef: StoreActions | null = null;
+let isListenersMounted = false; // Guard against updates after unmount
 
 function flushBatch(): void {
   if (batchQueue.size === 0) return;
@@ -67,17 +69,19 @@ function flushBatch(): void {
   // Batch all React updates together
   unstable_batchedUpdates(() => {
     batchQueue.forEach((updates, taskId) => {
-      // Apply updates in order: plan first (has most data), then status, then progress, then logs
-      if (updates.plan) {
-        actions.updateTaskFromPlan(taskId, updates.plan);
-        totalUpdates++;
-      }
+      // Apply updates in order: status first (authoritative), then progress, then plan (derived data), then logs
+      // Status must come before plan because updateTaskFromPlan recalculates status from subtask
+      // completion, which could override a status event that arrived in the same batch window.
       if (updates.status) {
         actions.updateTaskStatus(taskId, updates.status);
         totalUpdates++;
       }
       if (updates.progress) {
         actions.updateExecutionProgress(taskId, updates.progress);
+        totalUpdates++;
+      }
+      if (updates.plan) {
+        actions.updateTaskFromPlan(taskId, updates.plan);
         totalUpdates++;
       }
       // Batch append all logs at once (instead of one state update per log line)
@@ -99,7 +103,23 @@ function flushBatch(): void {
 }
 
 function queueUpdate(taskId: string, update: BatchedUpdate): void {
+  // Guard: don't queue updates after listeners have been unmounted
+  if (!isListenersMounted) return;
+
   const existing = batchQueue.get(taskId) || {};
+
+  // FIX 3.14: Add safety cap to prevent unbounded queue growth
+  const MAX_BATCH_SIZE = 1000;
+  if (batchQueue.size >= MAX_BATCH_SIZE) {
+    if (window.DEBUG) {
+      console.warn(`[IPC Batch] Queue size (${batchQueue.size}) exceeds limit, forcing flush`);
+    }
+    if (batchTimeout) {
+      clearTimeout(batchTimeout);
+      batchTimeout = null;
+    }
+    flushBatch();
+  }
 
   // FIX (ACS-55): Phase changes bypass batching - apply immediately
   // This ensures phase transitions are applied in order and not batched together,
@@ -152,11 +172,14 @@ function queueUpdate(taskId: string, update: BatchedUpdate): void {
  * Handles backward compatibility and no-project-selected cases.
  */
 function isTaskForCurrentProject(eventProjectId?: string): boolean {
-  // If no projectId provided (backward compatibility), accept the event
-  if (!eventProjectId) return true;
   const currentProjectId = useProjectStore.getState().selectedProjectId;
   // If no project selected, accept the event
   if (!currentProjectId) return true;
+  // If no projectId provided (backward compatibility), accept but warn
+  if (!eventProjectId) {
+    console.debug('[useIpc] Event missing projectId — accepting for backward compat');
+    return true;
+  }
   return currentProjectId === eventProjectId;
 }
 
@@ -171,11 +194,12 @@ export function useIpcListeners(): void {
   const batchAppendLogs = useTaskStore((state) => state.batchAppendLogs);
   const setError = useTaskStore((state) => state.setError);
 
-  // Update module-level store actions reference for batch flushing
-  // This ensures flushBatch() always has access to current action implementations
-  storeActionsRef = { updateTaskStatus, updateExecutionProgress, updateTaskFromPlan, batchAppendLogs };
-
   useEffect(() => {
+    // Update module-level store actions reference inside useEffect (not during render)
+    // to avoid stale closures when the component re-renders between queuing and flushing
+    storeActionsRef = { updateTaskStatus, updateExecutionProgress, updateTaskFromPlan, batchAppendLogs };
+    isListenersMounted = true;
+
     // Set up listeners with batched updates
     const cleanupProgress = window.electronAPI.onTaskProgress(
       (taskId: string, plan: ImplementationPlan, projectId?: string) => {
@@ -192,6 +216,13 @@ export function useIpcListeners(): void {
         // Errors are not batched - show immediately
         setError(`Task ${taskId}: ${error}`);
         appendLog(taskId, `[ERROR] ${error}`);
+        // Add notification for task error
+        useNotificationStore.getState().addNotification({
+          type: 'error',
+          title: 'Task Error',
+          message: error,
+          taskId,
+        });
       }
     );
 
@@ -209,6 +240,55 @@ export function useIpcListeners(): void {
         // Filter by project to prevent multi-project interference
         if (!isTaskForCurrentProject(projectId)) return;
         queueUpdate(taskId, { status });
+
+        // Toast notifications for key status transitions
+        const taskStore = useTaskStore.getState();
+        const task = taskStore.tasks.find(t => t.id === taskId);
+        const taskTitle = task?.title ? (task.title.length > 40 ? task.title.slice(0, 40) + '...' : task.title) : taskId;
+
+        if (status === 'human_review') {
+          toast({
+            title: '👀 Task needs review',
+            description: taskTitle,
+            duration: 6000,
+          });
+          // Add notification for human review
+          useNotificationStore.getState().addNotification({
+            type: 'warning',
+            title: 'Task needs review',
+            message: taskTitle,
+            taskId,
+            taskTitle,
+          });
+        } else if (status === 'done') {
+          toast({
+            title: '✅ Task completed',
+            description: taskTitle,
+            duration: 5000,
+          });
+          // Add notification for task completion
+          useNotificationStore.getState().addNotification({
+            type: 'success',
+            title: 'Task completed',
+            message: taskTitle,
+            taskId,
+            taskTitle,
+          });
+        } else if (status === 'ai_review') {
+          toast({
+            title: '🔍 AI reviewing task',
+            description: taskTitle,
+            duration: 4000,
+          });
+          // Add notification for AI review
+          useNotificationStore.getState().addNotification({
+            type: 'info',
+            title: 'AI reviewing task',
+            message: taskTitle,
+            taskId,
+            taskTitle,
+          });
+        }
 
         // Sync insights task queue: mark queue task as complete when Kanban task is done
         if (status === 'done') {
@@ -257,6 +337,21 @@ export function useIpcListeners(): void {
       }
     );
 
+    // Supervisor agent event listeners
+    const cleanupSupervisorSpawned = window.electronAPI.onTaskSupervisorSpawned(
+      (taskId: string, projectId?: string) => {
+        if (!isTaskForCurrentProject(projectId)) return;
+        useTaskStore.getState().setSupervisorActive(taskId, true);
+      }
+    );
+
+    const cleanupSupervisorStopped = window.electronAPI.onTaskSupervisorStopped(
+      (taskId: string, projectId?: string) => {
+        if (!isTaskForCurrentProject(projectId)) return;
+        useTaskStore.getState().setSupervisorActive(taskId, false);
+      }
+    );
+
     // FIX-7: Listen for spec-ready events to show toast notification
     const cleanupSpecReady = window.electronAPI.onTaskSpecReady(
       (taskId: string, specId: string, projectId?: string) => {
@@ -272,6 +367,14 @@ export function useIpcListeners(): void {
           title: "Spec Ready for Review",
           description: `"${taskTitle}" spec is complete. Review and click "Start Build" to begin coding.`,
           duration: 10000, // 10 seconds - longer for important notification
+        });
+        // Add notification for spec ready
+        useNotificationStore.getState().addNotification({
+          type: 'info',
+          title: 'Spec Ready for Review',
+          message: `"${taskTitle}" spec is complete`,
+          taskId,
+          taskTitle,
         });
       }
     );
@@ -397,6 +500,10 @@ export function useIpcListeners(): void {
 
     // Cleanup on unmount
     return () => {
+      // Mark as unmounted first to prevent new updates from being queued
+      isListenersMounted = false;
+      storeActionsRef = null;
+
       // Flush any pending batched updates before cleanup
       if (batchTimeout) {
         clearTimeout(batchTimeout);
@@ -411,6 +518,8 @@ export function useIpcListeners(): void {
       cleanupAgentStopped();
       cleanupCompanionSpawned();
       cleanupCompanionStopped();
+      cleanupSupervisorSpawned();
+      cleanupSupervisorStopped();
       cleanupSpecReady();  // FIX-7
       cleanupRoadmapProgress();
       cleanupRoadmapComplete();

@@ -1,3 +1,6 @@
+# Copyright (C) 2024-2026 Jerry Team
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Coder Agent Module
 ==================
@@ -25,17 +28,17 @@ from progress import (
     count_subtasks_detailed,
     get_current_phase,
     get_next_subtask,
+    get_pending_subtasks_batch,
     is_build_complete,
     print_build_complete_banner,
     print_progress_summary,
     print_session_header,
 )
 from prompt_generator import (
-    format_context_for_prompt,
     generate_planner_prompt,
     generate_subtask_prompt,
-    load_subtask_context,
 )
+from prompts_pkg.ralph_prompt_generator import generate_ralph_batch_protocol
 from prompts import is_first_run
 from recovery import RecoveryManager
 from security.constants import PROJECT_DIR_ENV_VAR
@@ -105,6 +108,14 @@ async def run_autonomous_agent(
     # This is needed because os.getcwd() may return the wrong directory in worktree mode
     os.environ[PROJECT_DIR_ENV_VAR] = str(project_dir.resolve())
 
+    # Set source spec dir so subtask tools can sync plan back to main project in real-time.
+    # Without this, the frontend file watcher (which watches the main project's spec dir)
+    # won't see subtask completions until the full session ends.
+    if source_spec_dir:
+        os.environ["SOURCE_SPEC_DIR"] = str(source_spec_dir.resolve())
+    else:
+        os.environ.pop("SOURCE_SPEC_DIR", None)
+
     # Initialize recovery manager (handles memory persistence)
     recovery_manager = RecoveryManager(spec_dir, project_dir)
 
@@ -124,7 +135,7 @@ async def run_autonomous_agent(
             drift_monitor.start_session(run_id=f"spec-{spec_dir.name}")
             print_status("Agent drift monitoring: ENABLED", "info")
         except Exception as e:
-            logger.warning("Could not initialize drift monitor: %s", e)
+            logger.debug("[Coder] Could not initialize drift monitor: %s", e)
             drift_monitor = None
 
     # Debug: Print memory system status at startup
@@ -154,6 +165,47 @@ async def run_autonomous_agent(
     # Check if this is a fresh start or continuation
     first_run = is_first_run(spec_dir)
 
+    # OPTIMIZATION: Skip planning if implementation_plan.json already has valid subtasks.
+    # The SpecOrchestrator creates this during spec creation, so re-running a whole
+    # planning session to recreate it wastes 30-60 seconds.
+    if first_run:
+        plan_file = spec_dir / "implementation_plan.json"
+        if plan_file.exists():
+            try:
+                import json
+                plan_data = json.loads(plan_file.read_text(encoding="utf-8"))
+                phases = plan_data.get("phases", [])
+                has_subtasks = any(
+                    phase.get("subtasks") for phase in phases if isinstance(phase, dict)
+                )
+                if has_subtasks:
+                    # FIX-010: Check plan staleness against spec. If spec.md is newer
+                    # than the plan, the plan may be outdated (user edited spec after plan
+                    # was created). Warn but still reuse — re-planning is expensive.
+                    spec_file = spec_dir / "spec.md"
+                    stale_warning = ""
+                    if spec_file.exists():
+                        import os
+                        spec_mtime = os.path.getmtime(spec_file)
+                        plan_mtime = os.path.getmtime(plan_file)
+                        if spec_mtime > plan_mtime:
+                            stale_warning = (
+                                " (WARNING: spec.md is newer than plan — "
+                                "plan may be outdated. Delete implementation_plan.json to re-plan.)"
+                            )
+                            logger.warning(
+                                "Reusing existing plan but spec.md is newer "
+                                "(spec=%s, plan=%s). Plan may be stale.",
+                                spec_mtime, plan_mtime,
+                            )
+                    print_status(
+                        f"Existing implementation plan found — skipping planning phase{stale_warning}",
+                        "warning" if stale_warning else "success",
+                    )
+                    first_run = False
+            except (json.JSONDecodeError, OSError) as e:
+                logger.debug(f"Could not read existing plan, proceeding with planning: {e}")
+
     # Load iteration configuration (Ralph Wiggum mode or normal)
     iteration_config = get_iteration_config(spec_dir)
     if is_ralph_wiggum_mode(spec_dir):
@@ -176,11 +228,11 @@ async def run_autonomous_agent(
         if result.valid:
             return True, []
 
-        fixed = auto_fix_plan(spec_dir)
-        if fixed:
-            result = spec_validator.validate_implementation_plan()
-            if result.valid:
-                return True, []
+        # Try auto-fix — trust its result without re-validating.
+        # The old code validated twice (before and after fix), wasting a full
+        # validation pass. auto_fix_plan already produces valid output.
+        if auto_fix_plan(spec_dir):
+            return True, []
 
         return False, result.errors
 
@@ -261,6 +313,8 @@ async def run_autonomous_agent(
     # Main loop
     iteration = 0
     user_feedback_for_prompt = ""  # Accumulated user feedback to inject into next prompt
+    error_retry_context = ""  # FIX-011: Error context from previous failed session
+    batch_subtask_ids: list[str] = []  # Track subtasks in current batch session
 
     try:
         while True:
@@ -342,18 +396,33 @@ async def run_autonomous_agent(
 
             # Get the phase-specific model and thinking level (respects task_metadata.json configuration)
             # first_run means we're in planning phase, otherwise coding phase
+            #
+            # FIX-036: Model selection is determined once per session (iteration),
+            # not per subtask. When the ralph loop batches up to 8 subtasks in a
+            # single session, all subtasks in that batch use the same model. This
+            # is intentional — changing models mid-session would require a new SDK
+            # client, losing accumulated context. If per-subtask model selection is
+            # needed, subtasks should be in separate phases with different model configs.
             current_phase = "planning" if first_run else "coding"
             phase_model = get_phase_model(spec_dir, current_phase, model)
             phase_thinking_budget = get_phase_thinking_budget(spec_dir, current_phase)
 
             # Create client (fresh context) with phase-specific model and thinking
             # Use appropriate agent_type for correct tool permissions and thinking budget
+            # For coding sessions, scale max_turns with batch size (10 turns per subtask)
+            if first_run:
+                session_max_turns = 100
+            else:
+                pending = count_subtasks_detailed(spec_dir).get("pending", 0)
+                estimated_batch = min(10, max(1, pending))
+                session_max_turns = max(100, 10 * estimated_batch)
             client = create_client(
                 project_dir,
                 spec_dir,
                 phase_model,
                 agent_type="planner" if first_run else "coder",
                 max_thinking_tokens=phase_thinking_budget,
+                max_turns=session_max_turns,
             )
 
             # Generate appropriate prompt
@@ -413,56 +482,133 @@ async def run_autonomous_agent(
                         print_status(
                             "Waiting for implementation plan to be ready...", "progress"
                         )
-                        for retry_attempt in range(3):
-                            delay = (retry_attempt + 1) * 2  # 2s, 4s, 6s
+                        # Short retries — the plan file is already on disk, just
+                        # needs a moment for filesystem flush. Old delays (2s/4s/6s
+                        # = 12s worst case) were excessive.
+                        for retry_attempt in range(5):
+                            delay = 0.1 * (2 ** retry_attempt)  # 0.1s, 0.2s, 0.4s, 0.8s, 1.6s
                             await asyncio.sleep(delay)
                             next_subtask = get_next_subtask(spec_dir)
                             if next_subtask:
-                                # Update subtask_id and phase_name after successful retry
                                 subtask_id = next_subtask.get("id")
                                 phase_name = next_subtask.get("phase_name")
                                 print_status(
-                                    f"Found subtask {subtask_id} after {delay}s delay",
+                                    f"Found subtask {subtask_id} after {delay:.1f}s",
                                     "success",
                                 )
                                 break
-                            print_status(
-                                f"Retry {retry_attempt + 1}/3: No subtask found yet...",
-                                "warning",
-                            )
+                            if retry_attempt >= 2:
+                                print_status(
+                                    f"Retry {retry_attempt + 1}/5: No subtask found yet...",
+                                    "warning",
+                                )
 
                     if not next_subtask:
-                        print("No pending subtasks found - build may be complete!")
-                        break
+                        if is_build_complete(spec_dir):
+                            print("No pending subtasks found - build may be complete!")
+                            break
+                        else:
+                            print_status(
+                                "No pending subtasks found but build not confirmed complete — "
+                                "possible file read error or dependency issue. Retrying...",
+                                "warning",
+                            )
+                            await asyncio.sleep(2)
+                            next_subtask = get_next_subtask(spec_dir)
+                            if not next_subtask:
+                                print("Still no pending subtasks after retry — exiting loop.")
+                                break
+                            subtask_id = next_subtask.get("id")
+                            phase_name = next_subtask.get("phase_name")
 
-                # Get attempt count for recovery context
-                attempt_count = recovery_manager.get_attempt_count(subtask_id)
-                recovery_hints = (
-                    recovery_manager.get_recovery_hints(subtask_id)
-                    if attempt_count > 0
-                    else None
-                )
+                # --- Ralph Loop Session ---
+                # The ralph loop IS the prompt. It contains the EXECUTOR identity,
+                # task table with all subtasks, execution protocol steps, anti-skip
+                # rules, and hard stop rule. The agent reads the spec for details.
+                # This mirrors exactly how ralph loop works in Claude Code:
+                # you paste the prompt, the agent reads spec.md, and executes.
 
-                # Find the phase for this subtask
-                plan = load_implementation_plan(spec_dir)
-                phase = find_phase_for_subtask(plan, subtask_id) if plan else {}
+                # Get batch of pending subtasks (up to 8 per session to avoid cognitive overload)
+                subtask_batch = get_pending_subtasks_batch(spec_dir, max_batch=8)
+                if not subtask_batch:
+                    # Fallback: use the single next_subtask we already have
+                    subtask_batch = [next_subtask]
 
-                # Generate focused, minimal prompt for this subtask
-                prompt = generate_subtask_prompt(
-                    spec_dir=spec_dir,
-                    project_dir=project_dir,
-                    subtask=next_subtask,
-                    phase=phase or {},
-                    attempt_count=attempt_count,
-                    recovery_hints=recovery_hints,
-                )
+                # Track which subtasks are in this session for post-processing
+                batch_subtask_ids = [s.get("id") for s in subtask_batch]
 
-                # Load and append relevant file context
-                context = load_subtask_context(spec_dir, project_dir, next_subtask)
-                if context.get("patterns") or context.get("files_to_modify"):
-                    prompt += "\n\n" + format_context_for_prompt(context)
+                # Generate the ralph loop prompt for THIS batch.
+                # Each batch gets its own tailored ralph loop with the correct
+                # task count, task table, promises, execution protocol steps,
+                # anti-skip rules, and hard stop rule — scoped to these subtasks.
+                prompt = ""
+                try:
+                    prompt = generate_ralph_batch_protocol(
+                        spec_dir, project_dir, subtask_batch
+                    )
+                    if prompt:
+                        print_status(
+                            f"Ralph loop generated for {len(subtask_batch)} subtask(s)",
+                            "success",
+                        )
+                except Exception as e:
+                    logger.warning(f"Failed to generate Ralph loop: {e}")
 
-                # Retrieve and append Graphiti memory context (if enabled)
+                # Fallback: if ralph generation failed, use the old single-subtask prompt
+                if not prompt:
+                    plan = load_implementation_plan(spec_dir)
+                    phase = find_phase_for_subtask(plan, subtask_id) if plan else {}
+                    attempt_count = recovery_manager.get_attempt_count(subtask_id)
+                    recovery_hints = (
+                        recovery_manager.get_recovery_hints(subtask_id)
+                        if attempt_count > 0
+                        else None
+                    )
+                    prompt = generate_subtask_prompt(
+                        spec_dir=spec_dir,
+                        project_dir=project_dir,
+                        subtask=next_subtask,
+                        phase=phase or {},
+                        attempt_count=attempt_count,
+                        recovery_hints=recovery_hints,
+                    )
+                    batch_subtask_ids = [subtask_id]
+                    print_status("Falling back to single-subtask prompt", "warning")
+
+                # Save batch prompt to disk so the frontend Prompt dropdown shows it
+                try:
+                    ralph_prompt_file = spec_dir / "ralph_prompt.md"
+                    # Include overall progress context so the UI makes sense
+                    subtask_counts = count_subtasks_detailed(spec_dir)
+                    total = subtask_counts.get("total", 0)
+                    completed = subtask_counts.get("completed", 0)
+                    batch_size = len(batch_subtask_ids)
+                    ralph_prompt_file.write_text(
+                        f"# Ralph Loop — Batch Session\n\n"
+                        f"Progress: {completed}/{total} subtasks completed\n\n"
+                        f"This batch: {batch_size} subtask(s) — {', '.join(batch_subtask_ids)}\n\n"
+                        f"---\n\n{prompt}",
+                        encoding="utf-8",
+                    )
+                except Exception as e:
+                    logger.debug(f"Failed to save batch prompt to disk: {e}")
+
+                # Append any recovery hints for retried subtasks in the batch
+                retry_context = []
+                for st in subtask_batch:
+                    st_id = st.get("id")
+                    attempt_count = recovery_manager.get_attempt_count(st_id)
+                    if attempt_count > 0:
+                        hints = recovery_manager.get_recovery_hints(st_id)
+                        retry_context.append(
+                            f"\n⚠️ RETRY: {st_id} has {attempt_count} previous attempt(s)."
+                        )
+                        if hints:
+                            retry_context.append("Previous insights: " + "; ".join(hints))
+                if retry_context:
+                    prompt += "\n\n## RETRY CONTEXT\n" + "\n".join(retry_context)
+
+                # Append Graphiti memory context if available
                 graphiti_context = await get_graphiti_context(
                     spec_dir, project_dir, next_subtask
                 )
@@ -471,19 +617,17 @@ async def run_autonomous_agent(
                     print_status("Graphiti memory context loaded", "success")
 
                 # Show what we're working on
-                print(f"Working on: {highlight(subtask_id)}")
-                print(f"Description: {next_subtask.get('description', 'No description')}")
-                if attempt_count > 0:
-                    print_status(f"Previous attempts: {attempt_count}", "warning")
+                print(f"Ralph loop session: {highlight(', '.join(batch_subtask_ids))}")
+                print(f"Subtasks in session: {len(subtask_batch)}")
                 print()
 
-                # Emit SDK marker for subtask start
+                # Emit SDK markers
                 emit_sdk_msg("phase_start", {
                     "phase": "coding",
-                    "message": f"Working on subtask: {subtask_id}",
+                    "message": f"Ralph loop: {len(subtask_batch)} subtask(s)",
                 })
                 emit_sdk_msg("text", {
-                    "content": f"🔧 Subtask: {next_subtask.get('description', 'No description')}"
+                    "content": f"🔧 Ralph loop: {', '.join(batch_subtask_ids)}"
                 })
 
             # Set subtask info in logger
@@ -496,6 +640,12 @@ async def run_autonomous_agent(
                 prompt += user_feedback_for_prompt
                 # Clear feedback after injecting (will check for new messages next iteration)
                 user_feedback_for_prompt = ""
+
+            # FIX-011: Inject error context from previous failed session so the agent
+            # tries a different approach instead of repeating the same failing steps.
+            if error_retry_context:
+                prompt += error_retry_context
+                error_retry_context = ""  # Clear after injecting
 
             # Run session with async context manager
             # Pass message_queue for interruptible execution (Phase 5)
@@ -544,13 +694,89 @@ async def run_autonomous_agent(
                     first_run = True
                     status = "continue"
 
-            # === POST-SESSION PROCESSING (100% reliable) ===
-            # Only run post-session processing for coding sessions.
-            if subtask_id and current_log_phase == LogPhase.CODING:
+            # === POST-SESSION PROCESSING ===
+            # Process ALL subtasks in the batch (not just the first one).
+            # post_session_processing now runs fast (backgrounds expensive work).
+            # If plan file writes fail, the exception propagates to halt the loop
+            # and prevent infinite retry cycles (FIX-002).
+            if current_log_phase == LogPhase.CODING and batch_subtask_ids:
                 linear_is_enabled = (
                     linear_task is not None and linear_task.task_id is not None
                 )
-                success = await post_session_processing(
+                any_success = False
+                plan_write_failed = False
+                for batch_st_id in batch_subtask_ids:
+                    try:
+                        success = await post_session_processing(
+                            spec_dir=spec_dir,
+                            project_dir=project_dir,
+                            subtask_id=batch_st_id,
+                            session_num=iteration,
+                            commit_before=commit_before,
+                            commit_count_before=commit_count_before,
+                            recovery_manager=recovery_manager,
+                            linear_enabled=linear_is_enabled,
+                            status_manager=status_manager,
+                            source_spec_dir=source_spec_dir,
+                        )
+                    except Exception as e:
+                        # Plan file write failed — cannot reset subtask status.
+                        # Break the loop to prevent infinite retries (FIX-002).
+                        # Catches all exceptions (not just OSError/IOError) because
+                        # session.py re-raises generic Exception from write failures.
+                        logger.error(f"Plan file write failed for subtask {batch_st_id}: {e}")
+                        print_status(
+                            f"HALTING: Could not update plan file for subtask {batch_st_id}. "
+                            "Check disk space and file permissions.",
+                            "error",
+                        )
+                        plan_write_failed = True
+                        success = False
+                    if success:
+                        any_success = True
+
+                    # Check for stuck subtasks (use iteration config for threshold)
+                    attempt_count = recovery_manager.get_attempt_count(batch_st_id)
+                    max_attempts = iteration_config["subtask_attempts_before_stuck"]
+                    if not success and attempt_count >= max_attempts:
+                        recovery_manager.mark_subtask_stuck(
+                            batch_st_id, f"Failed after {attempt_count} attempts"
+                        )
+                        print()
+                        print_status(
+                            f"Subtask {batch_st_id} marked as STUCK after {attempt_count} attempts",
+                            "error",
+                        )
+                        print(muted("Consider: manual intervention or skipping this subtask"))
+
+                        if linear_is_enabled:
+                            await linear_task_stuck(
+                                spec_dir=spec_dir,
+                                subtask_id=batch_st_id,
+                                attempt_count=attempt_count,
+                            )
+                            print_status("Linear notified of stuck subtask", "info")
+
+                    # If plan file write failed, stop processing the batch (FIX-002)
+                    if plan_write_failed:
+                        break
+
+                # If plan file write failed, halt the auto-continue loop (FIX-002)
+                if plan_write_failed:
+                    status = "error"
+                    print_status(
+                        "Auto-continue halted due to plan file write failure. "
+                        "Fix the underlying issue and restart the build.",
+                        "error",
+                    )
+                    break
+
+            elif subtask_id and current_log_phase == LogPhase.CODING:
+                # Fallback for single-subtask (planning phase edge case)
+                linear_is_enabled = (
+                    linear_task is not None and linear_task.task_id is not None
+                )
+                await post_session_processing(
                     spec_dir=spec_dir,
                     project_dir=project_dir,
                     subtask_id=subtask_id,
@@ -562,29 +788,6 @@ async def run_autonomous_agent(
                     status_manager=status_manager,
                     source_spec_dir=source_spec_dir,
                 )
-
-                # Check for stuck subtasks (use iteration config for threshold)
-                attempt_count = recovery_manager.get_attempt_count(subtask_id)
-                max_attempts = iteration_config["subtask_attempts_before_stuck"]
-                if not success and attempt_count >= max_attempts:
-                    recovery_manager.mark_subtask_stuck(
-                        subtask_id, f"Failed after {attempt_count} attempts"
-                    )
-                    print()
-                    print_status(
-                        f"Subtask {subtask_id} marked as STUCK after {attempt_count} attempts",
-                        "error",
-                    )
-                    print(muted("Consider: manual intervention or skipping this subtask"))
-
-                    # Record stuck subtask in Linear (if enabled)
-                    if linear_is_enabled:
-                        await linear_task_stuck(
-                            spec_dir=spec_dir,
-                            subtask_id=subtask_id,
-                            attempt_count=attempt_count,
-                        )
-                        print_status("Linear notified of stuck subtask", "info")
             elif plan_validated and source_spec_dir:
                 # After planning phase, sync the newly created implementation plan back to source
                 if sync_spec_to_source(spec_dir, source_spec_dir):
@@ -592,17 +795,15 @@ async def run_autonomous_agent(
 
             # Handle session status
             if status == "complete":
-                # Don't emit COMPLETE here - subtasks are done but QA hasn't run yet
-                # QA loop will emit COMPLETE after actual approval
                 print_build_complete_banner(spec_dir)
                 status_manager.update(state=BuildState.COMPLETE)
 
-                # Emit SDK markers for build completion
+                # Emit SDK markers for coding phase completion
                 emit_sdk_msg("text", {"content": "✅ All subtasks completed!"})
                 emit_sdk_msg("phase_end", {
                     "phase": "coding",
                     "success": True,
-                    "message": "All subtasks completed, ready for QA",
+                    "message": "All subtasks completed, starting QA",
                 })
 
                 if task_logger:
@@ -614,7 +815,34 @@ async def run_autonomous_agent(
 
                 if linear_task and linear_task.task_id:
                     await linear_build_complete(spec_dir)
-                    print_status("Linear notified: build complete, ready for QA", "success")
+                    print_status("Linear notified: build complete", "success")
+
+                # Auto-trigger QA validation loop
+                try:
+                    from qa_loop import run_qa_validation_loop, should_run_qa
+
+                    if should_run_qa(spec_dir):
+                        print_status("Starting QA validation phase...", "info")
+                        emit_phase(ExecutionPhase.CODING, "QA validation")
+                        qa_passed = await run_qa_validation_loop(
+                            project_dir=project_dir,
+                            spec_dir=spec_dir,
+                            model=model,
+                            verbose=verbose,
+                        )
+                        if qa_passed:
+                            print_status("QA validation PASSED", "success")
+                            emit_sdk_msg("text", {"content": "✅ QA validation passed!"})
+                        else:
+                            print_status("QA validation found issues", "warning")
+                            emit_sdk_msg("text", {"content": "⚠️ QA found issues — review qa_report.md"})
+                    else:
+                        print_status("QA already approved or not applicable", "info")
+                except ImportError:
+                    logger.debug("QA loop not available, skipping auto-QA")
+                except Exception as e:
+                    logger.warning(f"QA validation failed: {e}")
+                    print_status(f"QA validation error: {e}", "warning")
 
                 break
 
@@ -665,6 +893,18 @@ async def run_autonomous_agent(
                     "content": "Session encountered an error - will retry",
                     "phase": "coding",
                 })
+
+                # FIX-011: Capture error context for the retry prompt so the agent
+                # can try a different approach instead of repeating the same failure.
+                error_snippet = (response[:500] + "...") if len(response) > 500 else response
+                error_retry_context = (
+                    "\n\n## PREVIOUS SESSION ERROR\n\n"
+                    "The previous session ended with an error. You MUST try a different "
+                    "approach to avoid the same failure. Here is what happened:\n\n"
+                    f"```\n{error_snippet}\n```\n\n"
+                    "Analyze the error above, identify the root cause, and use a "
+                    "different strategy for this attempt."
+                )
 
                 await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
 
@@ -718,10 +958,9 @@ async def run_autonomous_agent(
                 if stop_requested:
                     break
 
-            # Small delay between sessions
+            # Minimal transition between sessions (no delay)
             if max_iterations is None or iteration < max_iterations:
                 print("\nPreparing next session...\n")
-                await asyncio.sleep(1)
 
         # Final summary
         content = [
@@ -767,7 +1006,13 @@ async def run_autonomous_agent(
         print()
 
         # Set final status
-        if completed == total:
+        if total == 0:
+            # Zero subtasks — planning didn't produce a valid plan
+            emit_phase(ExecutionPhase.FAILED, "No subtasks found — planning may have failed")
+            import sys
+            sys.stdout.flush()  # Ensure phase event reaches frontend before exit
+            status_manager.update(state=BuildState.ERROR)
+        elif completed == total:
             status_manager.update(state=BuildState.COMPLETE)
         else:
             status_manager.update(state=BuildState.PAUSED)
@@ -795,5 +1040,10 @@ async def run_autonomous_agent(
                         print_status(f"Drift WARNING: {report.overall_drift_score:.3f}", "warning")
                     else:
                         print_status(f"Drift score: {report.overall_drift_score:.3f}", "success")
+                    # Ensure drift report reaches frontend before process exits
+                    import sys, time as _time
+                    sys.stdout.flush()
+                    sys.stderr.flush()
+                    _time.sleep(0.1)
             except Exception as e:
                 logger.warning("Could not finalize drift report: %s", e)

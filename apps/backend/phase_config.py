@@ -13,7 +13,7 @@ from typing import Literal, TypedDict
 
 # Model shorthand to full model ID mapping
 MODEL_ID_MAP: dict[str, str] = {
-    "opus": "claude-opus-4-5-20251101",
+    "opus": "claude-opus-4-6",
     "sonnet": "claude-sonnet-4-5-20250929",
     "haiku": "claude-haiku-4-5-20251001",
 }
@@ -58,20 +58,21 @@ DEFAULT_PHASE_MODELS: dict[str, str] = {
 DEFAULT_PHASE_THINKING: dict[str, str] = {
     "spec": "medium",
     "planning": "medium",
-    "coding": "medium",
+    "coding": "none",   # Plan already exists — no extended thinking needed
     "qa": "medium",
 }
 
 # Complexity-based phase configuration for adaptive task routing
 # Routes tasks to appropriate models based on complexity classification
+# Planning always uses Opus — complexity constrains thinking budget, not model quality
 COMPLEXITY_PHASE_CONFIG: dict[str, dict[str, str]] = {
     "SIMPLE": {
-        "planning": "haiku",
+        "planning": "opus",
         "coding": "haiku",
         "qa": "skip",  # Skip QA for simple tasks
     },
     "MEDIUM": {
-        "planning": "sonnet",
+        "planning": "opus",
         "coding": "sonnet",
         "qa": "haiku",
     },
@@ -79,6 +80,27 @@ COMPLEXITY_PHASE_CONFIG: dict[str, dict[str, str]] = {
         "planning": "opus",
         "coding": "sonnet",
         "qa": "sonnet",
+    },
+}
+
+# Complexity-based thinking budgets
+# Planning thinking scales with complexity (Opus always plans, but thinks more for harder tasks)
+# Coding thinking drops to none for simple/medium (plan already exists)
+COMPLEXITY_THINKING_CONFIG: dict[str, dict[str, str]] = {
+    "SIMPLE": {
+        "planning": "low",       # Quick plan (1024 tokens)
+        "coding": "none",        # Just implement
+        "qa": "none",            # Skipped anyway
+    },
+    "MEDIUM": {
+        "planning": "medium",    # Standard reasoning (4096 tokens)
+        "coding": "low",         # Light reasoning for integration points
+        "qa": "low",             # Lightweight validation
+    },
+    "COMPLEX": {
+        "planning": "high",      # Deep architectural reasoning (16384 tokens)
+        "coding": "medium",      # Some reasoning for complex code
+        "qa": "medium",          # Thorough validation
     },
 }
 
@@ -227,6 +249,13 @@ def get_phase_model(
             model = phase_models.get(phase, DEFAULT_PHASE_MODELS[phase])
             return resolve_model_id(model)
 
+        # Complexity-based routing (from classifier)
+        complexity = metadata.get("complexity")
+        if complexity and complexity in COMPLEXITY_PHASE_CONFIG:
+            model_for_phase = COMPLEXITY_PHASE_CONFIG[complexity].get(phase)
+            if model_for_phase and model_for_phase != "skip":
+                return resolve_model_id(model_for_phase)
+
         # Non-auto profile: use single model
         if metadata.get("model"):
             return resolve_model_id(metadata["model"])
@@ -269,6 +298,13 @@ def get_phase_thinking(
         if metadata.get("isAutoProfile") and metadata.get("phaseThinking"):
             phase_thinking = metadata["phaseThinking"]
             return phase_thinking.get(phase, DEFAULT_PHASE_THINKING[phase])
+
+        # Complexity-based thinking
+        complexity = metadata.get("complexity")
+        if complexity and complexity in COMPLEXITY_THINKING_CONFIG:
+            thinking_for_phase = COMPLEXITY_THINKING_CONFIG[complexity].get(phase)
+            if thinking_for_phase:
+                return thinking_for_phase
 
         # Non-auto profile: use single thinking level
         if metadata.get("thinkingLevel"):
@@ -343,8 +379,8 @@ def get_spec_phase_thinking_budget(phase_name: str) -> int | None:
 # Companion Agent Configuration
 # Read-only conversational agent for between-phase interactions
 COMPANION_CONFIG = {
-    "model": "sonnet",  # Default model for companion agent
-    "thinking_budget": 2048,  # Low budget - this is Q&A, not deep analysis
+    "model": "opus",  # Best comprehension for understanding user intent and creating specs
+    "thinking_budget": 1024,  # Conversational — quality comes from the model, not extended thinking
     "allowed_tools": ["Read", "Glob", "Grep"],  # Read-only tools
     "max_turns": 25,  # Maximum conversational turns before timeout
 }

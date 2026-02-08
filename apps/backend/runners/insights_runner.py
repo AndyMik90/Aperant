@@ -91,15 +91,45 @@ def load_project_context(project_dir: str) -> str:
         except Exception:
             pass
 
-    # Load existing tasks
+    # Load existing tasks with IDs, titles, and status for dependency linking
     tasks_path = Path(project_dir) / ".auto-claude" / "specs"
     if tasks_path.exists():
         try:
             task_dirs = [d for d in tasks_path.iterdir() if d.is_dir()]
-            task_names = [d.name for d in task_dirs[:10]]
-            if task_names:
+            task_entries = []
+            for d in task_dirs[:20]:
+                entry = {"specId": d.name, "id": d.name}
+                # Try to load implementation plan for title and status
+                plan_path = d / "implementation_plan.json"
+                if plan_path.exists():
+                    try:
+                        with open(plan_path) as pf:
+                            plan = json.load(pf)
+                        entry["title"] = plan.get("title", d.name)
+                        entry["status"] = plan.get("status", "unknown")
+                    except Exception:
+                        entry["title"] = d.name
+                        entry["status"] = "unknown"
+                # Try to load metadata for existing dependencies
+                meta_path = d / "task_metadata.json"
+                if meta_path.exists():
+                    try:
+                        with open(meta_path) as mf:
+                            meta = json.load(mf)
+                        if meta.get("dependencies"):
+                            entry["dependencies"] = meta["dependencies"]
+                    except Exception:
+                        pass
+                task_entries.append(entry)
+            if task_entries:
+                task_lines = []
+                for t in task_entries:
+                    line = f"- ID: {t['id']} | Title: {t.get('title', t['id'])} | Status: {t.get('status', 'unknown')}"
+                    if t.get("dependencies"):
+                        line += f" | Depends on: {', '.join(t['dependencies'])}"
+                    task_lines.append(line)
                 context_parts.append(
-                    "## Existing Tasks/Specs\n- " + "\n- ".join(task_names)
+                    "## Existing Tasks (use these IDs for dependencies)\n" + "\n".join(task_lines)
                 )
         except Exception:
             pass
@@ -127,11 +157,19 @@ Your capabilities:
 4. Provide code examples and explanations
 
 When the user asks you to create a task, wants to turn the conversation into a task, or when you believe creating a task would be helpful, output a task suggestion in this exact format on a SINGLE LINE:
-__TASK_SUGGESTION__:{{"title": "Task title here", "description": "Detailed description of what the task involves", "metadata": {{"category": "feature", "complexity": "medium", "impact": "medium"}}}}
+__TASK_SUGGESTION__:{{"title": "Task title here", "description": "Detailed description of what the task involves", "metadata": {{"category": "feature", "complexity": "medium", "impact": "medium", "dependencies": []}}}}
 
 Valid categories: feature, bug_fix, refactoring, documentation, security, performance, ui_ux, infrastructure, testing
 Valid complexity: trivial, small, medium, large, complex
 Valid impact: low, medium, high, critical
+
+TASK DEPENDENCIES:
+- The "dependencies" field is an array of existing task IDs (spec IDs) that must complete before this new task can start.
+- Only include dependencies if the new task genuinely requires another task to be finished first.
+- Reference task IDs from the "Existing Tasks" section in the project context above.
+- Example: if a task needs the auth system (task ID "003-auth-system") done first, set "dependencies": ["003-auth-system"]
+- Leave as an empty array [] if there are no dependencies.
+- When creating multiple related tasks, suggest dependencies between them if there's a natural ordering.
 
 Be conversational and helpful. Focus on providing actionable insights and clear explanations.
 Keep responses concise but informative."""
@@ -143,6 +181,7 @@ async def run_with_sdk(
     history: list,
     model: str = "sonnet",  # Shorthand - resolved via API Profile if configured
     thinking_level: str = "medium",
+    image_paths: list[str] | None = None,
 ) -> None:
     """Run the chat using Claude SDK with streaming."""
     if not SDK_AVAILABLE:
@@ -177,6 +216,24 @@ async def run_with_sdk(
 {conversation_context}
 
 Current question: {message}"""
+
+    # If images are attached, add them as context by encoding to base64
+    # and including image file references in the prompt
+    if image_paths:
+        import base64
+
+        image_refs = []
+        for img_path in image_paths:
+            p = Path(img_path)
+            if p.exists() and p.is_file():
+                image_refs.append(p.name)
+        if image_refs:
+            full_prompt += (
+                f"\n\n[The user has pasted {len(image_refs)} screenshot(s): "
+                f"{', '.join(image_refs)}. "
+                f"Use the Read tool to view them at these paths: "
+                f"{', '.join(str(p) for p in image_paths if Path(p).exists())}]"
+            )
 
     # Convert thinking level to token budget
     max_thinking_tokens = get_thinking_budget(thinking_level)
@@ -360,6 +417,11 @@ def main():
         choices=["none", "low", "medium", "high", "ultrathink"],
         help="Thinking level for extended reasoning (default: medium)",
     )
+    parser.add_argument(
+        "--images",
+        default=None,
+        help="JSON array of image file paths for multimodal input",
+    )
     args = parser.parse_args()
 
     debug_section("insights_runner", "Starting Insights Chat")
@@ -400,9 +462,20 @@ def main():
         debug_error("insights_runner", f"Failed to load history: {e}")
         history = []
 
+    # Parse image paths if provided
+    image_paths: list[str] = []
+    if args.images:
+        try:
+            image_paths = json.loads(args.images)
+            debug("insights_runner", "Image attachments", count=len(image_paths))
+        except json.JSONDecodeError:
+            debug_error("insights_runner", "Failed to parse --images JSON")
+
     # Run the async SDK function
     debug("insights_runner", "Running SDK query")
-    asyncio.run(run_with_sdk(project_dir, user_message, history, model, thinking_level))
+    asyncio.run(
+        run_with_sdk(project_dir, user_message, history, model, thinking_level, image_paths)
+    )
     debug_success("insights_runner", "Query completed")
 
 

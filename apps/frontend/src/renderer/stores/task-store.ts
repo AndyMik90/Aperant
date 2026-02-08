@@ -4,8 +4,10 @@ import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, Task
 import { debugLog } from '../../shared/utils/debug-logger';
 import { isTerminalPhase } from '../../shared/constants/phase-protocol';
 import { useTerminalStore } from './terminal-store';
-import { toast } from '../hooks/use-toast';  // FIX-1: Import toast for error notifications
-import { addActivity } from '../utils/activity-tracker';  // SUG-9: Activity Feed tracking
+import { useInsightsTaskQueueStore } from './insights-task-queue-store';
+import { toast } from '../hooks/use-toast';
+import { addActivity } from '../utils/activity-tracker';
+import i18n from '../../shared/i18n';
 
 interface TaskState {
   tasks: Task[];
@@ -15,6 +17,7 @@ interface TaskState {
   taskOrder: TaskOrderState | null;  // Per-column task ordering for kanban board
   stoppedAgents: Set<string>;  // Track which tasks have stopped agents (for UI feedback)
   companionActive: Set<string>;  // Track which tasks have active companion agents
+  supervisorActive: Set<string>;  // Track which tasks have active supervisor agents
 
   // Actions
   setTasks: (tasks: Task[]) => void;
@@ -42,6 +45,9 @@ interface TaskState {
   // Track companion agent state
   setCompanionActive: (taskId: string, active: boolean) => void;
   hasCompanion: (taskId: string) => boolean;
+  // Track supervisor agent state
+  setSupervisorActive: (taskId: string, active: boolean) => void;
+  hasSupervisor: (taskId: string) => boolean;
 
   // Selectors
   getSelectedTask: () => Task | undefined;
@@ -54,6 +60,25 @@ interface TaskState {
  */
 function findTaskIndex(tasks: Task[], taskId: string): number {
   return tasks.findIndex((t) => t.id === taskId || t.specId === taskId);
+}
+
+/**
+ * Type guard for SubtaskStatus values.
+ * FIX 3.9: Replaces dangerous 'as' casts with proper runtime validation.
+ */
+function isValidSubtaskStatus(value: unknown): value is SubtaskStatus {
+  return typeof value === 'string' && ['pending', 'in_progress', 'completed', 'failed'].includes(value);
+}
+
+/**
+ * Type guard for Subtask['verification'] values.
+ * FIX 3.9: Validates verification object structure before use.
+ */
+function isValidVerification(value: unknown): value is Subtask['verification'] {
+  if (!value || typeof value !== 'object') return false;
+  const obj = value as any;
+  // Must have 'type' field that is either 'browser' or 'command'
+  return obj.type === 'browser' || obj.type === 'command';
 }
 
 /**
@@ -118,6 +143,10 @@ function validatePlanData(plan: ImplementationPlan): boolean {
 // localStorage key prefix for task order persistence
 const TASK_ORDER_KEY_PREFIX = 'task-order-state';
 
+// Debounce timer for saveTaskOrder to prevent rapid successive writes
+let saveTaskOrderDebounceTimer: NodeJS.Timeout | null = null;
+const SAVE_TASK_ORDER_DEBOUNCE_MS = 500;
+
 /**
  * Get the localStorage key for a project's task order
  */
@@ -157,6 +186,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   taskOrder: null,
   stoppedAgents: new Set<string>(),
   companionActive: new Set<string>(),
+  supervisorActive: new Set<string>(),
 
   setTasks: (tasks) => set({ tasks }),
 
@@ -207,18 +237,22 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
       return {
         tasks: updateTaskAtIndex(state.tasks, index, (t) => {
-          // Determine execution progress based on status transition
+          // Determine execution progress based on status transition,
+          // but respect existing sequence numbers to avoid overwriting
+          // newer progress data from concurrent updateExecutionProgress calls.
           let executionProgress = t.executionProgress;
+          const currentSeq = executionProgress?.sequenceNumber ?? 0;
 
           if (status === 'planning') {
             // When status goes to planning, reset execution progress to idle
             // This ensures the planning/coding animation stops when task is stopped
-            executionProgress = { phase: 'idle' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
+            executionProgress = { phase: 'idle' as ExecutionPhase, phaseProgress: 0, overallProgress: 0, sequenceNumber: 0 };
           } else if (status === 'coding') {
-            // When starting a task, initialize with 'starting' phase to handle the race condition
-            // between status update and first backend phase event (fixes status/phase UI confusion)
+            // When starting a task, initialize with 'starting' phase to handle the gap
+            // between status update and first backend phase event.
+            // Only set if no real progress data has arrived yet (sequenceNumber === 0).
             const currentPhase = t.executionProgress?.phase;
-            if (!currentPhase || currentPhase === 'idle') {
+            if ((!currentPhase || currentPhase === 'idle') && currentSeq === 0) {
               executionProgress = {
                 phase: 'starting' as ExecutionPhase,
                 phaseProgress: 0,
@@ -271,7 +305,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
               // Defensive fallback: validatePlanData() ensures description exists, but kept for safety
               const description = subtask.description || 'No description available';
               const title = description; // Title and description are the same for subtasks
-              const status = (subtask.status as SubtaskStatus) || 'pending';
+              // FIX 3.9: Replace dangerous 'as' cast with proper type guard
+              const status: SubtaskStatus = (subtask.status && isValidSubtaskStatus(subtask.status))
+                ? subtask.status
+                : 'pending';
 
               return {
                 id,
@@ -279,7 +316,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
                 description,
                 status,
                 files: [],
-                verification: subtask.verification as Subtask['verification']
+                // FIX 3.9: Use default verification if invalid
+                verification: subtask.verification && isValidVerification(subtask.verification)
+                  ? subtask.verification
+                  : undefined
               };
             })
           );
@@ -303,7 +343,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           let reviewReason: ReviewReason | undefined = t.reviewReason;
 
           // RACE CONDITION FIX: Don't let stale plan data override status during active execution
-          const activePhases: ExecutionPhase[] = ['planning', 'coding', 'qa_review', 'qa_fixing'];
+          const activePhases: ExecutionPhase[] = ['starting', 'planning', 'coding', 'qa_review', 'qa_fixing'];
           const isInActivePhase = t.executionProgress?.phase && activePhases.includes(t.executionProgress.phase);
 
           // FIX (Flip-Flop Bug): Terminal phases should NOT trigger status recalculation
@@ -402,7 +442,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
           return {
             ...t,
-            title: plan.feature || t.title,
+            // Prefer user's original title; never let plan.feature override it
+            title: t.metadata?.originalTitle || t.title,
             subtasks,
             status,
             reviewReason,
@@ -495,7 +536,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
   setError: (error) => set({ error }),
 
-  clearTasks: () => set({ tasks: [], selectedTaskId: null, taskOrder: null }),
+  clearTasks: () => set({ tasks: [], selectedTaskId: null, taskOrder: null, stoppedAgents: new Set<string>(), companionActive: new Set<string>(), supervisorActive: new Set<string>() }),
 
   // Task order actions for kanban drag-and-drop reordering
   setTaskOrder: (order) => set({ taskOrder: order }),
@@ -595,20 +636,30 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   },
 
   saveTaskOrder: (projectId) => {
-    try {
-      const state = get();
-      if (!state.taskOrder) {
-        // Nothing to save - return false to indicate no save occurred
-        return false;
-      }
-
-      const key = getTaskOrderKey(projectId);
-      localStorage.setItem(key, JSON.stringify(state.taskOrder));
-      return true;
-    } catch (error) {
-      console.error('Failed to save task order:', error);
-      return false;
+    // Clear existing debounce timer
+    if (saveTaskOrderDebounceTimer) {
+      clearTimeout(saveTaskOrderDebounceTimer);
     }
+
+    // Set new debounce timer - only the final write will execute after DEBOUNCE_MS
+    saveTaskOrderDebounceTimer = setTimeout(() => {
+      try {
+        const state = get();
+        if (!state.taskOrder) {
+          // Nothing to save
+          return;
+        }
+
+        const key = getTaskOrderKey(projectId);
+        localStorage.setItem(key, JSON.stringify(state.taskOrder));
+      } catch (error) {
+        console.error('Failed to save task order:', error);
+      }
+      saveTaskOrderDebounceTimer = null;
+    }, SAVE_TASK_ORDER_DEBOUNCE_MS);
+
+    // Return false to indicate the save is pending (not completed immediately)
+    return false;
   },
 
   clearTaskOrder: (projectId) => {
@@ -651,6 +702,22 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
   hasCompanion: (taskId) => {
     return get().companionActive.has(taskId);
+  },
+
+  setSupervisorActive: (taskId, active) => {
+    set((state) => {
+      const newSet = new Set(state.supervisorActive);
+      if (active) {
+        newSet.add(taskId);
+      } else {
+        newSet.delete(taskId);
+      }
+      return { supervisorActive: newSet };
+    });
+  },
+
+  hasSupervisor: (taskId) => {
+    return get().supervisorActive.has(taskId);
   },
 
   getSelectedTask: () => {
@@ -705,11 +772,27 @@ export async function createTask(
       addActivity('task_created', { id: result.data.id, title: result.data.title });
       return result.data;
     } else {
-      store.setError(result.error || 'Failed to create task');
+      const errorMsg = result.error || 'Failed to create task';
+      store.setError(errorMsg);
+      // FIX 3.10: Show toast for critical user-initiated failure
+      toast({
+        title: "Failed to Create Task",
+        description: errorMsg,
+        variant: "destructive",
+        duration: 6000,
+      });
       return null;
     }
   } catch (error) {
-    store.setError(error instanceof Error ? error.message : 'Unknown error');
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    store.setError(errorMsg);
+    // FIX 3.10: Show toast for unexpected errors
+    toast({
+      title: "Task Creation Error",
+      description: errorMsg,
+      variant: "destructive",
+      duration: 6000,
+    });
     return null;
   }
 }
@@ -719,8 +802,16 @@ export async function createTask(
  * Collects any pending user messages from the task's terminal and sends them with the start request
  */
 export function startTask(taskId: string, options?: { parallel?: boolean; workers?: number }): void {
+  const store = useTaskStore.getState();
   // Clear stopped state when starting task
-  useTaskStore.getState().setAgentStopped(taskId, false);
+  store.setAgentStopped(taskId, false);
+  // Reset execution progress sequence so new process events aren't dropped
+  store.updateExecutionProgress(taskId, {
+    phase: 'starting' as ExecutionPhase,
+    phaseProgress: 0,
+    overallProgress: 0,
+    sequenceNumber: 0
+  });
 
   // Find the terminal associated with this task to collect pending user messages
   const terminalId = `task-${taskId}`;
@@ -767,6 +858,16 @@ export function stopTask(taskId: string): void {
  */
 export async function startBuild(taskId: string): Promise<boolean> {
   const store = useTaskStore.getState();
+  // Clear stopped state when starting build (planning exit sets isAgentStopped=true)
+  store.setAgentStopped(taskId, false);
+  // Reset execution progress sequence so new process events (starting at seq=1) aren't
+  // dropped by the out-of-order guard which still has the old process's high seq number.
+  store.updateExecutionProgress(taskId, {
+    phase: 'starting' as ExecutionPhase,
+    phaseProgress: 0,
+    overallProgress: 0,
+    sequenceNumber: 0
+  });
 
   try {
     const result = await window.electronAPI.startBuild(taskId);
@@ -774,13 +875,13 @@ export async function startBuild(taskId: string): Promise<boolean> {
       store.updateTaskStatus(taskId, 'coding');
       return true;
     }
-    // FIX-1: Show toast notification when startBuild fails
-    const errorMessage = result.error || 'Unable to start build. Please try again.';
+    // Show toast notification when startBuild fails (with i18n)
+    const errorMessage = result.error || i18n.t('common:errors.unknownError');
     console.error('[task-store] startBuild failed:', errorMessage);
 
     // Show user-friendly error toast
     toast({
-      title: "Cannot Start Build",
+      title: i18n.t('errors:build.cannotStart'),
       description: errorMessage,
       variant: "destructive",
       duration: 8000, // 8 seconds for important error
@@ -790,10 +891,10 @@ export async function startBuild(taskId: string): Promise<boolean> {
   } catch (error) {
     console.error('[task-store] startBuild error:', error);
 
-    // FIX-1: Show toast for unexpected errors
+    // Show toast for unexpected errors (with i18n)
     toast({
-      title: "Build Error",
-      description: "An unexpected error occurred. Please check the console for details.",
+      title: i18n.t('errors:build.buildError'),
+      description: i18n.t('errors:build.unexpectedError'),
       variant: "destructive",
       duration: 8000,
     });
@@ -817,6 +918,10 @@ export async function submitReview(
     const result = await window.electronAPI.submitReview(taskId, approved, feedback, images);
     if (result.success) {
       store.updateTaskStatus(taskId, approved ? 'done' : 'coding');
+      // Clear stopped state when rejecting review (restarts coding agent)
+      if (!approved) {
+        store.setAgentStopped(taskId, false);
+      }
       return true;
     }
     return false;
@@ -867,6 +972,21 @@ export async function persistTaskStatus(
 
     // Only update local state after backend confirms success
     store.updateTaskStatus(taskId, status);
+
+    // Sync with insights task queue — remove tasks marked as done
+    if (status === 'done') {
+      try {
+        const queueStore = useInsightsTaskQueueStore.getState();
+        const queueTask = queueStore.tasks.find(t => t.taskId === taskId);
+        if (queueTask) {
+          queueStore.removeTask(queueTask.id);
+        }
+      } catch (e) {
+        // Non-critical: don't block status update if queue sync fails
+        console.warn('[persistTaskStatus] Insights queue sync failed:', e);
+      }
+    }
+
     return { success: true };
   } catch (error) {
     console.error('Error persisting task status:', error);
@@ -945,6 +1065,17 @@ export async function recoverStuckTask(
     if (result.success && result.data) {
       // Update local state
       store.updateTaskStatus(taskId, result.data.newStatus);
+      // Clear stopped state and reset execution progress when recovering
+      if (result.data.autoRestarted) {
+        store.setAgentStopped(taskId, false);
+        // Reset sequence so new process events aren't dropped by out-of-order guard
+        store.updateExecutionProgress(taskId, {
+          phase: 'starting' as ExecutionPhase,
+          phaseProgress: 0,
+          overallProgress: 0,
+          sequenceNumber: 0
+        });
+      }
       return {
         success: true,
         message: result.data.message,
@@ -979,9 +1110,12 @@ export async function deleteTask(
     if (result.success) {
       // Remove from local state
       store.setTasks(store.tasks.filter(t => t.id !== taskId && t.specId !== taskId));
-      // AUDIT-04: Clean up companion tracking to prevent memory leak
+      // AUDIT-04: Clean up companion/supervisor tracking to prevent memory leak
       store.setCompanionActive(taskId, false);
+      store.setSupervisorActive(taskId, false);
       store.setAgentStopped(taskId, false);
+      // Clean up terminal/bottom panel tab for the deleted task
+      useTerminalStore.getState().closeBottomPanelTab(taskId);
       // Clear selection if this task was selected
       if (store.selectedTaskId === taskId) {
         store.selectTask(null);
@@ -989,15 +1123,31 @@ export async function deleteTask(
       return { success: true };
     }
 
+    const errorMsg = result.error || 'Failed to delete task';
+    // FIX 3.10: Show toast for deletion failure
+    toast({
+      title: "Failed to Delete Task",
+      description: errorMsg,
+      variant: "destructive",
+      duration: 6000,
+    });
     return {
       success: false,
-      error: result.error || 'Failed to delete task'
+      error: errorMsg
     };
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error deleting task:', error);
+    // FIX 3.10: Show toast for unexpected errors
+    toast({
+      title: "Deletion Error",
+      description: errorMsg,
+      variant: "destructive",
+      duration: 6000,
+    });
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorMsg
     };
   }
 }

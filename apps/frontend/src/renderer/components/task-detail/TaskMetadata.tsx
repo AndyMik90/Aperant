@@ -9,7 +9,6 @@ import {
   Palette,
   Lightbulb,
   Users,
-  GitBranch,
   GitPullRequest,
   ListChecks,
   Clock,
@@ -199,21 +198,6 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
                 Target Audience
               </h3>
               <p className="text-sm text-foreground/80">{task.metadata.targetAudience}</p>
-            </div>
-          )}
-
-          {/* Dependencies */}
-          {task.metadata.dependencies && task.metadata.dependencies.length > 0 && (
-            <div>
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-                <GitBranch className="h-3 w-3 text-purple-400" />
-                Dependencies
-              </h3>
-              <ul className="text-sm text-foreground/80 list-disc list-inside space-y-0.5">
-                {task.metadata.dependencies.map((dep, idx) => (
-                  <li key={idx}>{dep}</li>
-                ))}
-              </ul>
             </div>
           )}
 

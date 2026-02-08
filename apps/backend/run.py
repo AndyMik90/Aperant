@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (C) 2024-2026 Jerry Team
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Auto Claude Framework
 =====================

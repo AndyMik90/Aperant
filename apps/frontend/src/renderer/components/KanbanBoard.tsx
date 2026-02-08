@@ -26,7 +26,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, RefreshCw, GitPullRequest, X, GripVertical, ChevronLeft, ChevronRight, Archive, Trash2 } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, RefreshCw, GitPullRequest, X, GripVertical, ChevronLeft, ChevronRight, Archive, Trash2, Search } from 'lucide-react';
 import { TaskCardSkeleton } from './TaskCardSkeleton';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
@@ -36,7 +36,9 @@ import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, forceCompleteTask, useTaskStore, archiveTasks } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, useTaskStore, archiveTasks, startTask, startBuild } from '../stores/task-store';
+import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation';
+import { KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 import { useKanbanStore } from '../stores/kanban-store';
 import { useTerminalStore } from '../stores/terminal-store';
 import { useToast } from '../hooks/use-toast';
@@ -71,6 +73,10 @@ interface KanbanBoardProps {
   isRefreshing?: boolean;
   hideRefreshButton?: boolean;
   isLoading?: boolean; // UX-3: Show skeleton loaders while loading
+  /** Externally controlled search query (when search bar lives in parent) */
+  searchQuery?: string;
+  /** Callback when external search query changes */
+  onSearchChange?: (query: string) => void;
 }
 
 interface DroppableColumnProps {
@@ -90,6 +96,8 @@ interface DroppableColumnProps {
   onToggleCollapse?: () => void;
   // FIX-29b: Bottom panel terminal callback
   onOpenBottomPanel?: (taskId: string, taskTitle: string) => void;
+  // Context menu callback for opening detail view
+  onOpenDetail?: (task: Task) => void;
 }
 
 /**
@@ -108,7 +116,8 @@ function tasksAreEquivalent(prevTasks: Task[], nextTasks: Task[]): boolean {
       prev.id !== next.id ||
       prev.status !== next.status ||
       prev.executionProgress?.phase !== next.executionProgress?.phase ||
-      prev.updatedAt !== next.updatedAt
+      // FIX 3.11: Compare dates by value using getTime() instead of reference
+      prev.updatedAt?.getTime() !== next.updatedAt?.getTime()
     ) {
       return false;
     }
@@ -135,6 +144,7 @@ function droppableColumnPropsAreEqual(
   if (prevProps.isCollapsed !== nextProps.isCollapsed) return false;
   if (prevProps.onToggleCollapse !== nextProps.onToggleCollapse) return false;
   if (prevProps.onOpenBottomPanel !== nextProps.onOpenBottomPanel) return false;
+  if (prevProps.onOpenDetail !== nextProps.onOpenDetail) return false;
 
   // Compare selectedTaskIds Set
   if (prevProps.selectedTaskIds !== nextProps.selectedTaskIds) {
@@ -194,7 +204,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect, isCollapsed, onToggleCollapse, onOpenBottomPanel }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect, isCollapsed, onToggleCollapse, onOpenBottomPanel, onOpenDetail }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -268,9 +278,10 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
         isSelected={isSelectable ? selectedTaskIds?.has(task.id) : undefined}
         onToggleSelect={onToggleSelectHandlers?.get(task.id)}
         onOpenBottomPanel={onOpenBottomPanel}
+        onOpenDetail={onOpenDetail ? () => onOpenDetail(task) : undefined}
       />
     ));
-  }, [tasks, onClickHandlers, onStatusChangeHandlers, onToggleSelectHandlers, selectedTaskIds, onOpenBottomPanel]);
+  }, [tasks, onClickHandlers, onStatusChangeHandlers, onToggleSelectHandlers, selectedTaskIds, onOpenBottomPanel, onOpenDetail]);
 
   const getColumnBorderColor = (): string => {
     switch (status) {
@@ -311,21 +322,27 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
       <div
         ref={setNodeRef}
         className={cn(
-          'flex h-full flex-col items-center rounded-xl border border-white/5 bg-gradient-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
+          'flex h-full w-full flex-col rounded-xl border border-white/5 bg-gradient-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
           getColumnBorderColor(),
           'border-t-2'
         )}
       >
-        <button
-          onClick={onToggleCollapse}
-          className="flex flex-col items-center gap-2 p-2 hover:bg-white/5 rounded-lg transition-colors h-full justify-center"
-          title={`Expand ${t(TASK_STATUS_LABELS[status])}`}
-        >
-          <ChevronRight className={cn("h-4 w-4", getCollapsedTextColor())} />
-          <span className={cn("text-xs font-medium [writing-mode:vertical-rl] rotate-180", getCollapsedTextColor())}>
-            {t(TASK_STATUS_LABELS[status])} ({tasks.length})
-          </span>
-        </button>
+        <Tooltip delayDuration={200}>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onToggleCollapse}
+              className="grid place-items-center gap-2 hover:bg-white/5 rounded-lg transition-colors h-full w-full"
+            >
+              <ChevronRight className={cn("h-4 w-4", getCollapsedTextColor())} />
+              <span className={cn("text-xs font-medium [writing-mode:vertical-rl] rotate-180", getCollapsedTextColor())}>
+                {t(TASK_STATUS_LABELS[status])} ({tasks.length})
+              </span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Expand {t(TASK_STATUS_LABELS[status])}</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
     );
   }
@@ -334,15 +351,16 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
     <div
       ref={setNodeRef}
       className={cn(
-        'flex h-full flex-col rounded-xl border border-white/5 bg-gradient-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
+        'flex h-full w-full max-w-full flex-col rounded-xl border border-white/5 bg-gradient-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200 overflow-hidden',
         getColumnBorderColor(),
         'border-t-2',
         isOver && 'drop-zone-highlight'
       )}
+      aria-label={`${t(TASK_STATUS_LABELS[status])} column`}
     >
       {/* Column header - enhanced styling */}
-      <div className="flex items-center justify-between p-4 border-b border-white/5">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center justify-between p-4 border-b border-white/5 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
           {/* Select All checkbox for human_review column */}
           {isHumanReview && onSelectAll && onDeselectAll && (
             <Tooltip delayDuration={200}>
@@ -362,36 +380,42 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
               </TooltipContent>
             </Tooltip>
           )}
-          <h2 className="font-semibold text-sm text-foreground">
+          <h2 className="font-semibold text-sm text-foreground truncate" aria-label={`${t(TASK_STATUS_LABELS[status])} column with ${taskCount} tasks`}>
             {t(TASK_STATUS_LABELS[status])}
           </h2>
           <span className="column-count-badge">
             {tasks.length}
           </span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {/* FIX-28: Removed duplicate '+' button from Planning column header
               The '+' button is already available in the sidebar */}
           {onToggleCollapse && (
-            <button
-              onClick={onToggleCollapse}
-              className="p-1 hover:bg-white/10 rounded transition-colors"
-              title="Collapse column"
-            >
-              <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-            </button>
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={onToggleCollapse}
+                  className="p-1 hover:bg-white/10 rounded transition-colors"
+                >
+                  <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Collapse column</p>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
       </div>
 
       {/* Task list */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <ScrollArea className="h-full px-3 pb-3 pt-2">
           <SortableContext
             items={taskIds}
             strategy={verticalListSortingStrategy}
           >
-            <div className="space-y-3 min-h-[120px]">
+            <div className="space-y-3 min-h-[120px] min-w-0">
               {tasks.length === 0 ? (
                 <div
                   className={cn(
@@ -442,11 +466,16 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
   );
 }, droppableColumnPropsAreEqual);
 
-export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing, hideRefreshButton, isLoading }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing, hideRefreshButton, isLoading, searchQuery: externalSearchQuery, onSearchChange }: KanbanBoardProps) {
   const { t } = useTranslation(['tasks', 'dialogs', 'common']);
   const { toast } = useToast();
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
+  const [internalSearchQuery, setInternalSearchQuery] = useState('');
+  // Use external search query if provided (search bar in parent), otherwise internal state
+  const searchQuery = externalSearchQuery ?? internalSearchQuery;
+  const setSearchQuery = onSearchChange ?? setInternalSearchQuery;
   const { showArchived, toggleShowArchived } = useViewState();
 
   // Panel refs for programmatic collapse/expand
@@ -463,6 +492,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // FIX-23: Collapsed columns state from persisted store
   const persistedCollapsedColumns = useKanbanStore((state) => state.collapsedColumns);
   const toggleColumnCollapseStore = useKanbanStore((state) => state.toggleColumnCollapse);
+  const autoCollapsedColumns = useKanbanStore((state) => state.autoCollapsedColumns);
+  const setAutoCollapsed = useKanbanStore((state) => state.setAutoCollapsed);
 
   // Convert persisted array to Set for efficient lookups
   const collapsedColumns = useMemo(() => new Set(persistedCollapsedColumns), [persistedCollapsedColumns]);
@@ -471,7 +502,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const redistributeLayout = useCallback((newCollapsedSet: Set<string>) => {
     if (!groupRef.current) return;
 
-    const collapsedSize = 2; // Match the collapsedSize prop
+    const collapsedSize = 3; // Match the collapsedSize prop
     const columnCount = TASK_STATUS_COLUMNS.length;
     const collapsedCount = newCollapsedSet.size;
     const expandedCount = columnCount - collapsedCount;
@@ -560,13 +591,42 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // FIX-29c: Bottom panel terminal - now managed globally in terminal-store
   const openBottomPanel = useTerminalStore((state) => state.openBottomPanel);
 
-  // Filter tasks based on archive status
-  const filteredTasks = useMemo(() => {
-    if (showArchived) {
-      return tasks; // Show all tasks including archived
+  // Helper function to check if a task matches the search query
+  const matchesSearchQuery = useCallback((task: Task): boolean => {
+    if (!searchQuery.trim()) return true;
+
+    const query = searchQuery.toLowerCase();
+
+    // Match against title
+    if (task.title.toLowerCase().includes(query)) return true;
+
+    // Match against description
+    if (task.description.toLowerCase().includes(query)) return true;
+
+    // Match against affected files (tags)
+    if (task.metadata?.affectedFiles) {
+      for (const file of task.metadata.affectedFiles) {
+        if (file.toLowerCase().includes(query)) return true;
+      }
     }
-    return tasks.filter((t) => !t.metadata?.archivedAt);
-  }, [tasks, showArchived]);
+
+    return false;
+  }, [searchQuery]);
+
+  // Filter tasks based on archive status and search query
+  const filteredTasks = useMemo(() => {
+    let result = tasks;
+
+    // Filter by archive status
+    if (!showArchived) {
+      result = result.filter((t) => !t.metadata?.archivedAt);
+    }
+
+    // Filter by search query
+    result = result.filter(matchesSearchQuery);
+
+    return result;
+  }, [tasks, showArchived, matchesSearchQuery]);
 
   // PROP-1: Cross-column drag is DISABLED
   // Tasks only move between columns via explicit user actions:
@@ -575,6 +635,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   //
   // UX-2: Vertical reordering WITHIN columns is ENABLED
   // Users can drag tasks up/down within the same column to prioritize.
+  // DnD sensors — useSensors already memoizes internally
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -648,6 +709,31 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     return grouped;
   }, [filteredTasks, taskOrder]);
 
+  // Flat list of all visible tasks for keyboard navigation
+  const allVisibleTasks = useMemo(() => {
+    return [
+      ...tasksByStatus.planning,
+      ...tasksByStatus.coding,
+      ...tasksByStatus.ai_review,
+      ...tasksByStatus.human_review,
+    ];
+  }, [tasksByStatus]);
+
+  // UX-5: Wire up keyboard navigation
+  const { selectedTask: kbSelectedTask } = useKeyboardNavigation({
+    tasks: allVisibleTasks,
+    onTaskOpen: (task) => onTaskClick(task),
+    onTaskStart: (task) => {
+      if (task.status === 'planning') {
+        startBuild(task.id);
+      } else if (task.status === 'coding') {
+        startTask(task.id);
+      }
+    },
+    onShowHelp: () => setShowShortcutsHelp(true),
+    enabled: !showShortcutsHelp,
+  });
+
   // Prune stale IDs when tasks move out of human_review column
   useEffect(() => {
     const validIds = new Set(tasksByStatus.human_review.map(t => t.id));
@@ -656,6 +742,77 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       return filtered.size === prev.size ? prev : filtered;
     });
   }, [tasksByStatus.human_review]);
+
+  // Reactive auto-collapse/expand: empty columns collapse, populated columns expand
+  const [mountComplete, setMountComplete] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setMountComplete(true), 200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!mountComplete) return;
+
+    // If ALL columns are empty, don't auto-collapse any — show them all at normal size.
+    // Auto-collapse only makes sense when some columns have tasks and others don't.
+    const allEmpty = TASK_STATUS_COLUMNS.every(
+      (status) => (tasksByStatus[status]?.length ?? 0) === 0
+    );
+
+    let changed = false;
+    const nextCollapsed = new Set(collapsedColumns);
+
+    if (allEmpty) {
+      // Expand any auto-collapsed columns so the board looks normal when empty
+      TASK_STATUS_COLUMNS.forEach((status) => {
+        const isCollapsed = collapsedColumns.has(status);
+        const wasAutoCollapsed = autoCollapsedColumns.includes(status);
+        if (isCollapsed && wasAutoCollapsed) {
+          const panelRef = panelRefs.current[status];
+          if (panelRef) {
+            panelRef.expand();
+            toggleColumnCollapseStore(status);
+            setAutoCollapsed(status, false);
+            nextCollapsed.delete(status);
+            changed = true;
+          }
+        }
+      });
+    } else {
+      TASK_STATUS_COLUMNS.forEach((status) => {
+        const hasCards = (tasksByStatus[status]?.length ?? 0) > 0;
+        const isCollapsed = collapsedColumns.has(status);
+        const wasAutoCollapsed = autoCollapsedColumns.includes(status);
+
+        if (!hasCards && !isCollapsed) {
+          // Column just became empty — auto-collapse it
+          const panelRef = panelRefs.current[status];
+          if (panelRef) {
+            panelRef.collapse();
+            toggleColumnCollapseStore(status);
+            setAutoCollapsed(status, true);
+            nextCollapsed.add(status);
+            changed = true;
+          }
+        } else if (hasCards && isCollapsed && wasAutoCollapsed) {
+          // Column gained tasks and was auto-collapsed (not user-collapsed) — expand it
+          const panelRef = panelRefs.current[status];
+          if (panelRef) {
+            panelRef.expand();
+            toggleColumnCollapseStore(status);
+            setAutoCollapsed(status, false);
+            nextCollapsed.delete(status);
+            changed = true;
+          }
+        }
+      });
+    }
+
+    if (changed) {
+      setTimeout(() => redistributeLayout(nextCollapsed), 50);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasksByStatus, mountComplete]);
 
   // Selection callbacks for bulk actions (Human Review column)
   const toggleTaskSelection = useCallback((taskId: string) => {
@@ -945,20 +1102,48 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   return (
     <div className="flex h-full flex-col">
-      {/* Kanban header with refresh button */}
-      {onRefresh && !hideRefreshButton && (
-        <div className="flex items-center justify-end px-6 pt-4 pb-2">
+      {/* Kanban header with search bar and refresh button (hidden when search is in parent) */}
+      {!onSearchChange && (
+      <div className="flex items-center justify-between gap-4 px-6 pt-4 pb-2">
+        {/* Search bar */}
+        <div className="flex-1 max-w-sm">
+          <div className="relative flex items-center bg-muted/50 rounded-lg border border-transparent hover:border-muted-foreground/20 transition-colors">
+            <Search className="h-4 w-4 text-muted-foreground/50 ml-3 flex-shrink-0" />
+            <input
+              type="text"
+              placeholder={t('kanban.searchPlaceholder', { defaultValue: 'Search tasks...' })}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/50"
+              aria-label="Search tasks"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="mr-2 p-1 hover:bg-muted/50 rounded transition-colors flex-shrink-0"
+                title="Clear search"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4 text-muted-foreground/50" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Refresh button */}
+        {onRefresh && !hideRefreshButton && (
           <Button
             variant="ghost"
             size="sm"
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="gap-2 text-muted-foreground hover:text-foreground"
+            className="gap-2 text-muted-foreground hover:text-foreground flex-shrink-0"
           >
             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
             {isRefreshing ? t('common:buttons.refreshing') : t('tasks:refreshTasks')}
           </Button>
-        </div>
+        )}
+      </div>
       )}
       {/* Kanban columns with resizable panels */}
       <DndContext
@@ -968,22 +1153,23 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <Group orientation="horizontal" className="flex-1 p-6" groupRef={groupRef}>
+        <Group orientation="horizontal" className="flex-1 p-6 overflow-hidden" groupRef={groupRef}>
           {TASK_STATUS_COLUMNS.map((status, index) => (
             <React.Fragment key={status}>
               <Panel
                 panelRef={(ref) => { panelRefs.current[status] = ref; }}
                 id={`col-${status}`}
                 defaultSize={100 / TASK_STATUS_COLUMNS.length}
-                minSize={3}
+                minSize={10}
                 collapsible
-                collapsedSize={2}
+                collapsedSize={3}
+                style={{ overflow: 'visible' }}
                 className={cn(
-                  collapsedColumns.has(status) ? "min-w-8" : "min-w-48"
+                  collapsedColumns.has(status) ? "min-w-[40px]" : "min-w-[240px]"
                 )}
               >
                 <div className={cn(
-                  "h-full",
+                  "h-full w-full max-w-full overflow-hidden",
                   index > 0 && "ml-1",
                   index < TASK_STATUS_COLUMNS.length - 1 && "mr-1"
                 )}>
@@ -1001,6 +1187,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                     isCollapsed={collapsedColumns.has(status)}
                     onToggleCollapse={() => toggleColumnCollapse(status)}
                     onOpenBottomPanel={openBottomPanel}
+                    onOpenDetail={onTaskClick}
                   />
                 </div>
               </Panel>
@@ -1092,6 +1279,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         tasks={selectedTasks}
         onOpenChange={setBulkPRDialogOpen}
         onComplete={handleBulkPRComplete}
+      />
+
+      {/* UX-5: Keyboard shortcuts help dialog */}
+      <KeyboardShortcutsHelp
+        open={showShortcutsHelp}
+        onOpenChange={setShowShortcutsHelp}
       />
     </div>
   );

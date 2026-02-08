@@ -20,6 +20,8 @@ import { detectRateLimit, createSDKRateLimitInfo } from '../rate-limit-detector'
 interface ProcessorResult {
   fullResponse: string;
   suggestedTask?: InsightsChatMessage['suggestedTask'];
+  suggestedTasks: Array<{ task: NonNullable<InsightsChatMessage['suggestedTask']>; textBefore: string }>;
+  trailingText: string;
   toolsUsed: InsightsToolUsage[];
 }
 
@@ -63,7 +65,8 @@ export class InsightsExecutor extends EventEmitter {
     projectPath: string,
     message: string,
     conversationHistory: Array<{ role: string; content: string }>,
-    modelConfig?: InsightsModelConfig
+    modelConfig?: InsightsModelConfig,
+    imagePaths?: string[]
   ): Promise<ProcessorResult> {
     // Cancel any existing session
     this.cancelSession(projectId);
@@ -117,6 +120,11 @@ export class InsightsExecutor extends EventEmitter {
       args.push('--thinking-level', modelConfig.thinkingLevel);
     }
 
+    // Add image attachments if provided
+    if (imagePaths && imagePaths.length > 0) {
+      args.push('--images', JSON.stringify(imagePaths));
+    }
+
     // Spawn Python process
     const proc = spawn(this.config.getPythonPath(), args, {
       cwd: autoBuildSource,
@@ -128,6 +136,8 @@ export class InsightsExecutor extends EventEmitter {
     return new Promise((resolve, reject) => {
       let fullResponse = '';
       let suggestedTask: InsightsChatMessage['suggestedTask'] | undefined;
+      const suggestedTasks: ProcessorResult['suggestedTasks'] = [];
+      let textSinceLastSuggestion = '';
       const toolsUsed: InsightsToolUsage[] = [];
       let allInsightsOutput = '';
       let stderrOutput = '';
@@ -143,6 +153,10 @@ export class InsightsExecutor extends EventEmitter {
           if (line.startsWith('__TASK_SUGGESTION__:')) {
             this.handleTaskSuggestion(projectId, line, (task) => {
               suggestedTask = task;
+              if (task) {
+                suggestedTasks.push({ task, textBefore: textSinceLastSuggestion.trim() });
+                textSinceLastSuggestion = '';
+              }
             });
           } else if (line.startsWith('__TOOL_START__:')) {
             this.handleToolStart(projectId, line, toolsUsed);
@@ -150,6 +164,7 @@ export class InsightsExecutor extends EventEmitter {
             this.handleToolEnd(projectId, line);
           } else if (line.trim()) {
             fullResponse += line + '\n';
+            textSinceLastSuggestion += line + '\n';
             this.emit('stream-chunk', projectId, {
               type: 'text',
               content: line + '\n'
@@ -195,6 +210,8 @@ export class InsightsExecutor extends EventEmitter {
           resolve({
             fullResponse: fullResponse.trim(),
             suggestedTask,
+            suggestedTasks,
+            trailingText: textSinceLastSuggestion.trim(),
             toolsUsed
           });
         } else {

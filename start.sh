@@ -17,12 +17,25 @@ echo ""
 # Navigate to script directory
 cd "$(dirname "$0")"
 
+# Build Frontend before launching
+echo -e "${CYAN} Building Frontend...${NC}"
+cd apps/frontend && npm run build
+BUILD_EXIT=$?
+cd "$(dirname "$0")"
+
+if [ $BUILD_EXIT -ne 0 ]; then
+    echo -e "\033[0;31m${BOLD} Build failed! Fix errors above before launching.${NC}"
+    exit 1
+fi
+echo -e "${GREEN} Build complete.${NC}"
+echo ""
+
 # Start Frontend (Electron) in a new Terminal window
 echo -e "${CYAN} Starting Frontend (Electron)...${NC}"
 osascript -e "
 tell application \"Terminal\"
     activate
-    do script \"cd '$(pwd)/apps/frontend' && echo '  Jerry Frontend Starting...' && npm run dev\"
+    do script \"cd '$(pwd)/apps/frontend' && echo '  Jerry Frontend Starting...' && npm run start\"
 end tell
 " &>/dev/null
 

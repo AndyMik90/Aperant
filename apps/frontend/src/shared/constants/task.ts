@@ -62,7 +62,7 @@ export const EXECUTION_PHASE_LABELS: Record<string, string> = {
   starting: 'Starting...',
   planning: 'Planning',
   coding: 'Coding',
-  qa_review: 'AI Review',
+  qa_review: 'Testing',
   qa_fixing: 'Fixing Issues',
   complete: 'Complete',
   failed: 'Failed'

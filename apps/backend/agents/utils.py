@@ -10,9 +10,34 @@ import logging
 import shutil
 from pathlib import Path
 
+from core.file_utils import atomic_write
 from core.git_executable import run_git
 
 logger = logging.getLogger(__name__)
+
+
+def _copy_file_atomic(source: Path, target: Path) -> None:
+    """
+    Copy a file using atomic write (read source, write to temp, rename).
+
+    FIX-035: Replaces shutil.copy2 for JSON files to prevent partial copies
+    on crash. If the source is valid JSON, uses write_json_atomic to ensure
+    the target is never left in a half-written state.
+    """
+    try:
+        content = source.read_bytes()
+        # For JSON files, validate and use atomic write
+        if source.suffix == ".json":
+            data = json.loads(content)
+            from core.file_utils import write_json_atomic
+
+            write_json_atomic(target, data)
+        else:
+            with atomic_write(target, "wb", encoding=None) as f:
+                f.write(content)
+    except (json.JSONDecodeError, OSError):
+        # Fallback to shutil.copy2 if JSON parsing fails (binary/corrupt)
+        shutil.copy2(source, target)
 
 
 def get_latest_commit(project_dir: Path) -> str | None:
@@ -130,8 +155,13 @@ def sync_spec_to_source(spec_dir: Path, source_spec_dir: Path | None) -> bool:
             source_item = source_spec_dir / item.name
 
             if item.is_file():
-                # Copy file (preserves timestamps)
-                shutil.copy2(item, source_item)
+                # FIX-035: Use atomic write for JSON files to prevent partial
+                # copies on crash. Non-JSON files use shutil.copy2 (safe for
+                # non-shared files).
+                if item.suffix == ".json":
+                    _copy_file_atomic(item, source_item)
+                else:
+                    shutil.copy2(item, source_item)
                 logger.debug(f"Synced {item.name} to source")
                 synced_any = True
 
@@ -168,7 +198,11 @@ def _sync_directory(source_dir: Path, target_dir: Path) -> None:
         target_item = target_dir / item.name
 
         if item.is_file():
-            shutil.copy2(item, target_item)
+            # FIX-035: Atomic copy for JSON files
+            if item.suffix == ".json":
+                _copy_file_atomic(item, target_item)
+            else:
+                shutil.copy2(item, target_item)
             logger.debug(f"Synced {source_dir.name}/{item.name} to source")
         elif item.is_dir():
             # Recurse into subdirectories

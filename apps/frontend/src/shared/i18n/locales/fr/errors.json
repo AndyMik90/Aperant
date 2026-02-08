@@ -5,5 +5,15 @@
       "titleSuffix": "(Erreur JSON)",
       "description": "⚠️ Erreur d'analyse JSON : {{error}}\n\nLe fichier implementation_plan.json est malformé. Exécutez la correction automatique du backend ou réparez le fichier manuellement."
     }
+  },
+  "errorBoundary": {
+    "title": "Une erreur s'est produite",
+    "message": "Une erreur s'est produite lors du rendu de ce contenu.",
+    "tryAgain": "Réessayer"
+  },
+  "build": {
+    "cannotStart": "Impossible de démarrer la compilation",
+    "buildError": "Erreur de compilation",
+    "unexpectedError": "Une erreur inattendue s'est produite. Veuillez consulter la console pour plus de détails."
   }
 }

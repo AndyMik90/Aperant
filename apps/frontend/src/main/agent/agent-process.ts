@@ -491,6 +491,18 @@ export class AgentProcessManager {
     processType: ProcessType = 'task-execution'
   ): Promise<void> {
     const isSpecRunner = processType === 'spec-creation';
+
+    // Bug #12 fix: Prevent companion spawn from killing a newly-started main agent.
+    // If a companion is being spawned but a non-companion process is already running,
+    // bail out instead of killing the main agent process.
+    if (processType === 'companion') {
+      const existing = this.state.getProcess(taskId);
+      if (existing && existing.processType !== 'companion') {
+        console.warn(`[AgentProcess] Companion spawn aborted: non-companion process already running for task ${taskId}`);
+        return;
+      }
+    }
+
     this.killProcess(taskId);
 
     const spawnId = this.state.generateSpawnId();
@@ -527,10 +539,16 @@ export class AgentProcessManager {
       taskId,
       process: childProcess,
       startedAt: new Date(),
-      spawnId
+      spawnId,
+      processType
     });
 
-    let currentPhase: ExecutionProgressData['phase'] = isSpecRunner ? 'planning' : 'planning';
+    // FIX-019: processType is the spawn-time purpose (planning, task-execution, companion)
+    // and intentionally does NOT change as internal phases progress. The exit handler
+    // depends on processType to determine cleanup behavior. Internal phase progression
+    // is tracked via execution-progress events emitted by the Python agent on stdout.
+    // currentPhase below tracks the internal phase for progress UI updates.
+    let currentPhase: ExecutionProgressData['phase'] = 'planning';
     let phaseProgress = 0;
     let currentSubtask: string | undefined;
     let lastMessage: string | undefined;
@@ -825,6 +843,56 @@ export class AgentProcessManager {
     });
 
     await this.spawnProcess(taskId, this.autoBuildSourcePath, args, combinedEnv, 'companion');
+  }
+
+  /**
+   * Spawn supervisor agent process alongside an active coding agent.
+   * Uses prefixed key `supervisor-{taskId}` to coexist with the coder process.
+   */
+  async spawnSupervisor(
+    taskId: string,
+    specDir: string,
+    projectDir: string,
+    taskTitle: string,
+    currentPhase: string,
+    model?: string
+  ): Promise<void> {
+    const companionRunnerPath = path.join(this.autoBuildSourcePath, 'runners', 'companion_runner.py');
+
+    if (!existsSync(companionRunnerPath)) {
+      console.error('[AgentProcess] companion_runner.py not found at:', companionRunnerPath);
+      throw new Error('Companion runner not found');
+    }
+
+    const supervisorKey = `supervisor-${taskId}`;
+
+    const args = [
+      companionRunnerPath,
+      '--spec-dir',
+      specDir,
+      '--project-dir',
+      projectDir,
+      '--task-title',
+      taskTitle,
+      '--current-phase',
+      currentPhase,
+      '--task-id',
+      taskId,
+      '--model',
+      model || 'opus',
+      '--supervisor-mode'
+    ];
+
+    const combinedEnv = this.getCombinedEnv(projectDir);
+
+    console.log('[AgentProcess] Spawning supervisor agent:', {
+      taskId,
+      supervisorKey,
+      currentPhase,
+      model: model || 'opus'
+    });
+
+    await this.spawnProcess(supervisorKey, this.autoBuildSourcePath, args, combinedEnv, 'companion');
   }
 
   /**

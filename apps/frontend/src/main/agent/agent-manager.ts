@@ -16,6 +16,13 @@ import type { IdeationConfig } from '../../shared/types';
 
 /**
  * Phase 6: Agent mode for multi-agent support
+ *
+ * FIX-029: Currently, each task spawns its own agent process immediately on
+ * creation. Multiple tasks running in parallel compete for CPU, memory, and API
+ * rate limits with no coordination. The AgentQueueManager provides basic
+ * queuing, but there is no global concurrency limit. Consider adding a
+ * configurable max concurrent agents setting (default: 1) to prevent resource
+ * contention when users create multiple tasks simultaneously.
  */
 export type AgentMode = 'planning' | 'coding' | 'reviewing' | 'idle' | 'companion';
 
@@ -63,6 +70,11 @@ export class AgentManager extends EventEmitter {
    */
   private companionTasks: Set<string> = new Set();
 
+  /**
+   * Track tasks with active supervisor agents (run alongside coder)
+   */
+  private supervisorTasks: Set<string> = new Set();
+
   constructor() {
     super();
 
@@ -80,12 +92,21 @@ export class AgentManager extends EventEmitter {
     });
 
     // Listen for task completion to clean up context (prevent memory leak)
-    this.on('exit', (taskId: string, code: number | null, processType: ProcessType) => {
-      // Handle companion exit separately - don't trigger status changes or restarts
+    this.on('exit', (rawTaskId: string, code: number | null, processType: ProcessType) => {
+      // Strip supervisor- prefix for tracking lookups
+      const isSupervisorExit = rawTaskId.startsWith('supervisor-');
+      const taskId = isSupervisorExit ? rawTaskId.slice('supervisor-'.length) : rawTaskId;
+
+      // Handle companion/supervisor exit separately - don't trigger status changes or restarts
       if (processType === 'companion') {
-        console.log('[AgentManager] Companion agent exited:', { taskId, code });
-        this.companionTasks.delete(taskId);
-        this.agentModes.delete(taskId);
+        if (isSupervisorExit) {
+          console.log('[AgentManager] Supervisor agent exited:', { taskId, code });
+          this.supervisorTasks.delete(taskId);
+        } else {
+          console.log('[AgentManager] Companion agent exited:', { taskId, code });
+          this.companionTasks.delete(taskId);
+        }
+        this.agentModes.delete(isSupervisorExit ? rawTaskId : taskId);
         return;
       }
 
@@ -96,26 +117,49 @@ export class AgentManager extends EventEmitter {
       // Phase 6: Clean up agent mode when process exits
       this.agentModes.delete(taskId);
 
-      // Auto-spawn companion after successful execution exit
-      // Can be disabled with DISABLE_COMPANION_AUTOSPAWN=true environment variable
-      const autoSpawnDisabled = process.env.DISABLE_COMPANION_AUTOSPAWN === 'true';
-      if (code === 0 && !autoSpawnDisabled) {
-        console.log('[AgentManager] Execution succeeded, scheduling companion spawn');
-        setTimeout(() => {
-          const context = this.taskExecutionContext.get(taskId);
-          if (context && !this.state.hasProcess(taskId)) {
-            // Only spawn if task still has context and no process is running
-            this.startCompanion(taskId).catch(err => {
-              console.error('[AgentManager] Failed to auto-spawn companion:', err);
-            });
-          }
-        }, 1500); // Delay to let exit events propagate
+      // Auto-kill supervisor when coder exits (supervisor only runs alongside coder)
+      if (this.supervisorTasks.has(taskId)) {
+        console.log('[AgentManager] Coder exited, stopping supervisor for task:', taskId);
+        this.stopSupervisor(taskId);
       }
 
-      // Note: Auto-swap restart happens BEFORE this exit event is processed,
-      // so we need a small delay to allow restart to preserve context
-      // AUDIT-03 FIX: Delay must be AFTER companion spawn (1500ms) to avoid race condition
-      setTimeout(() => {
+      // Auto-spawn companion after successful execution exit
+      // Can be disabled with DISABLE_COMPANION_AUTOSPAWN=true environment variable
+      //
+      // FIX-032: This uses a 1.5s delay + promise coordination to avoid a race
+      // condition where context cleanup runs before the companion spawns. The
+      // timing is fragile: if another event (e.g., task restart) fires during the
+      // 1.5s window, the companion may spawn with stale context or not spawn at
+      // all. A proper fix would use a state machine for the companion lifecycle:
+      //   coder_running → coder_exited → spawning_companion → companion_ready
+      // Each state would block invalid transitions (e.g., can't clean up context
+      // while in spawning_companion state).
+      const autoSpawnDisabled = process.env.DISABLE_COMPANION_AUTOSPAWN === 'true';
+      let companionSpawnPromise: Promise<void> | null = null;
+      if (code === 0 && !autoSpawnDisabled) {
+        console.log('[AgentManager] Execution succeeded, scheduling companion spawn');
+        companionSpawnPromise = new Promise<void>((resolve) => {
+          setTimeout(async () => {
+            try {
+              const context = this.taskExecutionContext.get(taskId);
+              if (context && !this.state.hasProcess(taskId)) {
+                await this.startCompanion(taskId);
+              }
+            } catch (err) {
+              console.error('[AgentManager] Failed to auto-spawn companion:', err);
+            }
+            resolve();
+          }, 1500);
+        });
+      }
+
+      // Context cleanup: wait for companion spawn to complete before deciding
+      // This prevents the race where cleanup deletes context before companion finishes starting
+      setTimeout(async () => {
+        if (companionSpawnPromise) {
+          await companionSpawnPromise;
+        }
+
         const context = this.taskExecutionContext.get(taskId);
         if (!context) return; // Already cleaned up or restarted
 
@@ -133,7 +177,7 @@ export class AgentManager extends EventEmitter {
           this.taskExecutionContext.delete(taskId);
         }
         // Otherwise keep context for potential restart
-      }, 2000); // Delay AFTER companion spawn (1500ms) to avoid race
+      }, 2000);
     });
   }
 
@@ -454,6 +498,21 @@ export class AgentManager extends EventEmitter {
 
     // Phase 6: Track agent mode
     this.agentModes.set(taskId, 'coding');
+
+    // Auto-spawn supervisor agent alongside coder (3s delay for coder to initialize)
+    const supervisorDisabled = process.env.DISABLE_SUPERVISOR_AUTOSPAWN === 'true';
+    if (!supervisorDisabled) {
+      setTimeout(async () => {
+        try {
+          // Only spawn if coder is still running
+          if (this.state.hasProcess(taskId) && !this.supervisorTasks.has(taskId)) {
+            await this.startSupervisor(taskId);
+          }
+        } catch (err) {
+          console.error('[AgentManager] Failed to auto-spawn supervisor:', err);
+        }
+      }, 3000);
+    }
   }
 
   /**
@@ -464,6 +523,21 @@ export class AgentManager extends EventEmitter {
     projectPath: string,
     specId: string
   ): Promise<void> {
+    // Pre-flight auth check: Verify active profile has valid authentication
+    // (matching startPlanningAgent and startTaskExecution)
+    let profileManager;
+    try {
+      profileManager = await initializeClaudeProfileManager();
+    } catch (error) {
+      console.error('[AgentManager] Failed to initialize profile manager for QA:', error);
+      this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
+      return;
+    }
+    if (!profileManager.hasValidAuth()) {
+      this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before running QA.');
+      return;
+    }
+
     // Ensure Python environment is ready before spawning process (prevents exit code 127 race condition)
     const pythonStatus = await this.processManager.ensurePythonEnvReady('AgentManager');
     if (!pythonStatus.ready) {
@@ -761,8 +835,18 @@ export class AgentManager extends EventEmitter {
       return;
     }
 
-    // Determine current phase based on task state
-    const currentPhase = this.getCompanionPhase('coding_complete'); // Default to coding_complete
+    // FIX-020: Derive companion phase from the agent mode that was set during execution,
+    // instead of always hardcoding 'coding_complete'. This makes the companion's system
+    // prompt contextually accurate for the current task state.
+    const agentMode = this.agentModes.get(taskId) || 'idle';
+    const modeToPhaseMap: Record<string, string> = {
+      'planning': 'spec_complete',
+      'coding': 'coding_complete',
+      'reviewing': 'qa_complete',
+      'idle': 'human_review',
+      'companion': 'coding_complete',
+    };
+    const currentPhase = this.getCompanionPhase(modeToPhaseMap[agentMode] || 'coding_complete');
 
     console.log('[AgentManager] Starting companion agent:', {
       taskId,
@@ -829,6 +913,98 @@ export class AgentManager extends EventEmitter {
   }
 
   /**
+   * Start supervisor agent alongside an active coding agent.
+   * The supervisor monitors build progress and answers user questions in real-time.
+   */
+  async startSupervisor(taskId: string): Promise<void> {
+    const context = this.taskExecutionContext.get(taskId);
+    if (!context) {
+      console.warn('[AgentManager] No execution context for supervisor:', taskId);
+      return;
+    }
+
+    // Only start supervisor if coder is actually running
+    if (!this.state.hasProcess(taskId)) {
+      console.log('[AgentManager] Coder not running, skipping supervisor spawn for:', taskId);
+      return;
+    }
+
+    // Check if supervisor is already running
+    if (this.supervisorTasks.has(taskId)) {
+      console.log('[AgentManager] Supervisor already running for task:', taskId);
+      return;
+    }
+
+    const { specDir, projectPath, taskDescription } = context;
+    if (!specDir || !projectPath || !taskDescription) {
+      console.warn('[AgentManager] Missing required context for supervisor:', { specDir, projectPath, taskDescription });
+      return;
+    }
+
+    console.log('[AgentManager] Starting supervisor agent:', { taskId, specDir });
+
+    try {
+      await this.processManager.spawnSupervisor(
+        taskId,
+        specDir,
+        projectPath,
+        taskDescription,
+        'coding',  // Always 'coding' since supervisor runs during active builds
+        'opus'
+      );
+
+      this.supervisorTasks.add(taskId);
+
+      // Emit event for IPC handlers
+      this.emit('supervisor-spawned', taskId);
+    } catch (error) {
+      console.error('[AgentManager] Failed to start supervisor:', error);
+      this.supervisorTasks.delete(taskId);
+    }
+  }
+
+  /**
+   * Stop supervisor agent for a task
+   */
+  stopSupervisor(taskId: string): void {
+    if (!this.supervisorTasks.has(taskId)) {
+      return;
+    }
+
+    console.log('[AgentManager] Stopping supervisor agent:', taskId);
+    const supervisorKey = `supervisor-${taskId}`;
+
+    try {
+      this.processManager.killProcess(supervisorKey);
+    } catch (error) {
+      console.error('[AgentManager] Error stopping supervisor:', error);
+    }
+
+    this.supervisorTasks.delete(taskId);
+    this.emit('supervisor-stopped', taskId);
+  }
+
+  /**
+   * Check if a supervisor agent is running for a given task
+   */
+  isSupervisorRunning(taskId: string): boolean {
+    return this.supervisorTasks.has(taskId);
+  }
+
+  /**
+   * Send a message to the supervisor agent for a task
+   */
+  sendMessageToSupervisor(taskId: string, message: string): boolean {
+    if (!this.supervisorTasks.has(taskId)) {
+      console.warn('[AgentManager] No supervisor running for task:', taskId);
+      return false;
+    }
+
+    const supervisorKey = `supervisor-${taskId}`;
+    return this.processManager.sendMessageToTask(supervisorKey, message);
+  }
+
+  /**
    * Map task status to companion phase string
    */
   private getCompanionPhase(taskStatus: string): string {
@@ -859,6 +1035,11 @@ export class AgentManager extends EventEmitter {
 
     console.log(`[AgentManager] Stopping ${runningTasks.length} running agent(s)...`);
 
+    // Kill all supervisors first
+    for (const taskId of [...this.supervisorTasks]) {
+      this.stopSupervisor(taskId);
+    }
+
     // Send SIGTERM to all processes
     await this.killAll();
 
@@ -878,6 +1059,7 @@ export class AgentManager extends EventEmitter {
 
     // Clear all mode tracking
     this.agentModes.clear();
+    this.supervisorTasks.clear();
     this.taskExecutionContext.clear();
 
     console.log('[AgentManager] Graceful shutdown complete');

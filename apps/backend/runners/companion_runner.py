@@ -173,6 +173,12 @@ Examples:
         default="sonnet",
         help="Model to use (haiku, sonnet, opus, or full model ID)",
     )
+    parser.add_argument(
+        "--supervisor-mode",
+        action="store_true",
+        default=False,
+        help="Run as live supervisor alongside coding agent (monitors build progress)",
+    )
 
     args = parser.parse_args()
 
@@ -195,6 +201,7 @@ Examples:
             project_dir=args.project_dir,
             task_title=args.task_title,
             current_phase=args.current_phase,
+            supervisor_mode=args.supervisor_mode,
         )
 
         # Run agent (async)

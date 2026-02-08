@@ -947,6 +947,17 @@ export async function resumeClaudeAsync(
     terminal.isClaudeMode = wasClaudeMode;
     // Note: Don't restore claudeSessionId since --continue doesn't use session IDs
     debugError('[ClaudeIntegration:resumeClaudeAsync] Resume failed:', error);
+
+    // Emit IPC event to show error notification to user
+    const window = getWindow();
+    if (window) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      window.webContents.send(IPC_CHANNELS.TERMINAL_RESUME_ERROR, {
+        terminalId: terminal.id,
+        error: errorMessage
+      });
+    }
+
     throw error; // Re-throw to allow caller to handle
   }
 }

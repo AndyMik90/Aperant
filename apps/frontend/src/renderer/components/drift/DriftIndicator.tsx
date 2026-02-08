@@ -6,8 +6,9 @@
  */
 
 import * as React from 'react';
+import { useEffect } from 'react';
 import { cn } from '../../lib/utils';
-import { useDriftAlertLevel } from '../../stores/drift-store';
+import { useDriftAlertLevel, useDriftStore, useTaskDrift } from '../../stores/drift-store';
 import {
   Tooltip,
   TooltipContent,
@@ -110,26 +111,46 @@ export function DriftIndicator({
  */
 interface DriftBadgeProps {
   taskId: string;
+  specDir?: string;
   score?: number;
   className?: string;
 }
 
-export function DriftBadge({ taskId, score, className }: DriftBadgeProps) {
+export function DriftBadge({ taskId, specDir, score: scoreProp, className }: DriftBadgeProps) {
   const alertLevel = useDriftAlertLevel(taskId);
+  const taskDrift = useTaskDrift(taskId);
+  const loadDriftReport = useDriftStore((s) => s.loadDriftReport);
 
-  // Don't render if normal or no data
-  if (!alertLevel || alertLevel === 'normal') {
+  // Auto-load drift from disk when specDir is provided and no data in store
+  useEffect(() => {
+    if (specDir && !taskDrift) {
+      loadDriftReport(taskId, specDir);
+    }
+  }, [taskId, specDir, taskDrift, loadDriftReport]);
+
+  // Don't render if no data
+  if (!alertLevel) {
     return null;
   }
 
+  const driftScore = scoreProp ?? taskDrift?.report?.overall_drift_score;
+
   const badgeClasses = {
+    normal: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
     warning: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
     critical: 'bg-red-500/10 text-red-500 border-red-500/20',
   };
 
   const iconClasses = {
+    normal: 'text-emerald-500',
     warning: 'text-amber-500',
     critical: 'text-red-500',
+  };
+
+  const tooltipText = {
+    normal: 'Agent behavior is within normal range',
+    warning: 'Behavioral drift warning',
+    critical: 'Critical behavioral drift',
   };
 
   return (
@@ -138,36 +159,44 @@ export function DriftBadge({ taskId, score, className }: DriftBadgeProps) {
         <TooltipTrigger asChild>
           <div
             className={cn(
-              'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium border',
+              'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border',
               badgeClasses[alertLevel],
               className
             )}
           >
-            <svg
-              className={cn('w-3 h-3', iconClasses[alertLevel])}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-            {score !== undefined && <span>{(score * 100).toFixed(0)}%</span>}
+            {alertLevel === 'normal' ? (
+              <svg
+                className={cn('w-2.5 h-2.5', iconClasses[alertLevel])}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              <svg
+                className={cn('w-2.5 h-2.5', iconClasses[alertLevel])}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            )}
+            {driftScore !== undefined && <span>{(driftScore * 100).toFixed(0)}%</span>}
           </div>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs">
-          <p className="text-sm font-medium">
-            {alertLevel === 'warning'
-              ? 'Behavioral drift warning'
-              : 'Critical behavioral drift'}
-          </p>
-          {score !== undefined && (
+          <p className="text-sm font-medium">{tooltipText[alertLevel]}</p>
+          {driftScore !== undefined && (
             <p className="text-xs text-muted-foreground">
-              Drift score: {(score * 100).toFixed(1)}%
+              Drift score: {(driftScore * 100).toFixed(1)}%
             </p>
           )}
         </TooltipContent>

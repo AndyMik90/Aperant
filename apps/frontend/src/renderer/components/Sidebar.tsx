@@ -274,8 +274,8 @@ export function Sidebar({
     <TooltipProvider delayDuration={0}>
       {/* UI-6: VS Code style activity bar - 48px wide icon-only navigation */}
       <div className="flex h-full w-12 flex-col bg-sidebar border-r border-border">
-        {/* macOS drag region at top of sidebar (above nav icons) */}
-        <div className="electron-drag h-3 w-full flex-shrink-0" />
+        {/* macOS drag region at top of sidebar — sized to match traffic light area */}
+        <div className="electron-drag h-8 w-full flex-shrink-0" />
         {/* Main navigation items */}
         <div className="flex flex-col">
           {visibleNavItems.map(renderNavItem)}

@@ -115,7 +115,7 @@ function updatePackageJson(newVersion) {
   const rootPath = path.join(__dirname, '..', 'package.json');
 
   if (!fs.existsSync(frontendPath)) {
-    error(`package.json not found at ${frontendPath}`);
+    error(`Frontend package.json not found at: ${frontendPath}`);
   }
 
   // Update frontend package.json
@@ -197,6 +197,9 @@ function main() {
 
   // 2. Read current version
   const packagePath = path.join(__dirname, '..', 'apps', 'frontend', 'package.json');
+  if (!fs.existsSync(packagePath)) {
+    error(`Frontend package.json not found at: ${packagePath}`);
+  }
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
   const currentVersion = packageJson.version;
   info(`Current version: ${currentVersion}`);

@@ -237,8 +237,11 @@ Output your findings to research.json.
 
             errors.append(f"Attempt {attempt + 1}: Research agent failed")
 
+        # FIX-006: Return success=False so the orchestrator knows research failed.
+        # Previously returned True, masking repeated failures and causing downstream
+        # phases to proceed with empty/partial research data.
         validator.create_minimal_research(
             self.spec_dir,
             reason="Research agent failed after retries",
         )
-        return PhaseResult("research", True, [str(research_file)], errors, MAX_RETRIES)
+        return PhaseResult("research", False, [str(research_file)], errors, MAX_RETRIES)

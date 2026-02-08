@@ -14,6 +14,7 @@ Usage:
     write_json_atomic("/path/to/file.json", {"key": "value"})
 """
 
+import fcntl
 import json
 import logging
 import os
@@ -123,3 +124,62 @@ def write_json_atomic(
     """
     with atomic_write(filepath, "w", encoding=encoding) as f:
         json.dump(data, f, indent=indent, ensure_ascii=ensure_ascii)
+
+
+def write_json_atomic_locked(
+    filepath: str | Path,
+    data: Any,
+    indent: int = 2,
+    ensure_ascii: bool = False,
+    encoding: str = "utf-8",
+    lock_timeout: float = 10.0,
+) -> None:
+    """
+    Write JSON data atomically with inter-process advisory locking.
+
+    FIX-021: Multiple processes (coder, session post-processing, QA loop) may
+    write to shared files like implementation_plan.json concurrently. This
+    function uses fcntl.flock() advisory locks to serialize writes, preventing
+    lost updates from concurrent read-modify-write cycles.
+
+    The lock file is a sibling of the target file with a .lock suffix.
+
+    Args:
+        filepath: Target file path
+        data: Data to serialize as JSON
+        indent: JSON indentation (default: 2)
+        ensure_ascii: Whether to escape non-ASCII characters (default: False)
+        encoding: File encoding (default: "utf-8")
+        lock_timeout: Max seconds to wait for lock (default: 10)
+    """
+    filepath = Path(filepath)
+    lock_path = filepath.parent / f".{filepath.name}.lock"
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+
+    lock_fd = os.open(str(lock_path), os.O_CREAT | os.O_RDWR)
+    try:
+        # Acquire exclusive lock (blocking, with timeout via alarm)
+        import signal
+
+        def _timeout_handler(signum, frame):
+            raise TimeoutError(
+                f"Could not acquire lock on {lock_path} within {lock_timeout}s"
+            )
+
+        old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+        signal.setitimer(signal.ITIMER_REAL, lock_timeout)
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        finally:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, old_handler)
+
+        # Lock acquired — perform atomic write
+        write_json_atomic(filepath, data, indent, ensure_ascii, encoding)
+    finally:
+        # Release lock and close
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        except OSError:
+            pass
+        os.close(lock_fd)

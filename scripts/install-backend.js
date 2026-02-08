@@ -13,6 +13,12 @@ const isWindows = os.platform() === 'win32';
 const backendDir = path.join(__dirname, '..', 'apps', 'backend');
 const venvDir = path.join(backendDir, '.venv');
 
+// Validate backend directory exists
+if (!fs.existsSync(backendDir)) {
+  console.error(`Backend directory not found: ${backendDir}`);
+  process.exit(1);
+}
+
 console.log('Installing Auto Claude backend dependencies...\n');
 
 // Helper to run commands
@@ -29,7 +35,10 @@ function run(cmd, options = {}) {
 // Find Python 3.12+
 // Prefer 3.12 first since it has the most stable wheel support for native packages
 function findPython() {
-  // On Windows, also check common installation paths
+  // Windows fallback paths - used when Python is not on PATH
+  // These are common installation locations for Python on Windows:
+  // - LOCALAPPDATA\\Programs\\Python - modern installer default
+  // - C:\\PythonXYZ - legacy installer locations
   const windowsPathCandidates = isWindows ? [
     `${process.env.LOCALAPPDATA}\\Programs\\Python\\Python312\\python.exe`,
     `${process.env.LOCALAPPDATA}\\Programs\\Python\\Python313\\python.exe`,
@@ -141,6 +150,15 @@ async function main() {
   } else {
     console.warn('\nWarning: .env.example not found. Cannot auto-create .env file.');
     console.warn('Please create a .env file manually if your configuration requires it.');
+  }
+
+  // Check for .env file after installation
+  const envPath = path.join(backendDir, '.env');
+  const envExamplePath = path.join(backendDir, '.env.example');
+  if (!fs.existsSync(envPath) && fs.existsSync(envExamplePath)) {
+    console.warn('\n⚠️  No .env file found in apps/backend/');
+    console.warn('   Copy .env.example to .env and configure your settings:');
+    console.warn(`   cp ${envExamplePath} ${envPath}\n`);
   }
 
   console.log('\n✓ Backend installation complete!');

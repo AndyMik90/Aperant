@@ -357,6 +357,16 @@ const browserMockAPI: ElectronAPI = {
   onTaskCompanionStopped: (_callback: (taskId: string, projectId?: string) => void) => {
     return () => {};
   },
+  onTaskSupervisorSpawned: (_callback: (taskId: string, projectId?: string) => void) => {
+    return () => {};
+  },
+  onTaskSupervisorStopped: (_callback: (taskId: string, projectId?: string) => void) => {
+    return () => {};
+  },
+  sendMessageToSupervisor: async (_taskId: string, _message: string) => ({
+    success: false as const,
+    error: 'Browser mock - supervisor not available'
+  }),
 
   // File operations
   writeFile: async (_filePath: string, _content: string) => ({

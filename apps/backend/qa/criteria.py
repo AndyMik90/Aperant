@@ -8,6 +8,7 @@ Manages acceptance criteria validation and status tracking.
 import json
 from pathlib import Path
 
+from core.file_utils import write_json_atomic
 from progress import is_build_complete
 
 # =============================================================================
@@ -28,11 +29,14 @@ def load_implementation_plan(spec_dir: Path) -> dict | None:
 
 
 def save_implementation_plan(spec_dir: Path, plan: dict) -> bool:
-    """Save the implementation plan JSON."""
+    """Save the implementation plan JSON atomically.
+
+    Uses write_json_atomic to prevent partial writes on crash. This file
+    is written by multiple processes (coder, QA fixer, session post-processing).
+    """
     plan_file = spec_dir / "implementation_plan.json"
     try:
-        with open(plan_file, "w") as f:
-            json.dump(plan, f, indent=2)
+        write_json_atomic(plan_file, plan, indent=2)
         return True
     except OSError:
         return False
@@ -68,7 +72,12 @@ def is_qa_rejected(spec_dir: Path) -> bool:
 
 
 def is_fixes_applied(spec_dir: Path) -> bool:
-    """Check if fixes have been applied and ready for re-validation."""
+    """Check if fixes have been applied and ready for re-validation.
+
+    FIX-013: Previously dead code — never called. Now the fixer in loop.py
+    uses this after a successful fix session to verify the status flag was set
+    before proceeding to re-review. See also FIX-009 (fixer now checks git diff).
+    """
     status = get_qa_signoff_status(spec_dir)
     if not status:
         return False
@@ -97,12 +106,23 @@ def should_run_qa(spec_dir: Path) -> bool:
     QA should run when:
     - All subtasks are completed
     - QA has not yet approved
+    - Complexity is not SIMPLE (SIMPLE tasks skip QA)
     """
     if not is_build_complete(spec_dir):
         return False
 
     if is_qa_approved(spec_dir):
         return False
+
+    # Skip QA for SIMPLE tasks (complexity-based routing)
+    from phase_config import load_task_metadata, COMPLEXITY_PHASE_CONFIG
+    metadata = load_task_metadata(spec_dir)
+    if metadata:
+        complexity = metadata.get("complexity")
+        if complexity and complexity in COMPLEXITY_PHASE_CONFIG:
+            qa_config = COMPLEXITY_PHASE_CONFIG[complexity].get("qa")
+            if qa_config == "skip":
+                return False
 
     return True
 

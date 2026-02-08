@@ -21,7 +21,7 @@ export interface InsightsAPI {
     projectId: string,
     message: string,
     modelConfig?: InsightsModelConfig,
-    attachments?: Array<{ id: string; name: string; path: string; type: 'image' | 'text'; size: number }>
+    attachments?: Array<{ id: string; name: string; path: string; type: 'image' | 'text'; size: number; data?: string }>
   ) => void;
   clearInsightsSession: (projectId: string) => Promise<IPCResult>;
   createTaskFromInsights: (
@@ -63,7 +63,7 @@ export const createInsightsAPI = (): InsightsAPI => ({
     projectId: string,
     message: string,
     modelConfig?: InsightsModelConfig,
-    attachments?: Array<{ id: string; name: string; path: string; type: 'image' | 'text'; size: number }>
+    attachments?: Array<{ id: string; name: string; path: string; type: 'image' | 'text'; size: number; data?: string }>
   ): void =>
     sendIpc(IPC_CHANNELS.INSIGHTS_SEND_MESSAGE, projectId, message, modelConfig, attachments),
 

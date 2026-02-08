@@ -10,7 +10,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LayoutGrid, BarChart3, RefreshCw } from 'lucide-react';
+import { LayoutGrid, BarChart3, RefreshCw, Search, X } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Button } from './ui/button';
 import { KanbanBoard } from './KanbanBoard';
@@ -37,6 +37,7 @@ export function TasksHub({
 }: TasksHubProps) {
   const { t } = useTranslation(['navigation', 'tasks']);
   const [activeTab, setActiveTab] = useState<'kanban' | 'analytics'>('kanban');
+  const [searchQuery, setSearchQuery] = useState('');
 
   return (
     <div className="flex h-full flex-col">
@@ -57,6 +58,28 @@ export function TasksHub({
               {t('tasks:analytics.title', { defaultValue: 'Analytics' })}
             </TabsTrigger>
           </TabsList>
+
+          {/* Search bar - only show on kanban tab */}
+          {activeTab === 'kanban' && (
+            <div className="relative flex-1 max-w-xs mx-4">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder={t('tasks:searchPlaceholder', { defaultValue: 'Search tasks...' })}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-8 rounded-md border border-input bg-background pl-8 pr-8 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Refresh button in header */}
           <Button
@@ -81,6 +104,8 @@ export function TasksHub({
             isRefreshing={isRefreshing}
             hideRefreshButton
             isLoading={isLoading}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
           />
         </TabsContent>
 

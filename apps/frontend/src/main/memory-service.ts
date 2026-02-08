@@ -19,6 +19,7 @@ const __dirname = path.dirname(__filename);
 import { findPythonCommand, parsePythonCommand } from './python-detector';
 import { getConfiguredPythonPath, pythonEnvManager } from './python-env-manager';
 import { getMemoriesDir } from './config-paths';
+import { isWindows } from './platform';
 import type { MemoryEpisode } from '../shared/types';
 
 interface MemoryServiceConfig {
@@ -141,7 +142,7 @@ function getBackendPythonPath(): string {
 
   for (const backendPath of possibleBackendPaths) {
     // Check for backend venv Python (has real_ladybug installed)
-    const venvPython = process.platform === 'win32'
+    const venvPython = isWindows()
       ? path.join(backendPath, '.venv', 'Scripts', 'python.exe')
       : path.join(backendPath, '.venv', 'bin', 'python');
 

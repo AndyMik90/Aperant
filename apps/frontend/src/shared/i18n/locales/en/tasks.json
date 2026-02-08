@@ -64,8 +64,8 @@
   "columns": {
     "planning": "Planning",
     "coding": "Coding",
-    "ai_review": "AI Review",
-    "human_review": "Human Review",
+    "ai_review": "Testing",
+    "human_review": "User Review",
     "done": "Done",
     "pr_created": "PR Created"
   },

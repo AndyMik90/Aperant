@@ -51,6 +51,7 @@ export interface TaskAPI {
   ) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
   sendMessageToTask: (taskId: string, message: string) => Promise<IPCResult<boolean>>;
+  sendMessageToSupervisor: (taskId: string, message: string) => Promise<IPCResult<boolean>>;
   readSpecFile: (taskId: string, fileName: string) => Promise<IPCResult<string | null>>;
 
   // Workspace Management (for human review)
@@ -83,6 +84,9 @@ export interface TaskAPI {
   // Companion agent event listeners
   onTaskCompanionSpawned: (callback: (taskId: string, projectId?: string) => void) => () => void;
   onTaskCompanionStopped: (callback: (taskId: string, projectId?: string) => void) => () => void;
+  // Supervisor agent event listeners
+  onTaskSupervisorSpawned: (callback: (taskId: string, projectId?: string) => void) => () => void;
+  onTaskSupervisorStopped: (callback: (taskId: string, projectId?: string) => void) => () => void;
 
   // Task Phase Logs
   getTaskLogs: (projectId: string, specId: string) => Promise<IPCResult<TaskLogs | null>>;
@@ -149,6 +153,9 @@ export const createTaskAPI = (): TaskAPI => ({
 
   sendMessageToTask: (taskId: string, message: string): Promise<IPCResult<boolean>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_SEND_MESSAGE, taskId, message),
+
+  sendMessageToSupervisor: (taskId: string, message: string): Promise<IPCResult<boolean>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_SEND_SUPERVISOR_MESSAGE, taskId, message),
 
   readSpecFile: (taskId: string, fileName: string): Promise<IPCResult<string | null>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_READ_SPEC_FILE, taskId, fileName),
@@ -342,6 +349,39 @@ export const createTaskAPI = (): TaskAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TASK_COMPANION_STOPPED, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TASK_COMPANION_STOPPED, handler);
+    };
+  },
+
+  // Supervisor agent event listeners
+  onTaskSupervisorSpawned: (
+    callback: (taskId: string, projectId?: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      taskId: string,
+      projectId?: string
+    ): void => {
+      callback(taskId, projectId);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_SUPERVISOR_SPAWNED, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_SUPERVISOR_SPAWNED, handler);
+    };
+  },
+
+  onTaskSupervisorStopped: (
+    callback: (taskId: string, projectId?: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      taskId: string,
+      projectId?: string
+    ): void => {
+      callback(taskId, projectId);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_SUPERVISOR_STOPPED, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_SUPERVISOR_STOPPED, handler);
     };
   },
 

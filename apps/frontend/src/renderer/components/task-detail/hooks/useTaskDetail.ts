@@ -94,9 +94,11 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [isCreatingPR, setIsCreatingPR] = useState(false);
 
   const selectedProject = useProjectStore((state) => state.getSelectedProject());
-  const isRunning = task.status === 'coding';
+  const isAgentStopped = useTaskStore((state) => state.isAgentStopped(task.id));
+  const isRunning = task.status === 'coding' && !isAgentStopped;
   // isActiveTask includes ai_review for stuck detection (CHANGELOG documents this feature)
-  const isActiveTask = task.status === 'coding' || task.status === 'ai_review';
+  // but only when the agent hasn't been deliberately stopped
+  const isActiveTask = (task.status === 'coding' || task.status === 'ai_review') && !isAgentStopped;
   const needsReview = task.status === 'human_review';
   const executionPhase = task.executionProgress?.phase;
   const hasActiveExecution = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
@@ -119,9 +121,9 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
 
     // Task is active from here on
 
-    // 'planning' phase: Skip stuck check but don't set hasCheckedRunning
-    // (allows stuck detection when task transitions to 'coding')
-    if (executionPhase === 'planning') {
+    // Skip stuck check during phases where process may not be registered yet
+    // or the task is already finished
+    if (executionPhase === 'planning' || executionPhase === 'starting' || executionPhase === 'idle') {
       setIsStuck(false);
       return;
     }
@@ -140,7 +142,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
         checkTaskRunning(task.id).then((actuallyRunning) => {
           // Double-check the phase in case it changed while waiting
           const latestPhase = task.executionProgress?.phase;
-          if (latestPhase === 'complete' || latestPhase === 'failed' || latestPhase === 'planning') {
+          if (latestPhase === 'complete' || latestPhase === 'failed' || latestPhase === 'planning' || latestPhase === 'starting' || latestPhase === 'idle') {
             setIsStuck(false);
           } else {
             setIsStuck(!actuallyRunning);

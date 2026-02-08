@@ -32,6 +32,9 @@ export const IPC_CHANNELS = {
   TASK_COMPANION_SPAWNED: 'task:companion-spawned',  // Companion agent spawned
   TASK_COMPANION_STOPPED: 'task:companion-stopped',  // Companion agent stopped
   TASK_SEND_COMPANION_MESSAGE: 'task:send-companion-message',  // Send message to companion agent
+  TASK_SEND_SUPERVISOR_MESSAGE: 'task:send-supervisor-message',  // Send message to live supervisor agent
+  TASK_SUPERVISOR_SPAWNED: 'task:supervisor-spawned',  // Supervisor agent spawned (during coding)
+  TASK_SUPERVISOR_STOPPED: 'task:supervisor-stopped',  // Supervisor agent stopped
   TASK_READ_SPEC_FILE: 'task:read-spec-file',  // Read a file from spec directory (spec.md, ralph_prompt.md)
 
   // Workspace management (for human review)
@@ -112,6 +115,7 @@ export const IPC_CHANNELS = {
   TERMINAL_AUTH_CREATED: 'terminal:authCreated',  // Auth terminal created for OAuth flow
   TERMINAL_CLAUDE_BUSY: 'terminal:claudeBusy',  // Claude Code busy state (for visual indicator)
   TERMINAL_CLAUDE_EXIT: 'terminal:claudeExit',  // Claude Code exited (returned to shell)
+  TERMINAL_RESUME_ERROR: 'terminal:resumeError',  // Claude resume failed (for error notification)
 
   // Claude profile management (multi-account support)
   CLAUDE_PROFILES_GET: 'claude:profilesGet',

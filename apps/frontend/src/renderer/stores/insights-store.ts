@@ -49,6 +49,8 @@ interface InsightsState {
   streamingContent: string; // Accumulates streaming response
   currentTool: ToolUsage | null; // Currently executing tool
   toolsUsed: InsightsToolUsage[]; // Tools used during current response
+  streamingStartTime: number | null; // When first streaming chunk arrived
+  responseDuration: number | null; // Total response time in ms (set on completion)
   isLoadingSessions: boolean;
 
   // Actions
@@ -84,6 +86,8 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
   streamingContent: '',
   currentTool: null,
   toolsUsed: [],
+  streamingStartTime: null,
+  responseDuration: null,
   isLoadingSessions: false,
 
   // Actions
@@ -148,10 +152,11 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
 
   appendStreamingContent: (content) =>
     set((state) => ({
-      streamingContent: state.streamingContent + content
+      streamingContent: state.streamingContent + content,
+      streamingStartTime: state.streamingStartTime ?? Date.now(),
     })),
 
-  clearStreamingContent: () => set({ streamingContent: '' }),
+  clearStreamingContent: () => set({ streamingContent: '', streamingStartTime: null }),
 
   setCurrentTool: (tool) => set({ currentTool: tool }),
 
@@ -173,9 +178,10 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
     set((state) => {
       const content = state.streamingContent;
       const toolsUsed = state.toolsUsed.length > 0 ? [...state.toolsUsed] : undefined;
+      const duration = state.streamingStartTime ? Date.now() - state.streamingStartTime : null;
 
       if (!content && !suggestedTask && !toolsUsed) {
-        return { streamingContent: '', toolsUsed: [] };
+        return { streamingContent: '', toolsUsed: [], streamingStartTime: null, responseDuration: duration };
       }
 
       // Generate unique ID for each message to prevent duplicates
@@ -192,6 +198,8 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
         return {
           streamingContent: '',
           toolsUsed: [],
+          streamingStartTime: null,
+          responseDuration: duration,
           session: {
             id: generateUniqueSessionId(),
             projectId: '',
@@ -206,6 +214,8 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
       return {
         streamingContent: '',
         toolsUsed: [],
+        streamingStartTime: null,
+        responseDuration: duration,
         session: {
           ...state.session,
           messages: [...state.session.messages, newMessage],
@@ -248,7 +258,9 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
       set({
         status: { phase: 'idle', message: '' },
         streamingContent: '',
-        currentTool: null
+        currentTool: null,
+        streamingStartTime: null,
+        responseDuration: null
       });
     } catch (error) {
       console.error('[Insights] Failed to cancel generation:', error);
@@ -323,7 +335,7 @@ export function sendMessage(
   projectId: string,
   message: string,
   modelConfig?: InsightsModelConfig,
-  attachments?: Array<{ id: string; name: string; path: string; type: 'image' | 'text'; size: number }>
+  attachments?: Array<{ id: string; name: string; path: string; type: 'image' | 'text'; size: number; data?: string }>
 ): void {
   const store = useInsightsStore.getState();
   const session = store.session;
@@ -436,6 +448,7 @@ export async function createTaskFromSuggestion(
       category: metadata?.category,
       complexity: metadata?.complexity,
       priority: metadata?.priority,
+      dependencies: metadata?.dependencies,
     },
   });
 

@@ -4,6 +4,18 @@ QA Validation Loop Orchestration
 
 Main QA loop that coordinates reviewer and fixer sessions until
 approval or max iterations.
+
+PERF TODO: Future optimizations not yet implemented:
+  - Merge reviewer + fixer into a single session: Instead of two separate
+    LLM calls (review → reject → fix → review), let the reviewer also apply
+    fixes in the same session when issues are found. Saves one full LLM call
+    per iteration.
+  - SDK client reuse across QA iterations: Currently creates a new client
+    per reviewer/fixer call (~200ms overhead). Could keep the client alive
+    across the loop, but requires understanding SDK lifecycle for MCP servers.
+  - Batch insight extraction: When 10 subtasks complete in a batch, 10
+    insight extraction calls fire as background tasks. Could batch into a
+    single LLM call per batch instead.
 """
 
 import os
@@ -20,7 +32,7 @@ from linear_updater import (
     linear_qa_rejected,
     linear_qa_started,
 )
-from phase_config import get_phase_model, get_phase_thinking_budget, get_iteration_config, is_ralph_wiggum_mode
+from phase_config import get_phase_model, get_phase_thinking_budget, get_thinking_budget, get_iteration_config, is_ralph_wiggum_mode
 from phase_event import ExecutionPhase, emit_phase
 from progress import count_subtasks, is_build_complete
 from security.constants import PROJECT_DIR_ENV_VAR
@@ -52,7 +64,7 @@ from .reviewer import run_qa_agent_session
 # Default Configuration (can be overridden by Ralph Wiggum mode)
 DEFAULT_MAX_QA_ITERATIONS = 50
 DEFAULT_MAX_CONSECUTIVE_ERRORS = 3  # Stop after 3 consecutive errors without progress
-DEFAULT_RECURRING_ISSUE_THRESHOLD = 3  # Escalate after 3 occurrences of same issue
+DEFAULT_RECURRING_ISSUE_THRESHOLD = 2  # Escalate after 2 occurrences — if fixer can't fix it twice, retrying won't help
 
 # Backward compatibility alias for external imports
 MAX_QA_ITERATIONS = DEFAULT_MAX_QA_ITERATIONS
@@ -101,6 +113,21 @@ async def run_qa_validation_loop(
     max_qa_iterations = iteration_config.get("qa_max_iterations", DEFAULT_MAX_QA_ITERATIONS)
     max_consecutive_errors = iteration_config.get("qa_consecutive_errors_limit", DEFAULT_MAX_CONSECUTIVE_ERRORS)
     recurring_issue_threshold = iteration_config.get("qa_recurring_issue_threshold", DEFAULT_RECURRING_ISSUE_THRESHOLD)
+
+    # OPTIMIZATION: Adaptive max iterations based on task complexity.
+    # SIMPLE tasks (typo/label fixes) don't need 50 QA iterations — 5 is plenty.
+    # STANDARD tasks get 15, COMPLEX gets the full 50.
+    complexity_file = spec_dir / "complexity_assessment.json"
+    if complexity_file.exists() and "qa_max_iterations" not in iteration_config:
+        try:
+            import json
+            complexity_data = json.loads(complexity_file.read_text(encoding="utf-8"))
+            task_complexity = complexity_data.get("complexity", "complex").lower()
+            complexity_limits = {"simple": 5, "standard": 15, "complex": 50}
+            max_qa_iterations = complexity_limits.get(task_complexity, max_qa_iterations)
+            debug("qa_loop", f"Adaptive QA iterations: {task_complexity} → max {max_qa_iterations}")
+        except (json.JSONDecodeError, OSError):
+            pass  # Fall through to default
 
     debug_section("qa_loop", "QA Validation Loop")
     debug(
@@ -221,6 +248,27 @@ async def run_qa_validation_loop(
     consecutive_errors = 0
     last_error_context = None  # Track error for self-correction feedback
 
+    # OPTIMIZATION: Hoist phase config lookups outside the loop — these don't
+    # change between iterations and each call hits disk/config parsing.
+    qa_model = get_phase_model(spec_dir, "qa", model)
+    base_qa_thinking = get_phase_thinking_budget(spec_dir, "qa")
+    low_thinking = get_thinking_budget("low")  # 1024 tokens for re-checks
+
+    # OPTIMIZATION: Pre-load Graphiti context once — shared between reviewer and
+    # fixer within the same iteration. Both agents query the same knowledge graph
+    # with similar context, so loading it twice per iteration wastes ~1-2s each time.
+    from agents.memory_manager import get_graphiti_context
+    shared_graphiti_context = await get_graphiti_context(
+        spec_dir,
+        project_dir,
+        {
+            "description": "QA validation, acceptance criteria review, and fixing issues",
+            "id": "qa_loop_shared",
+        },
+    )
+    if shared_graphiti_context:
+        print("✓ Graphiti context pre-loaded for QA loop (shared across iterations)")
+
     while qa_iteration < max_qa_iterations:
         qa_iteration += 1
         iteration_start = time_module.time()
@@ -242,34 +290,33 @@ async def run_qa_validation_loop(
         emit_sdk_msg("text", {
             "content": f"🔍 QA Iteration {qa_iteration}/{max_qa_iterations} - Reviewing implementation..."
         })
-
-        # Run QA reviewer with phase-specific model and thinking budget
-        qa_model = get_phase_model(spec_dir, "qa", model)
-        qa_thinking_budget = get_phase_thinking_budget(spec_dir, "qa")
+        # Iteration-aware thinking: full budget for first review, low for re-checks
+        reviewer_thinking = base_qa_thinking if qa_iteration <= 1 else low_thinking
         debug(
             "qa_loop",
             "Creating client for QA reviewer session...",
             model=qa_model,
-            thinking_budget=qa_thinking_budget,
+            thinking_budget=reviewer_thinking,
         )
         client = create_client(
             project_dir,
             spec_dir,
             qa_model,
             agent_type="qa_reviewer",
-            max_thinking_tokens=qa_thinking_budget,
+            max_thinking_tokens=reviewer_thinking,
         )
 
         async with client:
             debug("qa_loop", "Running QA reviewer agent session...")
             status, response = await run_qa_agent_session(
                 client,
-                project_dir,  # Pass project_dir for capability-based tool injection
+                project_dir,
                 spec_dir,
                 qa_iteration,
                 max_qa_iterations,
                 verbose,
-                previous_error=last_error_context,  # Pass error context for self-correction
+                previous_error=last_error_context,
+                preloaded_graphiti_context=shared_graphiti_context,
             )
 
         iteration_duration = time_module.time() - iteration_start
@@ -412,68 +459,110 @@ async def run_qa_validation_loop(
                 print("Escalating to human review.")
                 break
 
-            # Run fixer with phase-specific thinking budget
-            fixer_thinking_budget = get_phase_thinking_budget(spec_dir, "qa")
-            debug(
-                "qa_loop",
-                "Starting QA fixer session...",
-                model=qa_model,
-                thinking_budget=fixer_thinking_budget,
-            )
-            emit_phase(ExecutionPhase.QA_FIXING, "Fixing QA issues")
-            print("\nRunning QA Fixer Agent...")
+            # FIX-004: Ensure QA_FIX_REQUEST.md exists in Python code before calling fixer.
+            # Previously this file was only created by the reviewer agent via shell commands
+            # in its prompt — if the agent didn't execute those commands, the fixer would
+            # crash with "QA_FIX_REQUEST.md not found". Now we write it deterministically
+            # from the reviewer's parsed issues.
+            fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
+            if current_issues and not fix_request_file.exists():
+                try:
+                    lines = [
+                        "# QA Fix Request",
+                        f"\n**Iteration:** {qa_iteration}",
+                        f"**Issues Found:** {len(current_issues)}",
+                        "",
+                    ]
+                    for i, issue in enumerate(current_issues, 1):
+                        title = issue.get("title", issue) if isinstance(issue, dict) else str(issue)
+                        issue_type = issue.get("type", "issue") if isinstance(issue, dict) else "issue"
+                        location = issue.get("location", "") if isinstance(issue, dict) else ""
+                        fix_required = issue.get("fix_required", "") if isinstance(issue, dict) else ""
+                        lines.append(f"## {i}. [{issue_type}] {title}")
+                        if location:
+                            lines.append(f"**Location:** {location}")
+                        if fix_required:
+                            lines.append(f"**Fix Required:** {fix_required}")
+                        lines.append("")
+                    fix_request_file.write_text("\n".join(lines), encoding="utf-8")
+                    debug("qa_loop", "Created QA_FIX_REQUEST.md from reviewer issues")
+                except Exception as e:
+                    debug_warning("qa_loop", f"Could not create QA_FIX_REQUEST.md: {e}")
 
-            # Emit SDK marker for fixer start
-            emit_sdk_msg("tool_use", {
-                "name": "QA Fixer",
-                "id": f"qa_fixer_{qa_iteration}",
-                "input": {"iteration": qa_iteration, "action": "Fixing QA issues"},
-            })
-
-            fix_client = create_client(
-                project_dir,
-                spec_dir,
-                qa_model,
-                agent_type="qa_fixer",
-                max_thinking_tokens=fixer_thinking_budget,
-            )
-
-            async with fix_client:
-                fix_status, fix_response = await run_qa_fixer_session(
-                    fix_client, spec_dir, qa_iteration, verbose
+            # OPTIMIZATION: For iteration 3+, the reviewer used the combined
+            # review-and-fix prompt — it already applied fixes in the same session.
+            # Skip the separate fixer call entirely, saving one full LLM round-trip.
+            if qa_iteration >= 3:
+                debug("qa_loop", "Combined mode (iteration 3+): skipping separate fixer — reviewer already applied fixes")
+                print("\n📝 Combined mode: reviewer already attempted fixes. Re-validating...")
+                emit_sdk_msg("text", {
+                    "content": "📝 Combined review-and-fix mode — re-validating..."
+                })
+            else:
+                # Iterations 1-2: Run separate fixer agent
+                fixer_thinking_budget = low_thinking  # Always low — applying targeted fixes
+                debug(
+                    "qa_loop",
+                    "Starting QA fixer session...",
+                    model=qa_model,
+                    thinking_budget=fixer_thinking_budget,
                 )
+                emit_phase(ExecutionPhase.QA_FIXING, "Fixing QA issues")
+                print("\nRunning QA Fixer Agent...")
 
-            debug(
-                "qa_loop",
-                "QA fixer session completed",
-                fix_status=fix_status,
-                response_length=len(fix_response),
-            )
+                # Emit SDK marker for fixer start
+                emit_sdk_msg("tool_use", {
+                    "name": "QA Fixer",
+                    "id": f"qa_fixer_{qa_iteration}",
+                    "input": {"iteration": qa_iteration, "action": "Fixing QA issues"},
+                })
 
-            if fix_status == "error":
-                debug_error("qa_loop", f"Fixer error: {fix_response[:200]}")
-                print(f"\n❌ Fixer encountered error: {fix_response}")
-                record_iteration(
+                fix_client = create_client(
+                    project_dir,
                     spec_dir,
-                    qa_iteration,
-                    "error",
-                    [{"title": "Fixer error", "description": fix_response}],
+                    qa_model,
+                    agent_type="qa_fixer",
+                    max_thinking_tokens=fixer_thinking_budget,
                 )
-                break
 
-            debug_success("qa_loop", "Fixes applied, re-running QA validation")
-            print("\n✅ Fixes applied. Re-running QA validation...")
+                async with fix_client:
+                    fix_status, fix_response = await run_qa_fixer_session(
+                        fix_client, spec_dir, qa_iteration, verbose,
+                        project_dir=project_dir,
+                        preloaded_graphiti_context=shared_graphiti_context,
+                    )
 
-            # Emit SDK markers for fix completion
-            emit_sdk_msg("tool_result", {
-                "tool_use_id": f"qa_fixer_{qa_iteration}",
-                "name": "QA Fixer",
-                "content": "Fixes applied successfully",
-                "is_error": False,
-            })
-            emit_sdk_msg("text", {
-                "content": "✅ Fixes applied. Re-running QA validation..."
-            })
+                debug(
+                    "qa_loop",
+                    "QA fixer session completed",
+                    fix_status=fix_status,
+                    response_length=len(fix_response),
+                )
+
+                if fix_status == "error":
+                    debug_error("qa_loop", f"Fixer error: {fix_response[:200]}")
+                    print(f"\n❌ Fixer encountered error: {fix_response}")
+                    record_iteration(
+                        spec_dir,
+                        qa_iteration,
+                        "error",
+                        [{"title": "Fixer error", "description": fix_response}],
+                    )
+                    break
+
+                debug_success("qa_loop", "Fixes applied, re-running QA validation")
+                print("\n✅ Fixes applied. Re-running QA validation...")
+
+                # Emit SDK markers for fix completion
+                emit_sdk_msg("tool_result", {
+                    "tool_use_id": f"qa_fixer_{qa_iteration}",
+                    "name": "QA Fixer",
+                    "content": "Fixes applied successfully",
+                    "is_error": False,
+                })
+                emit_sdk_msg("text", {
+                    "content": "✅ Fixes applied. Re-running QA validation..."
+                })
 
         elif status == "error":
             consecutive_errors += 1
@@ -586,10 +675,41 @@ async def run_qa_validation_loop(
             message=f"QA validation incomplete after {qa_iteration} iterations",
         )
 
+    # FIX-018: Create QA_ESCALATION.md when max iterations reached so the user
+    # knows exactly why the task stopped and what issues remain unresolved.
+    try:
+        escalation_file = spec_dir / "QA_ESCALATION.md"
+        esc_lines = [
+            "# QA Escalation — Max Iterations Reached",
+            "",
+            f"**Iterations completed:** {qa_iteration}/{max_qa_iterations}",
+            f"**Result:** QA validation incomplete — requires human review",
+            "",
+        ]
+        if summary.get("total_issues", 0) > 0:
+            esc_lines.append(f"**Total issues found:** {summary['total_issues']}")
+            esc_lines.append(f"**Unique issues:** {summary['unique_issues']}")
+            esc_lines.append("")
+        if summary.get("most_common"):
+            esc_lines.append("## Most Common Issues")
+            esc_lines.append("")
+            for issue in summary["most_common"][:5]:
+                esc_lines.append(f"- **{issue['title']}** ({issue['occurrences']} occurrences)")
+            esc_lines.append("")
+        esc_lines.append("## Recommended Actions")
+        esc_lines.append("")
+        esc_lines.append("1. Review `qa_report.md` for the latest reviewer findings")
+        esc_lines.append("2. Fix the recurring issues manually")
+        esc_lines.append("3. Re-run QA validation or mark as done with known issues")
+        escalation_file.write_text("\n".join(esc_lines), encoding="utf-8")
+        print(f"\nSee: {escalation_file}")
+    except Exception as e:
+        debug_warning("qa_loop", f"Could not create QA_ESCALATION.md: {e}")
+
     # Show the fix request file if it exists
     fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
     if fix_request_file.exists():
-        print(f"\nSee: {fix_request_file}")
+        print(f"See: {fix_request_file}")
 
     qa_report_file = spec_dir / "qa_report.md"
     if qa_report_file.exists():

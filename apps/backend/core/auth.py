@@ -1,3 +1,6 @@
+# Copyright (C) 2024-2026 Jerry Team
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Authentication helpers for Jerry.
 
@@ -174,9 +177,9 @@ def decrypt_token(encrypted_token: str) -> str:
             raise ValueError("Unsupported platform for token decryption")
 
     except NotImplementedError as e:
-        # Decryption not implemented - log warning and provide guidance
-        logger.warning(
-            "Token decryption failed: %s. Users must use plaintext tokens.", str(e)
+        # Decryption not implemented - log at debug level and provide guidance
+        logger.debug(
+            "[Auth] Token decryption not implemented: %s", str(e)
         )
         raise ValueError(
             f"Encrypted token decryption is not yet implemented: {str(e)}\n\n"
@@ -369,7 +372,8 @@ def _get_token_from_macos_keychain() -> str | None:
 
         return token
 
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, KeyError, Exception):
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, KeyError, OSError):
+        logger.debug("[Auth] Failed to read token from macOS Keychain")
         return None
 
 
@@ -397,7 +401,8 @@ def _get_token_from_windows_credential_files() -> str | None:
 
         return None
 
-    except (json.JSONDecodeError, KeyError, FileNotFoundError, Exception):
+    except (json.JSONDecodeError, KeyError, FileNotFoundError, OSError):
+        logger.debug("[Auth] Failed to read token from Windows credential files")
         return None
 
 
@@ -472,7 +477,8 @@ def _get_token_from_linux_secret_service() -> str | None:
         KeyError,
         AttributeError,
         TypeError,
-    ):
+    ) as e:
+        logger.debug("[Auth] Failed to read token from Linux Secret Service: %s", e)
         # Any error with secret-service, fall back to env var
         return None
 
@@ -499,26 +505,35 @@ def get_auth_token() -> str | None:
     for var in AUTH_TOKEN_ENV_VARS:
         token = os.environ.get(var)
         if token:
+            logger.debug(f"[Auth] Attempting token resolution from {var}")
             # Decrypt if token is encrypted
             if is_encrypted_token(token):
                 try:
                     token = decrypt_token(token)
+                    logger.debug(f"[Auth] Token decrypted successfully from {var}")
                 except ValueError:
                     # Decryption failed - return encrypted token so client validation
                     # can provide specific error message about encrypted format
+                    logger.debug(f"[Auth] Token decryption failed for {var}, returning encrypted token")
                     return token
+            logger.debug(f"[Auth] Token resolved from {var}")
             return token
 
     # Fallback to system credential store
+    logger.debug("[Auth] Checking system credential store for token")
     token = get_token_from_keychain()
-    if token and is_encrypted_token(token):
-        try:
-            token = decrypt_token(token)
-        except ValueError:
-            # Decryption failed - return encrypted token so client validation
-            # (validate_token_not_encrypted) can provide specific error message.
-            # This is consistent with env var handling above.
-            return token
+    if token:
+        logger.debug("[Auth] Token found in system credential store")
+        if is_encrypted_token(token):
+            try:
+                token = decrypt_token(token)
+                logger.debug("[Auth] Token decrypted successfully from credential store")
+            except ValueError:
+                # Decryption failed - return encrypted token so client validation
+                # (validate_token_not_encrypted) can provide specific error message.
+                # This is consistent with env var handling above.
+                logger.debug("[Auth] Token decryption failed for credential store token")
+                return token
     return token
 
 

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useToast } from '../../hooks/use-toast';
@@ -29,7 +30,10 @@ import {
   Pencil,
   X,
   GitPullRequest,
-  Link2
+  Link2,
+  FileText,
+  Code,
+  Clock,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { calculateProgress } from '../../lib/utils';
@@ -43,8 +47,11 @@ import { TaskWarnings } from './TaskWarnings';
 import { TaskSubtasks } from './TaskSubtasks';
 import { TaskFiles } from './TaskFiles';
 import { TaskReview } from './TaskReview';
+import { ActivityTimeline } from './ActivityTimeline';
+import { DependencyEditor } from './DependencyEditor';
 import { DriftTab } from '../drift/DriftTab';
 import { DriftIndicator } from '../drift/DriftIndicator';
+import { SpecDocView } from '../terminal/SpecDocView';
 import type { Task, WorktreeCreatePROptions } from '../../../shared/types';
 
 interface TaskDetailModalProps {
@@ -127,6 +134,17 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
       state.setHasCheckedRunning(false);
     }
     state.setIsRecovering(false);
+  };
+
+  const [isRestarting, setIsRestarting] = useState(false);
+  const handleRestartFromPlanning = async () => {
+    setIsRestarting(true);
+    const result = await recoverStuckTask(task.id, { autoRestart: true });
+    if (result.success) {
+      state.setIsStuck(false);
+      state.setHasCheckedRunning(false);
+    }
+    setIsRestarting(false);
   };
 
   const handleReject = async () => {
@@ -576,6 +594,27 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                     Drift
                     <DriftIndicator taskId={task.id} size="sm" />
                   </TabsTrigger>
+                  <TabsTrigger
+                    value="spec"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm flex items-center gap-1.5"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    Spec
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="prompt"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm flex items-center gap-1.5"
+                  >
+                    <Code className="h-3.5 w-3.5" />
+                    Prompt
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="activity"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm flex items-center gap-1.5"
+                  >
+                    <Clock className="h-3.5 w-3.5" />
+                    Activity
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* Overview Tab */}
@@ -584,6 +623,10 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                     <div className="p-5 space-y-5 overflow-x-hidden max-w-full">
                       {/* Metadata */}
                       <TaskMetadata task={task} />
+
+                      {/* Dependencies */}
+                      <Separator />
+                      <DependencyEditor task={task} />
 
                       {/* Human Review Section */}
                       {state.needsReview && (
@@ -611,6 +654,8 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             showConflictDialog={state.showConflictDialog}
                             onFeedbackChange={state.setFeedback}
                             onReject={handleReject}
+                            onRestartFromPlanning={handleRestartFromPlanning}
+                            isRestarting={isRestarting}
                             images={state.feedbackImages}
                             onImagesChange={state.setFeedbackImages}
                             onMerge={handleMerge}
@@ -651,6 +696,25 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                 {/* Drift Tab */}
                 <TabsContent value="drift" className="flex-1 min-h-0 overflow-hidden mt-0">
                   <DriftTab taskId={task.id} specDir={task.specsPath || ''} />
+                </TabsContent>
+
+                {/* Spec Tab */}
+                <TabsContent value="spec" className="flex-1 min-h-0 overflow-hidden mt-0">
+                  <SpecDocView taskId={task.id} fileName="spec.md" title="Spec" />
+                </TabsContent>
+
+                {/* Prompt Tab (Ralph Loop) */}
+                <TabsContent value="prompt" className="flex-1 min-h-0 overflow-hidden mt-0">
+                  <SpecDocView taskId={task.id} fileName="ralph_prompt.md" title="Prompt" />
+                </TabsContent>
+
+                {/* Activity Tab */}
+                <TabsContent value="activity" className="flex-1 min-h-0 overflow-hidden mt-0">
+                  <ScrollArea className="h-full">
+                    <div className="p-5">
+                      <ActivityTimeline taskId={task.id} />
+                    </div>
+                  </ScrollArea>
                 </TabsContent>
               </Tabs>
             </div>

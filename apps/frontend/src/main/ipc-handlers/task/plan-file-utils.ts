@@ -18,7 +18,7 @@
  */
 
 import path from 'path';
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs';
 import { AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { TaskStatus, Project, Task } from '../../../shared/types';
 import { projectStore } from '../../project-store';
@@ -111,7 +111,10 @@ export async function persistPlanStatus(planPath: string, status: TaskStatus, pr
       plan.planStatus = mapStatusToPlanStatus(status);
       plan.updated_at = new Date().toISOString();
 
-      writeFileSync(planPath, JSON.stringify(plan, null, 2));
+      // Atomic write via temp file + rename
+      const tmpPath = planPath + '.tmp';
+      writeFileSync(tmpPath, JSON.stringify(plan, null, 2));
+      renameSync(tmpPath, planPath);
       console.warn(`[plan-file-utils] Successfully persisted status: ${status} to implementation_plan.json`);
 
       // Invalidate tasks cache since status changed
@@ -167,7 +170,11 @@ export function persistPlanStatusSync(planPath: string, status: TaskStatus, proj
     plan.planStatus = mapStatusToPlanStatus(status);
     plan.updated_at = new Date().toISOString();
 
-    writeFileSync(planPath, JSON.stringify(plan, null, 2));
+    // Bug #14 fix: Atomic write via temp file + rename to prevent partial writes
+    // If the process crashes mid-write, the original file remains intact
+    const tmpPath = planPath + '.tmp';
+    writeFileSync(tmpPath, JSON.stringify(plan, null, 2));
+    renameSync(tmpPath, planPath);
 
     // Invalidate tasks cache since status changed
     if (projectId) {
@@ -207,7 +214,10 @@ export async function updatePlanFile<T extends Record<string, unknown>>(
       // Add updated_at timestamp - use type assertion since T extends Record<string, unknown>
       (updatedPlan as Record<string, unknown>).updated_at = new Date().toISOString();
 
-      writeFileSync(planPath, JSON.stringify(updatedPlan, null, 2));
+      // Atomic write via temp file + rename
+      const updateTmpPath = planPath + '.tmp';
+      writeFileSync(updateTmpPath, JSON.stringify(updatedPlan, null, 2));
+      renameSync(updateTmpPath, planPath);
       console.warn(`[plan-file-utils] Successfully updated implementation_plan.json`);
       return updatedPlan;
     } catch (err) {

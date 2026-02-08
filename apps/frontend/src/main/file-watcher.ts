@@ -31,7 +31,14 @@ export class FileWatcher extends EventEmitter {
       return;
     }
 
-    // Create watcher with settings to handle frequent writes
+    // Create watcher with settings to handle frequent writes.
+    // FIX-030: ignoreInitial=true prevents the 'add' event from firing for the
+    // existing file. Instead, we manually read and emit the initial state below
+    // (lines 70-76). This ensures the UI gets the current plan state immediately
+    // without relying on a chokidar 'add' event that could race with the watcher
+    // setup. If the first write happens during watcher initialization, the
+    // awaitWriteFinish stabilityThreshold (300ms) ensures we don't read a
+    // partially-written file.
     const watcher = chokidar.watch(planPath, {
       persistent: true,
       ignoreInitial: true,

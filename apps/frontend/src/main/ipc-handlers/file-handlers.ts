@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { readdirSync, statSync } from 'fs';
+import { readdir, stat, realpath } from 'fs/promises';
 import { readFile } from 'fs/promises';
 import path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants';
@@ -9,10 +9,11 @@ import type { IPCResult, FileNode } from '../../shared/types';
 const MAX_FILE_SIZE = 1024 * 1024;
 
 /**
- * Validates and normalizes a file path for safe reading.
- * Returns the normalized path if valid, or an error message.
+ * Validates a file path with enhanced security: checks for path traversal attacks
+ * by resolving the path and verifying it's within allowed bounds.
+ * Returns the validated canonical path if valid, or an error message.
  */
-function validatePath(filePath: string): { valid: true; path: string } | { valid: false; error: string } {
+function validatePathWithinProject(filePath: string, projectDir?: string): { valid: true; path: string } | { valid: false; error: string } {
   // Resolve to absolute path (handles .., ., etc.)
   const resolvedPath = path.resolve(filePath);
 
@@ -28,7 +29,26 @@ function validatePath(filePath: string): { valid: true; path: string } | { valid
     return { valid: false, error: 'Invalid path: contains parent directory references' };
   }
 
+  // If a project directory is specified, verify the resolved path is within it
+  // This prevents directory traversal attacks even with resolved paths
+  if (projectDir) {
+    const resolvedProjectDir = path.resolve(projectDir);
+    // Use path.relative to detect if filePath escapes projectDir
+    const relativePath = path.relative(resolvedProjectDir, resolvedPath);
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+      return { valid: false, error: 'Path is outside project directory' };
+    }
+  }
+
   return { valid: true, path: resolvedPath };
+}
+
+/**
+ * Validates and normalizes a file path for safe reading.
+ * Returns the normalized path if valid, or an error message.
+ */
+function validatePath(filePath: string): { valid: true; path: string } | { valid: false; error: string } {
+  return validatePathWithinProject(filePath);
 }
 
 // Directories to ignore when listing
@@ -37,6 +57,12 @@ const IGNORED_DIRS = new Set([
   '.next', '.nuxt', 'coverage', '.cache', '.venv', 'venv',
   'out', '.turbo', '.worktrees',
   'vendor', 'target', '.gradle', '.maven'
+]);
+
+// Sensitive files to exclude from listing
+const HIDDEN_FILES = new Set([
+  '.env', '.env.local', '.env.production', 'credentials.json',
+  '.env.development', '.env.test'
 ]);
 
 /**
@@ -56,14 +82,18 @@ export function registerFileHandlers(): void {
         if (!validation.valid) {
           return { success: false, error: validation.error };
         }
-        const entries = readdirSync(validation.path, { withFileTypes: true });
+        const entries = await readdir(validation.path, { withFileTypes: true });
 
         // Filter and map entries
         const nodes: FileNode[] = [];
         for (const entry of entries) {
-          // Skip hidden files (not directories) except useful ones like .env, .gitignore
+          // Skip sensitive files (credentials, env files)
+          if (!entry.isDirectory() && HIDDEN_FILES.has(entry.name)) {
+            continue;
+          }
+          // Skip other hidden files (not directories) except useful ones like .gitignore
           if (!entry.isDirectory() && entry.name.startsWith('.') &&
-              !['.env', '.gitignore', '.env.example', '.env.local'].includes(entry.name)) {
+              !['.gitignore', '.env.example'].includes(entry.name)) {
             continue;
           }
           // Skip ignored directories
@@ -105,7 +135,7 @@ export function registerFileHandlers(): void {
         const safePath = validation.path;
 
         // Check file size before reading
-        const stats = statSync(safePath);
+        const stats = await stat(safePath);
         if (stats.size > MAX_FILE_SIZE) {
           return { success: false, error: 'File too large (max 1MB)' };
         }

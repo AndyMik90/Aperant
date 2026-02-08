@@ -16,7 +16,7 @@ from pathlib import Path
 from agents.memory_manager import get_graphiti_context, save_session_memory
 from claude_agent_sdk import ClaudeSDKClient
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
-from prompts_pkg import get_qa_reviewer_prompt
+from prompts_pkg import get_qa_review_and_fix_prompt, get_qa_reviewer_prompt, get_qa_reviewer_prompt_fast
 from security.tool_input_validator import get_safe_tool_input
 from task_logger import (
     LogEntryType,
@@ -42,6 +42,7 @@ async def run_qa_agent_session(
     max_iterations: int,
     verbose: bool = False,
     previous_error: dict | None = None,
+    preloaded_graphiti_context: str | None = None,
 ) -> tuple[str, str]:
     """
     Run a QA reviewer agent session.
@@ -87,9 +88,18 @@ async def run_qa_agent_session(
     message_count = 0
     tool_count = 0
 
-    # Load QA prompt with dynamically-injected project-specific MCP tools
-    # This includes Electron validation for Electron apps, Puppeteer for web, etc.
-    prompt = get_qa_reviewer_prompt(spec_dir, project_dir)
+    # Load QA prompt — escalating speed tiers based on iteration:
+    #   Iteration 1: Full 10-phase prompt (comprehensive first review)
+    #   Iteration 2: Fast prompt (focused re-validation of specific fixes)
+    #   Iteration 3+: Combined review-and-fix prompt (review + fix in one session,
+    #                  eliminating the separate fixer round-trip entirely)
+    if qa_session <= 1:
+        prompt = get_qa_reviewer_prompt(spec_dir, project_dir)
+    elif qa_session == 2:
+        prompt = get_qa_reviewer_prompt_fast(spec_dir, project_dir)
+    else:
+        # Combined mode: agent reviews AND fixes in one session
+        prompt = get_qa_review_and_fix_prompt(spec_dir, project_dir)
     debug_detailed(
         "qa_reviewer",
         "Loaded QA reviewer prompt with project-specific tools",
@@ -97,15 +107,18 @@ async def run_qa_agent_session(
         project_dir=str(project_dir),
     )
 
-    # Retrieve memory context for QA (past patterns, gotchas, validation insights)
-    qa_memory_context = await get_graphiti_context(
-        spec_dir,
-        project_dir,
-        {
-            "description": "QA validation and acceptance criteria review",
-            "id": f"qa_reviewer_{qa_session}",
-        },
-    )
+    # Use pre-loaded Graphiti context if available (shared from QA loop),
+    # otherwise fall back to loading it ourselves. Sharing saves ~1-2s per iteration.
+    qa_memory_context = preloaded_graphiti_context
+    if qa_memory_context is None:
+        qa_memory_context = await get_graphiti_context(
+            spec_dir,
+            project_dir,
+            {
+                "description": "QA validation and acceptance criteria review",
+                "id": f"qa_reviewer_{qa_session}",
+            },
+        )
     if qa_memory_context:
         prompt += "\n\n" + qa_memory_context
         print("✓ Memory context loaded for QA reviewer")

@@ -1689,7 +1689,14 @@ export function registerWorktreeHandlers(
 
           let diffStat = '';
           try {
-            diffStat = execFileSync(getToolPath('git'), ['diff', '--stat', `${baseBranch}...HEAD`], {
+            // Use merge-base to find the common ancestor, then two-dot diff from there.
+            // Three-dot (A...B) returns empty when baseBranch has advanced past the fork point.
+            const mergeBase = execFileSync(getToolPath('git'), ['merge-base', baseBranch, 'HEAD'], {
+              cwd: worktreePath,
+              encoding: 'utf-8',
+              stdio: ['pipe', 'pipe', 'pipe']
+            }).trim();
+            diffStat = execFileSync(getToolPath('git'), ['diff', '--stat', `${mergeBase}..HEAD`], {
               cwd: worktreePath,
               encoding: 'utf-8',
               stdio: ['pipe', 'pipe', 'pipe']
@@ -2148,9 +2155,13 @@ export function registerWorktreeHandlers(
                 debug('Stage-only requested but no changes to stage.');
               } else if (isStageOnly) {
                 // Stage-only with actual staged changes - expected success case
+                // FIX-026: The worktree is intentionally left alive so the user can
+                // inspect it, but we must clearly communicate this. The worktree blocks
+                // marking the task as "done" until it's cleaned up (forceCleanup).
                 newStatus = 'human_review';
                 planStatus = 'review';
-                message = 'Changes staged in main project. Review with git status and commit when ready.';
+                message = 'Changes staged in main project. Review with git status and commit when ready. '
+                  + 'Note: The worktree is still active. After committing, mark the task as done to clean it up.';
                 staged = true;
               } else {
                 // Full merge (not stage-only)
@@ -2930,6 +2941,17 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Task not found' };
         }
 
+        // FIX-027: Validate task status before allowing PR creation.
+        // Only allow from human_review (build complete) or pr_created (re-creation).
+        const allowedStatuses = ['human_review', 'pr_created'];
+        if (task.status && !allowedStatuses.includes(task.status)) {
+          debug('Task status not eligible for PR creation:', task.status);
+          return {
+            success: false,
+            error: `Cannot create PR from status "${task.status}". Task must be in review (build complete) before creating a PR.`
+          };
+        }
+
         debug('Found task:', task.specId, 'project:', project.path);
 
         // Use run.py --create-pr to handle the PR creation
@@ -3023,6 +3045,38 @@ export function registerWorktreeHandlers(
                 debugPrefix: '[PR_CREATION]',
                 debug: isDebugMode
               });
+
+              // FIX-038: After timeout, check if the PR was actually created on GitHub.
+              // The push may have succeeded and PR created before the timeout hit.
+              const branchName = `auto-claude/${task.specId}`;
+              const ghPath = getToolPath('gh');
+              if (ghPath && worktreePath) {
+                try {
+                  const checkResult = execFileSync(ghPath, [
+                    'pr', 'list', '--head', branchName, '--json', 'url', '--jq', '.[0].url'
+                  ], {
+                    cwd: project.path,
+                    encoding: 'utf-8',
+                    timeout: 15000,
+                    env: { ...getIsolatedGitEnv() }
+                  }).trim();
+
+                  if (checkResult && checkResult.startsWith('http')) {
+                    debug('TIMEOUT: PR was actually created:', checkResult);
+                    resolve({
+                      success: true,
+                      data: {
+                        success: true,
+                        prUrl: checkResult,
+                        message: 'PR creation timed out but the PR was created successfully.'
+                      }
+                    });
+                    return;
+                  }
+                } catch {
+                  debug('TIMEOUT: Could not verify PR existence after timeout');
+                }
+              }
 
               resolve({
                 success: false,

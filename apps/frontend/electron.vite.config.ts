@@ -22,6 +22,9 @@ export default defineConfig({
   main: {
     define: sentryDefines,
     plugins: [externalizeDepsPlugin({
+      // TODO: This dependency list should be auto-generated from package.json dependencies.
+      // Currently maintained manually. Consider implementing auto-detection from 'dependencies'
+      // and 'optionalDependencies' fields to reduce manual maintenance burden.
       // Bundle these packages into the main process (they won't be in node_modules in packaged app)
       exclude: [
         'uuid',
@@ -102,10 +105,9 @@ export default defineConfig({
       alias: {
         '@': resolve(__dirname, 'src/renderer'),
         '@shared': resolve(__dirname, 'src/shared'),
-        '@features': resolve(__dirname, 'src/renderer/features'),
-        '@components': resolve(__dirname, 'src/renderer/shared/components'),
-        '@hooks': resolve(__dirname, 'src/renderer/shared/hooks'),
-        '@lib': resolve(__dirname, 'src/renderer/shared/lib')
+        '@components': resolve(__dirname, 'src/renderer/components'),
+        '@hooks': resolve(__dirname, 'src/renderer/hooks'),
+        '@lib': resolve(__dirname, 'src/renderer/lib')
       }
     },
     server: {

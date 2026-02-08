@@ -1,3 +1,6 @@
+# Copyright (C) 2024-2026 Jerry Team
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Claude SDK Client Configuration
 ===============================
@@ -34,13 +37,20 @@ from core.platform import (
 logger = logging.getLogger(__name__)
 
 # =============================================================================
+# Configuration Constants
+# =============================================================================
+# Hardcoded timeouts and limits that affect behavior across the module
+CLI_VALIDATION_TIMEOUT_SECONDS = 5
+CACHE_TTL_SECONDS = 300  # 5 minute TTL for project index cache
+
+# =============================================================================
 # Project Index Cache
 # =============================================================================
 # Caches project index and capabilities to avoid reloading on every create_client() call.
 # This significantly reduces the time to create new agent sessions.
 
 _PROJECT_INDEX_CACHE: dict[str, tuple[dict[str, Any], dict[str, bool], float]] = {}
-_CACHE_TTL_SECONDS = 300  # 5 minute TTL
+_CACHE_TTL_SECONDS = CACHE_TTL_SECONDS  # Backward compatible reference
 _CACHE_LOCK = threading.Lock()  # Protects _PROJECT_INDEX_CACHE access
 
 
@@ -134,16 +144,7 @@ _CLI_CACHE_LOCK = threading.Lock()
 
 
 def _get_claude_detection_paths() -> dict[str, list[str] | str]:
-    """
-    Get all candidate paths for Claude CLI detection.
-
-    This is a thin wrapper around the platform module's implementation.
-    See core/platform/__init__.py:get_claude_detection_paths_structured()
-    for the canonical implementation.
-
-    Returns:
-        Dict with 'homebrew', 'platform', and 'nvm_versions_dir' keys
-    """
+    """Get candidate paths for Claude CLI detection across all platforms."""
     return get_claude_detection_paths_structured()
 
 
@@ -168,7 +169,7 @@ def _validate_claude_cli(cli_path: str) -> tuple[bool, str | None]:
 
     # Security validation: reject paths with shell metacharacters or directory traversal
     if not validate_cli_path(cli_path):
-        logger.warning(f"Rejecting insecure Claude CLI path: {cli_path}")
+        logger.warning(f"[Client] Rejecting insecure CLI path: {cli_path}")
         return False, None
 
     try:
@@ -191,7 +192,7 @@ def _validate_claude_cli(cli_path: str) -> tuple[bool, str | None]:
                 [cmd_exe, "/d", "/s", "/c", cmd_line],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=CLI_VALIDATION_TIMEOUT_SECONDS,
                 env=env,
                 creationflags=subprocess.CREATE_NO_WINDOW,
             )
@@ -200,7 +201,7 @@ def _validate_claude_cli(cli_path: str) -> tuple[bool, str | None]:
                 [cli_path, "--version"],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=CLI_VALIDATION_TIMEOUT_SECONDS,
                 env=env,
                 creationflags=subprocess.CREATE_NO_WINDOW if is_windows() else 0,
             )
@@ -214,7 +215,7 @@ def _validate_claude_cli(cli_path: str) -> tuple[bool, str | None]:
 
         return False, None
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
-        logger.debug(f"Claude CLI validation failed for {cli_path}: {e}")
+        logger.debug(f"[Client] Failed to validate CLI path: {e}")
         return False, None
 
 
@@ -231,6 +232,9 @@ def find_claude_cli() -> str | None:
 
     Returns:
         Path to Claude CLI if found and valid, None otherwise
+
+    NOTE: This function is 110 lines and is a candidate for extraction (split into
+    separate platform-specific helper functions), but kept intact for stability.
     """
     # Check cache first
     cache_key = "claude_cli"
@@ -322,7 +326,7 @@ def find_claude_cli() -> str | None:
                 return plat_path
 
     # Not found
-    logger.warning(
+    logger.info(
         "Claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code"
     )
     with _CLI_CACHE_LOCK:
@@ -372,6 +376,9 @@ def _validate_custom_mcp_server(server: dict) -> bool:
 
     Returns:
         True if valid, False otherwise
+
+    NOTE: This function is 159 lines and is a candidate for extraction (split into
+    separate validation helpers per server type), but kept intact for security review.
     """
     if not isinstance(server, dict):
         return False
@@ -593,45 +600,34 @@ def load_project_mcp_config(project_dir: Path) -> dict:
                                 f"Failed to parse CUSTOM_MCP_SERVERS JSON: {value}"
                             )
                             config["CUSTOM_MCP_SERVERS"] = []
-    except Exception as e:
+    except (OSError, ValueError, json.JSONDecodeError) as e:
         logger.debug(f"Failed to load project MCP config from {env_path}: {e}")
 
     return config
 
 
 def is_graphiti_mcp_enabled() -> bool:
-    """
-    Check if Graphiti MCP server integration is enabled.
-
-    Requires GRAPHITI_MCP_URL to be set (e.g., http://localhost:8000/mcp/)
-    This is separate from GRAPHITI_ENABLED which controls the Python library integration.
-    """
+    """Check if Graphiti MCP server integration is enabled via GRAPHITI_MCP_URL."""
     return bool(os.environ.get("GRAPHITI_MCP_URL"))
 
 
 def get_graphiti_mcp_url() -> str:
-    """Get the Graphiti MCP server URL."""
+    """Get the Graphiti MCP server URL, with default to localhost:8000/mcp/."""
     return os.environ.get("GRAPHITI_MCP_URL", "http://localhost:8000/mcp/")
 
 
 def is_electron_mcp_enabled() -> bool:
-    """
-    Check if Electron MCP server integration is enabled.
-
-    Requires ELECTRON_MCP_ENABLED to be set to 'true'.
-    When enabled, QA agents can use Puppeteer MCP tools to connect to Electron apps
-    via Chrome DevTools Protocol on the configured debug port.
-    """
+    """Check if Electron MCP server is enabled via ELECTRON_MCP_ENABLED environment variable."""
     return os.environ.get("ELECTRON_MCP_ENABLED", "").lower() == "true"
 
 
 def get_electron_debug_port() -> int:
-    """Get the Electron remote debugging port (default: 9222)."""
+    """Get the Electron remote debugging port, defaulting to 9222."""
     return int(os.environ.get("ELECTRON_DEBUG_PORT", "9222"))
 
 
 def should_use_claude_md() -> bool:
-    """Check if CLAUDE.md instructions should be included in system prompt."""
+    """Check if CLAUDE.md should be included in the system prompt."""
     return os.environ.get("USE_CLAUDE_MD", "").lower() == "true"
 
 
@@ -649,7 +645,8 @@ def load_claude_md(project_dir: Path) -> str | None:
     if claude_md_path.exists():
         try:
             return claude_md_path.read_text(encoding="utf-8")
-        except Exception:
+        except (OSError, UnicodeDecodeError) as e:
+            logger.debug(f"Failed to read CLAUDE.md: {e}")
             return None
     return None
 
@@ -662,6 +659,7 @@ def create_client(
     max_thinking_tokens: int | None = None,
     output_format: dict | None = None,
     agents: dict | None = None,
+    max_turns: int = 100,
 ) -> ClaudeSDKClient:
     """
     Create a Claude Agent SDK client with multi-layered security.
@@ -701,8 +699,16 @@ def create_client(
     3. Security hooks - Bash commands validated against an allowlist
        (see security.py for ALLOWED_COMMANDS)
     4. Tool filtering - Each agent type only sees relevant tools (prevents misuse)
+
+    NOTE: This function is 407 lines and coordinates initialization of client,
+    MCP servers, security settings, and system prompt. It's a candidate for
+    extraction but kept intact to maintain centralized client initialization.
     """
+    logger.debug(f"Creating client for project: {project_dir.resolve()}")
+    logger.debug(f"Agent type: {agent_type}, Model: {model}")
+
     oauth_token = require_auth_token()
+    logger.debug("Authentication token resolved successfully")
 
     # Validate token is not encrypted before passing to SDK
     # Encrypted tokens (enc:...) should have been decrypted by require_auth_token()
@@ -714,6 +720,7 @@ def create_client(
 
     # Collect env vars to pass to SDK (ANTHROPIC_BASE_URL, etc.)
     sdk_env = get_sdk_env_vars()
+    logger.debug(f"SDK environment configured with {len(sdk_env)} variables")
 
     # Debug: Log git-bash path detection on Windows
     if "CLAUDE_CODE_GIT_BASH_PATH" in sdk_env:
@@ -735,6 +742,7 @@ def create_client(
 
     # Load per-project MCP configuration from .auto-claude/.env
     mcp_config = load_project_mcp_config(project_dir)
+    logger.debug(f"Loaded MCP config with {len(mcp_config)} settings")
 
     # Get allowed tools using phase-aware configuration
     # This respects AGENT_CONFIGS and only includes tools the agent needs
@@ -745,6 +753,7 @@ def create_client(
         linear_enabled,
         mcp_config,
     )
+    logger.debug(f"Configured {len(allowed_tools_list)} allowed tools for {agent_type}")
 
     # Get required MCP servers for this agent type
     # This is the key optimization - only start servers the agent needs
@@ -755,6 +764,7 @@ def create_client(
         linear_enabled,
         mcp_config,
     )
+    logger.debug(f"Required MCP servers for {agent_type}: {required_servers}")
 
     # Check if Graphiti MCP is enabled (already filtered by get_required_mcp_servers)
     graphiti_mcp_enabled = "graphiti" in required_servers
@@ -1025,7 +1035,7 @@ def create_client(
                 HookMatcher(matcher="Bash", hooks=[bash_security_hook]),
             ],
         },
-        "max_turns": 100,
+        "max_turns": max_turns,
         "cwd": str(project_dir.resolve()),
         "settings": str(settings_file.resolve()),
         "env": sdk_env,  # Pass ANTHROPIC_BASE_URL etc. to subprocess

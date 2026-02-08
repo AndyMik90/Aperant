@@ -168,8 +168,8 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
   const statusLabels: Record<TaskStatus, string> = {
     planning: t('tasks:status.planning'),
     coding: t('tasks:status.coding'),
-    ai_review: t('tasks:columns.ai_review', { defaultValue: 'AI Review' }),
-    human_review: t('tasks:columns.human_review', { defaultValue: 'Human Review' }),
+    ai_review: t('tasks:columns.ai_review', { defaultValue: 'Testing' }),
+    human_review: t('tasks:columns.human_review', { defaultValue: 'User Review' }),
     pr_created: t('tasks:status.prCreated'),
     done: t('tasks:status.complete'),
   };

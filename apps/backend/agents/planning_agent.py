@@ -152,6 +152,8 @@ async def run_planning_agent(
     )
 
     # Generate initial prompt with task description
+    # Also cache the memory content so continuation prompts don't re-read from disk
+    _cached_memory_content = memory_handlers.view("/memories")
     prompt = _generate_planning_prompt(spec_dir, project_dir, task_description, memory_handlers)
 
     session_num = 0
@@ -243,8 +245,8 @@ async def run_planning_agent(
             # For now, we'll use a simple sleep and check loop
             await asyncio.sleep(1)
 
-            # Regenerate prompt for continued conversation
-            prompt = _generate_continuation_prompt(spec_dir, memory_handlers)
+            # Regenerate prompt for continued conversation (reuse cached memory)
+            prompt = _generate_continuation_prompt(spec_dir, memory_handlers, _cached_memory_content)
 
     except asyncio.CancelledError:
         # Don't catch cancellation - let it propagate for proper cleanup
@@ -386,12 +388,22 @@ def _generate_planning_prompt(
     return "\n".join(prompt_parts)
 
 
-def _generate_continuation_prompt(spec_dir: Path, memory_handlers: MemoryHandlers) -> str:
+def _generate_continuation_prompt(
+    spec_dir: Path,
+    memory_handlers: MemoryHandlers,
+    cached_memory_content: str | None = None,
+) -> str:
     """
     Generate a continuation prompt for ongoing planning conversation.
+
+    Args:
+        cached_memory_content: Pre-loaded memory content to avoid re-reading
+                              from disk. If None, will load fresh.
     """
-    # Load memory context
-    memory_content = memory_handlers.view("/memories")
+    # OPTIMIZATION: Reuse memory content if already loaded (avoids double disk read)
+    memory_content = cached_memory_content
+    if memory_content is None:
+        memory_content = memory_handlers.view("/memories")
 
     prompt_parts = [
         "# Continuing Planning Session",

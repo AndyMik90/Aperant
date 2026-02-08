@@ -43,7 +43,7 @@
 │                                 │ (Child Process)                                │
 │  ┌──────────────────────────────▼──────────────────────────────────────────┐    │
 │  │                    LAYER 3: PYTHON BACKEND                               │    │
-│  │  spec_runner.py → run.py → qa/loop.py                                   │    │
+│  │  runners/spec_runner.py → run.py → qa/loop.py                           │    │
 │  │  Claude API calls, code generation, QA checks                           │    │
 │  └──────────────────────────────┬──────────────────────────────────────────┘    │
 │                                 │ read/write                                     │
@@ -334,25 +334,34 @@ export const taskApi = {
 ```
 apps/backend/
 ├── runners/
-│   ├── spec_runner.py       # Planning agent
-│   └── run.py               # Coding agent
+│   └── spec_runner.py       # Planning agent entry point
+├── core/
+│   ├── client.py            # Claude SDK client factory
+│   ├── auth.py              # Authentication
+│   ├── workspace.py         # Workspace management
+│   └── worktree.py          # Git worktree operations
 ├── qa/
 │   ├── loop.py              # QA iteration loop
 │   ├── criteria.py          # QA criteria definitions
-│   └── report.py            # QA report generation
+│   ├── report.py            # QA report generation
+│   └── fixer.py             # QA fixing logic
 ├── agents/
 │   ├── planning_agent.py    # Planning logic
-│   ├── coder.py             # Coding logic
-│   └── session.py           # Claude API session
-├── phase_config.py          # Ralph Wiggum mode config
+│   ├── coder.py             # Coding agent
+│   ├── session.py           # Claude API session
+│   ├── memory_manager.py    # Evolution tracking
+│   └── companion_agent.py   # Real-time chat companion
+├── run.py                   # Main entry point (spec execution)
+├── phase_config.py          # Phase configuration and Ralph Wiggum mode
 └── prompts/
     ├── spec_writer.md       # Spec generation prompt
     └── spec_quick.md        # Quick spec prompt
 ```
 
-### spec_runner.py (Planning Agent)
+### runners/spec_runner.py (Planning Agent)
 
 **Purpose:** Creates spec.md and implementation_plan.json.
+**Location:** `apps/backend/runners/spec_runner.py`
 
 ```python
 # Key arguments

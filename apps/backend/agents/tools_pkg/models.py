@@ -350,6 +350,14 @@ AGENT_CONFIGS = {
         "auto_claude_tools": [],
         "thinking_default": "high",
     },
+    # Companion/supervisor agent — read-only conversational agent
+    # In supervisor mode, get_build_progress lets it answer "what is the coder doing?"
+    "companion": {
+        "tools": BASE_READ_TOOLS,
+        "mcp_servers": ["auto-claude"],
+        "auto_claude_tools": [TOOL_GET_BUILD_PROGRESS],
+        "thinking_default": "low",
+    },
 }
 
 

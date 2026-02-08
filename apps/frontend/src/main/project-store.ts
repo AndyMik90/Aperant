@@ -509,23 +509,31 @@ export class ProjectStore {
         const stagedAt = planWithStaged?.stagedAt;
         const mergedAt = planWithStaged?.mergedAt;
 
-        // Determine title - check if feature looks like a spec ID (e.g., "054-something-something")
-        // For JSON error tasks, use directory name with marker for i18n suffix
-        let title = hasJsonError ? `${dir.name}${JSON_ERROR_TITLE_SUFFIX}` : (plan?.feature || plan?.title || dir.name);
-        const looksLikeSpecId = /^\d{3}-/.test(title) && !hasJsonError;
-        if (looksLikeSpecId && existsSync(specFilePath)) {
-          try {
-            const specContent = readFileSync(specFilePath, 'utf-8');
-            // Extract title from first # line, handling patterns like:
-            // "# Quick Spec: Title" -> "Title"
-            // "# Specification: Title" -> "Title"
-            // "# Title" -> "Title"
-            const titleMatch = specContent.match(/^#\s+(?:Quick Spec:|Specification:)?\s*(.+)$/m);
-            if (titleMatch && titleMatch[1]) {
-              title = titleMatch[1].trim();
+        // Determine title — priority order:
+        // 1. metadata.originalTitle (user-provided at creation, never overwritten by agents)
+        // 2. Fallback: plan.feature / plan.title / spec.md heading / dir.name
+        let title: string;
+        if (hasJsonError) {
+          title = `${dir.name}${JSON_ERROR_TITLE_SUFFIX}`;
+        } else if (metadata?.originalTitle) {
+          title = metadata.originalTitle;
+        } else {
+          // Legacy tasks without originalTitle — use existing heuristic
+          title = plan?.feature || plan?.title || dir.name;
+          const looksLikeSpecId = /^\d{3}-/.test(title);
+          if (looksLikeSpecId && existsSync(specFilePath)) {
+            try {
+              const specContent = readFileSync(specFilePath, 'utf-8');
+              const titleMatch = specContent.match(/^#\s+(?:Quick Spec:|Specification:)?\s*(.+)$/m);
+              if (titleMatch && titleMatch[1]) {
+                const specTitle = titleMatch[1].trim();
+                const planFeature = plan?.feature || plan?.title || '';
+                const planHasRicherTitle = planFeature && !(/^\d{3}-/.test(planFeature)) && planFeature.length > specTitle.length * 0.5;
+                title = planHasRicherTitle ? planFeature : specTitle;
+              }
+            } catch {
+              // Keep the original title on error
             }
-          } catch {
-            // Keep the original title on error
           }
         }
 
@@ -545,6 +553,8 @@ export class ProjectStore {
           mergedAt,
           location, // Add location metadata (main vs worktree)
           specsPath: specPath, // Add full path to specs directory
+          // SUG-6: Map metadata dependencies to top-level field for blocking logic
+          dependencies: metadata?.dependencies?.filter((d): d is string => typeof d === 'string' && d.length > 0) || undefined,
           createdAt: new Date(plan?.created_at || Date.now()),
           updatedAt: new Date(plan?.updated_at || Date.now())
         });
@@ -645,7 +655,10 @@ export class ProjectStore {
 
         // Check if this is a plan review (spec approval stage before coding starts)
         // planStatus: "review" indicates spec creation is complete and awaiting user approval
+        // BUT: only trust this if a valid spec.md actually exists — otherwise planning failed
         const isPlanReviewStage = (plan as unknown as { planStatus?: string })?.planStatus === 'review';
+        const specFileExists = existsSync(path.join(specPath, 'spec.md'));
+        const isPlanReviewValid = isPlanReviewStage && specFileExists;
 
         // Determine if there is remaining work to do
         // True if: no subtasks exist yet (planning in progress) OR some subtasks are incomplete
@@ -655,7 +668,7 @@ export class ProjectStore {
         const isStoredStatusValid =
           (storedStatus === calculatedStatus) || // Matches calculated
           (storedStatus === 'human_review' && (calculatedStatus === 'ai_review' || calculatedStatus === 'coding')) || // Human review is more advanced than ai_review or coding (fixes status loop bug)
-          (storedStatus === 'human_review' && isPlanReviewStage) || // Plan review stage (awaiting spec approval)
+          (storedStatus === 'human_review' && isPlanReviewValid) || // Plan review stage (awaiting spec approval) — only when spec.md exists
           (isActiveProcessStatus && storedStatus === 'coding' && hasRemainingWork); // Planning/coding phases should show as coding ONLY when there's remaining work
 
         if (isStoredStatusValid) {
@@ -668,7 +681,7 @@ export class ProjectStore {
               reviewReason = 'errors';
             } else if (allCompleted) {
               reviewReason = 'completed';
-            } else if (isPlanReviewStage) {
+            } else if (isPlanReviewValid) {
               reviewReason = 'plan_review';
             }
           }

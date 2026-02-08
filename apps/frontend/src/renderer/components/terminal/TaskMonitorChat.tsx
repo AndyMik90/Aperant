@@ -18,7 +18,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useCallback, createContex
 import { useTerminalStore } from '../../stores/terminal-store';
 import { useTaskStore } from '../../stores/task-store';
 import { Button } from '../ui/button';
-import { ChevronUp, ChevronDown, Paperclip, Send, ArrowDown, Copy, Check, Search, X, Bot } from 'lucide-react';
+import { ChevronUp, ChevronDown, Send, ArrowDown, Copy, Check, Search, X, Bot } from 'lucide-react';
 import type { Terminal as TerminalType } from '../../stores/terminal-store';
 import type { ContentBlock, ToolUseContent } from '../../lib/claude-output-parser';
 import { cn } from '../../lib/utils';
@@ -873,8 +873,9 @@ export function TaskMonitorChat({
   const { messages = [] } = terminal;
   const initializeParser = useTerminalStore((state) => state.initializeParser);
   const addUserMessage = useTerminalStore((state) => state.addUserMessage);
-  // Check if companion is active for this task
+  // Check if companion or supervisor is active for this task
   const hasCompanion = useTaskStore((state) => state.hasCompanion(terminal.taskId || ''));
+  const hasSupervisor = useTaskStore((state) => state.hasSupervisor(terminal.taskId || ''));
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -883,6 +884,7 @@ export function TaskMonitorChat({
   const [userScrolledUp, setUserScrolledUp] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [pendingImages, setPendingImages] = useState<Array<{ id: string; dataUrl: string; filename: string }>>([]);
 
   // State for toggling all thinking blocks together
   const [thinkingExpanded, setThinkingExpanded] = useState(false);
@@ -1011,9 +1013,15 @@ export function TaskMonitorChat({
       // Add user message to the chat UI immediately (stored in terminal state)
       addUserMessage(terminal.id, message);
 
-      // Only attempt to send via IPC if the task is actually running
-      // Messages stored locally will be available when task starts
-      if (isTaskRunning) {
+      // Route message: supervisor > companion > task agent
+      if (hasSupervisor) {
+        // During active builds, route to supervisor agent
+        const result = await window.electronAPI.sendMessageToSupervisor(taskId, message);
+        if (!result.success) {
+          console.error('[TaskMonitorChat] Failed to send message to supervisor:', result.error);
+        }
+      } else if (isTaskRunning) {
+        // Send to the running task/companion agent
         const result = await window.electronAPI.sendMessageToTask(taskId, message);
         if (!result.success) {
           console.error('[TaskMonitorChat] Failed to send message:', result.error);
@@ -1026,7 +1034,7 @@ export function TaskMonitorChat({
     } finally {
       setIsSending(false);
     }
-  }, [inputValue, taskId, isSending, isTaskRunning, terminal.id, addUserMessage, task?.status]);
+  }, [inputValue, taskId, isSending, isTaskRunning, hasSupervisor, terminal.id, addUserMessage, task?.status]);
 
   // Handle key press in textarea
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1043,6 +1051,35 @@ export function TaskMonitorChat({
     const textarea = e.target;
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+  }, []);
+
+  // Handle clipboard paste for images
+  let pasteCounter = 0;
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const blob = item.getAsFile();
+        if (!blob) continue;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result as string;
+          const id = `paste-${Date.now()}-${++pasteCounter}`;
+          const filename = `paste-${Date.now()}.png`;
+          setPendingImages((prev) => [...prev, { id, dataUrl, filename }]);
+        };
+        reader.readAsDataURL(blob);
+        break;
+      }
+    }
+  }, []);
+
+  const removeImage = useCallback((id: string) => {
+    setPendingImages((prev) => prev.filter((img) => img.id !== id));
   }, []);
 
   // Initialize parser on mount
@@ -1344,16 +1381,16 @@ export function TaskMonitorChat({
                             <div className={cn(
                               "py-2",
                               index > 0 && "border-t border-border/30 mt-3 pt-3",
-                              hasCompanion && "border-l-2 border-green-500/30 bg-green-500/5 rounded-md px-2"
+                              (hasCompanion || hasSupervisor) && "border-l-2 border-green-500/30 bg-green-500/5 rounded-md px-2"
                             )}>
-                              {/* Assistant/Companion role indicator */}
+                              {/* Assistant/Companion/Supervisor role indicator */}
                               <div className="flex items-center gap-2 mb-2 px-1">
                                 <Bot className={cn(
                                   "h-3.5 w-3.5",
-                                  hasCompanion ? "text-green-400/70" : "text-primary/70"
+                                  (hasCompanion || hasSupervisor) ? "text-green-400/70" : "text-primary/70"
                                 )} />
                                 <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">
-                                  {hasCompanion ? 'Companion' : 'Assistant'}
+                                  {hasSupervisor ? 'Supervisor' : hasCompanion ? 'Companion' : 'Assistant'}
                                 </span>
                               </div>
                               {/* Assistant message content with slight left padding for nesting */}
@@ -1369,15 +1406,19 @@ export function TaskMonitorChat({
                     </div>
                   ))}
 
-                  {/* Companion ready indicator - shown at the bottom when companion is active */}
-                  {hasCompanion && (
+                  {/* Agent ready indicator - shown when companion or supervisor is active */}
+                  {(hasCompanion || hasSupervisor) && (
                     <div className="px-4 mt-4 mb-4">
                       <div className="border-t-2 border-green-500/30 mb-3" />
                       <div className="flex items-center gap-3 py-2 px-3 rounded-md bg-green-500/5">
                         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                         <div className="flex-1">
-                          <div className="text-green-400 font-medium text-sm">Agent Ready</div>
-                          <div className="text-muted-foreground text-xs mt-0.5">Ask questions about this task</div>
+                          <div className="text-green-400 font-medium text-sm">
+                            {hasSupervisor ? 'Supervisor Active' : 'Agent Ready'}
+                          </div>
+                          <div className="text-muted-foreground text-xs mt-0.5">
+                            {hasSupervisor ? 'Ask about build progress' : 'Ask questions about this task'}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1419,6 +1460,27 @@ export function TaskMonitorChat({
         {/* Bottom input area - only show when terminal is active */}
         {isActive && (
           <div className="border-t border-border p-3 bg-muted/20">
+            {/* Pasted image previews */}
+            {pendingImages.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {pendingImages.map((img) => (
+                  <div key={img.id} className="relative group">
+                    <img
+                      src={img.dataUrl}
+                      alt={img.filename}
+                      className="h-16 max-w-24 rounded-md border border-border object-cover"
+                    />
+                    <button
+                      onClick={() => removeImage(img.id)}
+                      className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Remove image"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex items-end gap-2">
               <div className="flex-1 relative">
                 <textarea
@@ -1429,22 +1491,20 @@ export function TaskMonitorChat({
                   value={inputValue}
                   onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
                   disabled={isSending}
                 />
               </div>
-              <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground" disabled title="Attachments coming soon">
-                <Paperclip className="h-4 w-4" />
-              </Button>
               <Button
                 size="icon"
                 className={cn(
                   "h-10 w-10 text-white",
-                  inputValue.trim()
+                  inputValue.trim() || pendingImages.length > 0
                     ? "bg-orange-500 hover:bg-orange-600"
                     : "bg-orange-500/50 cursor-not-allowed"
                 )}
                 onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isSending}
+                disabled={(!inputValue.trim() && pendingImages.length === 0) || isSending}
               >
                 <Send className="h-4 w-4" />
               </Button>

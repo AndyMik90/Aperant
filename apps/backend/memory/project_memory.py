@@ -29,8 +29,18 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def _file_lock(lock_path: Path):
-    """Cross-platform file lock using a .lock file."""
+def _file_lock(lock_path: Path, timeout: float = 5.0):
+    """Cross-platform file lock using a .lock file.
+
+    Args:
+        lock_path: Path to the file being protected (a .lock sibling is created).
+        timeout: Maximum seconds to wait for lock acquisition (default: 5.0).
+                 Only effective on non-Windows platforms.
+
+    Raises:
+        TimeoutError: If lock cannot be acquired within timeout.
+        OSError: If lock file cannot be created.
+    """
     lock_file = lock_path.with_suffix(".lock")
     fd = None
     try:
@@ -40,7 +50,24 @@ def _file_lock(lock_path: Path):
             msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
         else:
             import fcntl
-            fcntl.flock(fd, fcntl.LOCK_EX)
+            # Use non-blocking lock with timeout to prevent indefinite hangs
+            import time
+            deadline = time.monotonic() + timeout
+            while True:
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except (OSError, IOError):
+                    if time.monotonic() >= deadline:
+                        logger.debug(
+                            "File lock acquisition timed out after %.1fs for %s",
+                            timeout, lock_file
+                        )
+                        raise TimeoutError(
+                            f"Could not acquire file lock on {lock_file} "
+                            f"within {timeout}s"
+                        )
+                    time.sleep(0.05)
         yield
     finally:
         if fd is not None:
@@ -51,8 +78,8 @@ def _file_lock(lock_path: Path):
                 else:
                     import fcntl
                     fcntl.flock(fd, fcntl.LOCK_UN)
-            except Exception:
-                pass
+            except (OSError, IOError) as e:
+                logger.debug("Error releasing file lock on %s: %s", lock_file, e)
             os.close(fd)
 
 
@@ -127,7 +154,7 @@ def load_project_memory(project_dir: Path, max_chars: int = 4000) -> str | None:
 
         return content
     except Exception as e:
-        logger.warning(f"Failed to load PROJECT_MEMORY.md: {e}")
+        logger.debug(f"Failed to load PROJECT_MEMORY.md: {e}")
         return None
 
 
@@ -223,7 +250,7 @@ def append_to_project_memory(
             return True
 
     except Exception as e:
-        logger.warning(f"Failed to append to PROJECT_MEMORY.md: {e}")
+        logger.debug(f"Failed to append to PROJECT_MEMORY.md: {e}")
         return False
 
 

@@ -55,6 +55,7 @@ async def run_qa_fixer_session(
     fix_session: int,
     verbose: bool = False,
     project_dir: Path | None = None,
+    preloaded_graphiti_context: str | None = None,
 ) -> tuple[str, str]:
     """
     Run a QA fixer agent session.
@@ -101,25 +102,51 @@ async def run_qa_fixer_session(
     message_count = 0
     tool_count = 0
 
-    # Check that fix request file exists
+    # Check that fix request file exists.
+    # FIX-004: The QA loop now creates this file in Python code (loop.py),
+    # but we keep this check as a safety net. If missing, we create a minimal
+    # fallback from qa_report.md instead of crashing.
     fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
     if not fix_request_file.exists():
-        debug_error("qa_fixer", "QA_FIX_REQUEST.md not found")
-        return "error", "QA_FIX_REQUEST.md not found"
+        debug_warning("qa_fixer", "QA_FIX_REQUEST.md not found — creating fallback from qa_report.md")
+        qa_report = spec_dir / "qa_report.md"
+        if qa_report.exists():
+            try:
+                report_content = qa_report.read_text(encoding="utf-8")
+                fix_request_file.write_text(
+                    f"# QA Fix Request (auto-generated fallback)\n\n"
+                    f"The QA reviewer found issues. See qa_report.md for details:\n\n"
+                    f"{report_content[:2000]}",
+                    encoding="utf-8",
+                )
+            except Exception as e:
+                debug_error("qa_fixer", f"Could not create fallback QA_FIX_REQUEST.md: {e}")
+                return "error", f"QA_FIX_REQUEST.md not found and fallback creation failed: {e}"
+        else:
+            debug_error("qa_fixer", "Neither QA_FIX_REQUEST.md nor qa_report.md found")
+            return "error", "QA_FIX_REQUEST.md not found and no qa_report.md to fall back on"
 
-    # Load fixer prompt
-    prompt = load_qa_fixer_prompt()
+    # Load fixer prompt — use the FAST prompt for iterations 2+ to cut reasoning time.
+    # First fix session gets the full verbose prompt with examples and patterns.
+    if fix_session <= 1:
+        prompt = load_qa_fixer_prompt()
+    else:
+        from prompts_pkg import get_qa_fixer_prompt_fast
+        prompt = get_qa_fixer_prompt_fast(spec_dir, project_dir)
     debug_detailed("qa_fixer", "Loaded QA fixer prompt", prompt_length=len(prompt))
 
-    # Retrieve memory context for fixer (past fixes, patterns, gotchas)
-    fixer_memory_context = await get_graphiti_context(
-        spec_dir,
-        project_dir,
-        {
-            "description": "Fixing QA issues and implementing corrections",
-            "id": f"qa_fixer_{fix_session}",
-        },
-    )
+    # Use pre-loaded Graphiti context if available (shared from QA loop),
+    # otherwise fall back to loading it ourselves. Sharing saves ~1-2s per iteration.
+    fixer_memory_context = preloaded_graphiti_context
+    if fixer_memory_context is None:
+        fixer_memory_context = await get_graphiti_context(
+            spec_dir,
+            project_dir,
+            {
+                "description": "Fixing QA issues and implementing corrections",
+                "id": f"qa_fixer_{fix_session}",
+            },
+        )
     if fixer_memory_context:
         prompt += "\n\n" + fixer_memory_context
         print("✓ Memory context loaded for QA fixer")
@@ -335,27 +362,58 @@ async def run_qa_fixer_session(
             })
             return "fixed", response_text
         else:
-            # Fixer didn't update the status properly, but we'll trust it worked
-            debug_success("qa_fixer", "Fixes assumed applied (status not updated)")
-            # Still save to memory as successful (fixes were attempted)
-            await save_session_memory(
-                spec_dir=spec_dir,
-                project_dir=project_dir,
-                subtask_id=f"qa_fixer_{fix_session}",
-                session_num=fix_session,
-                success=True,
-                subtasks_completed=[f"qa_fixer_{fix_session}"],
-                discoveries=fixer_discoveries,
-            )
+            # FIX-009: Don't blindly assume success. Check if files were actually modified.
+            files_changed = False
+            if project_dir:
+                import subprocess
+                try:
+                    diff_result = subprocess.run(
+                        ["git", "diff", "--name-only"],
+                        cwd=project_dir,
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    files_changed = bool(diff_result.stdout.strip())
+                except (subprocess.TimeoutExpired, OSError):
+                    pass  # If git check fails, fall through to tool_count check
 
-            # Emit SDK markers for assumed success
-            emit_sdk_msg("text", {"content": "✅ Fixes applied (status not updated)"})
-            emit_sdk_msg("phase_end", {
-                "phase": "qa_fixer",
-                "success": True,
-                "message": "Fixes applied",
-            })
-            return "fixed", response_text
+            if files_changed or tool_count > 0:
+                debug_success("qa_fixer", f"Fixes likely applied (files_changed={files_changed}, tool_count={tool_count})")
+                await save_session_memory(
+                    spec_dir=spec_dir,
+                    project_dir=project_dir,
+                    subtask_id=f"qa_fixer_{fix_session}",
+                    session_num=fix_session,
+                    success=True,
+                    subtasks_completed=[f"qa_fixer_{fix_session}"],
+                    discoveries=fixer_discoveries,
+                )
+                emit_sdk_msg("text", {"content": "✅ Fixes applied (verified via git diff)"})
+                emit_sdk_msg("phase_end", {
+                    "phase": "qa_fixer",
+                    "success": True,
+                    "message": "Fixes applied",
+                })
+                return "fixed", response_text
+            else:
+                debug_error("qa_fixer", "Fixer session made no changes — reporting failure")
+                await save_session_memory(
+                    spec_dir=spec_dir,
+                    project_dir=project_dir,
+                    subtask_id=f"qa_fixer_{fix_session}",
+                    session_num=fix_session,
+                    success=False,
+                    subtasks_completed=[],
+                    discoveries=fixer_discoveries,
+                )
+                emit_sdk_msg("text", {"content": "⚠️ Fixer session completed but no files were modified"})
+                emit_sdk_msg("phase_end", {
+                    "phase": "qa_fixer",
+                    "success": False,
+                    "message": "No changes made by fixer",
+                })
+                return "failed", response_text
 
     except Exception as e:
         debug_error(

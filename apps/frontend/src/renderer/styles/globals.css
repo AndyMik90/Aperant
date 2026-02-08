@@ -164,6 +164,108 @@
   animation-duration: 300ms;
 }
 
+/* ============================================
+   Chat Streaming & Animation Utilities
+   ============================================ */
+
+/* Streaming cursor blink */
+@keyframes blink-cursor {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.streaming-cursor::after {
+  content: '▊';
+  display: inline;
+  color: var(--primary);
+  animation: blink-cursor 1s step-end infinite;
+  font-size: 0.85em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+}
+
+/* Skeleton loader for thinking phase */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-line {
+  height: 0.75rem;
+  background: linear-gradient(
+    90deg,
+    var(--muted) 25%,
+    rgba(134, 143, 151, 0.15) 50%,
+    var(--muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+/* Message bubble entrance animation */
+@keyframes message-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-enter {
+  animation: message-enter 0.3s cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+/* Tool card slide-in */
+@keyframes tool-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.tool-card-enter {
+  animation: tool-slide-in 0.2s cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+/* Completion checkmark pop */
+@keyframes completion-pop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.completion-pop {
+  animation: completion-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+/* Elapsed timer tabular numbers */
+.elapsed-timer {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Writing badge pulse */
+@keyframes writing-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.writing-badge {
+  animation: writing-pulse 1.5s ease-in-out infinite;
+}
+
+/* Collapsible content fade — masks bottom when truncated */
+.collapsed-fade {
+  -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+
 /* CSS variables for light mode (secondary consideration per design system) */
 :root {
   /* Light Mode - Warm off-white tones */

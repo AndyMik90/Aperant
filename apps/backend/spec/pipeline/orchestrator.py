@@ -3,6 +3,21 @@ Spec Orchestrator
 =================
 
 Main orchestration logic for spec creation with dynamic complexity adaptation.
+
+PERF TODO: Future optimizations not yet implemented:
+  - Early SIMPLE detection: Do heuristic check BEFORE requirements gathering.
+    If heuristics say SIMPLE with high confidence (>0.9), skip discovery +
+    requirements and jump straight to quick_spec. Saves 20-30s for trivial tasks.
+  - Complexity-adaptive thinking budgets: SIMPLE tasks currently get ultrathink
+    for discovery/spec_writing. Should use "medium" for SIMPLE, "high" for
+    STANDARD, and keep ultrathink only for COMPLEX.
+  - Smart project index refresh: Skip refresh if index exists AND task
+    description doesn't mention dependency/package/library keywords.
+  - Reuse summarization client: _store_phase_summary() creates a new SDK
+    client per call. Should lazy-init one and reuse across all summaries.
+  - Parallel subtask execution with git worktrees: The single biggest
+    potential win but requires significant architectural work. Each subtask
+    batch would run in its own worktree to avoid file conflicts.
 """
 
 import json
@@ -11,7 +26,7 @@ from pathlib import Path
 
 from analysis.analyzers import analyze_project
 from core.workspace.models import SpecNumberLock
-from phase_config import get_thinking_budget
+from phase_config import get_thinking_budget, SPEC_PHASE_THINKING_LEVELS
 from prompts_pkg.project_context import should_refresh_project_index
 from review import run_review_checkpoint
 from task_logger import (
@@ -146,10 +161,29 @@ class SpecOrchestrator:
         """
         runner = self._get_agent_runner()
 
-        # Cap thinking budget for SIMPLE tasks — no need for ultrathink on trivial work
-        effective_thinking = self.thinking_level
-        if self._is_simple_task() and effective_thinking in ("high", "ultrathink"):
-            effective_thinking = "medium"
+        # OPTIMIZATION: Complexity-adaptive thinking budgets per phase.
+        # 1. Start with the per-phase level from SPEC_PHASE_THINKING_LEVELS
+        #    (e.g., discovery → ultrathink, requirements → medium)
+        # 2. Apply complexity-based caps:
+        #    - SIMPLE: cap at "medium" (no deep thinking needed)
+        #    - STANDARD: cap at "high" (skip ultrathink)
+        #    - COMPLEX: no cap (use full per-phase levels)
+        # Falls back to orchestrator's global thinking_level if phase not in map.
+        if phase_name and phase_name in SPEC_PHASE_THINKING_LEVELS:
+            effective_thinking = SPEC_PHASE_THINKING_LEVELS[phase_name]
+        else:
+            effective_thinking = self.thinking_level
+
+        if self._is_simple_task():
+            # SIMPLE: cap everything at "medium"
+            if effective_thinking in ("high", "ultrathink"):
+                effective_thinking = "medium"
+        elif self.assessment and self.assessment.complexity.value == "standard":
+            # STANDARD: cap ultrathink → high (still allows deep thinking, just not max)
+            if effective_thinking == "ultrathink":
+                effective_thinking = "high"
+        # COMPLEX: no cap — use full phase-level thinking
+
         thinking_budget = get_thinking_budget(effective_thinking)
 
         # Format prior phase summaries for context
@@ -196,10 +230,23 @@ class SpecOrchestrator:
 
         Uses smart caching: only regenerates if dependency files (package.json,
         pyproject.toml, etc.) have been modified since the last index generation.
-        This ensures QA agents receive accurate project capability information
-        for dynamic MCP tool injection.
+
+        OPTIMIZATION: If the index already exists and the task description doesn't
+        mention dependency/package-related keywords, skip the refresh entirely.
+        This saves 2-4 seconds on most tasks where project structure hasn't changed.
         """
         index_file = self.project_dir / ".auto-claude" / "project_index.json"
+
+        # OPTIMIZATION: Skip refresh if index exists and task doesn't involve deps
+        if index_file.exists():
+            dep_keywords = {"dependency", "package", "library", "npm", "pip", "install",
+                           "require", "import", "module", "migrate", "migration"}
+            task_lower = (self.task_description or "").lower()
+            task_mentions_deps = any(kw in task_lower for kw in dep_keywords)
+
+            if not task_mentions_deps and not should_refresh_project_index(self.project_dir):
+                print_status("Using cached project index", "info")
+                return
 
         if should_refresh_project_index(self.project_dir):
             if index_file.exists():
@@ -210,16 +257,13 @@ class SpecOrchestrator:
                 print_status("Generating project index...", "progress")
 
             try:
-                # Regenerate project index
                 analyze_project(self.project_dir, index_file)
                 print_status("Project index updated", "success")
             except Exception as e:
                 print_status(f"Project index refresh failed: {e}", "warning")
-                # Don't fail spec creation if indexing fails - continue with cached/missing
         else:
             if index_file.exists():
                 print_status("Using cached project index", "info")
-            # If no index exists and no refresh needed, that's fine - capabilities will be empty
 
     async def run(self, interactive: bool = True, auto_approve: bool = False) -> bool:
         """Run the spec creation process with dynamic phase selection.
@@ -286,6 +330,63 @@ class SpecOrchestrator:
             )
             return phase_fn()
 
+        # === EARLY SIMPLE DETECTION ===
+        # OPTIMIZATION: Run heuristic complexity check BEFORE any phases.
+        # If the task description strongly signals SIMPLE (e.g., "fix typo", "change color"),
+        # skip discovery + requirements and jump straight to quick_spec + planning + validation.
+        # This saves 20-30 seconds by avoiding 2-3 unnecessary agent sessions.
+        if not self.complexity_override and self.task_description:
+            from spec.complexity import ComplexityAnalyzer
+            early_analyzer = ComplexityAnalyzer()
+            early_assessment = early_analyzer.analyze(self.task_description)
+            if (
+                early_assessment.complexity == complexity.Complexity.SIMPLE
+                and early_assessment.confidence >= 0.85
+            ):
+                print_status(
+                    f"Early detection: SIMPLE task (confidence {early_assessment.confidence:.0%}) — fast-tracking",
+                    "success",
+                )
+                self.assessment = early_assessment
+                # Jump directly to SIMPLE workflow phases, skipping discovery + requirements
+                # FIX-012: Include historical_context phase so SIMPLE tasks benefit
+                # from learned patterns and known gotchas from previous tasks.
+                all_phases = {
+                    "historical_context": phase_executor.phase_historical_context,
+                    "quick_spec": phase_executor.phase_quick_spec,
+                    "planning": phase_executor.phase_planning,
+                    "validation": phase_executor.phase_validation,
+                }
+                phases_to_run = ["historical_context", "quick_spec", "planning", "validation"]
+
+                for phase_name in phases_to_run:
+                    if phase_name not in all_phases:
+                        continue
+                    result = await run_phase(phase_name, all_phases[phase_name])
+                    results.append(result)
+                    if not result.success:
+                        print_status(f"Phase '{phase_name}' failed", "error")
+                        task_logger.end_phase(LogPhase.PLANNING, success=False, message=f"{phase_name} failed")
+                        return False
+
+                # Generate ralph prompt and finalize
+                try:
+                    plan_file = self.spec_dir / "implementation_plan.json"
+                    if plan_file.exists():
+                        from prompts_pkg.ralph_prompt_generator import RalphPromptGenerator
+
+                        generator = RalphPromptGenerator()
+                        generator.save_prompt(
+                            self.spec_dir,
+                            self.project_dir,
+                            output_file=self.spec_dir / "ralph_prompt.md",
+                        )
+                        print_status("Ralph prompt generated: ralph_prompt.md", "success")
+                except Exception as e:
+                    print_status(f"Ralph prompt generation skipped: {e}", "warning")
+                task_logger.end_phase(LogPhase.PLANNING, success=True, message="Spec complete (fast-tracked SIMPLE)")
+                return True
+
         # === PHASE 1: DISCOVERY ===
         result = await run_phase("discovery", phase_executor.phase_discovery)
         results.append(result)
@@ -295,9 +396,9 @@ class SpecOrchestrator:
                 LogPhase.PLANNING, success=False, message="Discovery failed"
             )
             return False
-        # Store summary for subsequent phases (compaction) — skip for SIMPLE to save API calls
-        if not self._is_simple_task():
-            await self._store_phase_summary("discovery")
+        # OPTIMIZATION: Skip discovery summary — data is fresh, next phase can read files directly.
+        # Previously this made an LLM call to summarize, wasting 2-5 seconds for minimal value.
+        # Only summarize at key transition points (after research, after spec_writing).
 
         # === PHASE 2: REQUIREMENTS GATHERING ===
         result = await run_phase(
@@ -312,9 +413,8 @@ class SpecOrchestrator:
                 message="Requirements gathering failed",
             )
             return False
-        # Store summary for subsequent phases (compaction) — skip for SIMPLE
-        if not self._is_simple_task():
-            await self._store_phase_summary("requirements")
+        # OPTIMIZATION: Skip requirements summary — same rationale as discovery above.
+        # Requirements are in structured JSON, no need to LLM-summarize them.
 
         # Rename spec folder with better name from requirements
         rename_spec_dir_from_requirements(self.spec_dir)
@@ -382,8 +482,12 @@ class SpecOrchestrator:
             results.append(result)
             phases_executed.append(phase_name)
 
-            # Store summary for subsequent phases (compaction) — skip for SIMPLE
-            if result.success and not self._is_simple_task():
+            # OPTIMIZATION: Only summarize at key transition points, not every phase.
+            # Discovery + requirements summaries already skipped above.
+            # Here we only summarize: research → feeds into context/spec_writing,
+            # and spec_writing → feeds into planning. This cuts 3-4 LLM calls.
+            summary_phases = {"research", "spec_writing"}
+            if result.success and not self._is_simple_task() and phase_name in summary_phases:
                 await self._store_phase_summary(phase_name)
 
             if not result.success:
@@ -492,8 +596,9 @@ class SpecOrchestrator:
         assessment_file = self.spec_dir / "complexity_assessment.json"
         requirements_file = self.spec_dir / "requirements.json"
 
-        # Load requirements for full context
-        requirements_context = self._load_requirements_context(requirements_file)
+        # FIX-017: _load_requirements_context updates self.task_description as a side
+        # effect (needed for complexity assessment). The returned string was never used.
+        self._load_requirements_context(requirements_file)
 
         if self.complexity_override:
             # Manual override

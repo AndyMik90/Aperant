@@ -54,6 +54,7 @@ jobs:
       fail-fast: false
       matrix:
         # 3.12 on all OS for cross-platform coverage
+        # NOTE: Python 3.13 tested on Linux only. Expand to macOS/Windows when stable.
         # 3.13 on Linux only for compatibility check (saves 2 jobs)
         include:
           - os: ubuntu-latest

@@ -19,6 +19,17 @@ from unittest.mock import MagicMock
 import pytest
 
 # =============================================================================
+# TEST CONFIGURATION CONSTANTS
+# =============================================================================
+
+# Common test model names
+TEST_MODEL = "claude-sonnet-4-5-20250929"
+
+# Test directory paths
+TEST_PROJECT_DIR = "/tmp/test-project"
+TEST_SPEC_DIR = "/tmp/test-spec"
+
+# =============================================================================
 # PRE-MOCK EXTERNAL SDK MODULES - Must happen BEFORE adding auto-claude to path
 # =============================================================================
 # These SDK modules may not be installed, so we mock them before any imports

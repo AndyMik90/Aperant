@@ -7,6 +7,7 @@ Tools for managing subtask status in implementation_plan.json.
 
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,34 @@ try:
 except ImportError:
     SDK_TOOLS_AVAILABLE = False
     tool = None
+
+
+def _sync_plan_to_source(spec_dir: Path) -> None:
+    """
+    Lightweight sync of just implementation_plan.json from worktree to main project.
+
+    The coder agent sets SOURCE_SPEC_DIR env var when running in worktree mode.
+    This enables real-time subtask progress updates in the frontend UI,
+    since the file watcher monitors the main project's spec directory.
+    """
+    source_spec_dir_str = os.environ.get("SOURCE_SPEC_DIR")
+    if not source_spec_dir_str:
+        return
+
+    source_spec_dir = Path(source_spec_dir_str)
+    plan_file = spec_dir / "implementation_plan.json"
+
+    if not plan_file.exists():
+        return
+
+    try:
+        source_spec_dir.mkdir(parents=True, exist_ok=True)
+        # Use atomic write (temp + rename) instead of shutil.copy2 to prevent
+        # the file watcher from reading a half-written/truncated file.
+        plan_data = json.loads(plan_file.read_text(encoding="utf-8"))
+        write_json_atomic(source_spec_dir / "implementation_plan.json", plan_data, indent=2)
+    except Exception as e:
+        logging.debug(f"Failed to sync plan to source: {e}")
 
 
 def _update_subtask_in_plan(
@@ -131,6 +160,9 @@ def create_subtask_tools(spec_dir: Path, project_dir: Path) -> list:
             # Use atomic write to prevent file corruption
             write_json_atomic(plan_file, plan, indent=2)
 
+            # Sync plan to main project so file watcher picks up the change
+            _sync_plan_to_source(spec_dir)
+
             return {
                 "content": [
                     {
@@ -154,6 +186,7 @@ def create_subtask_tools(spec_dir: Path, project_dir: Path) -> list:
 
                     if subtask_found:
                         write_json_atomic(plan_file, plan, indent=2)
+                        _sync_plan_to_source(spec_dir)
                         return {
                             "content": [
                                 {

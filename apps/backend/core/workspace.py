@@ -673,8 +673,14 @@ def _try_smart_merge_inner(
                         }
 
                 # Build result - check for skipped files to detect partial merges
+                # FIX-033: When some files merge successfully and others fail, report
+                # partial_success=True (not success=False) so the caller knows files
+                # WERE merged and can present the user with accurate information.
+                has_skips = len(skipped_files) > 0
+                has_merges = len(resolved_files) > 0
                 result = {
-                    "success": len(skipped_files) == 0,
+                    "success": not has_skips,
+                    "partial_success": has_skips and has_merges,
                     "resolved_files": resolved_files,
                     "stats": {
                         "files_merged": len(resolved_files),
@@ -687,7 +693,6 @@ def _try_smart_merge_inner(
                 }
                 if skipped_files:
                     result["skipped_files"] = skipped_files
-                    result["partial_success"] = len(resolved_files) > 0
                     print()
                     print(
                         warning(
@@ -911,17 +916,31 @@ def _rebase_spec_branch(
         return False
     finally:
         # HIGH: Always restore original branch, even on error/exception
-        # NEW-001: Log restoration failure (cannot modify return from finally block)
         if original_branch:
             restore_result = run_git(["checkout", original_branch], cwd=project_dir)
             if restore_result.returncode != 0:
+                # FIX-007: Detect actual repo state and provide recovery instructions.
+                # If branch restore fails, the repo is on an unknown branch.
+                current = run_git(
+                    ["rev-parse", "--abbrev-ref", "HEAD"], cwd=project_dir
+                )
+                current_branch = (
+                    current.stdout.strip()
+                    if current.returncode == 0
+                    else "(unknown — detached HEAD?)"
+                )
                 debug_error(
                     MODULE,
-                    f"Failed to restore original branch '{original_branch}'",
+                    f"CRITICAL: Failed to restore branch '{original_branch}' after rebase. "
+                    f"Repo is currently on: {current_branch}. "
+                    f"Recovery: run 'git checkout {original_branch}' manually.",
                     stderr=restore_result.stderr,
                 )
-                # Note: Cannot modify return value from finally block,
-                # but restoration failure is rare and non-critical (user can manually switch back)
+                print(
+                    f"\n  ⚠ WARNING: Could not restore branch '{original_branch}'. "
+                    f"Currently on: {current_branch}\n"
+                    f"  Run: git checkout {original_branch}\n"
+                )
 
 
 def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
@@ -1263,6 +1282,12 @@ def _resolve_git_conflicts_with_ai(
                 debug(MODULE, f"  {file_path}: deleted (no AI needed)")
             else:
                 # File exists in both - check if it's a lock file
+                # FIX-034: _is_lock_file() is the shared function from git_utils.py
+                # used by both the actual merge path (here) and should also be used
+                # in any merge preview logic. The preview path (merge/orchestrator.py)
+                # does NOT currently filter lock files, which can cause "preview shows
+                # clean merge, actual merge differs" discrepancies. If adding lock
+                # file filtering to the preview, import is_lock_file from git_utils.
                 if _is_lock_file(target_file_path):
                     # Lock files should be excluded from merge entirely
                     # They must be regenerated after merge by running the package manager
@@ -1581,7 +1606,9 @@ def _resolve_git_conflicts_with_ai(
             print(muted(f"    Warning: Could not process {file_path}: {e}"))
 
     # V2: Record merge completion in Evolution Tracker for future context
-    # TODO: _record_merge_completion not yet implemented - see line 141
+    # TODO (FUTURE): _record_merge_completion not yet implemented - see line 141
+    # This would enable tracking merge history across evolution iterations.
+    # Consider implementing when evolution tracker redesign is complete.
     # if resolved_files:
     #     _record_merge_completion(project_dir, spec_name, resolved_files)
 

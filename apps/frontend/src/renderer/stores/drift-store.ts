@@ -7,6 +7,7 @@
 
 import { create } from 'zustand';
 import { IPC_CHANNELS } from '../../shared/constants';
+import { useNotificationStore } from './notification-store';
 import type { IPCResult } from '../../shared/types';
 
 // Drift report structure (matches Python DriftReport.to_dict())
@@ -297,6 +298,13 @@ export const useDriftStore = create<DriftState>((set, get) => ({
           },
         ],
       };
+    });
+    // Also push to notification center
+    useNotificationStore.getState().addNotification({
+      type: level === 'critical' ? 'error' : 'warning',
+      title: level === 'critical' ? 'Critical Drift Detected' : 'Drift Warning',
+      message: `Score: ${score.toFixed(2)}${anomalies.length > 0 ? ` — ${anomalies[0]}` : ''}`,
+      taskId,
     });
   },
 
