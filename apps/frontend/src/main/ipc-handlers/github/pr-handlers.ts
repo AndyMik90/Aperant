@@ -1355,7 +1355,44 @@ function getReviewResult(project: Project, prNumber: number): PRReviewResult | n
   }
 }
 
-// IPC communication helpers removed - using createIPCCommunicators instead
+/**
+ * Send a PR review state update event to the renderer to refresh the UI immediately.
+ * Used after operations that modify review state (post, mark posted, delete).
+ */
+function sendReviewStateUpdate(
+  project: Project,
+  prNumber: number,
+  projectId: string,
+  getMainWindow: () => BrowserWindow | null,
+  context: string
+): void {
+  try {
+    const updatedResult = getReviewResult(project, prNumber);
+    if (!updatedResult) {
+      debugLog("Could not retrieve updated review result for UI notification", { prNumber, context });
+      return;
+    }
+    const mainWindow = getMainWindow();
+    if (!mainWindow) return;
+    const { sendComplete } = createIPCCommunicators<PRReviewProgress, PRReviewResult>(
+      mainWindow,
+      {
+        progress: IPC_CHANNELS.GITHUB_PR_REVIEW_PROGRESS,
+        error: IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR,
+        complete: IPC_CHANNELS.GITHUB_PR_REVIEW_COMPLETE,
+      },
+      projectId
+    );
+    sendComplete(updatedResult);
+    debugLog(`Sent PR review state update ${context}`, { prNumber });
+  } catch (uiError) {
+    debugLog("Failed to send UI update (non-critical)", {
+      prNumber,
+      context,
+      error: uiError instanceof Error ? uiError.message : uiError,
+    });
+  }
+}
 
 /**
  * Get GitHub PR model and thinking settings from app settings
@@ -2102,24 +2139,8 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             debugLog("Review result file not found or unreadable, skipping update", { prNumber });
           }
 
-          // Send state update event to refresh UI immediately
-          const updatedResult = getReviewResult(project, prNumber);
-          if (updatedResult) {
-            const mainWindow = getMainWindow();
-            if (mainWindow) {
-              const { sendComplete } = createIPCCommunicators<PRReviewProgress, PRReviewResult>(
-                mainWindow,
-                {
-                  progress: IPC_CHANNELS.GITHUB_PR_REVIEW_PROGRESS,
-                  error: IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR,
-                  complete: IPC_CHANNELS.GITHUB_PR_REVIEW_COMPLETE,
-                },
-                projectId
-              );
-              sendComplete(updatedResult);
-              debugLog("Sent PR review state update after posting", { prNumber });
-            }
-          }
+          // Send state update event to refresh UI immediately (non-blocking)
+          sendReviewStateUpdate(project, prNumber, projectId, getMainWindow, "after posting");
 
           return true;
         } catch (error) {
@@ -2157,24 +2178,8 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           fs.writeFileSync(reviewPath, JSON.stringify(data, null, 2), "utf-8");
           debugLog("Marked review as posted", { prNumber });
 
-          // Send state update event to refresh UI immediately
-          const updatedResult = getReviewResult(project, prNumber);
-          if (updatedResult) {
-            const mainWindow = getMainWindow();
-            if (mainWindow) {
-              const { sendComplete } = createIPCCommunicators<PRReviewProgress, PRReviewResult>(
-                mainWindow,
-                {
-                  progress: IPC_CHANNELS.GITHUB_PR_REVIEW_PROGRESS,
-                  error: IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR,
-                  complete: IPC_CHANNELS.GITHUB_PR_REVIEW_COMPLETE,
-                },
-                projectId
-              );
-              sendComplete(updatedResult);
-              debugLog("Sent PR review state update after marking posted", { prNumber });
-            }
-          }
+          // Send state update event to refresh UI immediately (non-blocking)
+          sendReviewStateUpdate(project, prNumber, projectId, getMainWindow, "after marking posted");
 
           return true;
         } catch (error) {
@@ -2291,24 +2296,8 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             debugLog("Review result file not found or unreadable, skipping update", { prNumber });
           }
 
-          // Send state update event to refresh UI immediately
-          const updatedResult = getReviewResult(project, prNumber);
-          if (updatedResult) {
-            const mainWindow = getMainWindow();
-            if (mainWindow) {
-              const { sendComplete } = createIPCCommunicators<PRReviewProgress, PRReviewResult>(
-                mainWindow,
-                {
-                  progress: IPC_CHANNELS.GITHUB_PR_REVIEW_PROGRESS,
-                  error: IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR,
-                  complete: IPC_CHANNELS.GITHUB_PR_REVIEW_COMPLETE,
-                },
-                projectId
-              );
-              sendComplete(updatedResult);
-              debugLog("Sent PR review state update after deletion", { prNumber });
-            }
-          }
+          // Send state update event to refresh UI immediately (non-blocking)
+          sendReviewStateUpdate(project, prNumber, projectId, getMainWindow, "after deletion");
 
           return true;
         } catch (error) {
