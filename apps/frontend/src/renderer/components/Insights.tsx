@@ -507,7 +507,7 @@ export function Insights({ projectId }: InsightsProps) {
           onSend={handleSend}
           onCancel={handleCancel}
           isLoading={isLoading}
-          placeholder={isLoading ? "Waiting for response..." : "Ask about your codebase..."}
+          placeholder="Ask about your codebase..."
         />
       </div>
       </div>

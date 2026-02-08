@@ -1492,7 +1492,6 @@ export function TaskMonitorChat({
                   onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
-                  disabled={isSending}
                 />
               </div>
               <Button
@@ -1504,7 +1503,7 @@ export function TaskMonitorChat({
                     : "bg-orange-500/50 cursor-not-allowed"
                 )}
                 onClick={handleSendMessage}
-                disabled={(!inputValue.trim() && pendingImages.length === 0) || isSending}
+                disabled={!inputValue.trim() && pendingImages.length === 0}
               >
                 <Send className="h-4 w-4" />
               </Button>

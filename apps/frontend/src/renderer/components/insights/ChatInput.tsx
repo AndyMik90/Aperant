@@ -64,6 +64,11 @@ export function ChatInput({
     if (!value.trim() && pendingImages.length === 0) return;
     if (disabled) return;
 
+    // If currently loading, cancel the existing generation first
+    if (isLoading && onCancel) {
+      onCancel();
+    }
+
     onSend(value, pendingImages.length > 0 ? pendingImages : undefined);
     setPendingImages([]);
   };
@@ -86,7 +91,7 @@ export function ChatInput({
     }
   };
 
-  const canSend = (value.trim().length > 0 || pendingImages.length > 0) && !disabled;
+  const canSend = value.trim().length > 0 || pendingImages.length > 0;
 
   return (
     <div className="border border-border rounded-lg bg-background overflow-hidden">
@@ -124,9 +129,9 @@ export function ChatInput({
       />
 
       {/* Bottom toolbar */}
-      <div className="flex items-center justify-end px-3 py-2 border-t border-border">
-        {/* Send/Stop button (right) */}
-        {isLoading && onCancel ? (
+      <div className="flex items-center justify-end gap-2 px-3 py-2 border-t border-border">
+        {/* Stop button (when loading) */}
+        {isLoading && onCancel && (
           <Button
             variant="destructive"
             size="sm"
@@ -136,17 +141,17 @@ export function ChatInput({
           >
             <Square className="h-4 w-4" />
           </Button>
-        ) : (
-          <Button
-            size="sm"
-            className="h-8 w-8 p-0 rounded-full"
-            onClick={handleSend}
-            disabled={!canSend}
-            title="Send message (Enter)"
-          >
-            <ArrowUp className="h-4 w-4" />
-          </Button>
         )}
+        {/* Send button (always available) */}
+        <Button
+          size="sm"
+          className="h-8 w-8 p-0 rounded-full"
+          onClick={handleSend}
+          disabled={!canSend}
+          title="Send message (Enter)"
+        >
+          <ArrowUp className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );
