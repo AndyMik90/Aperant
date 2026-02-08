@@ -272,12 +272,15 @@ Current question: {message}"""
             # Stream the response
             response_text = ""
             current_tool = None
+            turn_count = 0
+            tool_calls = 0
 
             async for msg in client.receive_response():
                 msg_type = type(msg).__name__
                 debug_detailed("insights_runner", "Received message", msg_type=msg_type)
 
                 if msg_type == "AssistantMessage" and hasattr(msg, "content"):
+                    turn_count += 1
                     for block in msg.content:
                         block_type = type(block).__name__
                         debug_detailed(
@@ -292,6 +295,7 @@ Current question: {message}"""
                             print(text, flush=True)
                             response_text += text
                         elif block_type == "ToolUseBlock" and hasattr(block, "name"):
+                            tool_calls += 1
                             # Emit tool start marker for UI feedback
                             tool_name = block.name
                             tool_input = ""
@@ -326,6 +330,24 @@ Current question: {message}"""
                         )
                         current_tool = None
 
+            # Warn if response loop ended with no text output
+            max_turns = options_kwargs.get("max_turns", 50)
+            if not response_text.strip():
+                if turn_count >= max_turns:
+                    warning = (
+                        f"\n\n---\n*Reached the maximum of {max_turns} turns "
+                        f"({tool_calls} tool calls) without producing a final response. "
+                        f"Try breaking the request into smaller steps.*"
+                    )
+                else:
+                    warning = (
+                        "\n\n---\n*Completed without producing a text response. "
+                        "This can happen when the task was fully handled through tool "
+                        "actions (file edits, searches, etc.).*"
+                    )
+                print(warning, flush=True)
+                response_text += warning
+
             # Ensure we have a newline at the end
             if response_text and not response_text.endswith("\n"):
                 print()
@@ -334,6 +356,8 @@ Current question: {message}"""
                 "insights_runner",
                 "Response complete",
                 response_length=len(response_text),
+                turns=turn_count,
+                tool_calls=tool_calls,
             )
 
     except Exception as e:
