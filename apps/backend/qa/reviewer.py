@@ -16,7 +16,7 @@ from pathlib import Path
 from agents.base import sanitize_error_message
 from agents.memory_manager import get_graphiti_context, save_session_memory
 from claude_agent_sdk import ClaudeSDKClient
-from core.error_utils import is_tool_concurrency_error
+from core.error_utils import is_rate_limit_error, is_tool_concurrency_error
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from prompts_pkg import get_qa_reviewer_prompt
 from security.tool_input_validator import get_safe_tool_input
@@ -408,7 +408,14 @@ This is attempt {previous_error.get("consecutive_errors", 1) + 1}. If you fail t
     except Exception as e:
         # Detect specific error types for better retry handling
         is_concurrency = is_tool_concurrency_error(e)
-        error_type = "tool_concurrency" if is_concurrency else "other"
+        is_rate_limited = is_rate_limit_error(e)
+
+        if is_concurrency:
+            error_type = "tool_concurrency"
+        elif is_rate_limited:
+            error_type = "rate_limit"
+        else:
+            error_type = "other"
 
         debug_error(
             "qa_reviewer",
