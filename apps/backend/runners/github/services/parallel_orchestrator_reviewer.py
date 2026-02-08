@@ -519,6 +519,7 @@ Report findings with specific file paths, line numbers, and code evidence.
                 model=model,
                 agent_type="pr_reviewer",
                 betas=betas,
+                fast_mode=self.config.fast_mode,
                 output_format={
                     "type": "json_schema",
                     "schema": SpecialistResponse.model_json_schema(),
@@ -820,6 +821,7 @@ The SDK will run invoked agents in parallel automatically.
             model=model,
             agent_type="pr_orchestrator_parallel",
             betas=betas,
+            fast_mode=self.config.fast_mode,
             agents=self._define_specialist_agents(project_root),
             output_format={
                 "type": "json_schema",
@@ -1749,6 +1751,7 @@ For EACH finding above:
                     model=model,
                     agent_type="pr_finding_validator",
                     betas=betas,
+                    fast_mode=self.config.fast_mode,
                     output_format={
                         "type": "json_schema",
                         "schema": FindingValidationResponse.model_json_schema(),

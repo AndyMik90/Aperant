@@ -997,6 +997,7 @@ class GitHubRunnerConfig:
     # to respect environment variable overrides (e.g., ANTHROPIC_DEFAULT_SONNET_MODEL)
     model: str = "sonnet"
     thinking_level: str = "medium"
+    fast_mode: bool = False
 
     def to_dict(self) -> dict:
         return {

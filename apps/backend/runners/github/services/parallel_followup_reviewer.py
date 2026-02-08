@@ -541,6 +541,7 @@ The SDK will run invoked agents in parallel automatically.
                 model=model,
                 agent_type="pr_followup_parallel",
                 betas=betas,
+                fast_mode=self.config.fast_mode,
                 agents=self._define_specialist_agents(project_root),
                 output_format={
                     "type": "json_schema",
