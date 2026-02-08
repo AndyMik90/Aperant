@@ -170,9 +170,9 @@ export function useChangelog() {
     };
   }, [selectedProjectId, setError, setGenerationProgress, setIsGenerating, updateGeneratedChangelog]);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (selectedProjectId) {
-      generateChangelog(selectedProjectId);
+      await generateChangelog(selectedProjectId);
     }
   };
 

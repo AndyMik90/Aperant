@@ -604,3 +604,28 @@ def get_recovery_context(spec_dir: Path, project_dir: Path, subtask_id: str) -> 
         "subtask_history": manager.get_subtask_history(subtask_id),
         "stuck_subtasks": manager.get_stuck_subtasks(),
     }
+
+
+def reset_subtask(spec_dir: Path, project_dir: Path, subtask_id: str) -> None:
+    """
+    Reset a subtask's attempt history (module-level wrapper).
+
+    Args:
+        spec_dir: Spec directory
+        project_dir: Project directory
+        subtask_id: Subtask ID to reset
+    """
+    manager = RecoveryManager(spec_dir, project_dir)
+    manager.reset_subtask(subtask_id)
+
+
+def clear_stuck_subtasks(spec_dir: Path, project_dir: Path) -> None:
+    """
+    Clear all stuck subtasks (module-level wrapper).
+
+    Args:
+        spec_dir: Spec directory
+        project_dir: Project directory
+    """
+    manager = RecoveryManager(spec_dir, project_dir)
+    manager.clear_stuck_subtasks()
