@@ -25,10 +25,10 @@ interface ProcessorResult {
   toolsUsed: InsightsToolUsage[];
 }
 
-// Maximum total execution time (5 minutes)
-const MAX_EXECUTION_MS = 5 * 60 * 1000;
-// Kill process if no stdout/stderr activity for this long (90 seconds)
-const ACTIVITY_TIMEOUT_MS = 90 * 1000;
+// Maximum total execution time (15 minutes — large tasks with 50 turns need time)
+const MAX_EXECUTION_MS = 15 * 60 * 1000;
+// Kill process if no stdout/stderr activity for this long (3 minutes — Claude thinking can take a while)
+const ACTIVITY_TIMEOUT_MS = 3 * 60 * 1000;
 
 /**
  * Kill a process and all its children by process group.

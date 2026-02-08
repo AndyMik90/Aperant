@@ -251,9 +251,9 @@ Current question: {message}"""
         options_kwargs = {
             "model": resolve_model_id(model),  # Resolve via API Profile if configured
             "system_prompt": system_prompt,
-            "allowed_tools": ["Read", "Glob", "Grep"],
+            "allowed_tools": ["Read", "Glob", "Grep", "Write", "Edit", "Bash"],
             "disallowed_tools": ["Task"],  # Block subagent spawning in Jerry Chat
-            "max_turns": 15,  # Reduced for faster responses
+            "max_turns": 50,  # Enough for research + writing tasks
             "cwd": str(project_path),
         }
 
