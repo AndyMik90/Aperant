@@ -77,7 +77,7 @@ const initialStatus: InsightsChatStatus = {
   message: ''
 };
 
-export const useInsightsStore = create<InsightsState>((set, _get) => ({
+export const useInsightsStore = create<InsightsState>((set, get) => ({
   // Initial state
   session: null,
   sessions: [],
@@ -253,15 +253,25 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
 
   cancelGeneration: async (projectId: string) => {
     try {
-      await window.electronAPI.cancelInsights(projectId);
-      // Reset status to idle
+      // Save whatever Jerry has said so far before clearing
+      const state = get();
+      if (state.streamingContent.trim()) {
+        state.finalizeStreamingMessage();
+      }
+
+      // Reset UI state synchronously BEFORE the async IPC call.
+      // This prevents a race when the user sends a new message immediately
+      // after cancel — sendMessage sets status='thinking', and we don't want
+      // a late-arriving set({ status: 'idle' }) to overwrite it.
       set({
         status: { phase: 'idle', message: '' },
-        streamingContent: '',
         currentTool: null,
         streamingStartTime: null,
         responseDuration: null
       });
+
+      // Kill the backend process
+      await window.electronAPI.cancelInsights(projectId);
     } catch (error) {
       console.error('[Insights] Failed to cancel generation:', error);
     }
