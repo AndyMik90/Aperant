@@ -306,6 +306,9 @@ export interface GitHubAPI {
   onPRReviewError: (
     callback: (projectId: string, error: { prNumber: number; error: string }) => void
   ) => IpcListenerCleanup;
+  onPRLogsUpdated: (
+    callback: (projectId: string, data: { prNumber: number; entryCount: number }) => void
+  ) => IpcListenerCleanup;
 }
 
 /**
@@ -753,5 +756,10 @@ export const createGitHubAPI = (): GitHubAPI => ({
   onPRReviewError: (
     callback: (projectId: string, error: { prNumber: number; error: string }) => void
   ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR, callback)
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR, callback),
+
+  onPRLogsUpdated: (
+    callback: (projectId: string, data: { prNumber: number; entryCount: number }) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_LOGS_UPDATED, callback)
 });
