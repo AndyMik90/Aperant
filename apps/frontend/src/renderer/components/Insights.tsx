@@ -39,7 +39,7 @@ import {
 import { loadTasks } from '../stores/task-store';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
 import { InsightsModelSelector } from './InsightsModelSelector';
-import type { InsightsChatMessage, InsightsModelConfig } from '../../shared/types';
+import type { InsightsChatMessage, InsightsModelConfig, TaskMetadata } from '../../shared/types';
 import {
   TASK_CATEGORY_LABELS,
   TASK_CATEGORY_COLORS,
@@ -102,7 +102,7 @@ export function Insights({ projectId }: InsightsProps) {
   }), [t]);
 
   const [inputValue, setInputValue] = useState('');
-  const [creatingTask, setCreatingTask] = useState<string | null>(null);
+  const [creatingTask, setCreatingTask] = useState<Set<string>>(new Set());
   const [taskCreated, setTaskCreated] = useState<Set<string>>(new Set());
   const [showSidebar, setShowSidebar] = useState(true);
   const [isUserAtBottom, setIsUserAtBottom] = useState(true);
@@ -201,10 +201,10 @@ export function Insights({ projectId }: InsightsProps) {
   const handleCreateTask = async (
     messageId: string,
     taskIndex: number,
-    taskData: { title: string; description: string; metadata?: any }
+    taskData: { title: string; description: string; metadata?: TaskMetadata }
   ) => {
     const taskKey = `${messageId}-${taskIndex}`;
-    setCreatingTask(taskKey);
+    setCreatingTask(prev => new Set(prev).add(taskKey));
     try {
       const task = await createTaskFromSuggestion(
         projectId,
@@ -219,7 +219,11 @@ export function Insights({ projectId }: InsightsProps) {
         loadTasks(projectId);
       }
     } finally {
-      setCreatingTask(null);
+      setCreatingTask(prev => {
+        const next = new Set(prev);
+        next.delete(taskKey);
+        return next;
+      });
     }
   };
 
@@ -431,8 +435,8 @@ export function Insights({ projectId }: InsightsProps) {
 interface MessageBubbleProps {
   message: InsightsChatMessage;
   markdownComponents: Components;
-  onCreateTask: (messageId: string, taskIndex: number, taskData: { title: string; description: string; metadata?: any }) => void;
-  creatingTask: string | null;
+  onCreateTask: (messageId: string, taskIndex: number, taskData: { title: string; description: string; metadata?: TaskMetadata }) => void;
+  creatingTask: Set<string>;
   taskCreated: Set<string>;
 }
 
@@ -479,7 +483,7 @@ function MessageBubble({
           <div className="mt-3 space-y-3">
             {message.suggestedTasks.map((task, index) => {
               const taskKey = `${message.id}-${index}`;
-              const isCreating = creatingTask === taskKey;
+              const isCreating = creatingTask.has(taskKey);
               const isCreated = taskCreated.has(taskKey);
 
               return (
