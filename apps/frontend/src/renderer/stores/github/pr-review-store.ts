@@ -269,11 +269,9 @@ export function initializePRReviewListeners(): void {
       store.setPRReviewResult(projectId, result);
       // Trigger all registered refresh callbacks when review completes
       refreshCallbacks.forEach(callback => {
-        try {
-          callback();
-        } catch (error) {
+        Promise.resolve(callback()).catch(error => {
           console.error('[PRReviewStore] Error in refresh callback:', error);
-        }
+        });
       });
     }
   );
