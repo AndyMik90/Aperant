@@ -465,7 +465,7 @@ export function setupInsightsListeners(): () => void {
 
   // Listen for streaming chunks
   const unsubStreamChunk = window.electronAPI.onInsightsStreamChunk(
-    (_projectId, chunk: InsightsStreamChunk) => {
+    (projectId, chunk: InsightsStreamChunk) => {
       switch (chunk.type) {
         case 'text':
           if (chunk.content) {
@@ -510,6 +510,8 @@ export function setupInsightsListeners(): () => void {
             phase: 'complete',
             message: ''
           });
+          // Refresh sessions list so Chat History sidebar updates
+          loadInsightsSessions(projectId);
           break;
         case 'error':
           store().setCurrentTool(null);
