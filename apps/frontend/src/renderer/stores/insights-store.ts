@@ -408,8 +408,15 @@ export async function switchSession(projectId: string, sessionId: string): Promi
 export async function deleteSession(projectId: string, sessionId: string): Promise<boolean> {
   const result = await window.electronAPI.deleteInsightsSession(projectId, sessionId);
   if (result.success) {
-    // Reload sessions list and current session
-    await loadInsightsSession(projectId);
+    const currentSession = useInsightsStore.getState().session;
+    if (currentSession?.id === sessionId) {
+      // Deleted the active session — reload current session (backend picks the next one)
+      await loadInsightsSession(projectId);
+    } else {
+      // Deleted a different session — only refresh the sidebar list, don't touch
+      // the active session (which may have in-progress streaming content)
+      await loadInsightsSessions(projectId);
+    }
     return true;
   }
   return false;
