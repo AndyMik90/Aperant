@@ -419,6 +419,12 @@
     "failedLabel": "Failed",
     "starting": "Starting..."
   },
+  "insights": {
+    "suggestedTask": "Suggested Task",
+    "creating": "Creating...",
+    "taskCreated": "Task Created",
+    "createTask": "Create Task"
+  },
   "ideation": {
     "converting": "Converting...",
     "convertToTask": "Convert to Auto-Build Task",

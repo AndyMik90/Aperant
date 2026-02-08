@@ -160,7 +160,7 @@ export function Insights({ projectId }: InsightsProps) {
   // Reset taskCreated when switching sessions
   useEffect(() => {
     setTaskCreated(new Set());
-  }, []);
+  }, [session?.id]);
 
   const handleSend = () => {
     const message = inputValue.trim();
@@ -447,6 +447,7 @@ function MessageBubble({
   creatingTask,
   taskCreated
 }: MessageBubbleProps) {
+  const { t } = useTranslation('common');
   const isUser = message.role === 'user';
 
   return (
@@ -492,7 +493,7 @@ function MessageBubble({
                     <div className="mb-2 flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-primary" />
                       <span className="text-sm font-medium text-primary">
-                        Suggested Task
+                        {t('insights.suggestedTask')}
                       </span>
                     </div>
                     <h4 className="mb-2 font-medium text-foreground">
@@ -537,17 +538,17 @@ function MessageBubble({
                       {isCreating ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Creating...
+                          {t('insights.creating')}
                         </>
                       ) : isCreated ? (
                         <>
                           <CheckCircle2 className="mr-2 h-4 w-4" />
-                          Task Created
+                          {t('insights.taskCreated')}
                         </>
                       ) : (
                         <>
                           <Plus className="mr-2 h-4 w-4" />
-                          Create Task
+                          {t('insights.createTask')}
                         </>
                       )}
                     </Button>
