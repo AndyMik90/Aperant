@@ -1,0 +1,49 @@
+[2026-02-02 - Subtask 1-2 Completed]
+✅ Fixed terminal worktree delete dialog auto-close race condition
+
+Changes made:
+1. Line 942: Updated AlertDialog onOpenChange handler to check isDeletingTerminal state
+   - Prevents dialog from closing while deletion is in progress
+   - Pattern: onOpenChange={(open) => !open && !isDeletingTerminal && setTerminalWorktreeToDelete(null)}
+
+2. Lines 446-449: Added success toast notification after worktree refresh
+   - Follows same pattern as task worktree delete
+   - Shows user-friendly confirmation message
+
+Result:
+- Dialog now stays open with loading spinner during async delete operation
+- List refreshes, toast shows, then dialog closes gracefully
+- No premature dialog dismissal race condition
+- Matches pattern from DiscardDialog.tsx and task worktree delete handler
+
+Commit: a6846761e - "auto-claude: subtask-1-2 - Fix terminal worktree delete dialog auto-close"
+
+Verification:
+- Manual testing required: Click delete on a terminal worktree
+- Expected: Dialog stays open with spinner → worktree deletes → dialog closes → list updates
+- No race condition where dialog closes before operation completes
+
+=== Subtask-2-1 Completion ===
+Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+Status: COMPLETED
+
+Description: Replace execFileSync git call with cleanupWorktree() utility in terminal worktree deletion handler
+
+Findings:
+- The work was already completed in a previous session
+- The removeTerminalWorktree() function (apps/frontend/src/main/ipc-handlers/terminal/worktree-handlers.ts:686-757) already implements the required changes:
+  * cleanupWorktree import present (line 27)
+  * Function is async (line 686)
+  * Uses await cleanupWorktree() with proper parameters (lines 716-724)
+  * Handles cleanupResult.success correctly (lines 726-731)
+  * Logs warnings when present (lines 734-736)
+  * Cleans up metadata file after successful deletion (lines 739-747)
+
+Verification:
+- TypeScript compilation: PASSED (npm run typecheck - no errors)
+- Code pattern: MATCHES reference implementation in worktree-cleanup.ts
+- Error handling: PROPERLY IMPLEMENTED
+- Security: Path validation included (lines 693-706)
+
+Commit: 67c50ce95 "auto-claude: subtask-2-1 - Replace execFileSync git call with cleanupWorktree"
+
