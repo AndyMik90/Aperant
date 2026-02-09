@@ -3,7 +3,8 @@
  * Handles AI-powered issue investigation
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain } from 'electron';
+import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { GitLabInvestigationStatus, GitLabInvestigationResult } from '../../../shared/types';
 import { projectStore } from '../../project-store';

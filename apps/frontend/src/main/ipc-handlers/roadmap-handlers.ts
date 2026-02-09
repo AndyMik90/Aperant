@@ -439,7 +439,6 @@ export function registerRoadmapHandlers(
         writeFileSync(roadmapPath, JSON.stringify(existingRoadmap, null, 2), 'utf-8');
 
           return { success: true };
-        });
       } catch (error) {
         return {
           success: false,
@@ -493,7 +492,6 @@ export function registerRoadmapHandlers(
         writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2), 'utf-8');
 
           return { success: true };
-        });
       } catch (error) {
         return {
           success: false,
@@ -602,7 +600,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         await writeFileWithRetry(
           path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
           JSON.stringify(implementationPlan, null, 2),
-          'utf-8'
+          { encoding: 'utf-8' }
         );
 
         // Create requirements.json
@@ -613,7 +611,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         await writeFileWithRetry(
           path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS),
           JSON.stringify(requirements, null, 2),
-          'utf-8'
+          { encoding: 'utf-8' }
         );
 
         // Create spec.md (required by backend spec creation process)
@@ -653,7 +651,6 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         };
 
         return { success: true, data: task };
-        });
       } catch (error) {
         return {
           success: false,

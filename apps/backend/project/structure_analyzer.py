@@ -100,8 +100,8 @@ class StructureAnalyzer:
 
     def _detect_shell_scripts(self) -> None:
         """Detect shell scripts in root directory."""
-        for _ in ["*.sh", "*.bash"]:
-            for script_path in self.parser.glob_files(_):
+        for pattern in ["*.sh", "*.bash"]:
+            for script_path in self.parser.glob_files(pattern):
                 script_name = script_path.name
                 self.custom_scripts.shell_scripts.append(script_name)
                 # Allow executing these scripts

@@ -15,6 +15,83 @@ import { getToolPath } from '../../cli-tool-manager';
 const execFileAsync = promisify(execFile);
 
 /**
+ * ETag cache entry
+ */
+interface ETagCacheEntry {
+  etag: string;
+  data: unknown;
+  lastUpdated: Date;
+}
+
+/**
+ * Result from githubFetchWithETag
+ */
+export interface GitHubFetchWithETagResult {
+  data: unknown;
+  fromCache: boolean;
+  rateLimitInfo?: {
+    limit: number;
+    remaining: number;
+    resetAt: Date;
+  };
+}
+
+/**
+ * In-memory ETag cache for GitHub API responses
+ * Key: URL, Value: ETag entry with data and timestamp
+ */
+const etagCache: Record<string, ETagCacheEntry> = {};
+
+/**
+ * Counter for tracking cache writes to trigger periodic eviction
+ * Evicts stale entries every ETAG_EVICTION_INTERVAL writes
+ */
+let evictionWriteCounter = 0;
+
+/**
+ * Number of cache writes between evictions
+ */
+const ETAG_EVICTION_INTERVAL = 100;
+
+/**
+ * Extract rate limit info from GitHub API response headers
+ */
+function extractRateLimitInfo(response: Response): {
+  limit: number;
+  remaining: number;
+  resetAt: Date;
+} | undefined {
+  const limit = response.headers.get('X-RateLimit-Limit');
+  const remaining = response.headers.get('X-RateLimit-Remaining');
+  const reset = response.headers.get('X-RateLimit-Reset');
+
+  if (limit && remaining && reset) {
+    return {
+      limit: parseInt(limit, 10),
+      remaining: parseInt(remaining, 10),
+      resetAt: new Date(parseInt(reset, 10) * 1000)
+    };
+  }
+  return undefined;
+}
+
+/**
+ * Evict stale cache entries older than 1 hour
+ */
+function evictStaleCacheEntries(): void {
+  const now = new Date();
+  const oneHour = 60 * 60 * 1000;
+
+  for (const url in etagCache) {
+    const entry = etagCache[url];
+    const age = now.getTime() - entry.lastUpdated.getTime();
+    if (age > oneHour) {
+      delete etagCache[url];
+    }
+  }
+}
+
+/**
  * Sanitize token value to prevent control character injection.
  * Removes ASCII control characters (0x00-0x1F, 0x7F) while preserving
  * valid token characters (alphanumeric, punctuation).
@@ -258,4 +335,23 @@ export async function githubFetchWithETag(
     fromCache: false,
     rateLimitInfo
   };
+}
+
+/**
+ * Clear all ETag cache entries for a specific project
+ * @param projectId - The project identifier to clear cache for
+ */
+export function clearETagCacheForProject(projectId: string): void {
+  const urlsToDelete: string[] = [];
+
+  for (const url in etagCache) {
+    // Match URLs that contain the project ID
+    if (url.includes(projectId)) {
+      urlsToDelete.push(url);
+    }
+  }
+
+  for (const url of urlsToDelete) {
+    delete etagCache[url];
+  }
 }

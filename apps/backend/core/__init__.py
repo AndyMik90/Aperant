@@ -10,12 +10,31 @@ that may not be needed for basic operations.
 
 from typing import Any
 
+
 # Module-level placeholders for CodeQL static analysis.
 # The actual exported names trigger __getattr__ for lazy loading.
-# Use list placeholder to satisfy CodeQL's "defined but not set to None" check.
-run_autonomous_agent: Any = []
-run_followup_planner: Any = []
-WorktreeManager: Any = []
+def run_autonomous_agent(*args: Any, **kwargs: Any) -> Any:
+    """Stub for lazy import."""
+    raise NotImplementedError("Use __getattr__")
+
+
+def run_followup_planner(*args: Any, **kwargs: Any) -> Any:
+    """Stub for lazy import."""
+    raise NotImplementedError("Use __getattr__")
+
+
+class WorktreeManager:  # type: ignore[misc, no-redef]
+    """Stub for lazy import."""
+
+
+def create_claude_client(*args: Any, **kwargs: Any) -> Any:
+    """Stub for lazy import."""
+    raise NotImplementedError("Use __getattr__")
+
+
+class ClaudeClient:  # type: ignore[misc, no-redef]
+    """Stub for lazy import."""
+
 
 __all__ = [
     "run_autonomous_agent",

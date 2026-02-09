@@ -293,6 +293,8 @@ export interface AppSettings {
   seenVersionWarnings?: string[];
   // Sidebar collapsed state (icons only when true)
   sidebarCollapsed?: boolean;
+  // Fast mode: reduce thinking budget for faster responses (Opus models only)
+  fastMode?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

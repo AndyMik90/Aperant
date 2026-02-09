@@ -6,7 +6,7 @@
 import { homedir } from 'os';
 import { join } from 'path';
 import { existsSync, readFileSync, readdirSync, mkdirSync } from 'fs';
-import type { ClaudeProfile } from '../../shared/types';
+import type { ClaudeProfile, APIProfile } from '../../shared/types';
 import { getCredentialsFromKeychain } from './credential-utils';
 
 /**
@@ -266,4 +266,21 @@ export function getEmailFromConfigDir(configDir?: string): string | null {
   }
 
   return null;
+}
+
+/**
+ * Check if an API profile has valid authentication
+ * (checks for non-empty apiKey and baseUrl)
+ */
+export function isAPIProfileAuthenticated(profile: APIProfile | null | undefined): boolean {
+  if (!profile) {
+    return false;
+  }
+
+  // Trim whitespace from both fields for validation
+  const apiKey = profile.apiKey?.trim() ?? '';
+  const baseUrl = profile.baseUrl?.trim() ?? '';
+
+  // Both apiKey and baseUrl must be present and non-empty
+  return apiKey.length > 0 && baseUrl.length > 0;
 }

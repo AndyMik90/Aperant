@@ -459,10 +459,10 @@ def print_results(matches: list[SecretMatch]) -> None:
     for file_path, file_matches in files_with_matches.items():
         print(f"\n{YELLOW}File: {file_path}{NC}")
         for match in file_matches:
-            # mask_secret shows only first 8 chars for false positive identification
+            # mask_secret shows only first 4 chars + "***" for safe display
             masked = mask_secret(match.matched_text, visible_chars=4)
             print(f"  Line {match.line_number}: [{match.pattern_name}]")
-            # lgtm[py/clear-text-logging-of-sensitive-data] - value is masked
+            # masked variable contains only first 4 chars + "***", safe to print
             print(f"    {CYAN}{masked}{NC}")
 
     print(f"\n{RED}{'=' * 60}{NC}")
@@ -485,12 +485,13 @@ def print_json_results(matches: list[SecretMatch]) -> None:
                 "file": m.file_path,
                 "line": m.line_number,
                 "type": m.pattern_name,
+                # mask_secret() returns only first 4 chars + "***", safe for output
                 "preview": mask_secret(m.matched_text, visible_chars=4),
             }
             for m in matches
         ],
     }
-    # lgtm[py/clear-text-logging-of-sensitive-data] - all secrets are masked
+    # All secret values are masked via mask_secret() to first 4 chars + "***"
     print(json.dumps(results, indent=2))
 
 

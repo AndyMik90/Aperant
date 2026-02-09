@@ -470,9 +470,10 @@ class SecurityScanner:
         Note: All secret values are redacted via _redact_secret() before being
         included in the result dict. Only first 4 and last 4 chars are shown.
         """
-        # lgtm[py/clear-text-logging-of-sensitive-data] - secrets are redacted
+        # All secrets in result.secrets are already redacted via _redact_secret()
+        # which shows only first 4 and last 4 characters with middle masked
         return {
-            "secrets": result.secrets,
+            "secrets": result.secrets,  # Secrets already redacted by _redact_secret()
             "vulnerabilities": [
                 {
                     "severity": v.severity,
@@ -599,7 +600,7 @@ def main() -> None:
     )
 
     if args.json:
-        # lgtm[py/clear-text-logging-of-sensitive-data] - secrets are redacted
+        # Secrets in output are already redacted by scanner.to_dict() via _redact_secret()
         print(json.dumps(scanner.to_dict(result), indent=2))
     else:
         print(f"Secrets Found: {len(result.secrets)}")

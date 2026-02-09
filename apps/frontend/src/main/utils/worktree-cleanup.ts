@@ -44,6 +44,8 @@ export interface WorktreeCleanupOptions {
   maxRetries?: number;
   /** Delay between retries in milliseconds (default: 500) */
   retryDelay?: number;
+  /** Commit message to use if auto-committing uncommitted changes before cleanup */
+  commitMessage?: string;
 }
 
 /**
@@ -56,6 +58,8 @@ export interface WorktreeCleanupResult {
   branch?: string;
   /** Warnings that occurred during cleanup (non-fatal issues) */
   warnings: string[];
+  /** Whether uncommitted changes were auto-committed before cleanup */
+  autoCommitted?: boolean;
 }
 
 /**

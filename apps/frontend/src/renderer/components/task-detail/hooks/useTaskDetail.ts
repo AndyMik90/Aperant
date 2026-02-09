@@ -92,6 +92,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [showConflictDialog, setShowConflictDialog] = useState(false);
   const [showPRDialog, setShowPRDialog] = useState(false);
   const [isCreatingPR, setIsCreatingPR] = useState(false);
+  const [isCheckingChanges, setIsCheckingChanges] = useState(false);
+  const [worktreeChangesInfo, setWorktreeChangesInfo] = useState<{ hasChanges: boolean; worktreePath?: string; changedFileCount?: number } | null>(null);
 
   const selectedProject = useProjectStore((state) => state.getSelectedProject());
   const logOrder = useSettingsStore(s => s.settings.logOrder);
@@ -517,6 +519,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     showPRDialog,
     isCreatingPR,
     isLoadingPlan,
+    isCheckingChanges,
+    worktreeChangesInfo,
 
     // Setters
     setFeedback,
@@ -551,6 +555,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     setShowConflictDialog,
     setShowPRDialog,
     setIsCreatingPR,
+    setIsCheckingChanges,
+    setWorktreeChangesInfo,
 
     // Handlers
     handleLogsScroll,

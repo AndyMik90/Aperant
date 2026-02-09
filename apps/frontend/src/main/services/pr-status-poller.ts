@@ -500,7 +500,11 @@ export class PRStatusPoller {
       // Fetch PR data (for updated_at and mergeable state)
       const prEndpoint = `/repos/${owner}/${repo}/pulls/${prNumber}`;
       const prResult = await githubFetchWithETag(token, prEndpoint);
-      this.updateGitHubRateLimitInfo(prResult.rateLimitInfo);
+      this.updateGitHubRateLimitInfo(prResult.rateLimitInfo ? {
+  limit: prResult.rateLimitInfo.limit,
+  remaining: prResult.rateLimitInfo.remaining,
+  reset: prResult.rateLimitInfo.resetAt,
+} : null);
 
       const prData = prResult.data as PRData;
 
@@ -566,14 +570,22 @@ export class PRStatusPoller {
       // Fetch combined status
       const statusEndpoint = `/repos/${owner}/${repo}/commits/${headSha}/status`;
       const statusResult = await githubFetchWithETag(token, statusEndpoint);
-      this.updateGitHubRateLimitInfo(statusResult.rateLimitInfo);
+      this.updateGitHubRateLimitInfo(statusResult.rateLimitInfo ? {
+        limit: statusResult.rateLimitInfo.limit,
+        remaining: statusResult.rateLimitInfo.remaining,
+        reset: statusResult.rateLimitInfo.resetAt,
+      } : null);
 
       const statusData = statusResult.data as CombinedStatusResponse;
 
       // Fetch check runs
       const checksEndpoint = `/repos/${owner}/${repo}/commits/${headSha}/check-runs`;
       const checksResult = await githubFetchWithETag(token, checksEndpoint);
-      this.updateGitHubRateLimitInfo(checksResult.rateLimitInfo);
+      this.updateGitHubRateLimitInfo(checksResult.rateLimitInfo ? {
+        limit: checksResult.rateLimitInfo.limit,
+        remaining: checksResult.rateLimitInfo.remaining,
+        reset: checksResult.rateLimitInfo.resetAt,
+      } : null);
 
       const checksData = checksResult.data as CheckRunsResponse;
 
@@ -640,7 +652,11 @@ export class PRStatusPoller {
     try {
       const endpoint = `/repos/${owner}/${repo}/pulls/${prNumber}/reviews`;
       const result = await githubFetchWithETag(token, endpoint);
-      this.updateGitHubRateLimitInfo(result.rateLimitInfo);
+      this.updateGitHubRateLimitInfo(result.rateLimitInfo ? {
+        limit: result.rateLimitInfo.limit,
+        remaining: result.rateLimitInfo.remaining,
+        reset: result.rateLimitInfo.resetAt,
+      } : null);
 
       const reviews = result.data as ReviewsResponse[];
 

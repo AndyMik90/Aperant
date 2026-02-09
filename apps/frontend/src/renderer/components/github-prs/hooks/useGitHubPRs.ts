@@ -97,13 +97,14 @@ export function useGitHubPRs(
   // Get PR review state from the global store
   const _prReviews = usePRReviewStore((state) => state.prReviews);
   const getPRReviewState = usePRReviewStore((state) => state.getPRReviewState);
+  const getActivePRReviews = usePRReviewStore((state) => state.getActivePRReviews);
   const setNewCommitsCheckAction = usePRReviewStore((state) => state.setNewCommitsCheck);
   const registerRefreshCallback = usePRReviewStore((state) => state.registerRefreshCallback);
   const unregisterRefreshCallback = usePRReviewStore((state) => state.unregisterRefreshCallback);
 
   // Get review state for the selected PR from the store - optimized with targeted selector
   // Only subscribes to changes for this specific PR, not all PRs
-  const selectedPRReviewState = usePRReviewStore((state) => {
+  const selectedPRReviewState = useMemo(() => {
     if (!projectId || selectedPRNumber === null) return null;
     return getPRReviewState(projectId, selectedPRNumber);
   }, [projectId, selectedPRNumber, getPRReviewState]);
@@ -128,7 +129,7 @@ export function useGitHubPRs(
     (prNumber: number) => {
       if (!projectId) return null;
       const key = `${projectId}:${prNumber}`;
-      const state = prReviews[key];
+      const state = _prReviews[key];
       if (!state) return null;
       return {
         isReviewing: state.isReviewing,
@@ -143,7 +144,7 @@ export function useGitHubPRs(
         mergeableState: state.mergeableState,
       };
     },
-    [projectId, getPRReviewState]
+    [projectId, _prReviews]
   );
 
   // Use detailed PR data if available (includes files), otherwise fall back to list data

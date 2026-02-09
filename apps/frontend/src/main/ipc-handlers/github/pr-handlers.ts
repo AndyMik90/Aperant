@@ -99,6 +99,35 @@ interface GraphQLPRListResponse {
 }
 
 /**
+ * GraphQL query to fetch PRs with diff stats
+ */
+const LIST_PRS_QUERY = `
+query($owner: String!, $repo: String!, $first: Int!, $after: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequests(states: OPEN, first: $first, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        number
+        title
+        body
+        state
+        author { login }
+        headRefName
+        baseRefName
+        additions
+        deletions
+        changedFiles
+        assignees(first: 10) { nodes { login } }
+        createdAt
+        updatedAt
+        url
+      }
+    }
+  }
+}
+`;
+
+/**
  * Maps a GraphQL PR node to the frontend PRData format.
  * Shared between listPRs and listMorePRs handlers.
  */
@@ -211,166 +240,6 @@ async function githubGraphQL<T>(
 
   return result;
 }
-
-/**
- * GraphQL query to fetch PRs with diff stats
- */
-const LIST_PRS_QUERY = `
-query($owner: String!, $repo: String!, $first: Int!, $after: String) {
-  repository(owner: $owner, name: $repo) {
-    pullRequests(states: OPEN, first: $first, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
-      pageInfo { hasNextPage endCursor }
-      nodes {
-        number
-        title
-        body
-        state
-        author { login }
-        headRefName
-        baseRefName
-        additions
-        deletions
-        changedFiles
-        assignees(first: 10) { nodes { login } }
-        createdAt
-        updatedAt
-        url
-      }
-    }
-  }
-}
-`;
-
-/**
- * GraphQL response type for PR list query
- * Note: repository can be null if the repo doesn't exist or user lacks access
- */
-interface GraphQLPRNode {
-  number: number;
-  title: string;
-  body: string | null;
-  state: string;
-  author: { login: string } | null;
-  headRefName: string;
-  baseRefName: string;
-  additions: number;
-  deletions: number;
-  changedFiles: number;
-  assignees: { nodes: Array<{ login: string }> };
-  createdAt: string;
-  updatedAt: string;
-  url: string;
-}
-
-interface GraphQLPRListResponse {
-  data: {
-    repository: {
-      pullRequests: {
-        pageInfo: {
-          hasNextPage: boolean;
-          endCursor: string | null;
-        };
-        nodes: GraphQLPRNode[];
-      };
-    } | null;
-  };
-  errors?: Array<{ message: string }>;
-}
-
-/**
- * Maps a GraphQL PR node to the frontend PRData format.
- * Shared between listPRs and listMorePRs handlers.
- */
-function mapGraphQLPRToData(pr: GraphQLPRNode): PRData {
-  return {
-    number: pr.number,
-    title: pr.title,
-    body: pr.body ?? "",
-    state: pr.state.toLowerCase(),
-    author: { login: pr.author?.login ?? "unknown" },
-    headRefName: pr.headRefName,
-    baseRefName: pr.baseRefName,
-    additions: pr.additions,
-    deletions: pr.deletions,
-    changedFiles: pr.changedFiles,
-    assignees: pr.assignees.nodes.map((a) => ({ login: a.login })),
-    files: [],
-    createdAt: pr.createdAt,
-    updatedAt: pr.updatedAt,
-    htmlUrl: pr.url,
-  };
-}
-
-/**
- * Make a GraphQL request to GitHub API
- */
-async function githubGraphQL<T>(
-  token: string,
-  query: string,
-  variables: Record<string, unknown> = {}
-): Promise<T> {
-  // Sanitize token to prevent control character injection
-  const safeToken = sanitizeToken(token);
-  if (!safeToken) {
-    throw new Error('Invalid GitHub token');
-  }
-
-  const response = await fetch("https://api.github.com/graphql", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${safeToken}`,
-      "Content-Type": "application/json",
-      "User-Agent": "Auto-Claude-UI",
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-
-  if (!response.ok) {
-    // Log detailed error for debugging, throw generic message for safety
-    console.error('[GitHub PR] GraphQL HTTP error:', JSON.stringify({ status: response.status, statusText: response.statusText }));
-    throw new Error("Failed to connect to GitHub API");
-  }
-
-  const result = await response.json() as T & { errors?: Array<{ message: string }> };
-
-  // Check for GraphQL-level errors
-  if (result.errors && result.errors.length > 0) {
-    // Log detailed errors for debugging, throw generic message for safety
-    console.error('[GitHub PR] GraphQL errors:', JSON.stringify(result.errors.map(e => e.message)));
-    throw new Error("GitHub API request failed");
-  }
-
-  return result;
-}
-
-/**
- * GraphQL query to fetch PRs with diff stats
- */
-const LIST_PRS_QUERY = `
-query($owner: String!, $repo: String!, $first: Int!, $after: String) {
-  repository(owner: $owner, name: $repo) {
-    pullRequests(states: OPEN, first: $first, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
-      pageInfo { hasNextPage endCursor }
-      nodes {
-        number
-        title
-        body
-        state
-        author { login }
-        headRefName
-        baseRefName
-        additions
-        deletions
-        changedFiles
-        assignees(first: 10) { nodes { login } }
-        createdAt
-        updatedAt
-        url
-      }
-    }
-  }
-}
-`;
 
 /**
  * Sanitize network data before writing to file

@@ -378,7 +378,7 @@ export class TaskStateManager {
     const status = task.status;
     const reviewReason = task.reviewReason;
     const executionPhase = task.executionProgress?.phase;
-    let stateValue = 'backlog';
+    let stateValue: string;
     let contextReviewReason: ReviewReason | undefined;
 
     switch (status) {

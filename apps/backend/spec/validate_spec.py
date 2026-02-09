@@ -97,7 +97,8 @@ def main() -> None:
         auto_fix_plan(args.spec_dir)
 
     # Run validations
-    results: list[Any] = []  # Initialize to avoid CodeQL uninitialized variable warning
+    # Initialize empty list to be populated based on checkpoint
+    results: list[Any] = []
     if args.checkpoint == "all":
         results = validator.validate_all()
     elif args.checkpoint == "prereqs":

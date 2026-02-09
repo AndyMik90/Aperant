@@ -14,11 +14,21 @@ from typing import Any
 # Config imports don't require graphiti package
 from .config import GraphitiConfig, validate_graphiti_config
 
+
 # Module-level placeholders for CodeQL static analysis.
-# Use list placeholder to satisfy CodeQL's "defined but not set to None" check.
-GraphitiMemory: Any = []
-create_llm_client: Any = []
-create_embedder: Any = []
+def create_llm_client(*args: Any, **kwargs: Any) -> Any:
+    """Stub for lazy import."""
+    raise NotImplementedError("Use __getattr__")
+
+
+def create_embedder(*args: Any, **kwargs: Any) -> Any:
+    """Stub for lazy import."""
+    raise NotImplementedError("Use __getattr__")
+
+
+class GraphitiMemory:  # type: ignore[misc, no-redef]
+    """Stub for lazy import."""
+
 
 __all__ = [
     "GraphitiConfig",

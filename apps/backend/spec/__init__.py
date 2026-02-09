@@ -44,11 +44,18 @@ from .complexity import (
 )
 from .phases import PhaseExecutor, PhaseResult
 
+
 # Module-level placeholders for CodeQL static analysis.
 # These define the symbols as existing at module level (satisfying CodeQL),
 # but __getattr__ is called to provide the actual values.
-SpecOrchestrator: Any = None
-get_specs_dir: Any = None
+def get_specs_dir(*args: Any, **kwargs: Any) -> Any:
+    """Stub for lazy import."""
+    raise NotImplementedError("Use __getattr__")
+
+
+class SpecOrchestrator:  # type: ignore[misc, no-redef]
+    """Stub for lazy import."""
+
 
 __all__ = [
     # Main orchestrator
