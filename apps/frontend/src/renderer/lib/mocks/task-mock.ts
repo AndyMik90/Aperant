@@ -76,6 +76,12 @@ export const taskMock = {
 
   resumePausedTask: async () => ({ success: true }),
 
+  // Worktree change detection
+  checkWorktreeChanges: async (_taskId: string) => ({
+    success: true as const,
+    data: { hasChanges: false }
+  }),
+
   // Image operations
   loadImageThumbnail: async (_projectPath: string, _specId: string, _imagePath: string) => ({
     success: false,

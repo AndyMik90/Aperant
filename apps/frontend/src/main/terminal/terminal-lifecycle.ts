@@ -231,6 +231,7 @@ export async function restoreTerminal(
   if (options.resumeClaudeSession && storedIsClaudeMode) {
     // Set Claude mode so it persists correctly across app restarts
     // Without this, storedIsClaudeMode would be false on next restore
+    terminal.claudeSessionId = storedClaudeSessionId;
     terminal.isClaudeMode = true;
     // Mark terminal as having a pending Claude resume
     // The actual resume will be triggered when the terminal becomes active

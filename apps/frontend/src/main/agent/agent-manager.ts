@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import path from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
@@ -14,6 +14,9 @@ import {
   RoadmapConfig
 } from './types';
 import type { IdeationConfig } from '../../shared/types';
+import { resetStuckSubtasks } from '../ipc-handlers/task/plan-file-utils';
+import { AUTO_BUILD_PATHS, getSpecsDir } from '../../shared/constants';
+import { projectStore } from '../project-store';
 
 /**
  * Main AgentManager - orchestrates agent process lifecycle
@@ -104,6 +107,78 @@ export class AgentManager extends EventEmitter {
   }
 
   /**
+   * Run startup recovery scan to detect and reset stuck subtasks on app launch
+   * Scans all projects for implementation_plan.json files and resets any stuck subtasks
+   */
+  async runStartupRecoveryScan(): Promise<void> {
+    console.log('[AgentManager] Running startup recovery scan for stuck subtasks...');
+
+    try {
+      // Get all projects from the store
+      const projects = projectStore.getProjects();
+
+      if (projects.length === 0) {
+        console.log('[AgentManager] No projects found - skipping startup recovery scan');
+        return;
+      }
+
+      let totalScanned = 0;
+      let totalReset = 0;
+
+      // Scan each project for stuck subtasks
+      for (const project of projects) {
+        if (!project.autoBuildPath) {
+          continue; // Skip projects that haven't been initialized yet
+        }
+
+        const specsDir = path.join(project.path, getSpecsDir(project.autoBuildPath));
+
+        // Check if specs directory exists
+        if (!existsSync(specsDir)) {
+          continue;
+        }
+
+        // Read all spec directories
+        try {
+          const specDirs = readdirSync(specsDir, { withFileTypes: true })
+            .filter(dirent => dirent.isDirectory())
+            .map(dirent => dirent.name);
+
+          // Process each spec directory
+          for (const specDirName of specDirs) {
+            const planPath = path.join(specsDir, specDirName, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+            // Check if implementation_plan.json exists
+            if (!existsSync(planPath)) {
+              continue;
+            }
+
+            totalScanned++;
+
+            // Reset stuck subtasks (pass project.id to invalidate tasks cache)
+            const { success, resetCount } = await resetStuckSubtasks(planPath, project.id);
+
+            if (success && resetCount > 0) {
+              totalReset += resetCount;
+              console.log(`[AgentManager] Startup recovery: Reset ${resetCount} stuck subtask(s) in ${specDirName}`);
+            }
+          }
+        } catch (err) {
+          console.warn(`[AgentManager] Failed to scan specs directory for project ${project.name}:`, err);
+        }
+      }
+
+      if (totalReset > 0) {
+        console.log(`[AgentManager] Startup recovery complete: Reset ${totalReset} stuck subtask(s) across ${totalScanned} task(s)`);
+      } else {
+        console.log(`[AgentManager] Startup recovery complete: No stuck subtasks found (scanned ${totalScanned} task(s))`);
+      }
+    } catch (err) {
+      console.error('[AgentManager] Startup recovery scan failed:', err);
+    }
+  }
+
+  /**
    * Register a task with the unified OperationRegistry for proactive swap support.
    * Extracted helper to avoid code duplication between spec creation and task execution.
    * @private
@@ -189,6 +264,20 @@ export class AgentManager extends EventEmitter {
     if (!existsSync(specRunnerPath)) {
       this.emit('error', taskId, `Spec runner not found at: ${specRunnerPath}`);
       return;
+    }
+
+    // Reset stuck subtasks if restarting an existing spec creation task
+    if (specDir) {
+      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+      console.log('[AgentManager] Resetting stuck subtasks before spec creation restart:', planPath);
+      try {
+        const { success, resetCount } = await resetStuckSubtasks(planPath);
+        if (success && resetCount > 0) {
+          console.log(`[AgentManager] Successfully reset ${resetCount} stuck subtask(s) before spec creation`);
+        }
+      } catch (err) {
+        console.warn('[AgentManager] Failed to reset stuck subtasks before spec creation:', err);
+      }
     }
 
     // Get combined environment variables
@@ -525,9 +614,26 @@ export class AgentManager extends EventEmitter {
     console.log('[AgentManager] Killing current process for task:', taskId);
     this.killTask(taskId);
 
-    // Wait for cleanup, then restart
+    // Wait for cleanup, then reset stuck subtasks and restart
     console.log('[AgentManager] Scheduling task restart in 500ms');
-    setTimeout(() => {
+    setTimeout(async () => {
+      // Reset stuck subtasks before restart to avoid picking up stale in-progress states
+      if (context.specId || context.specDir) {
+        const planPath = context.specDir
+          ? path.join(context.specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN)
+          : path.join(context.projectPath, AUTO_BUILD_PATHS.SPECS_DIR, context.specId, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+        console.log('[AgentManager] Resetting stuck subtasks before restart:', planPath);
+        try {
+          const { success, resetCount } = await resetStuckSubtasks(planPath);
+          if (success && resetCount > 0) {
+            console.log(`[AgentManager] Successfully reset ${resetCount} stuck subtask(s)`);
+          }
+        } catch (err) {
+          console.warn('[AgentManager] Failed to reset stuck subtasks:', err);
+        }
+      }
+
       console.log('[AgentManager] Restarting task now:', taskId);
       if (context.isSpecCreation) {
         console.log('[AgentManager] Restarting as spec creation');

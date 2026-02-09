@@ -158,10 +158,10 @@ export interface ColorThemeDefinition {
 }
 
 // Thinking level for Claude model (budget token allocation)
-export type ThinkingLevel = 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
+export type ThinkingLevel = 'low' | 'medium' | 'high';
 
 // Model type shorthand
-export type ModelTypeShort = 'haiku' | 'sonnet' | 'opus';
+export type ModelTypeShort = 'haiku' | 'sonnet' | 'opus' | 'opus-1m';
 
 // Phase-based model configuration for Auto profile
 // Each phase can use a different model optimized for that task type
@@ -320,6 +320,8 @@ export interface AppSettings {
   vaultAutoLoad?: boolean;
   /** Whether to allow write operations to vault (default: false for safety) */
   vaultWriteEnabled?: boolean;
+  /** Fast Mode — faster Opus 4.6 output, requires extra usage on Claude subscription */
+  fastMode?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

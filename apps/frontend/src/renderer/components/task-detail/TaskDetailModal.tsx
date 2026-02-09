@@ -617,15 +617,32 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Delete Task
+              {t('tasks:deleteDialog.title')}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="text-sm text-muted-foreground space-y-3">
                 <p>
-                  Are you sure you want to delete <strong className="text-foreground">"{task.title}"</strong>?
+                  {t('tasks:deleteDialog.confirmMessage')} <strong className="text-foreground">"{task.title}"</strong>?
                 </p>
+                {state.isCheckingChanges && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t('tasks:deleteDialog.checkingChanges')}
+                  </div>
+                )}
+                {state.worktreeChangesInfo?.hasChanges && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-lg text-sm space-y-1">
+                    <p className="font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                      <AlertTriangle className="h-4 w-4" />
+                      {t('tasks:deleteDialog.uncommittedChanges', { count: state.worktreeChangesInfo.changedFileCount })}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {t('tasks:deleteDialog.uncommittedChangesHint')}
+                    </p>
+                  </div>
+                )}
                 <p className="text-destructive">
-                  This action cannot be undone. All task files, including the spec, implementation plan, and any generated code will be permanently deleted from the project.
+                  {t('tasks:deleteDialog.destructiveWarning')}
                 </p>
                 {state.deleteError && (
                   <p className="text-destructive bg-destructive/10 px-3 py-2 rounded-lg text-sm">
@@ -636,7 +653,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={state.isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={state.isDeleting}>{t('tasks:deleteDialog.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
@@ -648,12 +665,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
               {state.isDeleting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
+                  {t('tasks:deleteDialog.deleting')}
                 </>
               ) : (
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Permanently
+                  {t('tasks:deleteDialog.deletePermanently')}
                 </>
               )}
             </AlertDialogAction>

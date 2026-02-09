@@ -162,9 +162,13 @@ export function formatTimeRemaining(ms: number | null): string {
  * The new tokens must be stored immediately.
  *
  * @param refreshToken - The refresh token to use
+ * @param configDir - Optional config directory for the profile (used to clear cache on error)
  * @returns Result containing new tokens or error information
  */
-export async function refreshOAuthToken(refreshToken: string): Promise<TokenRefreshResult> {
+export async function refreshOAuthToken(
+  refreshToken: string,
+  configDir?: string
+): Promise<TokenRefreshResult> {
   const isDebug = process.env.DEBUG === 'true';
 
   if (isDebug) {
@@ -228,6 +232,11 @@ export async function refreshOAuthToken(refreshToken: string): Promise<TokenRefr
             errorCode,
             errorDescription
           });
+
+          // Clear credential cache to ensure stale tokens aren't reused
+          // This prevents infinite loops where cached invalid tokens are repeatedly used
+          clearKeychainCache(configDir);
+
           return {
             success: false,
             error: `Token refresh failed: ${errorDescription}`,
@@ -381,16 +390,29 @@ export async function ensureValidToken(
   }
 
   // Step 4: Refresh the token
-  const refreshResult = await refreshOAuthToken(creds.refreshToken);
+  const refreshResult = await refreshOAuthToken(creds.refreshToken, expandedConfigDir);
 
   if (!refreshResult.success || !refreshResult.accessToken || !refreshResult.refreshToken || !refreshResult.expiresAt) {
     console.error('[TokenRefresh:ensureValidToken] Token refresh failed:', refreshResult.error);
-    // CRITICAL: When token refresh fails server-side, the old token may already be revoked.
-    // Returning the old token here is a best-effort fallback, but callers should be aware
-    // that it will likely result in 401 errors. The comment "it might still work" is optimistic.
-    // This scenario indicates the user needs to re-authenticate via OAuth flow.
+
+    // Check for permanent errors (revoked/invalid tokens)
+    const isPermanentError = refreshResult.errorCode === 'invalid_grant' ||
+                             refreshResult.errorCode === 'invalid_client';
+
+    if (isPermanentError) {
+      // Return null for permanent errors to prevent infinite 401 loops
+      console.error('[TokenRefresh:ensureValidToken] Permanent error detected, returning null token');
+      return {
+        token: null,
+        wasRefreshed: false,
+        error: `Token refresh failed: ${refreshResult.error}`,
+        errorCode: refreshResult.errorCode
+      };
+    }
+
+    // For transient errors (network issues, etc.), return old token as best-effort fallback
     return {
-      token: creds.token,  // WARNING: This token may be invalid/revoked
+      token: creds.token,
       wasRefreshed: false,
       error: `Token refresh failed: ${refreshResult.error}`,
       errorCode: refreshResult.errorCode
@@ -413,7 +435,12 @@ export async function ensureValidToken(
     // This is a critical error - we have new tokens but can't persist them
     console.error('[TokenRefresh:ensureValidToken] CRITICAL: Failed to persist refreshed tokens:', updateResult.error);
     console.error('[TokenRefresh:ensureValidToken] The new token will be lost on next restart!');
+    console.error('[TokenRefresh:ensureValidToken] Old credentials in keychain are now REVOKED and must be cleared on restart');
     persistenceFailed = true;
+
+    // Clear credential cache immediately to prevent serving revoked tokens from cache
+    // On restart, the revoked tokens will trigger re-authentication via Bugs #3 and #4 fixes
+    clearKeychainCache(expandedConfigDir);
     // Still return the new token for this session
   } else {
     if (isDebug) {
@@ -490,13 +517,14 @@ export async function reactiveTokenRefresh(
   }
 
   // Perform refresh
-  const refreshResult = await refreshOAuthToken(creds.refreshToken);
+  const refreshResult = await refreshOAuthToken(creds.refreshToken, expandedConfigDir);
 
   if (!refreshResult.success || !refreshResult.accessToken || !refreshResult.refreshToken || !refreshResult.expiresAt) {
     return {
       token: null,
       wasRefreshed: false,
-      error: `Reactive refresh failed: ${refreshResult.error}`
+      error: `Reactive refresh failed: ${refreshResult.error}`,
+      errorCode: refreshResult.errorCode
     };
   }
 
@@ -512,9 +540,15 @@ export async function reactiveTokenRefresh(
   let persistenceFailed = false;
   if (!updateResult.success) {
     console.error('[TokenRefresh:reactive] CRITICAL: Failed to persist refreshed tokens:', updateResult.error);
+    console.error('[TokenRefresh:reactive] Old credentials in keychain are now REVOKED and must be cleared on restart');
     persistenceFailed = true;
+
+    // Clear credential cache immediately to prevent serving revoked tokens from cache
+    // On restart, the revoked tokens will trigger re-authentication via Bugs #3 and #4 fixes
+    clearKeychainCache(expandedConfigDir);
   }
 
+  // Also clear cache on success to ensure fresh data is loaded next time
   clearKeychainCache(expandedConfigDir);
 
   if (onRefreshed) {

@@ -175,7 +175,7 @@ export class InsightsService extends EventEmitter {
         role: 'assistant',
         content: result.fullResponse,
         timestamp: new Date(),
-        suggestedTask: result.suggestedTask,
+        suggestedTasks: result.suggestedTasks,
         toolsUsed: result.toolsUsed.length > 0 ? result.toolsUsed : undefined
       };
 

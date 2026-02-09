@@ -10,6 +10,9 @@
 /** Delay for DOM updates before terminal operations (refit, resize) */
 export const TERMINAL_DOM_UPDATE_DELAY_MS = 50;
 
+/** Grace period before cleaning up error panel constraints after panel removal */
+export const PANEL_CLEANUP_GRACE_PERIOD_MS = 150;
+
 // ============================================
 // UI Scale Constants
 // ============================================

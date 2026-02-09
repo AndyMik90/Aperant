@@ -75,6 +75,8 @@ async def spawn_security_review(
     project_dir: Path,
     github_dir: Path,
     model: str = "claude-sonnet-4-5-20250929",
+    betas: list[str] | None = None,
+    fast_mode: bool = False,
 ) -> list[PRReviewFinding]:
     """
     Spawn a focused security review subagent for specific files.
@@ -129,6 +131,8 @@ async def spawn_security_review(
             spec_dir=github_dir,
             model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
+            betas=betas or [],
+            fast_mode=fast_mode,
         )
 
         # Run review session
@@ -164,6 +168,8 @@ async def spawn_quality_review(
     project_dir: Path,
     github_dir: Path,
     model: str = "claude-sonnet-4-5-20250929",
+    betas: list[str] | None = None,
+    fast_mode: bool = False,
 ) -> list[PRReviewFinding]:
     """
     Spawn a focused code quality review subagent for specific files.
@@ -215,6 +221,8 @@ async def spawn_quality_review(
             spec_dir=github_dir,
             model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
+            betas=betas or [],
+            fast_mode=fast_mode,
         )
 
         result_text = ""
@@ -246,6 +254,8 @@ async def spawn_deep_analysis(
     project_dir: Path,
     github_dir: Path,
     model: str = "claude-sonnet-4-5-20250929",
+    betas: list[str] | None = None,
+    fast_mode: bool = False,
 ) -> list[PRReviewFinding]:
     """
     Spawn a deep analysis subagent to investigate a specific concern.
@@ -310,6 +320,8 @@ Output findings in JSON format:
             spec_dir=github_dir,
             model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
+            betas=betas or [],
+            fast_mode=fast_mode,
         )
 
         result_text = ""

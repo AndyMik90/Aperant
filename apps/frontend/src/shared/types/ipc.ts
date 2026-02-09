@@ -209,6 +209,9 @@ export interface ElectronAPI {
   // Image operations
   loadImageThumbnail: (projectPath: string, specId: string, imagePath: string) => Promise<IPCResult<string>>;
 
+  // Worktree change detection
+  checkWorktreeChanges: (taskId: string) => Promise<IPCResult<{ hasChanges: boolean; worktreePath?: string; changedFileCount?: number }>>;
+
   // Workspace management (for human review)
   // Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
   getWorktreeStatus: (taskId: string) => Promise<IPCResult<WorktreeStatus>>;
@@ -759,7 +762,7 @@ export interface ElectronAPI {
   // Changelog operations
   getChangelogDoneTasks: (projectId: string, tasks?: Task[]) => Promise<IPCResult<ChangelogTask[]>>;
   loadTaskSpecs: (projectId: string, taskIds: string[]) => Promise<IPCResult<TaskSpecContent[]>>;
-  generateChangelog: (request: ChangelogGenerationRequest) => void; // Async with progress events
+  generateChangelog: (request: ChangelogGenerationRequest) => Promise<IPCResult<void>>; // Async with progress events
   saveChangelog: (request: ChangelogSaveRequest) => Promise<IPCResult<ChangelogSaveResult>>;
   readExistingChangelog: (projectId: string) => Promise<IPCResult<ExistingChangelog>>;
   suggestChangelogVersion: (
