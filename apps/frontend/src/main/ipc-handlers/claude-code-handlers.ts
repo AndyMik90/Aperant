@@ -23,9 +23,11 @@ import semver from 'semver';
 
 const execFileAsync = promisify(execFile);
 
-// Cache for latest version (avoid hammering npm registry)
+// Cache for latest version (avoid hammering registries)
 let cachedLatestVersion: { version: string; timestamp: number } | null = null;
 let cachedVersionList: { versions: string[]; timestamp: number } | null = null;
+let cachedPyPILatest: { version: string; timestamp: number } | null = null;
+let cachedPyPIVersionList: { versions: string[]; timestamp: number } | null = null;
 const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 const VERSION_LIST_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour for version list
 
@@ -299,6 +301,132 @@ async function fetchAvailableVersions(): Promise<string[]> {
     if (cachedVersionList) {
       return cachedVersionList.versions;
     }
+    throw error;
+  }
+}
+
+/**
+ * Check if we're in SDK mode (autoBuildPath is set, meaning we use the bundled CLI from pip)
+ */
+function isSDKMode(): boolean {
+  const settings = readSettingsFile();
+  return !!(settings?.autoBuildPath);
+}
+
+/**
+ * Get the PyPI platform tag for the current OS.
+ * Used to filter releases that have a compatible wheel.
+ */
+function getPyPIPlatformTag(): string {
+  switch (process.platform) {
+    case 'win32': return 'win';
+    case 'darwin': return 'macosx';
+    default: return 'linux';
+  }
+}
+
+/**
+ * Check if a PyPI release has a wheel compatible with the current platform.
+ * Looks at filenames for platform-specific wheels or universal (py3-none-any) wheels.
+ */
+function hasCompatibleWheel(files: Array<{ filename?: string }>, platformTag: string): boolean {
+  if (!files || files.length === 0) return false;
+  return files.some(f => {
+    const name = f.filename || '';
+    if (!name.endsWith('.whl')) return false;
+    // Universal wheel (works everywhere)
+    if (name.includes('-none-any.whl')) return true;
+    // Platform-specific wheel
+    return name.toLowerCase().includes(platformTag);
+  });
+}
+
+/**
+ * Fetch PyPI release data (shared between latest and list fetchers).
+ * Returns releases object filtered to valid semver versions with compatible wheels.
+ */
+let cachedPyPIData: { releases: Record<string, Array<{ filename?: string }>>; timestamp: number } | null = null;
+
+async function fetchPyPIReleases(): Promise<Record<string, Array<{ filename?: string }>>> {
+  if (cachedPyPIData && Date.now() - cachedPyPIData.timestamp < VERSION_LIST_CACHE_DURATION_MS) {
+    return cachedPyPIData.releases;
+  }
+
+  const response = await fetch('https://pypi.org/pypi/claude-agent-sdk/json', {
+    headers: { 'Accept': 'application/json' },
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  const releases = data.releases || {};
+  cachedPyPIData = { releases, timestamp: Date.now() };
+  return releases;
+}
+
+/**
+ * Fetch the latest version of claude-agent-sdk from PyPI
+ * that has a compatible wheel for the current platform.
+ */
+async function fetchLatestPyPIVersion(): Promise<string> {
+  if (cachedPyPILatest && Date.now() - cachedPyPILatest.timestamp < CACHE_DURATION_MS) {
+    return cachedPyPILatest.version;
+  }
+
+  try {
+    const releases = await fetchPyPIReleases();
+    const platformTag = getPyPIPlatformTag();
+
+    // Find the newest version that has a compatible wheel
+    const compatibleVersions = Object.keys(releases)
+      .filter(v => semver.valid(v) && hasCompatibleWheel(releases[v], platformTag))
+      .sort((a, b) => semver.rcompare(a, b));
+
+    if (compatibleVersions.length === 0) {
+      throw new Error(`No compatible PyPI versions found for platform: ${process.platform}`);
+    }
+
+    const version = compatibleVersions[0];
+    cachedPyPILatest = { version, timestamp: Date.now() };
+    console.log(`[Claude Code] Latest PyPI version for ${process.platform}: ${version}`);
+    return version;
+  } catch (error) {
+    console.error('[Claude Code] Failed to fetch latest PyPI version:', error);
+    if (cachedPyPILatest) return cachedPyPILatest.version;
+    throw error;
+  }
+}
+
+/**
+ * Fetch available versions of claude-agent-sdk from PyPI
+ * that have compatible wheels for the current platform.
+ */
+async function fetchAvailablePyPIVersions(): Promise<string[]> {
+  if (cachedPyPIVersionList && Date.now() - cachedPyPIVersionList.timestamp < VERSION_LIST_CACHE_DURATION_MS) {
+    return cachedPyPIVersionList.versions;
+  }
+
+  try {
+    const releases = await fetchPyPIReleases();
+    const platformTag = getPyPIPlatformTag();
+
+    const sortedVersions = Object.keys(releases)
+      .filter(v => semver.valid(v) && hasCompatibleWheel(releases[v], platformTag))
+      .sort((a, b) => semver.rcompare(a, b))
+      .slice(0, 20);
+
+    if (sortedVersions.length === 0) {
+      throw new Error(`No compatible PyPI versions found for platform: ${process.platform}`);
+    }
+
+    cachedPyPIVersionList = { versions: sortedVersions, timestamp: Date.now() };
+    return sortedVersions;
+  } catch (error) {
+    console.error('[Claude Code] Failed to fetch PyPI versions:', error);
+    if (cachedPyPIVersionList) return cachedPyPIVersionList.versions;
     throw error;
   }
 }
@@ -765,35 +893,79 @@ export function registerClaudeCodeHandlers(): void {
       try {
         console.log('[Claude Code] Checking version...');
 
-        // Get installed version via cli-tool-manager
+        const sdkMode = isSDKMode();
+        let installed: string | null = null;
+        let detectionPath: string | null = null;
         let detectionResult;
-        try {
-          detectionResult = getToolInfo('claude');
-          console.log('[Claude Code] Detection result:', JSON.stringify(detectionResult, null, 2));
-        } catch (detectionError) {
-          console.error('[Claude Code] Detection error:', detectionError);
-          throw new Error(`Detection failed: ${detectionError instanceof Error ? detectionError.message : 'Unknown error'}`);
+
+        if (sdkMode) {
+          // SDK mode: get version from the pip package, not the system CLI
+          const settings = readSettingsFile();
+          const autoBuildPath = settings?.autoBuildPath as string;
+          const pythonExe = path.join(
+            autoBuildPath, '.venv',
+            process.platform === 'win32' ? 'Scripts' : 'bin',
+            process.platform === 'win32' ? 'python.exe' : 'python'
+          );
+
+          if (existsSync(pythonExe)) {
+            try {
+              const result = await execFileAsync(pythonExe, [
+                '-c', 'import claude_agent_sdk; print(claude_agent_sdk.__version__)'
+              ], { encoding: 'utf-8', timeout: 5000, windowsHide: true });
+              installed = result.stdout.trim();
+              // Find the bundled CLI path
+              const bundledCli = path.join(
+                autoBuildPath, '.venv', 'Lib', 'site-packages',
+                'claude_agent_sdk', '_bundled',
+                process.platform === 'win32' ? 'claude.exe' : 'claude'
+              );
+              detectionPath = existsSync(bundledCli) ? bundledCli : pythonExe;
+              console.log('[Claude Code] SDK version:', installed, 'path:', detectionPath);
+            } catch (err) {
+              console.warn('[Claude Code] Failed to get SDK version:', err);
+            }
+          }
+
+          // Build a synthetic detection result for the response
+          detectionResult = {
+            found: !!installed,
+            version: installed || undefined,
+            path: detectionPath || undefined,
+            source: 'bundled' as const,
+            message: installed ? `claude-agent-sdk ${installed} (bundled)` : 'SDK not found in venv',
+          };
+        } else {
+          // System CLI mode: use cli-tool-manager
+          try {
+            detectionResult = getToolInfo('claude');
+            console.log('[Claude Code] Detection result:', JSON.stringify(detectionResult, null, 2));
+          } catch (detectionError) {
+            console.error('[Claude Code] Detection error:', detectionError);
+            throw new Error(`Detection failed: ${detectionError instanceof Error ? detectionError.message : 'Unknown error'}`);
+          }
+          installed = detectionResult.found ? detectionResult.version || null : null;
+          detectionPath = detectionResult.path || null;
         }
 
-        const installed = detectionResult.found ? detectionResult.version || null : null;
         console.log('[Claude Code] Installed version:', installed);
 
-        // Fetch latest version from npm
+        // Fetch latest version from PyPI (SDK mode) or npm (system CLI)
         let latest: string;
         try {
-          console.log('[Claude Code] Fetching latest version from npm...');
-          latest = await fetchLatestVersion();
+          const source = sdkMode ? 'PyPI' : 'npm';
+          console.log(`[Claude Code] Fetching latest version from ${source}...`);
+          latest = sdkMode ? await fetchLatestPyPIVersion() : await fetchLatestVersion();
           console.log('[Claude Code] Latest version:', latest);
         } catch (error) {
           console.warn('[Claude Code] Failed to fetch latest version, continuing with unknown:', error);
-          // If we can't fetch latest, still return installed info
           return {
             success: true,
             data: {
               installed,
               latest: 'unknown',
               isOutdated: false,
-              path: detectionResult.path,
+              path: detectionPath || undefined,
               detectionResult,
             },
           };
@@ -803,12 +975,10 @@ export function registerClaudeCodeHandlers(): void {
         let isOutdated = false;
         if (installed && latest !== 'unknown') {
           try {
-            // Clean version strings (remove 'v' prefix if present)
             const cleanInstalled = installed.replace(/^v/, '');
             const cleanLatest = latest.replace(/^v/, '');
             isOutdated = semver.lt(cleanInstalled, cleanLatest);
           } catch {
-            // If semver comparison fails, assume not outdated
             isOutdated = false;
           }
         }
@@ -820,7 +990,7 @@ export function registerClaudeCodeHandlers(): void {
             installed,
             latest,
             isOutdated,
-            path: detectionResult.path,
+            path: detectionPath || undefined,
             detectionResult,
           },
         };
@@ -835,12 +1005,36 @@ export function registerClaudeCodeHandlers(): void {
     }
   );
 
-  // Install Claude Code (open terminal with install command)
+  // Install Claude Code (pip upgrade for bundled SDK, or terminal for system CLI)
   ipcMain.handle(
     IPC_CHANNELS.CLAUDE_CODE_INSTALL,
     async (): Promise<IPCResult<{ command: string }>> => {
       try {
-        // Check if Claude is already installed to determine if this is an update
+        // If autoBuildPath is set, update the SDK via pip (which bundles the CLI)
+        const settings = readSettingsFile();
+        const autoBuildPath = settings?.autoBuildPath as string | undefined;
+
+        if (autoBuildPath) {
+          const pythonExe = path.join(
+            autoBuildPath, '.venv',
+            process.platform === 'win32' ? 'Scripts' : 'bin',
+            process.platform === 'win32' ? 'python.exe' : 'python'
+          );
+
+          if (existsSync(pythonExe)) {
+            console.log('[Claude Code] Updating via pip in backend venv:', pythonExe);
+            const command = 'python -m pip install --upgrade claude-agent-sdk';
+            const result = await execFileAsync(pythonExe, ['-m', 'pip', 'install', '--upgrade', 'claude-agent-sdk'], {
+              encoding: 'utf-8',
+              timeout: 120000,
+              windowsHide: true,
+            });
+            console.log('[Claude Code] pip upgrade output:', result.stdout);
+            return { success: true, data: { command } };
+          }
+        }
+
+        // Fallback: open terminal for system CLI install/update
         let isUpdate = false;
         try {
           const detectionResult = getToolInfo('claude');
@@ -866,7 +1060,7 @@ export function registerClaudeCodeHandlers(): void {
         console.error('[Claude Code] Install failed:', errorMsg, error);
         return {
           success: false,
-          error: `Failed to open terminal for installation: ${errorMsg}`,
+          error: `Failed to update Claude Code: ${errorMsg}`,
         };
       }
     }
@@ -877,8 +1071,10 @@ export function registerClaudeCodeHandlers(): void {
     IPC_CHANNELS.CLAUDE_CODE_GET_VERSIONS,
     async (): Promise<IPCResult<{ versions: string[] }>> => {
       try {
-        console.log('[Claude Code] Fetching available versions...');
-        const versions = await fetchAvailableVersions();
+        const sdkMode = isSDKMode();
+        const source = sdkMode ? 'PyPI' : 'npm';
+        console.log(`[Claude Code] Fetching available versions from ${source}...`);
+        const versions = sdkMode ? await fetchAvailablePyPIVersions() : await fetchAvailableVersions();
         console.log('[Claude Code] Found', versions.length, 'versions');
         return {
           success: true,
@@ -911,6 +1107,32 @@ export function registerClaudeCodeHandlers(): void {
         }
 
         console.log('[Claude Code] Installing version:', version);
+
+        // If autoBuildPath is set, install specific SDK version via pip
+        const settings = readSettingsFile();
+        const autoBuildPath = settings?.autoBuildPath as string | undefined;
+
+        if (autoBuildPath) {
+          const pythonExe = path.join(
+            autoBuildPath, '.venv',
+            process.platform === 'win32' ? 'Scripts' : 'bin',
+            process.platform === 'win32' ? 'python.exe' : 'python'
+          );
+
+          if (existsSync(pythonExe)) {
+            console.log('[Claude Code] Installing SDK version via pip:', version);
+            const command = `python -m pip install claude-agent-sdk==${version}`;
+            const result = await execFileAsync(pythonExe, ['-m', 'pip', 'install', `claude-agent-sdk==${version}`], {
+              encoding: 'utf-8',
+              timeout: 120000,
+              windowsHide: true,
+            });
+            console.log('[Claude Code] pip install output:', result.stdout);
+            return { success: true, data: { command, version } };
+          }
+        }
+
+        // Fallback: open terminal for system CLI version switch
         const command = getInstallVersionCommand(version);
         console.log('[Claude Code] Install command:', command);
         console.log('[Claude Code] Opening terminal...');
