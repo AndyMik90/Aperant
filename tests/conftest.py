@@ -713,6 +713,202 @@ def mock_ui_module():
 
 
 @pytest.fixture
+def mock_ui_icons():
+    """
+    Mock UI Icons class for CLI input handler tests.
+
+    Provides the complete Icons class with Unicode and ASCII fallbacks.
+    Mirrors the structure in apps/backend/ui/icons.py.
+
+    Usage:
+        def test_something(mock_ui_icons):
+            icons = mock_ui_icons()
+            assert icons.SUCCESS == ("✓", "[OK]")
+    """
+    class MockIcons:
+        """Mock Icons class - complete with all icons used by the codebase."""
+        # Status icons
+        SUCCESS = ("✓", "[OK]")
+        ERROR = ("✗", "[X]")
+        WARNING = ("⚠", "[!]")
+        INFO = ("ℹ", "[i]")
+        PENDING = ("○", "[ ]")
+        IN_PROGRESS = ("◐", "[.]")
+        COMPLETE = ("●", "[*]")
+        BLOCKED = ("⊘", "[B]")
+
+        # Action icons
+        PLAY = ("▶", ">")
+        PAUSE = ("⏸", "||")
+        STOP = ("⏹", "[]")
+        SKIP = ("⏭", ">>")
+
+        # Navigation
+        ARROW_RIGHT = ("→", "->")
+        ARROW_DOWN = ("↓", "v")
+        ARROW_UP = ("↑", "^")
+        POINTER = ("❯", ">")
+        BULLET = ("•", "*")
+
+        # Objects
+        FOLDER = ("📁", "[D]")
+        FILE = ("📄", "[F]")
+        GEAR = ("⚙", "[*]")
+        SEARCH = ("🔍", "[?]")
+        BRANCH = ("🌿", "[BR]")
+        COMMIT = ("◉", "(@)")
+        LIGHTNING = ("⚡", "!")
+        LINK = ("🔗", "[L]")
+
+        # Progress
+        SUBTASK = ("▣", "#")
+        PHASE = ("◆", "*")
+        WORKER = ("⚡", "W")
+        SESSION = ("▸", ">")
+
+        # Menu
+        EDIT = ("✏️", "[E]")
+        CLIPBOARD = ("📋", "[C]")
+        DOCUMENT = ("📄", "[D]")
+        DOOR = ("🚪", "[Q]")
+        SHIELD = ("🛡️", "[S]")
+
+        # Box drawing
+        BOX_TL = ("╔", "+")
+        BOX_TR = ("╗", "+")
+        BOX_BL = ("╚", "+")
+        BOX_BR = ("╝", "+")
+        BOX_H = ("═", "-")
+        BOX_V = ("║", "|")
+        BOX_ML = ("╠", "+")
+        BOX_MR = ("╣", "+")
+        BOX_TL_LIGHT = ("┌", "+")
+        BOX_TR_LIGHT = ("┐", "+")
+        BOX_BL_LIGHT = ("└", "+")
+        BOX_BR_LIGHT = ("┘", "+")
+        BOX_H_LIGHT = ("─", "-")
+        BOX_V_LIGHT = ("│", "|")
+        BOX_ML_LIGHT = ("├", "+")
+        BOX_MR_LIGHT = ("┤", "+")
+
+        # Progress bar
+        BAR_FULL = ("█", "=")
+        BAR_EMPTY = ("░", "-")
+        BAR_HALF = ("▌", "=")
+
+    return MockIcons
+
+
+@pytest.fixture
+def mock_ui_menu_option():
+    """
+    Mock UI MenuOption class for CLI tests.
+
+    Provides a simple MenuOption class for menu testing.
+
+    Usage:
+        def test_something(mock_ui_menu_option):
+            option = mock_ui_menu_option()("key", "Label")
+            assert option.key == "key"
+    """
+    class MockMenuOption:
+        """Mock MenuOption class."""
+        def __init__(self, key, label, icon=None, description=""):
+            self.key = key
+            self.label = label
+            self.icon = icon or ("", "")
+            self.description = description
+
+    return MockMenuOption
+
+
+@pytest.fixture
+def mock_ui_module_full(mock_ui_icons, mock_ui_menu_option):
+    """
+    Comprehensive mock UI module with all functions and classes.
+
+    Provides a complete mock of the ui module for CLI tests.
+    Includes Icons, MenuOption, and all UI functions.
+
+    Usage:
+        def test_something(mock_ui_module_full):
+            ui = mock_ui_module_full
+            assert ui.Icons.SUCCESS == ("✓", "[OK]")
+            assert ui.icon(ui.Icons.SUCCESS) == "✓"
+    """
+    from unittest.mock import MagicMock
+
+    Icons = mock_ui_icons
+    MenuOption = mock_ui_menu_option
+
+    def mock_icon(icon_tuple):
+        """Mock icon function."""
+        return icon_tuple[0] if icon_tuple else ""
+
+    def mock_bold(text):
+        """Mock bold function."""
+        return f"**{text}**"
+
+    def mock_muted(text):
+        """Mock muted function."""
+        return f"[{text}]"
+
+    def mock_box(content, width=70, style="heavy"):
+        """Mock box function."""
+        lines = ["┌" + "─" * (width - 2) + "┐"]
+        for line in content:
+            lines.append(f"│ {line} │")
+        lines.append("└" + "─" * (width - 2) + "┘")
+        return "\n".join(lines)
+
+    def mock_print_status(message, status="info"):
+        """Mock print_status function."""
+        print(f"[{status.upper()}] {message}")
+
+    def mock_select_menu(title, options, subtitle="", allow_quit=True):
+        """Mock select_menu function."""
+        return options[0].key if options else None
+
+    def mock_error(text):
+        """Mock error function."""
+        return f"ERROR: {text}"
+
+    def mock_success(text):
+        """Mock success function."""
+        return f"SUCCESS: {text}"
+
+    def mock_warning(text):
+        """Mock warning function."""
+        return f"WARNING: {text}"
+
+    def mock_info(text):
+        """Mock info function."""
+        return f"INFO: {text}"
+
+    def mock_highlight(text):
+        """Mock highlight function."""
+        return text
+
+    # Create mock ui module
+    mock_ui = MagicMock()
+    mock_ui.Icons = Icons
+    mock_ui.MenuOption = MenuOption
+    mock_ui.icon = mock_icon
+    mock_ui.bold = mock_bold
+    mock_ui.muted = mock_muted
+    mock_ui.box = mock_box
+    mock_ui.print_status = mock_print_status
+    mock_ui.select_menu = mock_select_menu
+    mock_ui.error = mock_error
+    mock_ui.success = mock_success
+    mock_ui.warning = mock_warning
+    mock_ui.info = mock_info
+    mock_ui.highlight = mock_highlight
+
+    return mock_ui
+
+
+@pytest.fixture
 def mock_spec_validator():
     """
     Mock spec validator for testing PhaseExecutor.

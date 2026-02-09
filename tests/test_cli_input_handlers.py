@@ -15,139 +15,30 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Add apps/backend to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
+
+# =============================================================================
+# Auto-use fixture to set up mock UI module before importing cli.input_handlers
+# =============================================================================
+
+@pytest.fixture(autouse=True)
+def setup_mock_ui_for_input_handlers(mock_ui_module_full):
+    """
+    Auto-use fixture that sets up the mock UI module before tests run.
+
+    This must be an autouse fixture because cli.input_handlers imports
+    `ui` at module level, so we need to mock it before any imports.
+    """
+    # Set up the mock UI module
+    sys.modules['ui'] = mock_ui_module_full
+
+    yield
+
+    # Clean up - restore original if it existed
+    # Note: We don't delete 'ui' from sys.modules as conftest.py handles cleanup
 
 
 # =============================================================================
-# Mock UI module before importing cli.input_handlers
-# =============================================================================
-
-class MockIcons:
-    """Mock Icons class - complete with all icons used by the codebase."""
-    # Status icons
-    SUCCESS = ("✓", "[OK]")
-    ERROR = ("✗", "[X]")
-    WARNING = ("⚠", "[!]")
-    INFO = ("ℹ", "[i]")
-    PENDING = ("○", "[ ]")
-    IN_PROGRESS = ("◐", "[.]")
-    COMPLETE = ("●", "[*]")
-    BLOCKED = ("⊘", "[B]")
-
-    # Action icons
-    PLAY = ("▶", ">")
-    PAUSE = ("⏸", "||")
-    STOP = ("⏹", "[]")
-    SKIP = ("⏭", ">>")
-
-    # Navigation
-    ARROW_RIGHT = ("→", "->")
-    ARROW_DOWN = ("↓", "v")
-    ARROW_UP = ("↑", "^")
-    POINTER = ("❯", ">")
-    BULLET = ("•", "*")
-
-    # Objects
-    FOLDER = ("📁", "[D]")
-    FILE = ("📄", "[F]")
-    GEAR = ("⚙", "[*]")
-    SEARCH = ("🔍", "[?]")
-    BRANCH = ("🌿", "[BR]")
-    COMMIT = ("◉", "(@)")
-    LIGHTNING = ("⚡", "!")
-    LINK = ("🔗", "[L]")
-
-    # Progress
-    SUBTASK = ("▣", "#")
-    PHASE = ("◆", "*")
-    WORKER = ("⚡", "W")
-    SESSION = ("▸", ">")
-
-    # Menu
-    EDIT = ("✏️", "[E]")
-    CLIPBOARD = ("📋", "[C]")
-    DOCUMENT = ("📄", "[D]")
-    DOOR = ("🚪", "[Q]")
-    SHIELD = ("🛡️", "[S]")
-
-    # Box drawing
-    BOX_TL = ("╔", "+")
-    BOX_TR = ("╗", "+")
-    BOX_BL = ("╚", "+")
-    BOX_BR = ("╝", "+")
-    BOX_H = ("═", "-")
-    BOX_V = ("║", "|")
-    BOX_ML = ("╠", "+")
-    BOX_MR = ("╣", "+")
-    BOX_TL_LIGHT = ("┌", "+")
-    BOX_TR_LIGHT = ("┐", "+")
-    BOX_BL_LIGHT = ("└", "+")
-    BOX_BR_LIGHT = ("┘", "+")
-    BOX_H_LIGHT = ("─", "-")
-    BOX_V_LIGHT = ("│", "|")
-    BOX_ML_LIGHT = ("├", "+")
-    BOX_MR_LIGHT = ("┤", "+")
-
-    # Progress bar
-    BAR_FULL = ("█", "=")
-    BAR_EMPTY = ("░", "-")
-    BAR_HALF = ("▌", "=")
-
-
-class MockMenuOption:
-    """Mock MenuOption class."""
-    def __init__(self, key, label, icon=None, description=""):
-        self.key = key
-        self.label = label
-        self.icon = icon or ("", "")
-        self.description = description
-
-
-def mock_icon(icon_tuple):
-    """Mock icon function."""
-    return icon_tuple[0] if icon_tuple else ""
-
-
-def mock_muted(text):
-    """Mock muted function."""
-    return f"[{text}]"
-
-
-def mock_box(content, width=70, style="heavy"):
-    """Mock box function."""
-    lines = ["┌" + "─" * (width - 2) + "┐"]
-    for line in content:
-        lines.append(f"│ {line} │")
-    lines.append("└" + "─" * (width - 2) + "┘")
-    return "\n".join(lines)
-
-
-def mock_print_status(message, status="info"):
-    """Mock print_status function."""
-    print(f"[{status.upper()}] {message}")
-
-
-def mock_select_menu(title, options, subtitle="", allow_quit=True):
-    """Mock select_menu function."""
-    return options[0].key if options else None
-
-
-# Create mock ui module
-mock_ui = MagicMock()
-mock_ui.Icons = MockIcons
-mock_ui.MenuOption = MockMenuOption
-mock_ui.icon = mock_icon
-mock_ui.muted = mock_muted
-mock_ui.box = mock_box
-mock_ui.print_status = mock_print_status
-mock_ui.select_menu = mock_select_menu
-
-sys.modules['ui'] = mock_ui
-
-
-# =============================================================================
-# Import cli.input_handlers after mocking dependencies
+# Import cli.input_handlers after mock UI is set up by autouse fixture
 # =============================================================================
 
 from cli.input_handlers import (
