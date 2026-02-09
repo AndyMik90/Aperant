@@ -559,13 +559,15 @@ class TestShouldRunQA:
 
     def test_should_run_qa_rejected_status(self, spec_dir: Path, qa_signoff_rejected: dict):
         """Returns True when rejected (needs re-review after fixes)."""
-        mock_progress.is_build_complete.return_value = True
+        from unittest.mock import patch
 
+        qa_signoff_rejected["qa_session"] = 1
         plan = {"feature": "Test", "qa_signoff": qa_signoff_rejected}
         save_implementation_plan(spec_dir, plan)
 
-        result = should_run_qa(spec_dir)
-        assert result is True
+        with patch('qa.criteria.is_build_complete', return_value=True):
+            result = should_run_qa(spec_dir)
+            assert result is True
 
     def test_should_run_qa_no_plan(self, spec_dir: Path):
         """Returns False when no plan exists (build not complete)."""
