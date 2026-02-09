@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from core.fast_mode import _ensure_fast_mode_in_user_settings
+from core.fast_mode import ensure_fast_mode_in_user_settings
 from core.platform import (
     is_windows,
     validate_cli_path,
@@ -525,7 +525,7 @@ def create_client(
     # so the CLI reads ~/.claude/settings.json where fastMode: true lives.
     # See: https://code.claude.com/docs/en/fast-mode
     if fast_mode:
-        _ensure_fast_mode_in_user_settings()
+        ensure_fast_mode_in_user_settings()
         logger.info("[Fast Mode] ACTIVE — will enable user setting source for fastMode")
         print(
             "[Fast Mode] ACTIVE — enabling user settings source for CLI to read fastMode"

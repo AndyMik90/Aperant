@@ -31,7 +31,7 @@ from core.auth import (
     configure_sdk_authentication,
     get_sdk_env_vars,
 )
-from core.fast_mode import _ensure_fast_mode_in_user_settings
+from core.fast_mode import ensure_fast_mode_in_user_settings
 from core.platform import validate_cli_path
 from phase_config import get_thinking_budget
 
@@ -99,7 +99,7 @@ def create_simple_client(
     # By default the SDK passes --setting-sources "" which blocks all filesystem settings.
     # We enable "user" source so the CLI can read fastMode from user settings.
     if fast_mode:
-        _ensure_fast_mode_in_user_settings()
+        ensure_fast_mode_in_user_settings()
         logger.info("[Fast Mode] ACTIVE — will enable user setting source for fastMode")
 
     # Get agent configuration (raises ValueError if unknown type)

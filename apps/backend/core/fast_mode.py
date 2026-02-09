@@ -8,9 +8,9 @@ per-task fast mode overrides. Shared by both client.py and simple_client.py.
 
 import json
 import logging
-import os
-import tempfile
 from pathlib import Path
+
+from core.file_utils import write_json_atomic
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ _fast_mode_atexit_registered = False
 def _write_fast_mode_setting(enabled: bool) -> None:
     """Write fastMode value to ~/.claude/settings.json (atomic read-modify-write).
 
-    Uses write-to-temp-file + atomic rename to prevent corruption when
+    Uses write_json_atomic from core.file_utils to prevent corruption when
     multiple concurrent task processes modify the file simultaneously.
     """
     settings_file = Path.home() / ".claude" / "settings.json"
@@ -32,21 +32,8 @@ def _write_fast_mode_setting(enabled: bool) -> None:
         if settings.get("fastMode") != enabled:
             settings["fastMode"] = enabled
             settings_file.parent.mkdir(parents=True, exist_ok=True)
-            # Atomic write: write to temp file in same dir, then rename
-            fd, tmp_path = tempfile.mkstemp(
-                dir=settings_file.parent, suffix=".tmp", prefix=".settings-"
-            )
-            try:
-                with os.fdopen(fd, "w", encoding="utf-8") as f:
-                    json.dump(settings, f, indent=2)
-                os.replace(tmp_path, settings_file)
-            except BaseException:
-                # Clean up temp file on any failure
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
-                raise
+            # Atomic write using shared utility
+            write_json_atomic(settings_file, settings)
             state = "true" if enabled else "false"
             logger.info(
                 f"[Fast Mode] Wrote fastMode={state} to ~/.claude/settings.json"
@@ -60,7 +47,7 @@ def _disable_fast_mode_on_exit() -> None:
     _write_fast_mode_setting(False)
 
 
-def _ensure_fast_mode_in_user_settings() -> None:
+def ensure_fast_mode_in_user_settings() -> None:
     """
     Enable fastMode in ~/.claude/settings.json and register cleanup.
 
