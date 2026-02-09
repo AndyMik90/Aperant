@@ -131,6 +131,10 @@ async def run_qa_validation_loop(
     )
 
     fast_mode = get_fast_mode(spec_dir)
+    debug(
+        "qa_loop",
+        f"[Fast Mode] {'ENABLED' if fast_mode else 'disabled'} for QA validation",
+    )
 
     # Check if there's pending human feedback that needs to be processed
     fix_request_file = spec_dir / "QA_FIX_REQUEST.md"

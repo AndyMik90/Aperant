@@ -175,6 +175,7 @@
     "openInIDE": "Open in IDE"
   },
   "metadata": {
+    "fastMode": "Fast",
     "severity": "severity",
     "pullRequest": "Pull Request",
     "showMore": "Show more",
@@ -253,6 +254,9 @@
     "classificationOptional": "Classification (optional)",
     "requireReviewLabel": "Require human review before coding",
     "requireReviewDescription": "When enabled, you'll be prompted to review the spec and implementation plan before the coding phase begins. This allows you to approve, request changes, or provide feedback.",
+    "fastModeLabel": "Fast Mode",
+    "fastModeDescription": "Same Opus 4.6 model with faster output. Higher cost per token.",
+    "fastModeNotice": "Requires \"extra usage\" enabled on your Claude subscription.",
     "errors": {
       "descriptionRequired": "Please provide a description",
       "maxImagesReached": "Maximum of 5 images allowed",

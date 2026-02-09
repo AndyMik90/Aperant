@@ -736,7 +736,6 @@ export function buildRunnerArgs(
   options?: {
     model?: string;
     thinkingLevel?: string;
-    fastMode?: boolean;
   }
 ): string[] {
   const args = [runnerPath, '--project', projectPath];
@@ -747,10 +746,6 @@ export function buildRunnerArgs(
 
   if (options?.thinkingLevel) {
     args.push('--thinking-level', options.thinkingLevel);
-  }
-
-  if (options?.fastMode) {
-    args.push('--fast-mode');
   }
 
   args.push(command);
