@@ -8,7 +8,9 @@ import type {
   GitHubInvestigationResult,
   IPCResult,
   VersionSuggestion,
-  PaginatedIssuesResult
+  PaginatedIssuesResult,
+  PRStatusUpdate,
+  PollingMetadata
 } from '../../../shared/types';
 import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
 
@@ -269,6 +271,8 @@ export interface GitHubAPI {
 
   // PR operations (fetches up to 100 open PRs at once - GitHub GraphQL limit)
   listPRs: (projectId: string) => Promise<PRListResult>;
+  /** Load more PRs using cursor-based pagination */
+  listMorePRs: (projectId: string, cursor: string) => Promise<PRListResult>;
   getPR: (projectId: string, prNumber: number) => Promise<PRData | null>;
   runPRReview: (projectId: string, prNumber: number) => void;
   cancelPRReview: (projectId: string, prNumber: number) => Promise<boolean>;
@@ -304,6 +308,23 @@ export interface GitHubAPI {
   onPRReviewError: (
     callback: (projectId: string, error: { prNumber: number; error: string }) => void
   ) => IpcListenerCleanup;
+  onPRLogsUpdated: (
+    callback: (projectId: string, data: { prNumber: number; entryCount: number }) => void
+  ) => IpcListenerCleanup;
+
+  // PR status polling operations
+  /** Start background polling for PR status (CI checks, reviews, mergeability) */
+  startStatusPolling: (projectId: string, prNumbers: number[]) => Promise<boolean>;
+  /** Stop background polling for a project */
+  stopStatusPolling: (projectId: string) => Promise<boolean>;
+  /** Get current polling metadata (rate limits, errors, etc.) */
+  getPollingMetadata: (projectId: string) => Promise<PollingMetadata | null>;
+
+  // PR status polling event listener
+  /** Subscribe to PR status updates from background polling */
+  onPRStatusUpdate: (
+    callback: (update: PRStatusUpdate) => void
+  ) => IpcListenerCleanup;
 }
 
 /**
@@ -338,6 +359,7 @@ export interface PRData {
 export interface PRListResult {
   prs: PRData[];
   hasNextPage: boolean; // True if more PRs exist beyond the 100 limit
+  endCursor?: string | null; // Cursor for fetching next page (null if no more pages)
 }
 
 /**
@@ -675,6 +697,10 @@ export const createGitHubAPI = (): GitHubAPI => ({
   listPRs: (projectId: string): Promise<PRListResult> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_LIST, projectId),
 
+  // Load more PRs using cursor-based pagination
+  listMorePRs: (projectId: string, cursor: string): Promise<PRListResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_LIST_MORE, projectId, cursor),
+
   getPR: (projectId: string, prNumber: number): Promise<PRData | null> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_GET, projectId, prNumber),
 
@@ -746,5 +772,26 @@ export const createGitHubAPI = (): GitHubAPI => ({
   onPRReviewError: (
     callback: (projectId: string, error: { prNumber: number; error: string }) => void
   ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR, callback)
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR, callback),
+
+  onPRLogsUpdated: (
+    callback: (projectId: string, data: { prNumber: number; entryCount: number }) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_LOGS_UPDATED, callback),
+
+  // PR status polling operations
+  startStatusPolling: (projectId: string, prNumbers: number[]): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_STATUS_POLL_START, { projectId, prNumbers }),
+
+  stopStatusPolling: (projectId: string): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_STATUS_POLL_STOP, { projectId }),
+
+  getPollingMetadata: (projectId: string): Promise<PollingMetadata | null> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_STATUS_UPDATE, projectId),
+
+  // PR status polling event listener
+  onPRStatusUpdate: (
+    callback: (update: PRStatusUpdate) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_STATUS_UPDATE, callback)
 });

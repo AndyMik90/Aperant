@@ -14,6 +14,7 @@ import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, 
  */
 interface BatchedUpdate {
   status?: TaskStatus;
+  reviewReason?: import('../../shared/types').ReviewReason;
   progress?: ExecutionProgress;
   plan?: ImplementationPlan;
   logs?: string[]; // Batched log lines
@@ -24,7 +25,7 @@ interface BatchedUpdate {
  * Store action references type for batch flushing.
  */
 interface StoreActions {
-  updateTaskStatus: (taskId: string, status: TaskStatus) => void;
+  updateTaskStatus: (taskId: string, status: TaskStatus, reviewReason?: import('../../shared/types').ReviewReason) => void;
   updateExecutionProgress: (taskId: string, progress: ExecutionProgress) => void;
   updateTaskFromPlan: (taskId: string, plan: ImplementationPlan) => void;
   batchAppendLogs: (taskId: string, logs: string[]) => void;
@@ -66,7 +67,7 @@ function flushBatch(): void {
         totalUpdates++;
       }
       if (updates.status) {
-        actions.updateTaskStatus(taskId, updates.status);
+        actions.updateTaskStatus(taskId, updates.status, updates.reviewReason);
         totalUpdates++;
       }
       if (updates.progress) {
@@ -198,10 +199,17 @@ export function useIpcListeners(): void {
     );
 
     const cleanupStatus = window.electronAPI.onTaskStatusChange(
-      (taskId: string, status: TaskStatus, projectId?: string) => {
+      (taskId: string, status: TaskStatus, projectId?: string, reviewReason?: import('../../shared/types').ReviewReason) => {
+        // Debug: Log received status change
+        console.log(`[useIpc] Received TASK_STATUS_CHANGE:`, {
+          taskId,
+          status,
+          reviewReason,
+          projectId
+        });
         // Filter by project to prevent multi-project interference
         if (!isTaskForCurrentProject(projectId)) return;
-        queueUpdate(taskId, { status });
+        queueUpdate(taskId, { status, reviewReason });
       }
     );
 
@@ -369,7 +377,7 @@ export function useIpcListeners(): void {
       cleanupSDKRateLimit();
       cleanupAuthFailure();
     };
-  }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, batchAppendLogs, setError]);
+  }, [appendLog, setError]);
 }
 
 /**

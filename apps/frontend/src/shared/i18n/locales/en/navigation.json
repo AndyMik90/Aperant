@@ -39,12 +39,12 @@
     "installAndRestart": "Install and Restart",
     "downloading": "Downloading...",
     "dismiss": "Dismiss",
-    "downloadError": "Failed to download update"
+    "downloadError": "Failed to download update",
+    "readOnlyVolumeWarning": "Move to Applications folder to update"
   },
   "claudeCode": {
     "checking": "Checking Claude Code...",
     "upToDate": "Claude Code is up to date",
-    "upToDateWithVersion": "Claude Code {{version}} installed",
     "updateAvailable": "Claude Code update available",
     "notInstalled": "Claude Code not installed",
     "error": "Error checking Claude Code",

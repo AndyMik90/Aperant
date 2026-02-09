@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
+import { useState, useEffect, useRef, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
@@ -31,7 +31,7 @@ import {
   JSON_ERROR_PREFIX,
   JSON_ERROR_TITLE_SUFFIX
 } from '../../shared/constants';
-import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks } from '../stores/task-store';
+import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, hasRecentActivity } from '../stores/task-store';
 import type { Task, TaskCategory, ReviewReason, TaskStatus } from '../../shared/types';
 
 // Category icon mapping
@@ -47,13 +47,11 @@ const CategoryIcon: Record<TaskCategory, typeof Zap> = {
   testing: FileCode
 };
 
-// Phases where stuck detection should be skipped (terminal states + initial planning)
-// Defined outside component to avoid recreation on every render
-const STUCK_CHECK_SKIP_PHASES = ['complete', 'failed', 'planning'] as const;
-
-function shouldSkipStuckCheck(phase: string | undefined): boolean {
-  return STUCK_CHECK_SKIP_PHASES.includes(phase as typeof STUCK_CHECK_SKIP_PHASES[number]);
-}
+// Catastrophic stuck detection interval (ms).
+// XState handles all normal process-exit transitions via PROCESS_EXITED events.
+// This is a last-resort safety net: if XState somehow fails to transition the task
+// out of in_progress after the process dies, flag it as stuck after 60 seconds.
+const STUCK_CHECK_INTERVAL_MS = 60_000;
 
 interface TaskCardProps {
   task: Task;
@@ -136,10 +134,7 @@ export const TaskCard = memo(function TaskCard({
   const { t } = useTranslation(['tasks', 'errors']);
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
-  const stuckCheckRef = useRef<{ timeout: NodeJS.Timeout | null; interval: NodeJS.Timeout | null }>({
-    timeout: null,
-    interval: null
-  });
+  const stuckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const isRunning = task.status === 'in_progress';
   const executionPhase = task.executionProgress?.phase;
@@ -190,88 +185,43 @@ export const TaskCard = memo(function TaskCard({
     ));
   }, [task.status, onStatusChange, t]);
 
-  // Memoized stuck check function to avoid recreating on every render
-  const performStuckCheck = useCallback(() => {
-    const currentPhase = task.executionProgress?.phase;
-    if (shouldSkipStuckCheck(currentPhase)) {
-      if (window.DEBUG) {
-        console.log(`[TaskCard] Stuck check skipped for ${task.id} - phase is '${currentPhase}' (planning/terminal phases don't need process verification)`);
-      }
+  // Catastrophic stuck detection — last-resort safety net.
+  // XState handles all normal transitions via PROCESS_EXITED events.
+  // This only fires if XState somehow fails to transition after 60s with no activity.
+  useEffect(() => {
+    if (!isRunning) {
       setIsStuck(false);
+      if (stuckIntervalRef.current) {
+        clearInterval(stuckIntervalRef.current);
+        stuckIntervalRef.current = null;
+      }
       return;
     }
 
-    // Use requestIdleCallback for non-blocking check when available
-    const doCheck = () => {
+    stuckIntervalRef.current = setInterval(() => {
+      // If any activity (status, progress, logs) was recorded recently, task is alive
+      if (hasRecentActivity(task.id)) {
+        setIsStuck(false);
+        return;
+      }
+
+      // No activity for 60s — verify process is actually gone
       checkTaskRunning(task.id).then((actuallyRunning) => {
-        // Double-check the phase again in case it changed while waiting
-        const latestPhase = task.executionProgress?.phase;
-        if (shouldSkipStuckCheck(latestPhase)) {
+        // Re-check activity in case something arrived while the IPC was in flight
+        if (hasRecentActivity(task.id)) {
           setIsStuck(false);
         } else {
           setIsStuck(!actuallyRunning);
         }
       });
-    };
-
-    if ('requestIdleCallback' in window) {
-      (window as Window & { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(doCheck);
-    } else {
-      doCheck();
-    }
-  }, [task.id, task.executionProgress?.phase]);
-
-  // Check if task is stuck (status says in_progress but no actual process)
-  // Add a longer grace period to avoid false positives during process spawn
-  useEffect(() => {
-    if (!isRunning) {
-      setIsStuck(false);
-      // Clear any pending checks
-      if (stuckCheckRef.current.timeout) {
-        clearTimeout(stuckCheckRef.current.timeout);
-        stuckCheckRef.current.timeout = null;
-      }
-      if (stuckCheckRef.current.interval) {
-        clearInterval(stuckCheckRef.current.interval);
-        stuckCheckRef.current.interval = null;
-      }
-      return;
-    }
-
-    // Initial check after 5s grace period (increased from 2s)
-    stuckCheckRef.current.timeout = setTimeout(performStuckCheck, 5000);
-
-    // Periodic re-check every 30 seconds (reduced frequency from 15s)
-    stuckCheckRef.current.interval = setInterval(performStuckCheck, 30000);
+    }, STUCK_CHECK_INTERVAL_MS);
 
     return () => {
-      if (stuckCheckRef.current.timeout) {
-        clearTimeout(stuckCheckRef.current.timeout);
-      }
-      if (stuckCheckRef.current.interval) {
-        clearInterval(stuckCheckRef.current.interval);
+      if (stuckIntervalRef.current) {
+        clearInterval(stuckIntervalRef.current);
       }
     };
-  }, [task.id, isRunning, performStuckCheck]);
-
-  // Add visibility change handler to re-validate on focus (debounced)
-  useEffect(() => {
-    let debounceTimeout: NodeJS.Timeout | null = null;
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && isRunning) {
-        // Debounce visibility checks to avoid rapid re-checks
-        if (debounceTimeout) clearTimeout(debounceTimeout);
-        debounceTimeout = setTimeout(performStuckCheck, 500);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (debounceTimeout) clearTimeout(debounceTimeout);
-    };
-  }, [isRunning, performStuckCheck]);
+  }, [task.id, isRunning]);
 
   const handleStartStop = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -349,12 +299,18 @@ export const TaskCard = memo(function TaskCard({
         return { label: t('reviewReason.qaIssues'), variant: 'warning' };
       case 'plan_review':
         return { label: t('reviewReason.approvePlan'), variant: 'warning' };
+      case 'stopped':
+        return { label: t('reviewReason.stopped'), variant: 'warning' };
       default:
         return null;
     }
   };
 
-  const reviewReasonInfo = task.status === 'human_review' ? getReviewReasonLabel(task.reviewReason) : null;
+  // When executionPhase is 'complete', always show 'completed' badge regardless of reviewReason
+  // This ensures the user sees "Complete" when the task finished successfully
+  const effectiveReviewReason: ReviewReason | undefined =
+    executionPhase === 'complete' ? 'completed' : task.reviewReason;
+  const reviewReasonInfo = task.status === 'human_review' ? getReviewReasonLabel(effectiveReviewReason) : null;
 
   const isArchived = !!task.metadata?.archivedAt;
 
@@ -447,8 +403,7 @@ export const TaskCard = memo(function TaskCard({
             )}
              {/* Status badge - hide when execution phase badge is showing */}
              {!hasActiveExecution && (
-               <>
-                  {task.status === 'done' ? (
+               task.status === 'done' ? (
                     <Badge
                       variant={getStatusBadgeVariant(task.status)}
                       className="text-[10px] px-1.5 py-0.5"
@@ -462,8 +417,7 @@ export const TaskCard = memo(function TaskCard({
                    >
                      {isStuck ? t('labels.needsRecovery') : isIncomplete ? t('labels.needsResume') : getStatusLabel(task.status)}
                    </Badge>
-                 )}
-               </>
+                 )
              )}
             {/* Review reason badge - explains why task needs human review */}
             {reviewReasonInfo && !isStuck && !isIncomplete && (

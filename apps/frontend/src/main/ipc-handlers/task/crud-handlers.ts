@@ -2,13 +2,18 @@ import { ipcMain, nativeImage } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { IPCResult, Task, TaskMetadata } from '../../../shared/types';
 import path from 'path';
+import { execFileSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, Dirent } from 'fs';
 import { projectStore } from '../../project-store';
 import { titleGenerator } from '../../title-generator';
 import { AgentManager } from '../../agent';
 import { findTaskAndProject } from './shared';
 import { findAllSpecPaths, isValidTaskId } from '../../utils/spec-path-helpers';
-import { isPathWithinBase } from '../../worktree-paths';
+import { isPathWithinBase, findTaskWorktree } from '../../worktree-paths';
+import { cleanupWorktree } from '../../utils/worktree-cleanup';
+import { getToolPath } from '../../cli-tool-manager';
+import { getIsolatedGitEnv } from '../../utils/git-isolation';
+import { taskStateManager } from '../../task-state-manager';
 
 /**
  * Register task CRUD (Create, Read, Update, Delete) handlers
@@ -25,11 +30,13 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
     async (_, projectId: string, options?: { forceRefresh?: boolean }): Promise<IPCResult<Task[]>> => {
       console.warn('[IPC] TASK_LIST called with projectId:', projectId, 'options:', options);
 
-      // If forceRefresh is requested, invalidate cache first
+      // If forceRefresh is requested, invalidate cache and clear XState actors
       // This ensures the refresh button always returns fresh data from disk
+      // and actors are recreated with fresh task data
       if (options?.forceRefresh) {
         projectStore.invalidateTasksCache(projectId);
-        console.warn('[IPC] TASK_LIST cache invalidated for forceRefresh');
+        taskStateManager.clearAllTasks();
+        console.warn('[IPC] TASK_LIST cache and task state cleared for forceRefresh');
       }
 
       const tasks = projectStore.getTasks(projectId);
@@ -124,28 +131,52 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       if (taskMetadata.attachedImages && taskMetadata.attachedImages.length > 0) {
         const attachmentsDir = path.join(specDir, 'attachments');
         mkdirSync(attachmentsDir, { recursive: true });
+        const resolvedAttachmentsDir = path.resolve(attachmentsDir);
+
+        // MIME type allowlist (defense in depth - frontend also validates)
+        const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/svg+xml'];
 
         const savedImages: typeof taskMetadata.attachedImages = [];
 
         for (const image of taskMetadata.attachedImages) {
           if (image.data) {
+            // Validate MIME type
+            if (!image.mimeType || !ALLOWED_MIME_TYPES.includes(image.mimeType)) {
+              console.warn(`[TASK_CREATE] Skipping image with missing or disallowed MIME type: ${image.mimeType}`);
+              continue;
+            }
+
+            // Sanitize filename to prevent path traversal attacks
+            const sanitizedFilename = path.basename(image.filename);
+            if (!sanitizedFilename || sanitizedFilename === '.' || sanitizedFilename === '..') {
+              console.warn(`[TASK_CREATE] Skipping image with invalid filename: ${image.filename}`);
+              continue;
+            }
+
+            // Validate resolved path stays within attachments directory
+            const imagePath = path.join(attachmentsDir, sanitizedFilename);
+            const resolvedPath = path.resolve(imagePath);
+            if (!resolvedPath.startsWith(resolvedAttachmentsDir + path.sep)) {
+              console.warn(`[TASK_CREATE] Skipping image with path traversal attempt: ${image.filename}`);
+              continue;
+            }
+
             try {
               // Decode base64 and save to file
               const buffer = Buffer.from(image.data, 'base64');
-              const imagePath = path.join(attachmentsDir, image.filename);
               writeFileSync(imagePath, buffer);
 
               // Store relative path instead of base64 data
               savedImages.push({
                 id: image.id,
-                filename: image.filename,
+                filename: sanitizedFilename,
                 mimeType: image.mimeType,
                 size: image.size,
-                path: `attachments/${image.filename}`
+                path: `attachments/${sanitizedFilename}`
                 // Don't include data or thumbnail to save space
               });
             } catch (err) {
-              console.error(`Failed to save image ${image.filename}:`, err);
+              console.error(`Failed to save image ${sanitizedFilename}:`, err);
             }
           }
         }
@@ -216,6 +247,15 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
 
   /**
    * Delete a task
+   *
+   * This handler:
+   * 1. Checks if task exists and is not running
+   * 2. Cleans up the worktree (auto-commits, deletes directory, prunes refs, deletes branch)
+   * 3. Deletes all spec directories (main project + any remaining worktree locations)
+   *
+   * Note: Worktree cleanup uses manual deletion instead of `git worktree remove --force`
+   * because the latter fails on Windows when the directory contains untracked files
+   * (node_modules, build artifacts, etc.). See: https://github.com/AndyMik90/Auto-Claude/issues/1539
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_DELETE,
@@ -235,20 +275,42 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         return { success: false, error: 'Cannot delete a running task. Stop the task first.' };
       }
 
-      // Find ALL locations where this task exists (main + worktrees)
+      let hasErrors = false;
+      const errors: string[] = [];
+
+      // Clean up the worktree first if it exists
+      // This uses the robust cleanup that handles Windows file locking issues
+      const worktreePath = findTaskWorktree(project.path, task.specId);
+      if (worktreePath) {
+        console.warn(`[TASK_DELETE] Found worktree at: ${worktreePath}`);
+        const cleanupResult = await cleanupWorktree({
+          worktreePath,
+          projectPath: project.path,
+          specId: task.specId,
+          logPrefix: '[TASK_DELETE]',
+          deleteBranch: true
+        });
+
+        if (!cleanupResult.success) {
+          console.error(`[TASK_DELETE] Worktree cleanup failed:`, cleanupResult.warnings);
+          hasErrors = true;
+          errors.push(`Worktree cleanup: ${cleanupResult.warnings.join('; ')}`);
+        } else if (cleanupResult.warnings.length > 0) {
+          console.warn(`[TASK_DELETE] Cleanup warnings:`, cleanupResult.warnings);
+        }
+      }
+
+      // Find ALL locations where this task exists (main + any remaining worktree dirs)
       // Following the archiveTasks() pattern from project-store.ts
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specPaths = findAllSpecPaths(project.path, specsBaseDir, task.specId);
 
       // If spec directory doesn't exist anywhere, return success (already removed)
-      if (specPaths.length === 0) {
+      if (specPaths.length === 0 && !hasErrors) {
         console.warn(`[TASK_DELETE] No spec directories found for task ${taskId} - already removed`);
         projectStore.invalidateTasksCache(project.id);
         return { success: true };
       }
-
-      let hasErrors = false;
-      const errors: string[] = [];
 
       // Delete from ALL locations
       for (const specDir of specPaths) {
@@ -390,26 +452,50 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           if (updates.metadata.attachedImages && updates.metadata.attachedImages.length > 0) {
             const attachmentsDir = path.join(specDir, 'attachments');
             mkdirSync(attachmentsDir, { recursive: true });
+            const resolvedAttachmentsDir = path.resolve(attachmentsDir);
+
+            // MIME type allowlist (defense in depth - frontend also validates)
+            const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/svg+xml'];
 
             const savedImages: typeof updates.metadata.attachedImages = [];
 
             for (const image of updates.metadata.attachedImages) {
               // If image has data (new image), save it
               if (image.data) {
+                // Validate MIME type
+                if (!image.mimeType || !ALLOWED_MIME_TYPES.includes(image.mimeType)) {
+                  console.warn(`[TASK_UPDATE] Skipping image with missing or disallowed MIME type: ${image.mimeType}`);
+                  continue;
+                }
+
+                // Sanitize filename to prevent path traversal attacks
+                const sanitizedFilename = path.basename(image.filename);
+                if (!sanitizedFilename || sanitizedFilename === '.' || sanitizedFilename === '..') {
+                  console.warn(`[TASK_UPDATE] Skipping image with invalid filename: ${image.filename}`);
+                  continue;
+                }
+
+                // Validate resolved path stays within attachments directory
+                const imagePath = path.join(attachmentsDir, sanitizedFilename);
+                const resolvedPath = path.resolve(imagePath);
+                if (!resolvedPath.startsWith(resolvedAttachmentsDir + path.sep)) {
+                  console.warn(`[TASK_UPDATE] Skipping image with path traversal attempt: ${image.filename}`);
+                  continue;
+                }
+
                 try {
                   const buffer = Buffer.from(image.data, 'base64');
-                  const imagePath = path.join(attachmentsDir, image.filename);
                   writeFileSync(imagePath, buffer);
 
                   savedImages.push({
                     id: image.id,
-                    filename: image.filename,
+                    filename: sanitizedFilename,
                     mimeType: image.mimeType,
                     size: image.size,
-                    path: `attachments/${image.filename}`
+                    path: `attachments/${sanitizedFilename}`
                   });
                 } catch (err) {
-                  console.error(`Failed to save image ${image.filename}:`, err);
+                  console.error(`Failed to save image ${sanitizedFilename}:`, err);
                 }
               } else if (image.path) {
                 // Existing image, keep it
@@ -558,6 +644,43 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error loading thumbnail'
         };
+      }
+    }
+  );
+
+  /**
+   * Check if a task's worktree has uncommitted changes
+   * Used by the UI before showing the delete confirmation dialog
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_CHECK_WORKTREE_CHANGES,
+    async (_, taskId: string): Promise<IPCResult<{ hasChanges: boolean; worktreePath?: string; changedFileCount?: number }>> => {
+      const { task, project } = findTaskAndProject(taskId);
+      if (!task || !project) {
+        return { success: true, data: { hasChanges: false } };
+      }
+
+      const worktreePath = findTaskWorktree(project.path, task.specId);
+      if (!worktreePath) {
+        return { success: true, data: { hasChanges: false } };
+      }
+
+      try {
+        const status = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
+          cwd: worktreePath,
+          encoding: 'utf-8',
+          env: getIsolatedGitEnv(),
+          timeout: 5000
+        }).trim();
+
+        const changedFiles = status ? status.split('\n').length : 0;
+        return {
+          success: true,
+          data: { hasChanges: changedFiles > 0, worktreePath, changedFileCount: changedFiles }
+        };
+      } catch {
+        // On error/timeout, return false as fail-safe (don't block deletion)
+        return { success: true, data: { hasChanges: false, worktreePath } };
       }
     }
   );

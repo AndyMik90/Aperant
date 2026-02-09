@@ -35,11 +35,34 @@ import {
   validateGitHubModule,
   buildRunnerArgs,
 } from "./utils/subprocess-runner";
+import { getPRStatusPoller } from "../../services/pr-status-poller";
+import type {
+  StartPollingRequest,
+  StopPollingRequest,
+  PollingMetadata,
+} from "../../../shared/types/pr-status";
 
 /**
  * GraphQL response type for PR list query
  * Note: repository can be null if the repo doesn't exist or user lacks access
  */
+interface GraphQLPRNode {
+  number: number;
+  title: string;
+  body: string | null;
+  state: string;
+  author: { login: string } | null;
+  headRefName: string;
+  baseRefName: string;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  assignees: { nodes: Array<{ login: string }> };
+  createdAt: string;
+  updatedAt: string;
+  url: string;
+}
+
 interface GraphQLPRListResponse {
   data: {
     repository: {
@@ -48,26 +71,35 @@ interface GraphQLPRListResponse {
           hasNextPage: boolean;
           endCursor: string | null;
         };
-        nodes: Array<{
-          number: number;
-          title: string;
-          body: string | null;
-          state: string;
-          author: { login: string } | null;
-          headRefName: string;
-          baseRefName: string;
-          additions: number;
-          deletions: number;
-          changedFiles: number;
-          assignees: { nodes: Array<{ login: string }> };
-          createdAt: string;
-          updatedAt: string;
-          url: string;
-        }>;
+        nodes: GraphQLPRNode[];
       };
     } | null;
   };
   errors?: Array<{ message: string }>;
+}
+
+/**
+ * Maps a GraphQL PR node to the frontend PRData format.
+ * Shared between listPRs and listMorePRs handlers.
+ */
+function mapGraphQLPRToData(pr: GraphQLPRNode): PRData {
+  return {
+    number: pr.number,
+    title: pr.title,
+    body: pr.body ?? "",
+    state: pr.state.toLowerCase(),
+    author: { login: pr.author?.login ?? "unknown" },
+    headRefName: pr.headRefName,
+    baseRefName: pr.baseRefName,
+    additions: pr.additions,
+    deletions: pr.deletions,
+    changedFiles: pr.changedFiles,
+    assignees: pr.assignees.nodes.map((a) => ({ login: a.login })),
+    files: [],
+    createdAt: pr.createdAt,
+    updatedAt: pr.updatedAt,
+    htmlUrl: pr.url,
+  };
 }
 
 /**
@@ -487,6 +519,7 @@ export interface PRData {
 export interface PRListResult {
   prs: PRData[];
   hasNextPage: boolean; // True if more PRs exist beyond the 100 limit
+  endCursor?: string | null; // Cursor for fetching next page (null if no more pages)
 }
 
 /**
@@ -870,6 +903,16 @@ function parseLogLine(line: string): { source: string; content: string; isError:
     };
   }
 
+  // Check for parallel SDK specialist logs (Specialist:name format)
+  const specialistMatch = line.match(/^\[Specialist:([\w-]+)\]\s*(.*)$/);
+  if (specialistMatch) {
+    return {
+      source: `Specialist:${specialistMatch[1]}`,
+      content: specialistMatch[2],
+      isError: false,
+    };
+  }
+
   for (const pattern of patterns) {
     const match = line.match(pattern);
     if (match) {
@@ -970,8 +1013,9 @@ function getPhaseFromSource(source: string): PRLogPhase {
 
   if (contextSources.includes(source)) return "context";
   if (analysisSources.includes(source)) return "analysis";
-  // Specialist agents (Agent:xxx) are part of analysis phase
+  // Specialist agents (Agent:xxx and Specialist:xxx) are part of analysis phase
   if (source.startsWith("Agent:")) return "analysis";
+  if (source.startsWith("Specialist:")) return "analysis";
   if (synthesisSources.includes(source)) return "synthesis";
   return "synthesis"; // Default to synthesis for unknown sources
 }
@@ -1005,6 +1049,9 @@ function createEmptyPRLogs(prNumber: number, repo: string, isFollowup: boolean):
 
 /**
  * Get PR logs file path
+ *
+ * Logs are stored at `.auto-claude/github/pr/logs_${prNumber}.json` within the project directory.
+ * This provides persistent storage for streaming log data during PR reviews.
  */
 function getPRLogsPath(project: Project, prNumber: number): string {
   return path.join(getGitHubDir(project), "pr", `logs_${prNumber}.json`);
@@ -1012,6 +1059,14 @@ function getPRLogsPath(project: Project, prNumber: number): string {
 
 /**
  * Load PR logs from disk
+ *
+ * This function is called by:
+ * 1. The IPC handler (GITHUB_PR_GET_LOGS) when the frontend polls for log updates
+ * 2. The frontend polling mechanism (every 1.5s during active review)
+ * 3. The fallback mechanism after review completion
+ *
+ * Returns null if the logs file doesn't exist yet (review hasn't started)
+ * or if the file is corrupted/unreadable.
  */
 function loadPRLogs(project: Project, prNumber: number): PRLogs | null {
   const logsPath = getPRLogsPath(project, prNumber);
@@ -1027,6 +1082,15 @@ function loadPRLogs(project: Project, prNumber: number): PRLogs | null {
 
 /**
  * Save PR logs to disk
+ *
+ * Called by PRLogCollector.save() to persist logs incrementally during review.
+ * This enables real-time streaming to the frontend via file-based polling.
+ *
+ * The logs file is written atomically and includes:
+ * - Phase status (pending/active/completed/failed)
+ * - Log entries for each phase (context, analysis, synthesis)
+ * - Timestamps for created_at and updated_at
+ * - Review metadata (PR number, repo, followup status)
  */
 function savePRLogs(project: Project, logs: PRLogs): void {
   const logsPath = getPRLogsPath(project, logs.pr_number);
@@ -1062,6 +1126,25 @@ function addLogEntry(logs: PRLogs, entry: PRLogEntry): boolean {
 /**
  * PR Log Collector - collects logs during review
  * Saves incrementally to disk so frontend can stream logs in real-time
+ *
+ * Log Streaming Architecture:
+ * ===========================
+ * This class implements a hybrid push/pull approach for real-time log streaming:
+ *
+ * 1. **File-Based Storage**: Logs are saved to disk every 3 entries (saveInterval)
+ *    - Location: .auto-claude/github/pr/logs_${prNumber}.json
+ *    - Format: JSON with phase status and log entries
+ *
+ * 2. **Push-Based Updates**: Emits IPC events (GITHUB_PR_LOGS_UPDATED) after each save
+ *    - Notifies frontend immediately when new logs are available
+ *    - Includes phase status and entry count for quick UI updates
+ *
+ * 3. **Pull-Based Polling**: Frontend polls via loadPRLogs() every 1.5s as fallback
+ *    - Ensures logs are displayed even if IPC events are missed
+ *    - Provides resilience against event delivery failures
+ *
+ * This hybrid approach ensures reliable real-time updates while maintaining
+ * simplicity and debuggability (logs are always on disk for inspection).
  */
 class PRLogCollector {
   private logs: PRLogs;
@@ -1069,10 +1152,29 @@ class PRLogCollector {
   private currentPhase: PRLogPhase = "context";
   private entryCount: number = 0;
   private saveInterval: number = 3; // Save every N entries for real-time streaming
+  private mainWindow: BrowserWindow | null;
 
-  constructor(project: Project, prNumber: number, repo: string, isFollowup: boolean) {
+  constructor(
+    project: Project,
+    prNumber: number,
+    repo: string,
+    isFollowup: boolean,
+    mainWindow?: BrowserWindow
+  ) {
     this.project = project;
     this.logs = createEmptyPRLogs(prNumber, repo, isFollowup);
+    this.mainWindow = mainWindow || null;
+
+    // Debug: Log collector creation
+    const logPath = getPRLogsPath(project, prNumber);
+    debugLog("PRLogCollector created", {
+      prNumber,
+      repo,
+      isFollowup,
+      logPath,
+      hasMainWindow: !!this.mainWindow
+    });
+
     // Save initial empty logs so frontend sees the structure immediately
     this.save();
   }
@@ -1082,6 +1184,16 @@ class PRLogCollector {
     if (!parsed) return;
 
     const phase = getPhaseFromSource(parsed.source);
+
+    // Debug: Log line processing
+    debugLog("PRLogCollector.processLine()", {
+      prNumber: this.logs.pr_number,
+      phase,
+      currentPhase: this.currentPhase,
+      source: parsed.source,
+      isError: parsed.isError,
+      entryCount: this.entryCount
+    });
 
     // Track phase transitions - mark previous phases as complete (only if they were active)
     if (phase !== this.currentPhase) {
@@ -1127,8 +1239,60 @@ class PRLogCollector {
     this.save();
   }
 
+  /**
+   * Save logs to disk and notify frontend
+   *
+   * This method is called:
+   * 1. Every N entries (saveInterval = 3) for incremental streaming
+   * 2. When phase status changes (pending → active, active → completed)
+   * 3. On review finalization (success or failure)
+   *
+   * Two-step update mechanism:
+   * --------------------------
+   * 1. **File Write**: Persists logs to disk via savePRLogs()
+   *    - Creates/updates .auto-claude/github/pr/logs_${prNumber}.json
+   *    - Updates the `updated_at` timestamp
+   *
+   * 2. **IPC Push Event**: Sends GITHUB_PR_LOGS_UPDATED to renderer
+   *    - Contains phase status summary (pending/active/completed/failed)
+   *    - Includes entry count for detecting changes
+   *    - Enables instant UI updates without polling delay
+   *
+   * The frontend receives the IPC event and can optionally trigger an
+   * immediate poll via loadPRLogs() to fetch the latest log content.
+   * This is more efficient than polling alone, as the UI can update
+   * immediately when logs are available rather than waiting for the
+   * next poll interval (1.5s).
+   */
   save(): void {
+    const logPath = getPRLogsPath(this.project, this.logs.pr_number);
+    debugLog("PRLogCollector.save()", {
+      prNumber: this.logs.pr_number,
+      logPath,
+      entryCount: this.entryCount,
+      phases: Object.entries(this.logs.phases).map(([name, phase]) => ({
+        name,
+        status: phase.status,
+        entryCount: phase.entries.length
+      }))
+    });
+
+    // Step 1: Write logs to disk for persistence and polling-based retrieval
     savePRLogs(this.project, this.logs);
+
+    // Step 2: Emit IPC event to notify renderer of log update (push-based)
+    // Uses standard (projectId, data) pattern matching other IPC communicators
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send(IPC_CHANNELS.GITHUB_PR_LOGS_UPDATED, this.project.id, {
+        prNumber: this.logs.pr_number,
+        phaseStatus: {
+          context: this.logs.phases.context.status,
+          analysis: this.logs.phases.analysis.status,
+          synthesis: this.logs.phases.synthesis.status
+        },
+        entryCount: this.entryCount
+      });
+    }
   }
 
   finalize(success: boolean): void {
@@ -1197,7 +1361,44 @@ function getReviewResult(project: Project, prNumber: number): PRReviewResult | n
   }
 }
 
-// IPC communication helpers removed - using createIPCCommunicators instead
+/**
+ * Send a PR review state update event to the renderer to refresh the UI immediately.
+ * Used after operations that modify review state (post, mark posted, delete).
+ */
+function sendReviewStateUpdate(
+  project: Project,
+  prNumber: number,
+  projectId: string,
+  getMainWindow: () => BrowserWindow | null,
+  context: string
+): void {
+  try {
+    const updatedResult = getReviewResult(project, prNumber);
+    if (!updatedResult) {
+      debugLog("Could not retrieve updated review result for UI notification", { prNumber, context });
+      return;
+    }
+    const mainWindow = getMainWindow();
+    if (!mainWindow) return;
+    const { sendComplete } = createIPCCommunicators<PRReviewProgress, PRReviewResult>(
+      mainWindow,
+      {
+        progress: IPC_CHANNELS.GITHUB_PR_REVIEW_PROGRESS,
+        error: IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR,
+        complete: IPC_CHANNELS.GITHUB_PR_REVIEW_COMPLETE,
+      },
+      projectId
+    );
+    sendComplete(updatedResult);
+    debugLog(`Sent PR review state update ${context}`, { prNumber });
+  } catch (uiError) {
+    debugLog("Failed to send UI update (non-critical)", {
+      prNumber,
+      context,
+      error: uiError instanceof Error ? uiError.message : uiError,
+    });
+  }
+}
 
 /**
  * Get GitHub PR model and thinking settings from app settings
@@ -1251,23 +1452,28 @@ async function runPRReview(
   );
 
   const { model, thinkingLevel } = getGitHubPRSettings();
+  const settings = readSettingsFile();
+  const fastMode = !!settings?.fastMode;
   const args = buildRunnerArgs(
     getRunnerPath(backendPath),
     project.path,
     "review-pr",
     [prNumber.toString()],
-    { model, thinkingLevel }
+    { model, thinkingLevel, fastMode }
   );
 
-  debugLog("Spawning PR review process", { args, model, thinkingLevel });
+  debugLog("Spawning PR review process", { args, model, thinkingLevel, fastMode });
 
   // Create log collector for this review
   const config = getGitHubConfig(project);
   const repo = config?.repo || project.name || "unknown";
-  const logCollector = new PRLogCollector(project, prNumber, repo, false);
+  const logCollector = new PRLogCollector(project, prNumber, repo, false, mainWindow);
 
   // Build environment with project settings
   const subprocessEnv = await getRunnerEnv(getClaudeMdEnv(project));
+
+  // Create operation ID for this review
+  const reviewKey = getReviewKey(project.id, prNumber);
 
   const { process: childProcess, promise } = runPythonSubprocess<PRReviewResult>({
     pythonPath: getPythonPath(backendPath),
@@ -1303,10 +1509,17 @@ async function runPRReview(
       debugLog("Review result loaded", { findingsCount: reviewResult.findings.length });
       return reviewResult;
     },
+    // Register with OperationRegistry for proactive swap support
+    operationRegistration: {
+      operationId: `pr-review:${reviewKey}`,
+      operationType: 'pr-review',
+      metadata: { projectId: project.id, prNumber, repo },
+      // PR reviews don't support restart (would need to refetch PR data)
+      // The review will complete or fail, and user can retry manually
+    },
   });
 
-  // Register the running process
-  const reviewKey = getReviewKey(project.id, prNumber);
+  // Register the running process (keep legacy registry for cancel support)
   runningReviews.set(reviewKey, childProcess);
   debugLog("Registered review process", { reviewKey, pid: childProcess.pid });
 
@@ -1337,12 +1550,74 @@ async function runPRReview(
 }
 
 /**
+ * Shared helper to fetch PRs via GraphQL API.
+ * Used by both listPRs and listMorePRs handlers to avoid code duplication.
+ */
+async function fetchPRsFromGraphQL(
+  config: { token: string; repo: string },
+  cursor: string | null,
+  debugContext: string
+): Promise<PRListResult> {
+  // Parse owner/repo from config - must be exactly "owner/repo" format
+  const normalizedRepo = normalizeRepoReference(config.repo);
+  const repoParts = normalizedRepo.split("/");
+  if (repoParts.length !== 2 || !repoParts[0] || !repoParts[1]) {
+    debugLog("Invalid repo format - expected 'owner/repo'", {
+      repo: config.repo,
+      normalized: normalizedRepo,
+      context: debugContext,
+    });
+    return { prs: [], hasNextPage: false, endCursor: null };
+  }
+  const [owner, repo] = repoParts;
+
+  try {
+    // Use GraphQL API to get PRs with diff stats (REST list endpoint doesn't include them)
+    // Fetches up to 100 open PRs (GitHub GraphQL max per request)
+    const response = await githubGraphQL<GraphQLPRListResponse>(
+      config.token,
+      LIST_PRS_QUERY,
+      {
+        owner,
+        repo,
+        first: 100, // GitHub GraphQL max is 100
+        after: cursor,
+      }
+    );
+
+    // Handle case where repository doesn't exist or user lacks access
+    if (!response.data.repository) {
+      debugLog("Repository not found or access denied", { owner, repo, context: debugContext });
+      return { prs: [], hasNextPage: false, endCursor: null };
+    }
+
+    const { nodes: prNodes, pageInfo } = response.data.repository.pullRequests;
+
+    debugLog(`Fetched PRs via GraphQL (${debugContext})`, {
+      count: prNodes.length,
+      hasNextPage: pageInfo.hasNextPage,
+      endCursor: pageInfo.endCursor,
+    });
+    return {
+      prs: prNodes.map(mapGraphQLPRToData),
+      hasNextPage: pageInfo.hasNextPage,
+      endCursor: pageInfo.endCursor,
+    };
+  } catch (error) {
+    debugLog(`Failed to fetch PRs (${debugContext})`, {
+      error: error instanceof Error ? error.message : error,
+    });
+    return { prs: [], hasNextPage: false, endCursor: null };
+  }
+}
+
+/**
  * Register PR-related handlers
  */
 export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): void {
   debugLog("Registering PR handlers");
 
-  // List open PRs - fetches up to 100 open PRs at once, returns hasNextPage from API
+  // List open PRs - fetches up to 100 open PRs at once, returns hasNextPage and endCursor from API
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_PR_LIST,
     async (_, projectId: string): Promise<PRListResult> => {
@@ -1351,69 +1626,28 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
         const config = getGitHubConfig(project);
         if (!config) {
           debugLog("No GitHub config found for project");
-          return { prs: [], hasNextPage: false };
+          return { prs: [], hasNextPage: false, endCursor: null };
         }
-
-        try {
-          // Parse owner/repo from config - must be exactly "owner/repo" format
-          const normalizedRepo = normalizeRepoReference(config.repo);
-          const repoParts = normalizedRepo.split("/");
-          if (repoParts.length !== 2 || !repoParts[0] || !repoParts[1]) {
-            debugLog("Invalid repo format - expected 'owner/repo'", { repo: config.repo, normalized: normalizedRepo });
-            return { prs: [], hasNextPage: false };
-          }
-          const [owner, repo] = repoParts;
-
-          // Use GraphQL API to get PRs with diff stats (REST list endpoint doesn't include them)
-          // Fetches up to 100 open PRs (GitHub GraphQL max per request)
-          const response = await githubGraphQL<GraphQLPRListResponse>(
-            config.token,
-            LIST_PRS_QUERY,
-            {
-              owner,
-              repo,
-              first: 100, // GitHub GraphQL max is 100
-              after: null, // Start from beginning
-            }
-          );
-
-          // Handle case where repository doesn't exist or user lacks access
-          if (!response.data.repository) {
-            debugLog("Repository not found or access denied", { owner, repo });
-            return { prs: [], hasNextPage: false };
-          }
-
-          const { nodes: prNodes, pageInfo } = response.data.repository.pullRequests;
-
-          debugLog("Fetched PRs via GraphQL", { count: prNodes.length, hasNextPage: pageInfo.hasNextPage });
-          return {
-            prs: prNodes.map((pr) => ({
-              number: pr.number,
-              title: pr.title,
-              body: pr.body ?? "",
-              state: pr.state.toLowerCase(),
-              author: { login: pr.author?.login ?? "unknown" },
-              headRefName: pr.headRefName,
-              baseRefName: pr.baseRefName,
-              additions: pr.additions,
-              deletions: pr.deletions,
-              changedFiles: pr.changedFiles,
-              assignees: pr.assignees.nodes.map((a) => ({ login: a.login })),
-              files: [],
-              createdAt: pr.createdAt,
-              updatedAt: pr.updatedAt,
-              htmlUrl: pr.url,
-            })),
-            hasNextPage: pageInfo.hasNextPage,
-          };
-        } catch (error) {
-          debugLog("Failed to fetch PRs", {
-            error: error instanceof Error ? error.message : error,
-          });
-          return { prs: [], hasNextPage: false };
-        }
+        return fetchPRsFromGraphQL(config, null, "initial");
       });
-      return result ?? { prs: [], hasNextPage: false };
+      return result ?? { prs: [], hasNextPage: false, endCursor: null };
+    }
+  );
+
+  // Load more PRs (pagination) - fetches next page of PRs using cursor
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_LIST_MORE,
+    async (_, projectId: string, cursor: string): Promise<PRListResult> => {
+      debugLog("listMorePRs handler called", { projectId, cursor });
+      const result = await withProjectOrNull(projectId, async (project) => {
+        const config = getGitHubConfig(project);
+        if (!config) {
+          debugLog("No GitHub config found for project");
+          return { prs: [], hasNextPage: false, endCursor: null };
+        }
+        return fetchPRsFromGraphQL(config, cursor, "pagination");
+      });
+      return result ?? { prs: [], hasNextPage: false, endCursor: null };
     }
   );
 
@@ -1547,7 +1781,27 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
     }
   );
 
-  // Get PR review logs
+  /**
+   * Get PR review logs (IPC Handler)
+   *
+   * This handler is called by the frontend's polling mechanism to retrieve
+   * the latest log data from disk.
+   *
+   * Polling Strategy (Frontend):
+   * ============================
+   * 1. **Initial Load**: When logs section expands, loads logs once via this handler
+   * 2. **Active Review Polling**: Every 1.5s while review is running (isReviewing = true)
+   * 3. **Final Refresh**: One final poll when review completes to capture final status
+   * 4. **Fallback Load**: 500ms delayed load after completion if polling missed final logs
+   *
+   * Why Polling + Push Hybrid?
+   * ===========================
+   * - Push (IPC events): Fast notifications when logs are saved by PRLogCollector
+   * - Pull (polling): Guarantees logs are fetched even if IPC events are missed
+   * - File-based: Simple, debuggable, survives app crashes/restarts
+   *
+   * Returns null if logs file doesn't exist yet (review hasn't started).
+   */
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_PR_GET_LOGS,
     async (_, projectId: string, prNumber: number): Promise<PRLogs | null> => {
@@ -1893,6 +2147,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             debugLog("Review result file not found or unreadable, skipping update", { prNumber });
           }
 
+          // Send state update event to refresh UI immediately (non-blocking)
+          sendReviewStateUpdate(project, prNumber, projectId, getMainWindow, "after posting");
+
           return true;
         } catch (error) {
           debugLog("Failed to post review", {
@@ -1928,6 +2185,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
 
           fs.writeFileSync(reviewPath, JSON.stringify(data, null, 2), "utf-8");
           debugLog("Marked review as posted", { prNumber });
+
+          // Send state update event to refresh UI immediately (non-blocking)
+          sendReviewStateUpdate(project, prNumber, projectId, getMainWindow, "after marking posted");
 
           return true;
         } catch (error) {
@@ -2043,6 +2303,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             // File doesn't exist or couldn't be read - this is expected if review wasn't saved
             debugLog("Review result file not found or unreadable, skipping update", { prNumber });
           }
+
+          // Send state update event to refresh UI immediately (non-blocking)
+          sendReviewStateUpdate(project, prNumber, projectId, getMainWindow, "after deletion");
 
           return true;
         } catch (error) {
@@ -2636,19 +2899,21 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             ciWaitAbortControllers.delete(reviewKey);
 
             const { model, thinkingLevel } = getGitHubPRSettings();
+          const followupSettings = readSettingsFile();
+          const followupFastMode = !!followupSettings?.fastMode;
           const args = buildRunnerArgs(
             getRunnerPath(backendPath),
             project.path,
             "followup-review-pr",
             [prNumber.toString()],
-            { model, thinkingLevel }
+            { model, thinkingLevel, fastMode: followupFastMode }
           );
 
-          debugLog("Spawning follow-up review process", { args, model, thinkingLevel });
+          debugLog("Spawning follow-up review process", { args, model, thinkingLevel, fastMode: followupFastMode });
 
           // Create log collector for this follow-up review (config already declared above)
           const repo = config?.repo || project.name || "unknown";
-          const logCollector = new PRLogCollector(project, prNumber, repo, true);
+          const logCollector = new PRLogCollector(project, prNumber, repo, true, mainWindow);
 
           // Build environment with project settings
           const followupEnv = await getRunnerEnv(getClaudeMdEnv(project));
@@ -2688,6 +2953,12 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
                 findingsCount: reviewResult.findings.length,
               });
               return reviewResult;
+            },
+            // Register with OperationRegistry for proactive swap support
+            operationRegistration: {
+              operationId: `pr-followup-review:${reviewKey}`,
+              operationType: 'pr-review',
+              metadata: { projectId: project.id, prNumber, repo, isFollowup: true },
             },
           });
 
@@ -3001,6 +3272,92 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
         }
       });
       return result ?? [];
+    }
+  );
+
+  // ============================================================================
+  // PR Status Polling Handlers
+  // ============================================================================
+
+  // Initialize PRStatusPoller with main window getter for IPC updates
+  const prStatusPoller = getPRStatusPoller();
+  prStatusPoller.setMainWindowGetter(getMainWindow);
+
+  // Start polling PR status for a project
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_STATUS_POLL_START,
+    async (
+      _,
+      request: StartPollingRequest
+    ): Promise<{ success: boolean; error?: string }> => {
+      debugLog("startStatusPolling handler called", {
+        projectId: request.projectId,
+        prCount: request.prNumbers.length,
+      });
+
+      const result = await withProjectOrNull(request.projectId, async (project) => {
+        const config = getGitHubConfig(project);
+        if (!config) {
+          debugLog("No GitHub config found for project, cannot start polling");
+          return { success: false, error: "No GitHub configuration found" };
+        }
+
+        try {
+          await prStatusPoller.startPolling(
+            request.projectId,
+            request.prNumbers,
+            config.token
+          );
+          debugLog("Status polling started successfully", {
+            projectId: request.projectId,
+          });
+          return { success: true };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Unknown error";
+          debugLog("Failed to start status polling", {
+            projectId: request.projectId,
+            error: message,
+          });
+          return { success: false, error: message };
+        }
+      });
+      return result ?? { success: false, error: "Project not found" };
+    }
+  );
+
+  // Stop polling PR status for a project
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_STATUS_POLL_STOP,
+    async (
+      _,
+      request: StopPollingRequest
+    ): Promise<{ success: boolean }> => {
+      debugLog("stopStatusPolling handler called", {
+        projectId: request.projectId,
+      });
+
+      try {
+        prStatusPoller.stopPolling(request.projectId);
+        debugLog("Status polling stopped successfully", {
+          projectId: request.projectId,
+        });
+        return { success: true };
+      } catch (error) {
+        debugLog("Failed to stop status polling", {
+          projectId: request.projectId,
+          error: error instanceof Error ? error.message : error,
+        });
+        return { success: false };
+      }
+    }
+  );
+
+  // Get current polling metadata for a project
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_STATUS_UPDATE,
+    async (_, projectId: string): Promise<PollingMetadata> => {
+      debugLog("getPollingMetadata handler called", { projectId });
+      return prStatusPoller.getPollingMetadata(projectId);
     }
   );
 

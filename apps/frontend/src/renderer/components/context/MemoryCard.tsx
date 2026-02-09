@@ -276,7 +276,9 @@ export function MemoryCard({ memory }: MemoryCardProps) {
                 <SectionHeader icon={Sparkles} title="Patterns" count={parsed.discoveries.patterns_discovered.length} />
                 <div className="flex flex-wrap gap-2 pl-4">
                   {parsed.discoveries.patterns_discovered.map((pattern, idx) => {
-                    const text = typeof pattern === 'string' ? pattern : pattern.pattern;
+                    const text = typeof pattern === 'string'
+                      ? pattern
+                      : (pattern?.pattern || pattern?.applies_to || JSON.stringify(pattern));
                     return text ? (
                       <Badge key={idx} variant="secondary" className="text-xs">
                         {text}
@@ -293,7 +295,9 @@ export function MemoryCard({ memory }: MemoryCardProps) {
                 <SectionHeader icon={AlertTriangle} title="Gotchas" count={parsed.discoveries.gotchas_discovered.length} />
                 <ul className="space-y-0.5">
                   {parsed.discoveries.gotchas_discovered.map((gotcha, idx) => {
-                    const text = typeof gotcha === 'string' ? gotcha : gotcha.gotcha;
+                    const text = typeof gotcha === 'string'
+                      ? gotcha
+                      : (gotcha?.gotcha || JSON.stringify(gotcha));
                     return text ? (
                       <ListItem key={idx} variant="error">{text}</ListItem>
                     ) : null;

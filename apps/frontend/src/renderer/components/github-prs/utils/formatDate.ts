@@ -6,7 +6,7 @@
  */
 export function formatDate(dateString: string, locale: string = 'en-US'): string {
   const date = new Date(dateString);
-  if (isNaN(date.getTime())) return '';
+  if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleDateString(locale, {
     month: 'short',
     day: 'numeric',

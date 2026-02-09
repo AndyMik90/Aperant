@@ -119,7 +119,7 @@ vi.mock('../../../settings-utils', () => ({
 }));
 
 function createMockWindow(): BrowserWindow {
-  return { webContents: { send: vi.fn() } } as unknown as BrowserWindow;
+  return { webContents: { send: vi.fn() }, isDestroyed: () => false } as unknown as BrowserWindow;
 }
 
 function createProject(): Project {

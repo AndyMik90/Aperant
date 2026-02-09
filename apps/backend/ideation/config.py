@@ -29,6 +29,7 @@ class IdeationConfigManager:
         thinking_level: str = "medium",
         refresh: bool = False,
         append: bool = False,
+        fast_mode: bool = False,
     ):
         """Initialize configuration manager.
 
@@ -64,6 +65,7 @@ class IdeationConfigManager:
             self.model,
             self.thinking_level,
             self.max_ideas_per_type,
+            fast_mode=fast_mode,
         )
         self.analyzer = ProjectAnalyzer(
             self.project_dir,

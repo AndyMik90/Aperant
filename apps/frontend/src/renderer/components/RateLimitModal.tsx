@@ -49,6 +49,7 @@ export function RateLimitModal() {
         setSelectedProfileId(rateLimitInfo.suggestedProfileId);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isModalOpen, rateLimitInfo?.suggestedProfileId]);
 
   // Reset selection when modal closes

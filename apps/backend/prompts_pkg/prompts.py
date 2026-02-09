@@ -81,6 +81,31 @@ def get_base_branch_from_metadata(spec_dir: Path) -> str | None:
     return None
 
 
+def get_use_local_branch_from_metadata(spec_dir: Path) -> bool:
+    """
+    Read useLocalBranch from task_metadata.json if it exists.
+
+    When True, the worktree should be created from the local branch directly
+    instead of preferring origin/branch. This preserves gitignored files
+    (.env, configs) that may not exist on the remote.
+
+    Args:
+        spec_dir: Directory containing the spec files
+
+    Returns:
+        True if useLocalBranch is set in metadata, False otherwise
+    """
+    metadata_path = spec_dir / "task_metadata.json"
+    if metadata_path.exists():
+        try:
+            with open(metadata_path, encoding="utf-8") as f:
+                metadata = json.load(f)
+                return bool(metadata.get("useLocalBranch", False))
+        except (json.JSONDecodeError, OSError):
+            pass
+    return False
+
+
 # Alias for backwards compatibility (internal use)
 _get_base_branch_from_metadata = get_base_branch_from_metadata
 

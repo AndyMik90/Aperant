@@ -1,10 +1,13 @@
-import { GitPullRequest, User, Clock, FileDiff } from 'lucide-react';
+import { GitPullRequest, User, Clock, FileDiff, Loader2 } from 'lucide-react';
 import { ScrollArea } from '../../ui/scroll-area';
 import { Badge } from '../../ui/badge';
+import { Button } from '../../ui/button';
 import { cn } from '../../../lib/utils';
 import type { PRData, PRReviewProgress, PRReviewResult } from '../hooks/useGitHubPRs';
 import type { NewCommitsCheck } from '../../../../preload/api/modules/github-api';
+import type { ChecksStatus, ReviewsStatus, MergeableState } from '../../../../shared/types/pr-status';
 import { useTranslation } from 'react-i18next';
+import { CompactStatusIndicator } from './StatusIndicator';
 
 /**
  * Status Flow Dots Component
@@ -160,6 +163,12 @@ interface PRReviewInfo {
   result: PRReviewResult | null;
   error: string | null;
   newCommitsCheck?: NewCommitsCheck | null;
+  /** CI checks status from polling */
+  checksStatus?: ChecksStatus | null;
+  /** Review status from polling */
+  reviewsStatus?: ReviewsStatus | null;
+  /** Mergeable state from polling */
+  mergeableState?: MergeableState | null;
 }
 
 interface PRListProps {
@@ -170,6 +179,10 @@ interface PRListProps {
   error: string | null;
   getReviewStateForPR: (prNumber: number) => PRReviewInfo | null;
   onSelectPR: (prNumber: number) => void;
+  /** Callback to load more PRs when hasMore is true */
+  onLoadMore?: () => void;
+  /** Whether additional PRs are currently being loaded */
+  isLoadingMore?: boolean;
 }
 
 function formatDate(dateString: string): string {
@@ -200,6 +213,8 @@ export function PRList({
   error,
   getReviewStateForPR,
   onSelectPR,
+  onLoadMore,
+  isLoadingMore,
 }: PRListProps) {
   const { t } = useTranslation('common');
 
@@ -285,7 +300,7 @@ export function PRList({
                     />
                   </div>
                   <h3 className="font-medium text-sm truncate">{pr.title}</h3>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
                     <span className="flex items-center gap-1">
                       <User className="h-3 w-3" />
                       {pr.author.login}
@@ -299,6 +314,13 @@ export function PRList({
                       <span className="text-success">+{pr.additions}</span>
                       <span className="text-destructive">-{pr.deletions}</span>
                     </span>
+                    {/* GitHub status indicators (CI, reviews, merge status) */}
+                    <CompactStatusIndicator
+                      checksStatus={reviewState?.checksStatus}
+                      reviewsStatus={reviewState?.reviewsStatus}
+                      mergeableState={reviewState?.mergeableState}
+                      showMergeStatus={false}
+                    />
                   </div>
                 </div>
               </div>
@@ -306,12 +328,30 @@ export function PRList({
           );
         })}
 
-        {/* Status indicator */}
+        {/* Status indicator / Load More button */}
         {prs.length > 0 && (
           <div className="py-4 flex justify-center">
-            <span className="text-xs text-muted-foreground opacity-50">
-              {hasMore ? t('prReview.maxPRsShown') : t('prReview.allPRsLoaded')}
-            </span>
+            {hasMore && onLoadMore ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onLoadMore}
+                disabled={isLoadingMore}
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t('prReview.loadingMore')}
+                  </>
+                ) : (
+                  t('prReview.loadMore')
+                )}
+              </Button>
+            ) : (
+              <span className="text-xs text-muted-foreground opacity-50">
+                {t('prReview.allPRsLoaded')}
+              </span>
+            )}
           </div>
         )}
       </div>

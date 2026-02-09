@@ -16,10 +16,11 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import type { Project } from '../../../../shared/types';
-import type { AuthFailureInfo } from '../../../../shared/types/terminal';
+import type { AuthFailureInfo, BillingFailureInfo } from '../../../../shared/types/terminal';
 import { parsePythonCommand } from '../../../python-detector';
-import { detectAuthFailure } from '../../../rate-limit-detector';
+import { detectAuthFailure, detectBillingFailure } from '../../../rate-limit-detector';
 import { getClaudeProfileManager } from '../../../claude-profile-manager';
+import { getOperationRegistry, type OperationType } from '../../../claude-profile/operation-registry';
 import { isWindows, isMacOS } from '../../../platform';
 
 const execAsync = promisify(exec);
@@ -68,9 +69,28 @@ export interface SubprocessOptions {
   onError?: (error: string) => void;
   /** Callback when auth failure (401) is detected in output */
   onAuthFailure?: (authFailureInfo: AuthFailureInfo) => void;
+  /** Callback when billing/credit exhaustion failure is detected in output */
+  onBillingFailure?: (billingFailureInfo: BillingFailureInfo) => void;
   progressPattern?: RegExp;
   /** Additional environment variables to pass to the subprocess */
   env?: Record<string, string>;
+  /**
+   * Operation registration for proactive swap support.
+   * If provided, the operation will be registered with the unified OperationRegistry.
+   */
+  operationRegistration?: {
+    /** Unique operation ID */
+    operationId: string;
+    /** Operation type for categorization */
+    operationType: OperationType;
+    /** Optional metadata for the operation */
+    metadata?: Record<string, unknown>;
+    /**
+     * Function to restart the operation with a new profile.
+     * Should call the original function with refreshed environment.
+     */
+    restartFn?: (newProfileId: string) => boolean | Promise<boolean>;
+  };
 }
 
 /**
@@ -124,12 +144,75 @@ export function runPythonSubprocess<T = unknown>(
     detached: !isWindows(),
   });
 
+  // Register with OperationRegistry for proactive swap support
+  if (options.operationRegistration) {
+    const { operationId, operationType, metadata, restartFn } = options.operationRegistration;
+    const profileManager = getClaudeProfileManager();
+    const activeProfile = profileManager.getActiveProfile();
+
+    if (activeProfile) {
+      const operationRegistry = getOperationRegistry();
+
+      // Create a stop function that kills the subprocess.
+      // Note: This sends SIGTERM and returns immediately without waiting for process exit.
+      //
+      // Timing dependency for restarts:
+      // - For subprocess-runner operations, restartFn returns false so no race condition
+      //   (operations are non-resumable and won't be restarted, just stopped gracefully)
+      // - For AgentManager operations, there's a 500ms setTimeout delay in restartTask
+      //   (see agent-manager.ts line 528) that mitigates the race between kill and restart
+      //
+      // RestartFn implementations should handle potential overlap between process termination
+      // and restart initialization if not using the setTimeout pattern.
+      const stopFn = async () => {
+        if (child.pid) {
+          try {
+            if (!isWindows()) {
+              process.kill(-child.pid, 'SIGTERM');
+            } else {
+              execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], () => {});
+            }
+          } catch {
+            child.kill('SIGTERM');
+          }
+        }
+      };
+
+      // Register with OperationRegistry for tracking and proactive swap support.
+      // For operations that provide a restartFn, UsageMonitor can restart them with a new profile.
+      // For operations without restartFn (e.g., PR reviews which are non-resumable due to one-shot workflow),
+      // we register with a no-op restartFn that returns false. This allows the swap to stop the operation
+      // gracefully without attempting restart. The operation will be killed when the profile swaps,
+      // which is the correct behavior for non-resumable operations.
+      operationRegistry.registerOperation(
+        operationId,
+        operationType,
+        activeProfile.id,
+        activeProfile.name,
+        restartFn || (() => false), // Use provided restartFn or a no-op for non-resumable operations
+        {
+          stopFn,
+          metadata: { ...metadata, pythonPath: options.pythonPath, cwd: options.cwd }
+        }
+      );
+
+      console.log('[SubprocessRunner] Operation registered with OperationRegistry:', {
+        operationId,
+        operationType,
+        profileId: activeProfile.id,
+        profileName: activeProfile.name
+      });
+    }
+  }
+
   const promise = new Promise<SubprocessResult<T>>((resolve) => {
 
     let stdout = '';
     let stderr = '';
     let authFailureEmitted = false; // Track if we've already emitted an auth failure
     let killedDueToAuthFailure = false; // Track if subprocess was killed due to auth failure
+    let billingFailureEmitted = false; // Track if we've already emitted a billing failure
+    let killedDueToBillingFailure = false; // Track if subprocess was killed due to billing failure
 
     // Default progress pattern: [ 30%] message OR [30%] message
     const progressPattern = options.progressPattern ?? /\[\s*(\d+)%\]\s*(.+)/;
@@ -193,6 +276,65 @@ export function runPythonSubprocess<T = unknown>(
       }
     };
 
+    // Helper to check for billing/credit failures in output and emit once
+    const checkBillingFailure = (line: string) => {
+      if (billingFailureEmitted || !options.onBillingFailure) return;
+
+      const billingResult = detectBillingFailure(line);
+      if (billingResult.isBillingFailure) {
+        billingFailureEmitted = true;
+        console.log('[SubprocessRunner] Billing failure detected in real-time:', billingResult);
+
+        // Get profile info for display
+        const profileManager = getClaudeProfileManager();
+        const profile = billingResult.profileId
+          ? profileManager.getProfile(billingResult.profileId)
+          : profileManager.getActiveProfile();
+
+        const billingFailureInfo: BillingFailureInfo = {
+          profileId: billingResult.profileId || profile?.id || 'unknown',
+          profileName: profile?.name,
+          failureType: billingResult.failureType || 'unknown',
+          message: billingResult.message || 'Billing or credit error. Please check your account.',
+          originalError: billingResult.originalError,
+          detectedAt: new Date(),
+        };
+
+        try {
+          options.onBillingFailure(billingFailureInfo);
+        } catch (e) {
+          console.error('[SubprocessRunner] onBillingFailure callback threw:', e);
+        }
+
+        // Kill the subprocess to stop the billing failure spam
+        killedDueToBillingFailure = true;
+        // The process is stuck in billing errors - no point continuing
+        console.log('[SubprocessRunner] Killing subprocess due to billing failure, pid:', child.pid);
+
+        // Use process.kill with negative PID to kill the entire process group on Unix
+        // This ensures child processes (like the Claude SDK subprocess) are also killed
+        if (child.pid) {
+          try {
+            // On Unix, negative PID kills the process group
+            if (!isWindows()) {
+              process.kill(-child.pid, 'SIGKILL');
+            } else {
+              // On Windows, use taskkill to kill the process tree
+              execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
+                if (err) console.warn('[SubprocessRunner] taskkill error (process may have already exited):', err.message);
+              });
+            }
+          } catch (err) {
+            // Fallback to regular kill if process group kill fails
+            console.log('[SubprocessRunner] Process group kill failed, using regular kill:', err);
+            child.kill('SIGKILL');
+          }
+        } else {
+          child.kill('SIGKILL');
+        }
+      }
+    };
+
     child.stdout.on('data', (data: Buffer) => {
       const text = data.toString('utf-8');
       stdout += text;
@@ -205,6 +347,9 @@ export function runPythonSubprocess<T = unknown>(
 
           // Check for auth failures in real-time (only emit once)
           checkAuthFailure(line);
+
+          // Check for billing/credit failures in real-time (only emit once)
+          checkBillingFailure(line);
 
           // Parse progress updates
           const match = line.match(progressPattern);
@@ -228,6 +373,9 @@ export function runPythonSubprocess<T = unknown>(
 
           // Also check stderr for auth failures
           checkAuthFailure(line);
+
+          // Also check stderr for billing/credit failures
+          checkBillingFailure(line);
         }
       }
     });
@@ -235,6 +383,11 @@ export function runPythonSubprocess<T = unknown>(
     child.on('close', (code: number | null) => {
       // Treat null exit code (killed with SIGKILL) as failure, not success
       const exitCode = code ?? -1;
+
+      // Unregister from OperationRegistry when process exits
+      if (options.operationRegistration) {
+        getOperationRegistry().unregisterOperation(options.operationRegistration.operationId);
+      }
 
       // Debug logging only in development mode
       if (process.env.NODE_ENV === 'development') {
@@ -256,6 +409,18 @@ export function runPythonSubprocess<T = unknown>(
           stdout,
           stderr,
           error: 'Authentication failed. Please re-authenticate.',
+        });
+        return;
+      }
+
+      // Check if subprocess was killed due to billing/credit failure
+      if (killedDueToBillingFailure) {
+        resolve({
+          success: false,
+          exitCode: exitCode,
+          stdout,
+          stderr,
+          error: 'Billing or credit error. Please check your account.',
         });
         return;
       }
@@ -571,6 +736,7 @@ export function buildRunnerArgs(
   options?: {
     model?: string;
     thinkingLevel?: string;
+    fastMode?: boolean;
   }
 ): string[] {
   const args = [runnerPath, '--project', projectPath];
@@ -581,6 +747,10 @@ export function buildRunnerArgs(
 
   if (options?.thinkingLevel) {
     args.push('--thinking-level', options.thinkingLevel);
+  }
+
+  if (options?.fastMode) {
+    args.push('--fast-mode');
   }
 
   args.push(command);

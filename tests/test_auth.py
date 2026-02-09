@@ -67,10 +67,10 @@ class TestEnvVarTokenResolution:
         token = get_auth_token()
         assert token == claude_token
 
-    def test_no_token_returns_none(self, mocker):
+    def test_no_token_returns_none(self, monkeypatch):
         """Returns None when no auth token is configured."""
         # Mock keychain to return None (env vars already cleared by fixture)
-        mocker.patch("core.auth.get_token_from_keychain", return_value=None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
         token = get_auth_token()
         assert token is None
 
@@ -369,12 +369,12 @@ class TestRequireAuthToken:
     """Tests for require_auth_token function."""
 
     @pytest.fixture(autouse=True)
-    def clear_env(self, mocker):
+    def clear_env(self, monkeypatch):
         """Clear auth environment variables and mock keychain before each test."""
         for var in AUTH_TOKEN_ENV_VARS:
             os.environ.pop(var, None)
         # Mock keychain to return None (tests that need a token will set env var)
-        mocker.patch("core.auth.get_token_from_keychain", return_value=None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
         yield
         # Cleanup after test
         for var in AUTH_TOKEN_ENV_VARS:
@@ -465,7 +465,7 @@ class TestEnsureClaudeCodeOAuthToken:
         """Doesn't set env var when no auth token is available."""
         monkeypatch.setattr(platform, "system", lambda: "Linux")
         # Ensure keychain returns None
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         ensure_claude_code_oauth_token()
 
@@ -512,7 +512,8 @@ class TestTokenSourceDetection:
         monkeypatch.setattr("subprocess.run", Mock(return_value=mock_result))
 
         source = get_auth_token_source()
-        assert source == "macOS Keychain"
+        # Source can be "macOS Keychain" or "macOS Keychain (profile)" depending on profile settings
+        assert source is not None and source.startswith("macOS Keychain")
 
     def test_source_windows_credential_files(self, monkeypatch, tmp_path):
         """Identifies Windows Credential Files as source."""
@@ -528,7 +529,8 @@ class TestTokenSourceDetection:
         )
 
         source = get_auth_token_source()
-        assert source == "Windows Credential Files"
+        # Source can have "(profile)" suffix depending on profile settings
+        assert source is not None and source.startswith("Windows Credential Files")
 
     def test_source_linux_secret_service(self, monkeypatch):
         """Identifies Linux Secret Service as source."""
@@ -554,12 +556,13 @@ class TestTokenSourceDetection:
         monkeypatch.setattr("core.auth.secretstorage", mock_ss)
 
         source = get_auth_token_source()
-        assert source == "Linux Secret Service"
+        # Source can have "(profile)" suffix depending on profile settings
+        assert source is not None and source.startswith("Linux Secret Service")
 
-    def test_source_none_when_not_found(self, mocker):
+    def test_source_none_when_not_found(self, monkeypatch):
         """Returns None when no token source is found."""
         # Mock keychain to return None (env vars already cleared by fixture)
-        mocker.patch("core.auth.get_token_from_keychain", return_value=None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
         source = get_auth_token_source()
         assert source is None
 
@@ -646,7 +649,7 @@ class TestTokenDecryption:
         from unittest.mock import patch
 
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "enc:testtoken123456789")
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         with patch("core.auth.decrypt_token") as mock_decrypt:
             # Simulate decryption failure
@@ -669,7 +672,7 @@ class TestTokenDecryption:
         decrypted_token = "sk-ant-oat01-decrypted-token"
 
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", encrypted_token)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         with patch("core.auth.decrypt_token") as mock_decrypt:
             mock_decrypt.return_value = decrypted_token
@@ -687,7 +690,7 @@ class TestTokenDecryption:
         """Verify plaintext tokens continue to work unchanged."""
         token = "sk-ant-oat01-test"
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", token)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         from core.auth import get_auth_token
 
@@ -990,7 +993,7 @@ class TestTokenDecryptionKeychain:
 
         encrypted_token = "enc:keychaintoken1234"
         monkeypatch.setattr(
-            "core.auth.get_token_from_keychain", lambda: encrypted_token
+            "core.auth.get_token_from_keychain", lambda _config_dir=None: encrypted_token
         )
 
         with patch("core.auth.decrypt_token") as mock_decrypt:
@@ -1012,7 +1015,7 @@ class TestTokenDecryptionKeychain:
         decrypted_token = "sk-ant-oat01-from-keychain"
 
         monkeypatch.setattr(
-            "core.auth.get_token_from_keychain", lambda: encrypted_token
+            "core.auth.get_token_from_keychain", lambda _config_dir=None: encrypted_token
         )
 
         with patch("core.auth.decrypt_token") as mock_decrypt:
@@ -1031,7 +1034,7 @@ class TestTokenDecryptionKeychain:
 
         plaintext_token = "sk-ant-oat01-keychain-plaintext"
         monkeypatch.setattr(
-            "core.auth.get_token_from_keychain", lambda: plaintext_token
+            "core.auth.get_token_from_keychain", lambda _config_dir=None: plaintext_token
         )
 
         with patch("core.auth.decrypt_token") as mock_decrypt:
@@ -1049,7 +1052,7 @@ class TestTokenDecryptionKeychain:
 
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", env_token)
         monkeypatch.setattr(
-            "core.auth.get_token_from_keychain", lambda: keychain_token
+            "core.auth.get_token_from_keychain", lambda _config_dir=None: keychain_token
         )
 
         from core.auth import get_auth_token
@@ -1067,7 +1070,7 @@ class TestTokenDecryptionKeychain:
 
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", encrypted_env)
         monkeypatch.setattr(
-            "core.auth.get_token_from_keychain", lambda: keychain_token
+            "core.auth.get_token_from_keychain", lambda _config_dir=None: keychain_token
         )
 
         with patch("core.auth.decrypt_token") as mock_decrypt:

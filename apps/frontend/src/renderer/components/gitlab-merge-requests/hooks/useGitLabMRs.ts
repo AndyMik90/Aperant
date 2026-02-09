@@ -15,6 +15,11 @@ import {
 export type { GitLabMergeRequest, GitLabMRReviewResult, GitLabMRReviewProgress };
 export type { GitLabMRReviewFinding } from '../../../../shared/types';
 
+interface UseGitLabMRsOptions {
+  /** Filter MRs by state */
+  stateFilter?: 'opened' | 'closed' | 'merged' | 'all';
+}
+
 interface UseGitLabMRsResult {
   mergeRequests: GitLabMergeRequest[];
   isLoading: boolean;
@@ -47,17 +52,17 @@ interface UseGitLabMRsResult {
   } | null;
 }
 
-export function useGitLabMRs(projectId?: string): UseGitLabMRsResult {
+export function useGitLabMRs(projectId?: string, options: UseGitLabMRsOptions = {}): UseGitLabMRsResult {
+  const { stateFilter = 'opened' } = options;
   const [mergeRequests, setMergeRequests] = useState<GitLabMergeRequest[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedMRIid, setSelectedMRIid] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [projectPath, setProjectPath] = useState<string | null>(null);
-  const [stateFilter] = useState<'opened' | 'closed' | 'merged' | 'all'>('opened');
 
   // Get MR review state from the global store
-  const mrReviews = useMRReviewStore((state) => state.mrReviews);
+  const _mrReviews = useMRReviewStore((state) => state.mrReviews);
   const getMRReviewState = useMRReviewStore((state) => state.getMRReviewState);
   const getActiveMRReviews = useMRReviewStore((state) => state.getActiveMRReviews);
 
@@ -65,7 +70,7 @@ export function useGitLabMRs(projectId?: string): UseGitLabMRsResult {
   const selectedMRReviewState = useMemo(() => {
     if (!projectId || selectedMRIid === null) return null;
     return getMRReviewState(projectId, selectedMRIid);
-  }, [projectId, selectedMRIid, mrReviews, getMRReviewState]);
+  }, [projectId, selectedMRIid, getMRReviewState]);
 
   // Derive values from store state
   const reviewResult = selectedMRReviewState?.result ?? null;
@@ -76,7 +81,7 @@ export function useGitLabMRs(projectId?: string): UseGitLabMRsResult {
   const activeMRReviews = useMemo(() => {
     if (!projectId) return [];
     return getActiveMRReviews(projectId).map(review => review.mrIid);
-  }, [projectId, mrReviews, getActiveMRReviews]);
+  }, [projectId, getActiveMRReviews]);
 
   // Helper to get review state for any MR
   const getReviewStateForMR = useCallback((mrIid: number) => {
@@ -90,7 +95,7 @@ export function useGitLabMRs(projectId?: string): UseGitLabMRsResult {
       error: state.error,
       newCommitsCheck: state.newCommitsCheck
     };
-  }, [projectId, mrReviews, getMRReviewState]);
+  }, [projectId, getMRReviewState]);
 
   const selectedMR = mergeRequests.find(mr => mr.iid === selectedMRIid) || null;
 

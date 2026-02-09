@@ -39,12 +39,12 @@
     "installAndRestart": "Installer et redémarrer",
     "downloading": "Téléchargement...",
     "dismiss": "Ignorer",
-    "downloadError": "Échec du téléchargement de la mise à jour"
+    "downloadError": "Échec du téléchargement de la mise à jour",
+    "readOnlyVolumeWarning": "Déplacez l'app dans le dossier Applications pour mettre à jour"
   },
   "claudeCode": {
     "checking": "Vérification de Claude Code...",
     "upToDate": "Claude Code est à jour",
-    "upToDateWithVersion": "Claude Code {{version}} installé",
     "updateAvailable": "Mise à jour Claude Code disponible",
     "notInstalled": "Claude Code non installé",
     "error": "Erreur de vérification de Claude Code",

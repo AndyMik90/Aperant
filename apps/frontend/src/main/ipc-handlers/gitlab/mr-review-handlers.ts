@@ -21,7 +21,6 @@ import { getGitLabConfig, gitlabFetch, encodeProjectPath } from './utils';
 import { readSettingsFile } from '../../settings-utils';
 import type { Project, AppSettings } from '../../../shared/types';
 import type {
-  MRReviewFinding,
   MRReviewResult,
   MRReviewProgress,
   NewCommitsCheck,

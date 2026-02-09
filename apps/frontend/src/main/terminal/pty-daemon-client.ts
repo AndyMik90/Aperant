@@ -9,8 +9,8 @@ import * as net from 'net';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, ChildProcess } from 'child_process';
-import { app } from 'electron';
 import { isWindows, GRACEFUL_KILL_TIMEOUT_MS } from '../platform';
+import { getIsShuttingDown } from './pty-manager';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -69,7 +69,7 @@ class PtyDaemonClient {
    * Connect to daemon, spawning if necessary
    */
   async connect(): Promise<void> {
-    if (this.isShuttingDown) {
+    if (this.shuttingDown) {
       throw new Error('Client is shutting down');
     }
 
@@ -174,7 +174,7 @@ class PtyDaemonClient {
     this.socket.on('close', () => {
       console.warn('[PtyDaemonClient] Disconnected from daemon');
       this.socket = null;
-      if (!this.isShuttingDown) {
+      if (!this.shuttingDown) {
         this.attemptReconnect();
       }
     });
@@ -222,7 +222,7 @@ class PtyDaemonClient {
    * Attempt to reconnect with exponential backoff
    */
   private attemptReconnect(): void {
-    if (this.isShuttingDown) return;
+    if (this.shuttingDown) return;
 
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('[PtyDaemonClient] Max reconnect attempts reached');
@@ -270,7 +270,7 @@ class PtyDaemonClient {
         }
       });
 
-      this.socket!.write(JSON.stringify({ ...msg, requestId }) + '\n');
+      this.socket?.write(JSON.stringify({ ...msg, requestId }) + '\n');
     });
   }
 
@@ -288,9 +288,21 @@ class PtyDaemonClient {
   // ===== Public API =====
 
   /**
+   * Check if shutdown is in progress (either locally or globally via pty-manager)
+   */
+  private get shuttingDown(): boolean {
+    return this.isShuttingDown || getIsShuttingDown();
+  }
+
+  /**
    * Create a new PTY in the daemon
    */
   async createPty(config: PtyConfig): Promise<string> {
+    // Guard against spawning new PTY processes after shutdown
+    if (this.shuttingDown) {
+      throw new Error('Cannot create PTY: client is shutting down');
+    }
+
     const response = await this.request<{ type: 'created'; id: string }>({
       type: 'create',
       data: config,
@@ -302,14 +314,24 @@ class PtyDaemonClient {
    * Write data to a PTY
    */
   write(id: string, data: string): void {
-    this.send({ type: 'write', id, data });
+    if (this.shuttingDown) return;
+    try {
+      this.send({ type: 'write', id, data });
+    } catch {
+      // Socket may be closed during teardown
+    }
   }
 
   /**
    * Resize a PTY
    */
   resize(id: string, cols: number, rows: number): void {
-    this.send({ type: 'resize', id, data: { cols, rows } });
+    if (this.shuttingDown) return;
+    try {
+      this.send({ type: 'resize', id, data: { cols, rows } });
+    } catch {
+      // Socket may be closed during teardown
+    }
   }
 
   /**
@@ -404,7 +426,7 @@ class PtyDaemonClient {
     this.isShuttingDown = true;
 
     // Kill the daemon process if we spawned it
-    if (this.daemonProcess && this.daemonProcess.pid) {
+    if (this.daemonProcess?.pid) {
       try {
         if (isWindows()) {
           // Windows: use taskkill to force kill process tree
@@ -441,8 +463,3 @@ class PtyDaemonClient {
 
 // Singleton instance
 export const ptyDaemonClient = new PtyDaemonClient();
-
-// Cleanup on app quit
-app.on('before-quit', () => {
-  ptyDaemonClient.shutdown();
-});

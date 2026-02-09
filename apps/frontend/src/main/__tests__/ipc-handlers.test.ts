@@ -564,7 +564,7 @@ describe("IPC Handlers", { timeout: 30000 }, () => {
 
       expect(result).toHaveProperty("success", true);
       const data = (result as { data: { theme: string } }).data;
-      expect(data).toHaveProperty("theme", "system");
+      expect(data).toHaveProperty("theme", "dark");
     });
   });
 
@@ -689,7 +689,8 @@ describe("IPC Handlers", { timeout: 30000 }, () => {
         "task:statusChange",
         "task-1",
         "human_review",
-        expect.any(String) // projectId for multi-project filtering
+        expect.any(String), // projectId for multi-project filtering
+        "errors"
       );
     });
   });

@@ -1,6 +1,10 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
+import { config as dotenvConfig } from 'dotenv';
+
+// Load .env file for build-time constants (Sentry DSN, etc.)
+dotenvConfig({ path: resolve(__dirname, '.env') });
 
 /**
  * Sentry configuration embedded at build time.
@@ -43,7 +47,9 @@ export default defineConfig({
         'debug',
         'ms',
         // Minimatch for glob pattern matching in worktree handlers
-        'minimatch'
+        'minimatch',
+        // XState for task state machine
+        'xstate'
       ]
     })],
     build: {

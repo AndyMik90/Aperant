@@ -13,7 +13,7 @@ import {
   testConnection,
   discoverModels
 } from './profile-service';
-import type { APIProfile, ProfilesFile, TestConnectionResult } from '@shared/types/profile';
+import type { ProfilesFile, } from '@shared/types/profile';
 
 // Mock Anthropic SDK - use vi.hoisted to properly hoist the mock variable
 const { mockModelsList, mockMessagesCreate } = vi.hoisted(() => ({

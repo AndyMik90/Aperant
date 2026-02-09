@@ -121,7 +121,7 @@ export function EnvConfigModal({
     };
 
     loadData();
-  }, [open]);
+  }, [open, selectedProfileId]);
 
   // Listen for OAuth token from terminal
   useEffect(() => {

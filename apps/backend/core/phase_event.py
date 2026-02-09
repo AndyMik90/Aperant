@@ -23,6 +23,9 @@ class ExecutionPhase(str, Enum):
     QA_FIXING = "qa_fixing"
     COMPLETE = "complete"
     FAILED = "failed"
+    # Pause states for intelligent error recovery
+    RATE_LIMIT_PAUSED = "rate_limit_paused"
+    AUTH_FAILURE_PAUSED = "auth_failure_paused"
 
 
 def emit_phase(
@@ -31,8 +34,19 @@ def emit_phase(
     *,
     progress: int | None = None,
     subtask: str | None = None,
+    reset_timestamp: int | None = None,
+    profile_id: str | None = None,
 ) -> None:
-    """Emit structured phase event to stdout for frontend parsing."""
+    """Emit structured phase event to stdout for frontend parsing.
+
+    Args:
+        phase: The execution phase (e.g., PLANNING, CODING, RATE_LIMIT_PAUSED)
+        message: Optional message describing the phase state
+        progress: Optional progress percentage (0-100)
+        subtask: Optional subtask identifier
+        reset_timestamp: Optional Unix timestamp for rate limit reset time
+        profile_id: Optional profile ID that triggered the pause
+    """
     phase_value = phase.value if isinstance(phase, ExecutionPhase) else phase
 
     payload: dict[str, Any] = {
@@ -47,6 +61,12 @@ def emit_phase(
 
     if subtask is not None:
         payload["subtask"] = subtask
+
+    if reset_timestamp is not None:
+        payload["reset_timestamp"] = reset_timestamp
+
+    if profile_id is not None:
+        payload["profile_id"] = profile_id
 
     try:
         print(f"{PHASE_MARKER_PREFIX}{json.dumps(payload, default=str)}", flush=True)
