@@ -38,6 +38,7 @@ import { Roadmap } from './components/Roadmap';
 import { Context } from './components/Context';
 import { Ideation } from './components/Ideation';
 import { Insights } from './components/Insights';
+import { ErrorBoundary } from './components/ui/error-boundary';
 import { GitHubIssues } from './components/GitHubIssues';
 import { GitLabIssues } from './components/GitLabIssues';
 import { GitHubPRs } from './components/github-prs';
@@ -895,7 +896,9 @@ export function App() {
                   <Roadmap projectId={activeProjectId || selectedProjectId!} onGoToTask={handleGoToTask} />
                 )}
                 {activeView === 'context' && (activeProjectId || selectedProjectId) && (
-                  <Context projectId={activeProjectId || selectedProjectId!} />
+                  <ErrorBoundary>
+                    <Context projectId={activeProjectId || selectedProjectId!} />
+                  </ErrorBoundary>
                 )}
                 {activeView === 'ideation' && (activeProjectId || selectedProjectId) && (
                   <Ideation projectId={activeProjectId || selectedProjectId!} onGoToTask={handleGoToTask} />

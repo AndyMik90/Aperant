@@ -21,43 +21,79 @@ import type {
 import { projectStore } from '../project-store';
 import { changelogService } from '../changelog-service';
 
+// Store cleanup function to remove listeners on subsequent calls
+let cleanupListeners: (() => void) | null = null;
+
 /**
  * Register all changelog-related IPC handlers
  */
 export function registerChangelogHandlers(
   getMainWindow: () => BrowserWindow | null
 ): void {
+  // Remove previous listeners if they exist
+  if (cleanupListeners) {
+    cleanupListeners();
+  }
+
   // ============================================
   // Changelog Event Handlers
   // ============================================
 
-  changelogService.on('generation-progress', (projectId: string, progress: import('../../shared/types').ChangelogGenerationProgress) => {
+  const progressHandler = (projectId: string, progress: import('../../shared/types').ChangelogGenerationProgress) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.CHANGELOG_GENERATION_PROGRESS, projectId, progress);
     }
-  });
+  };
 
-  changelogService.on('generation-complete', (projectId: string, result: import('../../shared/types').ChangelogGenerationResult) => {
+  const completeHandler = (projectId: string, result: import('../../shared/types').ChangelogGenerationResult) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.CHANGELOG_GENERATION_COMPLETE, projectId, result);
     }
-  });
+  };
 
-  changelogService.on('generation-error', (projectId: string, error: string) => {
+  const errorHandler = (projectId: string, error: string) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.CHANGELOG_GENERATION_ERROR, projectId, error);
     }
-  });
+  };
 
-  changelogService.on('rate-limit', (_projectId: string, rateLimitInfo: import('../../shared/types').SDKRateLimitInfo) => {
+  const rateLimitHandler = (_projectId: string, rateLimitInfo: import('../../shared/types').SDKRateLimitInfo) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
     }
-  });
+  };
+
+  // Register event listeners
+  changelogService.on('generation-progress', progressHandler);
+  changelogService.on('generation-complete', completeHandler);
+  changelogService.on('generation-error', errorHandler);
+  changelogService.on('rate-limit', rateLimitHandler);
+
+  // Store cleanup function to remove all listeners
+  cleanupListeners = () => {
+    changelogService.off('generation-progress', progressHandler);
+    changelogService.off('generation-complete', completeHandler);
+    changelogService.off('generation-error', errorHandler);
+    changelogService.off('rate-limit', rateLimitHandler);
+
+    // Also remove IPC handlers
+    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_GET_DONE_TASKS);
+    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_LOAD_TASK_SPECS);
+    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_GENERATE);
+    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_SAVE);
+    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_READ_EXISTING);
+    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_SUGGEST_VERSION);
+    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_SUGGEST_VERSION_FROM_COMMITS);
+    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_GET_BRANCHES);
+    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_GET_TAGS);
+    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_GET_COMMITS_PREVIEW);
+    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_SAVE_IMAGE);
+    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_READ_LOCAL_IMAGE);
+  };
 
   // ============================================
   // Changelog Operations
@@ -101,32 +137,39 @@ export function registerChangelogHandlers(
     }
   );
 
-  ipcMain.on(
+  ipcMain.handle(
     IPC_CHANNELS.CHANGELOG_GENERATE,
-    async (_, request: ChangelogGenerationRequest) => {
-      const mainWindow = getMainWindow();
-      if (!mainWindow) return;
-
+    async (_, request: ChangelogGenerationRequest): Promise<IPCResult<void>> => {
       const project = projectStore.getProject(request.projectId);
       if (!project) {
-        mainWindow.webContents.send(
-          IPC_CHANNELS.CHANGELOG_GENERATION_ERROR,
-          request.projectId,
-          'Project not found'
-        );
-        return;
+        return { success: false, error: 'Project not found' };
       }
 
-      // Load specs for selected tasks (only in tasks mode)
-      let specs: TaskSpecContent[] = [];
-      if (request.sourceMode === 'tasks' && request.taskIds && request.taskIds.length > 0) {
-        const tasks = projectStore.getTasks(request.projectId);
-        const specsBaseDir = getSpecsDir(project.autoBuildPath);
-        specs = await changelogService.loadTaskSpecs(project.path, request.taskIds, tasks, specsBaseDir);
-      }
+      // Return immediately to allow renderer to register event listeners
+      // Start the actual generation asynchronously
+      setImmediate(async () => {
+        try {
+          // Load specs for selected tasks (only in tasks mode)
+          let specs: TaskSpecContent[] = [];
+          if (request.sourceMode === 'tasks' && request.taskIds && request.taskIds.length > 0) {
+            const tasks = projectStore.getTasks(request.projectId);
+            const specsBaseDir = getSpecsDir(project.autoBuildPath);
+            specs = await changelogService.loadTaskSpecs(project.path, request.taskIds, tasks, specsBaseDir);
+          }
 
-      // Start generation
-      changelogService.generateChangelog(request.projectId, project.path, request, specs);
+          // Start generation (progress/completion/errors will be sent via event handlers)
+          changelogService.generateChangelog(request.projectId, project.path, request, specs);
+        } catch (error) {
+          // Send error via event instead of return value since we already returned
+          const mainWindow = getMainWindow();
+          if (mainWindow) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to start changelog generation';
+            mainWindow.webContents.send(IPC_CHANNELS.CHANGELOG_GENERATION_ERROR, request.projectId, errorMessage);
+          }
+        }
+      });
+
+      return { success: true };
     }
   );
 
@@ -356,12 +399,13 @@ export function registerChangelogHandlers(
         const base64Data = imageData.includes(',') ? imageData.split(',')[1] : imageData;
         const buffer = Buffer.from(base64Data, 'base64');
 
-        // Save image file
-        const imagePath = path.join(assetsDir, filename);
+        // Sanitize filename to prevent path traversal
+        const safeFilename = path.basename(filename);
+        const imagePath = path.join(assetsDir, safeFilename);
         writeFileSync(imagePath, buffer);
 
         // Return relative path for use in markdown
-        const relativePath = `.github/assets/${filename}`;
+        const relativePath = `.github/assets/${safeFilename}`;
         // For GitHub releases, we'll use the relative path which will work when the release is created
         const url = relativePath;
 
@@ -379,8 +423,11 @@ export function registerChangelogHandlers(
     IPC_CHANNELS.CHANGELOG_READ_LOCAL_IMAGE,
     async (_, projectPath: string, relativePath: string): Promise<IPCResult<string>> => {
       try {
-        // Construct full path from project path and relative path
-        const fullPath = path.join(projectPath, relativePath);
+        // Construct full path and validate it stays within project directory
+        const fullPath = path.resolve(projectPath, relativePath);
+        if (!fullPath.startsWith(path.resolve(projectPath) + path.sep) && fullPath !== path.resolve(projectPath)) {
+          return { success: false, error: 'Invalid path' };
+        }
 
         // Verify the file exists
         if (!existsSync(fullPath)) {

@@ -18,6 +18,7 @@ import type {
 import { isWindows } from '../platform';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { safeSendToRenderer } from '../ipc-handlers/utils';
+import { getClaudeCodeEnv } from '../claude-code-settings';
 
 /**
  * Options for terminal restoration
@@ -57,8 +58,17 @@ export async function createTerminal(
     // For auth terminals, don't inject existing OAuth token - we want a fresh login
     const profileEnv = skipOAuthToken ? {} : PtyManager.getActiveProfileEnv();
 
-    // Merge custom environment variables (e.g., CLAUDE_CONFIG_DIR for auth terminals)
-    const mergedEnv = customEnv ? { ...profileEnv, ...customEnv } : profileEnv;
+    // Read env vars from Claude Code CLI settings files (.claude/settings.json hierarchy)
+    const claudeCodeEnv = getClaudeCodeEnv(projectPath);
+    if (Object.keys(claudeCodeEnv).length > 0) {
+      debugLog('[TerminalLifecycle] Injecting Claude Code settings env vars:', Object.keys(claudeCodeEnv));
+    }
+
+    // Merge environment variables (lowest to highest precedence):
+    // 1. Claude Code settings env (from settings.json hierarchy)
+    // 2. Profile env (CLAUDE_CONFIG_DIR, CLAUDE_CODE_OAUTH_TOKEN)
+    // 3. Custom env from TerminalCreateOptions
+    const mergedEnv = { ...claudeCodeEnv, ...profileEnv, ...(customEnv || {}) };
 
     if (mergedEnv.CLAUDE_CODE_OAUTH_TOKEN) {
       debugLog('[TerminalLifecycle] Injecting OAuth token from active profile');
@@ -221,6 +231,7 @@ export async function restoreTerminal(
   if (options.resumeClaudeSession && storedIsClaudeMode) {
     // Set Claude mode so it persists correctly across app restarts
     // Without this, storedIsClaudeMode would be false on next restore
+    terminal.claudeSessionId = storedClaudeSessionId;
     terminal.isClaudeMode = true;
     // Mark terminal as having a pending Claude resume
     // The actual resume will be triggered when the terminal becomes active

@@ -1,0 +1,370 @@
+{
+  "feature": "Fix Infinite Retry Loop in Subtask Orchestration",
+  "workflow_type": "feature",
+  "workflow_rationale": "While addressing a bug, this requires implementing new architectural features: validation layer, retry limit enforcement, status synchronization mechanisms, and error capture enhancements. Goes beyond a simple fix into orchestration improvements.",
+  "phases": [
+    {
+      "id": "phase-1-validation",
+      "name": "File Existence Validation",
+      "type": "implementation",
+      "description": "Add pre-execution validation to check if files_to_modify exist before starting subtask",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-1-1",
+          "description": "Create file validation utility function in agents/coder.py",
+          "service": "backend",
+          "files_to_modify": [
+            "apps/backend/agents/coder.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/backend/qa/reviewer.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd apps/backend && python -c \"from agents.coder import validate_subtask_files; print('OK')\"",
+            "expected": "OK"
+          },
+          "status": "completed",
+          "notes": "Add validate_subtask_files(subtask, project_dir) function that checks all files in files_to_modify array exist. Return dict with success/error/missing_files."
+        },
+        {
+          "id": "subtask-1-2",
+          "description": "Integrate file validation into subtask execution loop in coder.py",
+          "service": "backend",
+          "files_to_modify": [
+            "apps/backend/agents/coder.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/backend/agents/planner.py"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Review run_autonomous_agent() function to confirm file validation runs before client creation and agent session"
+          },
+          "status": "completed",
+          "notes": "File validation integrated at line 432 of coder.py. validate_subtask_files() is called before client creation. On validation failure, error is recorded in recovery_manager, logged to task_logger, and session is skipped via continue statement. Client creation (line 466) and agent session only execute if validation passes."
+        }
+      ]
+    },
+    {
+      "id": "phase-2-retry-limits",
+      "name": "Retry Limit Enforcement",
+      "type": "implementation",
+      "description": "Enforce MAX_RETRIES = 5 constant and halt execution after limit reached",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-2-1",
+          "description": "Add MAX_RETRIES constant and enforce limit in coder.py",
+          "service": "backend",
+          "files_to_modify": [
+            "apps/backend/agents/coder.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/backend/agents/base.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd apps/backend && python -c \"from agents.coder import MAX_SUBTASK_RETRIES; assert MAX_SUBTASK_RETRIES == 5; print('OK')\"",
+            "expected": "OK"
+          },
+          "status": "pending",
+          "notes": "Define MAX_SUBTASK_RETRIES = 5. Before executing subtask, check recovery_manager.get_attempt_count(subtask_id). If >= MAX_RETRIES, mark as stuck and pause execution."
+        },
+        {
+          "id": "subtask-2-2",
+          "description": "Update recovery.py to expose is_retry_limit_exceeded method",
+          "service": "backend",
+          "files_to_modify": [
+            "apps/backend/services/recovery.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd apps/backend && python -c \"from services.recovery import RecoveryManager; print('OK')\"",
+            "expected": "OK"
+          },
+          "status": "pending",
+          "notes": "Add is_retry_limit_exceeded(subtask_id, max_retries=5) method that returns bool. This provides clean API for coder.py to check limits."
+        }
+      ]
+    },
+    {
+      "id": "phase-3-status-sync",
+      "name": "Status Reconciliation",
+      "type": "implementation",
+      "description": "Ensure completed subtasks in implementation_plan.json are never retried",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-3-1",
+          "description": "Update get_next_subtask in progress.py to respect completed status",
+          "service": "backend",
+          "files_to_modify": [
+            "apps/backend/core/progress.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/backend/core/progress.py"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Verify get_next_subtask() filters out subtasks with status=='completed' before returning next pending subtask"
+          },
+          "status": "pending",
+          "notes": "The function already filters by status in {pending, not_started, not started}. Ensure completed subtasks are never included in results even if recovery_manager shows failures."
+        },
+        {
+          "id": "subtask-3-2",
+          "description": "Add status check before subtask execution in coder.py",
+          "service": "backend",
+          "files_to_modify": [
+            "apps/backend/agents/coder.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/backend/agents/session.py"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Confirm that if next_subtask is returned but plan shows completed, session is skipped with log message"
+          },
+          "status": "pending",
+          "notes": "Before executing subtask, double-check implementation_plan.json status. If completed, skip execution and log 'Subtask already completed, skipping retry'."
+        }
+      ]
+    },
+    {
+      "id": "phase-4-error-capture",
+      "name": "Error Capture Enhancement",
+      "type": "implementation",
+      "description": "Ensure why_it_failed always contains actionable diagnostics, never null",
+      "depends_on": [
+        "phase-1-validation"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-4-1",
+          "description": "Update post_session_processing in session.py to capture all error types",
+          "service": "backend",
+          "files_to_modify": [
+            "apps/backend/agents/session.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/backend/core/client.py"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Review post_session_processing() to ensure error field in record_attempt() is always populated with specific messages"
+          },
+          "status": "pending",
+          "notes": "When recording failed attempts, populate error parameter with: validation errors (missing files), exception messages, or generic 'Subtask not completed' with status info."
+        },
+        {
+          "id": "subtask-4-2",
+          "description": "Add file validation error to recovery_manager.record_attempt",
+          "service": "backend",
+          "files_to_modify": [
+            "apps/backend/agents/coder.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/backend/agents/session.py"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "When file validation fails, verify error message includes specific file paths that are missing"
+          },
+          "status": "pending",
+          "notes": "When validate_subtask_files() returns failure, call recovery_manager.record_attempt() with error='Planned files do not exist: {comma_separated_list}'"
+        }
+      ]
+    },
+    {
+      "id": "phase-5-integration",
+      "name": "Integration and Testing",
+      "type": "integration",
+      "description": "Wire all changes together and verify end-to-end behavior",
+      "depends_on": [
+        "phase-2-retry-limits",
+        "phase-3-status-sync",
+        "phase-4-error-capture"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-5-1",
+          "description": "Add comprehensive logging for retry scenarios",
+          "service": "backend",
+          "files_to_modify": [
+            "apps/backend/agents/coder.py"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "apps/backend/agents/session.py"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Verify log messages for: file validation failure, retry limit exceeded, status reconciliation skip, stuck subtask detection"
+          },
+          "status": "pending",
+          "notes": "Add print_status() calls for: validation failures, retry limits hit, skipped completed subtasks, stuck detection. Use appropriate severity levels."
+        },
+        {
+          "id": "subtask-5-2",
+          "description": "End-to-end validation of retry loop prevention",
+          "service": "backend",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "e2e",
+            "steps": [
+              "Manually create test implementation_plan.json with non-existent file in files_to_modify",
+              "Run python run.py --spec [test-spec]",
+              "Verify execution fails after 1-2 attempts with clear error message listing missing files",
+              "Verify recovery_manager shows attempt with populated error field",
+              "Verify no infinite retry loop occurs"
+            ]
+          },
+          "status": "pending",
+          "notes": "This is manual E2E testing to confirm the fix works. Should fail fast with actionable error, not retry 80+ times."
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_phases": 5,
+    "total_subtasks": 10,
+    "services_involved": [
+      "backend"
+    ],
+    "parallelism": {
+      "max_parallel_phases": 3,
+      "parallel_groups": [
+        {
+          "phases": [
+            "phase-1-validation",
+            "phase-2-retry-limits",
+            "phase-3-status-sync"
+          ],
+          "reason": "No dependencies between validation, retry limits, and status sync - all can be implemented independently"
+        }
+      ],
+      "recommended_workers": 3,
+      "speedup_estimate": "2x faster than sequential - phases 1-3 can run in parallel, phase 4 depends on phase 1, phase 5 waits for all"
+    },
+    "startup_command": "cd apps/backend && source .venv/bin/activate && python run.py --spec 189"
+  },
+  "verification_strategy": {
+    "risk_level": "medium",
+    "skip_validation": false,
+    "test_creation_phase": "post_implementation",
+    "test_types_required": [
+      "unit",
+      "integration"
+    ],
+    "security_scanning_required": false,
+    "staging_deployment_required": false,
+    "acceptance_criteria": [
+      "File validation prevents execution when planned files don't exist",
+      "Error messages contain specific missing file paths",
+      "Maximum 5 retries enforced before automatic pause",
+      "Completed subtasks are never retried even if recovery shows failures",
+      "All error fields are populated with actionable diagnostics (never null)",
+      "No regressions in existing agent execution flow"
+    ],
+    "verification_steps": [
+      {
+        "name": "Unit Tests",
+        "command": "cd apps/backend && .venv/bin/pytest tests/ -v -k 'retry or validation or status'",
+        "expected_outcome": "All new tests pass",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Integration Test - File Validation",
+        "command": "Manual: Create plan with non-existent files, run agent, verify fast failure",
+        "expected_outcome": "Fails after 1-2 attempts with clear error message",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Integration Test - Retry Limit",
+        "command": "Manual: Create subtask that always fails, verify 5-attempt limit",
+        "expected_outcome": "Execution stops after exactly 5 attempts",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Integration Test - Status Sync",
+        "command": "Manual: Set subtask to completed, verify it's skipped",
+        "expected_outcome": "Subtask is not retried",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      }
+    ],
+    "reasoning": "Medium risk orchestration changes require unit tests for validation functions and integration tests for retry behavior. No security or deployment concerns."
+  },
+  "qa_acceptance": {
+    "unit_tests": {
+      "required": true,
+      "commands": [
+        "cd apps/backend && .venv/bin/pytest tests/ -v"
+      ],
+      "minimum_coverage": null
+    },
+    "integration_tests": {
+      "required": true,
+      "commands": [
+        "Manual integration tests as specified in verification_strategy"
+      ],
+      "services_to_test": [
+        "backend"
+      ]
+    },
+    "e2e_tests": {
+      "required": true,
+      "commands": [],
+      "flows": [
+        "non-existent-file-scenario",
+        "retry-limit-scenario",
+        "status-reconciliation"
+      ]
+    },
+    "browser_verification": {
+      "required": false,
+      "pages": []
+    },
+    "database_verification": {
+      "required": false,
+      "checks": []
+    }
+  },
+  "qa_signoff": null,
+  "executionPhase": "coding",
+  "status": "in_progress",
+  "planStatus": "in_progress",
+  "updated_at": "2026-02-02T12:14:38.933Z",
+  "xstateState": "coding",
+  "lastEvent": {
+    "eventId": "6f3d4360-0b89-4c47-a2b0-b7cdd7758a66",
+    "sequence": 0,
+    "type": "PLANNING_COMPLETE",
+    "timestamp": "2026-01-31T22:59:07.196495+00:00"
+  }
+}
