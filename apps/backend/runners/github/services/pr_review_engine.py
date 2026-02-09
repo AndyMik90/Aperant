@@ -231,6 +231,7 @@ class PRReviewEngine:
             model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
             betas=betas,
+            fast_mode=self.config.fast_mode,
         )
 
         result_text = ""
@@ -499,6 +500,7 @@ class PRReviewEngine:
             model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
             betas=betas,
+            fast_mode=self.config.fast_mode,
         )
 
         result_text = ""
@@ -562,6 +564,7 @@ class PRReviewEngine:
             model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
             betas=betas,
+            fast_mode=self.config.fast_mode,
         )
 
         result_text = ""

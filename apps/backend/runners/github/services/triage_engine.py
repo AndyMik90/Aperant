@@ -83,6 +83,7 @@ class TriageEngine:
             model=model,
             agent_type="qa_reviewer",
             betas=betas,
+            fast_mode=self.config.fast_mode,
         )
 
         try:

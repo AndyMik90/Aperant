@@ -190,7 +190,6 @@ Current question: {message}"""
     )
 
     try:
-        # Build options dict - only include max_thinking_tokens if not None
         options_kwargs = {
             "model": resolve_model_id(model),  # Resolve via API Profile if configured
             "system_prompt": system_prompt,
