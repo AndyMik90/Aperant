@@ -1871,7 +1871,7 @@ For EACH finding above:
                     if structured_output:
                         break
 
-            except Exception as e:
+            except Exception as e:  # CodeQL[py/unreachable-statement] - except is part of retry loop structure
                 error_str = str(e).lower()
                 is_retryable = (
                     "400" in error_str

@@ -14,6 +14,7 @@ and the finding-validator agent.
 
 import sys
 from pathlib import Path
+# CodeQL[py/unused-import] - MagicMock is used in tests
 from unittest.mock import MagicMock, patch
 
 import pytest

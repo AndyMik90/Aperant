@@ -66,7 +66,7 @@ class MergeProgressCallback(Protocol):
         percent: int,
         message: str,
         details: dict[str, Any] | None = None,
-    ) -> None: ...
+    ) -> None: ...  # CodeQL[py/ineffectual-statement] - Protocol abstract method
 
 
 def emit_progress(

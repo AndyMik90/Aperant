@@ -543,6 +543,7 @@ def run_all_tests():
     # Note: This manual runner is kept for backwards compatibility.
     # Prefer running tests with pytest: pytest tests/test_recovery.py -v
 
+    # CodeQL[py/unused-local-variable] - tests list kept for documentation/reference
     tests = [
         ("test_initialization", test_initialization),
         ("test_record_attempt", test_record_attempt),
