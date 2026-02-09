@@ -437,18 +437,29 @@ export class PRStatusPoller {
 
     const updatedStatuses: PRStatus[] = [];
 
-    for (const prNumber of prNumbers) {
-      try {
-        const status = await this.fetchPRStatus(context, prNumber);
-        if (status) {
-          updatedStatuses.push(status);
+    // Poll PRs in batches with limited concurrency to avoid long sequential delays
+    const CONCURRENCY_LIMIT = 5;
+    for (let i = 0; i < prNumbers.length; i += CONCURRENCY_LIMIT) {
+      if (this.isPausedForRateLimit) {
+        break;
+      }
+
+      const batch = prNumbers.slice(i, i + CONCURRENCY_LIMIT);
+      const results = await Promise.allSettled(
+        batch.map((prNumber) => this.fetchPRStatus(context, prNumber))
+      );
+
+      for (let j = 0; j < results.length; j++) {
+        const result = results[j];
+        if (result.status === 'fulfilled' && result.value) {
+          updatedStatuses.push(result.value);
+        } else if (result.status === 'rejected') {
+          const message = result.reason instanceof Error ? result.reason.message : 'Unknown error';
+          console.error(
+            `[PRStatusPoller] Error polling PR #${batch[j]}: ${message}`
+          );
+          this.lastErrors.set(context.projectId, message);
         }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error(
-          `[PRStatusPoller] Error polling PR #${prNumber}: ${message}`
-        );
-        this.lastErrors.set(context.projectId, message);
       }
     }
 

@@ -59,6 +59,16 @@ const ETAG_CACHE_TTL_MS = 30 * 60 * 1000;
 const ETAG_CACHE_MAX_SIZE = 200;
 
 /**
+ * Run eviction every N cache writes to amortize cost
+ */
+const ETAG_EVICTION_INTERVAL = 10;
+
+/**
+ * Counter for cache writes since last eviction
+ */
+let evictionWriteCounter = 0;
+
+/**
  * Module-level ETag cache instance
  */
 const etagCache: ETagCache = {};
@@ -325,7 +335,11 @@ export async function githubFetchWithETag(
       data,
       lastUpdated: new Date()
     };
-    evictStaleCacheEntries();
+    evictionWriteCounter++;
+    if (evictionWriteCounter >= ETAG_EVICTION_INTERVAL) {
+      evictionWriteCounter = 0;
+      evictStaleCacheEntries();
+    }
   }
 
   return {
