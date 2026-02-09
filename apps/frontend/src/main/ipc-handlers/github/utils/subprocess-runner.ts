@@ -25,6 +25,7 @@ import { isWindows, isMacOS } from '../../../platform';
 import { getTaskkillExePath, getWhereExePath } from '../../../utils/windows-paths';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 /**
  * Create a fallback environment for Python subprocesses when no env is provided.
@@ -614,8 +615,11 @@ export async function validateGitHubModule(project: Project): Promise<GitHubModu
 
   // 2. Check gh CLI installation (cross-platform)
   try {
-    const whichCommand = isWindows() ? `"${getWhereExePath()}" gh` : 'which gh';
-    await execAsync(whichCommand);
+    if (isWindows()) {
+      await execFileAsync(getWhereExePath(), ['gh'], { timeout: 5000 });
+    } else {
+      await execAsync('which gh');
+    }
     result.ghCliInstalled = true;
   } catch {
     result.ghCliInstalled = false;
