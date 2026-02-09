@@ -221,7 +221,9 @@ describe('PresetsPanel', () => {
       const saveButtons = screen.getAllByText(/save/i);
       const saveButton = saveButtons.find(btn => btn.tagName === 'SPAN' && btn.parentElement?.tagName === 'BUTTON');
       expect(saveButton).toBeDefined();
-      fireEvent.click(saveButton!.closest('button')!);
+      const buttonElement = saveButton?.closest('button');
+      expect(buttonElement).toBeDefined();
+      fireEvent.click(buttonElement as HTMLButtonElement);
 
       await waitFor(() => {
         expect(screen.getByText('My Custom Preset')).toBeInTheDocument();

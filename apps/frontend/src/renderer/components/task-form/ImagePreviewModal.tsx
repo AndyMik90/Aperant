@@ -1,17 +1,4 @@
-/**
- * ImagePreviewModal - Modal for displaying enlarged image previews
- *
- * Displays a full-screen preview of an image when double-clicked in the task form.
- * Uses Radix Dialog primitives for accessibility and keyboard support (Escape to close).
- *
- * Features:
- * - Dark semi-transparent overlay with backdrop blur
- * - Close button in top-right corner
- * - Image maintains aspect ratio with object-contain
- * - Closes on Escape key press (built-in Radix behavior)
- * - Displays filename in modal title
- */
-import * as React from 'react';
+
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X, ImageIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';

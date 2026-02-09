@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from core.file_utils import write_json_atomic
 from ui import muted, print_status
 
 from .models import RoadmapPhaseResult
@@ -146,23 +147,22 @@ Output your findings to competitor_analysis.json.
 
     def _create_disabled_analysis_file(self):
         """Create an analysis file indicating the feature is disabled."""
-        with open(self.analysis_file, "w", encoding="utf-8") as f:
-            json.dump(
-                {
-                    "enabled": False,
-                    "reason": "Competitor analysis not enabled by user",
-                    "competitors": [],
-                    "market_gaps": [],
-                    "insights_summary": {
-                        "top_pain_points": [],
-                        "differentiator_opportunities": [],
-                        "market_trends": [],
-                    },
-                    "created_at": datetime.now().isoformat(),
+        write_json_atomic(
+            self.analysis_file,
+            {
+                "enabled": False,
+                "reason": "Competitor analysis not enabled by user",
+                "competitors": [],
+                "market_gaps": [],
+                "insights_summary": {
+                    "top_pain_points": [],
+                    "differentiator_opportunities": [],
+                    "market_trends": [],
                 },
-                f,
-                indent=2,
-            )
+                "created_at": datetime.now().isoformat(),
+            },
+            indent=2,
+        )
 
     def _create_error_analysis_file(self, error: str, errors: list[str] | None = None):
         """Create an analysis file with error information."""
@@ -181,5 +181,4 @@ Output your findings to competitor_analysis.json.
         if errors:
             data["errors"] = errors
 
-        with open(self.analysis_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
+        write_json_atomic(self.analysis_file, data, indent=2)

@@ -17,8 +17,9 @@ export const terminalMock = {
     console.warn('[Browser Mock] sendTerminalInput called');
   },
 
-  resizeTerminal: () => {
+  resizeTerminal: async () => {
     console.warn('[Browser Mock] resizeTerminal called');
+    return { success: true, data: { success: true } };
   },
 
   invokeClaudeInTerminal: () => {

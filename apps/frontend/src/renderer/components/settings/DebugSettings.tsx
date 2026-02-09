@@ -37,7 +37,7 @@ export function DebugSettings() {
       } else {
         setError(t('debug.errorReporting.saveFailed', 'Failed to save error reporting setting'));
       }
-    } catch (err) {
+    } catch (_err) {
       setError(t('debug.errorReporting.saveFailed', 'Failed to save error reporting setting'));
     }
   };

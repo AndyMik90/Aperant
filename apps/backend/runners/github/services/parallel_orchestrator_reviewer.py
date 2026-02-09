@@ -33,7 +33,12 @@ from claude_agent_sdk import AgentDefinition  # noqa: F401
 
 try:
     from ...core.client import create_client
-    from ...phase_config import get_thinking_budget, resolve_model_id
+    from ...phase_config import (
+        get_model_betas,
+        get_thinking_budget,
+        get_thinking_kwargs_for_model,
+        resolve_model_id,
+    )
     from ..context_gatherer import PRContext, _validate_git_ref
     from ..gh_client import GHClient
     from ..models import (
@@ -69,7 +74,12 @@ except (ImportError, ValueError, SystemError):
         PRReviewResult,
         ReviewSeverity,
     )
-    from phase_config import get_thinking_budget, resolve_model_id
+    from phase_config import (
+        get_model_betas,
+        get_thinking_budget,
+        get_thinking_kwargs_for_model,
+        resolve_model_id,
+    )
     from services.agent_utils import create_working_dir_injector
     from services.category_utils import map_category
     from services.io_utils import safe_print
@@ -498,16 +508,23 @@ Report findings with specific file paths, line numbers, and code evidence.
             # Note: Agent type uses the generic "pr_reviewer" since individual
             # specialist types aren't registered in AGENT_CONFIGS. The specialist-specific
             # system prompt handles differentiation.
+            # Get betas from model shorthand (before resolution to full ID)
+            betas = get_model_betas(self.config.model or "sonnet")
+            thinking_kwargs = get_thinking_kwargs_for_model(
+                model, self.config.thinking_level or "medium"
+            )
             client = create_client(
                 project_dir=project_root,
                 spec_dir=self.github_dir,
                 model=model,
                 agent_type="pr_reviewer",
-                max_thinking_tokens=thinking_budget,
+                betas=betas,
+                fast_mode=self.config.fast_mode,
                 output_format={
                     "type": "json_schema",
                     "schema": SpecialistResponse.model_json_schema(),
                 },
+                **thinking_kwargs,
             )
 
             async with client:
@@ -793,17 +810,24 @@ The SDK will run invoked agents in parallel automatically.
         Returns:
             Configured SDK client instance
         """
+        # Get betas from model shorthand (before resolution to full ID)
+        betas = get_model_betas(self.config.model or "sonnet")
+        thinking_kwargs = get_thinking_kwargs_for_model(
+            model, self.config.thinking_level or "medium"
+        )
         return create_client(
             project_dir=project_root,
             spec_dir=self.github_dir,
             model=model,
             agent_type="pr_orchestrator_parallel",
-            max_thinking_tokens=thinking_budget,
+            betas=betas,
+            fast_mode=self.config.fast_mode,
             agents=self._define_specialist_agents(project_root),
             output_format={
                 "type": "json_schema",
                 "schema": ParallelOrchestratorResponse.model_json_schema(),
             },
+            **thinking_kwargs,
         )
 
     def _extract_structured_output(
@@ -1115,85 +1139,6 @@ The SDK will run invoked agents in parallel automatically.
                 f"[ParallelOrchestrator] Parallel specialists complete: "
                 f"{len(findings)} findings from {len(agents_invoked)} agents"
             )
-
-            # Skip the old orchestrator session code - findings come from parallel specialists
-            # The code below (structured output parsing, retries, etc.) is no longer needed
-            # as _run_parallel_specialists handles everything
-
-            # NOTE: The following block is kept but skipped via this marker
-            if False:  # DISABLED: Old orchestrator + Task tool approach
-                # Old code for reference - to be removed after testing
-                prompt = self._build_orchestrator_prompt(context)
-                agent_defs = self._define_specialist_agents(project_root)
-                client = self._create_sdk_client(project_root, model, thinking_budget)
-
-                MAX_RETRIES = 3
-                RETRY_DELAY = 2.0
-
-                result_text = ""
-                structured_output = None
-                msg_count = 0
-                last_error = None
-
-                for attempt in range(MAX_RETRIES):
-                    if attempt > 0:
-                        logger.info(
-                            f"[ParallelOrchestrator] Retry attempt {attempt}/{MAX_RETRIES - 1} "
-                            f"after tool concurrency error"
-                        )
-                        safe_print(
-                            f"[ParallelOrchestrator] Retry {attempt}/{MAX_RETRIES - 1} "
-                            f"(tool concurrency error detected)"
-                        )
-                        await asyncio.sleep(RETRY_DELAY)
-                        client = self._create_sdk_client(
-                            project_root, model, thinking_budget
-                        )
-
-                    try:
-                        async with client:
-                            await client.query(prompt)
-
-                            safe_print(
-                                f"[ParallelOrchestrator] Running orchestrator ({model})...",
-                                flush=True,
-                            )
-
-                            stream_result = await process_sdk_stream(
-                                client=client,
-                                context_name="ParallelOrchestrator",
-                                model=model,
-                                system_prompt=prompt,
-                                agent_definitions=agent_defs,
-                            )
-
-                            error = stream_result.get("error")
-
-                            if (
-                                error == "tool_use_concurrency_error"
-                                and attempt < MAX_RETRIES - 1
-                            ):
-                                last_error = error
-                                continue
-                            if error:
-                                raise RuntimeError(
-                                    f"SDK stream processing failed: {error}"
-                                )
-                            result_text = stream_result["result_text"]
-                            structured_output = stream_result["structured_output"]
-                            agents_invoked = stream_result["agents_invoked"]
-                            break
-                    except Exception as e:
-                        if attempt < MAX_RETRIES - 1:
-                            last_error = str(e)
-                            continue
-                        raise
-                else:
-                    raise RuntimeError(
-                        f"Orchestrator failed after {MAX_RETRIES} attempts"
-                    )
-
-            # END DISABLED BLOCK
 
             self._report_progress(
                 "finalizing",
@@ -1797,16 +1742,21 @@ For EACH finding above:
 
             # Create validator client (inherits worktree filesystem access)
             try:
+                # Get betas from model shorthand (before resolution to full ID)
+                betas = get_model_betas(self.config.model or "sonnet")
+                thinking_kwargs = get_thinking_kwargs_for_model(model, "medium")
                 validator_client = create_client(
                     project_dir=worktree_path,
                     spec_dir=self.github_dir,
                     model=model,
                     agent_type="pr_finding_validator",
-                    max_thinking_tokens=get_thinking_budget("medium"),
+                    betas=betas,
+                    fast_mode=self.config.fast_mode,
                     output_format={
                         "type": "json_schema",
                         "schema": FindingValidationResponse.model_json_schema(),
                     },
+                    **thinking_kwargs,
                 )
             except Exception as e:
                 logger.error(f"[PRReview] Failed to create validator client: {e}")

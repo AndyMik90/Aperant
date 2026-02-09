@@ -39,7 +39,8 @@
     "installAndRestart": "Install and Restart",
     "downloading": "Downloading...",
     "dismiss": "Dismiss",
-    "downloadError": "Failed to download update"
+    "downloadError": "Failed to download update",
+    "readOnlyVolumeWarning": "Move to Applications folder to update"
   },
   "claudeCode": {
     "checking": "Checking Claude Code...",

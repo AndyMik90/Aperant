@@ -32,7 +32,6 @@ import {
   clearRateLimitEvents as clearRateLimitEventsImpl
 } from './claude-profile/rate-limit-manager';
 import {
-  loadProfileStore,
   loadProfileStoreAsync,
   saveProfileStore,
   ProfileStoreData,
@@ -43,7 +42,7 @@ import {
   shouldProactivelySwitch as shouldProactivelySwitchImpl,
   getProfilesSortedByAvailability as getProfilesSortedByAvailabilityImpl
 } from './claude-profile/profile-scorer';
-import { getCredentialsFromKeychain, normalizeWindowsPath } from './claude-profile/credential-utils';
+import { getCredentialsFromKeychain, normalizeWindowsPath, updateProfileSubscriptionMetadata } from './claude-profile/credential-utils';
 import {
   CLAUDE_PROFILES_DIR,
   generateProfileId as generateProfileIdImpl,
@@ -96,6 +95,10 @@ export class ClaudeProfileManager {
     // This repairs emails that were truncated due to ANSI escape codes in terminal output
     this.migrateCorruptedEmails();
 
+    // Populate missing subscription metadata for existing profiles
+    // This reads subscriptionType and rateLimitTier from Keychain credentials
+    this.populateSubscriptionMetadata();
+
     this.initialized = true;
   }
 
@@ -134,35 +137,62 @@ export class ClaudeProfileManager {
   }
 
   /**
+   * Populate missing subscription metadata (subscriptionType, rateLimitTier) for existing profiles.
+   *
+   * This reads from Keychain credentials and updates profiles that don't have this metadata.
+   * Runs on initialization to ensure existing profiles get the subscription info for UI display.
+   */
+  private populateSubscriptionMetadata(): void {
+    let needsSave = false;
+
+    for (const profile of this.data.profiles) {
+      if (!profile.configDir) {
+        continue;
+      }
+
+      // Skip if profile already has subscription metadata
+      if (profile.subscriptionType && profile.rateLimitTier) {
+        continue;
+      }
+
+      // Expand ~ to home directory
+      const expandedConfigDir = normalizeWindowsPath(
+        profile.configDir.startsWith('~')
+          ? profile.configDir.replace(/^~/, homedir())
+          : profile.configDir
+      );
+
+      // Use helper with onlyIfMissing option to preserve existing values
+      const result = updateProfileSubscriptionMetadata(profile, expandedConfigDir, { onlyIfMissing: true });
+
+      if (result.subscriptionTypeUpdated) {
+        needsSave = true;
+        console.warn('[ClaudeProfileManager] Populated subscriptionType for profile:', {
+          profileId: profile.id,
+          subscriptionType: result.subscriptionType
+        });
+      }
+
+      if (result.rateLimitTierUpdated) {
+        needsSave = true;
+        console.warn('[ClaudeProfileManager] Populated rateLimitTier for profile:', {
+          profileId: profile.id,
+          rateLimitTier: result.rateLimitTier
+        });
+      }
+    }
+
+    if (needsSave) {
+      this.save();
+      console.warn('[ClaudeProfileManager] Subscription metadata population complete');
+    }
+  }
+
+  /**
    * Check if the profile manager has been initialized
    */
   isInitialized(): boolean {
     return this.initialized;
-  }
-
-  /**
-   * Load profiles from disk
-   */
-  private load(): ProfileStoreData {
-    const loadedData = loadProfileStore(this.storePath);
-    if (loadedData) {
-      if (process.env.DEBUG === 'true') {
-        console.warn('[ClaudeProfileManager] Loaded profiles:', {
-          count: loadedData.profiles.length,
-          activeProfileId: loadedData.activeProfileId,
-          profiles: loadedData.profiles.map(p => ({
-            id: p.id,
-            name: p.name,
-            email: p.email,
-            isDefault: p.isDefault
-          }))
-        });
-      }
-      return loadedData;
-    }
-
-    // Return default with a single "Default" profile
-    return this.createDefaultData();
   }
 
   /**

@@ -39,7 +39,8 @@
     "installAndRestart": "Installer et redémarrer",
     "downloading": "Téléchargement...",
     "dismiss": "Ignorer",
-    "downloadError": "Échec du téléchargement de la mise à jour"
+    "downloadError": "Échec du téléchargement de la mise à jour",
+    "readOnlyVolumeWarning": "Déplacez l'app dans le dossier Applications pour mettre à jour"
   },
   "claudeCode": {
     "checking": "Vérification de Claude Code...",

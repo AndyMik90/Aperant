@@ -4,7 +4,7 @@ import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, Worktre
 import path from 'path';
 import { minimatch } from 'minimatch';
 import { existsSync, readdirSync, statSync, readFileSync, promises as fsPromises } from 'fs';
-import { execSync, execFileSync, spawn, spawnSync, exec, execFile } from 'child_process';
+import { execFileSync, spawn, spawnSync, exec, execFile } from 'child_process';
 import { homedir } from 'os';
 import { projectStore } from '../../project-store';
 import { getConfiguredPythonPath, PythonEnvManager, pythonEnvManager as pythonEnvManagerSingleton } from '../../python-env-manager';
@@ -19,7 +19,7 @@ import {
   findTaskWorktree,
 } from '../../worktree-paths';
 import { persistPlanStatus, updateTaskMetadataPrUrl } from './plan-file-utils';
-import { getIsolatedGitEnv, detectWorktreeBranch, refreshGitIndex } from '../../utils/git-isolation';
+import { getIsolatedGitEnv, refreshGitIndex } from '../../utils/git-isolation';
 import { cleanupWorktree } from '../../utils/worktree-cleanup';
 import { killProcessGracefully } from '../../platform';
 import { stripAnsiCodes } from '../../../shared/utils/ansi-sanitizer';
@@ -1067,7 +1067,7 @@ async function detectLinuxApps(): Promise<Set<string>> {
 function isAppInstalled(
   appNames: string[],
   specificPaths: string[],
-  platform: string
+  _platform: string
 ): { installed: boolean; foundPath: string } {
   // First, check the cached app list (fast)
   for (const name of appNames) {
@@ -2310,7 +2310,6 @@ export function registerWorktreeHandlers(
                     worktreePath,
                     projectPath: project.path,
                     specId: task.specId,
-                    commitMessage: 'Auto-save before merge cleanup',
                     logPrefix: '[TASK_WORKTREE_MERGE]',
                     deleteBranch: true
                   });
@@ -2568,7 +2567,7 @@ export function registerWorktreeHandlers(
               encoding: 'utf-8'
             });
 
-            if (gitStatus && gitStatus.trim()) {
+            if (gitStatus?.trim()) {
               // Parse the status output to get file names
               // Format: XY filename (where X and Y are status chars, then space, then filename)
               uncommittedFiles = gitStatus
@@ -2753,7 +2752,6 @@ export function registerWorktreeHandlers(
           worktreePath,
           projectPath: project.path,
           specId: task.specId,
-          commitMessage: 'Auto-save before discard',
           logPrefix: '[TASK_WORKTREE_DISCARD]',
           deleteBranch: true
         });
@@ -2769,9 +2767,6 @@ export function registerWorktreeHandlers(
         // Log any non-fatal warnings
         if (cleanupResult.warnings.length > 0) {
           console.warn('[TASK_WORKTREE_DISCARD] Cleanup warnings:', cleanupResult.warnings);
-        }
-        if (cleanupResult.autoCommitted) {
-          console.warn('[TASK_WORKTREE_DISCARD] Auto-committed uncommitted work before discard');
         }
 
 
@@ -2844,13 +2839,11 @@ export function registerWorktreeHandlers(
           };
         }
 
-        // Use cleanupWorktree which auto-commits any uncommitted changes before deletion
-        // This preserves work in git history (recoverable via reflog for ~90 days)
+        // Use cleanupWorktree for robust, cross-platform worktree deletion
         const cleanupResult = await cleanupWorktree({
           worktreePath,
           projectPath: project.path,
           specId: specName,
-          commitMessage: 'Auto-save before orphaned worktree deletion',
           logPrefix: '[ORPHAN_CLEANUP]',
           deleteBranch: true
         });
@@ -2866,9 +2859,7 @@ export function registerWorktreeHandlers(
           success: true,
           data: {
             success: true,
-            message: cleanupResult.autoCommitted
-              ? 'Orphaned worktree deleted (uncommitted changes were auto-saved)'
-              : 'Orphaned worktree deleted successfully'
+            message: 'Orphaned worktree deleted successfully'
           }
         };
       } catch (error) {

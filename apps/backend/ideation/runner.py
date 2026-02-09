@@ -28,6 +28,7 @@ from .types import IdeationPhaseResult
 
 # Configuration
 MAX_RETRIES = 3
+IDEATION_TIMEOUT_SECONDS = 5 * 60  # 5 minutes max for all ideation types
 
 
 class IdeationOrchestrator:
@@ -45,6 +46,7 @@ class IdeationOrchestrator:
         thinking_level: str = "medium",
         refresh: bool = False,
         append: bool = False,
+        fast_mode: bool = False,
     ):
         """Initialize the ideation orchestrator.
 
@@ -59,6 +61,7 @@ class IdeationOrchestrator:
             thinking_level: Thinking level for extended reasoning
             refresh: Force regeneration of existing files
             append: Preserve existing ideas when merging
+            fast_mode: Enable Fast Mode for faster Opus 4.6 output
         """
         # Initialize configuration manager
         self.config_manager = IdeationConfigManager(
@@ -72,6 +75,7 @@ class IdeationOrchestrator:
             thinking_level=thinking_level,
             refresh=refresh,
             append=append,
+            fast_mode=fast_mode,
         )
 
         # Expose configuration for convenience
@@ -173,16 +177,45 @@ class IdeationOrchestrator:
             "progress",
         )
 
-        # Create tasks for all enabled types
-        ideation_tasks = [
-            self.output_streamer.stream_ideation_result(
-                ideation_type, self.phase_executor, MAX_RETRIES
+        # Create tasks explicitly so we can cancel them on timeout
+        ideation_task_objs = [
+            asyncio.create_task(
+                self.output_streamer.stream_ideation_result(
+                    ideation_type, self.phase_executor, MAX_RETRIES
+                )
             )
             for ideation_type in self.enabled_types
         ]
 
-        # Run all ideation types concurrently
-        ideation_results = await asyncio.gather(*ideation_tasks, return_exceptions=True)
+        # Run all ideation types concurrently with timeout protection
+        # 5 minute timeout prevents infinite hangs if one type stalls
+        try:
+            ideation_results = await asyncio.wait_for(
+                asyncio.gather(*ideation_task_objs, return_exceptions=True),
+                timeout=IDEATION_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            print_status(
+                "Ideation generation timed out after 5 minutes",
+                "error",
+            )
+            # Cancel all pending tasks to prevent resource leaks
+            for task in ideation_task_objs:
+                if not task.done():
+                    task.cancel()
+            # Wait for cancellation to complete and preserve results from completed tasks
+            # Tasks that finished before timeout will return their results;
+            # cancelled tasks will return CancelledError
+            results_after_cancel = await asyncio.gather(
+                *ideation_task_objs, return_exceptions=True
+            )
+            # Convert CancelledError to timeout exception, preserve completed results
+            ideation_results = [
+                Exception("Ideation timed out")
+                if isinstance(res, asyncio.CancelledError)
+                else res
+                for res in results_after_cancel
+            ]
 
         # Process results
         for i, result in enumerate(ideation_results):

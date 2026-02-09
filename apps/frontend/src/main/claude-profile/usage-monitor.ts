@@ -19,6 +19,7 @@ import { detectProvider as sharedDetectProvider, type ApiProvider } from '../../
 import { getCredentialsFromKeychain, clearKeychainCache } from './credential-utils';
 import { reactiveTokenRefresh, ensureValidToken } from './token-refresh';
 import { isProfileRateLimited } from './rate-limit-manager';
+import { getOperationRegistry } from './operation-registry';
 
 // Re-export for backward compatibility
 export type { ApiProvider };
@@ -775,7 +776,7 @@ export class UsageMonitor extends EventEmitter {
         const activeProfile = profilesFile.profiles.find(
           (p) => p.id === profilesFile.activeProfileId
         );
-        if (activeProfile && activeProfile.apiKey) {
+        if (activeProfile?.apiKey) {
           this.debugLog('[UsageMonitor:TRACE] Using API profile credential: ' + activeProfile.name);
           return activeProfile.apiKey;
         }
@@ -1151,15 +1152,8 @@ export class UsageMonitor extends EventEmitter {
       }
     }
 
-    const settings = profileManager.getAutoSwitchSettings();
-
-    // Proactive swap is only supported for OAuth profiles, not API profiles
-    if (isAPIProfile || !settings.enabled || !settings.proactiveSwapEnabled) {
-      this.debugLog('[UsageMonitor] Auth failure detected but proactive swap is disabled or using API profile, skipping swap');
-      return;
-    }
-
     // Mark this profile as auth-failed to prevent swap loops
+    // This MUST happen before the early return to prevent infinite loops
     this.authFailedProfiles.set(profileId, Date.now());
     this.debugLog('[UsageMonitor] Auth failure detected, marked profile as failed: ' + profileId);
 
@@ -1170,6 +1164,14 @@ export class UsageMonitor extends EventEmitter {
         this.authFailedProfiles.delete(failedProfileId);
       }
     });
+
+    const settings = profileManager.getAutoSwitchSettings();
+
+    // Proactive swap is only supported for OAuth profiles, not API profiles
+    if (isAPIProfile || !settings.enabled || !settings.proactiveSwapEnabled) {
+      this.debugLog('[UsageMonitor] Auth failure detected but proactive swap is disabled or using API profile, skipping swap');
+      return;
+    }
 
     try {
       const excludeProfiles = Array.from(this.authFailedProfiles.keys());
@@ -1333,7 +1335,7 @@ export class UsageMonitor extends EventEmitter {
       let baseUrl: string;
       let provider: ApiProvider;
 
-      if (activeProfile && activeProfile.isAPIProfile) {
+      if (activeProfile?.isAPIProfile) {
         // Use the pre-determined profile to avoid race conditions
         // Trust the activeProfile data and use baseUrl directly
         baseUrl = activeProfile.baseUrl;
@@ -1347,7 +1349,7 @@ export class UsageMonitor extends EventEmitter {
         const profilesFile = await loadProfilesFile();
         apiProfile = profilesFile.profiles.find(p => p.id === profileId);
 
-        if (apiProfile && apiProfile.apiKey) {
+        if (apiProfile?.apiKey) {
           // API profile found
           baseUrl = apiProfile.baseUrl;
           provider = detectProvider(baseUrl);
@@ -2006,6 +2008,46 @@ export class UsageMonitor extends EventEmitter {
       reason: 'proactive',
       limitType
     });
+
+    // PROACTIVE OPERATION RESTART: Stop and restart all running Claude SDK operations with new profile credentials
+    // This includes autonomous tasks, PR reviews, insights, roadmap, etc.
+    // Claude Agent SDK sessions maintain state independently of auth tokens, so no progress is lost
+    const operationRegistry = getOperationRegistry();
+    const operationSummary = operationRegistry.getSummary();
+    const operationIdsOnOldProfile = operationSummary.byProfile[currentProfileId] || [];
+
+    // Always log running operations info for debugging
+    console.log('[UsageMonitor] PROACTIVE-SWAP: Checking running operations:', {
+      oldProfileId: currentProfileId,
+      newProfileId: bestAccount.id,
+      totalRunning: operationSummary.totalRunning,
+      byProfile: operationSummary.byProfile,
+      byType: operationSummary.byType,
+      operationIdsOnOldProfile: operationIdsOnOldProfile
+    });
+
+    if (operationIdsOnOldProfile.length > 0) {
+      console.log('[UsageMonitor] PROACTIVE-SWAP: Found', operationIdsOnOldProfile.length, 'operations to restart:', operationIdsOnOldProfile);
+
+      // Restart all operations on the old profile with the new profile
+      const restartedCount = await operationRegistry.restartOperationsOnProfile(
+        currentProfileId,
+        bestAccount.id,
+        bestAccount.name
+      );
+
+      // Emit event for tracking/logging
+      this.emit('proactive-operations-restarted', {
+        fromProfile: { id: currentProfileId, name: fromProfileName },
+        toProfile: { id: bestAccount.id, name: bestAccount.name },
+        operationIds: operationIdsOnOldProfile,
+        restartedCount,
+        limitType,
+        timestamp: new Date()
+      });
+    } else {
+      console.log('[UsageMonitor] PROACTIVE-SWAP: No operations running on old profile', currentProfileId, '- swap complete without restart');
+    }
 
     // Note: Don't immediately check new profile - let normal interval handle it
     // This prevents cascading swaps if multiple profiles are near limits

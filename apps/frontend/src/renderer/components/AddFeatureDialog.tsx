@@ -50,7 +50,6 @@ import type {
   RoadmapPhase,
   RoadmapFeaturePriority,
   RoadmapFeatureStatus,
-  FeatureSource
 } from '../../shared/types';
 
 /**

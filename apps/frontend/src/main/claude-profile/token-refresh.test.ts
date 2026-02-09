@@ -12,7 +12,6 @@ import {
   refreshOAuthToken,
   ensureValidToken,
   reactiveTokenRefresh,
-  type TokenRefreshResult
 } from './token-refresh';
 
 // Mock credential-utils

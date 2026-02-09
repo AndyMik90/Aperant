@@ -35,7 +35,7 @@ export function RoadmapTabs({
       </TabsList>
 
       {/* Kanban View */}
-      <TabsContent value="kanban" className="flex-1 overflow-hidden">
+      <TabsContent value="kanban" className="flex-1 min-h-0 overflow-hidden">
         <RoadmapKanbanView
           key={roadmap.updatedAt?.toString()}
           roadmap={roadmap}
@@ -47,7 +47,7 @@ export function RoadmapTabs({
       </TabsContent>
 
       {/* Phases View */}
-      <TabsContent value="phases" className="flex-1 overflow-auto p-4">
+      <TabsContent value="phases" className="flex-1 min-h-0 overflow-auto p-4">
         <div className="space-y-6">
           {roadmap.phases.map((phase: RoadmapPhase, index: number) => (
             <PhaseCard
@@ -64,7 +64,7 @@ export function RoadmapTabs({
       </TabsContent>
 
       {/* All Features View */}
-      <TabsContent value="features" className="flex-1 overflow-auto p-4">
+      <TabsContent value="features" className="flex-1 min-h-0 overflow-auto p-4">
         <div className="grid gap-3">
           {roadmap.features.map((feature: RoadmapFeature) => (
             <FeatureCard
@@ -80,7 +80,7 @@ export function RoadmapTabs({
       </TabsContent>
 
       {/* By Priority View */}
-      <TabsContent value="priorities" className="flex-1 overflow-auto p-4">
+      <TabsContent value="priorities" className="flex-1 min-h-0 overflow-auto p-4">
         <div className="grid grid-cols-2 gap-4">
           {['must', 'should', 'could', 'wont'].map((priority: string) => {
             const features = roadmap.features.filter((f: RoadmapFeature) => f.priority === priority);

@@ -118,5 +118,20 @@ export const mockTasks = [
     logs: ['[INFO] Task completed successfully'],
     createdAt: new Date(Date.now() - 172800000),
     updatedAt: new Date(Date.now() - 86400000)
+  },
+  {
+    id: 'task-5',
+    projectId: 'mock-project-1',
+    specId: '005-add-search',
+    title: 'Add search functionality',
+    description: 'Implement full-text search across all entities',
+    status: 'pr_created' as const,
+    subtasks: [
+      { id: 'subtask-1', title: 'Setup search index', description: 'Configure search indexing', status: 'completed' as const, files: ['src/lib/search.ts'] },
+      { id: 'subtask-2', title: 'Add search UI', description: 'Create search component', status: 'completed' as const, files: ['src/components/Search.tsx'] }
+    ],
+    logs: ['[INFO] Task completed, PR created'],
+    createdAt: new Date(Date.now() - 259200000),
+    updatedAt: new Date(Date.now() - 43200000)
   }
 ];

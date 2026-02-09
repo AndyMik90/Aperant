@@ -243,6 +243,12 @@
     "selectedCount": "{{count}} sélectionné(s)",
     "noResultsFound": "Aucun résultat trouvé",
     "reset": "Réinitialiser",
+    "sort": {
+      "label": "Trier",
+      "newest": "Plus récent",
+      "oldest": "Plus ancien",
+      "largest": "Plus grand"
+    },
     "pullRequests": "Pull Requests",
     "open": "ouvert",
     "selectPRToView": "Sélectionnez une pull request pour voir les détails",
@@ -370,6 +376,8 @@
     "branchUpdateFailed": "Échec de la mise à jour de la branche",
     "allPRsLoaded": "Tous les PRs chargés",
     "maxPRsShown": "Affichage des 100 premières PRs",
+    "loadMore": "Charger plus",
+    "loadingMore": "Chargement...",
     "workflowsAwaitingApproval": "{{count}} workflow en attente d'approbation",
     "workflowsAwaitingApproval_plural": "{{count}} workflows en attente d'approbation",
     "blockedByWorkflows": "Bloqué",
@@ -410,6 +418,12 @@
     "done": "Terminé",
     "failedLabel": "Échoué",
     "starting": "Démarrage..."
+  },
+  "insights": {
+    "suggestedTask": "Tâche suggérée",
+    "creating": "Création...",
+    "taskCreated": "Tâche créée",
+    "createTask": "Créer une tâche"
   },
   "ideation": {
     "converting": "Conversion...",
@@ -478,8 +492,7 @@
     "clickToOpenSettings": "Cliquez pour ouvrir les Paramètres →",
     "sessionShort": "Utilisation session 5 heures",
     "weeklyShort": "Utilisation hebdomadaire 7 jours",
-    "swap": "Changer",
-    "account": "Compte"
+    "swap": "Changer"
   },
   "oauth": {
     "enterCode": "Saisie manuelle du code (secours)",
@@ -631,6 +644,16 @@
       "goToSettings": "Aller aux paramètres"
     }
   },
+  "git": {
+    "branchGroups": {
+      "local": "Branches Locales",
+      "remote": "Branches Distantes"
+    },
+    "branchType": {
+      "local": "Locale",
+      "remote": "Distante"
+    }
+  },
   "roadmapProgress": {
     "elapsedTime": "Écoulé",
     "lastActivity": "Dernière activité",
@@ -670,5 +693,31 @@
     "progress": "Progression",
     "lastActivityPrefix": "dernière activité",
     "lastProgressUpdateTooltip": "Dernière mise à jour de progression reçue"
+  },
+  "prStatus": {
+    "ci": {
+      "success": "CI réussie",
+      "pending": "CI en attente",
+      "failure": "CI échouée",
+      "successTooltip": "Toutes les vérifications CI ont réussi",
+      "pendingTooltip": "Les vérifications CI sont en cours",
+      "failureTooltip": "Une ou plusieurs vérifications CI ont échoué"
+    },
+    "review": {
+      "approved": "Approuvée",
+      "changesRequested": "Modifications demandées",
+      "pending": "Révision en attente",
+      "approvedTooltip": "Cette PR a été approuvée",
+      "changesRequestedTooltip": "Des modifications ont été demandées sur cette PR",
+      "pendingTooltip": "En attente de révision"
+    },
+    "merge": {
+      "ready": "Prête à fusionner",
+      "blocked": "Fusion bloquée",
+      "conflict": "Conflits détectés",
+      "readyTooltip": "Cette PR est prête à être fusionnée",
+      "blockedTooltip": "Cette PR ne peut pas être fusionnée en raison de conditions bloquantes",
+      "conflictTooltip": "Cette PR a des conflits de fusion qui doivent être résolus"
+    }
   }
 }
