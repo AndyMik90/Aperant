@@ -621,14 +621,19 @@ export async function validateGitHubModule(project: Project): Promise<GitHubModu
       await execAsync('which gh');
     }
     result.ghCliInstalled = true;
-  } catch {
+  } catch (error: unknown) {
     result.ghCliInstalled = false;
-    const installInstructions = isWindows()
-      ? 'winget install --id GitHub.cli'
-      : isMacOS()
-        ? 'brew install gh'
-        : 'See https://cli.github.com/';
-    result.error = `GitHub CLI (gh) is not installed. Install it with:\n  ${installInstructions}`;
+    const errCode = (error as NodeJS.ErrnoException).code;
+    if (errCode === 'ENOENT' && isWindows()) {
+      result.error = `System utility 'where.exe' not found. Check Windows installation.`;
+    } else {
+      const installInstructions = isWindows()
+        ? 'winget install --id GitHub.cli'
+        : isMacOS()
+          ? 'brew install gh'
+          : 'See https://cli.github.com/';
+      result.error = `GitHub CLI (gh) is not installed. Install it with:\n  ${installInstructions}`;
+    }
     return result;
   }
 
