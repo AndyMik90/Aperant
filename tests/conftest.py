@@ -42,6 +42,12 @@ if 'claude_code_sdk' not in sys.modules:
     sys.modules['claude_code_sdk'] = _create_sdk_mock()
     sys.modules['claude_code_sdk.types'] = MagicMock()
 
+# Pre-mock dotenv to prevent sys.exit() in cli.utils.import_dotenv
+# This is needed for CLI tests since cli.utils calls import_dotenv at module level
+if 'dotenv' not in sys.modules:
+    sys.modules['dotenv'] = MagicMock()
+    sys.modules['dotenv'].load_dotenv = MagicMock()
+
 # Add apps/backend directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
