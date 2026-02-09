@@ -271,7 +271,8 @@ export async function githubFetch(
   });
 
   if (!response.ok) {
-    throw new Error(`GitHub API error: ${response.status} - Request failed`);
+    const errorBody = await response.text().catch(() => 'Request failed');
+    throw new Error(`GitHub API error: ${response.status} - ${errorBody}`);
   }
 
   return response.json();
@@ -323,7 +324,8 @@ export async function githubFetchWithETag(
   }
 
   if (!response.ok) {
-    throw new Error(`GitHub API error: ${response.status} - Request failed`);
+    const errorBody = await response.text().catch(() => 'Request failed');
+    throw new Error(`GitHub API error: ${response.status} - ${errorBody}`);
   }
 
   const data = await response.json();
