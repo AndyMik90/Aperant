@@ -351,7 +351,7 @@ def get_phase_config(
     phase: Phase,
     cli_model: str | None = None,
     cli_thinking: str | None = None,
-) -> tuple[str, str, int | None]:
+) -> tuple[str, str, int]:
     """
     Get the full configuration for a specific execution phase.
 

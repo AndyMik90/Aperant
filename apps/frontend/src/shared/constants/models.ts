@@ -25,8 +25,8 @@ export const MODEL_ID_MAP: Record<string, string> = {
   haiku: 'claude-haiku-4-5-20251001'
 } as const;
 
-// Maps thinking levels to budget tokens (null = no extended thinking)
-export const THINKING_BUDGET_MAP: Record<string, number | null> = {
+// Maps thinking levels to budget tokens
+export const THINKING_BUDGET_MAP: Record<string, number> = {
   low: 1024,
   medium: 4096,
   high: 16384

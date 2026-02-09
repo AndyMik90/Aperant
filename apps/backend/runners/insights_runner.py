@@ -199,9 +199,7 @@ Current question: {message}"""
             "cwd": str(project_path),
         }
 
-        # Only add thinking tokens if the thinking level is not "none"
-        if max_thinking_tokens is not None:
-            options_kwargs["max_thinking_tokens"] = max_thinking_tokens
+        options_kwargs["max_thinking_tokens"] = max_thinking_tokens
 
         # Create Claude SDK client with appropriate settings for insights
         client = ClaudeSDKClient(options=ClaudeAgentOptions(**options_kwargs))
