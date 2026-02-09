@@ -14,12 +14,12 @@ import type { PRStatusUpdate, PollingMetadata, PRStatus } from '../../../shared/
 
 // Mock the GitHub utils module
 const mockGithubFetchWithETag = vi.fn();
-const mockClearETagCacheForProjectForProject = vi.fn();
+const mockClearETagCacheForProject = vi.fn();
 const mockGetETagCache = vi.fn();
 
 vi.mock('../../ipc-handlers/github/utils', () => ({
   githubFetchWithETag: (...args: unknown[]) => mockGithubFetchWithETag(...args),
-  clearETagCacheForProject: (...args: unknown[]) => mockClearETagCacheForProjectForProject(...args),
+  clearETagCacheForProject: (...args: unknown[]) => mockClearETagCacheForProject(...args),
   getETagCache: () => mockGetETagCache()
 }));
 
