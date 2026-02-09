@@ -193,7 +193,7 @@ cp .env.example .env
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `CLAUDE_CODE_OAUTH_TOKEN` | Yes | OAuth token from `claude setup-token` |
-| `AUTO_BUILD_MODEL` | No | Model override (default: claude-opus-4-5-20251101) |
+| `AUTO_BUILD_MODEL` | No | Model override (default: claude-opus-4-6) |
 | `DEFAULT_BRANCH` | No | Base branch for worktrees (auto-detects main/master) |
 | `DEBUG` | No | Enable debug logging (default: false) |
 

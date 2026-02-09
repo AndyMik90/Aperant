@@ -449,6 +449,9 @@ def create_client(
     max_thinking_tokens: int | None = None,
     output_format: dict | None = None,
     agents: dict | None = None,
+    betas: list[str] | None = None,
+    effort_level: str | None = None,
+    fast_mode: bool = False,
 ) -> ClaudeSDKClient:
     """
     Create a Claude Agent SDK client with multi-layered security.
@@ -464,10 +467,9 @@ def create_client(
         agent_type: Agent type identifier from AGENT_CONFIGS
                    (e.g., 'coder', 'planner', 'qa_reviewer', 'spec_gatherer')
         max_thinking_tokens: Token budget for extended thinking (None = disabled)
-                            - ultrathink: 16000 (spec creation)
-                            - high: 10000 (QA review)
-                            - medium: 5000 (planning, validation)
-                            - None: disabled (coding)
+                            - high: 16384 (spec creation, QA review)
+                            - medium: 4096 (planning, validation)
+                            - low: 1024 (coding)
         output_format: Optional structured output format for validated JSON responses.
                       Use {"type": "json_schema", "schema": Model.model_json_schema()}
                       See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
@@ -475,6 +477,15 @@ def create_client(
                Format: {"agent-name": {"description": "...", "prompt": "...",
                         "tools": [...], "model": "inherit"}}
                See: https://platform.claude.com/docs/en/agent-sdk/subagents
+        betas: Optional list of SDK beta header strings (e.g., ["context-1m-2025-08-07"]
+               for 1M context window). Use get_phase_model_betas() to compute from config.
+        effort_level: Optional effort level for adaptive thinking models (e.g., "low",
+                     "medium", "high"). When set, injected as CLAUDE_CODE_EFFORT_LEVEL
+                     env var for the SDK subprocess. Only meaningful for models that
+                     support adaptive thinking (e.g., Opus 4.6).
+        fast_mode: Enable Fast Mode for faster Opus 4.6 output. When True, injected
+                  as CLAUDE_CODE_FAST_MODE=true env var. Requires extra usage enabled
+                  on Claude subscription; falls back to standard speed automatically.
 
     Returns:
         Configured ClaudeSDKClient
@@ -501,6 +512,14 @@ def create_client(
 
     if config_dir:
         logger.info(f"Using CLAUDE_CONFIG_DIR for profile: {config_dir}")
+
+    # Inject effort level for adaptive thinking models (e.g., Opus 4.6)
+    if effort_level:
+        sdk_env["CLAUDE_CODE_EFFORT_LEVEL"] = effort_level
+
+    # Inject fast mode for faster Opus 4.6 output
+    if fast_mode:
+        sdk_env["CLAUDE_CODE_FAST_MODE"] = "true"
 
     # Debug: Log git-bash path detection on Windows
     if "CLAUDE_CODE_GIT_BASH_PATH" in sdk_env:
@@ -665,7 +684,12 @@ def create_client(
         print("   - Worktree permissions: granted for original project directories")
     print("   - Bash commands restricted to allowlist")
     if max_thinking_tokens:
-        print(f"   - Extended thinking: {max_thinking_tokens:,} tokens")
+        thinking_info = f"{max_thinking_tokens:,} tokens"
+        if effort_level:
+            thinking_info += f" + effort={effort_level}"
+        if fast_mode:
+            thinking_info += " + fast mode"
+        print(f"   - Extended thinking: {thinking_info}")
     else:
         print("   - Extended thinking: disabled")
 
@@ -833,5 +857,9 @@ def create_client(
     # See: https://platform.claude.com/docs/en/agent-sdk/subagents
     if agents:
         options_kwargs["agents"] = agents
+
+    # Add beta headers if specified (e.g., for 1M context window)
+    if betas:
+        options_kwargs["betas"] = betas
 
     return ClaudeSDKClient(options=ClaudeAgentOptions(**options_kwargs))
