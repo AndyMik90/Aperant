@@ -250,8 +250,10 @@ class TestPostSessionProcessing:
         recovery_manager = RecoveryManager(spec_dir, project_dir)
         commit_before = get_latest_commit(project_dir)
 
+        # Mock check_and_recover to prevent the recovery flow from resetting attempt history
         with patch("agents.session.extract_session_insights", new_callable=AsyncMock) as mock_insights, \
-             patch("agents.session.save_session_memory", new_callable=AsyncMock) as mock_memory:
+             patch("agents.session.save_session_memory", new_callable=AsyncMock) as mock_memory, \
+             patch("agents.session.check_and_recover", return_value=None):
 
             mock_insights.return_value = {"file_insights": [], "patterns_discovered": []}
             mock_memory.return_value = (True, "file")
