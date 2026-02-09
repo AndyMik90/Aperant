@@ -48,17 +48,22 @@ if 'linear_updater' not in sys.modules:
 @pytest.fixture(autouse=True)
 def setup_mock_ui_for_utils(mock_ui_module_full):
     """
-    Auto-use fixture that sets up the mock UI module before tests run.
+    Auto-use fixture that replaces sys.modules['ui'] with mock for each test.
 
-    This must be an autouse fixture because cli.utils imports
-    `ui` at module level, so we need to mock it before any imports.
+    NOTE: cli.utils imports `ui` at module level, which happens at pytest
+    collection time. This fixture runs AFTER the module has already been
+    imported with the real `ui` module (if available). The fixture replaces
+    sys.modules['ui'] with mock_ui_module_full for each test, providing a
+    fresh mock per test without preventing the initial module-level import.
+
+    For proper test isolation, conftest.py handles cleanup between tests.
     """
-    # Set up the mock UI module
+    # Set up the mock UI module (replaces any existing ui module in sys.modules)
     sys.modules['ui'] = mock_ui_module_full
 
     yield
 
-    # Clean up - conftest.py handles module cleanup
+    # Clean up - conftest.py handles module cleanup between test modules
 
 
 # =============================================================================
@@ -94,8 +99,19 @@ class TestImportDotenv:
     @patch('cli.utils.sys.executable', '/usr/bin/python3')
     def test_exits_with_helpful_message_when_not_available(self, mock_exit):
         """Exits with helpful error message when dotenv is not installed."""
-        # Mock the import to raise ImportError
-        with patch('builtins.__import__', side_effect=ImportError('No module named dotenv')):
+        import builtins
+
+        # Save the real __import__ function
+        original_import = builtins.__import__
+
+        def selective_import_error(name, *args, **kwargs):
+            """Only raise ImportError for 'dotenv', delegate to real import otherwise."""
+            if name == 'dotenv' or name.startswith('dotenv.'):
+                raise ImportError('No module named dotenv')
+            return original_import(name, *args, **kwargs)
+
+        # Mock __import__ with selective side effect
+        with patch('builtins.__import__', side_effect=selective_import_error):
             import_dotenv()
             # Verify sys.exit was called
             mock_exit.assert_called_once()
@@ -487,10 +503,12 @@ class TestValidateEnvironment:
 
     @patch('cli.utils.validate_platform_dependencies')
     @patch('cli.utils.get_auth_token')
+    @patch('cli.utils.get_auth_token_source')
     @patch.dict(os.environ, {'ANTHROPIC_BASE_URL': 'https://custom.api.com'})
-    def test_shows_custom_base_url(self, mock_get_auth_token, mock_validate_platform_deps, temp_dir, capsys):
+    def test_shows_custom_base_url(self, mock_get_auth_token_source, mock_get_auth_token, mock_validate_platform_deps, temp_dir, capsys):
         """Shows custom API endpoint when set."""
         mock_get_auth_token.return_value = "test-token"
+        mock_get_auth_token_source.return_value = "oauth_profile:test@example.com"
 
         spec_dir = temp_dir / ".auto-claude" / "specs" / "001-test"
         spec_dir.mkdir(parents=True)
@@ -717,38 +735,31 @@ class TestGetProjectDir:
 
         assert result == expected
 
-    def test_auto_detects_backend_directory(self, tmp_path):
+    def test_auto_detects_backend_directory(self, tmp_path, monkeypatch):
         """Auto-detects project root when running from apps/backend."""
         # Create apps/backend structure
         backend_dir = tmp_path / "apps" / "backend"
         backend_dir.mkdir(parents=True)
         (backend_dir / "run.py").write_text("# run.py")
 
-        # Change to backend directory
-        original_cwd = Path.cwd()
-        try:
-            os.chdir(backend_dir)
-            result = get_project_dir(None)
-            # Should return project root (goes up 2 levels from backend)
-            # The function detects it's in backend and goes to parent.parent
-            # So from apps/backend, it goes to tmp_path (project root)
-            assert result == tmp_path
-        finally:
-            os.chdir(original_cwd)
+        # Change to backend directory using monkeypatch
+        monkeypatch.chdir(backend_dir)
+        result = get_project_dir(None)
+        # Should return project root (goes up 2 levels from backend)
+        # The function detects it's in backend and goes to parent.parent
+        # So from apps/backend, it goes to tmp_path (project root)
+        assert result == tmp_path
 
-    def test_returns_cwd_for_non_backend_dir(self, tmp_path):
+    def test_returns_cwd_for_non_backend_dir(self, tmp_path, monkeypatch):
         """Returns cwd when not in a backend directory."""
         # Create a regular directory
         test_dir = tmp_path / "some-project"
         test_dir.mkdir()
 
-        original_cwd = Path.cwd()
-        try:
-            os.chdir(test_dir)
-            result = get_project_dir(None)
-            assert result == test_dir
-        finally:
-            os.chdir(original_cwd)
+        # Change to test directory using monkeypatch
+        monkeypatch.chdir(test_dir)
+        result = get_project_dir(None)
+        assert result == test_dir
 
 
 # =============================================================================

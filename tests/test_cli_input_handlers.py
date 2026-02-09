@@ -9,6 +9,7 @@ Tests for reusable user input collection utilities:
 - read_multiline_input()
 """
 
+import os
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -23,18 +24,22 @@ import pytest
 @pytest.fixture(autouse=True)
 def setup_mock_ui_for_input_handlers(mock_ui_module_full):
     """
-    Auto-use fixture that sets up the mock UI module before tests run.
+    Auto-use fixture that replaces sys.modules['ui'] with mock for each test.
 
-    This must be an autouse fixture because cli.input_handlers imports
-    `ui` at module level, so we need to mock it before any imports.
+    NOTE: cli.input_handlers imports `ui` at module level, which happens at
+    pytest collection time. This fixture runs AFTER the module has already
+    been imported with the real `ui` module (if available). The fixture replaces
+    sys.modules['ui'] with mock_ui_module_full for each test, providing a
+    fresh mock per test without preventing the initial module-level import.
+
+    For proper test isolation, conftest.py handles cleanup between tests.
     """
-    # Set up the mock UI module
+    # Set up the mock UI module (replaces any existing ui module in sys.modules)
     sys.modules['ui'] = mock_ui_module_full
 
     yield
 
-    # Clean up - restore original if it existed
-    # Note: We don't delete 'ui' from sys.modules as conftest.py handles cleanup
+    # Clean up - conftest.py handles module cleanup between test modules
 
 
 # =============================================================================
@@ -499,12 +504,13 @@ class TestReadMultilineInput:
 
     def test_passes_prompt_text_to_box(self, capsys):
         """Passes prompt text to the box display."""
+        custom_prompt = "Custom prompt text"
         with patch('builtins.input', side_effect=['', '']):
-            read_multiline_input("Custom prompt text")
+            read_multiline_input(custom_prompt)
 
         captured = capsys.readouterr()
-        # The prompt text should appear in the output
-        assert "prompt" in captured.out.lower() or "text" in captured.out.lower() or "enter" in captured.out.lower()
+        # The actual custom prompt text should appear in the output
+        assert custom_prompt.lower() in captured.out.lower()
 
     def test_allows_multiple_consecutive_empty_lines_to_stop(self):
         """Stops on first empty line (empty_count >= 1)."""
@@ -546,17 +552,21 @@ class TestModuleImportPathInsertion:
 
         # Get the parent dir that should be inserted by line 14
         parent_dir_str = str(_PARENT_DIR)
+        parent_dir_normalized = os.path.normpath(parent_dir_str)
 
-        # Verify parent_dir_str is the apps/backend directory
-        assert parent_dir_str.endswith("apps/backend") or parent_dir_str.endswith("apps" + os.sep + "backend")
+        # Verify parent_dir_str is the apps/backend directory (cross-platform)
+        expected_suffix = os.path.join("apps", "backend")
+        assert parent_dir_normalized.endswith(expected_suffix) or parent_dir_str.endswith("apps/backend")
 
         # Save current sys.path state to restore later
         original_path = sys.path.copy()
 
         # Remove the parent dir from sys.path to simulate the condition on line 13
+        # Use normalized paths for comparison to handle different path separators
         paths_to_restore = []
         for p in sys.path[:]:  # Copy to avoid modification during iteration
-            if 'apps/backend' in p or p == parent_dir_str:
+            p_normalized = os.path.normpath(p)
+            if expected_suffix in p_normalized or p == parent_dir_str:
                 paths_to_restore.append(p)
                 sys.path.remove(p)
 
@@ -596,8 +606,11 @@ class TestModuleImportPathInsertion:
         original_path = sys.path.copy()
 
         # Remove the parent dir from sys.path
+        # Use normalized paths for comparison to handle different path separators
+        parent_dir_normalized = os.path.normpath(parent_dir_str)
         for p in sys.path[:]:
-            if p == parent_dir_str or p.rstrip("/") == parent_dir_str.rstrip("/"):
+            p_normalized = os.path.normpath(p)
+            if p == parent_dir_str or p_normalized == parent_dir_normalized:
                 sys.path.remove(p)
 
         try:
