@@ -63,7 +63,7 @@ This returns the Context7-compatible ID (e.g., "/vercel/next.js").
 Once you have the ID, fetch documentation for specific topics:
 
 ```
-Tool: mcp__context7__get-library-docs
+Tool: mcp__context7__query-docs
 Input: {
   "context7CompatibleLibraryID": "/vercel/next.js",
   "topic": "routing",  // Focus on relevant topic
@@ -244,7 +244,7 @@ research.json created successfully.
 
 1. **Context7 MCP** (PRIMARY) - Best for official docs, API patterns, code examples
    - Use `resolve-library-id` first to get the library ID
-   - Then `get-library-docs` with relevant topics
+   - Then `query-docs` with relevant topics
    - Covers most popular libraries (React, Next.js, FastAPI, etc.)
 
 2. **Web Search** - For package verification, recent info, obscure libraries
@@ -271,7 +271,7 @@ Input: { "libraryName": "graphiti" }
 
 If found in Context7:
 ```
-Tool: mcp__context7__get-library-docs
+Tool: mcp__context7__query-docs
 Input: {
   "context7CompatibleLibraryID": "/zep/graphiti",
   "topic": "getting started",

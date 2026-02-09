@@ -40,7 +40,14 @@ interface PRReviewStoreState {
   // Selectors
   getPRReviewState: (projectId: string, prNumber: number) => PRReviewState | null;
   getActivePRReviews: (projectId: string) => PRReviewState[];
+
+  // Refresh callbacks - called when reviews complete
+  registerRefreshCallback: (callback: () => void) => void;
+  unregisterRefreshCallback: (callback: () => void) => void;
 }
+
+// Store for refresh callbacks outside of Zustand state (to avoid re-renders on registration)
+const refreshCallbacks = new Set<() => void>();
 
 export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
   // Initial state
@@ -214,6 +221,15 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
     return Object.values(prReviews).filter(
       review => review.projectId === projectId && review.isReviewing
     );
+  },
+
+  // Refresh callbacks - called when reviews complete
+  registerRefreshCallback: (callback: () => void) => {
+    refreshCallbacks.add(callback);
+  },
+
+  unregisterRefreshCallback: (callback: () => void) => {
+    refreshCallbacks.delete(callback);
   }
 }));
 
@@ -223,6 +239,7 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
  * regardless of which component is mounted.
  */
 let prReviewListenersInitialized = false;
+let cleanupFunctions: (() => void)[] = [];
 
 export function initializePRReviewListeners(): void {
   if (prReviewListenersInitialized) {
@@ -231,29 +248,45 @@ export function initializePRReviewListeners(): void {
 
   const store = usePRReviewStore.getState();
 
+  // Check if GitHub PR Review API is available
+  if (!window.electronAPI?.github?.onPRReviewProgress) {
+    console.warn('[GitHub PR Store] GitHub PR Review API not available, skipping listener setup');
+    return;
+  }
+
   // Listen for PR review progress events
-  window.electronAPI.github.onPRReviewProgress(
+  // Each on* method returns a cleanup function — capture them for proper teardown
+  const cleanupProgress = window.electronAPI.github.onPRReviewProgress(
     (projectId: string, progress: PRReviewProgress) => {
       store.setPRReviewProgress(projectId, progress);
     }
   );
+  cleanupFunctions.push(cleanupProgress);
 
   // Listen for PR review completion events
-  window.electronAPI.github.onPRReviewComplete(
+  const cleanupComplete = window.electronAPI.github.onPRReviewComplete(
     (projectId: string, result: PRReviewResult) => {
       store.setPRReviewResult(projectId, result);
+      // Trigger all registered refresh callbacks when review completes
+      refreshCallbacks.forEach(callback => {
+        Promise.resolve(callback()).catch(error => {
+          console.error('[PRReviewStore] Error in refresh callback:', error);
+        });
+      });
     }
   );
+  cleanupFunctions.push(cleanupComplete);
 
   // Listen for PR review error events
-  window.electronAPI.github.onPRReviewError(
+  const cleanupError = window.electronAPI.github.onPRReviewError(
     (projectId: string, data: { prNumber: number; error: string }) => {
       store.setPRReviewError(projectId, data.prNumber, data.error);
     }
   );
+  cleanupFunctions.push(cleanupError);
 
   // Listen for GitHub auth changes - clear all PR review state when account changes
-  window.electronAPI.github.onGitHubAuthChanged(
+  const cleanupAuthChanged = window.electronAPI.github.onGitHubAuthChanged(
     (data: { oldUsername: string | null; newUsername: string }) => {
       console.warn(
         `[PRReviewStore] GitHub auth changed from "${data.oldUsername ?? 'none'}" to "${data.newUsername}". ` +
@@ -263,8 +296,26 @@ export function initializePRReviewListeners(): void {
       usePRReviewStore.setState({ prReviews: {} });
     }
   );
+  cleanupFunctions.push(cleanupAuthChanged);
 
   prReviewListenersInitialized = true;
+}
+
+/**
+ * Cleanup PR review listeners.
+ * Call this when the app is being unmounted or during hot-reload.
+ */
+export function cleanupPRReviewListeners(): void {
+  for (const cleanup of cleanupFunctions) {
+    try {
+      cleanup();
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+  cleanupFunctions = [];
+  refreshCallbacks.clear();
+  prReviewListenersInitialized = false;
 }
 
 /**
