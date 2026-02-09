@@ -6,7 +6,7 @@
 import { homedir } from 'os';
 import { join } from 'path';
 import { existsSync, readFileSync, readdirSync, mkdirSync } from 'fs';
-import type { ClaudeProfile } from '../../shared/types';
+import type { ClaudeProfile, APIProfile } from '../../shared/types';
 import { getCredentialsFromKeychain } from './credential-utils';
 
 /**
@@ -201,6 +201,26 @@ export function hasValidToken(profile: ClaudeProfile): boolean {
   // We keep this for backwards compat to avoid breaking existing profiles during migration.
   console.warn('[hasValidToken] DEPRECATED: Profile has cached oauthToken. Using CLAUDE_CONFIG_DIR for fresh tokens.');
   return true;
+}
+
+/**
+ * Check if an API profile has valid authentication credentials.
+ * Validates that both apiKey and baseUrl are present and non-empty.
+ *
+ * @param profile - The API profile to check
+ * @returns true if the profile has both apiKey and baseUrl, false otherwise
+ */
+export function isAPIProfileAuthenticated(profile: APIProfile): boolean {
+  // Check for presence of required fields
+  if (!profile?.apiKey || !profile?.baseUrl) {
+    return false;
+  }
+
+  // Validate that the fields are non-empty strings (after trimming whitespace)
+  const hasValidApiKey = typeof profile.apiKey === 'string' && profile.apiKey.trim().length > 0;
+  const hasValidBaseUrl = typeof profile.baseUrl === 'string' && profile.baseUrl.trim().length > 0;
+
+  return hasValidApiKey && hasValidBaseUrl;
 }
 
 /**

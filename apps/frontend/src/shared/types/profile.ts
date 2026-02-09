@@ -1,3 +1,5 @@
+import type { ClaudeUsageData, ClaudeRateLimitEvent } from './agent';
+
 /**
  * API Profile Management Types
  *
@@ -27,6 +29,10 @@ export interface APIProfile {
   };
   createdAt: number; // Unix timestamp (ms)
   updatedAt: number; // Unix timestamp (ms)
+  /** Current usage data from API */
+  usage?: ClaudeUsageData;
+  /** Recent rate limit events for this profile */
+  rateLimitEvents?: ClaudeRateLimitEvent[];
 }
 
 /**
