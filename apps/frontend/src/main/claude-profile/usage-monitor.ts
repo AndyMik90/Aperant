@@ -20,6 +20,7 @@ import { getCredentialsFromKeychain, clearKeychainCache } from './credential-uti
 import { reactiveTokenRefresh, ensureValidToken } from './token-refresh';
 import { isProfileRateLimited } from './rate-limit-manager';
 import { getOperationRegistry } from './operation-registry';
+import { hasPrimaryApiKeyInConfigDir } from './profile-utils';
 
 // Re-export for backward compatibility
 export type { ApiProvider };
@@ -380,7 +381,7 @@ export class UsageMonitor extends EventEmitter {
             ? profile.configDir.replace(/^~/, homedir())
             : profile.configDir;
           const creds = getCredentialsFromKeychain(expandedConfigDir);
-          if (!creds.token) {
+          if (!creds.token && !hasPrimaryApiKeyInConfigDir(expandedConfigDir)) {
             // Credentials are missing - mark for re-auth
             this.needsReauthProfiles.add(profile.id);
             this.debugLog('[UsageMonitor:getAllProfilesUsage] Profile needs re-auth (no credentials): ' + profile.name);
@@ -635,8 +636,10 @@ export class UsageMonitor extends EventEmitter {
 
         if (!token) {
           this.debugLog('[UsageMonitor] No keychain credentials for inactive profile: ' + profile.name);
-          // Mark profile as needing re-authentication since credentials are missing
-          this.needsReauthProfiles.add(profile.id);
+          if (!hasPrimaryApiKeyInConfigDir(expandedConfigDir)) {
+            // Mark profile as needing re-authentication since credentials are missing
+            this.needsReauthProfiles.add(profile.id);
+          }
           return null;
         }
       }
@@ -833,7 +836,7 @@ export class UsageMonitor extends EventEmitter {
 
           // Check for missing_credentials error - indicates no token in credential store
           // User needs to authenticate via /login
-          if (tokenResult.errorCode === 'missing_credentials') {
+          if (tokenResult.errorCode === 'missing_credentials' && !hasPrimaryApiKeyInConfigDir(activeProfile.configDir)) {
             this.debugLog('[UsageMonitor] Profile needs authentication (no credentials found): ' + activeProfile.name);
             this.needsReauthProfiles.add(activeProfile.id);
           }
@@ -859,8 +862,10 @@ export class UsageMonitor extends EventEmitter {
           ' - user may need to re-authenticate with claude /login');
       }
 
-      // Mark profile as needing re-authentication since credentials are missing
-      this.needsReauthProfiles.add(activeProfile.id);
+      if (!hasPrimaryApiKeyInConfigDir(activeProfile.configDir)) {
+        // Mark profile as needing re-authentication since credentials are missing
+        this.needsReauthProfiles.add(activeProfile.id);
+      }
     }
 
     // No credential available

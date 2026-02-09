@@ -624,6 +624,27 @@ def _get_token_from_linux_secret_service(config_dir: str | None = None) -> str |
         return None
 
 
+def _is_valid_primary_api_key(value: str | None) -> bool:
+    return bool(value and isinstance(value, str) and value.startswith("sk-ant-"))
+
+
+
+def _get_primary_api_key_from_config_dir(expanded_dir: str) -> str | None:
+    claude_json_path = os.path.join(expanded_dir, ".claude.json")
+    if not os.path.exists(claude_json_path):
+        return None
+    try:
+        with open(claude_json_path, encoding="utf-8") as f:
+            data = json.load(f)
+        api_key = data.get("primaryApiKey")
+        if _is_valid_primary_api_key(api_key):
+            logger.debug(f"Found primaryApiKey in {claude_json_path}")
+            return api_key
+    except (json.JSONDecodeError, KeyError, Exception) as e:
+        logger.debug(f"Failed to read primaryApiKey from {claude_json_path}: {e}")
+    return None
+
+
 def _get_token_from_config_dir(config_dir: str) -> str | None:
     """
     Read token from a custom config directory's credentials file.
@@ -665,6 +686,10 @@ def _get_token_from_config_dir(config_dir: str) -> str | None:
             except (json.JSONDecodeError, KeyError, Exception) as e:
                 logger.debug(f"Failed to read {cred_path}: {e}")
                 continue
+
+    primary_api_key = _get_primary_api_key_from_config_dir(expanded_dir)
+    if primary_api_key:
+        return primary_api_key
 
     return None
 
@@ -983,20 +1008,33 @@ def configure_sdk_authentication(config_dir: str | None = None) -> None:
         os.environ.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
         logger.info("Using API profile authentication")
     else:
-        # OAuth mode: require and validate OAuth token
-        # Get OAuth token - uses profile-specific Keychain lookup when config_dir is set
-        # This correctly reads from "Claude Code-credentials-{hash}" for non-default profiles
-        oauth_token = require_auth_token(config_dir)
+        # Check if profile uses primaryApiKey (prepaid/API billing mode)
+        # In this mode, Claude Code stores an API key in .claude.json instead of
+        # OAuth tokens in the credential store. Route to ANTHROPIC_AUTH_TOKEN.
+        effective_config_dir = config_dir or os.environ.get("CLAUDE_CONFIG_DIR")
+        primary_api_key = _get_primary_api_key_from_config_dir(
+            os.path.expanduser(effective_config_dir)
+        ) if effective_config_dir else None
 
-        # Validate token is not encrypted before passing to SDK
-        # Encrypted tokens (enc:...) should have been decrypted by require_auth_token()
-        # If we still have an encrypted token here, it means decryption failed or was skipped
-        validate_token_not_encrypted(oauth_token)
+        if primary_api_key:
+            os.environ["ANTHROPIC_AUTH_TOKEN"] = primary_api_key
+            os.environ.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
+            logger.info("Using primaryApiKey authentication (prepaid billing)")
+        else:
+            # OAuth mode: require and validate OAuth token
+            # Get OAuth token - uses profile-specific Keychain lookup when config_dir is set
+            # This correctly reads from "Claude Code-credentials-{hash}" for non-default profiles
+            oauth_token = require_auth_token(config_dir)
 
-        # Ensure SDK can access it via its expected env var
-        # This is required because the SDK doesn't know about per-profile Keychain naming
-        os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
-        logger.info("Using OAuth authentication")
+            # Validate token is not encrypted before passing to SDK
+            # Encrypted tokens (enc:...) should have been decrypted by require_auth_token()
+            # If we still have an encrypted token here, it means decryption failed or was skipped
+            validate_token_not_encrypted(oauth_token)
+
+            # Ensure SDK can access it via its expected env var
+            # This is required because the SDK doesn't know about per-profile Keychain naming
+            os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
+            logger.info("Using OAuth authentication")
 
 
 def ensure_claude_code_oauth_token() -> None:
@@ -1007,6 +1045,16 @@ def ensure_claude_code_oauth_token() -> None:
     to CLAUDE_CODE_OAUTH_TOKEN so the underlying SDK can use it.
     """
     if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
+        return
+
+    config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
+    primary_api_key = _get_primary_api_key_from_config_dir(
+        os.path.expanduser(config_dir)
+    ) if config_dir else None
+
+    if primary_api_key:
+        os.environ["ANTHROPIC_AUTH_TOKEN"] = primary_api_key
+        os.environ.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
         return
 
     token = get_auth_token()

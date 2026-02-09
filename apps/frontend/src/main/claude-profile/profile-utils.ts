@@ -80,6 +80,9 @@ export function isProfileAuthenticated(profile: ClaudeProfile): boolean {
       const data = JSON.parse(content);
       // Check for oauthAccount which indicates successful OAuth authentication
       if (data && typeof data === 'object' && (data.oauthAccount?.accountUuid || data.oauthAccount?.emailAddress)) {
+        if (hasPrimaryApiKeyInConfigDir(configDir)) {
+          return true;
+        }
         // The actual OAuth tokens are stored in platform-specific credential storage:
         // - macOS: Keychain
         // - Windows: Credential Manager
@@ -232,6 +235,31 @@ export function expandHomePath(path: string): string {
     return path.replace(/^~/, home);
   }
   return path;
+}
+
+function isValidPrimaryApiKey(value: unknown): boolean {
+  return typeof value === 'string' && value.startsWith('sk-ant-');
+}
+
+export function hasPrimaryApiKeyInConfigDir(configDir?: string): boolean {
+  if (!configDir) {
+    return false;
+  }
+
+  const expandedConfigDir = expandHomePath(configDir);
+  const claudeJsonPath = join(expandedConfigDir, '.claude.json');
+
+  if (!existsSync(claudeJsonPath)) {
+    return false;
+  }
+
+  try {
+    const content = readFileSync(claudeJsonPath, 'utf-8');
+    const data = JSON.parse(content);
+    return isValidPrimaryApiKey(data?.primaryApiKey);
+  } catch {
+    return false;
+  }
 }
 
 /**
