@@ -828,23 +828,41 @@ class TestModuleLevelBehavior:
             str(parent_dir) == p for p in sys.path
         ), f"Parent directory {parent_dir} should be in sys.path"
 
-    @patch('cli.utils.sys.path', [])
     def test_parent_dir_inserted_when_not_in_path(self):
         """Tests that parent dir is inserted when not already in sys.path."""
         # This test verifies line 15: sys.path.insert(0, str(_PARENT_DIR))
         # which only executes if str(_PARENT_DIR) not in sys.path
 
-        # We need to reload the module to test the conditional insertion
         import importlib
         import cli.utils
 
-        # Get the _PARENT_DIR value
-        from cli.utils import _PARENT_DIR
+        # Get the _PARENT_DIR value and save original state
+        parent_dir_str = str(cli.utils._PARENT_DIR)
+        original_path = sys.path.copy()
+        original_module = sys.modules.get('cli.utils')
 
-        # The logic at module level should have added parent_dir to sys.path
-        # if it wasn't already there
-        assert isinstance(_PARENT_DIR, Path)
-        assert _PARENT_DIR.exists()
+        try:
+            # Remove the parent dir from sys.path to simulate the condition
+            while parent_dir_str in sys.path:
+                sys.path.remove(parent_dir_str)
+
+            # Delete the module from sys.modules to force reload
+            if 'cli.utils' in sys.modules:
+                del sys.modules['cli.utils']
+
+            # Now reimport - this will execute lines 13-15 since path is not present
+            import cli.utils as reloaded
+
+            # Verify the parent dir was added to sys.path by line 15
+            assert parent_dir_str in sys.path, f"Parent dir {parent_dir_str} should be in sys.path"
+
+        finally:
+            # Restore sys.path and sys.modules for other tests
+            sys.path[:] = original_path
+            if original_module is not None:
+                sys.modules['cli.utils'] = original_module
+            elif 'cli.utils' in sys.modules:
+                del sys.modules['cli.utils']
 
     def test_parent_dir_conditionally_inserted_to_sys_path(self):
         """Tests line 15: parent dir is only inserted if not already in sys.path."""
@@ -991,7 +1009,7 @@ class TestUtilsModuleLevelPathInsertion:
         assert parent_dir.name in ["backend", "apps"]
 
     @pytest.mark.skipif(
-        True,  # Subprocess test requires full environment including claude_agent_sdk
+        True,  # Subprocess test requires full environment including claude_agent_sdk (not available in CI)
         reason="Subprocess test requires claude_agent_sdk dependency; coverage achieved via reload test"
     )
     def test_parent_dir_inserted_to_sys_path_subprocess(self):
@@ -1024,9 +1042,10 @@ class TestUtilsModuleLevelPathInsertion:
         import sys
         from pathlib import Path
 
-        # Save original _PARENT_DIR value
+        # Save original _PARENT_DIR value and module
         import cli.utils as utils_module
         original_parent_dir = utils_module._PARENT_DIR
+        original_module = sys.modules.get('cli.utils')
 
         # Remove from sys.path if present
         parent_str = str(original_parent_dir)
@@ -1037,12 +1056,18 @@ class TestUtilsModuleLevelPathInsertion:
         if 'cli.utils' in sys.modules:
             del sys.modules['cli.utils']
 
-        # Now reimport - this will execute lines 13-15 again
-        import cli.utils as reimported_utils
+        try:
+            # Now reimport - this will execute lines 13-15 again
+            import cli.utils as reimported_utils
 
-        # Verify path insertion happened
-        assert str(reimported_utils._PARENT_DIR) in sys.path
+            # Verify path insertion happened
+            assert str(reimported_utils._PARENT_DIR) in sys.path
 
-        # Restore for other tests
-        if str(original_parent_dir) not in sys.path:
-            sys.path.insert(0, str(original_parent_dir))
+        finally:
+            # Restore sys.path and sys.modules for other tests
+            if str(original_parent_dir) not in sys.path:
+                sys.path.insert(0, str(original_parent_dir))
+            if original_module is not None:
+                sys.modules['cli.utils'] = original_module
+            elif 'cli.utils' in sys.modules:
+                del sys.modules['cli.utils']

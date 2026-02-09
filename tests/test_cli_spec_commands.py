@@ -422,21 +422,35 @@ class TestSpecCommandsMissingCoverage:
         assert "Create your first spec" in captured.out
         assert "python runners/spec_runner.py" in captured.out or "spec_runner.py" in captured.out
 
-    @patch('subprocess.run')
-    def test_print_specs_list_no_specs_auto_true_no_runner(self, mock_run, temp_git_repo: Path, capsys):
+    def test_print_specs_list_no_specs_auto_true_no_runner(self, temp_git_repo: Path, capsys):
         """Tests print message when no specs exist, auto_create=True, but spec_runner missing."""
         # Create specs directory so specs_dir.exists() is True
         specs_dir = temp_git_repo / ".auto-claude" / "specs"
         specs_dir.mkdir(parents=True)
 
-        # Patch input to avoid reading from stdin
-        with patch('builtins.input', side_effect=KeyboardInterrupt):
-            print_specs_list(temp_git_repo, auto_create=True)
+        # Patch the runner existence check to make it return False
+        # The spec_commands.py code checks spec_runner.exists() at line 117
+        # We need to patch the Path object's exists method for the runner path
+        import cli.spec_commands as spec_commands
+        backend_dir = Path(spec_commands.__file__).parent.parent
+        runner_path = backend_dir / "runners" / "spec_runner.py"
+
+        original_exists = Path.exists
+        def selective_exists(path):
+            """Return False for the runner path, delegate to real exists otherwise."""
+            if str(path) == str(runner_path):
+                return False
+            return original_exists(path)
+
+        # Patch input to avoid reading from stdin and subprocess.run to avoid execution
+        with patch.object(Path, 'exists', selective_exists):
+            with patch('builtins.input', side_effect=KeyboardInterrupt):
+                with patch('subprocess.run'):
+                    print_specs_list(temp_git_repo, auto_create=True)
 
         captured = capsys.readouterr()
-        # Should show QUICK START menu or "Create your first spec" depending on runner availability
-        # The actual behavior depends on whether spec_runner exists in the real backend directory
-        assert "QUICK START" in captured.out or "Create your first spec" in captured.out
+        # When spec_runner is missing, should show "Create your first spec" message
+        assert "Create your first spec" in captured.out
 
 
 # =============================================================================
@@ -473,7 +487,7 @@ class TestSpecCommandsModuleLevel:
         assert parent_dir.name in ["backend", "apps"]
 
     @pytest.mark.skipif(
-        True,  # Subprocess test requires full environment including claude_agent_sdk
+        True,  # Subprocess test requires full environment including claude_agent_sdk (not available in CI)
         reason="Subprocess test requires claude_agent_sdk dependency; coverage achieved via reload test"
     )
     def test_parent_dir_inserted_to_sys_path_subprocess(self):
@@ -506,9 +520,10 @@ class TestSpecCommandsModuleLevel:
         import sys
         from pathlib import Path
 
-        # Save original _PARENT_DIR value
+        # Save original _PARENT_DIR value and module
         import cli.spec_commands as spec_commands
         original_parent_dir = spec_commands._PARENT_DIR
+        original_module = sys.modules.get('cli.spec_commands')
 
         # Remove from sys.path if present
         parent_str = str(original_parent_dir)
@@ -519,12 +534,18 @@ class TestSpecCommandsModuleLevel:
         if 'cli.spec_commands' in sys.modules:
             del sys.modules['cli.spec_commands']
 
-        # Now reimport - this will execute lines 13-14 again
-        import cli.spec_commands as reimported_spec_commands
+        try:
+            # Now reimport - this will execute lines 13-14 again
+            import cli.spec_commands as reimported_spec_commands
 
-        # Verify path insertion happened
-        assert str(reimported_spec_commands._PARENT_DIR) in sys.path
+            # Verify path insertion happened
+            assert str(reimported_spec_commands._PARENT_DIR) in sys.path
 
-        # Restore for other tests
-        if str(original_parent_dir) not in sys.path:
-            sys.path.insert(0, str(original_parent_dir))
+        finally:
+            # Restore sys.path and sys.modules for other tests
+            if str(original_parent_dir) not in sys.path:
+                sys.path.insert(0, str(original_parent_dir))
+            if original_module is not None:
+                sys.modules['cli.spec_commands'] = original_module
+            elif 'cli.spec_commands' in sys.modules:
+                del sys.modules['cli.spec_commands']

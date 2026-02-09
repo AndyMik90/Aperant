@@ -12,7 +12,7 @@ Tests for reusable user input collection utilities:
 import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -296,12 +296,15 @@ class TestReadFromFile:
         captured = capsys.readouterr()
         assert "empty" in captured.out.lower()
 
-    def test_returns_none_on_permission_error(self, capsys):
+    def test_returns_none_on_permission_error(self, temp_dir, capsys):
         """Returns None when file cannot be read due to permissions."""
-        with patch('builtins.input', return_value='/restricted/file.txt'):
-            with patch('pathlib.Path.exists', return_value=True):
-                with patch('pathlib.Path.read_text', side_effect=PermissionError("Denied")):
-                    result = read_from_file()
+        # Create a real temporary file
+        restricted_file = temp_dir / "restricted.txt"
+        restricted_file.write_text("secret content")
+
+        with patch('builtins.input', return_value=str(restricted_file)):
+            with patch.object(Path, 'read_text', side_effect=PermissionError("Denied")):
+                result = read_from_file()
 
         assert result is None
         captured = capsys.readouterr()
@@ -393,12 +396,15 @@ class TestReadFromFile:
         assert not result.startswith(" ")
         assert not result.endswith(" ")
 
-    def test_handles_generic_exception(self, capsys):
+    def test_handles_generic_exception(self, temp_dir, capsys):
         """Handles generic exceptions during file reading."""
-        with patch('builtins.input', return_value='/test/file.txt'):
-            with patch('pathlib.Path.exists', return_value=True):
-                with patch('pathlib.Path.read_text', side_effect=Exception("Unknown error")):
-                    result = read_from_file()
+        # Create a real temporary file
+        test_file = temp_dir / "error_file.txt"
+        test_file.write_text("content")
+
+        with patch('builtins.input', return_value=str(test_file)):
+            with patch.object(Path, 'read_text', side_effect=Exception("Unknown error")):
+                result = read_from_file()
 
         assert result is None
         captured = capsys.readouterr()
@@ -602,8 +608,9 @@ class TestModuleImportPathInsertion:
         # Get the parent dir that should be inserted by line 14
         parent_dir_str = str(cli.input_handlers._PARENT_DIR)
 
-        # Save current sys.path state to restore later
+        # Save current sys.path and sys.modules state to restore later
         original_path = sys.path.copy()
+        original_module = sys.modules.get('cli.input_handlers')
 
         # Remove the parent dir from sys.path
         # Use normalized paths for comparison to handle different path separators
@@ -626,3 +633,8 @@ class TestModuleImportPathInsertion:
         finally:
             # Restore sys.path to original state
             sys.path[:] = original_path
+            # Restore sys.modules to original state
+            if original_module is not None:
+                sys.modules['cli.input_handlers'] = original_module
+            elif 'cli.input_handlers' in sys.modules:
+                del sys.modules['cli.input_handlers']
