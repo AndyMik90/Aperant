@@ -8,8 +8,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   SDKSessionRecoveryCoordinator,
   getRecoveryCoordinator,
-  type SDKOperationType,
-  type RecoveryCoordinatorConfig
 } from './sdk-session-recovery-coordinator';
 
 // Mock dependencies

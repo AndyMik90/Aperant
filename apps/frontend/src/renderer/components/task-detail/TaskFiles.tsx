@@ -109,7 +109,7 @@ export function TaskFiles({ task }: TaskFilesProps) {
     setSelectedFile(null);
     setFileContent(null);
     setContentError(null);
-  }, [task.specsPath]);
+  }, []);
 
   // Load files on mount and when specsPath changes
   useEffect(() => {
@@ -123,7 +123,7 @@ export function TaskFiles({ task }: TaskFilesProps) {
     }
     // Only run when files change, not on selectedFile changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [files]);
+  }, [files, loadFileContent, selectedFile]);
 
   // Open spec directory in IDE
   const handleOpenInIDE = useCallback(async () => {

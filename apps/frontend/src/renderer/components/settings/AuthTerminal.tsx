@@ -199,7 +199,7 @@ export function AuthTerminal({
 
     createTerminal();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- configDir is stable for auth terminal lifecycle
-  }, [terminalId, onAuthError]);
+  }, [terminalId, onAuthError, configDir, t]);
 
   // Setup terminal event listeners
   useEffect(() => {
@@ -332,7 +332,7 @@ export function AuthTerminal({
       cleanupFnsRef.current.forEach(fn => fn());
       cleanupFnsRef.current = [];
     };
-  }, [terminalId, onAuthSuccess, onAuthError]);
+  }, [terminalId, onAuthSuccess, onAuthError, onClose, t]);
 
   // Handle resize
   useEffect(() => {

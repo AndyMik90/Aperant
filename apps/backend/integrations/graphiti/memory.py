@@ -12,12 +12,8 @@ The refactored code is now organized as:
 - graphiti/search.py - Semantic search logic
 - graphiti/schema.py - Graph schema definitions
 
-This facade ensures existing imports continue to work:
-    from graphiti_memory import GraphitiMemory, is_graphiti_enabled
-
-New code should prefer importing from the graphiti package:
-    from graphiti import GraphitiMemory
-    from graphiti.schema import GroupIdMode
+Import from this module:
+    from integrations.graphiti.memory import GraphitiMemory, is_graphiti_enabled, GroupIdMode
 
 For detailed documentation on the memory system architecture and usage,
 see graphiti/graphiti.py.

@@ -142,6 +142,8 @@
       "idle": "Idle",
       "planning": "Planning",
       "coding": "Coding",
+      "rate_limit_paused": "Rate Limited",
+      "auth_failure_paused": "Auth Required",
       "reviewing": "Reviewing",
       "fixing": "Fixing",
       "complete": "Complete",
@@ -174,7 +176,9 @@
   },
   "metadata": {
     "severity": "severity",
-    "pullRequest": "Pull Request"
+    "pullRequest": "Pull Request",
+    "showMore": "Show more",
+    "showLess": "Show less"
   },
   "images": {
     "removeImageAriaLabel": "Remove image {{filename}}",
@@ -325,6 +329,17 @@
       "description": "Screen capture is not available in development mode due to system permission restrictions.",
       "hint": "Use an external screenshot tool and paste directly into the task description with {{shortcut}}."
     }
+  },
+  "deleteDialog": {
+    "title": "Delete Task",
+    "confirmMessage": "Are you sure you want to delete",
+    "destructiveWarning": "This action cannot be undone. All task files, including the spec, implementation plan, and any generated code will be permanently deleted from the project.",
+    "checkingChanges": "Checking for uncommitted changes...",
+    "uncommittedChanges": "This task's worktree has {{count}} uncommitted file(s)",
+    "uncommittedChangesHint": "These changes have not been committed or merged. Deleting this task will permanently discard all uncommitted work in the worktree.",
+    "cancel": "Cancel",
+    "deletePermanently": "Delete Permanently",
+    "deleting": "Deleting..."
   },
   "referenceImages": {
     "title": "Reference Images (optional)",

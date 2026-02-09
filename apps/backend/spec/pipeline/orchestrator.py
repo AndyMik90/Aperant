@@ -71,7 +71,7 @@ class SpecOrchestrator:
             spec_name: Optional spec name (for existing specs)
             spec_dir: Optional existing spec directory (for UI integration)
             model: The model to use for agent execution
-            thinking_level: Thinking level (none, low, medium, high, ultrathink)
+            thinking_level: Thinking level (low, medium, high)
             complexity_override: Force a specific complexity level
             use_ai_assessment: Whether to use AI for complexity assessment
         """
@@ -158,6 +158,7 @@ class SpecOrchestrator:
             additional_context,
             interactive,
             thinking_budget=thinking_budget,
+            thinking_level=self.thinking_level,
             prior_phase_summaries=prior_summaries if prior_summaries else None,
         )
 
@@ -603,7 +604,7 @@ class SpecOrchestrator:
             The complexity assessment
         """
         project_index = {}
-        auto_build_index = self.project_dir / "auto-claude" / "project_index.json"
+        auto_build_index = self.project_dir / ".auto-claude" / "project_index.json"
         if auto_build_index.exists():
             with open(auto_build_index, encoding="utf-8") as f:
                 project_index = json.load(f)

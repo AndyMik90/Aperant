@@ -9,6 +9,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { existsSync, readdirSync } from 'fs';
 import { isWindows, isMacOS, getHomebrewPath, joinPaths, getExecutableExtension } from './index';
+import { getWhereExePath } from '../utils/windows-paths';
 
 /**
  * Resolve Claude CLI executable path
@@ -174,7 +175,7 @@ export function getWindowsShellPaths(): Record<string, string[]> {
     return {};
   }
 
-  const systemRoot = process.env.SystemRoot || 'C:\\Windows';
+  const systemRoot = process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows';
 
   // Note: path.join('C:', 'foo') produces 'C:foo' (relative to C: drive), not 'C:\foo'
   // We must use 'C:\\' or raw paths like 'C:\\Program Files' to get absolute paths
@@ -297,11 +298,14 @@ export function getOllamaInstallCommand(): string {
 /**
  * Get the command to find executables in PATH
  *
- * Windows: where.exe
+ * Windows: Full path to where.exe (C:\Windows\System32\where.exe)
+ *          Using full path ensures it works even when System32 isn't in PATH,
+ *          which can happen in restricted environments or when Electron doesn't
+ *          inherit the full system PATH.
  * Unix: which
  */
 export function getWhichCommand(): string {
-  return isWindows() ? 'where.exe' : 'which';
+  return isWindows() ? getWhereExePath() : 'which';
 }
 
 /**

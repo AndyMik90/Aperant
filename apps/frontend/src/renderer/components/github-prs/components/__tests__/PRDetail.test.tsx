@@ -18,7 +18,7 @@ import type { NewCommitsCheck } from '@preload/api/modules/github-api';
 /**
  * Factory function to create a mock PR data object
  */
-function createMockPR(overrides: Partial<PRData> = {}): PRData {
+function _createMockPR(overrides: Partial<PRData> = {}): PRData {
   return {
     number: 123,
     title: 'Test PR',

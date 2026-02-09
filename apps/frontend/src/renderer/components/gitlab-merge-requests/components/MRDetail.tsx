@@ -437,7 +437,7 @@ export function MRDetail({
                 Cancel
               </Button>
             )}
-            {reviewResult && reviewResult.success && selectedCount > 0 && !isReviewing && (
+            {reviewResult?.success && selectedCount > 0 && !isReviewing && (
               <Button onClick={handlePostReview} variant="secondary" disabled={isPostingFindings}>
                 {isPostingFindings ? (
                   <>
@@ -462,7 +462,7 @@ export function MRDetail({
           </div>
 
           {/* Approval and Merge buttons */}
-          {reviewResult && reviewResult.success && isReadyToMerge && mr.state === 'opened' && (
+          {reviewResult?.success && isReadyToMerge && mr.state === 'opened' && (
             <div className="flex items-center gap-2">
               <Button
                 onClick={handleApprove}
@@ -560,7 +560,7 @@ export function MRDetail({
         )}
 
         {/* Review Result */}
-        {reviewResult && reviewResult.success && (
+        {reviewResult?.success && (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center justify-between">

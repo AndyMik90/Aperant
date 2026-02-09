@@ -243,6 +243,12 @@
     "selectedCount": "{{count}} selected",
     "noResultsFound": "No results found",
     "reset": "Reset",
+    "sort": {
+      "label": "Sort",
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "largest": "Largest"
+    },
     "pullRequests": "Pull Requests",
     "open": "open",
     "selectPRToView": "Select a pull request to view details",
@@ -361,6 +367,8 @@
     "branchUpdateFailed": "Failed to update branch",
     "allPRsLoaded": "All PRs loaded",
     "maxPRsShown": "Showing first 100 PRs",
+    "loadMore": "Load More",
+    "loadingMore": "Loading...",
     "workflowsAwaitingApproval": "{{count}} Workflow Awaiting Approval",
     "workflowsAwaitingApproval_plural": "{{count}} Workflows Awaiting Approval",
     "blockedByWorkflows": "Blocked",
@@ -410,6 +418,12 @@
     "done": "Done",
     "failedLabel": "Failed",
     "starting": "Starting..."
+  },
+  "insights": {
+    "suggestedTask": "Suggested Task",
+    "creating": "Creating...",
+    "taskCreated": "Task Created",
+    "createTask": "Create Task"
   },
   "ideation": {
     "converting": "Converting...",
@@ -478,8 +492,7 @@
     "clickToOpenSettings": "Click to open Settings →",
     "sessionShort": "5-hour session usage",
     "weeklyShort": "7-day weekly usage",
-    "swap": "Swap",
-    "account": "Account"
+    "swap": "Swap"
   },
   "oauth": {
     "enterCode": "Manual Code Entry (Fallback)",
@@ -631,6 +644,16 @@
       "goToSettings": "Go to Settings"
     }
   },
+  "git": {
+    "branchGroups": {
+      "local": "Local Branches",
+      "remote": "Remote Branches"
+    },
+    "branchType": {
+      "local": "Local",
+      "remote": "Remote"
+    }
+  },
   "roadmapProgress": {
     "elapsedTime": "Elapsed",
     "lastActivity": "Last activity",
@@ -670,5 +693,31 @@
     "progress": "Progress",
     "lastActivityPrefix": "last activity",
     "lastProgressUpdateTooltip": "Last progress update received"
+  },
+  "prStatus": {
+    "ci": {
+      "success": "CI Passed",
+      "pending": "CI Pending",
+      "failure": "CI Failed",
+      "successTooltip": "All CI checks have passed",
+      "pendingTooltip": "CI checks are still running",
+      "failureTooltip": "One or more CI checks have failed"
+    },
+    "review": {
+      "approved": "Approved",
+      "changesRequested": "Changes Requested",
+      "pending": "Review Pending",
+      "approvedTooltip": "This PR has been approved",
+      "changesRequestedTooltip": "Changes have been requested on this PR",
+      "pendingTooltip": "Waiting for review"
+    },
+    "merge": {
+      "ready": "Ready to Merge",
+      "blocked": "Merge Blocked",
+      "conflict": "Has Conflicts",
+      "readyTooltip": "This PR is ready to be merged",
+      "blockedTooltip": "This PR cannot be merged due to blocking conditions",
+      "conflictTooltip": "This PR has merge conflicts that need to be resolved"
+    }
   }
 }

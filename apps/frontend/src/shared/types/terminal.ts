@@ -219,6 +219,8 @@ export interface TerminalWorktreeConfig {
   createdAt: string;
   /** Terminal ID this worktree is associated with */
   terminalId: string;
+  /** Whether the branch was pushed to remote with tracking set up */
+  remoteTrackingSetUp?: boolean;
 }
 
 /**
@@ -237,6 +239,12 @@ export interface CreateTerminalWorktreeRequest {
   projectPath: string;
   /** Optional base branch to create worktree from (defaults to project default) */
   baseBranch?: string;
+  /**
+   * When true, use the local branch directly without auto-switching to remote.
+   * This preserves gitignored files (.env, configs) that may not exist on remote.
+   * When false or undefined, the default behavior prefers origin/branch if it exists.
+   */
+  useLocalBranch?: boolean;
 }
 
 /**
@@ -246,6 +254,8 @@ export interface TerminalWorktreeResult {
   success: boolean;
   config?: TerminalWorktreeConfig;
   error?: string;
+  /** Warning when worktree was created but remote push failed */
+  warning?: string;
 }
 
 /**

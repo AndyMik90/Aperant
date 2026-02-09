@@ -239,7 +239,7 @@ Input: { "libraryName": "[library name]" }
 
 **Step 3: Verify API usage matches documentation**
 ```
-Tool: mcp__context7__get-library-docs
+Tool: mcp__context7__query-docs
 Input: {
   "context7CompatibleLibraryID": "[library-id]",
   "topic": "[relevant topic - e.g., the function being used]",

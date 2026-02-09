@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Download, X, RefreshCw } from "lucide-react";
+import { Download, X, RefreshCw, AlertTriangle } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "../lib/utils";
 import type { AppUpdateAvailableEvent, AppUpdateProgress } from "../../shared/types";
@@ -25,6 +25,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
   const [downloadProgress, setDownloadProgress] = useState<AppUpdateProgress | null>(null);
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [showReadOnlyWarning, setShowReadOnlyWarning] = useState(false);
 
   // Ref to track current version for stable callbacks
   const currentVersionRef = useRef<string | null>(null);
@@ -32,18 +33,16 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
   // Check for updates
   const checkForUpdate = useCallback(async () => {
     try {
-      if (!window.electronAPI?.checkAppUpdate) {
-        return;
-      }
-
       const result = await window.electronAPI.checkAppUpdate();
       if (result.success && result.data) {
         const newVersion = result.data.version;
         // New update available - show banner (unless same version already dismissed)
         if (currentVersionRef.current !== newVersion) {
           setIsDismissed(false);
-          // Reset downloaded state when a newer version is found
+          // Reset stale state when a newer version is found
           setIsDownloaded(false);
+          setShowReadOnlyWarning(false);
+          setDownloadError(null);
           currentVersionRef.current = newVersion;
         }
         setUpdateInfo({
@@ -52,7 +51,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
           releaseDate: result.data.releaseDate,
         });
       }
-    } catch (err) {
+    } catch (_err) {
       // Silent failure - update check is non-critical
     }
   }, []);
@@ -61,9 +60,6 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
   useEffect(() => {
     const checkDownloaded = async () => {
       try {
-        if (!window.electronAPI?.getDownloadedAppUpdate) {
-          return;
-        }
         const result = await window.electronAPI.getDownloadedAppUpdate();
         if (result.success && result.data) {
           currentVersionRef.current = result.data.version;
@@ -94,10 +90,6 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
 
   // Listen for push notifications about updates
   useEffect(() => {
-    if (!window.electronAPI?.onAppUpdateAvailable) {
-      return;
-    }
-
     const cleanup = window.electronAPI.onAppUpdateAvailable((info) => {
       // New update notification - reset dismiss state if new version
       if (currentVersionRef.current !== info.version) {
@@ -109,6 +101,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
       setIsDownloaded(false);
       setDownloadProgress(null);
       setDownloadError(null);
+      setShowReadOnlyWarning(false);
     });
 
     return cleanup;
@@ -116,10 +109,6 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
 
   // Listen for download progress
   useEffect(() => {
-    if (!window.electronAPI?.onAppUpdateProgress) {
-      return;
-    }
-
     const cleanup = window.electronAPI.onAppUpdateProgress((progress) => {
       setDownloadProgress(progress);
     });
@@ -129,14 +118,32 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
 
   // Listen for download completed
   useEffect(() => {
-    if (!window.electronAPI?.onAppUpdateDownloaded) {
-      return;
-    }
-
     const cleanup = window.electronAPI.onAppUpdateDownloaded(() => {
       setIsDownloading(false);
       setIsDownloaded(true);
       setDownloadProgress(null);
+      setDownloadError(null);
+      setShowReadOnlyWarning(false);
+    });
+
+    return cleanup;
+  }, []);
+
+  // Listen for update errors (e.g., install failures)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onAppUpdateError((error) => {
+      setDownloadError(error.message);
+      setIsDownloading(false);
+      setDownloadProgress(null);
+    });
+
+    return cleanup;
+  }, []);
+
+  // Listen for read-only volume warning (when trying to install from DMG on macOS)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onAppUpdateReadOnlyVolume(() => {
+      setShowReadOnlyWarning(true);
     });
 
     return cleanup;
@@ -146,7 +153,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
   const handleUpdate = async () => {
     if (isDownloaded) {
       // Already downloaded - just install
-      window.electronAPI?.installAppUpdate?.();
+      window.electronAPI.installAppUpdate();
       return;
     }
 
@@ -155,17 +162,12 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
     setDownloadError(null);
 
     try {
-      if (!window.electronAPI?.downloadAppUpdate) {
-        setDownloadError(t("navigation:updateBanner.downloadError"));
-        setIsDownloading(false);
-        return;
-      }
       const result = await window.electronAPI.downloadAppUpdate();
       if (!result.success) {
         setDownloadError(result.error || t("navigation:updateBanner.downloadError"));
         setIsDownloading(false);
       }
-    } catch (error) {
+    } catch (_error) {
       setDownloadError(t("navigation:updateBanner.downloadError"));
       setIsDownloading(false);
     }
@@ -221,7 +223,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
           <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
             <div
               className="h-full bg-info transition-all duration-300"
-              style={{ width: `${downloadProgress.percent}%` }}
+              style={{ width: `${Math.min(100, Math.max(0, downloadProgress.percent))}%` }}
             />
           </div>
         </div>
@@ -232,12 +234,20 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
         <p className="text-[10px] text-destructive mb-2">{downloadError}</p>
       )}
 
+      {/* Read-only volume warning (DMG install on macOS) */}
+      {showReadOnlyWarning && (
+        <div className="flex items-start gap-2 text-[10px] text-warning bg-warning/10 border border-warning/30 rounded p-2 mb-2">
+          <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+          <span>{t("navigation:updateBanner.readOnlyVolumeWarning", "Move to Applications folder to update")}</span>
+        </div>
+      )}
+
       {/* Action button */}
       <Button
         size="sm"
         className="w-full h-7 text-xs gap-1.5"
         onClick={handleUpdate}
-        disabled={isDownloading}
+        disabled={isDownloading || showReadOnlyWarning}
       >
         {isDownloading ? (
           <>

@@ -29,7 +29,7 @@ export async function loadProfilesFile(): Promise<ProfilesFile> {
     const content = await fs.readFile(filePath, 'utf-8');
     const data = JSON.parse(content) as ProfilesFile;
     return data;
-  } catch (error) {
+  } catch (_error) {
     // File doesn't exist or is corrupted - return default
     return {
       profiles: [],
