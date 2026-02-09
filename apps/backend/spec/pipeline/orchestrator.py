@@ -158,6 +158,7 @@ class SpecOrchestrator:
             additional_context,
             interactive,
             thinking_budget=thinking_budget,
+            thinking_level=self.thinking_level,
             prior_phase_summaries=prior_summaries if prior_summaries else None,
         )
 
