@@ -1020,6 +1020,7 @@ class GitHubRunnerConfig:
             "allow_fix_commits": self.allow_fix_commits,
             "model": self.model,
             "thinking_level": self.thinking_level,
+            "fast_mode": self.fast_mode,
         }
 
     def save_settings(self, github_dir: Path) -> None:
