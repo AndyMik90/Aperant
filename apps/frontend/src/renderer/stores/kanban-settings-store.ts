@@ -52,6 +52,9 @@ interface KanbanSettingsState {
 /** localStorage key prefix for kanban settings persistence (sync cache) */
 const KANBAN_SETTINGS_KEY_PREFIX = 'kanban-column-prefs';
 
+/** Base font size in pixels for rem conversion (matches CSS default) */
+export const BASE_FONT_SIZE = 16;
+
 /** Default column width in pixels */
 export const DEFAULT_COLUMN_WIDTH = 320;
 
@@ -63,6 +66,33 @@ export const MAX_COLUMN_WIDTH = 600;
 
 /** Collapsed column width in pixels */
 export const COLLAPSED_COLUMN_WIDTH = 48;
+
+// ============================================
+// Rem Conversion Helpers
+// ============================================
+
+/**
+ * Convert a pixel value to a rem string.
+ * Used for CSS width values that should scale with the UI scale system.
+ *
+ * @param px - The pixel value to convert
+ * @returns A rem string (e.g., "20rem" for 320px)
+ */
+export function pxToRem(px: number): string {
+  return `${px / BASE_FONT_SIZE}rem`;
+}
+
+/** Default column width in rem (scales with UI) */
+export const DEFAULT_COLUMN_WIDTH_REM = pxToRem(DEFAULT_COLUMN_WIDTH);
+
+/** Minimum column width in rem (scales with UI) */
+export const MIN_COLUMN_WIDTH_REM = pxToRem(MIN_COLUMN_WIDTH);
+
+/** Maximum column width in rem (scales with UI) */
+export const MAX_COLUMN_WIDTH_REM = pxToRem(MAX_COLUMN_WIDTH);
+
+/** Collapsed column width in rem (scales with UI) */
+export const COLLAPSED_COLUMN_WIDTH_REM = pxToRem(COLLAPSED_COLUMN_WIDTH);
 
 // ============================================
 // Debounce timer for saving kanban preferences to main process
