@@ -171,7 +171,7 @@ export type InsightsChatRole = 'user' | 'assistant';
 // Tool usage record for showing what tools the AI used
 export interface InsightsToolUsage {
   name: string;
-  input?: string;
+  input?: Record<string, unknown>;
   timestamp: Date;
 }
 
@@ -229,7 +229,7 @@ export interface InsightsStreamChunk {
   };
   tool?: {
     name: string;
-    input?: string;  // Brief description of what's being searched/read
+    input?: Record<string, unknown>;  // Full tool input dict for rich rendering
   };
   error?: string;
 }

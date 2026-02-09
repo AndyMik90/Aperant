@@ -486,7 +486,8 @@ export function killProcessGracefully(
           log('Running taskkill for PID:', pid);
           spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'], {
             stdio: 'ignore',
-            detached: true
+            detached: true,
+            windowsHide: true
           }).unref();
         } else if (!childProcess.killed) {
           log('Sending SIGKILL to PID:', pid);

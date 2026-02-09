@@ -14,11 +14,12 @@ Usage:
     write_json_atomic("/path/to/file.json", {"key": "value"})
 """
 
-import fcntl
 import json
 import logging
 import os
+import sys
 import tempfile
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -139,8 +140,10 @@ def write_json_atomic_locked(
 
     FIX-021: Multiple processes (coder, session post-processing, QA loop) may
     write to shared files like implementation_plan.json concurrently. This
-    function uses fcntl.flock() advisory locks to serialize writes, preventing
-    lost updates from concurrent read-modify-write cycles.
+    function uses advisory locks to serialize writes, preventing lost updates
+    from concurrent read-modify-write cycles.
+
+    Uses fcntl.flock() on POSIX, msvcrt.locking() on Windows.
 
     The lock file is a sibling of the target file with a .lock suffix.
 
@@ -158,28 +161,49 @@ def write_json_atomic_locked(
 
     lock_fd = os.open(str(lock_path), os.O_CREAT | os.O_RDWR)
     try:
-        # Acquire exclusive lock (blocking, with timeout via alarm)
-        import signal
+        if sys.platform == "win32":
+            import msvcrt
 
-        def _timeout_handler(signum, frame):
-            raise TimeoutError(
-                f"Could not acquire lock on {lock_path} within {lock_timeout}s"
-            )
+            # Poll-based lock with timeout on Windows
+            deadline = time.monotonic() + lock_timeout
+            while True:
+                try:
+                    msvcrt.locking(lock_fd, msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError(
+                            f"Could not acquire lock on {lock_path} within {lock_timeout}s"
+                        )
+                    time.sleep(0.05)
+        else:
+            import fcntl
+            import signal
 
-        old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
-        signal.setitimer(signal.ITIMER_REAL, lock_timeout)
-        try:
-            fcntl.flock(lock_fd, fcntl.LOCK_EX)
-        finally:
-            signal.setitimer(signal.ITIMER_REAL, 0)
-            signal.signal(signal.SIGALRM, old_handler)
+            def _timeout_handler(signum, frame):
+                raise TimeoutError(
+                    f"Could not acquire lock on {lock_path} within {lock_timeout}s"
+                )
+
+            old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+            signal.setitimer(signal.ITIMER_REAL, lock_timeout)
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_EX)
+            finally:
+                signal.setitimer(signal.ITIMER_REAL, 0)
+                signal.signal(signal.SIGALRM, old_handler)
 
         # Lock acquired — perform atomic write
         write_json_atomic(filepath, data, indent, ensure_ascii, encoding)
     finally:
         # Release lock and close
         try:
-            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            if sys.platform == "win32":
+                import msvcrt
+                msvcrt.locking(lock_fd, msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
         except OSError:
             pass
         os.close(lock_fd)

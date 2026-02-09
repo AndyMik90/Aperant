@@ -133,6 +133,7 @@ class PtyDaemonClient {
         detached: true,
         stdio: 'ignore', // Don't pipe stdout/stderr
         env: { ...process.env },
+        windowsHide: true,
       });
 
       // Unref so parent can exit independently
@@ -411,7 +412,8 @@ class PtyDaemonClient {
           // Windows: use taskkill to force kill process tree
           spawn('taskkill', ['/pid', this.daemonProcess.pid.toString(), '/f', '/t'], {
             stdio: 'ignore',
-            detached: true
+            detached: true,
+            windowsHide: true
           }).unref();
         } else {
           // Unix: SIGTERM then SIGKILL

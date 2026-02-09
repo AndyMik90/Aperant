@@ -42,6 +42,22 @@ except ImportError:
     ClaudeAgentOptions = None
     ClaudeSDKClient = None
 
+# Prevent the Claude Agent SDK from opening a visible console window on Windows.
+# The SDK spawns claude.exe via anyio.open_process() without CREATE_NO_WINDOW,
+# which causes a blank terminal to flash open on every chat message.
+if sys.platform == "win32" and SDK_AVAILABLE:
+    import subprocess as _subprocess
+
+    import anyio as _anyio
+
+    _original_open_process = _anyio.open_process
+
+    async def _hidden_open_process(*args, **kwargs):
+        kwargs.setdefault("creationflags", _subprocess.CREATE_NO_WINDOW)
+        return await _original_open_process(*args, **kwargs)
+
+    _anyio.open_process = _hidden_open_process
+
 from core.auth import ensure_claude_code_oauth_token, get_auth_token
 from debug import (
     debug,
@@ -154,7 +170,7 @@ def build_system_prompt(project_dir: str) -> str:
     """Build the system prompt for the insights agent."""
     context = load_project_context(project_dir)
 
-    return f"""You are an AI assistant helping developers understand and work with their codebase.
+    return f"""You are Jerry, an AI assistant helping developers understand and work with their codebase. Always introduce yourself as Jerry, never as Claude.
 You have access to the following project context:
 
 {context}
@@ -352,22 +368,20 @@ Current request: {message}"""
                             tool_calls += 1
                             # Emit tool start marker for UI feedback
                             tool_name = block.name
-                            tool_input = ""
+                            tool_input = {}
 
-                            # Extract a brief description of what the tool is doing
+                            # Send full tool input dict for rich UI rendering
                             if hasattr(block, "input") and block.input:
                                 inp = block.input
                                 if isinstance(inp, dict):
-                                    if "pattern" in inp:
-                                        tool_input = f"pattern: {inp['pattern']}"
-                                    elif "file_path" in inp:
-                                        # Shorten path for display
-                                        fp = inp["file_path"]
-                                        if len(fp) > 50:
-                                            fp = "..." + fp[-47:]
-                                        tool_input = fp
-                                    elif "path" in inp:
-                                        tool_input = inp["path"]
+                                    # Send all input fields — ToolBlock renders per-tool
+                                    # Skip large fields (content, new_string) to avoid bloating stdout
+                                    tool_input = {}
+                                    for k, v in inp.items():
+                                        if isinstance(v, str) and len(v) > 200:
+                                            tool_input[k] = v[:100] + f"... ({len(v)} chars)"
+                                        else:
+                                            tool_input[k] = v
 
                             current_tool = tool_name
                             print(

@@ -43,6 +43,7 @@ import { useRateLimitStore } from '../stores/rate-limit-store';
 import { AddProjectModal } from './AddProjectModal';
 import { GitSetupModal } from './GitSetupModal';
 import { NotificationCenter } from './NotificationCenter';
+import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
 import type { Project, GitStatus, ProjectEnvConfig } from '../../shared/types';
 
 export type SidebarView = 'kanban' | 'terminals' | 'discovery' | 'context' | 'github' | 'gitlab-issues' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'repository';
@@ -305,6 +306,9 @@ export function Sidebar({
         <div className="flex flex-col items-center py-2 space-y-1">
           {/* UX-1: Notification Center */}
           <NotificationCenter />
+
+          {/* Claude Code CLI status */}
+          <ClaudeCodeStatusBadge compact />
 
           {/* Settings button */}
           <Tooltip>

@@ -478,7 +478,7 @@ export function Insights({ projectId }: InsightsProps) {
                     <ToolBlock
                       tool={{
                         toolName: currentTool.name,
-                        input: currentTool.input ? { description: currentTool.input } : undefined,
+                        input: currentTool.input || undefined,
                         status: 'running',
                       }}
                     />
@@ -600,7 +600,7 @@ function MessageBubble({
             {message.toolsUsed.map((tool, index) => {
               const toolData: ToolData = {
                 toolName: tool.name,
-                input: tool.input ? { description: tool.input } : undefined,
+                input: tool.input || undefined,
                 status: 'success',
               };
               return <ToolBlock key={`${tool.name}-${index}`} tool={toolData} />;

@@ -182,10 +182,12 @@ export class InsightsExecutor extends EventEmitter {
     // Spawn Python process in its own process group (detached) so we can
     // kill the entire tree (Python + Claude SDK binary) on timeout/cancel.
     // Do NOT unref() — we need stdio pipes to stay open while reading output.
+    // windowsHide prevents a visible console window on Windows.
     const proc = spawn(this.config.getPythonPath(), args, {
       cwd: autoBuildSource,
       env: processEnv,
-      detached: true
+      detached: true,
+      windowsHide: true
     });
 
     this.activeSessions.set(projectId, proc);

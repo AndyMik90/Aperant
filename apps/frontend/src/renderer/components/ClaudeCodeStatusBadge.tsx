@@ -36,6 +36,8 @@ import type { ClaudeCodeVersionInfo, ClaudeInstallationInfo } from "../../shared
 
 interface ClaudeCodeStatusBadgeProps {
   className?: string;
+  /** Icon-only mode for narrow sidebars */
+  compact?: boolean;
 }
 
 type StatusType = "loading" | "installed" | "outdated" | "not-found" | "error";
@@ -49,7 +51,7 @@ const VERSION_RECHECK_DELAY_MS = 5000;
  * Claude Code CLI status badge for the sidebar.
  * Shows installation status and provides quick access to install/update.
  */
-export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps) {
+export function ClaudeCodeStatusBadge({ className, compact }: ClaudeCodeStatusBadgeProps) {
   const { t } = useTranslation(["common", "navigation"]);
   const [status, setStatus] = useState<StatusType>("loading");
   const [versionInfo, setVersionInfo] = useState<ClaudeCodeVersionInfo | null>(null);
@@ -366,16 +368,18 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
           <PopoverTrigger asChild>
             <Button
               variant="ghost"
-              size="sm"
+              size={compact ? "icon" : "sm"}
               className={cn(
-                "w-full justify-start gap-2 text-xs",
+                compact
+                  ? "h-10 w-10"
+                  : "w-full justify-start gap-2 text-xs",
                 status === "not-found" || status === "error" ? "text-destructive" : "",
                 status === "outdated" ? "text-yellow-600 dark:text-yellow-500" : "",
                 className
               )}
             >
               <div className="relative">
-                <Terminal className="h-4 w-4" />
+                <Terminal className={compact ? "h-5 w-5" : "h-4 w-4"} />
                 <span
                   className={cn(
                     "absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full",
@@ -383,13 +387,13 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
                   )}
                 />
               </div>
-              <span className="truncate">Claude Code</span>
-              {status === "outdated" && (
+              {!compact && <span className="truncate">Claude Code</span>}
+              {!compact && status === "outdated" && (
                 <span className="ml-auto text-[10px] bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 px-1.5 py-0.5 rounded">
                   {t("common:update", "Update")}
                 </span>
               )}
-              {status === "not-found" && (
+              {!compact && status === "not-found" && (
                 <span className="ml-auto text-[10px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded">
                   {t("common:install", "Install")}
                 </span>

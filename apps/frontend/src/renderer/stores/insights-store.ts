@@ -14,7 +14,7 @@ import type {
 
 interface ToolUsage {
   name: string;
-  input?: string;
+  input?: Record<string, unknown>;
 }
 
 // Counter for generating unique IDs within the same millisecond
