@@ -1,9 +1,9 @@
 # Shipyard vs Jerry: Feature Comparison & Portability Analysis
 
 **Date:** 2026-02-06
-**Shipyard Version:** 2.8.0 (by lgbarn, MIT License)
-**Shipyard Repo:** `C:\Users\jamie.ballard\Documents\GitHub\shipyard-main`
-**Jerry Repo:** `C:\Users\jamie.ballard\Documents\GitHub\AC Jerry`
+**Shipyard Version:** 2.8.0 (by [lgbarn](https://github.com/lgbarn), MIT License)
+**Shipyard Repo:** [github.com/lgbarn/shipyard](https://github.com/lgbarn/shipyard)
+**Jerry Repo:** [github.com/lizz-ee/ac.jerry](https://github.com/lizz-ee/ac.jerry)
 
 ---
 

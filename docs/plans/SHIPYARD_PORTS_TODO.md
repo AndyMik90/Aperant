@@ -1,8 +1,9 @@
 # Shipyard Feature Ports — TODO
 
 **Source:** [SHIPYARD_COMPARISON.md](../SHIPYARD_COMPARISON.md)
+**Original Project:** [Shipyard](https://github.com/lgbarn/shipyard) by [lgbarn](https://github.com/lgbarn) (v2.8.0, MIT License)
 **Created:** 2026-02-06
-**Status:** Planning
+**Status:** Complete (all 7 features ported)
 
 ---
 
