@@ -123,7 +123,7 @@ class AgentRunner:
         )
         # Lazy import to avoid circular import with core.client
         from core.client import create_client
-        from phase_config import get_model_betas, get_thinking_kwargs_for_model, get_fast_mode, resolve_model_id
+        from phase_config import get_fast_mode, get_model_betas, get_thinking_kwargs_for_model, resolve_model_id
 
         betas = get_model_betas(self.model)
         fast_mode = get_fast_mode(self.spec_dir)
