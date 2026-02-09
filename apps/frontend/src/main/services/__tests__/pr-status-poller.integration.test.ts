@@ -134,7 +134,7 @@ describe('PRStatusPoller Integration Tests', () => {
       // Reviews endpoint
       .mockResolvedValueOnce({
         data: opts.reviewStatus
-          ? [{ state: opts.reviewStatus, user: { login: 'reviewer1' } }]
+          ? [{ state: opts.reviewStatus, user: { login: 'reviewer1' }, submitted_at: new Date().toISOString() }]
           : [],
         fromCache: false,
         rateLimitInfo

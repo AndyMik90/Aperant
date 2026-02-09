@@ -171,8 +171,6 @@ export const POLLING_INTERVALS = {
 export const RATE_LIMIT_THRESHOLDS = {
   /** Pause polling when remaining requests drop below this */
   PAUSE_THRESHOLD: 100,
-  /** Resume polling when remaining requests rise above this */
-  RESUME_THRESHOLD: 200,
 } as const;
 
 /**

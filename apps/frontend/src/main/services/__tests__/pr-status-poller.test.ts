@@ -558,7 +558,7 @@ describe('PRStatusPoller', () => {
         // Reviews endpoint
         .mockResolvedValueOnce({
           data: [
-            { state: 'APPROVED', user: { login: 'reviewer1' } }
+            { state: 'APPROVED', user: { login: 'reviewer1' }, submitted_at: new Date().toISOString() }
           ],
           fromCache: false,
           rateLimitInfo: { remaining: 4496, reset: new Date(Date.now() + 3600000), limit: 5000 }

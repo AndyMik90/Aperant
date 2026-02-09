@@ -72,6 +72,7 @@ interface CheckRunsResponse {
 interface ReviewsResponse {
   state: 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'PENDING' | 'DISMISSED';
   user: { login: string };
+  submitted_at: string;
 }
 
 /**
@@ -641,9 +642,14 @@ export class PRStatusPoller {
       return 'none';
     }
 
+    // Sort by submitted_at ascending so later entries (newer) overwrite earlier ones
+    const sorted = [...reviews].sort(
+      (a, b) => new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime()
+    );
+
     // Get latest review per user
     const latestByUser = new Map<string, ReviewsResponse>();
-    for (const review of reviews) {
+    for (const review of sorted) {
       latestByUser.set(review.user.login, review);
     }
 
@@ -663,14 +669,9 @@ export class PRStatusPoller {
       return 'approved';
     }
 
-    // Has reviews but no actionable state
-    const hasActionableReview = latestReviews.some(
-      (r) =>
-        r.state === 'APPROVED' ||
-        r.state === 'CHANGES_REQUESTED' ||
-        r.state === 'PENDING'
-    );
-    if (hasActionableReview) {
+    // Check for pending reviews (APPROVED and CHANGES_REQUESTED already returned above)
+    const hasPendingReview = latestReviews.some((r) => r.state === 'PENDING');
+    if (hasPendingReview) {
       return 'pending';
     }
 
