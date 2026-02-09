@@ -91,7 +91,7 @@ describe('PRStatusPoller Integration Tests', () => {
     const rateLimitRemaining = opts.rateLimitRemaining ?? 4500;
     const rateLimitInfo = { remaining: rateLimitRemaining, reset: new Date(Date.now() + 3600000), limit: 5000 };
 
-    // PR endpoint response
+    // PR endpoint response (head.sha passed to fetchChecksStatus, no duplicate fetch)
     mockGithubFetchWithETag
       .mockResolvedValueOnce({
         data: {
@@ -102,12 +102,6 @@ describe('PRStatusPoller Integration Tests', () => {
           mergeable_state: opts.mergeableState ?? 'clean'
         },
         fromCache: false,
-        rateLimitInfo
-      })
-      // PR endpoint for head SHA (checks)
-      .mockResolvedValueOnce({
-        data: { head: { sha: `sha-${prNumber}` } },
-        fromCache: true,
         rateLimitInfo
       })
       // Combined status endpoint

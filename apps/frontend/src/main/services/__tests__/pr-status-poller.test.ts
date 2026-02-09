@@ -522,7 +522,7 @@ describe('PRStatusPoller', () => {
     it('should aggregate CI checks status correctly', async () => {
       // Mock responses for PR, status, and check-runs endpoints
       mockGithubFetchWithETag
-        // PR endpoint
+        // PR endpoint (head.sha passed to fetchChecksStatus, no duplicate fetch)
         .mockResolvedValueOnce({
           data: {
             number: 1,
@@ -533,14 +533,6 @@ describe('PRStatusPoller', () => {
           },
           fromCache: false,
           rateLimitInfo: { remaining: 4500, reset: new Date(Date.now() + 3600000), limit: 5000 }
-        })
-        // PR endpoint again for head SHA
-        .mockResolvedValueOnce({
-          data: {
-            head: { sha: 'abc123' }
-          },
-          fromCache: true,
-          rateLimitInfo: { remaining: 4499, reset: new Date(Date.now() + 3600000), limit: 5000 }
         })
         // Combined status endpoint
         .mockResolvedValueOnce({
@@ -590,11 +582,6 @@ describe('PRStatusPoller', () => {
           },
           fromCache: false,
           rateLimitInfo: { remaining: 4500, reset: new Date(Date.now() + 3600000), limit: 5000 }
-        })
-        .mockResolvedValueOnce({
-          data: { head: { sha: 'abc123' } },
-          fromCache: true,
-          rateLimitInfo: { remaining: 4499, reset: new Date(Date.now() + 3600000), limit: 5000 }
         })
         .mockResolvedValueOnce({
           data: {

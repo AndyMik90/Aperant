@@ -42,6 +42,7 @@ import { safeSendToRenderer } from '../ipc-handlers/utils';
 interface PRData {
   number: number;
   updated_at: string;
+  head: { sha: string };
   mergeable_state?: string;
   mergeable?: boolean | null;
 }
@@ -123,6 +124,7 @@ export class PRStatusPoller {
   private rateLimitInfo: GitHubRateLimitInfo | null = null;
   private isPausedForRateLimit = false;
   private rateLimitResumeTimeout: NodeJS.Timeout | null = null;
+  private staggeredResumeTimeouts: NodeJS.Timeout[] = [];
 
   /** Main window getter for sending updates */
   private getMainWindow: (() => BrowserWindow | null) | null = null;
@@ -271,9 +273,20 @@ export class PRStatusPoller {
       clearTimeout(this.rateLimitResumeTimeout);
       this.rateLimitResumeTimeout = null;
     }
+    this.clearStaggeredResumeTimeouts();
 
     this.isPausedForRateLimit = false;
     this.rateLimitInfo = null;
+  }
+
+  /**
+   * Clear any pending staggered resume timeouts
+   */
+  private clearStaggeredResumeTimeouts(): void {
+    for (const timeout of this.staggeredResumeTimeouts) {
+      clearTimeout(timeout);
+    }
+    this.staggeredResumeTimeouts = [];
   }
 
   /**
@@ -475,8 +488,8 @@ export class PRStatusPoller {
       state.lastActivity = lastActivity;
       state.tier = tier;
 
-      // Fetch CI status
-      const checksStatus = await this.fetchChecksStatus(context, prNumber);
+      // Fetch CI status (pass headSha to avoid duplicate PR fetch)
+      const checksStatus = await this.fetchChecksStatus(context, prNumber, prData.head.sha);
 
       // Fetch review status
       const reviewsStatus = await this.fetchReviewsStatus(context, prNumber);
@@ -522,19 +535,12 @@ export class PRStatusPoller {
    */
   private async fetchChecksStatus(
     context: ProjectPollingContext,
-    prNumber: number
+    prNumber: number,
+    headSha: string
   ): Promise<ChecksStatus> {
     const { owner, repo, token } = context;
 
     try {
-      // Get PR head SHA first (from cached PR data or fetch it)
-      const prEndpoint = `/repos/${owner}/${repo}/pulls/${prNumber}`;
-      const prResult = await githubFetchWithETag(token, prEndpoint);
-      this.updateGitHubRateLimitInfo(prResult.rateLimitInfo);
-
-      const prData = prResult.data as { head: { sha: string } };
-      const headSha = prData.head.sha;
-
       // Fetch combined status
       const statusEndpoint = `/repos/${owner}/${repo}/commits/${headSha}/status`;
       const statusResult = await githubFetchWithETag(token, statusEndpoint);
@@ -796,13 +802,15 @@ export class PRStatusPoller {
     console.log('[PRStatusPoller] Resuming polling after rate limit reset');
 
     // Stagger polls across contexts (5s apart) to avoid burst
+    this.clearStaggeredResumeTimeouts();
     let delay = 0;
     for (const context of this.contexts.values()) {
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         if (!this.isPausedForRateLimit) {
           this.pollAllPRs(context);
         }
       }, delay);
+      this.staggeredResumeTimeouts.push(timeout);
       delay += 5000;
     }
   }
