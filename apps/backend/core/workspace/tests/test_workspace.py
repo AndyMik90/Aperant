@@ -20,7 +20,10 @@ from pathlib import Path
 import pytest
 
 # Add parent directory to path so we can import the workspace module
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# When co-located at workspace/tests/, we need to add backend to path
+# workspace/tests -> workspace -> core -> backend (4 levels up)
+_backend = Path(__file__).resolve().parent.parent.parent.parent
+sys.path.insert(0, str(_backend))
 
 from workspace import (
     WorkspaceChoice,
@@ -30,7 +33,7 @@ from workspace import (
     has_uncommitted_changes,
     setup_workspace,
 )
-from worktree import WorktreeManager, WorktreeError
+from worktree import WorktreeError, WorktreeManager
 
 # Test constant - in the new per-spec architecture, each spec has its own worktree
 # named after the spec itself. This constant is used for test assertions.
@@ -349,7 +352,9 @@ class TestWorkspaceErrors:
     def test_setup_non_git_directory(self, temp_dir: Path):
         """Handles non-git directories gracefully."""
         # This should fail because temp_dir is not a git repo
-        with pytest.raises((OSError, ValueError, subprocess.CalledProcessError, WorktreeError)):
+        with pytest.raises(
+            (OSError, ValueError, subprocess.CalledProcessError, WorktreeError)
+        ):
             setup_workspace(
                 temp_dir,
                 "test-spec",
@@ -7403,3 +7408,69 @@ class TestInitializeTimelineTrackingWithNoFiles:
         )
 
         assert True
+
+
+class TestFinalizationWorkspaceCdPathFallbacks:
+    """Tests for finalization cd path fallback when get_existing_build_worktree returns None (lines 176, 247)."""
+
+    def test_test_choice_fallback_to_default_path(
+        self, temp_git_repo: Path, capsys, monkeypatch
+    ):
+        """Tests TEST choice shows default .auto-claude path when worktree not found (lines 172-180)."""
+        from core.workspace.finalization import handle_workspace_choice
+        from worktree import WorktreeManager
+
+        manager = WorktreeManager(temp_git_repo)
+        spec_name = "test-spec"
+
+        # Mock get_existing_build_worktree to return None (no worktree found)
+        def mock_get_existing_build_worktree(project_dir, spec_name):
+            return None
+
+        monkeypatch.setattr(
+            "core.workspace.finalization.get_existing_build_worktree",
+            mock_get_existing_build_worktree,
+        )
+
+        handle_workspace_choice(WorkspaceChoice.TEST, temp_git_repo, spec_name, manager)
+
+        captured = capsys.readouterr()
+        # Should show the default .auto-claude/worktrees/tasks/{spec_name} path
+        assert ".auto-claude/worktrees/tasks/test-spec" in captured.out
+
+    def test_later_choice_fallback_to_default_path(
+        self, temp_git_repo: Path, capsys, monkeypatch
+    ):
+        """Tests LATER choice shows default path when worktree not found (lines 243-251)."""
+        from core.workspace.finalization import handle_workspace_choice
+        from worktree import WorktreeManager
+
+        manager = WorktreeManager(temp_git_repo)
+        spec_name = "test-spec"
+
+        # Mock get_existing_build_worktree to return None
+        def mock_get_existing_build_worktree(project_dir, spec_name):
+            return None
+
+        monkeypatch.setattr(
+            "core.workspace.finalization.get_existing_build_worktree",
+            mock_get_existing_build_worktree,
+        )
+
+        handle_workspace_choice(
+            WorkspaceChoice.LATER, temp_git_repo, spec_name, manager
+        )
+
+        captured = capsys.readouterr()
+        # Should show the default .auto-claude/worktrees/tasks/{spec_name} path
+        assert ".auto-claude/worktrees/tasks/test-spec" in captured.out
+
+
+class TestFinalizationWorkspaceCdPathWithExistingBuild:
+    """Tests for finalization cd path when get_existing_build_worktree returns a path (lines 174, 245)."""
+
+    def test_test_choice_shows_existing_worktree_path(
+        self, temp_git_repo: Path, capsys, monkeypatch
+    ):
+        """Tests TEST choice shows worktree path when get_existing_build_worktree returns path (line 174)."""
+        from core.workspace.finalization import handle_workspace_choice
