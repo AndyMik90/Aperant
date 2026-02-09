@@ -10,8 +10,8 @@ import os
 import sys
 from pathlib import Path
 
-# Add auto-claude to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Add backend to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from integrations.graphiti.config import GraphitiConfig
 

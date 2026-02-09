@@ -62,5 +62,8 @@ Thumbs.db
 # Tests (development only)
 tests/
 
+# Exception: Allow colocated tests within integrations/graphiti
+!integrations/graphiti/tests/
+
 # Auto Claude data directory
 .auto-claude/

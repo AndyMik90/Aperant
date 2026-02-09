@@ -7,15 +7,17 @@ Tests cover:
 - ProviderError for missing configuration
 """
 
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from integrations.graphiti.providers_pkg.embedder_providers.openrouter_embedder import (
     create_openrouter_embedder,
 )
-from integrations.graphiti.providers_pkg.exceptions import ProviderError, ProviderNotInstalled
-
+from integrations.graphiti.providers_pkg.exceptions import (
+    ProviderError,
+    ProviderNotInstalled,
+)
 
 # =============================================================================
 # Test create_openrouter_embedder
@@ -48,19 +50,34 @@ class TestCreateOpenRouterEmbedder:
 
     def test_create_openrouter_embedder_missing_api_key(self, mock_config):
         """Test create_openrouter_embedder raises ProviderError for missing API key."""
-        mock_config.openrouter_api_key = None
 
-        with pytest.raises(ProviderError) as exc_info:
-            create_openrouter_embedder(mock_config)
+        mock_graphiti_core_embedder = MagicMock()
+        mock_graphiti_core_embedder.EmbedderConfig = MagicMock
+        mock_graphiti_core_embedder.OpenAIEmbedder = MagicMock
 
-        assert "OPENROUTER_API_KEY" in str(exc_info.value)
+        # Mock the graphiti_core.embedder module to allow import to succeed
+        with patch.dict(
+            sys.modules, {"graphiti_core.embedder": mock_graphiti_core_embedder}
+        ):
+            mock_config.openrouter_api_key = None
+
+            with pytest.raises(ProviderError) as exc_info:
+                create_openrouter_embedder(mock_config)
+
+            assert "OPENROUTER_API_KEY" in str(exc_info.value)
 
     def test_create_openrouter_embedder_import_error(self, mock_config):
         """Test create_openrouter_embedder raises ProviderNotInstalled on ImportError."""
-        with patch(
-            "integrations.graphiti.providers_pkg.embedder_providers.openrouter_embedder.OpenAIEmbedder",
-            side_effect=ImportError("graphiti-core not installed"),
-        ):
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name.startswith("graphiti_core.embedder"):
+                raise ImportError("graphiti-core not installed")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
             with pytest.raises(ProviderNotInstalled) as exc_info:
                 create_openrouter_embedder(mock_config)
 

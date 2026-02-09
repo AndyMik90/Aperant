@@ -18,7 +18,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 from integrations.graphiti.config import (
     DEFAULT_DATABASE,
     DEFAULT_DB_PATH,
@@ -318,7 +317,9 @@ class TestGraphitiConfigValidationErrors:
 
     def test_validation_errors_empty_when_valid(self):
         """Test validation returns empty list when config is valid."""
-        config = GraphitiConfig(enabled=True, embedder_provider="openai", openai_api_key="test-key")
+        config = GraphitiConfig(
+            enabled=True, embedder_provider="openai", openai_api_key="test-key"
+        )
         errors = config.get_validation_errors()
 
         # Embedder errors are warnings, not blockers for is_valid()
@@ -530,7 +531,10 @@ class TestGraphitiConfigProviderSpecificDatabaseName:
         config = GraphitiConfig(
             database="auto_claude_memory", embedder_provider="openai"
         )
-        assert config.get_provider_specific_database_name() == "auto_claude_memory_openai_1536"
+        assert (
+            config.get_provider_specific_database_name()
+            == "auto_claude_memory_openai_1536"
+        )
 
     def test_provider_specific_database_voyage(self):
         """Test provider-specific database name for Voyage."""
@@ -538,7 +542,8 @@ class TestGraphitiConfigProviderSpecificDatabaseName:
             database="auto_claude_memory", embedder_provider="voyage"
         )
         assert (
-            config.get_provider_specific_database_name() == "auto_claude_memory_voyage_1024"
+            config.get_provider_specific_database_name()
+            == "auto_claude_memory_voyage_1024"
         )
 
     def test_provider_specific_database_custom_base(self):
@@ -648,7 +653,9 @@ class TestGraphitiState:
     def test_to_dict_limits_error_log(self):
         """Test to_dict limits error log to 10 entries."""
         state = GraphitiState(
-            error_log=[{"timestamp": f"2024-01-0{i}", "error": f"error {i}"} for i in range(15)]
+            error_log=[
+                {"timestamp": f"2024-01-0{i}", "error": f"error {i}"} for i in range(15)
+            ]
         )
 
         data = state.to_dict()
@@ -732,7 +739,7 @@ class TestGraphitiState:
     def test_load_returns_none_on_invalid_json(self, tmp_path):
         """Test load returns None on invalid JSON."""
         marker_file = tmp_path / ".graphiti_state.json"
-        with open(marker_file, "w") as f:
+        with open(marker_file, "w", encoding="utf-8") as f:
             f.write("invalid json")
 
         state = GraphitiState.load(tmp_path)

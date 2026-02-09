@@ -10,12 +10,13 @@ Tests cover:
 from unittest.mock import MagicMock, patch
 
 import pytest
-
+from integrations.graphiti.providers_pkg.exceptions import (
+    ProviderError,
+    ProviderNotInstalled,
+)
 from integrations.graphiti.providers_pkg.llm_providers.openai_llm import (
     create_openai_llm_client,
 )
-from integrations.graphiti.providers_pkg.exceptions import ProviderError, ProviderNotInstalled
-
 
 # =============================================================================
 # Test create_openai_llm_client
@@ -56,10 +57,16 @@ class TestCreateOpenAILLMClient:
 
     def test_create_openai_llm_client_import_error(self, mock_config):
         """Test create_openai_llm_client raises ProviderNotInstalled on ImportError."""
-        with patch(
-            "integrations.graphiti.providers_pkg.llm_providers.openai_llm.OpenAIClient",
-            side_effect=ImportError("graphiti-core not installed"),
-        ):
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name.startswith("graphiti_core.llm_client"):
+                raise ImportError("graphiti-core not installed")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
             with pytest.raises(ProviderNotInstalled) as exc_info:
                 create_openai_llm_client(mock_config)
 

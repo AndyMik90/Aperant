@@ -16,7 +16,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
-
 from integrations.graphiti.queries_pkg.client import (
     GraphitiClient,
     _apply_ladybug_monkeypatch,
@@ -28,19 +27,29 @@ def clean_modules():
     """Clean up sys.modules before and after each test."""
     # Store original modules
     original_modules = {
-        'graphiti_core': sys.modules.get('graphiti_core'),
-        'integrations.graphiti.queries_pkg.kuzu_driver_patched': sys.modules.get('integrations.graphiti.queries_pkg.kuzu_driver_patched'),
-        'kuzu': sys.modules.get('kuzu'),
+        "graphiti_core": sys.modules.get("graphiti_core"),
+        "integrations.graphiti.queries_pkg.kuzu_driver_patched": sys.modules.get(
+            "integrations.graphiti.queries_pkg.kuzu_driver_patched"
+        ),
+        "kuzu": sys.modules.get("kuzu"),
     }
 
     # Remove modules before test
-    for mod in ['graphiti_core', 'integrations.graphiti.queries_pkg.kuzu_driver_patched', 'kuzu']:
+    for mod in [
+        "graphiti_core",
+        "integrations.graphiti.queries_pkg.kuzu_driver_patched",
+        "kuzu",
+    ]:
         sys.modules.pop(mod, None)
 
     yield
 
     # Clean up after test
-    for mod in ['graphiti_core', 'integrations.graphiti.queries_pkg.kuzu_driver_patched', 'kuzu']:
+    for mod in [
+        "graphiti_core",
+        "integrations.graphiti.queries_pkg.kuzu_driver_patched",
+        "kuzu",
+    ]:
         sys.modules.pop(mod, None)
 
     # Restore original modules if they existed
@@ -93,6 +102,7 @@ class TestApplyLadybugMonkeypatch:
         original_kuzu = sys.modules.pop("kuzu", None)
 
         try:
+
             def import_side_effect(name, *args, **kwargs):
                 if name == "real_ladybug":
                     return mock_ladybug
@@ -120,6 +130,7 @@ class TestApplyLadybugMonkeypatch:
         original_kuzu = sys.modules.pop("kuzu", None)
 
         try:
+
             def import_side_effect(name, *args, **kwargs):
                 if name == "real_ladybug":
                     raise ImportError("real_ladybug not found")
@@ -151,6 +162,7 @@ class TestApplyLadybugMonkeypatch:
         original_kuzu = sys.modules.pop("kuzu", None)
 
         try:
+
             def import_side_effect(name, *args, **kwargs):
                 if name == "real_ladybug":
                     raise ImportError("real_ladybug not found")
@@ -180,6 +192,7 @@ class TestApplyLadybugMonkeypatch:
         original_kuzu = sys.modules.pop("kuzu", None)
 
         try:
+
             def import_side_effect(name, *args, **kwargs):
                 if name == "real_ladybug":
                     raise import_error
@@ -191,7 +204,9 @@ class TestApplyLadybugMonkeypatch:
             with patch.object(sys, "platform", "win32"):
                 with patch.object(sys, "version_info", (3, 12, 0)):
                     with patch("builtins.__import__", side_effect=import_side_effect):
-                        with patch("integrations.graphiti.queries_pkg.client.logger") as mock_logger:
+                        with patch(
+                            "integrations.graphiti.queries_pkg.client.logger"
+                        ) as mock_logger:
                             result = _apply_ladybug_monkeypatch()
 
                             # Should log specific error about pywin32
@@ -214,6 +229,7 @@ class TestApplyLadybugMonkeypatch:
         original_kuzu = sys.modules.pop("kuzu", None)
 
         try:
+
             def import_side_effect(name, *args, **kwargs):
                 if name == "real_ladybug":
                     raise import_error
@@ -225,7 +241,9 @@ class TestApplyLadybugMonkeypatch:
             with patch.object(sys, "platform", "win32"):
                 with patch.object(sys, "version_info", (3, 12, 0)):
                     with patch("builtins.__import__", side_effect=import_side_effect):
-                        with patch("integrations.graphiti.queries_pkg.client.logger") as mock_logger:
+                        with patch(
+                            "integrations.graphiti.queries_pkg.client.logger"
+                        ) as mock_logger:
                             result = _apply_ladybug_monkeypatch()
 
                             # Should detect pywin32 error via string match
@@ -247,6 +265,7 @@ class TestApplyLadybugMonkeypatch:
         original_kuzu = sys.modules.pop("kuzu", None)
 
         try:
+
             def import_side_effect(name, *args, **kwargs):
                 if name == "real_ladybug":
                     raise import_error
@@ -257,14 +276,19 @@ class TestApplyLadybugMonkeypatch:
             original_import = builtins.__import__
             with patch.object(sys, "platform", "linux"):
                 with patch("builtins.__import__", side_effect=import_side_effect):
-                    with patch("integrations.graphiti.queries_pkg.client.logger") as mock_logger:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client.logger"
+                    ) as mock_logger:
                         result = _apply_ladybug_monkeypatch()
 
                         # Should use debug, not error (non-Windows)
                         # The function should still log debug, but not error about pywin32
                         assert not any(
-                            "pywin32" in str(call) and "error" in str(mock_logger.error.call_args_list)
-                            for call in [str(c) for c in mock_logger.error.call_args_list]
+                            "pywin32" in str(call)
+                            and "error" in str(mock_logger.error.call_args_list)
+                            for call in [
+                                str(c) for c in mock_logger.error.call_args_list
+                            ]
                         )
         finally:
             # Restore original kuzu module
@@ -281,6 +305,7 @@ class TestApplyLadybugMonkeypatch:
         original_kuzu = sys.modules.pop("kuzu", None)
 
         try:
+
             def import_side_effect(name, *args, **kwargs):
                 if name == "real_ladybug":
                     raise import_error
@@ -292,7 +317,9 @@ class TestApplyLadybugMonkeypatch:
             with patch.object(sys, "platform", "win32"):
                 with patch.object(sys, "version_info", (3, 11, 0)):  # Python 3.11
                     with patch("builtins.__import__", side_effect=import_side_effect):
-                        with patch("integrations.graphiti.queries_pkg.client.logger") as mock_logger:
+                        with patch(
+                            "integrations.graphiti.queries_pkg.client.logger"
+                        ) as mock_logger:
                             result = _apply_ladybug_monkeypatch()
 
                             # Should not show pywin32 error for Python 3.11
@@ -374,15 +401,21 @@ class TestGraphitiClientInitialize:
 
         # Mock kuzu_driver_patched module
         mock_kuzu_driver_patched = MagicMock()
-        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(return_value=mock_driver)
+        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(
+            return_value=mock_driver
+        )
 
-        sys.modules['graphiti_core'] = mock_graphiti_core
-        sys.modules['integrations.graphiti.queries_pkg.kuzu_driver_patched'] = mock_kuzu_driver_patched
+        sys.modules["graphiti_core"] = mock_graphiti_core
+        sys.modules["integrations.graphiti.queries_pkg.kuzu_driver_patched"] = (
+            mock_kuzu_driver_patched
+        )
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch") as mock_patch:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
+                    ) as mock_patch:
                         mock_create_llm.return_value = mock_llm_client
                         mock_create_emb.return_value = MagicMock()
                         mock_patch.return_value = True
@@ -393,8 +426,10 @@ class TestGraphitiClientInitialize:
                         assert result is True
                         mock_create_llm.assert_called_once_with(mock_config)
         finally:
-            sys.modules.pop('graphiti_core', None)
-            sys.modules.pop('integrations.graphiti.queries_pkg.kuzu_driver_patched', None)
+            sys.modules.pop("graphiti_core", None)
+            sys.modules.pop(
+                "integrations.graphiti.queries_pkg.kuzu_driver_patched", None
+            )
 
     @pytest.mark.asyncio
     async def test_creates_embedder_via_factory(self):
@@ -414,17 +449,23 @@ class TestGraphitiClientInitialize:
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = mock_graphiti_class
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         # Mock kuzu_driver_patched module
         mock_kuzu_driver_patched = MagicMock()
-        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(return_value=mock_driver)
-        sys.modules['integrations.graphiti.queries_pkg.kuzu_driver_patched'] = mock_kuzu_driver_patched
+        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(
+            return_value=mock_driver
+        )
+        sys.modules["integrations.graphiti.queries_pkg.kuzu_driver_patched"] = (
+            mock_kuzu_driver_patched
+        )
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch") as mock_patch:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
+                    ) as mock_patch:
                         mock_create_llm.return_value = mock_llm_client
                         mock_create_emb.return_value = mock_embedder
                         mock_patch.return_value = True
@@ -435,8 +476,10 @@ class TestGraphitiClientInitialize:
                         assert result is True
                         mock_create_emb.assert_called_once_with(mock_config)
         finally:
-            sys.modules.pop('graphiti_core', None)
-            sys.modules.pop('integrations.graphiti.queries_pkg.kuzu_driver_patched', None)
+            sys.modules.pop("graphiti_core", None)
+            sys.modules.pop(
+                "integrations.graphiti.queries_pkg.kuzu_driver_patched", None
+            )
 
     @pytest.mark.asyncio
     async def test_applies_ladybug_monkeypatch(self):
@@ -454,17 +497,23 @@ class TestGraphitiClientInitialize:
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = mock_graphiti_class
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         # Mock kuzu_driver_patched module
         mock_kuzu_driver_patched = MagicMock()
-        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(return_value=mock_driver)
-        sys.modules['integrations.graphiti.queries_pkg.kuzu_driver_patched'] = mock_kuzu_driver_patched
+        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(
+            return_value=mock_driver
+        )
+        sys.modules["integrations.graphiti.queries_pkg.kuzu_driver_patched"] = (
+            mock_kuzu_driver_patched
+        )
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch") as mock_patch:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
+                    ) as mock_patch:
                         mock_create_llm.return_value = MagicMock()
                         mock_create_emb.return_value = MagicMock()
                         mock_patch.return_value = True
@@ -475,8 +524,10 @@ class TestGraphitiClientInitialize:
                         assert result is True
                         mock_patch.assert_called_once()
         finally:
-            sys.modules.pop('graphiti_core', None)
-            sys.modules.pop('integrations.graphiti.queries_pkg.kuzu_driver_patched', None)
+            sys.modules.pop("graphiti_core", None)
+            sys.modules.pop(
+                "integrations.graphiti.queries_pkg.kuzu_driver_patched", None
+            )
 
     @pytest.mark.asyncio
     async def test_creates_patched_kuzu_driver(self):
@@ -495,17 +546,23 @@ class TestGraphitiClientInitialize:
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = mock_graphiti_class
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         # Mock kuzu_driver_patched module
         mock_kuzu_driver_patched = MagicMock()
-        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(return_value=mock_driver)
-        sys.modules['integrations.graphiti.queries_pkg.kuzu_driver_patched'] = mock_kuzu_driver_patched
+        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(
+            return_value=mock_driver
+        )
+        sys.modules["integrations.graphiti.queries_pkg.kuzu_driver_patched"] = (
+            mock_kuzu_driver_patched
+        )
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch") as mock_patch:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
+                    ) as mock_patch:
                         mock_create_llm.return_value = MagicMock()
                         mock_create_emb.return_value = MagicMock()
                         mock_patch.return_value = True
@@ -514,10 +571,14 @@ class TestGraphitiClientInitialize:
                         result = await client.initialize()
 
                         assert result is True
-                        mock_kuzu_driver_patched.create_patched_kuzu_driver.assert_called_once_with(db=str(Path("/test/db")))
+                        mock_kuzu_driver_patched.create_patched_kuzu_driver.assert_called_once_with(
+                            db=str(Path("/test/db"))
+                        )
         finally:
-            sys.modules.pop('graphiti_core', None)
-            sys.modules.pop('integrations.graphiti.queries_pkg.kuzu_driver_patched', None)
+            sys.modules.pop("graphiti_core", None)
+            sys.modules.pop(
+                "integrations.graphiti.queries_pkg.kuzu_driver_patched", None
+            )
 
     @pytest.mark.asyncio
     async def test_builds_indices_on_first_init(self):
@@ -537,17 +598,23 @@ class TestGraphitiClientInitialize:
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = mock_graphiti_class
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         # Mock kuzu_driver_patched module
         mock_kuzu_driver_patched = MagicMock()
-        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(return_value=mock_driver)
-        sys.modules['integrations.graphiti.queries_pkg.kuzu_driver_patched'] = mock_kuzu_driver_patched
+        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(
+            return_value=mock_driver
+        )
+        sys.modules["integrations.graphiti.queries_pkg.kuzu_driver_patched"] = (
+            mock_kuzu_driver_patched
+        )
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch") as mock_patch:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
+                    ) as mock_patch:
                         mock_create_llm.return_value = MagicMock()
                         mock_create_emb.return_value = MagicMock()
                         mock_patch.return_value = True
@@ -558,8 +625,10 @@ class TestGraphitiClientInitialize:
                         assert result is True
                         mock_graphiti_instance.build_indices_and_constraints.assert_called_once()
         finally:
-            sys.modules.pop('graphiti_core', None)
-            sys.modules.pop('integrations.graphiti.queries_pkg.kuzu_driver_patched', None)
+            sys.modules.pop("graphiti_core", None)
+            sys.modules.pop(
+                "integrations.graphiti.queries_pkg.kuzu_driver_patched", None
+            )
 
     @pytest.mark.asyncio
     async def test_builds_indices_with_state_update(self):
@@ -584,17 +653,23 @@ class TestGraphitiClientInitialize:
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = mock_graphiti_class
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         # Mock kuzu_driver_patched module
         mock_kuzu_driver_patched = MagicMock()
-        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(return_value=mock_driver)
-        sys.modules['integrations.graphiti.queries_pkg.kuzu_driver_patched'] = mock_kuzu_driver_patched
+        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(
+            return_value=mock_driver
+        )
+        sys.modules["integrations.graphiti.queries_pkg.kuzu_driver_patched"] = (
+            mock_kuzu_driver_patched
+        )
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch") as mock_patch:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
+                    ) as mock_patch:
                         mock_create_llm.return_value = MagicMock()
                         mock_create_emb.return_value = MagicMock()
                         mock_patch.return_value = True
@@ -610,8 +685,10 @@ class TestGraphitiClientInitialize:
                         assert state.embedder_provider == "openai"
                         assert state.created_at is not None
         finally:
-            sys.modules.pop('graphiti_core', None)
-            sys.modules.pop('integrations.graphiti.queries_pkg.kuzu_driver_patched', None)
+            sys.modules.pop("graphiti_core", None)
+            sys.modules.pop(
+                "integrations.graphiti.queries_pkg.kuzu_driver_patched", None
+            )
 
     @pytest.mark.asyncio
     async def test_returns_true_on_success(self):
@@ -631,17 +708,23 @@ class TestGraphitiClientInitialize:
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = mock_graphiti_class
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         # Mock kuzu_driver_patched module
         mock_kuzu_driver_patched = MagicMock()
-        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(return_value=mock_driver)
-        sys.modules['integrations.graphiti.queries_pkg.kuzu_driver_patched'] = mock_kuzu_driver_patched
+        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(
+            return_value=mock_driver
+        )
+        sys.modules["integrations.graphiti.queries_pkg.kuzu_driver_patched"] = (
+            mock_kuzu_driver_patched
+        )
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch") as mock_patch:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
+                    ) as mock_patch:
                         mock_create_llm.return_value = MagicMock()
                         mock_create_emb.return_value = MagicMock()
                         mock_patch.return_value = True
@@ -651,8 +734,10 @@ class TestGraphitiClientInitialize:
 
                         assert result is True
         finally:
-            sys.modules.pop('graphiti_core', None)
-            sys.modules.pop('integrations.graphiti.queries_pkg.kuzu_driver_patched', None)
+            sys.modules.pop("graphiti_core", None)
+            sys.modules.pop(
+                "integrations.graphiti.queries_pkg.kuzu_driver_patched", None
+            )
 
     @pytest.mark.asyncio
     async def test_returns_false_when_provider_not_installed_raised_llm(self):
@@ -665,13 +750,17 @@ class TestGraphitiClientInitialize:
 
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 # Patch at the module level where it's imported
-                with patch("integrations.graphiti.queries_pkg.client.capture_exception") as mock_capture:
-                    mock_create_llm.side_effect = ProviderNotInstalled("openai not installed")
+                with patch(
+                    "integrations.graphiti.queries_pkg.client.capture_exception"
+                ) as mock_capture:
+                    mock_create_llm.side_effect = ProviderNotInstalled(
+                        "openai not installed"
+                    )
 
                     client = GraphitiClient(mock_config)
                     result = await client.initialize()
@@ -679,7 +768,7 @@ class TestGraphitiClientInitialize:
                     assert result is False
                     mock_capture.assert_called_once()
         finally:
-            sys.modules.pop('graphiti_core', None)
+            sys.modules.pop("graphiti_core", None)
 
     @pytest.mark.asyncio
     async def test_returns_false_when_provider_error_raised_llm(self):
@@ -692,11 +781,13 @@ class TestGraphitiClientInitialize:
 
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
-                with patch("integrations.graphiti.queries_pkg.client.capture_exception") as mock_capture:
+                with patch(
+                    "integrations.graphiti.queries_pkg.client.capture_exception"
+                ) as mock_capture:
                     mock_create_llm.side_effect = ProviderError("LLM config error")
 
                     client = GraphitiClient(mock_config)
@@ -705,7 +796,7 @@ class TestGraphitiClientInitialize:
                     assert result is False
                     mock_capture.assert_called_once()
         finally:
-            sys.modules.pop('graphiti_core', None)
+            sys.modules.pop("graphiti_core", None)
 
     @pytest.mark.asyncio
     async def test_returns_false_when_provider_not_installed_raised_embedder(self):
@@ -719,14 +810,18 @@ class TestGraphitiClientInitialize:
 
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client.capture_exception") as mock_capture:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client.capture_exception"
+                    ) as mock_capture:
                         mock_create_llm.return_value = mock_llm_client
-                        mock_create_emb.side_effect = ProviderNotInstalled("embedder not installed")
+                        mock_create_emb.side_effect = ProviderNotInstalled(
+                            "embedder not installed"
+                        )
 
                         client = GraphitiClient(mock_config)
                         result = await client.initialize()
@@ -734,7 +829,7 @@ class TestGraphitiClientInitialize:
                         assert result is False
                         mock_capture.assert_called()
         finally:
-            sys.modules.pop('graphiti_core', None)
+            sys.modules.pop("graphiti_core", None)
 
     @pytest.mark.asyncio
     async def test_returns_false_when_provider_error_raised_embedder(self):
@@ -748,14 +843,18 @@ class TestGraphitiClientInitialize:
 
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client.capture_exception") as mock_capture:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client.capture_exception"
+                    ) as mock_capture:
                         mock_create_llm.return_value = mock_llm_client
-                        mock_create_emb.side_effect = ProviderError("Embedder config error")
+                        mock_create_emb.side_effect = ProviderError(
+                            "Embedder config error"
+                        )
 
                         client = GraphitiClient(mock_config)
                         result = await client.initialize()
@@ -763,7 +862,7 @@ class TestGraphitiClientInitialize:
                         assert result is False
                         mock_capture.assert_called()
         finally:
-            sys.modules.pop('graphiti_core', None)
+            sys.modules.pop("graphiti_core", None)
 
     @pytest.mark.asyncio
     async def test_returns_false_when_ladybug_unavailable(self):
@@ -774,7 +873,9 @@ class TestGraphitiClientInitialize:
 
         with patch("graphiti_providers.create_llm_client") as mock_create_llm:
             with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                with patch("integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch") as mock_patch:
+                with patch(
+                    "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
+                ) as mock_patch:
                     mock_create_llm.return_value = MagicMock()
                     mock_create_emb.return_value = MagicMock()
                     mock_patch.return_value = False  # Ladybug unavailable
@@ -800,18 +901,26 @@ class TestGraphitiClientInitialize:
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = mock_graphiti_class
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         # Mock kuzu_driver_patched module
         mock_kuzu_driver_patched = MagicMock()
-        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(side_effect=OSError("Permission denied"))
-        sys.modules['integrations.graphiti.queries_pkg.kuzu_driver_patched'] = mock_kuzu_driver_patched
+        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(
+            side_effect=OSError("Permission denied")
+        )
+        sys.modules["integrations.graphiti.queries_pkg.kuzu_driver_patched"] = (
+            mock_kuzu_driver_patched
+        )
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch") as mock_patch:
-                        with patch("integrations.graphiti.queries_pkg.client.capture_exception") as mock_capture:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
+                    ) as mock_patch:
+                        with patch(
+                            "integrations.graphiti.queries_pkg.client.capture_exception"
+                        ) as mock_capture:
                             mock_create_llm.return_value = MagicMock()
                             mock_create_emb.return_value = MagicMock()
                             mock_patch.return_value = True
@@ -822,8 +931,10 @@ class TestGraphitiClientInitialize:
                             assert result is False
                             mock_capture.assert_called()
         finally:
-            sys.modules.pop('graphiti_core', None)
-            sys.modules.pop('integrations.graphiti.queries_pkg.kuzu_driver_patched', None)
+            sys.modules.pop("graphiti_core", None)
+            sys.modules.pop(
+                "integrations.graphiti.queries_pkg.kuzu_driver_patched", None
+            )
 
     @pytest.mark.asyncio
     async def test_returns_false_on_database_init_permission_error(self):
@@ -841,18 +952,26 @@ class TestGraphitiClientInitialize:
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = mock_graphiti_class
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         # Mock kuzu_driver_patched module
         mock_kuzu_driver_patched = MagicMock()
-        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(side_effect=PermissionError("Access denied"))
-        sys.modules['integrations.graphiti.queries_pkg.kuzu_driver_patched'] = mock_kuzu_driver_patched
+        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(
+            side_effect=PermissionError("Access denied")
+        )
+        sys.modules["integrations.graphiti.queries_pkg.kuzu_driver_patched"] = (
+            mock_kuzu_driver_patched
+        )
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch") as mock_patch:
-                        with patch("integrations.graphiti.queries_pkg.client.capture_exception") as mock_capture:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
+                    ) as mock_patch:
+                        with patch(
+                            "integrations.graphiti.queries_pkg.client.capture_exception"
+                        ) as mock_capture:
                             mock_create_llm.return_value = MagicMock()
                             mock_create_emb.return_value = MagicMock()
                             mock_patch.return_value = True
@@ -863,8 +982,10 @@ class TestGraphitiClientInitialize:
                             assert result is False
                             mock_capture.assert_called()
         finally:
-            sys.modules.pop('graphiti_core', None)
-            sys.modules.pop('integrations.graphiti.queries_pkg.kuzu_driver_patched', None)
+            sys.modules.pop("graphiti_core", None)
+            sys.modules.pop(
+                "integrations.graphiti.queries_pkg.kuzu_driver_patched", None
+            )
 
     @pytest.mark.asyncio
     async def test_returns_false_on_database_init_generic_exception(self):
@@ -882,18 +1003,26 @@ class TestGraphitiClientInitialize:
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = mock_graphiti_class
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         # Mock kuzu_driver_patched module
         mock_kuzu_driver_patched = MagicMock()
-        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(side_effect=RuntimeError("Unexpected error"))
-        sys.modules['integrations.graphiti.queries_pkg.kuzu_driver_patched'] = mock_kuzu_driver_patched
+        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(
+            side_effect=RuntimeError("Unexpected error")
+        )
+        sys.modules["integrations.graphiti.queries_pkg.kuzu_driver_patched"] = (
+            mock_kuzu_driver_patched
+        )
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch") as mock_patch:
-                        with patch("integrations.graphiti.queries_pkg.client.capture_exception") as mock_capture:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
+                    ) as mock_patch:
+                        with patch(
+                            "integrations.graphiti.queries_pkg.client.capture_exception"
+                        ) as mock_capture:
                             mock_create_llm.return_value = MagicMock()
                             mock_create_emb.return_value = MagicMock()
                             mock_patch.return_value = True
@@ -904,8 +1033,10 @@ class TestGraphitiClientInitialize:
                             assert result is False
                             mock_capture.assert_called()
         finally:
-            sys.modules.pop('graphiti_core', None)
-            sys.modules.pop('integrations.graphiti.queries_pkg.kuzu_driver_patched', None)
+            sys.modules.pop("graphiti_core", None)
+            sys.modules.pop(
+                "integrations.graphiti.queries_pkg.kuzu_driver_patched", None
+            )
 
     @pytest.mark.asyncio
     async def test_captures_exceptions_via_sentry(self):
@@ -919,11 +1050,13 @@ class TestGraphitiClientInitialize:
 
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
-                with patch("integrations.graphiti.queries_pkg.client.capture_exception") as mock_capture:
+                with patch(
+                    "integrations.graphiti.queries_pkg.client.capture_exception"
+                ) as mock_capture:
                     mock_create_llm.side_effect = error
 
                     client = GraphitiClient(mock_config)
@@ -935,7 +1068,7 @@ class TestGraphitiClientInitialize:
                     assert call_kwargs["error_type"] == "ProviderError"
                     assert call_kwargs["provider_type"] == "llm"
         finally:
-            sys.modules.pop('graphiti_core', None)
+            sys.modules.pop("graphiti_core", None)
 
     @pytest.mark.asyncio
     async def test_updates_state_with_init_info(self):
@@ -960,17 +1093,23 @@ class TestGraphitiClientInitialize:
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = mock_graphiti_class
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         # Mock kuzu_driver_patched module
         mock_kuzu_driver_patched = MagicMock()
-        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(return_value=mock_driver)
-        sys.modules['integrations.graphiti.queries_pkg.kuzu_driver_patched'] = mock_kuzu_driver_patched
+        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(
+            return_value=mock_driver
+        )
+        sys.modules["integrations.graphiti.queries_pkg.kuzu_driver_patched"] = (
+            mock_kuzu_driver_patched
+        )
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch") as mock_patch:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
+                    ) as mock_patch:
                         mock_create_llm.return_value = MagicMock()
                         mock_create_emb.return_value = MagicMock()
                         mock_patch.return_value = True
@@ -987,8 +1126,10 @@ class TestGraphitiClientInitialize:
                         # Verify created_at is ISO format string
                         assert state.created_at is not None
         finally:
-            sys.modules.pop('graphiti_core', None)
-            sys.modules.pop('integrations.graphiti.queries_pkg.kuzu_driver_patched', None)
+            sys.modules.pop("graphiti_core", None)
+            sys.modules.pop(
+                "integrations.graphiti.queries_pkg.kuzu_driver_patched", None
+            )
 
     @pytest.mark.asyncio
     async def test_skips_building_indices_if_state_indices_built(self):
@@ -1012,17 +1153,23 @@ class TestGraphitiClientInitialize:
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = mock_graphiti_class
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         # Mock kuzu_driver_patched module
         mock_kuzu_driver_patched = MagicMock()
-        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(return_value=mock_driver)
-        sys.modules['integrations.graphiti.queries_pkg.kuzu_driver_patched'] = mock_kuzu_driver_patched
+        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(
+            return_value=mock_driver
+        )
+        sys.modules["integrations.graphiti.queries_pkg.kuzu_driver_patched"] = (
+            mock_kuzu_driver_patched
+        )
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch") as mock_patch:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
+                    ) as mock_patch:
                         mock_create_llm.return_value = MagicMock()
                         mock_create_emb.return_value = MagicMock()
                         mock_patch.return_value = True
@@ -1034,8 +1181,10 @@ class TestGraphitiClientInitialize:
                         # Should not build indices since they were already built
                         mock_graphiti_instance.build_indices_and_constraints.assert_not_called()
         finally:
-            sys.modules.pop('graphiti_core', None)
-            sys.modules.pop('integrations.graphiti.queries_pkg.kuzu_driver_patched', None)
+            sys.modules.pop("graphiti_core", None)
+            sys.modules.pop(
+                "integrations.graphiti.queries_pkg.kuzu_driver_patched", None
+            )
 
     @pytest.mark.asyncio
     async def test_handles_kuzu_driver_import_error(self):
@@ -1052,13 +1201,17 @@ class TestGraphitiClientInitialize:
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = mock_graphiti_class
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch") as mock_patch:
-                        with patch("integrations.graphiti.queries_pkg.client.capture_exception") as mock_capture:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
+                    ) as mock_patch:
+                        with patch(
+                            "integrations.graphiti.queries_pkg.client.capture_exception"
+                        ) as mock_capture:
                             mock_create_llm.return_value = MagicMock()
                             mock_create_emb.return_value = MagicMock()
                             mock_patch.return_value = True
@@ -1066,19 +1219,24 @@ class TestGraphitiClientInitialize:
                             # Create import error that will be raised when trying to import
                             # We need to mock the module import itself, not just the function
                             def import_side_effect(name, *args, **kwargs):
-                                if name == "integrations.graphiti.queries_pkg.kuzu_driver_patched":
+                                if (
+                                    name
+                                    == "integrations.graphiti.queries_pkg.kuzu_driver_patched"
+                                ):
                                     raise ImportError("kuzu_driver_patched not found")
                                 return original_import(name, *args, **kwargs)
 
                             original_import = builtins.__import__
-                            with patch("builtins.__import__", side_effect=import_side_effect):
+                            with patch(
+                                "builtins.__import__", side_effect=import_side_effect
+                            ):
                                 client = GraphitiClient(mock_config)
                                 result = await client.initialize()
 
                                 assert result is False
                                 mock_capture.assert_called()
         finally:
-            sys.modules.pop('graphiti_core', None)
+            sys.modules.pop("graphiti_core", None)
 
 
 # =============================================================================
@@ -1204,6 +1362,7 @@ class TestApplyLadybugMonkeypatchAdditional:
         original_kuzu = sys.modules.pop("kuzu", None)
 
         try:
+
             def import_side_effect(name, *args, **kwargs):
                 if name == "real_ladybug":
                     raise ImportError("real_ladybug not found")
@@ -1211,7 +1370,9 @@ class TestApplyLadybugMonkeypatchAdditional:
 
             original_import = builtins.__import__
             with patch("builtins.__import__", side_effect=import_side_effect):
-                with patch("integrations.graphiti.queries_pkg.client.logger") as mock_logger:
+                with patch(
+                    "integrations.graphiti.queries_pkg.client.logger"
+                ) as mock_logger:
                     # Mock kuzu to be available for fallback
                     sys.modules["kuzu"] = MagicMock()
                     try:
@@ -1260,7 +1421,9 @@ class TestGraphitiClientInitializeImportError:
 
         original_import = builtins.__import__
         with patch("builtins.__import__", side_effect=import_side_effect):
-            with patch("integrations.graphiti.queries_pkg.client.capture_exception") as mock_capture:
+            with patch(
+                "integrations.graphiti.queries_pkg.client.capture_exception"
+            ) as mock_capture:
                 client = GraphitiClient(mock_config)
                 result = await client.initialize()
 
@@ -1276,12 +1439,14 @@ class TestGraphitiClientInitializeImportError:
 
         # Mock graphiti_core module
         mock_graphiti_core = MagicMock()
-        sys.modules['graphiti_core'] = mock_graphiti_core
+        sys.modules["graphiti_core"] = mock_graphiti_core
 
         try:
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
                 with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch("integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch") as mock_patch:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
+                    ) as mock_patch:
                         mock_create_llm.return_value = MagicMock()
                         mock_create_emb.return_value = MagicMock()
                         mock_patch.return_value = False  # Ladybug unavailable
@@ -1291,4 +1456,4 @@ class TestGraphitiClientInitializeImportError:
 
                         assert result is False
         finally:
-            sys.modules.pop('graphiti_core', None)
+            sys.modules.pop("graphiti_core", None)

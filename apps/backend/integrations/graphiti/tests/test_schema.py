@@ -8,7 +8,6 @@ Tests cover:
 """
 
 import pytest
-
 from integrations.graphiti.queries_pkg.schema import (
     EPISODE_TYPE_CODEBASE_DISCOVERY,
     EPISODE_TYPE_GOTCHA,
@@ -17,10 +16,10 @@ from integrations.graphiti.queries_pkg.schema import (
     EPISODE_TYPE_QA_RESULT,
     EPISODE_TYPE_SESSION_INSIGHT,
     EPISODE_TYPE_TASK_OUTCOME,
-    GroupIdMode,
     MAX_CONTEXT_RESULTS,
     MAX_RETRIES,
     RETRY_DELAY_SECONDS,
+    GroupIdMode,
 )
 
 
@@ -73,7 +72,9 @@ class TestEpisodeTypeConstants:
             EPISODE_TYPE_QA_RESULT,
             EPISODE_TYPE_HISTORICAL_CONTEXT,
         ]
-        assert len(episode_types) == len(set(episode_types)), "Episode types must be unique"
+        assert len(episode_types) == len(set(episode_types)), (
+            "Episode types must be unique"
+        )
 
 
 class TestMaxContextResults:

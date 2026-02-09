@@ -8,17 +8,19 @@ Tests cover:
 - ProviderError for missing configuration
 """
 
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
+from integrations.graphiti.providers_pkg.exceptions import (
+    ProviderError,
+    ProviderNotInstalled,
+)
 from integrations.graphiti.providers_pkg.llm_providers.google_llm import (
     DEFAULT_GOOGLE_LLM_MODEL,
     GoogleLLMClient,
     create_google_llm_client,
 )
-from integrations.graphiti.providers_pkg.exceptions import ProviderError, ProviderNotInstalled
-
 
 # =============================================================================
 # Test GoogleLLMClient class
@@ -35,10 +37,7 @@ class TestGoogleLLMClient:
         mock_model = MagicMock()
         mock_genai.GenerativeModel = MagicMock(return_value=mock_model)
 
-        with patch(
-            "integrations.graphiti.providers_pkg.llm_providers.google_llm.google.generativeai",
-            mock_genai,
-        ):
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
             client = GoogleLLMClient(api_key="test-key", model="test-model")
 
             assert client.api_key == "test-key"
@@ -53,20 +52,23 @@ class TestGoogleLLMClient:
         mock_model = MagicMock()
         mock_genai.GenerativeModel = MagicMock(return_value=mock_model)
 
-        with patch(
-            "integrations.graphiti.providers_pkg.llm_providers.google_llm.google.generativeai",
-            mock_genai,
-        ):
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
             client = GoogleLLMClient(api_key="test-key")
 
             assert client.model == DEFAULT_GOOGLE_LLM_MODEL
 
     def test_google_llm_client_init_import_error(self):
         """Test GoogleLLMClient raises ProviderNotInstalled on ImportError."""
-        with patch(
-            "integrations.graphiti.providers_pkg.llm_providers.google_llm.google.generativeai",
-            side_effect=ImportError("google-generativeai not installed"),
-        ):
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "google.generativeai" or name.startswith("google.generativeai."):
+                raise ImportError("google-generativeai not installed")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
             with pytest.raises(ProviderNotInstalled) as exc_info:
                 GoogleLLMClient(api_key="test-key")
 
@@ -84,12 +86,11 @@ class TestGoogleLLMClient:
         mock_response.text = "Test response"
         mock_model.generate_content = MagicMock(return_value=mock_response)
 
-        with patch(
-            "integrations.graphiti.providers_pkg.llm_providers.google_llm.google.generativeai",
-            mock_genai,
-        ):
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
             client = GoogleLLMClient(api_key="test-key")
-            result = await client.generate_response([{"role": "user", "content": "Hello"}])
+            result = await client.generate_response(
+                [{"role": "user", "content": "Hello"}]
+            )
 
             assert result == "Test response"
 
@@ -101,20 +102,21 @@ class TestGoogleLLMClient:
         mock_genai.configure = MagicMock()
         mock_model_with_sys = MagicMock()
         mock_model_without_sys = MagicMock()
-        mock_genai.GenerativeModel = MagicMock(side_effect=[mock_model_without_sys, mock_model_with_sys])
+        mock_genai.GenerativeModel = MagicMock(
+            side_effect=[mock_model_without_sys, mock_model_with_sys]
+        )
         mock_response = MagicMock()
         mock_response.text = "Test response"
         mock_model_with_sys.generate_content = MagicMock(return_value=mock_response)
 
-        with patch(
-            "integrations.graphiti.providers_pkg.llm_providers.google_llm.google.generativeai",
-            mock_genai,
-        ):
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
             client = GoogleLLMClient(api_key="test-key")
-            result = await client.generate_response([
-                {"role": "system", "content": "You are helpful"},
-                {"role": "user", "content": "Hello"}
-            ])
+            result = await client.generate_response(
+                [
+                    {"role": "system", "content": "You are helpful"},
+                    {"role": "user", "content": "Hello"},
+                ]
+            )
 
             assert result == "Test response"
 
@@ -131,10 +133,7 @@ class TestGoogleLLMClient:
         mock_model.generate_content = MagicMock(return_value=mock_response)
         mock_genai.GenerationConfig = MagicMock()
 
-        with patch(
-            "integrations.graphiti.providers_pkg.llm_providers.google_llm.google.generativeai",
-            mock_genai,
-        ):
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
             from pydantic import BaseModel
 
             class TestModel(BaseModel):
@@ -161,13 +160,12 @@ class TestGoogleLLMClient:
         mock_response.text = "Test response"
         mock_model.generate_content = MagicMock(return_value=mock_response)
 
-        with patch(
-            "integrations.graphiti.providers_pkg.llm_providers.google_llm.google.generativeai",
-            mock_genai,
-        ):
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
             client = GoogleLLMClient(api_key="test-key")
 
-            with patch("integrations.graphiti.providers_pkg.llm_providers.google_llm.logger") as mock_logger:
+            with patch(
+                "integrations.graphiti.providers_pkg.llm_providers.google_llm.logger"
+            ) as mock_logger:
                 result = await client.generate_response_with_tools(
                     [{"role": "user", "content": "Hello"}],
                     tools=[{"name": "test_tool"}],
@@ -175,7 +173,9 @@ class TestGoogleLLMClient:
 
                 # Should log warning about tools not being supported
                 mock_logger.warning.assert_called_once()
-                assert "does not yet support tool calling" in str(mock_logger.warning.call_args)
+                assert "does not yet support tool calling" in str(
+                    mock_logger.warning.call_args
+                )
                 assert result == "Test response"
 
 

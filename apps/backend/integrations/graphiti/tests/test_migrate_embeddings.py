@@ -20,7 +20,6 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
-
 # =============================================================================
 # Test Fixtures
 # =============================================================================
@@ -33,7 +32,9 @@ def mock_source_config():
     config.embedder_provider = "openai"
     config.llm_provider = "openai"
     config.database = "source_db"
-    config.get_provider_specific_database_name = MagicMock(return_value="auto_claude_memory_openai")
+    config.get_provider_specific_database_name = MagicMock(
+        return_value="auto_claude_memory_openai"
+    )
     return config
 
 
@@ -44,7 +45,9 @@ def mock_target_config():
     config.embedder_provider = "ollama"
     config.llm_provider = "ollama"
     config.database = "target_db"
-    config.get_provider_specific_database_name = MagicMock(return_value="auto_claude_memory_ollama")
+    config.get_provider_specific_database_name = MagicMock(
+        return_value="auto_claude_memory_ollama"
+    )
     return config
 
 
@@ -147,7 +150,9 @@ class TestEmbeddingMigratorInitialize:
         """Test successful initialization of both clients."""
         from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
 
-        with patch("integrations.graphiti.migrate_embeddings.GraphitiClient") as mock_client_class:
+        with patch(
+            "integrations.graphiti.queries_pkg.client.GraphitiClient"
+        ) as mock_client_class:
             mock_source = MagicMock()
             mock_source.initialize = AsyncMock(return_value=True)
             mock_target = MagicMock()
@@ -169,11 +174,15 @@ class TestEmbeddingMigratorInitialize:
             assert mock_target.initialize.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_initialize_dry_run_skips_target(self, mock_source_config, mock_target_config):
+    async def test_initialize_dry_run_skips_target(
+        self, mock_source_config, mock_target_config
+    ):
         """Test dry_run mode skips target client initialization."""
         from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
 
-        with patch("integrations.graphiti.migrate_embeddings.GraphitiClient") as mock_client_class:
+        with patch(
+            "integrations.graphiti.queries_pkg.client.GraphitiClient"
+        ) as mock_client_class:
             mock_source = MagicMock()
             mock_source.initialize = AsyncMock(return_value=True)
             mock_client_class.return_value = mock_source
@@ -191,11 +200,15 @@ class TestEmbeddingMigratorInitialize:
             assert migrator.target_client is None
 
     @pytest.mark.asyncio
-    async def test_initialize_source_fails_returns_false(self, mock_source_config, mock_target_config):
+    async def test_initialize_source_fails_returns_false(
+        self, mock_source_config, mock_target_config
+    ):
         """Test initialization returns False when source client fails."""
         from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
 
-        with patch("integrations.graphiti.migrate_embeddings.GraphitiClient") as mock_client_class:
+        with patch(
+            "integrations.graphiti.queries_pkg.client.GraphitiClient"
+        ) as mock_client_class:
             mock_source = MagicMock()
             mock_source.initialize = AsyncMock(return_value=False)
             mock_client_class.return_value = mock_source
@@ -213,11 +226,15 @@ class TestEmbeddingMigratorInitialize:
             assert migrator.target_client is None
 
     @pytest.mark.asyncio
-    async def test_initialize_source_exception_returns_false(self, mock_source_config, mock_target_config):
+    async def test_initialize_source_exception_returns_false(
+        self, mock_source_config, mock_target_config
+    ):
         """Test initialization handles source client exception."""
         from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
 
-        with patch("integrations.graphiti.migrate_embeddings.GraphitiClient") as mock_client_class:
+        with patch(
+            "integrations.graphiti.queries_pkg.client.GraphitiClient"
+        ) as mock_client_class:
             mock_source = MagicMock()
             mock_source.initialize = AsyncMock(side_effect=Exception("DB error"))
             mock_client_class.return_value = mock_source
@@ -233,11 +250,15 @@ class TestEmbeddingMigratorInitialize:
             assert result is False
 
     @pytest.mark.asyncio
-    async def test_initialize_target_fails_cleans_up_source(self, mock_source_config, mock_target_config):
+    async def test_initialize_target_fails_cleans_up_source(
+        self, mock_source_config, mock_target_config
+    ):
         """Test initialization cleans up source when target fails."""
         from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
 
-        with patch("integrations.graphiti.migrate_embeddings.GraphitiClient") as mock_client_class:
+        with patch(
+            "integrations.graphiti.queries_pkg.client.GraphitiClient"
+        ) as mock_client_class:
             mock_source = MagicMock()
             mock_source.initialize = AsyncMock(return_value=True)
             mock_source.close = AsyncMock()
@@ -284,7 +305,9 @@ class TestGetSourceEpisodes:
                 "source_description": "desc1",
             }
         ]
-        mock_source_client._driver.execute_query = AsyncMock(return_value=(mock_records, None, None))
+        mock_source_client._driver.execute_query = AsyncMock(
+            return_value=(mock_records, None, None)
+        )
 
         migrator = EmbeddingMigrator(
             source_config=MagicMock(),
@@ -305,7 +328,9 @@ class TestGetSourceEpisodes:
         """Test get_source_episodes with empty result."""
         from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
 
-        mock_source_client._driver.execute_query = AsyncMock(return_value=([], None, None))
+        mock_source_client._driver.execute_query = AsyncMock(
+            return_value=([], None, None)
+        )
 
         migrator = EmbeddingMigrator(
             source_config=MagicMock(),
@@ -324,7 +349,9 @@ class TestGetSourceEpisodes:
         """Test get_source_episodes handles exceptions."""
         from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
 
-        mock_source_client._driver.execute_query = AsyncMock(side_effect=Exception("Query failed"))
+        mock_source_client._driver.execute_query = AsyncMock(
+            side_effect=Exception("Query failed")
+        )
 
         migrator = EmbeddingMigrator(
             source_config=MagicMock(),
@@ -476,7 +503,9 @@ class TestMigrateEpisode:
             "source_description": "Test episode",
         }
 
-        mock_target_client.graphiti.add_episode = AsyncMock(side_effect=Exception("Migration failed"))
+        mock_target_client.graphiti.add_episode = AsyncMock(
+            side_effect=Exception("Migration failed")
+        )
 
         migrator = EmbeddingMigrator(
             source_config=MagicMock(),
@@ -651,14 +680,22 @@ class TestAutomaticMigration:
 
         mock_config = MagicMock()
         mock_config.embedder_provider = "ollama"
-        mock_config.get_provider_specific_database_name = MagicMock(return_value="test_db")
+        mock_config.get_provider_specific_database_name = MagicMock(
+            return_value="test_db"
+        )
 
-        with patch("integrations.graphiti.migrate_embeddings.GraphitiConfig") as mock_config_class:
-            with patch("integrations.graphiti.migrate_embeddings.EmbeddingMigrator") as mock_migrator_class:
+        with patch(
+            "integrations.graphiti.migrate_embeddings.GraphitiConfig"
+        ) as mock_config_class:
+            with patch(
+                "integrations.graphiti.migrate_embeddings.EmbeddingMigrator"
+            ) as mock_migrator_class:
                 mock_config_class.from_env.return_value = mock_config
                 mock_migrator = MagicMock()
                 mock_migrator.initialize = AsyncMock(return_value=True)
-                mock_migrator.migrate_all = AsyncMock(return_value={"total": 10, "succeeded": 10, "failed": 0})
+                mock_migrator.migrate_all = AsyncMock(
+                    return_value={"total": 10, "succeeded": 10, "failed": 0}
+                )
                 mock_migrator.close = AsyncMock()
                 mock_migrator_class.return_value = mock_migrator
 
@@ -683,7 +720,9 @@ class TestAutomaticMigration:
         mock_config = MagicMock()
         mock_config.embedder_provider = "openai"
 
-        with patch("integrations.graphiti.migrate_embeddings.GraphitiConfig") as mock_config_class:
+        with patch(
+            "integrations.graphiti.migrate_embeddings.GraphitiConfig"
+        ) as mock_config_class:
             mock_config_class.from_env.return_value = mock_config
 
             await automatic_migration(args)
@@ -704,10 +743,16 @@ class TestAutomaticMigration:
 
         mock_config = MagicMock()
         mock_config.embedder_provider = "ollama"
-        mock_config.get_provider_specific_database_name = MagicMock(return_value="test_db")
+        mock_config.get_provider_specific_database_name = MagicMock(
+            return_value="test_db"
+        )
 
-        with patch("integrations.graphiti.migrate_embeddings.GraphitiConfig") as mock_config_class:
-            with patch("integrations.graphiti.migrate_embeddings.EmbeddingMigrator") as mock_migrator_class:
+        with patch(
+            "integrations.graphiti.migrate_embeddings.GraphitiConfig"
+        ) as mock_config_class:
+            with patch(
+                "integrations.graphiti.migrate_embeddings.EmbeddingMigrator"
+            ) as mock_migrator_class:
                 mock_config_class.from_env.return_value = mock_config
                 mock_migrator = MagicMock()
                 mock_migrator.initialize = AsyncMock(return_value=False)
@@ -732,7 +777,9 @@ class TestMain:
         from integrations.graphiti.migrate_embeddings import main
 
         with patch("integrations.graphiti.migrate_embeddings.asyncio.run") as mock_run:
-            with patch("integrations.graphiti.migrate_embeddings.argparse.ArgumentParser") as mock_parser_class:
+            with patch(
+                "integrations.graphiti.migrate_embeddings.argparse.ArgumentParser"
+            ) as mock_parser_class:
                 mock_parser = MagicMock()
                 mock_parser_class.return_value = mock_parser
                 mock_args = MagicMock(
@@ -753,7 +800,9 @@ class TestMain:
         from integrations.graphiti.migrate_embeddings import main
 
         with patch("integrations.graphiti.migrate_embeddings.asyncio.run") as mock_run:
-            with patch("integrations.graphiti.migrate_embeddings.argparse.ArgumentParser") as mock_parser_class:
+            with patch(
+                "integrations.graphiti.migrate_embeddings.argparse.ArgumentParser"
+            ) as mock_parser_class:
                 mock_parser = MagicMock()
                 mock_parser_class.return_value = mock_parser
                 mock_args = MagicMock(

@@ -39,15 +39,15 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Add auto-claude to path
-auto_claude_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(auto_claude_dir))
+# Add backend to path
+backend_dir = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(backend_dir))
 
 # Load .env file
 try:
     from dotenv import load_dotenv
 
-    env_file = auto_claude_dir / ".env"
+    env_file = backend_dir / ".env"
     if env_file.exists():
         load_dotenv(env_file)
         print(f"Loaded .env from {env_file}")

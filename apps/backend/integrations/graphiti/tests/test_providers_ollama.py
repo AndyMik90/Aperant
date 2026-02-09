@@ -11,14 +11,15 @@ Tests cover:
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from integrations.graphiti.providers_pkg.embedder_providers.ollama_embedder import (
     KNOWN_OLLAMA_EMBEDDING_MODELS,
     create_ollama_embedder,
     get_embedding_dim_for_model,
 )
-from integrations.graphiti.providers_pkg.exceptions import ProviderError, ProviderNotInstalled
-
+from integrations.graphiti.providers_pkg.exceptions import (
+    ProviderError,
+    ProviderNotInstalled,
+)
 
 # =============================================================================
 # Test get_embedding_dim_for_model
@@ -85,8 +86,12 @@ class TestKnownOllamaEmbeddingModels:
 
         for model in expected_models:
             # Check if base model exists (without tag)
-            base_found = any(key.startswith(model) for key in KNOWN_OLLAMA_EMBEDDING_MODELS.keys())
-            assert base_found, f"Model {model} not found in KNOWN_OLLAMA_EMBEDDING_MODELS"
+            base_found = any(
+                key.startswith(model) for key in KNOWN_OLLAMA_EMBEDDING_MODELS.keys()
+            )
+            assert base_found, (
+                f"Model {model} not found in KNOWN_OLLAMA_EMBEDDING_MODELS"
+            )
 
     def test_known_models_dimensions_are_positive(self):
         """Test all dimensions in KNOWN_OLLAMA_EMBEDDING_MODELS are positive integers."""
@@ -135,10 +140,19 @@ class TestCreateOllamaEmbedder:
 
     def test_create_ollama_embedder_import_error(self, mock_config):
         """Test create_ollama_embedder raises ProviderNotInstalled on ImportError."""
-        with patch(
-            "integrations.graphiti.providers_pkg.embedder_providers.ollama_embedder.OpenAIEmbedder",
-            side_effect=ImportError("graphiti-core not installed"),
-        ):
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            # Only block the specific import that create_ollama_embedder uses
+            if name == "graphiti_core.embedder.openai" or name.startswith(
+                "graphiti_core.embedder.openai."
+            ):
+                raise ImportError("graphiti-core not installed")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
             with pytest.raises(ProviderNotInstalled) as exc_info:
                 create_ollama_embedder(mock_config)
 
@@ -221,7 +235,9 @@ class TestCreateOllamaEmbedder:
                 call_kwargs = mock_config_class.call_args.kwargs
                 assert call_kwargs["api_key"] == "ollama"
                 assert call_kwargs["embedding_model"] == "mxbai-embed-large"
-                assert call_kwargs["embedding_dim"] == 1024  # Known dimension for mxbai-embed-large
+                assert (
+                    call_kwargs["embedding_dim"] == 1024
+                )  # Known dimension for mxbai-embed-large
 
     @pytest.mark.slow
     def test_create_ollama_embedder_with_configured_dimension(self, mock_config):

@@ -7,15 +7,17 @@ Tests cover:
 - ProviderError for missing configuration
 """
 
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from integrations.graphiti.providers_pkg.embedder_providers.voyage_embedder import (
     create_voyage_embedder,
 )
-from integrations.graphiti.providers_pkg.exceptions import ProviderError, ProviderNotInstalled
-
+from integrations.graphiti.providers_pkg.exceptions import (
+    ProviderError,
+    ProviderNotInstalled,
+)
 
 # =============================================================================
 # Test create_voyage_embedder
@@ -39,7 +41,7 @@ class TestCreateVoyageEmbedder:
         mock_embedder = MagicMock()
 
         with patch(
-            "integrations.graphiti.providers_pkg.embedder_providers.voyage_embedder.VoyageEmbedder",
+            "graphiti_core.embedder.voyage.VoyageEmbedder",
             return_value=mock_embedder,
         ):
             result = create_voyage_embedder(mock_config)
@@ -47,19 +49,32 @@ class TestCreateVoyageEmbedder:
 
     def test_create_voyage_embedder_missing_api_key(self, mock_config):
         """Test create_voyage_embedder raises ProviderError for missing API key."""
-        mock_config.voyage_api_key = None
 
-        with pytest.raises(ProviderError) as exc_info:
-            create_voyage_embedder(mock_config)
+        mock_voyage = MagicMock()
+        mock_voyage.VoyageAIConfig = MagicMock
+        mock_voyage.VoyageEmbedder = MagicMock
 
-        assert "VOYAGE_API_KEY" in str(exc_info.value)
+        # Mock the voyage module to allow import to succeed
+        with patch.dict(sys.modules, {"graphiti_core.embedder.voyage": mock_voyage}):
+            mock_config.voyage_api_key = None
+
+            with pytest.raises(ProviderError) as exc_info:
+                create_voyage_embedder(mock_config)
+
+            assert "VOYAGE_API_KEY" in str(exc_info.value)
 
     def test_create_voyage_embedder_import_error(self, mock_config):
         """Test create_voyage_embedder raises ProviderNotInstalled on ImportError."""
-        with patch(
-            "integrations.graphiti.providers_pkg.embedder_providers.voyage_embedder.VoyageEmbedder",
-            side_effect=ImportError("graphiti-core[voyage] not installed"),
-        ):
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name.startswith("graphiti_core.embedder.voyage"):
+                raise ImportError("graphiti-core[voyage] not installed")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
             with pytest.raises(ProviderNotInstalled) as exc_info:
                 create_voyage_embedder(mock_config)
 
@@ -73,10 +88,10 @@ class TestCreateVoyageEmbedder:
         mock_embedder = MagicMock()
 
         with patch(
-            "integrations.graphiti.providers_pkg.embedder_providers.voyage_embedder.VoyageAIConfig",
+            "graphiti_core.embedder.voyage.VoyageAIConfig",
         ) as mock_config_class:
             with patch(
-                "integrations.graphiti.providers_pkg.embedder_providers.voyage_embedder.VoyageEmbedder",
+                "graphiti_core.embedder.voyage.VoyageEmbedder",
                 return_value=mock_embedder,
             ):
                 create_voyage_embedder(mock_config)

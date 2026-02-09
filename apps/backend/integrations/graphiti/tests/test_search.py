@@ -12,17 +12,15 @@ from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-
 from integrations.graphiti.queries_pkg.schema import (
     EPISODE_TYPE_GOTCHA,
     EPISODE_TYPE_PATTERN,
     EPISODE_TYPE_SESSION_INSIGHT,
     EPISODE_TYPE_TASK_OUTCOME,
-    GroupIdMode,
     MAX_CONTEXT_RESULTS,
+    GroupIdMode,
 )
 from integrations.graphiti.queries_pkg.search import GraphitiSearch
-
 
 # =============================================================================
 # TEST FIXTURES
@@ -71,7 +69,9 @@ def graphiti_search(mock_client, project_dir):
 # =============================================================================
 
 
-def _create_mock_result(content: Any = None, score: float = 0.8, result_type: str = "unknown") -> Mock:
+def _create_mock_result(
+    content: Any = None, score: float = 0.8, result_type: str = "unknown"
+) -> Mock:
     """Create a mock Graphiti search result with various attributes."""
     result = Mock()
     result.content = content
@@ -204,8 +204,12 @@ class TestGetRelevantContext:
     async def test_calls_search_with_correct_params(self, graphiti_search, mock_client):
         """Test get_relevant_context calls client.graphiti.search with correct params."""
         mock_results = [
-            _create_mock_result(content="Test content 1", score=0.9, result_type="codebase"),
-            _create_mock_result(content="Test content 2", score=0.7, result_type="pattern"),
+            _create_mock_result(
+                content="Test content 1", score=0.9, result_type="codebase"
+            ),
+            _create_mock_result(
+                content="Test content 2", score=0.7, result_type="pattern"
+            ),
         ]
         mock_client.graphiti.search.return_value = mock_results
 
@@ -223,10 +227,14 @@ class TestGetRelevantContext:
         )
 
     @pytest.mark.asyncio
-    async def test_returns_context_items_with_content_score_type(self, graphiti_search, mock_client):
+    async def test_returns_context_items_with_content_score_type(
+        self, graphiti_search, mock_client
+    ):
         """Test get_relevant_context returns list of context items with content, score, type."""
         mock_results = [
-            _create_mock_result(content="Auth content", score=0.9, result_type="pattern"),
+            _create_mock_result(
+                content="Auth content", score=0.9, result_type="pattern"
+            ),
             _create_mock_result(content="Code snippet", score=0.7, result_type="code"),
         ]
         mock_client.graphiti.search.return_value = mock_results
@@ -247,7 +255,9 @@ class TestGetRelevantContext:
         mock_results = [
             _create_mock_result(content="High score", score=0.9, result_type="pattern"),
             _create_mock_result(content="Low score", score=0.3, result_type="code"),
-            _create_mock_result(content="Medium score", score=0.6, result_type="pattern"),
+            _create_mock_result(
+                content="Medium score", score=0.6, result_type="pattern"
+            ),
         ]
         mock_client.graphiti.search.return_value = mock_results
 
@@ -262,7 +272,9 @@ class TestGetRelevantContext:
         assert result[1]["content"] == "Medium score"
 
     @pytest.mark.asyncio
-    async def test_spec_mode_includes_project_group_id(self, graphiti_search, mock_client, project_dir):
+    async def test_spec_mode_includes_project_group_id(
+        self, graphiti_search, mock_client, project_dir
+    ):
         """Test get_relevant_context in SPEC mode with include_project_context=True adds project group_id."""
         # Create search instance with SPEC mode
         search = GraphitiSearch(
@@ -314,7 +326,9 @@ class TestGetRelevantContext:
         assert group_ids[0] == "test_group_id"
 
     @pytest.mark.asyncio
-    async def test_project_mode_uses_only_project_group_id(self, mock_client, project_dir):
+    async def test_project_mode_uses_only_project_group_id(
+        self, mock_client, project_dir
+    ):
         """Test get_relevant_context in PROJECT mode uses only project group_id."""
         # Create search instance with PROJECT mode
         search = GraphitiSearch(
@@ -356,7 +370,9 @@ class TestGetRelevantContext:
         """Test get_relevant_context captures exception via sentry."""
         mock_client.graphiti.search.side_effect = Exception("Search error")
 
-        with patch("integrations.graphiti.queries_pkg.search.capture_exception") as mock_capture:
+        with patch(
+            "integrations.graphiti.queries_pkg.search.capture_exception"
+        ) as mock_capture:
             await graphiti_search.get_relevant_context(query="test query")
 
             # Verify capture_exception was called with correct parameters
@@ -368,11 +384,12 @@ class TestGetRelevantContext:
             assert call_kwargs["operation"] == "get_relevant_context"
 
     @pytest.mark.asyncio
-    async def test_limits_num_results_to_max_context_results(self, graphiti_search, mock_client):
+    async def test_limits_num_results_to_max_context_results(
+        self, graphiti_search, mock_client
+    ):
         """Test get_relevant_context respects MAX_CONTEXT_RESULTS limit."""
         mock_results = [
-            _create_mock_result(content=f"Result {i}", score=0.8)
-            for i in range(20)
+            _create_mock_result(content=f"Result {i}", score=0.8) for i in range(20)
         ]
         mock_client.graphiti.search.return_value = mock_results
 
@@ -391,7 +408,9 @@ class TestGetRelevantContext:
         )
 
     @pytest.mark.asyncio
-    async def test_extracts_content_from_fact_attribute(self, graphiti_search, mock_client):
+    async def test_extracts_content_from_fact_attribute(
+        self, graphiti_search, mock_client
+    ):
         """Test get_relevant_context extracts content from fact attribute when content is None."""
         mock_result = Mock()
         mock_result.content = None
@@ -433,7 +452,9 @@ class TestGetSessionHistory:
     """Tests for GraphitiSearch.get_session_history method."""
 
     @pytest.mark.asyncio
-    async def test_searches_with_session_insight_query(self, graphiti_search, mock_client):
+    async def test_searches_with_session_insight_query(
+        self, graphiti_search, mock_client
+    ):
         """Test get_session_history searches for 'session insight' query."""
         valid_insight = _create_valid_session_insight(session_number=1)
         mock_client.graphiti.search.return_value = [
@@ -450,7 +471,9 @@ class TestGetSessionHistory:
         assert "subtasks" in query
 
     @pytest.mark.asyncio
-    async def test_returns_sessions_sorted_by_session_number_desc(self, graphiti_search, mock_client):
+    async def test_returns_sessions_sorted_by_session_number_desc(
+        self, graphiti_search, mock_client
+    ):
         """Test get_session_history returns sessions sorted by session_number desc."""
         insights = [
             _create_valid_session_insight(session_number=3),
@@ -460,8 +483,7 @@ class TestGetSessionHistory:
         ]
 
         mock_client.graphiti.search.return_value = [
-            _create_mock_result(content=insight, score=0.9)
-            for insight in insights
+            _create_mock_result(content=insight, score=0.9) for insight in insights
         ]
 
         result = await graphiti_search.get_session_history(limit=5)
@@ -473,7 +495,9 @@ class TestGetSessionHistory:
         assert result[3]["session_number"] == 1
 
     @pytest.mark.asyncio
-    async def test_filters_by_spec_id_when_spec_only_true(self, graphiti_search, mock_client):
+    async def test_filters_by_spec_id_when_spec_only_true(
+        self, graphiti_search, mock_client
+    ):
         """Test get_session_history filters by spec_id when spec_only=True."""
         insight_same_spec = _create_valid_session_insight(
             session_number=1,
@@ -499,7 +523,9 @@ class TestGetSessionHistory:
         assert result[0]["spec_id"] == "test_spec_123"
 
     @pytest.mark.asyncio
-    async def test_returns_all_specs_when_spec_only_false(self, graphiti_search, mock_client):
+    async def test_returns_all_specs_when_spec_only_false(
+        self, graphiti_search, mock_client
+    ):
         """Test get_session_history returns all specs when spec_only=False."""
         insight_1 = _create_valid_session_insight(
             session_number=1,
@@ -524,7 +550,9 @@ class TestGetSessionHistory:
         assert len(result) == 2
 
     @pytest.mark.asyncio
-    async def test_handles_json_decode_errors_gracefully(self, graphiti_search, mock_client):
+    async def test_handles_json_decode_errors_gracefully(
+        self, graphiti_search, mock_client
+    ):
         """Test get_session_history handles JSON decode errors gracefully."""
         invalid_json = '{"type": "session_insight", "session_number": 1, invalid json'
         valid_insight = _create_valid_session_insight(session_number=2)
@@ -571,7 +599,9 @@ class TestGetSessionHistory:
         """Test get_session_history captures exception via sentry."""
         mock_client.graphiti.search.side_effect = Exception("Search error")
 
-        with patch("integrations.graphiti.queries_pkg.search.capture_exception") as mock_capture:
+        with patch(
+            "integrations.graphiti.queries_pkg.search.capture_exception"
+        ) as mock_capture:
             await graphiti_search.get_session_history(limit=5)
 
             # Verify capture_exception was called
@@ -581,7 +611,9 @@ class TestGetSessionHistory:
             assert call_kwargs["operation"] == "get_session_history"
 
     @pytest.mark.asyncio
-    async def test_limits_results_to_limit_parameter(self, graphiti_search, mock_client):
+    async def test_limits_results_to_limit_parameter(
+        self, graphiti_search, mock_client
+    ):
         """Test get_session_history respects the limit parameter."""
         insights = [
             _create_valid_session_insight(session_number=i)
@@ -589,8 +621,7 @@ class TestGetSessionHistory:
         ]
 
         mock_client.graphiti.search.return_value = [
-            _create_mock_result(content=insight, score=0.9)
-            for insight in insights
+            _create_mock_result(content=insight, score=0.9) for insight in insights
         ]
 
         result = await graphiti_search.get_session_history(limit=5)
@@ -601,7 +632,9 @@ class TestGetSessionHistory:
         assert result[4]["session_number"] == 6
 
     @pytest.mark.asyncio
-    async def test_searches_more_than_limit_for_filtering(self, graphiti_search, mock_client):
+    async def test_searches_more_than_limit_for_filtering(
+        self, graphiti_search, mock_client
+    ):
         """Test get_session_history searches limit*2 results for filtering."""
         mock_client.graphiti.search.return_value = []
 
@@ -621,7 +654,9 @@ class TestGetSimilarTaskOutcomes:
     """Tests for GraphitiSearch.get_similar_task_outcomes method."""
 
     @pytest.mark.asyncio
-    async def test_searches_with_task_description_in_query(self, graphiti_search, mock_client):
+    async def test_searches_with_task_description_in_query(
+        self, graphiti_search, mock_client
+    ):
         """Test get_similar_task_outcomes searches with task description in query."""
         valid_outcome = _create_valid_task_outcome()
         mock_client.graphiti.search.return_value = [
@@ -640,7 +675,9 @@ class TestGetSimilarTaskOutcomes:
         assert "Implement authentication" in query
 
     @pytest.mark.asyncio
-    async def test_returns_outcomes_with_task_id_success_outcome_score(self, graphiti_search, mock_client):
+    async def test_returns_outcomes_with_task_id_success_outcome_score(
+        self, graphiti_search, mock_client
+    ):
         """Test get_similar_task_outcomes returns list of outcomes with task_id, success, outcome, score."""
         outcomes = [
             _create_valid_task_outcome(
@@ -656,8 +693,7 @@ class TestGetSimilarTaskOutcomes:
         ]
 
         mock_client.graphiti.search.return_value = [
-            _create_mock_result(content=outcome, score=0.9)
-            for outcome in outcomes
+            _create_mock_result(content=outcome, score=0.9) for outcome in outcomes
         ]
 
         result = await graphiti_search.get_similar_task_outcomes(
@@ -677,7 +713,9 @@ class TestGetSimilarTaskOutcomes:
         assert result[1]["score"] == 0.9
 
     @pytest.mark.asyncio
-    async def test_filters_by_episode_type_task_outcome(self, graphiti_search, mock_client):
+    async def test_filters_by_episode_type_task_outcome(
+        self, graphiti_search, mock_client
+    ):
         """Test get_similar_task_outcomes filters by EPISODE_TYPE_TASK_OUTCOME."""
         task_outcome = _create_valid_task_outcome()
         pattern = _create_valid_pattern()
@@ -697,7 +735,9 @@ class TestGetSimilarTaskOutcomes:
         assert result[0]["task_id"] == "task-123"
 
     @pytest.mark.asyncio
-    async def test_handles_json_decode_errors_gracefully(self, graphiti_search, mock_client):
+    async def test_handles_json_decode_errors_gracefully(
+        self, graphiti_search, mock_client
+    ):
         """Test get_similar_task_outcomes handles JSON decode errors gracefully."""
         invalid_json = '{"type": "task_outcome", "task_id": "1", invalid json'
         valid_outcome = _create_valid_task_outcome()
@@ -753,7 +793,9 @@ class TestGetSimilarTaskOutcomes:
         """Test get_similar_task_outcomes captures exception via sentry."""
         mock_client.graphiti.search.side_effect = Exception("Search error")
 
-        with patch("integrations.graphiti.queries_pkg.search.capture_exception") as mock_capture:
+        with patch(
+            "integrations.graphiti.queries_pkg.search.capture_exception"
+        ) as mock_capture:
             await graphiti_search.get_similar_task_outcomes(
                 task_description="test task",
                 limit=5,
@@ -767,16 +809,14 @@ class TestGetSimilarTaskOutcomes:
             assert call_kwargs["operation"] == "get_similar_task_outcomes"
 
     @pytest.mark.asyncio
-    async def test_limits_results_to_limit_parameter(self, graphiti_search, mock_client):
+    async def test_limits_results_to_limit_parameter(
+        self, graphiti_search, mock_client
+    ):
         """Test get_similar_task_outcomes respects the limit parameter."""
-        outcomes = [
-            _create_valid_task_outcome(task_id=f"task-{i}")
-            for i in range(10)
-        ]
+        outcomes = [_create_valid_task_outcome(task_id=f"task-{i}") for i in range(10)]
 
         mock_client.graphiti.search.return_value = [
-            _create_mock_result(content=outcome, score=0.9)
-            for outcome in outcomes
+            _create_mock_result(content=outcome, score=0.9) for outcome in outcomes
         ]
 
         result = await graphiti_search.get_similar_task_outcomes(
@@ -797,7 +837,9 @@ class TestGetPatternsAndGotchas:
     """Tests for GraphitiSearch.get_patterns_and_gotchas method."""
 
     @pytest.mark.asyncio
-    async def test_returns_tuple_of_patterns_and_gotchas(self, graphiti_search, mock_client):
+    async def test_returns_tuple_of_patterns_and_gotchas(
+        self, graphiti_search, mock_client
+    ):
         """Test get_patterns_and_gotchas returns tuple of (patterns, gotchas)."""
         pattern = _create_valid_pattern()
         gotcha = _create_valid_gotcha()
@@ -821,7 +863,9 @@ class TestGetPatternsAndGotchas:
         assert len(gotchas) == 1
 
     @pytest.mark.asyncio
-    async def test_patterns_filtered_by_episode_type_pattern(self, graphiti_search, mock_client):
+    async def test_patterns_filtered_by_episode_type_pattern(
+        self, graphiti_search, mock_client
+    ):
         """Test get_patterns_and_gotchas filters patterns by EPISODE_TYPE_PATTERN."""
         pattern = _create_valid_pattern()
         gotcha = _create_valid_gotcha()
@@ -831,7 +875,9 @@ class TestGetPatternsAndGotchas:
             side_effect=[
                 [
                     _create_mock_result(content=pattern, score=0.9),
-                    _create_mock_result(content=gotcha, score=0.8),  # Should be filtered
+                    _create_mock_result(
+                        content=gotcha, score=0.8
+                    ),  # Should be filtered
                 ],
                 [],  # Gotcha search
             ]
@@ -848,7 +894,9 @@ class TestGetPatternsAndGotchas:
         assert len(gotchas) == 0
 
     @pytest.mark.asyncio
-    async def test_gotchas_filtered_by_episode_type_gotcha(self, graphiti_search, mock_client):
+    async def test_gotchas_filtered_by_episode_type_gotcha(
+        self, graphiti_search, mock_client
+    ):
         """Test get_patterns_and_gotchas filters gotchas by EPISODE_TYPE_GOTCHA."""
         pattern = _create_valid_pattern()
         gotcha = _create_valid_gotcha()
@@ -859,7 +907,9 @@ class TestGetPatternsAndGotchas:
                 [],  # Pattern search
                 [
                     _create_mock_result(content=gotcha, score=0.8),
-                    _create_mock_result(content=pattern, score=0.9),  # Should be filtered
+                    _create_mock_result(
+                        content=pattern, score=0.9
+                    ),  # Should be filtered
                 ],
             ]
         )
@@ -955,13 +1005,9 @@ class TestGetPatternsAndGotchas:
     async def test_limits_results_to_num_results(self, graphiti_search, mock_client):
         """Test get_patterns_and_gotchas limits results to num_results."""
         patterns_data = [
-            _create_valid_pattern(pattern=f"Pattern {i}")
-            for i in range(10)
+            _create_valid_pattern(pattern=f"Pattern {i}") for i in range(10)
         ]
-        gotchas_data = [
-            _create_valid_gotcha(gotcha=f"Gotcha {i}")
-            for i in range(10)
-        ]
+        gotchas_data = [_create_valid_gotcha(gotcha=f"Gotcha {i}") for i in range(10)]
 
         mock_client.graphiti.search = AsyncMock(
             side_effect=[
@@ -987,7 +1033,9 @@ class TestGetPatternsAndGotchas:
         assert len(gotchas) == 5
 
     @pytest.mark.asyncio
-    async def test_handles_json_decode_errors_gracefully(self, graphiti_search, mock_client):
+    async def test_handles_json_decode_errors_gracefully(
+        self, graphiti_search, mock_client
+    ):
         """Test get_patterns_and_gotchas handles JSON decode errors gracefully."""
         invalid_pattern_json = '{"type": "pattern", invalid json'
         valid_pattern = _create_valid_pattern()
@@ -1060,7 +1108,9 @@ class TestGetPatternsAndGotchas:
         """Test get_patterns_and_gotchas captures exception via sentry."""
         mock_client.graphiti.search.side_effect = Exception("Search error")
 
-        with patch("integrations.graphiti.queries_pkg.search.capture_exception") as mock_capture:
+        with patch(
+            "integrations.graphiti.queries_pkg.search.capture_exception"
+        ) as mock_capture:
             patterns, gotchas = await graphiti_search.get_patterns_and_gotchas(
                 query="test query",
                 num_results=5,
@@ -1074,7 +1124,9 @@ class TestGetPatternsAndGotchas:
             assert call_kwargs["operation"] == "get_patterns_and_gotchas"
 
     @pytest.mark.asyncio
-    async def test_searches_with_pattern_focused_query(self, graphiti_search, mock_client):
+    async def test_searches_with_pattern_focused_query(
+        self, graphiti_search, mock_client
+    ):
         """Test get_patterns_and_gotchas searches with 'pattern:' prefix for patterns."""
         mock_client.graphiti.search = AsyncMock(
             side_effect=[
@@ -1095,7 +1147,9 @@ class TestGetPatternsAndGotchas:
         assert "authentication" in pattern_query
 
     @pytest.mark.asyncio
-    async def test_searches_with_gotcha_focused_query(self, graphiti_search, mock_client):
+    async def test_searches_with_gotcha_focused_query(
+        self, graphiti_search, mock_client
+    ):
         """Test get_patterns_and_gotchas searches with gotcha/pitfall keywords for gotchas."""
         mock_client.graphiti.search = AsyncMock(
             side_effect=[
@@ -1167,7 +1221,9 @@ class TestGetPatternsAndGotchas:
 
         assert len(gotchas) == 1
         assert gotchas[0]["gotcha"] == "Database connection leak"
-        assert gotchas[0]["trigger"] == "Long-running queries without connection pooling"
+        assert (
+            gotchas[0]["trigger"] == "Long-running queries without connection pooling"
+        )
         assert gotchas[0]["solution"] == "Use connection pool with proper timeout"
         assert gotchas[0]["score"] == 0.85
 
@@ -1181,7 +1237,9 @@ class TestEdgeCases:
     """Additional edge case tests for robustness."""
 
     @pytest.mark.asyncio
-    async def test_get_relevant_context_with_empty_results(self, graphiti_search, mock_client):
+    async def test_get_relevant_context_with_empty_results(
+        self, graphiti_search, mock_client
+    ):
         """Test get_relevant_context handles empty search results."""
         mock_client.graphiti.search.return_value = []
 
@@ -1190,7 +1248,9 @@ class TestEdgeCases:
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_get_session_history_with_no_matching_results(self, graphiti_search, mock_client):
+    async def test_get_session_history_with_no_matching_results(
+        self, graphiti_search, mock_client
+    ):
         """Test get_session_history handles no matching session insights."""
         # Return results that don't match session_insight type
         pattern = _create_valid_pattern()
@@ -1244,7 +1304,9 @@ class TestEdgeCases:
         assert gotchas == []
 
     @pytest.mark.asyncio
-    async def test_get_relevant_context_with_none_score(self, graphiti_search, mock_client):
+    async def test_get_relevant_context_with_none_score(
+        self, graphiti_search, mock_client
+    ):
         """Test get_relevant_context handles results with None score."""
         mock_result = Mock()
         mock_result.content = "Test content"
@@ -1274,7 +1336,9 @@ class TestEdgeCases:
         assert len(result_filtered) == 0
 
     @pytest.mark.asyncio
-    async def test_all_methods_handle_string_and_dict_content(self, graphiti_search, mock_client):
+    async def test_all_methods_handle_string_and_dict_content(
+        self, graphiti_search, mock_client
+    ):
         """Test all methods handle both string JSON and dict content."""
         # String JSON
         string_insight = json.dumps(_create_valid_session_insight(session_number=1))

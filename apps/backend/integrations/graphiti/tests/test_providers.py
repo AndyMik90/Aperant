@@ -13,7 +13,6 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
-
 from integrations.graphiti.providers_pkg import (
     EMBEDDING_DIMENSIONS,
     ProviderError,
@@ -29,7 +28,6 @@ from integrations.graphiti.providers_pkg import (
     test_ollama_connection,
     validate_embedding_config,
 )
-
 
 # =============================================================================
 # Test Constants
@@ -61,14 +59,16 @@ class TestEmbeddingDimensions:
         ]
 
         for model in expected_models:
-            assert model in EMBEDDING_DIMENSIONS, f"Model {model} not in EMBEDDING_DIMENSIONS"
+            assert model in EMBEDDING_DIMENSIONS, (
+                f"Model {model} not in EMBEDDING_DIMENSIONS"
+            )
 
     def test_embedding_dimensions_values_are_positive_integers(self):
         """Verify all dimension values are positive integers."""
         for model, dimension in EMBEDDING_DIMENSIONS.items():
-            assert isinstance(
-                dimension, int
-            ), f"Dimension for {model} is not an integer: {type(dimension)}"
+            assert isinstance(dimension, int), (
+                f"Dimension for {model} is not an integer: {type(dimension)}"
+            )
             assert dimension > 0, f"Dimension for {model} is not positive: {dimension}"
 
 
@@ -250,7 +250,9 @@ class TestCreateLLMClient:
 
             assert "openai package not installed" in str(exc_info.value)
 
-    def test_create_llm_client_raises_provider_error_for_invalid_config(self, mock_config):
+    def test_create_llm_client_raises_provider_error_for_invalid_config(
+        self, mock_config
+    ):
         """Test create_llm_client raises ProviderError for invalid config."""
         mock_config.llm_provider = "openai"
 
@@ -263,7 +265,9 @@ class TestCreateLLMClient:
 
             assert "Invalid API key" in str(exc_info.value)
 
-    def test_create_llm_client_raises_provider_error_for_unknown_provider(self, mock_config):
+    def test_create_llm_client_raises_provider_error_for_unknown_provider(
+        self, mock_config
+    ):
         """Test create_llm_client raises ProviderError for unknown provider."""
         mock_config.llm_provider = "unknown_provider"
 
@@ -333,7 +337,9 @@ class TestCreateEmbedder:
 
             assert "openai package not installed" in str(exc_info.value)
 
-    def test_create_embedder_raises_provider_error_for_invalid_config(self, mock_config):
+    def test_create_embedder_raises_provider_error_for_invalid_config(
+        self, mock_config
+    ):
         """Test create_embedder raises ProviderError for invalid config."""
         mock_config.embedder_provider = "voyage"
 
@@ -346,7 +352,9 @@ class TestCreateEmbedder:
 
             assert "Invalid API key" in str(exc_info.value)
 
-    def test_create_embedder_raises_provider_error_for_unknown_provider(self, mock_config):
+    def test_create_embedder_raises_provider_error_for_unknown_provider(
+        self, mock_config
+    ):
         """Test create_embedder raises ProviderError for unknown provider."""
         mock_config.embedder_provider = "unknown_provider"
 
@@ -614,31 +622,43 @@ class TestTestEmbedderConnection:
 class TestTestOllamaConnection:
     """Test test_ollama_connection validator."""
 
-    @pytest.mark.skip("Requires complex async mocking - test manually with real Ollama instance")
-    @pytest.mark.parametrize("base_url", ["http://localhost:11434", "http://localhost:11434/v1"])
+    @pytest.mark.skip(
+        "Requires complex async mocking - test manually with real Ollama instance"
+    )
+    @pytest.mark.parametrize(
+        "base_url", ["http://localhost:11434", "http://localhost:11434/v1"]
+    )
     @pytest.mark.asyncio
     async def test_test_ollama_connection_success_aiohttp(self, base_url):
         """Test test_ollama_connection with successful aiohttp connection."""
         pass
 
-    @pytest.mark.skip("Requires complex async mocking - test manually with real Ollama instance")
+    @pytest.mark.skip(
+        "Requires complex async mocking - test manually with real Ollama instance"
+    )
     @pytest.mark.asyncio
     async def test_test_ollama_connection_failure_aiohttp(self):
         """Test test_ollama_connection with aiohttp connection failure."""
         pass
 
-    @pytest.mark.skip("Requires complex async mocking - test manually with real Ollama instance")
+    @pytest.mark.skip(
+        "Requires complex async mocking - test manually with real Ollama instance"
+    )
     @pytest.mark.asyncio
     async def test_test_ollama_connection_timeout_aiohttp(self):
         """Test test_ollama_connection with aiohttp timeout."""
         pass
 
-    @pytest.mark.skip("Requires complex async mocking - test manually with real Ollama instance")
+    @pytest.mark.skip(
+        "Requires complex async mocking - test manually with real Ollama instance"
+    )
     def test_test_ollama_connection_success_urllib(self):
         """Test test_ollama_connection with successful urllib fallback."""
         pass
 
-    @pytest.mark.skip("Requires complex async mocking - test manually with real Ollama instance")
+    @pytest.mark.skip(
+        "Requires complex async mocking - test manually with real Ollama instance"
+    )
     def test_test_ollama_connection_failure_urllib(self):
         """Test test_ollama_connection with urllib connection failure."""
         pass
@@ -799,8 +819,12 @@ class TestGetGraphHints:
                             "integrations.graphiti.providers_pkg.utils.Path",
                             side_effect=lambda x: MagicMock(spec="Path"),
                         ):
-                            await get_graph_hints("test query", "project-123", max_results=5)
+                            await get_graph_hints(
+                                "test query", "project-123", max_results=5
+                            )
 
                             mock_memory.get_relevant_context.assert_called_once()
-                            call_kwargs = mock_memory.get_relevant_context.call_args.kwargs
+                            call_kwargs = (
+                                mock_memory.get_relevant_context.call_args.kwargs
+                            )
                             assert call_kwargs.get("num_results") == 5

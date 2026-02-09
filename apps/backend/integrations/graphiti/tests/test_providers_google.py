@@ -8,17 +8,19 @@ Tests cover:
 - ProviderError for missing configuration
 """
 
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from integrations.graphiti.providers_pkg.embedder_providers.google_embedder import (
     DEFAULT_GOOGLE_EMBEDDING_MODEL,
     GoogleEmbedder,
     create_google_embedder,
 )
-from integrations.graphiti.providers_pkg.exceptions import ProviderError, ProviderNotInstalled
-
+from integrations.graphiti.providers_pkg.exceptions import (
+    ProviderError,
+    ProviderNotInstalled,
+)
 
 # =============================================================================
 # Test GoogleEmbedder class
@@ -33,10 +35,8 @@ class TestGoogleEmbedder:
         mock_genai = MagicMock()
         mock_genai.configure = MagicMock()
 
-        with patch(
-            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.google.generativeai",
-            mock_genai,
-        ):
+        # Inject mock into sys.modules before importing
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
             embedder = GoogleEmbedder(api_key="test-key", model="test-model")
 
             assert embedder.api_key == "test-key"
@@ -48,20 +48,24 @@ class TestGoogleEmbedder:
         mock_genai = MagicMock()
         mock_genai.configure = MagicMock()
 
-        with patch(
-            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.google.generativeai",
-            mock_genai,
-        ):
+        # Inject mock into sys.modules before importing
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
             embedder = GoogleEmbedder(api_key="test-key")
 
             assert embedder.model == DEFAULT_GOOGLE_EMBEDDING_MODEL
 
     def test_google_embedder_init_import_error(self):
         """Test GoogleEmbedder raises ProviderNotInstalled on ImportError."""
-        with patch(
-            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.google.generativeai",
-            side_effect=ImportError("google-generativeai not installed"),
-        ):
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "google.generativeai" or name.startswith("google.generativeai."):
+                raise ImportError("google-generativeai not installed")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
             with pytest.raises(ProviderNotInstalled) as exc_info:
                 GoogleEmbedder(api_key="test-key")
 
@@ -73,12 +77,11 @@ class TestGoogleEmbedder:
         """Test GoogleEmbedder.create with string input."""
         mock_genai = MagicMock()
         mock_genai.configure = MagicMock()
-        mock_genai.embed_content = MagicMock(return_value={"embedding": [0.1, 0.2, 0.3]})
+        mock_genai.embed_content = MagicMock(
+            return_value={"embedding": [0.1, 0.2, 0.3]}
+        )
 
-        with patch(
-            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.google.generativeai",
-            mock_genai,
-        ):
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
             embedder = GoogleEmbedder(api_key="test-key")
             result = await embedder.create("test text")
 
@@ -90,12 +93,11 @@ class TestGoogleEmbedder:
         """Test GoogleEmbedder.create with list input."""
         mock_genai = MagicMock()
         mock_genai.configure = MagicMock()
-        mock_genai.embed_content = MagicMock(return_value={"embedding": [0.1, 0.2, 0.3]})
+        mock_genai.embed_content = MagicMock(
+            return_value={"embedding": [0.1, 0.2, 0.3]}
+        )
 
-        with patch(
-            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.google.generativeai",
-            mock_genai,
-        ):
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
             embedder = GoogleEmbedder(api_key="test-key")
             result = await embedder.create(["test", "text"])
 
@@ -112,10 +114,7 @@ class TestGoogleEmbedder:
             return_value={"embedding": [[0.1, 0.2], [0.3, 0.4]]}
         )
 
-        with patch(
-            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.google.generativeai",
-            mock_genai,
-        ):
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
             embedder = GoogleEmbedder(api_key="test-key")
             result = await embedder.create_batch(["text1", "text2"])
 
@@ -128,14 +127,9 @@ class TestGoogleEmbedder:
         mock_genai = MagicMock()
         mock_genai.configure = MagicMock()
         # Mock batch embedding response
-        mock_genai.embed_content = MagicMock(
-            return_value={"embedding": [[0.1, 0.2]]}
-        )
+        mock_genai.embed_content = MagicMock(return_value={"embedding": [[0.1, 0.2]]})
 
-        with patch(
-            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.google.generativeai",
-            mock_genai,
-        ):
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
             embedder = GoogleEmbedder(api_key="test-key")
             # Create 250 items - should be split into 3 batches (100, 100, 50)
             result = await embedder.create_batch([f"text{i}" for i in range(250)])

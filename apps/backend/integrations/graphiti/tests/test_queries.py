@@ -17,10 +17,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # =============================================================================
 # Mock External Dependencies
 # =============================================================================
+
 
 @pytest.fixture(autouse=True)
 def mock_graphiti_core_nodes():
@@ -34,19 +34,21 @@ def mock_graphiti_core_nodes():
     mock_graphiti_core.nodes = mock_nodes
 
     import sys
-    sys.modules['graphiti_core'] = mock_graphiti_core
-    sys.modules['graphiti_core.nodes'] = mock_nodes
+
+    sys.modules["graphiti_core"] = mock_graphiti_core
+    sys.modules["graphiti_core.nodes"] = mock_nodes
 
     yield mock_episode_type
 
     # Clean up
-    sys.modules.pop('graphiti_core', None)
-    sys.modules.pop('graphiti_core.nodes', None)
+    sys.modules.pop("graphiti_core", None)
+    sys.modules.pop("graphiti_core.nodes", None)
 
 
 # =============================================================================
 # Client and Queries Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def mock_client():
@@ -72,6 +74,7 @@ def queries(mock_client):
 # =============================================================================
 # Test Classes
 # =============================================================================
+
 
 class TestGraphitiQueriesInit:
     """Test GraphitiQueries initialization."""
@@ -378,11 +381,7 @@ class TestAddStructuredInsights:
     @pytest.mark.asyncio
     async def test_add_structured_insights_handles_duplicate_facts_error(self, queries):
         """Test that duplicate_facts error is handled as non-fatal."""
-        insights = {
-            "file_insights": [
-                {"path": "src/test.py", "purpose": "Test file"}
-            ]
-        }
+        insights = {"file_insights": [{"path": "src/test.py", "purpose": "Test file"}]}
 
         # First call fails with duplicate_facts, second succeeds
         queries.client.graphiti.add_episode.side_effect = [
@@ -397,11 +396,7 @@ class TestAddStructuredInsights:
     @pytest.mark.asyncio
     async def test_add_structured_insights_string_pattern(self, queries):
         """Test string pattern (non-dict) handling."""
-        insights = {
-            "patterns_discovered": [
-                "Simple string pattern"
-            ]
-        }
+        insights = {"patterns_discovered": ["Simple string pattern"]}
 
         result = await queries.add_structured_insights(insights)
 
@@ -416,11 +411,7 @@ class TestAddStructuredInsights:
     @pytest.mark.asyncio
     async def test_add_structured_insights_string_gotcha(self, queries):
         """Test string gotcha (non-dict) handling."""
-        insights = {
-            "gotchas_discovered": [
-                "Simple string gotcha"
-            ]
-        }
+        insights = {"gotchas_discovered": ["Simple string gotcha"]}
 
         result = await queries.add_structured_insights(insights)
 
@@ -442,7 +433,7 @@ class TestAddStructuredInsights:
                     "purpose": "Test module",
                     "changes_made": "Added new tests",
                     "patterns_used": ["pattern1", "pattern2"],
-                    "gotchas": ["gotcha1", "gotcha2"]
+                    "gotchas": ["gotcha1", "gotcha2"],
                 }
             ]
         }
@@ -460,13 +451,11 @@ class TestAddStructuredInsights:
         assert episode_body["gotchas"] == ["gotcha1", "gotcha2"]
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_gotcha_non_duplicate_exception(self, queries):
+    async def test_add_structured_insights_gotcha_non_duplicate_exception(
+        self, queries
+    ):
         """Test gotcha save with non-duplicate_facts exception."""
-        insights = {
-            "gotchas_discovered": [
-                {"gotcha": "Test gotcha"}
-            ]
-        }
+        insights = {"gotchas_discovered": [{"gotcha": "Test gotcha"}]}
 
         # Raise non-duplicate error
         queries.client.graphiti.add_episode.side_effect = Exception("Other error")
@@ -477,14 +466,13 @@ class TestAddStructuredInsights:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_outcome_non_duplicate_exception(self, queries):
+    async def test_add_structured_insights_outcome_non_duplicate_exception(
+        self, queries
+    ):
         """Test outcome save with non-duplicate_facts exception."""
         insights = {
             "subtask_id": "task-1",
-            "approach_outcome": {
-                "success": True,
-                "approach_used": "Test approach"
-            }
+            "approach_outcome": {"success": True, "approach_used": "Test approach"},
         }
 
         # Raise non-duplicate error
@@ -496,12 +484,11 @@ class TestAddStructuredInsights:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_recommendations_non_duplicate_exception(self, queries):
+    async def test_add_structured_insights_recommendations_non_duplicate_exception(
+        self, queries
+    ):
         """Test recommendations save with non-duplicate_facts exception."""
-        insights = {
-            "subtask_id": "task-1",
-            "recommendations": ["Test recommendation"]
-        }
+        insights = {"subtask_id": "task-1", "recommendations": ["Test recommendation"]}
 
         # Raise non-duplicate error
         queries.client.graphiti.add_episode.side_effect = Exception("Other error")
@@ -512,18 +499,23 @@ class TestAddStructuredInsights:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_top_level_exception_with_content(self, queries):
+    async def test_add_structured_insights_top_level_exception_with_content(
+        self, queries
+    ):
         """Test top-level exception with insights content."""
         insights = {
             "file_insights": [{"path": "test.py", "purpose": "test"}],
             "patterns_discovered": [{"pattern": "test pattern"}],
             "gotchas_discovered": [{"gotcha": "test gotcha"}],
             "approach_outcome": {"success": True},
-            "recommendations": ["test recommendation"]
+            "recommendations": ["test recommendation"],
         }
 
         # Mock exception during processing
-        with patch("integrations.graphiti.queries_pkg.queries.json.dumps", side_effect=Exception("JSON error")):
+        with patch(
+            "integrations.graphiti.queries_pkg.queries.json.dumps",
+            side_effect=Exception("JSON error"),
+        ):
             result = await queries.add_structured_insights(insights)
 
             assert result is False
@@ -531,9 +523,7 @@ class TestAddStructuredInsights:
     @pytest.mark.asyncio
     async def test_add_structured_insights_all_fail(self, queries):
         """Test when all episode saves fail."""
-        insights = {
-            "file_insights": [{"path": "test.py", "purpose": "test"}]
-        }
+        insights = {"file_insights": [{"path": "test.py", "purpose": "test"}]}
 
         queries.client.graphiti.add_episode.side_effect = Exception("Total failure")
 
@@ -546,61 +536,63 @@ class TestAddStructuredInsightsExceptionHandling:
     """Test add_structured_insights exception handling branches."""
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_pattern_exception_non_duplicate(self, queries):
+    async def test_add_structured_insights_pattern_exception_non_duplicate(
+        self, queries
+    ):
         """Test pattern save exception handling for non-duplicate errors."""
-        insights = {
-            "patterns_discovered": [
-                {"pattern": "Test pattern"}
-            ]
-        }
+        insights = {"patterns_discovered": [{"pattern": "Test pattern"}]}
 
-        queries.client.graphiti.add_episode.side_effect = Exception("Non-duplicate error")
+        queries.client.graphiti.add_episode.side_effect = Exception(
+            "Non-duplicate error"
+        )
 
         result = await queries.add_structured_insights(insights)
 
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_gotcha_exception_non_duplicate(self, queries):
+    async def test_add_structured_insights_gotcha_exception_non_duplicate(
+        self, queries
+    ):
         """Test gotcha save exception handling for non-duplicate errors."""
-        insights = {
-            "gotchas_discovered": [
-                {"gotcha": "Test gotcha"}
-            ]
-        }
+        insights = {"gotchas_discovered": [{"gotcha": "Test gotcha"}]}
 
-        queries.client.graphiti.add_episode.side_effect = Exception("Non-duplicate error")
+        queries.client.graphiti.add_episode.side_effect = Exception(
+            "Non-duplicate error"
+        )
 
         result = await queries.add_structured_insights(insights)
 
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_outcome_exception_non_duplicate(self, queries):
+    async def test_add_structured_insights_outcome_exception_non_duplicate(
+        self, queries
+    ):
         """Test outcome save exception handling for non-duplicate errors."""
         insights = {
             "subtask_id": "task-1",
-            "approach_outcome": {
-                "success": True,
-                "approach_used": "Test approach"
-            }
+            "approach_outcome": {"success": True, "approach_used": "Test approach"},
         }
 
-        queries.client.graphiti.add_episode.side_effect = Exception("Non-duplicate error")
+        queries.client.graphiti.add_episode.side_effect = Exception(
+            "Non-duplicate error"
+        )
 
         result = await queries.add_structured_insights(insights)
 
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_recommendations_exception_non_duplicate(self, queries):
+    async def test_add_structured_insights_recommendations_exception_non_duplicate(
+        self, queries
+    ):
         """Test recommendations save exception handling for non-duplicate errors."""
-        insights = {
-            "subtask_id": "task-1",
-            "recommendations": ["Test recommendation"]
-        }
+        insights = {"subtask_id": "task-1", "recommendations": ["Test recommendation"]}
 
-        queries.client.graphiti.add_episode.side_effect = Exception("Non-duplicate error")
+        queries.client.graphiti.add_episode.side_effect = Exception(
+            "Non-duplicate error"
+        )
 
         result = await queries.add_structured_insights(insights)
 
@@ -609,12 +601,13 @@ class TestAddStructuredInsightsExceptionHandling:
     @pytest.mark.asyncio
     async def test_add_structured_insights_top_level_exception(self, queries):
         """Test top-level exception handling in add_structured_insights."""
-        insights = {
-            "file_insights": [{"path": "test.py", "purpose": "test"}]
-        }
+        insights = {"file_insights": [{"path": "test.py", "purpose": "test"}]}
 
         # Simulate exception during JSON serialization
-        with patch("integrations.graphiti.queries_pkg.queries.json.dumps", side_effect=Exception("JSON error")):
+        with patch(
+            "integrations.graphiti.queries_pkg.queries.json.dumps",
+            side_effect=Exception("JSON error"),
+        ):
             result = await queries.add_structured_insights(insights)
 
             assert result is False
@@ -625,7 +618,7 @@ class TestAddStructuredInsightsExceptionHandling:
         insights = {
             "file_insights": [
                 {"path": "test1.py", "purpose": "test1"},
-                {"path": "test2.py", "purpose": "test2"}
+                {"path": "test2.py", "purpose": "test2"},
             ]
         }
 
@@ -641,13 +634,12 @@ class TestAddStructuredInsightsExceptionHandling:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_all_patterns_fail_with_duplicate(self, queries):
+    async def test_add_structured_insights_all_patterns_fail_with_duplicate(
+        self, queries
+    ):
         """Test all pattern saves fail with duplicate_facts error."""
         insights = {
-            "patterns_discovered": [
-                {"pattern": "Pattern 1"},
-                {"pattern": "Pattern 2"}
-            ]
+            "patterns_discovered": [{"pattern": "Pattern 1"}, {"pattern": "Pattern 2"}]
         }
 
         # Both fail with duplicate_facts error (should be counted as success)
@@ -669,7 +661,7 @@ class TestAddStructuredInsightsExceptionHandling:
                 {
                     "pattern": "Factory pattern",
                     "applies_to": "Object creation",
-                    "example": "src/factory.py"
+                    "example": "src/factory.py",
                 }
             ]
         }
@@ -693,7 +685,7 @@ class TestAddStructuredInsightsExceptionHandling:
                 {
                     "gotcha": "Mutable default args",
                     "trigger": "Function with [] as default",
-                    "solution": "Use None and check in body"
+                    "solution": "Use None and check in body",
                 }
             ]
         }
@@ -718,9 +710,9 @@ class TestAddStructuredInsightsExceptionHandling:
                 "approach_used": "Test approach",
                 "why_it_worked": "Because reasons",
                 "why_it_failed": None,
-                "alternatives_tried": ["Alt1", "Alt2"]
+                "alternatives_tried": ["Alt1", "Alt2"],
             },
-            "changed_files": ["file1.py", "file2.py"]
+            "changed_files": ["file1.py", "file2.py"],
         }
 
         result = await queries.add_structured_insights(insights)

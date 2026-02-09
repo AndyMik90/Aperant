@@ -19,10 +19,13 @@ sys.path.insert(0, str(backend_dir))
 
 def pytest_collection_modifyitems(config, items):
     """
-    Exclude validator functions that start with test_ from test collection.
+    Exclude validator functions and standalone scripts from test collection.
 
     The validators.py module contains functions named test_llm_connection and
     test_embedder_connection which are not pytest tests but validator functions.
+
+    The test_graphiti_memory.py and test_ollama_embedding_memory.py files are
+    standalone test scripts, not pytest tests.
     """
     # Filter out items that are from validators.py and are not in test classes
     filtered_items = []
@@ -30,9 +33,20 @@ def pytest_collection_modifyitems(config, items):
         # Get the full path of the test
         item_path = str(item.fspath) if hasattr(item, "fspath") else str(item.path)
 
+        # Skip standalone test scripts (they're not pytest tests)
+        if (
+            "test_graphiti_memory.py" in item_path
+            or "test_ollama_embedding_memory.py" in item_path
+        ):
+            continue
+
         # Skip the standalone test_llm_connection and test_embedder_connection
         # functions from validators.py (they're not pytest tests)
-        if item.name in ["test_llm_connection", "test_embedder_connection", "test_ollama_connection"]:
+        if item.name in [
+            "test_llm_connection",
+            "test_embedder_connection",
+            "test_ollama_connection",
+        ]:
             # Check if it's from validators.py
             if "validators.py" in item_path or "test_providers.py" in item_path:
                 # Only skip if it's a standalone function (not in a TestClass)
@@ -48,6 +62,7 @@ def pytest_collection_modifyitems(config, items):
 # External Dependency Mocks
 # =============================================================================
 
+
 @pytest.fixture
 def mock_graphiti_core():
     """Mock graphiti_core.Graphiti and related classes.
@@ -58,7 +73,9 @@ def mock_graphiti_core():
     Yields:
         tuple: (mock_graphiti_class, mock_graphiti_instance)
     """
-    with patch('integrations.graphiti.queries_pkg.graphiti.graphiti_core.Graphiti') as mock_graphiti:
+    with patch(
+        "integrations.graphiti.queries_pkg.graphiti.graphiti_core.Graphiti"
+    ) as mock_graphiti:
         # Configure the mock to return a mock instance
         mock_instance = MagicMock()
         mock_graphiti.return_value = mock_instance
@@ -82,7 +99,9 @@ def mock_falkor_driver():
     Yields:
         tuple: (mock_driver_class, mock_driver_instance)
     """
-    with patch('integrations.graphiti.queries_pkg.graphiti.graphiti_core.driver.falkordb_driver.FalkorDriver') as mock_driver:
+    with patch(
+        "integrations.graphiti.queries_pkg.graphiti.graphiti_core.driver.falkordb_driver.FalkorDriver"
+    ) as mock_driver:
         mock_instance = MagicMock()
         mock_driver.return_value = mock_instance
 
@@ -102,7 +121,9 @@ def mock_graphiti_providers():
     Yields:
         tuple: (mock_get_client, mock_client_instance)
     """
-    with patch('integrations.graphiti.providers_pkg.providers.get_client') as mock_get_client:
+    with patch(
+        "integrations.graphiti.providers_pkg.providers.get_client"
+    ) as mock_get_client:
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         yield mock_get_client, mock_client
@@ -118,9 +139,12 @@ def mock_ladybug_db():
         dict: Dictionary with 'ladybug' and 'kuzu' keys, each containing
               (mock_class, mock_instance) tuples.
     """
-    with patch('integrations.graphiti.queries_pkg.client.real_ladybug.Ladybug') as mock_ladybug, \
-         patch('integrations.graphiti.queries_pkg.client.kuzu.Connection') as mock_kuzu:
-
+    with (
+        patch(
+            "integrations.graphiti.queries_pkg.client.real_ladybug.Ladybug"
+        ) as mock_ladybug,
+        patch("integrations.graphiti.queries_pkg.client.kuzu.Connection") as mock_kuzu,
+    ):
         # Mock Ladybug instance
         ladybug_instance = MagicMock()
         mock_ladybug.return_value = ladybug_instance
@@ -132,14 +156,15 @@ def mock_ladybug_db():
         kuzu_instance.close = MagicMock()
 
         yield {
-            'ladybug': (mock_ladybug, ladybug_instance),
-            'kuzu': (mock_kuzu, kuzu_instance)
+            "ladybug": (mock_ladybug, ladybug_instance),
+            "kuzu": (mock_kuzu, kuzu_instance),
         }
 
 
 # =============================================================================
 # Config Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def mock_config():
@@ -216,6 +241,7 @@ def mock_env_vars(tmp_path):
 # Client Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def mock_graphiti_client():
     """Mock GraphitiClient with all necessary methods.
@@ -247,11 +273,11 @@ def mock_graphiti_client():
     client.graphiti.search = AsyncMock(return_value=[])
 
     # Configuration
-    client.get_config = Mock(return_value=Mock(
-        enabled=True,
-        dataset_name="test_dataset",
-        db_path="/tmp/test_graphiti.db"
-    ))
+    client.get_config = Mock(
+        return_value=Mock(
+            enabled=True, dataset_name="test_dataset", db_path="/tmp/test_graphiti.db"
+        )
+    )
 
     return client
 
@@ -294,6 +320,7 @@ def mock_graphiti_instance():
 # =============================================================================
 # Test Directory Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def temp_spec_dir(tmp_path):
@@ -363,6 +390,7 @@ def temp_db_path(tmp_path):
 # Provider Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def mock_llm_client():
     """Mocked LLM client for testing.
@@ -407,6 +435,7 @@ def mock_embedder():
 
     # Return a fixed-size embedding vector (1536 dimensions is common for OpenAI)
     import random
+
     test_embedding = [random.random() for _ in range(1536)]
 
     embedder.get_embedding = Mock(return_value=test_embedding)
@@ -418,6 +447,7 @@ def mock_embedder():
 # =============================================================================
 # State Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def mock_state():
@@ -469,6 +499,7 @@ def mock_empty_state():
 # Test Data Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def sample_episode_data():
     """Sample episode data for testing.
@@ -484,10 +515,10 @@ def sample_episode_data():
         "metadata": {
             "task_id": "task_001",
             "timestamp": "2024-01-01T00:00:00Z",
-            "type": "implementation"
+            "type": "implementation",
         },
         "session_id": "test_session",
-        "user_id": "test_user"
+        "user_id": "test_user",
     }
 
 
@@ -506,15 +537,15 @@ def sample_memory_nodes():
             "name": "Feature Implementation",
             "label": "CONCEPT",
             "summary": "Implementation of new feature",
-            "created_at": "2024-01-01T00:00:00Z"
+            "created_at": "2024-01-01T00:00:00Z",
         },
         {
             "uuid": "node_2",
             "name": "Bug Fix",
             "label": "CONCEPT",
             "summary": "Fixed critical bug",
-            "created_at": "2024-01-02T00:00:00Z"
-        }
+            "created_at": "2024-01-02T00:00:00Z",
+        },
     ]
 
 
@@ -532,20 +563,21 @@ def sample_search_results():
             "uuid": "result_1",
             "name": "Search Result 1",
             "summary": "First search result",
-            "score": 0.95
+            "score": 0.95,
         },
         {
             "uuid": "result_2",
             "name": "Search Result 2",
             "summary": "Second search result",
-            "score": 0.87
-        }
+            "score": 0.87,
+        },
     ]
 
 
 # =============================================================================
 # Helper Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def clean_env():

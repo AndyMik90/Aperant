@@ -7,15 +7,17 @@ Tests cover:
 - ProviderError for missing configuration
 """
 
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
-
+from integrations.graphiti.providers_pkg.exceptions import (
+    ProviderError,
+    ProviderNotInstalled,
+)
 from integrations.graphiti.providers_pkg.llm_providers.azure_openai_llm import (
     create_azure_openai_llm_client,
 )
-from integrations.graphiti.providers_pkg.exceptions import ProviderError, ProviderNotInstalled
-
 
 # =============================================================================
 # Test create_azure_openai_llm_client
@@ -45,7 +47,7 @@ class TestCreateAzureOpenAILLMClient:
             return_value=mock_azure_client,
         ):
             with patch(
-                "integrations.graphiti.providers_pkg.llm_providers.azure_openai_llm.AzureOpenAILLMClient",
+                "graphiti_core.llm_client.azure_openai_client.AzureOpenAILLMClient",
                 return_value=mock_client,
             ):
                 result = create_azure_openai_llm_client(mock_config)
@@ -80,10 +82,20 @@ class TestCreateAzureOpenAILLMClient:
 
     def test_create_azure_openai_llm_client_import_error(self, mock_config):
         """Test create_azure_openai_llm_client raises ProviderNotInstalled on ImportError."""
-        with patch(
-            "integrations.graphiti.providers_pkg.llm_providers.azure_openai_llm.AzureOpenAILLMClient",
-            side_effect=ImportError("graphiti-core not installed"),
-        ):
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if (
+                name.startswith("graphiti_core.llm_client")
+                or name == "openai"
+                or name.startswith("openai.")
+            ):
+                raise ImportError("Required package not installed")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
             with pytest.raises(ProviderNotInstalled) as exc_info:
                 create_azure_openai_llm_client(mock_config)
 
@@ -104,7 +116,7 @@ class TestCreateAzureOpenAILLMClient:
                 "integrations.graphiti.providers_pkg.llm_providers.azure_openai_llm.LLMConfig",
             ) as mock_config_class:
                 with patch(
-                    "integrations.graphiti.providers_pkg.llm_providers.azure_openai_llm.AzureOpenAILLMClient",
+                    "graphiti_core.llm_client.azure_openai_client.AzureOpenAILLMClient",
                     return_value=mock_client,
                 ):
                     create_azure_openai_llm_client(mock_config)
@@ -117,5 +129,10 @@ class TestCreateAzureOpenAILLMClient:
 
                     # Verify LLMConfig was called with correct arguments
                     call_kwargs = mock_config_class.call_args.kwargs
-                    assert call_kwargs["model"] == mock_config.azure_openai_llm_deployment
-                    assert call_kwargs["small_model"] == mock_config.azure_openai_llm_deployment
+                    assert (
+                        call_kwargs["model"] == mock_config.azure_openai_llm_deployment
+                    )
+                    assert (
+                        call_kwargs["small_model"]
+                        == mock_config.azure_openai_llm_deployment
+                    )

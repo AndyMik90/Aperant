@@ -16,7 +16,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # =============================================================================
 # Test Fixtures
 # =============================================================================
@@ -52,6 +51,7 @@ class TestCreateCrossEncoder:
 
         # Patch the import inside the function
         import integrations.graphiti.providers_pkg.cross_encoder as ce_module
+
         original_func = ce_module.create_cross_encoder
 
         # The function returns None for non-ollama providers
@@ -63,7 +63,9 @@ class TestCreateCrossEncoder:
         """Test create_cross_encoder returns None for Anthropic provider."""
         mock_config.llm_provider = "anthropic"
 
-        from integrations.graphiti.providers_pkg.cross_encoder import create_cross_encoder
+        from integrations.graphiti.providers_pkg.cross_encoder import (
+            create_cross_encoder,
+        )
 
         result = create_cross_encoder(mock_config, mock_llm_client)
 
@@ -73,7 +75,9 @@ class TestCreateCrossEncoder:
         """Test create_cross_encoder returns None for Google provider."""
         mock_config.llm_provider = "google"
 
-        from integrations.graphiti.providers_pkg.cross_encoder import create_cross_encoder
+        from integrations.graphiti.providers_pkg.cross_encoder import (
+            create_cross_encoder,
+        )
 
         result = create_cross_encoder(mock_config, mock_llm_client)
 
@@ -81,7 +85,9 @@ class TestCreateCrossEncoder:
 
     def test_returns_none_when_llm_client_is_none(self, mock_config):
         """Test create_cross_encoder returns None when llm_client is None."""
-        from integrations.graphiti.providers_pkg.cross_encoder import create_cross_encoder
+        from integrations.graphiti.providers_pkg.cross_encoder import (
+            create_cross_encoder,
+        )
 
         result = create_cross_encoder(mock_config, llm_client=None)
 
@@ -91,18 +97,25 @@ class TestCreateCrossEncoder:
         """Test that base_url without /v1 gets /v1 suffix added."""
         mock_config.ollama_base_url = "http://localhost:11434"
 
-        from integrations.graphiti.providers_pkg.cross_encoder import create_cross_encoder
+        from integrations.graphiti.providers_pkg.cross_encoder import (
+            create_cross_encoder,
+        )
 
         # Mock the graphiti_core imports
-        with patch.dict("sys.modules", {
-            "graphiti_core": MagicMock(),
-            "graphiti_core.cross_encoder": MagicMock(),
-            "graphiti_core.cross_encoder.openai_reranker_client": MagicMock(),
-            "graphiti_core.llm_client": MagicMock(),
-            "graphiti_core.llm_client.config": MagicMock(),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "graphiti_core": MagicMock(),
+                "graphiti_core.cross_encoder": MagicMock(),
+                "graphiti_core.cross_encoder.openai_reranker_client": MagicMock(),
+                "graphiti_core.llm_client": MagicMock(),
+                "graphiti_core.llm_client.config": MagicMock(),
+            },
+        ):
             # Import the modules that we just mocked
-            from graphiti_core.cross_encoder.openai_reranker_client import OpenAIRerankerClient
+            from graphiti_core.cross_encoder.openai_reranker_client import (
+                OpenAIRerankerClient,
+            )
             from graphiti_core.llm_client.config import LLMConfig
 
             # Create a side effect to capture the LLMConfig call
@@ -127,7 +140,9 @@ class TestCreateCrossEncoder:
         """Test that base_url with /v1 suffix is preserved."""
         mock_config.ollama_base_url = "http://localhost:11434/v1"
 
-        from integrations.graphiti.providers_pkg.cross_encoder import create_cross_encoder
+        from integrations.graphiti.providers_pkg.cross_encoder import (
+            create_cross_encoder,
+        )
 
         # Since graphiti_core is not available, this test verifies the logic
         # by checking the function doesn't crash with /v1 suffix

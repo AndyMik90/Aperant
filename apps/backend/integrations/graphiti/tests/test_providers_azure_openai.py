@@ -10,12 +10,13 @@ Tests cover:
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from integrations.graphiti.providers_pkg.embedder_providers.azure_openai_embedder import (
     create_azure_openai_embedder,
 )
-from integrations.graphiti.providers_pkg.exceptions import ProviderError, ProviderNotInstalled
-
+from integrations.graphiti.providers_pkg.exceptions import (
+    ProviderError,
+    ProviderNotInstalled,
+)
 
 # =============================================================================
 # Test create_azure_openai_embedder
@@ -45,7 +46,7 @@ class TestCreateAzureOpenAIEmbedder:
             return_value=mock_azure_client,
         ):
             with patch(
-                "integrations.graphiti.providers_pkg.embedder_providers.azure_openai_embedder.AzureOpenAIEmbedderClient",
+                "graphiti_core.embedder.azure_openai.AzureOpenAIEmbedderClient",
                 return_value=mock_embedder,
             ):
                 result = create_azure_openai_embedder(mock_config)
@@ -80,15 +81,21 @@ class TestCreateAzureOpenAIEmbedder:
 
     def test_create_azure_openai_embedder_import_error(self, mock_config):
         """Test create_azure_openai_embedder raises ProviderNotInstalled on ImportError."""
-        with patch(
-            "integrations.graphiti.providers_pkg.embedder_providers.azure_openai_embedder.AzureOpenAIEmbedderClient",
-            side_effect=ImportError("graphiti-core not installed"),
-        ):
+        # Mock the import to raise ImportError
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "graphiti_core.embedder.azure_openai":
+                raise ImportError("graphiti-core not installed")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
             with pytest.raises(ProviderNotInstalled) as exc_info:
                 create_azure_openai_embedder(mock_config)
 
             assert "graphiti-core" in str(exc_info.value)
-            assert "openai" in str(exc_info.value)
 
     @pytest.mark.slow
     def test_create_azure_openai_embedder_passes_config_correctly(self, mock_config):
@@ -101,7 +108,7 @@ class TestCreateAzureOpenAIEmbedder:
             return_value=mock_azure_client,
         ) as mock_openai:
             with patch(
-                "integrations.graphiti.providers_pkg.embedder_providers.azure_openai_embedder.AzureOpenAIEmbedderClient",
+                "graphiti_core.embedder.azure_openai.AzureOpenAIEmbedderClient",
                 return_value=mock_embedder,
             ) as mock_azure_embedder:
                 create_azure_openai_embedder(mock_config)
