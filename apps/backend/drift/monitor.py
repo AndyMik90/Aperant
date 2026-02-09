@@ -1,7 +1,7 @@
 """
 Agent Drift Monitor - In-process behavioral drift monitoring.
 
-Simplified version for integration with Auto-Claude.
+Simplified version for integration with AC Jerry.
 Tracks tool usage and provides drift detection without HTTP server.
 """
 

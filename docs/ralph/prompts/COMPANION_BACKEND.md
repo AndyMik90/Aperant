@@ -24,7 +24,7 @@ Create the backend Python scripts that power the companion agent — a read-only
 
 ```bash
 /ralph-loop:ralph-loop "
-You are implementing COMPANION_BACKEND for Auto-Claude.
+You are implementing COMPANION_BACKEND for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -32,7 +32,7 @@ YOUR IDENTITY:
 - This is a 4-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 - Backend: apps/backend/
 - Frontend: apps/frontend/src/
 

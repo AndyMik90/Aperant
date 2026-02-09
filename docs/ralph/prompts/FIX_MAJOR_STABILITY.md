@@ -14,7 +14,7 @@
 
 ```bash
 /ralph-loop:ralph-loop "
-You are fixing MAJOR stability issues for Auto-Claude — null checks, race conditions, and key misuse.
+You are fixing MAJOR stability issues for AC Jerry — null checks, race conditions, and key misuse.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -22,7 +22,7 @@ YOUR IDENTITY:
 - This is an 8-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 - Frontend: apps/frontend/src/
 - Backend: apps/backend/
 

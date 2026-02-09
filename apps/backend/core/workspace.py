@@ -4,7 +4,7 @@ Workspace Management - Per-Spec Architecture
 =============================================
 
 Handles workspace isolation through Git worktrees, where each spec
-gets its own isolated worktree in .auto-claude/worktrees/tasks/{spec-name}/.
+gets its own isolated worktree in .ac.jerry/worktrees/tasks/{spec-name}/.
 
 This module has been refactored for better maintainability:
 - Models and enums: workspace/models.py
@@ -88,7 +88,7 @@ from core.workspace.display import (
 )
 from core.workspace.git_utils import (
     MAX_PARALLEL_AI_MERGES,
-    _is_auto_claude_file,
+    _is_ac_jerry_file,
     get_existing_build_worktree,
 )
 from core.workspace.git_utils import (
@@ -161,7 +161,7 @@ def merge_existing_build(
     """
     Merge an existing build into the project using intent-aware merge.
 
-    Called when user runs: python auto-claude/run.py --spec X --merge
+    Called when user runs: python ac-jerry/run.py --spec X --merge
 
     This uses the MergeOrchestrator to:
     1. Analyze semantic changes from the task
@@ -187,7 +187,7 @@ def merge_existing_build(
         print_status(f"No existing build found for '{spec_name}'.", "warning")
         print()
         print("To start a new build:")
-        print(highlight(f"  python auto-claude/run.py --spec {spec_name}"))
+        print(highlight(f"  python ac-jerry/run.py --spec {spec_name}"))
         return False
 
     # Detect current branch - this is where user wants changes merged
@@ -203,7 +203,7 @@ def merge_existing_build(
         else None
     )
 
-    spec_branch = f"auto-claude/{spec_name}"
+    spec_branch = f"ac-jerry/{spec_name}"
 
     # Don't merge a branch into itself
     if current_branch == spec_branch:
@@ -214,7 +214,7 @@ def merge_existing_build(
         print()
         print("Example:")
         print(highlight("  git checkout main  # or your feature branch"))
-        print(highlight(f"  python auto-claude/run.py --spec {spec_name} --merge"))
+        print(highlight(f"  python ac-jerry/run.py --spec {spec_name} --merge"))
         return False
 
     if no_commit:
@@ -267,7 +267,7 @@ def merge_existing_build(
                     )
 
                     # Don't auto-delete worktree - let user test and manually cleanup
-                    # User can delete with: python auto-claude/run.py --spec <name> --discard
+                    # User can delete with: python ac-jerry/run.py --spec <name> --discard
                     # Or via UI "Delete Worktree" button
 
                     return True
@@ -334,12 +334,12 @@ def merge_existing_build(
             print(highlight("  git commit -m 'your commit message'"))
             print()
             print("When satisfied, delete the worktree:")
-            print(muted(f"  python auto-claude/run.py --spec {spec_name} --discard"))
+            print(muted(f"  python ac-jerry/run.py --spec {spec_name} --discard"))
         else:
             print_status("Your feature has been added to your project.", "success")
             print()
             print("When satisfied, delete the worktree:")
-            print(muted(f"  python auto-claude/run.py --spec {spec_name} --discard"))
+            print(muted(f"  python ac-jerry/run.py --spec {spec_name} --discard"))
         return True
     else:
         print()
@@ -568,7 +568,7 @@ def _try_smart_merge_inner(
             print(muted("  Copying changed files directly from worktree..."))
 
             # Get changed files from spec branch
-            spec_branch = f"auto-claude/{spec_name}"
+            spec_branch = f"ac-jerry/{spec_name}"
             base_branch = git_conflicts.get("base_branch", "main")
 
             # Get merge-base for diff
@@ -592,7 +592,7 @@ def _try_smart_merge_inner(
                 skipped_files = []  # Track files that failed to copy
                 files_to_stage = []
                 for file_path, status in changed_files:
-                    if _is_auto_claude_file(file_path):
+                    if _is_ac_jerry_file(file_path):
                         continue
 
                     try:
@@ -777,7 +777,7 @@ def _rebase_spec_branch(
         True if rebase succeeded cleanly or branch was already up-to-date,
         False if rebase failed due to conflicts or other errors (aborted, no ref movement)
     """
-    spec_branch = f"auto-claude/{spec_name}"
+    spec_branch = f"ac-jerry/{spec_name}"
 
     debug(
         MODULE,
@@ -955,7 +955,7 @@ def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
     """
     import re
 
-    spec_branch = f"auto-claude/{spec_name}"
+    spec_branch = f"ac-jerry/{spec_name}"
     result = {
         "has_conflicts": False,
         "conflicting_files": [],
@@ -1065,11 +1065,11 @@ def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
                     )
                     if match:
                         file_path = match.group(1).strip()
-                        # Skip .auto-claude files - they should never be merged
+                        # Skip .ac.jerry files - they should never be merged
                         if (
                             file_path
                             and file_path not in result["conflicting_files"]
-                            and not _is_auto_claude_file(file_path)
+                            and not _is_ac_jerry_file(file_path)
                         ):
                             result["conflicting_files"].append(file_path)
 
@@ -1133,7 +1133,7 @@ def _resolve_git_conflicts_with_ai(
 
     conflicting_files = git_conflicts.get("conflicting_files", [])
     base_branch = git_conflicts.get("base_branch", "main")
-    spec_branch = git_conflicts.get("spec_branch", f"auto-claude/{spec_name}")
+    spec_branch = git_conflicts.get("spec_branch", f"ac-jerry/{spec_name}")
 
     debug_detailed(
         MODULE,

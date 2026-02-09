@@ -24,7 +24,7 @@ Add companion mode visual elements to TaskCard (badge + chat input) and TaskMoni
 
 ```bash
 /ralph-loop:ralph-loop "
-You are implementing COMPANION_UI for Auto-Claude.
+You are implementing COMPANION_UI for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -32,7 +32,7 @@ YOUR IDENTITY:
 - This is a 4-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 - Frontend: apps/frontend/src/
 
 ---

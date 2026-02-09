@@ -1,4 +1,4 @@
-# Auto-Claude Task Lifecycle
+# AC Jerry Task Lifecycle
 
 **Version:** 1.2
 **Updated:** 2026-02-04
@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document describes the complete lifecycle of a task in Auto-Claude, from creation through completion. Each task progresses through distinct phases with specific agents, user gates, and automated transitions.
+This document describes the complete lifecycle of a task in AC Jerry, from creation through completion. Each task progresses through distinct phases with specific agents, user gates, and automated transitions.
 
 ---
 
@@ -29,7 +29,7 @@ This document describes the complete lifecycle of a task in Auto-Claude, from cr
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                           AUTO-CLAUDE TASK LIFECYCLE                                 │
+│                           AC JERRY TASK LIFECYCLE                                 │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
@@ -45,7 +45,7 @@ This document describes the complete lifecycle of a task in Auto-Claude, from cr
 │   └────────┬────────┘                                                                │
 │            │                                                                         │
 │            ▼                                                                         │
-│   • Creates spec directory: .auto-claude/specs/{task-id}/                            │
+│   • Creates spec directory: .ac.jerry/specs/{task-id}/                            │
 │   • Writes task_metadata.json                                                        │
 │   • Sets status = 'planning'                                                         │
 │   • Calls agentManager.startPlanningAgent()                                          │
@@ -478,7 +478,7 @@ ${images?.map(i => `![](${i.filename})`).join('\n') || 'None'}
 
 **What Happens:**
 1. Frontend sends task title, description, and metadata
-2. Backend creates spec directory at `.auto-claude/specs/{task-id}/`
+2. Backend creates spec directory at `.ac.jerry/specs/{task-id}/`
 3. Writes `task_metadata.json` with model configuration
 4. Sets initial status to `planning`
 5. Calls `agentManager.startPlanningAgent()`
@@ -503,7 +503,7 @@ ${images?.map(i => `![](${i.filename})`).join('\n') || 'None'}
 
 **Files Created:**
 ```
-.auto-claude/specs/{task-id}/
+.ac.jerry/specs/{task-id}/
 ├── spec.md                    # MUST BE RALPH-COMPATIBLE FORMAT
 ├── implementation_plan.json   # Subtasks breakdown
 └── memories/                  # Context for coding phase
@@ -572,7 +572,7 @@ Task complete. User can commit, create PR, or archive.
 ## Persistent Memory Structure
 
 ```
-.auto-claude/specs/{task-id}/
+.ac.jerry/specs/{task-id}/
 └── memories/
     ├── codebase_analysis.md   # Planning phase analysis
     ├── issues.md              # Issues found during AI Review (append-only)

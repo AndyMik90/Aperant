@@ -51,7 +51,7 @@ LINEAR_TOOLS = [
 
 @dataclass
 class LinearTaskState:
-    """State of a Linear task for an auto-claude spec."""
+    """State of a Linear task for an ac-jerry spec."""
 
     task_id: str | None = None
     task_title: str | None = None

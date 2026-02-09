@@ -10,7 +10,7 @@ This document tracks CodeRabbit automated review comments that were investigated
 
 **CodeRabbit claimed:** The `nomic-embed-text` model uses 1024 dimensions, not 768.
 
-**Location:** `auto-claude-ui/src/renderer/components/onboarding/OllamaModelSelector.tsx:41`
+**Location:** `ac-jerry-ui/src/renderer/components/onboarding/OllamaModelSelector.tsx:41`
 
 **Our investigation:** Web search confirmed that `nomic-embed-text` uses **768 dimensions** (with a max sequence length of 8192 tokens). The model outputs 768-dimensional embeddings.
 
@@ -27,7 +27,7 @@ This document tracks CodeRabbit automated review comments that were investigated
 
 **CodeRabbit claimed:** The checkmark indicator should use `success` variant instead of `outline` for better visual feedback on completion.
 
-**Location:** `auto-claude-ui/src/renderer/components/onboarding/MemoryStep.tsx`
+**Location:** `ac-jerry-ui/src/renderer/components/onboarding/MemoryStep.tsx`
 
 **Our investigation:** The current design is intentional. The checkmark uses a subtle outline style to indicate selection state without being overly prominent. This follows the component's visual hierarchy where the primary action (model selection/download) should be more prominent than the selection indicator.
 

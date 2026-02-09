@@ -343,7 +343,7 @@ export function App() {
     setInitError(null);
   }, [selectedProjectId]);
 
-  // Check if selected project needs initialization (e.g., .auto-claude folder was deleted)
+  // Check if selected project needs initialization (e.g., .ac.jerry folder was deleted)
   useEffect(() => {
     // Don't show dialog while initialization is in progress
     if (isInitializing) return;
@@ -1204,7 +1204,7 @@ export function App() {
                     {t('removeProject.keepOption', { defaultValue: 'Remove from app only' })}
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    {t('removeProject.keepDescription', { defaultValue: 'Keep the .auto-claude folder. You can re-add the project later.' })}
+                    {t('removeProject.keepDescription', { defaultValue: 'Keep the .ac.jerry folder. You can re-add the project later.' })}
                   </p>
                 </div>
               </div>
@@ -1215,7 +1215,7 @@ export function App() {
                     {t('removeProject.deleteOption', { defaultValue: 'Delete all project data' })}
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    {t('removeProject.deleteDescription', { defaultValue: 'Permanently delete the .auto-claude folder and all task data.' })}
+                    {t('removeProject.deleteDescription', { defaultValue: 'Permanently delete the .ac.jerry folder and all task data.' })}
                   </p>
                 </div>
               </div>

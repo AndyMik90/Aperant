@@ -8,7 +8,7 @@ The `phases.py` file (originally 720 lines) has been refactored into a well-orga
 
 ### Before Refactoring
 ```
-auto-claude/spec/
+ac-jerry/spec/
 └── phases.py (720 lines)
     ├── PhaseResult dataclass
     ├── PhaseExecutor class with 12 phase methods
@@ -17,7 +17,7 @@ auto-claude/spec/
 
 ### After Refactoring
 ```
-auto-claude/spec/
+ac-jerry/spec/
 ├── phases.py (14 lines - entry point)
 └── phases/
     ├── __init__.py (19 lines)

@@ -4,17 +4,21 @@ Spec Orchestrator
 
 Main orchestration logic for spec creation with dynamic complexity adaptation.
 
-PERF TODO: Future optimizations not yet implemented:
-  - Early SIMPLE detection: Do heuristic check BEFORE requirements gathering.
-    If heuristics say SIMPLE with high confidence (>0.9), skip discovery +
-    requirements and jump straight to quick_spec. Saves 20-30s for trivial tasks.
-  - Complexity-adaptive thinking budgets: SIMPLE tasks currently get ultrathink
-    for discovery/spec_writing. Should use "medium" for SIMPLE, "high" for
-    STANDARD, and keep ultrathink only for COMPLEX.
-  - Smart project index refresh: Skip refresh if index exists AND task
+PERF: Optimizations implemented:
+  - Early SIMPLE detection: Heuristic check runs BEFORE requirements gathering.
+    SIMPLE tasks with confidence >= 0.85 skip discovery + requirements and
+    jump straight to quick_spec. Saves 20-30s for trivial tasks.
+  - Complexity-adaptive thinking budgets: SIMPLE caps at "medium", STANDARD
+    caps ultrathink to "high", COMPLEX uses full per-phase levels.
+  - Smart project index refresh: Skips refresh if index exists and task
     description doesn't mention dependency/package/library keywords.
-  - Reuse summarization client: _store_phase_summary() creates a new SDK
-    client per call. Should lazy-init one and reuse across all summaries.
+  - Selective phase summarization: Only research and spec_writing phases get
+    summarized (not every phase). Cuts 3-4 unnecessary LLM calls.
+
+PERF: Evaluated but deferred:
+  - Reuse summarization client: Each SDK session is a conversation — can't
+    send independent queries within one session. With only 2 calls using
+    lightweight clients (no MCP), overhead is ~300ms total. Not worth it.
   - Parallel subtask execution with git worktrees: The single biggest
     potential win but requires significant architectural work. Each subtask
     batch would run in its own worktree to avoid file conflicts.
@@ -235,7 +239,7 @@ class SpecOrchestrator:
         mention dependency/package-related keywords, skip the refresh entirely.
         This saves 2-4 seconds on most tasks where project structure hasn't changed.
         """
-        index_file = self.project_dir / ".auto-claude" / "project_index.json"
+        index_file = self.project_dir / ".ac.jerry" / "project_index.json"
 
         # OPTIMIZATION: Skip refresh if index exists and task doesn't involve deps
         if index_file.exists():
@@ -743,7 +747,7 @@ class SpecOrchestrator:
             The complexity assessment
         """
         project_index = {}
-        auto_build_index = self.project_dir / "auto-claude" / "project_index.json"
+        auto_build_index = self.project_dir / "ac-jerry" / "project_index.json"
         if auto_build_index.exists():
             with open(auto_build_index) as f:
                 project_index = json.load(f)

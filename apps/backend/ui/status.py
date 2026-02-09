@@ -103,14 +103,14 @@ class BuildStatus:
 
 
 class StatusManager:
-    """Manages the .auto-claude-status file for ccstatusline integration."""
+    """Manages the .ac-jerry-status file for ccstatusline integration."""
 
     # Class-level debounce delay (ms) for batched writes
     _WRITE_DEBOUNCE_MS = 50
 
     def __init__(self, project_dir: Path):
         self.project_dir = Path(project_dir)
-        self.status_file = self.project_dir / ".auto-claude-status"
+        self.status_file = self.project_dir / ".ac-jerry-status"
         self._status = BuildStatus()
         self._write_pending = False
         self._write_timer: threading.Timer | None = None

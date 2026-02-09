@@ -27,7 +27,7 @@ workspace.py             (2,295 lines) - Complex merge operations (remaining)
 
 ### models.py
 Data structures and type definitions:
-- `WorkspaceMode` - How auto-claude should work (ISOLATED/DIRECT)
+- `WorkspaceMode` - How ac-jerry should work (ISOLATED/DIRECT)
 - `WorkspaceChoice` - User's choice after build (MERGE/REVIEW/TEST/LATER)
 - `ParallelMergeTask` - Task for parallel file merging
 - `ParallelMergeResult` - Result of parallel merge
@@ -140,7 +140,7 @@ from workspace import WorkspaceMode, setup_workspace, finalize_workspace
 
 Run the import test:
 ```bash
-cd auto-claude
+cd ac-jerry
 python3 -c "from workspace import WorkspaceMode, setup_workspace; print('✓ Imports work')"
 ```
 

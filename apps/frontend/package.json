@@ -3,15 +3,15 @@
   "version": "2.7.5",
   "type": "module",
   "description": "Desktop UI for Jerry autonomous coding framework",
-  "homepage": "https://github.com/AndyMik90/Auto-Claude",
+  "homepage": "https://github.com/lizz-ee/ac.jerry",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AndyMik90/Auto-Claude.git"
+    "url": "https://github.com/lizz-ee/ac.jerry.git"
   },
   "main": "./out/main/index.js",
   "author": {
     "name": "Jerry Team",
-    "email": "119136210+AndyMik90@users.noreply.github.com"
+    "email": "lizz-ee@users.noreply.github.com"
   },
   "license": "AGPL-3.0",
   "engines": {
@@ -141,14 +141,14 @@
     "@electron/rebuild": "4.0.2"
   },
   "build": {
-    "appId": "com.jerry.ui",
-    "productName": "Jerry",
+    "appId": "com.acjerry.ui",
+    "productName": "AC Jerry",
     "artifactName": "${productName}-${version}-${platform}-${arch}.${ext}",
     "publish": [
       {
         "provider": "github",
-        "owner": "AndyMik90",
-        "repo": "Auto-Claude"
+        "owner": "lizz-ee",
+        "repo": "ac.jerry"
       }
     ],
     "directories": {

@@ -3,7 +3,7 @@ Graphiti Memory Integration V2 - Backward Compatibility Facade
 ================================================================
 
 This module maintains backward compatibility by re-exporting the modular
-memory system from the auto-claude/graphiti/ package.
+memory system from the ac-jerry/graphiti/ package.
 
 The refactored code is now organized as:
 - graphiti/graphiti.py - Main GraphitiMemory class

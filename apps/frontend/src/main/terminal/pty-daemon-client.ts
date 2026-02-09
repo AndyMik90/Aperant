@@ -18,8 +18,8 @@ const __dirname = path.dirname(__filename);
 
 const SOCKET_PATH =
   process.platform === 'win32'
-    ? `\\\\.\\pipe\\auto-claude-pty-${process.getuid?.() || 'default'}`
-    : `/tmp/auto-claude-pty-${process.getuid?.() || 'default'}.sock`;
+    ? `\\\\.\\pipe\\ac-jerry-pty-${process.getuid?.() || 'default'}`
+    : `/tmp/ac-jerry-pty-${process.getuid?.() || 'default'}.sock`;
 
 interface DaemonResponseData {
   exitCode?: number;

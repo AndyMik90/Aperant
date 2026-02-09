@@ -37,13 +37,13 @@ The Flatpak will be created in `apps/frontend/dist/`.
 After building, install the Flatpak locally:
 
 ```bash
-flatpak install --user apps/frontend/dist/Auto-Claude-*.flatpak
+flatpak install --user apps/frontend/dist/AC-Jerry-*.flatpak
 ```
 
 ### Running from Flatpak
 
 ```bash
-flatpak run com.autoclaude.AutoClaude
+flatpak run com.acjerry.ACJerry
 ```
 
 ## Other Linux Packages
@@ -54,10 +54,10 @@ AppImage files are portable and don't require installation:
 
 ```bash
 # Make executable
-chmod +x Auto-Claude-*-linux-x86_64.AppImage
+chmod +x AC-Jerry-*-linux-x86_64.AppImage
 
 # Run
-./Auto-Claude-*-linux-x86_64.AppImage
+./AC-Jerry-*-linux-x86_64.AppImage
 ```
 
 ### Debian Package (.deb)
@@ -65,7 +65,7 @@ chmod +x Auto-Claude-*-linux-x86_64.AppImage
 For Ubuntu/Debian systems:
 
 ```bash
-sudo dpkg -i Auto-Claude-*-linux-amd64.deb
+sudo dpkg -i AC-Jerry-*-linux-amd64.deb
 ```
 
 ## Troubleshooting
@@ -88,8 +88,8 @@ If the AppImage doesn't start:
 
 ```bash
 # Check for missing libraries
-ldd ./Auto-Claude-*-linux-x86_64.AppImage
+ldd ./AC-Jerry-*-linux-x86_64.AppImage
 
 # Try running with debug output
-./Auto-Claude-*-linux-x86_64.AppImage --verbose
+./AC-Jerry-*-linux-x86_64.AppImage --verbose
 ```

@@ -16,7 +16,7 @@ if str(_PARENT_DIR) not in sys.path:
     sys.path.insert(0, str(_PARENT_DIR))
 
 from core.workspace.git_utils import (
-    _is_auto_claude_file,
+    _is_ac_jerry_file,
     apply_path_mapping,
     detect_file_renames,
     get_file_content_from_ref,
@@ -166,7 +166,7 @@ def _detect_worktree_base_branch(
     Detect which branch a worktree was created from.
 
     Tries multiple strategies:
-    1. Check worktree config file (.auto-claude/worktree-config.json)
+    1. Check worktree config file (.ac.jerry/worktree-config.json)
     2. Find merge-base with known branches (develop, main, master)
     3. Return None if unable to detect
 
@@ -179,7 +179,7 @@ def _detect_worktree_base_branch(
         The detected base branch name, or None if unable to detect
     """
     # Strategy 1: Check for worktree config file
-    config_path = worktree_path / ".auto-claude" / "worktree-config.json"
+    config_path = worktree_path / ".ac.jerry" / "worktree-config.json"
     if config_path.exists():
         try:
             config = json.loads(config_path.read_text())
@@ -194,7 +194,7 @@ def _detect_worktree_base_branch(
 
     # Strategy 2: Find which branch has the closest merge-base
     # Check common branches: develop, main, master
-    spec_branch = f"auto-claude/{spec_name}"
+    spec_branch = f"ac-jerry/{spec_name}"
     candidate_branches = ["develop", "main", "master"]
 
     best_branch = None
@@ -444,9 +444,9 @@ def _generate_and_save_commit_message(project_dir: Path, spec_name: str) -> None
 
         if commit_message:
             # Save to spec directory for UI to read
-            spec_dir = project_dir / ".auto-claude" / "specs" / spec_name
+            spec_dir = project_dir / ".ac.jerry" / "specs" / spec_name
             if not spec_dir.exists():
-                spec_dir = project_dir / "auto-claude" / "specs" / spec_name
+                spec_dir = project_dir / "ac-jerry" / "specs" / spec_name
 
             if spec_dir.exists():
                 commit_msg_file = spec_dir / "suggested_commit_message.txt"
@@ -515,12 +515,12 @@ def handle_list_worktrees_command(project_dir: Path) -> None:
 
         print("-" * 70)
         print()
-        print("  To merge:   python auto-claude/run.py --spec <name> --merge")
-        print("  To review:  python auto-claude/run.py --spec <name> --review")
-        print("  To discard: python auto-claude/run.py --spec <name> --discard")
+        print("  To merge:   python ac-jerry/run.py --spec <name> --merge")
+        print("  To review:  python ac-jerry/run.py --spec <name> --review")
+        print("  To discard: python ac-jerry/run.py --spec <name> --discard")
         print()
         print(
-            "  To cleanup all worktrees: python auto-claude/run.py --cleanup-worktrees"
+            "  To cleanup all worktrees: python ac-jerry/run.py --cleanup-worktrees"
         )
     print()
 
@@ -562,7 +562,7 @@ def _check_git_merge_conflicts(
 
     debug(MODULE, "Checking for git-level merge conflicts (non-destructive)...")
 
-    spec_branch = f"auto-claude/{spec_name}"
+    spec_branch = f"ac-jerry/{spec_name}"
     result = {
         "has_conflicts": False,
         "conflicting_files": [],
@@ -653,11 +653,11 @@ def _check_git_merge_conflicts(
                     )
                     if match:
                         file_path = match.group(1).strip()
-                        # Skip .auto-claude files - they should never be merged
+                        # Skip .ac.jerry files - they should never be merged
                         if (
                             file_path
                             and file_path not in result["conflicting_files"]
-                            and not _is_auto_claude_file(file_path)
+                            and not _is_ac_jerry_file(file_path)
                         ):
                             result["conflicting_files"].append(file_path)
 
@@ -690,10 +690,10 @@ def _check_git_merge_conflicts(
                 )
 
                 # Files modified in both = potential conflicts
-                # Filter out .auto-claude files - they should never be merged
+                # Filter out .ac.jerry files - they should never be merged
                 conflicting = main_files & spec_files
                 result["conflicting_files"] = [
-                    f for f in conflicting if not _is_auto_claude_file(f)
+                    f for f in conflicting if not _is_ac_jerry_file(f)
                 ]
                 debug(
                     MODULE, f"Found {len(conflicting)} files modified in both branches"

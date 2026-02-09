@@ -45,7 +45,7 @@ describe('CreatePRDialog', () => {
   const mockWorktreeStatus: WorktreeStatus = {
     exists: true,
     worktreePath: '/path/to/worktree',
-    branch: 'auto-claude/implement-user-authentication',
+    branch: 'ac-jerry/implement-user-authentication',
     baseBranch: 'develop',
     commitCount: 5,
     filesChanged: 10,
@@ -121,7 +121,7 @@ describe('CreatePRDialog', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('auto-claude/implement-user-authentication')).toBeInTheDocument();
+      expect(screen.getByText('ac-jerry/implement-user-authentication')).toBeInTheDocument();
     });
   });
 

@@ -188,7 +188,7 @@ function main() {
           'Usage: node scripts/bump-version.js <major|minor|patch|x.y.z>');
   }
 
-  log('\n🚀 Auto Claude Version Bump\n', colors.cyan);
+  log('\n🚀 AC Jerry Version Bump\n', colors.cyan);
 
   // 1. Check git status
   info('Checking git status...');

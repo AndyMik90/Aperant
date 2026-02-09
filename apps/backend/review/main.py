@@ -33,7 +33,7 @@ Usage:
         state = run_review_checkpoint(spec_dir)
 
     # CLI use (for manual review)
-    python auto-claude/review.py --spec-dir auto-claude/specs/001-feature
+    python ac-jerry/review.py --spec-dir ac-jerry/specs/001-feature
 """
 
 import sys
@@ -54,7 +54,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Human review checkpoint for auto-claude specs"
+        description="Human review checkpoint for ac-jerry specs"
     )
     parser.add_argument(
         "--spec-dir",

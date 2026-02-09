@@ -9,7 +9,7 @@ import logging
 import sys
 from pathlib import Path
 
-# Add auto-claude to path
+# Add ac-jerry to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 
 from phase_config import THINKING_BUDGET_MAP, get_thinking_budget

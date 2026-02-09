@@ -60,7 +60,7 @@ Optional `.env` settings:
 
 | Variable | Description |
 |----------|-------------|
-| `AUTO_BUILD_MODEL` | Override Claude model |
+| `AC_JERRY_MODEL` | Override Claude model |
 | `DEBUG=true` | Enable debug logging |
 | `LINEAR_API_KEY` | Enable Linear integration |
 | `GRAPHITI_ENABLED=true` | Enable memory system |

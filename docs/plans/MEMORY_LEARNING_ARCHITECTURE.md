@@ -80,7 +80,7 @@ The `[QA]` prefix distinguishes auto-promoted gotchas from session-discovered on
 
 ### Part B: Project-Level Living Document
 
-**New file:** `.auto-claude/PROJECT_MEMORY.md` (per project, not per spec)
+**New file:** `.ac.jerry/PROJECT_MEMORY.md` (per project, not per spec)
 
 **Why project-level:**
 - Spec-level memory already exists (`memory/` per spec)
@@ -157,7 +157,7 @@ Cross-task insights agents found valuable during execution.
 # In memory_manager.py, alongside get_graphiti_context()
 def load_project_memory(project_dir: Path) -> str | None:
     """Load PROJECT_MEMORY.md and return as context string."""
-    mem_file = Path(project_dir) / ".auto-claude" / "PROJECT_MEMORY.md"
+    mem_file = Path(project_dir) / ".ac-jerry" / "PROJECT_MEMORY.md"
     if not mem_file.exists():
         return None
     content = mem_file.read_text(encoding="utf-8")

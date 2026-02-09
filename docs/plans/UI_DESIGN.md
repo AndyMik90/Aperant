@@ -1,4 +1,4 @@
-# Auto-Claude UI Design Specification
+# AC Jerry UI Design Specification
 
 **Theme Name:** "Tron Grid"
 **Last Updated:** 2026-02-03

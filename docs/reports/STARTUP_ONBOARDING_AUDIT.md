@@ -25,7 +25,7 @@ The onboarding wizard is well-architected (now 7-step flow after ONBOARDING-SIMP
 
 **Original Findings (for historical reference):**
 - 12 issues identified (4 Critical, 5 Medium, 3 Low)
-- Inconsistent branding ("Jerry" vs "Auto Claude" vs "Auto-Claude")
+- Inconsistent branding ("Jerry" vs "AC Jerry" vs "AC Jerry")
 - Step flow bypasses important steps when API key path is chosen
 - Several steps are overly complex for first-time users
 - Missing project initialization in onboarding flow
@@ -64,7 +64,7 @@ App.tsx loads → loadSettings() → Check:
 
 #### ISSUE-1: Branding Inconsistency
 **Location:** Multiple files
-**Problem:** Mixed usage of "Jerry", "Auto Claude", and "Auto-Claude"
+**Problem:** Mixed usage of "Jerry", "AC Jerry", and "AC Jerry"
 
 | File | Text Used |
 |------|-----------|
@@ -72,8 +72,8 @@ App.tsx loads → loadSettings() → Check:
 | `onboarding.json:8` | "Welcome to Jerry" |
 | `onboarding.json:178` | "Jerry's AI features" |
 | `WelcomeScreen.tsx` | Uses `welcome:hero.title` (Jerry) |
-| `GraphitiStep.tsx:773` | "Auto Claude will maintain context" |
-| `DevToolsStep.tsx:240,274,322-323` | "Auto Claude" |
+| `GraphitiStep.tsx:773` | "AC Jerry will maintain context" |
+| `DevToolsStep.tsx:240,274,322-323` | "AC Jerry" |
 
 **Impact:** Confusing user experience - unclear what the product is called
 **Recommendation:** Standardize on ONE name throughout. Suggest "Jerry" as the friendly name.
@@ -162,7 +162,7 @@ Most new users just want to get started, not configure advanced memory systems.
   Developer Tools
 </h1>
 <p className="mt-2 text-muted-foreground">
-  Choose your preferred IDE and terminal for working with Auto Claude worktrees
+  Choose your preferred IDE and terminal for working with AC Jerry worktrees
 </p>
 
 // Line 271-275: Hardcoded
@@ -170,7 +170,7 @@ Most new users just want to get started, not configure advanced memory systems.
   Why configure these?
 </p>
 <p className="text-sm text-muted-foreground">
-  When Auto Claude builds features in isolated worktrees...
+  When AC Jerry builds features in isolated worktrees...
 </p>
 ```
 

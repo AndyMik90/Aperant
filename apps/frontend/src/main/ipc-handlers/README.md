@@ -16,9 +16,9 @@ Handles project lifecycle and Python environment management:
 - `PROJECT_REMOVE` - Remove project
 - `PROJECT_LIST` - List all projects
 - `PROJECT_UPDATE_SETTINGS` - Update project settings
-- `PROJECT_INITIALIZE` - Initialize .auto-claude directory
+- `PROJECT_INITIALIZE` - Initialize .ac.jerry directory
 - `PROJECT_CHECK_VERSION` - Check initialization status
-- `project:has-local-source` - Check if project has local auto-claude source
+- `project:has-local-source` - Check if project has local ac-jerry source
 - Python environment initialization and status events
 
 #### `task-handlers.ts` (52KB) - Largest module

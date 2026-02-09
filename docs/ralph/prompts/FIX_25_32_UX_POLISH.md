@@ -18,7 +18,7 @@ YOUR IDENTITY:
 - If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 
 Primary documentation:
 - docs\plans\FIX_25_29_SPEC.md (READ THIS FULLY)

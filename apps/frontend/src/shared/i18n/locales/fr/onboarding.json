@@ -1,11 +1,11 @@
 {
   "wizard": {
     "title": "Assistant de configuration",
-    "description": "Configurez votre environnement Jerry en quelques étapes simples",
+    "description": "Configurez votre environnement AC Jerry en quelques étapes simples",
     "helpText": "Cet assistant vous aidera à configurer votre environnement en quelques étapes. Vous pouvez configurer votre token OAuth Claude, activer les fonctionnalités de mémoire et créer votre première tâche."
   },
   "welcome": {
-    "title": "Bienvenue sur Jerry",
+    "title": "Bienvenue sur AC Jerry",
     "subtitle": "Construisez des logiciels de manière autonome avec des agents IA",
     "getStarted": "Commencer",
     "skip": "Passer la configuration",
@@ -149,7 +149,7 @@
     "done": "Terminé"
   },
   "privacy": {
-    "title": "Aidez à améliorer Jerry",
+    "title": "Aidez à améliorer AC Jerry",
     "subtitle": "Les rapports d'erreurs anonymes nous aident à corriger les bugs plus rapidement",
     "whatWeCollect": {
       "title": "Ce que nous collectons",
@@ -175,7 +175,7 @@
     "detecting": "Vérification de l'installation de Claude Code...",
     "info": {
       "title": "Qu'est-ce que Claude Code ?",
-      "description": "Claude Code est le CLI officiel d'Anthropic qui alimente les fonctionnalités IA d'Jerry. Il fournit une authentification sécurisée et un accès direct aux modèles Claude."
+      "description": "Claude Code est le CLI officiel d'Anthropic qui alimente les fonctionnalités IA d'AC Jerry. Il fournit une authentification sécurisée et un accès direct aux modèles Claude."
     },
     "status": {
       "installed": "Installé",

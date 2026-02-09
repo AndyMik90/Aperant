@@ -163,7 +163,7 @@ Task-specific model training shows <0.5% attack success versus 87% against gener
 
 ---
 
-## Implementation Checklist for Auto-Claude
+## Implementation Checklist for AC Jerry
 
 ### Already Implemented
 - [x] Command allowlisting (security.py)

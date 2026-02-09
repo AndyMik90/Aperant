@@ -224,12 +224,12 @@ LIFECYCLE_4_HUMAN_MEMORY_COMPLETE
 
 ```bash
 /ralph-loop:ralph-loop "
-You are an autonomous senior engineer completing 4 lifecycle tasks for Auto-Claude (Jerry).
+You are an autonomous senior engineer completing 4 lifecycle tasks for AC Jerry (Jerry).
 
 YOUR IDENTITY: You are an EXECUTOR, not an EVALUATOR. If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 
 Primary documentation:
 - docs\architecture\TASK_LIFECYCLE.md (requirements and TODOs)

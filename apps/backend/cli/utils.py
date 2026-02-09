@@ -79,15 +79,15 @@ def setup_environment() -> Path:
     Set up the environment and return the script directory.
 
     Returns:
-        Path to the auto-claude directory
+        Path to the ac-jerry directory
     """
-    # Add auto-claude directory to path for imports
+    # Add ac-jerry directory to path for imports
     script_dir = Path(__file__).parent.parent.resolve()
     sys.path.insert(0, str(script_dir))
 
-    # Load .env file - check both auto-claude/ and dev/auto-claude/ locations
+    # Load .env file - check both ac-jerry/ and dev/ac-jerry/ locations
     env_file = script_dir / ".env"
-    dev_env_file = script_dir.parent / "dev" / "auto-claude" / ".env"
+    dev_env_file = script_dir.parent / "dev" / "ac-jerry" / ".env"
     if env_file.exists():
         load_dotenv(env_file)
     elif dev_env_file.exists():
@@ -124,11 +124,11 @@ def find_spec(project_dir: Path, spec_identifier: str) -> Path | None:
                     return spec_folder
 
     # Check worktree specs (for merge-preview, merge, review, discard operations)
-    worktree_base = project_dir / ".auto-claude" / "worktrees" / "tasks"
+    worktree_base = project_dir / ".ac.jerry" / "worktrees" / "tasks"
     if worktree_base.exists():
         # Try exact match in worktree
         worktree_spec = (
-            worktree_base / spec_identifier / ".auto-claude" / "specs" / spec_identifier
+            worktree_base / spec_identifier / ".ac.jerry" / "specs" / spec_identifier
         )
         if worktree_spec.exists() and (worktree_spec / "spec.md").exists():
             return worktree_spec
@@ -139,7 +139,7 @@ def find_spec(project_dir: Path, spec_identifier: str) -> Path | None:
                 spec_identifier + "-"
             ):
                 spec_in_worktree = (
-                    worktree_dir / ".auto-claude" / "specs" / worktree_dir.name
+                    worktree_dir / ".ac.jerry" / "specs" / worktree_dir.name
                 )
                 if (
                     spec_in_worktree.exists()
@@ -193,7 +193,7 @@ def validate_environment(spec_dir: Path) -> bool:
         # Show Linear project status if initialized
         project_dir = (
             spec_dir.parent.parent
-        )  # auto-claude/specs/001-name -> project root
+        )  # ac-jerry/specs/001-name -> project root
         linear_manager = LinearManager(spec_dir, project_dir)
         if linear_manager.is_initialized:
             summary = linear_manager.get_progress_summary()
@@ -266,8 +266,8 @@ def find_specs_dir(project_dir: Path) -> Path:
     """
     Find the specs directory for a project.
 
-    Returns the '.auto-claude/specs' directory path.
-    The directory is guaranteed to exist (get_specs_dir calls init_auto_claude_dir).
+    Returns the '.ac.jerry/specs' directory path.
+    The directory is guaranteed to exist (get_specs_dir calls init_ac_jerry_dir).
 
     Args:
         project_dir: Project root directory

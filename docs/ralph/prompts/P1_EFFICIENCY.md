@@ -10,7 +10,7 @@
 
 ```bash
 /ralph-loop:ralph-loop "
-You are completing P1: Planning Agent Efficiency Improvements for Auto-Claude.
+You are completing P1: Planning Agent Efficiency Improvements for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -18,7 +18,7 @@ YOUR IDENTITY:
 - This is a 3-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 - Backend: apps/backend/
 
 Primary documentation:

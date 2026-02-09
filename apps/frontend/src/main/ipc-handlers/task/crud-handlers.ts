@@ -358,7 +358,7 @@ export function registerTaskCRUDHandlers(
 
       // FIX-025: Task delete cleans up spec directories from main project and
       // worktrees. However, archived tasks that are NOT explicitly deleted will
-      // accumulate in .auto-claude/specs/ indefinitely. There is no automatic GC
+      // accumulate in .ac.jerry/specs/ indefinitely. There is no automatic GC
       // for old archived specs. cleanup_old_worktrees() in worktree.py handles
       // stale worktrees (30+ days) but spec dirs are not covered.
       // TODO: Add age-based GC for archived spec directories.
@@ -450,7 +450,7 @@ export function registerTaskCRUDHandlers(
           return { success: false, error: 'Task not found' };
         }
 
-        const autoBuildDir = project.autoBuildPath || '.auto-claude';
+        const autoBuildDir = project.autoBuildPath || '.ac.jerry';
         const specDir = path.join(project.path, autoBuildDir, 'specs', task.specId);
 
         if (!existsSync(specDir)) {

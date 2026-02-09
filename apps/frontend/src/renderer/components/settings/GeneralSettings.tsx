@@ -132,7 +132,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
           description={t('general.otherAgentSettingsDescription')}
         >
           <div className="space-y-6">
-            {/* SETTINGS-1: agentFramework dropdown removed - auto-claude is always used */}
+            {/* SETTINGS-1: agentFramework dropdown removed - ac-jerry is always used */}
             <div className="space-y-3">
               <div className="flex items-center justify-between max-w-md">
                 <div className="space-y-1">
@@ -310,11 +310,11 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
           )}
         </div>
         <div className="space-y-3">
-          <Label htmlFor="autoBuildPath" className="text-sm font-medium text-foreground">{t('general.autoClaudePath')}</Label>
-          <p className="text-sm text-muted-foreground">{t('general.autoClaudePathDescription')}</p>
+          <Label htmlFor="autoBuildPath" className="text-sm font-medium text-foreground">{t('general.acJerryPath')}</Label>
+          <p className="text-sm text-muted-foreground">{t('general.acJerryPathDescription')}</p>
           <Input
             id="autoBuildPath"
-            placeholder={t('general.autoClaudePathPlaceholder')}
+            placeholder={t('general.acJerryPathPlaceholder')}
             className="w-full max-w-lg"
             value={settings.autoBuildPath || ''}
             onChange={(e) => onSettingsChange({ ...settings, autoBuildPath: e.target.value })}

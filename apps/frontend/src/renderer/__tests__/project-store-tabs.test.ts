@@ -29,7 +29,7 @@ function createTestProject(overrides: Partial<Project> = {}): Project {
     id: `project-${Date.now()}-${Math.random().toString(36).substring(7)}`,
     name: 'Test Project',
     path: '/path/to/test-project',
-    autoBuildPath: '.auto-claude',
+    autoBuildPath: '.ac.jerry',
     settings: defaultSettings,
     createdAt: new Date(),
     updatedAt: new Date(),

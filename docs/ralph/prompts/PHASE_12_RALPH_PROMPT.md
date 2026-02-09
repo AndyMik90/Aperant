@@ -13,7 +13,7 @@ Copy and paste this into Ralph:
 
 ```bash
 /ralph-loop:ralph-loop "
-You are completing Phase 12: Code Quality Refactors for Auto-Claude.
+You are completing Phase 12: Code Quality Refactors for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -21,7 +21,7 @@ YOUR IDENTITY:
 - This is a 4-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\AlienZ\Desktop\Auto-Claude
+- Project root: C:\Users\AlienZ\Desktop\AC Jerry
 - Backend: apps/backend/
 
 Primary documentation:
@@ -66,7 +66,7 @@ EXECUTION PROTOCOL
 
 5. QUAL-4: Exception Hierarchy
    - Create: apps/backend/core/exceptions.py
-   - AutoClaudeError base
+   - ACJerryError base
    - AgentError, APIError, RateLimitError, etc.
    - Update existing code to use new types
 

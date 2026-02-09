@@ -23,7 +23,7 @@ declare global {
 }
 
 // Test data directory
-const TEST_DATA_DIR = path.join(os.tmpdir(), 'auto-claude-terminal-e2e');
+const TEST_DATA_DIR = path.join(os.tmpdir(), 'ac-jerry-terminal-e2e');
 
 // Determine platform for platform-specific tests
 const platform = process.platform;

@@ -9,13 +9,13 @@ analyzing the entire codebase.
 
 Usage:
     # Generate for a specific service
-    python auto-claude/service_context.py --service backend --output backend/SERVICE_CONTEXT.md
+    python ac-jerry/service_context.py --service backend --output backend/SERVICE_CONTEXT.md
 
     # Generate for all services (using project index)
-    python auto-claude/service_context.py --all
+    python ac-jerry/service_context.py --all
 
     # Generate with custom project index
-    python auto-claude/service_context.py --service frontend --index auto-claude/project_index.json
+    python ac-jerry/service_context.py --service frontend --index ac-jerry/project_index.json
 """
 
 import json
@@ -50,8 +50,8 @@ class ServiceContextGenerator:
         self.project_index = project_index or self._load_project_index()
 
     def _load_project_index(self) -> dict:
-        """Load project index from file (.auto-claude is the installed instance)."""
-        index_file = self.project_dir / ".auto-claude" / "project_index.json"
+        """Load project index from file (.ac.jerry is the installed instance)."""
+        index_file = self.project_dir / ".ac.jerry" / "project_index.json"
         if index_file.exists():
             with open(index_file) as f:
                 return json.load(f)

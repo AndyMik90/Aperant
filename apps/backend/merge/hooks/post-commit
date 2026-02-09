@@ -8,14 +8,14 @@
 #
 # Installation:
 #   Copy to .git/hooks/post-commit and make executable
-#   Or use: python -m auto_claude.merge.install_hook
+#   Or use: python -m ac_jerry.merge.install_hook
 #
 
 COMMIT_HASH=$(git rev-parse HEAD)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 # Only track commits to main/master branch
-# Skip if we're in a worktree (auto-claude branches)
+# Skip if we're in a worktree (ac-jerry branches)
 if [[ "$BRANCH" == "main" ]] || [[ "$BRANCH" == "master" ]]; then
     # Check if this is the main working directory (not a worktree)
     # Worktrees have a .git file pointing to the main repo, not a .git directory
@@ -32,7 +32,7 @@ if [[ "$BRANCH" == "main" ]] || [[ "$BRANCH" == "master" ]]; then
 
         # Try to notify the tracker
         # Run in background to avoid slowing down commits
-        ($PYTHON -m auto_claude.merge.tracker_cli notify-commit "$COMMIT_HASH" 2>/dev/null &) &
+        ($PYTHON -m ac_jerry.merge.tracker_cli notify-commit "$COMMIT_HASH" 2>/dev/null &) &
 
         # Don't let hook failures block commits
         exit 0

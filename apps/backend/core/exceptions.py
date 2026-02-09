@@ -1,13 +1,13 @@
 """
-Auto-Claude Exception Hierarchy
-===============================
+AC Jerry Exception Hierarchy
+=============================
 
 Domain-specific exceptions for better error handling and debugging.
-All exceptions inherit from AutoClaudeError for easy catching.
+All exceptions inherit from ACJerryError for easy catching.
 
 Usage:
     from core.exceptions import (
-        AutoClaudeError,
+        ACJerryError,
         AgentError,
         PlanningError,
         CodingError,
@@ -25,19 +25,19 @@ Usage:
         print(f"Rate limited, retry after {e.retry_after}s")
     except AgentError as e:
         print(f"Agent error: {e}")
-    except AutoClaudeError as e:
-        print(f"Auto-Claude error: {e}")
+    except ACJerryError as e:
+        print(f"AC Jerry error: {e}")
 """
 
 from typing import Any
 
 
-class AutoClaudeError(Exception):
+class ACJerryError(Exception):
     """
-    Base exception for all Auto-Claude errors.
+    Base exception for all AC Jerry errors.
 
     All domain-specific exceptions inherit from this class,
-    allowing callers to catch all Auto-Claude errors with a single except clause.
+    allowing callers to catch all AC Jerry errors with a single except clause.
 
     Attributes:
         message: Human-readable error message
@@ -61,7 +61,7 @@ class AutoClaudeError(Exception):
 # =============================================================================
 
 
-class AgentError(AutoClaudeError):
+class AgentError(ACJerryError):
     """
     Base exception for agent-related errors.
 
@@ -155,7 +155,7 @@ class RecoveryError(AgentError):
 # =============================================================================
 
 
-class APIError(AutoClaudeError):
+class APIError(ACJerryError):
     """
     Base exception for external API errors.
 
@@ -240,7 +240,7 @@ class TokenError(AuthenticationError):
 # =============================================================================
 
 
-class ConfigurationError(AutoClaudeError):
+class ConfigurationError(ACJerryError):
     """
     Invalid configuration.
 
@@ -286,7 +286,7 @@ class EnvironmentError(ConfigurationError):
 # =============================================================================
 
 
-class SpecError(AutoClaudeError):
+class SpecError(ACJerryError):
     """
     Error related to spec files or structure.
 
@@ -332,7 +332,7 @@ class PlanValidationError(SpecError):
 # =============================================================================
 
 
-class WorktreeError(AutoClaudeError):
+class WorktreeError(ACJerryError):
     """
     Error related to git worktree operations.
 
@@ -354,7 +354,7 @@ class WorktreeError(AutoClaudeError):
         super().__init__(message, details)
 
 
-class GitError(AutoClaudeError):
+class GitError(ACJerryError):
     """
     Git command or operation failed.
 
@@ -384,7 +384,7 @@ class GitError(AutoClaudeError):
 # =============================================================================
 
 
-class SecurityError(AutoClaudeError):
+class SecurityError(ACJerryError):
     """
     Security violation detected.
 
@@ -429,7 +429,7 @@ class CommandBlockedError(SecurityError):
 # =============================================================================
 
 
-class MemoryError(AutoClaudeError):
+class MemoryError(ACJerryError):
     """
     Error related to memory system (Graphiti, local files).
 
@@ -448,7 +448,7 @@ class MemoryError(AutoClaudeError):
         super().__init__(message, details)
 
 
-class IntegrationError(AutoClaudeError):
+class IntegrationError(ACJerryError):
     """
     Error from external integration (Linear, GitHub, GitLab).
 
@@ -465,3 +465,7 @@ class IntegrationError(AutoClaudeError):
         if integration:
             details["integration"] = integration
         super().__init__(message, details)
+
+
+# Backward compatibility alias
+AutoClaudeError = ACJerryError

@@ -7,7 +7,7 @@
   "sections": {
     "appearance": {
       "title": "Apparence",
-      "description": "Personnalisez l'apparence de Jerry"
+      "description": "Personnalisez l'apparence d'AC Jerry"
     },
     "display": {
       "title": "Affichage",
@@ -39,7 +39,7 @@
     },
     "updates": {
       "title": "Mises à jour",
-      "description": "Mises à jour Jerry"
+      "description": "Mises à jour AC Jerry"
     },
     "notifications": {
       "title": "Notifications",
@@ -222,15 +222,15 @@
     "sourceBundled": "Intégré",
     "sourceFallback": "Valeur par défaut",
     "notDetected": "Non détecté",
-    "autoClaudePath": "Chemin Jerry",
-    "autoClaudePathDescription": "Chemin relatif vers le répertoire auto-claude dans les projets",
-    "autoClaudePathPlaceholder": "auto-claude (par défaut)",
+    "acJerryPath": "Chemin Jerry",
+    "acJerryPathDescription": "Chemin relatif vers le répertoire .ac.jerry dans les projets",
+    "acJerryPathPlaceholder": ".ac.jerry (par défaut)",
     "autoNameTerminals": "Nommer automatiquement les terminaux",
     "autoNameTerminalsDescription": "Utiliser l'IA pour générer des noms descriptifs pour les onglets de terminal en fonction de leur activité"
   },
   "theme": {
     "title": "Apparence",
-    "description": "Personnalisez l'apparence de Jerry",
+    "description": "Personnalisez l'apparence d'AC Jerry",
     "mode": "Mode",
     "modeDescription": "Choisir entre les thèmes clair et sombre",
     "light": "Clair",
@@ -270,7 +270,7 @@
   },
   "updates": {
     "title": "Mises à jour",
-    "description": "Gérer les mises à jour de Jerry",
+    "description": "Gérer les mises à jour d'AC Jerry",
     "appUpdateReady": "Mise à jour de l'app prête",
     "newVersion": "Nouvelle version",
     "released": "Publiée le",
@@ -287,7 +287,7 @@
     "unableToCheck": "Impossible de vérifier les mises à jour",
     "checkForUpdates": "Vérifier les mises à jour",
     "autoUpdateProjects": "Mise à jour automatique des projets",
-    "autoUpdateProjectsDescription": "Mettre à jour automatiquement Jerry dans les projets quand une nouvelle version est disponible",
+    "autoUpdateProjectsDescription": "Mettre à jour automatiquement AC Jerry dans les projets quand une nouvelle version est disponible",
     "betaUpdates": "Mises à jour bêta",
     "betaUpdatesDescription": "Recevoir les versions bêta pré-release avec de nouvelles fonctionnalités (peut être moins stable)",
     "stableDowngradeAvailable": "Version stable disponible",
@@ -482,7 +482,7 @@
     "description": "Accédez aux logs et informations de débogage pour le dépannage",
     "errorReporting": {
       "label": "Rapports d'erreurs anonymes",
-      "description": "Envoyer des rapports de crash pour améliorer Jerry. Aucune donnée personnelle ni code n'est collecté."
+      "description": "Envoyer des rapports de crash pour améliorer AC Jerry. Aucune donnée personnelle ni code n'est collecté."
     },
     "openLogsFolder": "Ouvrir le dossier des logs",
     "copyDebugInfo": "Copier les infos de débogage",
@@ -512,7 +512,7 @@
     "noProjectSelected": "Aucun projet sélectionné",
     "noProjectSelectedDescription": "Sélectionnez un projet dans le menu déroulant pour voir et configurer les serveurs MCP.",
     "projectNotInitialized": "Projet non initialisé",
-    "projectNotInitializedDescription": "Initialisez Jerry pour ce projet pour configurer les serveurs MCP.",
+    "projectNotInitializedDescription": "Initialisez AC Jerry pour ce projet pour configurer les serveurs MCP.",
     "browserAutomation": "Automatisation du navigateur (agents QA uniquement)",
     "alwaysEnabled": "toujours activé",
     "addServer": "Ajouter un serveur",
@@ -548,8 +548,8 @@
         "name": "Puppeteer",
         "description": "Automatisation du navigateur web pour les tests"
       },
-      "autoClaude": {
-        "name": "Outils Jerry",
+      "acJerry": {
+        "name": "Outils AC Jerry",
         "description": "Suivi de la progression du build"
       }
     },
@@ -611,10 +611,10 @@
   },
   "projectRemoval": {
     "title": "Supprimer le projet",
-    "description": "Comment souhaitez-vous supprimer \"{{name}}\" de Jerry ?",
-    "keepOption": "Supprimer de Jerry uniquement",
-    "keepDescription": "Supprimer de la barre latérale mais conserver le dossier .auto-claude avec tout l'historique et les données.",
-    "deleteOption": "Supprimer toutes les données Jerry",
-    "deleteDescription": "Supprimer de la barre latérale ET supprimer le dossier .auto-claude avec tout l'historique, les specs et les builds."
+    "description": "Comment souhaitez-vous supprimer \"{{name}}\" d'AC Jerry ?",
+    "keepOption": "Supprimer d'AC Jerry uniquement",
+    "keepDescription": "Supprimer de la barre latérale mais conserver le dossier .ac.jerry avec tout l'historique et les données.",
+    "deleteOption": "Supprimer toutes les données AC Jerry",
+    "deleteDescription": "Supprimer de la barre latérale ET supprimer le dossier .ac.jerry avec tout l'historique, les specs et les builds."
   }
 }

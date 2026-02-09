@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document provides a detailed, code-level breakdown of what happens at each phase when a task moves through the Auto-Claude system. It maps the **documented architecture** to the **actual code implementation**.
+This document provides a detailed, code-level breakdown of what happens at each phase when a task moves through the AC Jerry system. It maps the **documented architecture** to the **actual code implementation**.
 
 ---
 
@@ -150,7 +150,7 @@ if (canSpawnAgent && hasAuth && mainWindow) {
 ### Files Created
 
 ```
-.auto-claude/specs/{specId}/
+.ac.jerry/specs/{specId}/
 ├── implementation_plan.json   # status: pending, phases: []
 ├── requirements.json          # Task description
 ├── task_metadata.json         # Category, complexity, etc.
@@ -197,7 +197,7 @@ const process = spawn(pythonPath, args, {
 2. **Analyzes codebase** to understand context
 3. **Creates worktree** for isolated development:
    ```bash
-   git worktree add .auto-claude/worktrees/{specId} -b auto-claude/{specId}
+   git worktree add .ac.jerry/worktrees/{specId} -b ac-jerry/{specId}
    ```
 4. **Generates spec.md** with detailed implementation plan
 5. **Generates subtasks** in implementation_plan.json:
@@ -220,13 +220,13 @@ const process = spawn(pythonPath, args, {
 ### Files Created/Modified
 
 ```
-.auto-claude/specs/{specId}/
+.ac.jerry/specs/{specId}/
 ├── spec.md                    # ✨ NEW - Detailed spec
 ├── implementation_plan.json   # ✨ UPDATED - Now has subtasks
 └── memories/                  # ✨ NEW - Agent memory files
     └── ...
 
-.auto-claude/worktrees/{specId}/  # ✨ NEW - Git worktree
+.ac.jerry/worktrees/{specId}/  # ✨ NEW - Git worktree
 └── (copy of project files)
 ```
 

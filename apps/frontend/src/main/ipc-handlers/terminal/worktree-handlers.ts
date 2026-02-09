@@ -166,7 +166,7 @@ function getDefaultBranch(projectPath: string): string {
     return project.settings.mainBranch;
   }
 
-  const envPath = path.join(projectPath, '.auto-claude', '.env');
+  const envPath = path.join(projectPath, '.ac.jerry', '.env');
   if (existsSync(envPath)) {
     try {
       const content = readFileSync(envPath, 'utf-8');
@@ -575,12 +575,12 @@ async function listTerminalWorktrees(projectPath: string): Promise<TerminalWorkt
 }
 
 /**
- * List "other" worktrees - worktrees not managed by Auto Claude
+ * List "other" worktrees - worktrees not managed by AC Jerry
  * These are discovered via `git worktree list` excluding:
  * - Main worktree (project root)
- * - .auto-claude/worktrees/terminal/*
- * - .auto-claude/worktrees/tasks/*
- * - .auto-claude/worktrees/pr/*
+ * - .ac.jerry/worktrees/terminal/*
+ * - .ac.jerry/worktrees/tasks/*
+ * - .ac.jerry/worktrees/pr/*
  */
 async function listOtherWorktrees(projectPath: string): Promise<OtherWorktreeInfo[]> {
   // Validate projectPath against registered projects
@@ -594,9 +594,9 @@ async function listOtherWorktrees(projectPath: string): Promise<OtherWorktreeInf
   // Paths to exclude (normalize for comparison)
   const normalizedProjectPath = path.resolve(projectPath);
   const excludePrefixes = [
-    path.join(normalizedProjectPath, '.auto-claude', 'worktrees', 'terminal'),
-    path.join(normalizedProjectPath, '.auto-claude', 'worktrees', 'tasks'),
-    path.join(normalizedProjectPath, '.auto-claude', 'worktrees', 'pr'),
+    path.join(normalizedProjectPath, '.ac.jerry', 'worktrees', 'terminal'),
+    path.join(normalizedProjectPath, '.ac.jerry', 'worktrees', 'tasks'),
+    path.join(normalizedProjectPath, '.ac.jerry', 'worktrees', 'pr'),
   ];
 
   try {

@@ -19,7 +19,7 @@ MODEL_ID_MAP: dict[str, str] = {
 }
 
 # Thinking level to budget tokens mapping (None = no extended thinking)
-# Values must match auto-claude-ui/src/shared/constants/models.ts THINKING_BUDGET_MAP
+# Values must match ac-jerry-ui/src/shared/constants/models.ts THINKING_BUDGET_MAP
 THINKING_BUDGET_MAP: dict[str, int | None] = {
     "none": None,
     "low": 1024,

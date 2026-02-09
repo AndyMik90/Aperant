@@ -10,7 +10,7 @@
 
 ```bash
 /ralph-loop:ralph-loop "
-You are completing UI Terminal Views for Auto-Claude (Jerry).
+You are completing UI Terminal Views for AC Jerry (Jerry).
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -18,7 +18,7 @@ YOUR IDENTITY:
 - This is a 2-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 - Frontend: apps/frontend/
 - Reference: docs/ui-reference/RAW_VIEW_REFERENCE.md
 

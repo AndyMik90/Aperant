@@ -75,7 +75,7 @@ logger = logging.getLogger(__name__)
 DEBUG_MODE = os.environ.get("DEBUG", "").lower() in ("true", "1", "yes")
 
 # Directory for PR review worktrees (shared with initial reviewer)
-PR_WORKTREE_DIR = ".auto-claude/github/pr/worktrees"
+PR_WORKTREE_DIR = ".ac.jerry/github/pr/worktrees"
 
 # Severity mapping for AI responses
 _SEVERITY_MAPPING = {

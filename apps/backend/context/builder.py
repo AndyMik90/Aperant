@@ -34,8 +34,8 @@ class ContextBuilder:
         self.pattern_discoverer = PatternDiscoverer(self.project_dir)
 
     def _load_project_index(self) -> dict:
-        """Load project index from file or create new one (.auto-claude is the installed instance)."""
-        index_file = self.project_dir / ".auto-claude" / "project_index.json"
+        """Load project index from file or create new one (.ac.jerry is the installed instance)."""
+        index_file = self.project_dir / ".ac.jerry" / "project_index.json"
         if index_file.exists():
             with open(index_file) as f:
                 return json.load(f)

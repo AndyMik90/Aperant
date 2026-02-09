@@ -34,7 +34,7 @@ async def example_concurrent_auto_fix():
     """
     print("\n=== Example 1: Concurrent Auto-Fix Jobs ===\n")
 
-    github_dir = Path(".auto-claude/github")
+    github_dir = Path(".ac.jerry/github")
 
     async def process_auto_fix(issue_number: int):
         """Simulate an auto-fix job processing an issue."""
@@ -100,7 +100,7 @@ async def example_concurrent_pr_reviews():
     """
     print("\n=== Example 2: Concurrent PR Reviews ===\n")
 
-    github_dir = Path(".auto-claude/github")
+    github_dir = Path(".ac.jerry/github")
 
     async def review_pr(pr_number: int, findings_count: int, status: str):
         """Simulate reviewing a PR."""
@@ -162,7 +162,7 @@ async def example_triage_queue():
     """
     print("\n=== Example 3: Concurrent Issue Triage ===\n")
 
-    github_dir = Path(".auto-claude/github")
+    github_dir = Path(".ac.jerry/github")
 
     async def triage_issue(issue_number: int, category: TriageCategory, priority: str):
         """Simulate triaging an issue."""
@@ -207,7 +207,7 @@ async def example_index_collision():
     """
     print("\n=== Example 4: Why Index Locking is Critical ===\n")
 
-    github_dir = Path(".auto-claude/github")
+    github_dir = Path(".ac.jerry/github")
 
     print("Scenario: 10 concurrent auto-fix jobs all updating the same index")
     print("Without locking: Updates overwrite each other (lost updates)")
@@ -240,7 +240,7 @@ async def example_error_handling():
     """
     print("\n=== Example 5: Error Handling ===\n")
 
-    github_dir = Path(".auto-claude/github")
+    github_dir = Path(".ac.jerry/github")
 
     from file_lock import FileLockTimeout, locked_json_write
 

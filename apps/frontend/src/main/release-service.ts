@@ -344,7 +344,7 @@ export class ReleaseService extends EventEmitter {
     tasks: Task[]
   ): Promise<UnmergedWorktreeInfo[]> {
     const unmerged: UnmergedWorktreeInfo[] = [];
-    const worktreesDir = path.join(projectPath, '.auto-claude', 'worktrees', 'tasks');
+    const worktreesDir = path.join(projectPath, '.ac.jerry', 'worktrees', 'tasks');
 
     if (!existsSync(worktreesDir)) {
       return [];
@@ -501,7 +501,7 @@ export class ReleaseService extends EventEmitter {
           message: 'Stashing current changes...'
         });
 
-        execFileSync(getToolPath('git'), ['stash', 'push', '-m', 'auto-claude-release-temp'], {
+        execFileSync(getToolPath('git'), ['stash', 'push', '-m', 'ac-jerry-release-temp'], {
           cwd: projectPath,
           encoding: 'utf-8'
         });

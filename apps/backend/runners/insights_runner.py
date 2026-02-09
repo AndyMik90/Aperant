@@ -15,7 +15,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Add auto-claude to path
+# Add ac-jerry to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Validate platform-specific dependencies BEFORE any imports that might
@@ -57,8 +57,8 @@ def load_project_context(project_dir: str) -> str:
     """Load project context for the AI."""
     context_parts = []
 
-    # Load project index if available (from .auto-claude - the installed instance)
-    index_path = Path(project_dir) / ".auto-claude" / "project_index.json"
+    # Load project index if available (from .ac.jerry - the installed instance)
+    index_path = Path(project_dir) / ".ac.jerry" / "project_index.json"
     if index_path.exists():
         try:
             with open(index_path) as f:
@@ -78,7 +78,7 @@ def load_project_context(project_dir: str) -> str:
             logger.warning("Failed to load project index from %s", index_path, exc_info=True)
 
     # Load roadmap if available
-    roadmap_path = Path(project_dir) / ".auto-claude" / "roadmap" / "roadmap.json"
+    roadmap_path = Path(project_dir) / ".ac.jerry" / "roadmap" / "roadmap.json"
     if roadmap_path.exists():
         try:
             with open(roadmap_path) as f:
@@ -97,7 +97,7 @@ def load_project_context(project_dir: str) -> str:
             logger.warning("Failed to load roadmap from %s", roadmap_path, exc_info=True)
 
     # Load existing tasks with IDs, titles, and status for dependency linking
-    tasks_path = Path(project_dir) / ".auto-claude" / "specs"
+    tasks_path = Path(project_dir) / ".ac.jerry" / "specs"
     if tasks_path.exists():
         try:
             task_dirs = [d for d in tasks_path.iterdir() if d.is_dir()]

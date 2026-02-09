@@ -37,7 +37,7 @@ SKIP_DIRS = {
     ".turbo",
     ".cache",
     ".worktrees",  # Skip git worktrees directory
-    ".auto-claude",  # Skip auto-claude metadata directory
+    ".ac.jerry",  # Skip ac-jerry metadata directory
 }
 
 # Common service directory names

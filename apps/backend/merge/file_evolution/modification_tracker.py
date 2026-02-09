@@ -338,7 +338,7 @@ class ModificationTracker:
         merge-base with the worktree.
 
         Note: We don't use upstream tracking because that returns the worktree's
-        own branch (e.g., origin/auto-claude/...) rather than the base branch.
+        own branch (e.g., origin/ac-jerry/...) rather than the base branch.
 
         Args:
             worktree_path: Path to the worktree

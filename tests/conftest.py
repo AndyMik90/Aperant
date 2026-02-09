@@ -30,7 +30,7 @@ TEST_PROJECT_DIR = "/tmp/test-project"
 TEST_SPEC_DIR = "/tmp/test-spec"
 
 # =============================================================================
-# PRE-MOCK EXTERNAL SDK MODULES - Must happen BEFORE adding auto-claude to path
+# PRE-MOCK EXTERNAL SDK MODULES - Must happen BEFORE adding ac-jerry to path
 # =============================================================================
 # These SDK modules may not be installed, so we mock them before any imports
 # that might trigger loading code that depends on them.

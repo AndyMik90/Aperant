@@ -1,4 +1,4 @@
-# Auto-Claude Full Architecture
+# AC Jerry Full Architecture
 
 **Last Updated:** 2026-02-04
 **Version:** 1.0
@@ -24,7 +24,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                        AUTO-CLAUDE ARCHITECTURE STACK                            │
+│                        AC JERRY ARCHITECTURE STACK                            │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                  │
 │  ┌─────────────────────────────────────────────────────────────────────────┐    │
@@ -50,7 +50,7 @@
 │                                 │ (File I/O)                                     │
 │  ┌──────────────────────────────▼──────────────────────────────────────────┐    │
 │  │                  LAYER 4: FILE SYSTEM & GIT                              │    │
-│  │  .auto-claude/specs/ → worktrees/ → Git operations                      │    │
+│  │  .ac.jerry/specs/ → worktrees/ → Git operations                      │    │
 │  │  spec.md, implementation_plan.json, memories/                           │    │
 │  └─────────────────────────────────────────────────────────────────────────┘    │
 │                                                                                  │
@@ -456,7 +456,7 @@ def emit_phase(phase: str, message: str):
 
 ```
 project-root/
-├── .auto-claude/
+├── .ac.jerry/
 │   ├── specs/
 │   │   └── {specId}/
 │   │       ├── spec.md                  # Task specification
@@ -508,14 +508,14 @@ project-root/
 
 ```bash
 # Create worktree (done by planning agent)
-git worktree add .auto-claude/worktrees/{specId} -b auto-claude/{specId} [base-branch]
+git worktree add .ac.jerry/worktrees/{specId} -b ac-jerry/{specId} [base-branch]
 
 # List worktrees
 git worktree list
 
 # Remove worktree (done on task completion)
-git worktree remove --force .auto-claude/worktrees/{specId}
-git branch -D auto-claude/{specId}
+git worktree remove --force .ac.jerry/worktrees/{specId}
+git branch -D ac-jerry/{specId}
 ```
 
 ---

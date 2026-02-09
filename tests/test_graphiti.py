@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-# Add auto-claude to path
+# Add ac-jerry to path
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 
@@ -77,8 +77,8 @@ class TestGraphitiConfig:
         with patch.dict(os.environ, {}, clear=True):
             config = GraphitiConfig.from_env()
             assert config.enabled is False
-            assert config.database == "auto_claude_memory"
-            assert "auto-claude" in config.db_path.lower()  # Default path in ~/.auto-claude/
+            assert config.database == "ac_jerry_memory"
+            assert "ac-jerry" in config.db_path.lower()  # Default path in ~/.ac-jerry/
 
     def test_from_env_custom_values(self):
         """Config reads custom environment values."""

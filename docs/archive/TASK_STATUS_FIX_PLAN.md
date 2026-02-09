@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-The Auto-Claude (Jerry) application has a architectural confusion between **Task Status** (workflow stage) and **Execution Phase** (backend agent activity). This creates UI inconsistencies where tasks show confusing state combinations like "Coding status with Planning phase".
+The AC Jerry (Jerry) application has a architectural confusion between **Task Status** (workflow stage) and **Execution Phase** (backend agent activity). This creates UI inconsistencies where tasks show confusing state combinations like "Coding status with Planning phase".
 
 **Root Causes:**
 1. Race condition between status update and phase initialization

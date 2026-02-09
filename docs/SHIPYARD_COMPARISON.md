@@ -3,7 +3,7 @@
 **Date:** 2026-02-06
 **Shipyard Version:** 2.8.0 (by lgbarn, MIT License)
 **Shipyard Repo:** `C:\Users\jamie.ballard\Documents\GitHub\shipyard-main`
-**Jerry Repo:** `C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude`
+**Jerry Repo:** `C:\Users\jamie.ballard\Documents\GitHub\AC Jerry`
 
 ---
 

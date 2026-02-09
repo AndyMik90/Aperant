@@ -17,12 +17,12 @@ from agents.tools_pkg.models import (  # noqa: F401
 )
 from agents.tools_pkg.permissions import get_allowed_tools  # noqa: F401
 from agents.tools_pkg.registry import (  # noqa: F401
-    create_auto_claude_mcp_server,
+    create_ac_jerry_mcp_server,
     is_tools_available,
 )
 
 __all__ = [
-    "create_auto_claude_mcp_server",
+    "create_ac_jerry_mcp_server",
     "get_allowed_tools",
     "is_tools_available",
     "TOOL_UPDATE_SUBTASK_STATUS",

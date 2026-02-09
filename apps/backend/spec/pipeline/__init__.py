@@ -10,7 +10,7 @@ Components:
 - orchestrator: Main SpecOrchestrator class
 """
 
-from init import init_auto_claude_dir
+from init import init_ac_jerry_dir
 
 from .models import get_specs_dir
 from .orchestrator import SpecOrchestrator
@@ -18,5 +18,5 @@ from .orchestrator import SpecOrchestrator
 __all__ = [
     "SpecOrchestrator",
     "get_specs_dir",
-    "init_auto_claude_dir",
+    "init_ac_jerry_dir",
 ]

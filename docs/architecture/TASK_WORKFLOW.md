@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document describes the **intended end-to-end workflow** for how tasks move through the Auto-Claude (Jerry) system, from initial conversation to completed code.
+This document describes the **intended end-to-end workflow** for how tasks move through the AC Jerry (Jerry) system, from initial conversation to completed code.
 
 ---
 

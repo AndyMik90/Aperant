@@ -13,7 +13,7 @@ Uses Claude agents to generate ideas of different types:
 import sys
 from pathlib import Path
 
-# Add auto-claude to path
+# Add ac-jerry to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from client import create_client

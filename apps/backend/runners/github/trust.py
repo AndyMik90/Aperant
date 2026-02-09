@@ -389,7 +389,7 @@ class TrustManager:
     Manages trust levels across repositories.
 
     Usage:
-        trust = TrustManager(state_dir=Path(".auto-claude/github"))
+        trust = TrustManager(state_dir=Path(".ac.jerry/github"))
 
         # Check if action is allowed
         if trust.can_perform("owner/repo", "auto_fix"):

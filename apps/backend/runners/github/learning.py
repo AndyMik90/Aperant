@@ -11,7 +11,7 @@ Features:
 - Feedback loop for prompt optimization
 
 Usage:
-    tracker = LearningTracker(state_dir=Path(".auto-claude/github"))
+    tracker = LearningTracker(state_dir=Path(".ac.jerry/github"))
 
     # Record a prediction
     tracker.record_prediction("repo", review_id, "request_changes", findings)
@@ -260,7 +260,7 @@ class LearningTracker:
     Tracks predictions and outcomes to enable learning.
 
     Usage:
-        tracker = LearningTracker(state_dir=Path(".auto-claude/github"))
+        tracker = LearningTracker(state_dir=Path(".ac.jerry/github"))
 
         # Record prediction when making a review
         tracker.record_prediction(

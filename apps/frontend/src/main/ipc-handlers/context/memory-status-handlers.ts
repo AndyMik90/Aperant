@@ -84,7 +84,7 @@ export function buildMemoryStatus(
     return {
       enabled: true,
       available: true,
-      database: memoryState.database || 'auto_claude_memory',
+      database: memoryState.database || 'ac_jerry_memory',
       dbPath: dbDetails.dbPath
     };
   }

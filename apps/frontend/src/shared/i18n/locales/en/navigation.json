@@ -31,7 +31,7 @@
     "help": "Help & Feedback"
   },
   "messages": {
-    "initializeToCreateTasks": "Initialize Jerry to create tasks"
+    "initializeToCreateTasks": "Initialize AC Jerry to create tasks"
   },
   "updateBanner": {
     "title": "Update Available",

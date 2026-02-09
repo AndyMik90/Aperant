@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-# Add auto-claude to path
+# Add ac-jerry to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from debug import (
@@ -47,8 +47,8 @@ class ProjectAnalyzer:
             "planned_features": [],
         }
 
-        # Get project index (from .auto-claude - the installed instance)
-        project_index_path = self.project_dir / ".auto-claude" / "project_index.json"
+        # Get project index (from .ac.jerry - the installed instance)
+        project_index_path = self.project_dir / ".ac.jerry" / "project_index.json"
         if project_index_path.exists():
             try:
                 with open(project_index_path) as f:
@@ -66,7 +66,7 @@ class ProjectAnalyzer:
         # Get roadmap context if enabled
         if self.include_roadmap:
             roadmap_path = (
-                self.project_dir / ".auto-claude" / "roadmap" / "roadmap.json"
+                self.project_dir / ".ac.jerry" / "roadmap" / "roadmap.json"
             )
             if roadmap_path.exists():
                 try:
@@ -83,7 +83,7 @@ class ProjectAnalyzer:
 
             # Also check discovery for audience
             discovery_path = (
-                self.project_dir / ".auto-claude" / "roadmap" / "roadmap_discovery.json"
+                self.project_dir / ".ac.jerry" / "roadmap" / "roadmap_discovery.json"
             )
             if discovery_path.exists() and not context["target_audience"]:
                 try:
@@ -102,7 +102,7 @@ class ProjectAnalyzer:
 
         # Get kanban context if enabled
         if self.include_kanban:
-            specs_dir = self.project_dir / ".auto-claude" / "specs"
+            specs_dir = self.project_dir / ".ac.jerry" / "specs"
             if specs_dir.exists():
                 for spec_dir in specs_dir.iterdir():
                     if spec_dir.is_dir():

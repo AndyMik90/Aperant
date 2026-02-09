@@ -25,7 +25,7 @@ import { parseEnvFile } from './utils';
 const settingsPath = getSettingsPath();
 
 /**
- * Auto-detect the auto-claude source path relative to the app location.
+ * Auto-detect the ac-jerry source path relative to the app location.
  * Works across platforms (macOS, Windows, Linux) in both dev and production modes.
  */
 const detectAutoBuildSourcePath = (): string | null => {
@@ -71,7 +71,7 @@ const detectAutoBuildSourcePath = (): string | null => {
 
   for (const p of possiblePaths) {
     // Use runners/spec_runner.py as marker - this is the file actually needed for task execution
-    // This prevents matching legacy 'auto-claude/' directories that don't have the runners
+    // This prevents matching legacy 'ac-jerry/' directories that don't have the runners
     const markerPath = path.join(p, 'runners', 'spec_runner.py');
     const exists = existsSync(p) && existsSync(markerPath);
 
@@ -85,7 +85,7 @@ const detectAutoBuildSourcePath = (): string | null => {
     }
   }
 
-  console.warn('[detectAutoBuildSourcePath] Could not auto-detect Auto Claude source path. Please configure manually in settings.');
+  console.warn('[detectAutoBuildSourcePath] Could not auto-detect AC Jerry source path. Please configure manually in settings.');
   console.warn('[detectAutoBuildSourcePath] Set DEBUG=1 environment variable for detailed path checking.');
   return null;
 };
@@ -137,7 +137,7 @@ export function registerSettingsHandlers(
       // Migration: Clear CLI tool paths that are from a different platform
       // Fixes issue where Windows paths persisted on macOS (and vice versa)
       // when settings were synced/transferred between platforms
-      // See: https://github.com/AndyMik90/Auto-Claude/issues/XXX
+      // See: https://github.com/lizz-ee/ac.jerry/issues/XXX
       const pathFields = ['pythonPath', 'gitPath', 'githubCLIPath', 'claudePath', 'autoBuildPath'] as const;
       for (const field of pathFields) {
         const pathValue = settings[field];
@@ -667,8 +667,8 @@ export function registerSettingsHandlers(
 
         // Generate content
         const lines: string[] = [
-          '# Auto Claude Framework Environment Variables',
-          '# Managed by Auto Claude UI',
+          '# AC Jerry Framework Environment Variables',
+          '# Managed by AC Jerry UI',
           '',
           '# Claude Code OAuth Token (REQUIRED)',
           `CLAUDE_CODE_OAUTH_TOKEN=${existingVars['CLAUDE_CODE_OAUTH_TOKEN'] || ''}`,

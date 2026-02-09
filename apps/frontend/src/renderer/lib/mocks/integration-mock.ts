@@ -26,7 +26,7 @@ export const integrationMock = {
     data: {
       hasClaudeToken: true,
       envExists: true,
-      sourcePath: '/mock/auto-claude'
+      sourcePath: '/mock/ac-jerry'
     }
   }),
 
@@ -38,7 +38,7 @@ export const integrationMock = {
     success: true,
     data: {
       hasToken: true,
-      sourcePath: '/mock/auto-claude'
+      sourcePath: '/mock/ac-jerry'
     }
   }),
 

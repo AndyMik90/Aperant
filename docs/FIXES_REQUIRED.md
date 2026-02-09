@@ -278,7 +278,7 @@ human_review → coding (Reject in review)
 ### FIX-025: Spec directories accumulate forever
 
 **What should happen:** Spec directories for completed/archived tasks should eventually be cleaned up to prevent disk bloat.
-**What actually happens:** Spec directories persist indefinitely. Even after archive, the files remain in `.auto-claude/specs/`. There is no garbage collection mechanism.
+**What actually happens:** Spec directories persist indefinitely. Even after archive, the files remain in `.ac.jerry/specs/`. There is no garbage collection mechanism.
 **Where:** Entire codebase (missing feature)
 **Fix:** Add GC that cleans up spec directories when: (1) task is explicitly deleted via `TASK_DELETE`, or (2) task has been archived for > N days (configurable), or (3) user triggers manual cleanup.
 

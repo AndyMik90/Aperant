@@ -114,7 +114,7 @@
 
 ## Thanks to all contributors
 
-@Umaru, @StillKnotKnown, @Andy, @Michael Ludlow, @AndyMik90
+@Umaru, @StillKnotKnown, @Andy, @Michael Ludlow, @lizz-ee
 
 ## 2.7.3 - Reliability & Stability Focus
 
@@ -444,7 +444,7 @@
 
 - Stop running process when task status changes away from in_progress
 
-- Remove legacy path from auto-claude source detection
+- Remove legacy path from ac-jerry source detection
 
 - Resolve Python environment race condition
 
@@ -528,8 +528,8 @@
 - chore: Update Linux app icon to use multiple resolution sizes and fix .deb icon (#672) by @Rooki in 2c9fcbf4
 - fix(a11y): Add missing ARIA attributes for screen reader accessibility (#634) by @Orinks in 3930b12c
 - docs: add stars badge and star history chart to README (#675) by @eddie333016 in e2937320
-- fix(terminal): resolve React Fast Refresh hook error in usePtyProcess by @AndyMik90 in 81afc3d2
-- sentry dev support + sessions handling in terminals by @AndyMik90 in 63f46173
+- fix(terminal): resolve React Fast Refresh hook error in usePtyProcess by @lizz-ee in 81afc3d2
+- sentry dev support + sessions handling in terminals by @lizz-ee in 63f46173
 - fix(frontend): detect @lydell/node-pty prebuilts in postinstall (#673) by @Vinícius Santos in 35573fd5
 - Fix/small fixes all around (#645) by @Andy in 7b4993e9
 - fix: detect Claude CLI installed via NVM on Linux/macOS (#623) by @StillKnotKnown in c2713543
@@ -556,13 +556,13 @@
 - docs: update stable download links to v2.7.2 (#579) by @Alex in 5efc2c56
 - Improving Task Card Title Readability (#461) by @Vinícius Santos in 3086233f
 - feat: custom Anthropic compatible API profile management (#181) by @Ginanjar Noviawan in d278963b
-- 2.7.2 release by @AndyMik90 in 6ac3012f
+- 2.7.2 release by @lizz-ee in 6ac3012f
 - fix: Solve ladybug problem on running npm install all on windows (#576) by @Alex in effaa681
-- fix(merge): handle Windows CRLF line endings in regex fallback by @AndyMik90 in 04de8c78
-- ci(release): add CHANGELOG.md validation and fix release workflow by @AndyMik90 in 6d4231ed
+- fix(merge): handle Windows CRLF line endings in regex fallback by @lizz-ee in 04de8c78
+- ci(release): add CHANGELOG.md validation and fix release workflow by @lizz-ee in 6d4231ed
 - 🔥 hotfix(electron): restore app functionality on Windows broken by GPU cache errors (#569) by @sniggl in dedd0757
-- fix(ci): cache pip wheels to speed up Intel Mac builds by @AndyMik90 in 90dddc28
-- feat(terminal): respect preferred terminal setting for Windows PTY shell by @AndyMik90 in 90a20320
+- fix(ci): cache pip wheels to speed up Intel Mac builds by @lizz-ee in 90dddc28
+- feat(terminal): respect preferred terminal setting for Windows PTY shell by @lizz-ee in 90a20320
 - fix(ci): add Python setup to beta-release and fix PR status gate checks (#565) by @Andy in c2148bb9
 - fix: detect and clear cross-platform CLI paths in settings (#535) by @Andy in 29e45505
 - fix(ui): preserve original task description after spec creation (#536) by @Andy in 7990dcb4
@@ -587,7 +587,7 @@
 - refactor: remove deprecated TaskDetailPanel component (#432) by @Mitsu in ac8dfcac
 - fix(ui): add fallback to prevent tasks stuck in ai_review status (#397) by @Michael Ludlow in 798ca79d
 - feat: Enhance the look of the PR Detail area (#427) by @Alex in bdb01549
-- ci: remove conventional commits PR title validation workflow by @AndyMik90 in 515b73b5
+- ci: remove conventional commits PR title validation workflow by @lizz-ee in 515b73b5
 - fix(client): add spec_dir to SDK permissions (#429) by @Mitsu in 88c76059
 - fix(spec_runner): add --base-branch argument support (#428) by @Mitsu in 62a75515
 - feat: enhance pr review page to include PRs filters (#423) by @Alex in 717fba04
@@ -596,8 +596,8 @@
 - fix(model): respect task_metadata.json model selection (#415) by @Andy in e7e6b521
 - feat(build): add Flatpak packaging support for Linux (#404) by @Mitsu in 230de5fc
 - fix(github): pass repo parameter to GHClient for explicit PR resolution (#413) by @Andy in 4bdf7a0c
-- chore(ci): remove redundant CLA GitHub Action workflow by @AndyMik90 in a39ea49d
-- fix(frontend): add .js extension to electron-log/main imports by @AndyMik90 in 9aef0dd0
+- chore(ci): remove redundant CLA GitHub Action workflow by @lizz-ee in a39ea49d
+- fix(frontend): add .js extension to electron-log/main imports by @lizz-ee in 9aef0dd0
 - fix: 2.7.2 bug fixes and improvements (#388) by @Andy in 05131217
 - fix(analyzer): move Swift detection before Ruby detection (#401) by @Michael Ludlow in 321c9712
 - fix(ui): prevent TaskEditDialog from unmounting when opened (#395) by @Michael Ludlow in 98b12ed8
@@ -618,7 +618,7 @@
 - fix(analyzer): add C#/Java/Swift/Kotlin project files to security hash (#351) by @Michael Ludlow in 4e71361b
 - fix: make backend tests pass on Windows (#282) by @Oluwatosin Oyeladun in 4dcc5afa
 - fix(ui): close parent modal when Edit dialog opens (#354) by @Michael Ludlow in e9782db0
-- chore: bump version to 2.7.2-beta.10 by @AndyMik90 in 40d04d7c
+- chore: bump version to 2.7.2-beta.10 by @lizz-ee in 40d04d7c
 - feat: add terminal dropdown with inbuilt and external options in task review (#347) by @JoshuaRileyDev in fef07c95
 - refactor: remove deprecated code across backend and frontend (#348) by @Mitsu in 9d43abed
 - feat: centralize CLI tool path management (#341) by @HSSAINI Saad in d51f4562
@@ -635,8 +635,8 @@
 - fix(python): use venv Python for all services to fix dotenv errors (#311) by @Alex in 92c6f278
 - chore(ci): cancel in-progress runs (#302) by @Oluwatosin Oyeladun in 1c142273
 - fix(build): use explicit Windows System32 tar path (#308) by @Andy in c0a02a45
-- fix(github): add augmented PATH env to all gh CLI calls by @AndyMik90 in 086429cb
-- fix(build): use PowerShell for tar extraction on Windows by @AndyMik90 in d9fb8f29
+- fix(github): add augmented PATH env to all gh CLI calls by @lizz-ee in 086429cb
+- fix(build): use PowerShell for tar extraction on Windows by @lizz-ee in d9fb8f29
 - fix(build): add --force-local flag to tar on Windows (#303) by @Andy in d0b0b3df
 - fix: stop tracking spec files in git (#295) by @Andy in 937a60f8
 - Fix/2.7.2 fixes (#300) by @Andy in 7a51cbd5
@@ -648,9 +648,9 @@
 - fix(frontend): validate backend source path before using it (#287) by @Andy in 3ff61274
 - feat(python): bundle Python 3.12 with packaged Electron app (#284) by @Andy in 7f19c2e1
 - fix: resolve spawn python ENOENT error on Linux by using getAugmentedEnv() (#281) by @Todd W. Bucy in d98e2830
-- fix(ci): add write permissions to beta-release update-version job by @AndyMik90 in 0b874d4b
+- fix(ci): add write permissions to beta-release update-version job by @lizz-ee in 0b874d4b
 - chore(deps): bump @xterm/xterm from 5.5.0 to 6.0.0 in /apps/frontend (#270) by @dependabot[bot] in 50dd1078
-- fix(github): resolve follow-up review API issues by @AndyMik90 in f1cc5a09
+- fix(github): resolve follow-up review API issues by @lizz-ee in f1cc5a09
 - fix(security): resolve CodeQL file system race conditions and unused variables (#277) by @Andy in b005fa5c
 - fix(ci): use correct electron-builder arch flags (#278) by @Andy in d79f2da4
 - chore(deps): bump jsdom from 26.1.0 to 27.3.0 in /apps/frontend (#268) by @dependabot[bot] in 5ac566e2
@@ -678,17 +678,17 @@
 - fix/PRs from old main setup to apps structure (#185) by @Andy in ced2ad47
 - fix: hide status badge when execution phase badge is showing (#154) by @Andy in 05f5d303
 - feat: Add UI scale feature with 75-200% range (#125) by @Enes Cingöz in 6951251b
-- fix(task): stop running process when task status changes away from in_progress by @AndyMik90 in 30e7536b
+- fix(task): stop running process when task status changes away from in_progress by @lizz-ee in 30e7536b
 - Fix/linear 400 error by @Andy in 220faf0f
-- fix: remove legacy path from auto-claude source detection (#148) by @Joris Slagter in f96c6301
+- fix: remove legacy path from ac-jerry source detection (#148) by @Joris Slagter in f96c6301
 - fix: resolve Python environment race condition (#142) by @Joris Slagter in ebd8340d
 - Feat: Ollama download progress tracking with new apps structure (#141) by @rayBlock in df779530
 - Feature/apps restructure v2.7.2 (#138) by @Andy in 0adaddac
-- docs: Add Git Flow branching strategy to CONTRIBUTING.md by @AndyMik90 in 91f7051d
+- docs: Add Git Flow branching strategy to CONTRIBUTING.md by @lizz-ee in 91f7051d
 
 ## Thanks to all contributors
 
-@Test User, @StillKnotKnown, @Umaru, @Andy, @Adam Slaker, @Michael Ludlow, @Maxim Kosterin, @ThrownLemon, @Ashwinhegde19, @Orinks, @Marcelo Czerewacz, @Brett Bonner, @Alex, @Rooki, @eddie333016, @AndyMik90, @Vinícius Santos, @arcker, @Masanori Uehara, @Crimson341, @Bogdan Dragomir, @tallinn102, @Ginanjar Noviawan, @aaronson2012, @Hunter Luisi, @Navid, @Mulaveesala Pranaveswar, @sniggl, @Abe Diaz, @Mitsu, @Joe, @Illia Filippov, @Ian, @Brian, @Kevin Rajan, @HSSAINI Saad, @JoshuaRileyDev, @souky-byte, @Alex, @Oluwatosin Oyeladun, @Daniel Frey, @delyethan, @Joris Slagter, @Fernando Possebon, @Enes Cingöz, @Todd W. Bucy, @dependabot[bot], @rayBlock
+@Test User, @StillKnotKnown, @Umaru, @Andy, @Adam Slaker, @Michael Ludlow, @Maxim Kosterin, @ThrownLemon, @Ashwinhegde19, @Orinks, @Marcelo Czerewacz, @Brett Bonner, @Alex, @Rooki, @eddie333016, @lizz-ee, @Vinícius Santos, @arcker, @Masanori Uehara, @Crimson341, @Bogdan Dragomir, @tallinn102, @Ginanjar Noviawan, @aaronson2012, @Hunter Luisi, @Navid, @Mulaveesala Pranaveswar, @sniggl, @Abe Diaz, @Mitsu, @Joe, @Illia Filippov, @Ian, @Brian, @Kevin Rajan, @HSSAINI Saad, @JoshuaRileyDev, @souky-byte, @Alex, @Oluwatosin Oyeladun, @Daniel Frey, @delyethan, @Joris Slagter, @Fernando Possebon, @Enes Cingöz, @Todd W. Bucy, @dependabot[bot], @rayBlock
 
 ## 2.7.2 - Stability & Performance Enhancements
 
@@ -834,7 +834,7 @@
 
 - Stopped running process when task status changes away from in_progress
 
-- Removed legacy path from auto-claude source detection
+- Removed legacy path from ac-jerry source detection
 
 - Resolved Python environment race condition
 
@@ -867,7 +867,7 @@
 - refactor: remove deprecated TaskDetailPanel component (#432) by @Mitsu in ac8dfcac
 - fix(ui): add fallback to prevent tasks stuck in ai_review status (#397) by @Michael Ludlow in 798ca79d
 - feat: Enhance the look of the PR Detail area (#427) by @Alex in bdb01549
-- ci: remove conventional commits PR title validation workflow by @AndyMik90 in 515b73b5
+- ci: remove conventional commits PR title validation workflow by @lizz-ee in 515b73b5
 - fix(client): add spec_dir to SDK permissions (#429) by @Mitsu in 88c76059
 - fix(spec_runner): add --base-branch argument support (#428) by @Mitsu in 62a75515
 - feat: enhance pr review page to include PRs filters (#423) by @Alex in 717fba04
@@ -876,8 +876,8 @@
 - fix(model): respect task_metadata.json model selection (#415) by @Andy in e7e6b521
 - feat(build): add Flatpak packaging support for Linux (#404) by @Mitsu in 230de5fc
 - fix(github): pass repo parameter to GHClient for explicit PR resolution (#413) by @Andy in 4bdf7a0c
-- chore(ci): remove redundant CLA GitHub Action workflow by @AndyMik90 in a39ea49d
-- fix(frontend): add .js extension to electron-log/main imports by @AndyMik90 in 9aef0dd0
+- chore(ci): remove redundant CLA GitHub Action workflow by @lizz-ee in a39ea49d
+- fix(frontend): add .js extension to electron-log/main imports by @lizz-ee in 9aef0dd0
 - fix: 2.7.2 bug fixes and improvements (#388) by @Andy in 05131217
 - fix(analyzer): move Swift detection before Ruby detection (#401) by @Michael Ludlow in 321c9712
 - fix(ui): prevent TaskEditDialog from unmounting when opened (#395) by @Michael Ludlow in 98b12ed8
@@ -898,7 +898,7 @@
 - fix(analyzer): add C#/Java/Swift/Kotlin project files to security hash (#351) by @Michael Ludlow in 4e71361b
 - fix: make backend tests pass on Windows (#282) by @Oluwatosin Oyeladun in 4dcc5afa
 - fix(ui): close parent modal when Edit dialog opens (#354) by @Michael Ludlow in e9782db0
-- chore: bump version to 2.7.2-beta.10 by @AndyMik90 in 40d04d7c
+- chore: bump version to 2.7.2-beta.10 by @lizz-ee in 40d04d7c
 - feat: add terminal dropdown with inbuilt and external options in task review (#347) by @JoshuaRileyDev in fef07c95
 - refactor: remove deprecated code across backend and frontend (#348) by @Mitsu in 9d43abed
 - feat: centralize CLI tool path management (#341) by @HSSAINI Saad in d51f4562
@@ -915,8 +915,8 @@
 - fix(python): use venv Python for all services to fix dotenv errors (#311) by @Alex in 92c6f278
 - chore(ci): cancel in-progress runs (#302) by @Oluwatosin Oyeladun in 1c142273
 - fix(build): use explicit Windows System32 tar path (#308) by @Andy in c0a02a45
-- fix(github): add augmented PATH env to all gh CLI calls by @AndyMik90 in 086429cb
-- fix(build): use PowerShell for tar extraction on Windows by @AndyMik90 in d9fb8f29
+- fix(github): add augmented PATH env to all gh CLI calls by @lizz-ee in 086429cb
+- fix(build): use PowerShell for tar extraction on Windows by @lizz-ee in d9fb8f29
 - fix(build): add --force-local flag to tar on Windows (#303) by @Andy in d0b0b3df
 - fix: stop tracking spec files in git (#295) by @Andy in 937a60f8
 - Fix/2.7.2 fixes (#300) by @Andy in 7a51cbd5
@@ -928,9 +928,9 @@
 - fix(frontend): validate backend source path before using it (#287) by @Andy in 3ff61274
 - feat(python): bundle Python 3.12 with packaged Electron app (#284) by @Andy in 7f19c2e1
 - fix: resolve spawn python ENOENT error on Linux by using getAugmentedEnv() (#281) by @Todd W. Bucy in d98e2830
-- fix(ci): add write permissions to beta-release update-version job by @AndyMik90 in 0b874d4b
+- fix(ci): add write permissions to beta-release update-version job by @lizz-ee in 0b874d4b
 - chore(deps): bump @xterm/xterm from 5.5.0 to 6.0.0 in /apps/frontend (#270) by @dependabot[bot] in 50dd1078
-- fix(github): resolve follow-up review API issues by @AndyMik90 in f1cc5a09
+- fix(github): resolve follow-up review API issues by @lizz-ee in f1cc5a09
 - fix(security): resolve CodeQL file system race conditions and unused variables (#277) by @Andy in b005fa5c
 - fix(ci): use correct electron-builder arch flags (#278) by @Andy in d79f2da4
 - chore(deps): bump jsdom from 26.1.0 to 27.3.0 in /apps/frontend (#268) by @dependabot[bot] in 5ac566e2
@@ -958,17 +958,17 @@
 - fix/PRs from old main setup to apps structure (#185) by @Andy in ced2ad47
 - fix: hide status badge when execution phase badge is showing (#154) by @Andy in 05f5d303
 - feat: Add UI scale feature with 75-200% range (#125) by @Enes Cingöz in 6951251b
-- fix(task): stop running process when task status changes away from in_progress by @AndyMik90 in 30e7536b
+- fix(task): stop running process when task status changes away from in_progress by @lizz-ee in 30e7536b
 - Fix/linear 400 error by @Andy in 220faf0f
-- fix: remove legacy path from auto-claude source detection (#148) by @Joris Slagter in f96c6301
+- fix: remove legacy path from ac-jerry source detection (#148) by @Joris Slagter in f96c6301
 - fix: resolve Python environment race condition (#142) by @Joris Slagter in ebd8340d
 - Feat: Ollama download progress tracking with new apps structure (#141) by @rayBlock in df779530
 - Feature/apps restructure v2.7.2 (#138) by @Andy in 0adaddac
-- docs: Add Git Flow branching strategy to CONTRIBUTING.md by @AndyMik90 in 91f7051d
+- docs: Add Git Flow branching strategy to CONTRIBUTING.md by @lizz-ee in 91f7051d
 
 ## Thanks to all contributors
 
-@Andy, @Adryan Serage, @Michael Ludlow, @Navid, @Mulaveesala Pranaveswar, @Vinícius Santos, @Abe Diaz, @Mitsu, @Alex, @AndyMik90, @Joe, @Illia Filippov, @Ian, @Brian, @Kevin Rajan, @Oluwatosin Oyeladun, @JoshuaRileyDev, @HSSAINI Saad, @souky-byte, @Todd W. Bucy, @dependabot[bot], @Daniel Frey, @delyethan, @Joris Slagter, @Fernando Possebon, @Enes Cingöz, @rayBlock
+@Andy, @Adryan Serage, @Michael Ludlow, @Navid, @Mulaveesala Pranaveswar, @Vinícius Santos, @Abe Diaz, @Mitsu, @Alex, @lizz-ee, @Joe, @Illia Filippov, @Ian, @Brian, @Kevin Rajan, @Oluwatosin Oyeladun, @JoshuaRileyDev, @HSSAINI Saad, @souky-byte, @Todd W. Bucy, @dependabot[bot], @Daniel Frey, @delyethan, @Joris Slagter, @Fernando Possebon, @Enes Cingöz, @rayBlock
 
 ## 2.7.1 - Build Pipeline Enhancements
 
@@ -988,17 +988,17 @@
 
 ## What's Changed
 
-- chore: Enhance VirusTotal scan error handling in release workflow by @AndyMik90 in d23fcd8
+- chore: Enhance VirusTotal scan error handling in release workflow by @lizz-ee in d23fcd8
 
-- chore: Refactor macOS build workflow to support Intel and ARM64 architectures by @AndyMik90 in 326118b
+- chore: Refactor macOS build workflow to support Intel and ARM64 architectures by @lizz-ee in 326118b
 
-- docs: readme clarification by @AndyMik90 in 6afcc92
+- docs: readme clarification by @lizz-ee in 6afcc92
 
-- fix: version by @AndyMik90 in 2c93890
+- fix: version by @lizz-ee in 2c93890
 
 ## Thanks to all contributors
 
-@AndyMik90
+@lizz-ee
 
 ## 2.7.0 - Tab Persistence & Memory System Modernization
 
@@ -1056,7 +1056,7 @@
 
 - Preview panel now receives projectPath prop correctly for image component functionality
 
-- Default database path unified to ~/.auto-claude/memories for consistency
+- Default database path unified to ~/.ac.jerry/memories for consistency
 
 - @lydell/node-pty build scripts compatibility improved for pnpm v10
 
@@ -1064,125 +1064,125 @@
 
 ## What's Changed
 
-- feat(ui): add project tab bar from PR #101 by @AndyMik90 in c400fe9
+- feat(ui): add project tab bar from PR #101 by @lizz-ee in c400fe9
 
-- feat: improve task creation UX with @ autocomplete and better drag-drop by @AndyMik90 in 20d1487
+- feat: improve task creation UX with @ autocomplete and better drag-drop by @lizz-ee in 20d1487
 
-- feat(ui): add keyboard shortcuts and tooltips for project tabs by @AndyMik90 in ed73265
+- feat(ui): add keyboard shortcuts and tooltips for project tabs by @lizz-ee in ed73265
 
-- feat(agent): enhance task restart functionality with new profile support by @AndyMik90 in c8452a5
+- feat(agent): enhance task restart functionality with new profile support by @lizz-ee in c8452a5
 
-- feat: add Ollama embedding model support with auto-detected dimensions by @AndyMik90 in 45901f3
+- feat: add Ollama embedding model support with auto-detected dimensions by @lizz-ee in 45901f3
 
-- feat(memory): replace FalkorDB with LadybugDB embedded database by @AndyMik90 in 87d0b52
+- feat(memory): replace FalkorDB with LadybugDB embedded database by @lizz-ee in 87d0b52
 
-- feat: add automated release workflow with code signing by @AndyMik90 in 6819b00
+- feat: add automated release workflow with code signing by @lizz-ee in 6819b00
 
-- feat: add embedding provider change detection and fix import ordering by @AndyMik90 in 36f8006
+- feat: add embedding provider change detection and fix import ordering by @lizz-ee in 36f8006
 
-- fix(tests): update tab management tests for IPC-based persistence by @AndyMik90 in ea25d6e
+- fix(tests): update tab management tests for IPC-based persistence by @lizz-ee in ea25d6e
 
-- fix(ui): address CodeRabbit PR review issues by @AndyMik90 in 39ce754
+- fix(ui): address CodeRabbit PR review issues by @lizz-ee in 39ce754
 
-- fix: address CodeRabbit review issues by @AndyMik90 in 95ae0b0
+- fix: address CodeRabbit review issues by @lizz-ee in 95ae0b0
 
-- fix: prevent task title from blocking edit/close buttons by @AndyMik90 in 8a0fb26
+- fix: prevent task title from blocking edit/close buttons by @lizz-ee in 8a0fb26
 
-- fix: use venv Python for terminal name generation by @AndyMik90 in 325cb54
+- fix: use venv Python for terminal name generation by @lizz-ee in 325cb54
 
-- fix(merge): increase AI merge timeout from 2 to 10 minutes by @AndyMik90 in 4477538
+- fix(merge): increase AI merge timeout from 2 to 10 minutes by @lizz-ee in 4477538
 
-- fix(merge): use stored baseBranch from task metadata for merge operations by @AndyMik90 in 8d56474
+- fix(merge): use stored baseBranch from task metadata for merge operations by @lizz-ee in 8d56474
 
-- fix: unify default database path to ~/.auto-claude/memories by @AndyMik90 in 684e3f9
+- fix: unify default database path to ~/.ac.jerry/memories by @lizz-ee in 684e3f9
 
-- fix(ui): fix tab persistence and scope terminal shortcuts by @AndyMik90 in 2d1168b
+- fix(ui): fix tab persistence and scope terminal shortcuts by @lizz-ee in 2d1168b
 
-- fix: create Python venv in userData for packaged apps by @AndyMik90 in b83377c
+- fix: create Python venv in userData for packaged apps by @lizz-ee in b83377c
 
-- fix(ui): change agent profile fallback from 'Balanced' to 'Auto (Optimized)' by @AndyMik90 in 385dcc1
+- fix(ui): change agent profile fallback from 'Balanced' to 'Auto (Optimized)' by @lizz-ee in 385dcc1
 
-- fix: check APPLE_ID in shell instead of workflow if condition by @AndyMik90 in 9eece01
+- fix: check APPLE_ID in shell instead of workflow if condition by @lizz-ee in 9eece01
 
-- fix: allow @lydell/node-pty build scripts in pnpm v10 by @AndyMik90 in 1f6963f
+- fix: allow @lydell/node-pty build scripts in pnpm v10 by @lizz-ee in 1f6963f
 
-- fix: use shell guard for notarization credentials check by @AndyMik90 in 4cbddd3
+- fix: use shell guard for notarization credentials check by @lizz-ee in 4cbddd3
 
-- fix: improve migrate_embeddings robustness and correctness by @AndyMik90 in 61f0238
+- fix: improve migrate_embeddings robustness and correctness by @lizz-ee in 61f0238
 
-- fix: respect user's memory enabled flag in query_memory CLI by @AndyMik90 in 45b2c83
+- fix: respect user's memory enabled flag in query_memory CLI by @lizz-ee in 45b2c83
 
-- fix: save notarization logs to private artifact instead of public logs by @AndyMik90 in a82525d
+- fix: save notarization logs to private artifact instead of public logs by @lizz-ee in a82525d
 
-- fix: make macOS notarization optional by @AndyMik90 in f2b7b56
+- fix: make macOS notarization optional by @lizz-ee in f2b7b56
 
-- fix: add author email for Linux builds by @AndyMik90 in 5f66127
+- fix: add author email for Linux builds by @lizz-ee in 5f66127
 
-- fix: add GH_TOKEN and homepage for release workflow by @AndyMik90 in 568ea18
+- fix: add GH_TOKEN and homepage for release workflow by @lizz-ee in 568ea18
 
-- fix(ci): quote GITHUB_OUTPUT for shell safety by @AndyMik90 in 1e891e1
+- fix(ci): quote GITHUB_OUTPUT for shell safety by @lizz-ee in 1e891e1
 
-- fix: address CodeRabbit review feedback by @AndyMik90 in 8e4b1da
+- fix: address CodeRabbit review feedback by @lizz-ee in 8e4b1da
 
-- fix: update test and apply ruff formatting by @AndyMik90 in a087ba3
+- fix: update test and apply ruff formatting by @lizz-ee in a087ba3
 
-- fix: address additional CodeRabbit review comments by @AndyMik90 in 461fad6
+- fix: address additional CodeRabbit review comments by @lizz-ee in 461fad6
 
-- fix: sort imports in memory.py for ruff I001 by @AndyMik90 in b3c257d
+- fix: sort imports in memory.py for ruff I001 by @lizz-ee in b3c257d
 
-- fix: address CodeRabbit review comments from PR #100 by @AndyMik90 in 1ed237a
+- fix: address CodeRabbit review comments from PR #100 by @lizz-ee in 1ed237a
 
-- fix: remove f-string prefixes from strings without placeholders by @AndyMik90 in bcd453a
+- fix: remove f-string prefixes from strings without placeholders by @lizz-ee in bcd453a
 
-- fix: resolve remaining CI failures by @AndyMik90 in cfbccda
+- fix: resolve remaining CI failures by @lizz-ee in cfbccda
 
-- fix: resolve all CI failures in PR #100 by @AndyMik90 in c493d6c
+- fix: resolve all CI failures in PR #100 by @lizz-ee in c493d6c
 
-- fix(cli): update graphiti status display for LadybugDB by @AndyMik90 in 049c60c
+- fix(cli): update graphiti status display for LadybugDB by @lizz-ee in 049c60c
 
-- fix(ui): replace Unix shell syntax with cross-platform git commands by @AndyMik90 in 83aa3f0
+- fix(ui): replace Unix shell syntax with cross-platform git commands by @lizz-ee in 83aa3f0
 
-- fix: correct model name and release workflow conditionals by @AndyMik90 in de41dfc
+- fix: correct model name and release workflow conditionals by @lizz-ee in de41dfc
 
-- style: fix ruff linting errors in graphiti queries by @AndyMik90 in 127559f
+- style: fix ruff linting errors in graphiti queries by @lizz-ee in 127559f
 
-- style: apply ruff formatting to 4 files by @AndyMik90 in 9d5d075
+- style: apply ruff formatting to 4 files by @lizz-ee in 9d5d075
 
-- refactor: update memory test suite for LadybugDB by @AndyMik90 in f0b5efc
+- refactor: update memory test suite for LadybugDB by @lizz-ee in f0b5efc
 
-- refactor(ui): simplify reference files and images handling in task modal by @AndyMik90 in 1975e4d
+- refactor(ui): simplify reference files and images handling in task modal by @lizz-ee in 1975e4d
 
-- refactor: rebrand memory system UI and simplify configuration by @AndyMik90 in 2b3cd49
+- refactor: rebrand memory system UI and simplify configuration by @lizz-ee in 2b3cd49
 
-- refactor: replace Docker/FalkorDB with embedded LadybugDB for memory system by @AndyMik90 in 325458d
+- refactor: replace Docker/FalkorDB with embedded LadybugDB for memory system by @lizz-ee in 325458d
 
-- docs: add CodeRabbit review response tracking by @AndyMik90 in 3452548
+- docs: add CodeRabbit review response tracking by @lizz-ee in 3452548
 
-- chore: use GitHub noreply email for author field by @AndyMik90 in 18f2045
+- chore: use GitHub noreply email for author field by @lizz-ee in 18f2045
 
-- chore: simplify notarization step after successful setup by @AndyMik90 in e4fe7cd
+- chore: simplify notarization step after successful setup by @lizz-ee in e4fe7cd
 
-- chore: update CI and release workflows, remove changelog config by @AndyMik90 in 6f891b7
+- chore: update CI and release workflows, remove changelog config by @lizz-ee in 6f891b7
 
-- chore: remove docker-compose.yml (FalkorDB no longer used) by @AndyMik90 in 68f3f06
+- chore: remove docker-compose.yml (FalkorDB no longer used) by @lizz-ee in 68f3f06
 
 - fix: Replace space with hyphen in productName to fix PTY daemon spawn (#65) by @Craig Van in 8f1f7a7
 
-- fix: update npm scripts to use hyphenated product name by @AndyMik90 in 89978ed
+- fix: update npm scripts to use hyphenated product name by @lizz-ee in 89978ed
 
-- fix(ui): improve Ollama UX in memory settings by @AndyMik90 in dea1711
+- fix(ui): improve Ollama UX in memory settings by @lizz-ee in dea1711
 
-- auto-claude: subtask-1-1 - Add projectPath prop to PreviewPanel and implement custom img component by @AndyMik90 in e6529e0
+- ac-jerry: subtask-1-1 - Add projectPath prop to PreviewPanel and implement custom img component by @lizz-ee in e6529e0
 
-- Project tab persistence and github org init on project creation by @AndyMik90 in ae1dac9
+- Project tab persistence and github org init on project creation by @lizz-ee in ae1dac9
 
-- Readme for installors by @AndyMik90 in 1855d7d
+- Readme for installors by @lizz-ee in 1855d7d
 
 ---
 
 ## Thanks to all contributors
 
-@AndyMik90, @Craig Van
+@lizz-ee, @Craig Van
 
 ## 2.6.0 - Improved User Experience and Agent Configuration
 
@@ -1240,49 +1240,49 @@
 
 ## What's Changed
 
-- feat: add customizable phase configuration in app settings by @AndyMik90 in aee0ba4
+- feat: add customizable phase configuration in app settings by @lizz-ee in aee0ba4
 
-- feat: implement parallel AI merge functionality by @AndyMik90 in 458d4bb
+- feat: implement parallel AI merge functionality by @lizz-ee in 458d4bb
 
 - feat(graphiti): add Google AI as LLM and embedding provider by @adryserage in fe69106
 
-- fix: create coroutine inside worker thread for asyncio.run by @AndyMik90 in f89e4e6
+- fix: create coroutine inside worker thread for asyncio.run by @lizz-ee in f89e4e6
 
-- fix: improve UX for phase configuration in task creation by @AndyMik90 in b9797cb
+- fix: improve UX for phase configuration in task creation by @lizz-ee in b9797cb
 
-- fix: address CodeRabbit PR #69 feedback by @AndyMik90 in cc38a06
+- fix: address CodeRabbit PR #69 feedback by @lizz-ee in cc38a06
 
-- fix: sort imports in workspace.py to pass ruff I001 check by @AndyMik90 in 9981ee4
+- fix: sort imports in workspace.py to pass ruff I001 check by @lizz-ee in 9981ee4
 
-- fix(ui): auto-close task modal when marking task as done by @AndyMik90 in 297d380
+- fix(ui): auto-close task modal when marking task as done by @lizz-ee in 297d380
 
-- fix: resolve Python lint errors in workspace.py by @AndyMik90 in 0506256
+- fix: resolve Python lint errors in workspace.py by @lizz-ee in 0506256
 
-- refactor: move Agent Profiles from dashboard to Settings by @AndyMik90 in 1094990
+- refactor: move Agent Profiles from dashboard to Settings by @lizz-ee in 1094990
 
-- fix(planning): ensure planner agent writes implementation_plan.json by @AndyMik90 in 9ab5a4f
+- fix(planning): ensure planner agent writes implementation_plan.json by @lizz-ee in 9ab5a4f
 
-- fix(windows): add platform detection for terminal profile commands by @AndyMik90 in f0a6a0a
+- fix(windows): add platform detection for terminal profile commands by @lizz-ee in f0a6a0a
 
-- fix: default agent profile to 'Auto (Optimized)' for all users by @AndyMik90 in 08aa2ff
+- fix: default agent profile to 'Auto (Optimized)' for all users by @lizz-ee in 08aa2ff
 
-- fix: update default selected agent profile to 'auto' by @AndyMik90 in 37ace0a
+- fix: update default selected agent profile to 'auto' by @lizz-ee in 37ace0a
 
-- style: enhance WorkspaceStatus component UI by @AndyMik90 in 3092155
+- style: enhance WorkspaceStatus component UI by @lizz-ee in 3092155
 
-- fix: display correct merge target branch in worktree UI by @AndyMik90 in 2b96160
+- fix: display correct merge target branch in worktree UI by @lizz-ee in 2b96160
 
-- Improvement/refactor task sidebar to task modal by @AndyMik90 in 2a96f85
+- Improvement/refactor task sidebar to task modal by @lizz-ee in 2a96f85
 
-- fix: extract human-readable title from spec.md when feature field is spec ID by @AndyMik90 in 8b59375
+- fix: extract human-readable title from spec.md when feature field is spec ID by @lizz-ee in 8b59375
 
-- fix: task descriptions not showing for specs with compact markdown by @AndyMik90 in 7f12ef0
+- fix: task descriptions not showing for specs with compact markdown by @lizz-ee in 7f12ef0
 
-- Add comprehensive theme system with Forest, Neo, Retro, Dusk, Ocean, and Lime color schemes by @AndyMik90 in ba776a3, e2b24e2, 7589046, e248256, 76c1bd7, bcbced2
+- Add comprehensive theme system with Forest, Neo, Retro, Dusk, Ocean, and Lime color schemes by @lizz-ee in ba776a3, e2b24e2, 7589046, e248256, 76c1bd7, bcbced2
 
-- Add ColorTheme type and configuration to app settings by @AndyMik90 in 2ca89ce, c505d6e, a75c0a9
+- Add ColorTheme type and configuration to app settings by @lizz-ee in 2ca89ce, c505d6e, a75c0a9
 
-- Implement device code authentication flow with timeout handling and fallback URL display by @AndyMik90 in 5f26d39, 81e1536, 1a7cf40, 4a4ad6b, 6a4c1b4, b75a09c, e134c4c
+- Implement device code authentication flow with timeout handling and fallback URL display by @lizz-ee in 5f26d39, 81e1536, 1a7cf40, 4a4ad6b, 6a4c1b4, b75a09c, e134c4c
 
 - fix(graphiti): address CodeRabbit review comments by @adryserage in 679b8cd
 
@@ -1380,36 +1380,36 @@
 ### 🔧 Other Changes
 
 - Code cleanup and test fixture updates
-- Removed redundant auto-claude/specs directory structure
-- Untracked .auto-claude directory to respect gitignore rules
+- Removed redundant ac-jerry/specs directory structure
+- Untracked .ac.jerry directory to respect gitignore rules
 
 ---
 
 ## What's Changed
 
-- fix: resolve CI test failures and improve merge preview by @AndyMik90 in de2eccd
-- chore: code cleanup and test fixture updates by @AndyMik90 in 948db57
-- refactor: change default agent profile from 'balanced' to 'auto' by @AndyMik90 in f98a13e
-- security: prevent command injection in GitHub API calls by @AndyMik90 in 24ff491
-- fix: resolve CI failures (lint, format, test) by @AndyMik90 in a8f2d0b
-- fix: use git diff count for totalFiles in merge preview by @AndyMik90 in 46d2536
-- feat: enhance stage-only merge handling with verification checks by @AndyMik90 in 7153558
-- feat: introduce phase configuration module and enhance agent profiles by @AndyMik90 in 2672528
-- fix: preserve roadmap generation state when switching projects by @AndyMik90 in 569e921
-- feat: add required GitHub setup flow after Jerry initialization by @AndyMik90 in 03ccce5
-- chore: remove redundant auto-claude/specs directory by @AndyMik90 in 64d5170
-- chore: untrack .auto-claude directory (should be gitignored) by @AndyMik90 in 0710c13
-- fix: prevent dialog skip during project initialization by @AndyMik90 in 56cedec
-- feat: enhance merge workflow by detecting current branch by @AndyMik90 in c0c8067
-- fix: update model IDs for Sonnet and Haiku by @AndyMik90 in 059315d
-- feat: add comprehensive DEBUG logging and fix lint errors by @AndyMik90 in 99cf21e
-- feat: implement atomic log saving to prevent corruption by @AndyMik90 in da5e26b
-- feat: add better github issue tracking and UX by @AndyMik90 in c957eaa
-- feat: add comprehensive DEBUG logging to Claude SDK invocation points by @AndyMik90 in 73d01c0
-- feat: auto-download prebuilt node-pty binaries for Windows by @AndyMik90 in 41a507f
-- feat(insights): add per-session model and thinking level selection by @AndyMik90 in e02aa59
-- fix: require Python 3.10+ and add version check by @AndyMik90 in 9a5ca8c
-- fix: detect branch namespace conflict blocking worktree creation by @AndyMik90 in 63a1d3c
+- fix: resolve CI test failures and improve merge preview by @lizz-ee in de2eccd
+- chore: code cleanup and test fixture updates by @lizz-ee in 948db57
+- refactor: change default agent profile from 'balanced' to 'auto' by @lizz-ee in f98a13e
+- security: prevent command injection in GitHub API calls by @lizz-ee in 24ff491
+- fix: resolve CI failures (lint, format, test) by @lizz-ee in a8f2d0b
+- fix: use git diff count for totalFiles in merge preview by @lizz-ee in 46d2536
+- feat: enhance stage-only merge handling with verification checks by @lizz-ee in 7153558
+- feat: introduce phase configuration module and enhance agent profiles by @lizz-ee in 2672528
+- fix: preserve roadmap generation state when switching projects by @lizz-ee in 569e921
+- feat: add required GitHub setup flow after Jerry initialization by @lizz-ee in 03ccce5
+- chore: remove redundant ac-jerry/specs directory by @lizz-ee in 64d5170
+- chore: untrack .ac.jerry directory (should be gitignored) by @lizz-ee in 0710c13
+- fix: prevent dialog skip during project initialization by @lizz-ee in 56cedec
+- feat: enhance merge workflow by detecting current branch by @lizz-ee in c0c8067
+- fix: update model IDs for Sonnet and Haiku by @lizz-ee in 059315d
+- feat: add comprehensive DEBUG logging and fix lint errors by @lizz-ee in 99cf21e
+- feat: implement atomic log saving to prevent corruption by @lizz-ee in da5e26b
+- feat: add better github issue tracking and UX by @lizz-ee in c957eaa
+- feat: add comprehensive DEBUG logging to Claude SDK invocation points by @lizz-ee in 73d01c0
+- feat: auto-download prebuilt node-pty binaries for Windows by @lizz-ee in 41a507f
+- feat(insights): add per-session model and thinking level selection by @lizz-ee in e02aa59
+- fix: require Python 3.10+ and add version check by @lizz-ee in 9a5ca8c
+- fix: detect branch namespace conflict blocking worktree creation by @lizz-ee in 63a1d3c
 - fix: remove duplicate LINEAR_API_KEY check and consolidate imports by @Jacob in 7d351e3
 - feat: add multi-auth token support and ANTHROPIC_BASE_URL passthrough by @Jacob in 9dea155
 
@@ -1465,49 +1465,49 @@
 
 ## What's Changed
 
-- feat: add interactive competitor analysis viewer for roadmap by @AndyMik90 in 7ff326d
+- feat: add interactive competitor analysis viewer for roadmap by @lizz-ee in 7ff326d
 
-- fix: correct CompetitorAnalysisViewer to match type definitions by @AndyMik90 in 4f1766b
+- fix: correct CompetitorAnalysisViewer to match type definitions by @lizz-ee in 4f1766b
 
-- fix: address multiple CodeRabbit review feedback items by @AndyMik90 in 48f7c3c
+- fix: address multiple CodeRabbit review feedback items by @lizz-ee in 48f7c3c
 
-- fix: use stable React keys instead of array indices in RoadmapHeader by @AndyMik90 in 892e01d
+- fix: use stable React keys instead of array indices in RoadmapHeader by @lizz-ee in 892e01d
 
-- fix: additional fixes for http error handling and path resolution by @AndyMik90 in 54501cb
+- fix: additional fixes for http error handling and path resolution by @lizz-ee in 54501cb
 
-- fix: update worktree test to match intended branch detection behavior by @AndyMik90 in f1d578f
+- fix: update worktree test to match intended branch detection behavior by @lizz-ee in f1d578f
 
-- fix: resolve CI lint and TypeScript errors by @AndyMik90 in 2e3a5d9
+- fix: resolve CI lint and TypeScript errors by @lizz-ee in 2e3a5d9
 
-- feat: enhance roadmap generation with stop functionality and debug logging by @AndyMik90 in a6dad42
+- feat: enhance roadmap generation with stop functionality and debug logging by @lizz-ee in a6dad42
 
-- fix: correct path resolution in runners for module imports and .env loading by @AndyMik90 in 3d24f8f
+- fix: correct path resolution in runners for module imports and .env loading by @lizz-ee in 3d24f8f
 
-- fix: resolve React key warning in PhaseProgressIndicator by @AndyMik90 in 9106038
+- fix: resolve React key warning in PhaseProgressIndicator by @lizz-ee in 9106038
 
-- fix: enable stuck task detection for ai_review status by @AndyMik90 in 895ed9f
+- fix: enable stuck task detection for ai_review status by @lizz-ee in 895ed9f
 
-- feat: map GitHub issue labels to task categories by @AndyMik90 in cbe14fd
+- feat: map GitHub issue labels to task categories by @lizz-ee in cbe14fd
 
-- feat: add GitHub issue comment selection and fix auto-start bug by @AndyMik90 in 4c1dd89
+- feat: add GitHub issue comment selection and fix auto-start bug by @lizz-ee in 4c1dd89
 
-- feat: enhance TaskCreationWizard with drag-and-drop support for file references and inline @mentions by @AndyMik90 in d93eefe
+- feat: enhance TaskCreationWizard with drag-and-drop support for file references and inline @mentions by @lizz-ee in d93eefe
 
-- cleanup docs by @AndyMik90 in 8e891df
+- cleanup docs by @lizz-ee in 8e891df
 
-- fix: correct git status parsing in merge preview by @AndyMik90 in c721dc2
+- fix: correct git status parsing in merge preview by @lizz-ee in c721dc2
 
-- Update TaskReview component to refine conditional rendering for staged tasks, ensuring proper display when staging is unsuccessful by @AndyMik90 in 1a2b7a1
+- Update TaskReview component to refine conditional rendering for staged tasks, ensuring proper display when staging is unsuccessful by @lizz-ee in 1a2b7a1
 
-- auto-claude: subtask-2-3 - Refine visual drop zone feedback to be more subtle by @AndyMik90 in 6cff442
+- ac-jerry: subtask-2-3 - Refine visual drop zone feedback to be more subtle by @lizz-ee in 6cff442
 
-- auto-claude: subtask-2-1 - Remove showFiles auto-expand on draft restore by @AndyMik90 in 12bf69d
+- ac-jerry: subtask-2-1 - Remove showFiles auto-expand on draft restore by @lizz-ee in 12bf69d
 
-- auto-claude: subtask-1-3 - Create an always-visible referenced files section by @AndyMik90 in 3818b46
+- ac-jerry: subtask-1-3 - Create an always-visible referenced files section by @lizz-ee in 3818b46
 
-- auto-claude: subtask-1-2 - Add drop zone wrapper around main modal content area by @AndyMik90 in 219b66d
+- ac-jerry: subtask-1-2 - Add drop zone wrapper around main modal content area by @lizz-ee in 219b66d
 
-- auto-claude: subtask-1-1 - Remove Reference Files toggle button by @AndyMik90 in 4e63e85
+- ac-jerry: subtask-1-1 - Remove Reference Files toggle button by @lizz-ee in 4e63e85
 
 ## 2.4.0 - Enhanced Cross-Platform Experience with OAuth & Auto-Updates
 
@@ -1561,31 +1561,31 @@
 
 ## What's Changed
 
-- docs: cleanup docs by @AndyMik90 in 8e891df
-- fix: correct git status parsing in merge preview by @AndyMik90 in c721dc2
-- refactor: Update TaskReview component to refine conditional rendering for staged tasks by @AndyMik90 in 1a2b7a1
-- feat: Enhance task status handling to allow 'done' status in limbo state by @AndyMik90 in a20b8cf
-- improvement: Worktree needs to be manually deleted for early access safety by @AndyMik90 in 0ed6afb
-- feat: Claude account OAuth implementation on onboarding by @AndyMik90 in 914a09d
-- fix: Better handling of lock files from worktrees upon merging by @AndyMik90 in e44202a
-- feat: GitHub OAuth integration upon onboarding by @AndyMik90 in 4249644
-- chore: lock update by @AndyMik90 in b0fc497
-- improvement: Improved README and build process by @AndyMik90 in 462edcd
-- fix: ESLint warnings and failing tests by @AndyMik90 in affbc48
-- feat: Major Windows and Linux compatibility enhancements with auto-upgrade by @AndyMik90 in d7fd1a2
-- feat: Add debug logging to app updater by @AndyMik90 in 96dd04d
-- feat: Auto-open settings to updates section when app update is ready by @AndyMik90 in 1d0566f
-- feat: Add integrated release workflow with AI version suggestion by @AndyMik90 in 7f3cd59
-- fix: Windows/Linux Python handling by @AndyMik90 in 0ef0e15
-- feat: Implement Electron app auto-updater by @AndyMik90 in efc112a
-- fix: Windows/Linux source path detection by @AndyMik90 in d33a0aa
-- refactor: Refine visual drop zone feedback to be more subtle by @AndyMik90 in 6cff442
-- refactor: Remove showFiles auto-expand on draft restore by @AndyMik90 in 12bf69d
-- feat: Create always-visible referenced files section by @AndyMik90 in 3818b46
-- feat: Add drop zone wrapper around main modal content by @AndyMik90 in 219b66d
-- feat: Remove Reference Files toggle button by @AndyMik90 in 4e63e85
-- docs: Update README with git initialization and folder structure by @AndyMik90 in 2fa3c51
-- chore: Version bump to 2.3.2 by @AndyMik90 in 59b091a
+- docs: cleanup docs by @lizz-ee in 8e891df
+- fix: correct git status parsing in merge preview by @lizz-ee in c721dc2
+- refactor: Update TaskReview component to refine conditional rendering for staged tasks by @lizz-ee in 1a2b7a1
+- feat: Enhance task status handling to allow 'done' status in limbo state by @lizz-ee in a20b8cf
+- improvement: Worktree needs to be manually deleted for early access safety by @lizz-ee in 0ed6afb
+- feat: Claude account OAuth implementation on onboarding by @lizz-ee in 914a09d
+- fix: Better handling of lock files from worktrees upon merging by @lizz-ee in e44202a
+- feat: GitHub OAuth integration upon onboarding by @lizz-ee in 4249644
+- chore: lock update by @lizz-ee in b0fc497
+- improvement: Improved README and build process by @lizz-ee in 462edcd
+- fix: ESLint warnings and failing tests by @lizz-ee in affbc48
+- feat: Major Windows and Linux compatibility enhancements with auto-upgrade by @lizz-ee in d7fd1a2
+- feat: Add debug logging to app updater by @lizz-ee in 96dd04d
+- feat: Auto-open settings to updates section when app update is ready by @lizz-ee in 1d0566f
+- feat: Add integrated release workflow with AI version suggestion by @lizz-ee in 7f3cd59
+- fix: Windows/Linux Python handling by @lizz-ee in 0ef0e15
+- feat: Implement Electron app auto-updater by @lizz-ee in efc112a
+- fix: Windows/Linux source path detection by @lizz-ee in d33a0aa
+- refactor: Refine visual drop zone feedback to be more subtle by @lizz-ee in 6cff442
+- refactor: Remove showFiles auto-expand on draft restore by @lizz-ee in 12bf69d
+- feat: Create always-visible referenced files section by @lizz-ee in 3818b46
+- feat: Add drop zone wrapper around main modal content by @lizz-ee in 219b66d
+- feat: Remove Reference Files toggle button by @lizz-ee in 4e63e85
+- docs: Update README with git initialization and folder structure by @lizz-ee in 2fa3c51
+- chore: Version bump to 2.3.2 by @lizz-ee in 59b091a
 
 ## 2.3.2 - UI Polish & Build Improvements
 
@@ -1600,9 +1600,9 @@ Bug Fixes:
 
 ## What's Changed
 
-- fix: fix to spec runner paths by @AndyMik90 in 9babdc2
+- fix: fix to spec runner paths by @lizz-ee in 9babdc2
 
-- feat: auto-claude: subtask-1-1 - Restructure SortableFeatureCard badge layout by @AndyMik90 in dc886dc
+- feat: ac-jerry: subtask-1-1 - Restructure SortableFeatureCard badge layout by @lizz-ee in dc886dc
 
 ## 2.3.1 - Linux Compatibility Fix
 
@@ -1614,7 +1614,7 @@ Bug Fixes:
 
 ## What's Changed
 
-- fix: Fix to linux path issue by @AndyMik90 in 3276034
+- fix: Fix to linux path issue by @lizz-ee in 3276034
 
 ## 2.2.0 - 2025-12-17
 
@@ -1658,43 +1658,43 @@ Bug Fixes:
 
 ## What's Changed
 
-- fix: hotfix/spec-runner path location by @AndyMik90 in f201f7e
+- fix: hotfix/spec-runner path location by @lizz-ee in f201f7e
 
-- refactor: Remove unnecessary dynamic imports of getUsageMonitor in terminal-handlers.ts to streamline usage monitoring logic by @AndyMik90 in 0da4bc4
+- refactor: Remove unnecessary dynamic imports of getUsageMonitor in terminal-handlers.ts to streamline usage monitoring logic by @lizz-ee in 0da4bc4
 
-- feat: Improve changelog feature, version tracking, markdown/preview, persistent styling options by @AndyMik90 in a0d142b
+- feat: Improve changelog feature, version tracking, markdown/preview, persistent styling options by @lizz-ee in a0d142b
 
-- refactor: Refactor code for improved readability and maintainability by @AndyMik90 in 473b045
+- refactor: Refactor code for improved readability and maintainability by @lizz-ee in 473b045
 
-- feat: Enhance AgentManager to manage task context cleanup and preserve swapCount on restarts. Update UsageMonitor to delay profile usage checks to prevent cascading swaps by @AndyMik90 in e5b9488
+- feat: Enhance AgentManager to manage task context cleanup and preserve swapCount on restarts. Update UsageMonitor to delay profile usage checks to prevent cascading swaps by @lizz-ee in e5b9488
 
-- feat: Usage-monitoring by @AndyMik90 in de33b2c
+- feat: Usage-monitoring by @lizz-ee in de33b2c
 
-- feat: option to stash changes before merge by @AndyMik90 in 7e09739
+- feat: option to stash changes before merge by @lizz-ee in 7e09739
 
-- refactor: Refactor merge conflict check to use branch names instead of commit hashes by @AndyMik90 in e6d6cea
+- refactor: Refactor merge conflict check to use branch names instead of commit hashes by @lizz-ee in e6d6cea
 
-- fix: worktree merge logic by @AndyMik90 in dfb5cf9
+- fix: worktree merge logic by @lizz-ee in dfb5cf9
 
-- test: Sign off - all verification passed by @AndyMik90 in 34631c3
+- test: Sign off - all verification passed by @lizz-ee in 34631c3
 
-- feat: Pass hideCloseButton={showFileExplorer} to DialogContent by @AndyMik90 in 7c327ed
+- feat: Pass hideCloseButton={showFileExplorer} to DialogContent by @lizz-ee in 7c327ed
 
-- feat: Add hideCloseButton prop to DialogContent component by @AndyMik90 in 5f9653a
+- feat: Add hideCloseButton prop to DialogContent component by @lizz-ee in 5f9653a
 
-- fix: branch logic for merge AI by @AndyMik90 in 2d2a813
+- fix: branch logic for merge AI by @lizz-ee in 2d2a813
 
-- fix: spec_runner.py path resolution after move to runners/ directory by @AndyMik90 in ce9c2cd
+- fix: spec_runner.py path resolution after move to runners/ directory by @lizz-ee in ce9c2cd
 
-- refactor: Better handling of lock files during merge conflicts by @AndyMik90 in 460c76d
+- refactor: Better handling of lock files during merge conflicts by @lizz-ee in 460c76d
 
-- fix: Discord release webhook failing on large changelogs by @AndyMik90 in 4eb66f5
+- fix: Discord release webhook failing on large changelogs by @lizz-ee in 4eb66f5
 
-- chore: Update CHANGELOG with new features, improvements, bug fixes, and other changes by @AndyMik90 in 788b8d0
+- chore: Update CHANGELOG with new features, improvements, bug fixes, and other changes by @lizz-ee in 788b8d0
 
-- refactor: Enhance merge conflict handling by excluding lock files by @AndyMik90 in 957746e
+- refactor: Enhance merge conflict handling by excluding lock files by @lizz-ee in 957746e
 
-- refactor: Refactor IdeationHeader and update handleDeleteSelected logic by @AndyMik90 in 36338f3
+- refactor: Refactor IdeationHeader and update handleDeleteSelected logic by @lizz-ee in 36338f3
 
 ## What's New
 
@@ -1750,7 +1750,7 @@ Bug Fixes:
 
 ### 🔧 Other Changes
 
-- Removed .auto-claude and _bmad-output from git tracking (already in .gitignore)
+- Removed .ac.jerry and _bmad-output from git tracking (already in .gitignore)
 
 - Updated Python versions in CI workflows
 
@@ -1760,78 +1760,78 @@ Bug Fixes:
 
 ## What's Changed
 
-- feat: New github oauth integration by @AndyMik90 in afeb54f
-- feat: Implement roadmap feature management kanban with drag-and-drop support by @AndyMik90 in 9403230
-- feat: Agent profiles, be able to select model on task creation by @AndyMik90 in d735c5c
-- feat: Add Referenced Files Section and File Explorer Integration in Task Creation Wizard by @AndyMik90 in 31e4e87
-- feat: Add functionality to manage .gitignore entries during project initialization by @AndyMik90 in 2ac00a9
-- feat: Introduce electron mcp for electron debugging/validation by @AndyMik90 in 3eb2ead
-- feat: Add BMM workflow status tracking and project scan report by @AndyMik90 in 7f6456f
-- refactor: Refactor IdeationHeader and update handleDeleteSelected logic by @AndyMik90 in 36338f3
-- refactor: Big backend refactor for upcoming features by @AndyMik90 in 11fcdf4
-- refactor: Refactoring for better codebase by @AndyMik90 in feb0d4e
-- refactor: Refactor Roadmap component to utilize RoadmapGenerationProgress for better status display by @AndyMik90 in d8e5784
-- refactor: refactoring components for better future maintence and more rapid coding by @AndyMik90 in 131ec4c
-- refactor: Enhance RouteDetector to exclude specific directories from route detection by @AndyMik90 in 08dc24c
-- refactor: Update AI resolver to use Claude Opus model and improve error logging by @AndyMik90 in 1d830ba
-- refactor: Use claude sdk pattern for ai resolver by @AndyMik90 in 4bba9d1
-- refactor: Refactor AI resolver to use async context manager for client connection by @AndyMik90 in 579ea40
-- refactor: Update changelog formatter for GitHub Release compatibility by @AndyMik90 in 3b832db
-- refactor: Enhance onboarding wizard completion logic by @AndyMik90 in 7c01638
-- refactor: Update GraphitiStep to proceed to the next step after successful configuration save by @AndyMik90 in a5a1eb1
-- fix: Add onRerunWizard prop to AppSettingsDialog (qa-requested) by @AndyMik90 in 6b5b714
-- fix: Add first-run detection to App.tsx by @AndyMik90 in 779e36f
-- fix: Add TypeScript compilation check - fix GraphitiStep type error by @AndyMik90 in f90fa80
-- improve: ideation improvements and linting by @AndyMik90 in 36a69fc
-- improve: improve merge conflicts for lock files by @AndyMik90 in a891225
-- improve: Roadmap competitor analysis by @AndyMik90 in ddf47ae
-- improve: parallell merge conflict resolution by @AndyMik90 in f00aa33
-- improve: improvement to speed of merge conflict resolution by @AndyMik90 in 56ff586
-- improve: improve context sending to merge agent by @AndyMik90 in e409ae8
-- improve: better conflict handling in the frontend app for merge contlicts (better UX) by @AndyMik90 in 65937e1
-- improve: resolve claude agent sdk by @AndyMik90 in 901e83a
-- improve: Getting ready for BMAD integration by @AndyMik90 in b94eb65
-- improve: Enhance AI resolver and debugging output by @AndyMik90 in bf787ad
-- improve: Integrate profile environment for OAuth token in task handlers by @AndyMik90 in 01e801a
-- chore: Remove .auto-claude from tracking (already in .gitignore) by @AndyMik90 in 87f353c
-- chore: Update Python versions in CI workflows by @AndyMik90 in 43a338c
-- chore: Linting gods pleased now? by @AndyMik90 in 6aea4bb
-- chore: Linting and test fixes by @AndyMik90 in 140f11f
-- chore: Remove _bmad-output from git tracking by @AndyMik90 in 4cd7500
-- chore: Add _bmad-output to .gitignore by @AndyMik90 in dbe27f0
-- chore: Linting gods are happy by @AndyMik90 in 3fc1592
-- chore: Getting ready for the lint gods by @AndyMik90 in 142cd67
-- chore: CLI testing/linting by @AndyMik90 in d8ad17d
-- chore: CLI and tests by @AndyMik90 in 9a59b7e
-- chore: Update implementation_plan.json - fixes applied by @AndyMik90 in 555a46f
-- chore: Update parallel merge conflict resolution metrics in workspace.py by @AndyMik90 in 2e151ac
-- chore: merge logic v0.3 by @AndyMik90 in c5d33cd
-- chore: merge orcehestrator logic by @AndyMik90 in e8b6669
-- chore: Merge-orchestrator by @AndyMik90 in d8ba532
-- chore: merge orcehstrator logic by @AndyMik90 in e8b6669
-- chore: Electron UI fix for merge orcehstrator by @AndyMik90 in e08ab62
-- chore: Frontend lints by @AndyMik90 in 488bbfa
-- docs: Revise README.md to enhance clarity and focus on Jerry's capabilities by @AndyMik90 in f9ef7ea
-- qa: Sign off - all verification passed by @AndyMik90 in b3f4803
-- qa: Rejected - fixes required by @AndyMik90 in 5e56890
-- qa: subtask-6-2 - Run existing tests to verify no regressions by @AndyMik90 in 5f989a4
-- qa: subtask-5-2 - Enhance OAuthStep to detect and display if token is already configured by @AndyMik90 in 50f22da
-- qa: subtask-5-1 - Add settings migration logic - set onboardingCompleted by @AndyMik90 in f57c28e
-- qa: subtask-4-1 - Add 'Re-run Wizard' button to AppSettings navigation by @AndyMik90 in 9144e7f
-- qa: subtask-3-1 - Add first-run detection to App.tsx by @AndyMik90 in 779e36f
-- qa: subtask-2-8 - Create index.ts barrel export for onboarding components by @AndyMik90 in b0af2dc
-- qa: subtask-2-7 - Create OnboardingWizard component by @AndyMik90 in 3de8928
-- qa: subtask-2-6 - Create CompletionStep component - success message by @AndyMik90 in aa0f608
-- qa: subtask-2-5 - Create FirstSpecStep component - guided first spec by @AndyMik90 in 32f17a1
-- qa: subtask-2-4 - Create GraphitiStep component - optional Graphiti/FalkorDB configuration by @AndyMik90 in 61184b0
-- qa: subtask-2-3 - Create OAuthStep component - Claude OAuth token configuration step by @AndyMik90 in 79d622e
-- qa: subtask-2-2 - Create WelcomeStep component by @AndyMik90 in a97f697
-- qa: subtask-2-1 - Create WizardProgress component - step progress indicator by @AndyMik90 in b6e604c
-- qa: subtask-1-2 - Add onboardingCompleted to DEFAULT_APP_SETTINGS by @AndyMik90 in c5a0331
-- qa: subtask-1-1 - Add onboardingCompleted to AppSettings type interface by @AndyMik90 in 7c24b48
-- chore: Version 2.0.1 by @AndyMik90 in 4b242c4
-- test: Merge-orchestrator by @AndyMik90 in d8ba532
-- test: test for ai merge AI by @AndyMik90 in 9d9cf16
+- feat: New github oauth integration by @lizz-ee in afeb54f
+- feat: Implement roadmap feature management kanban with drag-and-drop support by @lizz-ee in 9403230
+- feat: Agent profiles, be able to select model on task creation by @lizz-ee in d735c5c
+- feat: Add Referenced Files Section and File Explorer Integration in Task Creation Wizard by @lizz-ee in 31e4e87
+- feat: Add functionality to manage .gitignore entries during project initialization by @lizz-ee in 2ac00a9
+- feat: Introduce electron mcp for electron debugging/validation by @lizz-ee in 3eb2ead
+- feat: Add BMM workflow status tracking and project scan report by @lizz-ee in 7f6456f
+- refactor: Refactor IdeationHeader and update handleDeleteSelected logic by @lizz-ee in 36338f3
+- refactor: Big backend refactor for upcoming features by @lizz-ee in 11fcdf4
+- refactor: Refactoring for better codebase by @lizz-ee in feb0d4e
+- refactor: Refactor Roadmap component to utilize RoadmapGenerationProgress for better status display by @lizz-ee in d8e5784
+- refactor: refactoring components for better future maintence and more rapid coding by @lizz-ee in 131ec4c
+- refactor: Enhance RouteDetector to exclude specific directories from route detection by @lizz-ee in 08dc24c
+- refactor: Update AI resolver to use Claude Opus model and improve error logging by @lizz-ee in 1d830ba
+- refactor: Use claude sdk pattern for ai resolver by @lizz-ee in 4bba9d1
+- refactor: Refactor AI resolver to use async context manager for client connection by @lizz-ee in 579ea40
+- refactor: Update changelog formatter for GitHub Release compatibility by @lizz-ee in 3b832db
+- refactor: Enhance onboarding wizard completion logic by @lizz-ee in 7c01638
+- refactor: Update GraphitiStep to proceed to the next step after successful configuration save by @lizz-ee in a5a1eb1
+- fix: Add onRerunWizard prop to AppSettingsDialog (qa-requested) by @lizz-ee in 6b5b714
+- fix: Add first-run detection to App.tsx by @lizz-ee in 779e36f
+- fix: Add TypeScript compilation check - fix GraphitiStep type error by @lizz-ee in f90fa80
+- improve: ideation improvements and linting by @lizz-ee in 36a69fc
+- improve: improve merge conflicts for lock files by @lizz-ee in a891225
+- improve: Roadmap competitor analysis by @lizz-ee in ddf47ae
+- improve: parallell merge conflict resolution by @lizz-ee in f00aa33
+- improve: improvement to speed of merge conflict resolution by @lizz-ee in 56ff586
+- improve: improve context sending to merge agent by @lizz-ee in e409ae8
+- improve: better conflict handling in the frontend app for merge contlicts (better UX) by @lizz-ee in 65937e1
+- improve: resolve claude agent sdk by @lizz-ee in 901e83a
+- improve: Getting ready for BMAD integration by @lizz-ee in b94eb65
+- improve: Enhance AI resolver and debugging output by @lizz-ee in bf787ad
+- improve: Integrate profile environment for OAuth token in task handlers by @lizz-ee in 01e801a
+- chore: Remove .ac.jerry from tracking (already in .gitignore) by @lizz-ee in 87f353c
+- chore: Update Python versions in CI workflows by @lizz-ee in 43a338c
+- chore: Linting gods pleased now? by @lizz-ee in 6aea4bb
+- chore: Linting and test fixes by @lizz-ee in 140f11f
+- chore: Remove _bmad-output from git tracking by @lizz-ee in 4cd7500
+- chore: Add _bmad-output to .gitignore by @lizz-ee in dbe27f0
+- chore: Linting gods are happy by @lizz-ee in 3fc1592
+- chore: Getting ready for the lint gods by @lizz-ee in 142cd67
+- chore: CLI testing/linting by @lizz-ee in d8ad17d
+- chore: CLI and tests by @lizz-ee in 9a59b7e
+- chore: Update implementation_plan.json - fixes applied by @lizz-ee in 555a46f
+- chore: Update parallel merge conflict resolution metrics in workspace.py by @lizz-ee in 2e151ac
+- chore: merge logic v0.3 by @lizz-ee in c5d33cd
+- chore: merge orcehestrator logic by @lizz-ee in e8b6669
+- chore: Merge-orchestrator by @lizz-ee in d8ba532
+- chore: merge orcehstrator logic by @lizz-ee in e8b6669
+- chore: Electron UI fix for merge orcehstrator by @lizz-ee in e08ab62
+- chore: Frontend lints by @lizz-ee in 488bbfa
+- docs: Revise README.md to enhance clarity and focus on Jerry's capabilities by @lizz-ee in f9ef7ea
+- qa: Sign off - all verification passed by @lizz-ee in b3f4803
+- qa: Rejected - fixes required by @lizz-ee in 5e56890
+- qa: subtask-6-2 - Run existing tests to verify no regressions by @lizz-ee in 5f989a4
+- qa: subtask-5-2 - Enhance OAuthStep to detect and display if token is already configured by @lizz-ee in 50f22da
+- qa: subtask-5-1 - Add settings migration logic - set onboardingCompleted by @lizz-ee in f57c28e
+- qa: subtask-4-1 - Add 'Re-run Wizard' button to AppSettings navigation by @lizz-ee in 9144e7f
+- qa: subtask-3-1 - Add first-run detection to App.tsx by @lizz-ee in 779e36f
+- qa: subtask-2-8 - Create index.ts barrel export for onboarding components by @lizz-ee in b0af2dc
+- qa: subtask-2-7 - Create OnboardingWizard component by @lizz-ee in 3de8928
+- qa: subtask-2-6 - Create CompletionStep component - success message by @lizz-ee in aa0f608
+- qa: subtask-2-5 - Create FirstSpecStep component - guided first spec by @lizz-ee in 32f17a1
+- qa: subtask-2-4 - Create GraphitiStep component - optional Graphiti/FalkorDB configuration by @lizz-ee in 61184b0
+- qa: subtask-2-3 - Create OAuthStep component - Claude OAuth token configuration step by @lizz-ee in 79d622e
+- qa: subtask-2-2 - Create WelcomeStep component by @lizz-ee in a97f697
+- qa: subtask-2-1 - Create WizardProgress component - step progress indicator by @lizz-ee in b6e604c
+- qa: subtask-1-2 - Add onboardingCompleted to DEFAULT_APP_SETTINGS by @lizz-ee in c5a0331
+- qa: subtask-1-1 - Add onboardingCompleted to AppSettings type interface by @lizz-ee in 7c24b48
+- chore: Version 2.0.1 by @lizz-ee in 4b242c4
+- test: Merge-orchestrator by @lizz-ee in d8ba532
+- test: test for ai merge AI by @lizz-ee in 9d9cf16
 
 ## What's New in 2.0.1
 
@@ -1878,7 +1878,7 @@ Bug Fixes:
 - Updated project-store.ts to use proper Dirent type for specDirs variable
 - Refactored codebase for better code quality
 - Removed worktree-worker logic in favor of Claude Code's internal agent system
-- Removed obsolete security configuration file (.auto-claude-security.json)
+- Removed obsolete security configuration file (.ac-jerry-security.json)
 
 ### Documentation
 - Added CONTRIBUTING.md with development guidelines

@@ -78,7 +78,7 @@ def _exit_with_pywin32_error() -> None:
     sys.exit(
         "Error: Required Windows dependency 'pywin32' is not installed.\n"
         "\n"
-        "Auto Claude requires pywin32 on Windows for:\n"
+        "AC Jerry requires pywin32 on Windows for:\n"
         "  - MCP library (win32api, win32con, win32job modules)\n"
         "  - LadybugDB/Graphiti memory integration\n"
         "\n"
@@ -113,7 +113,7 @@ def _warn_missing_secretstorage() -> None:
     sys.stderr.write(
         "Warning: Linux dependency 'secretstorage' is not installed.\n"
         "\n"
-        "Auto Claude can use secretstorage for secure OAuth token storage via\n"
+        "AC Jerry can use secretstorage for secure OAuth token storage via\n"
         "the system keyring (gnome-keyring, kwallet, etc.). Without it, tokens\n"
         "will be stored in plaintext in your .env file.\n"
         "\n"

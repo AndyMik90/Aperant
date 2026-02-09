@@ -32,7 +32,7 @@ def create_openrouter_llm_client(config: "GraphitiConfig") -> Any:
         ProviderError: If API key is missing
 
     Example:
-        >>> from auto_claude.integrations.graphiti.config import GraphitiConfig
+        >>> from ac_jerry.integrations.graphiti.config import GraphitiConfig
         >>> config = GraphitiConfig(
         ...     openrouter_api_key="sk-or-...",
         ...     openrouter_llm_model="anthropic/claude-sonnet-4"

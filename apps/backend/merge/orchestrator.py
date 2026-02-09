@@ -125,7 +125,7 @@ class MergeOrchestrator:
 
         Args:
             project_dir: Root directory of the project
-            storage_dir: Directory for merge data (default: .auto-claude/)
+            storage_dir: Directory for merge data (default: .ac.jerry/)
             enable_ai: Whether to use AI for ambiguous conflicts
             ai_resolver: Optional pre-configured AI resolver
             dry_run: If True, don't write any files
@@ -140,7 +140,7 @@ class MergeOrchestrator:
         )
 
         self.project_dir = Path(project_dir).resolve()
-        self.storage_dir = storage_dir or (self.project_dir / ".auto-claude")
+        self.storage_dir = storage_dir or (self.project_dir / ".ac.jerry")
         self.enable_ai = enable_ai
         self.dry_run = dry_run
 

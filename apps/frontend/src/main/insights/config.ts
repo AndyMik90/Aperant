@@ -42,7 +42,7 @@ export class InsightsConfig {
   }
 
   /**
-   * Get the auto-claude source path (detects automatically if not configured)
+   * Get the ac-jerry source path (detects automatically if not configured)
    * Uses getEffectiveSourcePath() which handles userData override for user-updated backend
    */
   getAutoBuildSourcePath(): string | null {
@@ -64,7 +64,7 @@ export class InsightsConfig {
   }
 
   /**
-   * Load environment variables from auto-claude .env file
+   * Load environment variables from ac-jerry .env file
    */
   loadAutoBuildEnv(): Record<string, string> {
     const autoBuildSource = this.getAutoBuildSourcePath();
@@ -104,7 +104,7 @@ export class InsightsConfig {
 
   /**
    * Get complete environment for process execution
-   * Includes system env, auto-claude env, and active Claude profile
+   * Includes system env, ac-jerry env, and active Claude profile
    */
   async getProcessEnv(): Promise<Record<string, string>> {
     const autoBuildEnv = this.loadAutoBuildEnv();

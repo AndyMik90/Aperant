@@ -295,7 +295,7 @@ except ImportError as e:
 
 ```bash
 /ralph-loop:ralph-loop "
-You are completing Phase 9: Code Sweep Fixes for Auto-Claude.
+You are completing Phase 9: Code Sweep Fixes for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -303,7 +303,7 @@ YOUR IDENTITY:
 - Add logging, not remove functionality.
 
 Repository:
-- Project root: C:\Users\AlienZ\Desktop\Auto-Claude
+- Project root: C:\Users\AlienZ\Desktop\AC Jerry
 
 Primary documentation:
 - docs\plans\PHASE_9_CODE_SWEEP.md (THIS FILE)

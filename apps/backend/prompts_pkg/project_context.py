@@ -16,7 +16,7 @@ from pathlib import Path
 
 def load_project_index(project_dir: Path) -> dict:
     """
-    Load project_index.json from the project's .auto-claude directory.
+    Load project_index.json from the project's .ac.jerry directory.
 
     Args:
         project_dir: Root directory of the project
@@ -24,7 +24,7 @@ def load_project_index(project_dir: Path) -> dict:
     Returns:
         Parsed project index dict, or empty dict if not found
     """
-    index_file = project_dir / ".auto-claude" / "project_index.json"
+    index_file = project_dir / ".ac.jerry" / "project_index.json"
     if not index_file.exists():
         return {}
 
@@ -177,7 +177,7 @@ def should_refresh_project_index(project_dir: Path) -> bool:
     Returns:
         True if index should be regenerated, False if cache is still valid
     """
-    index_file = project_dir / ".auto-claude" / "project_index.json"
+    index_file = project_dir / ".ac.jerry" / "project_index.json"
 
     if not index_file.exists():
         return True  # No index, must generate

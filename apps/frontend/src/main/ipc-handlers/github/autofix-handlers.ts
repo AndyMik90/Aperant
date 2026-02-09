@@ -34,7 +34,7 @@ import { getRunnerEnv } from './utils/runner-env';
 const { debug: debugLog } = createContextLogger('GitHub AutoFix');
 
 /**
- * Auto-fix configuration stored in .auto-claude/github/config.json
+ * Auto-fix configuration stored in .ac.jerry/github/config.json
  */
 export interface AutoFixConfig {
   enabled: boolean;
@@ -105,7 +105,7 @@ export interface BatchProgress {
  * Get the GitHub directory for a project
  */
 function getGitHubDir(project: Project): string {
-  return path.join(project.path, '.auto-claude', 'github');
+  return path.join(project.path, '.ac.jerry', 'github');
 }
 
 /**

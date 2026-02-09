@@ -44,13 +44,13 @@
 #### ISSUE-1: Agent Framework Dropdown (Useless)
 
 **Location:** GeneralSettings.tsx lines 136-148
-**Problem:** Dropdown with only ONE option ("auto-claude")
+**Problem:** Dropdown with only ONE option ("ac-jerry")
 **Impact:** Confuses users, takes up space for no purpose
 
 ```tsx
 <Select value={settings.agentFramework}>
   <SelectContent>
-    <SelectItem value="auto-claude">Auto-Claude</SelectItem>
+    <SelectItem value="ac-jerry">AC Jerry</SelectItem>
     <!-- Only one option! -->
   </SelectContent>
 </Select>

@@ -1,6 +1,6 @@
 # Progress Log
 
-**Project:** Auto-Claude (Jerry)
+**Project:** AC Jerry (Jerry)
 **Last Updated:** 2026-02-08
 
 ---

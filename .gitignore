@@ -53,12 +53,11 @@ lerna-debug.log*
 .worktrees/
 
 # ===========================
-# Auto Claude Generated
+# AC Jerry Generated
 # ===========================
-.auto-claude/
-.auto-build-security.json
-.auto-claude-security.json
-.auto-claude-status
+.ac.jerry/
+.ac-jerry-security.json
+.ac-jerry-status
 .claude_settings.json
 .update-metadata.json
 
@@ -166,7 +165,7 @@ _bmad-output/
 OPUS_ANALYSIS_AND_IDEAS.md
 /.github/agents
 
-# Auto Claude generated files
+# AC Jerry generated files
 .security-key
 /shared_docs
 Agents.md

@@ -161,7 +161,7 @@ export function EnvConfigModal({
         return;
       }
 
-      // Save the token to auto-claude .env
+      // Save the token to ac-jerry .env
       const result = await window.electronAPI.updateSourceEnv({
         claudeOAuthToken: profile.oauthToken
       });
@@ -546,7 +546,7 @@ export function EnvConfigModal({
                     <p className="text-xs text-muted-foreground">
                       The token will be saved to{' '}
                       <code className="px-1 py-0.5 bg-muted rounded font-mono">
-                        {sourcePath ? `${sourcePath}/.env` : 'auto-claude/.env'}
+                        {sourcePath ? `${sourcePath}/.env` : 'ac-jerry/.env'}
                       </code>
                     </p>
                   </div>

@@ -1326,7 +1326,7 @@ function getTaskBaseBranch(specDir: string): string | undefined {
  */
 function getEffectiveBaseBranch(projectPath: string, specId: string, projectMainBranch?: string): string {
   // 1. Try task metadata baseBranch
-  const specDir = path.join(projectPath, '.auto-claude', 'specs', specId);
+  const specDir = path.join(projectPath, '.ac.jerry', 'specs', specId);
   const taskBaseBranch = getTaskBaseBranch(specDir);
   if (taskBaseBranch) {
     return taskBaseBranch;
@@ -1558,7 +1558,7 @@ async function initializePythonEnvForPR(
 
   const autoBuildSource = getEffectiveSourcePath();
   if (!autoBuildSource) {
-    return 'Python environment not ready and Auto Claude source not found';
+    return 'Python environment not ready and AC Jerry source not found';
   }
 
   const status = await pythonEnvManager.initialize(autoBuildSource);
@@ -1625,7 +1625,7 @@ export function registerWorktreeHandlers(
 ): void {
   /**
    * Get the worktree status for a task
-   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
+   * Per-spec architecture: Each spec has its own worktree at .ac.jerry/worktrees/tasks/{spec-name}/
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_STATUS,
@@ -1636,7 +1636,7 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Task not found' };
         }
 
-        // Find worktree at .auto-claude/worktrees/tasks/{spec-name}/
+        // Find worktree at .ac.jerry/worktrees/tasks/{spec-name}/
         const worktreePath = findTaskWorktree(project.path, task.specId);
 
         if (!worktreePath) {
@@ -1746,7 +1746,7 @@ export function registerWorktreeHandlers(
 
   /**
    * Get the diff for a task's worktree
-   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
+   * Per-spec architecture: Each spec has its own worktree at .ac.jerry/worktrees/tasks/{spec-name}/
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_DIFF,
@@ -1757,7 +1757,7 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Task not found' };
         }
 
-        // Find worktree at .auto-claude/worktrees/tasks/{spec-name}/
+        // Find worktree at .ac.jerry/worktrees/tasks/{spec-name}/
         const worktreePath = findTaskWorktree(project.path, task.specId);
 
         if (!worktreePath) {
@@ -1861,7 +1861,7 @@ export function registerWorktreeHandlers(
               return { success: false, error: `Python environment not ready: ${status.error || 'Unknown error'}` };
             }
           } else {
-            return { success: false, error: 'Python environment not ready and Auto Claude source not found' };
+            return { success: false, error: 'Python environment not ready and AC Jerry source not found' };
           }
         }
 
@@ -1882,11 +1882,11 @@ export function registerWorktreeHandlers(
         // Use run.py --merge to handle the merge
         const sourcePath = getEffectiveSourcePath();
         if (!sourcePath) {
-          return { success: false, error: 'Auto Claude source not found' };
+          return { success: false, error: 'AC Jerry source not found' };
         }
 
         const runScript = path.join(sourcePath, 'run.py');
-        const specDir = path.join(project.path, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
+        const specDir = path.join(project.path, project.autoBuildPath || '.ac.jerry', 'specs', task.specId);
 
         if (!existsSync(specDir)) {
           debug('Spec directory not found:', specDir);
@@ -2100,7 +2100,7 @@ export function registerWorktreeHandlers(
 
                     if (!hasActualStagedChanges) {
                       // Check if worktree branch was already merged (merge commit exists)
-                      const specBranch = `auto-claude/${task.specId}`;
+                      const specBranch = `ac-jerry/${task.specId}`;
                       try {
                         // Check if current branch contains all commits from spec branch
                         // git merge-base --is-ancestor returns exit code 0 if true, 1 if false
@@ -2182,7 +2182,7 @@ export function registerWorktreeHandlers(
                     debug('Worktree cleaned up after full merge:', worktreePath);
 
                     // Also delete the task branch since we merged successfully
-                    const taskBranch = `auto-claude/${task.specId}`;
+                    const taskBranch = `ac-jerry/${task.specId}`;
                     try {
                       execFileSync(getToolPath('git'), ['branch', '-D', taskBranch], {
                         cwd: project.path,
@@ -2227,7 +2227,7 @@ export function registerWorktreeHandlers(
               ];
               // Add worktree plan path if worktree exists
               if (worktreePath) {
-                const worktreeSpecDir = path.join(worktreePath, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
+                const worktreeSpecDir = path.join(worktreePath, project.autoBuildPath || '.ac.jerry', 'specs', task.specId);
                 planPaths.push({ path: path.join(worktreeSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: false });
               }
 
@@ -2400,8 +2400,8 @@ export function registerWorktreeHandlers(
               return { success: false, error: `Python environment not ready: ${status.error || 'Unknown error'}` };
             }
           } else {
-            console.error('[IPC] Auto Claude source not found');
-            return { success: false, error: 'Python environment not ready and Auto Claude source not found' };
+            console.error('[IPC] AC Jerry source not found');
+            return { success: false, error: 'Python environment not ready and AC Jerry source not found' };
           }
         }
 
@@ -2441,12 +2441,12 @@ export function registerWorktreeHandlers(
 
         const sourcePath = getEffectiveSourcePath();
         if (!sourcePath) {
-          console.error('[IPC] Auto Claude source not found');
-          return { success: false, error: 'Auto Claude source not found' };
+          console.error('[IPC] AC Jerry source not found');
+          return { success: false, error: 'AC Jerry source not found' };
         }
 
         const runScript = path.join(sourcePath, 'run.py');
-        const specDir = path.join(project.path, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
+        const specDir = path.join(project.path, project.autoBuildPath || '.ac.jerry', 'specs', task.specId);
         const args = [
           runScript,
           '--spec', task.specId,
@@ -2572,7 +2572,7 @@ export function registerWorktreeHandlers(
 
   /**
    * Discard the worktree changes
-   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
+   * Per-spec architecture: Each spec has its own worktree at .ac.jerry/worktrees/tasks/{spec-name}/
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_DISCARD,
@@ -2583,7 +2583,7 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Task not found' };
         }
 
-        // Find worktree at .auto-claude/worktrees/tasks/{spec-name}/
+        // Find worktree at .ac.jerry/worktrees/tasks/{spec-name}/
         const worktreePath = findTaskWorktree(project.path, task.specId);
 
         if (!worktreePath) {
@@ -2654,7 +2654,7 @@ export function registerWorktreeHandlers(
 
   /**
    * List all spec worktrees for a project
-   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
+   * Per-spec architecture: Each spec has its own worktree at .ac.jerry/worktrees/tasks/{spec-name}/
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_LIST_WORKTREES,
@@ -2957,11 +2957,11 @@ export function registerWorktreeHandlers(
         // Use run.py --create-pr to handle the PR creation
         const sourcePath = getEffectiveSourcePath();
         if (!sourcePath) {
-          return { success: false, error: 'Auto Claude source not found' };
+          return { success: false, error: 'AC Jerry source not found' };
         }
 
         const runScript = path.join(sourcePath, 'run.py');
-        const specDir = path.join(project.path, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
+        const specDir = path.join(project.path, project.autoBuildPath || '.ac.jerry', 'specs', task.specId);
 
         // Use EAFP pattern - try to read specDir and catch ENOENT
         try {
@@ -3048,7 +3048,7 @@ export function registerWorktreeHandlers(
 
               // FIX-038: After timeout, check if the PR was actually created on GitHub.
               // The push may have succeeded and PR created before the timeout hit.
-              const branchName = `auto-claude/${task.specId}`;
+              const branchName = `ac-jerry/${task.specId}`;
               const ghPath = getToolPath('gh');
               if (ghPath && worktreePath) {
                 try {

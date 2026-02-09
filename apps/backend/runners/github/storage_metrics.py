@@ -11,7 +11,7 @@ Features:
 - Storage breakdown by component type
 
 Usage:
-    calculator = StorageMetricsCalculator(state_dir=Path(".auto-claude/github"))
+    calculator = StorageMetricsCalculator(state_dir=Path(".ac.jerry/github"))
     metrics = calculator.calculate()
     print(f"Total storage: {calculator.format_size(metrics.total_bytes)}")
 """

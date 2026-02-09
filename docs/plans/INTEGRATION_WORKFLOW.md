@@ -46,9 +46,9 @@ npm run package && git tag v2.7.6
 #### Hour 1: Environment Setup
 ```bash
 # Navigate to project (use your machine's path)
-# Machine 1: cd C:\Users\AlienZ\Desktop\Auto-Claude
-# Machine 2: cd C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
-cd C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+# Machine 1: cd C:\Users\AlienZ\Desktop\AC Jerry
+# Machine 2: cd C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
+cd C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 
 # Ensure latest code
 git checkout main && git pull
@@ -681,13 +681,13 @@ gh release create v2.7.6 \
 Download the appropriate installer for your platform below.
 
 **Full Changelog**
-See [CHANGELOG.md](https://github.com/AndyMik90/Auto-Claude/blob/v2.7.6/CHANGELOG.md) for detailed changes.
+See [CHANGELOG.md](https://github.com/lizz-ee/ac.jerry/blob/v2.7.6/CHANGELOG.md) for detailed changes.
 
 🤖 Built with Claude Sonnet 4.5" \
   --verify-tag \
-  out/Auto-Claude-Setup-2.7.6.exe#Windows \
-  out/Auto-Claude-2.7.6.dmg#macOS \
-  out/Auto-Claude-2.7.6.AppImage#Linux
+  out/AC-Jerry-Setup-2.7.6.exe#Windows \
+  out/AC-Jerry-2.7.6.dmg#macOS \
+  out/AC-Jerry-2.7.6.AppImage#Linux
 ```
 
 ---
@@ -710,7 +710,7 @@ tail -f logs/main.log
 ```markdown
 # Post to Discord/Twitter/Announcements
 
-🎉 Auto-Claude v2.7.6 is now available!
+🎉 AC Jerry v2.7.6 is now available!
 
 ✨ Better task status feedback with:
 - "Starting..." indicator during initialization
@@ -719,7 +719,7 @@ tail -f logs/main.log
 
 Update now to improve your workflow!
 
-Download: https://github.com/AndyMik90/Auto-Claude/releases/v2.7.6
+Download: https://github.com/lizz-ee/ac.jerry/releases/v2.7.6
 ```
 
 ---

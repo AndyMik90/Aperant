@@ -1,5 +1,5 @@
 /**
- * Path resolution utilities for Auto Claude updater
+ * Path resolution utilities for AC Jerry updater
  */
 
 import { existsSync, readFileSync } from 'fs';
@@ -48,7 +48,7 @@ export function getBundledSourcePath(): string {
  * Get the path for storing downloaded updates
  */
 export function getUpdateCachePath(): string {
-  return path.join(app.getPath('userData'), 'auto-claude-updates');
+  return path.join(app.getPath('userData'), 'ac-jerry-updates');
 }
 
 /**

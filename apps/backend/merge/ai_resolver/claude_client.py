@@ -25,7 +25,7 @@ def create_claude_resolver() -> AIResolver:
     """
     Create an AIResolver configured to use Claude via the Agent SDK.
 
-    Uses the same OAuth token pattern as the rest of the auto-claude framework.
+    Uses the same OAuth token pattern as the rest of the ac-jerry framework.
     Reads model/thinking settings from environment variables:
     - UTILITY_MODEL_ID: Full model ID (e.g., "claude-haiku-4-5-20251001")
     - UTILITY_THINKING_BUDGET: Thinking budget tokens (e.g., "1024")

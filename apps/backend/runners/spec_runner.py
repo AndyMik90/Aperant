@@ -38,7 +38,7 @@ import sys
 # Python version check - must be before any imports using 3.10+ syntax
 if sys.version_info < (3, 10):  # noqa: UP036
     sys.exit(
-        f"Error: Auto Claude requires Python 3.10 or higher.\n"
+        f"Error: AC Jerry requires Python 3.10 or higher.\n"
         f"You are running Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}\n"
         f"\n"
         f"Please upgrade Python: https://www.python.org/downloads/"
@@ -78,7 +78,7 @@ if sys.platform == "win32":
     if "_new_stream" in dir():
         del _new_stream
 
-# Add auto-claude to path (parent of runners/)
+# Add ac-jerry to path (parent of runners/)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Validate platform-specific dependencies BEFORE any imports that might
@@ -93,7 +93,7 @@ from cli.utils import import_dotenv
 load_dotenv = import_dotenv()
 
 env_file = Path(__file__).parent.parent / ".env"
-dev_env_file = Path(__file__).parent.parent.parent / "dev" / "auto-claude" / ".env"
+dev_env_file = Path(__file__).parent.parent.parent / "dev" / "ac-jerry" / ".env"
 if env_file.exists():
     load_dotenv(env_file)
 elif dev_env_file.exists():
@@ -247,18 +247,18 @@ Examples:
         # Sanitize null bytes which could cause issues
         task_description = task_description.replace("\x00", "")
 
-    # Find project root (look for auto-claude folder)
+    # Find project root (look for ac-jerry folder)
     project_dir = args.project_dir
 
-    # Auto-detect if running from within auto-claude directory (the source code)
-    if project_dir.name == "auto-claude" and (project_dir / "run.py").exists():
-        # Running from within auto-claude/ source directory, go up 1 level
+    # Auto-detect if running from within ac-jerry directory (the source code)
+    if project_dir.name == "ac-jerry" and (project_dir / "run.py").exists():
+        # Running from within ac-jerry/ source directory, go up 1 level
         project_dir = project_dir.parent
-    elif not (project_dir / ".auto-claude").exists():
-        # No .auto-claude folder found - try to find project root
-        # First check for .auto-claude (installed instance)
+    elif not (project_dir / ".ac.jerry").exists():
+        # No .ac-jerry folder found - try to find project root
+        # First check for .ac-jerry (installed instance)
         for parent in project_dir.parents:
-            if (parent / ".auto-claude").exists():
+            if (parent / ".ac.jerry").exists():
                 project_dir = parent
                 break
 
@@ -320,14 +320,14 @@ Examples:
                 print()
                 print(f"  {muted('To approve the spec, run:')}")
                 print(
-                    f"  {highlight(f'python auto-claude/review.py --spec-dir {orchestrator.spec_dir}')}"
+                    f"  {highlight(f'python ac-jerry/review.py --spec-dir {orchestrator.spec_dir}')}"
                 )
                 print()
                 print(
                     f"  {muted('Or re-run spec_runner with --auto-approve to skip review:')}"
                 )
                 example_cmd = (
-                    'python auto-claude/spec_runner.py --task "..." --auto-approve'
+                    'python ac-jerry/spec_runner.py --task "..." --auto-approve'
                 )
                 print(f"  {highlight(example_cmd)}")
                 sys.exit(1)
@@ -378,7 +378,7 @@ Examples:
         debug_error("spec_runner", "Spec creation interrupted by user")
         print("\n\nSpec creation interrupted.")
         print(
-            f"To continue: python auto-claude/spec_runner.py --continue {orchestrator.spec_dir.name}"
+            f"To continue: python ac-jerry/spec_runner.py --continue {orchestrator.spec_dir.name}"
         )
         sys.exit(1)
     except Exception as e:

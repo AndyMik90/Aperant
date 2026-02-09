@@ -1,7 +1,7 @@
 """
-Auto Claude project initialization utilities.
+AC Jerry project initialization utilities.
 
-Handles first-time setup of .auto-claude directory and ensures proper gitignore configuration.
+Handles first-time setup of .ac.jerry directory and ensures proper gitignore configuration.
 """
 
 import logging
@@ -13,11 +13,11 @@ from core.git_executable import get_git_executable
 
 logger = logging.getLogger(__name__)
 
-# All entries that should be added to .gitignore for auto-claude projects
-AUTO_CLAUDE_GITIGNORE_ENTRIES = [
-    ".auto-claude/",
-    ".auto-claude-security.json",
-    ".auto-claude-status",
+# All entries that should be added to .gitignore for ac-jerry projects
+AC_JERRY_GITIGNORE_ENTRIES = [
+    ".ac.jerry/",
+    ".ac-jerry-security.json",
+    ".ac-jerry-status",
     ".claude_settings.json",
     ".worktrees/",
     ".security-key",
@@ -40,7 +40,7 @@ def _entry_exists_in_gitignore(lines: list[str], entry: str) -> bool:
     return False
 
 
-def ensure_gitignore_entry(project_dir: Path, entry: str = ".auto-claude/") -> bool:
+def ensure_gitignore_entry(project_dir: Path, entry: str = ".ac.jerry/") -> bool:
     """
     Ensure an entry exists in the project's .gitignore file.
 
@@ -48,7 +48,7 @@ def ensure_gitignore_entry(project_dir: Path, entry: str = ".auto-claude/") -> b
 
     Args:
         project_dir: The project root directory
-        entry: The gitignore entry to add (default: ".auto-claude/")
+        entry: The gitignore entry to add (default: ".ac.jerry/")
 
     Returns:
         True if entry was added, False if it already existed
@@ -69,14 +69,14 @@ def ensure_gitignore_entry(project_dir: Path, entry: str = ".auto-claude/") -> b
             content += "\n"
 
         # Add a comment and the entry
-        content += "\n# Auto Claude data directory\n"
+        content += "\n# AC Jerry data directory\n"
         content += entry + "\n"
 
         gitignore_path.write_text(content)
         return True
     else:
         # Create new .gitignore with the entry
-        content = "# Auto Claude data directory\n"
+        content = "# AC Jerry data directory\n"
         content += entry + "\n"
 
         gitignore_path.write_text(content)
@@ -139,7 +139,7 @@ def _commit_gitignore(project_dir: Path) -> bool:
                 "commit",
                 ".gitignore",
                 "-m",
-                "chore: add auto-claude entries to .gitignore",
+                "chore: add ac-jerry entries to .gitignore",
             ],
             cwd=project_dir,
             capture_output=True,
@@ -161,7 +161,7 @@ def ensure_all_gitignore_entries(
     project_dir: Path, auto_commit: bool = False
 ) -> list[str]:
     """
-    Ensure all auto-claude related entries exist in the project's .gitignore file.
+    Ensure all ac-jerry related entries exist in the project's .gitignore file.
 
     Creates .gitignore if it doesn't exist.
 
@@ -186,7 +186,7 @@ def ensure_all_gitignore_entries(
     # Find entries that need to be added
     entries_to_add = [
         entry
-        for entry in AUTO_CLAUDE_GITIGNORE_ENTRIES
+        for entry in AC_JERRY_GITIGNORE_ENTRIES
         if not _entry_exists_in_gitignore(lines, entry)
     ]
 
@@ -198,7 +198,7 @@ def ensure_all_gitignore_entries(
     if content and not content.endswith("\n"):
         content += "\n"
 
-    content += "\n# Auto Claude generated files\n"
+    content += "\n# AC Jerry generated files\n"
     for entry in entries_to_add:
         content += entry + "\n"
         added_entries.append(entry)
@@ -217,26 +217,36 @@ def ensure_all_gitignore_entries(
     return added_entries
 
 
-def init_auto_claude_dir(project_dir: Path) -> tuple[Path, bool]:
+def init_ac_jerry_dir(project_dir: Path) -> tuple[Path, bool]:
     """
-    Initialize the .auto-claude directory for a project.
+    Initialize the .ac.jerry directory for a project.
 
-    Creates the directory if needed and ensures all auto-claude files are in .gitignore.
+    Creates the directory if needed and ensures all ac-jerry files are in .gitignore.
+    Automatically migrates legacy .auto-claude/ directories if found.
 
     Args:
         project_dir: The project root directory
 
     Returns:
-        Tuple of (auto_claude_dir path, gitignore_was_updated)
+        Tuple of (ac_jerry_dir path, gitignore_was_updated)
     """
     project_dir = Path(project_dir)
-    auto_claude_dir = project_dir / ".auto-claude"
+    ac_jerry_dir = project_dir / ".ac.jerry"
+
+    # Migrate legacy .auto-claude/ directory if it exists
+    if not ac_jerry_dir.exists():
+        try:
+            from migration import migrate_project_directory
+
+            migrate_project_directory(project_dir)
+        except Exception as e:
+            logger.debug("Migration check failed: %s", e)
 
     # Create the directory if it doesn't exist
-    dir_created = not auto_claude_dir.exists()
-    auto_claude_dir.mkdir(parents=True, exist_ok=True)
+    dir_created = not ac_jerry_dir.exists()
+    ac_jerry_dir.mkdir(parents=True, exist_ok=True)
 
-    # Ensure all auto-claude entries are in .gitignore (only on first creation)
+    # Ensure all ac-jerry entries are in .gitignore (only on first creation)
     # FIX (#1087): Auto-commit the changes to prevent merge failures
     gitignore_updated = False
     if dir_created:
@@ -245,36 +255,36 @@ def init_auto_claude_dir(project_dir: Path) -> tuple[Path, bool]:
     else:
         # Even if dir exists, check gitignore on first run
         # Use a marker file to track if we've already checked
-        marker = auto_claude_dir / ".gitignore_checked"
+        marker = ac_jerry_dir / ".gitignore_checked"
         if not marker.exists():
             added = ensure_all_gitignore_entries(project_dir, auto_commit=True)
             gitignore_updated = len(added) > 0
             marker.touch()
 
-    return auto_claude_dir, gitignore_updated
+    return ac_jerry_dir, gitignore_updated
 
 
-def get_auto_claude_dir(project_dir: Path, ensure_exists: bool = True) -> Path:
+def get_ac_jerry_dir(project_dir: Path, ensure_exists: bool = True) -> Path:
     """
-    Get the .auto-claude directory path, optionally ensuring it exists.
+    Get the .ac.jerry directory path, optionally ensuring it exists.
 
     Args:
         project_dir: The project root directory
         ensure_exists: If True, create directory and update gitignore if needed
 
     Returns:
-        Path to the .auto-claude directory
+        Path to the .ac.jerry directory
     """
     if ensure_exists:
-        auto_claude_dir, _ = init_auto_claude_dir(project_dir)
-        return auto_claude_dir
+        ac_jerry_dir, _ = init_ac_jerry_dir(project_dir)
+        return ac_jerry_dir
 
-    return Path(project_dir) / ".auto-claude"
+    return Path(project_dir) / ".ac.jerry"
 
 
 def repair_gitignore(project_dir: Path) -> list[str]:
     """
-    Repair an existing project's .gitignore to include all auto-claude entries.
+    Repair an existing project's .gitignore to include all ac-jerry entries.
 
     This is useful for projects created before all entries were being added,
     or when gitignore entries were manually removed.
@@ -289,10 +299,10 @@ def repair_gitignore(project_dir: Path) -> list[str]:
         List of entries that were added (empty if all already existed)
     """
     project_dir = Path(project_dir)
-    auto_claude_dir = project_dir / ".auto-claude"
+    ac_jerry_dir = project_dir / ".ac.jerry"
 
     # Remove the marker file so future checks will also run
-    marker = auto_claude_dir / ".gitignore_checked"
+    marker = ac_jerry_dir / ".gitignore_checked"
     if marker.exists():
         marker.unlink()
 
@@ -300,7 +310,7 @@ def repair_gitignore(project_dir: Path) -> list[str]:
     added = ensure_all_gitignore_entries(project_dir, auto_commit=True)
 
     # Re-create the marker
-    if auto_claude_dir.exists():
+    if ac_jerry_dir.exists():
         marker.touch()
 
     return added

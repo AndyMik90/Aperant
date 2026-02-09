@@ -26,7 +26,7 @@ class ScriptRunner:
         """Run a Python script and return (success, output).
 
         Args:
-            script: Relative path to script from auto-claude directory
+            script: Relative path to script from ac-jerry directory
             args: Command line arguments for the script
             timeout: Maximum execution time in seconds (default: 300)
 

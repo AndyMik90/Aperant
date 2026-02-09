@@ -35,7 +35,7 @@ jobs:
           if [ -z "${{ secrets.PAT_TOKEN }}" ]; then
             echo "::error::PAT_TOKEN secret is not configured."
             echo "::error::This secret is required for automatic release triggering."
-            echo "::error::See https://github.com/AndyMik90/Auto-Claude/pull/1043 for setup instructions."
+            echo "::error::See https://github.com/lizz-ee/ac.jerry/pull/1043 for setup instructions."
             exit 1
           fi
 

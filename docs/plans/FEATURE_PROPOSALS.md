@@ -391,7 +391,7 @@ Evaluate whether the "MCP Overview" (Agent Tools) page is necessary as a standal
 
 **MCP = Model Context Protocol**
 
-A standard for connecting AI models to external tools and services. In Auto-Claude:
+A standard for connecting AI models to external tools and services. In AC Jerry:
 - MCP servers provide tools to agents (GitHub, search, databases, etc.)
 - Different agent phases have different tool access
 - Users can enable/disable servers per project

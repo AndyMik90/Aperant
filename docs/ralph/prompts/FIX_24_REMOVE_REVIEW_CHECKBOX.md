@@ -60,12 +60,12 @@ Since Ralph Wiggum Mode is always on, we should ALWAYS pass `--auto-approve`.
 
 ```bash
 /ralph-loop:ralph-loop "
-You are an autonomous senior engineer removing a deprecated UI feature from Auto-Claude (Jerry).
+You are an autonomous senior engineer removing a deprecated UI feature from AC Jerry (Jerry).
 
 YOUR IDENTITY: You are an EXECUTOR, not an EVALUATOR. If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 
 ---
 

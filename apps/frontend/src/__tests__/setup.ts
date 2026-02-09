@@ -80,7 +80,7 @@ if (typeof global.requestAnimationFrame === 'undefined') {
 }
 
 // Test data directory for isolated file operations
-export const TEST_DATA_DIR = '/tmp/auto-claude-ui-tests';
+export const TEST_DATA_DIR = '/tmp/ac-jerry-ui-tests';
 
 // Create fresh test directory before each test
 beforeEach(() => {

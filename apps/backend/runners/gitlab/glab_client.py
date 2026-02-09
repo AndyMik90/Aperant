@@ -250,8 +250,8 @@ class GitLabClient:
 
 
 def load_gitlab_config(project_dir: Path) -> GitLabConfig | None:
-    """Load GitLab config from project's .auto-claude/gitlab/config.json."""
-    config_path = project_dir / ".auto-claude" / "gitlab" / "config.json"
+    """Load GitLab config from project's .ac.jerry/gitlab/config.json."""
+    config_path = project_dir / ".ac.jerry" / "gitlab" / "config.json"
 
     if not config_path.exists():
         return None

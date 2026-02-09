@@ -101,8 +101,8 @@
    - [SUGGESTIONS.md](SUGGESTIONS.md) - Feature details
 
 **Project Root (use the path for your machine):**
-- Machine 1 (AlienZ): `C:\Users\AlienZ\Desktop\Auto-Claude\`
-- Machine 2 (jamie.ballard): `C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude\`
+- Machine 1 (AlienZ): `C:\Users\AlienZ\Desktop\AC Jerry\`
+- Machine 2 (jamie.ballard): `C:\Users\jamie.ballard\Documents\GitHub\AC Jerry\`
 
 **Key Source Directories:**
 - `apps/frontend/src/main/` - Electron main process (IPC handlers, agent manager)
@@ -114,7 +114,7 @@
 
 ## Overview
 
-This guide tells you WHAT to build for Auto-Claude (Jerry). Build each phase in order. Reference the linked documentation for design details.
+This guide tells you WHAT to build for AC Jerry (Jerry). Build each phase in order. Reference the linked documentation for design details.
 
 ---
 
@@ -655,8 +655,8 @@ This was the first attempt. It stopped after 11/49 tasks with "excellent progres
 You are an autonomous senior engineer working on a local repo, executing the Ralph-Wiggum Implementation Guide.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
-  (Alt: C:\Users\AlienZ\Desktop\Auto-Claude)
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
+  (Alt: C:\Users\AlienZ\Desktop\AC Jerry)
 
 Primary documentation for THIS RUN:
 - docs\plans\RALPH_IMPLEMENTATION_GUIDE.md
@@ -694,8 +694,8 @@ This is the complete, tested prompt for invoking Ralph on the Jerry implementati
 You are an autonomous senior engineer working on a local repo, executing the Ralph-Wiggum Implementation Guide (v2.3).
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
-  (Alt: C:\Users\AlienZ\Desktop\Auto-Claude)
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
+  (Alt: C:\Users\AlienZ\Desktop\AC Jerry)
 
 Primary documentation for THIS RUN:
 - docs\plans\RALPH_IMPLEMENTATION_GUIDE.md   (v2.3)
@@ -861,13 +861,13 @@ After v2.3 completed 86%, 7 tasks remained that Ralph skipped. This prompt is sp
 
 ```bash
 /ralph-loop:ralph-loop "
-You are an autonomous senior engineer completing the remaining 7 tasks for Auto-Claude (Jerry).
+You are an autonomous senior engineer completing the remaining 7 tasks for AC Jerry (Jerry).
 
 **YOUR IDENTITY:** You are an EXECUTOR, not an EVALUATOR. You do not get to decide if tasks are worth doing. If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
-  (Alt: C:\Users\AlienZ\Desktop\Auto-Claude)
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
+  (Alt: C:\Users\AlienZ\Desktop\AC Jerry)
 
 Primary documentation:
 - docs\plans\REMAINING_TASKS.md (THIS FILE - read fully)
@@ -977,13 +977,13 @@ After v2.5 audit, 9 UI quick fix tasks were identified. Phase 7 (Terminal Redesi
 
 ```bash
 /ralph-loop:ralph-loop "
-You are an autonomous senior engineer completing the remaining tasks for Auto-Claude (Jerry).
+You are an autonomous senior engineer completing the remaining tasks for AC Jerry (Jerry).
 
 **YOUR IDENTITY:** You are an EXECUTOR, not an EVALUATOR. You do not get to decide if tasks are worth doing. If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
-  (Alt: C:\Users\AlienZ\Desktop\Auto-Claude)
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
+  (Alt: C:\Users\AlienZ\Desktop\AC Jerry)
 
 Primary documentation:
 - docs\plans\REMAINING_TASKS.md (THIS FILE - read fully)

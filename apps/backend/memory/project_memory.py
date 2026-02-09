@@ -7,7 +7,7 @@ learnings at the project level. Unlike spec-level memory (gotchas.md,
 patterns.md), project memory survives across specs and provides a
 cumulative knowledge base.
 
-Location: {project_dir}/.auto-claude/PROJECT_MEMORY.md
+Location: {project_dir}/.ac.jerry/PROJECT_MEMORY.md
 
 Sections:
     - Architecture Decisions
@@ -92,12 +92,12 @@ SECTION_MAP = {
     "learnings": "Agent Learnings",
 }
 
-TEMPLATE_HEADER = "# Project Memory\n\nCross-task learnings and insights accumulated by Auto-Claude agents.\n"
+TEMPLATE_HEADER = "# Project Memory\n\nCross-task learnings and insights accumulated by AC Jerry agents.\n"
 
 
 def _get_memory_path(project_dir: Path) -> Path:
     """Get the path to PROJECT_MEMORY.md."""
-    return Path(project_dir) / ".auto-claude" / "PROJECT_MEMORY.md"
+    return Path(project_dir) / ".ac.jerry" / "PROJECT_MEMORY.md"
 
 
 def create_project_memory_template(project_dir: Path) -> Path:

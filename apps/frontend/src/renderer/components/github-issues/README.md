@@ -1,6 +1,6 @@
 # GitHub Issues Module
 
-A well-structured, modular implementation of the GitHub Issues feature for the Auto Claude UI.
+A well-structured, modular implementation of the GitHub Issues feature for the AC Jerry UI.
 
 ## Quick Stats
 

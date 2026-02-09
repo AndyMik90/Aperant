@@ -7,7 +7,7 @@ CLI entry point for the companion agent that provides read-only conversational
 interface between task phases.
 
 Usage:
-    python runners/companion_runner.py --spec-dir .auto-claude/specs/001-feature \\
+    python runners/companion_runner.py --spec-dir .ac.jerry/specs/001-feature \\
                                        --project-dir . \\
                                        --task-title "Add authentication" \\
                                        --current-phase coding_complete \\
@@ -19,7 +19,7 @@ import sys
 # Python version check - must be before any imports using 3.10+ syntax
 if sys.version_info < (3, 10):  # noqa: UP036
     sys.exit(
-        f"Error: Auto Claude requires Python 3.10 or higher.\n"
+        f"Error: AC Jerry requires Python 3.10 or higher.\n"
         f"You are running Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}\n"
         f"\n"
         f"Please upgrade Python: https://www.python.org/downloads/"
@@ -61,7 +61,7 @@ if sys.platform == "win32":
     if "_new_stream" in dir():
         del _new_stream
 
-# Add auto-claude to path (parent of runners/)
+# Add ac-jerry to path (parent of runners/)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Validate platform-specific dependencies
@@ -75,7 +75,7 @@ from cli.utils import import_dotenv
 load_dotenv = import_dotenv()
 
 env_file = Path(__file__).parent.parent / ".env"
-dev_env_file = Path(__file__).parent.parent.parent / "dev" / "auto-claude" / ".env"
+dev_env_file = Path(__file__).parent.parent.parent / "dev" / "ac-jerry" / ".env"
 if env_file.exists():
     load_dotenv(env_file)
 elif dev_env_file.exists():
@@ -121,14 +121,14 @@ Phase Options:
 
 Examples:
   # Start companion after spec creation
-  python companion_runner.py --spec-dir .auto-claude/specs/001-feature \\
+  python companion_runner.py --spec-dir .ac.jerry/specs/001-feature \\
                              --project-dir . \\
                              --task-title "Add authentication" \\
                              --current-phase spec_complete \\
                              --task-id 001
 
   # Start companion after coding
-  python companion_runner.py --spec-dir .auto-claude/specs/002-bugfix \\
+  python companion_runner.py --spec-dir .ac.jerry/specs/002-bugfix \\
                              --project-dir . \\
                              --task-title "Fix login bug" \\
                              --current-phase coding_complete \\

@@ -685,7 +685,7 @@ class TestCliUtilsFindSpec:
         from cli.utils import find_spec
 
         # Create spec directory
-        specs_dir = temp_dir / ".auto-claude" / "specs"
+        specs_dir = temp_dir / ".ac.jerry" / "specs"
         specs_dir.mkdir(parents=True)
         spec_dir = specs_dir / "001-test-feature"
         spec_dir.mkdir()
@@ -698,7 +698,7 @@ class TestCliUtilsFindSpec:
         """Find spec by full directory name."""
         from cli.utils import find_spec
 
-        specs_dir = temp_dir / ".auto-claude" / "specs"
+        specs_dir = temp_dir / ".ac.jerry" / "specs"
         specs_dir.mkdir(parents=True)
         spec_dir = specs_dir / "001-test-feature"
         spec_dir.mkdir()
@@ -718,7 +718,7 @@ class TestCliUtilsFindSpec:
         """Require spec.md to exist in the directory."""
         from cli.utils import find_spec
 
-        specs_dir = temp_dir / ".auto-claude" / "specs"
+        specs_dir = temp_dir / ".ac.jerry" / "specs"
         specs_dir.mkdir(parents=True)
         spec_dir = specs_dir / "001-test-feature"
         spec_dir.mkdir()

@@ -15,7 +15,7 @@ from typing import Any, Dict, List
 from unittest.mock import MagicMock
 
 # =============================================================================
-# MOCK SETUP - Must happen before ANY imports from auto-claude
+# MOCK SETUP - Must happen before ANY imports from ac-jerry
 # =============================================================================
 
 # Store original modules for cleanup
@@ -33,7 +33,7 @@ _mocked_module_names: List[str] = [
 def setup_qa_report_mocks() -> None:
     """Set up all required mocks for qa/report.py testing.
 
-    This function must be called before importing any auto-claude modules.
+    This function must be called before importing any ac-jerry modules.
     """
     global _original_modules
 
@@ -100,7 +100,7 @@ def setup_qa_report_mocks() -> None:
     mock_client.create_client = MagicMock()
     sys.modules['client'] = mock_client
 
-    # Add auto-claude path for imports
+    # Add ac-jerry path for imports
     sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 
 

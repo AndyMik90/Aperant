@@ -273,7 +273,7 @@ User types in Insights panel (Insights.tsx)
   → IPC: INSIGHTS_SEND_MESSAGE
   → insights-handlers.ts: loads project + model config
   → insights-service.ts: sendMessage()
-    ├── Loads/creates session (.auto-claude/.insights/{session-id}.json)
+    ├── Loads/creates session (.ac.jerry/.insights/{session-id}.json)
     ├── Writes conversation history to temp file
     └── Spawns Python process
   → insights_runner.py (run_with_sdk):
@@ -304,12 +304,12 @@ The agent **cannot create tasks directly**. It suggests them; the user confirms.
 | Model | Configurable per-session (default: sonnet) |
 | Thinking | Configurable: none/low/medium/high/ultrathink (default: medium) |
 | Max turns | 15 |
-| Sessions | Persisted to `.auto-claude/.insights/{session-id}.json` |
+| Sessions | Persisted to `.ac.jerry/.insights/{session-id}.json` |
 
 ### System Prompt Context
 
 The insights runner builds context from (insights_runner.py:148-175):
-- Project index (`.auto-claude/project_index.json`)
+- Project index (`.ac.jerry/project_index.json`)
 - Roadmap features
 - Existing tasks with IDs (for dependency linking in suggestions)
 - Task suggestion format instructions
@@ -365,7 +365,7 @@ User clicks "Merge" → `window.electronAPI.mergeWorktree(task.id)` → `worktre
 **Full merge** (not stage-only):
 1. Smart merge: detect divergence, categorize files, 3-way merge → AI merge for conflicts
 2. **Auto-deletes worktree**: `git worktree remove --force`
-3. **Auto-deletes branch**: `git branch -D auto-claude/{specId}`
+3. **Auto-deletes branch**: `git branch -D ac-jerry/{specId}`
 4. Returns `{ merged: true }` → UI shows green success card with "Mark as Done" button
 
 **Stage-only merge** (`stageOnly: true`):
@@ -424,7 +424,7 @@ Runs async during build phase, triggered per completed subtask (`session.py:231`
 1. `_background_enrichment()` fires as `asyncio.create_task()` (non-blocking)
 2. **Insight extraction**: Claude Haiku analyzes git diff, changed files, commit messages → structured insights
 3. **Graphiti save**: 4 episode types — `CODEBASE_DISCOVERY`, `PATTERN`, `GOTCHA`, `TASK_OUTCOME`
-4. **Project memory promotion**: Patterns/gotchas appended to `.auto-claude/project_memory.md`
+4. **Project memory promotion**: Patterns/gotchas appended to `.ac.jerry/project_memory.md`
 5. **Fallback**: If Graphiti disabled → `spec_dir/memory/session_insights/session_NNN.json`
 6. **Next task**: Agents retrieve learned patterns/gotchas via semantic search
 
@@ -447,7 +447,7 @@ Runs async during build phase, triggered per completed subtask (`session.py:231`
 | D3 | MEDIUM | Stage-only merge leaves worktree alive — user can forget about it, blocks future "done" | worktree-handlers.ts:2148 |
 | D4 | MEDIUM | No status check before PR creation — can create PR from any status where worktree exists | worktree-handlers.ts:2934 |
 | D5 | LOW | PR timeout doesn't verify PR wasn't created — "timed out" but PR may exist on GitHub | worktree-handlers.ts:3023 |
-| D6 | LOW | Branch name fallback uses `auto-claude/{specId}` pattern that may not match actual branch | execution-handlers.ts:1002 |
+| D6 | LOW | Branch name fallback uses `ac-jerry/{specId}` pattern that may not match actual branch | execution-handlers.ts:1002 |
 | D7 | HIGH | PR creation impossible after "done" — worktree already deleted, can't push | WorkspaceStatus.tsx:460 |
 | D8 | LOW | Linear fires on build exit, not "done" — no notification for manual status changes | session.py |
 

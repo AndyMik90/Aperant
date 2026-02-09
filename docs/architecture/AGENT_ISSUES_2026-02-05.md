@@ -1,4 +1,4 @@
-# Auto-Claude Agent Architecture Issues & Improvements
+# AC Jerry Agent Architecture Issues & Improvements
 
 **Date:** 2026-02-05
 **Investigator:** Claude Code

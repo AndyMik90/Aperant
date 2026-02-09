@@ -29,7 +29,7 @@ class AIAnalyzerRunner:
         """
         self.project_dir = project_dir
         self.project_index = project_index
-        self.cache_manager = CacheManager(project_dir / ".auto-claude" / "ai_cache")
+        self.cache_manager = CacheManager(project_dir / ".ac.jerry" / "ai_cache")
         self.cost_estimator = CostEstimator(project_dir, project_index)
         self.result_parser = ResultParser()
         self.summary_printer = SummaryPrinter()

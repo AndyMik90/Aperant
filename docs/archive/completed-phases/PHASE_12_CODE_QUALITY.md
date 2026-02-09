@@ -174,11 +174,11 @@ result = await retry_async(
 ```python
 # apps/backend/core/exceptions.py
 
-class AutoClaudeError(Exception):
-    """Base exception for Auto-Claude."""
+class ACJerryError(Exception):
+    """Base exception for AC Jerry."""
     pass
 
-class AgentError(AutoClaudeError):
+class AgentError(ACJerryError):
     """Base for agent-related errors."""
     pass
 
@@ -190,7 +190,7 @@ class CodingError(AgentError):
     """Error during coding phase."""
     pass
 
-class APIError(AutoClaudeError):
+class APIError(ACJerryError):
     """Error from external API."""
     pass
 
@@ -204,7 +204,7 @@ class AuthenticationError(APIError):
     """API authentication failed."""
     pass
 
-class ConfigurationError(AutoClaudeError):
+class ConfigurationError(ACJerryError):
     """Invalid configuration."""
     pass
 ```

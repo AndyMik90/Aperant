@@ -27,7 +27,7 @@ class BugPredictor:
         Initialize the bug predictor.
 
         Args:
-            spec_dir: Path to the spec directory (e.g., auto-claude/specs/001-feature/)
+            spec_dir: Path to the spec directory (e.g., ac-jerry/specs/001-feature/)
         """
         self.spec_dir = Path(spec_dir)
         self.memory_dir = self.spec_dir / "memory"

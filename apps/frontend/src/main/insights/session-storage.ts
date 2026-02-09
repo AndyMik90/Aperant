@@ -5,7 +5,7 @@ import type { InsightsSession, InsightsSessionSummary } from '../../shared/types
 import { InsightsPaths } from './paths';
 
 // Central archive directory (survives project deletion)
-const ARCHIVE_DIR = path.join(os.homedir(), '.auto-claude', 'conversation-archive');
+const ARCHIVE_DIR = path.join(os.homedir(), '.ac.jerry', 'conversation-archive');
 
 /**
  * Session storage manager
@@ -73,7 +73,7 @@ export class SessionStorage {
   }
 
   /**
-   * Archive session to central ~/.auto-claude/conversation-archive/
+   * Archive session to central ~/.ac.jerry/conversation-archive/
    * This is a fire-and-forget safety net — errors are silently ignored
    */
   private archiveSession(projectPath: string, session: InsightsSession, content: string): void {

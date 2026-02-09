@@ -19,7 +19,7 @@ if (!fs.existsSync(backendDir)) {
   process.exit(1);
 }
 
-console.log('Installing Auto Claude backend dependencies...\n');
+console.log('Installing AC Jerry backend dependencies...\n');
 
 // Helper to run commands
 function run(cmd, options = {}) {

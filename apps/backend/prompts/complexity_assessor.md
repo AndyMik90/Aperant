@@ -10,7 +10,7 @@ You are the **Complexity Assessor Agent** in the Auto-Build spec creation pipeli
 
 **Inputs** (read these files in the spec directory):
 - `requirements.json` - Full user requirements (task, services, acceptance criteria, constraints)
-- `project_index.json` - Project structure (optional, may be in spec dir or auto-claude dir)
+- `project_index.json` - Project structure (optional, may be in spec dir or ac-jerry dir)
 
 **Output**: `complexity_assessment.json` - Structured complexity analysis
 

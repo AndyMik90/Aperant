@@ -105,10 +105,10 @@ def sync_spec_to_source(spec_dir: Path, source_spec_dir: Path | None) -> bool:
     many files inside the worktree's spec directory. This function syncs ALL
     of them back to the main project's spec directory.
 
-    IMPORTANT: Since .auto-claude/ is gitignored, this sync happens to the
+    IMPORTANT: Since .ac.jerry/ is gitignored, this sync happens to the
     local filesystem regardless of what branch the user is on. The worktree
-    may be on a different branch (e.g., auto-claude/093-task), but the sync
-    target is always the main project's .auto-claude/specs/ directory.
+    may be on a different branch (e.g., ac-jerry/093-task), but the sync
+    target is always the main project's .ac.jerry/specs/ directory.
 
     Files synced (all files in spec directory):
     - implementation_plan.json - Task status and subtask completion

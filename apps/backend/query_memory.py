@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Memory Query CLI for auto-claude-ui.
+Memory Query CLI for ac-jerry-ui.
 
 Provides a subprocess interface for querying the LadybugDB/Graphiti memory database.
 Called from Node.js (Electron main process) via child_process.spawn().
@@ -338,10 +338,10 @@ async def _async_semantic_search(args):
         return {"success": False, "error": "LadybugDB not installed"}
 
     try:
-        # Add auto-claude to path for imports
-        auto_claude_dir = Path(__file__).parent
-        if str(auto_claude_dir) not in sys.path:
-            sys.path.insert(0, str(auto_claude_dir))
+        # Add ac-jerry to path for imports
+        ac_jerry_dir = Path(__file__).parent
+        if str(ac_jerry_dir) not in sys.path:
+            sys.path.insert(0, str(ac_jerry_dir))
 
         # Import Graphiti components
         from integrations.graphiti.config import GraphitiConfig
@@ -667,7 +667,7 @@ def extract_session_number(name: str) -> int | None:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Query LadybugDB memory database for auto-claude-ui"
+        description="Query LadybugDB memory database for ac-jerry-ui"
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 

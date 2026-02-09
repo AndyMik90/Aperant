@@ -12,7 +12,7 @@ echo.
 echo [2/3] Update complete.
 echo.
 
-cd /d C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+cd /d C:\Users\jamie.ballard\Documents\GitHub\ac.Jerry
 
 echo [3/3] Starting with --dangerously-skip-permissions...
 echo Working directory: %CD%

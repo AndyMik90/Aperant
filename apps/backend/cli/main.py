@@ -54,24 +54,24 @@ def parse_args() -> argparse.Namespace:
         epilog="""
 Examples:
   # List all specs
-  python auto-claude/run.py --list
+  python ac-jerry/run.py --list
 
   # Run a specific spec (by number or full name)
-  python auto-claude/run.py --spec 001
-  python auto-claude/run.py --spec 001-initial-app
+  python ac-jerry/run.py --spec 001
+  python ac-jerry/run.py --spec 001-initial-app
 
   # Workspace management (after build completes)
-  python auto-claude/run.py --spec 001 --merge     # Add build to your project
-  python auto-claude/run.py --spec 001 --review    # See what was built
-  python auto-claude/run.py --spec 001 --discard   # Delete build (with confirmation)
+  python ac-jerry/run.py --spec 001 --merge     # Add build to your project
+  python ac-jerry/run.py --spec 001 --review    # See what was built
+  python ac-jerry/run.py --spec 001 --discard   # Delete build (with confirmation)
 
   # Advanced options
-  python auto-claude/run.py --spec 001 --direct       # Skip workspace isolation
-  python auto-claude/run.py --spec 001 --isolated     # Force workspace isolation
+  python ac-jerry/run.py --spec 001 --direct       # Skip workspace isolation
+  python ac-jerry/run.py --spec 001 --isolated     # Force workspace isolation
 
   # Status checks
-  python auto-claude/run.py --spec 001 --review-status  # Check human review status
-  python auto-claude/run.py --spec 001 --qa-status      # Check QA validation status
+  python ac-jerry/run.py --spec 001 --review-status  # Check human review status
+  python ac-jerry/run.py --spec 001 --qa-status      # Check QA validation status
 
 Prerequisites:
   1. Create a spec first: claude /spec
@@ -80,7 +80,7 @@ Prerequisites:
 Environment Variables:
   CLAUDE_CODE_OAUTH_TOKEN  Your Claude Code OAuth token (required)
                            Get it by running: claude setup-token
-  AUTO_BUILD_MODEL         Override default model (optional)
+  AC_JERRY_MODEL           Override default model (optional)
         """,
     )
 
@@ -288,6 +288,14 @@ def main() -> None:
     # Set up environment first
     setup_environment()
 
+    # Migrate legacy ~/.auto-claude/ to ~/.ac.jerry/ if needed
+    try:
+        from migration import migrate_user_home_directory
+
+        migrate_user_home_directory()
+    except Exception:
+        pass  # Non-critical, don't block startup
+
     # Initialize Sentry early to capture any startup errors
     from core.sentry import capture_exception, init_sentry
 
@@ -325,7 +333,7 @@ def _run_cli() -> None:
 
     # Get model from CLI arg or env var (None if not explicitly set)
     # This allows get_phase_model() to fall back to task_metadata.json
-    model = args.model or os.environ.get("AUTO_BUILD_MODEL")
+    model = args.model or os.environ.get("AC_JERRY_MODEL")
 
     # Handle --list command
     if args.list:
@@ -361,8 +369,8 @@ def _run_cli() -> None:
         print_banner()
         print("\nError: --spec is required")
         print("\nUsage:")
-        print("  python auto-claude/run.py --list           # See all specs")
-        print("  python auto-claude/run.py --spec 001       # Run a spec")
+        print("  python ac-jerry/run.py --list           # See all specs")
+        print("  python ac-jerry/run.py --spec 001       # Run a spec")
         print("\nCreate a new spec with:")
         print("  claude /spec")
         sys.exit(1)

@@ -1,4 +1,4 @@
-# Master Audit Report — Auto-Claude Frontend + Backend
+# Master Audit Report — AC Jerry Frontend + Backend
 
 **Date:** 2026-02-06
 **Sources:** UI Audit (Claude deep investigation) + Code Sweep #2 (Ralph Loop)

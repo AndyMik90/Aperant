@@ -3,7 +3,7 @@
 Tests for Complexity Assessment Module
 ======================================
 
-Tests the auto-claude/spec/complexity.py module functionality including:
+Tests the spec/complexity.py module functionality including:
 - Complexity enum values
 - ComplexityAssessment dataclass
 - ComplexityAnalyzer class methods
@@ -49,7 +49,7 @@ sys.modules['claude_code_sdk.types'] = mock_code_types
 sys.modules['claude_agent_sdk'] = mock_agent_sdk
 sys.modules['claude_agent_sdk.types'] = mock_agent_types
 
-# Add auto-claude directory to path for imports
+# Add ac-jerry directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 
 from spec.complexity import (

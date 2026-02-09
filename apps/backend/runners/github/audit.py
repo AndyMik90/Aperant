@@ -167,7 +167,7 @@ class AuditLogger:
     Structured audit logger for GitHub automation.
 
     Usage:
-        audit = AuditLogger(log_dir=Path(".auto-claude/github/audit"))
+        audit = AuditLogger(log_dir=Path(".ac.jerry/github/audit"))
 
         # Start an operation with context
         ctx = audit.start_operation(
@@ -204,12 +204,12 @@ class AuditLogger:
         Initialize audit logger.
 
         Args:
-            log_dir: Directory for audit logs (default: .auto-claude/github/audit)
+            log_dir: Directory for audit logs (default: .ac.jerry/github/audit)
             retention_days: Days to retain logs (default: 30)
             max_file_size_mb: Max size per log file before rotation (default: 100MB)
             enabled: Whether audit logging is enabled (default: True)
         """
-        self.log_dir = log_dir or Path(".auto-claude/github/audit")
+        self.log_dir = log_dir or Path(".ac.jerry/github/audit")
         self.retention_days = retention_days
         self.max_file_size_mb = max_file_size_mb
         self.enabled = enabled

@@ -172,7 +172,7 @@ Environment variables:
 
         # Create manager
         manager = PRWorktreeManager(
-            project_dir=project_dir, worktree_dir=".auto-claude/github/pr/worktrees"
+            project_dir=project_dir, worktree_dir=".ac.jerry/github/pr/worktrees"
         )
 
         # Execute actions

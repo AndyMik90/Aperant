@@ -18,7 +18,7 @@ import asyncio
 import sys
 from pathlib import Path
 
-# Add auto-claude to path
+# Add ac-jerry to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Validate platform-specific dependencies BEFORE any imports that might
@@ -59,7 +59,7 @@ def main():
     parser.add_argument(
         "--output",
         type=Path,
-        help="Output directory for roadmap files (default: project/auto-claude/roadmap)",
+        help="Output directory for roadmap files (default: project/ac-jerry/roadmap)",
     )
     parser.add_argument(
         "--model",

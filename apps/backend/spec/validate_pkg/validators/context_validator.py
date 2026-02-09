@@ -38,7 +38,7 @@ class ContextValidator:
         if not context_file.exists():
             errors.append("context.json not found")
             fixes.append(
-                "Run: python auto-claude/context.py --task '[task]' --services '[services]' --output context.json"
+                "Run: python ac-jerry/context.py --task '[task]' --services '[services]' --output context.json"
             )
             return ValidationResult(False, "context", errors, warnings, fixes)
 

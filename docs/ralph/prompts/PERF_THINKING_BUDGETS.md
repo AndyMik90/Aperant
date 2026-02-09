@@ -11,7 +11,7 @@
 
 ```bash
 /ralph-loop:ralph-loop "
-You are completing Thinking Budget Optimization for Auto-Claude.
+You are completing Thinking Budget Optimization for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -19,7 +19,7 @@ YOUR IDENTITY:
 - This is a 2-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 - Backend: apps/backend/
 
 Primary documentation:

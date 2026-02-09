@@ -83,7 +83,7 @@ class GitLabOrchestrator:
         self.progress_callback = progress_callback
 
         # GitLab directory for storing state
-        self.gitlab_dir = self.project_dir / ".auto-claude" / "gitlab"
+        self.gitlab_dir = self.project_dir / ".ac.jerry" / "gitlab"
         self.gitlab_dir.mkdir(parents=True, exist_ok=True)
 
         # Load GitLab config

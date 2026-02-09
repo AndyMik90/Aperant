@@ -4,8 +4,8 @@ Git Worktree Manager - Per-Spec Architecture
 =============================================
 
 Each spec gets its own worktree:
-- Worktree path: .auto-claude/worktrees/tasks/{spec-name}/
-- Branch name: auto-claude/{spec-name}
+- Worktree path: .ac.jerry/worktrees/tasks/{spec-name}/
+- Branch name: ac-jerry/{spec-name}
 
 This allows:
 1. Multiple specs to be worked on simultaneously
@@ -171,8 +171,8 @@ class WorktreeManager:
     """
     Manages per-spec Git worktrees.
 
-    Each spec gets its own worktree in .auto-claude/worktrees/tasks/{spec-name}/ with
-    a corresponding branch auto-claude/{spec-name}.
+    Each spec gets its own worktree in .ac.jerry/worktrees/tasks/{spec-name}/ with
+    a corresponding branch ac-jerry/{spec-name}.
     """
 
     # Timeout constants for subprocess operations
@@ -184,7 +184,7 @@ class WorktreeManager:
     def __init__(self, project_dir: Path, base_branch: str | None = None):
         self.project_dir = project_dir
         self.base_branch = base_branch or self._detect_base_branch()
-        self.worktrees_dir = project_dir / ".auto-claude" / "worktrees" / "tasks"
+        self.worktrees_dir = project_dir / ".ac.jerry" / "worktrees" / "tasks"
         self._merge_lock = asyncio.Lock()
 
     def _detect_base_branch(self) -> str:
@@ -259,10 +259,10 @@ class WorktreeManager:
     def _unstage_gitignored_files(self) -> None:
         """
         Unstage any staged files that are gitignored in the current branch,
-        plus any files in the .auto-claude directory which should never be merged.
+        plus any files in the .ac.jerry directory which should never be merged.
 
         This is needed after a --no-commit merge because files that exist in the
-        source branch (like spec files in .auto-claude/specs/) get staged even if
+        source branch (like spec files in .ac.jerry/specs/) get staged even if
         they're gitignored in the target branch.
         """
         # Get list of staged files
@@ -272,7 +272,7 @@ class WorktreeManager:
 
         staged_files = result.stdout.strip().split("\n")
 
-        # Files to unstage: gitignored files + .auto-claude directory files
+        # Files to unstage: gitignored files + .ac.jerry directory files
         files_to_unstage = set()
 
         # 1. Check which staged files are gitignored
@@ -288,23 +288,23 @@ class WorktreeManager:
                 if file.strip():
                     files_to_unstage.add(file.strip())
 
-        # 2. Always unstage .auto-claude directory files - these are project-specific
+        # 2. Always unstage .ac.jerry directory files - these are project-specific
         # and should never be merged from the worktree branch
-        auto_claude_patterns = [".auto-claude/", "auto-claude/specs/"]
+        ac_jerry_patterns = [".ac.jerry/", "ac-jerry/specs/"]
         for file in staged_files:
             file = file.strip()
             if not file:
                 continue
             # Normalize path separators for cross-platform (Windows backslash support)
             normalized = file.replace("\\", "/")
-            for pattern in auto_claude_patterns:
+            for pattern in ac_jerry_patterns:
                 if normalized.startswith(pattern) or f"/{pattern}" in normalized:
                     files_to_unstage.add(file)
                     break
 
         if files_to_unstage:
             print(
-                f"Unstaging {len(files_to_unstage)} auto-claude/gitignored file(s)..."
+                f"Unstaging {len(files_to_unstage)} ac-jerry/gitignored file(s)..."
             )
             # Unstage each file
             for file in files_to_unstage:
@@ -318,12 +318,12 @@ class WorktreeManager:
 
     def get_worktree_path(self, spec_name: str) -> Path:
         """Get the worktree path for a spec (checks new and legacy locations)."""
-        # New path first (.auto-claude/worktrees/tasks/)
+        # New path first (.ac.jerry/worktrees/tasks/)
         new_path = self.worktrees_dir / spec_name
         if new_path.exists():
             return new_path
 
-        # Legacy fallback (.worktrees/ instead of .auto-claude/worktrees/tasks/)
+        # Legacy fallback (.worktrees/ instead of .ac.jerry/worktrees/tasks/)
         legacy_path = self.project_dir / ".worktrees" / spec_name
         if legacy_path.exists():
             return legacy_path
@@ -333,7 +333,7 @@ class WorktreeManager:
 
     def get_branch_name(self, spec_name: str) -> str:
         """Get the branch name for a spec."""
-        return f"auto-claude/{spec_name}"
+        return f"ac-jerry/{spec_name}"
 
     def worktree_exists(self, spec_name: str) -> bool:
         """Check if a worktree exists for a spec."""
@@ -366,19 +366,19 @@ class WorktreeManager:
 
     def _check_branch_namespace_conflict(self) -> str | None:
         """
-        Check if a branch named 'auto-claude' exists, which would block creating
-        branches in the 'auto-claude/*' namespace.
+        Check if a branch named 'ac-jerry' exists, which would block creating
+        branches in the 'ac-jerry/*' namespace.
 
         Git stores branch refs as files under .git/refs/heads/, so a branch named
-        'auto-claude' creates a file that prevents creating the 'auto-claude/'
-        directory needed for 'auto-claude/{spec-name}' branches.
+        'ac-jerry' creates a file that prevents creating the 'ac-jerry/'
+        directory needed for 'ac-jerry/{spec-name}' branches.
 
         Returns:
             The conflicting branch name if found, None otherwise.
         """
-        result = self._run_git(["rev-parse", "--verify", "auto-claude"])
+        result = self._run_git(["rev-parse", "--verify", "ac-jerry"])
         if result.returncode == 0:
-            return "auto-claude"
+            return "ac-jerry"
         return None
 
     def _get_worktree_stats(self, spec_name: str) -> dict:
@@ -484,14 +484,14 @@ class WorktreeManager:
         worktree_path = self.get_worktree_path(spec_name)
         branch_name = self.get_branch_name(spec_name)
 
-        # Check for branch namespace conflict (e.g., 'auto-claude' blocking 'auto-claude/*')
+        # Check for branch namespace conflict (e.g., 'ac-jerry' blocking 'ac-jerry/*')
         conflicting_branch = self._check_branch_namespace_conflict()
         if conflicting_branch:
             raise WorktreeError(
                 f"Branch '{conflicting_branch}' exists and blocks creating '{branch_name}'.\n"
                 f"\n"
-                f"Git branch names work like file paths - a branch named 'auto-claude' prevents\n"
-                f"creating branches under 'auto-claude/' (like 'auto-claude/{spec_name}').\n"
+                f"Git branch names work like file paths - a branch named 'ac-jerry' prevents\n"
+                f"creating branches under 'ac-jerry/' (like 'ac-jerry/{spec_name}').\n"
                 f"\n"
                 f"Fix: Rename the conflicting branch:\n"
                 f"  git branch -m {conflicting_branch} {conflicting_branch}-backup"
@@ -634,7 +634,7 @@ class WorktreeManager:
         status_result = self._run_git(["status", "--porcelain"])
         if status_result.stdout.strip():
             stash_result = self._run_git(
-                ["stash", "push", "-m", f"auto-claude: pre-merge stash for {spec_name}"]
+                ["stash", "push", "-m", f"ac-jerry: pre-merge stash for {spec_name}"]
             )
             if stash_result.returncode == 0 and "No local changes" not in stash_result.stdout:
                 stashed = True
@@ -709,7 +709,7 @@ class WorktreeManager:
             # --no-commit stages the merge but doesn't create the commit
             merge_args.append("--no-commit")
         else:
-            merge_args.extend(["-m", f"auto-claude: Merge {info.branch}"])
+            merge_args.extend(["-m", f"ac-jerry: Merge {info.branch}"])
 
         # FIX-023: Use explicit merge timeout to prevent hangs on complex merges
         result = self._run_git(merge_args, timeout=self.GIT_MERGE_TIMEOUT)
@@ -808,8 +808,8 @@ class WorktreeManager:
         return worktrees
 
     def list_all_spec_branches(self) -> list[str]:
-        """List all auto-claude branches (even if worktree removed)."""
-        result = self._run_git(["branch", "--list", "auto-claude/*"])
+        """List all ac-jerry branches (even if worktree removed)."""
+        result = self._run_git(["branch", "--list", "ac-jerry/*"])
         if result.returncode != 0:
             return []
 
@@ -1028,7 +1028,7 @@ class WorktreeManager:
             )
 
         target = target_branch or self.base_branch
-        pr_title = title or f"auto-claude: {spec_name}"
+        pr_title = title or f"ac-jerry: {spec_name}"
 
         # Get PR body from spec.md if available
         pr_body = self._extract_spec_summary(spec_name)
@@ -1156,16 +1156,16 @@ class WorktreeManager:
     def _extract_spec_summary(self, spec_name: str) -> str:
         """Extract a summary from spec.md for PR body."""
         worktree_path = self.get_worktree_path(spec_name)
-        spec_path = worktree_path / ".auto-claude" / "specs" / spec_name / "spec.md"
+        spec_path = worktree_path / ".ac.jerry" / "specs" / spec_name / "spec.md"
 
         if not spec_path.exists():
             # Try project spec path
             spec_path = (
-                self.project_dir / ".auto-claude" / "specs" / spec_name / "spec.md"
+                self.project_dir / ".ac.jerry" / "specs" / spec_name / "spec.md"
             )
 
         if not spec_path.exists():
-            return "Auto-generated PR from Auto-Claude build."
+            return "Auto-generated PR from AC Jerry build."
 
         try:
             content = spec_path.read_text(encoding="utf-8")
@@ -1197,7 +1197,7 @@ class WorktreeManager:
                 "worktree", f"Could not extract spec summary for PR body: {e}"
             )
 
-        return "Auto-generated PR from Auto-Claude build."
+        return "Auto-generated PR from AC Jerry build."
 
     def _get_existing_pr_url(self, spec_name: str, target_branch: str) -> str | None:
         """Get the URL of an existing PR for this branch."""

@@ -70,7 +70,7 @@ Only if you applied fixes in Step 3:
 
 ```bash
 pwd  # Verify project root
-git add . ':!.auto-claude'
+git add . ':!.ac.jerry'
 git commit -m "fix: Address remaining QA issues (qa-review-and-fix)
 
 QA Session: [N]"

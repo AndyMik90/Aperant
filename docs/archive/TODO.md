@@ -1,4 +1,4 @@
-# Auto-Claude (Jerry) Master TODO
+# AC Jerry (Jerry) Master TODO
 
 **Last Updated:** 2026-02-04
 **Status:** ✅ 100% Complete (all original tasks done, all phases complete)

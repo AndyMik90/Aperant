@@ -23,7 +23,7 @@ When a task finishes the planning phase naturally (agent completes and exits), t
 
 ```bash
 /ralph-loop:ralph-loop "
-You are implementing KANBAN_BUILD_BUTTON fix for Auto-Claude.
+You are implementing KANBAN_BUILD_BUTTON fix for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -31,7 +31,7 @@ YOUR IDENTITY:
 - This is a 3-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 - Frontend: apps/frontend/src/
 
 ---

@@ -2,7 +2,7 @@
 Tool Models and Constants
 ==========================
 
-Defines tool name constants and configuration for auto-claude MCP tools.
+Defines tool name constants and configuration for ac-jerry MCP tools.
 
 This module is the single source of truth for all tool definitions used by
 the Claude Agent SDK client. Tool lists are organized by category:
@@ -10,7 +10,7 @@ the Claude Agent SDK client. Tool lists are organized by category:
 - Base tools: Core file operations (Read, Write, Edit, etc.)
 - Web tools: Documentation and research (WebFetch, WebSearch)
 - MCP tools: External integrations (Context7, Linear, Graphiti, etc.)
-- Auto-Claude tools: Custom build management tools
+- AC Jerry tools: Custom build management tools
 """
 
 import os
@@ -28,16 +28,16 @@ BASE_WRITE_TOOLS = ["Write", "Edit", "Bash"]
 WEB_TOOLS = ["WebFetch", "WebSearch"]
 
 # =============================================================================
-# Auto-Claude MCP Tools (Custom build management)
+# AC Jerry MCP Tools (Custom build management)
 # =============================================================================
 
-# Auto-Claude MCP tool names (prefixed with mcp__auto-claude__)
-TOOL_UPDATE_SUBTASK_STATUS = "mcp__auto-claude__update_subtask_status"
-TOOL_GET_BUILD_PROGRESS = "mcp__auto-claude__get_build_progress"
-TOOL_RECORD_DISCOVERY = "mcp__auto-claude__record_discovery"
-TOOL_RECORD_GOTCHA = "mcp__auto-claude__record_gotcha"
-TOOL_GET_SESSION_CONTEXT = "mcp__auto-claude__get_session_context"
-TOOL_UPDATE_QA_STATUS = "mcp__auto-claude__update_qa_status"
+# AC Jerry MCP tool names (prefixed with mcp__ac-jerry__)
+TOOL_UPDATE_SUBTASK_STATUS = "mcp__ac-jerry__update_subtask_status"
+TOOL_GET_BUILD_PROGRESS = "mcp__ac-jerry__get_build_progress"
+TOOL_RECORD_DISCOVERY = "mcp__ac-jerry__record_discovery"
+TOOL_RECORD_GOTCHA = "mcp__ac-jerry__record_gotcha"
+TOOL_GET_SESSION_CONTEXT = "mcp__ac-jerry__get_session_context"
+TOOL_UPDATE_QA_STATUS = "mcp__ac-jerry__update_qa_status"
 
 # =============================================================================
 # External MCP Tools
@@ -139,49 +139,49 @@ AGENT_CONFIGS = {
     "spec_gatherer": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": [],  # No MCP needed - just reads project
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "medium",
     },
     "spec_researcher": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7"],  # Needs docs lookup
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "medium",
     },
     "spec_writer": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS,
         "mcp_servers": [],  # Just writes spec.md
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "high",
     },
     "spec_critic": {
         "tools": BASE_READ_TOOLS,
         "mcp_servers": [],  # Self-critique, no external tools
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "ultrathink",
     },
     "spec_discovery": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "medium",
     },
     "spec_context": {
         "tools": BASE_READ_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "medium",
     },
     "spec_validation": {
         "tools": BASE_READ_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "high",
     },
     "spec_compaction": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "medium",
     },
     # ═══════════════════════════════════════════════════════════════════════
@@ -201,7 +201,7 @@ AGENT_CONFIGS = {
             "docs/**",
         ],
         "mcp_servers": ["context7"],  # Minimal MCP for planning
-        "auto_claude_tools": [
+        "ac_jerry_tools": [
             TOOL_GET_SESSION_CONTEXT,
             TOOL_RECORD_DISCOVERY,
         ],
@@ -216,9 +216,9 @@ AGENT_CONFIGS = {
     # ═══════════════════════════════════════════════════════════════════════
     "planner": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
-        "mcp_servers": ["context7", "graphiti", "auto-claude"],
+        "mcp_servers": ["context7", "graphiti", "ac-jerry"],
         "mcp_servers_optional": ["linear"],  # Only if project setting enabled
-        "auto_claude_tools": [
+        "ac_jerry_tools": [
             TOOL_GET_BUILD_PROGRESS,
             TOOL_GET_SESSION_CONTEXT,
             TOOL_RECORD_DISCOVERY,
@@ -227,9 +227,9 @@ AGENT_CONFIGS = {
     },
     "coder": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
-        "mcp_servers": ["context7", "graphiti", "auto-claude"],
+        "mcp_servers": ["context7", "graphiti", "ac-jerry"],
         "mcp_servers_optional": ["linear"],
-        "auto_claude_tools": [
+        "ac_jerry_tools": [
             TOOL_UPDATE_SUBTASK_STATUS,
             TOOL_GET_BUILD_PROGRESS,
             TOOL_RECORD_DISCOVERY,
@@ -245,9 +245,9 @@ AGENT_CONFIGS = {
         # Read + Write/Edit (for QA reports and plan updates) + Bash (for tests)
         # Note: Reviewer writes to spec directory only (qa_report.md, implementation_plan.json)
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
-        "mcp_servers": ["context7", "graphiti", "auto-claude", "browser"],
+        "mcp_servers": ["context7", "graphiti", "ac-jerry", "browser"],
         "mcp_servers_optional": ["linear"],  # For updating issue status
-        "auto_claude_tools": [
+        "ac_jerry_tools": [
             TOOL_GET_BUILD_PROGRESS,
             TOOL_UPDATE_QA_STATUS,
             TOOL_GET_SESSION_CONTEXT,
@@ -256,9 +256,9 @@ AGENT_CONFIGS = {
     },
     "qa_fixer": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
-        "mcp_servers": ["context7", "graphiti", "auto-claude", "browser"],
+        "mcp_servers": ["context7", "graphiti", "ac-jerry", "browser"],
         "mcp_servers_optional": ["linear"],
-        "auto_claude_tools": [
+        "ac_jerry_tools": [
             TOOL_UPDATE_SUBTASK_STATUS,
             TOOL_GET_BUILD_PROGRESS,
             TOOL_UPDATE_QA_STATUS,
@@ -272,7 +272,7 @@ AGENT_CONFIGS = {
     "insights": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         # Note: Default to "none" because insight_extractor uses Haiku which doesn't support thinking
         # If using Sonnet/Opus models, override max_thinking_tokens in create_simple_client()
         "thinking_default": "none",
@@ -280,32 +280,32 @@ AGENT_CONFIGS = {
     "merge_resolver": {
         "tools": [],  # Text-only analysis
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "low",
     },
     "commit_message": {
         "tools": [],
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "low",
     },
     "pr_reviewer": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,  # Read-only
         "mcp_servers": ["context7"],
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "high",
     },
     "pr_orchestrator_parallel": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,  # Read-only for parallel PR orchestrator
         "mcp_servers": ["context7"],
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "high",
     },
     "pr_followup_parallel": {
         "tools": BASE_READ_TOOLS
         + WEB_TOOLS,  # Read-only for parallel followup reviewer
         "mcp_servers": ["context7"],
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "high",
     },
     # ═══════════════════════════════════════════════════════════════════════
@@ -314,19 +314,19 @@ AGENT_CONFIGS = {
     "analysis": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7"],
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "medium",
     },
     "batch_analysis": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "low",
     },
     "batch_validation": {
         "tools": BASE_READ_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "low",
     },
     # ═══════════════════════════════════════════════════════════════════════
@@ -335,27 +335,27 @@ AGENT_CONFIGS = {
     "roadmap_discovery": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7"],
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "high",
     },
     "competitor_analysis": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7"],  # WebSearch for competitor research
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "high",
     },
     "ideation": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "ac_jerry_tools": [],
         "thinking_default": "high",
     },
     # Companion/supervisor agent — read-only conversational agent
     # In supervisor mode, get_build_progress lets it answer "what is the coder doing?"
     "companion": {
         "tools": BASE_READ_TOOLS,
-        "mcp_servers": ["auto-claude"],
-        "auto_claude_tools": [TOOL_GET_BUILD_PROGRESS],
+        "mcp_servers": ["ac-jerry"],
+        "ac_jerry_tools": [TOOL_GET_BUILD_PROGRESS],
         "thinking_default": "low",
     },
 }
@@ -374,7 +374,7 @@ def get_agent_config(agent_type: str) -> dict:
         agent_type: The agent type identifier (e.g., 'coder', 'planner', 'qa_reviewer')
 
     Returns:
-        Configuration dict containing tools, mcp_servers, auto_claude_tools, thinking_default
+        Configuration dict containing tools, mcp_servers, ac_jerry_tools, thinking_default
 
     Raises:
         ValueError: If agent_type is not found in AGENT_CONFIGS (strict mode)
@@ -410,7 +410,7 @@ def _map_mcp_server_name(
         "linear": "linear",
         "electron": "electron",
         "puppeteer": "puppeteer",
-        "auto-claude": "auto-claude",
+        "ac-jerry": "ac-jerry",
     }
     # Check if it's a known mapping
     mapped = mappings.get(name.lower().strip())
@@ -435,14 +435,14 @@ def get_required_mcp_servers(
     - "browser" → electron (if is_electron) or puppeteer (if is_web_frontend)
     - "linear" → only if in mcp_servers_optional AND linear_enabled is True
     - "graphiti" → only if GRAPHITI_MCP_URL is set
-    - Respects per-project MCP config overrides from .auto-claude/.env
+    - Respects per-project MCP config overrides from .ac.jerry/.env
     - Applies per-agent ADD/REMOVE overrides from AGENT_MCP_<agent>_ADD/REMOVE
 
     Args:
         agent_type: The agent type identifier
         project_capabilities: Dict from detect_project_capabilities() or None
         linear_enabled: Whether Linear integration is enabled for this project
-        mcp_config: Per-project MCP server toggles from .auto-claude/.env
+        mcp_config: Per-project MCP server toggles from .ac.jerry/.env
                    Keys: CONTEXT7_ENABLED, LINEAR_MCP_ENABLED, ELECTRON_MCP_ENABLED,
                          PUPPETEER_MCP_ENABLED, AGENT_MCP_<agent>_ADD/REMOVE
 
@@ -516,14 +516,14 @@ def get_required_mcp_servers(
             if mapped and mapped not in servers:
                 servers.append(mapped)
 
-    # Process removals (but never remove auto-claude)
+    # Process removals (but never remove ac-jerry)
     if remove_key in mcp_config:
         removals = [
             s.strip() for s in str(mcp_config[remove_key]).split(",") if s.strip()
         ]
         for server in removals:
             mapped = _map_mcp_server_name(server, custom_server_ids)
-            if mapped and mapped != "auto-claude":  # auto-claude cannot be removed
+            if mapped and mapped != "ac-jerry":  # ac-jerry cannot be removed
                 servers = [s for s in servers if s != mapped]
 
     return servers

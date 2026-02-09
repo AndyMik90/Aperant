@@ -2,7 +2,7 @@
 AI Resolver Module
 ==================
 
-AI-based conflict resolution for the Auto Claude merge system.
+AI-based conflict resolution for the AC Jerry merge system.
 
 This module provides intelligent conflict resolution using AI with
 minimal context to reduce token usage and cost.

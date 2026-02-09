@@ -3,7 +3,7 @@
 Tests for Spec Pipeline Phase Execution
 ========================================
 
-Tests the PhaseExecutor class in auto-claude/spec/phases.py covering:
+Tests the PhaseExecutor class in spec/phases.py covering:
 - PhaseResult dataclass
 - All phase methods (discovery, requirements, context, etc.)
 - Retry logic and error handling

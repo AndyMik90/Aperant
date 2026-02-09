@@ -97,7 +97,7 @@ function loadSettingsSync(): AppSettings {
 function cleanupStaleUpdateMetadata(): void {
   const userData = app.getPath('userData');
   const stalePaths = [
-    join(userData, 'auto-claude-source'),
+    join(userData, 'ac-jerry-source'),
     join(userData, 'backend-source'),
   ];
 
@@ -274,11 +274,11 @@ function createWindow(): void {
 }
 
 // Set app name before ready (for dock tooltip on macOS in dev mode)
-app.setName('Jerry');
+app.setName('AC Jerry');
 // FIX 3.12: Use platform abstraction instead of hardcoded process.platform
 if (isMacOS()) {
   // Force the name to appear in dock on macOS
-  app.name = 'Jerry';
+  app.name = 'AC Jerry';
 }
 
 // Fix Windows GPU cache permission errors (0x5 Access Denied)
@@ -292,7 +292,7 @@ if (isWindows()) {
 // Initialize the application
 app.whenReady().then(() => {
   // Set app user model id for Windows
-  electronApp.setAppUserModelId('com.autoclaude.ui');
+  electronApp.setAppUserModelId('com.acjerry.ui');
 
   // Clear cache on Windows to prevent permission errors from stale cache
   // FIX 3.12: Use platform abstraction instead of hardcoded process.platform
@@ -329,7 +329,7 @@ app.whenReady().then(() => {
   // Initialize agent manager
   agentManager = new AgentManager();
 
-  // Load settings and configure agent manager with Python and auto-claude paths
+  // Load settings and configure agent manager with Python and ac-jerry paths
   // Uses EAFP pattern (try/catch) instead of LBYL (existsSync) to avoid TOCTOU race conditions
   const settingsPath = join(app.getPath('userData'), 'settings.json');
   try {
@@ -350,11 +350,11 @@ app.whenReady().then(() => {
 
       if (!specRunnerExists) {
         // Migration: Try to fix stale paths from old project structure
-        // Old structure: /path/to/project/auto-claude
+        // Old structure: /path/to/project/ac-jerry
         // New structure: /path/to/project/apps/backend
         let migrated = false;
-        if (validAutoBuildPath.endsWith('/auto-claude') || validAutoBuildPath.endsWith('\\auto-claude')) {
-          const basePath = validAutoBuildPath.replace(/[/\\]auto-claude$/, '');
+        if (validAutoBuildPath.endsWith('/ac-jerry') || validAutoBuildPath.endsWith('\\ac-jerry')) {
+          const basePath = validAutoBuildPath.replace(/[/\\]ac-jerry$/, '');
           const correctedPath = join(basePath, 'apps', 'backend');
           const correctedSpecRunnerPath = join(correctedPath, 'runners', 'spec_runner.py');
 

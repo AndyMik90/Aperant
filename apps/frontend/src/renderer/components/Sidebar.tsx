@@ -329,7 +329,7 @@ export function Sidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => window.open('https://github.com/AndyMik90/Auto-Claude/issues', '_blank')}
+                onClick={() => window.open('https://github.com/lizz-ee/ac.jerry/issues', '_blank')}
                 className="h-10 w-10"
               >
                 <HelpCircle className="h-5 w-5" />

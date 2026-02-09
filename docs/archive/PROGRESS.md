@@ -1,4 +1,4 @@
-# Auto-Claude (Jerry) Implementation Progress
+# AC Jerry (Jerry) Implementation Progress
 
 **Version:** 3.3
 **Last Updated:** 2026-02-05

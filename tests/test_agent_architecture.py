@@ -238,7 +238,7 @@ class TestElectronToolScoping:
         monkeypatch.setenv("ELECTRON_MCP_ENABLED", "true")
 
         # Re-import to pick up env change
-        from auto_claude_tools import ELECTRON_TOOLS, get_allowed_tools
+        from ac_jerry_tools import ELECTRON_TOOLS, get_allowed_tools
 
         # Must pass is_electron=True for Electron tools to be included
         # This is the new phase-aware behavior
@@ -261,7 +261,7 @@ class TestElectronToolScoping:
         """QA fixer gets Electron tools when ELECTRON_MCP_ENABLED=true and project is Electron."""
         monkeypatch.setenv("ELECTRON_MCP_ENABLED", "true")
 
-        from auto_claude_tools import ELECTRON_TOOLS, get_allowed_tools
+        from ac_jerry_tools import ELECTRON_TOOLS, get_allowed_tools
 
         # Must pass is_electron=True for Electron tools to be included
         qa_fixer_tools = get_allowed_tools(
@@ -281,7 +281,7 @@ class TestElectronToolScoping:
         """Coder should NOT get Electron tools even when enabled and project is Electron."""
         monkeypatch.setenv("ELECTRON_MCP_ENABLED", "true")
 
-        from auto_claude_tools import get_allowed_tools
+        from ac_jerry_tools import get_allowed_tools
 
         # Even with is_electron=True, coder should not get Electron tools
         coder_tools = get_allowed_tools(
@@ -298,7 +298,7 @@ class TestElectronToolScoping:
         """Planner should NOT get Electron tools even when enabled and project is Electron."""
         monkeypatch.setenv("ELECTRON_MCP_ENABLED", "true")
 
-        from auto_claude_tools import get_allowed_tools
+        from ac_jerry_tools import get_allowed_tools
 
         # Even with is_electron=True, planner should not get Electron tools
         planner_tools = get_allowed_tools(
@@ -315,7 +315,7 @@ class TestElectronToolScoping:
         """No agent gets Electron tools when ELECTRON_MCP_ENABLED is not set."""
         monkeypatch.delenv("ELECTRON_MCP_ENABLED", raising=False)
 
-        from auto_claude_tools import get_allowed_tools
+        from ac_jerry_tools import get_allowed_tools
 
         for agent_type in ["planner", "coder", "qa_reviewer", "qa_fixer"]:
             # Even with is_electron=True, no tools without env var

@@ -29,7 +29,7 @@ export function buildMemoryEnvVars(settings: AppSettings): Record<string, string
 
   // Set database path and name (where LadybugDB stores data)
   env.GRAPHITI_DB_PATH = getMemoriesDir();
-  env.GRAPHITI_DATABASE = 'auto_claude_memory';
+  env.GRAPHITI_DATABASE = 'ac_jerry_memory';
 
   // Set embedder provider (default to ollama)
   const embeddingProvider = settings.memoryEmbeddingProvider || 'ollama';

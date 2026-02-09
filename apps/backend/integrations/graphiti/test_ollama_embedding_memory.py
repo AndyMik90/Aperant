@@ -54,15 +54,15 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-# Add auto-claude to path
-auto_claude_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(auto_claude_dir))
+# Add ac-jerry to path
+ac_jerry_dir = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(ac_jerry_dir))
 
 # Load .env file
 try:
     from dotenv import load_dotenv
 
-    env_file = auto_claude_dir / ".env"
+    env_file = ac_jerry_dir / ".env"
     if env_file.exists():
         load_dotenv(env_file)
         print(f"Loaded .env from {env_file}")

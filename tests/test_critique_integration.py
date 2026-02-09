@@ -12,7 +12,7 @@ import json
 import sys
 from pathlib import Path
 
-# Add auto-claude directory to path for imports
+# Add ac-jerry directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 
 from critique import (

@@ -111,7 +111,7 @@ export class TaskLogService extends EventEmitter {
    *
    * @param specDir - Main project spec directory
    * @param projectPath - Optional: Project root path (needed to find worktree if not registered)
-   * @param specsRelPath - Optional: Relative path to specs (e.g., "auto-claude/specs")
+   * @param specsRelPath - Optional: Relative path to specs (e.g., "ac-jerry/specs")
    * @param specId - Optional: Spec ID (needed to find worktree if not registered)
    */
   loadLogs(specDir: string, projectPath?: string, specsRelPath?: string, specId?: string): TaskLogs | null {
@@ -178,7 +178,7 @@ export class TaskLogService extends EventEmitter {
    * @param specId - The spec ID (e.g., "013-screenshots-on-tasks")
    * @param specDir - Main project spec directory
    * @param projectPath - Optional: Project root path (needed to find worktree)
-   * @param specsRelPath - Optional: Relative path to specs (e.g., "auto-claude/specs")
+   * @param specsRelPath - Optional: Relative path to specs (e.g., "ac-jerry/specs")
    */
   startWatching(specId: string, specDir: string, projectPath?: string, specsRelPath?: string): void {
     // Check if already watching with the same parameters (prevents rapid watch/unwatch cycles)

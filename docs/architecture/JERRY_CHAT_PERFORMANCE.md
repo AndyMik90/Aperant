@@ -62,7 +62,7 @@ There are TWO different "task" concepts:
    - This causes the cascade problem
    - Block via `disallowed_tools: ["Task"]`
 
-2. **Task suggestions (Auto-Claude)** - Creates kanban items
+2. **Task suggestions (AC Jerry)** - Creates kanban items
    - Just text output: `__TASK_SUGGESTION__:{...}`
    - NOT affected by blocking Task tool
    - Still works normally

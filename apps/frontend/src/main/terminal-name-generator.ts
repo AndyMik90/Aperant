@@ -35,7 +35,7 @@ export class TerminalNameGenerator extends EventEmitter {
   }
 
   /**
-   * Configure the auto-claude source path
+   * Configure the ac-jerry source path
    */
   configure(autoBuildSourcePath?: string): void {
     if (autoBuildSourcePath) {
@@ -44,7 +44,7 @@ export class TerminalNameGenerator extends EventEmitter {
   }
 
   /**
-   * Get the auto-claude source path (detects automatically if not configured)
+   * Get the ac-jerry source path (detects automatically if not configured)
    */
   private getAutoBuildSourcePath(): string | null {
     if (this.autoBuildSourcePath && existsSync(this.autoBuildSourcePath)) {
@@ -84,7 +84,7 @@ export class TerminalNameGenerator extends EventEmitter {
   }
 
   /**
-   * Load environment variables from auto-claude .env file
+   * Load environment variables from ac-jerry .env file
    */
   private loadAutoBuildEnv(): Record<string, string> {
     const autoBuildSource = this.getAutoBuildSourcePath();
@@ -132,7 +132,7 @@ export class TerminalNameGenerator extends EventEmitter {
     const autoBuildSource = this.getAutoBuildSourcePath();
 
     if (!autoBuildSource) {
-      debug('Auto-claude source path not found');
+      debug('AC-Jerry source path not found');
       return null;
     }
 

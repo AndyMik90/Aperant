@@ -1,15 +1,15 @@
 {
   "initialize": {
-    "title": "Initialize Jerry",
-    "description": "This project doesn't have Jerry initialized. Would you like to set it up now?",
+    "title": "Initialize AC Jerry",
+    "description": "This project doesn't have AC Jerry initialized. Would you like to set it up now?",
     "willDo": "This will:",
-    "createFolder": "Create a .auto-claude folder in your project",
-    "copyFramework": "Copy the Jerry framework files",
+    "createFolder": "Create a .ac.jerry folder in your project",
+    "copyFramework": "Copy the AC Jerry framework files",
     "setupSpecs": "Set up the specs directory for your tasks",
     "sourcePathNotConfigured": "Source path not configured",
-    "sourcePathNotConfiguredDescription": "Please set the Jerry source path in App Settings before initializing.",
+    "sourcePathNotConfiguredDescription": "Please set the AC Jerry source path in App Settings before initializing.",
     "initFailed": "Initialization Failed",
-    "initFailedDescription": "Failed to initialize Jerry. Please try again."
+    "initFailedDescription": "Failed to initialize AC Jerry. Please try again."
   },
   "gitSetup": {
     "title": "Git Repository Required",
@@ -151,7 +151,7 @@
   },
   "appUpdate": {
     "title": "App Update Available",
-    "description": "A new version of Jerry is ready to download",
+    "description": "A new version of AC Jerry is ready to download",
     "newVersion": "New Version",
     "released": "Released",
     "downloading": "Downloading...",

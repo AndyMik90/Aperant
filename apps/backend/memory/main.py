@@ -91,13 +91,13 @@ if __name__ == "__main__":
     from pathlib import Path
 
     parser = argparse.ArgumentParser(
-        description="Session Memory System - Manage memory for auto-claude specs"
+        description="Session Memory System - Manage memory for ac-jerry specs"
     )
     parser.add_argument(
         "--spec-dir",
         type=Path,
         required=True,
-        help="Path to spec directory (e.g., auto-claude/specs/001-feature)",
+        help="Path to spec directory (e.g., ac-jerry/specs/001-feature)",
     )
     parser.add_argument(
         "--action",

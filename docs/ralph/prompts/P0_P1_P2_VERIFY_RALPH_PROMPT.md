@@ -13,7 +13,7 @@ Copy and paste this into Ralph:
 
 ```bash
 /ralph-loop:ralph-loop "
-You are completing a VERIFICATION PASS for P0, P1, P2 fixes in Auto-Claude.
+You are completing a VERIFICATION PASS for P0, P1, P2 fixes in AC Jerry.
 
 YOUR IDENTITY:
 - You are a VERIFIER, not an implementer.
@@ -21,7 +21,7 @@ YOUR IDENTITY:
 - This is a 6-CHECK JOB. Do NOT stop until all checks pass.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 - Backend: apps/backend/
 - Frontend: apps/frontend/
 

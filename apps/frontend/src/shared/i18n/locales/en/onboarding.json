@@ -1,11 +1,11 @@
 {
   "wizard": {
     "title": "Setup Wizard",
-    "description": "Configure your Jerry environment in a few simple steps",
+    "description": "Configure your AC Jerry environment in a few simple steps",
     "helpText": "This wizard will help you set up your environment in just a few steps. You can configure your Claude OAuth token, set up memory features, and create your first task."
   },
   "welcome": {
-    "title": "Welcome to Jerry",
+    "title": "Welcome to AC Jerry",
     "subtitle": "Build software autonomously with AI-powered agents",
     "getStarted": "Get Started",
     "skip": "Skip Setup",
@@ -164,7 +164,7 @@
     "done": "Done"
   },
   "privacy": {
-    "title": "Help Improve Jerry",
+    "title": "Help Improve AC Jerry",
     "subtitle": "Anonymous error reporting helps us fix bugs faster",
     "whatWeCollect": {
       "title": "What we collect",
@@ -190,7 +190,7 @@
     "detecting": "Checking Claude Code installation...",
     "info": {
       "title": "What is Claude Code?",
-      "description": "Claude Code is Anthropic's official CLI that powers Jerry's AI features. It provides secure authentication and direct access to Claude models."
+      "description": "Claude Code is Anthropic's official CLI that powers AC Jerry's AI features. It provides secure authentication and direct access to Claude models."
     },
     "status": {
       "installed": "Installed",

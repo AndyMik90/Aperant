@@ -262,7 +262,7 @@ def init_sentry(
         sentry_sdk.init(
             dsn=dsn,
             environment=environment,
-            release=f"auto-claude@{version}",
+            release=f"ac-jerry@{version}",
             traces_sample_rate=traces_sample_rate,
             before_send=_before_send,
             integrations=[logging_integration],
@@ -285,7 +285,7 @@ def init_sentry(
 
     _sentry_enabled = True
     logger.info(
-        f"[Sentry] Backend initialized (component: {component}, release: auto-claude@{version}, traces: {traces_sample_rate})"
+        f"[Sentry] Backend initialized (component: {component}, release: ac-jerry@{version}, traces: {traces_sample_rate})"
     )
 
     return True

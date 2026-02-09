@@ -34,7 +34,7 @@
 
 ```bash
 /ralph-loop:ralph-loop "
-You are implementing MEGA_MEMORY_PROMPTGEN_TABS for Auto-Claude.
+You are implementing MEGA_MEMORY_PROMPTGEN_TABS for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -43,7 +43,7 @@ YOUR IDENTITY:
 - This is a STRESS TEST of the Ralph Loop system — prove that large task sets work.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 - Backend: apps/backend/
 - Frontend: apps/frontend/src/
 
@@ -73,7 +73,7 @@ MEGA_MEMORY_PROMPTGEN_TABS: 14 TASKS
 
 | # | Task | File | Action | Promise |
 |---|------|------|--------|---------|
-| 1 | Create project_memory.py module | apps/backend/memory/project_memory.py | CREATE - a new module with these functions: (a) create_project_memory_template(project_dir) — creates .auto-claude/PROJECT_MEMORY.md with sections: Architecture Decisions, Code Patterns, Known Gotchas, Testing & QA Notes, Agent Learnings. Each section has a heading and a placeholder line. (b) load_project_memory(project_dir, max_chars=4000) — reads PROJECT_MEMORY.md, truncates if too long (keeping most recent entries per section), returns string or None. (c) append_to_project_memory(project_dir, section, content, source) — appends a timestamped entry to the specified section. section must be one of: 'architecture', 'patterns', 'gotchas', 'testing', 'learnings'. Format each entry as: '- **{date}** [{source}] {content}'. Deduplicates by checking if content string already exists in the file. Creates the template first if file doesn't exist. (d) truncate_project_memory(content, max_chars) — if content exceeds max_chars, keep the header and last N entries per section. Use Path for all file operations. | TASK_1_COMPLETE |
+| 1 | Create project_memory.py module | apps/backend/memory/project_memory.py | CREATE - a new module with these functions: (a) create_project_memory_template(project_dir) — creates .ac.jerry/PROJECT_MEMORY.md with sections: Architecture Decisions, Code Patterns, Known Gotchas, Testing & QA Notes, Agent Learnings. Each section has a heading and a placeholder line. (b) load_project_memory(project_dir, max_chars=4000) — reads PROJECT_MEMORY.md, truncates if too long (keeping most recent entries per section), returns string or None. (c) append_to_project_memory(project_dir, section, content, source) — appends a timestamped entry to the specified section. section must be one of: 'architecture', 'patterns', 'gotchas', 'testing', 'learnings'. Format each entry as: '- **{date}** [{source}] {content}'. Deduplicates by checking if content string already exists in the file. Creates the template first if file doesn't exist. (d) truncate_project_memory(content, max_chars) — if content exceeds max_chars, keep the header and last N entries per section. Use Path for all file operations. | TASK_1_COMPLETE |
 | 2 | Load project memory in agent startup | apps/backend/agents/memory_manager.py | MODIFY - import load_project_memory from memory.project_memory. In get_graphiti_context(), after building the graphiti context string, also call load_project_memory(project_dir). If it returns content, append it to the context string under a '## Project Memory' header. This means ALL agents that call get_graphiti_context() will automatically receive project memory. Also handle the case where project_dir is None (skip loading). | TASK_2_COMPLETE |
 | 3 | Add append_project_memory agent tool | apps/backend/agents/tools_pkg/tools/memory.py | MODIFY - add a new tool function called append_project_memory. It should accept args: section (str, one of 'architecture', 'patterns', 'gotchas', 'testing', 'learnings'), content (str, the learning to record), task_id (str, optional, for attribution). Import append_to_project_memory from memory.project_memory. Call it with project_dir from the tool context. Return success message. Add proper docstring explaining when agents should use this — only for cross-task insights, not task-specific details. Follow the exact same @tool decorator pattern as existing tools in this file. | TASK_3_COMPLETE |
 | 4 | Wire project memory into all agents | apps/backend/agents/coder.py, apps/backend/qa/reviewer.py, apps/backend/qa/fixer.py | MODIFY - verify that coder.py, reviewer.py, and fixer.py all call get_graphiti_context() (they should already). Since Task 2 added project memory loading inside get_graphiti_context(), no code change may be needed. But verify by reading each file. If any agent constructs its prompt WITHOUT calling get_graphiti_context(), add the load_project_memory() call there. Also add a print statement like 'Project memory loaded' after successful loading in memory_manager.py for observability. | TASK_4_COMPLETE |
@@ -110,7 +110,7 @@ FINAL: <promise>MEGA_COMPLETE</promise>
 KEY REQUIREMENTS:
 
 PART A (Project Memory):
-1. PROJECT_MEMORY.md lives at {project_dir}/.auto-claude/PROJECT_MEMORY.md
+1. PROJECT_MEMORY.md lives at {project_dir}/.ac.jerry/PROJECT_MEMORY.md
 2. Five sections: Architecture Decisions, Code Patterns, Known Gotchas, Testing & QA Notes, Agent Learnings
 3. Append-only — never overwrite existing entries
 4. Deduplication — don't add the same content twice

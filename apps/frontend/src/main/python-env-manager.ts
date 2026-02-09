@@ -18,7 +18,7 @@ export interface PythonEnvStatus {
 }
 
 /**
- * Manages the Python environment for the auto-claude backend.
+ * Manages the Python environment for the ac-jerry backend.
  *
  * For packaged apps:
  *   - Uses bundled Python binary (resources/python/)
@@ -199,7 +199,7 @@ export class PythonEnvManager extends EventEmitter {
     try {
       // Check all dependencies - if any fail, we need to reinstall
       // This prevents issues where partial installs leave some packages missing
-      // See: https://github.com/AndyMik90/Auto-Claude/issues/359
+      // See: https://github.com/lizz-ee/ac.jerry/issues/359
       //
       // Dependencies checked:
       // - claude_agent_sdk: Core agent SDK (required)
@@ -678,8 +678,8 @@ if sys.version_info >= (3, 12):
    * actually makes pywin32 work - it copies DLLs to locations where Python's default
    * DLL search finds them. Adding pywin32_system32 to PATH is an additional fallback.
    *
-   * @see https://github.com/AndyMik90/Auto-Claude/issues/176
-   * @see https://github.com/AndyMik90/Auto-Claude/issues/810
+   * @see https://github.com/lizz-ee/ac.jerry/issues/176
+   * @see https://github.com/lizz-ee/ac.jerry/issues/810
    * @see https://github.com/mhammond/pywin32/blob/main/win32/Lib/pywin32_bootstrap.py
    */
   getPythonEnv(): Record<string, string> {

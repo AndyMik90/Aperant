@@ -24,7 +24,7 @@ Add companion process lifecycle management to agent-process.ts and agent-manager
 
 ```bash
 /ralph-loop:ralph-loop "
-You are implementing COMPANION_LIFECYCLE for Auto-Claude.
+You are implementing COMPANION_LIFECYCLE for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -32,7 +32,7 @@ YOUR IDENTITY:
 - This is a 5-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 - Frontend: apps/frontend/src/
 - Backend: apps/backend/
 

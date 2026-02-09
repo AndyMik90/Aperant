@@ -316,14 +316,14 @@ function estimateRemainingTime(startTime: Date, progress: number): number | null
 
 ```bash
 /ralph-loop:ralph-loop "
-You are completing Phase 8: UX Polish for Auto-Claude.
+You are completing Phase 8: UX Polish for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
 - Execute each task completely.
 
 Repository:
-- Project root: C:\Users\AlienZ\Desktop\Auto-Claude
+- Project root: C:\Users\AlienZ\Desktop\AC Jerry
 
 Primary documentation:
 - docs\plans\PHASE_8_UX_POLISH.md (THIS FILE)

@@ -20,5 +20,5 @@ Run tests with:
     pytest tests/
     pytest tests/ -v  # verbose
     pytest tests/ -k "test_worktree"  # specific module
-    pytest tests/ --cov=auto-claude  # with coverage
+    pytest tests/ --cov=ac-jerry  # with coverage
 """

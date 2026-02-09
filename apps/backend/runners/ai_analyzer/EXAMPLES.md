@@ -86,7 +86,7 @@ from pathlib import Path
 from ai_analyzer.cache_manager import CacheManager
 
 # Create cache manager
-cache_dir = project_dir / ".auto-claude" / "ai_cache"
+cache_dir = project_dir / ".ac-jerry" / "ai_cache"
 cache = CacheManager(cache_dir)
 
 # Check for cached results

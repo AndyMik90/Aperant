@@ -27,12 +27,12 @@ Terminal UI improvements to match Claude Code output style. Based on gap analysi
 
 ```bash
 /ralph-loop:ralph-loop "
-You are an autonomous senior engineer improving the terminal UI for Auto-Claude (Jerry).
+You are an autonomous senior engineer improving the terminal UI for AC Jerry (Jerry).
 
 YOUR IDENTITY: You are an EXECUTOR, not an EVALUATOR. If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 
 Primary documentation:
 - docs\reports\TERMINAL_UI_GAP_ANALYSIS.md (gap analysis)
@@ -164,12 +164,12 @@ CURRENT STATUS: 0 of 4 tasks complete. BEGIN NOW.
 
 ```bash
 /ralph-loop:ralph-loop "
-You are an autonomous senior engineer improving the terminal UI for Auto-Claude (Jerry).
+You are an autonomous senior engineer improving the terminal UI for AC Jerry (Jerry).
 
 YOUR IDENTITY: You are an EXECUTOR, not an EVALUATOR. If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 
 Primary documentation:
 - docs\reports\TERMINAL_UI_GAP_ANALYSIS.md (gap analysis)

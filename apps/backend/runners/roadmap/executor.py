@@ -14,7 +14,7 @@ class ScriptExecutor:
 
     def __init__(self, project_dir: Path):
         self.project_dir = project_dir
-        # Go up from roadmap/ -> runners/ -> auto-claude/
+        # Go up from roadmap/ -> runners/ -> ac-jerry/
         self.scripts_base_dir = Path(__file__).parent.parent.parent
 
     def run_script(self, script: str, args: list[str]) -> tuple[bool, str]:
@@ -79,7 +79,7 @@ class AgentExecutor:
         self.model = model
         self.create_client = create_client_func
         self.thinking_budget = thinking_budget
-        # Go up from roadmap/ -> runners/ -> auto-claude/prompts/
+        # Go up from roadmap/ -> runners/ -> ac-jerry/prompts/
         self.prompts_dir = Path(__file__).parent.parent.parent / "prompts"
 
     async def run_agent(

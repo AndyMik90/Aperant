@@ -38,10 +38,11 @@ from prompt_generator import (
     generate_planner_prompt,
     generate_subtask_prompt,
 )
-from prompts_pkg.ralph_prompt_generator import generate_ralph_batch_protocol
 from prompts import is_first_run
+from prompts_pkg.ralph_prompt_generator import generate_ralph_batch_protocol
 from recovery import RecoveryManager
 from security.constants import PROJECT_DIR_ENV_VAR
+from spec.compaction import load_spec_summary, save_spec_summary
 from task_logger import (
     LogPhase,
     get_task_logger,
@@ -98,7 +99,7 @@ async def run_autonomous_agent(
 
     Args:
         project_dir: Root directory for the project
-        spec_dir: Directory containing the spec (auto-claude/specs/001-name/)
+        spec_dir: Directory containing the spec (ac-jerry/specs/001-name/)
         model: Claude model to use
         max_iterations: Maximum number of iterations (None for unlimited)
         verbose: Whether to show detailed output
@@ -351,7 +352,7 @@ async def run_autonomous_agent(
                 print("\nTo resume, delete the PAUSE file:")
                 print(f"  rm {pause_file}")
                 print("\nThen run again:")
-                print(f"  python auto-claude/run.py --spec {spec_dir.name}")
+                print(f"  python ac-jerry/run.py --spec {spec_dir.name}")
                 return
 
             # Check max iterations
@@ -415,6 +416,15 @@ async def run_autonomous_agent(
                 pending = count_subtasks_detailed(spec_dir).get("pending", 0)
                 estimated_batch = min(10, max(1, pending))
                 session_max_turns = max(100, 10 * estimated_batch)
+            # Detect if this is a resume session (not first run = plan already exists)
+            # Resume sessions get an optimized system prompt that tells the agent
+            # to skip full spec re-reads, saving 2,000-5,000 tokens per session.
+            is_resume_session = not first_run
+            resume_ctx = ""
+            if is_resume_session:
+                completed, total = count_subtasks(spec_dir)
+                resume_ctx = f"Build progress: {completed}/{total} subtasks completed."
+
             client = create_client(
                 project_dir,
                 spec_dir,
@@ -422,6 +432,8 @@ async def run_autonomous_agent(
                 agent_type="planner" if first_run else "coder",
                 max_thinking_tokens=phase_thinking_budget,
                 max_turns=session_max_turns,
+                is_resume=is_resume_session,
+                resume_context=resume_ctx,
             )
 
             # Generate appropriate prompt
@@ -543,7 +555,8 @@ async def run_autonomous_agent(
                 prompt = ""
                 try:
                     prompt = generate_ralph_batch_protocol(
-                        spec_dir, project_dir, subtask_batch
+                        spec_dir, project_dir, subtask_batch,
+                        is_resume=is_resume_session,
                     )
                     if prompt:
                         print_status(
@@ -614,6 +627,17 @@ async def run_autonomous_agent(
                 if graphiti_context:
                     prompt += "\n\n" + graphiti_context
                     print_status("Graphiti memory context loaded", "success")
+
+                # Inject spec summary + progress header for resume sessions.
+                # This saves 2,000-5,000 tokens by replacing full spec.md reads.
+                if is_resume_session:
+                    spec_summary = load_spec_summary(spec_dir)
+                    if spec_summary:
+                        prompt = (
+                            f"## SPEC SUMMARY (do NOT re-read full spec.md)\n\n"
+                            f"{spec_summary}\n\n---\n\n"
+                        ) + prompt
+                        print_status("Spec summary injected (resume optimization)", "success")
 
                 # Show what we're working on
                 print(f"Ralph loop session: {highlight(', '.join(batch_subtask_ids))}")
@@ -769,6 +793,14 @@ async def run_autonomous_agent(
                         "error",
                     )
                     break
+
+                # Generate/refresh spec summary after successful subtask completion.
+                # This enables resume optimization for subsequent sessions.
+                if any_success:
+                    try:
+                        save_spec_summary(spec_dir)
+                    except Exception as e:
+                        logger.debug(f"Failed to save spec summary: {e}")
 
             elif subtask_id and current_log_phase == LogPhase.CODING:
                 # Fallback for single-subtask (planning phase edge case)
@@ -988,14 +1020,14 @@ async def run_autonomous_agent(
                 bold(f"{icon(Icons.PLAY)} NEXT STEPS"),
                 "",
                 f"{total - completed} subtasks remaining.",
-                f"Run again: {highlight(f'python auto-claude/run.py --spec {spec_dir.name}')}",
+                f"Run again: {highlight(f'python ac-jerry/run.py --spec {spec_dir.name}')}",
             ]
         else:
             content = [
                 bold(f"{icon(Icons.SUCCESS)} NEXT STEPS"),
                 "",
                 "All subtasks completed!",
-                "  1. Review the auto-claude/* branch",
+                "  1. Review the ac-jerry/* branch",
                 "  2. Run manual tests",
                 "  3. Merge to main",
             ]

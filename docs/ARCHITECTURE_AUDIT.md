@@ -125,7 +125,7 @@ def create_client(
 1. OAuth token validation via `require_auth_token()`
 2. SDK environment variables setup
 3. Project index + capability detection (cached, TTL=300s)
-4. Project MCP configuration loading from `.auto-claude/.env`
+4. Project MCP configuration loading from `.ac.jerry/.env`
 5. Phase-aware tool filtering from `AGENT_CONFIGS`
 6. MCP server configuration (only starts required servers)
 7. Three-layer security setup (sandbox, filesystem permissions, bash hooks)
@@ -139,7 +139,7 @@ def create_client(
 - `puppeteer`: `npx puppeteer-mcp-server`
 - `linear`: HTTP server with auth header
 - `graphiti-memory`: HTTP server at GRAPHITI_MCP_URL
-- `auto-claude`: Custom tools from `agents/tools_pkg`
+- `ac-jerry`: Custom tools from `agents/tools_pkg`
 
 **Key Helper Functions:**
 - `find_claude_cli() -> str | None` - Detects CLI binary (env → PATH → Homebrew → NVM → platform paths)
@@ -255,8 +255,8 @@ class WorktreeManager:
 - `_with_retry(operation, max_retries=3)` - Retries on network/5xx, not on 401/403/404/422
 
 **Worktree Paths:**
-- Base: `.auto-claude/worktrees/tasks/{spec-name}/`
-- Branch: `auto-claude/{spec-name}`
+- Base: `.ac.jerry/worktrees/tasks/{spec-name}/`
+- Branch: `ac-jerry/{spec-name}`
 
 ### 2.5 Platform Abstraction (`core/platform/` - 517 lines)
 
@@ -278,7 +278,7 @@ class ShellType(Enum): POWERSHELL, CMD, BASH, ZSH, FISH, UNKNOWN
 ### 2.6 Exception Hierarchy (`core/exceptions.py`)
 
 ```
-AutoClaudeError (base)
+ACJerryError (base)
 ├── AgentError
 │   ├── PlanningError
 │   ├── CodingError
@@ -333,12 +333,12 @@ WEB_TOOLS = ["WebFetch", "WebSearch"]
 ```
 
 **Custom MCP Tool Constants:**
-- `TOOL_UPDATE_SUBTASK_STATUS` = `mcp__auto-claude__update_subtask_status`
-- `TOOL_GET_BUILD_PROGRESS` = `mcp__auto-claude__get_build_progress`
-- `TOOL_RECORD_DISCOVERY` = `mcp__auto-claude__record_discovery`
-- `TOOL_RECORD_GOTCHA` = `mcp__auto-claude__record_gotcha`
-- `TOOL_GET_SESSION_CONTEXT` = `mcp__auto-claude__get_session_context`
-- `TOOL_UPDATE_QA_STATUS` = `mcp__auto-claude__update_qa_status`
+- `TOOL_UPDATE_SUBTASK_STATUS` = `mcp__ac-jerry__update_subtask_status`
+- `TOOL_GET_BUILD_PROGRESS` = `mcp__ac-jerry__get_build_progress`
+- `TOOL_RECORD_DISCOVERY` = `mcp__ac-jerry__record_discovery`
+- `TOOL_RECORD_GOTCHA` = `mcp__ac-jerry__record_gotcha`
+- `TOOL_GET_SESSION_CONTEXT` = `mcp__ac-jerry__get_session_context`
+- `TOOL_UPDATE_QA_STATUS` = `mcp__ac-jerry__update_qa_status`
 
 **Agent Configurations:**
 
@@ -349,10 +349,10 @@ WEB_TOOLS = ["WebFetch", "WebSearch"]
 | `spec_writer` | Read + Write | none | high | Yes |
 | `spec_critic` | Read only | none | ultrathink | No |
 | `planning` | Read + Write + Edit + Web | context7 | high | No |
-| `planner` | Read + Write + Web | context7, graphiti, auto-claude, [linear] | high | Yes |
-| `coder` | Read + Write + Web | context7, graphiti, auto-claude, [linear] | none | Yes |
-| `qa_reviewer` | Read + Write + Web | context7, graphiti, auto-claude, browser, [linear] | high | Yes |
-| `qa_fixer` | Read + Write + Web | context7, graphiti, auto-claude, browser, [linear] | medium | Yes |
+| `planner` | Read + Write + Web | context7, graphiti, ac-jerry, [linear] | high | Yes |
+| `coder` | Read + Write + Web | context7, graphiti, ac-jerry, [linear] | none | Yes |
+| `qa_reviewer` | Read + Write + Web | context7, graphiti, ac-jerry, browser, [linear] | high | Yes |
+| `qa_fixer` | Read + Write + Web | context7, graphiti, ac-jerry, browser, [linear] | medium | Yes |
 
 ### 3.2 Coder Agent (`agents/coder.py` - 43.6 KB)
 
@@ -527,7 +527,7 @@ spec/
 ### 4.4 Spec Directory Output
 
 ```
-.auto-claude/specs/XXX-name/
+.ac.jerry/specs/XXX-name/
 ├── spec.md                      # Feature specification
 ├── implementation_plan.json     # Subtask plan + status
 ├── requirements.json            # Structured requirements
@@ -883,7 +883,7 @@ class GHClient:
 - FRAMEWORK_COMMANDS, DATABASE_COMMANDS, INFRASTRUCTURE_COMMANDS
 - CLOUD_COMMANDS, CODE_QUALITY_COMMANDS, VERSION_MANAGER_COMMANDS
 
-**Cache:** `.auto-claude-security.json`
+**Cache:** `.ac-jerry-security.json`
 
 ```python
 def get_or_create_profile(project_dir, force_reanalyze=False) -> SecurityProfile
@@ -967,7 +967,7 @@ python runners/spec_runner.py --continue <spec-id>
 
 **Model Selection:**
 1. CLI `--model` flag
-2. `AUTO_BUILD_MODEL` env var
+2. `AC_JERRY_MODEL` env var
 3. Phase-specific config in `task_metadata.json`
 4. Default: `"sonnet"` (Claude Sonnet 4.5)
 
@@ -1008,7 +1008,7 @@ def _validate_custom_mcp_server(server) -> bool
 
 ### 9.4 Security Profile Cache
 
-`.auto-claude-security.json` - Cached per-project security profile from tech stack analysis
+`.ac-jerry-security.json` - Cached per-project security profile from tech stack analysis
 
 ---
 
@@ -1066,7 +1066,7 @@ ANTHROPIC_BASE_URL          # Custom API endpoint
 ```
 ANTHROPIC_MODEL             # Model override
 ANTHROPIC_DEFAULT_HAIKU_MODEL  # Haiku model override
-AUTO_BUILD_MODEL            # Default build model
+AC_JERRY_MODEL            # Default build model
 UTILITY_MODEL_ID            # Utility ops model (default: Haiku)
 UTILITY_THINKING_BUDGET     # Thinking budget for utility ops
 ```
@@ -1100,8 +1100,8 @@ AGENT_MCP_<agent>_ADD/REMOVE # Per-agent MCP overrides
 ### Graphiti Memory
 ```
 GRAPHITI_ENABLED=true
-GRAPHITI_DATABASE=auto_claude_memory
-GRAPHITI_DB_PATH=~/.auto-claude/memories
+GRAPHITI_DATABASE=ac_jerry_memory
+GRAPHITI_DB_PATH=~/.ac.jerry/memories
 GRAPHITI_LLM_PROVIDER=openai|anthropic|azure_openai|ollama|google|openrouter
 GRAPHITI_EMBEDDER_PROVIDER=openai|voyage|azure_openai|ollama|google|openrouter
 ```
@@ -1208,7 +1208,7 @@ create_client(project_dir, spec_dir, model, agent_type)
    ├── Auto-detect unsaved work → force ISOLATED
    └── User picks: ISOLATED (recommended) or DIRECT
 2. setup_workspace()
-   ├── [ISOLATED] create worktree at .auto-claude/worktrees/tasks/{name}/
+   ├── [ISOLATED] create worktree at .ac.jerry/worktrees/tasks/{name}/
    │   ├── git worktree add
    │   ├── copy_env_files_to_worktree()
    │   ├── copy_spec_to_worktree()

@@ -41,7 +41,7 @@ class ProjectAnalyzer:
     5. Infrastructure files (Dockerfile, k8s manifests)
     """
 
-    PROFILE_FILENAME = ".auto-claude-security.json"
+    PROFILE_FILENAME = ".ac-jerry-security.json"
 
     def __init__(self, project_dir: Path, spec_dir: Path | None = None):
         """

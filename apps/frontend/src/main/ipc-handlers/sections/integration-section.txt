@@ -44,7 +44,7 @@
       existingVars['CLAUDE_CODE_OAUTH_TOKEN'] = config.claudeOAuthToken;
     }
     if (config.autoBuildModel !== undefined) {
-      existingVars['AUTO_BUILD_MODEL'] = config.autoBuildModel;
+      existingVars['AC_JERRY_MODEL'] = config.autoBuildModel;
     }
     if (config.linearApiKey !== undefined) {
       existingVars['LINEAR_API_KEY'] = config.linearApiKey;
@@ -91,14 +91,14 @@
     }
 
     // Generate content with sections
-    let content = `# Auto Claude Framework Environment Variables
-# Managed by Auto Claude UI
+    let content = `# AC Jerry Framework Environment Variables
+# Managed by AC Jerry UI
 
 # Claude Code OAuth Token (REQUIRED)
 CLAUDE_CODE_OAUTH_TOKEN=${existingVars['CLAUDE_CODE_OAUTH_TOKEN'] || ''}
 
 # Model override (OPTIONAL)
-${existingVars['AUTO_BUILD_MODEL'] ? `AUTO_BUILD_MODEL=${existingVars['AUTO_BUILD_MODEL']}` : '# AUTO_BUILD_MODEL=claude-opus-4-5-20251101'}
+${existingVars['AC_JERRY_MODEL'] ? `AC_JERRY_MODEL=${existingVars['AC_JERRY_MODEL']}` : '# AC_JERRY_MODEL=claude-opus-4-5-20251101'}
 
 # =============================================================================
 # LINEAR INTEGRATION (OPTIONAL)
@@ -192,8 +192,8 @@ ${existingVars['GRAPHITI_DATABASE'] ? `GRAPHITI_DATABASE=${existingVars['GRAPHIT
         config.claudeTokenIsGlobal = true;
       }
 
-      if (vars['AUTO_BUILD_MODEL']) {
-        config.autoBuildModel = vars['AUTO_BUILD_MODEL'];
+      if (vars['AC_JERRY_MODEL']) {
+        config.autoBuildModel = vars['AC_JERRY_MODEL'];
       }
 
       if (vars['LINEAR_API_KEY']) {
@@ -973,7 +973,7 @@ ${issue.description || 'No description provided.'}
       headers: {
         'Accept': 'application/vnd.github.v3+json',
         'Authorization': `Bearer ${token}`,
-        'User-Agent': 'Auto-Claude-UI',
+        'User-Agent': 'AC-Jerry-UI',
         ...options.headers
       }
     });

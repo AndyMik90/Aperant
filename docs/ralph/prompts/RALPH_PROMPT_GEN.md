@@ -24,7 +24,7 @@ After spec creation completes, call the existing `RalphPromptGenerator` to produ
 
 ```bash
 /ralph-loop:ralph-loop "
-You are implementing RALPH_PROMPT_GEN for Auto-Claude.
+You are implementing RALPH_PROMPT_GEN for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -32,7 +32,7 @@ YOUR IDENTITY:
 - This is a 3-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 - Backend: apps/backend/
 
 ---

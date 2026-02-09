@@ -13,7 +13,7 @@
 
 ```bash
 /ralph-loop:ralph-loop "
-You are implementing MEGA_FALLBACK_A (Backend) for Auto-Claude.
+You are implementing MEGA_FALLBACK_A (Backend) for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -21,7 +21,7 @@ YOUR IDENTITY:
 - This is a 10-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 - Backend: apps/backend/
 
 ---
@@ -49,7 +49,7 @@ MEGA_FALLBACK_A: 10 TASKS
 
 | # | Task | File | Action | Promise |
 |---|------|------|--------|---------|
-| 1 | Create project_memory.py module | apps/backend/memory/project_memory.py | CREATE - functions: create_project_memory_template(project_dir), load_project_memory(project_dir, max_chars=4000), append_to_project_memory(project_dir, section, content, source), truncate_project_memory(content, max_chars). PROJECT_MEMORY.md lives at {project_dir}/.auto-claude/PROJECT_MEMORY.md. Five sections: Architecture Decisions, Code Patterns, Known Gotchas, Testing & QA Notes, Agent Learnings. Entries formatted as '- **{date}** [{source}] {content}'. Dedup by checking if content already in file. Create template if file doesn't exist on append. | TASK_1_COMPLETE |
+| 1 | Create project_memory.py module | apps/backend/memory/project_memory.py | CREATE - functions: create_project_memory_template(project_dir), load_project_memory(project_dir, max_chars=4000), append_to_project_memory(project_dir, section, content, source), truncate_project_memory(content, max_chars). PROJECT_MEMORY.md lives at {project_dir}/.ac.jerry/PROJECT_MEMORY.md. Five sections: Architecture Decisions, Code Patterns, Known Gotchas, Testing & QA Notes, Agent Learnings. Entries formatted as '- **{date}** [{source}] {content}'. Dedup by checking if content already in file. Create template if file doesn't exist on append. | TASK_1_COMPLETE |
 | 2 | Load project memory in agent startup | apps/backend/agents/memory_manager.py | MODIFY - import load_project_memory. In get_graphiti_context(), after building graphiti context, call load_project_memory(project_dir). If returns content, append under '## Project Memory' header. Handle project_dir=None. Print 'Project memory loaded' on success. | TASK_2_COMPLETE |
 | 3 | Add append_project_memory agent tool | apps/backend/agents/tools_pkg/tools/memory.py | MODIFY - add append_project_memory tool. Args: section (str), content (str), task_id (str optional). Import append_to_project_memory. Follow existing @tool decorator pattern. | TASK_3_COMPLETE |
 | 4 | Verify project memory loads in all agents | apps/backend/agents/coder.py, apps/backend/qa/reviewer.py, apps/backend/qa/fixer.py | VERIFY - confirm all agents call get_graphiti_context(). If any agent builds prompt without it, add load_project_memory() call. | TASK_4_COMPLETE |

@@ -28,7 +28,7 @@ Architecture Decision:
     This ensures memory is ALWAYS saved, regardless of configuration.
 
 Each spec has its own memory directory:
-    auto-claude/specs/001-feature/memory/
+    ac-jerry/specs/001-feature/memory/
         ├── codebase_map.json      # Key files and their purposes
         ├── patterns.md            # Code patterns to follow
         ├── gotchas.md             # Pitfalls to avoid

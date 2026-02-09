@@ -21,11 +21,11 @@ vi.mock('react-i18next', () => ({
       // Return the key itself or provide specific translations
       // Keys are without namespace since component uses useTranslation('namespace')
       const translations: Record<string, string> = {
-        'welcome.title': 'Welcome to Auto Claude',
+        'welcome.title': 'Welcome to AC Jerry',
         'welcome.subtitle': 'AI-powered autonomous coding assistant',
         'welcome.getStarted': 'Get Started',
         'welcome.skip': 'Skip Setup',
-        'wizard.helpText': 'Let us help you get started with Auto Claude',
+        'wizard.helpText': 'Let us help you get started with AC Jerry',
         'welcome.features.aiPowered.title': 'AI-Powered',
         'welcome.features.aiPowered.description': 'Powered by Claude',
         'welcome.features.specDriven.title': 'Spec-Driven',
@@ -104,7 +104,7 @@ describe('OnboardingWizard Integration Tests', () => {
       render(<OnboardingWizard {...defaultProps} />);
 
       // Start at welcome step
-      expect(screen.getByText(/Welcome to Auto Claude/)).toBeInTheDocument();
+      expect(screen.getByText(/Welcome to AC Jerry/)).toBeInTheDocument();
 
       // Click "Get Started" to go to auth-choice
       const getStartedButton = screen.getByRole('button', { name: /Get Started/ });
@@ -147,7 +147,7 @@ describe('OnboardingWizard Integration Tests', () => {
       render(<OnboardingWizard {...defaultProps} />);
 
       // Start at welcome step
-      expect(screen.getByText(/Welcome to Auto Claude/)).toBeInTheDocument();
+      expect(screen.getByText(/Welcome to AC Jerry/)).toBeInTheDocument();
 
       // Click "Get Started" to go to auth-choice
       fireEvent.click(screen.getByRole('button', { name: /Get Started/ }));
@@ -215,7 +215,7 @@ describe('OnboardingWizard Integration Tests', () => {
       render(<OnboardingWizard {...defaultProps} open={true} />);
 
       // Wizard should be visible
-      expect(screen.getByText(/Welcome to Auto Claude/)).toBeInTheDocument();
+      expect(screen.getByText(/Welcome to AC Jerry/)).toBeInTheDocument();
     });
 
     it('should not show wizard for users with existing OAuth', () => {
@@ -223,13 +223,13 @@ describe('OnboardingWizard Integration Tests', () => {
       // Here we verify the wizard can be closed
       const { rerender } = render(<OnboardingWizard {...defaultProps} open={true} />);
 
-      expect(screen.getByText(/Welcome to Auto Claude/)).toBeInTheDocument();
+      expect(screen.getByText(/Welcome to AC Jerry/)).toBeInTheDocument();
 
       // Close wizard
       rerender(<OnboardingWizard {...defaultProps} open={false} />);
 
       // Wizard content should not be visible
-      expect(screen.queryByText(/Welcome to Auto Claude/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Welcome to AC Jerry/)).not.toBeInTheDocument();
     });
 
     it('should not show wizard for users with existing API profiles', () => {
@@ -237,7 +237,7 @@ describe('OnboardingWizard Integration Tests', () => {
       // The wizard respects the open prop
       render(<OnboardingWizard {...defaultProps} open={false} />);
 
-      expect(screen.queryByText(/Welcome to Auto Claude/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Welcome to AC Jerry/)).not.toBeInTheDocument();
     });
   });
 
@@ -372,7 +372,7 @@ describe('OnboardingWizard Integration Tests', () => {
       render(<OnboardingWizard {...defaultProps} open={false} />);
 
       // Wizard should not be visible
-      expect(screen.queryByText(/Welcome to Auto Claude/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Welcome to AC Jerry/)).not.toBeInTheDocument();
     });
   });
 });

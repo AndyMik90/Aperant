@@ -1,4 +1,4 @@
-# Architecture Comparison: Original vs Current Auto-Claude
+# Architecture Comparison: Original vs Current AC Jerry
 
 **Last Updated:** 2026-02-04
 **Version:** 1.0
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-This document compares the **original Auto-Claude** repository with our **current fork**, documenting the task lifecycle pipeline, architectural differences, and implementation status.
+This document compares the **original AC Jerry** repository with our **current fork**, documenting the task lifecycle pipeline, architectural differences, and implementation status.
 
 ### Key Findings
 
@@ -414,10 +414,10 @@ function parsePhaseOutput(output: string) {
 
 ## File Structure Comparison
 
-### Original Auto-Claude
+### Original AC Jerry
 
 ```
-Auto-Claude-original/
+AC-Jerry-original/
 ├── apps/
 │   ├── backend/
 │   │   ├── run.py              # Main execution
@@ -435,7 +435,7 @@ Auto-Claude-original/
 ### Current Fork
 
 ```
-Auto-Claude/
+AC Jerry/
 ├── apps/
 │   ├── backend/
 │   │   ├── run.py              # Main execution
@@ -489,7 +489,7 @@ Prevent Ralph from stopping early by requiring explicit completion markers.
 
 ## Conclusion
 
-The current fork maintains **full compatibility** with the original Auto-Claude architecture while adding significant enhancements:
+The current fork maintains **full compatibility** with the original AC Jerry architecture while adding significant enhancements:
 
 1. **Ralph Wiggum Mode** - More aggressive, persistent task completion
 2. **Configurable QA** - Adjustable thresholds for different task types

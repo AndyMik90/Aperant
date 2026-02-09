@@ -12,7 +12,7 @@
 
 ```bash
 /ralph-loop:ralph-loop "
-You are completing SWEEP P1: Major Frontend Fixes for Auto-Claude.
+You are completing SWEEP P1: Major Frontend Fixes for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -20,7 +20,7 @@ YOUR IDENTITY:
 - This is a 5-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 - Frontend: apps/frontend/src/
 
 Primary documentation:

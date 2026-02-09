@@ -38,7 +38,7 @@ class ImplementationPlanValidator:
         if not plan_file.exists():
             errors.append("implementation_plan.json not found")
             fixes.append(
-                f"Run: python auto-claude/planner.py --spec-dir {self.spec_dir}"
+                f"Run: python ac-jerry/planner.py --spec-dir {self.spec_dir}"
             )
             return ValidationResult(False, "plan", errors, warnings, fixes)
 
@@ -48,7 +48,7 @@ class ImplementationPlanValidator:
         except json.JSONDecodeError as e:
             errors.append(f"implementation_plan.json is invalid JSON: {e}")
             fixes.append(
-                "Regenerate with: python auto-claude/planner.py --spec-dir "
+                "Regenerate with: python ac-jerry/planner.py --spec-dir "
                 + str(self.spec_dir)
             )
             return ValidationResult(False, "plan", errors, warnings, fixes)

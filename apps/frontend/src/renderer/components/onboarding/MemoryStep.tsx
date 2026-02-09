@@ -497,7 +497,7 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
                         {t('memory.memoryInfo')}
                       </p>
                       <a
-                        href="https://docs.auto-claude.dev/memory"
+                        href="https://docs.ac-jerry.dev/memory"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-sm text-primary hover:text-primary/80 mt-2"

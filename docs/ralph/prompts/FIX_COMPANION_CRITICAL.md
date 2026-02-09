@@ -13,7 +13,7 @@
 
 ```bash
 /ralph-loop:ralph-loop "
-You are fixing CRITICAL companion agent bugs for Auto-Claude.
+You are fixing CRITICAL companion agent bugs for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -21,7 +21,7 @@ YOUR IDENTITY:
 - This is a 4-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 - Frontend: apps/frontend/src/
 
 ---

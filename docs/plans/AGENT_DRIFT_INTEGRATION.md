@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-04
 **Source:** https://github.com/lukehebe/Agent-Drift
-**Local Copy:** C:\Users\AlienZ\Desktop\Auto-Claude\Agent-Drift-main
+**Local Copy:** C:\Users\AlienZ\Desktop\AC Jerry\Agent-Drift-main
 **Status:** Research Complete - Ready for Implementation Planning
 **License:** Check original repo for license terms
 
@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-**Agent-Drift** is a runtime behavioral monitoring system that detects when AI agents have been silently compromised through prompt injection, memory poisoning, or behavioral drift. It's a **perfect fit for Auto-Claude** because:
+**Agent-Drift** is a runtime behavioral monitoring system that detects when AI agents have been silently compromised through prompt injection, memory poisoning, or behavioral drift. It's a **perfect fit for AC Jerry** because:
 
 - Zero external dependencies (stdlib only)
 - Multiple integration paths (HTTP API, direct embedding, CLI)
@@ -87,13 +87,13 @@ Agent-Drift extracts 7 categories of behavioral features:
 
 ---
 
-## Integration Options for Auto-Claude
+## Integration Options for AC Jerry
 
 ### Option A: HTTP Listener (Minimal Changes)
 
 **Setup:**
 ```bash
-# Start listener during Auto-Claude startup
+# Start listener during AC Jerry startup
 agent-drift listen --port 5001
 ```
 
@@ -217,7 +217,7 @@ Agent-Drift includes 10 built-in pattern detectors:
 
 ---
 
-## Auto-Claude Integration Plan
+## AC Jerry Integration Plan
 
 ### Phase 1: Basic Monitoring
 - [ ] Add Agent-Drift as dependency (`pip install agent-drift-detector`)
@@ -249,11 +249,11 @@ Agent-Drift includes 10 built-in pattern detectors:
 
 **Baseline location:** `~/.agent-drift/baseline.json`
 - Can be overridden with `AGENT_DRIFT_DIR` env var
-- For Auto-Claude: store per-project in `.auto-claude/drift/`
+- For AC Jerry: store per-project in `.ac.jerry/drift/`
 
 **Drift reports:**
 ```
-.auto-claude/specs/TASK-XXX/
+.ac.jerry/specs/TASK-XXX/
 ├─ spec.md
 ├─ subtasks.json
 └─ drift/
@@ -289,7 +289,7 @@ Agent-Drift includes 10 built-in pattern detectors:
 
 ## Recommended Implementation
 
-**For Auto-Claude v3.x:**
+**For AC Jerry v3.x:**
 
 ```python
 # apps/backend/agents/coder.py
@@ -299,7 +299,7 @@ from agent_drift import DriftMonitor
 class CoderAgent:
     def __init__(self):
         self.drift_monitor = DriftMonitor(
-            baseline_dir=".auto-claude/drift",
+            baseline_dir=".ac.jerry/drift",
             alert_callback=self._on_drift_alert
         )
 
@@ -363,7 +363,7 @@ class CoderAgent:
 
 ---
 
-### File Mapping: Agent-Drift → Auto-Claude
+### File Mapping: Agent-Drift → AC Jerry
 
 ```
 Agent-Drift-main/src/           →    apps/backend/drift/
@@ -384,7 +384,7 @@ src/renderer/components/DriftDashboard.tsx (new React component)
 
 ---
 
-### Auto-Claude Directory Structure After Integration
+### AC Jerry Directory Structure After Integration
 
 ```
 apps/backend/
@@ -417,7 +417,7 @@ src/renderer/components/
 
 ```python
 """
-Agent-Drift integration for Auto-Claude.
+Agent-Drift integration for AC Jerry.
 Source: https://github.com/lukehebe/Agent-Drift
 
 Behavioral monitoring system for detecting prompt injection,
@@ -461,7 +461,7 @@ class CoderAgent:
 
         # Initialize drift monitor with project-specific storage
         self.drift_monitor = DriftMonitor(
-            storage_dir=os.path.join(project_root, '.auto-claude', 'drift')
+            storage_dir=os.path.join(project_root, '.ac.jerry', 'drift')
         )
 
     async def execute_task(self, task: Task):
@@ -527,7 +527,7 @@ import { ipcMain } from 'electron';
 export function registerDriftHandlers(): void {
   // Get drift state for dashboard
   ipcMain.handle('drift:get-state', async (_, projectPath: string) => {
-    // Read drift reports from .auto-claude/drift/reports/
+    // Read drift reports from .ac.jerry/drift/reports/
     // Return formatted state for dashboard
   });
 
@@ -582,12 +582,12 @@ Feature extraction is self-contained.
 # Change default storage from ~/.agent-drift to project-local
 def __init__(
     self,
-    storage_dir: Optional[str] = None,  # Now required for Auto-Claude
+    storage_dir: Optional[str] = None,  # Now required for AC Jerry
     ...
 ):
     # Remove global default, require explicit storage_dir
     if storage_dir is None:
-        raise ValueError("storage_dir is required for Auto-Claude integration")
+        raise ValueError("storage_dir is required for AC Jerry integration")
     self.storage_dir = Path(storage_dir)
     ...
 ```
@@ -603,7 +603,7 @@ Detection algorithms are self-contained.
 # Add: get_interim_report() method for mid-execution checks
 
 class DriftMonitor(AgentMonitor):
-    """Simplified monitor for Auto-Claude embedding."""
+    """Simplified monitor for AC Jerry embedding."""
 
     def get_interim_report(self) -> Optional[DriftReport]:
         """Get drift report without ending session."""

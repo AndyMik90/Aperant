@@ -2,7 +2,7 @@
 Task Logger
 ============
 
-Persistent logging system for Auto Claude tasks.
+Persistent logging system for AC Jerry tasks.
 
 This module serves as the main entry point for task logging functionality.
 The implementation has been refactored into a modular package structure:

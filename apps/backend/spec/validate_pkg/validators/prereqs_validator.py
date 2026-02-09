@@ -40,17 +40,17 @@ class PrereqsValidator:
         # Check project_index.json
         project_index = self.spec_dir / "project_index.json"
         if not project_index.exists():
-            # Check if it exists at auto-claude level
+            # Check if it exists at ac-jerry level
             auto_build_index = self.spec_dir.parent.parent / "project_index.json"
             if auto_build_index.exists():
                 warnings.append(
-                    "project_index.json exists at auto-claude/ but not in spec folder"
+                    "project_index.json exists at ac-jerry/ but not in spec folder"
                 )
                 fixes.append(f"Copy: cp {auto_build_index} {project_index}")
             else:
                 errors.append("project_index.json not found")
                 fixes.append(
-                    "Run: python auto-claude/analyzer.py --output auto-claude/project_index.json"
+                    "Run: python ac-jerry/analyzer.py --output ac-jerry/project_index.json"
                 )
 
         return ValidationResult(

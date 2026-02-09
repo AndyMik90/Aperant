@@ -53,7 +53,7 @@ class ProjectIndexPhase:
         # Check if we can copy existing index
         if self.auto_build_index.exists() and not self.project_index.exists():
             debug(
-                "roadmap_phase", "Copying existing project_index.json from auto-claude"
+                "roadmap_phase", "Copying existing project_index.json from ac-jerry"
             )
             shutil.copy(self.auto_build_index, self.project_index)
             print_status("Copied existing project_index.json", "success")

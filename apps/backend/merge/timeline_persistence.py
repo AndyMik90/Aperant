@@ -47,7 +47,7 @@ class TimelinePersistence:
         Initialize the persistence layer.
 
         Args:
-            storage_path: Directory for timeline storage (e.g., .auto-claude/)
+            storage_path: Directory for timeline storage (e.g., .ac.jerry/)
         """
         self.storage_path = Path(storage_path).resolve()
         self.timelines_dir = self.storage_path / "file-timelines"

@@ -882,7 +882,7 @@ class ValidationStrategyBuilder:
         security_steps.append(
             ValidationStep(
                 name="Secrets Scan",
-                command="python auto-claude/scan_secrets.py --all-files --json",
+                command="python ac-jerry/scan_secrets.py --all-files --json",
                 expected_outcome="No secrets detected",
                 step_type="security",
                 required=True,

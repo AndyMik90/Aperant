@@ -112,7 +112,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
   const { settings, updateSettings } = useSettingsStore();
   const [config, setConfig] = useState<GraphitiConfig>({
     enabled: true,  // Enabled by default for better first-time experience
-    database: 'auto_claude_memory',
+    database: 'ac_jerry_memory',
     dbPath: '',
     llmProvider: 'openai',
     embeddingProvider: 'openai',
@@ -243,7 +243,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
 
       const result = await window.electronAPI.testGraphitiConnection({
         dbPath: config.dbPath || undefined,
-        database: config.database || 'auto_claude_memory',
+        database: config.database || 'ac_jerry_memory',
         llmProvider: config.llmProvider,
         apiKey: apiKey.trim()
       });
@@ -914,12 +914,12 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                           setConfig(prev => ({ ...prev, database: e.target.value }));
                           setValidationStatus(prev => ({ ...prev, database: null }));
                         }}
-                        placeholder="auto_claude_memory"
+                        placeholder="ac_jerry_memory"
                         className="font-mono text-sm"
                         disabled={isSaving || isValidating}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Stored in ~/.auto-claude/graphs/
+                        Stored in ~/.ac.jerry/graphs/
                       </p>
                     </div>
 

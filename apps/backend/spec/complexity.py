@@ -384,7 +384,7 @@ async def run_ai_complexity_assessment(
         context += f"\n**Task Description**: {task_description or 'Not provided'}\n"
 
     # Add project index if available
-    auto_build_index = spec_dir.parent.parent / "auto-claude" / "project_index.json"
+    auto_build_index = spec_dir.parent.parent / "ac-jerry" / "project_index.json"
     if auto_build_index.exists():
         context += f"\n**Project Index**: Available at {auto_build_index}\n"
 

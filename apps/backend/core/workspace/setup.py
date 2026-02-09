@@ -57,7 +57,7 @@ def choose_workspace(
     auto_continue: bool = False,
 ) -> WorkspaceMode:
     """
-    Let user choose where auto-claude should work.
+    Let user choose where ac-jerry should work.
 
     Uses simple, non-technical language. Safe defaults.
 
@@ -303,9 +303,9 @@ def copy_spec_to_worktree(
         Path to the spec directory inside the worktree
     """
     # Determine target location inside worktree
-    # Use .auto-claude/specs/{spec_name}/ as the standard location
-    # Note: auto-claude/ is source code, .auto-claude/ is the installed instance
-    target_spec_dir = worktree_path / ".auto-claude" / "specs" / spec_name
+    # Use .ac.jerry/specs/{spec_name}/ as the standard location
+    # Note: ac-jerry/ is source code, .ac.jerry/ is the installed instance
+    target_spec_dir = worktree_path / ".ac.jerry" / "specs" / spec_name
 
     # Create parent directories if needed
     target_spec_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -423,14 +423,14 @@ def setup_workspace(
             except (OSError, json.JSONDecodeError) as e:
                 debug_warning(MODULE, f"Failed to mark profile as inherited: {e}")
 
-    # Ensure .auto-claude/ is in the worktree's .gitignore
+    # Ensure .ac.jerry/ is in the worktree's .gitignore
     # This is critical because the worktree inherits .gitignore from the base branch,
-    # which may not have .auto-claude/ if that change wasn't committed/pushed.
+    # which may not have .ac.jerry/ if that change wasn't committed/pushed.
     # Without this, spec files would be committed to the worktree's branch.
     from init import ensure_gitignore_entry
 
-    if ensure_gitignore_entry(worktree_info.path, ".auto-claude/"):
-        debug(MODULE, "Added .auto-claude/ to worktree's .gitignore")
+    if ensure_gitignore_entry(worktree_info.path, ".ac.jerry/"):
+        debug(MODULE, "Added .ac.jerry/ to worktree's .gitignore")
 
     # Copy spec files to worktree if provided
     localized_spec_dir = None

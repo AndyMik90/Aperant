@@ -415,7 +415,7 @@ def get_auth_token() -> str | None:
 
 ## References
 
-- Issue: [GitHub #1223: API Error 401](https://github.com/AndyMik90/Auto-Claude/issues/1223)
+- Issue: [GitHub #1223: API Error 401](https://github.com/lizz-ee/ac.jerry/issues/1223)
 - Current auth implementation: `apps/backend/core/auth.py`
 - SDK client initialization: `apps/backend/core/client.py`
 - Requirements: `apps/backend/requirements.txt` (includes `secretstorage>=3.3.3` for Linux)

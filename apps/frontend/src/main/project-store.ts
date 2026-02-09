@@ -83,10 +83,10 @@ export class ProjectStore {
     // Check if project already exists
     const existing = this.data.projects.find((p) => p.path === projectPath);
     if (existing) {
-      // Validate that .auto-claude folder still exists for existing project
+      // Validate that .ac.jerry folder still exists for existing project
       // If manually deleted, reset autoBuildPath so UI prompts for reinitialization
       if (existing.autoBuildPath && !isInitialized(existing.path)) {
-        console.warn(`[ProjectStore] .auto-claude folder was deleted for project "${existing.name}" - resetting autoBuildPath`);
+        console.warn(`[ProjectStore] .ac.jerry folder was deleted for project "${existing.name}" - resetting autoBuildPath`);
         existing.autoBuildPath = '';
         existing.updatedAt = new Date();
         this.save();
@@ -97,7 +97,7 @@ export class ProjectStore {
     // Derive name from path if not provided
     const projectName = name || path.basename(projectPath);
 
-    // Determine auto-claude path (supports both 'auto-claude' and '.auto-claude')
+    // Determine ac-jerry path (supports legacy directories and '.ac.jerry')
     const autoBuildPath = getAutoBuildPath(projectPath) || '';
 
     const project: Project = {
@@ -131,24 +131,24 @@ export class ProjectStore {
 
   /**
    * Remove a project
-   * FIX-25: Added deleteData parameter to optionally delete .auto-claude directory
+   * FIX-25: Added deleteData parameter to optionally delete .ac.jerry directory
    * @param projectId - The ID of the project to remove
-   * @param deleteData - If true, also delete the .auto-claude directory with all task data
+   * @param deleteData - If true, also delete the .ac.jerry directory with all task data
    */
   removeProject(projectId: string, deleteData: boolean = false): boolean {
     const index = this.data.projects.findIndex((p) => p.id === projectId);
     if (index !== -1) {
       const project = this.data.projects[index];
 
-      // FIX-25: Delete .auto-claude directory if requested
+      // FIX-25: Delete .ac.jerry directory if requested
       if (deleteData && project.path) {
-        const autoClaudeDir = path.join(project.path, '.auto-claude');
-        if (existsSync(autoClaudeDir)) {
+        const acJerryDir = path.join(project.path, '.ac.jerry');
+        if (existsSync(acJerryDir)) {
           try {
-            rmSync(autoClaudeDir, { recursive: true, force: true });
-            console.log(`[ProjectStore] Deleted .auto-claude directory for project "${project.name}"`);
+            rmSync(acJerryDir, { recursive: true, force: true });
+            console.log(`[ProjectStore] Deleted .ac.jerry directory for project "${project.name}"`);
           } catch (error) {
-            console.error(`[ProjectStore] Failed to delete .auto-claude directory:`, error);
+            console.error(`[ProjectStore] Failed to delete .ac.jerry directory:`, error);
             // Continue with project removal even if directory deletion fails
           }
         }
@@ -200,11 +200,11 @@ export class ProjectStore {
   }
 
   /**
-   * Validate all projects to ensure their .auto-claude folders still exist.
+   * Validate all projects to ensure their .ac.jerry folders still exist.
    * If a project has autoBuildPath set but the folder was deleted,
    * reset autoBuildPath to empty string so the UI prompts for reinitialization.
    *
-   * @returns Array of project IDs that were reset due to missing .auto-claude folder
+   * @returns Array of project IDs that were reset due to missing .ac.jerry folder
    */
   validateProjects(): string[] {
     const resetProjectIds: string[] = [];
@@ -222,9 +222,9 @@ export class ProjectStore {
         continue; // Don't reset - let user handle this case
       }
 
-      // Check if .auto-claude folder still exists
+      // Check if .ac.jerry folder still exists
       if (!isInitialized(project.path)) {
-        console.warn(`[ProjectStore] .auto-claude folder missing for project "${project.name}" at ${project.path}`);
+        console.warn(`[ProjectStore] .ac.jerry folder missing for project "${project.name}" at ${project.path}`);
         project.autoBuildPath = '';
         project.updatedAt = new Date();
         resetProjectIds.push(project.id);
@@ -234,7 +234,7 @@ export class ProjectStore {
 
     if (hasChanges) {
       this.save();
-      console.warn(`[ProjectStore] Reset ${resetProjectIds.length} project(s) due to missing .auto-claude folder`);
+      console.warn(`[ProjectStore] Reset ${resetProjectIds.length} project(s) due to missing .ac.jerry folder`);
     }
 
     return resetProjectIds;

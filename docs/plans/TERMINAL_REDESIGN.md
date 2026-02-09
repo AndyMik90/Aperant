@@ -348,7 +348,7 @@ Clean up the integration between task cards and their terminals. Ensure terminal
 
 ```bash
 /ralph-loop:ralph-loop "
-You are completing Phase 7: Terminal UX Redesign for Auto-Claude.
+You are completing Phase 7: Terminal UX Redesign for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -356,7 +356,7 @@ YOUR IDENTITY:
 - If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 
 Primary documentation:
 - docs\plans\TERMINAL_REDESIGN.md (THIS FILE - read fully)

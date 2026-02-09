@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Auto Claude Framework
+AC Jerry Framework
 =====================
 
 A multi-session autonomous coding framework for building features and applications.
@@ -16,14 +16,14 @@ Key Features:
 - Linear integration for project management
 
 Usage:
-    python auto-claude/run.py --spec 001-initial-app
-    python auto-claude/run.py --spec 001
-    python auto-claude/run.py --list
+    python ac-jerry/run.py --spec 001-initial-app
+    python ac-jerry/run.py --spec 001
+    python ac-jerry/run.py --list
 
     # Workspace management
-    python auto-claude/run.py --spec 001 --merge     # Add completed build to project
-    python auto-claude/run.py --spec 001 --review    # See what was built
-    python auto-claude/run.py --spec 001 --discard   # Delete build (requires confirmation)
+    python ac-jerry/run.py --spec 001 --merge     # Add completed build to project
+    python ac-jerry/run.py --spec 001 --review    # See what was built
+    python ac-jerry/run.py --spec 001 --discard   # Delete build (requires confirmation)
 
 Prerequisites:
     - CLAUDE_CODE_OAUTH_TOKEN environment variable set (run: claude setup-token)
@@ -36,7 +36,7 @@ import sys
 # Python version check - must be before any imports using 3.10+ syntax
 if sys.version_info < (3, 10):  # noqa: UP036
     sys.exit(
-        f"Error: Auto Claude requires Python 3.10 or higher.\n"
+        f"Error: AC Jerry requires Python 3.10 or higher.\n"
         f"You are running Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}\n"
         f"\n"
         f"Please upgrade Python: https://www.python.org/downloads/"

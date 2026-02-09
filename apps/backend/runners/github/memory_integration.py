@@ -176,7 +176,7 @@ class GitHubMemoryIntegration:
             project_dir: Project root directory (for Graphiti namespacing)
         """
         self.repo = repo
-        self.state_dir = state_dir or Path(".auto-claude/github")
+        self.state_dir = state_dir or Path(".ac.jerry/github")
         self.project_dir = project_dir or Path.cwd()
         self.memory_dir = self.state_dir / "memory"
         self.memory_dir.mkdir(parents=True, exist_ok=True)

@@ -23,12 +23,12 @@ Two fixes identified from SPEC_VS_CODE_AUDIT_REPORT.md:
 
 ```bash
 /ralph-loop:ralph-loop "
-You are an autonomous senior engineer completing 2 bug fixes for Auto-Claude (Jerry).
+You are an autonomous senior engineer completing 2 bug fixes for AC Jerry (Jerry).
 
 YOUR IDENTITY: You are an EXECUTOR, not an EVALUATOR. If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 
 Primary documentation:
 - docs\reports\SPEC_VS_CODE_AUDIT_REPORT.md (issue analysis)

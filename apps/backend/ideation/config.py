@@ -6,7 +6,7 @@ Handles initialization of directories, component setup, and configuration valida
 
 from pathlib import Path
 
-from init import init_auto_claude_dir
+from init import init_ac_jerry_dir
 
 from .analyzer import ProjectAnalyzer
 from .formatter import IdeationFormatter
@@ -34,7 +34,7 @@ class IdeationConfigManager:
 
         Args:
             project_dir: Project directory to analyze
-            output_dir: Output directory for ideation files (defaults to .auto-claude/ideation)
+            output_dir: Output directory for ideation files (defaults to .ac.jerry/ideation)
             enabled_types: List of ideation types to generate (defaults to all)
             include_roadmap_context: Include roadmap files in analysis
             include_kanban_context: Include kanban board in analysis
@@ -86,9 +86,9 @@ class IdeationConfigManager:
         if output_dir:
             out_dir = Path(output_dir)
         else:
-            # Initialize .auto-claude directory and ensure it's in .gitignore
-            init_auto_claude_dir(self.project_dir)
-            out_dir = self.project_dir / ".auto-claude" / "ideation"
+            # Initialize .ac.jerry directory and ensure it's in .gitignore
+            init_ac_jerry_dir(self.project_dir)
+            out_dir = self.project_dir / ".ac.jerry" / "ideation"
 
         out_dir.mkdir(parents=True, exist_ok=True)
 

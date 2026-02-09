@@ -47,12 +47,12 @@ Currently when a task is actively running (Planning, Coding, etc.):
 
 ```bash
 /ralph-loop:ralph-loop "
-You are an autonomous senior engineer fixing the task card UI for Auto-Claude (Jerry).
+You are an autonomous senior engineer fixing the task card UI for AC Jerry (Jerry).
 
 YOUR IDENTITY: You are an EXECUTOR, not an EVALUATOR. If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 
 ---
 

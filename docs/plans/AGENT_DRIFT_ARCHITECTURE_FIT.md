@@ -6,7 +6,7 @@
 
 ---
 
-## How Agent-Drift Fits Into Auto-Claude
+## How Agent-Drift Fits Into AC Jerry
 
 Agent-Drift is a **behavioral monitoring layer** that slots between the agent execution and the event pipeline. It doesn't change the core flow—it observes and reports.
 
@@ -16,7 +16,7 @@ Agent-Drift is a **behavioral monitoring layer** that slots between the agent ex
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           AUTO-CLAUDE ARCHITECTURE                           │
+│                           AC JERRY ARCHITECTURE                           │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -79,7 +79,7 @@ Agent-Drift is a **behavioral monitoring layer** that slots between the agent ex
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    AUTO-CLAUDE + AGENT-DRIFT ARCHITECTURE                    │
+│                    AC JERRY + AGENT-DRIFT ARCHITECTURE                    │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -110,7 +110,7 @@ Agent-Drift is a **behavioral monitoring layer** that slots between the agent ex
 │  │                                                                       │  │
 │  │   from drift import DriftMonitor  ◄─────────────────────── NEW IMPORT │  │
 │  │                                                                       │  │
-│  │   drift_monitor = DriftMonitor(storage_dir=".auto-claude/drift")      │  │
+│  │   drift_monitor = DriftMonitor(storage_dir=".ac.jerry/drift")      │  │
 │  │                                                                       │  │
 │  │   for subtask in implementation_plan:                                 │  │
 │  │       drift_monitor.start_session(task.id)  ◄──────────── NEW: Start  │  │
@@ -162,7 +162,7 @@ Agent-Drift is a **behavioral monitoring layer** that slots between the agent ex
 │    └── IPC: 'drift-report' → NEW: Routes to drift-store  ◄────── NEW HANDLER│
 │                                                                              │
 │  drift-handlers.ts  ◄─────────────────────────────────────────── NEW FILE   │
-│    ├── drift:get-state → Read reports from .auto-claude/drift/              │
+│    ├── drift:get-state → Read reports from .ac.jerry/drift/              │
 │    ├── drift:reset-baseline → Call Python to reset                          │
 │    └── drift:get-baseline → Return baseline info                            │
 │                                                                              │
@@ -374,7 +374,7 @@ Follows the existing store pattern with `drift-store.ts` alongside `task-store.t
 Can be enabled/disabled per-project via settings. Doesn't affect existing behavior when disabled.
 
 ### 5. Data Locality
-Stores baselines and reports in `.auto-claude/drift/` within the project directory. No global state pollution.
+Stores baselines and reports in `.ac.jerry/drift/` within the project directory. No global state pollution.
 
 ---
 
@@ -424,7 +424,7 @@ Agent-Drift integrates as a **passive monitoring layer** that:
 
 1. **Hooks into** `session.py` to track tool calls
 2. **Reports via** existing `emit_sdk_msg()` pattern
-3. **Stores data** in project-local `.auto-claude/drift/`
+3. **Stores data** in project-local `.ac.jerry/drift/`
 4. **Updates UI** via new Zustand store + components
 5. **Halts execution** only on critical drift (configurable)
 

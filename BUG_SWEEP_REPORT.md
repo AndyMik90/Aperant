@@ -57,7 +57,7 @@
 
 ### BUG_4_PY_CORE: core/ Review
 - **Files reviewed:**
-  - `core/exceptions.py` - Exception hierarchy with AutoClaudeError base
+  - `core/exceptions.py` - Exception hierarchy with ACJerryError base
   - `core/retry.py` - Exponential backoff with jitter
   - `core/workspace.py` (2103 lines) - Complex merge with AI conflict resolution
   - `core/git_executable.py` - Thread-safe caching

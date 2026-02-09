@@ -58,7 +58,7 @@ export class TitleGenerator extends EventEmitter {
   }
 
   /**
-   * Get the auto-claude source path (detects automatically if not configured)
+   * Get the ac-jerry source path (detects automatically if not configured)
    */
   private getAutoBuildSourcePath(): string | null {
     if (this.autoBuildSourcePath && existsSync(this.autoBuildSourcePath)) {
@@ -81,7 +81,7 @@ export class TitleGenerator extends EventEmitter {
   }
 
   /**
-   * Load environment variables from auto-claude .env file
+   * Load environment variables from ac-jerry .env file
    */
   private loadAutoBuildEnv(): Record<string, string> {
     const autoBuildSource = this.getAutoBuildSourcePath();
@@ -128,7 +128,7 @@ export class TitleGenerator extends EventEmitter {
     const autoBuildSource = this.getAutoBuildSourcePath();
 
     if (!autoBuildSource) {
-      debug('Auto-claude source path not found');
+      debug('AC-Jerry source path not found');
       return null;
     }
 

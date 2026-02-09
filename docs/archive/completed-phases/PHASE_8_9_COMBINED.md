@@ -54,7 +54,7 @@ Combined execution of:
 
 ```bash
 /ralph-loop:ralph-loop "
-You are completing Phase 8 (UX Polish) and Phase 9 (Code Sweep) for Auto-Claude.
+You are completing Phase 8 (UX Polish) and Phase 9 (Code Sweep) for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -62,7 +62,7 @@ YOUR IDENTITY:
 - This is a 19-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\AlienZ\Desktop\Auto-Claude
+- Project root: C:\Users\AlienZ\Desktop\AC Jerry
 
 Primary documentation:
 - docs\plans\PHASE_8_UX_POLISH.md (UX tasks spec)

@@ -99,29 +99,29 @@ vi.mock('../../main/python-env-manager', () => ({
   getConfiguredPythonPath: vi.fn(() => DETECTED_PYTHON_CMD)
 }));
 
-// Auto-claude source path (for getAutoBuildSourcePath to find)
-let AUTO_CLAUDE_SOURCE: string;
+// AC Jerry source path (for getAutoBuildSourcePath to find)
+let AC_JERRY_SOURCE: string;
 
 // Setup test directories
 function setupTestDirs(): void {
   initTestDirectories();
-  AUTO_CLAUDE_SOURCE = path.join(TEST_DIR, 'auto-claude-source');
+  AC_JERRY_SOURCE = path.join(TEST_DIR, 'ac-jerry-source');
   mkdirSync(TEST_PROJECT_PATH, { recursive: true });
 
-  // Create auto-claude source directory that getAutoBuildSourcePath looks for
-  mkdirSync(AUTO_CLAUDE_SOURCE, { recursive: true });
+  // Create ac-jerry source directory that getAutoBuildSourcePath looks for
+  mkdirSync(AC_JERRY_SOURCE, { recursive: true });
 
   // Create runners subdirectory with spec_runner.py marker (used by getAutoBuildSourcePath)
-  mkdirSync(path.join(AUTO_CLAUDE_SOURCE, 'runners'), { recursive: true });
+  mkdirSync(path.join(AC_JERRY_SOURCE, 'runners'), { recursive: true });
 
   // Create mock spec_runner.py in runners/ subdirectory (used as backend marker)
   writeFileSync(
-    path.join(AUTO_CLAUDE_SOURCE, 'runners', 'spec_runner.py'),
+    path.join(AC_JERRY_SOURCE, 'runners', 'spec_runner.py'),
     '# Mock spec runner\nprint("Starting spec creation")'
   );
   // Create mock run.py
   writeFileSync(
-    path.join(AUTO_CLAUDE_SOURCE, 'run.py'),
+    path.join(AC_JERRY_SOURCE, 'run.py'),
     '# Mock run.py\nprint("Starting task execution")'
   );
 }
@@ -166,7 +166,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
       vi.mocked(spawn).mockClear();
 
       const manager = new AgentManager();
-      manager.configure(undefined, AUTO_CLAUDE_SOURCE);
+      manager.configure(undefined, AC_JERRY_SOURCE);
 
       // Track errors to help diagnose test failures
       const errors: string[] = [];
@@ -210,7 +210,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
           'Test task description'
         ]),
         expect.objectContaining({
-          cwd: AUTO_CLAUDE_SOURCE,  // Process runs from auto-claude source directory
+          cwd: AC_JERRY_SOURCE,  // Process runs from ac-jerry source directory
           env: expect.objectContaining({
             PYTHONUNBUFFERED: '1'
           })
@@ -224,7 +224,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
       const { AgentManager } = await import('../../main/agent');
 
       const manager = new AgentManager();
-      manager.configure(undefined, AUTO_CLAUDE_SOURCE);
+      manager.configure(undefined, AC_JERRY_SOURCE);
 
       // Start the async operation
       const promise = manager.startTaskExecution('task-1', TEST_PROJECT_PATH, 'spec-001');
@@ -246,7 +246,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
           'spec-001'
         ]),
         expect.objectContaining({
-          cwd: AUTO_CLAUDE_SOURCE  // Process runs from auto-claude source directory
+          cwd: AC_JERRY_SOURCE  // Process runs from ac-jerry source directory
         })
       );
     }, 15000);  // Increase timeout for Windows CI
@@ -257,7 +257,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
       const { AgentManager } = await import('../../main/agent');
 
       const manager = new AgentManager();
-      manager.configure(undefined, AUTO_CLAUDE_SOURCE);
+      manager.configure(undefined, AC_JERRY_SOURCE);
 
       // Start the async operation
       const promise = manager.startQAProcess('task-1', TEST_PROJECT_PATH, 'spec-001');
@@ -280,7 +280,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
           '--qa'
         ]),
         expect.objectContaining({
-          cwd: AUTO_CLAUDE_SOURCE  // Process runs from auto-claude source directory
+          cwd: AC_JERRY_SOURCE  // Process runs from ac-jerry source directory
         })
       );
     }, 15000);  // Increase timeout for Windows CI
@@ -292,7 +292,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
       const { AgentManager } = await import('../../main/agent');
 
       const manager = new AgentManager();
-      manager.configure(undefined, AUTO_CLAUDE_SOURCE);
+      manager.configure(undefined, AC_JERRY_SOURCE);
 
       // Start the async operation
       const promise = manager.startTaskExecution('task-1', TEST_PROJECT_PATH, 'spec-001', {
@@ -324,7 +324,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
       const { AgentManager } = await import('../../main/agent');
 
       const manager = new AgentManager();
-      manager.configure(undefined, AUTO_CLAUDE_SOURCE);
+      manager.configure(undefined, AC_JERRY_SOURCE);
       const logHandler = vi.fn();
       manager.on('log', logHandler);
 
@@ -340,7 +340,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
       const { AgentManager } = await import('../../main/agent');
 
       const manager = new AgentManager();
-      manager.configure(undefined, AUTO_CLAUDE_SOURCE);
+      manager.configure(undefined, AC_JERRY_SOURCE);
       const logHandler = vi.fn();
       manager.on('log', logHandler);
 
@@ -356,7 +356,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
       const { AgentManager } = await import('../../main/agent');
 
       const manager = new AgentManager();
-      manager.configure(undefined, AUTO_CLAUDE_SOURCE);
+      manager.configure(undefined, AC_JERRY_SOURCE);
       const exitHandler = vi.fn();
       manager.on('exit', exitHandler);
 
@@ -373,7 +373,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
       const { AgentManager } = await import('../../main/agent');
 
       const manager = new AgentManager();
-      manager.configure(undefined, AUTO_CLAUDE_SOURCE);
+      manager.configure(undefined, AC_JERRY_SOURCE);
       const errorHandler = vi.fn();
       manager.on('error', errorHandler);
 
@@ -389,7 +389,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
       const { AgentManager } = await import('../../main/agent');
 
       const manager = new AgentManager();
-      manager.configure(undefined, AUTO_CLAUDE_SOURCE);
+      manager.configure(undefined, AC_JERRY_SOURCE);
       await manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test');
 
       expect(manager.isRunning('task-1')).toBe(true);
@@ -420,7 +420,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
       const { AgentManager } = await import('../../main/agent');
 
       const manager = new AgentManager();
-      manager.configure(undefined, AUTO_CLAUDE_SOURCE);
+      manager.configure(undefined, AC_JERRY_SOURCE);
       expect(manager.getRunningTasks()).toHaveLength(0);
 
       // SWEEP-8: Run tasks sequentially with proper async handling
@@ -465,7 +465,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
       const { AgentManager } = await import('../../main/agent');
 
       const manager = new AgentManager();
-      manager.configure('/custom/python3', AUTO_CLAUDE_SOURCE);
+      manager.configure('/custom/python3', AC_JERRY_SOURCE);
 
       await manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test');
 
@@ -480,7 +480,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
       const { AgentManager } = await import('../../main/agent');
 
       const manager = new AgentManager();
-      manager.configure(undefined, AUTO_CLAUDE_SOURCE);
+      manager.configure(undefined, AC_JERRY_SOURCE);
 
       // Start two async operations
       const promise1 = manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test 1');
@@ -502,7 +502,7 @@ describe.sequential('Subprocess Spawn Integration', () => {
       const { AgentManager } = await import('../../main/agent');
 
       const manager = new AgentManager();
-      manager.configure(undefined, AUTO_CLAUDE_SOURCE);
+      manager.configure(undefined, AC_JERRY_SOURCE);
 
       // Start first operation
       const promise1 = manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test 1');

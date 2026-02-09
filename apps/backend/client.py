@@ -7,7 +7,7 @@ Uses lazy imports to avoid circular dependencies.
 
 
 def __getattr__(name):
-    """Lazy import to avoid circular imports with auto_claude_tools."""
+    """Lazy import to avoid circular imports with ac_jerry_tools."""
     from core import client as _client
 
     return getattr(_client, name)

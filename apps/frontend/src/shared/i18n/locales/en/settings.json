@@ -7,7 +7,7 @@
   "sections": {
     "appearance": {
       "title": "Appearance",
-      "description": "Customize how Jerry looks"
+      "description": "Customize how AC Jerry looks"
     },
     "display": {
       "title": "Display",
@@ -39,7 +39,7 @@
     },
     "updates": {
       "title": "Updates",
-      "description": "Jerry updates"
+      "description": "AC Jerry updates"
     },
     "notifications": {
       "title": "Notifications",
@@ -222,15 +222,15 @@
     "sourceBundled": "Bundled",
     "sourceFallback": "Fallback",
     "notDetected": "Not detected",
-    "autoClaudePath": "Jerry Path",
-    "autoClaudePathDescription": "Relative path to auto-claude directory in projects",
-    "autoClaudePathPlaceholder": "auto-claude (default)",
+    "acJerryPath": "Jerry Path",
+    "acJerryPathDescription": "Relative path to .ac.jerry directory in projects",
+    "acJerryPathPlaceholder": ".ac.jerry (default)",
     "autoNameTerminals": "Automatically name terminals",
     "autoNameTerminalsDescription": "Use AI to generate descriptive names for terminal tabs based on their activity"
   },
   "theme": {
     "title": "Appearance",
-    "description": "Customize how Jerry looks",
+    "description": "Customize how AC Jerry looks",
     "mode": "Mode",
     "modeDescription": "Choose between light and dark themes",
     "light": "Light",
@@ -270,7 +270,7 @@
   },
   "updates": {
     "title": "Updates",
-    "description": "Manage Jerry updates",
+    "description": "Manage AC Jerry updates",
     "appUpdateReady": "App Update Ready",
     "newVersion": "New Version",
     "released": "Released",
@@ -287,7 +287,7 @@
     "unableToCheck": "Unable to check for updates",
     "checkForUpdates": "Check for Updates",
     "autoUpdateProjects": "Auto-Update Projects",
-    "autoUpdateProjectsDescription": "Automatically update Jerry in projects when a new version is available",
+    "autoUpdateProjectsDescription": "Automatically update AC Jerry in projects when a new version is available",
     "betaUpdates": "Beta Updates",
     "betaUpdatesDescription": "Receive pre-release beta versions with new features (may be less stable)",
     "stableDowngradeAvailable": "Stable Version Available",
@@ -482,7 +482,7 @@
     "description": "Access logs and debug information for troubleshooting",
     "errorReporting": {
       "label": "Anonymous Error Reporting",
-      "description": "Send crash reports to help improve Jerry. No personal data or code is collected."
+      "description": "Send crash reports to help improve AC Jerry. No personal data or code is collected."
     },
     "openLogsFolder": "Open Logs Folder",
     "copyDebugInfo": "Copy Debug Info",
@@ -512,7 +512,7 @@
     "noProjectSelected": "No Project Selected",
     "noProjectSelectedDescription": "Select a project from the dropdown to view and configure MCP servers.",
     "projectNotInitialized": "Project Not Initialized",
-    "projectNotInitializedDescription": "Initialize Jerry for this project to configure MCP servers.",
+    "projectNotInitializedDescription": "Initialize AC Jerry for this project to configure MCP servers.",
     "browserAutomation": "Browser Automation (QA agents only)",
     "alwaysEnabled": "always enabled",
     "addServer": "Add Server",
@@ -548,8 +548,8 @@
         "name": "Puppeteer",
         "description": "Web browser automation for testing"
       },
-      "autoClaude": {
-        "name": "Jerry Tools",
+      "acJerry": {
+        "name": "AC Jerry Tools",
         "description": "Build progress tracking"
       }
     },
@@ -611,10 +611,10 @@
   },
   "projectRemoval": {
     "title": "Remove Project",
-    "description": "How would you like to remove \"{{name}}\" from Jerry?",
-    "keepOption": "Remove from Jerry only",
-    "keepDescription": "Remove from the sidebar but keep the .auto-claude folder with all task history and data.",
-    "deleteOption": "Delete all Jerry data",
-    "deleteDescription": "Remove from sidebar AND delete the .auto-claude folder with all task history, specs, and builds."
+    "description": "How would you like to remove \"{{name}}\" from AC Jerry?",
+    "keepOption": "Remove from AC Jerry only",
+    "keepDescription": "Remove from the sidebar but keep the .ac.jerry folder with all task history and data.",
+    "deleteOption": "Delete all AC Jerry data",
+    "deleteDescription": "Remove from sidebar AND delete the .ac.jerry folder with all task history, specs, and builds."
   }
 }

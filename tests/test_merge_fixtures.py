@@ -17,7 +17,7 @@ from typing import Callable, Generator
 
 import pytest
 
-# Add auto-claude directory to path for imports
+# Add ac-jerry directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 
 from merge import (

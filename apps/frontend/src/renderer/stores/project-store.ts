@@ -359,7 +359,7 @@ export async function addProject(projectPath: string): Promise<Project | null> {
 /**
  * Remove a project
  * @param projectId - The ID of the project to remove
- * @param deleteData - FIX-25: If true, also delete the .auto-claude directory with all task data
+ * @param deleteData - FIX-25: If true, also delete the .ac.jerry directory with all task data
  */
 export async function removeProject(projectId: string, deleteData: boolean = false): Promise<boolean> {
   const store = useProjectStore.getState();
@@ -423,7 +423,7 @@ export async function updateProjectSettings(
 }
 
 /**
- * Check auto-claude version status for a project
+ * Check ac-jerry version status for a project
  */
 export async function checkProjectVersion(
   projectId: string
@@ -440,7 +440,7 @@ export async function checkProjectVersion(
 }
 
 /**
- * Initialize auto-claude in a project
+ * Initialize ac-jerry in a project
  */
 export async function initializeProject(
   projectId: string
@@ -456,8 +456,8 @@ export async function initializeProject(
       console.log('[ProjectStore] IPC succeeded, result.data:', result.data);
       // Update the project's autoBuildPath in local state
       if (result.data.success) {
-        console.log('[ProjectStore] Updating project autoBuildPath to .auto-claude');
-        store.updateProject(projectId, { autoBuildPath: '.auto-claude' });
+        console.log('[ProjectStore] Updating project autoBuildPath to .ac.jerry');
+        store.updateProject(projectId, { autoBuildPath: '.ac.jerry' });
       } else {
         console.log('[ProjectStore] result.data.success is false, not updating project');
       }

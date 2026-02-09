@@ -1,4 +1,4 @@
-# Ruff configuration for Auto Claude
+# Ruff configuration for AC Jerry
 
 [lint]
 # Enable common rule sets

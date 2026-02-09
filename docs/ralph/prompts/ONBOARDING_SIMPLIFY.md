@@ -27,12 +27,12 @@ Simplify the onboarding wizard by removing complex steps and fixing critical iss
 
 ```bash
 /ralph-loop:ralph-loop "
-You are an autonomous senior engineer simplifying the onboarding flow for Auto-Claude (Jerry).
+You are an autonomous senior engineer simplifying the onboarding flow for AC Jerry (Jerry).
 
 YOUR IDENTITY: You are an EXECUTOR, not an EVALUATOR. If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 
 Primary Documentation (READ FOR CONTEXT):
 - docs/reports/STARTUP_ONBOARDING_AUDIT.md - Full audit with issue details
@@ -223,19 +223,19 @@ These are already correct (use Jerry). Verify and leave as-is:
 - Line 4: \"Configure your Jerry environment\" ✓
 - Line 8: \"Welcome to Jerry\" ✓
 
-Update any that say 'Auto Claude':
-- Line 178 (claudeCode.info.description): Change \"Auto Claude's AI features\" → \"Jerry's AI features\"
+Update any that say 'AC Jerry':
+- Line 178 (claudeCode.info.description): Change \"AC Jerry's AI features\" → \"Jerry's AI features\"
 
 **File 2: apps/frontend/src/renderer/components/onboarding/GraphitiStep.tsx**
 
-Line 772-773: Change \"Auto Claude will maintain context\" → \"Jerry will maintain context\"
+Line 772-773: Change \"AC Jerry will maintain context\" → \"Jerry will maintain context\"
 
 **File 3: apps/frontend/src/renderer/components/onboarding/DevToolsStep.tsx**
 
-Line 240: Change \"Auto Claude worktrees\" → \"Jerry worktrees\"
-Line 274-275: Change \"Auto Claude builds features\" → \"Jerry builds features\"
-Line 322-323: Change \"Auto Claude will open worktrees\" → \"Jerry will open worktrees\"
-Line 371-372: Change \"Auto Claude will open terminal\" → \"Jerry will open terminal\"
+Line 240: Change \"AC Jerry worktrees\" → \"Jerry worktrees\"
+Line 274-275: Change \"AC Jerry builds features\" → \"Jerry builds features\"
+Line 322-323: Change \"AC Jerry will open worktrees\" → \"Jerry will open worktrees\"
+Line 371-372: Change \"AC Jerry will open terminal\" → \"Jerry will open terminal\"
 
 **File 4: apps/frontend/src/shared/i18n/locales/en/onboarding.json**
 
@@ -510,7 +510,7 @@ CURRENT STATUS: 0 of 7 tasks complete. BEGIN NOW.
 1. Wizard has 7 steps (not 8)
 2. No GraphitiStep in wizard flow
 3. API key path goes: AuthChoice → ClaudeCode → DevTools → Privacy → Complete
-4. All text says "Jerry" (not "Auto Claude")
+4. All text says "Jerry" (not "AC Jerry")
 5. "Explore Documentation" link works
 6. All UI text uses translation keys
 7. Build passes

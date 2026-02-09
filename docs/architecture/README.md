@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-This folder contains architecture and design documentation for Auto-Claude (Jerry).
+This folder contains architecture and design documentation for AC Jerry.
 
 ## Documents
 

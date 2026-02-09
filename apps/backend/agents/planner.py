@@ -152,7 +152,7 @@ async def run_followup_planner(
                     f"Total subtasks: {len(all_subtasks)}",
                     "",
                     muted("Next steps:"),
-                    f"  Run: {highlight(f'python auto-claude/run.py --spec {spec_dir.name}')}",
+                    f"  Run: {highlight(f'python ac-jerry/run.py --spec {spec_dir.name}')}",
                 ]
                 print(box(content, width=70, style="heavy"))
                 print()

@@ -15,7 +15,7 @@ The planner:
 6. Outputs implementation_plan.json
 
 Usage:
-    python auto-claude/planner.py --spec-dir auto-claude/specs/001-feature/
+    python ac-jerry/planner.py --spec-dir ac-jerry/specs/001-feature/
 """
 
 import json

@@ -94,7 +94,7 @@ export function registerEnvHandlers(
       existingVars['CLAUDE_CODE_OAUTH_TOKEN'] = config.claudeOAuthToken;
     }
     if (config.autoBuildModel !== undefined) {
-      existingVars['AUTO_BUILD_MODEL'] = config.autoBuildModel;
+      existingVars['AC_JERRY_MODEL'] = config.autoBuildModel;
     }
     if (config.linearApiKey !== undefined) {
       existingVars['LINEAR_API_KEY'] = config.linearApiKey;
@@ -235,7 +235,7 @@ export function registerEnvHandlers(
 CLAUDE_CODE_OAUTH_TOKEN=${existingVars['CLAUDE_CODE_OAUTH_TOKEN'] || ''}
 
 # Model override (OPTIONAL)
-${existingVars['AUTO_BUILD_MODEL'] ? `AUTO_BUILD_MODEL=${existingVars['AUTO_BUILD_MODEL']}` : '# AUTO_BUILD_MODEL=claude-opus-4-5-20251101'}
+${existingVars['AC_JERRY_MODEL'] ? `AC_JERRY_MODEL=${existingVars['AC_JERRY_MODEL']}` : '# AC_JERRY_MODEL=claude-opus-4-5-20251101'}
 
 # =============================================================================
 # LINEAR INTEGRATION (OPTIONAL)
@@ -335,8 +335,8 @@ ${existingVars['OLLAMA_EMBEDDING_MODEL'] ? `OLLAMA_EMBEDDING_MODEL=${existingVar
 ${existingVars['OLLAMA_EMBEDDING_DIM'] ? `OLLAMA_EMBEDDING_DIM=${existingVars['OLLAMA_EMBEDDING_DIM']}` : '# OLLAMA_EMBEDDING_DIM=768'}
 
 # LadybugDB Database (embedded - no Docker required)
-${existingVars['GRAPHITI_DATABASE'] ? `GRAPHITI_DATABASE=${existingVars['GRAPHITI_DATABASE']}` : '# GRAPHITI_DATABASE=auto_claude_memory'}
-${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_DB_PATH']}` : '# GRAPHITI_DB_PATH=~/.auto-claude/memories'}
+${existingVars['GRAPHITI_DATABASE'] ? `GRAPHITI_DATABASE=${existingVars['GRAPHITI_DATABASE']}` : '# GRAPHITI_DATABASE=ac_jerry_memory'}
+${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_DB_PATH']}` : '# GRAPHITI_DB_PATH=~/.ac.jerry/memories'}
 `;
 
     return content;
@@ -401,8 +401,8 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         config.claudeTokenIsGlobal = true;
       }
 
-      if (vars['AUTO_BUILD_MODEL']) {
-        config.autoBuildModel = vars['AUTO_BUILD_MODEL'];
+      if (vars['AC_JERRY_MODEL']) {
+        config.autoBuildModel = vars['AC_JERRY_MODEL'];
       }
 
       if (vars['LINEAR_API_KEY']) {

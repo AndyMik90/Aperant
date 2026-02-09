@@ -13,7 +13,7 @@ Copy and paste this into Ralph:
 
 ```bash
 /ralph-loop:ralph-loop "
-You are completing Phase 10: Agent-Drift Integration for Auto-Claude.
+You are completing Phase 10: Agent-Drift Integration for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -21,8 +21,8 @@ YOUR IDENTITY:
 - This is a 15-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\AlienZ\Desktop\Auto-Claude
-- Agent-Drift source: C:\Users\AlienZ\Desktop\Auto-Claude\Agent-Drift-main\src
+- Project root: C:\Users\AlienZ\Desktop\AC Jerry
+- Agent-Drift source: C:\Users\AlienZ\Desktop\AC Jerry\Agent-Drift-main\src
 
 Primary documentation:
 - docs\plans\PHASE_10_AGENT_DRIFT.md (THIS IS YOUR SPEC)

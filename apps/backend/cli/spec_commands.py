@@ -186,6 +186,6 @@ def print_specs_list(project_dir: Path, auto_create: bool = True) -> None:
 
     print("-" * 70)
     print("\nTo run a spec:")
-    print("  python auto-claude/run.py --spec 001")
-    print("  python auto-claude/run.py --spec 001-feature-name")
+    print("  python ac-jerry/run.py --spec 001")
+    print("  python ac-jerry/run.py --spec 001-feature-name")
     print()

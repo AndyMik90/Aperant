@@ -52,7 +52,7 @@ pwd  # Verify you're at project root
 
 ### Commit
 ```bash
-git add . ':!.auto-claude'
+git add . ':!.ac.jerry'
 git commit -m "fix: Address QA issues (qa-requested)
 
 Fixes:

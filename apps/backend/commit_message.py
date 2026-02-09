@@ -266,10 +266,10 @@ def generate_commit_message_sync(
         Generated commit message or fallback message
     """
     # Find spec directory
-    spec_dir = project_dir / ".auto-claude" / "specs" / spec_name
+    spec_dir = project_dir / ".ac.jerry" / "specs" / spec_name
     if not spec_dir.exists():
         # Try alternative location
-        spec_dir = project_dir / "auto-claude" / "specs" / spec_name
+        spec_dir = project_dir / "ac-jerry" / "specs" / spec_name
 
     # Get context from spec files
     spec_context = _get_spec_context(spec_dir) if spec_dir.exists() else {}
@@ -343,9 +343,9 @@ async def generate_commit_message(
         Generated commit message or fallback message
     """
     # Find spec directory
-    spec_dir = project_dir / ".auto-claude" / "specs" / spec_name
+    spec_dir = project_dir / ".ac.jerry" / "specs" / spec_name
     if not spec_dir.exists():
-        spec_dir = project_dir / "auto-claude" / "specs" / spec_name
+        spec_dir = project_dir / "ac-jerry" / "specs" / spec_name
 
     # Get context from spec files
     spec_context = _get_spec_context(spec_dir) if spec_dir.exists() else {}

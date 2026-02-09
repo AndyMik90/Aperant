@@ -72,7 +72,7 @@ interface OllamaEmbeddingModel {
 
 /**
  * Recommended Embedding Model Card
- * Pre-curated models suitable for Auto Claude memory system
+ * Pre-curated models suitable for AC Jerry memory system
  */
 interface OllamaRecommendedModel {
   name: string;          // Model identifier
@@ -430,7 +430,7 @@ export function registerMemoryHandlers(): void {
 
         const service = getMemoryService({
           dbPath: dbPath || getDefaultDbPath(),
-          database: database || 'auto_claude_memory',
+          database: database || 'ac_jerry_memory',
         });
 
         const result = await service.testConnection();
@@ -511,7 +511,7 @@ export function registerMemoryHandlers(): void {
         } else {
           const service = getMemoryService({
             dbPath: config.dbPath || getDefaultDbPath(),
-            database: config.database || 'auto_claude_memory',
+            database: config.database || 'ac_jerry_memory',
           });
           databaseResult = await service.testConnection();
         }

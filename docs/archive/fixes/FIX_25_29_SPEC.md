@@ -20,12 +20,12 @@ This document specifies 10 fixes discovered during v3.3 testing:
 
 ### FIX-25: Project Removal - Two Options
 
-**Problem:** When a project is deleted, its `.auto-claude/specs/` directory is NOT deleted. When the project is re-added, all old tasks reappear. Sometimes you want to keep the data, sometimes you want a clean slate.
+**Problem:** When a project is deleted, its `.ac.jerry/specs/` directory is NOT deleted. When the project is re-added, all old tasks reappear. Sometimes you want to keep the data, sometimes you want a clean slate.
 
 **Solution:** Provide TWO options when removing a project:
 
-1. **"Remove from Jerry"** - Just removes from project list, keeps `.auto-claude/specs/` intact
-2. **"Delete All Data"** - Full cleanup, removes `.auto-claude/` folder too
+1. **"Remove from Jerry"** - Just removes from project list, keeps `.ac.jerry/specs/` intact
+2. **"Delete All Data"** - Full cleanup, removes `.ac.jerry/` folder too
 
 **UI Design:**
 ```
@@ -36,7 +36,7 @@ This document specifies 10 fixes discovered during v3.3 testing:
 │    (Keep task data for later)           │
 │                                         │
 │  ○ Delete All Data                      │
-│    (Remove .auto-claude/ folder)        │
+│    (Remove .ac.jerry/ folder)        │
 │                                         │
 │           [Cancel]  [Confirm]           │
 └─────────────────────────────────────────┘
@@ -48,10 +48,10 @@ This document specifies 10 fixes discovered during v3.3 testing:
 async removeProject(projectId: string, deleteData: boolean = false) {
   const project = this.getProject(projectId);
   if (project && deleteData) {
-    // Delete .auto-claude directory if requested
-    const autoClaudeDir = path.join(project.path, '.auto-claude');
-    if (existsSync(autoClaudeDir)) {
-      await fs.rm(autoClaudeDir, { recursive: true, force: true });
+    // Delete .ac.jerry directory if requested
+    const acJerryDir = path.join(project.path, '.ac.jerry');
+    if (existsSync(acJerryDir)) {
+      await fs.rm(acJerryDir, { recursive: true, force: true });
     }
   }
   // Remove from projects.json
@@ -102,7 +102,7 @@ async function deleteTask(taskId: string, projectId: string) {
   const project = getProject(projectId);
 
   // Delete from main project
-  const mainSpecPath = path.join(project.path, '.auto-claude', 'specs', taskId);
+  const mainSpecPath = path.join(project.path, '.ac.jerry', 'specs', taskId);
   if (existsSync(mainSpecPath)) {
     await fs.rm(mainSpecPath, { recursive: true });
   }
@@ -110,7 +110,7 @@ async function deleteTask(taskId: string, projectId: string) {
   // NEW: Also delete from all worktrees
   const worktrees = await getWorktrees(project.path);
   for (const worktree of worktrees) {
-    const worktreeSpecPath = path.join(worktree.path, '.auto-claude', 'specs', taskId);
+    const worktreeSpecPath = path.join(worktree.path, '.ac.jerry', 'specs', taskId);
     if (existsSync(worktreeSpecPath)) {
       await fs.rm(worktreeSpecPath, { recursive: true });
     }
@@ -386,7 +386,7 @@ const [isBottomPanelOpen, setIsBottomPanelOpen] = useState(false);
 ## Success Criteria
 
 - [x] Project removal shows dialog with two options (Remove/Delete All) ✅
-- [x] "Delete All Data" removes `.auto-claude/` directory ✅
+- [x] "Delete All Data" removes `.ac.jerry/` directory ✅
 - [x] Task cache cleared on project removal ✅
 - [x] Task deletion removes from all worktrees ✅
 - [x] Only one "+" button for creating tasks (in sidebar) ✅

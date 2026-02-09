@@ -26,12 +26,12 @@ Add duration tracking to tasks so users can see how long AI work takes and build
 
 ```bash
 /ralph-loop:ralph-loop "
-You are an autonomous senior engineer adding duration tracking to Auto-Claude (Jerry).
+You are an autonomous senior engineer adding duration tracking to AC Jerry (Jerry).
 
 YOUR IDENTITY: You are an EXECUTOR, not an EVALUATOR. If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 
 Primary documentation:
 - docs\architecture\TASK_DURATION_TRACKING.md (full specification)

@@ -657,7 +657,7 @@ export function invokeClaude(
  *
  * Uses `claude --continue` which resumes the most recent conversation in the
  * current directory. This is simpler and more reliable than tracking session IDs,
- * since Auto Claude already restores terminals to their correct cwd/projectPath.
+ * since AC Jerry already restores terminals to their correct cwd/projectPath.
  *
  * Note: The sessionId parameter is kept for backwards compatibility but is ignored.
  * Claude Code's --resume flag expects user-named sessions (set via /rename), not
@@ -680,7 +680,7 @@ export function resumeClaude(
     const pathPrefix = buildPathPrefix(claudeEnv.PATH || '');
 
     // Always use --continue which resumes the most recent session in the current directory.
-    // This is more reliable than --resume with session IDs since Auto Claude already restores
+    // This is more reliable than --resume with session IDs since AC Jerry already restores
     // terminals to their correct cwd/projectPath.
     //
     // Note: We clear claudeSessionId because --continue doesn't track specific sessions,
@@ -911,7 +911,7 @@ export async function resumeClaudeAsync(
     const pathPrefix = buildPathPrefix(claudeEnv.PATH || '');
 
     // Always use --continue which resumes the most recent session in the current directory.
-    // This is more reliable than --resume with session IDs since Auto Claude already restores
+    // This is more reliable than --resume with session IDs since AC Jerry already restores
     // terminals to their correct cwd/projectPath.
     //
     // Note: We clear claudeSessionId because --continue doesn't track specific sessions,

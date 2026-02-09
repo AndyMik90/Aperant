@@ -353,6 +353,7 @@ class RalphPromptGenerator:
         project_root: str | Path,
         subtask_batch: list[dict],
         title: str | None = None,
+        is_resume: bool = False,
     ) -> str:
         """
         Generate a Ralph execution protocol for a specific batch of subtasks.
@@ -365,6 +366,8 @@ class RalphPromptGenerator:
             project_root: Root directory of the project
             subtask_batch: List of subtask dicts (each with 'id' and 'description')
             title: Optional title (extracted from spec if not provided)
+            is_resume: If True, replace full spec read instructions with summary
+                      reference to save tokens on resumed sessions.
 
         Returns:
             Raw Ralph execution protocol string for this batch, or empty string
@@ -407,6 +410,7 @@ class RalphPromptGenerator:
             project_root=project_root,
             spec_dir=spec_dir,
             max_iterations=max_iterations,
+            is_resume=is_resume,
         )
 
     def _extract_tasks(self, spec_content: str, plan: dict | None) -> list[dict]:
@@ -487,6 +491,7 @@ class RalphPromptGenerator:
         project_root: Path,
         spec_dir: Path,
         max_iterations: int,
+        is_resume: bool = False,
     ) -> str:
         """Build the raw Ralph execution protocol content (no CLI command wrapper)."""
         task_count = len(tasks)
@@ -498,7 +503,7 @@ class RalphPromptGenerator:
         sections = []
 
         # Header with title
-        sections.append(f'You are completing {title} for Auto-Claude (Jerry).')
+        sections.append(f'You are completing {title} for AC Jerry.')
         sections.append("")
 
         # Identity section
@@ -513,8 +518,13 @@ class RalphPromptGenerator:
         sections.append("")
 
         # Primary documentation
-        sections.append("Primary documentation:")
-        sections.append(f"- {spec_dir.relative_to(project_root) if spec_dir.is_relative_to(project_root) else spec_dir}/spec.md (READ THIS FULLY)")
+        relative_spec = spec_dir.relative_to(project_root) if spec_dir.is_relative_to(project_root) else spec_dir
+        if is_resume:
+            sections.append("Primary documentation:")
+            sections.append(f"- Spec summary provided in prompt header (full spec: {relative_spec}/spec.md)")
+        else:
+            sections.append("Primary documentation:")
+            sections.append(f"- {relative_spec}/spec.md (READ THIS FULLY)")
         sections.append("")
 
         # Task section header
@@ -538,7 +548,10 @@ class RalphPromptGenerator:
 
         # Generate steps for each task
         step_num = 1
-        sections.append(f"{step_num}. Read spec.md fully before starting.")
+        if is_resume:
+            sections.append(f"{step_num}. Review the SPEC SUMMARY above and implementation_plan.json for your next subtask.")
+        else:
+            sections.append(f"{step_num}. Read spec.md fully before starting.")
         step_num += 1
 
         for i, task in enumerate(tasks, 1):

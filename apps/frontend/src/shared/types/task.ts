@@ -357,7 +357,7 @@ export interface TaskDurations {
   total_ai_ms?: number;
 }
 
-// Implementation Plan (from auto-claude)
+// Implementation Plan (from ac-jerry)
 export interface ImplementationPlan {
   feature?: string;  // Some plans use 'feature', some use 'title'
   title?: string;    // Alternative to 'feature' for task name

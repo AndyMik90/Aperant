@@ -473,7 +473,7 @@ Use mcp__linear-server__create_issue with:
 - title: "[subtask-id] Description"
 - description: Formatted subtask details
 - priority: Based on phase (1=urgent for early phases, 4=low for polish)
-- labels: ["auto-claude", "phase-N", "service-NAME"]
+- labels: ["ac-jerry", "phase-N", "service-NAME"]
 ```
 Save the subtask_id -> issue_id mapping to .linear_project.json
 

@@ -23,7 +23,7 @@ export async function launchElectronApp(): Promise<ElectronTestContext> {
       ...process.env,
       NODE_ENV: 'test',
       // Use test-specific user data directory
-      ELECTRON_USER_DATA_PATH: '/tmp/auto-claude-ui-e2e'
+      ELECTRON_USER_DATA_PATH: '/tmp/ac-jerry-ui-e2e'
     }
   });
 

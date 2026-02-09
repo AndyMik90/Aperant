@@ -312,8 +312,8 @@ export function McpIntegration({ envConfig, updateEnvConfig }: McpIntegrationPro
           <div className="flex items-center gap-3">
             <ListChecks className="h-4 w-4 text-muted-foreground" />
             <div>
-              <span className="text-sm font-medium">{t('mcp.servers.autoClaude.name')}</span>
-              <p className="text-xs text-muted-foreground">{t('mcp.servers.autoClaude.description')} ({t('mcp.alwaysEnabled')})</p>
+              <span className="text-sm font-medium">{t('mcp.servers.acJerry.name')}</span>
+              <p className="text-xs text-muted-foreground">{t('mcp.servers.acJerry.description')} ({t('mcp.alwaysEnabled')})</p>
             </div>
           </div>
           <Switch checked={true} disabled />

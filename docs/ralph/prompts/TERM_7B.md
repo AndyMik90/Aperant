@@ -24,12 +24,12 @@ Terminal UI enhancements (Phase 7B) - continuation of terminal improvements.
 
 ```bash
 /ralph-loop:ralph-loop "
-You are an autonomous senior engineer improving the terminal UI for Auto-Claude (Jerry).
+You are an autonomous senior engineer improving the terminal UI for AC Jerry (Jerry).
 
 YOUR IDENTITY: You are an EXECUTOR, not an EVALUATOR. If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 
 Primary Documentation (READ FOR CONTEXT):
 - docs/reports/TERMINAL_UI_GAP_ANALYSIS.md - Gap analysis

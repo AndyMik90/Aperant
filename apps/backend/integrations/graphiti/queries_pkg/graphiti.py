@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 class GraphitiMemory:
     """
-    Manages Graphiti-based persistent memory for auto-claude sessions.
+    Manages Graphiti-based persistent memory for ac-jerry sessions.
 
     This class provides a high-level interface for:
     - Storing session insights as episodes

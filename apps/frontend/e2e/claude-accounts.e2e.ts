@@ -18,7 +18,7 @@ let TEST_CONFIG_DIR: string;
 
 function initTestDirectories(): void {
   // Create a unique temp directory with secure random naming
-  TEST_DATA_DIR = mkdtempSync(path.join(tmpdir(), 'auto-claude-accounts-e2e-'));
+  TEST_DATA_DIR = mkdtempSync(path.join(tmpdir(), 'ac-jerry-accounts-e2e-'));
   TEST_CONFIG_DIR = path.join(TEST_DATA_DIR, 'config');
 }
 

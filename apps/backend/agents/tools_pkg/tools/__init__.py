@@ -1,5 +1,5 @@
 """
-Auto-Claude MCP Tools
+AC Jerry MCP Tools
 =====================
 
 Individual tool implementations organized by functionality.

@@ -2,7 +2,7 @@
 Task Logger Package
 ===================
 
-Persistent logging system for Auto Claude tasks.
+Persistent logging system for AC Jerry tasks.
 Logs are organized by phase (planning, coding, validation) and stored in the spec directory.
 
 Key features:

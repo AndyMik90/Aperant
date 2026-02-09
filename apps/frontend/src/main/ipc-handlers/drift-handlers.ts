@@ -107,7 +107,7 @@ function getDriftDir(specDir: string): string {
  * Get drift settings path for the app
  */
 function getDriftSettingsPath(projectDir: string): string {
-  return path.join(projectDir, '.auto-claude', 'drift-settings.json');
+  return path.join(projectDir, '.ac.jerry', 'drift-settings.json');
 }
 
 /**

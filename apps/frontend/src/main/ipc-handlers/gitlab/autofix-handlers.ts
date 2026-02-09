@@ -69,7 +69,7 @@ function validatePathWithinProject(projectPath: string, resolvedPath: string): v
  * Get the GitLab directory for a project
  */
 function getGitLabDir(project: Project): string {
-  const gitlabDir = path.join(project.path, '.auto-claude', 'gitlab');
+  const gitlabDir = path.join(project.path, '.ac.jerry', 'gitlab');
   validatePathWithinProject(project.path, gitlabDir);
   return gitlabDir;
 }

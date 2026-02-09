@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-# Add auto-claude directory to path for imports
+# Add ac-jerry directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 # Add tests directory to path for test_fixtures
 sys.path.insert(0, str(Path(__file__).parent))
@@ -129,7 +129,7 @@ class TestSingleTaskMerge:
         orchestrator.evolution_tracker.capture_baselines("task-001", files, intent="Add new function")
 
         # Create a task branch with actual git changes (the merge pipeline uses git diff main...HEAD)
-        subprocess.run(["git", "checkout", "-b", "auto-claude/task-001"], cwd=temp_project, capture_output=True)
+        subprocess.run(["git", "checkout", "-b", "ac-jerry/task-001"], cwd=temp_project, capture_output=True)
         utils_file = temp_project / "src" / "utils.py"
         utils_file.write_text(SAMPLE_PYTHON_WITH_NEW_FUNCTION)
         subprocess.run(["git", "add", "."], cwd=temp_project, capture_output=True)

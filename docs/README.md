@@ -1,4 +1,4 @@
-# Auto-Claude Documentation
+# AC Jerry Documentation
 
 **Updated:** 2026-02-06
 
@@ -123,4 +123,4 @@ idle → planning → coding → qa_review → qa_fixing → complete
 
 ---
 
-**Need Help?** [GitHub Issues](https://github.com/AndyMik90/Auto-Claude/issues)
+**Need Help?** [GitHub Issues](https://github.com/lizz-ee/ac.jerry/issues)

@@ -42,7 +42,7 @@ LABELS = {
     "phase": "phase",  # Phase label prefix (e.g., "phase-1")
     "service": "service",  # Service label prefix (e.g., "service-backend")
     "stuck": "stuck",  # Mark stuck subtasks
-    "auto_build": "auto-claude",  # All auto-claude issues
+    "auto_build": "ac-jerry",  # All ac-jerry issues
     "needs_review": "needs-review",
 }
 
@@ -83,7 +83,7 @@ class LinearConfig:
 
 @dataclass
 class LinearProjectState:
-    """State of a Linear project for an auto-claude spec."""
+    """State of a Linear project for an ac-jerry spec."""
 
     initialized: bool = False
     team_id: str | None = None

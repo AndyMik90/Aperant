@@ -175,7 +175,7 @@ class CompanionAgent:
         context = self.build_context()
 
         if self.supervisor_mode:
-            prompt = f"""You are a live supervisor agent monitoring an active coding session for the Auto-Claude task automation system.
+            prompt = f"""You are a live supervisor agent monitoring an active coding session for the AC Jerry task automation system.
 
 A coding agent is currently implementing this task. You observe its progress and answer user questions about what is happening. You are in READ-ONLY mode.
 
@@ -205,7 +205,7 @@ Phase: {self.current_phase} (LIVE - coding agent is actively running)
 Task: {self.task_title}
 """
         else:
-            prompt = f"""You are a helpful companion agent for the Auto-Claude task automation system.
+            prompt = f"""You are a helpful companion agent for the AC Jerry task automation system.
 
 Your role is to help the user understand the current task state and answer questions about the task context. You are in READ-ONLY mode - you can read and analyze files but cannot make changes.
 

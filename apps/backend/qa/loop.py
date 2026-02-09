@@ -5,17 +5,22 @@ QA Validation Loop Orchestration
 Main QA loop that coordinates reviewer and fixer sessions until
 approval or max iterations.
 
-PERF TODO: Future optimizations not yet implemented:
-  - Merge reviewer + fixer into a single session: Instead of two separate
-    LLM calls (review → reject → fix → review), let the reviewer also apply
-    fixes in the same session when issues are found. Saves one full LLM call
-    per iteration.
-  - SDK client reuse across QA iterations: Currently creates a new client
-    per reviewer/fixer call (~200ms overhead). Could keep the client alive
-    across the loop, but requires understanding SDK lifecycle for MCP servers.
-  - Batch insight extraction: When 10 subtasks complete in a batch, 10
-    insight extraction calls fire as background tasks. Could batch into a
-    single LLM call per batch instead.
+PERF: Optimizations implemented:
+  - Combined reviewer + fixer mode: For iteration 3+, the reviewer applies
+    fixes in the same session (skips separate fixer call). Saves one full
+    LLM round-trip per iteration.
+  - Hoisted phase config lookups outside the loop (model, thinking budgets).
+  - Pre-loaded Graphiti context once, shared across all iterations.
+  - Iteration-aware thinking: full budget for first review, low for re-checks.
+
+PERF: Evaluated but deferred:
+  - SDK client reuse across iterations: Each iteration needs a fresh
+    conversation so the reviewer judges current file state independently.
+    Reusing the client would accumulate prior conversation context, wasting
+    tokens and biasing reviews. The ~200ms per-client overhead is negligible
+    vs 10-60s LLM call duration.
+  - Batch insight extraction: Insight calls happen in the runner layer after
+    all subtasks complete, not in this module. See runners/ for that path.
 """
 
 import os
@@ -349,7 +354,7 @@ async def run_qa_validation_loop(
             print("\nAll acceptance criteria verified.")
             print("The implementation is production-ready.")
             print("\nNext steps:")
-            print("  1. Review the auto-claude/* branch")
+            print("  1. Review the ac-jerry/* branch")
             print("  2. Create a PR and merge to main")
 
             # Emit SDK markers for rich UI

@@ -167,7 +167,7 @@ class TestSetupWorkspace:
             WorkspaceMode.ISOLATED,
         )
 
-        assert (temp_git_repo / ".auto-claude" / "worktrees" / "tasks").exists()
+        assert (temp_git_repo / ".ac.jerry" / "worktrees" / "tasks").exists()
 
 
 class TestWorkspaceUtilities:
@@ -184,7 +184,7 @@ class TestWorkspaceUtilities:
 
         # Worktree should be named after the spec
         assert working_dir.name == spec_name
-        # New path: .auto-claude/worktrees/tasks/{spec_name}
+        # New path: .ac.jerry/worktrees/tasks/{spec_name}
         assert working_dir.parent.name == "tasks"
 
 
@@ -390,7 +390,7 @@ class TestPerSpecWorktreeName:
             WorkspaceMode.ISOLATED,
         )
 
-        # New path: .auto-claude/worktrees/tasks/{spec_name}
+        # New path: .ac.jerry/worktrees/tasks/{spec_name}
         assert "worktrees" in str(working_dir)
         assert working_dir.parent.name == "tasks"
 
@@ -539,7 +539,7 @@ class TestRebaseDetection:
         from core.workspace import _check_git_conflicts
 
         # Create a spec branch
-        spec_branch = "auto-claude/test-spec"
+        spec_branch = "ac-jerry/test-spec"
         subprocess.run(
             ["git", "checkout", "-b", spec_branch],
             cwd=temp_git_repo,
@@ -582,7 +582,7 @@ class TestRebaseDetection:
         from core.workspace import _check_git_conflicts
 
         # Create a spec branch that's ahead (not behind)
-        spec_branch = "auto-claude/test-spec"
+        spec_branch = "ac-jerry/test-spec"
         subprocess.run(
             ["git", "checkout", "-b", spec_branch],
             cwd=temp_git_repo,
@@ -616,7 +616,7 @@ class TestRebaseDetection:
         from core.workspace import _check_git_conflicts
 
         # Create a spec branch
-        spec_branch = "auto-claude/test-spec"
+        spec_branch = "ac-jerry/test-spec"
         subprocess.run(
             ["git", "checkout", "-b", spec_branch],
             cwd=temp_git_repo,
@@ -663,7 +663,7 @@ class TestRebaseSpecBranch:
         from core.workspace import _rebase_spec_branch
 
         # Create a spec branch
-        spec_branch = "auto-claude/test-spec"
+        spec_branch = "ac-jerry/test-spec"
         subprocess.run(
             ["git", "checkout", "-b", spec_branch],
             cwd=temp_git_repo,
@@ -731,7 +731,7 @@ class TestRebaseSpecBranch:
         from core.workspace import _rebase_spec_branch
 
         # Create a spec branch
-        spec_branch = "auto-claude/test-spec"
+        spec_branch = "ac-jerry/test-spec"
         subprocess.run(
             ["git", "checkout", "-b", spec_branch],
             cwd=temp_git_repo,
@@ -817,7 +817,7 @@ class TestRebaseSpecBranch:
         from core.workspace import _rebase_spec_branch
 
         # Create a spec branch and add a commit
-        spec_branch = "auto-claude/test-spec"
+        spec_branch = "ac-jerry/test-spec"
         subprocess.run(
             ["git", "checkout", "-b", spec_branch],
             cwd=temp_git_repo,
@@ -898,7 +898,7 @@ class TestRebaseIntegration:
         from core.workspace import _check_git_conflicts
 
         # Create a spec branch
-        spec_branch = "auto-claude/test-spec"
+        spec_branch = "ac-jerry/test-spec"
         subprocess.run(
             ["git", "checkout", "-b", spec_branch],
             cwd=temp_git_repo,
@@ -960,7 +960,7 @@ class TestRebaseErrorHandling:
         from core.workspace import _check_git_conflicts
 
         # Create a spec branch first
-        spec_branch = "auto-claude/test-spec"
+        spec_branch = "ac-jerry/test-spec"
         subprocess.run(
             ["git", "checkout", "-b", spec_branch],
             cwd=temp_git_repo,
@@ -1012,7 +1012,7 @@ class TestRebaseErrorHandling:
         from core.workspace import _check_git_conflicts
 
         # Create a spec branch
-        spec_branch = "auto-claude/test-spec"
+        spec_branch = "ac-jerry/test-spec"
         subprocess.run(
             ["git", "checkout", "-b", spec_branch],
             cwd=temp_git_repo,

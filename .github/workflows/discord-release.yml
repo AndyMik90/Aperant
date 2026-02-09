@@ -16,9 +16,9 @@ jobs:
         with:
           webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
           color: "5793266"
-          username: "Auto Claude Releases"
+          username: "AC Jerry Releases"
           avatar_url: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
-          footer_title: "Auto Claude Changelog"
+          footer_title: "AC Jerry Changelog"
           footer_timestamp: true
           reduce_headings: true
           remove_github_reference_links: true

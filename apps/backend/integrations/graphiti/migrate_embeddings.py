@@ -32,7 +32,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# Add auto-claude to path
+# Add ac-jerry to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from integrations.graphiti.config import GraphitiConfig
@@ -280,7 +280,7 @@ async def interactive_migration():
     source_config.embedder_provider = source_provider
     # Use the source provider's signature for the database name
     source_config.database = source_config.get_provider_specific_database_name(
-        "auto_claude_memory"
+        "ac_jerry_memory"
     )
 
     print(f"\nSource: {source_provider}")
@@ -332,7 +332,7 @@ async def automatic_migration(args):
         source_config.embedder_provider = args.from_provider
         # Use source provider's signature for database name
         source_config.database = source_config.get_provider_specific_database_name(
-            "auto_claude_memory"
+            "ac_jerry_memory"
         )
     else:
         source_config = current_config
@@ -342,7 +342,7 @@ async def automatic_migration(args):
         target_config.embedder_provider = args.to_provider
         # Use target provider's signature for database name
         target_config.database = target_config.get_provider_specific_database_name(
-            "auto_claude_memory"
+            "ac_jerry_memory"
         )
     else:
         target_config = current_config

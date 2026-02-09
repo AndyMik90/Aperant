@@ -285,7 +285,7 @@ class OnboardingManager:
             gh_provider: GitHub provider for API calls
         """
         self.repo = repo
-        self.state_dir = state_dir or Path(".auto-claude/github")
+        self.state_dir = state_dir or Path(".ac.jerry/github")
         self.gh_provider = gh_provider
         self._state: OnboardingState | None = None
 

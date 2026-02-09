@@ -105,7 +105,7 @@ if git diff --cached --name-only | grep -q "^package.json$"; then
         # Update beta download links (within BETA_DOWNLOADS section only)
         # Use perl for cross-platform compatibility (BSD sed doesn't support {block} syntax)
         for SUFFIX in "win32-x64.exe" "darwin-arm64.dmg" "darwin-x64.dmg" "linux-x86_64.AppImage" "linux-amd64.deb" "linux-x86_64.flatpak"; do
-          perl -i -pe 'if (/<!-- BETA_DOWNLOADS -->/ .. /<!-- BETA_DOWNLOADS_END -->/) { s|Auto-Claude-[0-9.a-z-]*-'"$SUFFIX"'\]\(https://github.com/AndyMik90/Auto-Claude/releases/download/v[^/]*/Auto-Claude-[^)]*-'"$SUFFIX"'\)|Auto-Claude-'"$VERSION"'-'"$SUFFIX"'](https://github.com/AndyMik90/Auto-Claude/releases/download/v'"$VERSION"'/Auto-Claude-'"$VERSION"'-'"$SUFFIX"')|g }' README.md
+          perl -i -pe 'if (/<!-- BETA_DOWNLOADS -->/ .. /<!-- BETA_DOWNLOADS_END -->/) { s|AC-Jerry-[0-9.a-z-]*-'"$SUFFIX"'\]\(https://github.com/lizz-ee/ac.jerry/releases/download/v[^/]*/AC-Jerry-[^)]*-'"$SUFFIX"'\)|AC-Jerry-'"$VERSION"'-'"$SUFFIX"'](https://github.com/lizz-ee/ac.jerry/releases/download/v'"$VERSION"'/AC-Jerry-'"$VERSION"'-'"$SUFFIX"')|g }' README.md
         done
       else
         # STABLE: Update stable sections and top badge
@@ -122,7 +122,7 @@ if git diff --cached --name-only | grep -q "^package.json$"; then
         # Update stable download links (within STABLE_DOWNLOADS section only)
         # Use perl for cross-platform compatibility (BSD sed doesn't support {block} syntax)
         for SUFFIX in "win32-x64.exe" "darwin-arm64.dmg" "darwin-x64.dmg" "linux-x86_64.AppImage" "linux-amd64.deb"; do
-          perl -i -pe 'if (/<!-- STABLE_DOWNLOADS -->/ .. /<!-- STABLE_DOWNLOADS_END -->/) { s|Auto-Claude-[0-9.a-z-]*-'"$SUFFIX"'\]\(https://github.com/AndyMik90/Auto-Claude/releases/download/v[^/]*/Auto-Claude-[^)]*-'"$SUFFIX"'\)|Auto-Claude-'"$VERSION"'-'"$SUFFIX"'](https://github.com/AndyMik90/Auto-Claude/releases/download/v'"$VERSION"'/Auto-Claude-'"$VERSION"'-'"$SUFFIX"')|g }' README.md
+          perl -i -pe 'if (/<!-- STABLE_DOWNLOADS -->/ .. /<!-- STABLE_DOWNLOADS_END -->/) { s|AC-Jerry-[0-9.a-z-]*-'"$SUFFIX"'\]\(https://github.com/lizz-ee/ac.jerry/releases/download/v[^/]*/AC-Jerry-[^)]*-'"$SUFFIX"'\)|AC-Jerry-'"$VERSION"'-'"$SUFFIX"'](https://github.com/lizz-ee/ac.jerry/releases/download/v'"$VERSION"'/AC-Jerry-'"$VERSION"'-'"$SUFFIX"')|g }' README.md
         done
       fi
 
@@ -253,7 +253,7 @@ if git diff --cached --name-only | grep -q "^apps/frontend/"; then
       echo ""
       echo "⚠️  WARNING: node_modules not available in this worktree."
       echo "   TypeScript and lint checks will be skipped."
-      echo "   This is expected for auto-claude worktrees."
+      echo "   This is expected for ac-jerry worktrees."
       echo "   Full validation will occur when PR is created/merged."
       echo ""
     else

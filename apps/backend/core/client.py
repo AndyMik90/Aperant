@@ -347,7 +347,7 @@ from agents.tools_pkg import (
     GRAPHITI_MCP_TOOLS,
     LINEAR_TOOLS,
     PUPPETEER_TOOLS,
-    create_auto_claude_mcp_server,
+    create_ac_jerry_mcp_server,
     get_allowed_tools,
     get_required_mcp_servers,
     is_tools_available,
@@ -530,7 +530,7 @@ def _validate_custom_mcp_server(server: dict) -> bool:
 
 def load_project_mcp_config(project_dir: Path) -> dict:
     """
-    Load MCP configuration from project's .auto-claude/.env file.
+    Load MCP configuration from project's .ac.jerry/.env file.
 
     Returns a dict of MCP-related env vars:
     - CONTEXT7_ENABLED (default: true)
@@ -547,7 +547,7 @@ def load_project_mcp_config(project_dir: Path) -> dict:
     Returns:
         Dict of MCP configuration values (string values, except CUSTOM_MCP_SERVERS which is parsed JSON)
     """
-    env_path = project_dir / ".auto-claude" / ".env"
+    env_path = project_dir / ".ac.jerry" / ".env"
     if not env_path.exists():
         return {}
 
@@ -660,6 +660,8 @@ def create_client(
     output_format: dict | None = None,
     agents: dict | None = None,
     max_turns: int = 100,
+    is_resume: bool = False,
+    resume_context: str = "",
 ) -> ClaudeSDKClient:
     """
     Create a Claude Agent SDK client with multi-layered security.
@@ -686,6 +688,10 @@ def create_client(
                Format: {"agent-name": {"description": "...", "prompt": "...",
                         "tools": [...], "model": "inherit"}}
                See: https://platform.claude.com/docs/en/agent-sdk/subagents
+        is_resume: If True, append resume-awareness to the system prompt.
+                  Tells the agent this is a continued build session.
+        resume_context: Optional progress context string to append to system
+                       prompt (e.g., "7/12 subtasks completed").
 
     Returns:
         Configured ClaudeSDKClient
@@ -732,15 +738,15 @@ def create_client(
     linear_enabled = is_linear_enabled()
     linear_api_key = os.environ.get("LINEAR_API_KEY", "")
 
-    # Check if custom auto-claude tools are available
-    auto_claude_tools_enabled = is_tools_available()
+    # Check if custom ac-jerry tools are available
+    ac_jerry_tools_enabled = is_tools_available()
 
     # Load project capabilities for dynamic MCP tool selection
     # This enables context-aware tool injection based on project type
     # Uses caching to avoid reloading on every create_client() call
     project_index, project_capabilities = _get_cached_project_data(project_dir)
 
-    # Load per-project MCP configuration from .auto-claude/.env
+    # Load per-project MCP configuration from .ac.jerry/.env
     mcp_config = load_project_mcp_config(project_dir)
     logger.debug(f"Loaded MCP config with {len(mcp_config)} settings")
 
@@ -784,10 +790,10 @@ def create_client(
 
     # Detect if we're running in a worktree and get the original project directory
     # Worktrees are located in either:
-    # - .auto-claude/worktrees/tasks/{spec-name}/ (new location)
+    # - .ac.jerry/worktrees/tasks/{spec-name}/ (new location)
     # - .worktrees/{spec-name}/ (legacy location)
     # When running in a worktree, we need to allow access to both the worktree
-    # and the original project's .auto-claude/ directory for spec files
+    # and the original project's .ac.jerry/ directory for spec files
     original_project_permissions = []
     resolved_project_path = project_dir.resolve()
 
@@ -795,8 +801,8 @@ def create_client(
     # This handles spec worktrees, PR review worktrees, and legacy worktrees
     # Note: Windows paths are normalized to forward slashes before comparison
     worktree_markers = [
-        "/.auto-claude/worktrees/tasks/",  # Spec/task worktrees
-        "/.auto-claude/github/pr/worktrees/",  # PR review worktrees
+        "/.ac.jerry/worktrees/tasks/",  # Spec/task worktrees
+        "/.ac.jerry/github/pr/worktrees/",  # PR review worktrees
         "/.worktrees/",  # Legacy worktree location
     ]
     project_path_posix = str(resolved_project_path).replace("\\", "/")
@@ -811,7 +817,7 @@ def create_client(
             # Grant permissions for relevant directories in the original project
             permission_ops = ["Read", "Write", "Edit", "Glob", "Grep"]
             dirs_to_permit = [
-                original_project_dir / ".auto-claude",
+                original_project_dir / ".ac.jerry",
                 original_project_dir / ".worktrees",  # Legacy support
             ]
 
@@ -845,7 +851,7 @@ def create_client(
                 f"Read({spec_path_str}/**)",
                 f"Write({spec_path_str}/**)",
                 f"Edit({spec_path_str}/**)",
-                # Allow original project's .auto-claude/ and .worktrees/ directories
+                # Allow original project's .ac.jerry/ and .worktrees/ directories
                 # when running in a worktree (fixes issue #385 - permission errors)
                 *original_project_permissions,
                 # Bash permission granted here, but actual commands are validated
@@ -906,8 +912,8 @@ def create_client(
         mcp_servers_list.append("linear (project management)")
     if graphiti_mcp_enabled:
         mcp_servers_list.append("graphiti-memory (knowledge graph)")
-    if "auto-claude" in required_servers and auto_claude_tools_enabled:
-        mcp_servers_list.append(f"auto-claude ({agent_type} tools)")
+    if "ac-jerry" in required_servers and ac_jerry_tools_enabled:
+        mcp_servers_list.append(f"ac-jerry ({agent_type} tools)")
     if mcp_servers_list:
         print(f"   - MCP servers: {', '.join(mcp_servers_list)}")
     else:
@@ -962,11 +968,11 @@ def create_client(
             "url": get_graphiti_mcp_url(),
         }
 
-    # Add custom auto-claude MCP server if required and available
-    if "auto-claude" in required_servers and auto_claude_tools_enabled:
-        auto_claude_mcp_server = create_auto_claude_mcp_server(spec_dir, project_dir)
-        if auto_claude_mcp_server:
-            mcp_servers["auto-claude"] = auto_claude_mcp_server
+    # Add custom ac-jerry MCP server if required and available
+    if "ac-jerry" in required_servers and ac_jerry_tools_enabled:
+        ac_jerry_mcp_server = create_ac_jerry_mcp_server(spec_dir, project_dir)
+        if ac_jerry_mcp_server:
+            mcp_servers["ac-jerry"] = ac_jerry_mcp_server
 
     # Add custom MCP servers from project config
     custom_servers = mcp_config.get("CUSTOM_MCP_SERVERS", [])
@@ -1014,6 +1020,23 @@ def create_client(
             print("   - CLAUDE.md: not found in project root")
     else:
         print("   - CLAUDE.md: disabled by project settings")
+
+    # Append resume context to system prompt for continued build sessions.
+    # This tells the agent it's resuming prior work and should skip full
+    # spec re-reads (saving 2,000-5,000 tokens per session).
+    if is_resume:
+        resume_section = (
+            "\n\n# RESUMED BUILD SESSION\n\n"
+            "This is a CONTINUED build session — previous sessions have already "
+            "completed subtasks for this task. DO NOT re-read the full spec.md "
+            "unless the prompt explicitly requires it. A spec summary is provided "
+            "in the prompt. Focus on the pending subtasks only."
+        )
+        if resume_context:
+            resume_section += f"\n\n{resume_context}"
+        base_prompt += resume_section
+        print("   - Resume mode: system prompt optimized for continuation")
+
     print()
 
     # Find Claude CLI path for SDK

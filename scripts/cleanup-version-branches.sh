@@ -9,7 +9,7 @@
 # that collide with release tags, which causes HTTP 300 errors in the
 # auto-updater.
 #
-# ISSUE: https://github.com/AndyMik90/Auto-Claude/issues/89
+# ISSUE: https://github.com/lizz-ee/ac.jerry/issues/89
 #
 # BACKGROUND:
 # When both a branch and tag share the same name (e.g., "v2.6.5"), GitHub's

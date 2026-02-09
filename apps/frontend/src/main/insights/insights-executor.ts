@@ -127,12 +127,12 @@ export class InsightsExecutor extends EventEmitter {
 
     const autoBuildSource = this.config.getAutoBuildSourcePath();
     if (!autoBuildSource) {
-      throw new Error('Auto Claude source not found');
+      throw new Error('AC Jerry source not found');
     }
 
     const runnerPath = path.join(autoBuildSource, 'runners', 'insights_runner.py');
     if (!existsSync(runnerPath)) {
-      throw new Error('insights_runner.py not found in auto-claude directory');
+      throw new Error('insights_runner.py not found in ac-jerry directory');
     }
 
     // Emit thinking status

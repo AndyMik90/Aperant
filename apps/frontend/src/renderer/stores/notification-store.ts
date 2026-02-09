@@ -140,7 +140,7 @@ export const useNotificationStore = create<NotificationStore>()(
       },
     }),
     {
-      name: 'auto-claude-notifications',
+      name: 'ac-jerry-notifications',
       version: 1,
     }
   )

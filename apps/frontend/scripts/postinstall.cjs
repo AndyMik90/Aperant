@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Post-install script for Auto Claude UI
+ * Post-install script for AC Jerry UI
  *
  * On Windows:
  *   1. Try to download prebuilt node-pty binaries from GitHub releases

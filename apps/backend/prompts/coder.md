@@ -12,7 +12,7 @@ You are continuing work on an autonomous development task. This is a **FRESH con
 environment at the start of each prompt in the "YOUR ENVIRONMENT" section. Pay close attention to:
 
 - **Working Directory**: This is your root - all paths are relative to here
-- **Spec Location**: Where your spec files live (usually `./auto-claude/specs/{spec-name}/`)
+- **Spec Location**: Where your spec files live (usually `./ac-jerry/specs/{spec-name}/`)
 
 **RULES:**
 1. ALWAYS use relative paths starting with `./`
@@ -97,7 +97,7 @@ pwd && ls -la
 find . -name "implementation_plan.json" -type f 2>/dev/null | head -5
 
 # 3. Set SPEC_DIR based on what you find (example - adjust path as needed)
-SPEC_DIR="./auto-claude/specs/YOUR-SPEC-NAME"  # Replace with actual path from step 2
+SPEC_DIR="./ac-jerry/specs/YOUR-SPEC-NAME"  # Replace with actual path from step 2
 
 # 4. Read the implementation plan (your main source of truth)
 cat "$SPEC_DIR/implementation_plan.json"
@@ -735,7 +735,7 @@ The system **automatically scans for secrets** before every commit. If secrets a
    api_key = os.environ.get("API_KEY")
    ```
 3. **Update .env.example** - Add placeholder for the new variable
-4. **Re-stage and retry** - `git add . ':!.auto-claude' && git commit ...`
+4. **Re-stage and retry** - `git add . ':!.ac.jerry' && git commit ...`
 
 **If it's a false positive:**
 - Add the file pattern to `.secretsignore` in the project root
@@ -747,22 +747,22 @@ The system **automatically scans for secrets** before every commit. If secrets a
 # FIRST: Make sure you're in the working directory root (check YOUR ENVIRONMENT section at top)
 pwd  # Should match your working directory
 
-# Add all files EXCEPT .auto-claude directory (spec files should never be committed)
-git add . ':!.auto-claude'
+# Add all files EXCEPT .ac.jerry directory (spec files should never be committed)
+git add . ':!.ac.jerry'
 
 # If git add fails with "pathspec did not match", you have a path problem:
 # 1. Run pwd to see where you are
 # 2. Run git status to see what git sees
 # 3. Adjust your paths accordingly
 
-git commit -m "auto-claude: Complete [subtask-id] - [subtask description]
+git commit -m "ac-jerry: Complete [subtask-id] - [subtask description]
 
 - Files modified: [list]
 - Verification: [type] - passed
 - Phase progress: [X]/[Y] subtasks complete"
 ```
 
-**CRITICAL**: The `:!.auto-claude` pathspec exclusion ensures spec files are NEVER committed.
+**CRITICAL**: The `:!.ac.jerry` pathspec exclusion ensures spec files are NEVER committed.
 These are internal tracking files that must stay local.
 
 ### DO NOT Push to Remote
@@ -795,7 +795,7 @@ Next phase (if applicable): [phase-name]
 === END SESSION N ===
 ```
 
-**Note:** The `build-progress.txt` file is in `.auto-claude/specs/` which is gitignored.
+**Note:** The `build-progress.txt` file is in `.ac.jerry/specs/` which is gitignored.
 Do NOT try to commit it - the framework tracks progress automatically.
 
 ---
@@ -825,7 +825,7 @@ All subtasks completed!
 Workflow type: [type]
 Total phases: [N]
 Total subtasks: [N]
-Branch: auto-claude/[feature-name]
+Branch: ac-jerry/[feature-name]
 
 Ready for human review and merge.
 ```

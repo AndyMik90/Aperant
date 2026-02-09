@@ -19,7 +19,7 @@ def mock_project_dir(tmp_path):
 
 @pytest.fixture
 def mock_profile_path(mock_project_dir):
-    return mock_project_dir / ".auto-claude-security.json"
+    return mock_project_dir / ".ac-jerry-security.json"
 
 def create_valid_profile_json(commands, project_hash=""):
     """Helper to create a valid SecurityProfile JSON structure."""

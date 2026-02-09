@@ -259,8 +259,8 @@ ls -la [path-to-files]  # Make sure the path is correct from your current locati
 # FIRST: Make sure you're in the working directory root
 pwd  # Should match your working directory
 
-# Add all files EXCEPT .auto-claude directory (spec files should never be committed)
-git add . ':!.auto-claude'
+# Add all files EXCEPT .ac.jerry directory (spec files should never be committed)
+git add . ':!.ac.jerry'
 
 # If git add fails with "pathspec did not match", you have a path problem:
 # 1. Run pwd to see where you are
@@ -281,7 +281,7 @@ Verified:
 QA Fix Session: [N]"
 ```
 
-**CRITICAL**: The `:!.auto-claude` pathspec exclusion ensures spec files are NEVER committed.
+**CRITICAL**: The `:!.ac.jerry` pathspec exclusion ensures spec files are NEVER committed.
 
 **NOTE**: Do NOT push to remote. All work stays local until user reviews and approves.
 

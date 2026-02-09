@@ -16,7 +16,7 @@ import pytest
 # Add tests directory to path for helper imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-# Setup mocks before importing auto-claude modules
+# Setup mocks before importing ac-jerry modules
 from qa_report_helpers import setup_qa_report_mocks, cleanup_qa_report_mocks
 
 # Setup mocks

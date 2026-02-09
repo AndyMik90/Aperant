@@ -21,12 +21,12 @@
 
 ```bash
 /ralph-loop:ralph-loop "
-You are an autonomous senior engineer fixing UI issues for Auto-Claude (Jerry).
+You are an autonomous senior engineer fixing UI issues for AC Jerry (Jerry).
 
 YOUR IDENTITY: You are an EXECUTOR, not an EVALUATOR. If a task is in this list, you execute it. Period.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 
 Primary documentation:
 - docs\reports\SETTINGS_AUDIT_REPORT.md (settings analysis)
@@ -93,7 +93,7 @@ Say: NEXT: SETTINGS-1 and begin SETTINGS-1
 
 File: apps/frontend/src/renderer/components/settings/GeneralSettings.tsx
 
-Problem: The agentFramework dropdown (lines 136-148) only has ONE option ('auto-claude'). This is a useless dropdown that confuses users.
+Problem: The agentFramework dropdown (lines 136-148) only has ONE option ('ac-jerry'). This is a useless dropdown that confuses users.
 
 Fix:
 1. Remove the agentFramework dropdown entirely from the 'agent' section

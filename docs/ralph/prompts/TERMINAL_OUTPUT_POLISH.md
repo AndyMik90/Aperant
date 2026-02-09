@@ -23,7 +23,7 @@ See `docs/ui-reference/RAW_VIEW_REFERENCE.md` and screenshots in `docs/ui-refere
 
 ```bash
 /ralph-loop:ralph-loop "
-You are implementing TERMINAL_OUTPUT_POLISH for Auto-Claude.
+You are implementing TERMINAL_OUTPUT_POLISH for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -31,7 +31,7 @@ YOUR IDENTITY:
 - This is a 5-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+- Project root: C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 - Frontend: apps/frontend/src/
 
 ---

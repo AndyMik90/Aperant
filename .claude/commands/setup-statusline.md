@@ -1,6 +1,6 @@
 # Setup ccstatusline Integration for Auto-Build
 
-Configure ccstatusline to display real-time auto-claude progress in your Claude Code status bar.
+Configure ccstatusline to display real-time ac-jerry progress in your Claude Code status bar.
 
 ## Prerequisites
 
@@ -26,7 +26,7 @@ This launches the interactive TUI to configure your status line.
 In the ccstatusline TUI config, add a **Custom Command** widget with:
 
 ```
-Command: python /path/to/your/project/auto-claude/statusline.py --format compact
+Command: python /path/to/your/project/ac-jerry/statusline.py --format compact
 ```
 
 **Recommended widget settings:**
@@ -41,7 +41,7 @@ Edit `~/.config/ccstatusline/settings.json` and add to your widgets array:
 ```json
 {
   "type": "custom",
-  "command": "python /path/to/your/project/auto-claude/statusline.py --format compact",
+  "command": "python /path/to/your/project/ac-jerry/statusline.py --format compact",
   "interval": 5,
   "showWhenEmpty": false
 }
@@ -123,7 +123,7 @@ When active, you'll see these indicators:
 ### Status not showing?
 1. Check if `.auto-claude-status` exists in your project root
 2. Verify the path to `statusline.py` is correct
-3. Try running the command manually: `python auto-claude/statusline.py --format compact`
+3. Try running the command manually: `python ac-jerry/statusline.py --format compact`
 
 ### Updates too slow?
 - Decrease the polling interval in ccstatusline config (minimum 1 second)
@@ -136,16 +136,16 @@ When active, you'll see these indicators:
 ### Minimal Status Line
 Just chunks and phase:
 ```
-python auto-claude/statusline.py --format compact
+python ac-jerry/statusline.py --format compact
 ```
 
 ### With Specific Spec
 Monitor a specific spec:
 ```
-python auto-claude/statusline.py --format compact --spec 001-my-feature
+python ac-jerry/statusline.py --format compact --spec 001-my-feature
 ```
 
 ### Full Path for Global Use
 ```
-python ~/projects/my-app/auto-claude/statusline.py --format compact --project-dir ~/projects/my-app
+python ~/projects/my-app/ac-jerry/statusline.py --format compact --project-dir ~/projects/my-app
 ```

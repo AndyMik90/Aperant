@@ -22,10 +22,10 @@ class TestAgentConfigs:
     """Tests for AGENT_CONFIGS registry."""
 
     def test_all_agent_types_have_required_fields(self):
-        """Every agent config should have tools, mcp_servers, auto_claude_tools, thinking_default."""
+        """Every agent config should have tools, mcp_servers, ac_jerry_tools, thinking_default."""
         from agents.tools_pkg.models import AGENT_CONFIGS
 
-        required_fields = ["tools", "mcp_servers", "auto_claude_tools", "thinking_default"]
+        required_fields = ["tools", "mcp_servers", "ac_jerry_tools", "thinking_default"]
 
         for agent_type, config in AGENT_CONFIGS.items():
             for field in required_fields:
@@ -75,8 +75,8 @@ class TestAgentConfigs:
         for agent_type, config in AGENT_CONFIGS.items():
             assert isinstance(config["tools"], list), f"Agent '{agent_type}' tools should be list"
             assert isinstance(
-                config["auto_claude_tools"], list
-            ), f"Agent '{agent_type}' auto_claude_tools should be list"
+                config["ac_jerry_tools"], list
+            ), f"Agent '{agent_type}' ac_jerry_tools should be list"
             assert isinstance(
                 config["mcp_servers"], list
             ), f"Agent '{agent_type}' mcp_servers should be list"
@@ -122,13 +122,13 @@ class TestGetRequiredMcpServers:
         servers = get_required_mcp_servers("spec_researcher")
         assert "context7" in servers
 
-    def test_coder_has_context7_and_auto_claude(self):
-        """coder should require context7 and auto-claude."""
+    def test_coder_has_context7_and_ac_jerry(self):
+        """coder should require context7 and ac-jerry."""
         from agents.tools_pkg.models import get_required_mcp_servers
 
         servers = get_required_mcp_servers("coder")
         assert "context7" in servers
-        assert "auto-claude" in servers
+        assert "ac-jerry" in servers
 
     def test_linear_optional_not_included_by_default(self):
         """Linear should not be included unless linear_enabled=True."""

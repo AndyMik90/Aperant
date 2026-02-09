@@ -137,7 +137,7 @@ Jerry uses Git worktrees for isolated builds:
 
 ```bash
 # Test the feature in the isolated workspace
-cd .worktrees/auto-claude/
+cd .worktrees/ac-jerry/
 npm run dev  # or your project's run command
 
 # Return to backend directory to run management commands
@@ -193,7 +193,7 @@ cp .env.example .env
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `CLAUDE_CODE_OAUTH_TOKEN` | Yes | OAuth token from `claude setup-token` |
-| `AUTO_BUILD_MODEL` | No | Model override (default: claude-opus-4-5-20251101) |
+| `AC_JERRY_MODEL` | No | Model override (default: claude-opus-4-5-20251101) |
 | `DEFAULT_BRANCH` | No | Base branch for worktrees (auto-detects main/master) |
 | `DEBUG` | No | Enable debug logging (default: false) |
 

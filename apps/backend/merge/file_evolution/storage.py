@@ -39,7 +39,7 @@ class EvolutionStorage:
 
         Args:
             project_dir: Root directory of the project
-            storage_dir: Directory for evolution data (.auto-claude/)
+            storage_dir: Directory for evolution data (.ac.jerry/)
         """
         self.project_dir = Path(project_dir).resolve()
         self.storage_dir = Path(storage_dir).resolve()

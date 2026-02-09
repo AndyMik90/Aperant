@@ -164,7 +164,7 @@ Repurpose the Terminals page as a place to launch **standalone Claude Code sessi
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │ Session 1: "Help with API refactor"      [Active]   │   │
-│  │ Started: 2:30 PM | Project: Auto-Claude      [Open] │   │
+│  │ Started: 2:30 PM | Project: AC Jerry      [Open] │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐   │
@@ -188,9 +188,9 @@ Repurpose the Terminals page as a place to launch **standalone Claude Code sessi
 │                                                             │
 │  Project:                                                   │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │ Auto-Claude                                     [▼] │   │
+│  │ AC Jerry                                     [▼] │   │
 │  └─────────────────────────────────────────────────────┘   │
-│  Path: C:\Users\AlienZ\Desktop\Auto-Claude                  │
+│  Path: C:\Users\AlienZ\Desktop\AC Jerry                  │
 │                                                             │
 │  Session Name (optional):                                   │
 │  ┌─────────────────────────────────────────────────────┐   │

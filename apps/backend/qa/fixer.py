@@ -73,7 +73,7 @@ async def run_qa_fixer_session(
         - "error" if an error occurred
     """
     # Derive project_dir from spec_dir if not provided
-    # spec_dir is typically: /project/.auto-claude/specs/001-name/
+    # spec_dir is typically: /project/.ac.jerry/specs/001-name/
     if project_dir is None:
         # Walk up from spec_dir to find project root
         project_dir = spec_dir.parent.parent.parent

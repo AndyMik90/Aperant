@@ -181,7 +181,7 @@ class OverrideManager:
     Manages user overrides and cancellations.
 
     Usage:
-        override_mgr = OverrideManager(github_dir=Path(".auto-claude/github"))
+        override_mgr = OverrideManager(github_dir=Path(".ac.jerry/github"))
 
         # Start grace period when label is added
         grace = override_mgr.start_grace_period(

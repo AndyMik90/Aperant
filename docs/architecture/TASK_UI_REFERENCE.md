@@ -9,7 +9,7 @@
 
 ```
 +-----------------------------------------------------------------------------------+
-|  Jerry - Auto-Claude                                                    [_][O][X] |
+|  Jerry - AC Jerry                                                    [_][O][X] |
 +-----------------------------------------------------------------------------------+
 |  [+ New Task]  [Settings]                                      Project: my-app    |
 +-----------------------------------------------------------------------------------+
@@ -144,7 +144,7 @@ The terminal output should match Claude Code's format exactly:
 | * Now let me verify the build compiles. Let me run a quick            |
 |   TypeScript check:                                                   |
 |                                                                       |
-| * Bash(cd "C:/Users/jamie.ballard/Documents/GitHub/Auto-Claude/       |
+| * Bash(cd "C:/Users/jamie.ballard/Documents/GitHub/AC Jerry/       |
 |        apps/frontend" && npm run build 2>&1 | head -100)              |
 |   L > jerry-ui@2.7.5 build                                            |
 |     > electron-vite build                                             |

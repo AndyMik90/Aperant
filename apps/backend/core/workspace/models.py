@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 class WorkspaceMode(Enum):
-    """How auto-claude should work."""
+    """How ac-jerry should work."""
 
     ISOLATED = "isolated"  # Work in a separate worktree (safe)
     DIRECT = "direct"  # Work directly in user's project
@@ -60,14 +60,14 @@ class MergeLock:
     """
     Context manager for merge locking to prevent concurrent merges.
 
-    Uses a lock file in .auto-claude/ to ensure only one merge operation
+    Uses a lock file in .ac.jerry/ to ensure only one merge operation
     runs at a time for a given project.
     """
 
     def __init__(self, project_dir: Path, spec_name: str):
         self.project_dir = project_dir
         self.spec_name = spec_name
-        self.lock_dir = project_dir / ".auto-claude" / ".locks"
+        self.lock_dir = project_dir / ".ac.jerry" / ".locks"
         self.lock_file = self.lock_dir / f"merge-{spec_name}.lock"
         self.acquired = False
 
@@ -157,7 +157,7 @@ class SpecNumberLock:
 
     def __init__(self, project_dir: Path):
         self.project_dir = project_dir
-        self.lock_dir = project_dir / ".auto-claude" / ".locks"
+        self.lock_dir = project_dir / ".ac.jerry" / ".locks"
         self.lock_file = self.lock_dir / "spec-numbering.lock"
         self.acquired = False
         self._global_max: int | None = None
@@ -245,15 +245,15 @@ class SpecNumberLock:
         max_number = 0
 
         # 1. Scan main project specs
-        main_specs_dir = self.project_dir / ".auto-claude" / "specs"
+        main_specs_dir = self.project_dir / ".ac.jerry" / "specs"
         max_number = max(max_number, self._scan_specs_dir(main_specs_dir))
 
         # 2. Scan all worktree specs
-        worktrees_dir = self.project_dir / ".auto-claude" / "worktrees" / "tasks"
+        worktrees_dir = self.project_dir / ".ac.jerry" / "worktrees" / "tasks"
         if worktrees_dir.exists():
             for worktree in worktrees_dir.iterdir():
                 if worktree.is_dir():
-                    worktree_specs = worktree / ".auto-claude" / "specs"
+                    worktree_specs = worktree / ".ac.jerry" / "specs"
                     max_number = max(max_number, self._scan_specs_dir(worktree_specs))
 
         self._global_max = max_number

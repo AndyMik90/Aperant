@@ -13,7 +13,7 @@ Copy and paste this into Ralph:
 
 ```bash
 /ralph-loop:ralph-loop "
-You are completing Phase 11: Build Optimization for Auto-Claude.
+You are completing Phase 11: Build Optimization for AC Jerry.
 
 YOUR IDENTITY:
 - You are an EXECUTOR, not an EVALUATOR.
@@ -21,7 +21,7 @@ YOUR IDENTITY:
 - This is a 4-TASK JOB. Do NOT stop until all tasks are complete.
 
 Repository:
-- Project root: C:\Users\AlienZ\Desktop\Auto-Claude
+- Project root: C:\Users\AlienZ\Desktop\AC Jerry
 - Frontend: apps/frontend/
 
 Primary documentation:

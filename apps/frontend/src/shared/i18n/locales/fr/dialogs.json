@@ -1,15 +1,15 @@
 {
   "initialize": {
-    "title": "Initialiser Jerry",
-    "description": "Ce projet n'a pas Jerry initialisé. Voulez-vous le configurer maintenant ?",
+    "title": "Initialiser AC Jerry",
+    "description": "Ce projet n'a pas AC Jerry initialisé. Voulez-vous le configurer maintenant ?",
     "willDo": "Ceci va :",
-    "createFolder": "Créer un dossier .auto-claude dans votre projet",
-    "copyFramework": "Copier les fichiers du framework Jerry",
+    "createFolder": "Créer un dossier .ac.jerry dans votre projet",
+    "copyFramework": "Copier les fichiers du framework AC Jerry",
     "setupSpecs": "Configurer le répertoire des spécifications pour vos tâches",
     "sourcePathNotConfigured": "Chemin source non configuré",
-    "sourcePathNotConfiguredDescription": "Veuillez définir le chemin source Jerry dans les paramètres de l'application avant d'initialiser.",
+    "sourcePathNotConfiguredDescription": "Veuillez définir le chemin source AC Jerry dans les paramètres de l'application avant d'initialiser.",
     "initFailed": "Échec de l'initialisation",
-    "initFailedDescription": "Échec de l'initialisation de Jerry. Veuillez réessayer."
+    "initFailedDescription": "Échec de l'initialisation d'AC Jerry. Veuillez réessayer."
   },
   "gitSetup": {
     "title": "Dépôt Git requis",
@@ -151,7 +151,7 @@
   },
   "appUpdate": {
     "title": "Mise à jour de l'application disponible",
-    "description": "Une nouvelle version d'Jerry est prête à être téléchargée",
+    "description": "Une nouvelle version d'AC Jerry est prête à être téléchargée",
     "newVersion": "Nouvelle version",
     "released": "Publiée",
     "downloading": "Téléchargement...",

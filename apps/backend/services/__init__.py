@@ -2,7 +2,7 @@
 Services Module
 ===============
 
-Background services and orchestration for Auto Claude.
+Background services and orchestration for AC Jerry.
 """
 
 from .context import ServiceContext

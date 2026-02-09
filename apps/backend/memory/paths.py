@@ -14,7 +14,7 @@ def get_memory_dir(spec_dir: Path) -> Path:
     Get the memory directory for a spec, creating it if needed.
 
     Args:
-        spec_dir: Path to spec directory (e.g., .auto-claude/specs/001-feature/)
+        spec_dir: Path to spec directory (e.g., .ac.jerry/specs/001-feature/)
 
     Returns:
         Path to memory directory

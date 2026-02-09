@@ -258,7 +258,7 @@
           return { success: false, error: 'Task not found' };
         }
 
-        const autoBuildDir = project.autoBuildPath || '.auto-claude';
+        const autoBuildDir = project.autoBuildPath || '.ac.jerry';
         const specDir = path.join(project.path, autoBuildDir, 'specs', task.specId);
 
         if (!existsSync(specDir)) {
@@ -775,7 +775,7 @@
       }
 
       // Get the spec directory
-      const autoBuildDir = project.autoBuildPath || '.auto-claude';
+      const autoBuildDir = project.autoBuildPath || '.ac.jerry';
       const specDir = path.join(
         project.path,
         autoBuildDir,
@@ -1191,7 +1191,7 @@
               return { success: false, error: `Python environment not ready: ${status.error || 'Unknown error'}` };
             }
           } else {
-            return { success: false, error: 'Python environment not ready and Auto Claude source not found' };
+            return { success: false, error: 'Python environment not ready and AC Jerry source not found' };
           }
         }
 
@@ -1203,11 +1203,11 @@
         // Use run.py --merge to handle the merge
         const sourcePath = getEffectiveSourcePath();
         if (!sourcePath) {
-          return { success: false, error: 'Auto Claude source not found' };
+          return { success: false, error: 'AC Jerry source not found' };
         }
 
         const runScript = path.join(sourcePath, 'run.py');
-        const specDir = path.join(project.path, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
+        const specDir = path.join(project.path, project.autoBuildPath || '.ac.jerry', 'specs', task.specId);
 
         if (!existsSync(specDir)) {
           return { success: false, error: 'Spec directory not found' };

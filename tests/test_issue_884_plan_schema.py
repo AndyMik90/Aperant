@@ -280,7 +280,7 @@ async def test_planner_session_does_not_trigger_post_session_processing_on_retry
     from agents.coder import run_autonomous_agent
     from task_logger import LogPhase
 
-    spec_dir = temp_git_repo / ".auto-claude" / "specs" / "001-test"
+    spec_dir = temp_git_repo / ".ac.jerry" / "specs" / "001-test"
     spec_dir.mkdir(parents=True, exist_ok=True)
     (spec_dir / "spec.md").write_text("# Test spec\n", encoding="utf-8")
 
@@ -347,7 +347,7 @@ async def test_worktree_planning_to_coding_sync_updates_source_phase_status(
     from task_logger import LogPhase
 
     worktree_spec_dir = temp_git_repo / ".worktrees" / "001-test" / "specs" / "001-test"
-    source_spec_dir = temp_git_repo / ".auto-claude" / "specs" / "001-test"
+    source_spec_dir = temp_git_repo / ".ac.jerry" / "specs" / "001-test"
     worktree_spec_dir.mkdir(parents=True, exist_ok=True)
     source_spec_dir.mkdir(parents=True, exist_ok=True)
     for d in (worktree_spec_dir, source_spec_dir):

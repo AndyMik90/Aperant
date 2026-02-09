@@ -251,7 +251,7 @@ def handle_followup_command(
             "Follow-up tasks can only be added to specs that have been",
             "built at least once. Run a regular build first:",
             "",
-            highlight(f"  python auto-claude/run.py --spec {spec_dir.name}"),
+            highlight(f"  python ac-jerry/run.py --spec {spec_dir.name}"),
             "",
             muted("After the build completes, you can add follow-up tasks."),
         ]
@@ -275,7 +275,7 @@ def handle_followup_command(
             "Follow-up tasks can only be added after all current subtasks",
             "are finished. Complete the current build first:",
             "",
-            highlight(f"  python auto-claude/run.py --spec {spec_dir.name}"),
+            highlight(f"  python ac-jerry/run.py --spec {spec_dir.name}"),
             "",
             muted("The build will continue from where it left off."),
         ]
@@ -346,7 +346,7 @@ def handle_followup_command(
                 "New subtasks have been added to your implementation plan.",
                 "",
                 highlight("To continue building:"),
-                f"  python auto-claude/run.py --spec {spec_dir.name}",
+                f"  python ac-jerry/run.py --spec {spec_dir.name}",
             ]
             print(box(content, width=70, style="heavy"))
         else:
@@ -363,7 +363,7 @@ def handle_followup_command(
 
     except KeyboardInterrupt:
         print("\n\nFollow-up planning paused.")
-        print(f"To retry: python auto-claude/run.py --spec {spec_dir.name} --followup")
+        print(f"To retry: python ac-jerry/run.py --spec {spec_dir.name} --followup")
         sys.exit(0)
     except Exception as e:
         print()

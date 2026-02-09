@@ -94,7 +94,7 @@ function setupTestDirs(): void {
   // Create secure temp directory with random suffix
   TEST_DIR = mkdtempSync(path.join(tmpdir(), 'task-lifecycle-test-'));
   TEST_PROJECT_PATH = path.join(TEST_DIR, 'test-project');
-  TEST_SPEC_DIR = path.join(TEST_PROJECT_PATH, '.auto-claude/specs/001-test-feature');
+  TEST_SPEC_DIR = path.join(TEST_PROJECT_PATH, '.ac.jerry/specs/001-test-feature');
   mkdirSync(TEST_SPEC_DIR, { recursive: true });
 }
 

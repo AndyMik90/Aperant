@@ -8,14 +8,14 @@ This is the "RAG-like" component that finds what files matter for THIS task.
 
 Usage:
     # Find context for a task across specific services
-    python auto-claude/context.py \
+    python ac-jerry/context.py \
         --services backend,scraper \
         --keywords "retry,error,proxy" \
         --task "Add retry logic when proxies fail" \
-        --output auto-claude/specs/001-retry/context.json
+        --output ac-jerry/specs/001-retry/context.json
 
     # Use project index to auto-suggest services
-    python auto-claude/context.py \
+    python ac-jerry/context.py \
         --task "Add retry logic when proxies fail" \
         --output context.json
 

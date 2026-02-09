@@ -8,13 +8,13 @@ Supports monorepos with multiple services.
 
 Usage:
     # Index entire project (creates project_index.json)
-    python auto-claude/analyzer.py --index
+    python ac-jerry/analyzer.py --index
 
     # Analyze specific service
-    python auto-claude/analyzer.py --service backend
+    python ac-jerry/analyzer.py --service backend
 
     # Output to specific file
-    python auto-claude/analyzer.py --index --output path/to/output.json
+    python ac-jerry/analyzer.py --index --output path/to/output.json
 
 The analyzer will:
 1. Detect if this is a monorepo or single project

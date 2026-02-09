@@ -10,7 +10,7 @@
 
 ## Overview
 
-Integrate Agent-Drift behavioral monitoring into Auto-Claude using a **minimal, non-intrusive approach**:
+Integrate Agent-Drift behavioral monitoring into AC Jerry using a **minimal, non-intrusive approach**:
 
 - **Task cards** show drift indicator badge
 - **Task details** have Drift tab for per-task history
@@ -175,7 +175,7 @@ Copy these files:
 
 ```python
 """
-Agent-Drift integration for Auto-Claude.
+Agent-Drift integration for AC Jerry.
 Source: https://github.com/lukehebe/Agent-Drift
 
 Behavioral monitoring system for detecting prompt injection,
@@ -248,7 +248,7 @@ from drift import DriftMonitor, DriftReport
 Add to agent initialization:
 ```python
 # Initialize drift monitor
-drift_enabled = os.environ.get('AUTO_CLAUDE_DRIFT_ENABLED', 'true').lower() == 'true'
+drift_enabled = os.environ.get('AC_JERRY_DRIFT_ENABLED', 'true').lower() == 'true'
 if drift_enabled:
     drift_storage = os.path.join(spec_dir, '..', '..', 'drift')
     self.drift_monitor = DriftMonitor(storage_dir=drift_storage)
@@ -811,7 +811,7 @@ export function registerDriftHandlers(agentManager: any, getMainWindow: () => an
 
   // Reset baseline
   ipcMain.handle('drift:reset-baseline', async (_, projectPath?: string) => {
-    const driftDir = path.join(projectPath || process.cwd(), '.auto-claude', 'drift');
+    const driftDir = path.join(projectPath || process.cwd(), '.ac.jerry', 'drift');
     const baselinePath = path.join(driftDir, 'baseline.json');
 
     if (fs.existsSync(baselinePath)) {
@@ -825,7 +825,7 @@ export function registerDriftHandlers(agentManager: any, getMainWindow: () => an
 
   // Get baseline info
   ipcMain.handle('drift:get-baseline', async (_, projectPath?: string) => {
-    const driftDir = path.join(projectPath || process.cwd(), '.auto-claude', 'drift');
+    const driftDir = path.join(projectPath || process.cwd(), '.ac.jerry', 'drift');
     const baselinePath = path.join(driftDir, 'baseline.json');
 
     if (!fs.existsSync(baselinePath)) {

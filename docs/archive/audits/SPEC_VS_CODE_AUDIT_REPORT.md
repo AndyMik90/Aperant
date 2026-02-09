@@ -2,8 +2,8 @@
 
 **Date:** 2026-02-04
 **Auditor:** Claude Opus 4.5
-**Scope:** Full codebase audit of Auto-Claude (Jerry)
-**Repository:** C:\Users\jamie.ballard\Documents\GitHub\Auto-Claude
+**Scope:** Full codebase audit of AC Jerry (Jerry)
+**Repository:** C:\Users\jamie.ballard\Documents\GitHub\AC Jerry
 
 ---
 
@@ -256,7 +256,7 @@ No fixes were applied during this audit. All findings are documented for future 
 
 ## Section 8: Summary
 
-The Auto-Claude (Jerry) codebase demonstrates **strong alignment** between documentation and implementation. The team has done excellent work documenting the architecture and tracking known issues.
+The AC Jerry (Jerry) codebase demonstrates **strong alignment** between documentation and implementation. The team has done excellent work documenting the architecture and tracking known issues.
 
 **Key Findings:**
 - Core task/phase architecture is correctly implemented

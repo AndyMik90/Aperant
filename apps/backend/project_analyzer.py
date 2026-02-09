@@ -3,7 +3,7 @@ Smart Project Analyzer for Dynamic Security Profiles
 =====================================================
 
 FACADE MODULE: This module re-exports all functionality from the
-auto-claude/project/ package for backward compatibility.
+ac-jerry/project/ package for backward compatibility.
 
 The implementation has been refactored into focused modules:
 - project/command_registry.py - Command registries

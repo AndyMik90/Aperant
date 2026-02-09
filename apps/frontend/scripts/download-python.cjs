@@ -753,7 +753,7 @@ __path__ = [os.path.dirname(__file__)]
   // location) caused intermittent failures depending on Python version and how
   // the process was spawned. Bundle size trade-off is acceptable for reliability.
   //
-  // See: https://github.com/AndyMik90/Auto-Claude/issues/810
+  // See: https://github.com/lizz-ee/ac.jerry/issues/810
   const dllFiles = fs.readdirSync(pywin32System32).filter(f => f.endsWith('.dll'));
   for (const dll of dllFiles) {
     const srcPath = path.join(pywin32System32, dll);

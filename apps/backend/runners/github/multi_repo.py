@@ -207,7 +207,7 @@ class MultiRepoConfig:
             base_dir: Base directory for all repo state
         """
         self.repos: dict[str, RepoConfig] = {}
-        self.base_dir = base_dir or Path(".auto-claude/github/repos")
+        self.base_dir = base_dir or Path(".ac.jerry/github/repos")
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
         if repos:

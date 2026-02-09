@@ -7,11 +7,11 @@ Validates spec outputs at each checkpoint to ensure reliability.
 This is the enforcement layer that catches errors before they propagate.
 
 Usage:
-    python auto-claude/validate_spec.py --spec-dir auto-claude/specs/001-feature/ --checkpoint prereqs
-    python auto-claude/validate_spec.py --spec-dir auto-claude/specs/001-feature/ --checkpoint context
-    python auto-claude/validate_spec.py --spec-dir auto-claude/specs/001-feature/ --checkpoint spec
-    python auto-claude/validate_spec.py --spec-dir auto-claude/specs/001-feature/ --checkpoint plan
-    python auto-claude/validate_spec.py --spec-dir auto-claude/specs/001-feature/ --checkpoint all
+    python ac-jerry/validate_spec.py --spec-dir ac-jerry/specs/001-feature/ --checkpoint prereqs
+    python ac-jerry/validate_spec.py --spec-dir ac-jerry/specs/001-feature/ --checkpoint context
+    python ac-jerry/validate_spec.py --spec-dir ac-jerry/specs/001-feature/ --checkpoint spec
+    python ac-jerry/validate_spec.py --spec-dir ac-jerry/specs/001-feature/ --checkpoint plan
+    python ac-jerry/validate_spec.py --spec-dir ac-jerry/specs/001-feature/ --checkpoint all
 """
 
 import argparse

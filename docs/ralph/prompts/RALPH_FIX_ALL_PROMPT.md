@@ -5,7 +5,7 @@ Copy and paste this into Ralph:
 ---
 
 ```
-/ralph-loop:ralph-loop "You are fixing multiple UI/UX issues in Jerry (Auto-Claude). Complete ALL tasks below.
+/ralph-loop:ralph-loop "You are fixing multiple UI/UX issues in Jerry (AC Jerry). Complete ALL tasks below.
 
 ## ⚠️ EXECUTION RULES
 - Complete each task in order
