@@ -25,22 +25,22 @@ from pathlib import Path
 
 from agents.tools_pkg import get_agent_config, get_default_thinking_level
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
-from core.auth import (
-    get_sdk_env_vars,
-    require_auth_token,
-    validate_token_not_encrypted,
-)
+from core.auth import get_sdk_env_vars, require_auth_token, validate_token_not_encrypted
 from core.client import find_claude_cli
-from phase_config import get_thinking_budget
+from phase_config import get_role_model, get_thinking_budget
+
+# Sentinel to distinguish "not passed" from "explicitly passed None"
+_UNSET = object()
 
 
 def create_simple_client(
     agent_type: str = "merge_resolver",
-    model: str = "claude-haiku-4-5-20251001",
+    model: str | object = _UNSET,
     system_prompt: str | None = None,
     cwd: Path | None = None,
     max_turns: int = 1,
     max_thinking_tokens: int | None = None,
+    spec_dir: Path | None = None,
 ) -> ClaudeSDKClient:
     """
     Create a minimal Claude SDK client for single-turn utility operations.
@@ -56,12 +56,14 @@ def create_simple_client(
                    - "insights" - Read-only code insight extraction
                    - "batch_analysis" - Read-only batch issue analysis
                    - "batch_validation" - Read-only validation
-        model: Claude model to use (defaults to Haiku for fast/cheap operations)
+        model: Claude model to use. If not provided, uses role-based routing
+               from ROLE_MODEL_DEFAULTS (haiku for utility, sonnet for review, etc.)
         system_prompt: Optional custom system prompt (for specialized tasks)
         cwd: Working directory for file operations (optional)
         max_turns: Maximum conversation turns (default: 1 for single-turn)
         max_thinking_tokens: Override thinking budget (None = use agent default from
                             AGENT_CONFIGS, converted using phase_config.THINKING_BUDGET_MAP)
+        spec_dir: Optional spec directory for reading per-task role model overrides
 
     Returns:
         Configured ClaudeSDKClient for single-turn operations
@@ -69,6 +71,11 @@ def create_simple_client(
     Raises:
         ValueError: If agent_type is not found in AGENT_CONFIGS
     """
+    # Resolve model via role-based routing if not explicitly provided
+    if model is _UNSET:
+        model = get_role_model(agent_type, spec_dir=spec_dir)
+    else:
+        model = str(model)
     # Get authentication
     oauth_token = require_auth_token()
 

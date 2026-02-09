@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from core.client import create_client
-from phase_config import COMPANION_CONFIG, resolve_model_id
+from phase_config import COMPANION_CONFIG, get_role_model
 
 from .user_message_queue import UserMessageQueue, get_message_queue
 
@@ -245,9 +245,9 @@ The user can ask you questions about the task, review the specification, check i
         Creates SDK client, initializes message queue, prints ready message,
         then loops: wait for user message, send to Claude, stream response.
         """
-        # Get config from phase_config
+        # Get config from phase_config, with role-based model routing
         config = COMPANION_CONFIG
-        model = resolve_model_id(config.get("model", "opus"))
+        model = get_role_model("companion", spec_dir=self.spec_dir)
         thinking_budget = config.get("thinking_budget", 2048)
         max_turns = config.get("max_turns", 25)
 

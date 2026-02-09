@@ -973,7 +973,7 @@ export class AgentManager extends EventEmitter {
         projectPath,
         taskDescription,
         'coding',  // Always 'coding' since supervisor runs during active builds
-        'opus'
+        'sonnet'   // Role default: supervisor uses mid-tier model
       );
 
       this.supervisorTasks.add(taskId);

@@ -830,7 +830,7 @@ export class AgentProcessManager {
       '--task-id',
       taskId,
       '--model',
-      model || 'sonnet'
+      model || 'haiku'  // Role default: companion uses cheap model (backend has ROLE_MODEL_DEFAULTS)
     ];
 
     // Get combined environment (includes memory config, API profiles, etc.)
@@ -839,7 +839,7 @@ export class AgentProcessManager {
     console.log('[AgentProcess] Spawning companion agent:', {
       taskId,
       currentPhase,
-      model: model || 'sonnet'
+      model: model || 'haiku'
     });
 
     await this.spawnProcess(taskId, this.autoBuildSourcePath, args, combinedEnv, 'companion');
@@ -879,7 +879,7 @@ export class AgentProcessManager {
       '--task-id',
       taskId,
       '--model',
-      model || 'opus',
+      model || 'sonnet',  // Role default: supervisor uses mid-tier model (backend has ROLE_MODEL_DEFAULTS)
       '--supervisor-mode'
     ];
 
@@ -889,7 +889,7 @@ export class AgentProcessManager {
       taskId,
       supervisorKey,
       currentPhase,
-      model: model || 'opus'
+      model: model || 'sonnet'
     });
 
     await this.spawnProcess(supervisorKey, this.autoBuildSourcePath, args, combinedEnv, 'companion');

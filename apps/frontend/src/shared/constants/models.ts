@@ -127,6 +127,22 @@ export const DEFAULT_PHASE_THINKING: import('../types/settings').PhaseThinkingCo
 };
 
 // ============================================
+// Role-Based Model Defaults
+// ============================================
+// Maps agent roles to their default model. Matches backend ROLE_MODEL_DEFAULTS.
+// Used by agent-process.ts when spawning companion/supervisor agents.
+
+export const DEFAULT_ROLE_MODELS: Record<string, string> = {
+  companion: 'haiku',
+  supervisor: 'sonnet',
+  insights: 'haiku',
+  merge_resolver: 'haiku',
+  commit_message: 'haiku',
+  pr_reviewer: 'sonnet',
+  complexity_classifier: 'haiku',
+};
+
+// ============================================
 // Feature Settings (Non-Pipeline Features)
 // ============================================
 

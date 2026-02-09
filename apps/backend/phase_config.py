@@ -141,6 +141,7 @@ class TaskMetadataConfig(TypedDict, total=False):
     isAutoProfile: bool
     phaseModels: PhaseModelConfig
     phaseThinking: PhaseThinkingConfig
+    roleModels: dict[str, str]  # Per-role model overrides (e.g., {"companion": "sonnet"})
     model: str
     thinkingLevel: str
     ralphWiggumMode: bool  # "I'm helping!" - Aggressive iteration mode
@@ -416,10 +417,117 @@ def get_spec_phase_thinking_budget(phase_name: str) -> int | None:
     return get_thinking_budget(thinking_level)
 
 
+# =============================================================================
+# Role-Based Model Defaults
+# =============================================================================
+# Maps agent roles to their default model. This enables per-role cost/latency
+# optimization: cheap roles use Haiku, quality-critical roles use Sonnet/Opus.
+#
+# Priority chain for model resolution (get_role_model):
+#   1. task_metadata.json "roleModels" (per-task override from frontend)
+#   2. ROLE_MODEL_DEFAULTS (below)
+#   3. get_phase_model() fallback (existing phase-based routing)
+
+ROLE_MODEL_DEFAULTS: dict[str, str] = {
+    # Pipeline agents — inherit from phase config by default (None = use phase routing)
+    # These are listed here for documentation; get_role_model() falls through to get_phase_model()
+    # "planner": phase-based,
+    # "coder": phase-based,
+    # "qa_reviewer": phase-based,
+    # "qa_fixer": phase-based,
+
+    # Companion / Supervisor
+    "companion": "haiku",       # Chat-only, doesn't need Opus
+    "supervisor": "sonnet",     # Needs decent comprehension but not Opus
+
+    # Utility agents (used via simple_client)
+    "insights": "haiku",        # Fast extraction
+    "merge_resolver": "haiku",  # Text-only merge analysis
+    "commit_message": "haiku",  # Text-only commit msg generation
+    "pr_reviewer": "sonnet",    # PR reviews need quality
+    "pr_orchestrator_parallel": "sonnet",
+    "pr_followup_parallel": "sonnet",
+
+    # Analysis / ideation
+    "analysis": "sonnet",
+    "batch_analysis": "haiku",
+    "batch_validation": "haiku",
+    "roadmap_discovery": "opus",
+    "competitor_analysis": "opus",
+    "ideation": "opus",
+
+    # Spec creation (used in spec_runner)
+    "spec_gatherer": "sonnet",
+    "spec_researcher": "sonnet",
+    "spec_writer": "sonnet",
+    "spec_critic": "opus",      # Self-critique benefits from best model
+    "spec_discovery": "sonnet",
+    "spec_context": "haiku",
+    "spec_validation": "sonnet",
+    "spec_compaction": "haiku",
+
+    # Complexity classifier
+    "complexity_classifier": "haiku",
+}
+
+
+def get_role_model(
+    agent_type: str,
+    spec_dir: Path | None = None,
+    cli_model: str | None = None,
+) -> str:
+    """
+    Get the resolved model ID for a specific agent role.
+
+    Priority:
+    1. CLI argument (if provided)
+    2. task_metadata.json "roleModels" override (per-task from frontend)
+    3. ROLE_MODEL_DEFAULTS (per-role defaults above)
+    4. Phase-based fallback via get_phase_model() (for pipeline agents)
+
+    Args:
+        agent_type: Agent role identifier (e.g., 'companion', 'insights', 'coder')
+        spec_dir: Path to spec directory (optional, for reading task_metadata)
+        cli_model: Model from CLI argument (optional, highest priority)
+
+    Returns:
+        Resolved full model ID
+    """
+    # CLI argument takes precedence
+    if cli_model:
+        return resolve_model_id(cli_model)
+
+    # Check task_metadata.json for per-task role override
+    if spec_dir:
+        metadata = load_task_metadata(spec_dir)
+        if metadata:
+            role_models = metadata.get("roleModels")
+            if role_models and agent_type in role_models:
+                return resolve_model_id(role_models[agent_type])
+
+    # Use role defaults
+    if agent_type in ROLE_MODEL_DEFAULTS:
+        return resolve_model_id(ROLE_MODEL_DEFAULTS[agent_type])
+
+    # Fallback: try phase-based routing for pipeline agents
+    phase_map = {
+        "planner": "planning",
+        "planning": "planning",
+        "coder": "coding",
+        "qa_reviewer": "qa",
+        "qa_fixer": "qa",
+    }
+    if agent_type in phase_map and spec_dir:
+        return get_phase_model(spec_dir, phase_map[agent_type], cli_model)
+
+    # Ultimate fallback
+    return resolve_model_id("sonnet")
+
+
 # Companion Agent Configuration
 # Read-only conversational agent for between-phase interactions
 COMPANION_CONFIG = {
-    "model": "opus",  # Best comprehension for understanding user intent and creating specs
+    "model": ROLE_MODEL_DEFAULTS.get("companion", "haiku"),
     "thinking_budget": 1024,  # Conversational — quality comes from the model, not extended thinking
     "allowed_tools": ["Read", "Glob", "Grep"],  # Read-only tools
     "max_turns": 25,  # Maximum conversational turns before timeout

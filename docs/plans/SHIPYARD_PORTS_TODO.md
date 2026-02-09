@@ -15,12 +15,12 @@
 - **Patterns:** AWS keys, GitHub/OAuth tokens, Anthropic/OpenAI keys, DB URLs, private keys, JWTs, Azure strings, Stripe/Slack/NPM tokens
 - **Integrated into:** sessions.py, patterns.py, codebase_map.py, project_memory.py, memory_handlers.py, memory_manager.py, memory_integration.py
 
-### [ ] 2. Model Routing per Agent Role
+### [x] 2. Model Routing per Agent Role ✓ DONE
 - **Effort:** ~3-4 hours
-- **Target:** `apps/frontend/src/main/agent/agent-manager.ts` + settings store
-- **What:** Route different agent roles to different models (haiku for validation, sonnet for building, opus for architecture)
-- **Map:** companion=haiku, spec-generation=sonnet, qa-review=sonnet, complexity-classifier=haiku
-- **Why:** Jerry uses one model per agent — wastes money and latency on simple tasks
+- **Target:** `apps/backend/phase_config.py` (ROLE_MODEL_DEFAULTS + get_role_model()) + `apps/frontend/src/shared/constants/models.ts` + `agent-process.ts` + `agent-manager.ts`
+- **What:** Each agent role has a default model: companion=haiku, supervisor=sonnet, insights/merge/commit=haiku, pr_review=sonnet, spec_critic/ideation/roadmap=opus. Pipeline agents (coder, planner, qa) still use phase-based routing. Per-task overrides via `roleModels` in task_metadata.json.
+- **Integrated into:** `phase_config.py`, `simple_client.py`, `companion_agent.py`, `agent-process.ts`, `agent-manager.ts`, `models.ts`
+- **Why:** Saves money and latency by routing cheap tasks to Haiku instead of Opus/Sonnet
 
 ### [x] 3. Git Checkpoint & Rollback System ✓ DONE (backend)
 - **Effort:** ~4-5 hours
