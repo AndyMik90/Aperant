@@ -628,6 +628,14 @@ def _is_valid_primary_api_key(value: str | None) -> bool:
     return bool(value and isinstance(value, str) and value.startswith("sk-ant-"))
 
 
+def _resolve_primary_api_key(config_dir: str | None = None) -> str | None:
+    effective_config_dir = config_dir or os.environ.get("CLAUDE_CONFIG_DIR")
+    if not effective_config_dir:
+        return None
+    return _get_primary_api_key_from_config_dir(
+        os.path.expanduser(effective_config_dir)
+    )
+
 
 def _get_primary_api_key_from_config_dir(expanded_dir: str) -> str | None:
     claude_json_path = os.path.join(expanded_dir, ".claude.json")
@@ -640,7 +648,7 @@ def _get_primary_api_key_from_config_dir(expanded_dir: str) -> str | None:
         if _is_valid_primary_api_key(api_key):
             logger.debug(f"Found primaryApiKey in {claude_json_path}")
             return api_key
-    except (json.JSONDecodeError, KeyError, Exception) as e:
+    except (json.JSONDecodeError, OSError) as e:
         logger.debug(f"Failed to read primaryApiKey from {claude_json_path}: {e}")
     return None
 
@@ -1011,10 +1019,7 @@ def configure_sdk_authentication(config_dir: str | None = None) -> None:
         # Check if profile uses primaryApiKey (prepaid/API billing mode)
         # In this mode, Claude Code stores an API key in .claude.json instead of
         # OAuth tokens in the credential store. Route to ANTHROPIC_AUTH_TOKEN.
-        effective_config_dir = config_dir or os.environ.get("CLAUDE_CONFIG_DIR")
-        primary_api_key = _get_primary_api_key_from_config_dir(
-            os.path.expanduser(effective_config_dir)
-        ) if effective_config_dir else None
+        primary_api_key = _resolve_primary_api_key(config_dir)
 
         if primary_api_key:
             os.environ["ANTHROPIC_AUTH_TOKEN"] = primary_api_key
@@ -1047,10 +1052,7 @@ def ensure_claude_code_oauth_token() -> None:
     if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
         return
 
-    config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
-    primary_api_key = _get_primary_api_key_from_config_dir(
-        os.path.expanduser(config_dir)
-    ) if config_dir else None
+    primary_api_key = _resolve_primary_api_key()
 
     if primary_api_key:
         os.environ["ANTHROPIC_AUTH_TOKEN"] = primary_api_key

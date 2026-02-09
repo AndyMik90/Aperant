@@ -793,6 +793,8 @@ export class UsageMonitor extends EventEmitter {
     const profileManager = getClaudeProfileManager();
     const activeProfile = profileManager.getActiveProfile();
     if (activeProfile) {
+      const hasPrimaryKey = hasPrimaryApiKeyInConfigDir(activeProfile.configDir);
+
       // Use ensureValidToken to proactively refresh tokens before they expire
       // This prevents 401 errors during overnight autonomous operation
       try {
@@ -836,7 +838,7 @@ export class UsageMonitor extends EventEmitter {
 
           // Check for missing_credentials error - indicates no token in credential store
           // User needs to authenticate via /login
-          if (tokenResult.errorCode === 'missing_credentials' && !hasPrimaryApiKeyInConfigDir(activeProfile.configDir)) {
+          if (tokenResult.errorCode === 'missing_credentials' && !hasPrimaryKey) {
             this.debugLog('[UsageMonitor] Profile needs authentication (no credentials found): ' + activeProfile.name);
             this.needsReauthProfiles.add(activeProfile.id);
           }
@@ -862,7 +864,7 @@ export class UsageMonitor extends EventEmitter {
           ' - user may need to re-authenticate with claude /login');
       }
 
-      if (!hasPrimaryApiKeyInConfigDir(activeProfile.configDir)) {
+      if (!hasPrimaryKey) {
         // Mark profile as needing re-authentication since credentials are missing
         this.needsReauthProfiles.add(activeProfile.id);
       }
