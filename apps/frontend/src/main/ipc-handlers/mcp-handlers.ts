@@ -198,6 +198,7 @@ async function checkCommandHealth(server: CustomMcpServer, startTime: number): P
     const command = isWindows() ? getWhereExePath() : 'which';
     const proc = spawn(command, [server.command!], {
       timeout: 5000,
+      windowsHide: true,
     });
 
     let found = false;

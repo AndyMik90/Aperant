@@ -134,7 +134,7 @@ export function getWindowsExecutablePaths(
  * Get the Windows system root directory (e.g., C:\Windows).
  * Checks both casing variants of the environment variable with a safe fallback.
  */
-function getSystemRoot(): string {
+export function getSystemRoot(): string {
   return process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows';
 }
 
