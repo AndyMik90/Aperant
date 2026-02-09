@@ -28,10 +28,17 @@ _workspace_module = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_workspace_module)
 merge_existing_build = _workspace_module.merge_existing_build
 _run_parallel_merges = _workspace_module._run_parallel_merges
+_resolve_git_conflicts_with_ai = _workspace_module._resolve_git_conflicts_with_ai
 AI_MERGE_SYSTEM_PROMPT = _workspace_module.AI_MERGE_SYSTEM_PROMPT
 _build_merge_prompt = _workspace_module._build_merge_prompt
 _check_git_conflicts = _workspace_module._check_git_conflicts
 _rebase_spec_branch = _workspace_module._rebase_spec_branch
+_create_merge_progress_callback = _workspace_module._create_merge_progress_callback
+_infer_language_from_path = _workspace_module._infer_language_from_path
+_strip_code_fences = _workspace_module._strip_code_fences
+_try_simple_3way_merge = _workspace_module._try_simple_3way_merge
+_attempt_ai_merge = _workspace_module._attempt_ai_merge
+_merge_file_with_ai_async = _workspace_module._merge_file_with_ai_async
 
 # Models and Enums
 # Display Functions
@@ -74,7 +81,9 @@ from .git_utils import (
     # Export private names for backward compatibility
     _is_process_running,
     _validate_merged_syntax,
+    apply_path_mapping,
     create_conflict_file_with_git,
+    detect_file_renames,
     get_binary_file_content_from_ref,
     get_changed_files_from_branch,
     get_current_branch,
@@ -111,10 +120,17 @@ __all__ = [
     # Merge Operations (from workspace.py)
     "merge_existing_build",
     "_run_parallel_merges",  # Private but used internally
+    "_resolve_git_conflicts_with_ai",  # Internal AI conflict resolution
+    "_attempt_ai_merge",  # Internal AI merge attempt function
+    "_merge_file_with_ai_async",  # Internal async AI file merge
     "AI_MERGE_SYSTEM_PROMPT",  # System prompt for AI merge (ACS-194)
     "_build_merge_prompt",  # Internal prompt builder (ACS-194)
     "_check_git_conflicts",  # Internal git conflict detection (ACS-224)
     "_rebase_spec_branch",  # Internal rebase function (ACS-224)
+    "_create_merge_progress_callback",  # Internal progress callback factory
+    "_infer_language_from_path",  # Internal language inference for merge
+    "_strip_code_fences",  # Internal code fence stripping
+    "_try_simple_3way_merge",  # Internal simple 3-way merge logic
     # Models
     "WorkspaceMode",
     "WorkspaceChoice",
@@ -133,6 +149,8 @@ __all__ = [
     "is_binary_file",
     "validate_merged_syntax",
     "create_conflict_file_with_git",
+    "detect_file_renames",  # File rename detection
+    "apply_path_mapping",  # Path mapping for renamed files
     # Setup
     "choose_workspace",
     "copy_spec_to_worktree",
