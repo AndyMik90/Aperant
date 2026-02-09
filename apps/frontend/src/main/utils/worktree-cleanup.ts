@@ -7,10 +7,10 @@
  * The standard `git worktree remove --force` fails on Windows when the worktree
  * contains untracked files (node_modules, build artifacts, etc.). This utility:
  *
- * 1. Auto-commits any uncommitted work (preserves in git history for ~90 days via reflog)
- * 2. Manually deletes the worktree directory with retry logic for Windows file locks
- * 3. Prunes git's internal worktree references
- * 4. Optionally deletes the associated branch
+ * 1. Manually deletes the worktree directory with retry logic for file locks
+ *    (falls back to shell `rm -rf` on Unix when Node.js rm() fails)
+ * 2. Prunes git's internal worktree references
+ * 3. Optionally deletes the associated branch
  *
  * Related issue: https://github.com/AndyMik90/Auto-Claude/issues/1539
  */
@@ -32,8 +32,6 @@ export interface WorktreeCleanupOptions {
   projectPath: string;
   /** Spec ID for generating branch name (e.g., "001-my-feature") */
   specId: string;
-  /** Custom commit message for auto-commit (default: "Auto-save before deletion") */
-  commitMessage?: string;
   /** Log prefix for console messages (e.g., "[TASK_DELETE]") */
   logPrefix?: string;
   /** Whether to delete the associated branch (default: true) */
@@ -56,8 +54,6 @@ export interface WorktreeCleanupResult {
   success: boolean;
   /** The branch that was deleted (if deleteBranch was true) */
   branch?: string;
-  /** Whether uncommitted changes were auto-committed */
-  autoCommitted?: boolean;
   /** Warnings that occurred during cleanup (non-fatal issues) */
   warnings: string[];
 }
@@ -133,7 +129,18 @@ async function deleteDirectoryWithRetry(
     }
   }
 
-  // All retries exhausted
+  // All retries exhausted - try shell rm -rf as fallback on Unix
+  // Node's rm() can fail with ENOTEMPTY on macOS .app bundles
+  if (process.platform !== 'win32') {
+    try {
+      console.warn(`${logPrefix} Node.js rm() failed, trying /bin/rm -rf fallback...`);
+      execFileSync('/bin/rm', ['-rf', dirPath], { timeout: 60000 });
+      return;
+    } catch {
+      // Fall through to throw original error
+    }
+  }
+
   throw lastError || new Error('Failed to delete directory after retries');
 }
 
@@ -143,10 +150,10 @@ async function deleteDirectoryWithRetry(
  * This function handles the Windows-specific issue where `git worktree remove --force`
  * fails when the worktree contains untracked files. The approach is:
  *
- * 1. Auto-commit any uncommitted changes (preserves work in git history)
- * 2. Manually delete the directory with retry logic for file locks
- * 3. Run `git worktree prune` to clean up git's internal references
- * 4. Optionally delete the associated branch
+ * 1. Manually delete the directory with retry logic for file locks
+ *    (falls back to shell `rm -rf` on Unix when Node.js rm() fails)
+ * 2. Run `git worktree prune` to clean up git's internal references
+ * 3. Optionally delete the associated branch
  *
  * All errors except directory deletion are logged but don't fail the operation.
  *
@@ -164,9 +171,6 @@ async function deleteDirectoryWithRetry(
  *
  * if (result.success) {
  *   console.log('Cleanup successful');
- *   if (result.autoCommitted) {
- *     console.log('Note: Uncommitted work was auto-saved');
- *   }
  * }
  * ```
  */
@@ -175,7 +179,6 @@ export async function cleanupWorktree(options: WorktreeCleanupOptions): Promise<
     worktreePath,
     projectPath,
     specId,
-    commitMessage = 'Auto-save before deletion',
     logPrefix = '[WORKTREE_CLEANUP]',
     deleteBranch = true,
     branchName,
@@ -185,7 +188,6 @@ export async function cleanupWorktree(options: WorktreeCleanupOptions): Promise<
   } = options;
 
   const warnings: string[] = [];
-  let autoCommitted = false;
 
   // Security: Validate that worktreePath is within the expected worktree directories
   // This prevents path traversal attacks and accidental deletion of wrong directories
@@ -209,48 +211,7 @@ export async function cleanupWorktree(options: WorktreeCleanupOptions): Promise<
     console.warn(`${logPrefix} Associated branch: ${branch}`);
   }
 
-  // 2. Auto-commit any uncommitted changes to preserve work
-  // This ensures the user can recover their work via `git reflog` for ~90 days
-  if (existsSync(worktreePath)) {
-    try {
-      // Check if there are any changes to commit
-      const status = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
-        cwd: worktreePath,
-        encoding: 'utf-8',
-        env: getIsolatedGitEnv(),
-        timeout
-      });
-
-      if (status.trim()) {
-        // There are uncommitted changes - commit them before deletion
-        console.warn(`${logPrefix} Found uncommitted changes, auto-committing...`);
-
-        execFileSync(getToolPath('git'), ['add', '-A'], {
-          cwd: worktreePath,
-          encoding: 'utf-8',
-          env: getIsolatedGitEnv(),
-          timeout
-        });
-
-        execFileSync(getToolPath('git'), ['commit', '-m', commitMessage], {
-          cwd: worktreePath,
-          encoding: 'utf-8',
-          env: getIsolatedGitEnv(),
-          timeout
-        });
-
-        console.warn(`${logPrefix} Auto-committed changes before deletion`);
-        autoCommitted = true;
-      }
-    } catch (commitError) {
-      // Non-critical - log and continue with deletion
-      const msg = commitError instanceof Error ? commitError.message : String(commitError);
-      console.warn(`${logPrefix} Failed to auto-commit changes (non-critical): ${msg}`);
-      warnings.push(`Auto-commit failed: ${msg}`);
-    }
-  }
-
-  // 3. Delete the worktree directory manually
+  // 2. Delete the worktree directory manually
   // This is required because `git worktree remove --force` fails on Windows
   // when the directory contains untracked files (node_modules, build artifacts, etc.)
   if (existsSync(worktreePath)) {
@@ -265,7 +226,6 @@ export async function cleanupWorktree(options: WorktreeCleanupOptions): Promise<
       return {
         success: false,
         branch: branch || undefined,
-        autoCommitted,
         warnings: [...warnings, `Directory deletion failed: ${msg}`]
       };
     }
@@ -273,7 +233,7 @@ export async function cleanupWorktree(options: WorktreeCleanupOptions): Promise<
     console.warn(`${logPrefix} Worktree directory already deleted`);
   }
 
-  // 4. Prune git's internal worktree references
+  // 3. Prune git's internal worktree references
   // After manual deletion, git still thinks the worktree exists in .git/worktrees/
   // Running prune cleans up these stale references
   try {
@@ -291,7 +251,7 @@ export async function cleanupWorktree(options: WorktreeCleanupOptions): Promise<
     warnings.push(`Worktree prune failed: ${msg}`);
   }
 
-  // 5. Delete the branch if requested
+  // 4. Delete the branch if requested
   if (deleteBranch && branch) {
     try {
       execFileSync(getToolPath('git'), ['branch', '-D', branch], {
@@ -313,7 +273,6 @@ export async function cleanupWorktree(options: WorktreeCleanupOptions): Promise<
   return {
     success: true,
     branch: branch || undefined,
-    autoCommitted,
     warnings
   };
 }

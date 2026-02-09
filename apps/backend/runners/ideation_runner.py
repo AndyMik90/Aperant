@@ -109,7 +109,7 @@ def main():
         "--thinking-level",
         type=str,
         default="medium",
-        choices=["none", "low", "medium", "high", "ultrathink"],
+        choices=["low", "medium", "high"],
         help="Thinking level for extended reasoning (default: medium)",
     )
     parser.add_argument(
@@ -121,6 +121,11 @@ def main():
         "--append",
         action="store_true",
         help="Append new ideas to existing session instead of replacing",
+    )
+    parser.add_argument(
+        "--fast-mode",
+        action="store_true",
+        help="Enable Fast Mode for faster Opus 4.6 output",
     )
 
     args = parser.parse_args()
@@ -152,6 +157,7 @@ def main():
         thinking_level=args.thinking_level,
         refresh=args.refresh,
         append=args.append,
+        fast_mode=args.fast_mode,
     )
 
     try:

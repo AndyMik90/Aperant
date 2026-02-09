@@ -66,17 +66,16 @@ const LOG_PHASE_TO_CONFIG_PHASE: Record<TaskLogPhase, keyof PhaseModelConfig> = 
 // Short labels for models
 const MODEL_SHORT_LABELS: Record<ModelTypeShort, string> = {
   opus: 'Opus',
+  'opus-1m': 'Opus (1M)',
   sonnet: 'Sonnet',
   haiku: 'Haiku'
 };
 
 // Short labels for thinking levels
 const THINKING_SHORT_LABELS: Record<ThinkingLevel, string> = {
-  none: 'None',
   low: 'Low',
   medium: 'Med',
-  high: 'High',
-  ultrathink: 'Ultra'
+  high: 'High'
 };
 
 // Helper to get model and thinking info for a log phase

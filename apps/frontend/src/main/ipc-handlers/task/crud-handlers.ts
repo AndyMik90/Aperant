@@ -2,6 +2,7 @@ import { ipcMain, nativeImage } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { IPCResult, Task, TaskMetadata } from '../../../shared/types';
 import path from 'path';
+import { execFileSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, Dirent } from 'fs';
 import { projectStore } from '../../project-store';
 import { titleGenerator } from '../../title-generator';
@@ -10,6 +11,8 @@ import { findTaskAndProject } from './shared';
 import { findAllSpecPaths, isValidTaskId } from '../../utils/spec-path-helpers';
 import { isPathWithinBase, findTaskWorktree } from '../../worktree-paths';
 import { cleanupWorktree } from '../../utils/worktree-cleanup';
+import { getToolPath } from '../../cli-tool-manager';
+import { getIsolatedGitEnv } from '../../utils/git-isolation';
 import { taskStateManager } from '../../task-state-manager';
 
 /**
@@ -284,7 +287,6 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           worktreePath,
           projectPath: project.path,
           specId: task.specId,
-          commitMessage: 'Auto-save before task deletion',
           logPrefix: '[TASK_DELETE]',
           deleteBranch: true
         });
@@ -293,13 +295,8 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           console.error(`[TASK_DELETE] Worktree cleanup failed:`, cleanupResult.warnings);
           hasErrors = true;
           errors.push(`Worktree cleanup: ${cleanupResult.warnings.join('; ')}`);
-        } else {
-          if (cleanupResult.autoCommitted) {
-            console.warn(`[TASK_DELETE] Auto-committed uncommitted work before deletion`);
-          }
-          if (cleanupResult.warnings.length > 0) {
-            console.warn(`[TASK_DELETE] Cleanup warnings:`, cleanupResult.warnings);
-          }
+        } else if (cleanupResult.warnings.length > 0) {
+          console.warn(`[TASK_DELETE] Cleanup warnings:`, cleanupResult.warnings);
         }
       }
 
@@ -647,6 +644,43 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error loading thumbnail'
         };
+      }
+    }
+  );
+
+  /**
+   * Check if a task's worktree has uncommitted changes
+   * Used by the UI before showing the delete confirmation dialog
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_CHECK_WORKTREE_CHANGES,
+    async (_, taskId: string): Promise<IPCResult<{ hasChanges: boolean; worktreePath?: string; changedFileCount?: number }>> => {
+      const { task, project } = findTaskAndProject(taskId);
+      if (!task || !project) {
+        return { success: true, data: { hasChanges: false } };
+      }
+
+      const worktreePath = findTaskWorktree(project.path, task.specId);
+      if (!worktreePath) {
+        return { success: true, data: { hasChanges: false } };
+      }
+
+      try {
+        const status = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
+          cwd: worktreePath,
+          encoding: 'utf-8',
+          env: getIsolatedGitEnv(),
+          timeout: 5000
+        }).trim();
+
+        const changedFiles = status ? status.split('\n').length : 0;
+        return {
+          success: true,
+          data: { hasChanges: changedFiles > 0, worktreePath, changedFileCount: changedFiles }
+        };
+      } catch {
+        // On error/timeout, return false as fail-safe (don't block deletion)
+        return { success: true, data: { hasChanges: false, worktreePath } };
       }
     }
   );

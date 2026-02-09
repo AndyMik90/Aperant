@@ -40,6 +40,11 @@ def _short_model_name(model: str | None) -> str:
     model_lower = model.lower()
 
     # Handle new model naming (claude-{model}-{version}-{date})
+    # Check 1M context variant first (more specific match)
+    if "opus-4-6-1m" in model_lower or "opus-4.6-1m" in model_lower:
+        return "opus-4.6-1m"
+    if "opus-4-6" in model_lower or "opus-4.6" in model_lower:
+        return "opus-4.6"
     if "opus-4-5" in model_lower or "opus-4.5" in model_lower:
         return "opus-4.5"
     if "sonnet-4-5" in model_lower or "sonnet-4.5" in model_lower:

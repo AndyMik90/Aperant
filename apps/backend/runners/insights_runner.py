@@ -190,7 +190,6 @@ Current question: {message}"""
     )
 
     try:
-        # Build options dict - only include max_thinking_tokens if not None
         options_kwargs = {
             "model": resolve_model_id(model),  # Resolve via API Profile if configured
             "system_prompt": system_prompt,
@@ -199,9 +198,7 @@ Current question: {message}"""
             "cwd": str(project_path),
         }
 
-        # Only add thinking tokens if the thinking level is not "none"
-        if max_thinking_tokens is not None:
-            options_kwargs["max_thinking_tokens"] = max_thinking_tokens
+        options_kwargs["max_thinking_tokens"] = max_thinking_tokens
 
         # Create Claude SDK client with appropriate settings for insights
         client = ClaudeSDKClient(options=ClaudeAgentOptions(**options_kwargs))
@@ -356,7 +353,7 @@ def main():
     parser.add_argument(
         "--thinking-level",
         default="medium",
-        choices=["none", "low", "medium", "high", "ultrathink"],
+        choices=["low", "medium", "high"],
         help="Thinking level for extended reasoning (default: medium)",
     )
     args = parser.parse_args()

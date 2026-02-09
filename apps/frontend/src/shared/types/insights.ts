@@ -27,7 +27,7 @@ export interface IdeationConfig {
   maxIdeasPerType: number;
   append?: boolean; // If true, append to existing ideas instead of replacing
   model?: string;          // Model shorthand (opus, sonnet, haiku)
-  thinkingLevel?: string;  // Thinking level (none, low, medium, high, ultrathink)
+  thinkingLevel?: string;  // Thinking level (low, medium, high)
 }
 
 export interface IdeaBase {
@@ -181,11 +181,11 @@ export interface InsightsChatMessage {
   content: string;
   timestamp: Date;
   // For assistant messages that suggest task creation
-  suggestedTask?: {
+  suggestedTasks?: Array<{
     title: string;
     description: string;
     metadata?: TaskMetadata;
-  };
+  }>;
   // Tools used during this response (assistant messages only)
   toolsUsed?: InsightsToolUsage[];
 }
@@ -220,11 +220,11 @@ export interface InsightsChatStatus {
 export interface InsightsStreamChunk {
   type: 'text' | 'task_suggestion' | 'tool_start' | 'tool_end' | 'done' | 'error';
   content?: string;
-  suggestedTask?: {
+  suggestedTasks?: Array<{
     title: string;
     description: string;
     metadata?: TaskMetadata;
-  };
+  }>;
   tool?: {
     name: string;
     input?: string;  // Brief description of what's being searched/read

@@ -35,6 +35,12 @@ import {
   validateGitHubModule,
   buildRunnerArgs,
 } from "./utils/subprocess-runner";
+import { getPRStatusPoller } from "../../services/pr-status-poller";
+import type {
+  StartPollingRequest,
+  StopPollingRequest,
+  PollingMetadata,
+} from "../../../shared/types/pr-status";
 
 /**
  * GraphQL response type for PR list query
@@ -1355,7 +1361,44 @@ function getReviewResult(project: Project, prNumber: number): PRReviewResult | n
   }
 }
 
-// IPC communication helpers removed - using createIPCCommunicators instead
+/**
+ * Send a PR review state update event to the renderer to refresh the UI immediately.
+ * Used after operations that modify review state (post, mark posted, delete).
+ */
+function sendReviewStateUpdate(
+  project: Project,
+  prNumber: number,
+  projectId: string,
+  getMainWindow: () => BrowserWindow | null,
+  context: string
+): void {
+  try {
+    const updatedResult = getReviewResult(project, prNumber);
+    if (!updatedResult) {
+      debugLog("Could not retrieve updated review result for UI notification", { prNumber, context });
+      return;
+    }
+    const mainWindow = getMainWindow();
+    if (!mainWindow) return;
+    const { sendComplete } = createIPCCommunicators<PRReviewProgress, PRReviewResult>(
+      mainWindow,
+      {
+        progress: IPC_CHANNELS.GITHUB_PR_REVIEW_PROGRESS,
+        error: IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR,
+        complete: IPC_CHANNELS.GITHUB_PR_REVIEW_COMPLETE,
+      },
+      projectId
+    );
+    sendComplete(updatedResult);
+    debugLog(`Sent PR review state update ${context}`, { prNumber });
+  } catch (uiError) {
+    debugLog("Failed to send UI update (non-critical)", {
+      prNumber,
+      context,
+      error: uiError instanceof Error ? uiError.message : uiError,
+    });
+  }
+}
 
 /**
  * Get GitHub PR model and thinking settings from app settings
@@ -1409,15 +1452,17 @@ async function runPRReview(
   );
 
   const { model, thinkingLevel } = getGitHubPRSettings();
+  const settings = readSettingsFile();
+  const fastMode = !!settings?.fastMode;
   const args = buildRunnerArgs(
     getRunnerPath(backendPath),
     project.path,
     "review-pr",
     [prNumber.toString()],
-    { model, thinkingLevel }
+    { model, thinkingLevel, fastMode }
   );
 
-  debugLog("Spawning PR review process", { args, model, thinkingLevel });
+  debugLog("Spawning PR review process", { args, model, thinkingLevel, fastMode });
 
   // Create log collector for this review
   const config = getGitHubConfig(project);
@@ -2102,6 +2147,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             debugLog("Review result file not found or unreadable, skipping update", { prNumber });
           }
 
+          // Send state update event to refresh UI immediately (non-blocking)
+          sendReviewStateUpdate(project, prNumber, projectId, getMainWindow, "after posting");
+
           return true;
         } catch (error) {
           debugLog("Failed to post review", {
@@ -2137,6 +2185,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
 
           fs.writeFileSync(reviewPath, JSON.stringify(data, null, 2), "utf-8");
           debugLog("Marked review as posted", { prNumber });
+
+          // Send state update event to refresh UI immediately (non-blocking)
+          sendReviewStateUpdate(project, prNumber, projectId, getMainWindow, "after marking posted");
 
           return true;
         } catch (error) {
@@ -2252,6 +2303,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             // File doesn't exist or couldn't be read - this is expected if review wasn't saved
             debugLog("Review result file not found or unreadable, skipping update", { prNumber });
           }
+
+          // Send state update event to refresh UI immediately (non-blocking)
+          sendReviewStateUpdate(project, prNumber, projectId, getMainWindow, "after deletion");
 
           return true;
         } catch (error) {
@@ -2845,15 +2899,17 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             ciWaitAbortControllers.delete(reviewKey);
 
             const { model, thinkingLevel } = getGitHubPRSettings();
+          const followupSettings = readSettingsFile();
+          const followupFastMode = !!followupSettings?.fastMode;
           const args = buildRunnerArgs(
             getRunnerPath(backendPath),
             project.path,
             "followup-review-pr",
             [prNumber.toString()],
-            { model, thinkingLevel }
+            { model, thinkingLevel, fastMode: followupFastMode }
           );
 
-          debugLog("Spawning follow-up review process", { args, model, thinkingLevel });
+          debugLog("Spawning follow-up review process", { args, model, thinkingLevel, fastMode: followupFastMode });
 
           // Create log collector for this follow-up review (config already declared above)
           const repo = config?.repo || project.name || "unknown";
@@ -3216,6 +3272,92 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
         }
       });
       return result ?? [];
+    }
+  );
+
+  // ============================================================================
+  // PR Status Polling Handlers
+  // ============================================================================
+
+  // Initialize PRStatusPoller with main window getter for IPC updates
+  const prStatusPoller = getPRStatusPoller();
+  prStatusPoller.setMainWindowGetter(getMainWindow);
+
+  // Start polling PR status for a project
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_STATUS_POLL_START,
+    async (
+      _,
+      request: StartPollingRequest
+    ): Promise<{ success: boolean; error?: string }> => {
+      debugLog("startStatusPolling handler called", {
+        projectId: request.projectId,
+        prCount: request.prNumbers.length,
+      });
+
+      const result = await withProjectOrNull(request.projectId, async (project) => {
+        const config = getGitHubConfig(project);
+        if (!config) {
+          debugLog("No GitHub config found for project, cannot start polling");
+          return { success: false, error: "No GitHub configuration found" };
+        }
+
+        try {
+          await prStatusPoller.startPolling(
+            request.projectId,
+            request.prNumbers,
+            config.token
+          );
+          debugLog("Status polling started successfully", {
+            projectId: request.projectId,
+          });
+          return { success: true };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Unknown error";
+          debugLog("Failed to start status polling", {
+            projectId: request.projectId,
+            error: message,
+          });
+          return { success: false, error: message };
+        }
+      });
+      return result ?? { success: false, error: "Project not found" };
+    }
+  );
+
+  // Stop polling PR status for a project
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_STATUS_POLL_STOP,
+    async (
+      _,
+      request: StopPollingRequest
+    ): Promise<{ success: boolean }> => {
+      debugLog("stopStatusPolling handler called", {
+        projectId: request.projectId,
+      });
+
+      try {
+        prStatusPoller.stopPolling(request.projectId);
+        debugLog("Status polling stopped successfully", {
+          projectId: request.projectId,
+        });
+        return { success: true };
+      } catch (error) {
+        debugLog("Failed to stop status polling", {
+          projectId: request.projectId,
+          error: error instanceof Error ? error.message : error,
+        });
+        return { success: false };
+      }
+    }
+  );
+
+  // Get current polling metadata for a project
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_STATUS_UPDATE,
+    async (_, projectId: string): Promise<PollingMetadata> => {
+      debugLog("getPollingMetadata handler called", { projectId });
+      return prStatusPoller.getPollingMetadata(projectId);
     }
   );
 

@@ -329,6 +329,17 @@
       "hint": "Utilisez un outil de capture d'écran externe et collez directement dans la description de la tâche avec {{shortcut}}."
     }
   },
+  "deleteDialog": {
+    "title": "Supprimer la t\u00e2che",
+    "confirmMessage": "\u00cates-vous s\u00fbr de vouloir supprimer",
+    "destructiveWarning": "Cette action est irr\u00e9versible. Tous les fichiers de t\u00e2che, y compris la sp\u00e9cification, le plan d'impl\u00e9mentation et tout code g\u00e9n\u00e9r\u00e9 seront d\u00e9finitivement supprim\u00e9s du projet.",
+    "checkingChanges": "V\u00e9rification des changements non valid\u00e9s...",
+    "uncommittedChanges": "Le worktree de cette t\u00e2che contient {{count}} fichier(s) non valid\u00e9(s)",
+    "uncommittedChangesHint": "Ces changements n'ont pas \u00e9t\u00e9 valid\u00e9s ni fusionn\u00e9s. La suppression de cette t\u00e2che supprimera d\u00e9finitivement tout le travail non valid\u00e9 dans le worktree.",
+    "cancel": "Annuler",
+    "deletePermanently": "Supprimer d\u00e9finitivement",
+    "deleting": "Suppression..."
+  },
   "referenceImages": {
     "title": "Images de référence (facultatif)",
     "description": "Ajoutez des références visuelles comme des captures d'écran ou des conceptions pour aider l'IA à comprendre vos exigences."
