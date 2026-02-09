@@ -16,7 +16,13 @@ from pathlib import Path
 from agents.memory_manager import get_graphiti_context, save_session_memory
 from claude_agent_sdk import ClaudeSDKClient
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
-from prompts_pkg import get_qa_review_and_fix_prompt, get_qa_reviewer_prompt, get_qa_reviewer_prompt_fast
+from prompts_pkg import (
+    get_qa_review_and_fix_prompt,
+    get_qa_reviewer_prompt,
+    get_qa_reviewer_prompt_fast,
+    get_qa_stage1_spec_prompt,
+    get_qa_stage2_quality_prompt,
+)
 from security.tool_input_validator import get_safe_tool_input
 from task_logger import (
     LogEntryType,
@@ -43,6 +49,7 @@ async def run_qa_agent_session(
     verbose: bool = False,
     previous_error: dict | None = None,
     preloaded_graphiti_context: str | None = None,
+    stage: int | None = None,
 ) -> tuple[str, str]:
     """
     Run a QA reviewer agent session.
@@ -55,6 +62,9 @@ async def run_qa_agent_session(
         max_iterations: Maximum number of QA iterations
         verbose: Whether to show detailed output
         previous_error: Error context from previous iteration for self-correction
+        preloaded_graphiti_context: Pre-loaded Graphiti context (shared from loop)
+        stage: Two-stage review stage (1=spec compliance, 2=code quality).
+               None = legacy single-stage mode.
 
     Returns:
         (status, response_text) where status is:
@@ -62,24 +72,27 @@ async def run_qa_agent_session(
         - "rejected" if QA finds issues
         - "error" if an error occurred
     """
-    debug_section("qa_reviewer", f"QA Reviewer Session {qa_session}")
+    stage_label = f" Stage {stage}" if stage else ""
+    debug_section("qa_reviewer", f"QA Reviewer Session {qa_session}{stage_label}")
     debug(
         "qa_reviewer",
         "Starting QA reviewer session",
         spec_dir=str(spec_dir),
         qa_session=qa_session,
         max_iterations=max_iterations,
+        stage=stage,
     )
 
+    stage_desc = {1: "Spec Compliance", 2: "Code Quality"}.get(stage, "Full Review")
     print(f"\n{'=' * 70}")
-    print(f"  QA REVIEWER SESSION {qa_session}")
-    print("  Validating all acceptance criteria...")
+    print(f"  QA REVIEWER SESSION {qa_session}{stage_label}")
+    print(f"  {stage_desc}...")
     print(f"{'=' * 70}\n")
 
     # Emit SDK marker for session start
     emit_sdk_msg("phase_start", {
         "phase": "qa_review",
-        "message": f"QA Reviewer Session {qa_session} - Validating acceptance criteria",
+        "message": f"QA Reviewer Session {qa_session}{stage_label} - {stage_desc}",
     })
 
     # Get task logger for streaming markers
@@ -88,12 +101,17 @@ async def run_qa_agent_session(
     message_count = 0
     tool_count = 0
 
-    # Load QA prompt — escalating speed tiers based on iteration:
-    #   Iteration 1: Full 10-phase prompt (comprehensive first review)
+    # Load QA prompt — tier selection:
+    #   Stage 1: Spec compliance (haiku-capable, focused on tests + acceptance criteria)
+    #   Stage 2: Code quality (sonnet, focused on security + patterns + architecture)
+    #   Iteration 1 (no stage): Full 10-phase prompt (legacy single-stage)
     #   Iteration 2: Fast prompt (focused re-validation of specific fixes)
-    #   Iteration 3+: Combined review-and-fix prompt (review + fix in one session,
-    #                  eliminating the separate fixer round-trip entirely)
-    if qa_session <= 1:
+    #   Iteration 3+: Combined review-and-fix prompt (review + fix in one session)
+    if stage == 1:
+        prompt = get_qa_stage1_spec_prompt(spec_dir, project_dir)
+    elif stage == 2:
+        prompt = get_qa_stage2_quality_prompt(spec_dir, project_dir)
+    elif qa_session <= 1:
         prompt = get_qa_reviewer_prompt(spec_dir, project_dir)
     elif qa_session == 2:
         prompt = get_qa_reviewer_prompt_fast(spec_dir, project_dir)

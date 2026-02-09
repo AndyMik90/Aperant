@@ -37,7 +37,7 @@ from linear_updater import (
     linear_qa_rejected,
     linear_qa_started,
 )
-from phase_config import get_phase_model, get_phase_thinking_budget, get_thinking_budget, get_iteration_config, is_ralph_wiggum_mode
+from phase_config import get_phase_model, get_phase_thinking_budget, get_role_model, get_thinking_budget, get_iteration_config, is_ralph_wiggum_mode
 from phase_event import ExecutionPhase, emit_phase
 from progress import count_subtasks, is_build_complete
 from security.constants import PROJECT_DIR_ENV_VAR
@@ -259,6 +259,12 @@ async def run_qa_validation_loop(
     base_qa_thinking = get_phase_thinking_budget(spec_dir, "qa")
     low_thinking = get_thinking_budget("low")  # 1024 tokens for re-checks
 
+    # Two-stage model resolution:
+    # Stage 1 (spec compliance) uses haiku for fast, cheap validation
+    # Stage 2 (code quality) uses sonnet for deeper analysis
+    stage1_model = get_role_model("qa_stage1", spec_dir=spec_dir)
+    stage2_model = get_role_model("qa_stage2", spec_dir=spec_dir)
+
     # OPTIMIZATION: Pre-load Graphiti context once — shared between reviewer and
     # fixer within the same iteration. Both agents query the same knowledge graph
     # with similar context, so loading it twice per iteration wastes ~1-2s each time.
@@ -291,38 +297,108 @@ async def run_qa_validation_loop(
             ExecutionPhase.QA_REVIEW, f"Running QA review iteration {qa_iteration}"
         )
 
-        # Emit SDK marker for iteration start
-        emit_sdk_msg("text", {
-            "content": f"🔍 QA Iteration {qa_iteration}/{max_qa_iterations} - Reviewing implementation..."
-        })
-        # Iteration-aware thinking: full budget for first review, low for re-checks
-        reviewer_thinking = base_qa_thinking if qa_iteration <= 1 else low_thinking
-        debug(
-            "qa_loop",
-            "Creating client for QA reviewer session...",
-            model=qa_model,
-            thinking_budget=reviewer_thinking,
-        )
-        client = create_client(
-            project_dir,
-            spec_dir,
-            qa_model,
-            agent_type="qa_reviewer",
-            max_thinking_tokens=reviewer_thinking,
-        )
-
-        async with client:
-            debug("qa_loop", "Running QA reviewer agent session...")
-            status, response = await run_qa_agent_session(
-                client,
+        # =====================================================================
+        # TWO-STAGE REVIEW (Iteration 1 only)
+        # Stage 1: Spec compliance (haiku) — tests, acceptance criteria, subtasks
+        # Stage 2: Code quality (sonnet) — security, patterns, architecture
+        # Stage 2 only runs if Stage 1 passes (saves cost on failing builds).
+        # Iterations 2+: Single-stage fast/combined prompts (existing behavior).
+        # =====================================================================
+        if qa_iteration == 1:
+            # --- STAGE 1: Spec Compliance (Haiku) ---
+            emit_sdk_msg("text", {
+                "content": f"🔍 QA Iteration {qa_iteration}/{max_qa_iterations} — Stage 1: Spec Compliance"
+            })
+            debug(
+                "qa_loop",
+                "Two-stage review: running Stage 1 (spec compliance)",
+                model=stage1_model,
+                thinking_budget=low_thinking,
+            )
+            stage1_client = create_client(
                 project_dir,
                 spec_dir,
-                qa_iteration,
-                max_qa_iterations,
-                verbose,
-                previous_error=last_error_context,
-                preloaded_graphiti_context=shared_graphiti_context,
+                stage1_model,
+                agent_type="qa_reviewer",
+                max_thinking_tokens=low_thinking,
             )
+
+            async with stage1_client:
+                status, response = await run_qa_agent_session(
+                    stage1_client,
+                    project_dir,
+                    spec_dir,
+                    qa_iteration,
+                    max_qa_iterations,
+                    verbose,
+                    previous_error=last_error_context,
+                    preloaded_graphiti_context=shared_graphiti_context,
+                    stage=1,
+                )
+
+            if status == "approved":
+                # Stage 1 passed — run Stage 2 (code quality, sonnet)
+                debug_success("qa_loop", "Stage 1 (spec compliance) APPROVED — running Stage 2")
+                print("\n✅ Stage 1 (Spec Compliance) passed. Running Stage 2 (Code Quality)...")
+                emit_sdk_msg("text", {
+                    "content": "✅ Stage 1 passed — running Stage 2: Code Quality"
+                })
+
+                stage2_client = create_client(
+                    project_dir,
+                    spec_dir,
+                    stage2_model,
+                    agent_type="qa_reviewer",
+                    max_thinking_tokens=base_qa_thinking,
+                )
+
+                async with stage2_client:
+                    status, response = await run_qa_agent_session(
+                        stage2_client,
+                        project_dir,
+                        spec_dir,
+                        qa_iteration,
+                        max_qa_iterations,
+                        verbose,
+                        previous_error=None,
+                        preloaded_graphiti_context=shared_graphiti_context,
+                        stage=2,
+                    )
+            # If Stage 1 rejected/errored, status flows through to the
+            # existing handling below (fix → re-iterate)
+        else:
+            # --- ITERATIONS 2+: Single-stage review (existing behavior) ---
+            emit_sdk_msg("text", {
+                "content": f"🔍 QA Iteration {qa_iteration}/{max_qa_iterations} - Reviewing implementation..."
+            })
+            # Iteration-aware thinking: low for re-checks
+            reviewer_thinking = low_thinking
+            debug(
+                "qa_loop",
+                "Creating client for QA reviewer session...",
+                model=qa_model,
+                thinking_budget=reviewer_thinking,
+            )
+            client = create_client(
+                project_dir,
+                spec_dir,
+                qa_model,
+                agent_type="qa_reviewer",
+                max_thinking_tokens=reviewer_thinking,
+            )
+
+            async with client:
+                debug("qa_loop", "Running QA reviewer agent session...")
+                status, response = await run_qa_agent_session(
+                    client,
+                    project_dir,
+                    spec_dir,
+                    qa_iteration,
+                    max_qa_iterations,
+                    verbose,
+                    previous_error=last_error_context,
+                    preloaded_graphiti_context=shared_graphiti_context,
+                )
 
         iteration_duration = time_module.time() - iteration_start
         debug(

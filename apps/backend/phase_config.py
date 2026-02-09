@@ -466,6 +466,10 @@ ROLE_MODEL_DEFAULTS: dict[str, str] = {
     "spec_validation": "sonnet",
     "spec_compaction": "haiku",
 
+    # Two-stage QA review
+    "qa_stage1": "haiku",       # Spec compliance — tests + acceptance criteria (cheap/fast)
+    "qa_stage2": "sonnet",      # Code quality — security + patterns + architecture
+
     # Complexity classifier
     "complexity_classifier": "haiku",
 }

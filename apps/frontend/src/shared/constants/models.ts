@@ -139,6 +139,8 @@ export const DEFAULT_ROLE_MODELS: Record<string, string> = {
   merge_resolver: 'haiku',
   commit_message: 'haiku',
   pr_reviewer: 'sonnet',
+  qa_stage1: 'haiku',
+  qa_stage2: 'sonnet',
   complexity_classifier: 'haiku',
 };
 

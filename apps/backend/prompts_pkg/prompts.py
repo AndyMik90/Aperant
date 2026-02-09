@@ -649,3 +649,86 @@ The project root is: `{project_dir}`
 
 """
     return spec_context + base_prompt
+
+
+def get_qa_stage1_spec_prompt(spec_dir: Path, project_dir: Path) -> str:
+    """
+    Load the Stage 1 (Spec Compliance) QA reviewer prompt.
+
+    Stage 1 focuses on functional correctness: subtask completion, tests,
+    acceptance criteria, database verification, and regression checks.
+    Designed to run on Haiku for fast, cheap validation.
+    """
+    base_branch = _detect_base_branch(spec_dir, project_dir)
+    base_prompt = _load_prompt_file("qa_stage1_spec.md")
+    base_prompt = base_prompt.replace("{{BASE_BRANCH}}", base_branch)
+
+    spec_context = f"""## SPEC LOCATION
+
+Your spec and progress files are located at:
+- Spec: `{spec_dir}/spec.md`
+- Implementation plan: `{spec_dir}/implementation_plan.json`
+- Progress notes: `{spec_dir}/build-progress.txt`
+- QA report output: `{spec_dir}/qa_report.md`
+- Fix request output: `{spec_dir}/QA_FIX_REQUEST.md`
+
+The project root is: `{project_dir}`
+
+---
+
+"""
+    return spec_context + base_prompt
+
+
+def get_qa_stage2_quality_prompt(spec_dir: Path, project_dir: Path) -> str:
+    """
+    Load the Stage 2 (Code Quality) QA reviewer prompt.
+
+    Stage 2 focuses on code quality: security review, third-party API
+    validation (via Context7), pattern compliance, and browser verification.
+    Requires Sonnet for the deeper analysis.
+
+    Only runs after Stage 1 passes — tests and acceptance criteria are
+    already verified, so this stage can focus purely on quality.
+    """
+    base_branch = _detect_base_branch(spec_dir, project_dir)
+    base_prompt = _load_prompt_file("qa_stage2_quality.md")
+    base_prompt = base_prompt.replace("{{BASE_BRANCH}}", base_branch)
+
+    # Detect project capabilities for browser/API tools
+    project_index = load_project_index(project_dir)
+    capabilities = detect_project_capabilities(project_index)
+
+    spec_context = f"""## SPEC LOCATION
+
+Your spec and progress files are located at:
+- Spec: `{spec_dir}/spec.md`
+- Implementation plan: `{spec_dir}/implementation_plan.json`
+- QA report (Stage 1): `{spec_dir}/qa_report.md`
+- Fix request output: `{spec_dir}/QA_FIX_REQUEST.md`
+
+The project root is: `{project_dir}`
+
+## PROJECT CAPABILITIES DETECTED
+
+"""
+
+    active_caps = [k for k, v in capabilities.items() if v]
+    if active_caps:
+        spec_context += (
+            "Based on project analysis, the following capabilities were detected:\n"
+        )
+        for cap in active_caps:
+            cap_name = (
+                cap.replace("is_", "").replace("has_", "").replace("_", " ").title()
+            )
+            spec_context += f"- {cap_name}\n"
+        spec_context += "\n"
+    else:
+        spec_context += (
+            "No special project capabilities detected. Using standard validation.\n\n"
+        )
+
+    spec_context += "---\n\n"
+
+    return spec_context + base_prompt

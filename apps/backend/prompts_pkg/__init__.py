@@ -32,6 +32,8 @@ from .prompts import (
     get_qa_review_and_fix_prompt,
     get_qa_reviewer_prompt,
     get_qa_reviewer_prompt_fast,
+    get_qa_stage1_spec_prompt,
+    get_qa_stage2_quality_prompt,
     is_first_run,
 )
 
@@ -59,6 +61,8 @@ __all__ = [
     "get_qa_fixer_prompt",
     "get_qa_fixer_prompt_fast",
     "get_qa_review_and_fix_prompt",
+    "get_qa_stage1_spec_prompt",
+    "get_qa_stage2_quality_prompt",
     "is_first_run",
     # project_context functions
     "load_project_index",

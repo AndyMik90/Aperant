@@ -40,11 +40,13 @@
 - **Integrated into:** `cli/build_commands.py` (post-build), `agents/coder.py` (post-QA), `memory/main.py` (CLI)
 - **Why:** Jerry's dual-layer memory grows unbounded with no recovery tools
 
-### [ ] 5. Two-Stage Code Review
+### [x] 5. Two-Stage Code Review ✓ DONE
 - **Effort:** ~4-5 hours
-- **Target:** `apps/backend/qa/loop.py`
-- **What:** Split QA reviewer into Stage 1 (spec compliance, haiku-capable) and Stage 2 (code quality, sonnet). Each stage can block the pipeline.
-- **Why:** Single-pass review misses spec drift vs code quality issues
+- **Target:** `apps/backend/qa/loop.py`, `qa/reviewer.py`, `prompts_pkg/prompts.py`
+- **What:** Iteration 1 runs two-stage QA: Stage 1 (spec compliance, haiku) checks subtasks, tests, acceptance criteria. If passed, Stage 2 (code quality, sonnet) checks security, patterns, architecture. Each stage can block independently. Stage 2 only runs if Stage 1 passes (saves cost). Iterations 2+ use existing fast/combined prompts.
+- **Prompts:** `prompts/qa_stage1_spec.md`, `prompts/qa_stage2_quality.md`
+- **Role models:** `qa_stage1=haiku`, `qa_stage2=sonnet` in ROLE_MODEL_DEFAULTS
+- **Why:** Single-pass review misses spec drift vs code quality issues; two-stage saves cost when spec compliance fails
 
 ### [x] 6. Adaptive Context Loading ✓ DONE (resume variant)
 - **Effort:** ~2-3 hours
