@@ -266,14 +266,17 @@ export function useGitHubPRs(
     };
   }, []);
 
+  // Stable PR numbers reference - only changes when actual PR numbers change
+  const prNumbersKey = useMemo(() => prs.map((pr) => pr.number).join(','), [prs]);
+
   // Start/stop PR status polling based on connection state and PRs
   useEffect(() => {
     // Only start polling when connected and we have PRs to poll
-    if (!projectId || !isConnected || prs.length === 0 || !isActive) {
+    if (!projectId || !isConnected || !prNumbersKey || !isActive) {
       return;
     }
 
-    const prNumbers = prs.map((pr) => pr.number);
+    const prNumbers = prNumbersKey.split(',').map(Number);
 
     // Start polling for PR status (CI checks, reviews, mergeability)
     window.electronAPI.github.startStatusPolling(projectId, prNumbers).catch((err) => {
@@ -286,7 +289,7 @@ export function useGitHubPRs(
         console.warn("Failed to stop PR status polling:", err);
       });
     };
-  }, [projectId, isConnected, prs, isActive]);
+  }, [projectId, isConnected, prNumbersKey, isActive]);
 
   // No need for local IPC listeners - they're handled globally in github-store
 

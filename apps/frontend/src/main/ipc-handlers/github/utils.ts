@@ -87,6 +87,7 @@ export function clearETagCache(): void {
   for (const key of Object.keys(etagCache)) {
     delete etagCache[key];
   }
+  evictionWriteCounter = 0;
 }
 
 /**

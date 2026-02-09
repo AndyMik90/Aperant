@@ -133,6 +133,9 @@ export class PRStatusPoller {
   /** Last error for each project */
   private lastErrors: Map<string, string> = new Map();
 
+  /** Consecutive error count per PR (projectId:prNumber → count) for log suppression */
+  private consecutiveErrors: Map<string, number> = new Map();
+
   private constructor() {
     // Private constructor for singleton pattern
   }
@@ -451,13 +454,20 @@ export class PRStatusPoller {
 
       for (let j = 0; j < results.length; j++) {
         const result = results[j];
+        const prKey = `${context.projectId}:${batch[j]}`;
         if (result.status === 'fulfilled' && result.value) {
           updatedStatuses.push(result.value);
+          this.consecutiveErrors.delete(prKey);
         } else if (result.status === 'rejected') {
           const message = result.reason instanceof Error ? result.reason.message : 'Unknown error';
-          console.error(
-            `[PRStatusPoller] Error polling PR #${batch[j]}: ${message}`
-          );
+          const errorCount = (this.consecutiveErrors.get(prKey) ?? 0) + 1;
+          this.consecutiveErrors.set(prKey, errorCount);
+          // Only log first error and then every 10th to avoid spam
+          if (errorCount === 1 || errorCount % 10 === 0) {
+            console.error(
+              `[PRStatusPoller] Error polling PR #${batch[j]} (x${errorCount}): ${message}`
+            );
+          }
           this.lastErrors.set(context.projectId, message);
         }
       }
@@ -817,8 +827,9 @@ export class PRStatusPoller {
     this.clearStaggeredResumeTimeouts();
     let delay = 0;
     for (const context of this.contexts.values()) {
+      const contextId = context.projectId;
       const timeout = setTimeout(() => {
-        if (!this.isPausedForRateLimit) {
+        if (!this.isPausedForRateLimit && this.contexts.has(contextId)) {
           this.pollAllPRs(context);
         }
       }, delay);
