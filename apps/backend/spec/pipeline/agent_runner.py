@@ -133,7 +133,9 @@ class AgentRunner:
         betas = get_model_betas(self.model)
         fast_mode = get_fast_mode(self.spec_dir)
         resolved_model = resolve_model_id(self.model)
-        thinking_kwargs = get_thinking_kwargs_for_model(resolved_model, thinking_level or "medium")
+        thinking_kwargs = get_thinking_kwargs_for_model(
+            resolved_model, thinking_level or "medium"
+        )
 
         client = create_client(
             self.project_dir,
