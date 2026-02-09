@@ -18,6 +18,10 @@ import sys
 from pathlib import Path
 
 import pytest
+
+# Add parent directory to path so we can import the workspace module
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from workspace import (
     WorkspaceChoice,
     WorkspaceMode,
@@ -26,7 +30,7 @@ from workspace import (
     has_uncommitted_changes,
     setup_workspace,
 )
-from worktree import WorktreeManager
+from worktree import WorktreeManager, WorktreeError
 
 # Test constant - in the new per-spec architecture, each spec has its own worktree
 # named after the spec itself. This constant is used for test assertions.
@@ -345,7 +349,7 @@ class TestWorkspaceErrors:
     def test_setup_non_git_directory(self, temp_dir: Path):
         """Handles non-git directories gracefully."""
         # This should fail because temp_dir is not a git repo
-        with pytest.raises((OSError, ValueError, subprocess.CalledProcessError)):
+        with pytest.raises((OSError, ValueError, subprocess.CalledProcessError, WorktreeError)):
             setup_workspace(
                 temp_dir,
                 "test-spec",
