@@ -802,6 +802,16 @@ async def run_autonomous_agent(
                     except Exception as e:
                         logger.debug(f"Failed to save spec summary: {e}")
 
+                    # Create per-subtask checkpoint for rollback safety
+                    try:
+                        from core.git_checkpoint import create_checkpoint
+                        for sid in batch_subtask_ids:
+                            create_checkpoint(
+                                project_dir, spec_dir.name, "subtask", subtask_id=sid,
+                            )
+                    except Exception as e:
+                        logger.debug(f"Subtask checkpoint failed: {e}")
+
             elif subtask_id and current_log_phase == LogPhase.CODING:
                 # Fallback for single-subtask (planning phase edge case)
                 linear_is_enabled = (
@@ -924,6 +934,13 @@ async def run_autonomous_agent(
                     "content": "Session encountered an error - will retry",
                     "phase": "coding",
                 })
+
+                # Create error checkpoint for debugging/rollback
+                try:
+                    from core.git_checkpoint import create_checkpoint
+                    create_checkpoint(project_dir, spec_dir.name, "build-failed")
+                except Exception:
+                    pass
 
                 # FIX-011: Capture error context for the retry prompt so the agent
                 # can try a different approach instead of repeating the same failure.

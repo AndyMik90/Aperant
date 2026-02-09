@@ -22,11 +22,12 @@
 - **Map:** companion=haiku, spec-generation=sonnet, qa-review=sonnet, complexity-classifier=haiku
 - **Why:** Jerry uses one model per agent — wastes money and latency on simple tasks
 
-### [ ] 3. Git Checkpoint & Rollback System
+### [x] 3. Git Checkpoint & Rollback System ✓ DONE (backend)
 - **Effort:** ~4-5 hours
-- **Target:** `apps/backend/` (new checkpoint module) + TaskCard UI button
-- **What:** Auto-create git tags before/after builds (`jerry-pre-build-{taskId}`, `jerry-post-build-{taskId}`). Add "Rollback" button to TaskCard UI.
-- **Why:** No safety net when autonomous agents go off-rails
+- **Target:** `apps/backend/core/git_checkpoint.py` + build lifecycle hooks
+- **What:** Annotated git tags at build-start, per-subtask, build-complete, and build-failed. Rollback via `rollback_to()`. Tag format: `ac-jerry/{spec}/{type}-{timestamp}`
+- **Integrated into:** `cli/build_commands.py` (start/complete), `agents/coder.py` (subtask/failed)
+- **Future:** TaskCard "Rollback" button (frontend UI) deferred
 
 ---
 

@@ -229,6 +229,15 @@ def handle_build_command(
         spec_dir=str(spec_dir),
     )
 
+    # Create pre-build checkpoint (safety baseline for rollback)
+    try:
+        from core.git_checkpoint import create_checkpoint
+        tag = create_checkpoint(working_dir, spec_dir.name, "build-start")
+        if tag:
+            print(f"   Checkpoint: {tag}")
+    except Exception as e:
+        debug("run.py", f"Checkpoint creation failed (non-blocking): {e}")
+
     try:
         debug("run.py", "Starting agent execution")
 
@@ -282,6 +291,12 @@ def handle_build_command(
                     print("=" * 70)
                     print("\nAll acceptance criteria verified.")
                     print("The implementation is production-ready.\n")
+                    # Create build-complete checkpoint
+                    try:
+                        from core.git_checkpoint import create_checkpoint
+                        create_checkpoint(working_dir, spec_dir.name, "build-complete")
+                    except Exception:
+                        pass
                 else:
                     print("\n" + "=" * 70)
                     print("  ⚠️  QA VALIDATION INCOMPLETE")
