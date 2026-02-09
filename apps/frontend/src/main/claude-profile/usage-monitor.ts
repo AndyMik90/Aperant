@@ -227,6 +227,9 @@ export class UsageMonitor extends EventEmitter {
   // Debug flag for verbose logging
   private readonly isDebug = process.env.DEBUG === 'true';
 
+  // Cache for hasActiveAPIProfileSync result to avoid repeated sync file I/O within a single cycle
+  private cachedHasValidAPIProfile: boolean | null = null;
+
   /**
    * Debug log helper - only logs when DEBUG=true
    */
@@ -245,10 +248,17 @@ export class UsageMonitor extends EventEmitter {
    * When an API profile is active, OAuth authentication errors are not relevant
    * since the authentication is handled by the API profile's credentials.
    *
+   * Uses a per-cycle cache to avoid repeated synchronous file I/O.
+   * The cache is reset at the start and end of each checkUsageAndSwap cycle.
+   *
    * @returns true if a valid API profile is active, false otherwise
    */
   private hasValidAPIProfile(): boolean {
-    return hasActiveAPIProfileSync();
+    if (this.cachedHasValidAPIProfile !== null) {
+      return this.cachedHasValidAPIProfile;
+    }
+    this.cachedHasValidAPIProfile = hasActiveAPIProfileSync();
+    return this.cachedHasValidAPIProfile;
   }
 
   /**
@@ -908,6 +918,7 @@ export class UsageMonitor extends EventEmitter {
     }
 
     this.isChecking = true;
+    this.cachedHasValidAPIProfile = null; // Reset cache for this cycle
     let profileId: string | undefined;
     let isAPIProfile = false;
 
@@ -1001,6 +1012,7 @@ export class UsageMonitor extends EventEmitter {
       console.error('[UsageMonitor] Check failed:', error);
     } finally {
       this.isChecking = false;
+      this.cachedHasValidAPIProfile = null; // Clear cache after cycle completes
     }
   }
 
