@@ -107,7 +107,8 @@
       "defaultPlaceholder": "e.g., claude-sonnet-4-5-20250929",
       "haikuPlaceholder": "e.g., claude-haiku-4-5-20251001",
       "sonnetPlaceholder": "e.g., claude-sonnet-4-5-20250929",
-      "opusPlaceholder": "e.g., claude-opus-4-5-20251101"
+      "opusPlaceholder": "e.g., claude-opus-4-6",
+      "opus1mPlaceholder": "e.g., claude-opus-4-6 (1M context)"
     },
     "empty": {
       "title": "No API profiles configured",
@@ -399,6 +400,11 @@
     "resetToProfileDefaults": "Reset to {{profile}} defaults",
     "customized": "Customized",
     "phaseConfigNote": "These settings will be used as defaults when creating new tasks with this profile. You can override them per-task in the task creation wizard.",
+    "fastMode": {
+      "label": "Fast Mode",
+      "description": "Same Opus 4.6 model with faster output. Higher cost per token.",
+      "extraUsageNotice": "Requires \"extra usage\" enabled on your Claude subscription. Falls back to standard speed automatically if unavailable."
+    },
     "phases": {
       "spec": {
         "label": "Spec Creation",

@@ -44,6 +44,9 @@ def create_simple_client(
     cwd: Path | None = None,
     max_turns: int = 1,
     max_thinking_tokens: int | None = None,
+    betas: list[str] | None = None,
+    effort_level: str | None = None,
+    fast_mode: bool = False,
 ) -> ClaudeSDKClient:
     """
     Create a minimal Claude SDK client for single-turn utility operations.
@@ -65,6 +68,11 @@ def create_simple_client(
         max_turns: Maximum conversation turns (default: 1 for single-turn)
         max_thinking_tokens: Override thinking budget (None = use agent default from
                             AGENT_CONFIGS, converted using phase_config.THINKING_BUDGET_MAP)
+        betas: Optional list of SDK beta header strings (e.g., ["context-1m-2025-08-07"])
+        effort_level: Optional effort level for adaptive thinking models (e.g., "low",
+                     "medium", "high"). Injected as CLAUDE_CODE_EFFORT_LEVEL env var.
+        fast_mode: Enable Fast Mode for faster Opus 4.6 output. Injected as
+                  CLAUDE_CODE_FAST_MODE=true env var.
 
     Returns:
         Configured ClaudeSDKClient for single-turn operations
@@ -81,6 +89,14 @@ def create_simple_client(
 
     # Configure SDK authentication (OAuth or API profile mode)
     configure_sdk_authentication(config_dir)
+
+    # Inject effort level for adaptive thinking models (e.g., Opus 4.6)
+    if effort_level:
+        sdk_env["CLAUDE_CODE_EFFORT_LEVEL"] = effort_level
+
+    # Inject fast mode for faster Opus 4.6 output
+    if fast_mode:
+        sdk_env["CLAUDE_CODE_FAST_MODE"] = "true"
 
     # Get agent configuration (raises ValueError if unknown type)
     config = get_agent_config(agent_type)
@@ -107,6 +123,10 @@ def create_simple_client(
     # Only add max_thinking_tokens if not None (Haiku doesn't support extended thinking)
     if max_thinking_tokens is not None:
         options_kwargs["max_thinking_tokens"] = max_thinking_tokens
+
+    # Add beta headers if specified (e.g., for 1M context window)
+    if betas:
+        options_kwargs["betas"] = betas
 
     # Optional: Allow CLI path override via environment variable
     env_cli_path = os.environ.get("CLAUDE_CLI_PATH")

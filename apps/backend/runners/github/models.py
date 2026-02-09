@@ -997,6 +997,7 @@ class GitHubRunnerConfig:
     # to respect environment variable overrides (e.g., ANTHROPIC_DEFAULT_SONNET_MODEL)
     model: str = "sonnet"
     thinking_level: str = "medium"
+    fast_mode: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -1019,6 +1020,7 @@ class GitHubRunnerConfig:
             "allow_fix_commits": self.allow_fix_commits,
             "model": self.model,
             "thinking_level": self.thinking_level,
+            "fast_mode": self.fast_mode,
         }
 
     def save_settings(self, github_dir: Path) -> None:

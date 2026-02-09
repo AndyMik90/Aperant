@@ -20,20 +20,12 @@ class TestThinkingLevelValidation:
 
     def test_valid_thinking_levels(self):
         """Test that all valid thinking levels return correct budgets."""
-        valid_levels = ["none", "low", "medium", "high", "ultrathink"]
+        valid_levels = ["low", "medium", "high"]
 
         for level in valid_levels:
             budget = get_thinking_budget(level)
             expected = THINKING_BUDGET_MAP[level]
             assert budget == expected, f"Expected {expected} for {level}, got {budget}"
-
-    def test_none_level_returns_none(self):
-        """Test that 'none' thinking level returns None (no extended thinking)."""
-        assert get_thinking_budget("none") is None
-
-    def test_ultrathink_max_budget(self):
-        """Test that 'ultrathink' returns maximum budget (63999 so max_tokens = 63999 + 1 = 64000 limit)."""
-        assert get_thinking_budget("ultrathink") == 63999
 
     def test_invalid_level_logs_warning(self, caplog):
         """Test that invalid thinking level logs a warning."""
@@ -55,7 +47,7 @@ class TestThinkingLevelValidation:
             get_thinking_budget("bad_value")
 
             # Check all valid levels are mentioned
-            for level in ["none", "low", "medium", "high", "ultrathink"]:
+            for level in ["low", "medium", "high"]:
                 assert level in caplog.text
 
     def test_empty_string_level(self, caplog):
@@ -89,4 +81,17 @@ class TestThinkingLevelValidation:
         assert get_thinking_budget("low") == 1024
         assert get_thinking_budget("medium") == 4096
         assert get_thinking_budget("high") == 16384
-        assert get_thinking_budget("ultrathink") == 63999
+
+    def test_removed_none_treated_as_invalid(self, caplog):
+        """Test that removed 'none' level is treated as invalid and defaults to medium."""
+        with caplog.at_level(logging.WARNING):
+            budget = get_thinking_budget("none")
+            assert budget == THINKING_BUDGET_MAP["medium"]
+            assert "Invalid thinking_level 'none'" in caplog.text
+
+    def test_removed_ultrathink_treated_as_invalid(self, caplog):
+        """Test that removed 'ultrathink' level is treated as invalid and defaults to medium."""
+        with caplog.at_level(logging.WARNING):
+            budget = get_thinking_budget("ultrathink")
+            assert budget == THINKING_BUDGET_MAP["medium"]
+            assert "Invalid thinking_level 'ultrathink'" in caplog.text

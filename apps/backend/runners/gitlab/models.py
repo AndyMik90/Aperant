@@ -210,6 +210,7 @@ class GitLabRunnerConfig:
     # Model settings
     model: str = "claude-sonnet-4-5-20250929"
     thinking_level: str = "medium"
+    fast_mode: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -218,6 +219,7 @@ class GitLabRunnerConfig:
             "instance_url": self.instance_url,
             "model": self.model,
             "thinking_level": self.thinking_level,
+            "fast_mode": self.fast_mode,
         }
 
 

@@ -21,7 +21,12 @@ from linear_updater import (
     linear_qa_rejected,
     linear_qa_started,
 )
-from phase_config import get_phase_model, get_phase_thinking_budget
+from phase_config import (
+    get_fast_mode,
+    get_phase_client_thinking_kwargs,
+    get_phase_model,
+    get_phase_model_betas,
+)
 from phase_event import ExecutionPhase, emit_phase
 from progress import count_subtasks, is_build_complete
 from security.constants import PROJECT_DIR_ENV_VAR
@@ -125,6 +130,8 @@ async def run_qa_validation_loop(
         {"iteration": 1, "maxIterations": MAX_QA_ITERATIONS},
     )
 
+    fast_mode = get_fast_mode(spec_dir)
+
     # Check if there's pending human feedback that needs to be processed
     fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
     has_human_feedback = fix_request_file.exists()
@@ -155,14 +162,19 @@ async def run_qa_validation_loop(
 
         # Get model and thinking budget for fixer (uses QA phase config)
         qa_model = get_phase_model(spec_dir, "qa", model)
-        fixer_thinking_budget = get_phase_thinking_budget(spec_dir, "qa")
+        qa_betas = get_phase_model_betas(spec_dir, "qa", model)
+        fixer_thinking_kwargs = get_phase_client_thinking_kwargs(
+            spec_dir, "qa", qa_model
+        )
 
         fix_client = create_client(
             project_dir,
             spec_dir,
             qa_model,
             agent_type="qa_fixer",
-            max_thinking_tokens=fixer_thinking_budget,
+            betas=qa_betas,
+            fast_mode=fast_mode,
+            **fixer_thinking_kwargs,
         )
 
         async with fix_client:
@@ -262,19 +274,22 @@ async def run_qa_validation_loop(
 
         # Run QA reviewer with phase-specific model and thinking budget
         qa_model = get_phase_model(spec_dir, "qa", model)
-        qa_thinking_budget = get_phase_thinking_budget(spec_dir, "qa")
+        qa_betas = get_phase_model_betas(spec_dir, "qa", model)
+        qa_thinking_kwargs = get_phase_client_thinking_kwargs(spec_dir, "qa", qa_model)
         debug(
             "qa_loop",
             "Creating client for QA reviewer session...",
             model=qa_model,
-            thinking_budget=qa_thinking_budget,
+            thinking_budget=qa_thinking_kwargs.get("max_thinking_tokens"),
         )
         client = create_client(
             project_dir,
             spec_dir,
             qa_model,
             agent_type="qa_reviewer",
-            max_thinking_tokens=qa_thinking_budget,
+            betas=qa_betas,
+            fast_mode=fast_mode,
+            **qa_thinking_kwargs,
         )
 
         async with client:
@@ -450,12 +465,15 @@ async def run_qa_validation_loop(
                 break
 
             # Run fixer with phase-specific thinking budget
-            fixer_thinking_budget = get_phase_thinking_budget(spec_dir, "qa")
+            fixer_betas = get_phase_model_betas(spec_dir, "qa", model)
+            fixer_thinking_kwargs = get_phase_client_thinking_kwargs(
+                spec_dir, "qa", qa_model
+            )
             debug(
                 "qa_loop",
                 "Starting QA fixer session...",
                 model=qa_model,
-                thinking_budget=fixer_thinking_budget,
+                thinking_budget=fixer_thinking_kwargs.get("max_thinking_tokens"),
             )
             emit_phase(ExecutionPhase.QA_FIXING, "Fixing QA issues")
             task_event_emitter.emit(
@@ -469,7 +487,9 @@ async def run_qa_validation_loop(
                 spec_dir,
                 qa_model,
                 agent_type="qa_fixer",
-                max_thinking_tokens=fixer_thinking_budget,
+                betas=fixer_betas,
+                fast_mode=fast_mode,
+                **fixer_thinking_kwargs,
             )
 
             async with fix_client:

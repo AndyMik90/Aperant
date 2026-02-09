@@ -33,7 +33,12 @@ from claude_agent_sdk import AgentDefinition  # noqa: F401
 
 try:
     from ...core.client import create_client
-    from ...phase_config import get_thinking_budget, resolve_model_id
+    from ...phase_config import (
+        get_model_betas,
+        get_thinking_budget,
+        get_thinking_kwargs_for_model,
+        resolve_model_id,
+    )
     from ..context_gatherer import PRContext, _validate_git_ref
     from ..gh_client import GHClient
     from ..models import (
@@ -69,7 +74,12 @@ except (ImportError, ValueError, SystemError):
         PRReviewResult,
         ReviewSeverity,
     )
-    from phase_config import get_thinking_budget, resolve_model_id
+    from phase_config import (
+        get_model_betas,
+        get_thinking_budget,
+        get_thinking_kwargs_for_model,
+        resolve_model_id,
+    )
     from services.agent_utils import create_working_dir_injector
     from services.category_utils import map_category
     from services.io_utils import safe_print
@@ -498,16 +508,23 @@ Report findings with specific file paths, line numbers, and code evidence.
             # Note: Agent type uses the generic "pr_reviewer" since individual
             # specialist types aren't registered in AGENT_CONFIGS. The specialist-specific
             # system prompt handles differentiation.
+            # Get betas from model shorthand (before resolution to full ID)
+            betas = get_model_betas(self.config.model or "sonnet")
+            thinking_kwargs = get_thinking_kwargs_for_model(
+                model, self.config.thinking_level or "medium"
+            )
             client = create_client(
                 project_dir=project_root,
                 spec_dir=self.github_dir,
                 model=model,
                 agent_type="pr_reviewer",
-                max_thinking_tokens=thinking_budget,
+                betas=betas,
+                fast_mode=self.config.fast_mode,
                 output_format={
                     "type": "json_schema",
                     "schema": SpecialistResponse.model_json_schema(),
                 },
+                **thinking_kwargs,
             )
 
             async with client:
@@ -793,17 +810,24 @@ The SDK will run invoked agents in parallel automatically.
         Returns:
             Configured SDK client instance
         """
+        # Get betas from model shorthand (before resolution to full ID)
+        betas = get_model_betas(self.config.model or "sonnet")
+        thinking_kwargs = get_thinking_kwargs_for_model(
+            model, self.config.thinking_level or "medium"
+        )
         return create_client(
             project_dir=project_root,
             spec_dir=self.github_dir,
             model=model,
             agent_type="pr_orchestrator_parallel",
-            max_thinking_tokens=thinking_budget,
+            betas=betas,
+            fast_mode=self.config.fast_mode,
             agents=self._define_specialist_agents(project_root),
             output_format={
                 "type": "json_schema",
                 "schema": ParallelOrchestratorResponse.model_json_schema(),
             },
+            **thinking_kwargs,
         )
 
     def _extract_structured_output(
@@ -1718,16 +1742,21 @@ For EACH finding above:
 
             # Create validator client (inherits worktree filesystem access)
             try:
+                # Get betas from model shorthand (before resolution to full ID)
+                betas = get_model_betas(self.config.model or "sonnet")
+                thinking_kwargs = get_thinking_kwargs_for_model(model, "medium")
                 validator_client = create_client(
                     project_dir=worktree_path,
                     spec_dir=self.github_dir,
                     model=model,
                     agent_type="pr_finding_validator",
-                    max_thinking_tokens=get_thinking_budget("medium"),
+                    betas=betas,
+                    fast_mode=self.config.fast_mode,
                     output_format={
                         "type": "json_schema",
                         "schema": FindingValidationResponse.model_json_schema(),
                     },
+                    **thinking_kwargs,
                 )
             except Exception as e:
                 logger.error(f"[PRReview] Failed to create validator client: {e}")

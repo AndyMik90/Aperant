@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from ...phase_config import resolve_model_id
+    from ...phase_config import get_model_betas, resolve_model_id
     from ..context_gatherer import PRContext
     from ..models import (
         AICommentTriage,
@@ -34,7 +34,7 @@ except (ImportError, ValueError, SystemError):
         ReviewPass,
         StructuralIssue,
     )
-    from phase_config import resolve_model_id
+    from phase_config import get_model_betas, resolve_model_id
     from services.io_utils import safe_print
     from services.prompt_manager import PromptManager
     from services.response_parsers import ResponseParser
@@ -222,12 +222,16 @@ class PRReviewEngine:
         )
 
         # Resolve model shorthand (e.g., "sonnet") to full model ID for API compatibility
-        model = resolve_model_id(self.config.model or "sonnet")
+        model_shorthand = self.config.model or "sonnet"
+        model = resolve_model_id(model_shorthand)
+        betas = get_model_betas(model_shorthand)
         client = create_client(
             project_dir=project_root,
             spec_dir=self.github_dir,
             model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
+            betas=betas,
+            fast_mode=self.config.fast_mode,
         )
 
         result_text = ""
@@ -487,12 +491,16 @@ class PRReviewEngine:
         )
 
         # Resolve model shorthand (e.g., "sonnet") to full model ID for API compatibility
-        model = resolve_model_id(self.config.model or "sonnet")
+        model_shorthand = self.config.model or "sonnet"
+        model = resolve_model_id(model_shorthand)
+        betas = get_model_betas(model_shorthand)
         client = create_client(
             project_dir=project_root,
             spec_dir=self.github_dir,
             model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
+            betas=betas,
+            fast_mode=self.config.fast_mode,
         )
 
         result_text = ""
@@ -547,12 +555,16 @@ class PRReviewEngine:
         )
 
         # Resolve model shorthand (e.g., "sonnet") to full model ID for API compatibility
-        model = resolve_model_id(self.config.model or "sonnet")
+        model_shorthand = self.config.model or "sonnet"
+        model = resolve_model_id(model_shorthand)
+        betas = get_model_betas(model_shorthand)
         client = create_client(
             project_dir=project_root,
             spec_dir=self.github_dir,
             model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
+            betas=betas,
+            fast_mode=self.config.fast_mode,
         )
 
         result_text = ""

@@ -168,6 +168,7 @@ Provide your review in the following JSON format:
             Tuple of (findings, verdict, summary, blockers)
         """
         from core.client import create_client
+        from phase_config import get_model_betas, resolve_model_id
 
         self._report_progress(
             "analyzing", 30, "Running AI analysis...", mr_iid=context.mr_iid
@@ -229,11 +230,16 @@ Provide your review in the following JSON format:
             project_root = self.project_dir.parent.parent
 
         # Create the client
+        model_shorthand = self.config.model or "sonnet"
+        model = resolve_model_id(model_shorthand)
+        betas = get_model_betas(model_shorthand)
         client = create_client(
             project_dir=project_root,
             spec_dir=self.gitlab_dir,
-            model=self.config.model,
+            model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
+            betas=betas,
+            fast_mode=self.config.fast_mode,
         )
 
         result_text = ""

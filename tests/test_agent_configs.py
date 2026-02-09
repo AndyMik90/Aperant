@@ -190,12 +190,12 @@ class TestGetRequiredMcpServers:
 class TestGetDefaultThinkingLevel:
     """Tests for get_default_thinking_level() function."""
 
-    def test_returns_none_for_coder(self):
-        """Coder should return 'none' thinking level."""
+    def test_returns_low_for_coder(self):
+        """Coder should return 'low' thinking level."""
         from agents.tools_pkg.models import get_default_thinking_level
 
         result = get_default_thinking_level("coder")
-        assert result == "none"
+        assert result == "low"
 
     def test_returns_high_for_qa_reviewer(self):
         """QA reviewer should return 'high' thinking level."""
@@ -204,12 +204,12 @@ class TestGetDefaultThinkingLevel:
         result = get_default_thinking_level("qa_reviewer")
         assert result == "high"
 
-    def test_returns_ultrathink_for_spec_critic(self):
-        """Spec critic should return 'ultrathink' level."""
+    def test_returns_high_for_spec_critic(self):
+        """Spec critic should return 'high' thinking level."""
         from agents.tools_pkg.models import get_default_thinking_level
 
         result = get_default_thinking_level("spec_critic")
-        assert result == "ultrathink"
+        assert result == "high"
 
     def test_can_convert_to_budget_via_phase_config(self):
         """Verify thinking level can be converted to budget using phase_config."""

@@ -182,6 +182,7 @@ def get_config(args) -> GitHubRunnerConfig:
         bot_token=bot_token,
         model=args.model,
         thinking_level=args.thinking_level,
+        fast_mode=getattr(args, "fast_mode", False),
         auto_fix_enabled=getattr(args, "auto_fix_enabled", False),
         auto_fix_labels=getattr(args, "auto_fix_labels", ["auto-fix"]),
         auto_post_reviews=getattr(args, "auto_post", False),
@@ -688,8 +689,13 @@ def main():
         "--thinking-level",
         type=str,
         default="medium",
-        choices=["none", "low", "medium", "high"],
+        choices=["low", "medium", "high"],
         help="Thinking level for extended reasoning",
+    )
+    parser.add_argument(
+        "--fast-mode",
+        action="store_true",
+        help="Enable Fast Mode for faster Opus 4.6 output",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")

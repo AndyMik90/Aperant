@@ -185,8 +185,8 @@ Examples:
         "--thinking-level",
         type=str,
         default="medium",
-        choices=["none", "low", "medium", "high", "ultrathink"],
-        help="Thinking level for extended thinking (none, low, medium, high, ultrathink)",
+        choices=["low", "medium", "high"],
+        help="Thinking level for extended thinking (low, medium, high)",
     )
     parser.add_argument(
         "--no-ai-assessment",

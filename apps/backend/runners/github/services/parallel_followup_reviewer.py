@@ -31,7 +31,11 @@ from claude_agent_sdk import AgentDefinition
 
 try:
     from ...core.client import create_client
-    from ...phase_config import get_thinking_budget, resolve_model_id
+    from ...phase_config import (
+        get_model_betas,
+        get_thinking_kwargs_for_model,
+        resolve_model_id,
+    )
     from ..context_gatherer import _validate_git_ref
     from ..gh_client import GHClient
     from ..models import (
@@ -62,7 +66,11 @@ except (ImportError, ValueError, SystemError):
         PRReviewResult,
         ReviewSeverity,
     )
-    from phase_config import get_thinking_budget, resolve_model_id
+    from phase_config import (
+        get_model_betas,
+        get_thinking_kwargs_for_model,
+        resolve_model_id,
+    )
     from services.agent_utils import create_working_dir_injector
     from services.category_utils import map_category
     from services.io_utils import safe_print
@@ -517,12 +525,13 @@ The SDK will run invoked agents in parallel automatically.
             # Resolve model shorthand via environment variable override if configured
             model_shorthand = self.config.model or "sonnet"
             model = resolve_model_id(model_shorthand)
+            betas = get_model_betas(model_shorthand)
             thinking_level = self.config.thinking_level or "medium"
-            thinking_budget = get_thinking_budget(thinking_level)
+            thinking_kwargs = get_thinking_kwargs_for_model(model, thinking_level)
 
             logger.info(
                 f"[ParallelFollowup] Using model={model}, "
-                f"thinking_level={thinking_level}, thinking_budget={thinking_budget}"
+                f"thinking_level={thinking_level}, thinking_kwargs={thinking_kwargs}"
             )
 
             # Create client with subagents defined (using worktree path)
@@ -531,12 +540,14 @@ The SDK will run invoked agents in parallel automatically.
                 spec_dir=self.github_dir,
                 model=model,
                 agent_type="pr_followup_parallel",
-                max_thinking_tokens=thinking_budget,
+                betas=betas,
+                fast_mode=self.config.fast_mode,
                 agents=self._define_specialist_agents(project_root),
                 output_format={
                     "type": "json_schema",
                     "schema": ParallelFollowupResponse.model_json_schema(),
                 },
+                **thinking_kwargs,
             )
 
             self._report_progress(

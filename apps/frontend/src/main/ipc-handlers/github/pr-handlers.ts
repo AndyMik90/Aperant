@@ -1452,15 +1452,17 @@ async function runPRReview(
   );
 
   const { model, thinkingLevel } = getGitHubPRSettings();
+  const settings = readSettingsFile();
+  const fastMode = !!settings?.fastMode;
   const args = buildRunnerArgs(
     getRunnerPath(backendPath),
     project.path,
     "review-pr",
     [prNumber.toString()],
-    { model, thinkingLevel }
+    { model, thinkingLevel, fastMode }
   );
 
-  debugLog("Spawning PR review process", { args, model, thinkingLevel });
+  debugLog("Spawning PR review process", { args, model, thinkingLevel, fastMode });
 
   // Create log collector for this review
   const config = getGitHubConfig(project);
@@ -2897,15 +2899,17 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             ciWaitAbortControllers.delete(reviewKey);
 
             const { model, thinkingLevel } = getGitHubPRSettings();
+          const followupSettings = readSettingsFile();
+          const followupFastMode = !!followupSettings?.fastMode;
           const args = buildRunnerArgs(
             getRunnerPath(backendPath),
             project.path,
             "followup-review-pr",
             [prNumber.toString()],
-            { model, thinkingLevel }
+            { model, thinkingLevel, fastMode: followupFastMode }
           );
 
-          debugLog("Spawning follow-up review process", { args, model, thinkingLevel });
+          debugLog("Spawning follow-up review process", { args, model, thinkingLevel, fastMode: followupFastMode });
 
           // Create log collector for this follow-up review (config already declared above)
           const repo = config?.repo || project.name || "unknown";
