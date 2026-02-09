@@ -11,6 +11,7 @@ from pathlib import Path
 
 from .graphiti_helpers import get_graphiti_memory, is_graphiti_memory_enabled, run_async
 from .paths import get_memory_dir
+from .scrubber import scrub_text
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +44,8 @@ def append_gotcha(spec_dir: Path, gotcha: str) -> None:
             if line.startswith("- "):
                 existing_gotchas.add(line[2:].strip())
 
-    # Add new gotcha if not duplicate
-    gotcha_stripped = gotcha.strip()
+    # Scrub secrets and add new gotcha if not duplicate
+    gotcha_stripped = scrub_text(gotcha.strip())
     if gotcha_stripped and gotcha_stripped not in existing_gotchas:
         # Append to file
         with open(gotchas_file, "a") as f:
@@ -119,8 +120,8 @@ def append_pattern(spec_dir: Path, pattern: str) -> None:
             if line.startswith("- "):
                 existing_patterns.add(line[2:].strip())
 
-    # Add new pattern if not duplicate
-    pattern_stripped = pattern.strip()
+    # Scrub secrets and add new pattern if not duplicate
+    pattern_stripped = scrub_text(pattern.strip())
     if pattern_stripped and pattern_stripped not in existing_patterns:
         # Append to file
         with open(patterns_file, "a") as f:

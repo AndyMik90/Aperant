@@ -26,6 +26,7 @@ from graphiti_config import get_graphiti_status, is_graphiti_enabled
 from memory import save_session_insights as save_file_based_memory
 from memory.graphiti_helpers import get_graphiti_memory
 from memory.project_memory import load_project_memory
+from memory.scrubber import scrub_dict
 
 logger = logging.getLogger(__name__)
 
@@ -318,6 +319,10 @@ async def save_session_memory(
             subtasks_completed=subtasks_completed,
             spec_dir=str(spec_dir),
         )
+
+    # Scrub secrets from discoveries before persisting to any storage layer
+    if discoveries:
+        discoveries = scrub_dict(discoveries)
 
     # Build insights structure (same format for both storage systems)
     insights = {

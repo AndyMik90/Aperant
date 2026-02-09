@@ -8,12 +8,12 @@
 
 ## Phase 1 — HIGH Priority
 
-### [ ] 1. Secret Scrubbing for Memory Storage
+### [x] 1. Secret Scrubbing for Memory Storage ✓ DONE
 - **Effort:** ~2-3 hours
 - **Target:** `apps/backend/memory/scrubber.py`
 - **What:** 17 regex patterns to strip API keys, tokens, and credentials before any memory write
 - **Patterns:** AWS keys, GitHub/OAuth tokens, Anthropic/OpenAI keys, DB URLs, private keys, JWTs, Azure strings, Stripe/Slack/NPM tokens
-- **Why:** Jerry stores conversations and memory but doesn't redact credentials
+- **Integrated into:** sessions.py, patterns.py, codebase_map.py, project_memory.py, memory_handlers.py, memory_manager.py, memory_integration.py
 
 ### [ ] 2. Model Routing per Agent Role
 - **Effort:** ~3-4 hours
@@ -45,11 +45,12 @@
 - **What:** Split QA reviewer into Stage 1 (spec compliance, haiku-capable) and Stage 2 (code quality, sonnet). Each stage can block the pipeline.
 - **Why:** Single-pass review misses spec drift vs code quality issues
 
-### [ ] 6. Adaptive Context Loading
+### [x] 6. Adaptive Context Loading ✓ DONE (resume variant)
 - **Effort:** ~2-3 hours
-- **Target:** `apps/backend/spec/pipeline/orchestrator.py` + context builder
-- **What:** Load minimal/planning/execution/full context based on task complexity. Complexity classifier output maps to context tier.
-- **Why:** Jerry always loads same context regardless of task simplicity
+- **Target:** `apps/backend/agents/coder.py` + `core/client.py` + `spec/compaction.py`
+- **What:** Resume-aware system prompt, compact spec summary (~200 tokens vs 2-5k), skip redundant spec reads on resumed sessions. Saves ~15k tokens/session.
+- **See:** [ADAPTIVE_CONTEXT_RESUME.md](./ADAPTIVE_CONTEXT_RESUME.md)
+- **Future:** Complexity-tier-based context loading (SIMPLE/STANDARD/COMPLEX) still deferred
 
 ---
 

@@ -61,6 +61,11 @@ Public API:
 
     # Summary
     - get_memory_summary(spec_dir) -> dict
+
+    # Secret scrubbing
+    - scrub_text(text) -> str
+    - scrub_dict(data) -> dict
+    - contains_secrets(text) -> bool
 """
 
 # Graphiti integration
@@ -81,6 +86,9 @@ from .patterns import (
 
 # Session insights
 from .sessions import load_all_insights, save_session_insights
+
+# Secret scrubbing
+from .scrubber import contains_secrets, scrub_dict, scrub_text
 
 # Summary utilities
 from .summary import get_memory_summary
@@ -105,4 +113,8 @@ __all__ = [
     "load_gotchas",
     # Summary
     "get_memory_summary",
+    # Secret scrubbing
+    "scrub_text",
+    "scrub_dict",
+    "contains_secrets",
 ]

@@ -25,6 +25,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .scrubber import scrub_text
+
 logger = logging.getLogger(__name__)
 
 
@@ -185,7 +187,7 @@ def append_to_project_memory(
         logger.warning(f"Invalid section '{section}'. Must be one of: {list(SECTION_MAP.keys())}")
         return False
 
-    content = content.strip()
+    content = scrub_text(content.strip())
     if not content:
         return False
 

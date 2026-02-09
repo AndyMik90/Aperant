@@ -18,6 +18,7 @@ from .graphiti_helpers import (
     save_to_graphiti_async,
 )
 from .paths import get_session_insights_dir
+from .scrubber import scrub_dict
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,9 @@ def save_session_insights(
             "recommendations_for_next_session", []
         ),
     }
+
+    # Scrub secrets before persisting
+    session_data = scrub_dict(session_data)
 
     # Write to file (always use file-based storage)
     with open(session_file, "w") as f:

@@ -40,6 +40,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from memory.scrubber import scrub_text
+
 # Add parent paths to sys.path for imports
 _backend_dir = Path(__file__).parent.parent.parent
 if str(_backend_dir) not in sys.path:
@@ -372,6 +374,9 @@ class GitHubMemoryIntegration:
         """
         now = datetime.now(timezone.utc)
 
+        # Scrub secrets before persisting
+        insight = scrub_text(insight)
+
         # Store locally
         self._local_insights.append(
             {
@@ -434,6 +439,10 @@ class GitHubMemoryIntegration:
             notes: Additional notes
         """
         now = datetime.now(timezone.utc)
+
+        # Scrub secrets from free-text fields
+        if notes:
+            notes = scrub_text(notes)
 
         # Store locally
         self._local_insights.append(

@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .graphiti_helpers import get_graphiti_memory, is_graphiti_memory_enabled, run_async
 from .paths import get_memory_dir
+from .scrubber import scrub_dict
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,9 @@ def update_codebase_map(spec_dir: Path, discoveries: dict[str, str]) -> None:
             codebase_map = {}
     else:
         codebase_map = {}
+
+    # Scrub secrets from discovery values before persisting
+    discoveries = scrub_dict(discoveries)
 
     # Update with new discoveries
     codebase_map.update(discoveries)

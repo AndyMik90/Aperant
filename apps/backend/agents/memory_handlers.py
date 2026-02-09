@@ -29,6 +29,8 @@ import shutil
 from pathlib import Path
 from typing import Optional
 
+from memory.scrubber import scrub_text
+
 logger = logging.getLogger(__name__)
 
 
@@ -142,7 +144,7 @@ class MemoryHandlers:
         # Create parent directories if needed
         full_path.parent.mkdir(parents=True, exist_ok=True)
 
-        full_path.write_text(file_text, encoding="utf-8")
+        full_path.write_text(scrub_text(file_text), encoding="utf-8")
         logger.info(f"Memory file created: {path}")
         return f"File created successfully at: {path}"
 
@@ -176,7 +178,7 @@ class MemoryHandlers:
             )
 
         new_content = content.replace(old_str, new_str, 1)
-        full_path.write_text(new_content, encoding="utf-8")
+        full_path.write_text(scrub_text(new_content), encoding="utf-8")
         logger.debug(f"Memory file updated: {path}")
         return "The memory file has been edited."
 
@@ -204,7 +206,7 @@ class MemoryHandlers:
             return f"Error: Invalid insert_line: {insert_line}. File has {len(lines)} lines."
 
         lines.insert(insert_line, insert_text)
-        full_path.write_text("\n".join(lines), encoding="utf-8")
+        full_path.write_text(scrub_text("\n".join(lines)), encoding="utf-8")
         logger.debug(f"Memory file edited (insert): {path}")
         return f"The file {path} has been edited."
 
