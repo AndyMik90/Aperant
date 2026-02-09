@@ -552,7 +552,11 @@ class TestModuleImportPathInsertion:
         parent_dir_str = str(qa_commands_module._PARENT_DIR)
 
         # Verify parent_dir_str is the apps/backend directory
-        assert parent_dir_str.endswith("apps/backend") or parent_dir_str.endswith("apps" + "/" + "backend")
+        # Use os.path.normpath for cross-platform path comparison
+        import os
+        normalized_path = os.path.normpath(parent_dir_str)
+        # Check that the normalized path contains apps/backend or apps\backend (Windows)
+        assert ("apps" + os.sep + "backend") in normalized_path or "apps/backend" in normalized_path or "apps\\backend" in normalized_path
 
         # Save current sys.path state to restore later
         original_path = sys.path.copy()
