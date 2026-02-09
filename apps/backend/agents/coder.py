@@ -901,6 +901,20 @@ async def run_autonomous_agent(
                                     print_status("Retrospective saved", "success")
                             except Exception as e:
                                 logger.debug(f"Retrospective failed: {e}")
+                            # Auto-prune memory if over storage cap
+                            try:
+                                from memory.pruner import prune_memory
+
+                                prune_result = prune_memory(spec_dir)
+                                total_pruned = (
+                                    prune_result["sessions_pruned"]
+                                    + prune_result["map_entries_pruned"]
+                                    + prune_result["lessons_pruned"]
+                                )
+                                if total_pruned > 0:
+                                    print_status(f"Memory pruned ({total_pruned} items)", "success")
+                            except Exception as e:
+                                logger.debug(f"Memory pruning failed: {e}")
                         else:
                             print_status("QA validation found issues", "warning")
                             emit_sdk_msg("text", {"content": "⚠️ QA found issues — review qa_report.md"})

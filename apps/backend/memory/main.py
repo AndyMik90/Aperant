@@ -107,6 +107,9 @@ if __name__ == "__main__":
             "list-map",
             "list-patterns",
             "list-gotchas",
+            "prune",
+            "repair",
+            "check",
             "clear",
         ],
         default="summary",
@@ -156,6 +159,58 @@ if __name__ == "__main__":
         print("\nGotchas:")
         for gotcha in gotchas:
             print(f"  - {gotcha}")
+
+    elif args.action == "prune":
+        from memory.pruner import get_memory_size_breakdown, prune_memory
+
+        # Show current size
+        breakdown = get_memory_size_breakdown(args.spec_dir)
+        total = sum(breakdown.values())
+        print(f"\nMemory usage: {total / 1024:.1f} KB")
+        for cat, size in sorted(breakdown.items()):
+            if size > 0:
+                print(f"  {cat}: {size / 1024:.1f} KB")
+
+        result = prune_memory(args.spec_dir)
+        total_pruned = (
+            result["sessions_pruned"]
+            + result["map_entries_pruned"]
+            + result["lessons_pruned"]
+        )
+        if total_pruned > 0:
+            print(f"\nPruned {total_pruned} items:")
+            if result["sessions_pruned"]:
+                print(f"  Sessions: {result['sessions_pruned']} files deleted")
+            if result["map_entries_pruned"]:
+                print(f"  Codebase map: {result['map_entries_pruned']} entries removed")
+            if result["lessons_pruned"]:
+                print(f"  Lessons: {result['lessons_pruned']} entries removed")
+            print(f"  Size: {result['size_before'] / 1024:.1f} KB → {result['size_after'] / 1024:.1f} KB")
+        else:
+            print("\nNo pruning needed — under storage cap.")
+
+    elif args.action == "repair":
+        from memory.repair import repair_memory
+
+        print(f"\nRepairing memory for {args.spec_dir.name}...")
+        result = repair_memory(args.spec_dir, fix=True)
+        print(f"\nChecks run: {result['checks_run']}")
+        print(f"Issues found: {result['issues_found']}")
+        print(f"Issues fixed: {result['issues_fixed']}")
+        for detail in result["details"]:
+            status_icon = {"ok": "✓", "fixed": "🔧", "error": "✗"}.get(detail["status"], "?")
+            print(f"  {status_icon} [{detail['check']}] {detail['message']}")
+
+    elif args.action == "check":
+        from memory.repair import repair_memory
+
+        print(f"\nChecking memory integrity for {args.spec_dir.name}...")
+        result = repair_memory(args.spec_dir, fix=False)
+        print(f"\nChecks run: {result['checks_run']}")
+        print(f"Issues found: {result['issues_found']}")
+        for detail in result["details"]:
+            status_icon = {"ok": "✓", "error": "✗"}.get(detail["status"], "?")
+            print(f"  {status_icon} [{detail['check']}] {detail['message']}")
 
     elif args.action == "clear":
         confirm = input(f"Clear all memory for {args.spec_dir.name}? (yes/no): ")

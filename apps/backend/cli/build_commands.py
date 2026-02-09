@@ -314,6 +314,22 @@ def handle_build_command(
                             print(f"   Retrospective: {len(lessons.get('key_insights', []))} insights, {promoted} promoted to project memory")
                     except Exception as e:
                         debug("run.py", f"Retrospective failed (non-blocking): {e}")
+                    # Auto-prune memory if over storage cap
+                    try:
+                        from memory.pruner import prune_memory
+
+                        prune_result = prune_memory(spec_dir)
+                        total_pruned = (
+                            prune_result["sessions_pruned"]
+                            + prune_result["map_entries_pruned"]
+                            + prune_result["lessons_pruned"]
+                        )
+                        if total_pruned > 0:
+                            before_mb = prune_result["size_before"] / (1024 * 1024)
+                            after_mb = prune_result["size_after"] / (1024 * 1024)
+                            print(f"   Memory pruned: {before_mb:.1f}MB → {after_mb:.1f}MB ({total_pruned} items removed)")
+                    except Exception as e:
+                        debug("run.py", f"Memory pruning failed (non-blocking): {e}")
                 else:
                     print("\n" + "=" * 70)
                     print("  ⚠️  QA VALIDATION INCOMPLETE")

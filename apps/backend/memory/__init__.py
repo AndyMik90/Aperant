@@ -72,6 +72,14 @@ Public API:
     - load_lessons(spec_dir) -> list[dict]
     - load_lessons_for_context(spec_dir) -> str | None
     - promote_lessons_to_project(project_dir, lessons, spec_name) -> int
+
+    # Pruning
+    - prune_memory(spec_dir, cap_mb) -> dict
+    - get_memory_size(spec_dir) -> int
+    - get_memory_size_breakdown(spec_dir) -> dict
+
+    # Repair
+    - repair_memory(spec_dir, fix) -> dict
 """
 
 # Graphiti integration
@@ -97,6 +105,12 @@ from .patterns import (
     load_gotchas,
     load_patterns,
 )
+
+# Pruning
+from .pruner import get_memory_size, get_memory_size_breakdown, prune_memory
+
+# Repair
+from .repair import repair_memory
 
 # Secret scrubbing
 from .scrubber import contains_secrets, scrub_dict, scrub_text
@@ -132,6 +146,12 @@ __all__ = [
     "load_lessons",
     "load_lessons_for_context",
     "promote_lessons_to_project",
+    # Pruning
+    "prune_memory",
+    "get_memory_size",
+    "get_memory_size_breakdown",
+    # Repair
+    "repair_memory",
     # Secret scrubbing
     "scrub_text",
     "scrub_dict",

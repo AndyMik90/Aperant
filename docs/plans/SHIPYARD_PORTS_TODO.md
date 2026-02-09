@@ -33,11 +33,11 @@
 
 ## Phase 2 — MEDIUM Priority
 
-### [ ] 4. Memory Storage Pruning + Repair
+### [x] 4. Memory Storage Pruning + Repair ✓ DONE
 - **Effort:** ~6-8 hours
 - **Target:** `apps/backend/memory/pruner.py`, `apps/backend/memory/repair.py`
-- **What:** Auto-prune oldest entries when over storage cap (default 1GB). 7-check repair pipeline for file-based memory integrity.
-- **Config:** `memory_cap_mb` setting (default 1024)
+- **What:** Auto-prune oldest entries when over storage cap (default 1GB). Pruning order: session insights → codebase map → lessons. 7-check repair pipeline: directory structure, JSON validity, session numbering, codebase map schema, lessons schema, markdown integrity, stale lock cleanup. CLI commands: `--action prune`, `--action repair`, `--action check`.
+- **Integrated into:** `cli/build_commands.py` (post-build), `agents/coder.py` (post-QA), `memory/main.py` (CLI)
 - **Why:** Jerry's dual-layer memory grows unbounded with no recovery tools
 
 ### [ ] 5. Two-Stage Code Review
