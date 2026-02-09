@@ -19,6 +19,7 @@ import { findTaskAndProject } from "./task/shared";
 import { safeSendToRenderer } from "./utils";
 import { getClaudeProfileManager } from "../claude-profile-manager";
 import { taskStateManager } from "../task-state-manager";
+import { hasActiveAPIProfileSync } from "../services/profile/profile-manager";
 
 /**
  * Register all agent-events-related IPC handlers
@@ -68,6 +69,12 @@ export function registerAgenteventsHandlers(
     message?: string;
     originalError?: string;
   }) => {
+    // Skip OAuth auth failure handling when an API profile is active
+    if (hasActiveAPIProfileSync()) {
+      console.log(`[AgentEvents] Auth failure for task ${taskId} ignored - API profile is active`);
+      return;
+    }
+
     console.warn(`[AgentEvents] Auth failure detected for task ${taskId}:`, authFailure);
 
     // Get profile name for display
