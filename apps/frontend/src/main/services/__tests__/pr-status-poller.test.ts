@@ -14,12 +14,12 @@ import { POLLING_INTERVALS, RATE_LIMIT_THRESHOLDS, ACTIVITY_THRESHOLD_MS } from 
 
 // Mock the GitHub utils module
 const mockGithubFetchWithETag = vi.fn();
-const mockClearETagCache = vi.fn();
+const mockClearETagCacheForProjectForProject = vi.fn();
 const mockGetETagCache = vi.fn();
 
 vi.mock('../../ipc-handlers/github/utils', () => ({
   githubFetchWithETag: (...args: unknown[]) => mockGithubFetchWithETag(...args),
-  clearETagCache: () => mockClearETagCache(),
+  clearETagCacheForProject: (...args: unknown[]) => mockClearETagCacheForProjectForProject(...args),
   getETagCache: () => mockGetETagCache()
 }));
 
@@ -47,7 +47,7 @@ describe('PRStatusPoller', () => {
 
     // Reset all mocks
     mockGithubFetchWithETag.mockReset();
-    mockClearETagCache.mockReset();
+    mockClearETagCacheForProject.mockReset();
     mockSafeSendToRenderer.mockReset();
   });
 
@@ -185,7 +185,7 @@ describe('PRStatusPoller', () => {
       await poller.startPolling('owner/repo', [1], 'test-token');
       poller.stopPolling('owner/repo');
 
-      expect(mockClearETagCache).toHaveBeenCalled();
+      expect(mockClearETagCacheForProject).toHaveBeenCalled();
     });
   });
 
@@ -387,12 +387,12 @@ describe('PRStatusPoller', () => {
       await poller.startPolling('owner/repo', [1], 'test-token');
 
       // Clear ETag cache should be called when stopping old polling
-      mockClearETagCache.mockClear();
+      mockClearETagCacheForProject.mockClear();
 
       await poller.startPolling('owner/repo', [1, 2], 'new-token');
 
       // Should have called clear on the old context
-      expect(mockClearETagCache).toHaveBeenCalled();
+      expect(mockClearETagCacheForProject).toHaveBeenCalled();
     });
   });
 

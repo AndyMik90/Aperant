@@ -32,7 +32,7 @@ import {
 } from '../../shared/types/pr-status';
 import {
   githubFetchWithETag,
-  clearETagCache,
+  clearETagCacheForProject,
 } from '../ipc-handlers/github/utils';
 import { safeSendToRenderer } from '../ipc-handlers/utils';
 
@@ -103,6 +103,8 @@ interface ProjectPollingContext {
   stableTimer: NodeJS.Timeout | null;
   /** Timer for full refresh */
   fullRefreshTimer: NodeJS.Timeout | null;
+  /** Timestamp of last completed poll cycle */
+  lastPollCycle: Date | null;
 }
 
 /**
@@ -191,6 +193,7 @@ export class PRStatusPoller {
       activeTimer: null,
       stableTimer: null,
       fullRefreshTimer: null,
+      lastPollCycle: null,
     };
 
     // Initialize PR states
@@ -246,8 +249,8 @@ export class PRStatusPoller {
       }
     }
 
-    // Clear ETag cache for this project's endpoints
-    clearETagCache();
+    // Clear ETag cache for this project's endpoints only
+    clearETagCacheForProject(projectId);
 
     this.contexts.delete(projectId);
     this.lastErrors.delete(projectId);
@@ -335,8 +338,8 @@ export class PRStatusPoller {
 
     return {
       isPolling: context !== undefined,
-      lastPollCycle: context
-        ? new Date().toISOString()
+      lastPollCycle: context?.lastPollCycle
+        ? context.lastPollCycle.toISOString()
         : null,
       rateLimitRemaining: this.rateLimitInfo?.remaining ?? null,
       rateLimitReset: this.rateLimitInfo
@@ -435,6 +438,9 @@ export class PRStatusPoller {
       }
     }
 
+    // Track when this poll cycle completed
+    context.lastPollCycle = new Date();
+
     // Send update to renderer
     if (updatedStatuses.length > 0) {
       this.sendStatusUpdate(context.projectId, updatedStatuses);
@@ -498,10 +504,13 @@ export class PRStatusPoller {
         lastActivity: lastActivity.toISOString(),
       };
     } catch (error) {
-      // Check for rate limit error
+      // Pause polling only for rate limit errors (403 + low remaining),
+      // not for permission-denied 403s
       if (
         error instanceof Error &&
-        error.message.includes('403')
+        error.message.includes('403') &&
+        this.rateLimitInfo &&
+        this.rateLimitInfo.remaining < RATE_LIMIT_THRESHOLDS.PAUSE_THRESHOLD
       ) {
         this.pauseForRateLimit();
       }
@@ -774,7 +783,8 @@ export class PRStatusPoller {
   }
 
   /**
-   * Resume polling after rate limit reset
+   * Resume polling after rate limit reset.
+   * Staggers requests across contexts to avoid a burst that re-triggers rate limiting.
    */
   private resumePolling(): void {
     if (!this.isPausedForRateLimit) {
@@ -786,9 +796,15 @@ export class PRStatusPoller {
 
     console.log('[PRStatusPoller] Resuming polling after rate limit reset');
 
-    // Trigger immediate poll for all contexts
+    // Stagger polls across contexts (5s apart) to avoid burst
+    let delay = 0;
     for (const context of this.contexts.values()) {
-      this.pollAllPRs(context);
+      setTimeout(() => {
+        if (!this.isPausedForRateLimit) {
+          this.pollAllPRs(context);
+        }
+      }, delay);
+      delay += 5000;
     }
   }
 

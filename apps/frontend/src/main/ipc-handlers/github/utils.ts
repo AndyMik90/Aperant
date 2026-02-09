@@ -49,6 +49,16 @@ export interface GitHubFetchWithETagResult {
 }
 
 /**
+ * Maximum age for cache entries (30 minutes)
+ */
+const ETAG_CACHE_TTL_MS = 30 * 60 * 1000;
+
+/**
+ * Maximum number of cache entries before evicting oldest
+ */
+const ETAG_CACHE_MAX_SIZE = 200;
+
+/**
  * Module-level ETag cache instance
  */
 const etagCache: ETagCache = {};
@@ -61,11 +71,51 @@ export function getETagCache(): ETagCache {
 }
 
 /**
- * Clear the ETag cache (for testing or when switching projects)
+ * Clear all ETag cache entries (for testing)
  */
 export function clearETagCache(): void {
   for (const key of Object.keys(etagCache)) {
     delete etagCache[key];
+  }
+}
+
+/**
+ * Clear ETag cache entries whose URL contains the given repo path (owner/repo).
+ * Used when stopping polling for a specific project so other projects' caches remain valid.
+ */
+export function clearETagCacheForProject(ownerRepo: string): void {
+  const prefix = `https://api.github.com/repos/${ownerRepo}`;
+  for (const key of Object.keys(etagCache)) {
+    if (key.startsWith(prefix)) {
+      delete etagCache[key];
+    }
+  }
+}
+
+/**
+ * Evict stale entries (older than TTL) and enforce max size by removing oldest entries.
+ */
+function evictStaleCacheEntries(): void {
+  const now = Date.now();
+  const keys = Object.keys(etagCache);
+
+  // Remove expired entries
+  for (const key of keys) {
+    if (now - etagCache[key].lastUpdated.getTime() > ETAG_CACHE_TTL_MS) {
+      delete etagCache[key];
+    }
+  }
+
+  // Enforce max size by removing oldest entries
+  const remainingKeys = Object.keys(etagCache);
+  if (remainingKeys.length > ETAG_CACHE_MAX_SIZE) {
+    const sorted = remainingKeys.sort(
+      (a, b) => etagCache[a].lastUpdated.getTime() - etagCache[b].lastUpdated.getTime()
+    );
+    const toRemove = sorted.slice(0, sorted.length - ETAG_CACHE_MAX_SIZE);
+    for (const key of toRemove) {
+      delete etagCache[key];
+    }
   }
 }
 
@@ -275,6 +325,7 @@ export async function githubFetchWithETag(
       data,
       lastUpdated: new Date()
     };
+    evictStaleCacheEntries();
   }
 
   return {

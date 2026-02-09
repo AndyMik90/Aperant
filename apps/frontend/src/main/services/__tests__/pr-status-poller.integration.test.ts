@@ -14,12 +14,12 @@ import type { PRStatusUpdate, PollingMetadata, PRStatus } from '../../../shared/
 
 // Mock the GitHub utils module
 const mockGithubFetchWithETag = vi.fn();
-const mockClearETagCache = vi.fn();
+const mockClearETagCacheForProjectForProject = vi.fn();
 const mockGetETagCache = vi.fn();
 
 vi.mock('../../ipc-handlers/github/utils', () => ({
   githubFetchWithETag: (...args: unknown[]) => mockGithubFetchWithETag(...args),
-  clearETagCache: () => mockClearETagCache(),
+  clearETagCacheForProject: (...args: unknown[]) => mockClearETagCacheForProjectForProject(...args),
   getETagCache: () => mockGetETagCache()
 }));
 
@@ -155,7 +155,7 @@ describe('PRStatusPoller Integration Tests', () => {
 
     // Reset all mocks
     mockGithubFetchWithETag.mockReset();
-    mockClearETagCache.mockReset();
+    mockClearETagCacheForProject.mockReset();
     mockSafeSendToRenderer.mockReset();
   });
 
@@ -205,7 +205,7 @@ describe('PRStatusPoller Integration Tests', () => {
       poller.stopPolling('owner/repo');
 
       // Verify cache was cleared
-      expect(mockClearETagCache).toHaveBeenCalled();
+      expect(mockClearETagCacheForProject).toHaveBeenCalled();
 
       // Verify polling state is cleared
       expect(poller.getPollingMetadata('owner/repo').isPolling).toBe(false);
@@ -221,14 +221,14 @@ describe('PRStatusPoller Integration Tests', () => {
       await poller.startPolling('owner/repo', [1], 'old-token');
 
       // Clear mock to track new calls
-      mockClearETagCache.mockClear();
+      mockClearETagCacheForProject.mockClear();
 
       // Start polling again with different PRs and token
       setupFullPollingMocks(2);
       await poller.startPolling('owner/repo', [2], 'new-token');
 
       // Should have cleared cache when stopping old polling
-      expect(mockClearETagCache).toHaveBeenCalled();
+      expect(mockClearETagCacheForProject).toHaveBeenCalled();
 
       // Should still be polling
       expect(poller.getPollingMetadata('owner/repo').isPolling).toBe(true);
