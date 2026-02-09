@@ -548,13 +548,14 @@ class TestShouldRunQA:
 
     def test_should_run_qa_build_complete_not_approved(self, spec_dir: Path):
         """Returns True when build complete but not approved."""
-        mock_progress.is_build_complete.return_value = True
+        # Explicitly patch is_build_complete to return True
+        from unittest.mock import patch
+        with patch('qa.criteria.is_build_complete', return_value=True):
+            plan = {"feature": "Test", "phases": []}
+            save_implementation_plan(spec_dir, plan)
 
-        plan = {"feature": "Test", "phases": []}
-        save_implementation_plan(spec_dir, plan)
-
-        result = should_run_qa(spec_dir)
-        assert result is True
+            result = should_run_qa(spec_dir)
+            assert result is True
 
     def test_should_run_qa_rejected_status(self, spec_dir: Path, qa_signoff_rejected: dict):
         """Returns True when rejected (needs re-review after fixes)."""
