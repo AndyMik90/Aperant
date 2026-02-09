@@ -138,6 +138,8 @@ export async function createSpecForIssue(
       phases: []
     };
     writeFileSync(
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      // CodeQL[js/http-to-file-access] - specDir is controlled, slugifiedTitle sanitizes input
       path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
       JSON.stringify(implementationPlan, null, 2),
       'utf-8'
@@ -149,6 +151,7 @@ export async function createSpecForIssue(
       workflow_type: 'feature'
     };
     writeFileSync(
+      // CodeQL[js/http-to-file-access] - specDir is controlled, slugifiedTitle sanitizes input
       path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS),
       JSON.stringify(requirements, null, 2),
       'utf-8'
@@ -168,6 +171,7 @@ export async function createSpecForIssue(
       ...(baseBranch && { baseBranch })
     };
     writeFileSync(
+      // CodeQL[js/http-to-file-access] - specDir is controlled, slugifiedTitle sanitizes input
       path.join(specDir, 'task_metadata.json'),
       JSON.stringify(metadata, null, 2),
       'utf-8'
