@@ -2,12 +2,16 @@
  * Tests for debounce utility - leading/trailing edge debouncing with cancel support.
  */
 
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { debounce } from '../debounce';
 
 describe('debounce', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe('trailing-only mode (default)', () => {
@@ -69,6 +73,22 @@ describe('debounce', () => {
       fn();
 
       expect(spy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should invoke again after wait period expires (new burst)', () => {
+      const spy = vi.fn();
+      const { fn } = debounce(spy, 300, { leading: true, trailing: false });
+
+      fn('first');
+      expect(spy).toHaveBeenCalledTimes(1);
+
+      // Wait for the debounce period to expire
+      vi.advanceTimersByTime(300);
+
+      // New burst should trigger leading edge again
+      fn('second');
+      expect(spy).toHaveBeenCalledTimes(2);
+      expect(spy).toHaveBeenLastCalledWith('second');
     });
   });
 

@@ -71,7 +71,13 @@ export function debounce<TArgs extends unknown[], TReturn = void>(
         timeoutId = null;
         hasTrailingArgs = false;
       }, wait);
-    } else if (!leading) {
+    } else if (leading) {
+      // Leading-only: schedule state reset so next burst triggers leading edge again
+      timeoutId = setTimeout(() => {
+        lastCallTime = null;
+        timeoutId = null;
+      }, wait);
+    } else {
       // Reset state if neither leading nor trailing
       lastCallTime = null;
     }
