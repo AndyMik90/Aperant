@@ -430,7 +430,7 @@ class WorktreeManager:
                         if os.path.samefile(resolved_path, current_path):
                             return line[len("branch refs/heads/") :]
                 except OSError:
-                    # CodeQL[py/empty-except] - file system comparison errors are handled by fallback
+                    # lgtm[py/empty-except] - file system comparison errors are handled by fallback
                     pass
                 # Fallback to normalized case comparison
                 if os.path.normcase(str(resolved_path)) == os.path.normcase(
@@ -511,7 +511,7 @@ class WorktreeManager:
                     if os.path.samefile(resolved_path, registered_path):
                         return True
             except OSError:
-                # CodeQL[py/empty-except] - file system errors handled by fallback comparison
+                # lgtm[py/empty-except] - file system errors handled by fallback comparison
                 pass
             # Fallback to normalized case comparison for non-existent paths
             if os.path.normcase(str(resolved_path)) == os.path.normcase(

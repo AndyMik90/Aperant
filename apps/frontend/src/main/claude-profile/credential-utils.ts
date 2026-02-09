@@ -1825,7 +1825,7 @@ function updateLinuxFileCredentials(
     }
 
     // Write to file with secure permissions (0600)
-    // CodeQL[js/http-to-file-access] - credentialsPath is from controlled configDir
+    // lgtm[js/http-to-file-access] - credentialsPath is from controlled configDir
     writeFileSync(credentialsPath, credentialsJson, { mode: 0o600, encoding: 'utf-8' });
 
     if (isDebug) {
@@ -2087,7 +2087,7 @@ function updateWindowsFileCredentials(
     const tempPath = `${credentialsPath}.${Date.now()}.tmp`;
     try {
       // Write to temp file
-      // CodeQL[js/http-to-file-access] - credentialsPath is from controlled configDir
+      // lgtm[js/http-to-file-access] - credentialsPath is from controlled configDir
       writeFileSync(tempPath, credentialsJson, { encoding: 'utf-8' });
 
       // Restrict temp file permissions to current user only (mimics Unix 0600)

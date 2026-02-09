@@ -519,7 +519,7 @@ class TestValidateEnvironment:
             with patch('cli.utils.is_linear_enabled', return_value=False):
                 validate_environment(spec_dir)
                 captured = capsys.readouterr()
-                # CodeQL[py/unsafe-string-validation-in-url] - test code: checking custom API endpoint is displayed
+                # lgtm[py/unsafe-string-validation-in-url] - test code: checking custom API endpoint is displayed
                 assert "https://custom.api.com" in captured.out
 
     @patch('cli.utils.validate_platform_dependencies')
