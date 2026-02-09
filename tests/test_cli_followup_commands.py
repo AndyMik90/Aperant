@@ -1078,3 +1078,44 @@ class TestCollectFollowupTaskEdgeCases:
         assert "Line 1" in result
         assert "Line 2" in result
         assert "Line 3" in result
+
+
+# =============================================================================
+# TESTS: Module-level path insertion (line 16)
+# =============================================================================
+
+
+class TestFollowupCommandsModuleImport:
+    """Tests for covering module-level path insertion (line 16)."""
+
+    def test_module_import_executes_path_insertion(self):
+        """Module import executes sys.path.insert (line 16)."""
+        # Get the module path and parent directory
+        import cli.followup_commands as followup_module
+        module_path = followup_module.__file__
+        parent_dir = str(Path(module_path).parent.parent)
+
+        # Save original sys.path
+        original_path = sys.path.copy()
+
+        # Remove the parent directory from sys.path to make the condition True
+        while parent_dir in sys.path:
+            sys.path.remove(parent_dir)
+
+        # Remove module and its submodules from sys.modules to force re-import
+        modules_to_remove = [k for k in sys.modules.keys() if k.startswith('cli.followup_commands')]
+        for mod_name in modules_to_remove:
+            del sys.modules[mod_name]
+
+        # Now import it fresh - this should execute line 16 under coverage
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cli.followup_commands", module_path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules['cli.followup_commands'] = module
+        spec.loader.exec_module(module)
+
+        # Verify the module loaded correctly
+        assert hasattr(module, 'handle_followup_command')
+
+        # Restore original sys.path
+        sys.path[:] = original_path

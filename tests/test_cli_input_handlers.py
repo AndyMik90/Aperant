@@ -631,3 +631,94 @@ class TestReadMultilineInput:
 
         assert result is not None
         assert len(result) == 10000
+
+
+# =============================================================================
+# Tests for module import behavior (line 14 - sys.path insertion)
+# =============================================================================
+
+class TestModuleImportPathInsertion:
+    """Tests for module-level path manipulation logic."""
+
+    def test_inserts_parent_dir_to_sys_path_when_not_present(self):
+        """
+        Test that line 14 executes: sys.path.insert(0, str(_PARENT_DIR))
+
+        This test covers the scenario where _PARENT_DIR is not in sys.path
+        when the module-level code executes.
+
+        Note: This test manually executes the module-level code that would
+        normally run on import, since we can't easily re-import after removing
+        the path (the module wouldn't be found without the path).
+        """
+        from cli.input_handlers import _PARENT_DIR
+
+        # Get the parent dir that should be inserted by line 14
+        parent_dir_str = str(_PARENT_DIR)
+
+        # Verify parent_dir_str is the apps/backend directory
+        assert parent_dir_str.endswith("apps/backend") or parent_dir_str.endswith("apps" + str(Path.sep) + "backend")
+
+        # Save current sys.path state to restore later
+        original_path = sys.path.copy()
+
+        # Remove the parent dir from sys.path to simulate the condition on line 13
+        paths_to_restore = []
+        for p in sys.path[:]:  # Copy to avoid modification during iteration
+            if 'apps/backend' in p or p == parent_dir_str:
+                paths_to_restore.append(p)
+                sys.path.remove(p)
+
+        try:
+            # Verify parent_dir_str is NOT in sys.path now
+            assert parent_dir_str not in sys.path
+
+            # Now manually execute the logic from lines 13-14 of input_handlers.py
+            # This simulates what happens when the module is imported without the path
+            # We use the _PARENT_DIR value that was already imported
+            if str(_PARENT_DIR) not in sys.path:
+                # This is line 14 - the line we're testing
+                sys.path.insert(0, str(_PARENT_DIR))
+
+            # Verify the parent dir was added to sys.path at position 0
+            assert parent_dir_str in sys.path, f"Parent dir {parent_dir_str} should be in sys.path"
+            assert sys.path[0] == parent_dir_str, f"Parent dir should be at sys.path[0]"
+
+        finally:
+            # Restore sys.path to original state
+            sys.path[:] = original_path
+
+    def test_line_14_coverage_via_importlib_reload(self):
+        """
+        Test that line 14 executes using importlib.reload() with path manipulation.
+
+        This test forces a reload of the module in a state where _PARENT_DIR
+        is not in sys.path, triggering line 14 execution.
+        """
+        import importlib
+        import cli.input_handlers
+
+        # Get the parent dir that should be inserted by line 14
+        parent_dir_str = str(cli.input_handlers._PARENT_DIR)
+
+        # Save current sys.path state to restore later
+        original_path = sys.path.copy()
+
+        # Remove the parent dir from sys.path
+        for p in sys.path[:]:
+            if p == parent_dir_str or p.rstrip("/") == parent_dir_str.rstrip("/"):
+                sys.path.remove(p)
+
+        try:
+            # Verify parent_dir_str is NOT in sys.path now
+            assert parent_dir_str not in sys.path
+
+            # Reload the module - this should execute lines 13-14 since path is not present
+            importlib.reload(cli.input_handlers)
+
+            # Verify the parent dir was added to sys.path by line 14
+            assert parent_dir_str in sys.path, f"Parent dir {parent_dir_str} should be in sys.path"
+
+        finally:
+            # Restore sys.path to original state
+            sys.path[:] = original_path

@@ -10,6 +10,7 @@ Tests for qa_commands.py module functionality including:
 """
 
 import json
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -526,3 +527,51 @@ class TestQaCommandsIntegration:
         captured = capsys.readouterr()
         # Should show either "Ready to build" or "APPROVED" status
         assert "APPROVED" in captured.out or "Ready to build" in captured.out
+
+
+# =============================================================================
+# MODULE IMPORT PATH INSERTION TESTS
+# =============================================================================
+
+class TestModuleImportPathInsertion:
+    """Tests for module-level path manipulation logic (line 15)."""
+
+    def test_inserts_parent_dir_to_sys_path_when_not_present(self):
+        """
+        Test that line 15 executes: sys.path.insert(0, str(_PARENT_DIR))
+
+        This test covers the scenario where _PARENT_DIR is not in sys.path
+        when the module-level code executes.
+        """
+        import importlib
+
+        # Use import_module to get the actual module object
+        qa_commands_module = importlib.import_module("cli.qa_commands")
+
+        # Get the parent dir that should be inserted by line 15
+        parent_dir_str = str(qa_commands_module._PARENT_DIR)
+
+        # Verify parent_dir_str is the apps/backend directory
+        assert parent_dir_str.endswith("apps/backend") or parent_dir_str.endswith("apps" + "/" + "backend")
+
+        # Save current sys.path state to restore later
+        original_path = sys.path.copy()
+
+        # Remove the parent dir from sys.path
+        for p in sys.path[:]:
+            if p == parent_dir_str or p.rstrip("/") == parent_dir_str.rstrip("/"):
+                sys.path.remove(p)
+
+        try:
+            # Verify parent_dir_str is NOT in sys.path now
+            assert parent_dir_str not in sys.path
+
+            # Reload the module - this should execute lines 14-15 since path is not present
+            importlib.reload(qa_commands_module)
+
+            # Verify the parent dir was added to sys.path by line 15
+            assert parent_dir_str in sys.path, f"Parent dir {parent_dir_str} should be in sys.path"
+
+        finally:
+            # Restore sys.path to original state
+            sys.path[:] = original_path

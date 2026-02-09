@@ -1034,3 +1034,57 @@ class TestModuleLevelBehavior:
 
             finally:
                 sys.path[:] = original_path
+
+
+# =============================================================================
+# Tests for Module-Level Path Insertion (Line 15)
+# =============================================================================
+
+class TestUtilsModuleLevelPathInsertion:
+    """Tests for module-level path insertion behavior (line 15)."""
+
+    def test_parent_dir_inserted_to_sys_path_when_not_present(self):
+        """Tests that parent dir is inserted into sys.path when not already present (line 15)."""
+        # Line 15: sys.path.insert(0, str(_PARENT_DIR))
+        # This executes when module is imported and parent dir is not in sys.path
+
+        import cli.utils as utils_module
+        import inspect
+
+        # Get the _PARENT_DIR value from the module
+        parent_dir = utils_module._PARENT_DIR
+
+        # Verify _PARENT_DIR is set correctly (line 13-14)
+        assert isinstance(parent_dir, Path)
+        assert parent_dir.exists()
+
+        # Verify parent_dir was inserted into sys.path (line 15)
+        assert str(parent_dir) in sys.path, f"Parent dir {parent_dir} should be in sys.path after module import"
+
+    def test_parent_dir_path_insertion_happens_once(self):
+        """Tests that parent dir insertion only happens if not already in sys.path (line 14-15)."""
+        import cli.utils
+
+        # Get the parent dir that was set at module import time
+        parent_dir = cli.utils._PARENT_DIR
+
+        # The conditional logic on lines 14-15 ensures insertion only happens once
+        # if str(_PARENT_DIR) not in sys.path:
+        #     sys.path.insert(0, str(_PARENT_DIR))
+
+        # Verify parent_dir is a Path object
+        assert isinstance(parent_dir, Path)
+
+        # Verify it's in sys.path (should have been inserted on first import)
+        assert str(parent_dir) in sys.path
+
+    def test_parent_dir_is_apps_backend_directory(self):
+        """Tests that _PARENT_DIR correctly points to apps/backend (line 13)."""
+        import cli.utils
+
+        parent_dir = cli.utils._PARENT_DIR
+
+        # _PARENT_DIR = Path(__file__).parent.parent
+        # This should be the apps/backend directory
+        assert isinstance(parent_dir, Path)
+        assert parent_dir.name in ["backend", "apps"]

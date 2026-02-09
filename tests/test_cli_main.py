@@ -1018,3 +1018,145 @@ class TestModelResolution:
             # Model should be None (allows get_phase_model() to use task_metadata.json)
             call_args = mock_handle.call_args
             assert call_args[1]["model"] is None
+
+
+class TestModuleImportPathInsertion:
+    """Tests for module-level path manipulation logic (line 16)."""
+
+    def test_inserts_parent_dir_to_sys_path_when_not_present(self):
+        """
+        Test that line 16 executes: sys.path.insert(0, str(_PARENT_DIR))
+
+        This test covers the scenario where _PARENT_DIR is not in sys.path
+        when the module-level code executes.
+        """
+        import importlib
+
+        # Use import_module to get the actual module object
+        main_module = importlib.import_module("cli.main")
+
+        # Get the parent dir that should be inserted by line 16
+        parent_dir_str = str(main_module._PARENT_DIR)
+
+        # Verify parent_dir_str is the apps/backend directory
+        assert parent_dir_str.endswith("apps/backend") or parent_dir_str.endswith("apps" + "/" + "backend")
+
+        # Save current sys.path state to restore later
+        original_path = sys.path.copy()
+
+        # Remove the parent dir from sys.path
+        for p in sys.path[:]:
+            if p == parent_dir_str or p.rstrip("/") == parent_dir_str.rstrip("/"):
+                sys.path.remove(p)
+
+        try:
+            # Verify parent_dir_str is NOT in sys.path now
+            assert parent_dir_str not in sys.path
+
+            # Reload the module - this should execute lines 15-16 since path is not present
+            importlib.reload(main_module)
+
+            # Verify the parent dir was added to sys.path by line 16
+            assert parent_dir_str in sys.path, f"Parent dir {parent_dir_str} should be in sys.path"
+
+        finally:
+            # Restore sys.path to original state
+            sys.path[:] = original_path
+
+
+class TestMainEntryExecution:
+    """Tests for __main__ entry point execution (line 484)."""
+
+    def test_main_callable_directly(self, clear_env):
+        """
+        Test that main() function is callable (verifies line 484 can execute).
+
+        Line 484 is: `main()` inside `if __name__ == "__main__":`
+        This test verifies that calling main() directly works as expected,
+        which is what line 484 does when the module is executed as __main__.
+        """
+        from cli.main import main
+
+        # Verify main is callable
+        assert callable(main)
+
+        # Test that main() calls _run_cli with proper mocking
+        with patch("cli.main.setup_environment"), \
+             patch("core.sentry.init_sentry"), \
+             patch("cli.main._run_cli") as mock_run_cli, \
+             patch("sys.argv", ["run.py", "--list"]):
+
+            # Call main() - this is what line 484 does
+            main()
+
+            # Verify _run_cli was called
+            mock_run_cli.assert_called_once()
+
+    def test_module_can_be_imported(self):
+        """Test that cli.main module can be imported without errors."""
+        import importlib
+        main_module = importlib.import_module("cli.main")
+
+        # Verify module has expected attributes
+        assert hasattr(main_module, "main")
+        assert hasattr(main_module, "parse_args")
+        assert hasattr(main_module, "_run_cli")
+        assert callable(main_module.main)
+        assert callable(main_module.parse_args)
+        assert callable(main_module._run_cli)
+
+    def test_main_block_executes_when_name_is_main(self, clear_env):
+        """
+        Test that line 484 (main() call) executes when __name__ == '__main__'.
+
+        This test uses runpy to execute the module as __main__, which ensures
+        the if __name__ == "__main__": block on line 483-484 is actually executed.
+
+        Note: This test is marked with pytest.mark.slow because it executes
+        the entire module which may have side effects.
+        """
+        import runpy
+        import importlib
+
+        # Save original state
+        original_argv = sys.argv.copy()
+        original_modules = sys.modules.copy()
+
+        # Remove cli modules to force re-import
+        modules_to_remove = [mod for mod in sys.modules if 'cli' in mod]
+        for mod in modules_to_remove:
+            del sys.modules[mod]
+
+        # Set up argv
+        sys.argv = ['cli.main', '--list']
+
+        # Create mocks that will be used when the module imports
+        mock_setup = MagicMock()
+        mock_init_sentry = MagicMock()
+        mock_print_banner = MagicMock()
+        mock_print_specs_list = MagicMock()
+
+        try:
+            # Apply patches BEFORE importing
+            with patch('cli.utils.setup_environment', mock_setup), \
+                 patch('core.sentry.init_sentry', mock_init_sentry), \
+                 patch('cli.utils.print_banner', mock_print_banner), \
+                 patch('cli.spec_commands.print_specs_list', mock_print_specs_list):
+
+                # Run the module as __main__ - this executes line 484
+                runpy.run_module('cli.main', run_name='__main__', alter_sys=True)
+
+                # Verify the mocks were called
+                mock_setup.assert_called_once()
+                mock_init_sentry.assert_called_once()
+                mock_print_banner.assert_called_once()
+                mock_print_specs_list.assert_called_once()
+
+        except SystemExit as e:
+            # --list exits after completion, which is expected
+            assert e.code == 0 or e.code is None
+        finally:
+            sys.argv[:] = original_argv
+            # Restore original modules
+            sys.modules.clear()
+            sys.modules.update(original_modules)

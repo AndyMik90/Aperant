@@ -9,6 +9,7 @@ Tests for spec_commands.py module functionality including:
 """
 
 import json
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -432,3 +433,37 @@ class TestSpecCommandsMissingCoverage:
         captured = capsys.readouterr()
         # Should print message about creating first spec
         assert "Create your first spec" in captured.out
+
+
+# =============================================================================
+# Tests for Module-Level Behavior (Line 14)
+# =============================================================================
+
+class TestSpecCommandsModuleLevel:
+    """Tests for module-level initialization behavior (line 14)."""
+
+    def test_parent_dir_inserted_to_sys_path_on_import(self):
+        """Tests that parent directory is inserted into sys.path on module import (line 14)."""
+        # The module-level code at line 14: sys.path.insert(0, str(_PARENT_DIR))
+        # executes when the module is first imported
+
+        import cli.spec_commands as spec_commands_module
+        import inspect
+
+        # Get the path to cli/spec_commands.py
+        module_path = Path(inspect.getfile(spec_commands_module))
+        parent_dir = module_path.parent.parent
+
+        # Verify parent_dir was inserted into sys.path by the module-level code
+        assert str(parent_dir) in sys.path, f"Parent directory {parent_dir} should be in sys.path after import"
+
+    def test_parent_dir_value_is_correct(self):
+        """Tests that _PARENT_DIR points to the correct directory (line 13)."""
+        import cli.spec_commands as spec_commands_module
+
+        # _PARENT_DIR should be Path(__file__).parent.parent (line 13)
+        parent_dir = spec_commands_module._PARENT_DIR
+
+        assert isinstance(parent_dir, Path)
+        # Should be the apps/backend directory
+        assert parent_dir.name in ["backend", "apps"]
