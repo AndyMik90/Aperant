@@ -657,7 +657,7 @@ class TestModuleImportPathInsertion:
         parent_dir_str = str(_PARENT_DIR)
 
         # Verify parent_dir_str is the apps/backend directory
-        assert parent_dir_str.endswith("apps/backend") or parent_dir_str.endswith("apps" + str(Path.sep) + "backend")
+        assert parent_dir_str.endswith("apps/backend") or parent_dir_str.endswith("apps" + os.sep + "backend")
 
         # Save current sys.path state to restore later
         original_path = sys.path.copy()
