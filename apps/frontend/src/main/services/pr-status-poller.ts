@@ -504,13 +504,12 @@ export class PRStatusPoller {
         lastActivity: lastActivity.toISOString(),
       };
     } catch (error) {
-      // Pause polling only for rate limit errors (403 + low remaining),
-      // not for permission-denied 403s
+      // Pause polling on 403 unless we know rate limit remaining is healthy
+      // (a permission-denied 403 would still show healthy remaining from prior requests)
       if (
         error instanceof Error &&
         error.message.includes('403') &&
-        this.rateLimitInfo &&
-        this.rateLimitInfo.remaining < RATE_LIMIT_THRESHOLDS.PAUSE_THRESHOLD
+        (!this.rateLimitInfo || this.rateLimitInfo.remaining < RATE_LIMIT_THRESHOLDS.PAUSE_THRESHOLD)
       ) {
         this.pauseForRateLimit();
       }

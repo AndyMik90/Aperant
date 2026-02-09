@@ -402,9 +402,8 @@ describe('PRStatusPoller Integration Tests', () => {
         rateLimitInfo: { remaining: RATE_LIMIT_THRESHOLDS.PAUSE_THRESHOLD - 1, reset: new Date(Date.now() + 3600000), limit: 5000 }
       });
 
-      // Advance to next poll cycle
-      vi.advanceTimersByTime(POLLING_INTERVALS.ACTIVE + 1000);
-      await vi.runOnlyPendingTimersAsync();
+      // Advance to next poll cycle and flush async work
+      await vi.advanceTimersByTimeAsync(POLLING_INTERVALS.ACTIVE + 1000);
 
       // Both projects should reflect paused state
       expect(poller.getPollingMetadata('owner/repo1').isPausedForRateLimit).toBe(true);
