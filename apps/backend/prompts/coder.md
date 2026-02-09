@@ -342,7 +342,7 @@ Input: { "libraryName": "[library name from subtask]" }
 
 **Step 2: Get relevant documentation**
 ```
-Tool: mcp__context7__get-library-docs
+Tool: mcp__context7__query-docs
 Input: {
   "context7CompatibleLibraryID": "[library-id]",
   "topic": "[specific feature you're implementing]",
@@ -353,7 +353,7 @@ Input: {
 **Example workflow:**
 If subtask says "Add Stripe payment integration":
 1. `resolve-library-id` with "stripe"
-2. `get-library-docs` with topic "payments" or "checkout"
+2. `query-docs` with topic "payments" or "checkout"
 3. Use the exact patterns from documentation
 
 **This prevents:**

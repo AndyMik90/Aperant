@@ -60,7 +60,7 @@ Tool: mcp__context7__resolve-library-id
 Input: { "libraryName": "[library from spec]" }
 
 # Step 2: Verify API patterns mentioned in spec
-Tool: mcp__context7__get-library-docs
+Tool: mcp__context7__query-docs
 Input: {
   "context7CompatibleLibraryID": "[library-id]",
   "topic": "[specific API or feature mentioned in spec]",
@@ -305,7 +305,7 @@ When analyzing, think through:
 >
 > Let me also verify with Context7 - I'll look up the actual package name and API patterns to confirm...
 > [Use mcp__context7__resolve-library-id to find the library]
-> [Use mcp__context7__get-library-docs to check API patterns]
+> [Use mcp__context7__query-docs to check API patterns]
 >
 > Next, looking at the API patterns. The research shows initialization requires [steps], but the spec shows [different steps]. Let me cross-reference with Context7 documentation... Another issue confirmed.
 >

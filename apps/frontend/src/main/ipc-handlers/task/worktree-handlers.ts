@@ -2310,7 +2310,6 @@ export function registerWorktreeHandlers(
                     worktreePath,
                     projectPath: project.path,
                     specId: task.specId,
-                    commitMessage: 'Auto-save before merge cleanup',
                     logPrefix: '[TASK_WORKTREE_MERGE]',
                     deleteBranch: true
                   });
@@ -2753,7 +2752,6 @@ export function registerWorktreeHandlers(
           worktreePath,
           projectPath: project.path,
           specId: task.specId,
-          commitMessage: 'Auto-save before discard',
           logPrefix: '[TASK_WORKTREE_DISCARD]',
           deleteBranch: true
         });
@@ -2769,9 +2767,6 @@ export function registerWorktreeHandlers(
         // Log any non-fatal warnings
         if (cleanupResult.warnings.length > 0) {
           console.warn('[TASK_WORKTREE_DISCARD] Cleanup warnings:', cleanupResult.warnings);
-        }
-        if (cleanupResult.autoCommitted) {
-          console.warn('[TASK_WORKTREE_DISCARD] Auto-committed uncommitted work before discard');
         }
 
 
@@ -2844,13 +2839,11 @@ export function registerWorktreeHandlers(
           };
         }
 
-        // Use cleanupWorktree which auto-commits any uncommitted changes before deletion
-        // This preserves work in git history (recoverable via reflog for ~90 days)
+        // Use cleanupWorktree for robust, cross-platform worktree deletion
         const cleanupResult = await cleanupWorktree({
           worktreePath,
           projectPath: project.path,
           specId: specName,
-          commitMessage: 'Auto-save before orphaned worktree deletion',
           logPrefix: '[ORPHAN_CLEANUP]',
           deleteBranch: true
         });
@@ -2866,9 +2859,7 @@ export function registerWorktreeHandlers(
           success: true,
           data: {
             success: true,
-            message: cleanupResult.autoCommitted
-              ? 'Orphaned worktree deleted (uncommitted changes were auto-saved)'
-              : 'Orphaned worktree deleted successfully'
+            message: 'Orphaned worktree deleted successfully'
           }
         };
       } catch (error) {

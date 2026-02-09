@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
+import { useSettingsStore } from '../../../stores/settings-store';
 import { checkTaskRunning, isIncompleteHumanReview, getTaskProgress, useTaskStore, loadTasks, hasRecentActivity } from '../../../stores/task-store';
 import type { Task, TaskLogs, TaskLogPhase, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, ImageAttachment } from '../../../../shared/types';
 
@@ -60,6 +61,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [worktreeChangesInfo, setWorktreeChangesInfo] = useState<{ hasChanges: boolean; worktreePath?: string; changedFileCount?: number } | null>(null);
+  const [isCheckingChanges, setIsCheckingChanges] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [worktreeStatus, setWorktreeStatus] = useState<WorktreeStatus | null>(null);
   const [worktreeDiff, setWorktreeDiff] = useState<WorktreeDiff | null>(null);
@@ -93,6 +96,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [isCreatingPR, setIsCreatingPR] = useState(false);
 
   const selectedProject = useProjectStore((state) => state.getSelectedProject());
+  const logOrder = useSettingsStore(s => s.settings.logOrder);
   const isRunning = task.status === 'in_progress';
   // isActiveTask includes ai_review for stuck detection (CHANGELOG documents this feature)
   const isActiveTask = task.status === 'in_progress' || task.status === 'ai_review';
@@ -131,19 +135,46 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     return () => clearInterval(intervalId);
   }, [task.id, isActiveTask]);
 
-  // Handle scroll events in logs to detect if user scrolled up
+  // Check for uncommitted worktree changes when delete dialog opens
+  useEffect(() => {
+    if (showDeleteDialog && task) {
+      setIsCheckingChanges(true);
+      window.electronAPI.checkWorktreeChanges(task.id).then((result) => {
+        if (result.success && result.data) {
+          setWorktreeChangesInfo(result.data);
+        }
+        setIsCheckingChanges(false);
+      }).catch(() => setIsCheckingChanges(false));
+    } else {
+      setWorktreeChangesInfo(null);
+    }
+  }, [showDeleteDialog, task]);
+
+  // Handle scroll events in logs to detect if user scrolled away from anchor
   const handleLogsScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
-    const isNearBottom = target.scrollHeight - target.scrollTop - target.clientHeight < 100;
-    setIsUserScrolledUp(!isNearBottom);
+    const isReverseOrder = logOrder === 'reverse-chronological';
+
+    // Check distance from top for reverse order, bottom for chronological
+    const isAtAnchor = isReverseOrder
+      ? target.scrollTop < 100
+      : target.scrollHeight - target.scrollTop - target.clientHeight < 100;
+
+    setIsUserScrolledUp(!isAtAnchor);
   };
 
-  // Auto-scroll logs to bottom only if user hasn't scrolled up
+  // Auto-scroll logs to anchor (top for reverse, bottom for chronological) only if user hasn't scrolled away
   useEffect(() => {
-    if (activeTab === 'logs' && logsEndRef.current && !isUserScrolledUp) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    const isReverseOrder = logOrder === 'reverse-chronological';
+
+    if (activeTab === 'logs' && !isUserScrolledUp) {
+      if (isReverseOrder && logsContainerRef.current) {
+        logsContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (!isReverseOrder && logsEndRef.current) {
+        logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
     }
-  }, [activeTab, isUserScrolledUp]);
+  }, [activeTab, isUserScrolledUp, logOrder, phaseLogs]);
 
   // Reset scroll state when switching to logs tab
   useEffect(() => {
@@ -472,6 +503,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     showDeleteDialog,
     isDeleting,
     deleteError,
+    worktreeChangesInfo,
+    isCheckingChanges,
     isEditDialogOpen,
     worktreeStatus,
     worktreeDiff,
@@ -516,6 +549,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     setShowDeleteDialog,
     setIsDeleting,
     setDeleteError,
+    setWorktreeChangesInfo,
+    setIsCheckingChanges,
     setIsEditDialogOpen,
     setWorktreeStatus,
     setWorktreeDiff,

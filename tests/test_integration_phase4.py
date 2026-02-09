@@ -62,7 +62,14 @@ io_utils_module = importlib.util.module_from_spec(io_utils_spec)
 sys.modules["services.io_utils"] = io_utils_module
 io_utils_spec.loader.exec_module(io_utils_module)
 
-# Load pydantic_models
+# Load pydantic_models (mock pydantic if not installed in test env)
+_pydantic_was_mocked = False
+try:
+    import pydantic  # noqa: F401
+except ImportError:
+    pydantic_mock = MagicMock()
+    sys.modules["pydantic"] = pydantic_mock
+    _pydantic_was_mocked = True
 pydantic_models_spec = importlib.util.spec_from_file_location(
     "pydantic_models",
     backend_path / "runners" / "github" / "services" / "pydantic_models.py",
@@ -71,6 +78,9 @@ pydantic_models_module = importlib.util.module_from_spec(pydantic_models_spec)
 sys.modules["services.pydantic_models"] = pydantic_models_module
 pydantic_models_spec.loader.exec_module(pydantic_models_module)
 AgentAgreement = pydantic_models_module.AgentAgreement
+# Restore sys.modules to avoid leaking the mock to other tests
+if _pydantic_was_mocked:
+    del sys.modules["pydantic"]
 
 # Load agent_utils (shared utility for working directory injection)
 agent_utils_spec = importlib.util.spec_from_file_location(

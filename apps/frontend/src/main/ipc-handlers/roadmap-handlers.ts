@@ -21,11 +21,38 @@ import type {
 } from "../../shared/types";
 import type { RoadmapConfig } from "../agent/types";
 import path from "path";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from "fs";
+import { existsSync, readFileSync, mkdirSync, readdirSync, unlinkSync } from "fs";
 import { projectStore } from "../project-store";
 import { AgentManager } from "../agent";
 import { debugLog, debugError } from "../../shared/utils/debug-logger";
 import { safeSendToRenderer } from "./utils";
+import { writeFileWithRetry, readFileWithRetry } from "../utils/atomic-file";
+
+/**
+ * Simple in-process file lock to serialize read-modify-write operations.
+ * Prevents concurrent IPC calls from causing lost updates on the same file.
+ */
+const fileLocks = new Map<string, Promise<void>>();
+
+async function withFileLock<T>(filepath: string, fn: () => Promise<T>): Promise<T> {
+  // Wait for any existing lock on this file
+  while (fileLocks.has(filepath)) {
+    await fileLocks.get(filepath);
+  }
+
+  let resolve: (() => void) | undefined;
+  const lockPromise = new Promise<void>((r) => {
+    resolve = r;
+  });
+  fileLocks.set(filepath, lockPromise);
+
+  try {
+    return await fn();
+  } finally {
+    fileLocks.delete(filepath);
+    resolve?.();
+  }
+}
 
 /**
  * Read feature settings from the settings file
@@ -88,7 +115,7 @@ export function registerRoadmapHandlers(
       }
 
       try {
-        const content = readFileSync(roadmapPath, "utf-8");
+        const content = await readFileWithRetry(roadmapPath, { encoding: "utf-8" }) as string;
         const rawRoadmap = JSON.parse(content);
 
         // Load competitor analysis if available (competitor_analysis.json)
@@ -100,7 +127,7 @@ export function registerRoadmapHandlers(
         let competitorAnalysis: CompetitorAnalysis | undefined;
         if (existsSync(competitorAnalysisPath)) {
           try {
-            const competitorContent = readFileSync(competitorAnalysisPath, "utf-8");
+            const competitorContent = await readFileWithRetry(competitorAnalysisPath, { encoding: "utf-8" }) as string;
             const rawCompetitor = JSON.parse(competitorContent);
             // Transform snake_case to camelCase for frontend
             competitorAnalysis = {
@@ -378,42 +405,44 @@ export function registerRoadmapHandlers(
       );
 
       try {
-        let content: string;
-        try {
-          content = readFileSync(roadmapPath, "utf-8");
-        } catch (readErr: unknown) {
-          if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
-            return { success: false, error: "Roadmap not found" };
+        return await withFileLock(roadmapPath, async () => {
+          let content: string;
+          try {
+            content = await readFileWithRetry(roadmapPath, { encoding: "utf-8" }) as string;
+          } catch (readErr: unknown) {
+            if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+              return { success: false, error: "Roadmap not found" };
+            }
+            throw readErr;
           }
-          throw readErr;
-        }
-        const existingRoadmap = JSON.parse(content);
+          const existingRoadmap = JSON.parse(content);
 
-        // Transform camelCase features back to snake_case for JSON file
-        existingRoadmap.features = roadmapData.features.map((feature) => ({
-          id: feature.id,
-          title: feature.title,
-          description: feature.description,
-          rationale: feature.rationale || "",
-          priority: feature.priority,
-          complexity: feature.complexity,
-          impact: feature.impact,
-          phase_id: feature.phaseId,
-          dependencies: feature.dependencies || [],
-          status: feature.status,
-          acceptance_criteria: feature.acceptanceCriteria || [],
-          user_stories: feature.userStories || [],
-          linked_spec_id: feature.linkedSpecId,
-          competitor_insight_ids: feature.competitorInsightIds,
-        }));
+          // Transform camelCase features back to snake_case for JSON file
+          existingRoadmap.features = roadmapData.features.map((feature) => ({
+            id: feature.id,
+            title: feature.title,
+            description: feature.description,
+            rationale: feature.rationale || "",
+            priority: feature.priority,
+            complexity: feature.complexity,
+            impact: feature.impact,
+            phase_id: feature.phaseId,
+            dependencies: feature.dependencies || [],
+            status: feature.status,
+            acceptance_criteria: feature.acceptanceCriteria || [],
+            user_stories: feature.userStories || [],
+            linked_spec_id: feature.linkedSpecId,
+            competitor_insight_ids: feature.competitorInsightIds,
+          }));
 
-        // Update metadata timestamp
-        existingRoadmap.metadata = existingRoadmap.metadata || {};
-        existingRoadmap.metadata.updated_at = new Date().toISOString();
+          // Update metadata timestamp
+          existingRoadmap.metadata = existingRoadmap.metadata || {};
+          existingRoadmap.metadata.updated_at = new Date().toISOString();
 
-        writeFileSync(roadmapPath, JSON.stringify(existingRoadmap, null, 2), 'utf-8');
+          await writeFileWithRetry(roadmapPath, JSON.stringify(existingRoadmap, null, 2), { encoding: 'utf-8' });
 
-        return { success: true };
+          return { success: true };
+        });
       } catch (error) {
         return {
           success: false,
@@ -443,30 +472,32 @@ export function registerRoadmapHandlers(
       );
 
       try {
-        let content: string;
-        try {
-          content = readFileSync(roadmapPath, "utf-8");
-        } catch (readErr: unknown) {
-          if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
-            return { success: false, error: "Roadmap not found" };
+        return await withFileLock(roadmapPath, async () => {
+          let content: string;
+          try {
+            content = await readFileWithRetry(roadmapPath, { encoding: "utf-8" }) as string;
+          } catch (readErr: unknown) {
+            if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+              return { success: false, error: "Roadmap not found" };
+            }
+            throw readErr;
           }
-          throw readErr;
-        }
-        const roadmap = JSON.parse(content);
+          const roadmap = JSON.parse(content);
 
-        // Find and update the feature
-        const feature = roadmap.features?.find((f: { id: string }) => f.id === featureId);
-        if (!feature) {
-          return { success: false, error: "Feature not found" };
-        }
+          // Find and update the feature
+          const feature = roadmap.features?.find((f: { id: string }) => f.id === featureId);
+          if (!feature) {
+            return { success: false, error: "Feature not found" };
+          }
 
-        feature.status = status;
-        roadmap.metadata = roadmap.metadata || {};
-        roadmap.metadata.updated_at = new Date().toISOString();
+          feature.status = status;
+          roadmap.metadata = roadmap.metadata || {};
+          roadmap.metadata.updated_at = new Date().toISOString();
 
-        writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2), 'utf-8');
+          await writeFileWithRetry(roadmapPath, JSON.stringify(roadmap, null, 2), { encoding: 'utf-8' });
 
-        return { success: true };
+          return { success: true };
+        });
       } catch (error) {
         return {
           success: false,
@@ -491,9 +522,10 @@ export function registerRoadmapHandlers(
       );
 
       try {
+        return await withFileLock(roadmapPath, async () => {
         let content: string;
         try {
-          content = readFileSync(roadmapPath, "utf-8");
+          content = await readFileWithRetry(roadmapPath, { encoding: "utf-8" }) as string;
         } catch (readErr: unknown) {
           if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
             return { success: false, error: "Roadmap not found" };
@@ -571,10 +603,10 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
           status: "pending",
           phases: [],
         };
-        writeFileSync(
+        await writeFileWithRetry(
           path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
           JSON.stringify(implementationPlan, null, 2),
-          'utf-8'
+          { encoding: 'utf-8' }
         );
 
         // Create requirements.json
@@ -582,14 +614,14 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
           task_description: taskDescription,
           workflow_type: "feature",
         };
-        writeFileSync(
+        await writeFileWithRetry(
           path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS),
           JSON.stringify(requirements, null, 2),
-          'utf-8'
+          { encoding: 'utf-8' }
         );
 
         // Create spec.md (required by backend spec creation process)
-        writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE), taskDescription, 'utf-8');
+        await writeFileWithRetry(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE), taskDescription, { encoding: 'utf-8' });
 
         // Build metadata
         const metadata: TaskMetadata = {
@@ -597,7 +629,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
           featureId: feature.id,
           category: "feature",
         };
-        writeFileSync(path.join(specDir, "task_metadata.json"), JSON.stringify(metadata, null, 2), 'utf-8');
+        await writeFileWithRetry(path.join(specDir, "task_metadata.json"), JSON.stringify(metadata, null, 2), { encoding: 'utf-8' });
 
         // NOTE: We do NOT auto-start spec creation here - user should explicitly start the task
         // from the kanban board when they're ready
@@ -607,7 +639,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         feature.linked_spec_id = specId;
         roadmap.metadata = roadmap.metadata || {};
         roadmap.metadata.updated_at = new Date().toISOString();
-        writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2), 'utf-8');
+        await writeFileWithRetry(roadmapPath, JSON.stringify(roadmap, null, 2), { encoding: 'utf-8' });
 
         // Create task object
         const task: Task = {
@@ -625,6 +657,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         };
 
         return { success: true, data: task };
+        });
       } catch (error) {
         return {
           success: false,
@@ -676,7 +709,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
           is_running: isRunning,
         };
 
-        writeFileSync(progressPath, JSON.stringify(fileData, null, 2), 'utf-8');
+        await writeFileWithRetry(progressPath, JSON.stringify(fileData, null, 2), { encoding: 'utf-8' });
         debugLog("[Roadmap Handler] Saved progress checkpoint:", { projectId, phase: progressData.phase });
 
         return { success: true };
@@ -712,7 +745,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
       }
 
       try {
-        const content = readFileSync(progressPath, "utf-8");
+        const content = await readFileWithRetry(progressPath, { encoding: "utf-8" }) as string;
         const rawData = JSON.parse(content);
 
         // Valid phase values that the frontend expects

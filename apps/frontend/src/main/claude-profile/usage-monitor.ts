@@ -1178,15 +1178,8 @@ export class UsageMonitor extends EventEmitter {
       }
     }
 
-    const settings = profileManager.getAutoSwitchSettings();
-
-    // Proactive swap is only supported for OAuth profiles, not API profiles
-    if (isAPIProfile || !settings.enabled || !settings.proactiveSwapEnabled) {
-      this.debugLog('[UsageMonitor] Auth failure detected but proactive swap is disabled or using API profile, skipping swap');
-      return;
-    }
-
     // Mark this profile as auth-failed to prevent swap loops
+    // This MUST happen before the early return to prevent infinite loops
     this.authFailedProfiles.set(profileId, Date.now());
     this.debugLog('[UsageMonitor] Auth failure detected, marked profile as failed: ' + profileId);
 
@@ -1197,6 +1190,14 @@ export class UsageMonitor extends EventEmitter {
         this.authFailedProfiles.delete(failedProfileId);
       }
     });
+
+    const settings = profileManager.getAutoSwitchSettings();
+
+    // Proactive swap is only supported for OAuth profiles, not API profiles
+    if (isAPIProfile || !settings.enabled || !settings.proactiveSwapEnabled) {
+      this.debugLog('[UsageMonitor] Auth failure detected but proactive swap is disabled or using API profile, skipping swap');
+      return;
+    }
 
     try {
       const excludeProfiles = Array.from(this.authFailedProfiles.keys());
