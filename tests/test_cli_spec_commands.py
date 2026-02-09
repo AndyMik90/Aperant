@@ -467,3 +467,56 @@ class TestSpecCommandsModuleLevel:
         assert isinstance(parent_dir, Path)
         # Should be the apps/backend directory
         assert parent_dir.name in ["backend", "apps"]
+
+    def test_parent_dir_inserted_to_sys_path_subprocess(self):
+        """Tests that parent dir is inserted to sys.path at module import (line 14)."""
+        import subprocess
+        import sys
+        import os
+
+        # Get the apps/backend directory
+        backend_dir = Path(__file__).parent.parent / "apps" / "backend"
+
+        # Run in subprocess to ensure clean import
+        # This tests line 14: sys.path.insert(0, str(_PARENT_DIR))
+        code = "import sys; from cli.spec_commands import _PARENT_DIR; assert str(_PARENT_DIR) in sys.path; print('OK')"
+
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=backend_dir,
+            env={**os.environ, "PYTHONPATH": str(backend_dir)},
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        assert "OK" in result.stdout
+
+    def test_path_insertion_coverage_via_reload(self):
+        """Tests path insertion by forcing module reload (line 14)."""
+        import sys
+        from pathlib import Path
+
+        # Save original _PARENT_DIR value
+        import cli.spec_commands as spec_commands
+        original_parent_dir = spec_commands._PARENT_DIR
+
+        # Remove from sys.path if present
+        parent_str = str(original_parent_dir)
+        while parent_str in sys.path:
+            sys.path.remove(parent_str)
+
+        # Remove module from sys.modules to force reload
+        if 'cli.spec_commands' in sys.modules:
+            del sys.modules['cli.spec_commands']
+
+        # Now reimport - this will execute lines 13-14 again
+        import cli.spec_commands as reimported_spec_commands
+
+        # Verify path insertion happened
+        assert str(reimported_spec_commands._PARENT_DIR) in sys.path
+
+        # Restore for other tests
+        if str(original_parent_dir) not in sys.path:
+            sys.path.insert(0, str(original_parent_dir))

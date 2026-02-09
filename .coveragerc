@@ -1,0 +1,12 @@
+[run]
+parallel = true
+source = apps/backend/cli
+omit =
+    */tests/*
+    */__pycache__/*
+    */.venv/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == "__main__":
