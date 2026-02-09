@@ -66,7 +66,12 @@ except (ImportError, ValueError, SystemError):
         PRReviewResult,
         ReviewSeverity,
     )
-    from phase_config import get_thinking_budget, resolve_model_id
+    from phase_config import (
+        get_model_betas,
+        get_thinking_budget,
+        get_thinking_kwargs_for_model,
+        resolve_model_id,
+    )
     from services.agent_utils import create_working_dir_injector
     from services.category_utils import map_category
     from services.io_utils import safe_print
@@ -523,6 +528,7 @@ The SDK will run invoked agents in parallel automatically.
             model = resolve_model_id(model_shorthand)
             betas = get_model_betas(model_shorthand)
             thinking_level = self.config.thinking_level or "medium"
+            thinking_budget = get_thinking_budget(thinking_level)
             thinking_kwargs = get_thinking_kwargs_for_model(model, thinking_level)
 
             logger.info(

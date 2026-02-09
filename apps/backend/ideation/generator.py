@@ -18,9 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from client import create_client
 from phase_config import (
-    get_model_betas,
     get_thinking_budget,
-    get_thinking_kwargs_for_model,
     resolve_model_id,
 )
 from ui import print_status

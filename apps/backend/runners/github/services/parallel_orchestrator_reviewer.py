@@ -33,7 +33,12 @@ from claude_agent_sdk import AgentDefinition  # noqa: F401
 
 try:
     from ...core.client import create_client
-    from ...phase_config import get_thinking_budget, resolve_model_id
+    from ...phase_config import (
+        get_model_betas,
+        get_thinking_budget,
+        get_thinking_kwargs_for_model,
+        resolve_model_id,
+    )
     from ..context_gatherer import PRContext, _validate_git_ref
     from ..gh_client import GHClient
     from ..models import (
@@ -69,7 +74,12 @@ except (ImportError, ValueError, SystemError):
         PRReviewResult,
         ReviewSeverity,
     )
-    from phase_config import get_thinking_budget, resolve_model_id
+    from phase_config import (
+        get_model_betas,
+        get_thinking_budget,
+        get_thinking_kwargs_for_model,
+        resolve_model_id,
+    )
     from services.agent_utils import create_working_dir_injector
     from services.category_utils import map_category
     from services.io_utils import safe_print

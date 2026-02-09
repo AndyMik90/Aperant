@@ -436,6 +436,7 @@ class GitProvider(Protocol):
         Returns:
             Default branch name (e.g., "main", "master")
         """
+        ...
 
     async def check_permissions(self, username: str) -> str:
         """
@@ -447,6 +448,7 @@ class GitProvider(Protocol):
         Returns:
             Permission level (admin, write, read, none)
         """
+        ...
 
     # -------------------------------------------------------------------------
     # API Operations (Low-level)
@@ -467,6 +469,7 @@ class GitProvider(Protocol):
         Returns:
             API response data
         """
+        ...
 
     async def api_post(
         self,
@@ -483,3 +486,4 @@ class GitProvider(Protocol):
         Returns:
             API response data
         """
+        ...
