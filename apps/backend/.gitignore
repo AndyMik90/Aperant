@@ -62,9 +62,11 @@ Thumbs.db
 # Tests (development only)
 tests/
 
-# Exception: Allow colocated tests within integrations/graphiti
-!integrations/graphiti/tests/
-
 # Auto Claude data directory
 .auto-claude/
-coverage.json
+
+# Auto Claude generated files
+.auto-claude-security.json
+.auto-claude-status
+.security-key
+logs/security/
