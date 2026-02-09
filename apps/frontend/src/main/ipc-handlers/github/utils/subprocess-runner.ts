@@ -22,8 +22,10 @@ import { detectAuthFailure, detectBillingFailure } from '../../../rate-limit-det
 import { getClaudeProfileManager } from '../../../claude-profile-manager';
 import { getOperationRegistry, type OperationType } from '../../../claude-profile/operation-registry';
 import { isWindows, isMacOS } from '../../../platform';
+import { getTaskkillExePath, getWhereExePath } from '../../../utils/windows-paths';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 /**
  * Create a fallback environment for Python subprocesses when no env is provided.
@@ -170,7 +172,9 @@ export function runPythonSubprocess<T = unknown>(
             if (!isWindows()) {
               process.kill(-child.pid, 'SIGTERM');
             } else {
-              execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], () => {});
+              execFile(getTaskkillExePath(), ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
+                if (err) console.warn('[SubprocessRunner] taskkill error (process may have already exited):', err.message);
+              });
             }
           } catch {
             child.kill('SIGTERM');
@@ -261,7 +265,7 @@ export function runPythonSubprocess<T = unknown>(
               process.kill(-child.pid, 'SIGKILL');
             } else {
               // On Windows, use taskkill to kill the process tree
-              execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
+              execFile(getTaskkillExePath(), ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
                 if (err) console.warn('[SubprocessRunner] taskkill error (process may have already exited):', err.message);
               });
             }
@@ -320,7 +324,7 @@ export function runPythonSubprocess<T = unknown>(
               process.kill(-child.pid, 'SIGKILL');
             } else {
               // On Windows, use taskkill to kill the process tree
-              execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
+              execFile(getTaskkillExePath(), ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
                 if (err) console.warn('[SubprocessRunner] taskkill error (process may have already exited):', err.message);
               });
             }
@@ -611,17 +615,25 @@ export async function validateGitHubModule(project: Project): Promise<GitHubModu
 
   // 2. Check gh CLI installation (cross-platform)
   try {
-    const whichCommand = isWindows() ? 'where gh' : 'which gh';
-    await execAsync(whichCommand);
+    if (isWindows()) {
+      await execFileAsync(getWhereExePath(), ['gh'], { timeout: 5000 });
+    } else {
+      await execAsync('which gh');
+    }
     result.ghCliInstalled = true;
-  } catch {
+  } catch (error: unknown) {
     result.ghCliInstalled = false;
-    const installInstructions = isWindows()
-      ? 'winget install --id GitHub.cli'
-      : isMacOS()
-        ? 'brew install gh'
-        : 'See https://cli.github.com/';
-    result.error = `GitHub CLI (gh) is not installed. Install it with:\n  ${installInstructions}`;
+    const errCode = (error as NodeJS.ErrnoException).code;
+    if (errCode === 'ENOENT' && isWindows()) {
+      result.error = `System utility 'where.exe' not found. Check Windows installation.`;
+    } else {
+      const installInstructions = isWindows()
+        ? 'winget install --id GitHub.cli'
+        : isMacOS()
+          ? 'brew install gh'
+          : 'See https://cli.github.com/';
+      result.error = `GitHub CLI (gh) is not installed. Install it with:\n  ${installInstructions}`;
+    }
     return result;
   }
 
