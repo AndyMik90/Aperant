@@ -270,7 +270,7 @@ const MCP_SERVERS: Record<string, { name: string; description: string; icon: Rea
     name: 'Context7',
     description: 'Documentation lookup for libraries and frameworks via @upstash/context7-mcp',
     icon: Search,
-    tools: ['mcp__context7__resolve-library-id', 'mcp__context7__get-library-docs'],
+    tools: ['mcp__context7__resolve-library-id', 'mcp__context7__query-docs'],
   },
   'graphiti-memory': {
     name: 'Graphiti Memory',

@@ -419,6 +419,12 @@
     "failedLabel": "Échoué",
     "starting": "Démarrage..."
   },
+  "insights": {
+    "suggestedTask": "Tâche suggérée",
+    "creating": "Création...",
+    "taskCreated": "Tâche créée",
+    "createTask": "Créer une tâche"
+  },
   "ideation": {
     "converting": "Conversion...",
     "convertToTask": "Convertir en tâche Auto-Build",

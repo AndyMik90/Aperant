@@ -23,6 +23,7 @@ interface InsightsState {
   status: InsightsChatStatus;
   pendingMessage: string;
   streamingContent: string; // Accumulates streaming response
+  streamingTasks: NonNullable<InsightsChatMessage['suggestedTasks']>; // Accumulates task suggestions during streaming
   currentTool: ToolUsage | null; // Currently executing tool
   toolsUsed: InsightsToolUsage[]; // Tools used during current response
   isLoadingSessions: boolean;
@@ -39,7 +40,8 @@ interface InsightsState {
   setCurrentTool: (tool: ToolUsage | null) => void;
   addToolUsage: (tool: ToolUsage) => void;
   clearToolsUsed: () => void;
-  finalizeStreamingMessage: (suggestedTask?: InsightsChatMessage['suggestedTask']) => void;
+  addStreamingTasks: (tasks: NonNullable<InsightsChatMessage['suggestedTasks']>) => void;
+  finalizeStreamingMessage: () => void;
   clearSession: () => void;
   setLoadingSessions: (loading: boolean) => void;
 }
@@ -56,6 +58,7 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
   status: initialStatus,
   pendingMessage: '',
   streamingContent: '',
+  streamingTasks: [],
   currentTool: null,
   toolsUsed: [],
   isLoadingSessions: false,
@@ -121,7 +124,7 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
       streamingContent: state.streamingContent + content
     })),
 
-  clearStreamingContent: () => set({ streamingContent: '' }),
+  clearStreamingContent: () => set({ streamingContent: '', streamingTasks: [] }),
 
   setCurrentTool: (tool) => set({ currentTool: tool }),
 
@@ -139,13 +142,19 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
 
   clearToolsUsed: () => set({ toolsUsed: [] }),
 
-  finalizeStreamingMessage: (suggestedTask) =>
+  addStreamingTasks: (tasks) =>
+    set((state) => ({
+      streamingTasks: [...state.streamingTasks, ...tasks]
+    })),
+
+  finalizeStreamingMessage: () =>
     set((state) => {
       const content = state.streamingContent;
       const toolsUsed = state.toolsUsed.length > 0 ? [...state.toolsUsed] : undefined;
+      const suggestedTasks = state.streamingTasks.length > 0 ? [...state.streamingTasks] : undefined;
 
-      if (!content && !suggestedTask && !toolsUsed) {
-        return { streamingContent: '', toolsUsed: [] };
+      if (!content && !suggestedTasks && !toolsUsed) {
+        return { streamingContent: '', streamingTasks: [], toolsUsed: [] };
       }
 
       const newMessage: InsightsChatMessage = {
@@ -153,13 +162,14 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
         role: 'assistant',
         content,
         timestamp: new Date(),
-        suggestedTask,
+        suggestedTasks,
         toolsUsed
       };
 
       if (!state.session) {
         return {
           streamingContent: '',
+          streamingTasks: [],
           toolsUsed: [],
           session: {
             id: `session-${Date.now()}`,
@@ -173,6 +183,7 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
 
       return {
         streamingContent: '',
+        streamingTasks: [],
         toolsUsed: [],
         session: {
           ...state.session,
@@ -188,6 +199,7 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
       status: initialStatus,
       pendingMessage: '',
       streamingContent: '',
+      streamingTasks: [],
       currentTool: null,
       toolsUsed: []
     })
@@ -378,9 +390,11 @@ export function setupInsightsListeners(): () => void {
           store().setCurrentTool(null);
           break;
         case 'task_suggestion':
-          // Finalize the message with task suggestion
+          // Accumulate task suggestions — they'll be included when 'done' finalizes the message
           store().setCurrentTool(null);
-          store().finalizeStreamingMessage(chunk.suggestedTask);
+          if (chunk.suggestedTasks) {
+            store().addStreamingTasks(chunk.suggestedTasks);
+          }
           break;
         case 'done':
           // Finalize any remaining content
