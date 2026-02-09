@@ -157,9 +157,10 @@ export function Insights({ projectId }: InsightsProps) {
     textareaRef.current?.focus();
   }, []);
 
-  // Reset taskCreated when switching sessions
+  // Reset task creation state when switching sessions
   useEffect(() => {
     setTaskCreated(new Set());
+    setCreatingTask(new Set());
   }, [session?.id]);
 
   const handleSend = () => {
