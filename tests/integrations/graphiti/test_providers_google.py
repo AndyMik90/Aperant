@@ -1,0 +1,229 @@
+"""
+Unit tests for Google embedder provider.
+
+Tests cover:
+- create_google_embedder factory function
+- GoogleEmbedder class (create, create_batch methods)
+- ProviderNotInstalled exception handling
+- ProviderError for missing configuration
+"""
+
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from integrations.graphiti.providers_pkg.embedder_providers.google_embedder import (
+    DEFAULT_GOOGLE_EMBEDDING_MODEL,
+    GoogleEmbedder,
+    create_google_embedder,
+)
+from integrations.graphiti.providers_pkg.exceptions import ProviderError, ProviderNotInstalled
+
+
+# =============================================================================
+# Test GoogleEmbedder class
+# =============================================================================
+
+
+class TestGoogleEmbedder:
+    """Test GoogleEmbedder class."""
+
+    def test_google_embedder_init_success(self):
+        """Test GoogleEmbedder initializes with API key and model."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+
+        with patch(
+            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.google.generativeai",
+            mock_genai,
+        ):
+            embedder = GoogleEmbedder(api_key="test-key", model="test-model")
+
+            assert embedder.api_key == "test-key"
+            assert embedder.model == "test-model"
+            mock_genai.configure.assert_called_once_with(api_key="test-key")
+
+    def test_google_embedder_init_default_model(self):
+        """Test GoogleEmbedder uses default model when not specified."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+
+        with patch(
+            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.google.generativeai",
+            mock_genai,
+        ):
+            embedder = GoogleEmbedder(api_key="test-key")
+
+            assert embedder.model == DEFAULT_GOOGLE_EMBEDDING_MODEL
+
+    def test_google_embedder_init_import_error(self):
+        """Test GoogleEmbedder raises ProviderNotInstalled on ImportError."""
+        with patch(
+            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.google.generativeai",
+            side_effect=ImportError("google-generativeai not installed"),
+        ):
+            with pytest.raises(ProviderNotInstalled) as exc_info:
+                GoogleEmbedder(api_key="test-key")
+
+            assert "google-generativeai" in str(exc_info.value)
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_google_embedder_create_with_string(self):
+        """Test GoogleEmbedder.create with string input."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        mock_genai.embed_content = MagicMock(return_value={"embedding": [0.1, 0.2, 0.3]})
+
+        with patch(
+            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.google.generativeai",
+            mock_genai,
+        ):
+            embedder = GoogleEmbedder(api_key="test-key")
+            result = await embedder.create("test text")
+
+            assert result == [0.1, 0.2, 0.3]
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_google_embedder_create_with_list(self):
+        """Test GoogleEmbedder.create with list input."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        mock_genai.embed_content = MagicMock(return_value={"embedding": [0.1, 0.2, 0.3]})
+
+        with patch(
+            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.google.generativeai",
+            mock_genai,
+        ):
+            embedder = GoogleEmbedder(api_key="test-key")
+            result = await embedder.create(["test", "text"])
+
+            assert result == [0.1, 0.2, 0.3]
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_google_embedder_create_batch(self):
+        """Test GoogleEmbedder.create_batch with multiple inputs."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        # Mock batch embedding response
+        mock_genai.embed_content = MagicMock(
+            return_value={"embedding": [[0.1, 0.2], [0.3, 0.4]]}
+        )
+
+        with patch(
+            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.google.generativeai",
+            mock_genai,
+        ):
+            embedder = GoogleEmbedder(api_key="test-key")
+            result = await embedder.create_batch(["text1", "text2"])
+
+            assert len(result) == 2
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_google_embedder_create_batch_large_input(self):
+        """Test GoogleEmbedder.create_batch with >100 items (batching)."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        # Mock batch embedding response
+        mock_genai.embed_content = MagicMock(
+            return_value={"embedding": [[0.1, 0.2]]}
+        )
+
+        with patch(
+            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.google.generativeai",
+            mock_genai,
+        ):
+            embedder = GoogleEmbedder(api_key="test-key")
+            # Create 250 items - should be split into 3 batches (100, 100, 50)
+            result = await embedder.create_batch([f"text{i}" for i in range(250)])
+
+            # Should call embed_content 3 times
+            assert mock_genai.embed_content.call_count == 3
+
+
+# =============================================================================
+# Test create_google_embedder
+# =============================================================================
+
+
+class TestCreateGoogleEmbedder:
+    """Test create_google_embedder factory function."""
+
+    @pytest.fixture
+    def mock_config(self):
+        """Create a mock GraphitiConfig."""
+        config = MagicMock()
+        config.google_api_key = "test-google-key"
+        config.google_embedding_model = None
+        return config
+
+    @pytest.mark.slow
+    def test_create_google_embedder_success(self, mock_config):
+        """Test create_google_embedder returns embedder with valid config."""
+        mock_embedder = MagicMock()
+
+        with patch(
+            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.GoogleEmbedder",
+            return_value=mock_embedder,
+        ):
+            result = create_google_embedder(mock_config)
+            assert result == mock_embedder
+
+    def test_create_google_embedder_missing_api_key(self, mock_config):
+        """Test create_google_embedder raises ProviderError for missing API key."""
+        mock_config.google_api_key = None
+
+        with pytest.raises(ProviderError) as exc_info:
+            create_google_embedder(mock_config)
+
+        assert "GOOGLE_API_KEY" in str(exc_info.value)
+
+    @pytest.mark.slow
+    def test_create_google_embedder_with_custom_model(self, mock_config):
+        """Test create_google_embedder uses custom model when specified."""
+        mock_config.google_embedding_model = "custom-model"
+        mock_embedder = MagicMock()
+
+        with patch(
+            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.GoogleEmbedder",
+            return_value=mock_embedder,
+        ) as mock_google_embedder:
+            create_google_embedder(mock_config)
+
+            mock_google_embedder.assert_called_once_with(
+                api_key=mock_config.google_api_key,
+                model="custom-model",
+            )
+
+    @pytest.mark.slow
+    def test_create_google_embedder_with_default_model(self, mock_config):
+        """Test create_google_embedder uses default model when not specified."""
+        mock_config.google_embedding_model = None
+        mock_embedder = MagicMock()
+
+        with patch(
+            "integrations.graphiti.providers_pkg.embedder_providers.google_embedder.GoogleEmbedder",
+            return_value=mock_embedder,
+        ) as mock_google_embedder:
+            create_google_embedder(mock_config)
+
+            mock_google_embedder.assert_called_once_with(
+                api_key=mock_config.google_api_key,
+                model=DEFAULT_GOOGLE_EMBEDDING_MODEL,
+            )
+
+
+# =============================================================================
+# Test Constants
+# =============================================================================
+
+
+class TestGoogleEmbedderConstants:
+    """Test Google embedder constants."""
+
+    def test_default_google_embedding_model(self):
+        """Test DEFAULT_GOOGLE_EMBEDDING_MODEL is set correctly."""
+        assert DEFAULT_GOOGLE_EMBEDDING_MODEL == "text-embedding-004"
