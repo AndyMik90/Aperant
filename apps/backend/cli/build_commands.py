@@ -297,6 +297,23 @@ def handle_build_command(
                         create_checkpoint(working_dir, spec_dir.name, "build-complete")
                     except Exception:
                         pass
+                    # Run post-build retrospective (lessons learned)
+                    try:
+                        from analysis.retrospective import run_retrospective
+                        from memory.lessons import (
+                            promote_lessons_to_project,
+                            save_lessons,
+                        )
+
+                        lessons = asyncio.run(run_retrospective(spec_dir, working_dir))
+                        if lessons:
+                            save_lessons(spec_dir, lessons)
+                            promoted = promote_lessons_to_project(
+                                working_dir, lessons, spec_dir.name,
+                            )
+                            print(f"   Retrospective: {len(lessons.get('key_insights', []))} insights, {promoted} promoted to project memory")
+                    except Exception as e:
+                        debug("run.py", f"Retrospective failed (non-blocking): {e}")
                 else:
                     print("\n" + "=" * 70)
                     print("  ⚠️  QA VALIDATION INCOMPLETE")

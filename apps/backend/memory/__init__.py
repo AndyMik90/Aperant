@@ -66,12 +66,26 @@ Public API:
     - scrub_text(text) -> str
     - scrub_dict(data) -> dict
     - contains_secrets(text) -> bool
+
+    # Lessons learned
+    - save_lessons(spec_dir, lessons) -> bool
+    - load_lessons(spec_dir) -> list[dict]
+    - load_lessons_for_context(spec_dir) -> str | None
+    - promote_lessons_to_project(project_dir, lessons, spec_name) -> int
 """
 
 # Graphiti integration
 # Codebase map
 from .codebase_map import load_codebase_map, update_codebase_map
 from .graphiti_helpers import is_graphiti_memory_enabled
+
+# Lessons learned
+from .lessons import (
+    load_lessons,
+    load_lessons_for_context,
+    promote_lessons_to_project,
+    save_lessons,
+)
 
 # Directory management
 from .paths import clear_memory, get_memory_dir, get_session_insights_dir
@@ -84,11 +98,11 @@ from .patterns import (
     load_patterns,
 )
 
-# Session insights
-from .sessions import load_all_insights, save_session_insights
-
 # Secret scrubbing
 from .scrubber import contains_secrets, scrub_dict, scrub_text
+
+# Session insights
+from .sessions import load_all_insights, save_session_insights
 
 # Summary utilities
 from .summary import get_memory_summary
@@ -113,6 +127,11 @@ __all__ = [
     "load_gotchas",
     # Summary
     "get_memory_summary",
+    # Lessons learned
+    "save_lessons",
+    "load_lessons",
+    "load_lessons_for_context",
+    "promote_lessons_to_project",
     # Secret scrubbing
     "scrub_text",
     "scrub_dict",

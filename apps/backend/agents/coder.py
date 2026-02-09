@@ -628,6 +628,16 @@ async def run_autonomous_agent(
                     prompt += "\n\n" + graphiti_context
                     print_status("Graphiti memory context loaded", "success")
 
+                # Append lessons learned from previous builds
+                try:
+                    from memory.lessons import load_lessons_for_context
+                    lessons_context = load_lessons_for_context(spec_dir)
+                    if lessons_context:
+                        prompt += "\n\n" + lessons_context
+                        print_status("Lessons learned context loaded", "success")
+                except Exception as e:
+                    logger.debug(f"Failed to load lessons context: {e}")
+
                 # Inject spec summary + progress header for resume sessions.
                 # This saves 2,000-5,000 tokens by replacing full spec.md reads.
                 if is_resume_session:
@@ -874,6 +884,23 @@ async def run_autonomous_agent(
                         if qa_passed:
                             print_status("QA validation PASSED", "success")
                             emit_sdk_msg("text", {"content": "✅ QA validation passed!"})
+                            # Run post-build retrospective
+                            try:
+                                from analysis.retrospective import run_retrospective
+                                from memory.lessons import (
+                                    promote_lessons_to_project,
+                                    save_lessons,
+                                )
+
+                                lessons = await run_retrospective(spec_dir, project_dir)
+                                if lessons:
+                                    save_lessons(spec_dir, lessons)
+                                    promote_lessons_to_project(
+                                        project_dir, lessons, spec_dir.name,
+                                    )
+                                    print_status("Retrospective saved", "success")
+                            except Exception as e:
+                                logger.debug(f"Retrospective failed: {e}")
                         else:
                             print_status("QA validation found issues", "warning")
                             emit_sdk_msg("text", {"content": "⚠️ QA found issues — review qa_report.md"})

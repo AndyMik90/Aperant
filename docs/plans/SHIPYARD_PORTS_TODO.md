@@ -57,10 +57,11 @@
 
 ## Phase 3 — LOW Priority
 
-### [ ] 7. Lessons Learned / Post-Task Retrospective
+### [x] 7. Lessons Learned / Post-Task Retrospective ✓ DONE
 - **Effort:** ~2-3 hours
-- **Target:** `apps/backend/memory/` + `qa/loop.py` post-pass hook
-- **What:** After QA passes, prompt agent for brief retrospective (what worked, what didn't). Store tagged as "lesson" in memory. Retrieve relevant lessons for similar future tasks.
+- **Target:** `apps/backend/memory/lessons.py` + `apps/backend/analysis/retrospective.py`
+- **What:** After QA passes, LLM synthesizes session insights into structured retrospective (what worked, what didn't, key insights, recommendations). Stored as `lessons_learned.json` per spec. Key lessons promoted to `PROJECT_MEMORY.md`. Lessons loaded into coder context for future subtasks.
+- **Integrated into:** `cli/build_commands.py` (post-QA), `agents/coder.py` (QA pass + context loading)
 - **Why:** Continuous improvement through institutional knowledge
 
 ---
