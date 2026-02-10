@@ -53,6 +53,33 @@ class TestCreateAzureOpenAILLMClient:
                 result = create_azure_openai_llm_client(mock_config)
                 assert result == mock_client
 
+    def test_create_azure_openai_llm_client_success_fast(self, mock_config):
+        """Fast test for create_azure_openai_llm_client success path."""
+        mock_llm_client = MagicMock()
+
+        # Mock the graphiti_core imports
+        with patch.dict(
+            "sys.modules",
+            {
+                "graphiti_core": MagicMock(),
+                "graphiti_core.llm_client": MagicMock(),
+                "graphiti_core.llm_client.azure_openai_client": MagicMock(),
+                "graphiti_core.llm_client.config": MagicMock(),
+            },
+        ):
+            from graphiti_core.llm_client.azure_openai_client import (
+                AzureOpenAILLMClient,
+            )
+            from graphiti_core.llm_client.config import LLMConfig
+
+            AzureOpenAILLMClient.return_value = mock_llm_client
+
+            result = create_azure_openai_llm_client(mock_config)
+
+            # Verify the client was created and returned
+            AzureOpenAILLMClient.assert_called_once()
+            assert result == mock_llm_client
+
     def test_create_azure_openai_llm_client_missing_api_key(self, mock_config):
         """Test create_azure_openai_llm_client raises ProviderError for missing API key."""
         mock_config.azure_openai_api_key = None
