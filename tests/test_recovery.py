@@ -543,9 +543,8 @@ def run_all_tests():
     # Note: This manual runner is kept for backwards compatibility.
     # Prefer running tests with pytest: pytest tests/test_recovery.py -v
 
-    # lgtm[py/unused-local-variable] - tests list kept for documentation/reference
-    # codeql[py/unused-local-variable] suppress - tests list kept for documentation/reference
-    tests = [
+    # Tests list is kept for documentation/reference of available test functions
+    _tests = [  # noqa: F841 - Kept for documentation
         ("test_initialization", test_initialization),
         ("test_record_attempt", test_record_attempt),
         ("test_circular_fix_detection", test_circular_fix_detection),

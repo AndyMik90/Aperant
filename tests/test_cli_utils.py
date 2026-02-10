@@ -496,9 +496,7 @@ class TestValidateEnvironment:
     @patch('cli.utils.validate_platform_dependencies')
     @patch('cli.utils.get_auth_token')
     @patch('cli.utils.get_auth_token_source')
-    # lgtm[py/incomplete-url-substring-sanitization] - test code: mock API endpoint for testing
-    # codeql[py/incomplete-url-substring-sanitization] suppress - test code: mock API endpoint for testing
-    @patch.dict(os.environ, {'ANTHROPIC_BASE_URL': 'https://custom.api.com'})
+    @patch.dict(os.environ, {'ANTHROPIC_BASE_URL': 'http://localhost:8080'})
     def test_shows_custom_base_url(self, mock_get_auth_token_source, mock_get_auth_token, mock_validate_platform_deps, temp_dir, capsys):
         """Shows custom API endpoint when set."""
         mock_get_auth_token.return_value = "test-token"
@@ -513,9 +511,7 @@ class TestValidateEnvironment:
             with patch('cli.utils.is_linear_enabled', return_value=False):
                 validate_environment(spec_dir)
                 captured = capsys.readouterr()
-                # lgtm[py/incomplete-url-substring-sanitization] - test code: checking custom API endpoint is displayed
-                # codeql[py/incomplete-url-substring-sanitization] suppress - test code: checking custom API endpoint is displayed
-                assert "https://custom.api.com" in captured.out
+                assert "http://localhost:8080" in captured.out
 
     @patch('cli.utils.validate_platform_dependencies')
     @patch('cli.utils.get_auth_token')
@@ -951,11 +947,7 @@ class TestModuleLevelBehavior:
                 sys.path[:] = original_path
 
 
-# =============================================================================
 # Tests for module-level path insertion behavior
-# lgtm[py/commented-out-code] - section header comment, not code
-# codeql[py/commented-out-code] suppress - section header comment, not code
-# =============================================================================
 
 class TestUtilsModuleLevelPathInsertion:
     """Tests for module-level path insertion behavior (line 15)."""
