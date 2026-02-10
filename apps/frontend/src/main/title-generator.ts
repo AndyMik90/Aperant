@@ -67,8 +67,22 @@ export class TitleGenerator extends EventEmitter {
       return this.autoBuildSourcePath;
     }
 
+    // In packaged app, check userData override first (user-updated backend), then bundled
+    if (app.isPackaged) {
+      const overridePath = path.join(app.getPath('userData'), 'backend-source');
+      if (existsSync(overridePath) && existsSync(path.join(overridePath, 'runners', 'spec_runner.py'))) {
+        debug('Using user-updated backend from userData:', overridePath);
+        return overridePath;
+      }
+      const resourcesPath = path.join(process.resourcesPath, 'backend');
+      if (existsSync(resourcesPath) && existsSync(path.join(resourcesPath, 'runners', 'spec_runner.py'))) {
+        debug('Using bundled backend from resources:', resourcesPath);
+        return resourcesPath;
+      }
+    }
+
+    // Development mode paths
     const possiblePaths = [
-      // Apps structure: from out/main -> apps/backend
       path.resolve(__dirname, '..', '..', '..', 'backend'),
       path.resolve(app.getAppPath(), '..', 'backend'),
       path.resolve(process.cwd(), 'apps', 'backend')
