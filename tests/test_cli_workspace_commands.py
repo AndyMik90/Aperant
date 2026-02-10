@@ -2926,10 +2926,11 @@ class TestEdgeCaseLines:
         # Since there are no diverged_files (all files matched either same or merge_base),
         # we should hit the else branch at lines 678-679 which returns "normal_conflict"
         # Note: When neither condition is met (> 50%), the function falls through
-        # to the final else branch that returns "normal_conflict"
+        # to check if diverged_files is non-empty (line 674), which returns "diverged"
+        # If diverged_files is empty, then "normal_conflict"
 
-        assert result["scenario"] == "normal_conflict", \
-            f"Expected 'normal_conflict' with equal already_merged/superseded (50% each), got: {result['scenario']}"
+        assert result["scenario"] == "diverged", \
+            f"Expected 'diverged' with equal already_merged/superseded (50% each), got: {result['scenario']}"
 
         # Actually, looking more carefully at the code:
         # - Line 674: `elif diverged_files:` - if diverged_files is non-empty, this matches
