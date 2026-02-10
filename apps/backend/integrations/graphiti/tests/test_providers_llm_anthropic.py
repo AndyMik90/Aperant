@@ -48,6 +48,34 @@ class TestCreateAnthropicLLMClient:
             result = create_anthropic_llm_client(mock_config)
             assert result == mock_client
 
+    def test_create_anthropic_llm_client_success_fast(self, mock_config):
+        """Fast test for create_anthropic_llm_client success path."""
+        mock_llm_client = MagicMock()
+
+        # Create the config mock
+        mock_config_module = MagicMock()
+        mock_config_module.LLMConfig = MagicMock
+
+        # Mock the graphiti_core imports
+        with patch.dict(
+            "sys.modules",
+            {
+                "graphiti_core": MagicMock(),
+                "graphiti_core.llm_client": MagicMock(),
+                "graphiti_core.llm_client.anthropic_client": MagicMock(),
+                "graphiti_core.llm_client.config": mock_config_module,
+            },
+        ):
+            from graphiti_core.llm_client.anthropic_client import AnthropicClient
+
+            AnthropicClient.return_value = mock_llm_client
+
+            result = create_anthropic_llm_client(mock_config)
+
+            # Verify the client was created and returned
+            AnthropicClient.assert_called_once()
+            assert result == mock_llm_client
+
     @pytest.mark.skip(
         reason="Cannot test API key validation without anthropic installed - import fails first"
     )
