@@ -389,38 +389,29 @@ async def run_tests(
             )
 
             try:
-                _, _ = await asyncio.wait_for(
+                stdout, stderr = await asyncio.wait_for(
                     proc.communicate(),
-                    timeout=60.0,  # Quick check for test availability
+                    timeout=300.0,  # 5 min max
                 )
                 # If command not found (127) or not executable (126), try next command
                 # For any other exit code (including test failures), the test framework exists
                 if proc.returncode in (126, 127):
                     # Command not found or not executable - try next one
                     continue
-                # Re-run with full timeout for actual test results
-                proc_full = await asyncio.create_subprocess_shell(
-                    test_cmd,
-                    cwd=project_dir,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-                stdout_full, stderr_full = await asyncio.wait_for(
-                    proc_full.communicate(),
-                    timeout=300.0,  # 5 min max
-                )
-                passed = proc_full.returncode == 0
+                # Test ran (may have passed or failed) - return result
+                passed = proc.returncode == 0
                 logger.info(
                     f"[Orchestrator] Tests {'passed' if passed else 'failed'}"
                 )
                 return TestResult(
                     executed=True,
                     passed=passed,
-                    error=None if passed else stderr_full.decode("utf-8")[:500],
+                    error=None if passed else stderr.decode("utf-8")[:500],
                 )
             except asyncio.TimeoutError:
-                # Command hung or took too long - skip this one
+                # Command timed out - kill it and try next command
                 proc.kill()
+                await proc.wait()  # Ensure process is fully terminated
                 continue
             except FileNotFoundError:
                 # Command not found - try next one
