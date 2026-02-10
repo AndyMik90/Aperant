@@ -400,9 +400,7 @@ async def run_tests(
                     continue
                 # Test ran (may have passed or failed) - return result
                 passed = proc.returncode == 0
-                logger.info(
-                    f"[Orchestrator] Tests {'passed' if passed else 'failed'}"
-                )
+                logger.info(f"[Orchestrator] Tests {'passed' if passed else 'failed'}")
                 return TestResult(
                     executed=True,
                     passed=passed,
