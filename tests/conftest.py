@@ -66,6 +66,12 @@ _POTENTIALLY_MOCKED_MODULES = [
     'review',
     'validate_spec',
     'graphiti_providers',
+    'agents.memory_manager',
+    'agents.base',
+    'core.error_utils',
+    'security.tool_input_validator',
+    'debug',
+    'prompts_pkg',
 ]
 
 # Store original module references at import time (before any mocking)
@@ -113,6 +119,8 @@ def pytest_runtest_setup(item):
         'test_spec_pipeline': {'claude_code_sdk', 'claude_code_sdk.types', 'init', 'client', 'review', 'task_logger', 'ui', 'validate_spec'},
         'test_spec_complexity': {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'claude_agent_sdk.types'},
         'test_spec_phases': {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'graphiti_providers', 'validate_spec', 'client'},
+        'test_qa_fixer': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client', 'agents.memory_manager', 'agents.base', 'core.error_utils', 'security.tool_input_validator', 'debug', 'prompts_pkg'},
+        'test_qa_reviewer': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client', 'agents.memory_manager', 'agents.base', 'core.error_utils', 'security.tool_input_validator', 'debug', 'prompts_pkg'},
     }
 
     # Get the mocks that the current test module needs to preserve
@@ -157,6 +165,73 @@ def pytest_runtest_setup(item):
                     pass
 
 
+def pytest_runtest_teardown(item, nextitem):
+    """Reset shared module-level mocks after each test.
+
+    This ensures that tests in different modules don't interfere with each other
+    when they share the same module-level mock objects (e.g., mock_error_utils,
+    mock_memory_manager).
+    """
+    # Only apply to test_qa_fixer and test_qa_reviewer modules
+    module_name = item.module.__name__
+    if module_name not in ('test_qa_fixer', 'test_qa_reviewer'):
+        return
+
+    # Access the module-level mocks and reset them
+    # We need to import them from the test module's namespace
+    if 'test_qa_fixer' in sys.modules:
+        test_fixer_module = sys.modules['test_qa_fixer']
+        if hasattr(test_fixer_module, 'mock_error_utils'):
+            test_fixer_module.mock_error_utils.is_rate_limit_error.return_value = False
+            test_fixer_module.mock_error_utils.is_tool_concurrency_error.return_value = False
+        if hasattr(test_fixer_module, 'mock_memory_manager'):
+            test_fixer_module.mock_memory_manager.get_graphiti_context.reset_mock()
+            test_fixer_module.mock_memory_manager.save_session_memory.reset_mock()
+
+    if 'test_qa_reviewer' in sys.modules:
+        test_reviewer_module = sys.modules['test_qa_reviewer']
+        if hasattr(test_reviewer_module, 'mock_error_utils'):
+            test_reviewer_module.mock_error_utils.is_rate_limit_error.return_value = False
+            test_reviewer_module.mock_error_utils.is_tool_concurrency_error.return_value = False
+        if hasattr(test_reviewer_module, 'mock_memory_manager'):
+            test_reviewer_module.mock_memory_manager.get_graphiti_context.reset_mock()
+            test_reviewer_module.mock_memory_manager.save_session_memory.reset_mock()
+
+
+# =============================================================================
+# SHARED MOCK RESET HOOK
+# =============================================================================
+
+def pytest_runtest_call(item):
+    """Reset shared mocks right before each test executes.
+
+    This runs after all fixtures have been set up, ensuring the mocks
+    are in a clean state before the test code runs. This prevents tests
+    in test_qa_fixer.py and test_qa_reviewer.py from interfering with
+    each other when they share the same module-level mock objects.
+    """
+    module_name = item.module.__name__
+    if module_name not in ('test_qa_fixer', 'test_qa_reviewer'):
+        return
+
+    # Reset all shared mocks to default state
+    if 'test_qa_fixer' in sys.modules:
+        test_fixer_module = sys.modules['test_qa_fixer']
+        if hasattr(test_fixer_module, 'mock_error_utils'):
+            test_fixer_module.mock_error_utils.is_rate_limit_error.return_value = False
+            test_fixer_module.mock_error_utils.is_tool_concurrency_error.return_value = False
+        if hasattr(test_fixer_module, 'mock_memory_manager'):
+            test_fixer_module.mock_memory_manager.get_graphiti_context.reset_mock()
+            test_fixer_module.mock_memory_manager.save_session_memory.reset_mock()
+
+    if 'test_qa_reviewer' in sys.modules:
+        test_reviewer_module = sys.modules['test_qa_reviewer']
+        if hasattr(test_reviewer_module, 'mock_error_utils'):
+            test_reviewer_module.mock_error_utils.is_rate_limit_error.return_value = False
+            test_reviewer_module.mock_error_utils.is_tool_concurrency_error.return_value = False
+        if hasattr(test_reviewer_module, 'mock_memory_manager'):
+            test_reviewer_module.mock_memory_manager.get_graphiti_context.reset_mock()
+            test_reviewer_module.mock_memory_manager.save_session_memory.reset_mock()
 
 
 # =============================================================================
