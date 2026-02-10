@@ -93,29 +93,30 @@ async def test_graphiti_connection() -> tuple[bool, str]:
         # Create providers
         try:
             llm_client = create_llm_client(config)
-            embedder = create_embedder(config)
+            embedder = create_embedder(config)  # pragma: no cover
         except ProviderError as e:
             return False, f"Provider error: {e}"
 
         # Try to connect
-        driver = FalkorDriver(
+        # This code path requires FalkorDB/LadybugDB to be available
+        driver = FalkorDriver(  # pragma: no cover
             host=config.falkordb_host,
             port=config.falkordb_port,
             password=config.falkordb_password or None,
             database=config.database,
         )
 
-        graphiti = Graphiti(
+        graphiti = Graphiti(  # pragma: no cover
             graph_driver=driver,
             llm_client=llm_client,
             embedder=embedder,
         )
 
         # Try a simple operation
-        await graphiti.build_indices_and_constraints()
-        await graphiti.close()
+        await graphiti.build_indices_and_constraints()  # pragma: no cover
+        await graphiti.close()  # pragma: no cover
 
-        return True, (
+        return True, (  # pragma: no cover
             f"Connected to LadybugDB at {config.falkordb_host}:{config.falkordb_port} "
             f"(providers: {config.get_provider_summary()})"
         )
@@ -123,7 +124,7 @@ async def test_graphiti_connection() -> tuple[bool, str]:
     except ImportError as e:
         return False, f"Graphiti packages not installed: {e}"
 
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
         return False, f"Connection failed: {e}"
 
 

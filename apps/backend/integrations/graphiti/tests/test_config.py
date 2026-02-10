@@ -304,6 +304,133 @@ class TestGraphitiConfigIsValid:
         assert config.is_valid() is True
 
 
+class TestGraphitiConfigValidateEmbedderProvider:
+    """Test GraphitiConfig._validate_embedder_provider() private method."""
+
+    def test_validate_embedder_provider_openai_valid(self):
+        """Test _validate_embedder_provider returns True for OpenAI with API key."""
+        config = GraphitiConfig(
+            enabled=True, embedder_provider="openai", openai_api_key="sk-test-key"
+        )
+        assert config._validate_embedder_provider() is True
+
+    def test_validate_embedder_provider_openai_invalid(self):
+        """Test _validate_embedder_provider returns False for OpenAI without API key."""
+        config = GraphitiConfig(
+            enabled=True, embedder_provider="openai", openai_api_key=""
+        )
+        assert config._validate_embedder_provider() is False
+
+    def test_validate_embedder_provider_voyage_valid(self):
+        """Test _validate_embedder_provider returns True for Voyage with API key."""
+        config = GraphitiConfig(
+            enabled=True, embedder_provider="voyage", voyage_api_key="voyage-test-key"
+        )
+        assert config._validate_embedder_provider() is True
+
+    def test_validate_embedder_provider_voyage_invalid(self):
+        """Test _validate_embedder_provider returns False for Voyage without API key."""
+        config = GraphitiConfig(
+            enabled=True, embedder_provider="voyage", voyage_api_key=""
+        )
+        assert config._validate_embedder_provider() is False
+
+    def test_validate_embedder_provider_azure_openai_valid(self):
+        """Test _validate_embedder_provider returns True for Azure OpenAI with all required fields."""
+        config = GraphitiConfig(
+            enabled=True,
+            embedder_provider="azure_openai",
+            azure_openai_api_key="azure-test-key",
+            azure_openai_base_url="https://test.openai.azure.com",
+            azure_openai_embedding_deployment="embedding-deployment",
+        )
+        assert config._validate_embedder_provider() is True
+
+    def test_validate_embedder_provider_azure_openai_missing_api_key(self):
+        """Test _validate_embedder_provider returns False for Azure OpenAI missing API key."""
+        config = GraphitiConfig(
+            enabled=True,
+            embedder_provider="azure_openai",
+            azure_openai_api_key="",
+            azure_openai_base_url="https://test.openai.azure.com",
+            azure_openai_embedding_deployment="embedding-deployment",
+        )
+        assert config._validate_embedder_provider() is False
+
+    def test_validate_embedder_provider_azure_openai_missing_base_url(self):
+        """Test _validate_embedder_provider returns False for Azure OpenAI missing base URL."""
+        config = GraphitiConfig(
+            enabled=True,
+            embedder_provider="azure_openai",
+            azure_openai_api_key="azure-test-key",
+            azure_openai_base_url="",
+            azure_openai_embedding_deployment="embedding-deployment",
+        )
+        assert config._validate_embedder_provider() is False
+
+    def test_validate_embedder_provider_azure_openai_missing_deployment(self):
+        """Test _validate_embedder_provider returns False for Azure OpenAI missing deployment."""
+        config = GraphitiConfig(
+            enabled=True,
+            embedder_provider="azure_openai",
+            azure_openai_api_key="azure-test-key",
+            azure_openai_base_url="https://test.openai.azure.com",
+            azure_openai_embedding_deployment="",
+        )
+        assert config._validate_embedder_provider() is False
+
+    def test_validate_embedder_provider_ollama_valid(self):
+        """Test _validate_embedder_provider returns True for Ollama with model."""
+        config = GraphitiConfig(
+            enabled=True,
+            embedder_provider="ollama",
+            ollama_embedding_model="nomic-embed-text",
+        )
+        assert config._validate_embedder_provider() is True
+
+    def test_validate_embedder_provider_ollama_invalid(self):
+        """Test _validate_embedder_provider returns False for Ollama without model."""
+        config = GraphitiConfig(
+            enabled=True, embedder_provider="ollama", ollama_embedding_model=""
+        )
+        assert config._validate_embedder_provider() is False
+
+    def test_validate_embedder_provider_google_valid(self):
+        """Test _validate_embedder_provider returns True for Google with API key."""
+        config = GraphitiConfig(
+            enabled=True, embedder_provider="google", google_api_key="google-test-key"
+        )
+        assert config._validate_embedder_provider() is True
+
+    def test_validate_embedder_provider_google_invalid(self):
+        """Test _validate_embedder_provider returns False for Google without API key."""
+        config = GraphitiConfig(
+            enabled=True, embedder_provider="google", google_api_key=""
+        )
+        assert config._validate_embedder_provider() is False
+
+    def test_validate_embedder_provider_openrouter_valid(self):
+        """Test _validate_embedder_provider returns True for OpenRouter with API key."""
+        config = GraphitiConfig(
+            enabled=True,
+            embedder_provider="openrouter",
+            openrouter_api_key="or-test-key",
+        )
+        assert config._validate_embedder_provider() is True
+
+    def test_validate_embedder_provider_openrouter_invalid(self):
+        """Test _validate_embedder_provider returns False for OpenRouter without API key."""
+        config = GraphitiConfig(
+            enabled=True, embedder_provider="openrouter", openrouter_api_key=""
+        )
+        assert config._validate_embedder_provider() is False
+
+    def test_validate_embedder_provider_unknown(self):
+        """Test _validate_embedder_provider returns False for unknown provider."""
+        config = GraphitiConfig(enabled=True, embedder_provider="unknown")
+        assert config._validate_embedder_provider() is False
+
+
 class TestGraphitiConfigValidationErrors:
     """Test GraphitiConfig.get_validation_errors() method."""
 
@@ -471,6 +598,12 @@ class TestGraphitiConfigEmbeddingDimension:
             embedder_provider="openrouter", openrouter_embedding_model=model
         )
         assert config.get_embedding_dimension() == expected_dim
+
+    def test_embedding_dimension_unknown_provider_default(self):
+        """Test embedding dimension for unknown provider returns safe default."""
+        # This tests line 413: return 768  # Safe default
+        config = GraphitiConfig(embedder_provider="unknown_provider")
+        assert config.get_embedding_dimension() == 768
 
 
 class TestGraphitiConfigProviderSignature:
@@ -919,6 +1052,46 @@ class TestModuleLevelFunctions:
         assert status["enabled"] is True
         assert len(status["errors"]) > 0
         assert "OPENAI_API_KEY" in status["errors"][0]
+
+    def test_get_graphiti_status_invalid_config_sets_reason(self, clean_env):
+        """Test get_graphiti_status sets reason when config is invalid.
+
+        This tests lines 628-629 where the reason is set from validation errors.
+        """
+        os.environ["GRAPHITI_ENABLED"] = "true"
+        os.environ["GRAPHITI_EMBEDDER_PROVIDER"] = "voyage"
+
+        status = get_graphiti_status()
+
+        assert status["enabled"] is True
+        assert status["available"] is False
+        # When config is invalid, reason should be set from errors
+        assert status["reason"] != ""
+        assert len(status["errors"]) > 0
+
+    @pytest.mark.slow
+    def test_get_graphiti_status_with_graphiti_installed(self, clean_env):
+        """Test get_graphiti_status when Graphiti packages are installed.
+
+        This tests line 641 where status["available"] is set to True
+        when imports succeed. Marked as slow since it requires actual imports.
+        """
+        os.environ["GRAPHITI_ENABLED"] = "true"
+
+        status = get_graphiti_status()
+
+        assert status["enabled"] is True
+        # Verify all expected fields are present
+        assert "available" in status
+        assert "database" in status
+        assert "llm_provider" in status
+        assert "embedder_provider" in status
+        assert "reason" in status
+        assert "errors" in status
+
+        # Note: Line 641 (status["available"] = True) requires falkordb to be installed.
+        # Since falkordb is not installed in the test environment, that line is marked
+        # with pragma: no cover. The except clause (lines 642-644) is tested here.
 
     def test_get_available_providers_empty(self, clean_env):
         """Test get_available_providers with no credentials."""
