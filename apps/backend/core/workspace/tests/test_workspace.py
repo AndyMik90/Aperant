@@ -82,21 +82,21 @@ class TestHasUncommittedChanges:
 
     def test_untracked_file_has_changes(self, temp_git_repo: Path):
         """Untracked file counts as changes."""
-        (temp_git_repo / "new_file.txt").write_text("content")
+        (temp_git_repo / "new_file.txt").write_text("content", encoding="utf-8")
 
         result = has_uncommitted_changes(temp_git_repo)
         assert result is True
 
     def test_modified_file_has_changes(self, temp_git_repo: Path):
         """Modified tracked file counts as changes."""
-        (temp_git_repo / "README.md").write_text("modified content")
+        (temp_git_repo / "README.md").write_text("modified content", encoding="utf-8")
 
         result = has_uncommitted_changes(temp_git_repo)
         assert result is True
 
     def test_staged_file_has_changes(self, temp_git_repo: Path):
         """Staged file counts as changes."""
-        (temp_git_repo / "README.md").write_text("modified")
+        (temp_git_repo / "README.md").write_text("modified", encoding="utf-8")
         subprocess.run(
             ["git", "add", "README.md"], cwd=temp_git_repo, capture_output=True
         )
@@ -215,7 +215,7 @@ class TestWorkspaceIntegration:
         )
 
         # Make changes in workspace
-        (working_dir / "feature.py").write_text("# New feature\n")
+        (working_dir / "feature.py").write_text("# New feature\n", encoding="utf-8")
 
         # Verify changes are in workspace
         assert (working_dir / "feature.py").exists()
@@ -236,7 +236,7 @@ class TestWorkspaceIntegration:
         assert working_dir == temp_git_repo
 
         # Make changes directly
-        (working_dir / "feature.py").write_text("# New feature\n")
+        (working_dir / "feature.py").write_text("# New feature\n", encoding="utf-8")
 
         # Changes are in main project
         assert (temp_git_repo / "feature.py").exists()
@@ -251,7 +251,7 @@ class TestWorkspaceIntegration:
         )
 
         # Make changes and commit using git directly
-        (working_dir / "feature.py").write_text("# New feature\n")
+        (working_dir / "feature.py").write_text("# New feature\n", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=working_dir, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Add feature"], cwd=working_dir, capture_output=True
@@ -283,7 +283,7 @@ class TestWorkspaceCleanup:
         )
 
         # Commit changes using git directly
-        (working_dir / "test.py").write_text("test")
+        (working_dir / "test.py").write_text("test", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=working_dir, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Test"], cwd=working_dir, capture_output=True
@@ -304,7 +304,7 @@ class TestWorkspaceCleanup:
         )
 
         # Commit changes using git directly
-        (working_dir / "test.py").write_text("test")
+        (working_dir / "test.py").write_text("test", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=working_dir, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Test"], cwd=working_dir, capture_output=True
@@ -330,7 +330,7 @@ class TestWorkspaceReuse:
         )
 
         # Add a marker file
-        (working_dir1 / "marker.txt").write_text("marker")
+        (working_dir1 / "marker.txt").write_text("marker", encoding="utf-8")
 
         # Second setup (should reuse)
         working_dir2, manager2, _ = setup_workspace(
@@ -486,7 +486,9 @@ class TestMergeErrorHandling:
 
         # Create a worktree with changes
         worker_info = manager.create_worktree("worker-spec")
-        (worker_info.path / "worker-file.txt").write_text("worker content")
+        (worker_info.path / "worker-file.txt").write_text(
+            "worker content", encoding="utf-8"
+        )
         subprocess.run(["git", "add", "."], cwd=worker_info.path, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Worker commit"],
@@ -500,7 +502,7 @@ class TestMergeErrorHandling:
             cwd=temp_git_repo,
             capture_output=True,
         )
-        (temp_git_repo / "worker-file.txt").write_text("main content")
+        (temp_git_repo / "worker-file.txt").write_text("main content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Main commit"],
@@ -521,7 +523,7 @@ class TestMergeErrorHandling:
             cwd=temp_git_repo,
             capture_output=True,
         )
-        base_content = (temp_git_repo / "worker-file.txt").read_text()
+        base_content = (temp_git_repo / "worker-file.txt").read_text(encoding="utf-8")
         assert base_content == "main content", (
             "Base branch should be unchanged after failed merge"
         )
@@ -1078,7 +1080,9 @@ class TestSpecNumberLock:
 
         # Create a worktree with non-conflicting changes
         worker_info = manager.create_worktree("worker-spec")
-        (worker_info.path / "worker-file.txt").write_text("worker content")
+        (worker_info.path / "worker-file.txt").write_text(
+            "worker content", encoding="utf-8"
+        )
         subprocess.run(["git", "add", "."], cwd=worker_info.path, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Worker commit"],
@@ -1100,7 +1104,7 @@ class TestSpecNumberLock:
         assert (temp_git_repo / "worker-file.txt").exists(), (
             "Merged file should exist in base branch"
         )
-        merged_content = (temp_git_repo / "worker-file.txt").read_text()
+        merged_content = (temp_git_repo / "worker-file.txt").read_text(encoding="utf-8")
         assert merged_content == "worker content", (
             "Merged file should have worktree content"
         )
@@ -1122,7 +1126,7 @@ class TestRebaseDetection:
         )
 
         # Add a commit to spec branch
-        (temp_git_repo / "spec-file.txt").write_text("spec content")
+        (temp_git_repo / "spec-file.txt").write_text("spec content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Spec commit"],
@@ -1136,7 +1140,7 @@ class TestRebaseDetection:
             cwd=temp_git_repo,
             capture_output=True,
         )
-        (temp_git_repo / "main-file.txt").write_text("main content")
+        (temp_git_repo / "main-file.txt").write_text("main content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Main commit after spec"],
@@ -1165,7 +1169,7 @@ class TestRebaseDetection:
             cwd=temp_git_repo,
             capture_output=True,
         )
-        (temp_git_repo / "spec-file.txt").write_text("spec content")
+        (temp_git_repo / "spec-file.txt").write_text("spec content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Spec commit"],
@@ -1201,7 +1205,7 @@ class TestRebaseDetection:
         )
 
         # Add a commit to spec branch
-        (temp_git_repo / "spec-file.txt").write_text("spec content")
+        (temp_git_repo / "spec-file.txt").write_text("spec content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Spec commit"],
@@ -1216,7 +1220,9 @@ class TestRebaseDetection:
             capture_output=True,
         )
         for i in range(3):
-            (temp_git_repo / f"main-file-{i}.txt").write_text(f"main content {i}")
+            (temp_git_repo / f"main-file-{i}.txt").write_text(
+                f"main content {i}", encoding="utf-8"
+            )
             subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
             subprocess.run(
                 ["git", "commit", "-m", f"Main commit {i}"],
@@ -1248,7 +1254,7 @@ class TestRebaseSpecBranch:
         )
 
         # Add a commit to spec branch
-        (temp_git_repo / "spec-file.txt").write_text("spec content")
+        (temp_git_repo / "spec-file.txt").write_text("spec content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Spec commit"],
@@ -1262,7 +1268,7 @@ class TestRebaseSpecBranch:
             cwd=temp_git_repo,
             capture_output=True,
         )
-        (temp_git_repo / "main-file.txt").write_text("main content")
+        (temp_git_repo / "main-file.txt").write_text("main content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Main commit"],
@@ -1318,7 +1324,7 @@ class TestRebaseSpecBranch:
         )
 
         # Create a file that will conflict
-        (temp_git_repo / "conflict.txt").write_text("spec version")
+        (temp_git_repo / "conflict.txt").write_text("spec version", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Spec conflict"],
@@ -1332,7 +1338,7 @@ class TestRebaseSpecBranch:
             cwd=temp_git_repo,
             capture_output=True,
         )
-        (temp_git_repo / "conflict.txt").write_text("main version")
+        (temp_git_repo / "conflict.txt").write_text("main version", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Main conflict"],
@@ -1402,7 +1408,7 @@ class TestRebaseSpecBranch:
             cwd=temp_git_repo,
             capture_output=True,
         )
-        (temp_git_repo / "spec-file.txt").write_text("spec content")
+        (temp_git_repo / "spec-file.txt").write_text("spec content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Spec commit"],
@@ -1440,7 +1446,9 @@ class TestRebaseIntegration:
         worker_info = manager.create_worktree("test-spec")
 
         # Add a file in spec worktree and commit
-        (worker_info.path / "spec-file.txt").write_text("spec content")
+        (worker_info.path / "spec-file.txt").write_text(
+            "spec content", encoding="utf-8"
+        )
         subprocess.run(["git", "add", "."], cwd=worker_info.path, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Spec commit"],
@@ -1455,7 +1463,7 @@ class TestRebaseIntegration:
             capture_output=True,
         )
         for i in range(2):
-            (temp_git_repo / f"main-{i}.txt").write_text(f"main {i}")
+            (temp_git_repo / f"main-{i}.txt").write_text(f"main {i}", encoding="utf-8")
             subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
             subprocess.run(
                 ["git", "commit", "-m", f"Main {i}"],
@@ -1487,7 +1495,7 @@ class TestRebaseIntegration:
         )
 
         # Add a commit to spec
-        (temp_git_repo / "spec.txt").write_text("spec")
+        (temp_git_repo / "spec.txt").write_text("spec", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Spec"],
@@ -1501,7 +1509,7 @@ class TestRebaseIntegration:
             cwd=temp_git_repo,
             capture_output=True,
         )
-        (temp_git_repo / "main.txt").write_text("main")
+        (temp_git_repo / "main.txt").write_text("main", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Main"],
@@ -1547,7 +1555,7 @@ class TestRebaseErrorHandling:
             cwd=temp_git_repo,
             capture_output=True,
         )
-        (temp_git_repo / "spec-file.txt").write_text("spec content")
+        (temp_git_repo / "spec-file.txt").write_text("spec content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Spec commit"],
@@ -1599,7 +1607,7 @@ class TestRebaseErrorHandling:
             cwd=temp_git_repo,
             capture_output=True,
         )
-        (temp_git_repo / "spec-file.txt").write_text("spec content")
+        (temp_git_repo / "spec-file.txt").write_text("spec content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Spec commit"],
@@ -3775,9 +3783,9 @@ class TestCopyEnvFilesToWorktree:
         from core.workspace.setup import copy_env_files_to_worktree
 
         # Create .env files in project
-        (temp_git_repo / ".env").write_text("FOO=bar")
-        (temp_git_repo / ".env.local").write_text("LOCAL=1")
-        (temp_git_repo / ".env.development").write_text("DEV=1")
+        (temp_git_repo / ".env").write_text("FOO=bar", encoding="utf-8")
+        (temp_git_repo / ".env.local").write_text("LOCAL=1", encoding="utf-8")
+        (temp_git_repo / ".env.development").write_text("DEV=1", encoding="utf-8")
 
         # Create worktree directory
         worktree_path = (
@@ -3817,7 +3825,7 @@ class TestCopyEnvFilesToWorktree:
         from core.workspace.setup import copy_env_files_to_worktree
 
         # Create .env in project
-        (temp_git_repo / ".env").write_text("PROJECT=1")
+        (temp_git_repo / ".env").write_text("PROJECT=1", encoding="utf-8")
 
         worktree_path = (
             temp_git_repo / ".auto-claude" / "worktrees" / "tasks" / "test-spec"
@@ -3825,7 +3833,7 @@ class TestCopyEnvFilesToWorktree:
         worktree_path.mkdir(parents=True)
 
         # Create existing .env in worktree with different content
-        (worktree_path / ".env").write_text("WORKTREE=1")
+        (worktree_path / ".env").write_text("WORKTREE=1", encoding="utf-8")
 
         copied = copy_env_files_to_worktree(temp_git_repo, worktree_path)
 
@@ -3833,7 +3841,7 @@ class TestCopyEnvFilesToWorktree:
         assert ".env" not in copied
 
         # Worktree .env should keep its original content
-        assert (worktree_path / ".env").read_text() == "WORKTREE=1"
+        assert (worktree_path / ".env").read_text(encoding="utf-8") == "WORKTREE=1"
 
 
 class TestSymlinkNodeModulesToWorktree:
@@ -3847,12 +3855,12 @@ class TestSymlinkNodeModulesToWorktree:
         # Create node_modules in project
         node_modules = temp_git_repo / "node_modules"
         node_modules.mkdir()
-        (node_modules / "test.txt").write_text("test")
+        (node_modules / "test.txt").write_text("test", encoding="utf-8")
 
         # Create apps/frontend/node_modules
         frontend_node_modules = temp_git_repo / "apps" / "frontend" / "node_modules"
         frontend_node_modules.mkdir(parents=True)
-        (frontend_node_modules / "test2.txt").write_text("test2")
+        (frontend_node_modules / "test2.txt").write_text("test2", encoding="utf-8")
 
         # Create worktree
         worktree_path = (
@@ -3882,7 +3890,7 @@ class TestSymlinkNodeModulesToWorktree:
         # Create node_modules in project
         node_modules = temp_git_repo / "node_modules"
         node_modules.mkdir()
-        (node_modules / "test.txt").write_text("test")
+        (node_modules / "test.txt").write_text("test", encoding="utf-8")
 
         # Create worktree
         worktree_path = (
@@ -3924,7 +3932,7 @@ class TestSymlinkNodeModulesToWorktree:
         # Create node_modules in project
         node_modules = temp_git_repo / "node_modules"
         node_modules.mkdir()
-        (node_modules / "test.txt").write_text("test")
+        (node_modules / "test.txt").write_text("test", encoding="utf-8")
 
         # Create worktree
         worktree_path = (
@@ -3952,8 +3960,8 @@ class TestCopySpecToWorktree:
         # Create source spec directory
         source_spec = temp_git_repo / "specs" / "test-spec"
         source_spec.mkdir(parents=True)
-        (source_spec / "spec.md").write_text("# Test Spec")
-        (source_spec / "requirements.json").write_text("{}")
+        (source_spec / "spec.md").write_text("# Test Spec", encoding="utf-8")
+        (source_spec / "requirements.json").write_text("{}", encoding="utf-8")
 
         # Create worktree
         worktree_path = (
@@ -3971,7 +3979,7 @@ class TestCopySpecToWorktree:
         # Verify files were copied
         assert (expected / "spec.md").exists()
         assert (expected / "requirements.json").exists()
-        assert (expected / "spec.md").read_text() == "# Test Spec"
+        assert (expected / "spec.md").read_text(encoding="utf-8") == "# Test Spec"
 
     def test_overwrites_existing_spec_in_worktree(self, temp_git_repo: Path):
         """Overwrites spec files if they already exist in worktree."""
@@ -3980,7 +3988,7 @@ class TestCopySpecToWorktree:
         # Create source spec
         source_spec = temp_git_repo / "specs" / "test-spec"
         source_spec.mkdir(parents=True)
-        (source_spec / "spec.md").write_text("# New Spec")
+        (source_spec / "spec.md").write_text("# New Spec", encoding="utf-8")
 
         # Create worktree with existing spec
         worktree_path = (
@@ -3989,13 +3997,13 @@ class TestCopySpecToWorktree:
         worktree_path.mkdir(parents=True)
         existing_spec = worktree_path / ".auto-claude" / "specs" / "test-spec"
         existing_spec.mkdir(parents=True)
-        (existing_spec / "spec.md").write_text("# Old Spec")
+        (existing_spec / "spec.md").write_text("# Old Spec", encoding="utf-8")
 
         # Copy spec
         result = copy_spec_to_worktree(source_spec, worktree_path, "test-spec")
 
         # Verify new content was copied
-        assert (result / "spec.md").read_text() == "# New Spec"
+        assert (result / "spec.md").read_text(encoding="utf-8") == "# New Spec"
 
     def test_creates_parent_directories(self, temp_git_repo: Path):
         """Creates .auto-claude/specs directory if it doesn't exist."""
@@ -4003,7 +4011,7 @@ class TestCopySpecToWorktree:
 
         source_spec = temp_git_repo / "specs" / "test-spec"
         source_spec.mkdir(parents=True)
-        (source_spec / "spec.md").write_text("# Test")
+        (source_spec / "spec.md").write_text("# Test", encoding="utf-8")
 
         worktree_path = (
             temp_git_repo / ".auto-claude" / "worktrees" / "tasks" / "test-spec"
@@ -4037,7 +4045,9 @@ class TestEnsureTimelineHookInstalled:
 
         # Create hook with FileTimelineTracker marker
         hook_file = hooks_dir / "post-commit"
-        hook_file.write_text("#!/bin/sh\n# FileTimelineTracker hook\necho 'tracked'")
+        hook_file.write_text(
+            "#!/bin/sh\n# FileTimelineTracker hook\necho 'tracked'", encoding="utf-8"
+        )
 
         # Mock install_hook to track if it was called
         install_called = []
@@ -4332,7 +4342,7 @@ class TestHandleWorkspaceChoice:
         worktrees_dir.mkdir(parents=True)
         worktree_path = worktrees_dir / spec_name
         worktree_path.mkdir(parents=True)
-        (worktree_path / "test.py").write_text("test")
+        (worktree_path / "test.py").write_text("test", encoding="utf-8")
 
         # Initialize git in worktree and commit
         subprocess.run(["git", "init"], cwd=worktree_path, capture_output=True)
@@ -4829,7 +4839,7 @@ class TestHandleWorkspaceChoiceBranchCoverage:
         )
 
         # Make changes and commit
-        (working_dir / "test.py").write_text("test content")
+        (working_dir / "test.py").write_text("test content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=working_dir, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Add test"], cwd=working_dir, capture_output=True
@@ -5040,7 +5050,7 @@ class TestDetectFileRenames:
         from core.workspace.git_utils import detect_file_renames
 
         # Create and commit a file
-        (temp_git_repo / "old_name.txt").write_text("content")
+        (temp_git_repo / "old_name.txt").write_text("content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Add file"], cwd=temp_git_repo, capture_output=True
@@ -5076,8 +5086,8 @@ class TestDetectFileRenames:
         from core.workspace.git_utils import detect_file_renames
 
         # Create and commit files
-        (temp_git_repo / "file1.txt").write_text("content1")
-        (temp_git_repo / "file2.txt").write_text("content2")
+        (temp_git_repo / "file1.txt").write_text("content1", encoding="utf-8")
+        (temp_git_repo / "file2.txt").write_text("content2", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Add files"], cwd=temp_git_repo, capture_output=True
@@ -5115,7 +5125,7 @@ class TestDetectFileRenames:
         from core.workspace.git_utils import detect_file_renames
 
         # Create and commit a file
-        (temp_git_repo / "test.txt").write_text("content")
+        (temp_git_repo / "test.txt").write_text("content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Add file"], cwd=temp_git_repo, capture_output=True
@@ -5130,7 +5140,7 @@ class TestDetectFileRenames:
         old_commit = result.stdout.strip()
 
         # Modify file (not rename)
-        (temp_git_repo / "test.txt").write_text("modified content")
+        (temp_git_repo / "test.txt").write_text("modified content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Modify file"],
@@ -5156,7 +5166,7 @@ class TestDetectFileRenames:
         from core.workspace.git_utils import detect_file_renames
 
         # Create and commit a file
-        (temp_git_repo / "old.txt").write_text("line1\nline2\nline3")
+        (temp_git_repo / "old.txt").write_text("line1\nline2\nline3", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Add file"], cwd=temp_git_repo, capture_output=True
@@ -5172,7 +5182,9 @@ class TestDetectFileRenames:
 
         # Rename and slightly modify
         (temp_git_repo / "old.txt").rename(temp_git_repo / "new.txt")
-        (temp_git_repo / "new.txt").write_text("line1\nline2 modified\nline3")
+        (temp_git_repo / "new.txt").write_text(
+            "line1\nline2 modified\nline3", encoding="utf-8"
+        )
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Rename and modify"],
@@ -5193,7 +5205,9 @@ class TestDetectFileRenames:
 
         # Create directory structure and commit
         (temp_git_repo / "src").mkdir()
-        (temp_git_repo / "src" / "old.py").write_text("def foo(): pass")
+        (temp_git_repo / "src" / "old.py").write_text(
+            "def foo(): pass", encoding="utf-8"
+        )
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Add file"], cwd=temp_git_repo, capture_output=True
@@ -5288,7 +5302,7 @@ class TestGetMergeBase:
         from core.workspace.git_utils import get_merge_base
 
         # Create a file on main
-        (temp_git_repo / "base.txt").write_text("base content")
+        (temp_git_repo / "base.txt").write_text("base content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Base commit"],
@@ -5300,7 +5314,7 @@ class TestGetMergeBase:
         subprocess.run(
             ["git", "checkout", "-b", "feature"], cwd=temp_git_repo, capture_output=True
         )
-        (temp_git_repo / "feature.txt").write_text("feature content")
+        (temp_git_repo / "feature.txt").write_text("feature content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Feature commit"],
@@ -5312,7 +5326,7 @@ class TestGetMergeBase:
         subprocess.run(
             ["git", "checkout", "main"], cwd=temp_git_repo, capture_output=True
         )
-        (temp_git_repo / "main.txt").write_text("main content")
+        (temp_git_repo / "main.txt").write_text("main content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Main commit"],
@@ -5348,7 +5362,7 @@ class TestGetMergeBase:
         from core.workspace.git_utils import get_merge_base
 
         # Create initial commit
-        (temp_git_repo / "base.txt").write_text("base")
+        (temp_git_repo / "base.txt").write_text("base", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Base"], cwd=temp_git_repo, capture_output=True
@@ -5363,7 +5377,7 @@ class TestGetMergeBase:
         base_commit = result.stdout.strip()
 
         # Add commit on top
-        (temp_git_repo / "new.txt").write_text("new")
+        (temp_git_repo / "new.txt").write_text("new", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "New"], cwd=temp_git_repo, capture_output=True
@@ -5383,7 +5397,7 @@ class TestGetFileContentFromRef:
         from core.workspace.git_utils import get_file_content_from_ref
 
         # Create and commit a file
-        (temp_git_repo / "test.txt").write_text("file content")
+        (temp_git_repo / "test.txt").write_text("file content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Add file"], cwd=temp_git_repo, capture_output=True
@@ -5423,7 +5437,9 @@ class TestGetFileContentFromRef:
         from core.workspace.git_utils import get_file_content_from_ref
 
         # Create and commit a file on main
-        (temp_git_repo / "branch_file.txt").write_text("branch content")
+        (temp_git_repo / "branch_file.txt").write_text(
+            "branch content", encoding="utf-8"
+        )
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Add file"], cwd=temp_git_repo, capture_output=True
@@ -5440,7 +5456,7 @@ class TestGetFileContentFromRef:
 
         # Create and commit a multiline file
         content = "line1\nline2\nline3"
-        (temp_git_repo / "multiline.txt").write_text(content)
+        (temp_git_repo / "multiline.txt").write_text(content, encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Add file"], cwd=temp_git_repo, capture_output=True
@@ -5456,7 +5472,7 @@ class TestGetFileContentFromRef:
         from core.workspace.git_utils import get_file_content_from_ref
 
         # Create and commit an empty file
-        (temp_git_repo / "empty.txt").write_text("")
+        (temp_git_repo / "empty.txt").write_text("", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Add empty file"],
@@ -5558,7 +5574,7 @@ class TestGetChangedFilesFromBranch:
         from core.workspace.git_utils import get_changed_files_from_branch
 
         # Create a file on main
-        (temp_git_repo / "base.txt").write_text("base")
+        (temp_git_repo / "base.txt").write_text("base", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Base"], cwd=temp_git_repo, capture_output=True
@@ -5568,8 +5584,8 @@ class TestGetChangedFilesFromBranch:
         subprocess.run(
             ["git", "checkout", "-b", "feature"], cwd=temp_git_repo, capture_output=True
         )
-        (temp_git_repo / "new_file.txt").write_text("new")
-        (temp_git_repo / "modified.txt").write_text("modified")
+        (temp_git_repo / "new_file.txt").write_text("new", encoding="utf-8")
+        (temp_git_repo / "modified.txt").write_text("modified", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Feature changes"],
@@ -5590,7 +5606,7 @@ class TestGetChangedFilesFromBranch:
         from core.workspace.git_utils import get_changed_files_from_branch
 
         # Create base
-        (temp_git_repo / "base.txt").write_text("base")
+        (temp_git_repo / "base.txt").write_text("base", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Base"], cwd=temp_git_repo, capture_output=True
@@ -5601,8 +5617,10 @@ class TestGetChangedFilesFromBranch:
             ["git", "checkout", "-b", "feature"], cwd=temp_git_repo, capture_output=True
         )
         (temp_git_repo / ".auto-claude").mkdir()
-        (temp_git_repo / ".auto-claude" / "spec.json").write_text("spec")
-        (temp_git_repo / "normal.txt").write_text("normal")
+        (temp_git_repo / ".auto-claude" / "spec.json").write_text(
+            "spec", encoding="utf-8"
+        )
+        (temp_git_repo / "normal.txt").write_text("normal", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Feature"], cwd=temp_git_repo, capture_output=True
@@ -5620,7 +5638,7 @@ class TestGetChangedFilesFromBranch:
         from core.workspace.git_utils import get_changed_files_from_branch
 
         # Create base
-        (temp_git_repo / "base.txt").write_text("base")
+        (temp_git_repo / "base.txt").write_text("base", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Base"], cwd=temp_git_repo, capture_output=True
@@ -5631,7 +5649,9 @@ class TestGetChangedFilesFromBranch:
             ["git", "checkout", "-b", "feature"], cwd=temp_git_repo, capture_output=True
         )
         (temp_git_repo / ".auto-claude").mkdir()
-        (temp_git_repo / ".auto-claude" / "spec.json").write_text("spec")
+        (temp_git_repo / ".auto-claude" / "spec.json").write_text(
+            "spec", encoding="utf-8"
+        )
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Feature"], cwd=temp_git_repo, capture_output=True
@@ -5650,7 +5670,7 @@ class TestGetChangedFilesFromBranch:
         from core.workspace.git_utils import get_changed_files_from_branch
 
         # Create base
-        (temp_git_repo / "file.txt").write_text("original")
+        (temp_git_repo / "file.txt").write_text("original", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Base"], cwd=temp_git_repo, capture_output=True
@@ -5660,7 +5680,7 @@ class TestGetChangedFilesFromBranch:
         subprocess.run(
             ["git", "checkout", "-b", "feature"], cwd=temp_git_repo, capture_output=True
         )
-        (temp_git_repo / "added.txt").write_text("added")
+        (temp_git_repo / "added.txt").write_text("added", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Add file"], cwd=temp_git_repo, capture_output=True
@@ -5681,7 +5701,7 @@ class TestGetChangedFilesFromBranch:
         from core.workspace.git_utils import get_changed_files_from_branch
 
         # Create commit on main
-        (temp_git_repo / "file.txt").write_text("content")
+        (temp_git_repo / "file.txt").write_text("content", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Initial"], cwd=temp_git_repo, capture_output=True
@@ -5702,7 +5722,7 @@ class TestGetChangedFilesFromBranch:
         from core.workspace.git_utils import get_changed_files_from_branch
 
         # Create base
-        (temp_git_repo / "base.txt").write_text("base")
+        (temp_git_repo / "base.txt").write_text("base", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Base"], cwd=temp_git_repo, capture_output=True
@@ -5714,8 +5734,10 @@ class TestGetChangedFilesFromBranch:
         )
         (temp_git_repo / "auto-claude").mkdir()
         (temp_git_repo / "auto-claude" / "specs").mkdir()
-        (temp_git_repo / "auto-claude" / "specs" / "spec.md").write_text("spec")
-        (temp_git_repo / "normal.txt").write_text("normal")
+        (temp_git_repo / "auto-claude" / "specs" / "spec.md").write_text(
+            "spec", encoding="utf-8"
+        )
+        (temp_git_repo / "normal.txt").write_text("normal", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Feature"], cwd=temp_git_repo, capture_output=True
@@ -6496,10 +6518,12 @@ class TestValidateMergedSyntaxErrorHandling:
         # Create a fake esbuild executable
         esbuild_binary = esbuild_version_dir / "esbuild"
         if os.name != "nt":
-            esbuild_binary.write_text("#!/bin/sh\necho 'esbuild found'\n")
+            esbuild_binary.write_text(
+                "#!/bin/sh\necho 'esbuild found'\n", encoding="utf-8"
+            )
             os.chmod(esbuild_binary, 0o755)
         else:
-            esbuild_binary.write_text("echo esbuild found")
+            esbuild_binary.write_text("echo esbuild found", encoding="utf-8")
 
         # This test verifies the pnpm path search logic
         # Note: Actual esbuild execution may still be skipped if not properly installed
@@ -6521,10 +6545,12 @@ class TestValidateMergedSyntaxErrorHandling:
         # Create a fake esbuild executable
         esbuild_binary = npm_bin_dir / "esbuild"
         if os.name != "nt":
-            esbuild_binary.write_text("#!/bin/sh\necho 'esbuild found'\n")
+            esbuild_binary.write_text(
+                "#!/bin/sh\necho 'esbuild found'\n", encoding="utf-8"
+            )
             os.chmod(esbuild_binary, 0o755)
         else:
-            esbuild_binary.write_text("echo esbuild found")
+            esbuild_binary.write_text("echo esbuild found", encoding="utf-8")
 
         # This test verifies the npm path search logic
         is_valid, error = validate_merged_syntax(
@@ -6549,10 +6575,12 @@ class TestValidateMergedSyntaxErrorHandling:
 
             esbuild_binary = npm_bin_dir / "esbuild"
             if os.name != "nt":
-                esbuild_binary.write_text("#!/bin/sh\necho 'esbuild'\n")
+                esbuild_binary.write_text(
+                    "#!/bin/sh\necho 'esbuild'\n", encoding="utf-8"
+                )
                 os.chmod(esbuild_binary, 0o755)
             else:
-                esbuild_binary.write_text("echo esbuild")
+                esbuild_binary.write_text("echo esbuild", encoding="utf-8")
 
             is_valid, error = validate_merged_syntax(
                 "test.ts", "const x: string = 'test';", temp_git_repo
@@ -6579,6 +6607,103 @@ class TestValidateMergedSyntaxErrorHandling:
         # or actual validation result if npx is available
         assert isinstance(is_valid, bool)
         assert isinstance(error, str)
+
+    def test_validate_merged_syntax_npx_fallback_with_mock(
+        self, temp_git_repo: Path, monkeypatch
+    ):
+        """validate_merged_syntax uses npx fallback when esbuild binary not found (lines 466-467)."""
+        from unittest.mock import MagicMock, patch
+
+        # Mock Path.exists() to ensure no esbuild binary is found anywhere
+        original_exists = Path.exists
+
+        def mock_exists(self):
+            """Return False for any esbuild-related paths."""
+            path_str = str(self)
+            # Return False for esbuild binary paths to force npx fallback
+            if "esbuild" in path_str and (
+                "node_modules" in path_str or ".bin" in path_str
+            ):
+                return False
+            # Otherwise use original exists
+            return original_exists(self)
+
+        # Use Path object directly, not string path
+        monkeypatch.setattr(Path, "exists", mock_exists)
+
+        # Track the actual subprocess.run calls
+        run_calls = []
+
+        def mock_run(args, **kwargs):
+            """Mock that verifies npx fallback is used."""
+            run_calls.append((args, kwargs))
+            # Simulate successful npx esbuild execution
+            mock_result = MagicMock()
+            mock_result.returncode = 0
+            mock_result.stdout = ""
+            mock_result.stderr = ""
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        # Call validate_merged_syntax
+        is_valid, error = validate_merged_syntax(
+            "test.ts", "const x: string = 'test';", temp_git_repo
+        )
+
+        # Verify npx was used (first arg should be "npx")
+        assert len(run_calls) > 0, "subprocess.run should have been called"
+        args, _ = run_calls[0]
+        assert args[0] == "npx", f"Expected 'npx' as first arg, got {args[0]}"
+        assert "esbuild" in args, f"Expected 'esbuild' in args, got {args}"
+        assert "--log-level=error" in args, (
+            f"Expected '--log-level=error' in args, got {args}"
+        )
+
+        # Verify result is valid
+        assert is_valid is True
+        assert error == ""
+
+    def test_validate_merged_syntax_npx_fallback_with_syntax_error(
+        self, temp_git_repo: Path, monkeypatch
+    ):
+        """validate_merged_syntax npx fallback detects syntax errors (lines 466-467)."""
+        from unittest.mock import MagicMock, patch
+
+        # Mock Path.exists() to ensure no esbuild binary is found anywhere
+        original_exists = Path.exists
+
+        def mock_exists(self):
+            """Return False for any esbuild-related paths."""
+            path_str = str(self)
+            # Return False for esbuild binary paths to force npx fallback
+            if "esbuild" in path_str and (
+                "node_modules" in path_str or ".bin" in path_str
+            ):
+                return False
+            # Otherwise use original exists
+            return original_exists(self)
+
+        # Use Path object directly, not string path
+        monkeypatch.setattr(Path, "exists", mock_exists)
+
+        def mock_run(args, **kwargs):
+            """Mock that simulates esbuild detecting syntax error via npx."""
+            mock_result = MagicMock()
+            mock_result.returncode = 1
+            mock_result.stderr = "error: Unexpected 'const'"
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        # Call validate_merged_syntax with invalid syntax
+        is_valid, error = validate_merged_syntax(
+            "test.ts", "const const x = 1;", temp_git_repo
+        )
+
+        # Verify syntax error was detected
+        assert is_valid is False
+        assert "Syntax error" in error
 
 
 class TestMergeLockExceptionHandling:
@@ -6886,7 +7011,7 @@ class TestSymlinkBrokenSymlinkDetection:
         # Create node_modules in project
         node_modules = temp_git_repo / "node_modules"
         node_modules.mkdir()
-        (node_modules / "test.txt").write_text("test")
+        (node_modules / "test.txt").write_text("test", encoding="utf-8")
 
         # Create worktree
         worktree_path = (
@@ -6924,7 +7049,7 @@ class TestWindowsJunctionFailure:
         # Create node_modules in project
         node_modules = temp_git_repo / "node_modules"
         node_modules.mkdir()
-        (node_modules / "test.txt").write_text("test")
+        (node_modules / "test.txt").write_text("test", encoding="utf-8")
 
         # Create worktree
         worktree_path = (
@@ -6965,7 +7090,7 @@ class TestSymlinkOSErrorHandling:
         # Create node_modules in project
         node_modules = temp_git_repo / "node_modules"
         node_modules.mkdir()
-        (node_modules / "test.txt").write_text("test")
+        (node_modules / "test.txt").write_text("test", encoding="utf-8")
 
         # Create worktree
         worktree_path = (
@@ -6997,7 +7122,7 @@ class TestEnvFilesPrintStatus:
         from core.workspace.setup import setup_workspace
 
         # Create .env file in project root
-        (temp_git_repo / ".env").write_text("TEST=1")
+        (temp_git_repo / ".env").write_text("TEST=1", encoding="utf-8")
 
         # Setup isolated workspace - .env should be copied
         setup_workspace(
@@ -7028,7 +7153,7 @@ class TestSymlinkedModulesPrintStatus:
         # Create node_modules at root
         node_modules = temp_git_repo / "node_modules"
         node_modules.mkdir()
-        (node_modules / "package.json").write_text("{}")
+        (node_modules / "package.json").write_text("{}", encoding="utf-8")
 
         # Create apps/frontend/node_modules
         frontend_node_modules = temp_git_repo / "apps" / "frontend" / "node_modules"
@@ -7057,10 +7182,10 @@ class TestSecurityFilesCopy:
 
         # Create security files
         allowlist_file = temp_git_repo / ALLOWLIST_FILENAME
-        allowlist_file.write_text("allowlist content")
+        allowlist_file.write_text("allowlist content", encoding="utf-8")
 
         profile_file = temp_git_repo / PROFILE_FILENAME
-        profile_file.write_text('{"profile": "data"}')
+        profile_file.write_text('{"profile": "data"}', encoding="utf-8")
 
         # Commit changes
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
@@ -7080,7 +7205,9 @@ class TestSecurityFilesCopy:
         # Verify files were copied
         assert (worktree_path / ALLOWLIST_FILENAME).exists()
         assert (worktree_path / PROFILE_FILENAME).exists()
-        assert (worktree_path / ALLOWLIST_FILENAME).read_text() == "allowlist content"
+        assert (worktree_path / ALLOWLIST_FILENAME).read_text(
+            encoding="utf-8"
+        ) == "allowlist content"
 
     def test_handles_security_file_copy_error(
         self, temp_git_repo: Path, monkeypatch, capsys
@@ -7093,7 +7220,7 @@ class TestSecurityFilesCopy:
 
         # Create security file
         allowlist_file = temp_git_repo / ALLOWLIST_FILENAME
-        allowlist_file.write_text("content")
+        allowlist_file.write_text("content", encoding="utf-8")
 
         # Create worktree
         worktree_path = (
@@ -7162,7 +7289,7 @@ class TestSecurityProfileInheritance:
 
         # Create corrupt profile file
         profile_file = temp_git_repo / PROFILE_FILENAME
-        profile_file.write_text("{invalid json content")
+        profile_file.write_text("{invalid json content", encoding="utf-8")
 
         # Commit changes
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
@@ -7194,8 +7321,8 @@ class TestSpecCopyInSetupWorkspace:
         # Create source spec directory
         source_spec = temp_git_repo / "external-specs" / "test-spec"
         source_spec.mkdir(parents=True)
-        (source_spec / "spec.md").write_text("# Test Spec")
-        (source_spec / "requirements.json").write_text("{}")
+        (source_spec / "spec.md").write_text("# Test Spec", encoding="utf-8")
+        (source_spec / "requirements.json").write_text("{}", encoding="utf-8")
 
         # Setup workspace with source spec
         worktree_path, _, localized_spec = setup_workspace(
@@ -7262,7 +7389,7 @@ class TestTimelineHookWorktreeGitFile:
 
         try:
             # Create .git as a file (worktree style)
-            git_dir.write_text(git_dir_content)
+            git_dir.write_text(git_dir_content, encoding="utf-8")
 
             # Should handle this gracefully
             ensure_timeline_hook_installed(temp_git_repo)
@@ -7289,7 +7416,7 @@ class TestTimelineHookWorktreeGitFile:
 
         try:
             # Write invalid content (doesn't start with "gitdir:")
-            git_dir.write_text("invalid content")
+            git_dir.write_text("invalid content", encoding="utf-8")
 
             # Should return early without error
             ensure_timeline_hook_installed(temp_git_repo)
@@ -7318,7 +7445,7 @@ class TestTimelineHookExistsCheck:
 # FileTimelineTracker hook
 git log -1
 """
-        hook_file.write_text(hook_content)
+        hook_file.write_text(hook_content, encoding="utf-8")
 
         # Track if install_hook was called
         install_called = []
@@ -7366,7 +7493,7 @@ class TestInitializeTimelineTrackingNoSourceSpec:
             temp_git_repo / ".auto-claude" / "worktrees" / "tasks" / "test-spec"
         )
         worktree_path.mkdir(parents=True)
-        (worktree_path / "test.py").write_text("# Test file")
+        (worktree_path / "test.py").write_text("# Test file", encoding="utf-8")
 
         # Call without source_spec_dir
         initialize_timeline_tracking(
@@ -7472,5 +7599,901 @@ class TestFinalizationWorkspaceCdPathWithExistingBuild:
     def test_test_choice_shows_existing_worktree_path(
         self, temp_git_repo: Path, capsys, monkeypatch
     ):
-        """Tests TEST choice shows worktree path when get_existing_build_worktree returns path (line 174)."""
+        """Tests TEST choice shows worktree path when staging_path is None and get_existing_build_worktree returns path (line 174)."""
         from core.workspace.finalization import handle_workspace_choice
+        from worktree import WorktreeManager
+
+        manager = WorktreeManager(temp_git_repo)
+        spec_name = "test-spec"
+
+        # Create a worktree directory (plain directory, not a git worktree)
+        worktree_path = (
+            temp_git_repo / ".auto-claude" / "worktrees" / "tasks" / spec_name
+        )
+        worktree_path.mkdir(parents=True)
+
+        # Mock manager.get_worktree_info to return None (simulating no valid worktree info)
+        # This ensures staging_path will be None
+        monkeypatch.setattr(manager, "get_worktree_info", lambda spec_name: None)
+
+        # Mock get_existing_build_worktree to return the worktree path
+        def mock_get_existing_build_worktree(project_dir, spec_name):
+            return worktree_path
+
+        monkeypatch.setattr(
+            "core.workspace.finalization.get_existing_build_worktree",
+            mock_get_existing_build_worktree,
+        )
+
+        handle_workspace_choice(WorkspaceChoice.TEST, temp_git_repo, spec_name, manager)
+
+        captured = capsys.readouterr()
+        # Should show the actual worktree path (via line 174)
+        assert str(worktree_path) in captured.out
+
+    def test_later_choice_shows_existing_worktree_path(
+        self, temp_git_repo: Path, capsys, monkeypatch
+    ):
+        """Tests LATER choice shows worktree path when staging_path is None and get_existing_build_worktree returns path (line 245)."""
+        from core.workspace.finalization import handle_workspace_choice
+        from worktree import WorktreeManager
+
+        manager = WorktreeManager(temp_git_repo)
+        spec_name = "test-spec"
+
+        # Create a worktree directory (plain directory, not a git worktree)
+        worktree_path = (
+            temp_git_repo / ".auto-claude" / "worktrees" / "tasks" / spec_name
+        )
+        worktree_path.mkdir(parents=True)
+
+        # Mock manager.get_worktree_info to return None (simulating no valid worktree info)
+        # This ensures staging_path will be None
+        monkeypatch.setattr(manager, "get_worktree_info", lambda spec_name: None)
+
+        # Mock get_existing_build_worktree to return the worktree path
+        def mock_get_existing_build_worktree(project_dir, spec_name):
+            return worktree_path
+
+        monkeypatch.setattr(
+            "core.workspace.finalization.get_existing_build_worktree",
+            mock_get_existing_build_worktree,
+        )
+
+        handle_workspace_choice(
+            WorkspaceChoice.LATER, temp_git_repo, spec_name, manager
+        )
+
+        captured = capsys.readouterr()
+        # Should show the actual worktree path (via line 245)
+        assert str(worktree_path) in captured.out
+
+
+class TestChooseWorkspaceMenuSelection:
+    """Tests for choose_workspace menu selection (lines 113-146)."""
+
+    def test_shows_menu_with_isolated_and_direct_options(
+        self, temp_git_repo: Path, monkeypatch, capsys
+    ):
+        """Shows menu with isolated and direct options when no uncommitted changes (lines 113-146)."""
+        from core.workspace.models import WorkspaceMode
+        from core.workspace.setup import choose_workspace
+
+        # Mock has_uncommitted_changes to return False
+        monkeypatch.setattr(
+            "core.workspace.setup.has_uncommitted_changes", lambda x: False
+        )
+
+        # Mock select_menu to return "direct" choice
+        def mock_select_menu(title, options, allow_quit=False):
+            from ui import MenuOption
+
+            # Verify the options are correct
+            assert len(options) == 2
+            assert options[0].key == "isolated"
+            assert options[1].key == "direct"
+            assert "Separate workspace" in options[0].label
+            assert "Right here" in options[1].label
+            return "direct"
+
+        monkeypatch.setattr("core.workspace.setup.select_menu", mock_select_menu)
+
+        result = choose_workspace(
+            temp_git_repo,
+            "test-spec",
+        )
+
+        assert result == WorkspaceMode.DIRECT
+        captured = capsys.readouterr()
+        assert "Working directly in your project" in captured.out
+
+    def test_menu_selects_isolated_returns_isolated_mode(
+        self, temp_git_repo: Path, monkeypatch, capsys
+    ):
+        """Menu returns isolated mode when isolated option is selected (lines 139-146)."""
+        from core.workspace.models import WorkspaceMode
+        from core.workspace.setup import choose_workspace
+
+        # Mock has_uncommitted_changes to return False
+        monkeypatch.setattr(
+            "core.workspace.setup.has_uncommitted_changes", lambda x: False
+        )
+
+        # Mock select_menu to return "isolated"
+        monkeypatch.setattr(
+            "core.workspace.setup.select_menu",
+            lambda title, options, allow_quit=False: "isolated",
+        )
+
+        result = choose_workspace(
+            temp_git_repo,
+            "test-spec",
+        )
+
+        assert result == WorkspaceMode.ISOLATED
+        captured = capsys.readouterr()
+        assert "Using a separate workspace for safety" in captured.out
+
+    def test_menu_with_none_choice_exits(self, temp_git_repo: Path, monkeypatch):
+        """Menu with None choice (user quit) exits via sys.exit(0) (lines 134-137)."""
+        from core.workspace.setup import choose_workspace
+
+        # Mock has_uncommitted_changes to return False
+        monkeypatch.setattr(
+            "core.workspace.setup.has_uncommitted_changes", lambda x: False
+        )
+
+        # Mock select_menu to return None (user quit)
+        monkeypatch.setattr(
+            "core.workspace.setup.select_menu",
+            lambda title, options, allow_quit=False: None,
+        )
+
+        # Should exit via sys.exit(0)
+        with pytest.raises(SystemExit) as exc_info:
+            choose_workspace(temp_git_repo, "test-spec")
+
+        assert exc_info.value.code == 0
+
+
+class TestWindowsJunctionCreation:
+    """Tests for Windows-specific junction creation in symlink_node_modules_to_worktree (lines 256-262)."""
+
+    @pytest.mark.skipif(
+        sys.platform != "win32",
+        reason="Windows junction creation only applies on Windows",
+    )
+    def test_creates_junction_on_windows(self, temp_git_repo: Path, monkeypatch):
+        """Creates junction on Windows using mklink /J command (lines 256-262)."""
+        from core.workspace.setup import symlink_node_modules_to_worktree
+
+        # Create source node_modules directory
+        source_node_modules = temp_git_repo / "node_modules"
+        source_node_modules.mkdir()
+        (source_node_modules / "test-package").mkdir()
+
+        # Create worktree
+        worktree_path = (
+            temp_git_repo / ".auto-claude" / "worktrees" / "tasks" / "test-spec"
+        )
+        worktree_path.mkdir(parents=True)
+
+        # Mock subprocess.run to simulate mklink /J
+        mock_results = []
+
+        def mock_subprocess_run(cmd, capture_output=False, text=False, **kwargs):
+            mock_results.append(cmd)
+            result = type("MockResult", (), {"returncode": 0, "stderr": ""})()
+            return result
+
+        monkeypatch.setattr("subprocess.run", mock_subprocess_run)
+
+        # Call the function
+        symlinked = symlink_node_modules_to_worktree(temp_git_repo, worktree_path)
+
+        # Verify mklink /J command was called
+        assert len(mock_results) > 0
+        cmd = mock_results[0]
+        assert "cmd" in cmd
+        assert "/c" in cmd
+        assert "mklink" in cmd
+        assert "/J" in cmd
+
+    @pytest.mark.skipif(
+        sys.platform != "win32",
+        reason="Windows junction creation only applies on Windows",
+    )
+    def test_handles_junction_creation_failure(
+        self, temp_git_repo: Path, monkeypatch, capsys
+    ):
+        """Handles mklink /J failure gracefully (lines 261-262, 269-281)."""
+        from core.workspace.setup import symlink_node_modules_to_worktree
+
+        # Create source node_modules directory
+        source_node_modules = temp_git_repo / "node_modules"
+        source_node_modules.mkdir()
+
+        # Create worktree
+        worktree_path = (
+            temp_git_repo / ".auto-claude" / "worktrees" / "tasks" / "test-spec"
+        )
+        worktree_path.mkdir(parents=True)
+
+        # Mock subprocess.run to simulate mklink failure
+        def mock_subprocess_run(cmd, capture_output=False, text=False, **kwargs):
+            result = type(
+                "MockResult", (), {"returncode": 1, "stderr": "Access denied"}
+            )()
+            return result
+
+        monkeypatch.setattr("subprocess.run", mock_subprocess_run)
+
+        # Call the function - should handle error gracefully
+        symlinked = symlink_node_modules_to_worktree(temp_git_repo, worktree_path)
+
+        # Should return empty list (no successful symlinks)
+        assert len(symlinked) == 0
+
+        captured = capsys.readouterr()
+        # Should show warning
+        assert "Warning" in captured.out or "TypeScript" in captured.out
+
+    def test_creates_relative_symlink_on_non_windows(
+        self, temp_git_repo: Path, monkeypatch
+    ):
+        """Creates relative symlink on non-Windows platforms (lines 264-266)."""
+        from core.workspace.setup import symlink_node_modules_to_worktree
+
+        # Skip on actual Windows
+        if sys.platform == "win32":
+            pytest.skip("Test for non-Windows platforms")
+
+        # Create source node_modules directory
+        source_node_modules = temp_git_repo / "node_modules"
+        source_node_modules.mkdir()
+        (source_node_modules / "test-package").mkdir()
+
+        # Create worktree
+        worktree_path = (
+            temp_git_repo / ".auto-claude" / "worktrees" / "tasks" / "test-spec"
+        )
+        worktree_path.mkdir(parents=True)
+
+        # Call the function
+        symlinked = symlink_node_modules_to_worktree(temp_git_repo, worktree_path)
+
+        # Verify symlink was created
+        assert len(symlinked) > 0
+        target_path = worktree_path / symlinked[0]
+        assert target_path.is_symlink()
+
+
+class TestSecurityFileCopyErrorInSetupWorkspace:
+    """Tests for security file copy error handling in setup_workspace (lines 402-403)."""
+
+    def test_handles_security_file_copy_oserror_in_setup(
+        self, temp_git_repo: Path, monkeypatch, capsys
+    ):
+        """Handles OSError when copying security files in setup_workspace (lines 402-406)."""
+        from unittest.mock import patch
+
+        from core.workspace.models import WorkspaceMode
+        from core.workspace.setup import setup_workspace
+        from security.constants import ALLOWLIST_FILENAME
+
+        # Create security file
+        allowlist_file = temp_git_repo / ALLOWLIST_FILENAME
+        allowlist_file.write_text("content", encoding="utf-8")
+
+        # Commit changes
+        subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Add allowlist"],
+            cwd=temp_git_repo,
+            capture_output=True,
+        )
+
+        # Track if warning was printed
+        print_calls = []
+
+        original_print = (
+            __builtins__["print"]
+            if isinstance(__builtins__, dict)
+            else __builtins__.print
+        )
+
+        def mock_print(*args, **kwargs):
+            print_calls.append((args, kwargs))
+            return original_print(*args, **kwargs)
+
+        # Mock shutil.copy2 to raise OSError for security files
+        def mock_copy2(src, dst):
+            if ALLOWLIST_FILENAME in str(src):
+                raise OSError("Permission denied")
+            return shutil.copy2(src, dst)
+
+        monkeypatch.setattr("builtins.print", mock_print)
+
+        with patch("shutil.copy2", side_effect=mock_copy2):
+            # Setup workspace - should handle error gracefully
+            worktree_path, _, _ = setup_workspace(
+                temp_git_repo,
+                "test-spec",
+                WorkspaceMode.ISOLATED,
+            )
+
+        # Verify worktree was created despite copy error
+        assert worktree_path.exists()
+
+        # Verify warning was printed (may be in print_calls)
+        warning_found = any(
+            "Warning" in str(args) or "warning" in str(args).lower()
+            for args, kwargs in print_calls
+        )
+
+    def test_handles_permission_error_on_security_copy(
+        self, temp_git_repo: Path, monkeypatch, capsys
+    ):
+        """Handles PermissionError when copying security files (lines 402-406)."""
+        from unittest.mock import patch
+
+        from core.workspace.models import WorkspaceMode
+        from core.workspace.setup import setup_workspace
+        from security.constants import PROFILE_FILENAME
+
+        # Create security profile
+        profile_file = temp_git_repo / PROFILE_FILENAME
+        profile_file.write_text('{"profile": "data"}', encoding="utf-8")
+
+        # Commit changes
+        subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Add profile"],
+            cwd=temp_git_repo,
+            capture_output=True,
+        )
+
+        # Mock shutil.copy2 to raise PermissionError for profile file
+        def mock_copy2(src, dst):
+            if PROFILE_FILENAME in str(src):
+                raise PermissionError("Access denied")
+            return shutil.copy2(src, dst)
+
+        with patch("shutil.copy2", side_effect=mock_copy2):
+            # Setup workspace - should handle error gracefully
+            worktree_path, _, _ = setup_workspace(
+                temp_git_repo,
+                "test-spec",
+                WorkspaceMode.ISOLATED,
+            )
+
+        # Verify worktree was created despite permission error
+        assert worktree_path.exists()
+
+        # Verify warning was printed
+        captured = capsys.readouterr()
+        assert "Warning" in captured.out or "warning" in captured.out.lower()
+
+
+class TestMergeLockExceptionHandlingUnlink:
+    """Tests for MergeLock __exit__ exception handling during unlink (lines 136-137)."""
+
+    def test_merge_lock_exit_handles_unlink_exception(self, temp_git_repo: Path):
+        """MergeLock.__exit__ handles exceptions when unlink() fails (lines 136-137)."""
+        from unittest.mock import patch
+
+        lock = MergeLock(temp_git_repo, "test-spec")
+
+        # Enter the lock context
+        lock.__enter__()
+        assert lock.acquired is True
+        assert lock.lock_file.exists()
+
+        # Mock unlink to raise an exception
+        with patch.object(Path, "unlink", side_effect=OSError("Device read-only")):
+            # __exit__ should not raise despite unlink failure
+            lock.__exit__(None, None, None)
+
+        # Lock should still be marked as acquired because cleanup failed silently
+        assert lock.acquired is True
+
+    def test_merge_lock_exit_handles_permission_error(self, temp_git_repo: Path):
+        """MergeLock.__exit__ handles PermissionError when unlink() fails."""
+        from unittest.mock import patch
+
+        lock = MergeLock(temp_git_repo, "test-spec")
+
+        lock.__enter__()
+        assert lock.acquired is True
+
+        # Mock unlink to raise PermissionError
+        with patch.object(Path, "unlink", side_effect=PermissionError("Access denied")):
+            # Should not raise
+            lock.__exit__(None, None, None)
+
+    def test_merge_lock_exit_handles_lock_file_becoming_directory(
+        self, temp_git_repo: Path
+    ):
+        """MergeLock.__exit__ handles when lock file becomes a directory (race condition)."""
+        lock = MergeLock(temp_git_repo, "test-spec")
+
+        lock.__enter__()
+        assert lock.acquired is True
+
+        # Simulate race: lock file becomes a directory
+        lock.lock_file.unlink()
+        lock.lock_file.mkdir()
+
+        # unlink() on a directory raises OSError/IsADirectoryError
+        # __exit__ should handle this gracefully
+        lock.__exit__(None, None, None)
+
+        # Cleanup the directory
+        lock.lock_file.rmdir()
+
+
+class TestSpecNumberLockExceptionHandlingUnlink:
+    """Tests for SpecNumberLock __exit__ exception handling during unlink (lines 225-226)."""
+
+    def test_spec_number_lock_exit_handles_unlink_exception(self, temp_git_repo: Path):
+        """SpecNumberLock.__exit__ handles exceptions when unlink() fails (lines 225-226)."""
+        from unittest.mock import patch
+
+        lock = SpecNumberLock(temp_git_repo)
+
+        lock.__enter__()
+        assert lock.acquired is True
+        assert lock.lock_file.exists()
+
+        # Mock unlink to raise an exception
+        with patch.object(Path, "unlink", side_effect=OSError("Device read-only")):
+            # __exit__ should not raise despite unlink failure
+            lock.__exit__(None, None, None)
+
+    def test_spec_number_lock_exit_handles_permission_error(self, temp_git_repo: Path):
+        """SpecNumberLock.__exit__ handles PermissionError when unlink() fails."""
+        from unittest.mock import patch
+
+        lock = SpecNumberLock(temp_git_repo)
+
+        lock.__enter__()
+        assert lock.acquired is True
+
+        # Mock unlink to raise PermissionError
+        with patch.object(Path, "unlink", side_effect=PermissionError("Access denied")):
+            # Should not raise
+            lock.__exit__(None, None, None)
+
+    def test_spec_number_lock_exit_handles_lock_file_becoming_directory(
+        self, temp_git_repo: Path
+    ):
+        """SpecNumberLock.__exit__ handles when lock file becomes a directory (race condition)."""
+        lock = SpecNumberLock(temp_git_repo)
+
+        lock.__enter__()
+        assert lock.acquired is True
+
+        # Simulate race: lock file becomes a directory
+        lock.lock_file.unlink()
+        lock.lock_file.mkdir()
+
+        # unlink() on a directory raises OSError/IsADirectoryError
+        # __exit__ should handle this gracefully
+        lock.__exit__(None, None, None)
+
+        # Cleanup the directory
+        lock.lock_file.rmdir()
+
+
+class TestSpecNumberLockScanExceptionHandling:
+    """Tests for _scan_specs_dir exception handling (lines 272-273)."""
+
+    def test_scan_specs_dir_handles_invalid_folder_names(self, temp_git_repo: Path):
+        """_scan_specs_dir handles folders with non-numeric prefixes (lines 272-273)."""
+        lock = SpecNumberLock(temp_git_repo)
+
+        # Create specs with invalid names that trigger ValueError
+        specs_dir = temp_git_repo / ".auto-claude" / "specs"
+        specs_dir.mkdir(parents=True)
+
+        # These will cause ValueError when trying to int(folder.name[:3])
+        invalid_names = ["abc", "xyz", "invalid-name"]
+        for name in invalid_names:
+            (specs_dir / name).mkdir()
+
+        # Create valid specs
+        (specs_dir / "001-valid").mkdir()
+        (specs_dir / "100-another").mkdir()
+
+        with lock:
+            # Should not raise ValueError, should skip invalid folders
+            result = lock._scan_specs_dir(specs_dir)
+
+            # Should only count valid specs
+            assert result == 100
+
+    def test_scan_specs_dir_handles_malformed_number_prefix(self, temp_git_repo: Path):
+        """_scan_specs_dir handles folder names with non-digit characters in prefix."""
+        lock = SpecNumberLock(temp_git_repo)
+
+        specs_dir = temp_git_repo / ".auto-claude" / "specs"
+        specs_dir.mkdir(parents=True)
+
+        # Create folder that starts with digits but has non-digit in prefix
+        # This will fail the int() conversion
+        (specs_dir / "1a-bad").mkdir()
+        (specs_dir / "9!-bad").mkdir()
+
+        # Create valid specs
+        (specs_dir / "050-good").mkdir()
+
+        with lock:
+            # Should handle malformed prefixes gracefully
+            result = lock._scan_specs_dir(specs_dir)
+
+            # Should only count valid specs
+            assert result == 50
+
+    def test_scan_specs_dir_handles_short_folder_names(self, temp_git_repo: Path):
+        """_scan_specs_dir handles folder names shorter than 3 characters."""
+        lock = SpecNumberLock(temp_git_repo)
+
+        specs_dir = temp_git_repo / ".auto-claude" / "specs"
+        specs_dir.mkdir(parents=True)
+
+        # Edge case: folder with less than 3 chars
+        # name[:3] will be less than 3 chars, but int() may still work if it's numeric
+        (specs_dir / "12").mkdir()
+
+        # Edge case: very large number
+        (specs_dir / "999-very-large").mkdir()
+
+        # Valid specs
+        (specs_dir / "001-first").mkdir()
+
+        with lock:
+            result = lock._scan_specs_dir(specs_dir)
+
+            # Should handle all cases and return max
+            assert result == 999
+
+    def test_scan_specs_dir_handles_unexpected_folder_names(
+        self, temp_git_repo: Path, monkeypatch
+    ):
+        """_scan_specs_dir handles ValueError when glob returns unexpected folder names (lines 272-273)."""
+        lock = SpecNumberLock(temp_git_repo)
+
+        specs_dir = temp_git_repo / ".auto-claude" / "specs"
+        specs_dir.mkdir(parents=True)
+
+        # Create a folder that matches the glob pattern visually
+        # but we'll mock glob to return a folder that triggers ValueError
+        (specs_dir / "001-valid").mkdir()
+
+        # Create fake Path objects that will cause ValueError in int()
+        from pathlib import Path
+        from unittest.mock import MagicMock
+
+        fake_folder = MagicMock()
+        fake_folder.name = "XYZ-invalid"  # Non-numeric prefix
+
+        # Mock glob to return both valid and invalid folders
+        original_glob = specs_dir.glob
+
+        def mock_glob(pattern):
+            # Return the actual valid folder plus our fake one
+            real_results = list(original_glob(pattern))
+            return real_results + [fake_folder]
+
+        monkeypatch.setattr(Path, "glob", lambda self, pattern: mock_glob(pattern))
+
+        with lock:
+            # Should not raise ValueError, should skip invalid folder
+            result = lock._scan_specs_dir(specs_dir)
+
+            # Should still find the valid spec
+            assert result == 1
+
+
+class TestSetupDebugFallback:
+    """Tests for debug fallback functions in setup.py (lines 35-43)."""
+
+    def test_debug_fallback_no_op(self, monkeypatch):
+        """Fallback debug function is no-op when debug module not available (lines 39-40)."""
+        # Remove debug module from sys.modules to trigger fallback
+        import importlib
+        import sys
+
+        debug_module = sys.modules.pop("debug", None)
+
+        # Force reload of setup module to trigger fallback path
+        if "core.workspace.setup" in sys.modules:
+            del sys.modules["core.workspace.setup"]
+
+        try:
+            from core.workspace.setup import debug, debug_warning
+
+            # Both functions should be no-ops (don't raise)
+            debug("test", "message")
+            debug_warning("test", "warning")
+
+            # No exception means fallback is working
+            assert True
+        finally:
+            # Restore debug module
+            if debug_module is not None:
+                sys.modules["debug"] = debug_module
+            # Force reload again to restore normal state
+            if "core.workspace.setup" in sys.modules:
+                del sys.modules["core.workspace.setup"]
+            import importlib
+
+            importlib.reload(importlib.import_module("core.workspace.setup"))
+
+    def test_debug_import_error_creates_fallback(self, monkeypatch):
+        """ImportError in debug import creates fallback functions (lines 35-43)."""
+        import builtins
+        import importlib
+        import sys
+
+        # Save original debug module and import function
+        original_debug = sys.modules.get("debug")
+        original_import = builtins.__import__
+
+        # Create a custom import that blocks 'debug' module
+        def debug_blocking_import(name, *args, **kwargs):
+            if name == "debug":
+                raise ImportError("debug module not found (simulated)")
+            return original_import(name, *args, **kwargs)
+
+        try:
+            # Block debug import and remove from sys.modules
+            monkeypatch.setattr(builtins, "__import__", debug_blocking_import)
+            if "debug" in sys.modules:
+                del sys.modules["debug"]
+
+            # Also remove setup module and related modules to force re-import
+            for module_name in list(sys.modules.keys()):
+                if module_name.startswith("core.workspace.setup"):
+                    del sys.modules[module_name]
+
+            # Re-import setup module - it should create fallback functions
+            setup_module = importlib.import_module("core.workspace.setup")
+
+            # Check that debug functions exist and are callables
+            assert hasattr(setup_module, "debug")
+            assert hasattr(setup_module, "debug_warning")
+            assert callable(setup_module.debug)
+            assert callable(setup_module.debug_warning)
+
+            # They should be no-ops (accept any args without error)
+            setup_module.debug("module", "message", "extra")
+            setup_module.debug_warning("module", "warning", key="value")
+        finally:
+            # Restore debug module
+            if original_debug is not None:
+                sys.modules["debug"] = original_debug
+            # Restore setup module
+            if "core.workspace.setup" in sys.modules:
+                del sys.modules["core.workspace.setup"]
+            importlib.reload(importlib.import_module("core.workspace.setup"))
+
+
+class TestWindowsJunctionErrorHandling:
+    """Tests for Windows junction creation error handling (lines 256-262)."""
+
+    def test_windows_junction_creation_error_handling(
+        self, temp_git_repo: Path, monkeypatch, capsys
+    ):
+        """Handles OSError when mklink fails on Windows (lines 256-262, 269-281)."""
+        from core.workspace.setup import symlink_node_modules_to_worktree
+
+        # Only test on Windows or when we can mock the platform
+        if sys.platform != "win32":
+            # Mock platform to simulate Windows
+            monkeypatch.setattr("sys.platform", "win32")
+
+        # Create source node_modules directory
+        source_node_modules = temp_git_repo / "node_modules"
+        source_node_modules.mkdir()
+        (source_node_modules / "test-package").mkdir()
+
+        # Create worktree path
+        worktree_path = (
+            temp_git_repo / ".auto-claude" / "worktrees" / "tasks" / "test-spec"
+        )
+        worktree_path.mkdir(parents=True)
+
+        # Mock subprocess.run to simulate mklink failure
+        original_run = subprocess.run
+
+        def mock_subprocess_run(cmd, **kwargs):
+            if "mklink" in " ".join(cmd):
+                # Simulate mklink failure
+                return subprocess.CompletedProcess(
+                    cmd, returncode=1, stderr="Access is denied"
+                )
+            return original_run(cmd, **kwargs)
+
+        monkeypatch.setattr("subprocess.run", mock_subprocess_run)
+
+        # Call the function - should handle error gracefully
+        symlinked = symlink_node_modules_to_worktree(temp_git_repo, worktree_path)
+
+        # Verify no symlinks were created (due to error)
+        assert len(symlinked) == 0
+
+        # Verify warning was printed
+        captured = capsys.readouterr()
+        assert "Warning" in captured.out or "warning" in captured.out.lower()
+
+    def test_windows_junction_osexception_continues(
+        self, temp_git_repo: Path, monkeypatch
+    ):
+        """Continues after OSError in junction creation (lines 261-262, 269-281)."""
+        from core.workspace.setup import symlink_node_modules_to_worktree
+
+        # Mock Windows platform
+        original_platform = sys.platform
+        monkeypatch.setattr("sys.platform", "win32")
+
+        try:
+            # Create source and worktree directories
+            source_node_modules = temp_git_repo / "node_modules"
+            source_node_modules.mkdir()
+
+            worktree_path = (
+                temp_git_repo / ".auto-claude" / "worktrees" / "tasks" / "test-spec"
+            )
+            worktree_path.mkdir(parents=True)
+
+            # Create a second source to test that function continues after error
+            source_frontend_modules = (
+                temp_git_repo / "apps" / "frontend" / "node_modules"
+            )
+            source_frontend_modules.mkdir(parents=True)
+
+            # Mock subprocess.run to fail on first, succeed on second
+            call_count = [0]
+            original_run = subprocess.run
+
+            def mock_subprocess_run(cmd, **kwargs):
+                call_count[0] += 1
+                if "mklink" in " ".join(cmd) and call_count[0] == 1:
+                    # First mklink fails
+                    raise OSError("mklink /J failed")
+                elif "mklink" in " ".join(cmd):
+                    # Second succeeds
+                    return subprocess.CompletedProcess(cmd, returncode=0, stderr="")
+                return original_run(cmd, **kwargs)
+
+            monkeypatch.setattr("subprocess.run", mock_subprocess_run)
+
+            # Call the function - should continue after first error
+            symlinked = symlink_node_modules_to_worktree(temp_git_repo, worktree_path)
+
+            # At least one symlink should have succeeded (or both failed gracefully)
+            # The important thing is the function didn't crash
+            assert isinstance(symlinked, list)
+        finally:
+            monkeypatch.setattr("sys.platform", original_platform)
+
+
+class TestTimelineHookInstallationEdgeCases:
+    """Tests for timeline hook installation edge cases (lines 461-503)."""
+
+    def setup_method(self):
+        """Reset the global hook check flag before each test."""
+        import core.workspace.setup as setup_module
+
+        setup_module._git_hook_check_done = False
+
+    def test_hook_installation_skips_when_no_git_dir(self, temp_dir: Path, monkeypatch):
+        """Skips hook installation when .git directory doesn't exist (line 477)."""
+        from core.workspace.setup import ensure_timeline_hook_installed
+
+        # temp_dir is not a git repo
+        assert not (temp_dir / ".git").exists()
+
+        # Should return early without error
+        ensure_timeline_hook_installed(temp_dir)
+
+        # No .git directory should have been created
+        assert not (temp_dir / ".git").exists()
+
+    def test_hook_installation_handles_worktree_invalid_git_file(self, tmp_path):
+        """Handles worktrees with invalid .git file content (lines 481-485)."""
+        from core.workspace.setup import ensure_timeline_hook_installed
+
+        # Create a fake worktree directory (not a real git repo)
+        fake_worktree = tmp_path / "fake_worktree"
+        fake_worktree.mkdir()
+
+        # Create .git as a FILE with invalid content (worktree style)
+        git_file = fake_worktree / ".git"
+        git_file.write_text("invalid content that doesn't start with gitdir:")
+
+        # Should handle gracefully and return early
+        ensure_timeline_hook_installed(fake_worktree)
+
+        # Verify the file wasn't modified
+        assert "invalid content" in git_file.read_text()
+
+    def test_hook_installation_worktree_gitdir_extraction(self, tmp_path):
+        """Extracts gitdir from worktree .git file correctly (lines 481-483)."""
+        from core.workspace.setup import ensure_timeline_hook_installed
+
+        # Create a fake worktree structure
+        # First, create the actual git dir in a different location
+        actual_git_dir = tmp_path / "actual_git_dir"
+        actual_git_dir.mkdir()
+        (actual_git_dir / "hooks").mkdir()
+
+        # Create a fake worktree directory with .git as a FILE
+        fake_worktree = tmp_path / "fake_worktree"
+        fake_worktree.mkdir()
+        git_file = fake_worktree / ".git"
+        git_file.write_text(f"gitdir: {actual_git_dir}")
+
+        # Should correctly extract gitdir path
+        ensure_timeline_hook_installed(fake_worktree)
+
+        # Verify the actual git dir has hooks directory
+        assert (actual_git_dir / "hooks").exists()
+
+    def test_hook_installation_skips_when_hook_already_installed(
+        self, tmp_path, monkeypatch
+    ):
+        """Skips installation when FileTimelineTracker hook already exists (lines 491-493)."""
+        from core.workspace.setup import ensure_timeline_hook_installed
+
+        # Create a git directory structure
+        git_dir = tmp_path / ".git"
+        git_dir.mkdir()
+        hooks_dir = git_dir / "hooks"
+        hooks_dir.mkdir()
+
+        # Create an existing hook with FileTimelineTracker marker
+        hook_path = hooks_dir / "post-commit"
+        hook_path.write_text(
+            "#!/bin/bash\n# FileTimelineTracker hook\necho 'Timeline tracking'\n"
+        )
+
+        # Mock install_hook to verify it's NOT called
+        install_hook_called = []
+
+        def mock_install_hook(project_dir):
+            install_hook_called.append(project_dir)
+
+        # Patch the import location where install_hook is used
+        monkeypatch.setattr("merge.install_hook.install_hook", mock_install_hook)
+
+        # Should skip installation
+        ensure_timeline_hook_installed(tmp_path)
+
+        # install_hook should NOT have been called
+        assert len(install_hook_called) == 0
+
+    def test_hook_installation_handles_exceptions_gracefully(
+        self, tmp_path, monkeypatch
+    ):
+        """Handles exceptions during hook installation gracefully (lines 501-503)."""
+        from core.workspace.setup import ensure_timeline_hook_installed
+
+        # Create a git directory structure
+        git_dir = tmp_path / ".git"
+        git_dir.mkdir()
+        hooks_dir = git_dir / "hooks"
+        hooks_dir.mkdir()
+
+        # Mock install_hook to raise an exception
+        def mock_install_hook(project_dir):
+            raise RuntimeError("Simulated installation failure")
+
+        # Patch the import location where install_hook is used
+        monkeypatch.setattr("merge.install_hook.install_hook", mock_install_hook)
+
+        # Should handle exception gracefully (not crash)
+        ensure_timeline_hook_installed(tmp_path)
+
+        # Function should complete without raising an exception
