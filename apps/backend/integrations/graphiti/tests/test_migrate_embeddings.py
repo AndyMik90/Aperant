@@ -1904,6 +1904,12 @@ class TestAutomaticMigrationExtended:
                 )
 
                 # Create distinct MagicMock instances for each call
+                mock_current_config = MagicMock()
+                mock_current_config.embedder_provider = from_provider
+                mock_current_config.get_provider_specific_database_name = MagicMock(
+                    return_value=f"db_{from_provider}"
+                )
+
                 mock_source_config = MagicMock()
                 mock_source_config.embedder_provider = from_provider
                 mock_source_config.get_provider_specific_database_name = MagicMock(
@@ -1916,18 +1922,12 @@ class TestAutomaticMigrationExtended:
                     return_value=f"db_{from_provider}_{to_provider}"
                 )
 
-                mock_other_config = MagicMock()
-                mock_other_config.embedder_provider = "voyage"
-                mock_other_config.get_provider_specific_database_name = MagicMock(
-                    return_value=f"db_{from_provider}_{to_provider}"
-                )
-
                 with patch(
                     "integrations.graphiti.migrate_embeddings.GraphitiConfig.from_env",
                     side_effect=[
+                        mock_current_config,
                         mock_source_config,
                         mock_target_config,
-                        mock_other_config,
                     ],
                 ):
                     with patch(

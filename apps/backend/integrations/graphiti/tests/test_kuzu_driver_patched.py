@@ -63,6 +63,20 @@ def _build_sys_modules_dict(mock_kuzu, mock_graphiti_core, kuzu_driver_module=No
 
 
 # =============================================================================
+# Helper Classes
+# =============================================================================
+
+
+class MockKuzuDriver:
+    """Mock KuzuDriver class for tests that use the with patch pattern."""
+
+    def __init__(self, db, max_concurrent_queries=1):
+        self.db = db
+        self.max_concurrent_queries = max_concurrent_queries
+        self.client = None
+
+
+# =============================================================================
 # Tests for create_patched_kuzu_driver()
 # =============================================================================
 
@@ -479,13 +493,6 @@ class TestPatchedKuzuDriverBuildIndices:
                 mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
             ),
         ):
-
-            class MockKuzuDriver:
-                def __init__(self, db, max_concurrent_queries=1):
-                    self.db = db
-                    self.max_concurrent_queries = max_concurrent_queries
-                    self.client = None
-
             with patch("graphiti_core.driver.kuzu_driver.KuzuDriver", MockKuzuDriver):
                 from integrations.graphiti.queries_pkg.kuzu_driver_patched import (
                     create_patched_kuzu_driver,
@@ -498,6 +505,11 @@ class TestPatchedKuzuDriverBuildIndices:
                 mock_conn = mock_kuzu.Connection.return_value
                 # Should have DROP_FTS_INDEX and CREATE_FTS_INDEX calls
                 assert mock_conn.execute.call_count >= 1
+                # Check that DROP_FTS_INDEX was in the calls
+                assert any(
+                    "DROP_FTS_INDEX" in str(call)
+                    for call in mock_conn.execute.call_args_list
+                )
 
     @pytest.mark.asyncio
     @pytest.mark.slow

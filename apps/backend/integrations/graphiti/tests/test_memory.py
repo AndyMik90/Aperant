@@ -237,9 +237,11 @@ class TestTestGraphitiConnection:
                 assert success is False
             # If everything is set up, should succeed
             else:
-                # Either success is True, or there's a provider/configuration error
-                assert isinstance(success, bool)
-                assert isinstance(message, str)
+                # Concrete assertion for successful connection
+                assert success is True, (
+                    f"Expected success=True, got {success} with message: {message}"
+                )
+                assert message, "Message should not be empty for successful connection"
 
         except AssertionError as e:
             # Re-raise AssertionError to properly surface test failures

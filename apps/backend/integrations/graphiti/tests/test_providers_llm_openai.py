@@ -40,7 +40,7 @@ class TestCreateOpenAILLMClient:
         mock_client = MagicMock()
 
         with patch(
-            "graphiti_core.llm_client.openai_client.OpenAIClient",
+            "integrations.graphiti.providers_pkg.llm_providers.openai_llm.OpenAIClient",
             return_value=mock_client,
         ):
             result = create_openai_llm_client(mock_config)

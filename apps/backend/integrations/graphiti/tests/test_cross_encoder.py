@@ -79,13 +79,10 @@ class TestCreateCrossEncoder:
         """Test create_cross_encoder returns None for non-Ollama providers."""
         mock_config.llm_provider = "openai"
 
-        # Patch the import inside the function
         import integrations.graphiti.providers_pkg.cross_encoder as ce_module
 
-        original_func = ce_module.create_cross_encoder
-
         # The function returns None for non-ollama providers
-        result = original_func(mock_config, mock_llm_client)
+        result = ce_module.create_cross_encoder(mock_config, mock_llm_client)
 
         assert result is None
 
@@ -135,11 +132,9 @@ class TestCreateCrossEncoder:
 
         _ = create_cross_encoder(mock_config, mock_llm_client)
 
-        # Verify base_url was captured
+        # Verify base_url was captured and has /v1 suffix added
         assert "base_url" in graphiti_core_mocks
-        # The function should add /v1 to the base_url
-        # But since graphiti_core is not actually available, this test
-        # verifies the logic path is correct
+        assert graphiti_core_mocks["base_url"] == "http://localhost:11434/v1"
 
     def test_base_url_with_v1_is_preserved(
         self, mock_config, mock_llm_client, graphiti_core_mocks

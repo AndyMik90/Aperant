@@ -6,21 +6,20 @@ Shows how Auto Claude automatically generates provider-specific database names
 to prevent embedding dimension mismatches.
 """
 
-import pytest
 from integrations.graphiti.config import GraphitiConfig
 
 
 def test_provider_naming():
     """Demonstrate provider-specific database naming."""
     providers = [
-        ("openai", None, None, "text-embedding-3-small"),
-        ("ollama", "embeddinggemma", 768, "embeddinggemma"),
-        ("ollama", "qwen3-embedding:0.6b", 1024, "qwen3-embedding:0.6b"),
-        ("voyage", None, None, "voyage-3"),
-        ("google", None, None, "text-embedding-004"),
+        ("openai", None, None),
+        ("ollama", "embeddinggemma", 768),
+        ("ollama", "qwen3-embedding:0.6b", 1024),
+        ("voyage", None, None),
+        ("google", None, None),
     ]
 
-    for provider, model, dim, embedding_model in providers:
+    for provider, model, dim in providers:
         # Create explicit config without relying on environment
         config = GraphitiConfig()
         config.embedder_provider = provider

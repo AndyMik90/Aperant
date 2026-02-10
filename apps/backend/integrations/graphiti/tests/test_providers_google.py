@@ -73,11 +73,14 @@ class TestGoogleEmbedder:
                 raise ImportError("google-generativeai not installed")
             return original_import(name, *args, **kwargs)
 
-        with patch("builtins.__import__", side_effect=mock_import):
-            with pytest.raises(ProviderNotInstalled) as exc_info:
-                GoogleEmbedder(api_key="test-key")
+        # Remove google.generativeai from sys.modules if present
+        # to ensure the import actually goes through __import__
+        with patch.dict(sys.modules, {"google.generativeai": None}):
+            with patch("builtins.__import__", side_effect=mock_import):
+                with pytest.raises(ProviderNotInstalled) as exc_info:
+                    GoogleEmbedder(api_key="test-key")
 
-            assert "google-generativeai" in str(exc_info.value)
+                assert "google-generativeai" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_google_embedder_create_with_string(self, google_genai_mock):

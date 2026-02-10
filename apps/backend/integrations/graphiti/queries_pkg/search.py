@@ -230,12 +230,13 @@ class GraphitiSearch:
                         if not isinstance(data, dict):
                             continue
                         if data.get("type") == EPISODE_TYPE_TASK_OUTCOME:
+                            score = getattr(result, "score", None) or 0.0
                             outcomes.append(
                                 {
                                     "task_id": data.get("task_id"),
                                     "success": data.get("success"),
                                     "outcome": data.get("outcome"),
-                                    "score": getattr(result, "score", 0.0),
+                                    "score": score,
                                 }
                             )
                     except (json.JSONDecodeError, TypeError, AttributeError):
@@ -289,7 +290,7 @@ class GraphitiSearch:
                 content = getattr(result, "content", None) or getattr(
                     result, "fact", None
                 )
-                score = getattr(result, "score", 0.0)
+                score = getattr(result, "score", None) or 0.0
 
                 if score < min_score:
                     continue
@@ -325,7 +326,7 @@ class GraphitiSearch:
                 content = getattr(result, "content", None) or getattr(
                     result, "fact", None
                 )
-                score = getattr(result, "score", 0.0)
+                score = getattr(result, "score", None) or 0.0
 
                 if score < min_score:
                     continue
