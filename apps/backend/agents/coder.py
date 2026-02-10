@@ -525,7 +525,9 @@ async def run_autonomous_agent(
 
     while True:
         iteration += 1
-        file_recovery_context = None  # Reset each iteration to prevent stale context leaking
+        file_recovery_context = (
+            None  # Reset each iteration to prevent stale context leaking
+        )
 
         # Check for human intervention (PAUSE file)
         pause_file = spec_dir / HUMAN_INTERVENTION_FILE
@@ -683,7 +685,15 @@ async def run_autonomous_agent(
                         )
 
                 if not next_subtask:
-                    print("No pending subtasks found - build may be complete!")
+                    # Distinguish "all completed" from "remaining subtasks failed"
+                    details = count_subtasks_detailed(spec_dir)
+                    if details["failed"] > 0:
+                        print(
+                            f"No pending subtasks — {details['failed']} subtask(s) failed, "
+                            f"{details['completed']}/{details['total']} completed."
+                        )
+                    else:
+                        print("No pending subtasks found - build may be complete!")
                     break
 
             # Validate that all files_to_modify exist before attempting execution
@@ -748,7 +758,11 @@ async def run_autonomous_agent(
                         problem_files_lines.append(
                             f"- `{f}` (resolves outside project boundary)"
                         )
-                    problem_files_str = "\n".join(problem_files_lines) if problem_files_lines else "- (unknown files)"
+                    problem_files_str = (
+                        "\n".join(problem_files_lines)
+                        if problem_files_lines
+                        else "- (unknown files)"
+                    )
 
                     file_recovery_context = (
                         "## FILE NOT FOUND RECOVERY\n\n"

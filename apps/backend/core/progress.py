@@ -209,7 +209,8 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
                             if p.get("id") == dep_id or p.get("phase") == dep_id:
                                 p_subtasks = p.get("subtasks", [])
                                 if not all(
-                                    s.get("status") == "completed" for s in p_subtasks
+                                    s.get("status") in {"completed", "failed"}
+                                    for s in p_subtasks
                                 ):
                                     all_deps_complete = False
                                 break

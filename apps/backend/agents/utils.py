@@ -203,13 +203,20 @@ def update_subtask_status_in_plan(
     """
     plan = load_implementation_plan(spec_dir)
     if not plan:
-        logger.warning(f"Could not load implementation plan to update subtask {subtask_id}")
+        logger.warning(
+            f"Could not load implementation plan to update subtask {subtask_id}"
+        )
         return False
 
     subtask = find_subtask_in_plan(plan, subtask_id)
     if not subtask:
         logger.warning(f"Subtask {subtask_id} not found in implementation plan")
         return False
+
+    # Skip redundant writes — avoids extra I/O when post_session_processing
+    # already marked the subtask via _execute_recovery_action
+    if subtask.get("status") == status:
+        return True
 
     subtask["status"] = status
     subtask["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -219,7 +226,9 @@ def update_subtask_status_in_plan(
     try:
         plan_path = spec_dir / "implementation_plan.json"
         write_json_atomic(plan_path, plan, indent=2)
-        logger.info(f"Updated subtask {subtask_id} status to '{status}' in implementation plan")
+        logger.info(
+            f"Updated subtask {subtask_id} status to '{status}' in implementation plan"
+        )
         return True
     except Exception as e:
         logger.error(
