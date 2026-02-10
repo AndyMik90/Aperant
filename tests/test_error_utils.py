@@ -202,3 +202,15 @@ class TestIsAuthenticationError:
     def test_case_insensitive(self):
         err = Exception("UNAUTHORIZED access denied")
         assert is_authentication_error(err) is True
+
+    def test_does_not_have_access_to_claude(self):
+        """Detect 'does not have access to Claude' - returned as AI text response."""
+        err = Exception(
+            "Your account does not have access to Claude. "
+            "Please login again or contact your administrator."
+        )
+        assert is_authentication_error(err) is True
+
+    def test_please_login_again(self):
+        err = Exception("Please login again to continue.")
+        assert is_authentication_error(err) is True

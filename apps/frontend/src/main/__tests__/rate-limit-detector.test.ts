@@ -607,6 +607,24 @@ Please authenticate and try again.`;
 
       expect(result.isAuthFailure).toBe(true);
     });
+
+    it('should detect "does not have access to Claude" pattern', async () => {
+      const { detectAuthFailure } = await import('../rate-limit-detector');
+
+      const output = 'Your account does not have access to Claude. Please login again or contact your administrator.';
+      const result = detectAuthFailure(output);
+
+      expect(result.isAuthFailure).toBe(true);
+    });
+
+    it('should detect "please login again" pattern', async () => {
+      const { detectAuthFailure } = await import('../rate-limit-detector');
+
+      const output = 'Session expired. Please login again to continue.';
+      const result = detectAuthFailure(output);
+
+      expect(result.isAuthFailure).toBe(true);
+    });
   });
 });
 

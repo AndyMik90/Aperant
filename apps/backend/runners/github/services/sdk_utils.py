@@ -133,6 +133,34 @@ def _get_tool_detail(tool_name: str, tool_input: dict[str, Any]) -> str:
 # Prevents runaway retry loops from consuming unbounded resources
 MAX_MESSAGE_COUNT = 500
 
+# Abort after 3 consecutive repeats (4 total identical responses)
+REPEATED_RESPONSE_THRESHOLD = 3
+
+
+def _is_auth_error_response(text: str) -> bool:
+    """
+    Detect authentication/access error messages returned as AI response text.
+
+    Some API errors are returned as conversational text rather than HTTP errors,
+    causing the SDK to treat them as normal assistant responses. This leads to
+    infinite retry loops as the conversation ping-pongs between prompts and
+    error responses.
+
+    Args:
+        text: AI response text to check
+
+    Returns:
+        True if the text is an auth/access error, False otherwise
+    """
+    text_lower = text.lower().strip()
+    auth_error_patterns = [
+        "does not have access to claude",
+        "please login again",
+        "account does not have access",
+        "not have access to claude",
+    ]
+    return any(pattern in text_lower for pattern in auth_error_patterns)
+
 
 def _is_tool_concurrency_error(text: str) -> bool:
     """
@@ -226,6 +254,9 @@ async def process_sdk_stream(
     completed_agent_tool_ids: set[str] = set()  # tool_ids of completed agents
     # Track tool concurrency errors for retry logic
     detected_concurrency_error = False
+    # Track repeated identical responses to detect error loops early
+    last_response_text: str | None = None
+    repeated_response_count = 0
 
     # Circuit breaker: max messages before aborting
     message_limit = max_messages if max_messages is not None else MAX_MESSAGE_COUNT
@@ -243,6 +274,10 @@ async def process_sdk_stream(
             try:
                 msg_type = type(msg).__name__
                 msg_count += 1
+
+                # Check if a previous iteration set stream_error (e.g., auth error in text block)
+                if stream_error:
+                    break
 
                 # CIRCUIT BREAKER: Abort if message count exceeds threshold
                 # This prevents runaway retry loops (e.g., 400 errors causing infinite retries)
@@ -428,6 +463,36 @@ async def process_sdk_stream(
                         block_type = type(block).__name__
                         if block_type == "TextBlock" and hasattr(block, "text"):
                             result_text += block.text
+                            # Check for auth/access error returned as AI response text
+                            if _is_auth_error_response(block.text):
+                                stream_error = (
+                                    f"Authentication error detected in AI response: "
+                                    f"{block.text[:200].strip()}"
+                                )
+                                logger.error(f"[{context_name}] {stream_error}")
+                                safe_print(f"[{context_name}] ERROR: {stream_error}")
+                                break
+                            # Check for repeated identical responses (error loop detection)
+                            _stripped = block.text.strip()
+                            if _stripped and _stripped == last_response_text:
+                                repeated_response_count += 1
+                                if (
+                                    repeated_response_count
+                                    >= REPEATED_RESPONSE_THRESHOLD
+                                ):
+                                    stream_error = (
+                                        f"Repeated response loop detected: same response "
+                                        f"received {repeated_response_count + 1} times in a row. "
+                                        f"Response: {_stripped[:200]}"
+                                    )
+                                    logger.error(f"[{context_name}] {stream_error}")
+                                    safe_print(
+                                        f"[{context_name}] ERROR: {stream_error}"
+                                    )
+                                    break
+                            else:
+                                last_response_text = _stripped
+                                repeated_response_count = 0
                             # Check for tool concurrency error pattern in text output
                             if _is_tool_concurrency_error(block.text):
                                 detected_concurrency_error = True

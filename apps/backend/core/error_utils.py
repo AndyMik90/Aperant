@@ -114,5 +114,7 @@ def is_authentication_error(error: Exception) -> bool:
             "token_expired",
             "not authenticated",
             "http 401",
+            "does not have access to claude",
+            "please login again",
         ]
     )

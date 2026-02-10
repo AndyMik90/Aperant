@@ -51,6 +51,10 @@ const AUTH_FAILURE_PATTERNS = [
   /Error:\s*.*(?:unauthorized|authentication|invalid\s*token)/i,
   // Match · Please run /login format from Claude CLI
   /·\s*Please\s+run\s+\/login/i,
+  // Match "does not have access to Claude" - returned as AI response text during auth issues
+  /does\s+not\s+have\s+access\s+to\s+Claude/i,
+  // Match "Please login again" - often paired with access denial messages
+  /please\s+login\s+again/i,
 ];
 
 /**
