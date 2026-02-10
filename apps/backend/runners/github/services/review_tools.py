@@ -407,7 +407,9 @@ async def run_tests(
                         timeout=300.0,  # 5 min max
                     )
                     passed = proc_full.returncode == 0
-                    logger.info(f"[Orchestrator] Tests {'passed' if passed else 'failed'}")
+                    logger.info(
+                        f"[Orchestrator] Tests {'passed' if passed else 'failed'}"
+                    )
                     return TestResult(
                         executed=True,
                         passed=passed,
@@ -423,7 +425,9 @@ async def run_tests(
 
         # If no test command worked
         logger.warning("[Orchestrator] No test command could be executed")
-        return TestResult(executed=False, passed=False, error="No test command available")
+        return TestResult(
+            executed=False, passed=False, error="No test command available"
+        )
 
     except Exception as e:
         logger.error(f"[Orchestrator] Test execution failed: {e}")
