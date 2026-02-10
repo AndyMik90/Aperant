@@ -2700,75 +2700,12 @@ print('OK')
         assert result.returncode == 0, f"Subprocess failed: stderr={result.stderr}"
         assert "OK" in result.stdout, f"Expected 'OK' in output, got: {result.stdout}"
 
-    def test_fallback_functions_coverage_via_import_error(self):
-        """Tests fallback debug functions via simulated ImportError (lines 335-363)."""
-        import sys
-        from unittest.mock import patch
-        import os
-        from pathlib import Path
-
-        # Get the apps/backend directory
-        backend_dir = Path(__file__).parent.parent / "apps" / "backend"
-
-        # Use subprocess with coverage to test fallback functions
-        # This will properly execute lines 335-363 in a separate process
-        code = """
-import sys
-import os
-os.chdir(sys.argv[1])
-sys.path.insert(0, sys.argv[1])
-
-# Block debug import by creating a fake module that raises on access
-class FakeDebugModule:
-    def __getattr__(self, name):
-        raise ImportError(f"debug.{name} not available")
-
-# Replace debug in sys.modules BEFORE importing workspace_commands
-sys.modules['debug'] = FakeDebugModule()
-
-# Now try to import the debug functions - will trigger ImportError and fallback
-try:
-    from cli.workspace_commands import (
-        debug as fallback_debug,
-        debug_detailed as fallback_detailed,
-        debug_verbose as fallback_verbose,
-        debug_success as fallback_success,
-        debug_error as fallback_error,
-        debug_section as fallback_section,
-        is_debug_enabled as fallback_is_debug_enabled
-    )
-
-    # Verify fallback functions exist and work
-    fallback_debug('test', 'message')
-    fallback_detailed('test', 'detailed')
-    fallback_verbose('test', 'verbose')
-    fallback_success('test', 'success')
-    fallback_error('test', 'error')
-    fallback_section('test', 'section')
-
-    result = fallback_is_debug_enabled()
-    assert result == False
-
-    print('OK')
-
-except Exception as e:
-    import traceback
-    traceback.print_exc()
-    sys.exit(1)
-"""
-
-        import subprocess
-        result = subprocess.run(
-            [sys.executable, "-c", code, str(backend_dir)],
-            env={**os.environ, "PYTHONPATH": str(backend_dir)},
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-
-        # Verify subprocess succeeded - this validates fallback functions work
-        assert result.returncode == 0, f"Subprocess failed: stderr={result.stderr}"
-        assert "OK" in result.stdout, f"Expected 'OK' in output, got: {result.stdout}"
+    # Note: test_fallback_functions_coverage_via_import_error was removed because:
+    # 1. The test attempted to simulate a missing debug module using FakeDebugModule
+    # 2. However, the import chain fails at core/worktree.py which also imports from debug
+    # 3. This happens BEFORE reaching workspace_commands where the fallback functions are defined
+    # 4. The test_fallback_debug_functions_when_debug_unavailable above uses DebugBlocker
+    #    which properly blocks the debug module import at the import machinery level
 
 
 # =============================================================================
