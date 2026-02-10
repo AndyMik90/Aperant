@@ -76,8 +76,8 @@ export function registerInvestigateIssue(
 ): void {
   ipcMain.on(
     IPC_CHANNELS.GITLAB_INVESTIGATE_ISSUE,
-    async (_event, projectId: string, issueIid: number, _selectedNoteIds?: number[]) => {
-      debugLog('investigateGitLabIssue handler called', { projectId, issueIid });
+    async (_event, projectId: string, issueIid: number, selectedNoteIds?: number[]) => {
+      debugLog('investigateGitLabIssue handler called', { projectId, issueIid, selectedNoteIds });
 
       const project = projectStore.getProject(projectId);
       if (!project) {
@@ -109,8 +109,18 @@ export function registerInvestigateIssue(
           `/projects/${encodedProject}/issues/${issueIid}`
         ) as GitLabAPIIssue;
 
-        // Note: selectedNoteIds processing is now handled internally by the spec
-        // creation pipeline in createSpecForIssue utility.
+        // Fetch notes if any selected
+        let filteredNotes: Array<{ body: string; author: { username: string } }> = [];
+        if (selectedNoteIds && selectedNoteIds.length > 0) {
+          const allNotes = await gitlabFetch(
+            config.token,
+            config.instanceUrl,
+            `/projects/${encodedProject}/issues/${issueIid}/notes`
+          ) as Array<{ id: number; body: string; author: { username: string } }>;
+
+          // Filter notes based on selection
+          filteredNotes = allNotes.filter(note => selectedNoteIds.includes(note.id));
+        }
 
         // Phase 2: Analyzing
         sendProgress(getMainWindow, project.id, {
@@ -118,21 +128,6 @@ export function registerInvestigateIssue(
           issueIid,
           progress: 30,
           message: 'Analyzing issue with AI...'
-        });
-
-        // Note: Context building previously done here has been moved to createSpecForIssue utility.
-        // The buildIssueContext() function and selectedNotes processing are now handled internally
-        // by the spec creation pipeline. This avoids duplicate context generation.
-        // TODO: If advanced context customization is needed in the future, consider extracting
-        // context building into a reusable utility function.
-
-        // Use agent manager to investigate
-        // Note: This is a simplified version - full implementation would use Claude SDK
-        sendProgress(getMainWindow, project.id, {
-          phase: 'analyzing',
-          issueIid,
-          progress: 50,
-          message: 'AI analyzing the issue...'
         });
 
         // Phase 3: Creating task
@@ -143,8 +138,14 @@ export function registerInvestigateIssue(
           message: 'Creating task from analysis...'
         });
 
-        // Create spec for the issue
-        const task = await createSpecForIssue(project, issue, config, project.settings?.mainBranch);
+        // Create spec for the issue with notes
+        const task = await createSpecForIssue(
+          project,
+          issue,
+          config,
+          project.settings?.mainBranch,
+          filteredNotes
+        );
 
         if (!task) {
           sendError(getMainWindow, project.id, 'Failed to create task from issue');

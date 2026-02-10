@@ -208,7 +208,12 @@ function generateSpecDirName(issueIid: number, title: string): string {
 /**
  * Build issue context for spec creation
  */
-export function buildIssueContext(issue: IssueLike, projectPath: string, instanceUrl: string): string {
+export function buildIssueContext(
+  issue: IssueLike,
+  projectPath: string,
+  instanceUrl: string,
+  notes?: Array<{ body: string; author: { username: string } }>
+): string {
   const lines: string[] = [];
   const safeProjectPath = sanitizeText(projectPath, 200);
   const safeIssue = sanitizeIssueForSpec(issue, instanceUrl);
@@ -238,6 +243,17 @@ export function buildIssueContext(issue: IssueLike, projectPath: string, instanc
   lines.push('');
   lines.push(`**Web URL:** ${safeIssue.web_url}`);
 
+  // Add notes section if notes are provided
+  if (notes && notes.length > 0) {
+    lines.push('');
+    lines.push(`## Notes (${notes.length})`);
+    lines.push('');
+    for (const note of notes) {
+      lines.push(`**${note.author.username}:** ${note.body}`);
+      lines.push('');
+    }
+  }
+
   return lines.join('\n');
 }
 
@@ -260,7 +276,8 @@ export async function createSpecForIssue(
   project: Project,
   issue: GitLabAPIIssue,
   config: GitLabConfig,
-  baseBranch?: string
+  baseBranch?: string,
+  notes?: Array<{ body: string; author: { username: string } }>
 ): Promise<GitLabTaskInfo | null> {
   try {
     // Validate and sanitize network data before writing to disk
@@ -319,8 +336,8 @@ export async function createSpecForIssue(
     // Create spec directory
     await mkdir(specDir, { recursive: true });
 
-    // Create TASK.md with issue context
-    const taskContent = buildIssueContext(safeIssue, safeProject, config.instanceUrl);
+    // Create TASK.md with issue context (including selected notes)
+    const taskContent = buildIssueContext(safeIssue, safeProject, config.instanceUrl, notes);
     await writeFile(path.join(specDir, 'TASK.md'), taskContent, 'utf-8');
 
     // Create metadata.json (legacy format for GitLab-specific data)
