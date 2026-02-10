@@ -467,6 +467,7 @@ class TestReadMultilineInput:
     def test_breaks_on_eof_error(self):
         """Breaks input loop on EOFError."""
         with patch('builtins.input', side_effect=['Line 1', EOFError]):
+            # lgtm[py/unused-local-variable] - variable is used in assertions below
             result = read_multiline_input("Enter text:")
 
         # Should return content before EOF
