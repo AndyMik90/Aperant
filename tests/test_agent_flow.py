@@ -926,6 +926,197 @@ class TestSubtaskCompletionDetection:
 
 
 # =============================================================================
+# FILE VALIDATION AND FAILED STATUS TESTS
+# =============================================================================
+
+class TestFileValidationAndFailedStatus:
+    """Tests for file validation, failed status handling, and the update_subtask_status_in_plan utility."""
+
+    def test_get_next_subtask_skips_failed(self, test_env):
+        """get_next_subtask must skip failed subtasks to prevent infinite loops."""
+        from progress import get_next_subtask
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        create_implementation_plan(spec_dir, [
+            {"id": "subtask-1", "description": "Failed task", "status": "failed"},
+            {"id": "subtask-2", "description": "Pending task", "status": "pending"},
+        ])
+
+        next_subtask = get_next_subtask(spec_dir)
+        assert next_subtask is not None, "Should find pending subtask"
+        assert next_subtask["id"] == "subtask-2", "Should skip failed subtask"
+
+    def test_get_next_subtask_returns_none_when_all_failed(self, test_env):
+        """When all subtasks are failed, get_next_subtask should return None."""
+        from progress import get_next_subtask
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        create_implementation_plan(spec_dir, [
+            {"id": "subtask-1", "description": "Failed task", "status": "failed"},
+        ])
+
+        assert get_next_subtask(spec_dir) is None
+
+    def test_update_subtask_status_in_plan_success(self, test_env):
+        """update_subtask_status_in_plan should update status and notes atomically."""
+        from agents.utils import update_subtask_status_in_plan, load_implementation_plan, find_subtask_in_plan
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        create_implementation_plan(spec_dir, [
+            {"id": "subtask-1", "description": "Test task", "status": "pending"},
+        ])
+
+        result = update_subtask_status_in_plan(spec_dir, "subtask-1", "failed", "Test failure reason")
+        assert result is True
+
+        # Verify the file was actually updated
+        plan = load_implementation_plan(spec_dir)
+        subtask = find_subtask_in_plan(plan, "subtask-1")
+        assert subtask["status"] == "failed"
+        assert subtask["notes"] == "Test failure reason"
+        assert "updated_at" in subtask
+
+    def test_update_subtask_status_in_plan_no_notes(self, test_env):
+        """update_subtask_status_in_plan should not add notes key when notes is empty."""
+        from agents.utils import update_subtask_status_in_plan, load_implementation_plan, find_subtask_in_plan
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        create_implementation_plan(spec_dir, [
+            {"id": "subtask-1", "description": "Test task", "status": "pending"},
+        ])
+
+        result = update_subtask_status_in_plan(spec_dir, "subtask-1", "failed")
+        assert result is True
+
+        plan = load_implementation_plan(spec_dir)
+        subtask = find_subtask_in_plan(plan, "subtask-1")
+        assert subtask["status"] == "failed"
+        assert "notes" not in subtask
+
+    def test_update_subtask_status_in_plan_missing_plan(self, test_env):
+        """update_subtask_status_in_plan should return False when plan file doesn't exist."""
+        from agents.utils import update_subtask_status_in_plan
+
+        temp_dir, spec_dir, project_dir = test_env
+        # Don't create a plan file
+
+        result = update_subtask_status_in_plan(spec_dir, "subtask-1", "failed")
+        assert result is False
+
+    def test_update_subtask_status_in_plan_missing_subtask(self, test_env):
+        """update_subtask_status_in_plan should return False when subtask ID doesn't exist."""
+        from agents.utils import update_subtask_status_in_plan
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        create_implementation_plan(spec_dir, [
+            {"id": "subtask-1", "description": "Test task", "status": "pending"},
+        ])
+
+        result = update_subtask_status_in_plan(spec_dir, "nonexistent-id", "failed")
+        assert result is False
+
+    def test_file_validation_bypass_threshold_less_than_max_retries(self):
+        """FILE_VALIDATION_BYPASS_THRESHOLD must be less than MAX_SUBTASK_RETRIES for 3-phase logic."""
+        from agents.base import FILE_VALIDATION_BYPASS_THRESHOLD, MAX_SUBTASK_RETRIES
+
+        assert FILE_VALIDATION_BYPASS_THRESHOLD < MAX_SUBTASK_RETRIES, (
+            f"Bypass threshold ({FILE_VALIDATION_BYPASS_THRESHOLD}) must be less than "
+            f"max retries ({MAX_SUBTASK_RETRIES}) for 3-phase validation to work"
+        )
+
+    def test_phase_dependency_proceeds_past_failed_subtasks(self, test_env):
+        """Phases should treat 'failed' as terminal for dependency purposes, not block downstream."""
+        from progress import get_next_subtask
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        # Create a multi-phase plan where phase-2 depends on phase-1
+        plan = {
+            "feature": "Test Feature",
+            "workflow_type": "feature",
+            "status": "in_progress",
+            "phases": [
+                {
+                    "id": "phase-1",
+                    "name": "Phase 1",
+                    "type": "implementation",
+                    "subtasks": [
+                        {"id": "subtask-1", "description": "Completed", "status": "completed"},
+                        {"id": "subtask-2", "description": "Failed", "status": "failed"},
+                    ]
+                },
+                {
+                    "id": "phase-2",
+                    "name": "Phase 2",
+                    "type": "implementation",
+                    "depends_on": ["phase-1"],
+                    "subtasks": [
+                        {"id": "subtask-3", "description": "Waiting", "status": "pending"},
+                    ]
+                }
+            ]
+        }
+        plan_file = spec_dir / "implementation_plan.json"
+        plan_file.write_text(json.dumps(plan, indent=2))
+
+        next_subtask = get_next_subtask(spec_dir)
+        assert next_subtask is not None, "Phase 2 should be unblocked despite failed subtask in Phase 1"
+        assert next_subtask["id"] == "subtask-3"
+
+    def test_validate_subtask_files_all_exist(self, test_env):
+        """validate_subtask_files should return success when all files exist."""
+        from agents.coder import validate_subtask_files
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        # Create a test file
+        test_file = project_dir / "test_file.py"
+        test_file.write_text("# test")
+
+        subtask = {"files_to_modify": ["test_file.py"]}
+        result = validate_subtask_files(subtask, project_dir)
+        assert result["success"] is True
+        assert result["missing_files"] == []
+
+    def test_validate_subtask_files_missing(self, test_env):
+        """validate_subtask_files should report missing files."""
+        from agents.coder import validate_subtask_files
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        subtask = {"files_to_modify": ["nonexistent.py"]}
+        result = validate_subtask_files(subtask, project_dir)
+        assert result["success"] is False
+        assert "nonexistent.py" in result["missing_files"]
+
+    def test_validate_subtask_files_empty(self, test_env):
+        """validate_subtask_files should return success for empty files_to_modify."""
+        from agents.coder import validate_subtask_files
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        subtask = {"files_to_modify": []}
+        result = validate_subtask_files(subtask, project_dir)
+        assert result["success"] is True
+
+    def test_validate_subtask_files_path_traversal(self, test_env):
+        """validate_subtask_files should reject paths outside project boundary."""
+        from agents.coder import validate_subtask_files
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        subtask = {"files_to_modify": ["../../etc/passwd"]}
+        result = validate_subtask_files(subtask, project_dir)
+        assert result["success"] is False
+        assert len(result["invalid_paths"]) > 0
+
+
+# =============================================================================
 # QA LOOP AND FIXER INTERACTION TESTS
 # =============================================================================
 

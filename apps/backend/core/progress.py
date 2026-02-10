@@ -432,8 +432,11 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
                 str(phase_id_raw) if phase_id_raw is not None else f"unknown:{i}"
             )
             subtasks = phase.get("subtasks", phase.get("chunks", []))
+            # A phase is "done" when all subtasks are either completed or failed.
+            # "failed" is treated as terminal so dependent phases can still proceed
+            # rather than creating a deadlock where no subtask is selectable.
             phase_complete[phase_id_key] = all(
-                s.get("status") == "completed" for s in subtasks
+                s.get("status") in {"completed", "failed"} for s in subtasks
             )
 
         # Find next available subtask

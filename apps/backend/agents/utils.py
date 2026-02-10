@@ -222,5 +222,8 @@ def update_subtask_status_in_plan(
         logger.info(f"Updated subtask {subtask_id} status to '{status}' in implementation plan")
         return True
     except Exception as e:
-        logger.error(f"Failed to write implementation plan after updating subtask {subtask_id}: {e}")
+        logger.error(
+            f"Failed to write implementation plan after updating subtask {subtask_id}: "
+            f"{type(e).__name__}: {e}"
+        )
         return False

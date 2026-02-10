@@ -512,9 +512,6 @@ async def run_autonomous_agent(
     concurrency_error_context: str | None = (
         None  # Context to pass to agent after concurrency error
     )
-    file_recovery_context: str | None = (
-        None  # Context to pass to agent for missing file self-correction
-    )
 
     def _reset_concurrency_state() -> None:
         """Reset concurrency error tracking state after a successful session or non-concurrency error."""
@@ -528,6 +525,7 @@ async def run_autonomous_agent(
 
     while True:
         iteration += 1
+        file_recovery_context = None  # Reset each iteration to prevent stale context leaking
 
         # Check for human intervention (PAUSE file)
         pause_file = spec_dir / HUMAN_INTERVENTION_FILE
@@ -693,11 +691,11 @@ async def run_autonomous_agent(
             #   Phase 1 (attempts 1-2): Block and retry (handles timing/creation races)
             #   Phase 2 (attempts 3-4): Bypass validation, inject recovery context for agent self-correction
             #   Phase 3 (attempt 5+): Give up, mark as failed in implementation plan
-            file_recovery_context = None
             validation_result = validate_subtask_files(next_subtask, project_dir)
             if not validation_result["success"]:
                 error_msg = validation_result["error"]
                 missing_files = validation_result.get("missing_files", [])
+                invalid_paths = validation_result.get("invalid_paths", [])
                 suggestion = validation_result.get("suggestion", "")
 
                 print()
@@ -742,10 +740,20 @@ async def run_autonomous_agent(
                         f"Bypassing file validation — launching agent for self-correction (attempt {attempt_count}/{MAX_SUBTASK_RETRIES})",
                         "warning",
                     )
+                    # Build list of problematic files for the recovery prompt
+                    problem_files_lines = []
+                    for f in missing_files:
+                        problem_files_lines.append(f"- `{f}` (does not exist)")
+                    for f in invalid_paths:
+                        problem_files_lines.append(
+                            f"- `{f}` (resolves outside project boundary)"
+                        )
+                    problem_files_str = "\n".join(problem_files_lines) if problem_files_lines else "- (unknown files)"
+
                     file_recovery_context = (
                         "## FILE NOT FOUND RECOVERY\n\n"
-                        f"The following files listed in `files_to_modify` do not exist:\n"
-                        + "\n".join(f"- `{f}`" for f in missing_files)
+                        "The following files listed in `files_to_modify` have issues:\n"
+                        + problem_files_str
                         + "\n\n"
                         "**You MUST find the correct files before proceeding:**\n"
                         "1. Use the Glob tool (e.g., `**/*.tsx`) to search for similarly-named files\n"
@@ -760,16 +768,15 @@ async def run_autonomous_agent(
 
                 else:
                     # Phase 3: Give up — mark as failed in implementation plan so get_next_subtask() skips it
-                    recovery_manager.mark_subtask_stuck(
-                        subtask_id,
-                        f"File validation failed after {attempt_count} attempts: {error_msg}",
-                    )
-                    update_subtask_status_in_plan(
-                        spec_dir,
-                        subtask_id,
-                        "failed",
-                        f"File validation failed after {attempt_count} attempts: {error_msg}",
-                    )
+                    reason = f"File validation failed after {attempt_count} attempts: {error_msg}"
+                    recovery_manager.mark_subtask_stuck(subtask_id, reason)
+                    if not update_subtask_status_in_plan(
+                        spec_dir, subtask_id, "failed", reason
+                    ):
+                        print_status(
+                            f"WARNING: Failed to persist 'failed' status for {subtask_id} in implementation plan",
+                            "error",
+                        )
                     print_status(
                         f"Subtask {subtask_id} marked as FAILED after {attempt_count} failed validation attempts",
                         "error",
@@ -923,15 +930,15 @@ async def run_autonomous_agent(
             # Check for stuck subtasks
             attempt_count = recovery_manager.get_attempt_count(subtask_id)
             if not success and attempt_count >= MAX_SUBTASK_RETRIES:
-                recovery_manager.mark_subtask_stuck(
-                    subtask_id, f"Failed after {attempt_count} attempts"
-                )
-                update_subtask_status_in_plan(
-                    spec_dir,
-                    subtask_id,
-                    "failed",
-                    f"Failed after {attempt_count} attempts",
-                )
+                reason = f"Failed after {attempt_count} attempts"
+                recovery_manager.mark_subtask_stuck(subtask_id, reason)
+                if not update_subtask_status_in_plan(
+                    spec_dir, subtask_id, "failed", reason
+                ):
+                    print_status(
+                        f"WARNING: Failed to persist 'failed' status for {subtask_id} in implementation plan",
+                        "error",
+                    )
                 print()
                 print_status(
                     f"Subtask {subtask_id} marked as FAILED after {attempt_count} attempts",
@@ -1046,16 +1053,15 @@ async def run_autonomous_agent(
 
                     # Mark current subtask as stuck/failed if we have one
                     if subtask_id:
-                        recovery_manager.mark_subtask_stuck(
-                            subtask_id,
-                            f"Tool concurrency errors after {consecutive_concurrency_errors} retries",
-                        )
-                        update_subtask_status_in_plan(
-                            spec_dir,
-                            subtask_id,
-                            "failed",
-                            f"Tool concurrency errors after {consecutive_concurrency_errors} retries",
-                        )
+                        reason = f"Tool concurrency errors after {consecutive_concurrency_errors} retries"
+                        recovery_manager.mark_subtask_stuck(subtask_id, reason)
+                        if not update_subtask_status_in_plan(
+                            spec_dir, subtask_id, "failed", reason
+                        ):
+                            print_status(
+                                f"WARNING: Failed to persist 'failed' status for {subtask_id} in implementation plan",
+                                "error",
+                            )
                         print_status(f"Subtask {subtask_id} marked as FAILED", "error")
 
                     status_manager.update(state=BuildState.ERROR)

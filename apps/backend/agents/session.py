@@ -83,9 +83,13 @@ def _execute_recovery_action(
     elif recovery_action.action in ("skip", "escalate"):
         print_status(f"Marking subtask {subtask_id} as stuck", "warning")
         recovery_manager.mark_subtask_stuck(subtask_id, recovery_action.reason)
-        update_subtask_status_in_plan(
+        if not update_subtask_status_in_plan(
             spec_dir, subtask_id, "failed", recovery_action.reason
-        )
+        ):
+            print_status(
+                f"WARNING: Failed to persist 'failed' status for {subtask_id} in implementation plan",
+                "error",
+            )
         print_status("Subtask marked as failed for human intervention", "warning")
 
 
