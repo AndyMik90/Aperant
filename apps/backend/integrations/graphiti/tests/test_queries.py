@@ -466,6 +466,23 @@ class TestAddStructuredInsights:
         assert result is False
 
     @pytest.mark.asyncio
+    async def test_add_structured_insights_gotcha_duplicate_facts_exception(
+        self, queries
+    ):
+        """Test gotcha save with duplicate_facts exception (lines 418-419)."""
+        insights = {"gotchas_discovered": [{"gotcha": "Test gotcha"}]}
+
+        # Raise duplicate_facts error (should be counted as success)
+        queries.client.graphiti.add_episode.side_effect = Exception(
+            "invalid duplicate_facts idx"
+        )
+
+        result = await queries.add_structured_insights(insights)
+
+        # Should return True because duplicate_facts is non-fatal
+        assert result is True
+
+    @pytest.mark.asyncio
     async def test_add_structured_insights_outcome_non_duplicate_exception(
         self, queries
     ):
@@ -484,6 +501,26 @@ class TestAddStructuredInsights:
         assert result is False
 
     @pytest.mark.asyncio
+    async def test_add_structured_insights_outcome_duplicate_facts_exception(
+        self, queries
+    ):
+        """Test outcome save with duplicate_facts exception (lines 457-458)."""
+        insights = {
+            "subtask_id": "task-1",
+            "approach_outcome": {"success": True, "approach_used": "Test approach"},
+        }
+
+        # Raise duplicate_facts error (should be counted as success)
+        queries.client.graphiti.add_episode.side_effect = Exception(
+            "invalid duplicate_facts idx"
+        )
+
+        result = await queries.add_structured_insights(insights)
+
+        # Should return True because duplicate_facts is non-fatal
+        assert result is True
+
+    @pytest.mark.asyncio
     async def test_add_structured_insights_recommendations_non_duplicate_exception(
         self, queries
     ):
@@ -497,6 +534,23 @@ class TestAddStructuredInsights:
 
         # Should return False since all saves failed
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_add_structured_insights_recommendations_duplicate_facts_exception(
+        self, queries
+    ):
+        """Test recommendations save with duplicate_facts exception (lines 488-489)."""
+        insights = {"subtask_id": "task-1", "recommendations": ["Test recommendation"]}
+
+        # Raise duplicate_facts error (should be counted as success)
+        queries.client.graphiti.add_episode.side_effect = Exception(
+            "invalid duplicate_facts idx"
+        )
+
+        result = await queries.add_structured_insights(insights)
+
+        # Should return True because duplicate_facts is non-fatal
+        assert result is True
 
     @pytest.mark.asyncio
     async def test_add_structured_insights_top_level_exception_with_content(
@@ -519,6 +573,33 @@ class TestAddStructuredInsights:
             result = await queries.add_structured_insights(insights)
 
             assert result is False
+
+    @pytest.mark.asyncio
+    async def test_add_structured_insights_outer_exception_handler(self, queries):
+        """Test outer exception handler for add_structured_insights (lines 499-523)."""
+        insights = {
+            "file_insights": [{"path": "test.py", "purpose": "test"}],
+            "patterns_discovered": [{"pattern": "Test pattern"}],
+            "gotchas_discovered": [{"gotcha": "Test gotcha"}],
+            "approach_outcome": {"success": True, "approach_used": "Test approach"},
+            "recommendations": ["Test recommendation"],
+        }
+
+        # Mock EpisodeType import to fail, triggering outer exception handler
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "graphiti_core.nodes":
+                raise ImportError("EpisodeType not available")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            result = await queries.add_structured_insights(insights)
+
+        # Should return False and trigger outer exception handler
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_add_structured_insights_all_fail(self, queries):
