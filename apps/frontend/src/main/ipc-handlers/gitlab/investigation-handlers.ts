@@ -116,24 +116,38 @@ export function registerInvestigateIssue(
           const allNotes: Array<{ id: number; body: string; author: { username: string } }> = [];
           let page = 1;
           const perPage = 100;
+          const MAX_PAGES = 50; // Safety limit: max 5000 notes
           let hasMore = true;
 
-          while (hasMore) {
-            const notesPage = await gitlabFetch(
-              config.token,
-              config.instanceUrl,
-              `/projects/${encodedProject}/issues/${issueIid}/notes?page=${page}&per_page=${perPage}`
-            ) as Array<{ id: number; body: string; author: { username: string } }>;
+          while (hasMore && page <= MAX_PAGES) {
+            try {
+              const notesPage = await gitlabFetch(
+                config.token,
+                config.instanceUrl,
+                `/projects/${encodedProject}/issues/${issueIid}/notes?page=${page}&per_page=${perPage}`
+              ) as Array<{ id: number; body: string; author: { username: string } }>;
 
-            if (notesPage.length === 0) {
-              hasMore = false;
-            } else {
-              allNotes.push(...notesPage);
-              if (notesPage.length < perPage) {
+              // Runtime validation: ensure we got an array
+              if (!Array.isArray(notesPage)) {
+                debugLog('GitLab notes API returned non-array, stopping pagination');
+                hasMore = false;
+                break;
+              }
+
+              if (notesPage.length === 0) {
                 hasMore = false;
               } else {
-                page++;
+                allNotes.push(...notesPage);
+                if (notesPage.length < perPage) {
+                  hasMore = false;
+                } else {
+                  page++;
+                }
               }
+            } catch (error) {
+              // Graceful degradation: proceed with partial notes on fetch error
+              debugLog('Failed to fetch notes page, using partial notes', { page, error });
+              hasMore = false;
             }
           }
 

@@ -339,7 +339,7 @@ export async function createSpecForIssue(
     await mkdir(specDir, { recursive: true });
 
     // Create TASK.md with issue context (including selected notes)
-    const taskContent = buildIssueContext(safeIssue, safeProject, config.instanceUrl, notes);
+    const taskContent = buildIssueContext(safeIssue, safeProject, safeInstanceUrl, notes);
     await writeFile(path.join(specDir, 'TASK.md'), taskContent, 'utf-8');
 
     // Create metadata.json (legacy format for GitLab-specific data)
