@@ -100,13 +100,21 @@ def count_subtasks_detailed(spec_dir: Path) -> dict:
 
 def is_build_complete(spec_dir: Path) -> bool:
     """
-    Check if all subtasks are completed.
+    Check if all subtasks completed successfully.
+
+    Returns True only when every subtask has status "completed".
+    Returns False when subtasks are "failed" — this is intentional because
+    QA validation and merge operations require all subtasks to have succeeded.
+
+    To check if no more work can be done (all subtasks are terminal, i.e.
+    completed or failed), use: ``count_subtasks_detailed()`` and check
+    ``completed + failed == total``.
 
     Args:
         spec_dir: Directory containing implementation_plan.json
 
     Returns:
-        True if all subtasks complete, False otherwise
+        True if all subtasks completed successfully, False otherwise
     """
     completed, total = count_subtasks(spec_dir)
     return total > 0 and completed == total
@@ -177,8 +185,16 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
         if completed == total:
             print_status("BUILD COMPLETE - All subtasks completed!", "success")
         else:
-            remaining = total - completed
-            print_status(f"{remaining} subtasks remaining", "info")
+            details = count_subtasks_detailed(spec_dir)
+            if details["failed"] > 0:
+                print_status(
+                    f"{details['completed']}/{details['total']} completed, "
+                    f"{details['failed']} failed",
+                    "warning",
+                )
+            else:
+                remaining = total - completed
+                print_status(f"{remaining} subtasks remaining", "info")
 
         # Phase summary
         try:
@@ -191,13 +207,22 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
                 phase_completed = sum(
                     1 for s in phase_subtasks if s.get("status") == "completed"
                 )
+                phase_failed = sum(
+                    1 for s in phase_subtasks if s.get("status") == "failed"
+                )
                 phase_total = len(phase_subtasks)
                 phase_name = phase.get("name", phase.get("id", "Unknown"))
 
+                phase_terminal = phase_completed + phase_failed
                 if phase_completed == phase_total:
                     status = "complete"
-                elif phase_completed > 0 or any(
-                    s.get("status") == "in_progress" for s in phase_subtasks
+                elif phase_terminal == phase_total:
+                    # All subtasks reached a terminal state but some failed
+                    status = "complete"
+                elif (
+                    phase_completed > 0
+                    or phase_failed > 0
+                    or any(s.get("status") == "in_progress" for s in phase_subtasks)
                 ):
                     status = "in_progress"
                 else:

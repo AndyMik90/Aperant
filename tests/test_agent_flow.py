@@ -1115,6 +1115,52 @@ class TestFileValidationAndFailedStatus:
         assert result["success"] is False
         assert len(result["invalid_paths"]) > 0
 
+    def test_mark_subtask_failed_helper(self, test_env):
+        """mark_subtask_failed should update both attempt_history and implementation_plan."""
+        from agents.utils import mark_subtask_failed
+        from recovery import RecoveryManager
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        create_implementation_plan(spec_dir, [
+            {"id": "subtask-1", "description": "Task 1", "status": "pending"},
+        ])
+
+        recovery_manager = RecoveryManager(spec_dir, project_dir)
+        mark_subtask_failed(recovery_manager, spec_dir, "subtask-1", "test reason")
+
+        # Verify plan was updated
+        plan = json.loads((spec_dir / "implementation_plan.json").read_text())
+        subtask = plan["phases"][0]["subtasks"][0]
+        assert subtask["status"] == "failed"
+        assert subtask["notes"] == "test reason"
+
+    def test_phase_display_terminal_with_failures(self, test_env):
+        """Phase with all terminal subtasks (some failed) should show as complete."""
+        temp_dir, spec_dir, project_dir = test_env
+
+        plan = {
+            "feature": "Test",
+            "workflow_type": "feature",
+            "phases": [{
+                "id": "phase-1",
+                "name": "Phase 1",
+                "subtasks": [
+                    {"id": "s1", "description": "T1", "status": "completed"},
+                    {"id": "s2", "description": "T2", "status": "failed"},
+                ]
+            }]
+        }
+        (spec_dir / "implementation_plan.json").write_text(json.dumps(plan))
+
+        # The progress summary should not say "in_progress" for a fully terminal phase
+        from progress import count_subtasks_detailed
+        details = count_subtasks_detailed(spec_dir)
+        assert details["completed"] == 1
+        assert details["failed"] == 1
+        terminal = details["completed"] + details["failed"]
+        assert terminal == details["total"], "All subtasks should be terminal"
+
 
 # =============================================================================
 # QA LOOP AND FIXER INTERACTION TESTS

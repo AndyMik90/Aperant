@@ -88,8 +88,8 @@ from .utils import (
     get_commit_count,
     get_latest_commit,
     load_implementation_plan,
+    mark_subtask_failed,
     sync_spec_to_source,
-    update_subtask_status_in_plan,
 )
 
 logger = logging.getLogger(__name__)
@@ -697,10 +697,10 @@ async def run_autonomous_agent(
                     break
 
             # Validate that all files_to_modify exist before attempting execution
-            # Three-phase approach to handle missing files:
-            #   Phase 1 (attempts 1-2): Block and retry (handles timing/creation races)
-            #   Phase 2 (attempts 3-4): Bypass validation, inject recovery context for agent self-correction
-            #   Phase 3 (attempt 5+): Give up, mark as failed in implementation plan
+            # Three-phase approach to handle missing files (FILE_VALIDATION_BYPASS_THRESHOLD=3, MAX_SUBTASK_RETRIES=5):
+            #   Phase 1 (2 retries):          Block and retry (handles timing/creation races)
+            #   Phase 2 (2 self-corrections): Bypass validation, inject recovery context for agent self-correction
+            #   Phase 3 (give up):            Mark as failed in implementation plan
             validation_result = validate_subtask_files(next_subtask, project_dir)
             if not validation_result["success"]:
                 error_msg = validation_result["error"]
@@ -714,40 +714,43 @@ async def run_autonomous_agent(
                     print(muted(f"Suggestion: {suggestion}"))
                 print()
 
-                # Record the validation failure in recovery manager
-                recovery_manager.record_attempt(
-                    subtask_id=subtask_id,
-                    session=iteration,
-                    success=False,
-                    approach="File validation failed before execution",
-                    error=error_msg,
-                )
-
                 # Log the validation failure
                 if task_logger:
                     task_logger.log_error(
                         f"File validation failed: {error_msg}", LogPhase.CODING
                     )
 
+                # Get attempt count BEFORE recording to determine which phase we're in.
+                # Phase 2 does NOT record here because post_session_processing records
+                # after the agent runs, avoiding double-counting that would consume
+                # one of Phase 2's self-correction attempts.
                 attempt_count = recovery_manager.get_attempt_count(subtask_id)
 
-                if attempt_count < FILE_VALIDATION_BYPASS_THRESHOLD:
+                if attempt_count < FILE_VALIDATION_BYPASS_THRESHOLD - 1:
                     # Phase 1: Early retries — block and retry (same as original behavior)
                     # Handles timing issues where files are being created by a prior subtask
+                    recovery_manager.record_attempt(
+                        subtask_id=subtask_id,
+                        session=iteration,
+                        success=False,
+                        approach="File validation failed before execution",
+                        error=error_msg,
+                    )
                     print_status(
-                        f"Retry {attempt_count}/{FILE_VALIDATION_BYPASS_THRESHOLD} before self-correction",
+                        f"Retry {attempt_count + 1}/{FILE_VALIDATION_BYPASS_THRESHOLD - 1} before self-correction",
                         "warning",
                     )
                     status_manager.update(state=BuildState.ERROR)
                     await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
                     continue
 
-                elif attempt_count < MAX_SUBTASK_RETRIES:
+                elif attempt_count < MAX_SUBTASK_RETRIES - 1:
                     # Phase 2: Self-correction — bypass file validation, let the coder agent
                     # find the correct files using its tools (Glob, Grep, etc.)
-                    # This follows the same pattern as concurrency error recovery (coder.py ~line 1007)
+                    # Don't record attempt here — post_session_processing records after agent runs,
+                    # giving Phase 2 its full 2 self-correction attempts.
                     print_status(
-                        f"Bypassing file validation — launching agent for self-correction (attempt {attempt_count}/{MAX_SUBTASK_RETRIES})",
+                        f"Bypassing file validation — launching agent for self-correction (attempt {attempt_count + 1}/{MAX_SUBTASK_RETRIES - 1})",
                         "warning",
                     )
                     # Build list of problematic files for the recovery prompt
@@ -783,14 +786,7 @@ async def run_autonomous_agent(
                 else:
                     # Phase 3: Give up — mark as failed in implementation plan so get_next_subtask() skips it
                     reason = f"File validation failed after {attempt_count} attempts: {error_msg}"
-                    recovery_manager.mark_subtask_stuck(subtask_id, reason)
-                    if not update_subtask_status_in_plan(
-                        spec_dir, subtask_id, "failed", reason
-                    ):
-                        print_status(
-                            f"WARNING: Failed to persist 'failed' status for {subtask_id} in implementation plan",
-                            "error",
-                        )
+                    mark_subtask_failed(recovery_manager, spec_dir, subtask_id, reason)
                     print_status(
                         f"Subtask {subtask_id} marked as FAILED after {attempt_count} failed validation attempts",
                         "error",
@@ -945,14 +941,7 @@ async def run_autonomous_agent(
             attempt_count = recovery_manager.get_attempt_count(subtask_id)
             if not success and attempt_count >= MAX_SUBTASK_RETRIES:
                 reason = f"Failed after {attempt_count} attempts"
-                recovery_manager.mark_subtask_stuck(subtask_id, reason)
-                if not update_subtask_status_in_plan(
-                    spec_dir, subtask_id, "failed", reason
-                ):
-                    print_status(
-                        f"WARNING: Failed to persist 'failed' status for {subtask_id} in implementation plan",
-                        "error",
-                    )
+                mark_subtask_failed(recovery_manager, spec_dir, subtask_id, reason)
                 print()
                 print_status(
                     f"Subtask {subtask_id} marked as FAILED after {attempt_count} attempts",
@@ -1068,14 +1057,9 @@ async def run_autonomous_agent(
                     # Mark current subtask as stuck/failed if we have one
                     if subtask_id:
                         reason = f"Tool concurrency errors after {consecutive_concurrency_errors} retries"
-                        recovery_manager.mark_subtask_stuck(subtask_id, reason)
-                        if not update_subtask_status_in_plan(
-                            spec_dir, subtask_id, "failed", reason
-                        ):
-                            print_status(
-                                f"WARNING: Failed to persist 'failed' status for {subtask_id} in implementation plan",
-                                "error",
-                            )
+                        mark_subtask_failed(
+                            recovery_manager, spec_dir, subtask_id, reason
+                        )
                         print_status(f"Subtask {subtask_id} marked as FAILED", "error")
 
                     status_manager.update(state=BuildState.ERROR)

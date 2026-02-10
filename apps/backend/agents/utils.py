@@ -13,6 +13,7 @@ from pathlib import Path
 
 from core.file_utils import write_json_atomic
 from core.git_executable import run_git
+from ui import print_status
 
 logger = logging.getLogger(__name__)
 
@@ -236,3 +237,22 @@ def update_subtask_status_in_plan(
             f"{type(e).__name__}: {e}"
         )
         return False
+
+
+def mark_subtask_failed(
+    recovery_manager, spec_dir: Path, subtask_id: str, reason: str
+) -> None:
+    """
+    Mark a subtask as stuck in attempt_history AND failed in implementation_plan.
+
+    Combines recovery_manager.mark_subtask_stuck() (writes attempt_history.json)
+    with update_subtask_status_in_plan() (writes implementation_plan.json) into
+    a single call. Logs a warning if the plan update fails.
+    """
+    recovery_manager.mark_subtask_stuck(subtask_id, reason)
+    if not update_subtask_status_in_plan(spec_dir, subtask_id, "failed", reason):
+        print_status(
+            f"WARNING: Failed to persist 'failed' status for {subtask_id} "
+            "in implementation plan",
+            "error",
+        )

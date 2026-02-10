@@ -47,8 +47,8 @@ from .utils import (
     get_commit_count,
     get_latest_commit,
     load_implementation_plan,
+    mark_subtask_failed,
     sync_spec_to_source,
-    update_subtask_status_in_plan,
 )
 
 logger = logging.getLogger(__name__)
@@ -82,14 +82,9 @@ def _execute_recovery_action(
 
     elif recovery_action.action in ("skip", "escalate"):
         print_status(f"Marking subtask {subtask_id} as stuck", "warning")
-        recovery_manager.mark_subtask_stuck(subtask_id, recovery_action.reason)
-        if not update_subtask_status_in_plan(
-            spec_dir, subtask_id, "failed", recovery_action.reason
-        ):
-            print_status(
-                f"WARNING: Failed to persist 'failed' status for {subtask_id} in implementation plan",
-                "error",
-            )
+        mark_subtask_failed(
+            recovery_manager, spec_dir, subtask_id, recovery_action.reason
+        )
         print_status("Subtask marked as failed for human intervention", "warning")
 
 
