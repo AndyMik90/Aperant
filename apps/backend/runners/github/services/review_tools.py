@@ -393,28 +393,31 @@ async def run_tests(
                     proc.communicate(),
                     timeout=60.0,  # Quick check for test availability
                 )
-                # If command executed (even with failures), use it
-                if proc.returncode is not None:
-                    # Re-run with full timeout for actual test results
-                    proc_full = await asyncio.create_subprocess_shell(
-                        test_cmd,
-                        cwd=project_dir,
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE,
-                    )
-                    stdout_full, stderr_full = await asyncio.wait_for(
-                        proc_full.communicate(),
-                        timeout=300.0,  # 5 min max
-                    )
-                    passed = proc_full.returncode == 0
-                    logger.info(
-                        f"[Orchestrator] Tests {'passed' if passed else 'failed'}"
-                    )
-                    return TestResult(
-                        executed=True,
-                        passed=passed,
-                        error=None if passed else stderr_full.decode("utf-8")[:500],
-                    )
+                # If command not found (127) or not executable (126), try next command
+                # For any other exit code (including test failures), the test framework exists
+                if proc.returncode in (126, 127):
+                    # Command not found or not executable - try next one
+                    continue
+                # Re-run with full timeout for actual test results
+                proc_full = await asyncio.create_subprocess_shell(
+                    test_cmd,
+                    cwd=project_dir,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout_full, stderr_full = await asyncio.wait_for(
+                    proc_full.communicate(),
+                    timeout=300.0,  # 5 min max
+                )
+                passed = proc_full.returncode == 0
+                logger.info(
+                    f"[Orchestrator] Tests {'passed' if passed else 'failed'}"
+                )
+                return TestResult(
+                    executed=True,
+                    passed=passed,
+                    error=None if passed else stderr_full.decode("utf-8")[:500],
+                )
             except asyncio.TimeoutError:
                 # Command hung or took too long - skip this one
                 proc.kill()

@@ -729,17 +729,23 @@ def mock_run_agent_fn():
 
         async def _mock_agent(
             prompt_file: str,
-            additional_context: str = None,
-            phase_name: str = None,
+            additional_context: str | None = None,
+            phase_name: str | None = None,
         ) -> tuple[bool, str]:
             nonlocal call_count
             if side_effect is not None:
+                # Guard against empty side_effect list
+                if not side_effect:
+                    return (success, output)
                 if call_count < len(side_effect):
                     result = side_effect[call_count]
                     call_count += 1
+                    _mock_agent.call_count = call_count
                     return result
                 # Fallback to last result if more calls than expected
                 return side_effect[-1]
+            call_count += 1
+            _mock_agent.call_count = call_count
             return (success, output)
 
         _mock_agent.call_count = 0
@@ -1237,7 +1243,21 @@ def temp_project(temp_git_repo: Path):
     - src/App.tsx (React component)
     - src/utils.py (Python module)
     """
-    from tests.test_fixtures import SAMPLE_PYTHON_MODULE, SAMPLE_REACT_COMPONENT
+    # Import sample data from test_fixtures with fallback
+    try:
+        from tests.test_fixtures import SAMPLE_PYTHON_MODULE, SAMPLE_REACT_COMPONENT
+    except (ImportError, ModuleNotFoundError):
+        # Fallback definitions if tests.test_fixtures not available
+        SAMPLE_PYTHON_MODULE = '''"""Utility module."""
+def helper():
+    return "result"
+'''
+        SAMPLE_REACT_COMPONENT = '''import React from "react";
+
+export const App: React.FC = () => {
+    return <div>Hello</div>;
+};
+'''
 
     # Create src directory
     src_dir = temp_git_repo / "src"

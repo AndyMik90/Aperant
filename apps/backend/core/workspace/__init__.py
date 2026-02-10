@@ -17,7 +17,6 @@ Public API exported from sub-modules.
 """
 
 import importlib.util
-import sys
 from pathlib import Path
 
 # Import merge functions from workspace.py (which coexists with this package)
