@@ -9,7 +9,6 @@ Tests cover:
 - setup_schema() method
 """
 
-import re
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest

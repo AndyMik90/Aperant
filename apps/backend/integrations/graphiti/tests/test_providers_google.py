@@ -266,5 +266,6 @@ class TestGoogleEmbedderConstants:
     """Test Google embedder constants."""
 
     def test_default_google_embedding_model(self):
-        """Test DEFAULT_GOOGLE_EMBEDDING_MODEL is set correctly."""
+        # Note: This test verifies the default Google embedding model.
+        # The value should match the model used in production.
         assert DEFAULT_GOOGLE_EMBEDDING_MODEL == "text-embedding-004"

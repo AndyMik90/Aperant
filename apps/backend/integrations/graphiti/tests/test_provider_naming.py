@@ -47,23 +47,6 @@ def test_provider_naming():
             f"Database name should contain base or provider name for {provider}"
         )
 
-        print(f"Provider: {provider}")
-        if model:
-            print(f"  Model: {model}")
-        print(f"  Embedding Dimension: {dimension}")
-        print(f"  Provider Signature: {signature}")
-        print(f"  Database Name: {db_name}")
-        print(f"  Full Path: ~/.auto-claude/memories/{db_name}/")
-        print()
-
-    print("=" * 70)
-    print("\nKey Benefits:")
-    print("  - No dimension mismatch errors")
-    print("  - Each provider uses its own database")
-    print("  - Can switch providers without conflicts")
-    print("  - Migration utility available for data transfer")
-    print()
-
 
 if __name__ == "__main__":
     test_provider_naming()

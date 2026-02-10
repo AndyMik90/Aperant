@@ -394,7 +394,9 @@ class TestGetSourceEpisodes:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    async def test_get_source_episodes_exception_with_message(self, mock_source_client):
+    async def test_get_source_episodes_exception_with_message(
+        self, mock_source_client, caplog
+    ):
         """Test get_source_episodes logs error message on exception."""
         from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
 
@@ -409,10 +411,15 @@ class TestGetSourceEpisodes:
         )
         migrator.source_client = mock_source_client
 
-        episodes = await migrator.get_source_episodes()
+        with caplog.at_level("ERROR"):
+            episodes = await migrator.get_source_episodes()
 
         # Should return empty list on error
         assert episodes == []
+        # Should log error message
+        assert any(
+            "Database connection lost" in record.message for record in caplog.records
+        )
 
     @pytest.mark.asyncio
     @pytest.mark.slow
@@ -560,6 +567,8 @@ class TestMigrateEpisode:
             target_config=MagicMock(),
             dry_run=True,
         )
+        # Attach mock_target_client to migrator for dry_run mode testing
+        migrator.target_client = mock_target_client
 
         result = await migrator.migrate_episode(episode)
 

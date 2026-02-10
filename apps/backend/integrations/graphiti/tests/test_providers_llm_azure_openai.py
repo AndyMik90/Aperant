@@ -69,7 +69,6 @@ class TestCreateAzureOpenAILLMClient:
             from graphiti_core.llm_client.azure_openai_client import (
                 AzureOpenAILLMClient,
             )
-            from graphiti_core.llm_client.config import LLMConfig
 
             AzureOpenAILLMClient.return_value = mock_llm_client
 

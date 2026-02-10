@@ -128,7 +128,7 @@ class TestCreateCrossEncoder:
             LLMConfig.side_effect = capture_llm_config
             OpenAIRerankerClient.return_value = MagicMock()
 
-            result = create_cross_encoder(mock_config, mock_llm_client)
+            _ = create_cross_encoder(mock_config, mock_llm_client)
 
             # Verify base_url was modified
             assert "base_url" in captured_config

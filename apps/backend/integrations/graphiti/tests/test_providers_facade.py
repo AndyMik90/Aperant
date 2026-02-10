@@ -211,24 +211,21 @@ class TestReExportBehavior:
         assert issubclass(ProviderNotInstalled, ProviderError)
 
     def test_EMBEDDING_DIMENSIONS_has_expected_keys(self):
-        """Test EMBEDDING_DIMENSIONS has expected provider keys."""
+        """Test EMBEDDING_DIMENSIONS has expected model keys."""
         from integrations.graphiti.providers import EMBEDDING_DIMENSIONS
 
-        # Should have common providers
-        expected_providers = [
-            "openai",
-            "voyage",
-            "google",
-            "ollama",
-            "openrouter",
-            "azure_openai",
+        # Check that expected model names exist in EMBEDDING_DIMENSIONS
+        # Note: EMBEDDING_DIMENSIONS is keyed by model name, not provider name
+        expected_models = [
+            "text-embedding-3-small",  # OpenAI
+            "voyage-3",  # Voyage AI
+            "nomic-embed-text",  # Ollama
+            "all-minilm",  # Ollama
         ]
 
-        for provider in expected_providers:
-            # Not all providers may be present in all environments
-            # Just check the structure is valid
-            if provider in EMBEDDING_DIMENSIONS:
-                assert isinstance(EMBEDDING_DIMENSIONS[provider], int)
+        for model in expected_models:
+            assert model in EMBEDDING_DIMENSIONS, f"{model} not in EMBEDDING_DIMENSIONS"
+            assert isinstance(EMBEDDING_DIMENSIONS[model], int)
 
 
 # =============================================================================

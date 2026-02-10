@@ -41,7 +41,7 @@ class TestCreateOpenRouterLLMClient:
         mock_client = MagicMock()
 
         with patch(
-            "integrations.graphiti.providers_pkg.llm_providers.openrouter_llm.OpenAIClient",
+            "graphiti_core.llm_client.openai_client.OpenAIClient",
             return_value=mock_client,
         ):
             result = create_openrouter_llm_client(mock_config)
@@ -58,27 +58,20 @@ class TestCreateOpenRouterLLMClient:
 
     def test_create_openrouter_llm_client_import_error(self, mock_config):
         """Test create_openrouter_llm_client raises ProviderNotInstalled on ImportError."""
+        import builtins
 
-        # Mock the graphiti_core imports to raise ImportError
-        with patch.dict(
-            "sys.modules",
-            {
-                "graphiti_core": MagicMock(),
-                "graphiti_core.llm_client": MagicMock(),
-            },
-        ):
-            # Make the actual import fail
-            import graphiti_core.llm_client
-            import graphiti_core.llm_client.openai_client
+        original_import = builtins.__import__
 
-            with patch(
-                "graphiti_core.llm_client.openai_client",
-                side_effect=ImportError("graphiti-core not installed"),
-            ):
-                with pytest.raises(ProviderNotInstalled) as exc_info:
-                    create_openrouter_llm_client(mock_config)
+        def mock_import(name, *args, **kwargs):
+            if name.startswith("graphiti_core.llm_client"):
+                raise ImportError("graphiti-core not installed")
+            return original_import(name, *args, **kwargs)
 
-                assert "graphiti-core" in str(exc_info.value)
+        with patch("builtins.__import__", side_effect=mock_import):
+            with pytest.raises(ProviderNotInstalled) as exc_info:
+                create_openrouter_llm_client(mock_config)
+
+            assert "graphiti-core" in str(exc_info.value)
 
     @pytest.mark.slow
     def test_create_openrouter_llm_client_passes_config_correctly(self, mock_config):

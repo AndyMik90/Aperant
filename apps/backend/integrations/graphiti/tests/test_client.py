@@ -407,8 +407,8 @@ class TestGraphitiClientInitialize:
     """Tests for GraphitiClient.initialize method."""
 
     @pytest.mark.asyncio
-    async def test_returns_false_if_already_initialized(self):
-        """Returns False if already initialized (idempotent)."""
+    async def test_returns_true_if_already_initialized(self):
+        """Returns True if already initialized (idempotent)."""
         mock_config = MagicMock()
         client = GraphitiClient(mock_config)
         client._initialized = True

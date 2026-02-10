@@ -103,18 +103,6 @@ class TestCreateAnthropicLLMClient:
 
             assert "ANTHROPIC_API_KEY" in str(exc_info.value)
 
-    @pytest.mark.skip(
-        reason="Cannot test API key validation without anthropic installed - import fails first"
-    )
-    def test_create_anthropic_llm_client_missing_api_key(self, mock_config):
-        """Test create_anthropic_llm_client raises ProviderError for missing API key."""
-        mock_config.anthropic_api_key = None
-
-        with pytest.raises(ProviderError) as exc_info:
-            create_anthropic_llm_client(mock_config)
-
-        assert "ANTHROPIC_API_KEY" in str(exc_info.value)
-
     def test_create_anthropic_llm_client_import_error(self, mock_config):
         """Test create_anthropic_llm_client raises ProviderNotInstalled on ImportError."""
         from types import ModuleType

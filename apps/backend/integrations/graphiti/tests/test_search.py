@@ -1281,7 +1281,7 @@ class TestGetPatternsAndGotchas:
         with patch(
             "integrations.graphiti.queries_pkg.search.capture_exception"
         ) as mock_capture:
-            patterns, gotchas = await graphiti_search.get_patterns_and_gotchas(
+            _patterns, _gotchas = await graphiti_search.get_patterns_and_gotchas(
                 query="test query",
                 num_results=5,
             )

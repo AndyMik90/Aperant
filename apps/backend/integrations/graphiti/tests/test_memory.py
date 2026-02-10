@@ -5,7 +5,6 @@ This module is a backward compatibility facade that re-exports from
 queries_pkg and provides convenience functions.
 """
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
