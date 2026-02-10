@@ -1071,7 +1071,8 @@ class TestDetectConflictScenario:
             )
 
             # With mixed scenarios, should detect diverged (most complex)
-            assert result["scenario"] in ["already_merged", "diverged", "normal_conflict"]
+            assert result["scenario"] == "diverged", \
+                f"Expected 'diverged' with mixed scenarios (1 already_merged + 1 diverged), got: {result['scenario']}"
 
 
 # =============================================================================
@@ -2695,18 +2696,9 @@ print('OK')
             timeout=10,
         )
 
-        # The debug blocker approach might not work perfectly, so let's check if it at least imports
-        # If the import succeeds, that's good enough
-        if result.returncode != 0:
-            # Import succeeded but test assertion failed - check output
-            if "OK" in result.stdout or "Blocked import" not in result.stderr:
-                # At least the import worked
-                pass
-
-        # If subprocess approach fails, at least verify the functions exist
-        from cli.workspace_commands import debug, is_debug_enabled
-        assert callable(debug)
-        assert callable(is_debug_enabled)
+        # Verify subprocess succeeded - this validates fallback functions work
+        assert result.returncode == 0, f"Subprocess failed: stderr={result.stderr}"
+        assert "OK" in result.stdout, f"Expected 'OK' in output, got: {result.stdout}"
 
     def test_fallback_functions_coverage_via_import_error(self):
         """Tests fallback debug functions via simulated ImportError (lines 335-363)."""
@@ -2774,26 +2766,9 @@ except Exception as e:
             timeout=10,
         )
 
-        # The test should succeed
-        if result.returncode != 0 and "OK" not in result.stdout:
-            # If it fails, at least verify the fallback functions exist in the current module
-            from cli.workspace_commands import (
-                debug,
-                debug_detailed,
-                debug_verbose,
-                debug_success,
-                debug_error,
-                debug_section,
-                is_debug_enabled
-            )
-            # All should be callable (either real or fallback)
-            assert callable(debug)
-            assert callable(debug_detailed)
-            assert callable(debug_verbose)
-            assert callable(debug_success)
-            assert callable(debug_error)
-            assert callable(debug_section)
-            assert callable(is_debug_enabled)
+        # Verify subprocess succeeded - this validates fallback functions work
+        assert result.returncode == 0, f"Subprocess failed: stderr={result.stderr}"
+        assert "OK" in result.stdout, f"Expected 'OK' in output, got: {result.stdout}"
 
 
 # =============================================================================
@@ -3012,12 +2987,12 @@ class TestEdgeCaseLines:
 
         # With equal already_merged and superseded, neither is majority (> 50%)
         # Since there are no diverged_files (all files matched either same or merge_base),
-        # we should hit the else branch at lines 678-679
-        # Actually, let me check - if there are no diverged files, and neither already_merged
-        # nor superseded is majority, then we hit else
+        # we should hit the else branch at lines 678-679 which returns "normal_conflict"
+        # Note: When neither condition is met (> 50%), the function falls through
+        # to the final else branch that returns "normal_conflict"
 
-        # The scenario should be one of the above or normal_conflict
-        assert result["scenario"] in ["already_merged", "superseded", "diverged", "normal_conflict"]
+        assert result["scenario"] == "normal_conflict", \
+            f"Expected 'normal_conflict' with equal already_merged/superseded (50% each), got: {result['scenario']}"
 
         # Actually, looking more carefully at the code:
         # - Line 674: `elif diverged_files:` - if diverged_files is non-empty, this matches

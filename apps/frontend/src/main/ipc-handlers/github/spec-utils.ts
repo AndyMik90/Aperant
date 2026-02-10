@@ -137,9 +137,8 @@ export async function createSpecForIssue(
       status: 'pending',
       phases: []
     };
+    // lgtm[js/http-to-file-access] - specDir is controlled, slugifiedTitle sanitizes input
     writeFileSync(
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      // lgtm[js/http-to-file-access] - specDir is controlled, slugifiedTitle sanitizes input
       path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
       JSON.stringify(implementationPlan, null, 2),
       'utf-8'

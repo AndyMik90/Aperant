@@ -76,8 +76,8 @@ export function registerInvestigateIssue(
 ): void {
   ipcMain.on(
     IPC_CHANNELS.GITLAB_INVESTIGATE_ISSUE,
-    async (_event, projectId: string, issueIid: number, selectedNoteIds?: number[]) => {
-      debugLog('investigateGitLabIssue handler called', { projectId, issueIid, selectedNoteIds });
+    async (_event, projectId: string, issueIid: number, _selectedNoteIds?: number[]) => {
+      debugLog('investigateGitLabIssue handler called', { projectId, issueIid });
 
       const project = projectStore.getProject(projectId);
       if (!project) {
@@ -109,11 +109,8 @@ export function registerInvestigateIssue(
           `/projects/${encodedProject}/issues/${issueIid}`
         ) as GitLabAPIIssue;
 
-        // Fetch notes if any selected
-        if (selectedNoteIds && selectedNoteIds.length > 0) {
-          // selectedNotes processing now handled internally by spec creation pipeline
-          // Note: allNotes fetch removed as processing is now internal
-        }
+        // Note: selectedNoteIds processing is now handled internally by the spec
+        // creation pipeline in createSpecForIssue utility.
 
         // Phase 2: Analyzing
         sendProgress(getMainWindow, project.id, {

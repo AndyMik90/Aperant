@@ -1161,6 +1161,11 @@ class TestMainEntryExecution:
             assert e.code == 0 or e.code is None
         finally:
             sys.argv[:] = original_argv
-            # Restore original modules
-            sys.modules.clear()
+            # Restore original modules - selectively remove modules added during test
+            current_modules = set(sys.modules.keys())
+            original_module_keys = set(original_modules.keys())
+            added_modules = current_modules - original_module_keys
+            for module_name in added_modules:
+                del sys.modules[module_name]
+            # Restore original modules that may have been modified
             sys.modules.update(original_modules)
