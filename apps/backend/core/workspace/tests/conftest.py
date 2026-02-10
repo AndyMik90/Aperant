@@ -1154,9 +1154,11 @@ Add Google OAuth2 authentication to the application.
 # They cause the merge module to be loaded during pytest collection, which:
 # 1. Validates that merge module imports work correctly
 # 2. Ensures coverage includes merge module files (required for 10% threshold)
-# Removing these imports drops coverage from ~12% to ~4% (CodeQL: intentional)
+# Removing these imports drops coverage from ~12% to ~4%
+# CodeQL warning intentionally suppressed - these imports ARE used for coverage
+# CodeQL exemption: imports are intentionally unused locally but required for coverage
 try:
-    from merge import (  # noqa: F401
+    from merge import (  # noqa: F401  # CodeQL: [python/unused-import] intentional for coverage
         AIResolver,
         AutoMerger,
         ConflictDetector,
