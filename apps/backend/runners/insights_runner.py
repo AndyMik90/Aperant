@@ -47,7 +47,7 @@ from debug import (
     debug_section,
     debug_success,
 )
-from phase_config import get_thinking_budget, resolve_model_id
+from phase_config import get_thinking_budget, resolve_model_id, sanitize_thinking_level
 
 
 def load_project_context(project_dir: str) -> str:
@@ -353,10 +353,12 @@ def main():
     parser.add_argument(
         "--thinking-level",
         default="medium",
-        choices=["low", "medium", "high"],
-        help="Thinking level for extended reasoning (default: medium)",
+        help="Thinking level for extended reasoning (low, medium, high)",
     )
     args = parser.parse_args()
+
+    # Validate and sanitize thinking level (handles legacy values like 'ultrathink')
+    args.thinking_level = sanitize_thinking_level(args.thinking_level)
 
     debug_section("insights_runner", "Starting Insights Chat")
 

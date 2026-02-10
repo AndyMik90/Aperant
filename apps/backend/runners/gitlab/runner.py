@@ -47,6 +47,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from core.io_utils import safe_print
 from models import GitLabRunnerConfig
 from orchestrator import GitLabOrchestrator, ProgressCallback
+from phase_config import sanitize_thinking_level
 
 
 def print_progress(callback: ProgressCallback) -> None:
@@ -286,8 +287,7 @@ def main():
         "--thinking-level",
         type=str,
         default="medium",
-        choices=["none", "low", "medium", "high"],
-        help="Thinking level for extended reasoning",
+        help="Thinking level for extended reasoning (low, medium, high)",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
@@ -304,6 +304,9 @@ def main():
     followup_parser.add_argument("mr_iid", type=int, help="MR IID to review")
 
     args = parser.parse_args()
+
+    # Validate and sanitize thinking level (handles legacy values like 'ultrathink')
+    args.thinking_level = sanitize_thinking_level(args.thinking_level)
 
     if not args.command:
         parser.print_help()
