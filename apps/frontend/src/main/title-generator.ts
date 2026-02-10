@@ -1,18 +1,13 @@
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { existsSync, readFileSync } from 'fs';
 import { spawn } from 'child_process';
-import { app } from 'electron';
-
-// ESM-compatible __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 import { EventEmitter } from 'events';
 import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv } from './rate-limit-detector';
 import { parsePythonCommand, getValidatedPythonPath } from './python-detector';
 import { getConfiguredPythonPath } from './python-env-manager';
 import { getAPIProfileEnv } from './services/profile';
 import { getOAuthModeClearVars } from './agent/env-utils';
+import { getEffectiveSourcePath } from './updater/path-resolver';
 
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
@@ -67,18 +62,16 @@ export class TitleGenerator extends EventEmitter {
       return this.autoBuildSourcePath;
     }
 
-    const possiblePaths = [
-      // Apps structure: from out/main -> apps/backend
-      path.resolve(__dirname, '..', '..', '..', 'backend'),
-      path.resolve(app.getAppPath(), '..', 'backend'),
-      path.resolve(process.cwd(), 'apps', 'backend')
-    ];
-
-    for (const p of possiblePaths) {
-      if (existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'))) {
-        return p;
-      }
+    // Use shared path resolver which handles:
+    // 1. User settings (autoBuildPath)
+    // 2. userData override (backend-source) for user-updated backend
+    // 3. Bundled backend (process.resourcesPath/backend)
+    // 4. Development paths
+    const effectivePath = getEffectiveSourcePath();
+    if (existsSync(effectivePath) && existsSync(path.join(effectivePath, 'runners', 'spec_runner.py'))) {
+      return effectivePath;
     }
+
     return null;
   }
 
