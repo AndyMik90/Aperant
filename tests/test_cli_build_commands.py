@@ -101,12 +101,12 @@ class TestHandleBuildCommandApproval:
         mock_choose_workspace,
         mock_get_existing,
         mock_run_agent,
-        successful_agent_fn,
-        standard_build_mocks,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
+        successful_agent_fn,
+        standard_build_mocks,
     ):
         """Build proceeds when spec has valid approval."""
         # Setup
