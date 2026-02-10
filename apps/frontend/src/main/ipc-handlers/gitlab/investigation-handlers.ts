@@ -109,14 +109,33 @@ export function registerInvestigateIssue(
           `/projects/${encodedProject}/issues/${issueIid}`
         ) as GitLabAPIIssue;
 
-        // Fetch notes if any selected
+        // Fetch notes if any selected (with pagination to get all notes)
         let filteredNotes: Array<{ body: string; author: { username: string } }> = [];
         if (selectedNoteIds && selectedNoteIds.length > 0) {
-          const allNotes = await gitlabFetch(
-            config.token,
-            config.instanceUrl,
-            `/projects/${encodedProject}/issues/${issueIid}/notes`
-          ) as Array<{ id: number; body: string; author: { username: string } }>;
+          // Fetch all notes with pagination (GitLab defaults to 20 per page)
+          const allNotes: Array<{ id: number; body: string; author: { username: string } }> = [];
+          let page = 1;
+          const perPage = 100;
+          let hasMore = true;
+
+          while (hasMore) {
+            const notesPage = await gitlabFetch(
+              config.token,
+              config.instanceUrl,
+              `/projects/${encodedProject}/issues/${issueIid}/notes?page=${page}&per_page=${perPage}`
+            ) as Array<{ id: number; body: string; author: { username: string } }>;
+
+            if (notesPage.length === 0) {
+              hasMore = false;
+            } else {
+              allNotes.push(...notesPage);
+              if (notesPage.length < perPage) {
+                hasMore = false;
+              } else {
+                page++;
+              }
+            }
+          }
 
           // Filter notes based on selection
           filteredNotes = allNotes.filter(note => selectedNoteIds.includes(note.id));

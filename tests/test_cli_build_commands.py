@@ -2594,7 +2594,6 @@ class TestBuildCommandsModuleImport:
         finally:
             # Always restore original state, even if an exception occurred
             sys.path[:] = original_path
-            # Restore saved modules (if they still exist in sys.modules, skip to avoid conflicts)
+            # Unconditionally restore saved modules (overwrite to ensure clean state after failures)
             for mod_name, mod_obj in original_modules.items():
-                if mod_name not in sys.modules:
-                    sys.modules[mod_name] = mod_obj
+                sys.modules[mod_name] = mod_obj
