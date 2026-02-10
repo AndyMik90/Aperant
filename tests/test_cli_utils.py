@@ -949,7 +949,7 @@ class TestModuleLevelBehavior:
 
 
 # =============================================================================
-# Tests for Module-Level Path Insertion (Line 15)
+# Tests for module-level path insertion behavior
 # =============================================================================
 
 class TestUtilsModuleLevelPathInsertion:

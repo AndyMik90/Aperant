@@ -60,13 +60,14 @@ class MergeProgressCallback(Protocol):
         details: Optional additional context (conflicts_found, conflicts_resolved, current_file)
     """
 
+    # lgtm[py/ineffectual-statement] - Protocol abstract method uses ellipsis as placeholder
     def __call__(
         self,
         stage: MergeProgressStage,
         percent: int,
         message: str,
         details: dict[str, Any] | None = None,
-    ) -> None: ...  # lgtm[py/ineffectual-statement] - Protocol abstract method
+    ) -> None: ...
 
 
 def emit_progress(

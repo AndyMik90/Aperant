@@ -33,7 +33,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from cli.build_commands import _handle_build_interrupt, handle_build_command
 from review import ReviewState
-from workspace import WorkspaceMode, WorkspaceChoice
+from workspace import WorkspaceMode
 
 
 # =============================================================================
