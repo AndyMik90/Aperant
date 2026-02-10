@@ -36,6 +36,32 @@ def mock_graphiti_core():
     return graphiti_core
 
 
+@pytest.fixture
+def mock_sys_modules(mock_kuzu, mock_graphiti_core):
+    """Mock sys.modules with kuzu and graphiti_core components."""
+    return {
+        "kuzu": mock_kuzu,
+        "graphiti_core": MagicMock(),
+        "graphiti_core.driver": MagicMock(),
+        "graphiti_core.driver.driver": mock_graphiti_core.driver,
+        "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
+    }
+
+
+def _build_sys_modules_dict(mock_kuzu, mock_graphiti_core, kuzu_driver_module=None):
+    """Helper to build sys.modules dict with optional kuzu_driver."""
+    modules_dict = {
+        "kuzu": mock_kuzu,
+        "graphiti_core": MagicMock(),
+        "graphiti_core.driver": MagicMock(),
+        "graphiti_core.driver.driver": mock_graphiti_core.driver,
+        "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
+    }
+    if kuzu_driver_module is not None:
+        modules_dict["graphiti_core.driver.kuzu_driver"] = kuzu_driver_module
+    return modules_dict
+
+
 # =============================================================================
 # Tests for create_patched_kuzu_driver()
 # =============================================================================
@@ -63,14 +89,9 @@ class TestCreatePatchedKuzuDriver:
         # Patch the imports inside the function
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
             from integrations.graphiti.queries_pkg.kuzu_driver_patched import (
                 create_patched_kuzu_driver,
@@ -101,14 +122,9 @@ class TestCreatePatchedKuzuDriver:
         # Patch the imports inside the function
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
             from integrations.graphiti.queries_pkg.kuzu_driver_patched import (
                 create_patched_kuzu_driver,
@@ -140,14 +156,9 @@ class TestCreatePatchedKuzuDriver:
         # Patch the imports inside the function
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
             from integrations.graphiti.queries_pkg.kuzu_driver_patched import (
                 create_patched_kuzu_driver,
@@ -175,14 +186,9 @@ class TestPatchedKuzuDriverExecuteQuery:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -220,14 +226,9 @@ class TestPatchedKuzuDriverExecuteQuery:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -263,14 +264,9 @@ class TestPatchedKuzuDriverExecuteQuery:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -325,14 +321,9 @@ class TestPatchedKuzuDriverExecuteQuery:
         mock_kuzu_driver_module = MagicMock()
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -374,14 +365,9 @@ class TestPatchedKuzuDriverExecuteQuery:
         mock_kuzu_driver_module = MagicMock()
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -424,14 +410,9 @@ class TestPatchedKuzuDriverExecuteQuery:
         mock_kuzu_driver_module = MagicMock()
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -461,14 +442,9 @@ class TestPatchedKuzuDriverExecuteQuery:
         mock_kuzu_driver_module = MagicMock()
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -512,14 +488,9 @@ class TestPatchedKuzuDriverBuildIndices:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -554,14 +525,9 @@ class TestPatchedKuzuDriverBuildIndices:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -601,14 +567,9 @@ class TestPatchedKuzuDriverBuildIndices:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -645,14 +606,9 @@ class TestPatchedKuzuDriverBuildIndices:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -680,14 +636,9 @@ class TestPatchedKuzuDriverBuildIndices:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -723,14 +674,9 @@ class TestPatchedKuzuDriverSetupSchema:
         mock_kuzu_driver_module = MagicMock()
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -777,14 +723,9 @@ class TestPatchedKuzuDriverSetupSchema:
         mock_kuzu_driver_module = MagicMock()
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -831,14 +772,9 @@ class TestPatchedKuzuDriverSetupSchema:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -869,14 +805,9 @@ class TestPatchedKuzuDriverSetupSchema:
         mock_kuzu_driver_module = MagicMock()
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -911,14 +842,9 @@ class TestPatchedKuzuDriverSetupSchema:
         mock_kuzu_driver_module = MagicMock()
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -972,14 +898,9 @@ class TestPatchedKuzuDriverDatabaseProperty:
         # Patch the imports inside the function
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
             from integrations.graphiti.queries_pkg.kuzu_driver_patched import (
                 create_patched_kuzu_driver,
@@ -1008,14 +929,9 @@ class TestPatchedKuzuDriverDatabaseProperty:
         # Patch the imports inside the function
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
             from integrations.graphiti.queries_pkg.kuzu_driver_patched import (
                 create_patched_kuzu_driver,
@@ -1045,14 +961,9 @@ class TestPatchedKuzuDriverExecuteQueryAdditional:
         mock_kuzu_driver_module = MagicMock()
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -1092,14 +1003,9 @@ class TestPatchedKuzuDriverExecuteQueryAdditional:
         mock_kuzu_driver_module = MagicMock()
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -1136,14 +1042,9 @@ class TestPatchedKuzuDriverExecuteQueryAdditional:
         mock_kuzu_driver_module = MagicMock()
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -1199,14 +1100,9 @@ class TestPatchedKuzuDriverBuildIndicesAdditional:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -1248,14 +1144,9 @@ class TestPatchedKuzuDriverBuildIndicesAdditional:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -1292,14 +1183,9 @@ class TestPatchedKuzuDriverBuildIndicesAdditional:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -1336,14 +1222,9 @@ class TestPatchedKuzuDriverBuildIndicesAdditional:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -1386,14 +1267,9 @@ class TestPatchedKuzuDriverSetupSchemaAdditional:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -1429,14 +1305,9 @@ class TestPatchedKuzuDriverSetupSchemaAdditional:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -1473,14 +1344,9 @@ class TestPatchedKuzuDriverSetupSchemaAdditional:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:
@@ -1513,14 +1379,9 @@ class TestPatchedKuzuDriverSetupSchemaAdditional:
 
         with patch.dict(
             "sys.modules",
-            {
-                "kuzu": mock_kuzu,
-                "graphiti_core": MagicMock(),
-                "graphiti_core.driver": MagicMock(),
-                "graphiti_core.driver.driver": mock_graphiti_core.driver,
-                "graphiti_core.driver.kuzu_driver": mock_kuzu_driver_module,
-                "graphiti_core.graph_queries": mock_graphiti_core.graph_queries,
-            },
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
         ):
 
             class MockKuzuDriver:

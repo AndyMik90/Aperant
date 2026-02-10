@@ -57,6 +57,17 @@ def clean_modules():
             sys.modules[mod] = original
 
 
+@pytest.fixture
+def isolate_kuzu_module():
+    """Isolate sys.modules['kuzu'] for tests that modify it."""
+    original_kuzu = sys.modules.pop("kuzu", None)
+    yield
+    if original_kuzu:
+        sys.modules["kuzu"] = original_kuzu
+    elif "kuzu" in sys.modules:
+        del sys.modules["kuzu"]
+
+
 # =============================================================================
 # Tests for _apply_ladybug_monkeypatch()
 # =============================================================================
@@ -65,308 +76,214 @@ def clean_modules():
 class TestApplyLadybugMonkeypatch:
     """Tests for the _apply_ladybug_monkeypatch function."""
 
-    def test_returns_true_when_real_ladybug_imports_successfully(self):
+    def test_returns_true_when_real_ladybug_imports_successfully(
+        self, isolate_kuzu_module
+    ):
         """Returns True when real_ladybug imports successfully."""
         mock_ladybug = MagicMock()
 
-        # Store and remove kuzu from sys.modules if present
-        original_kuzu = sys.modules.pop("kuzu", None)
+        # Mock the import statement by patching __import__
+        def import_side_effect(name, *args, **kwargs):
+            if name == "real_ladybug":
+                return mock_ladybug
+            # Fall through to original import for other modules
+            return original_import(name, *args, **kwargs)
 
-        try:
-            # Mock the import statement by patching __import__
-            def import_side_effect(name, *args, **kwargs):
-                if name == "real_ladybug":
-                    return mock_ladybug
-                # Fall through to original import for other modules
-                return original_import(name, *args, **kwargs)
+        original_import = builtins.__import__
+        with patch("builtins.__import__", side_effect=import_side_effect):
+            _apply_ladybug_monkeypatch()
 
-            original_import = builtins.__import__
-            with patch("builtins.__import__", side_effect=import_side_effect):
-                _apply_ladybug_monkeypatch()
+            assert _apply_ladybug_monkeypatch() is True
+            assert sys.modules.get("kuzu") == mock_ladybug
 
-                assert _apply_ladybug_monkeypatch() is True
-                assert sys.modules.get("kuzu") == mock_ladybug
-        finally:
-            # Restore original kuzu module
-            if original_kuzu:
-                sys.modules["kuzu"] = original_kuzu
-            elif "kuzu" in sys.modules:
-                del sys.modules["kuzu"]
-
-    def test_patches_sys_modules_kuzu_with_real_ladybug(self):
+    def test_patches_sys_modules_kuzu_with_real_ladybug(self, isolate_kuzu_module):
         """Patches sys.modules["kuzu"] with real_ladybug."""
         mock_ladybug = MagicMock()
 
-        # Store and remove kuzu from sys.modules if present
-        original_kuzu = sys.modules.pop("kuzu", None)
+        def import_side_effect(name, *args, **kwargs):
+            if name == "real_ladybug":
+                return mock_ladybug
+            return original_import(name, *args, **kwargs)
 
-        try:
+        original_import = builtins.__import__
+        with patch("builtins.__import__", side_effect=import_side_effect):
+            result = _apply_ladybug_monkeypatch()
 
-            def import_side_effect(name, *args, **kwargs):
-                if name == "real_ladybug":
-                    return mock_ladybug
-                return original_import(name, *args, **kwargs)
+            # Verify sys.modules["kuzu"] was patched
+            assert result is True
+            assert sys.modules.get("kuzu") == mock_ladybug
 
-            original_import = builtins.__import__
-            with patch("builtins.__import__", side_effect=import_side_effect):
-                result = _apply_ladybug_monkeypatch()
-
-                # Verify sys.modules["kuzu"] was patched
-                assert result is True
-                assert sys.modules.get("kuzu") == mock_ladybug
-        finally:
-            # Restore original kuzu module
-            if original_kuzu:
-                sys.modules["kuzu"] = original_kuzu
-            elif "kuzu" in sys.modules:
-                del sys.modules["kuzu"]
-
-    def test_falls_back_to_native_kuzu_if_real_ladybug_unavailable(self):
+    def test_falls_back_to_native_kuzu_if_real_ladybug_unavailable(
+        self, isolate_kuzu_module
+    ):
         """Falls back to native kuzu if real_ladybug unavailable."""
         mock_kuzu = MagicMock()
 
-        # Store and remove kuzu from sys.modules if present
-        original_kuzu = sys.modules.pop("kuzu", None)
+        def import_side_effect(name, *args, **kwargs):
+            if name == "real_ladybug":
+                raise ImportError("real_ladybug not found")
+            elif name == "kuzu":
+                # Simulate what real import does - add to sys.modules
+                sys.modules["kuzu"] = mock_kuzu
+                return mock_kuzu
+            return original_import(name, *args, **kwargs)
 
-        try:
+        original_import = builtins.__import__
+        with patch("builtins.__import__", side_effect=import_side_effect):
+            result = _apply_ladybug_monkeypatch()
 
-            def import_side_effect(name, *args, **kwargs):
-                if name == "real_ladybug":
-                    raise ImportError("real_ladybug not found")
-                elif name == "kuzu":
-                    # Simulate what real import does - add to sys.modules
-                    sys.modules["kuzu"] = mock_kuzu
-                    return mock_kuzu
-                return original_import(name, *args, **kwargs)
+            # Should return True if kuzu is available
+            assert result is True
+            # When native kuzu is imported, the import statement adds it to sys.modules
+            assert sys.modules.get("kuzu") == mock_kuzu
 
-            original_import = builtins.__import__
-            with patch("builtins.__import__", side_effect=import_side_effect):
-                result = _apply_ladybug_monkeypatch()
-
-                # Should return True if kuzu is available
-                assert result is True
-                # When native kuzu is imported, the import statement adds it to sys.modules
-                assert sys.modules.get("kuzu") == mock_kuzu
-        finally:
-            # Restore original kuzu module
-            if original_kuzu:
-                sys.modules["kuzu"] = original_kuzu
-            elif "kuzu" in sys.modules:
-                del sys.modules["kuzu"]
-
-    def test_returns_false_when_neither_available(self):
+    def test_returns_false_when_neither_available(self, isolate_kuzu_module):
         """Returns False when neither real_ladybug nor kuzu available."""
 
-        # Store and remove kuzu from sys.modules if present
-        original_kuzu = sys.modules.pop("kuzu", None)
+        def import_side_effect(name, *args, **kwargs):
+            if name == "real_ladybug":
+                raise ImportError("real_ladybug not found")
+            elif name == "kuzu":
+                raise ImportError("kuzu not found")
+            return original_import(name, *args, **kwargs)
 
-        try:
+        original_import = builtins.__import__
+        with patch("builtins.__import__", side_effect=import_side_effect):
+            result = _apply_ladybug_monkeypatch()
 
-            def import_side_effect(name, *args, **kwargs):
-                if name == "real_ladybug":
-                    raise ImportError("real_ladybug not found")
-                elif name == "kuzu":
-                    raise ImportError("kuzu not found")
-                return original_import(name, *args, **kwargs)
+            assert result is False
 
-            original_import = builtins.__import__
-            with patch("builtins.__import__", side_effect=import_side_effect):
-                result = _apply_ladybug_monkeypatch()
-
-                assert result is False
-        finally:
-            # Restore original kuzu module
-            if original_kuzu:
-                sys.modules["kuzu"] = original_kuzu
-            elif "kuzu" in sys.modules:
-                del sys.modules["kuzu"]
-
-    def test_windows_pywin32_error_handling(self):
+    def test_windows_pywin32_error_handling(self, isolate_kuzu_module):
         """Windows-specific pywin32 error handling."""
         # Create an ImportError with pywin32-related name
         import_error = ImportError("No module named 'pywintypes'")
         import_error.name = "pywintypes"
 
-        # Store and remove kuzu from sys.modules if present
-        original_kuzu = sys.modules.pop("kuzu", None)
+        def import_side_effect(name, *args, **kwargs):
+            if name == "real_ladybug":
+                raise import_error
+            elif name == "kuzu":
+                raise ImportError("kuzu not found")
+            return original_import(name, *args, **kwargs)
 
-        try:
+        original_import = builtins.__import__
+        with patch.object(sys, "platform", "win32"):
+            with patch.object(sys, "version_info", (3, 12, 0)):
+                with patch("builtins.__import__", side_effect=import_side_effect):
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client.logger"
+                    ) as mock_logger:
+                        result = _apply_ladybug_monkeypatch()
 
-            def import_side_effect(name, *args, **kwargs):
-                if name == "real_ladybug":
-                    raise import_error
-                elif name == "kuzu":
-                    raise ImportError("kuzu not found")
-                return original_import(name, *args, **kwargs)
+                        # Should log specific error about pywin32
+                        mock_logger.error.assert_called()
+                        error_msg = str(mock_logger.error.call_args)
+                        assert "pywin32" in error_msg or "pywintypes" in error_msg
 
-            original_import = builtins.__import__
-            with patch.object(sys, "platform", "win32"):
-                with patch.object(sys, "version_info", (3, 12, 0)):
-                    with patch("builtins.__import__", side_effect=import_side_effect):
-                        with patch(
-                            "integrations.graphiti.queries_pkg.client.logger"
-                        ) as mock_logger:
-                            result = _apply_ladybug_monkeypatch()
-
-                            # Should log specific error about pywin32
-                            mock_logger.error.assert_called()
-                            error_msg = str(mock_logger.error.call_args)
-                            assert "pywin32" in error_msg or "pywintypes" in error_msg
-        finally:
-            # Restore original kuzu module
-            if original_kuzu:
-                sys.modules["kuzu"] = original_kuzu
-            elif "kuzu" in sys.modules:
-                del sys.modules["kuzu"]
-
-    def test_windows_pywin32_error_detected_by_string_match(self):
+    def test_windows_pywin32_error_detected_by_string_match(self, isolate_kuzu_module):
         """Windows pywin32 error detected by string match when name unavailable."""
         # Create ImportError without name attribute (some Python versions)
         import_error = ImportError("DLL load failed while importing pywintypes")
 
-        # Store and remove kuzu from sys.modules if present
-        original_kuzu = sys.modules.pop("kuzu", None)
+        def import_side_effect(name, *args, **kwargs):
+            if name == "real_ladybug":
+                raise import_error
+            elif name == "kuzu":
+                raise ImportError("kuzu not found")
+            return original_import(name, *args, **kwargs)
 
-        try:
-
-            def import_side_effect(name, *args, **kwargs):
-                if name == "real_ladybug":
-                    raise import_error
-                elif name == "kuzu":
-                    raise ImportError("kuzu not found")
-                return original_import(name, *args, **kwargs)
-
-            original_import = builtins.__import__
-            with patch.object(sys, "platform", "win32"):
-                with patch.object(sys, "version_info", (3, 12, 0)):
-                    with patch("builtins.__import__", side_effect=import_side_effect):
-                        with patch(
-                            "integrations.graphiti.queries_pkg.client.logger"
-                        ) as mock_logger:
-                            result = _apply_ladybug_monkeypatch()
-
-                            # Should detect pywin32 error via string match
-                            mock_logger.error.assert_called()
-                            error_msg = str(mock_logger.error.call_args)
-                            assert "pywin32" in error_msg
-        finally:
-            # Restore original kuzu module
-            if original_kuzu:
-                sys.modules["kuzu"] = original_kuzu
-            elif "kuzu" in sys.modules:
-                del sys.modules["kuzu"]
-
-    def test_non_windows_pywin32_error_does_not_trigger_special_handling(self):
-        """Non-Windows pywin32-like error doesn't trigger special handling."""
-        import_error = ImportError("pywintypes not found")
-
-        # Store and remove kuzu from sys.modules if present
-        original_kuzu = sys.modules.pop("kuzu", None)
-
-        try:
-
-            def import_side_effect(name, *args, **kwargs):
-                if name == "real_ladybug":
-                    raise import_error
-                elif name == "kuzu":
-                    raise ImportError("kuzu not found")
-                return original_import(name, *args, **kwargs)
-
-            original_import = builtins.__import__
-            with patch.object(sys, "platform", "linux"):
+        original_import = builtins.__import__
+        with patch.object(sys, "platform", "win32"):
+            with patch.object(sys, "version_info", (3, 12, 0)):
                 with patch("builtins.__import__", side_effect=import_side_effect):
                     with patch(
                         "integrations.graphiti.queries_pkg.client.logger"
                     ) as mock_logger:
                         result = _apply_ladybug_monkeypatch()
 
-                        # Should use debug, not error (non-Windows)
-                        # The function should still log debug, but not error about pywin32
-                        assert not any(
-                            "pywin32" in str(call)
-                            and "error" in str(mock_logger.error.call_args_list)
-                            for call in [
-                                str(c) for c in mock_logger.error.call_args_list
-                            ]
-                        )
-        finally:
-            # Restore original kuzu module
-            if original_kuzu:
-                sys.modules["kuzu"] = original_kuzu
-            elif "kuzu" in sys.modules:
-                del sys.modules["kuzu"]
+                        # Should detect pywin32 error via string match
+                        mock_logger.error.assert_called()
+                        error_msg = str(mock_logger.error.call_args)
+                        assert "pywin32" in error_msg
 
-    def test_windows_python_311_does_not_show_pywin32_error(self):
+    def test_non_windows_pywin32_error_does_not_trigger_special_handling(
+        self, isolate_kuzu_module
+    ):
+        """Non-Windows pywin32-like error doesn't trigger special handling."""
+        import_error = ImportError("pywintypes not found")
+
+        def import_side_effect(name, *args, **kwargs):
+            if name == "real_ladybug":
+                raise import_error
+            elif name == "kuzu":
+                raise ImportError("kuzu not found")
+            return original_import(name, *args, **kwargs)
+
+        original_import = builtins.__import__
+        with patch.object(sys, "platform", "linux"):
+            with patch("builtins.__import__", side_effect=import_side_effect):
+                with patch(
+                    "integrations.graphiti.queries_pkg.client.logger"
+                ) as mock_logger:
+                    result = _apply_ladybug_monkeypatch()
+
+                    # Should use debug, not error (non-Windows)
+                    # The function should still log debug, but not error about pywin32
+                    assert not any(
+                        "pywin32" in str(call)
+                        and "error" in str(mock_logger.error.call_args_list)
+                        for call in [str(c) for c in mock_logger.error.call_args_list]
+                    )
+
+    def test_windows_python_311_does_not_show_pywin32_error(self, isolate_kuzu_module):
         """Windows Python 3.11 doesn't show pywin32-specific error."""
         import_error = ImportError("real_ladybug not found")
 
-        # Store and remove kuzu from sys.modules if present
-        original_kuzu = sys.modules.pop("kuzu", None)
+        def import_side_effect(name, *args, **kwargs):
+            if name == "real_ladybug":
+                raise import_error
+            elif name == "kuzu":
+                raise ImportError("kuzu not found")
+            return original_import(name, *args, **kwargs)
 
-        try:
+        original_import = builtins.__import__
+        with patch.object(sys, "platform", "win32"):
+            with patch.object(sys, "version_info", (3, 11, 0)):  # Python 3.11
+                with patch("builtins.__import__", side_effect=import_side_effect):
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client.logger"
+                    ) as mock_logger:
+                        result = _apply_ladybug_monkeypatch()
 
-            def import_side_effect(name, *args, **kwargs):
-                if name == "real_ladybug":
-                    raise import_error
-                elif name == "kuzu":
-                    raise ImportError("kuzu not found")
-                return original_import(name, *args, **kwargs)
+                        # Should not show pywin32 error for Python 3.11
+                        for call in mock_logger.error.call_args_list:
+                            assert "pywin32" not in str(call)
 
-            original_import = builtins.__import__
-            with patch.object(sys, "platform", "win32"):
-                with patch.object(sys, "version_info", (3, 11, 0)):  # Python 3.11
-                    with patch("builtins.__import__", side_effect=import_side_effect):
-                        with patch(
-                            "integrations.graphiti.queries_pkg.client.logger"
-                        ) as mock_logger:
-                            result = _apply_ladybug_monkeypatch()
-
-                            # Should not show pywin32 error for Python 3.11
-                            for call in mock_logger.error.call_args_list:
-                                assert "pywin32" not in str(call)
-        finally:
-            # Restore original kuzu module
-            if original_kuzu:
-                sys.modules["kuzu"] = original_kuzu
-            elif "kuzu" in sys.modules:
-                del sys.modules["kuzu"]
-
-    def test_windows_non_pywin32_import_error_logs_debug(self):
+    def test_windows_non_pywin32_import_error_logs_debug(self, isolate_kuzu_module):
         """Windows non-pywin32 import error logs debug message."""
         # Import error that doesn't contain 'pywintypes'
         import_error = ImportError("DLL load failed while importing real_ladybug")
 
-        # Store and remove kuzu from sys.modules if present
-        original_kuzu = sys.modules.pop("kuzu", None)
+        def import_side_effect(name, *args, **kwargs):
+            if name == "real_ladybug":
+                raise import_error
+            elif name == "kuzu":
+                raise ImportError("kuzu not found")
+            return original_import(name, *args, **kwargs)
 
-        try:
+        original_import = builtins.__import__
+        with patch.object(sys, "platform", "win32"):
+            with patch("builtins.__import__", side_effect=import_side_effect):
+                with patch(
+                    "integrations.graphiti.queries_pkg.client.logger"
+                ) as mock_logger:
+                    result = _apply_ladybug_monkeypatch()
 
-            def import_side_effect(name, *args, **kwargs):
-                if name == "real_ladybug":
-                    raise import_error
-                elif name == "kuzu":
-                    raise ImportError("kuzu not found")
-                return original_import(name, *args, **kwargs)
-
-            original_import = builtins.__import__
-            with patch.object(sys, "platform", "win32"):
-                with patch("builtins.__import__", side_effect=import_side_effect):
-                    with patch(
-                        "integrations.graphiti.queries_pkg.client.logger"
-                    ) as mock_logger:
-                        result = _apply_ladybug_monkeypatch()
-
-                        # Should log debug for Windows-specific import issue
-                        assert any(
-                            "Windows-specific import issue" in str(call)
-                            for call in mock_logger.debug.call_args_list
-                        )
-        finally:
-            # Restore original kuzu module
-            if original_kuzu:
-                sys.modules["kuzu"] = original_kuzu
-            elif "kuzu" in sys.modules:
-                del sys.modules["kuzu"]
+                    # Should log debug for Windows-specific import issue
+                    assert any(
+                        "Windows-specific import issue" in str(call)
+                        for call in mock_logger.debug.call_args_list
+                    )
 
 
 # =============================================================================
@@ -1448,38 +1365,28 @@ class TestGraphitiClientClose:
 class TestApplyLadybugMonkeypatchAdditional:
     """Additional tests for ladybug monkeypatch edge cases."""
 
-    def test_logs_debug_on_ladybug_import_failure(self):
+    def test_logs_debug_on_ladybug_import_failure(self, isolate_kuzu_module):
         """Logs debug message when LadybugDB import fails."""
-        # Store and remove kuzu from sys.modules if present
-        original_kuzu = sys.modules.pop("kuzu", None)
 
-        try:
+        def import_side_effect(name, *args, **kwargs):
+            if name == "real_ladybug":
+                raise ImportError("real_ladybug not found")
+            return original_import(name, *args, **kwargs)
 
-            def import_side_effect(name, *args, **kwargs):
-                if name == "real_ladybug":
-                    raise ImportError("real_ladybug not found")
-                return original_import(name, *args, **kwargs)
-
-            original_import = builtins.__import__
-            with patch("builtins.__import__", side_effect=import_side_effect):
-                with patch(
-                    "integrations.graphiti.queries_pkg.client.logger"
-                ) as mock_logger:
-                    # Mock kuzu to be available for fallback
-                    sys.modules["kuzu"] = MagicMock()
-                    try:
-                        result = _apply_ladybug_monkeypatch()
-                        assert result is True
-                        # Should log debug for ladybug failure
-                        mock_logger.debug.assert_called()
-                    finally:
-                        sys.modules.pop("kuzu", None)
-        finally:
-            # Restore original kuzu module
-            if original_kuzu:
-                sys.modules["kuzu"] = original_kuzu
-            elif "kuzu" in sys.modules:
-                del sys.modules["kuzu"]
+        original_import = builtins.__import__
+        with patch("builtins.__import__", side_effect=import_side_effect):
+            with patch(
+                "integrations.graphiti.queries_pkg.client.logger"
+            ) as mock_logger:
+                # Mock kuzu to be available for fallback
+                sys.modules["kuzu"] = MagicMock()
+                try:
+                    result = _apply_ladybug_monkeypatch()
+                    assert result is True
+                    # Should log debug for ladybug failure
+                    mock_logger.debug.assert_called()
+                finally:
+                    sys.modules.pop("kuzu", None)
 
 
 # =============================================================================

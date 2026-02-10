@@ -67,3 +67,4 @@ tests/
 
 # Auto Claude data directory
 .auto-claude/
+coverage.json

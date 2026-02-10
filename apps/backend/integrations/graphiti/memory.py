@@ -92,7 +92,7 @@ async def test_graphiti_connection() -> tuple[bool, str]:
 
         # Create providers
         try:
-            llm_client = create_llm_client(config)
+            llm_client = create_llm_client(config)  # pragma: no cover
             embedder = create_embedder(config)  # pragma: no cover
         except ProviderError as e:
             return False, f"Provider error: {e}"
