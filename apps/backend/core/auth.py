@@ -15,6 +15,7 @@ import subprocess
 from typing import TYPE_CHECKING
 
 from core.platform import (
+    get_where_exe_path,
     is_linux,
     is_macos,
     is_windows,
@@ -854,9 +855,9 @@ def _find_git_bash_path() -> str | None:
 
     # Method 1: Use 'where' command to find git.exe
     try:
-        # Use where.exe explicitly for reliability
+        # Use full path to where.exe for reliability (works even when System32 isn't in PATH)
         result = subprocess.run(
-            ["where.exe", "git"],
+            [get_where_exe_path(), "git"],
             capture_output=True,
             text=True,
             timeout=5,

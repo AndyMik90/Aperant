@@ -12,7 +12,7 @@ from pathlib import Path
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
-from phase_config import THINKING_BUDGET_MAP, get_thinking_budget
+from phase_config import THINKING_BUDGET_MAP, get_thinking_budget, sanitize_thinking_level
 
 
 class TestThinkingLevelValidation:
@@ -95,3 +95,32 @@ class TestThinkingLevelValidation:
             budget = get_thinking_budget("ultrathink")
             assert budget == THINKING_BUDGET_MAP["medium"]
             assert "Invalid thinking_level 'ultrathink'" in caplog.text
+
+
+class TestSanitizeThinkingLevel:
+    """Test sanitize_thinking_level for CLI argparse validation."""
+
+    def test_valid_levels_pass_through(self):
+        """Test that valid thinking levels are returned unchanged."""
+        assert sanitize_thinking_level("low") == "low"
+        assert sanitize_thinking_level("medium") == "medium"
+        assert sanitize_thinking_level("high") == "high"
+
+    def test_ultrathink_maps_to_high(self):
+        """Test that legacy 'ultrathink' is mapped to 'high'."""
+        assert sanitize_thinking_level("ultrathink") == "high"
+
+    def test_none_maps_to_low(self):
+        """Test that legacy 'none' is mapped to 'low'."""
+        assert sanitize_thinking_level("none") == "low"
+
+    def test_unknown_value_defaults_to_medium(self):
+        """Test that completely unknown values default to 'medium'."""
+        assert sanitize_thinking_level("garbage") == "medium"
+        assert sanitize_thinking_level("") == "medium"
+        assert sanitize_thinking_level("ULTRA") == "medium"
+
+    def test_case_sensitive(self):
+        """Test that sanitize_thinking_level is case-sensitive."""
+        assert sanitize_thinking_level("HIGH") == "medium"
+        assert sanitize_thinking_level("Medium") == "medium"

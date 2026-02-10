@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Brain, Scale, Zap, Check, Sparkles, ChevronDown, ChevronUp, RotateCcw, Settings2, Info } from 'lucide-react';
+import { Brain, Scale, Zap, Check, Sparkles, ChevronDown, ChevronUp, RotateCcw, Settings2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
   DEFAULT_AGENT_PROFILES,
@@ -8,13 +8,13 @@ import {
   THINKING_LEVELS,
   DEFAULT_PHASE_MODELS,
   DEFAULT_PHASE_THINKING,
-  FAST_MODE_MODELS
+  ADAPTIVE_THINKING_MODELS,
+  PHASE_KEYS
 } from '../../../shared/constants';
 import { useSettingsStore, saveSettings } from '../../stores/settings-store';
 import { SettingsSection } from './SettingsSection';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
-import { Switch } from '../ui/switch';
 import {
   Select,
   SelectContent,
@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '../ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import type { AgentProfile, PhaseModelConfig, PhaseThinkingConfig, ModelTypeShort, ThinkingLevel } from '../../../shared/types/settings';
 
 /**
@@ -34,8 +35,6 @@ const iconMap: Record<string, React.ElementType> = {
   Sparkles,
   Settings2
 };
-
-const PHASE_KEYS: Array<keyof PhaseModelConfig> = ['spec', 'planning', 'coding', 'qa'];
 
 /**
  * Agent Profile Settings component
@@ -103,17 +102,6 @@ export function AgentProfileSettings() {
     // Save as custom config (deviating from preset)
     const newPhaseThinking = { ...currentPhaseThinking, [phase]: value };
     await saveSettings({ customPhaseThinking: newPhaseThinking });
-  };
-
-  // Show Fast Mode toggle when any phase uses an Opus model
-  const showFastModeToggle = useMemo(() => {
-    return PHASE_KEYS.some(phase =>
-      FAST_MODE_MODELS.includes(currentPhaseModels[phase])
-    );
-  }, [currentPhaseModels]);
-
-  const handleFastModeToggle = async (checked: boolean) => {
-    await saveSettings({ fastMode: checked });
   };
 
   const handleResetToProfileDefaults = async () => {
@@ -302,7 +290,21 @@ export function AgentProfileSettings() {
                       </div>
                       {/* Thinking Level Select */}
                       <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">{t('agentProfile.thinkingLevel')}</Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs text-muted-foreground">{t('agentProfile.thinkingLevel')}</Label>
+                          {ADAPTIVE_THINKING_MODELS.includes(currentPhaseModels[phase]) && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary cursor-help">
+                                  {t('agentProfile.adaptiveThinking.badge')}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs">
+                                <p className="text-xs">{t('agentProfile.adaptiveThinking.tooltip')}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
                         <Select
                           value={currentPhaseThinking[phase]}
                           onValueChange={(value) => handlePhaseThinkingChange(phase, value as ThinkingLevel)}
@@ -331,37 +333,6 @@ export function AgentProfileSettings() {
             </div>
           )}
         </div>
-
-        {/* Fast Mode Toggle - shown when any phase uses an Opus model */}
-        {showFastModeToggle && (
-          <div className="mt-4 rounded-lg border border-border bg-card p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 shrink-0">
-                  <Zap className="h-5 w-5 text-amber-500" />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-foreground">
-                    {t('agentProfile.fastMode.label')}
-                  </Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {t('agentProfile.fastMode.description')}
-                  </p>
-                </div>
-              </div>
-              <Switch
-                checked={settings.fastMode ?? false}
-                onCheckedChange={handleFastModeToggle}
-              />
-            </div>
-            <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-500/5 border border-amber-500/20 p-2.5">
-              <Info className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
-              <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                {t('agentProfile.fastMode.extraUsageNotice')}
-              </p>
-            </div>
-          </div>
-        )}
 
       </div>
     </SettingsSection>

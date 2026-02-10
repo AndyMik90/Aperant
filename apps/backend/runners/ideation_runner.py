@@ -48,6 +48,7 @@ from ideation import (
     IdeationPhaseResult,
 )
 from ideation.generator import IDEATION_TYPE_LABELS, IDEATION_TYPES
+from phase_config import sanitize_thinking_level
 
 # Re-export for backward compatibility
 __all__ = [
@@ -109,8 +110,7 @@ def main():
         "--thinking-level",
         type=str,
         default="medium",
-        choices=["low", "medium", "high"],
-        help="Thinking level for extended reasoning (default: medium)",
+        help="Thinking level for extended reasoning (low, medium, high)",
     )
     parser.add_argument(
         "--refresh",
@@ -129,6 +129,9 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Validate and sanitize thinking level (handles legacy values like 'ultrathink')
+    args.thinking_level = sanitize_thinking_level(args.thinking_level)
 
     # Validate project directory
     project_dir = args.project.resolve()

@@ -10,6 +10,7 @@ import type { CustomMcpServer, McpHealthCheckResult, McpHealthStatus, McpTestCon
 import { spawn } from 'child_process';
 import { appLog } from '../app-logger';
 import { isWindows } from '../platform';
+import { getWhereExePath } from '../utils/windows-paths';
 
 /**
  * Defense-in-depth: Frontend-side command validation
@@ -194,9 +195,10 @@ async function checkCommandHealth(server: CustomMcpServer, startTime: number): P
       });
     }
 
-    const command = isWindows() ? 'where' : 'which';
+    const command = isWindows() ? getWhereExePath() : 'which';
     const proc = spawn(command, [server.command!], {
       timeout: 5000,
+      windowsHide: true,
     });
 
     let found = false;
@@ -227,12 +229,24 @@ async function checkCommandHealth(server: CustomMcpServer, startTime: number): P
       found = true;
     });
 
-    proc.on('error', () => {
+    proc.on('error', (error: Error) => {
       const responseTime = Date.now() - startTime;
+      const errCode = (error as NodeJS.ErrnoException).code;
+      let message = `Failed to check command '${server.command}'`;
+
+      // Provide actionable error messages for common failures
+      if (errCode === 'ENOENT') {
+        message = isWindows()
+          ? `System utility 'where.exe' not found. Check Windows installation.`
+          : `System utility 'which' not found. Check system PATH configuration.`;
+      } else if (errCode === 'EACCES') {
+        message = `Permission denied checking command '${server.command}'`;
+      }
+
       resolve({
         serverId: server.id,
         status: 'unhealthy',
-        message: `Failed to check command '${server.command}'`,
+        message,
         responseTime,
         checkedAt: new Date().toISOString(),
       });

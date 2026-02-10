@@ -1,16 +1,11 @@
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { existsSync, readFileSync } from 'fs';
 import { spawn } from 'child_process';
-import { app } from 'electron';
-
-// ESM-compatible __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 import { EventEmitter } from 'events';
 import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv } from './rate-limit-detector';
 import { parsePythonCommand } from './python-detector';
 import { pythonEnvManager } from './python-env-manager';
+import { getEffectiveSourcePath } from './updater/path-resolver';
 
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
@@ -51,35 +46,16 @@ export class TerminalNameGenerator extends EventEmitter {
       return this.autoBuildSourcePath;
     }
 
-    // In packaged app, check userData override first (consistent with path-resolver.ts)
-    if (app.isPackaged) {
-      // Check for user-updated backend source first (takes priority over bundled)
-      const overridePath = path.join(app.getPath('userData'), 'backend-source');
-      if (existsSync(overridePath) && existsSync(path.join(overridePath, 'runners', 'spec_runner.py'))) {
-        debug('Using user-updated backend from userData:', overridePath);
-        return overridePath;
-      }
-      // Fall back to bundled backend in resources
-      const resourcesPath = path.join(process.resourcesPath, 'backend');
-      if (existsSync(resourcesPath) && existsSync(path.join(resourcesPath, 'runners', 'spec_runner.py'))) {
-        debug('Using bundled backend from resources:', resourcesPath);
-        return resourcesPath;
-      }
+    // Use shared path resolver which handles:
+    // 1. User settings (autoBuildPath)
+    // 2. userData override (backend-source) for user-updated backend
+    // 3. Bundled backend (process.resourcesPath/backend)
+    // 4. Development paths
+    const effectivePath = getEffectiveSourcePath();
+    if (existsSync(effectivePath) && existsSync(path.join(effectivePath, 'runners', 'spec_runner.py'))) {
+      return effectivePath;
     }
 
-    // Development mode paths
-    const possiblePaths = [
-      // Apps structure: from out/main -> apps/backend
-      path.resolve(__dirname, '..', '..', '..', 'backend'),
-      path.resolve(app.getAppPath(), '..', 'backend'),
-      path.resolve(process.cwd(), 'apps', 'backend')
-    ];
-
-    for (const p of possiblePaths) {
-      if (existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'))) {
-        return p;
-      }
-    }
     return null;
   }
 
