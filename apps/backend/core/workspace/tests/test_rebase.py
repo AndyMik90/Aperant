@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Tests for Workspace Selection and Management
-=============================================
+Tests for Workspace Rebase Operations
+======================================
 
-Tests the workspace.py module functionality including:
-- Workspace mode selection (isolated vs direct)
-- Uncommitted changes detection
-- Workspace setup
-- Build finalization workflows
+Tests the rebase functionality including:
+- Rebase detection (_check_git_conflicts)
+- Spec branch rebase operations
+- Rebase integration tests
+- Rebase error handling
 """
 
 import json
@@ -18,27 +18,10 @@ import sys
 from pathlib import Path
 
 import pytest
-
-# Add parent directory to path so we can import the workspace module
-# When co-located at workspace/tests/, we need to add backend to path
-# workspace/tests -> workspace -> core -> backend (4 levels up)
-_backend = Path(__file__).resolve().parent.parent.parent.parent
-sys.path.insert(0, str(_backend))
-
-from core.workspace import (
-    WorkspaceChoice,
-    WorkspaceMode,
-    get_current_branch,
-    get_existing_build_worktree,
-    has_uncommitted_changes,
-    setup_workspace,
-)
 from worktree import WorktreeError, WorktreeManager
 
 # Test constant - in the new per-spec architecture, each spec has its own worktree
 # named after the spec itself. This constant is used for test assertions.
-TEST_SPEC_NAME = "test-spec"
-
 TEST_SPEC_NAME = "test-spec"
 
 

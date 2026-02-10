@@ -141,6 +141,7 @@ __all__ = [
     "get_changed_files_from_branch",
     "is_process_running",
     "is_binary_file",
+    "is_lock_file",
     "validate_merged_syntax",
     "create_conflict_file_with_git",
     "detect_file_renames",  # File rename detection

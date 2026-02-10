@@ -1635,3 +1635,31 @@ class TestValidateMergedSyntaxErrorHandling:
             """Mock that verifies npx fallback is used."""
             run_calls.append((args, kwargs))
             # Simulate successful npx esbuild execution
+
+            completed = MagicMock()
+            completed.returncode = 0
+            completed.stdout = b""
+            completed.stderr = b""
+            return completed
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        # Test file with valid TypeScript syntax
+        test_content = "const x: string = 'test';"
+        test_file = temp_git_repo / "test.ts"
+        test_file.write_text(test_content, encoding="utf-8")
+
+        # Call validate_merged_syntax
+        from core.workspace.git_utils import validate_merged_syntax
+
+        is_valid, error = validate_merged_syntax(
+            str(test_file), test_content, temp_git_repo
+        )
+
+        # Verify npx fallback was used
+        assert len(run_calls) > 0
+        npx_used = any("npx" in str(call[0]) for call in run_calls)
+        assert npx_used, "npx fallback should be used when esbuild binary not found"
+
+        # Should return True since syntax is valid
+        assert is_valid is True

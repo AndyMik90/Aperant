@@ -802,3 +802,4 @@ class TestCheckExistingBuildBranchCoverage:
         monkeypatch.setattr("builtins.input", lambda: "delete")
 
         result = check_existing_build(temp_git_repo, spec_name)
+        assert result is False, "Fresh choice should return False"

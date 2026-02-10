@@ -18,6 +18,25 @@ from unittest.mock import MagicMock
 import pytest
 
 # =============================================================================
+# MODULE MOCK CLEANUP - Prevents test isolation issues
+# =============================================================================
+
+# List of modules that might be mocked by test files
+_POTENTIALLY_MOCKED_MODULES = [
+    "claude_code_sdk",
+    "claude_code_sdk.types",
+    "claude_agent_sdk",
+    "claude_agent_sdk.types",
+]
+
+# Store original module references at import time (BEFORE pre-mocking)
+_original_module_state = {}
+for _name in _POTENTIALLY_MOCKED_MODULES:
+    if _name in sys.modules:
+        _original_module_state[_name] = sys.modules[_name]
+
+
+# =============================================================================
 # PRE-MOCK EXTERNAL SDK MODULES - Must happen BEFORE adding auto-claude to path
 # =============================================================================
 # These SDK modules may not be installed, so we mock them before any imports
@@ -52,25 +71,6 @@ sys.path.insert(0, str(_backend))
 # Add repo root to sys.path for test_fixtures import fallback
 _repo_root = _backend.parent.parent
 sys.path.insert(0, str(_repo_root))
-
-
-# =============================================================================
-# MODULE MOCK CLEANUP - Prevents test isolation issues
-# =============================================================================
-
-# List of modules that might be mocked by test files
-_POTENTIALLY_MOCKED_MODULES = [
-    "claude_code_sdk",
-    "claude_code_sdk.types",
-    "claude_agent_sdk",
-    "claude_agent_sdk.types",
-]
-
-# Store original module references at import time
-_original_module_state = {}
-for _name in _POTENTIALLY_MOCKED_MODULES:
-    if _name in sys.modules:
-        _original_module_state[_name] = sys.modules[_name]
 
 
 def _cleanup_mocked_modules():

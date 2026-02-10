@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-Tests for Workspace Selection and Management
-=============================================
+Tests for Workspace Setup Operations
+=====================================
 
-Tests the workspace.py module functionality including:
-- Workspace mode selection (isolated vs direct)
-- Uncommitted changes detection
-- Workspace setup
-- Build finalization workflows
+Tests the setup functionality including:
+- Spec copy to workspace operations
+- Timeline hook installation
+- Timeline tracking initialization
 """
 
 import json
@@ -18,22 +17,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
-# Add parent directory to path so we can import the workspace module
-# When co-located at workspace/tests/, we need to add backend to path
-# workspace/tests -> workspace -> core -> backend (4 levels up)
-_backend = Path(__file__).resolve().parent.parent.parent.parent
-sys.path.insert(0, str(_backend))
-
-from core.workspace import (
-    WorkspaceChoice,
-    WorkspaceMode,
-    get_current_branch,
-    get_existing_build_worktree,
-    has_uncommitted_changes,
-    setup_workspace,
-)
-from worktree import WorktreeError, WorktreeManager
 
 # Test constant - in the new per-spec architecture, each spec has its own worktree
 # named after the spec itself. This constant is used for test assertions.
@@ -308,8 +291,3 @@ class TestInitializeTimelineTracking:
         # Should print warning
         captured = capsys.readouterr()
         assert "Timeline tracking" in captured.out or "Note:" in captured.out
-
-
-# =============================================================================
-# TESTS FOR finalization.py
-# =============================================================================
