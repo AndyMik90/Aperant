@@ -46,6 +46,29 @@ class TestCreateOpenAIEmbedder:
             result = create_openai_embedder(mock_config)
             assert result == mock_embedder
 
+    def test_create_openai_embedder_success_fast(self, mock_config):
+        """Fast test for create_openai_embedder success path."""
+        mock_embedder = MagicMock()
+
+        # Mock the graphiti_core imports
+        with patch.dict(
+            "sys.modules",
+            {
+                "graphiti_core": MagicMock(),
+                "graphiti_core.embedder": MagicMock(),
+                "graphiti_core.embedder.openai": MagicMock(),
+            },
+        ):
+            from graphiti_core.embedder.openai import OpenAIEmbedder
+
+            OpenAIEmbedder.return_value = mock_embedder
+
+            result = create_openai_embedder(mock_config)
+
+            # Verify the embedder was created and returned
+            OpenAIEmbedder.assert_called_once()
+            assert result == mock_embedder
+
     def test_create_openai_embedder_missing_api_key(self, mock_config):
         """Test create_openai_embedder raises ProviderError for missing API key."""
         mock_config.openai_api_key = None
