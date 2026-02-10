@@ -23,6 +23,20 @@ from integrations.graphiti.providers_pkg.exceptions import (
 )
 
 # =============================================================================
+# Pytest fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def google_genai_mock():
+    """Mock google.generativeai module with common setup."""
+    mock_genai = MagicMock()
+    mock_genai.configure = MagicMock()
+    mock_genai.embed_content = MagicMock(return_value={"embedding": [0.1, 0.2, 0.3]})
+    return mock_genai
+
+
+# =============================================================================
 # Test GoogleEmbedder class
 # =============================================================================
 
@@ -30,26 +44,20 @@ from integrations.graphiti.providers_pkg.exceptions import (
 class TestGoogleEmbedder:
     """Test GoogleEmbedder class."""
 
-    def test_google_embedder_init_success(self):
+    def test_google_embedder_init_success(self, google_genai_mock):
         """Test GoogleEmbedder initializes with API key and model."""
-        mock_genai = MagicMock()
-        mock_genai.configure = MagicMock()
-
         # Inject mock into sys.modules before importing
-        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+        with patch.dict(sys.modules, {"google.generativeai": google_genai_mock}):
             embedder = GoogleEmbedder(api_key="test-key", model="test-model")
 
             assert embedder.api_key == "test-key"
             assert embedder.model == "test-model"
-            mock_genai.configure.assert_called_once_with(api_key="test-key")
+            google_genai_mock.configure.assert_called_once_with(api_key="test-key")
 
-    def test_google_embedder_init_default_model(self):
+    def test_google_embedder_init_default_model(self, google_genai_mock):
         """Test GoogleEmbedder uses default model when not specified."""
-        mock_genai = MagicMock()
-        mock_genai.configure = MagicMock()
-
         # Inject mock into sys.modules before importing
-        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+        with patch.dict(sys.modules, {"google.generativeai": google_genai_mock}):
             embedder = GoogleEmbedder(api_key="test-key")
 
             assert embedder.model == DEFAULT_GOOGLE_EMBEDDING_MODEL
@@ -72,47 +80,29 @@ class TestGoogleEmbedder:
             assert "google-generativeai" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_google_embedder_create_with_string(self):
+    async def test_google_embedder_create_with_string(self, google_genai_mock):
         """Test GoogleEmbedder.create with string input."""
-        mock_genai = MagicMock()
-        mock_genai.configure = MagicMock()
-        mock_genai.embed_content = MagicMock(
-            return_value={"embedding": [0.1, 0.2, 0.3]}
-        )
-
-        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+        with patch.dict(sys.modules, {"google.generativeai": google_genai_mock}):
             embedder = GoogleEmbedder(api_key="test-key")
             result = await embedder.create("test text")
 
             assert result == [0.1, 0.2, 0.3]
             # Assert embed_content was called
-            mock_genai.embed_content.assert_called_once()
+            google_genai_mock.embed_content.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_google_embedder_create_with_list(self):
+    async def test_google_embedder_create_with_list(self, google_genai_mock):
         """Test GoogleEmbedder.create with list input."""
-        mock_genai = MagicMock()
-        mock_genai.configure = MagicMock()
-        mock_genai.embed_content = MagicMock(
-            return_value={"embedding": [0.1, 0.2, 0.3]}
-        )
-
-        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+        with patch.dict(sys.modules, {"google.generativeai": google_genai_mock}):
             embedder = GoogleEmbedder(api_key="test-key")
             result = await embedder.create(["test", "text"])
 
             assert result == [0.1, 0.2, 0.3]
 
     @pytest.mark.asyncio
-    async def test_google_embedder_create_with_non_string_list(self):
+    async def test_google_embedder_create_with_non_string_list(self, google_genai_mock):
         """Test GoogleEmbedder.create with non-string list items (lines 71-73)."""
-        mock_genai = MagicMock()
-        mock_genai.configure = MagicMock()
-        mock_genai.embed_content = MagicMock(
-            return_value={"embedding": [0.1, 0.2, 0.3]}
-        )
-
-        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+        with patch.dict(sys.modules, {"google.generativeai": google_genai_mock}):
             embedder = GoogleEmbedder(api_key="test-key")
             # List with non-string items - should convert to string
             result = await embedder.create([123, 456])
@@ -120,15 +110,9 @@ class TestGoogleEmbedder:
             assert result == [0.1, 0.2, 0.3]
 
     @pytest.mark.asyncio
-    async def test_google_embedder_create_with_empty_list(self):
+    async def test_google_embedder_create_with_empty_list(self, google_genai_mock):
         """Test GoogleEmbedder.create with empty or invalid input (line 75)."""
-        mock_genai = MagicMock()
-        mock_genai.configure = MagicMock()
-        mock_genai.embed_content = MagicMock(
-            return_value={"embedding": [0.1, 0.2, 0.3]}
-        )
-
-        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+        with patch.dict(sys.modules, {"google.generativeai": google_genai_mock}):
             embedder = GoogleEmbedder(api_key="test-key")
             # Empty list - should be converted to string
             result = await embedder.create([])
@@ -136,16 +120,14 @@ class TestGoogleEmbedder:
             assert result == [0.1, 0.2, 0.3]
 
     @pytest.mark.asyncio
-    async def test_google_embedder_create_batch(self):
+    async def test_google_embedder_create_batch(self, google_genai_mock):
         """Test GoogleEmbedder.create_batch with multiple inputs (lines 100-127)."""
-        mock_genai = MagicMock()
-        mock_genai.configure = MagicMock()
-        # Mock batch embedding response - nested list for batch
-        mock_genai.embed_content = MagicMock(
+        # Override embed_content return value for batch test
+        google_genai_mock.embed_content = MagicMock(
             return_value={"embedding": [[0.1, 0.2], [0.3, 0.4]]}
         )
 
-        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+        with patch.dict(sys.modules, {"google.generativeai": google_genai_mock}):
             embedder = GoogleEmbedder(api_key="test-key")
             result = await embedder.create_batch(["text1", "text2"])
 
@@ -153,16 +135,16 @@ class TestGoogleEmbedder:
             assert len(result) == 2
 
     @pytest.mark.asyncio
-    async def test_google_embedder_create_batch_single_response(self):
+    async def test_google_embedder_create_batch_single_response(
+        self, google_genai_mock
+    ):
         """Test GoogleEmbedder.create_batch with single embedding response (lines 124-125)."""
-        mock_genai = MagicMock()
-        mock_genai.configure = MagicMock()
-        # Mock single embedding response (not nested)
-        mock_genai.embed_content = MagicMock(
+        # Override embed_content return value for single response test
+        google_genai_mock.embed_content = MagicMock(
             return_value={"embedding": [0.1, 0.2, 0.3]}
         )
 
-        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+        with patch.dict(sys.modules, {"google.generativeai": google_genai_mock}):
             embedder = GoogleEmbedder(api_key="test-key")
             result = await embedder.create_batch(["text1"])
 
@@ -172,20 +154,20 @@ class TestGoogleEmbedder:
 
     @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_google_embedder_create_batch_large_input(self):
+    async def test_google_embedder_create_batch_large_input(self, google_genai_mock):
         """Test GoogleEmbedder.create_batch with >100 items (batching)."""
-        mock_genai = MagicMock()
-        mock_genai.configure = MagicMock()
-        # Mock batch embedding response
-        mock_genai.embed_content = MagicMock(return_value={"embedding": [[0.1, 0.2]]})
+        # Override embed_content return value for large batch test
+        google_genai_mock.embed_content = MagicMock(
+            return_value={"embedding": [[0.1, 0.2]]}
+        )
 
-        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+        with patch.dict(sys.modules, {"google.generativeai": google_genai_mock}):
             embedder = GoogleEmbedder(api_key="test-key")
             # Create 250 items - should be split into 3 batches (100, 100, 50)
             result = await embedder.create_batch([f"text{i}" for i in range(250)])
 
             # Should call embed_content 3 times
-            assert mock_genai.embed_content.call_count == 3
+            assert google_genai_mock.embed_content.call_count == 3
 
 
 # =============================================================================

@@ -7,6 +7,23 @@ from the graphiti_providers package.
 
 import pytest
 
+# Expected exports from integrations.graphiti.providers module
+EXPECTED_EXPORTS = [
+    "ProviderError",
+    "ProviderNotInstalled",
+    "create_llm_client",
+    "create_embedder",
+    "create_cross_encoder",
+    "EMBEDDING_DIMENSIONS",
+    "get_expected_embedding_dim",
+    "validate_embedding_config",
+    "test_llm_connection",
+    "test_embedder_connection",
+    "test_ollama_connection",
+    "is_graphiti_enabled",
+    "get_graph_hints",
+]
+
 # =============================================================================
 # Tests for module imports
 # =============================================================================
@@ -124,46 +141,15 @@ class TestAllExports:
         assert hasattr(providers, "__all__")
         assert isinstance(providers.__all__, list)
 
-        expected_exports = [
-            "ProviderError",
-            "ProviderNotInstalled",
-            "create_llm_client",
-            "create_embedder",
-            "create_cross_encoder",
-            "EMBEDDING_DIMENSIONS",
-            "get_expected_embedding_dim",
-            "validate_embedding_config",
-            "test_llm_connection",
-            "test_embedder_connection",
-            "test_ollama_connection",
-            "is_graphiti_enabled",
-            "get_graph_hints",
-        ]
-
-        for export in expected_exports:
+        for export in EXPECTED_EXPORTS:
             assert export in providers.__all__, f"{export} not in __all__"
 
     def test_all_exports_count(self):
         """Test __all__ contains the expected number of exports."""
         from integrations.graphiti import providers
 
-        expected_exports = [
-            "ProviderError",
-            "ProviderNotInstalled",
-            "create_llm_client",
-            "create_embedder",
-            "create_cross_encoder",
-            "EMBEDDING_DIMENSIONS",
-            "get_expected_embedding_dim",
-            "validate_embedding_config",
-            "test_llm_connection",
-            "test_embedder_connection",
-            "test_ollama_connection",
-            "is_graphiti_enabled",
-            "get_graph_hints",
-        ]
-        # Should have same number of exports as expected_exports list
-        assert len(providers.__all__) == len(expected_exports)
+        # Should have same number of exports as EXPECTED_EXPORTS list
+        assert len(providers.__all__) == len(EXPECTED_EXPORTS)
 
 
 # =============================================================================

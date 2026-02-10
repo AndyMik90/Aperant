@@ -140,9 +140,19 @@ class TestCreateOpenAILLMClient:
             assert result == mock_client
 
     @pytest.mark.slow
-    def test_create_openai_llm_client_gpt5_model_with_reasoning(self, mock_config):
-        """Test create_openai_llm_client with GPT-5 model supports reasoning."""
-        mock_config.openai_model = "gpt-5-turbo"
+    @pytest.mark.parametrize(
+        "model,expected_reasoning,expected_verbosity",
+        [
+            pytest.param("gpt-5-turbo", True, None, id="gpt5"),
+            pytest.param("o1-preview", True, None, id="o1"),
+            pytest.param("o3-mini", True, None, id="o3"),
+        ],
+    )
+    def test_create_openai_llm_client_reasoning_models(
+        self, mock_config, model, expected_reasoning, expected_verbosity
+    ):
+        """Test create_openai_llm_client with reasoning-capable models."""
+        mock_config.openai_model = model
         mock_client = MagicMock()
 
         with patch(
@@ -151,50 +161,12 @@ class TestCreateOpenAILLMClient:
         ) as mock_openai_client:
             create_openai_llm_client(mock_config)
 
-            # GPT-5 models should be created with default reasoning/verbosity
             mock_openai_client.assert_called_once()
             call_kwargs = mock_openai_client.call_args.kwargs
-            # Verify reasoning params are set appropriately for GPT-5
-            assert "reasoning" in call_kwargs or call_kwargs.get("reasoning") is None
-            assert "verbosity" in call_kwargs or call_kwargs.get("verbosity") is None
-
-    @pytest.mark.slow
-    def test_create_openai_llm_client_o1_model_with_reasoning(self, mock_config):
-        """Test create_openai_llm_client with o1 model supports reasoning."""
-        mock_config.openai_model = "o1-preview"
-        mock_client = MagicMock()
-
-        with patch(
-            "integrations.graphiti.providers_pkg.llm_providers.openai_llm.OpenAIClient",
-            return_value=mock_client,
-        ) as mock_openai_client:
-            create_openai_llm_client(mock_config)
-
-            # o1 models should be created with default reasoning/verbosity
-            mock_openai_client.assert_called_once()
-            call_kwargs = mock_openai_client.call_args.kwargs
-            # Verify reasoning params are set appropriately for o1
-            assert "reasoning" in call_kwargs or call_kwargs.get("reasoning") is None
-            assert "verbosity" in call_kwargs or call_kwargs.get("verbosity") is None
-
-    @pytest.mark.slow
-    def test_create_openai_llm_client_o3_model_with_reasoning(self, mock_config):
-        """Test create_openai_llm_client with o3 model supports reasoning."""
-        mock_config.openai_model = "o3-mini"
-        mock_client = MagicMock()
-
-        with patch(
-            "integrations.graphiti.providers_pkg.llm_providers.openai_llm.OpenAIClient",
-            return_value=mock_client,
-        ) as mock_openai_client:
-            create_openai_llm_client(mock_config)
-
-            # o3 models should be created with default reasoning/verbosity
-            mock_openai_client.assert_called_once()
-            call_kwargs = mock_openai_client.call_args.kwargs
-            # Verify reasoning params are set appropriately for o3
-            assert "reasoning" in call_kwargs or call_kwargs.get("reasoning") is None
-            assert "verbosity" in call_kwargs or call_kwargs.get("verbosity") is None
+            # Verify reasoning is set to True for reasoning models
+            assert call_kwargs.get("reasoning") is expected_reasoning
+            # Verify verbosity matches expected value (None for these models)
+            assert call_kwargs.get("verbosity") == expected_verbosity
 
     @pytest.mark.slow
     def test_create_openai_llm_client_gpt4_model_without_reasoning(self, mock_config):

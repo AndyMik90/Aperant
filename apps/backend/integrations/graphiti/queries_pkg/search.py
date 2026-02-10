@@ -101,10 +101,13 @@ class GraphitiSearch:
                     or str(result)
                 )
 
+                # Normalize score to float, treating None as 0.0
+                score = getattr(result, "score", None) or 0.0
+
                 context_items.append(
                     {
                         "content": content,
-                        "score": getattr(result, "score", 0.0),
+                        "score": score,
                         "type": getattr(result, "type", "unknown"),
                     }
                 )
@@ -112,7 +115,9 @@ class GraphitiSearch:
             # Filter by minimum score if specified
             if min_score > 0:
                 context_items = [
-                    item for item in context_items if item.get("score", 0) >= min_score
+                    item
+                    for item in context_items
+                    if (item.get("score") or 0.0) >= min_score
                 ]
 
             logger.info(

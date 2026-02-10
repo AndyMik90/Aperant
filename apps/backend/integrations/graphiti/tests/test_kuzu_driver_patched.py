@@ -178,48 +178,13 @@ class TestPatchedKuzuDriverExecuteQuery:
     """Tests for PatchedKuzuDriver.execute_query method."""
 
     @pytest.mark.asyncio
-    async def test_execute_query_returns_results(self, mock_kuzu, mock_graphiti_core):
-        """Test execute_query returns query results (lines 58-82)."""
-
-        # Create the kuzu_driver module mock
-        mock_kuzu_driver_module = MagicMock()
-
-        with patch.dict(
-            "sys.modules",
-            _build_sys_modules_dict(
-                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
-            ),
-        ):
-
-            class MockKuzuDriver:
-                def __init__(self, db, max_concurrent_queries=1):
-                    self.db = db
-                    self.max_concurrent_queries = max_concurrent_queries
-                    self.client = None
-
-            with patch("graphiti_core.driver.kuzu_driver.KuzuDriver", MockKuzuDriver):
-                from integrations.graphiti.queries_pkg.kuzu_driver_patched import (
-                    create_patched_kuzu_driver,
-                )
-
-                driver = create_patched_kuzu_driver()
-
-                # Mock the client and results
-                mock_result = MagicMock()
-                mock_result.rows_as_dict = MagicMock(return_value=[{"key": "value"}])
-                driver.client = AsyncMock()
-                driver.client.execute = AsyncMock(return_value=mock_result)
-
-                results, _, _ = await driver.execute_query("MATCH (n) RETURN n LIMIT 1")
-
-                assert results == [{"key": "value"}]
-
-    @pytest.mark.asyncio
-    @pytest.mark.slow
-    async def test_execute_query_returns_results_slow(
-        self, mock_kuzu, mock_graphiti_core
+    @pytest.mark.parametrize(
+        "_marker", [pytest.param(()), pytest.param((), marks=pytest.mark.slow)]
+    )
+    async def test_execute_query_returns_results(
+        self, mock_kuzu, mock_graphiti_core, _marker
     ):
-        """Test execute_query returns query results (slow variant)."""
+        """Test execute_query returns query results (lines 58-82)."""
 
         # Create the kuzu_driver module mock
         mock_kuzu_driver_module = MagicMock()
@@ -288,6 +253,19 @@ class TestPatchedKuzuDriverExecuteQuery:
                 results, _, _ = await driver.execute_query("MATCH (n) RETURN n")
 
                 assert results == []
+
+    @pytest.mark.asyncio
+    async def test_execute_query_returns_rows(self, mock_kuzu, mock_graphiti_core):
+        """Test execute_query returns rows from results."""
+
+        mock_kuzu_driver_module = MagicMock()
+
+        with patch.dict(
+            "sys.modules",
+            _build_sys_modules_dict(
+                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
+            ),
+        ):
 
             class MockKuzuDriver:
                 def __init__(self, db, max_concurrent_queries=1):
@@ -402,39 +380,6 @@ class TestPatchedKuzuDriverExecuteQuery:
                 assert params["valid_param"] == "keep_this"
 
     @pytest.mark.asyncio
-    @pytest.mark.slow
-    async def test_execute_query_handles_empty_results_slow(
-        self, mock_kuzu, mock_graphiti_core
-    ):
-        """Test execute_query handles empty results (slow variant)."""
-        mock_kuzu_driver_module = MagicMock()
-        with patch.dict(
-            "sys.modules",
-            _build_sys_modules_dict(
-                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
-            ),
-        ):
-
-            class MockKuzuDriver:
-                def __init__(self, db, max_concurrent_queries=1):
-                    self.db = db
-                    self.max_concurrent_queries = max_concurrent_queries
-                    self.client = None
-
-            with patch("graphiti_core.driver.kuzu_driver.KuzuDriver", MockKuzuDriver):
-                from integrations.graphiti.queries_pkg.kuzu_driver_patched import (
-                    create_patched_kuzu_driver,
-                )
-
-                driver = create_patched_kuzu_driver()
-
-                driver.client = AsyncMock()
-                driver.client.execute = AsyncMock(return_value=None)
-
-                results, _, _ = await driver.execute_query("MATCH (n) RETURN n")
-
-                assert results == []
-
     @pytest.mark.asyncio
     @pytest.mark.slow
     async def test_execute_query_logs_errors(self, mock_kuzu, mock_graphiti_core):
@@ -511,6 +456,11 @@ class TestPatchedKuzuDriverBuildIndices:
                 # Verify the FTS index was executed
                 mock_conn = mock_kuzu.Connection.return_value
                 assert mock_conn.execute.call_count >= 1
+                # Check that CREATE_FTS_INDEX was in the calls
+                assert any(
+                    "CREATE_FTS_INDEX" in str(call)
+                    for call in mock_conn.execute.call_args_list
+                )
 
     @pytest.mark.asyncio
     @pytest.mark.slow

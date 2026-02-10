@@ -37,6 +37,36 @@ def mock_llm_client():
     return MagicMock()
 
 
+@pytest.fixture
+def graphiti_core_mocks():
+    """Mock graphiti_core modules and capture LLMConfig calls."""
+    captured_config = {}
+
+    def capture_llm_config(**kwargs):
+        captured_config.update(kwargs)
+        return MagicMock()
+
+    with patch.dict(
+        "sys.modules",
+        {
+            "graphiti_core": MagicMock(),
+            "graphiti_core.cross_encoder": MagicMock(),
+            "graphiti_core.cross_encoder.openai_reranker_client": MagicMock(),
+            "graphiti_core.llm_client": MagicMock(),
+            "graphiti_core.llm_client.config": MagicMock(),
+        },
+    ):
+        from graphiti_core.cross_encoder.openai_reranker_client import (
+            OpenAIRerankerClient,
+        )
+        from graphiti_core.llm_client.config import LLMConfig
+
+        LLMConfig.side_effect = capture_llm_config
+        OpenAIRerankerClient.return_value = MagicMock()
+
+        yield captured_config
+
+
 # =============================================================================
 # Test create_cross_encoder()
 # =============================================================================
@@ -93,7 +123,9 @@ class TestCreateCrossEncoder:
 
         assert result is None
 
-    def test_base_url_without_v1_gets_suffix_added(self, mock_config, mock_llm_client):
+    def test_base_url_without_v1_gets_suffix_added(
+        self, mock_config, mock_llm_client, graphiti_core_mocks
+    ):
         """Test that base_url without /v1 gets /v1 suffix added."""
         mock_config.ollama_base_url = "http://localhost:11434"
 
@@ -101,42 +133,17 @@ class TestCreateCrossEncoder:
             create_cross_encoder,
         )
 
-        # Mock the graphiti_core imports
-        with patch.dict(
-            "sys.modules",
-            {
-                "graphiti_core": MagicMock(),
-                "graphiti_core.cross_encoder": MagicMock(),
-                "graphiti_core.cross_encoder.openai_reranker_client": MagicMock(),
-                "graphiti_core.llm_client": MagicMock(),
-                "graphiti_core.llm_client.config": MagicMock(),
-            },
-        ):
-            # Import the modules that we just mocked
-            from graphiti_core.cross_encoder.openai_reranker_client import (
-                OpenAIRerankerClient,
-            )
-            from graphiti_core.llm_client.config import LLMConfig
+        _ = create_cross_encoder(mock_config, mock_llm_client)
 
-            # Create a side effect to capture the LLMConfig call
-            captured_config = {}
+        # Verify base_url was captured
+        assert "base_url" in graphiti_core_mocks
+        # The function should add /v1 to the base_url
+        # But since graphiti_core is not actually available, this test
+        # verifies the logic path is correct
 
-            def capture_llm_config(**kwargs):
-                captured_config.update(kwargs)
-                return MagicMock()
-
-            LLMConfig.side_effect = capture_llm_config
-            OpenAIRerankerClient.return_value = MagicMock()
-
-            _ = create_cross_encoder(mock_config, mock_llm_client)
-
-            # Verify base_url was modified
-            assert "base_url" in captured_config
-            # The function should add /v1 to the base_url
-            # But since graphiti_core is not actually available, this test
-            # verifies the logic path is correct
-
-    def test_base_url_with_v1_is_preserved(self, mock_config, mock_llm_client):
+    def test_base_url_with_v1_is_preserved(
+        self, mock_config, mock_llm_client, graphiti_core_mocks
+    ):
         """Test that base_url with /v1 suffix is preserved."""
         mock_config.ollama_base_url = "http://localhost:11434/v1"
 
@@ -144,37 +151,11 @@ class TestCreateCrossEncoder:
             create_cross_encoder,
         )
 
-        # Mock the graphiti_core imports
-        with patch.dict(
-            "sys.modules",
-            {
-                "graphiti_core": MagicMock(),
-                "graphiti_core.cross_encoder": MagicMock(),
-                "graphiti_core.cross_encoder.openai_reranker_client": MagicMock(),
-                "graphiti_core.llm_client": MagicMock(),
-                "graphiti_core.llm_client.config": MagicMock(),
-            },
-        ):
-            from graphiti_core.cross_encoder.openai_reranker_client import (
-                OpenAIRerankerClient,
-            )
-            from graphiti_core.llm_client.config import LLMConfig
+        result = create_cross_encoder(mock_config, mock_llm_client)
 
-            # Create a side effect to capture the LLMConfig call
-            captured_config = {}
-
-            def capture_llm_config(**kwargs):
-                captured_config.update(kwargs)
-                return MagicMock()
-
-            LLMConfig.side_effect = capture_llm_config
-            OpenAIRerankerClient.return_value = MagicMock()
-
-            result = create_cross_encoder(mock_config, mock_llm_client)
-
-            # Verify base_url was preserved with /v1 suffix
-            assert "base_url" in captured_config
-            assert captured_config["base_url"] == "http://localhost:11434/v1"
+        # Verify base_url was preserved with /v1 suffix
+        assert "base_url" in graphiti_core_mocks
+        assert graphiti_core_mocks["base_url"] == "http://localhost:11434/v1"
 
     def test_import_error_returns_none(self, mock_config, mock_llm_client):
         """Test create_cross_encoder returns None when graphiti_core modules not available."""

@@ -91,8 +91,6 @@ class TestApplyLadybugMonkeypatch:
 
         original_import = builtins.__import__
         with patch("builtins.__import__", side_effect=import_side_effect):
-            _apply_ladybug_monkeypatch()
-
             assert _apply_ladybug_monkeypatch() is True
             assert sys.modules.get("kuzu") == mock_ladybug
 
@@ -229,10 +227,9 @@ class TestApplyLadybugMonkeypatch:
 
                     # Should use debug, not error (non-Windows)
                     # The function should still log debug, but not error about pywin32
-                    assert not any(
-                        "pywin32" in str(call)
-                        and "error" in str(mock_logger.error.call_args_list)
-                        for call in [str(c) for c in mock_logger.error.call_args_list]
+                    assert all(
+                        "pywin32" not in str(call)
+                        for call in mock_logger.error.call_args_list
                     )
 
     def test_windows_python_311_does_not_show_pywin32_error(self, isolate_kuzu_module):
@@ -1036,7 +1033,7 @@ class TestGraphitiClientInitialize:
                         mock_capture.assert_called()
                         # Find the call with ValueError error_type
                         for call in mock_capture.call_args_list:
-                            call_kwargs = call[1] if len(call) > 1 else call.kwargs
+                            call_kwargs = call.kwargs
                             if call_kwargs.get("error_type") == "ValueError":
                                 return
                         pytest.fail("ValueError exception not captured")

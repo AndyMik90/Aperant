@@ -202,10 +202,17 @@ class TestTestGraphitiConnection:
             mock_config.get_validation_errors.return_value = []
             mock_config_class.from_env.return_value = mock_config
 
-            with patch(
-                "builtins.__import__",
-                side_effect=ImportError("No module named 'graphiti_core'"),
-            ):
+            # Only raise ImportError for graphiti_core imports
+            import builtins
+
+            original_import = builtins.__import__
+
+            def selective_import_error(name, *args, **kwargs):
+                if "graphiti_core" in name:
+                    raise ImportError(f"No module named '{name}'")
+                return original_import(name, *args, **kwargs)
+
+            with patch("builtins.__import__", side_effect=selective_import_error):
                 success, message = await test_graphiti_connection()
 
                 assert success is False

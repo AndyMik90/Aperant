@@ -6,47 +6,84 @@ Shows how Auto Claude automatically generates provider-specific database names
 to prevent embedding dimension mismatches.
 """
 
+import pytest
 from integrations.graphiti.config import GraphitiConfig
 
 
 def test_provider_naming():
     """Demonstrate provider-specific database naming."""
-
-    print("\n" + "=" * 70)
-    print("  PROVIDER-SPECIFIC DATABASE NAMING")
-    print("=" * 70 + "\n")
-
     providers = [
-        ("openai", None, None),
-        ("ollama", "embeddinggemma", 768),
-        ("ollama", "qwen3-embedding:0.6b", 1024),
-        ("voyage", None, None),
-        ("google", None, None),
+        ("openai", None, None, "text-embedding-3-small"),
+        ("ollama", "embeddinggemma", 768, "embeddinggemma"),
+        ("ollama", "qwen3-embedding:0.6b", 1024, "qwen3-embedding:0.6b"),
+        ("voyage", None, None, "voyage-3"),
+        ("google", None, None, "text-embedding-004"),
     ]
 
-    for provider, model, dim in providers:
-        # Create config
-        config = GraphitiConfig.from_env()
+    for provider, model, dim, embedding_model in providers:
+        # Create explicit config without relying on environment
+        config = GraphitiConfig()
         config.embedder_provider = provider
+        config.openai_embedding_model = "text-embedding-3-small"
 
         if provider == "ollama" and model:
             config.ollama_embedding_model = model
             if dim:
                 config.ollama_embedding_dim = dim
+        elif provider == "voyage":
+            config.voyage_embedding_model = "voyage-3"
+        elif provider == "google":
+            config.google_embedding_model = "text-embedding-004"
 
         # Get naming info
         dimension = config.get_embedding_dimension()
         signature = config.get_provider_signature()
         db_name = config.get_provider_specific_database_name("auto_claude_memory")
 
-        # Add assertions to verify behavior
-        assert dimension is not None, f"Dimension should not be None for {provider}"
-        assert signature is not None, f"Signature should not be None for {provider}"
-        assert db_name is not None, f"Database name should not be None for {provider}"
-        assert "auto_claude_memory" in db_name or provider in db_name, (
-            f"Database name should contain base or provider name for {provider}"
+        # Strengthened assertions with exact expected values where known
+        if provider == "openai":
+            assert dimension == 1536, (
+                f"OpenAI dimension should be 1536, got {dimension}"
+            )
+            assert "openai" in signature.lower(), (
+                "OpenAI signature should contain 'openai'"
+            )
+            # Signature format is provider_dimension for openai
+            assert signature == "openai_1536", (
+                f"Expected 'openai_1536', got '{signature}'"
+            )
+        elif provider == "ollama" and model == "embeddinggemma":
+            assert dimension == 768, (
+                f"Ollama gemma dimension should be 768, got {dimension}"
+            )
+            assert signature == f"ollama_{model}_{dimension}", (
+                f"Expected 'ollama_{model}_{dimension}', got '{signature}'"
+            )
+        elif provider == "ollama" and model == "qwen3-embedding:0.6b":
+            assert dimension == 1024, (
+                f"Ollama qwen dimension should be 1024, got {dimension}"
+            )
+            # Colons in model names are replaced with underscores in signature
+            assert signature == "ollama_qwen3-embedding_0_6b_1024", (
+                f"Expected 'ollama_qwen3-embedding_0_6b_1024', got '{signature}'"
+            )
+        elif provider == "voyage":
+            assert dimension == 1024, (
+                f"Voyage dimension should be 1024, got {dimension}"
+            )
+            assert signature == "voyage_1024", (
+                f"Expected 'voyage_1024', got '{signature}'"
+            )
+        elif provider == "google":
+            assert dimension == 768, f"Google dimension should be 768, got {dimension}"
+            assert signature == "google_768", (
+                f"Expected 'google_768', got '{signature}'"
+            )
+
+        # Verify signature appears in db_name
+        assert signature is not None and signature != "", (
+            f"Signature should be non-empty for {provider}"
         )
-
-
-if __name__ == "__main__":
-    test_provider_naming()
+        assert signature in db_name, (
+            f"Signature '{signature}' should appear in db_name '{db_name}' for {provider}"
+        )
