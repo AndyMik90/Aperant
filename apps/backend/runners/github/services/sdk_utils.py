@@ -168,9 +168,9 @@ def _is_auth_error_response(text: str) -> bool:
     if len(text_lower) > MAX_AUTH_ERROR_LENGTH:
         return False
     auth_error_patterns = [
-        "does not have access to claude",
         "please login again",
         "account does not have access",
+        # Catches both "does not have access to claude" and partial variants
         "not have access to claude",
     ]
     return any(pattern in text_lower for pattern in auth_error_patterns)
@@ -477,7 +477,9 @@ async def process_sdk_stream(
                         block_type = type(block).__name__
                         if block_type == "TextBlock" and hasattr(block, "text"):
                             result_text += block.text
-                            # Check for auth/access error returned as AI response text
+                            # Check for auth/access error returned as AI response text.
+                            # Note: break exits this inner for-loop over msg.content;
+                            # the outer message loop exits via `if stream_error: break`.
                             if _is_auth_error_response(block.text):
                                 stream_error = (
                                     f"Authentication error detected in AI response: "
@@ -486,27 +488,29 @@ async def process_sdk_stream(
                                 logger.error(f"[{context_name}] {stream_error}")
                                 safe_print(f"[{context_name}] ERROR: {stream_error}")
                                 break
-                            # Check for repeated identical responses (error loop detection)
+                            # Check for repeated identical responses (error loop detection).
+                            # Skip empty text blocks so they don't reset the counter.
                             _stripped = block.text.strip()
-                            if _stripped and _stripped == last_response_text:
-                                repeated_response_count += 1
-                                if (
-                                    repeated_response_count
-                                    >= REPEATED_RESPONSE_THRESHOLD
-                                ):
-                                    stream_error = (
-                                        f"Repeated response loop detected: same response "
-                                        f"received {repeated_response_count + 1} times in a row. "
-                                        f"Response: {_stripped[:200]}"
-                                    )
-                                    logger.error(f"[{context_name}] {stream_error}")
-                                    safe_print(
-                                        f"[{context_name}] ERROR: {stream_error}"
-                                    )
-                                    break
-                            else:
-                                last_response_text = _stripped
-                                repeated_response_count = 0
+                            if _stripped:
+                                if _stripped == last_response_text:
+                                    repeated_response_count += 1
+                                    if (
+                                        repeated_response_count
+                                        >= REPEATED_RESPONSE_THRESHOLD
+                                    ):
+                                        stream_error = (
+                                            f"Repeated response loop detected: same response "
+                                            f"received {repeated_response_count + 1} times in a row. "
+                                            f"Response: {_stripped[:200]}"
+                                        )
+                                        logger.error(f"[{context_name}] {stream_error}")
+                                        safe_print(
+                                            f"[{context_name}] ERROR: {stream_error}"
+                                        )
+                                        break
+                                else:
+                                    last_response_text = _stripped
+                                    repeated_response_count = 0
                             # Check for tool concurrency error pattern in text output
                             if _is_tool_concurrency_error(block.text):
                                 detected_concurrency_error = True
