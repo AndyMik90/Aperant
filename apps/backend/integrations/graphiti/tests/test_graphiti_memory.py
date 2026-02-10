@@ -36,18 +36,15 @@ import asyncio
 import json
 import os
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-
-# Add backend to path
-backend_dir = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(backend_dir))
 
 # Load .env file
 try:
     from dotenv import load_dotenv
 
-    env_file = backend_dir / ".env"
+    env_file = Path(__file__).parent.parent.parent.parent / ".env"
     if env_file.exists():
         load_dotenv(env_file)
         print(f"Loaded .env from {env_file}")
@@ -170,7 +167,9 @@ async def test_save_episode(db_path: str, database: str) -> tuple[str, str]:
             "embedder": config.embedder_provider,
         }
 
-        episode_name = f"test_episode_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        episode_name = (
+            f"test_episode_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+        )
         group_id = "ladybug_test_group"
 
         print(f"  Episode name: {episode_name}")
@@ -432,11 +431,8 @@ async def test_graphiti_memory_class(db_path: str, database: str) -> bool:
         from integrations.graphiti.memory import GraphitiMemory
 
         # Create temporary directories for testing
-        test_spec_dir = Path("/tmp/graphiti_test_spec")
-        test_spec_dir.mkdir(parents=True, exist_ok=True)
-
-        test_project_dir = Path("/tmp/graphiti_test_project")
-        test_project_dir.mkdir(parents=True, exist_ok=True)
+        test_spec_dir = Path(tempfile.mkdtemp(prefix="graphiti_test_spec_"))
+        test_project_dir = Path(tempfile.mkdtemp(prefix="graphiti_test_project_"))
 
         print(f"  Spec dir: {test_spec_dir}")
         print(f"  Project dir: {test_project_dir}")

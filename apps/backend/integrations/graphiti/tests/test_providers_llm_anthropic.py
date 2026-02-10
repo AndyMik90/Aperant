@@ -117,16 +117,19 @@ class TestCreateAnthropicLLMClient:
 
     def test_create_anthropic_llm_client_import_error(self, mock_config):
         """Test create_anthropic_llm_client raises ProviderNotInstalled on ImportError."""
+        from types import ModuleType
 
         # Create a broken module that raises ImportError on attribute access
-        class BrokenGraphitiCore:
-            def __getattr__(self, name):
-                if name in ("llm_client", "anthropic_client", "config"):
-                    raise ImportError("graphiti-core[anthropic] not installed")
-                raise AttributeError(f"module has no attribute '{name}'")
+        def broken_getattr(name):
+            if name in ("llm_client", "anthropic_client", "config"):
+                raise ImportError("graphiti-core[anthropic] not installed")
+            raise AttributeError(f"module has no attribute '{name}'")
+
+        broken_module = ModuleType("graphiti_core")
+        broken_module.__getattr__ = broken_getattr
 
         # Patch both modules that are imported
-        with patch.dict(sys.modules, {"graphiti_core": BrokenGraphitiCore()}):
+        with patch.dict(sys.modules, {"graphiti_core": broken_module}):
             with pytest.raises(ProviderNotInstalled) as exc_info:
                 create_anthropic_llm_client(mock_config)
 

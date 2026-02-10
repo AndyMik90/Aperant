@@ -768,6 +768,9 @@ class TestPatchedKuzuDriverSetupSchema:
                         for call in mock_conn.execute.call_args_list
                         if "LOAD" in str(call) and "fts" in str(call).lower()
                     ]
+                    # Assert that calls were made (non-empty)
+                    assert len(install_calls) > 0, "INSTALL fts should have been called"
+                    assert len(load_calls) > 0, "LOAD fts should have been called"
 
     @pytest.mark.slow
     def test_setup_schema_loads_fts_extension(self, mock_kuzu, mock_graphiti_core):
@@ -813,6 +816,10 @@ class TestPatchedKuzuDriverSetupSchema:
                         for call in mock_conn.execute.call_args_list
                         if "LOAD" in str(call) and "EXTENSION" in str(call)
                     ]
+                    # Assert that calls were made (non-empty)
+                    assert len(load_calls) > 0, (
+                        "LOAD EXTENSION fts should have been called"
+                    )
 
     @pytest.mark.slow
     def test_setup_schema_handles_install_already_error(

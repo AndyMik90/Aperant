@@ -147,8 +147,23 @@ class TestAllExports:
         """Test __all__ contains the expected number of exports."""
         from integrations.graphiti import providers
 
-        # Should have 13 exports
-        assert len(providers.__all__) == 13
+        expected_exports = [
+            "ProviderError",
+            "ProviderNotInstalled",
+            "create_llm_client",
+            "create_embedder",
+            "create_cross_encoder",
+            "EMBEDDING_DIMENSIONS",
+            "get_expected_embedding_dim",
+            "validate_embedding_config",
+            "test_llm_connection",
+            "test_embedder_connection",
+            "test_ollama_connection",
+            "is_graphiti_enabled",
+            "get_graph_hints",
+        ]
+        # Should have same number of exports as expected_exports list
+        assert len(providers.__all__) == len(expected_exports)
 
 
 # =============================================================================

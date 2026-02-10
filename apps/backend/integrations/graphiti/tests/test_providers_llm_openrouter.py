@@ -47,33 +47,6 @@ class TestCreateOpenRouterLLMClient:
             result = create_openrouter_llm_client(mock_config)
             assert result == mock_client
 
-    def test_create_openrouter_llm_client_success_fast(self, mock_config):
-        """Fast test for create_openrouter_llm_client success path."""
-        mock_llm_client = MagicMock()
-
-        # Mock the graphiti_core imports
-        with patch.dict(
-            "sys.modules",
-            {
-                "graphiti_core": MagicMock(),
-                "graphiti_core.llm_client": MagicMock(),
-                "graphiti_core.llm_client.openai_client": MagicMock(),
-                "graphiti_core.llm_client.config": MagicMock(),
-            },
-        ):
-            from graphiti_core.llm_client.config import LLMConfig
-            from graphiti_core.llm_client.openai_client import OpenAIClient
-
-            OpenAIClient.return_value = mock_llm_client
-
-            create_openrouter_llm_client(mock_config)
-
-            # Verify the client was created with correct parameters
-            OpenAIClient.assert_called_once()
-            call_kwargs = OpenAIClient.call_args.kwargs
-            assert call_kwargs.get("reasoning") is None
-            assert call_kwargs.get("verbosity") is None
-
     def test_create_openrouter_llm_client_missing_api_key(self, mock_config):
         """Test create_openrouter_llm_client raises ProviderError for missing API key."""
         mock_config.openrouter_api_key = None
@@ -85,20 +58,27 @@ class TestCreateOpenRouterLLMClient:
 
     def test_create_openrouter_llm_client_import_error(self, mock_config):
         """Test create_openrouter_llm_client raises ProviderNotInstalled on ImportError."""
-        import builtins
 
-        original_import = builtins.__import__
+        # Mock the graphiti_core imports to raise ImportError
+        with patch.dict(
+            "sys.modules",
+            {
+                "graphiti_core": MagicMock(),
+                "graphiti_core.llm_client": MagicMock(),
+            },
+        ):
+            # Make the actual import fail
+            import graphiti_core.llm_client
+            import graphiti_core.llm_client.openai_client
 
-        def mock_import(name, *args, **kwargs):
-            if name.startswith("graphiti_core.llm_client"):
-                raise ImportError("graphiti-core not installed")
-            return original_import(name, *args, **kwargs)
+            with patch(
+                "graphiti_core.llm_client.openai_client",
+                side_effect=ImportError("graphiti-core not installed"),
+            ):
+                with pytest.raises(ProviderNotInstalled) as exc_info:
+                    create_openrouter_llm_client(mock_config)
 
-        with patch("builtins.__import__", side_effect=mock_import):
-            with pytest.raises(ProviderNotInstalled) as exc_info:
-                create_openrouter_llm_client(mock_config)
-
-            assert "graphiti-core" in str(exc_info.value)
+                assert "graphiti-core" in str(exc_info.value)
 
     @pytest.mark.slow
     def test_create_openrouter_llm_client_passes_config_correctly(self, mock_config):

@@ -6,13 +6,6 @@ Shows how Auto Claude automatically generates provider-specific database names
 to prevent embedding dimension mismatches.
 """
 
-import os
-import sys
-from pathlib import Path
-
-# Add backend to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-
 from integrations.graphiti.config import GraphitiConfig
 
 
@@ -46,6 +39,14 @@ def test_provider_naming():
         signature = config.get_provider_signature()
         db_name = config.get_provider_specific_database_name("auto_claude_memory")
 
+        # Add assertions to verify behavior
+        assert dimension is not None, f"Dimension should not be None for {provider}"
+        assert signature is not None, f"Signature should not be None for {provider}"
+        assert db_name is not None, f"Database name should not be None for {provider}"
+        assert "auto_claude_memory" in db_name or provider in db_name, (
+            f"Database name should contain base or provider name for {provider}"
+        )
+
         print(f"Provider: {provider}")
         if model:
             print(f"  Model: {model}")
@@ -57,10 +58,10 @@ def test_provider_naming():
 
     print("=" * 70)
     print("\nKey Benefits:")
-    print("  ✅ No dimension mismatch errors")
-    print("  ✅ Each provider uses its own database")
-    print("  ✅ Can switch providers without conflicts")
-    print("  ✅ Migration utility available for data transfer")
+    print("  - No dimension mismatch errors")
+    print("  - Each provider uses its own database")
+    print("  - Can switch providers without conflicts")
+    print("  - Migration utility available for data transfer")
     print()
 
 

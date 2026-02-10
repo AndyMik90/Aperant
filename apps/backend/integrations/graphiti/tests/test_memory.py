@@ -6,7 +6,7 @@ queries_pkg and provides convenience functions.
 """
 
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -235,6 +235,9 @@ class TestTestGraphitiConnection:
                 assert isinstance(success, bool)
                 assert isinstance(message, str)
 
+        except AssertionError as e:
+            # Re-raise AssertionError to properly surface test failures
+            raise
         except Exception as e:
             # If there's an unexpected error, fail the test with useful info
             pytest.skip(f"Graphiti connection test failed: {e}")

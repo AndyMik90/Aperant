@@ -97,7 +97,7 @@ class TestRetryConfiguration:
     def test_max_retries_is_positive_integer(self):
         """Test MAX_RETRIES is a positive integer."""
         assert isinstance(MAX_RETRIES, int)
-        assert MAX_RETRIES >= 0
+        assert MAX_RETRIES > 0
 
     def test_retry_delay_is_positive_number(self):
         """Test RETRY_DELAY_SECONDS is a positive number."""

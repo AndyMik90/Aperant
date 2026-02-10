@@ -10,10 +10,9 @@ real_ladybug, or other heavy dependencies to be installed.
 """
 
 import builtins
-import os
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from integrations.graphiti.queries_pkg.client import (
@@ -83,9 +82,9 @@ class TestApplyLadybugMonkeypatch:
 
             original_import = builtins.__import__
             with patch("builtins.__import__", side_effect=import_side_effect):
-                result = _apply_ladybug_monkeypatch()
+                _apply_ladybug_monkeypatch()
 
-                assert result is True
+                assert _apply_ladybug_monkeypatch() is True
                 assert sys.modules.get("kuzu") == mock_ladybug
         finally:
             # Restore original kuzu module

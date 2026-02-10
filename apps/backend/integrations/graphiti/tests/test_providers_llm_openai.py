@@ -153,6 +153,10 @@ class TestCreateOpenAILLMClient:
 
             # GPT-5 models should be created with default reasoning/verbosity
             mock_openai_client.assert_called_once()
+            call_kwargs = mock_openai_client.call_args.kwargs
+            # Verify reasoning params are set appropriately for GPT-5
+            assert "reasoning" in call_kwargs or call_kwargs.get("reasoning") is None
+            assert "verbosity" in call_kwargs or call_kwargs.get("verbosity") is None
 
     @pytest.mark.slow
     def test_create_openai_llm_client_o1_model_with_reasoning(self, mock_config):
@@ -168,6 +172,10 @@ class TestCreateOpenAILLMClient:
 
             # o1 models should be created with default reasoning/verbosity
             mock_openai_client.assert_called_once()
+            call_kwargs = mock_openai_client.call_args.kwargs
+            # Verify reasoning params are set appropriately for o1
+            assert "reasoning" in call_kwargs or call_kwargs.get("reasoning") is None
+            assert "verbosity" in call_kwargs or call_kwargs.get("verbosity") is None
 
     @pytest.mark.slow
     def test_create_openai_llm_client_o3_model_with_reasoning(self, mock_config):
@@ -183,6 +191,10 @@ class TestCreateOpenAILLMClient:
 
             # o3 models should be created with default reasoning/verbosity
             mock_openai_client.assert_called_once()
+            call_kwargs = mock_openai_client.call_args.kwargs
+            # Verify reasoning params are set appropriately for o3
+            assert "reasoning" in call_kwargs or call_kwargs.get("reasoning") is None
+            assert "verbosity" in call_kwargs or call_kwargs.get("verbosity") is None
 
     @pytest.mark.slow
     def test_create_openai_llm_client_gpt4_model_without_reasoning(self, mock_config):

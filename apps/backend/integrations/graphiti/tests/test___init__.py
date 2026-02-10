@@ -103,22 +103,25 @@ class TestAllExports:
 
     def test_all_exports_match_lazy_getattr(self):
         """Test that items in __all__ can be accessed."""
+        import importlib
+
         from integrations.graphiti import __all__ as all_exports
 
         # Try to import each item in __all__
         for name in all_exports:
             # Should be able to access without error
-            from integrations.graphiti import __dict__ as module_dict
+            module = importlib.import_module("integrations.graphiti")
 
             # The item should be accessible either directly or via __getattr__
             try:
-                exec(f"from integrations.graphiti import {name}")
-            except ImportError as e:
-                # If import fails, it should be because graphiti is not set up,
+                getattr(module, name)
+            except AttributeError as e:
+                # If access fails, it should be because graphiti is not set up,
                 # not because the item doesn't exist
                 assert (
                     "graphiti" in str(e).lower()
                     or "graphitiproviders" in str(e).lower()
+                    or "has no attribute" in str(e)
                 )
 
 

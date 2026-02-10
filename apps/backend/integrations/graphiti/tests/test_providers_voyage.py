@@ -74,8 +74,11 @@ class TestCreateVoyageEmbedder:
         """Test create_voyage_embedder raises ProviderError for missing API key."""
 
         mock_voyage = MagicMock()
-        mock_voyage.VoyageAIConfig = MagicMock
-        mock_voyage.VoyageEmbedder = MagicMock
+        mock_voyage.VoyageAIConfig = MagicMock()
+        mock_voyage.VoyageEmbedder = MagicMock()
+
+        # Clear sys.modules cache to ensure fresh import
+        sys.modules.pop("graphiti_core.embedder.voyage", None)
 
         # Mock the voyage module to allow import to succeed
         with patch.dict(sys.modules, {"graphiti_core.embedder.voyage": mock_voyage}):

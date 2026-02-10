@@ -7,7 +7,6 @@ Tests cover:
 - ProviderError for missing configuration
 """
 
-import sys
 from unittest.mock import MagicMock, patch
 
 import pytest

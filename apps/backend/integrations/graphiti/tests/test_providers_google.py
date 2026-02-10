@@ -9,7 +9,7 @@ Tests cover:
 """
 
 import sys
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from integrations.graphiti.providers_pkg.embedder_providers.google_embedder import (
@@ -85,42 +85,12 @@ class TestGoogleEmbedder:
             result = await embedder.create("test text")
 
             assert result == [0.1, 0.2, 0.3]
-
-    @pytest.mark.slow
-    @pytest.mark.asyncio
-    async def test_google_embedder_create_with_string_slow(self):
-        """Test GoogleEmbedder.create with string input (slow variant)."""
-        mock_genai = MagicMock()
-        mock_genai.configure = MagicMock()
-        mock_genai.embed_content = MagicMock(
-            return_value={"embedding": [0.1, 0.2, 0.3]}
-        )
-
-        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
-            embedder = GoogleEmbedder(api_key="test-key")
-            result = await embedder.create("test text")
-
-            assert result == [0.1, 0.2, 0.3]
+            # Assert embed_content was called
+            mock_genai.embed_content.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_google_embedder_create_with_list(self):
         """Test GoogleEmbedder.create with list input."""
-        mock_genai = MagicMock()
-        mock_genai.configure = MagicMock()
-        mock_genai.embed_content = MagicMock(
-            return_value={"embedding": [0.1, 0.2, 0.3]}
-        )
-
-        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
-            embedder = GoogleEmbedder(api_key="test-key")
-            result = await embedder.create(["test", "text"])
-
-            assert result == [0.1, 0.2, 0.3]
-
-    @pytest.mark.slow
-    @pytest.mark.asyncio
-    async def test_google_embedder_create_with_list_slow(self):
-        """Test GoogleEmbedder.create with list input (slow variant)."""
         mock_genai = MagicMock()
         mock_genai.configure = MagicMock()
         mock_genai.embed_content = MagicMock(
@@ -199,23 +169,6 @@ class TestGoogleEmbedder:
             # Should handle single embedding response (line 125)
             assert len(result) == 1
             assert result[0] == [0.1, 0.2, 0.3]
-
-    @pytest.mark.slow
-    @pytest.mark.asyncio
-    async def test_google_embedder_create_batch_slow(self):
-        """Test GoogleEmbedder.create_batch with multiple inputs (slow variant)."""
-        mock_genai = MagicMock()
-        mock_genai.configure = MagicMock()
-        # Mock batch embedding response
-        mock_genai.embed_content = MagicMock(
-            return_value={"embedding": [[0.1, 0.2], [0.3, 0.4]]}
-        )
-
-        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
-            embedder = GoogleEmbedder(api_key="test-key")
-            result = await embedder.create_batch(["text1", "text2"])
-
-            assert len(result) == 2
 
     @pytest.mark.slow
     @pytest.mark.asyncio

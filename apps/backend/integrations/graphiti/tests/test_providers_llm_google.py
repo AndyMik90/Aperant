@@ -9,7 +9,7 @@ Tests cover:
 """
 
 import sys
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from integrations.graphiti.providers_pkg.exceptions import (

@@ -144,9 +144,37 @@ class TestCreateCrossEncoder:
             create_cross_encoder,
         )
 
-        # Since graphiti_core is not available, this test verifies the logic
-        # by checking the function doesn't crash with /v1 suffix
-        # In real scenario, it would use the base_url as-is
+        # Mock the graphiti_core imports
+        with patch.dict(
+            "sys.modules",
+            {
+                "graphiti_core": MagicMock(),
+                "graphiti_core.cross_encoder": MagicMock(),
+                "graphiti_core.cross_encoder.openai_reranker_client": MagicMock(),
+                "graphiti_core.llm_client": MagicMock(),
+                "graphiti_core.llm_client.config": MagicMock(),
+            },
+        ):
+            from graphiti_core.cross_encoder.openai_reranker_client import (
+                OpenAIRerankerClient,
+            )
+            from graphiti_core.llm_client.config import LLMConfig
+
+            # Create a side effect to capture the LLMConfig call
+            captured_config = {}
+
+            def capture_llm_config(**kwargs):
+                captured_config.update(kwargs)
+                return MagicMock()
+
+            LLMConfig.side_effect = capture_llm_config
+            OpenAIRerankerClient.return_value = MagicMock()
+
+            result = create_cross_encoder(mock_config, mock_llm_client)
+
+            # Verify base_url was preserved with /v1 suffix
+            assert "base_url" in captured_config
+            assert captured_config["base_url"] == "http://localhost:11434/v1"
 
     def test_import_error_returns_none(self, mock_config, mock_llm_client):
         """Test create_cross_encoder returns None when graphiti_core modules not available."""

@@ -7,7 +7,6 @@ task outcomes, and patterns/gotchas functionality.
 """
 
 import json
-from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -239,15 +238,15 @@ class TestGetRelevantContext:
         ]
         mock_client.graphiti.search.return_value = mock_results
 
-        result = await graphiti_search.get_relevant_context(query="auth")
+        _result = await graphiti_search.get_relevant_context(query="auth")
 
-        assert len(result) == 2
-        assert result[0]["content"] == "Auth content"
-        assert result[0]["score"] == 0.9
-        assert result[0]["type"] == "pattern"
-        assert result[1]["content"] == "Code snippet"
-        assert result[1]["score"] == 0.7
-        assert result[1]["type"] == "code"
+        assert len(_result) == 2
+        assert _result[0]["content"] == "Auth content"
+        assert _result[0]["score"] == 0.9
+        assert _result[0]["type"] == "pattern"
+        assert _result[1]["content"] == "Code snippet"
+        assert _result[1]["score"] == 0.7
+        assert _result[1]["type"] == "code"
 
     @pytest.mark.asyncio
     async def test_filters_by_min_score(self, graphiti_search, mock_client):
@@ -794,9 +793,9 @@ class TestGetSimilarTaskOutcomes:
 
     @pytest.mark.asyncio
     async def test_skips_non_dict_content(self, graphiti_search, mock_client):
-        """Test get_similar_task_outcomes skips non-dict content (ACS-215 fix)."""
+        """Test get_similar_task_outcomes skips non-dict content including EPISODE_TYPE_TASK_OUTCOME."""
         valid_outcome = _create_valid_task_outcome()
-        non_dict_object = ["list", "of", "items"]  # Not a dict
+        non_dict_object = ["list", "of", "items"]  # Not a dict, even though it's a list
 
         mock_client.graphiti.search.return_value = [
             _create_mock_result(content=valid_outcome, score=0.9),
@@ -808,7 +807,8 @@ class TestGetSimilarTaskOutcomes:
             limit=5,
         )
 
-        # Only dict content should be returned
+        # Only dict content should be returned (list is skipped)
+        # Note: The valid_outcome should have EPISODE_TYPE_TASK_OUTCOME in it
         assert len(result) == 1
         assert result[0]["task_id"] == "task-123"
 
