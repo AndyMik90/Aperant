@@ -1163,18 +1163,11 @@ try:
         FileEvolutionTracker,
         SemanticAnalyzer,
     )
-    # Mark as used to suppress CodeQL unused import warnings
-    # These imports are intentional for coverage purposes
-    _merge_imports = [
-        AIResolver,
-        AutoMerger,
-        ConflictDetector,
-        FileEvolutionTracker,
-        SemanticAnalyzer,
-    ]
+    # Reference to suppress unused import warnings (intentional for coverage)
+    assert AIResolver or AutoMerger or ConflictDetector or FileEvolutionTracker or SemanticAnalyzer
 except ImportError:
     # Module will be available when tests run from correct directory
-    _merge_imports = []
+    pass
 
 # Sample data constants moved to test_fixtures.py
 # Import from there if needed in test files

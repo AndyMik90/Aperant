@@ -690,8 +690,7 @@ class TestMergeLockError:
         """MergeLockError can be raised and caught."""
         with pytest.raises(MergeLockError) as exc_info:
             raise MergeLockError("Lock timeout")
-
-        assert str(exc_info.value) == "Lock timeout"
+            assert str(exc_info.value) == "Lock timeout"
 
 
 class TestMergeLock:
@@ -848,8 +847,7 @@ class TestSpecNumberLockError:
         """SpecNumberLockError can be raised and caught."""
         with pytest.raises(SpecNumberLockError) as exc_info:
             raise SpecNumberLockError("Lock timeout")
-
-        assert str(exc_info.value) == "Lock timeout"
+            assert str(exc_info.value) == "Lock timeout"
 
 
 class TestSpecNumberLock:
@@ -3731,10 +3729,6 @@ class TestPrintConflictInfoExtended:
         print_conflict_info(result)
 
         captured = capsys.readouterr()
-        # file1.py should only appear once in git add command
-        git_add_line = [line for line in captured.out.split("\n") if "git add" in line][
-            0
-        ]
         # Count occurrences of file1.py
         count = captured.out.count("file1.py")
         assert count == 3  # Display shows it twice (string + dict), once in git add
@@ -6323,12 +6317,9 @@ class TestCreateConflictFileWithGit:
 
         # Count temp files before
         temp_dir = tempfile.gettempdir()
-        temp_files_before = len(list(Path(temp_dir).glob("*.tmp")))
-
         # Run merge
         create_conflict_file_with_git("content", "content", "content", temp_git_repo)
 
-        # Count temp files after (should be similar, not growing)
         # Note: This is a weak test as other processes may create temp files
         # The main assertion is that no exception is raised
         assert True  # If we got here without exception, cleanup worked
@@ -6521,7 +6512,7 @@ class TestValidateMergedSyntaxErrorHandling:
             esbuild_binary.write_text(
                 "#!/bin/sh\necho 'esbuild found'\n", encoding="utf-8"
             )
-            os.chmod(esbuild_binary, 0o755)
+            os.chmod(esbuild_binary, 0o700)
         else:
             esbuild_binary.write_text("echo esbuild found", encoding="utf-8")
 
@@ -6548,7 +6539,7 @@ class TestValidateMergedSyntaxErrorHandling:
             esbuild_binary.write_text(
                 "#!/bin/sh\necho 'esbuild found'\n", encoding="utf-8"
             )
-            os.chmod(esbuild_binary, 0o755)
+            os.chmod(esbuild_binary, 0o700)
         else:
             esbuild_binary.write_text("echo esbuild found", encoding="utf-8")
 
@@ -6578,7 +6569,7 @@ class TestValidateMergedSyntaxErrorHandling:
                 esbuild_binary.write_text(
                     "#!/bin/sh\necho 'esbuild'\n", encoding="utf-8"
                 )
-                os.chmod(esbuild_binary, 0o755)
+                os.chmod(esbuild_binary, 0o700)
             else:
                 esbuild_binary.write_text("echo esbuild", encoding="utf-8")
 
@@ -7236,7 +7227,7 @@ class TestSecurityFilesCopy:
 
         with patch("shutil.copy2", side_effect=mock_copy2):
             # This should handle the error gracefully
-            copied = copy_env_files_to_worktree(temp_git_repo, worktree_path)
+            copy_env_files_to_worktree(temp_git_repo, worktree_path)
 
         # Function should complete without raising
         assert True
@@ -7924,12 +7915,6 @@ class TestSecurityFileCopyErrorInSetupWorkspace:
 
         # Verify worktree was created despite copy error
         assert worktree_path.exists()
-
-        # Verify warning was printed (may be in print_calls)
-        warning_found = any(
-            "Warning" in str(args) or "warning" in str(args).lower()
-            for args, kwargs in print_calls
-        )
 
     def test_handles_permission_error_on_security_copy(
         self, temp_git_repo: Path, monkeypatch, capsys

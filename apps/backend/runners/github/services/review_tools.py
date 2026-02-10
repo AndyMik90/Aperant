@@ -389,7 +389,7 @@ async def run_tests(
             )
 
             try:
-                stdout, stderr = await asyncio.wait_for(
+                _, _ = await asyncio.wait_for(
                     proc.communicate(),
                     timeout=60.0,  # Quick check for test availability
                 )
