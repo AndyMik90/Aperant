@@ -1628,6 +1628,7 @@ function updateMacOSKeychainCredentials(
         ['delete-generic-password', '-s', serviceName],
         {
           encoding: 'utf-8',
+          stdio: 'pipe',
           timeout: MACOS_KEYCHAIN_TIMEOUT_MS,
           windowsHide: true,
         }

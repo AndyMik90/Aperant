@@ -21,6 +21,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from core.fast_mode import ensure_fast_mode_in_user_settings
 from core.platform import (
     is_windows,
     validate_cli_path,
@@ -483,9 +484,10 @@ def create_client(
                      "medium", "high"). When set, injected as CLAUDE_CODE_EFFORT_LEVEL
                      env var for the SDK subprocess. Only meaningful for models that
                      support adaptive thinking (e.g., Opus 4.6).
-        fast_mode: Enable Fast Mode for faster Opus 4.6 output. When True, injected
-                  as CLAUDE_CODE_FAST_MODE=true env var. Requires extra usage enabled
-                  on Claude subscription; falls back to standard speed automatically.
+        fast_mode: Enable Fast Mode for faster Opus 4.6 output. When True, enables
+                  the "user" setting source so the CLI reads fastMode from
+                  ~/.claude/settings.json. Requires extra usage enabled on Claude
+                  subscription; falls back to standard speed automatically.
 
     Returns:
         Configured ClaudeSDKClient
@@ -517,9 +519,19 @@ def create_client(
     if effort_level:
         sdk_env["CLAUDE_CODE_EFFORT_LEVEL"] = effort_level
 
-    # Inject fast mode for faster Opus 4.6 output
+    # Fast mode requires the CLI to read "fastMode" from user settings.
+    # The SDK default (setting_sources=None) passes --setting-sources "" which
+    # blocks ALL filesystem settings. We must explicitly enable "user" source
+    # so the CLI reads ~/.claude/settings.json where fastMode: true lives.
+    # See: https://code.claude.com/docs/en/fast-mode
     if fast_mode:
-        sdk_env["CLAUDE_CODE_FAST_MODE"] = "true"
+        ensure_fast_mode_in_user_settings()
+        logger.info("[Fast Mode] ACTIVE — will enable user setting source for fastMode")
+        print(
+            "[Fast Mode] ACTIVE — enabling user settings source for CLI to read fastMode"
+        )
+    else:
+        logger.info("[Fast Mode] inactive — not requested for this client")
 
     # Debug: Log git-bash path detection on Windows
     if "CLAUDE_CODE_GIT_BASH_PATH" in sdk_env:
@@ -840,6 +852,12 @@ def create_client(
         # This prevents "File has not been read yet" errors in recovery sessions
         "enable_file_checkpointing": True,
     }
+
+    # Fast mode: enable user setting source so CLI reads fastMode from
+    # ~/.claude/settings.json. Without this, the SDK's default --setting-sources ""
+    # blocks all filesystem settings and the CLI never sees fastMode: true.
+    if fast_mode:
+        options_kwargs["setting_sources"] = ["user"]
 
     # Optional: Allow CLI path override via environment variable
     # The SDK bundles its own CLI, but users can override if needed

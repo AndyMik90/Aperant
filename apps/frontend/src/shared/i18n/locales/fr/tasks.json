@@ -174,6 +174,7 @@
     "openInIDE": "Ouvrir dans l'IDE"
   },
   "metadata": {
+    "fastMode": "Rapide",
     "severity": "sévérité",
     "pullRequest": "Pull Request",
     "showMore": "Afficher plus",
@@ -252,6 +253,9 @@
     "classificationOptional": "Classification (optionnel)",
     "requireReviewLabel": "Exiger une révision humaine avant le codage",
     "requireReviewDescription": "Lorsque activé, vous serez invité à réviser la spécification et le plan d'implémentation avant le début de la phase de codage. Cela vous permet d'approuver, de demander des modifications ou de fournir des commentaires.",
+    "fastModeLabel": "Mode Rapide",
+    "fastModeDescription": "Même modèle Opus 4.6 avec une sortie plus rapide. Coût plus élevé par token.",
+    "fastModeNotice": "Nécessite « utilisation supplémentaire » activée sur votre abonnement Claude.",
     "errors": {
       "descriptionRequired": "Veuillez fournir une description",
       "maxImagesReached": "Maximum de 5 images autorisé",

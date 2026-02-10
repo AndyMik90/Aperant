@@ -19,7 +19,7 @@ import type { IPCResult } from '../../shared/types';
 import type { ClaudeCodeVersionInfo, ClaudeInstallationList, ClaudeInstallationInfo } from '../../shared/types/cli';
 import { getToolInfo, configureTools, sortNvmVersionDirs, getClaudeDetectionPaths, type ExecFileAsyncOptionsWithVerbatim } from '../cli-tool-manager';
 import { readSettingsFile, writeSettingsFile } from '../settings-utils';
-import { isSecurePath } from '../utils/windows-paths';
+import { isSecurePath, getWhereExePath, getTaskkillExePath } from '../utils/windows-paths';
 import { isWindows, isMacOS, isLinux } from '../platform';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { isValidConfigDir } from '../utils/config-path-validator';
@@ -147,7 +147,7 @@ async function scanClaudeInstallations(activePath: string | null): Promise<Claud
   // 2. Check system PATH via which/where
   try {
     if (isWindows()) {
-      const result = await execFileAsync('where', ['claude'], { timeout: 5000 });
+      const result = await execFileAsync(getWhereExePath(), ['claude'], { timeout: 5000 });
       const paths = result.stdout.trim().split('\n').filter(p => p.trim());
       for (const p of paths) {
         await addInstallation(p.trim(), 'system-path');
@@ -338,7 +338,7 @@ async function fetchAvailableVersions(): Promise<string[]> {
 function getInstallVersionCommand(version: string): string {
   if (isWindows()) {
     // Windows: kill running Claude processes first, then install specific version
-    return `taskkill /IM claude.exe /F 2>nul; claude install --force ${version}`;
+    return `"${getTaskkillExePath()}" /IM claude.exe /F 2>nul; claude install --force ${version}`;
   } else {
     // macOS/Linux: kill running Claude processes first, then install specific version
     return `pkill -x claude 2>/dev/null; sleep 1; claude install --force ${version}`;
@@ -353,7 +353,7 @@ function getInstallCommand(isUpdate: boolean): string {
   if (isWindows()) {
     if (isUpdate) {
       // Update: kill running Claude processes first, then update with --force
-      return 'taskkill /IM claude.exe /F 2>nul; claude install --force latest';
+      return `"${getTaskkillExePath()}" /IM claude.exe /F 2>nul; claude install --force latest`;
     }
     return 'irm https://claude.ai/install.ps1 | iex';
   } else {
