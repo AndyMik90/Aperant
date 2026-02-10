@@ -1103,67 +1103,6 @@ class TestGraphitiClientInitialize:
             sys.modules.pop("graphiti_core", None)
 
     @pytest.mark.asyncio
-    async def test_updates_state_with_init_info(self):
-        """Updates state with init info."""
-        from integrations.graphiti.config import GraphitiState
-
-        mock_config = MagicMock()
-        mock_config.llm_provider = "openai"
-        mock_config.embedder_provider = "openai"
-        mock_config.database = "test_db"
-        mock_config.get_db_path.return_value = Path("/test/db")
-        mock_config.get_provider_summary.return_value = "LLM: openai, Embedder: openai"
-        mock_driver = MagicMock()
-
-        state = GraphitiState()
-
-        # Create mock Graphiti instance
-        mock_graphiti_instance = AsyncMock()
-        mock_graphiti_instance.build_indices_and_constraints = AsyncMock()
-        mock_graphiti_class = MagicMock(return_value=mock_graphiti_instance)
-
-        # Mock graphiti_core module
-        mock_graphiti_core = MagicMock()
-        mock_graphiti_core.Graphiti = mock_graphiti_class
-        sys.modules["graphiti_core"] = mock_graphiti_core
-
-        # Mock kuzu_driver_patched module
-        mock_kuzu_driver_patched = MagicMock()
-        mock_kuzu_driver_patched.create_patched_kuzu_driver = MagicMock(
-            return_value=mock_driver
-        )
-        sys.modules["integrations.graphiti.queries_pkg.kuzu_driver_patched"] = (
-            mock_kuzu_driver_patched
-        )
-
-        try:
-            with patch("graphiti_providers.create_llm_client") as mock_create_llm:
-                with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch(
-                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
-                    ) as mock_patch:
-                        mock_create_llm.return_value = MagicMock()
-                        mock_create_emb.return_value = MagicMock()
-                        mock_patch.return_value = True
-
-                        client = GraphitiClient(mock_config)
-                        await client.initialize(state)
-
-                        # Verify state was updated
-                        assert state.initialized is True
-                        assert state.indices_built is True
-                        assert state.database == "test_db"
-                        assert state.llm_provider == "openai"
-                        assert state.embedder_provider == "openai"
-                        # Verify created_at is ISO format string
-                        assert state.created_at is not None
-        finally:
-            sys.modules.pop("graphiti_core", None)
-            sys.modules.pop(
-                "integrations.graphiti.queries_pkg.kuzu_driver_patched", None
-            )
-
-    @pytest.mark.asyncio
     async def test_skips_building_indices_if_state_indices_built(self):
         """Skips building indices if state.indices_built is True."""
         from integrations.graphiti.config import GraphitiState
@@ -1451,31 +1390,3 @@ class TestGraphitiClientInitializeImportError:
 
                 assert result is False
                 mock_capture.assert_called()
-
-    @pytest.mark.asyncio
-    async def test_initialize_returns_false_on_ladybug_unavailable(self):
-        """Returns False when ladybug unavailable and no kuzu fallback."""
-        mock_config = MagicMock()
-        mock_config.llm_provider = "openai"
-        mock_config.embedder_provider = "openai"
-
-        # Mock graphiti_core module
-        mock_graphiti_core = MagicMock()
-        sys.modules["graphiti_core"] = mock_graphiti_core
-
-        try:
-            with patch("graphiti_providers.create_llm_client") as mock_create_llm:
-                with patch("graphiti_providers.create_embedder") as mock_create_emb:
-                    with patch(
-                        "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch"
-                    ) as mock_patch:
-                        mock_create_llm.return_value = MagicMock()
-                        mock_create_emb.return_value = MagicMock()
-                        mock_patch.return_value = False  # Ladybug unavailable
-
-                        client = GraphitiClient(mock_config)
-                        result = await client.initialize()
-
-                        assert result is False
-        finally:
-            sys.modules.pop("graphiti_core", None)

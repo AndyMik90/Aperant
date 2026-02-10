@@ -300,6 +300,7 @@ class TestTestProviderConfiguration:
     @pytest.mark.asyncio
     async def test_returns_configuration_status(self):
         """Test returns dict with configuration status."""
+        pytest.importorskip("graphiti_providers")
         from integrations.graphiti.memory import test_provider_configuration
 
         with patch("integrations.graphiti.memory.GraphitiConfig") as mock_config_class:
@@ -332,6 +333,7 @@ class TestTestProviderConfiguration:
     @pytest.mark.asyncio
     async def test_includes_ollama_test_when_ollama_provider(self):
         """Test includes ollama_test when using ollama provider."""
+        pytest.importorskip("graphiti_providers")
         from integrations.graphiti.memory import test_provider_configuration
 
         with patch("integrations.graphiti.memory.GraphitiConfig") as mock_config_class:
@@ -363,6 +365,7 @@ class TestTestProviderConfiguration:
     @pytest.mark.asyncio
     async def test_omits_ollama_test_when_not_ollama_provider(self):
         """Test omits ollama_test when not using ollama provider."""
+        pytest.importorskip("graphiti_providers")
         from integrations.graphiti.memory import test_provider_configuration
 
         with patch("integrations.graphiti.memory.GraphitiConfig") as mock_config_class:

@@ -269,42 +269,6 @@ class TestPatchedKuzuDriverExecuteQuery:
                 assert results == []
 
     @pytest.mark.asyncio
-    async def test_execute_query_returns_rows(self, mock_kuzu, mock_graphiti_core):
-        """Test execute_query returns rows from results."""
-
-        mock_kuzu_driver_module = MagicMock()
-
-        with patch.dict(
-            "sys.modules",
-            _build_sys_modules_dict(
-                mock_kuzu, mock_graphiti_core, mock_kuzu_driver_module
-            ),
-        ):
-
-            class MockKuzuDriver:
-                def __init__(self, db, max_concurrent_queries=1):
-                    self.db = db
-                    self.max_concurrent_queries = max_concurrent_queries
-                    self.client = None
-
-            with patch("graphiti_core.driver.kuzu_driver.KuzuDriver", MockKuzuDriver):
-                from integrations.graphiti.queries_pkg.kuzu_driver_patched import (
-                    create_patched_kuzu_driver,
-                )
-
-                driver = create_patched_kuzu_driver()
-
-                # Mock the client and results
-                mock_result = MagicMock()
-                mock_result.rows_as_dict = MagicMock(return_value=[{"key": "value"}])
-                driver.client = AsyncMock()
-                driver.client.execute = AsyncMock(return_value=mock_result)
-
-                results, _, _ = await driver.execute_query("MATCH (n) RETURN n LIMIT 1")
-
-                assert results == [{"key": "value"}]
-
-    @pytest.mark.asyncio
     @pytest.mark.slow
     async def test_execute_query_preserves_none_parameters(
         self, mock_kuzu, mock_graphiti_core

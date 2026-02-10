@@ -146,7 +146,7 @@ class TestCreateCrossEncoder:
             create_cross_encoder,
         )
 
-        result = create_cross_encoder(mock_config, mock_llm_client)
+        _ = create_cross_encoder(mock_config, mock_llm_client)
 
         # Verify base_url was preserved with /v1 suffix
         assert "base_url" in graphiti_core_mocks
