@@ -278,6 +278,37 @@ class TestEmbeddingMigratorInitialize:
             mock_source.close.assert_called_once()
             assert migrator.source_client is None
 
+    @pytest.mark.asyncio
+    async def test_initialize_target_exception_cleans_up_source(
+        self, mock_source_config, mock_target_config
+    ):
+        """Test initialization cleans up source when target raises exception (lines 93-98)."""
+        from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
+
+        with patch(
+            "integrations.graphiti.queries_pkg.client.GraphitiClient"
+        ) as mock_client_class:
+            mock_source = MagicMock()
+            mock_source.initialize = AsyncMock(return_value=True)
+            mock_source.close = AsyncMock()
+            mock_target = MagicMock()
+            mock_target.initialize = AsyncMock(
+                side_effect=Exception("DB connection failed")
+            )
+            mock_client_class.side_effect = [mock_source, mock_target]
+
+            migrator = EmbeddingMigrator(
+                source_config=mock_source_config,
+                target_config=mock_target_config,
+                dry_run=False,
+            )
+
+            result = await migrator.initialize()
+
+            assert result is False
+            mock_source.close.assert_called_once()
+            assert migrator.source_client is None
+
 
 # =============================================================================
 # Tests for EmbeddingMigrator.get_source_episodes()
@@ -288,9 +319,43 @@ class TestGetSourceEpisodes:
     """Tests for EmbeddingMigrator.get_source_episodes method."""
 
     @pytest.mark.asyncio
-    @pytest.mark.slow
     async def test_get_source_episodes_returns_list(self, mock_source_client):
-        """Test get_source_episodes returns list of episodes."""
+        """Test get_source_episodes returns list of episodes (lines 109-149)."""
+        from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
+
+        mock_records = [
+            {
+                "uuid": "ep1",
+                "name": "episode_1",
+                "content": "content1",
+                "created_at": "2024-01-01T00:00:00Z",
+                "valid_at": "2024-01-01T00:00:00Z",
+                "group_id": "group1",
+                "source": "text",
+                "source_description": "desc1",
+            }
+        ]
+        mock_source_client._driver.execute_query = AsyncMock(
+            return_value=(mock_records, None, None)
+        )
+
+        migrator = EmbeddingMigrator(
+            source_config=MagicMock(),
+            target_config=MagicMock(),
+            dry_run=False,
+        )
+        migrator.source_client = mock_source_client
+
+        episodes = await migrator.get_source_episodes()
+
+        assert len(episodes) == 1
+        assert episodes[0]["uuid"] == "ep1"
+        assert episodes[0]["name"] == "episode_1"
+
+    @pytest.mark.asyncio
+    @pytest.mark.slow
+    async def test_get_source_episodes_returns_list_slow(self, mock_source_client):
+        """Test get_source_episodes returns list of episodes (slow variant)."""
         from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
 
         mock_records = [
@@ -374,9 +439,8 @@ class TestMigrateEpisode:
     """Tests for EmbeddingMigrator.migrate_episode method."""
 
     @pytest.mark.asyncio
-    @pytest.mark.slow
     async def test_migrate_episode_success(self, mock_target_client):
-        """Test successful episode migration."""
+        """Test successful episode migration (lines 161-199)."""
         from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
 
         episode = {
@@ -401,6 +465,66 @@ class TestMigrateEpisode:
 
         assert result is True
         mock_target_client.graphiti.add_episode.assert_called_once()
+
+    @pytest.mark.asyncio
+    @pytest.mark.slow
+    async def test_migrate_episode_success_slow(self, mock_target_client):
+        """Test successful episode migration (slow variant)."""
+        from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
+
+        episode = {
+            "uuid": "ep1",
+            "name": "test_episode",
+            "content": "test content",
+            "created_at": "2024-01-01T00:00:00Z",
+            "valid_at": "2024-01-01T00:00:00Z",
+            "group_id": "test_group",
+            "source": "text",
+            "source_description": "Test episode",
+        }
+
+        migrator = EmbeddingMigrator(
+            source_config=MagicMock(),
+            target_config=MagicMock(),
+            dry_run=False,
+        )
+        migrator.target_client = mock_target_client
+
+        result = await migrator.migrate_episode(episode)
+
+        assert result is True
+        mock_target_client.graphiti.add_episode.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_migrate_episode_timestamp_parsing(self, mock_target_client):
+        """Test migrate_episode parses ISO timestamp strings (lines 178-180)."""
+        from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
+
+        episode = {
+            "uuid": "ep1",
+            "name": "test_episode",
+            "content": "test content",
+            "created_at": "2024-01-01T00:00:00Z",
+            "valid_at": "2024-06-15T12:30:45Z",  # ISO format string
+            "group_id": "test_group",
+            "source": "text",
+            "source_description": "Test episode",
+        }
+
+        migrator = EmbeddingMigrator(
+            source_config=MagicMock(),
+            target_config=MagicMock(),
+            dry_run=False,
+        )
+        migrator.target_client = mock_target_client
+
+        result = await migrator.migrate_episode(episode)
+
+        assert result is True
+        # Verify add_episode was called with parsed datetime
+        mock_target_client.graphiti.add_episode.assert_called_once()
+        call_kwargs = mock_target_client.graphiti.add_episode.call_args.kwargs
+        assert call_kwargs["reference_time"] is not None
 
     @pytest.mark.asyncio
     @pytest.mark.slow
@@ -528,9 +652,31 @@ class TestMigrateAll:
     """Tests for EmbeddingMigrator.migrate_all method."""
 
     @pytest.mark.asyncio
-    @pytest.mark.slow
     async def test_migrate_all_success(self, sample_episodes):
-        """Test successful migration of all episodes."""
+        """Test successful migration of all episodes (lines 208-224)."""
+        from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
+
+        migrator = EmbeddingMigrator(
+            source_config=MagicMock(),
+            target_config=MagicMock(),
+            dry_run=False,
+        )
+
+        # Mock get_source_episodes and migrate_episode
+        migrator.get_source_episodes = AsyncMock(return_value=sample_episodes)
+        migrator.migrate_episode = AsyncMock(return_value=True)
+
+        stats = await migrator.migrate_all()
+
+        assert stats["total"] == 2
+        assert stats["succeeded"] == 2
+        assert stats["failed"] == 0
+        assert stats["dry_run"] is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.slow
+    async def test_migrate_all_success_slow(self, sample_episodes):
+        """Test successful migration of all episodes (slow variant)."""
         from integrations.graphiti.migrate_embeddings import EmbeddingMigrator
 
         migrator = EmbeddingMigrator(
@@ -667,9 +813,8 @@ class TestAutomaticMigration:
     """Tests for automatic_migration function."""
 
     @pytest.mark.asyncio
-    @pytest.mark.slow
     async def test_automatic_migration_success(self):
-        """Test successful automatic migration."""
+        """Test successful automatic migration (lines 328-372)."""
         from integrations.graphiti.migrate_embeddings import automatic_migration
 
         args = MagicMock(
@@ -678,19 +823,87 @@ class TestAutomaticMigration:
             dry_run=False,
         )
 
-        mock_config = MagicMock()
-        mock_config.embedder_provider = "ollama"
-        mock_config.get_provider_specific_database_name = MagicMock(
-            return_value="test_db"
-        )
+        # Create separate config instances for each from_env call
+        # from_env is called 3 times: current_config, source_config, target_config
+        mock_configs = [
+            MagicMock(
+                embedder_provider="voyage",
+                get_provider_specific_database_name=MagicMock(return_value="test_db"),
+            ),  # current
+            MagicMock(
+                embedder_provider="openai",
+                get_provider_specific_database_name=MagicMock(
+                    return_value="test_db_source"
+                ),
+            ),  # source (will be set)
+            MagicMock(
+                embedder_provider="ollama",
+                get_provider_specific_database_name=MagicMock(
+                    return_value="test_db_target"
+                ),
+            ),  # target (will be set)
+        ]
 
         with patch(
-            "integrations.graphiti.migrate_embeddings.GraphitiConfig"
-        ) as mock_config_class:
+            "integrations.graphiti.migrate_embeddings.GraphitiConfig.from_env",
+            side_effect=mock_configs,
+        ):
             with patch(
                 "integrations.graphiti.migrate_embeddings.EmbeddingMigrator"
             ) as mock_migrator_class:
-                mock_config_class.from_env.return_value = mock_config
+                mock_migrator = MagicMock()
+                mock_migrator.initialize = AsyncMock(return_value=True)
+                mock_migrator.migrate_all = AsyncMock(
+                    return_value={"total": 10, "succeeded": 10, "failed": 0}
+                )
+                mock_migrator.close = AsyncMock()
+                mock_migrator_class.return_value = mock_migrator
+
+                await automatic_migration(args)
+
+                mock_migrator.initialize.assert_called_once()
+                mock_migrator.migrate_all.assert_called_once()
+                mock_migrator.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    @pytest.mark.slow
+    async def test_automatic_migration_success_slow(self):
+        """Test successful automatic migration (slow variant)."""
+        from integrations.graphiti.migrate_embeddings import automatic_migration
+
+        args = MagicMock(
+            from_provider="openai",
+            to_provider="ollama",
+            dry_run=False,
+        )
+
+        # Create separate config instances for each from_env call
+        mock_configs = [
+            MagicMock(
+                embedder_provider="voyage",
+                get_provider_specific_database_name=MagicMock(return_value="test_db"),
+            ),  # current
+            MagicMock(
+                embedder_provider="openai",
+                get_provider_specific_database_name=MagicMock(
+                    return_value="test_db_source"
+                ),
+            ),  # source
+            MagicMock(
+                embedder_provider="ollama",
+                get_provider_specific_database_name=MagicMock(
+                    return_value="test_db_target"
+                ),
+            ),  # target
+        ]
+
+        with patch(
+            "integrations.graphiti.migrate_embeddings.GraphitiConfig.from_env",
+            side_effect=mock_configs,
+        ):
+            with patch(
+                "integrations.graphiti.migrate_embeddings.EmbeddingMigrator"
+            ) as mock_migrator_class:
                 mock_migrator = MagicMock()
                 mock_migrator.initialize = AsyncMock(return_value=True)
                 mock_migrator.migrate_all = AsyncMock(

@@ -71,7 +71,6 @@ class TestGoogleEmbedder:
 
             assert "google-generativeai" in str(exc_info.value)
 
-    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_google_embedder_create_with_string(self):
         """Test GoogleEmbedder.create with string input."""
@@ -89,6 +88,21 @@ class TestGoogleEmbedder:
 
     @pytest.mark.slow
     @pytest.mark.asyncio
+    async def test_google_embedder_create_with_string_slow(self):
+        """Test GoogleEmbedder.create with string input (slow variant)."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        mock_genai.embed_content = MagicMock(
+            return_value={"embedding": [0.1, 0.2, 0.3]}
+        )
+
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+            embedder = GoogleEmbedder(api_key="test-key")
+            result = await embedder.create("test text")
+
+            assert result == [0.1, 0.2, 0.3]
+
+    @pytest.mark.asyncio
     async def test_google_embedder_create_with_list(self):
         """Test GoogleEmbedder.create with list input."""
         mock_genai = MagicMock()
@@ -105,8 +119,91 @@ class TestGoogleEmbedder:
 
     @pytest.mark.slow
     @pytest.mark.asyncio
+    async def test_google_embedder_create_with_list_slow(self):
+        """Test GoogleEmbedder.create with list input (slow variant)."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        mock_genai.embed_content = MagicMock(
+            return_value={"embedding": [0.1, 0.2, 0.3]}
+        )
+
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+            embedder = GoogleEmbedder(api_key="test-key")
+            result = await embedder.create(["test", "text"])
+
+            assert result == [0.1, 0.2, 0.3]
+
+    @pytest.mark.asyncio
+    async def test_google_embedder_create_with_non_string_list(self):
+        """Test GoogleEmbedder.create with non-string list items (lines 71-73)."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        mock_genai.embed_content = MagicMock(
+            return_value={"embedding": [0.1, 0.2, 0.3]}
+        )
+
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+            embedder = GoogleEmbedder(api_key="test-key")
+            # List with non-string items - should convert to string
+            result = await embedder.create([123, 456])
+
+            assert result == [0.1, 0.2, 0.3]
+
+    @pytest.mark.asyncio
+    async def test_google_embedder_create_with_empty_list(self):
+        """Test GoogleEmbedder.create with empty or invalid input (line 75)."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        mock_genai.embed_content = MagicMock(
+            return_value={"embedding": [0.1, 0.2, 0.3]}
+        )
+
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+            embedder = GoogleEmbedder(api_key="test-key")
+            # Empty list - should be converted to string
+            result = await embedder.create([])
+
+            assert result == [0.1, 0.2, 0.3]
+
+    @pytest.mark.asyncio
     async def test_google_embedder_create_batch(self):
-        """Test GoogleEmbedder.create_batch with multiple inputs."""
+        """Test GoogleEmbedder.create_batch with multiple inputs (lines 100-127)."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        # Mock batch embedding response - nested list for batch
+        mock_genai.embed_content = MagicMock(
+            return_value={"embedding": [[0.1, 0.2], [0.3, 0.4]]}
+        )
+
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+            embedder = GoogleEmbedder(api_key="test-key")
+            result = await embedder.create_batch(["text1", "text2"])
+
+            # Should handle nested list response (lines 122-125)
+            assert len(result) == 2
+
+    @pytest.mark.asyncio
+    async def test_google_embedder_create_batch_single_response(self):
+        """Test GoogleEmbedder.create_batch with single embedding response (lines 124-125)."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        # Mock single embedding response (not nested)
+        mock_genai.embed_content = MagicMock(
+            return_value={"embedding": [0.1, 0.2, 0.3]}
+        )
+
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+            embedder = GoogleEmbedder(api_key="test-key")
+            result = await embedder.create_batch(["text1"])
+
+            # Should handle single embedding response (line 125)
+            assert len(result) == 1
+            assert result[0] == [0.1, 0.2, 0.3]
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_google_embedder_create_batch_slow(self):
+        """Test GoogleEmbedder.create_batch with multiple inputs (slow variant)."""
         mock_genai = MagicMock()
         mock_genai.configure = MagicMock()
         # Mock batch embedding response
@@ -154,7 +251,6 @@ class TestCreateGoogleEmbedder:
         config.google_embedding_model = None
         return config
 
-    @pytest.mark.slow
     def test_create_google_embedder_success(self, mock_config):
         """Test create_google_embedder returns embedder with valid config."""
         mock_embedder = MagicMock()
@@ -175,7 +271,6 @@ class TestCreateGoogleEmbedder:
 
         assert "GOOGLE_API_KEY" in str(exc_info.value)
 
-    @pytest.mark.slow
     def test_create_google_embedder_with_custom_model(self, mock_config):
         """Test create_google_embedder uses custom model when specified."""
         mock_config.google_embedding_model = "custom-model"
@@ -192,7 +287,6 @@ class TestCreateGoogleEmbedder:
                 model="custom-model",
             )
 
-    @pytest.mark.slow
     def test_create_google_embedder_with_default_model(self, mock_config):
         """Test create_google_embedder uses default model when not specified."""
         mock_config.google_embedding_model = None

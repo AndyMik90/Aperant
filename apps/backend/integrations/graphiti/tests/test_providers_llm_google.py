@@ -74,10 +74,9 @@ class TestGoogleLLMClient:
 
             assert "google-generativeai" in str(exc_info.value)
 
-    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_google_llm_client_generate_response_with_user_message(self):
-        """Test GoogleLLMClient.generate_response with user message."""
+        """Test GoogleLLMClient.generate_response with user message (lines 73-133)."""
         mock_genai = MagicMock()
         mock_genai.configure = MagicMock()
         mock_model = MagicMock()
@@ -96,8 +95,27 @@ class TestGoogleLLMClient:
 
     @pytest.mark.slow
     @pytest.mark.asyncio
+    async def test_google_llm_client_generate_response_with_user_message_slow(self):
+        """Test GoogleLLMClient.generate_response with user message (slow variant)."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        mock_model = MagicMock()
+        mock_genai.GenerativeModel = MagicMock(return_value=mock_model)
+        mock_response = MagicMock()
+        mock_response.text = "Test response"
+        mock_model.generate_content = MagicMock(return_value=mock_response)
+
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+            client = GoogleLLMClient(api_key="test-key")
+            result = await client.generate_response(
+                [{"role": "user", "content": "Hello"}]
+            )
+
+            assert result == "Test response"
+
+    @pytest.mark.asyncio
     async def test_google_llm_client_generate_response_with_system_message(self):
-        """Test GoogleLLMClient.generate_response with system instruction."""
+        """Test GoogleLLMClient.generate_response with system instruction (lines 84-98)."""
         mock_genai = MagicMock()
         mock_genai.configure = MagicMock()
         mock_model_with_sys = MagicMock()
@@ -122,8 +140,56 @@ class TestGoogleLLMClient:
 
     @pytest.mark.slow
     @pytest.mark.asyncio
+    async def test_google_llm_client_generate_response_with_system_message_slow(self):
+        """Test GoogleLLMClient.generate_response with system instruction (slow variant)."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        mock_model_with_sys = MagicMock()
+        mock_model_without_sys = MagicMock()
+        mock_genai.GenerativeModel = MagicMock(
+            side_effect=[mock_model_without_sys, mock_model_with_sys]
+        )
+        mock_response = MagicMock()
+        mock_response.text = "Test response"
+        mock_model_with_sys.generate_content = MagicMock(return_value=mock_response)
+
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+            client = GoogleLLMClient(api_key="test-key")
+            result = await client.generate_response(
+                [
+                    {"role": "system", "content": "You are helpful"},
+                    {"role": "user", "content": "Hello"},
+                ]
+            )
+
+            assert result == "Test response"
+
+    @pytest.mark.asyncio
+    async def test_google_llm_client_generate_response_with_assistant_message(self):
+        """Test GoogleLLMClient.generate_response with assistant role (lines 87-88)."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        mock_model = MagicMock()
+        mock_genai.GenerativeModel = MagicMock(return_value=mock_model)
+        mock_response = MagicMock()
+        mock_response.text = "Test response"
+        mock_model.generate_content = MagicMock(return_value=mock_response)
+
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+            client = GoogleLLMClient(api_key="test-key")
+            result = await client.generate_response(
+                [
+                    {"role": "user", "content": "Hello"},
+                    {"role": "assistant", "content": "Hi there"},
+                    {"role": "user", "content": "How are you?"},
+                ]
+            )
+
+            assert result == "Test response"
+
+    @pytest.mark.asyncio
     async def test_google_llm_client_generate_response_with_response_model(self):
-        """Test GoogleLLMClient.generate_response with structured output."""
+        """Test GoogleLLMClient.generate_response with structured output (lines 103-127)."""
         mock_genai = MagicMock()
         mock_genai.configure = MagicMock()
         mock_model = MagicMock()
@@ -150,8 +216,62 @@ class TestGoogleLLMClient:
 
     @pytest.mark.slow
     @pytest.mark.asyncio
+    async def test_google_llm_client_generate_response_with_response_model_slow(self):
+        """Test GoogleLLMClient.generate_response with structured output (slow variant)."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        mock_model = MagicMock()
+        mock_genai.GenerativeModel = MagicMock(return_value=mock_model)
+        mock_response = MagicMock()
+        mock_response.text = '{"key": "value"}'
+        mock_model.generate_content = MagicMock(return_value=mock_response)
+        mock_genai.GenerationConfig = MagicMock()
+
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+            from pydantic import BaseModel
+
+            class TestModel(BaseModel):
+                key: str
+
+            client = GoogleLLMClient(api_key="test-key")
+            result = await client.generate_response(
+                [{"role": "user", "content": "Hello"}],
+                response_model=TestModel,
+            )
+
+            assert isinstance(result, TestModel)
+            assert result.key == "value"
+
+    @pytest.mark.asyncio
+    async def test_google_llm_client_generate_response_json_decode_error(self):
+        """Test GoogleLLMClient.generate_response with JSON decode error (lines 122-127)."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        mock_model = MagicMock()
+        mock_genai.GenerativeModel = MagicMock(return_value=mock_model)
+        mock_response = MagicMock()
+        mock_response.text = "Not valid JSON"
+        mock_model.generate_content = MagicMock(return_value=mock_response)
+        mock_genai.GenerationConfig = MagicMock()
+
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+            from pydantic import BaseModel
+
+            class TestModel(BaseModel):
+                key: str
+
+            client = GoogleLLMClient(api_key="test-key")
+            result = await client.generate_response(
+                [{"role": "user", "content": "Hello"}],
+                response_model=TestModel,
+            )
+
+            # Should return raw text when JSON parsing fails
+            assert result == "Not valid JSON"
+
+    @pytest.mark.asyncio
     async def test_google_llm_client_generate_response_with_tools(self):
-        """Test GoogleLLMClient.generate_response_with_tools (logs warning)."""
+        """Test GoogleLLMClient.generate_response_with_tools (lines 155-160)."""
         mock_genai = MagicMock()
         mock_genai.configure = MagicMock()
         mock_model = MagicMock()
@@ -178,6 +298,35 @@ class TestGoogleLLMClient:
                 )
                 assert result == "Test response"
 
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_google_llm_client_generate_response_with_tools_slow(self):
+        """Test GoogleLLMClient.generate_response_with_tools (slow variant)."""
+        mock_genai = MagicMock()
+        mock_genai.configure = MagicMock()
+        mock_model = MagicMock()
+        mock_genai.GenerativeModel = MagicMock(return_value=mock_model)
+        mock_response = MagicMock()
+        mock_response.text = "Test response"
+        mock_model.generate_content = MagicMock(return_value=mock_response)
+
+        with patch.dict(sys.modules, {"google.generativeai": mock_genai}):
+            client = GoogleLLMClient(api_key="test-key")
+
+            with patch(
+                "integrations.graphiti.providers_pkg.llm_providers.google_llm.logger"
+            ) as mock_logger:
+                result = await client.generate_response_with_tools(
+                    [{"role": "user", "content": "Hello"}],
+                    tools=[{"name": "test_tool"}],
+                )
+
+                mock_logger.warning.assert_called_once()
+                assert "does not yet support tool calling" in str(
+                    mock_logger.warning.call_args
+                )
+                assert result == "Test response"
+
 
 # =============================================================================
 # Test create_google_llm_client
@@ -195,7 +344,6 @@ class TestCreateGoogleLLMClient:
         config.google_llm_model = None
         return config
 
-    @pytest.mark.slow
     def test_create_google_llm_client_success(self, mock_config):
         """Test create_google_llm_client returns client with valid config."""
         mock_client = MagicMock()
@@ -216,7 +364,6 @@ class TestCreateGoogleLLMClient:
 
         assert "GOOGLE_API_KEY" in str(exc_info.value)
 
-    @pytest.mark.slow
     def test_create_google_llm_client_with_custom_model(self, mock_config):
         """Test create_google_llm_client uses custom model when specified."""
         mock_config.google_llm_model = "custom-model"
@@ -233,7 +380,6 @@ class TestCreateGoogleLLMClient:
                 model="custom-model",
             )
 
-    @pytest.mark.slow
     def test_create_google_llm_client_with_default_model(self, mock_config):
         """Test create_google_llm_client uses default model when not specified."""
         mock_config.google_llm_model = None
