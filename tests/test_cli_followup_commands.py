@@ -23,11 +23,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 # Mock external dependencies before importing cli.followup_commands
 # =============================================================================
 
-def _create_mock_module():
-    """Create a mock module with necessary attributes."""
-    mock = MagicMock()
-    return mock
-
+# _create_mock_module is imported from conftest.py
+from conftest import _create_mock_module
 
 # Mock modules
 if 'progress' not in sys.modules:
@@ -40,24 +37,9 @@ if 'progress' not in sys.modules:
 
 @pytest.fixture(autouse=True)
 def setup_mock_ui_for_followup(mock_ui_module_full):
-    """
-    Auto-use fixture that replaces sys.modules['ui'] with mock for each test.
-
-    NOTE: cli.followup_commands imports `ui` at module level, which happens at
-    pytest collection time. This fixture runs AFTER the module has already
-    been imported with the real `ui` module (if available). The fixture replaces
-    sys.modules['ui'] with mock_ui_module_full for each test, providing a
-    fresh mock per test without preventing the initial module-level import.
-
-    For proper test isolation, conftest.py handles cleanup between tests.
-    """
-    # Set up the mock UI module (replaces any existing ui module in sys.modules)
+    """Auto-use fixture that replaces sys.modules['ui'] with mock for each test."""
     sys.modules['ui'] = mock_ui_module_full
-
     yield
-
-    # Clean up - conftest.py handles module cleanup between test modules
-
 
 # =============================================================================
 # Import cli.followup_commands after mocking dependencies

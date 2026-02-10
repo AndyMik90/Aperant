@@ -2745,18 +2745,21 @@ class TestEdgeCaseLines:
 
     @patch("subprocess.run")
     def test_line_664_665_majority_already_merged(self, mock_run, mock_project_dir: Path):
-        """Tests lines 664-665: majority already_merged scenario."""
+        """Tests lines 664-665: majority already_merged scenario.
+
+        With 2 already_merged files out of 3 total files:
+        - len(already_merged_files) = 2 > total_files / 2 = 1.5
+        - Triggers line 663-665: scenario = "already_merged"
+        """
         from unittest.mock import MagicMock
         from cli.workspace_commands import _detect_conflict_scenario
 
-        # Create scenario: 3 files, 2 already_merged (majority)
-        # Total files = 3, already_merged = 2 > 3/2 = 1.5
-        # This triggers lines 664-665
+        # Create scenario: 3 files, 2 already_merged (majority), 1 diverged
         responses = [
             MagicMock(returncode=0, stdout="abc123\n"),
         ]
 
-        # File 1: already_merged (spec == base, no merge_base needed)
+        # File 1: already_merged (spec == base)
         responses.extend([
             MagicMock(returncode=0, stdout="same content"),
             MagicMock(returncode=0, stdout="same content"),
@@ -2768,7 +2771,7 @@ class TestEdgeCaseLines:
             MagicMock(returncode=0, stdout="same content"),
         ])
 
-        # File 3: diverged (different content)
+        # File 3: diverged (spec != base != original)
         responses.extend([
             MagicMock(returncode=0, stdout="spec different"),
             MagicMock(returncode=0, stdout="base different"),
@@ -2782,41 +2785,26 @@ class TestEdgeCaseLines:
             TEST_SPEC_BRANCH, "main"
         )
 
-        # Should trigger lines 664-665: majority already_merged
-        # Or might trigger diverged scenario depending on how it counts
-        # Let's check what actually happens
-        # With 2 already_merged and 1 diverged, it should be "already_merged" (2 > 3/2)
-        # But the code also checks `elif diverged_files` at line 674 before the else
-        # So if there are diverged_files, it might be "diverged" instead
-        # Let me check the actual logic more carefully
-
-        # Looking at lines 660-679:
-        # - Line 660: if len(already_merged_files) == total_files:
-        # - Line 663: elif len(already_merged_files) > total_files / 2:
-        # - Line 666: elif len(superseded_files) == total_files:
-        # - Line 669: elif len(superseded_files) > total_files / 2:
-        # - Line 674: elif diverged_files:
-        # - Line 677: else:
-
-        # So if already_merged > total/2 (line 663), it should be "already_merged"
-        # The diverged_files check at line 674 only happens if already_merged is NOT majority
-
-        assert result["scenario"] in ["already_merged", "diverged"]
+        # len(already_merged_files) = 2 > total_files / 2 = 1.5
+        # This triggers line 663-665, not line 674 (diverged check)
+        assert result["scenario"] == "already_merged"
+        assert len(result["already_merged_files"]) == 2
+        assert len(result["diverged_files"]) == 1
 
     @patch("subprocess.run")
-    def test_line_678_679_normal_conflict_else_branch(self, mock_run, mock_project_dir: Path):
-        """Tests lines 678-679: normal_conflict scenario (else branch)."""
+    def test_line_674_676_diverged_scenario(self, mock_run, mock_project_dir: Path):
+        """Tests lines 674-676: diverged scenario (elif diverged_files branch)."""
         from unittest.mock import MagicMock
         from cli.workspace_commands import _detect_conflict_scenario
 
-        # Create scenario where no other pattern matches
-        # All files have some conflict but not majority already_merged or superseded
-        # And there are diverged files
+        # Create scenario: single diverged file
+        # A file is "diverged" when spec, base, and merge_base all have different content
+        # This triggers line 674-676: scenario = "diverged"
         responses = [
-            MagicMock(returncode=0, stdout="abc123\n"),
+            MagicMock(returncode=0, stdout="abc123\n"),  # get_merge_base
         ]
 
-        # Single diverged file
+        # Single diverged file: spec != base != merge_base
         responses.extend([
             MagicMock(returncode=0, stdout="spec content"),
             MagicMock(returncode=0, stdout="base content"),
@@ -2829,11 +2817,10 @@ class TestEdgeCaseLines:
             mock_project_dir, ["file1.txt"], TEST_SPEC_BRANCH, "main"
         )
 
-        # Should hit lines 678-679: else: scenario = "normal_conflict"
-        # Actually with 1 diverged file, it will be "diverged" scenario (line 674-676)
-        # To get "normal_conflict", we need a case where none of the conditions match
-        # Let's verify at least one of the branches is covered
-        assert result["scenario"] in ["diverged", "normal_conflict"]
+        # With diverged_files non-empty and no majority of other types,
+        # triggers line 674-676
+        assert result["scenario"] == "diverged"
+        assert len(result["diverged_files"]) == 1
 
     @patch("subprocess.run")
     def test_line_649_spec_exists_base_missing(self, mock_run, mock_project_dir: Path):

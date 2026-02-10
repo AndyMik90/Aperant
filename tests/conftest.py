@@ -32,6 +32,17 @@ def _create_sdk_mock():
     mock.HookMatcher = MagicMock
     return mock
 
+
+def _create_mock_module():
+    """Create a mock module with necessary attributes.
+
+    Shared helper for test files that need to mock external modules.
+    Replaces duplicated definitions in test_cli_utils.py, test_cli_recovery.py,
+    and test_cli_followup_commands.py.
+    """
+    mock = MagicMock()
+    return mock
+
 # Pre-mock claude_agent_sdk if not installed
 if 'claude_agent_sdk' not in sys.modules:
     sys.modules['claude_agent_sdk'] = _create_sdk_mock()
@@ -1440,6 +1451,58 @@ def temp_project_dir(tmp_path):
     )
 
     return project_dir
+
+
+@pytest.fixture
+def successful_agent_fn():
+    """
+    Reusable async agent function that returns success.
+
+    Replaces the duplicated async def agent_fn(*args, **kwargs): return (True, 'Success')
+    pattern that was copy-pasted 28 times across test_cli_build_commands.py.
+
+    Usage:
+        def test_something(mock_run_agent, successful_agent_fn):
+            mock_run_agent.side_effect = successful_agent_fn
+    """
+    async def _fn(*args, **kwargs):
+        return (True, 'Success')
+    return _fn
+
+
+@pytest.fixture
+def standard_build_mocks(
+    mock_validate_env,
+    mock_should_run_qa,
+    mock_get_phase_model,
+    mock_choose_workspace,
+    mock_get_existing,
+):
+    """
+    Standard happy-path mock configuration for build command tests.
+
+    Replaces the duplicated 5-line mock setup pattern that was repeated 20+ times
+    across test_cli_build_commands.py.
+
+    Usage:
+        def test_something(standard_build_mocks, mock_run_agent, successful_agent_fn):
+            # All standard mocks are configured
+            mock_run_agent.side_effect = successful_agent_fn
+    """
+    from core.worktree import WorkspaceMode
+
+    mock_validate_env.return_value = True
+    mock_should_run_qa.return_value = False
+    mock_get_phase_model.side_effect = lambda spec_dir, phase, model: model or "sonnet"
+    mock_choose_workspace.return_value = WorkspaceMode.DIRECT
+    mock_get_existing.return_value = None
+    return {
+        'validate_env': mock_validate_env,
+        'should_run_qa': mock_should_run_qa,
+        'get_phase_model': mock_get_phase_model,
+        'choose_workspace': mock_choose_workspace,
+        'get_existing': mock_get_existing,
+    }
 
 
 @pytest.fixture

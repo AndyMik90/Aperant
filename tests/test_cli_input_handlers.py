@@ -23,23 +23,9 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def setup_mock_ui_for_input_handlers(mock_ui_module_full):
-    """
-    Auto-use fixture that replaces sys.modules['ui'] with mock for each test.
-
-    NOTE: cli.input_handlers imports `ui` at module level, which happens at
-    pytest collection time. This fixture runs AFTER the module has already
-    been imported with the real `ui` module (if available). The fixture replaces
-    sys.modules['ui'] with mock_ui_module_full for each test, providing a
-    fresh mock per test without preventing the initial module-level import.
-
-    For proper test isolation, conftest.py handles cleanup between tests.
-    """
-    # Set up the mock UI module (replaces any existing ui module in sys.modules)
+    """Auto-use fixture that replaces sys.modules['ui'] with mock for each test."""
     sys.modules['ui'] = mock_ui_module_full
-
     yield
-
-    # Clean up - conftest.py handles module cleanup between test modules
 
 
 # =============================================================================
