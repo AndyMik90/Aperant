@@ -1,0 +1,29 @@
+# CodeQL Configuration
+#
+# This config excludes test files from certain security queries that
+# produce false positives in test code.
+
+# Disable specific queries that produce false positives in test files
+query-filters:
+  # Exclude incomplete URL substring sanitization alerts in test files
+  # (test code uses mock URLs for verification purposes)
+  - exclude:
+      id: py/incomplete-url-substring-sanitization
+      path-pattern: tests/.*
+
+  # Exclude commented-out code alerts for section headers in test files
+  - exclude:
+      id: py/commented-out-code
+      path-pattern: tests/.*
+
+  # Exclude unused local variable alerts in test files
+  # (test variables are used in assertions that CodeQL doesn't always detect)
+  - exclude:
+      id: py/unused-local-variable
+      path-pattern: tests/.*
+
+  # Exclude unused import alerts in test files
+  # (test imports are used dynamically or for fixtures)
+  - exclude:
+      id: py/unused-import
+      path-pattern: tests/.*

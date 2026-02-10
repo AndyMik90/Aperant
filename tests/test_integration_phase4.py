@@ -15,6 +15,7 @@ and the finding-validator agent.
 import sys
 from pathlib import Path
 # lgtm[py/unused-import] - MagicMock is used in tests
+# codeql[py/unused-import] suppress - test code: MagicMock is used in tests below
 from unittest.mock import MagicMock, patch
 
 import pytest

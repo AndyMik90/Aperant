@@ -216,6 +216,7 @@ async def run_qa_validation_loop(
                     )
                 except OSError:
                     # lgtm[py/empty-except] - file removal failure is not critical here
+                    # codeql[py/empty-except] suppress - file removal failure is not critical here
                     pass
             return False
 
@@ -232,6 +233,7 @@ async def run_qa_validation_loop(
             debug("qa_loop", "Removed processed QA_FIX_REQUEST.md")
         except OSError:
             # lgtm[py/empty-except] - file removal failure is not critical here
+            # codeql[py/empty-except] suppress - file removal failure is not critical here
             pass  # Ignore if file removal fails
 
     # Check for no-test projects

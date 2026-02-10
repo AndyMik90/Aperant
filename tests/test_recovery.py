@@ -544,6 +544,7 @@ def run_all_tests():
     # Prefer running tests with pytest: pytest tests/test_recovery.py -v
 
     # lgtm[py/unused-local-variable] - tests list kept for documentation/reference
+    # codeql[py/unused-local-variable] suppress - tests list kept for documentation/reference
     tests = [
         ("test_initialization", test_initialization),
         ("test_record_attempt", test_record_attempt),
