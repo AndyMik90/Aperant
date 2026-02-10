@@ -136,6 +136,10 @@ MAX_MESSAGE_COUNT = 500
 # Abort after 3 consecutive repeats (4 total identical responses)
 REPEATED_RESPONSE_THRESHOLD = 3
 
+# Max length for auth error detection - real auth errors are short (~1-2 sentences).
+# Longer texts are likely AI discussion about auth topics, not actual errors.
+MAX_AUTH_ERROR_LENGTH = 300
+
 
 def _is_auth_error_response(text: str) -> bool:
     """
@@ -146,6 +150,11 @@ def _is_auth_error_response(text: str) -> bool:
     infinite retry loops as the conversation ping-pongs between prompts and
     error responses.
 
+    Real auth error responses are short messages (~1-2 sentences). AI discussion
+    text that merely mentions auth topics (e.g., PR reviews about auth features)
+    is much longer. We skip texts over MAX_AUTH_ERROR_LENGTH chars to avoid
+    false positives.
+
     Args:
         text: AI response text to check
 
@@ -153,6 +162,11 @@ def _is_auth_error_response(text: str) -> bool:
         True if the text is an auth/access error, False otherwise
     """
     text_lower = text.lower().strip()
+    # Real auth error responses are short messages, not long AI discussions.
+    # Skip texts longer than MAX_AUTH_ERROR_LENGTH to avoid false positives
+    # when AI discusses authentication topics (e.g., reviewing a PR about auth).
+    if len(text_lower) > MAX_AUTH_ERROR_LENGTH:
+        return False
     auth_error_patterns = [
         "does not have access to claude",
         "please login again",

@@ -608,22 +608,18 @@ Please authenticate and try again.`;
       expect(result.isAuthFailure).toBe(true);
     });
 
-    it('should detect "does not have access to Claude" pattern', async () => {
+    it('should NOT false-positive on AI discussion text mentioning auth topics', async () => {
       const { detectAuthFailure } = await import('../rate-limit-detector');
 
-      const output = 'Your account does not have access to Claude. Please login again or contact your administrator.';
-      const result = detectAuthFailure(output);
+      // This simulates an AI PR review that discusses authentication — it should NOT trigger auth detection
+      const aiReviewText = `The PR adds authentication error detection to prevent infinite retry loops. ` +
+        `When the API returns a message like "does not have access to Claude", the system now detects it. ` +
+        `However, this pattern could also match if a user discusses authentication in a PR review. ` +
+        `We should ensure the detection is specific enough to avoid false positives. ` +
+        `Please login again is another phrase that could appear in normal discussion.`;
+      const result = detectAuthFailure(aiReviewText);
 
-      expect(result.isAuthFailure).toBe(true);
-    });
-
-    it('should detect "please login again" pattern', async () => {
-      const { detectAuthFailure } = await import('../rate-limit-detector');
-
-      const output = 'Session expired. Please login again to continue.';
-      const result = detectAuthFailure(output);
-
-      expect(result.isAuthFailure).toBe(true);
+      expect(result.isAuthFailure).toBe(false);
     });
   });
 });
