@@ -23,8 +23,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 # Mock external dependencies before importing cli.followup_commands
 # =============================================================================
 
-# _create_mock_module is imported from conftest.py
-from conftest import _create_mock_module
+def _create_mock_module():
+    """Create a mock module with necessary attributes."""
+    mock = MagicMock()
+    return mock
 
 # Mock modules
 if 'progress' not in sys.modules:

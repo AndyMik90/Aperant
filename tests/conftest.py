@@ -32,17 +32,6 @@ def _create_sdk_mock():
     mock.HookMatcher = MagicMock
     return mock
 
-
-def _create_mock_module():
-    """Create a mock module with necessary attributes.
-
-    Shared helper for test files that need to mock external modules.
-    Replaces duplicated definitions in test_cli_utils.py, test_cli_recovery.py,
-    and test_cli_followup_commands.py.
-    """
-    mock = MagicMock()
-    return mock
-
 # Pre-mock claude_agent_sdk if not installed
 if 'claude_agent_sdk' not in sys.modules:
     sys.modules['claude_agent_sdk'] = _create_sdk_mock()

@@ -25,8 +25,10 @@ import pytest
 # Mock external dependencies before importing cli.utils
 # =============================================================================
 
-# _create_mock_module is imported from conftest.py
-from conftest import _create_mock_module
+def _create_mock_module():
+    """Create a mock module with necessary attributes."""
+    mock = MagicMock()
+    return mock
 
 # Mock modules that may not be available
 if 'graphiti_config' not in sys.modules:
