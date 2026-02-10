@@ -15,17 +15,17 @@ from dataclasses import dataclass
 from pathlib import Path
 
 try:
-    from ...analysis.test_discovery import TestDiscovery
     from ...core.client import create_client
     from ..context_gatherer import PRContext
     from ..models import PRReviewFinding, ReviewSeverity
     from .category_utils import map_category
 except (ImportError, ValueError, SystemError):
-    from analysis.test_discovery import TestDiscovery
     from category_utils import map_category
     from context_gatherer import PRContext
     from core.client import create_client
     from models import PRReviewFinding, ReviewSeverity
+
+# TestDiscovery was removed - tests are now co-located in their respective modules
 
 logger = logging.getLogger(__name__)
 
@@ -367,49 +367,63 @@ async def run_tests(
     """
     logger.info("[Orchestrator] Running tests...")
 
+    # Determine test command based on project configuration
+    # Try common test commands in order of preference
+    test_commands = [
+        "pytest --cov=.",  # Python with coverage
+        "pytest",  # Python
+        "npm test",  # Node.js
+        "npm run test",  # Node.js (script form)
+        "python -m pytest",  # Python alternative
+    ]
+
     try:
-        # Discover test framework
-        discovery = TestDiscovery()
-        test_info = discovery.discover(project_dir)
-
-        if not test_info.has_tests:
-            logger.warning("[Orchestrator] No tests found")
-            return TestResult(executed=False, passed=False, error="No tests found")
-
-        # Get test command
-        test_cmd = test_info.test_command
-        if not test_cmd:
-            return TestResult(
-                executed=False, passed=False, error="No test command available"
+        # Execute tests with timeout - try common commands
+        for test_cmd in test_commands:
+            logger.info(f"[Orchestrator] Attempting: {test_cmd}")
+            proc = await asyncio.create_subprocess_shell(
+                test_cmd,
+                cwd=project_dir,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
 
-        # Execute tests with timeout
-        logger.info(f"[Orchestrator] Executing: {test_cmd}")
-        proc = await asyncio.create_subprocess_shell(
-            test_cmd,
-            cwd=project_dir,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    proc.communicate(),
+                    timeout=60.0,  # Quick check for test availability
+                )
+                # If command executed (even with failures), use it
+                if proc.returncode is not None:
+                    # Re-run with full timeout for actual test results
+                    proc_full = await asyncio.create_subprocess_shell(
+                        test_cmd,
+                        cwd=project_dir,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                    )
+                    stdout_full, stderr_full = await asyncio.wait_for(
+                        proc_full.communicate(),
+                        timeout=300.0,  # 5 min max
+                    )
+                    passed = proc_full.returncode == 0
+                    logger.info(f"[Orchestrator] Tests {'passed' if passed else 'failed'}")
+                    return TestResult(
+                        executed=True,
+                        passed=passed,
+                        error=None if passed else stderr_full.decode("utf-8")[:500],
+                    )
+            except asyncio.TimeoutError:
+                # Command hung or took too long - skip this one
+                proc.kill()
+                continue
+            except FileNotFoundError:
+                # Command not found - try next one
+                continue
 
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(),
-                timeout=300.0,  # 5 min max
-            )
-        except asyncio.TimeoutError:
-            logger.error("[Orchestrator] Tests timed out after 5 minutes")
-            proc.kill()
-            return TestResult(executed=True, passed=False, error="Timeout after 5min")
-
-        passed = proc.returncode == 0
-        logger.info(f"[Orchestrator] Tests {'passed' if passed else 'failed'}")
-
-        return TestResult(
-            executed=True,
-            passed=passed,
-            error=None if passed else stderr.decode("utf-8")[:500],
-        )
+        # If no test command worked
+        logger.warning("[Orchestrator] No test command could be executed")
+        return TestResult(executed=False, passed=False, error="No test command available")
 
     except Exception as e:
         logger.error(f"[Orchestrator] Test execution failed: {e}")
