@@ -249,7 +249,9 @@ export function buildIssueContext(
     lines.push(`## Notes (${notes.length})`);
     lines.push('');
     for (const note of notes) {
-      lines.push(`**${note.author.username}:** ${note.body}`);
+      const safeAuthor = sanitizeText(note.author?.username || 'unknown', 100);
+      const safeBody = sanitizeText(note.body, 20000, true);
+      lines.push(`**${safeAuthor}:** ${safeBody}`);
       lines.push('');
     }
   }
