@@ -8,12 +8,10 @@ Tests for follow-up task commands:
 - handle_followup_command()
 """
 
-import asyncio
 import json
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch, mock_open
-from io import StringIO
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -366,7 +364,7 @@ class TestCollectFollowupTask:
 
         with patch('cli.followup_commands.select_menu', return_value='type'):
             with patch('builtins.input', side_effect=[task_description, '']):
-                result = collect_followup_task(spec_dir)
+                collect_followup_task(spec_dir)
 
         followup_file = spec_dir / "FOLLOWUP_REQUEST.md"
         assert followup_file.exists()

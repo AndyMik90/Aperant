@@ -24,7 +24,7 @@ Key scenarios tested:
 import json
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -2358,7 +2358,6 @@ class TestHandleBuildCommandLocalizedSpec:
 
         # Verify run_autonomous_agent was called with localized_spec_dir
         mock_run_agent.assert_called_once()
-        call_kwargs = mock_run_agent.call_args.kwargs
         # The spec_dir passed to agent should be the localized one
 
 

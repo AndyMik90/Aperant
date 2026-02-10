@@ -445,7 +445,7 @@ class TestQaCommandsIntegration:
         """Test checking both QA and review status."""
         # Check QA status
         handle_qa_status_command(spec_dir_with_review_state)
-        captured = capsys.readouterr()
+        capsys.readouterr()
 
         # Check review status
         handle_review_status_command(spec_dir_with_review_state)

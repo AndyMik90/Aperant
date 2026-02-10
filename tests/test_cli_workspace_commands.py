@@ -19,11 +19,10 @@ Tests the workspace_commands.py module functionality including:
 """
 
 import json
-import os
 import subprocess
 from pathlib import Path
 from typing import Generator
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 

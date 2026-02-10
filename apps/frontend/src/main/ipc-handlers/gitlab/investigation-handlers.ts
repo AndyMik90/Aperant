@@ -8,7 +8,7 @@ import { IPC_CHANNELS } from '../../../shared/constants';
 import type { GitLabInvestigationStatus, GitLabInvestigationResult } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 import { getGitLabConfig, gitlabFetch, encodeProjectPath } from './utils';
-import type { GitLabAPIIssue, GitLabAPINote } from './types';
+import type { GitLabAPIIssue } from './types';
 import { createSpecForIssue } from './spec-utils';
 import type { AgentManager } from '../../agent';
 
@@ -110,7 +110,6 @@ export function registerInvestigateIssue(
         ) as GitLabAPIIssue;
 
         // Fetch notes if any selected
-        const selectedNotes: GitLabAPINote[] = [];
         if (selectedNoteIds && selectedNoteIds.length > 0) {
           // selectedNotes processing now handled internally by spec creation pipeline
           // Note: allNotes fetch removed as processing is now internal

@@ -10,7 +10,6 @@ Tests for batch_commands.py module functionality including:
 """
 
 import json
-import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -540,8 +539,6 @@ class TestHandleBatchCleanupCommand:
         self, project_with_completed_specs_and_worktrees: Path
     ) -> None:
         """Uses git worktree remove when available."""
-        specs_dir = project_with_completed_specs_and_worktrees / ".auto-claude" / "specs"
-
         with patch('subprocess.run') as mock_run:
             # Mock git worktree remove to succeed
             mock_run.return_value = MagicMock(returncode=0)
@@ -598,8 +595,6 @@ class TestHandleBatchCleanupCommand:
         self, capsys, project_with_completed_specs_and_worktrees: Path
     ) -> None:
         """Handles exceptions during cleanup gracefully."""
-        specs_dir = project_with_completed_specs_and_worktrees / ".auto-claude" / "specs"
-
         with patch('subprocess.run') as mock_run:
             # Mock exception
             mock_run.side_effect = Exception("Test error")

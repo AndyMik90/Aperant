@@ -11,7 +11,7 @@ Tests for spec_commands.py module functionality including:
 import json
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

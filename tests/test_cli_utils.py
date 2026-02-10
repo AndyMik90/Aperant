@@ -13,11 +13,10 @@ Tests for shared utility functions used across the CLI:
 - find_specs_dir()
 """
 
-import json
 import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -139,7 +138,6 @@ class TestSetupEnvironment:
 
     def test_adds_to_sys_path(self):
         """Adds script directory to sys.path."""
-        original_path_length = len(sys.path)
         result = setup_environment()
         assert str(result) in sys.path
 
@@ -188,12 +186,6 @@ class TestSetupEnvironment:
             # Setup mock Path instance for __file__
             mock_script_dir = MagicMock()
             mock_script_dir.resolve.return_value = temp_dir
-
-            # Setup exists() to return False for script_dir .env, True for dev .env
-            def exists_side_effect():
-                # When checking script_dir/.env, return False
-                # When checking dev/auto-claude/.env, return True
-                return False
 
             mock_script_env_file = MagicMock()
             mock_script_env_file.exists.return_value = False
@@ -519,7 +511,7 @@ class TestValidateEnvironment:
             with patch('cli.utils.is_linear_enabled', return_value=False):
                 validate_environment(spec_dir)
                 captured = capsys.readouterr()
-                # lgtm[py/unsafe-string-validation-in-url] - test code: checking custom API endpoint is displayed
+                # lgtm[py/incomplete-url-substring-sanitization] - test code: checking custom API endpoint is displayed
                 assert "https://custom.api.com" in captured.out
 
     @patch('cli.utils.validate_platform_dependencies')

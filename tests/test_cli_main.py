@@ -28,7 +28,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call, Mock
+from unittest.mock import MagicMock, patch, Mock
 import pytest
 
 # Add backend to path
