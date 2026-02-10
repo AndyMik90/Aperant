@@ -47,6 +47,29 @@ class TestCreateVoyageEmbedder:
             result = create_voyage_embedder(mock_config)
             assert result == mock_embedder
 
+    def test_create_voyage_embedder_success_fast(self, mock_config):
+        """Fast test for create_voyage_embedder success path."""
+        mock_embedder = MagicMock()
+
+        # Mock the graphiti_core imports
+        with patch.dict(
+            "sys.modules",
+            {
+                "graphiti_core": MagicMock(),
+                "graphiti_core.embedder": MagicMock(),
+                "graphiti_core.embedder.voyage": MagicMock(),
+            },
+        ):
+            from graphiti_core.embedder.voyage import VoyageEmbedder
+
+            VoyageEmbedder.return_value = mock_embedder
+
+            result = create_voyage_embedder(mock_config)
+
+            # Verify the embedder was created and returned
+            VoyageEmbedder.assert_called_once()
+            assert result == mock_embedder
+
     def test_create_voyage_embedder_missing_api_key(self, mock_config):
         """Test create_voyage_embedder raises ProviderError for missing API key."""
 

@@ -48,6 +48,28 @@ class TestCreateOpenRouterEmbedder:
             result = create_openrouter_embedder(mock_config)
             assert result == mock_embedder
 
+    def test_create_openrouter_embedder_success_fast(self, mock_config):
+        """Fast test for create_openrouter_embedder success path."""
+        mock_embedder = MagicMock()
+
+        # Mock the graphiti_core imports
+        with patch.dict(
+            "sys.modules",
+            {
+                "graphiti_core": MagicMock(),
+                "graphiti_core.embedder": MagicMock(),
+            },
+        ):
+            from graphiti_core.embedder import OpenAIEmbedder
+
+            OpenAIEmbedder.return_value = mock_embedder
+
+            result = create_openrouter_embedder(mock_config)
+
+            # Verify the embedder was created and returned
+            OpenAIEmbedder.assert_called_once()
+            assert result == mock_embedder
+
     def test_create_openrouter_embedder_missing_api_key(self, mock_config):
         """Test create_openrouter_embedder raises ProviderError for missing API key."""
 

@@ -129,6 +129,32 @@ class TestCreateOllamaEmbedder:
             result = create_ollama_embedder(mock_config)
             assert result == mock_embedder
 
+    def test_create_ollama_embedder_success_fast(self, mock_config):
+        """Fast test for create_ollama_embedder success path."""
+        mock_embedder = MagicMock()
+
+        # Set embedding_dim to 0 to allow auto-detection
+        mock_config.ollama_embedding_dim = 0
+
+        # Mock the graphiti_core imports
+        with patch.dict(
+            "sys.modules",
+            {
+                "graphiti_core": MagicMock(),
+                "graphiti_core.embedder": MagicMock(),
+                "graphiti_core.embedder.openai": MagicMock(),
+            },
+        ):
+            from graphiti_core.embedder.openai import OpenAIEmbedder
+
+            OpenAIEmbedder.return_value = mock_embedder
+
+            result = create_ollama_embedder(mock_config)
+
+            # Verify the embedder was created and returned
+            OpenAIEmbedder.assert_called_once()
+            assert result == mock_embedder
+
     def test_create_ollama_embedder_missing_model(self, mock_config):
         """Test create_ollama_embedder raises ProviderError for missing model."""
         mock_config.ollama_embedding_model = None
