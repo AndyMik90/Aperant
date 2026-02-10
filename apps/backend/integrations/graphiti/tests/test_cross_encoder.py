@@ -148,6 +148,53 @@ class TestCreateCrossEncoder:
         # by checking the function doesn't crash with /v1 suffix
         # In real scenario, it would use the base_url as-is
 
+    def test_import_error_returns_none(self, mock_config, mock_llm_client):
+        """Test create_cross_encoder returns None when graphiti_core modules not available."""
+        from integrations.graphiti.providers_pkg.cross_encoder import (
+            create_cross_encoder,
+        )
+
+        # Mock the import to raise ImportError
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "graphiti_core.cross_encoder.openai_reranker_client":
+                raise ImportError("graphiti_core not installed")
+            if name == "graphiti_core.llm_client.config":
+                raise ImportError("graphiti_core not installed")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            result = create_cross_encoder(mock_config, mock_llm_client)
+
+        assert result is None
+
+    def test_exception_during_creation_returns_none(self, mock_config, mock_llm_client):
+        """Test create_cross_encoder returns None on exception during creation."""
+        from integrations.graphiti.providers_pkg.cross_encoder import (
+            create_cross_encoder,
+        )
+
+        # Mock the graphiti_core modules but make LLMConfig raise an exception
+        with patch.dict(
+            "sys.modules",
+            {
+                "graphiti_core": MagicMock(),
+                "graphiti_core.cross_encoder": MagicMock(),
+                "graphiti_core.cross_encoder.openai_reranker_client": MagicMock(),
+                "graphiti_core.llm_client": MagicMock(),
+                "graphiti_core.llm_client.config": MagicMock(),
+            },
+        ):
+            from graphiti_core.llm_client.config import LLMConfig
+
+            # Make LLMConfig raise an exception
+            LLMConfig.side_effect = Exception("Config creation failed")
+
+            result = create_cross_encoder(mock_config, mock_llm_client)
+
+        assert result is None
+
 
 # =============================================================================
 # Test module exports
