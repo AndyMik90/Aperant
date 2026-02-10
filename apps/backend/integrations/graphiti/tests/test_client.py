@@ -332,6 +332,43 @@ class TestApplyLadybugMonkeypatch:
             elif "kuzu" in sys.modules:
                 del sys.modules["kuzu"]
 
+    def test_windows_non_pywin32_import_error_logs_debug(self):
+        """Windows non-pywin32 import error logs debug message."""
+        # Import error that doesn't contain 'pywintypes'
+        import_error = ImportError("DLL load failed while importing real_ladybug")
+
+        # Store and remove kuzu from sys.modules if present
+        original_kuzu = sys.modules.pop("kuzu", None)
+
+        try:
+
+            def import_side_effect(name, *args, **kwargs):
+                if name == "real_ladybug":
+                    raise import_error
+                elif name == "kuzu":
+                    raise ImportError("kuzu not found")
+                return original_import(name, *args, **kwargs)
+
+            original_import = builtins.__import__
+            with patch.object(sys, "platform", "win32"):
+                with patch("builtins.__import__", side_effect=import_side_effect):
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client.logger"
+                    ) as mock_logger:
+                        result = _apply_ladybug_monkeypatch()
+
+                        # Should log debug for Windows-specific import issue
+                        assert any(
+                            "Windows-specific import issue" in str(call)
+                            for call in mock_logger.debug.call_args_list
+                        )
+        finally:
+            # Restore original kuzu module
+            if original_kuzu:
+                sys.modules["kuzu"] = original_kuzu
+            elif "kuzu" in sys.modules:
+                del sys.modules["kuzu"]
+
 
 # =============================================================================
 # Tests for GraphitiClient.__init__
