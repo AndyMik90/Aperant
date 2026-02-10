@@ -8,8 +8,10 @@ Helper functions for git operations, plan management, and file syncing.
 import json
 import logging
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 
+from core.file_utils import write_json_atomic
 from core.git_executable import run_git
 
 logger = logging.getLogger(__name__)
@@ -179,3 +181,46 @@ def _sync_directory(source_dir: Path, target_dir: Path) -> None:
 def sync_plan_to_source(spec_dir: Path, source_spec_dir: Path | None) -> bool:
     """Alias for sync_spec_to_source for backward compatibility."""
     return sync_spec_to_source(spec_dir, source_spec_dir)
+
+
+def update_subtask_status_in_plan(
+    spec_dir: Path, subtask_id: str, status: str, notes: str = ""
+) -> bool:
+    """
+    Update a subtask's status in implementation_plan.json atomically.
+
+    Uses the same load/find/write pattern as session.py:264-291 but
+    extracted as a reusable utility.
+
+    Args:
+        spec_dir: Spec directory containing implementation_plan.json
+        subtask_id: The subtask ID to update
+        status: New status value (e.g., "failed", "pending")
+        notes: Optional notes to attach to the subtask
+
+    Returns:
+        True if the update was successful, False otherwise
+    """
+    plan = load_implementation_plan(spec_dir)
+    if not plan:
+        logger.warning(f"Could not load implementation plan to update subtask {subtask_id}")
+        return False
+
+    subtask = find_subtask_in_plan(plan, subtask_id)
+    if not subtask:
+        logger.warning(f"Subtask {subtask_id} not found in implementation plan")
+        return False
+
+    subtask["status"] = status
+    subtask["updated_at"] = datetime.now(timezone.utc).isoformat()
+    if notes:
+        subtask["notes"] = notes
+
+    try:
+        plan_path = spec_dir / "implementation_plan.json"
+        write_json_atomic(plan_path, plan, indent=2)
+        logger.info(f"Updated subtask {subtask_id} status to '{status}' in implementation plan")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to write implementation plan after updating subtask {subtask_id}: {e}")
+        return False

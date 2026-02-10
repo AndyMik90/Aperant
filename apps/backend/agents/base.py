@@ -17,6 +17,7 @@ HUMAN_INTERVENTION_FILE = "PAUSE"
 
 # Retry configuration for subtask execution
 MAX_SUBTASK_RETRIES = 5  # Maximum attempts before marking subtask as stuck
+FILE_VALIDATION_BYPASS_THRESHOLD = 3  # Bypass file validation after N attempts, let agent self-correct
 
 # Retry configuration for 400 tool concurrency errors
 MAX_CONCURRENCY_RETRIES = 5  # Maximum number of retries for tool concurrency errors
