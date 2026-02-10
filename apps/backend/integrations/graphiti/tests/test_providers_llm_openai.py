@@ -100,6 +100,45 @@ class TestCreateOpenAILLMClient:
 
             assert "graphiti-core" in str(exc_info.value)
 
+    def test_create_openai_llm_client_gpt5_model_with_reasoning_fast(self, mock_config):
+        """Fast test for GPT-5 model with reasoning (line 58)."""
+        mock_config.openai_model = "gpt-5-turbo"
+        mock_client = MagicMock()
+
+        # Create the config mock
+        mock_config_module = MagicMock()
+        mock_config_module.LLMConfig = MagicMock
+
+        # Mock the graphiti_core imports
+        with patch.dict(
+            "sys.modules",
+            {
+                "graphiti_core": MagicMock(),
+                "graphiti_core.llm_client": MagicMock(),
+                "graphiti_core.llm_client.config": mock_config_module,
+                "graphiti_core.llm_client.openai_client": MagicMock(),
+            },
+        ):
+            from graphiti_core.llm_client.openai_client import OpenAIClient
+
+            OpenAIClient.return_value = mock_client
+
+            result = create_openai_llm_client(mock_config)
+
+            # Verify the client was created with default config (no extra params)
+            OpenAIClient.assert_called_once()
+            call_kwargs = OpenAIClient.call_args.kwargs
+            # Should not have reasoning/verbosity params set to None for GPT-5
+            assert (
+                "reasoning" not in call_kwargs
+                or call_kwargs.get("reasoning") is not False
+            )
+            assert (
+                "verbosity" not in call_kwargs
+                or call_kwargs.get("verbosity") is not False
+            )
+            assert result == mock_client
+
     @pytest.mark.slow
     def test_create_openai_llm_client_gpt5_model_with_reasoning(self, mock_config):
         """Test create_openai_llm_client with GPT-5 model supports reasoning."""

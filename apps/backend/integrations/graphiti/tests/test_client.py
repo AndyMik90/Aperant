@@ -1076,6 +1076,62 @@ class TestGraphitiClientInitialize:
             )
 
     @pytest.mark.asyncio
+    async def test_returns_false_on_graphiti_construction_exception(self):
+        """Returns False on Graphiti construction generic Exception (lines 278-286)."""
+        mock_config = MagicMock()
+        mock_config.llm_provider = "openai"
+        mock_config.embedder_provider = "openai"
+        mock_config.get_db_path.return_value = Path("/test/db")
+
+        # Create a Graphiti class that raises exception during construction
+        mock_graphiti_class = MagicMock(
+            side_effect=ValueError("Graphiti construction failed")
+        )
+
+        # Mock graphiti_core module
+        mock_graphiti_core = MagicMock()
+        mock_graphiti_core.Graphiti = mock_graphiti_class
+        sys.modules["graphiti_core"] = mock_graphiti_core
+
+        # Create mock kuzu driver to avoid import errors
+        mock_kuzu = MagicMock()
+        mock_kuzu_driver = MagicMock()
+        mock_kuzu.Database = MagicMock()
+        mock_kuzu_driver.create_patched_kuzu_driver = MagicMock(return_value=mock_kuzu)
+        sys.modules["kuzu"] = mock_kuzu
+        sys.modules["integrations.graphiti.queries_pkg.kuzu_driver_patched"] = (
+            mock_kuzu_driver
+        )
+
+        try:
+            with patch("graphiti_providers.create_llm_client") as mock_create_llm:
+                with patch("graphiti_providers.create_embedder") as mock_create_emb:
+                    with patch(
+                        "integrations.graphiti.queries_pkg.client.capture_exception"
+                    ) as mock_capture:
+                        mock_create_llm.return_value = MagicMock()
+                        mock_create_emb.return_value = MagicMock()
+
+                        client = GraphitiClient(mock_config)
+                        result = await client.initialize()
+
+                        assert result is False
+                        # Verify capture_exception was called with generic exception type
+                        mock_capture.assert_called()
+                        # Find the call with ValueError error_type
+                        for call in mock_capture.call_args_list:
+                            call_kwargs = call[1] if len(call) > 1 else call.kwargs
+                            if call_kwargs.get("error_type") == "ValueError":
+                                return
+                        pytest.fail("ValueError exception not captured")
+        finally:
+            sys.modules.pop("graphiti_core", None)
+            sys.modules.pop("kuzu", None)
+            sys.modules.pop(
+                "integrations.graphiti.queries_pkg.kuzu_driver_patched", None
+            )
+
+    @pytest.mark.asyncio
     async def test_captures_exceptions_via_sentry(self):
         """Captures exceptions via sentry."""
         from integrations.graphiti.providers_pkg import ProviderError

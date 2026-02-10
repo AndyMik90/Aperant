@@ -586,6 +586,42 @@ class TestGetSessionHistory:
         assert result[0]["session_number"] == 1
 
     @pytest.mark.asyncio
+    async def test_skips_json_array_content(self, graphiti_search, mock_client):
+        """Test get_session_history skips JSON array content (line 167)."""
+        valid_insight = _create_valid_session_insight(session_number=1)
+        # JSON array that contains the episode type but is not a dict
+        non_dict_json = '["item1", "session_insight", "item3"]'
+
+        mock_client.graphiti.search.return_value = [
+            _create_mock_result(content=valid_insight, score=0.9),
+            _create_mock_result(content=non_dict_json, score=0.5),
+        ]
+
+        result = await graphiti_search.get_session_history(limit=5)
+
+        # Only dict content should be returned (array is skipped)
+        assert len(result) == 1
+        assert result[0]["session_number"] == 1
+
+    @pytest.mark.asyncio
+    async def test_skips_json_string_content(self, graphiti_search, mock_client):
+        """Test get_session_history skips JSON string content (line 167)."""
+        valid_insight = _create_valid_session_insight(session_number=1)
+        # JSON string that contains the episode type but is not a dict
+        non_dict_json = '"session_insight text"'
+
+        mock_client.graphiti.search.return_value = [
+            _create_mock_result(content=valid_insight, score=0.9),
+            _create_mock_result(content=non_dict_json, score=0.5),
+        ]
+
+        result = await graphiti_search.get_session_history(limit=5)
+
+        # Only dict content should be returned (string is skipped)
+        assert len(result) == 1
+        assert result[0]["session_number"] == 1
+
+    @pytest.mark.asyncio
     async def test_returns_empty_list_on_exception(self, graphiti_search, mock_client):
         """Test get_session_history returns empty list on exception."""
         mock_client.graphiti.search.side_effect = Exception("Search failed")
@@ -773,6 +809,48 @@ class TestGetSimilarTaskOutcomes:
         )
 
         # Only dict content should be returned
+        assert len(result) == 1
+        assert result[0]["task_id"] == "task-123"
+
+    @pytest.mark.asyncio
+    async def test_skips_json_array_content(self, graphiti_search, mock_client):
+        """Test get_similar_task_outcomes skips JSON array content (line 226)."""
+        valid_outcome = _create_valid_task_outcome()
+        # JSON array that contains the episode type but is not a dict
+        non_dict_json = '["item1", "task_outcome", "item3"]'
+
+        mock_client.graphiti.search.return_value = [
+            _create_mock_result(content=valid_outcome, score=0.9),
+            _create_mock_result(content=non_dict_json, score=0.5),
+        ]
+
+        result = await graphiti_search.get_similar_task_outcomes(
+            task_description="test",
+            limit=5,
+        )
+
+        # Only dict content should be returned (array is skipped)
+        assert len(result) == 1
+        assert result[0]["task_id"] == "task-123"
+
+    @pytest.mark.asyncio
+    async def test_skips_json_string_content(self, graphiti_search, mock_client):
+        """Test get_similar_task_outcomes skips JSON string content (line 226)."""
+        valid_outcome = _create_valid_task_outcome()
+        # JSON string that contains the episode type but is not a dict
+        non_dict_json = '"task_outcome text"'
+
+        mock_client.graphiti.search.return_value = [
+            _create_mock_result(content=valid_outcome, score=0.9),
+            _create_mock_result(content=non_dict_json, score=0.5),
+        ]
+
+        result = await graphiti_search.get_similar_task_outcomes(
+            task_description="test",
+            limit=5,
+        )
+
+        # Only dict content should be returned (string is skipped)
         assert len(result) == 1
         assert result[0]["task_id"] == "task-123"
 
@@ -1087,6 +1165,98 @@ class TestGetPatternsAndGotchas:
         )
 
         # Only dict content should be returned
+        assert len(patterns) == 1
+        assert len(gotchas) == 1
+
+    @pytest.mark.asyncio
+    async def test_skips_json_array_content(self, graphiti_search, mock_client):
+        """Test get_patterns_and_gotchas skips JSON array content (lines 299, 335)."""
+        valid_pattern = _create_valid_pattern()
+        # JSON array that contains the episode type but is not a dict
+        non_dict_pattern_json = '["item1", "pattern", "item3"]'
+        valid_gotcha = _create_valid_gotcha()
+        non_dict_gotcha_json = '["item1", "gotcha", "item3"]'
+
+        mock_client.graphiti.search = AsyncMock(
+            side_effect=[
+                [
+                    _create_mock_result(content=valid_pattern, score=0.9),
+                    _create_mock_result(content=non_dict_pattern_json, score=0.6),
+                ],
+                [
+                    _create_mock_result(content=valid_gotcha, score=0.8),
+                    _create_mock_result(content=non_dict_gotcha_json, score=0.7),
+                ],
+            ]
+        )
+
+        patterns, gotchas = await graphiti_search.get_patterns_and_gotchas(
+            query="test",
+            num_results=5,
+            min_score=0.5,
+        )
+
+        # Only dict content should be returned (arrays are skipped)
+        assert len(patterns) == 1
+        assert len(gotchas) == 1
+
+    @pytest.mark.asyncio
+    async def test_skips_json_string_content(self, graphiti_search, mock_client):
+        """Test get_patterns_and_gotchas skips JSON string content (lines 299, 335)."""
+        valid_pattern = _create_valid_pattern()
+        # JSON string that contains the episode type but is not a dict
+        non_dict_pattern_json = '"pattern text"'
+        valid_gotcha = _create_valid_gotcha()
+        non_dict_gotcha_json = '"gotcha text"'
+
+        mock_client.graphiti.search = AsyncMock(
+            side_effect=[
+                [
+                    _create_mock_result(content=valid_pattern, score=0.9),
+                    _create_mock_result(content=non_dict_pattern_json, score=0.6),
+                ],
+                [
+                    _create_mock_result(content=valid_gotcha, score=0.8),
+                    _create_mock_result(content=non_dict_gotcha_json, score=0.7),
+                ],
+            ]
+        )
+
+        patterns, gotchas = await graphiti_search.get_patterns_and_gotchas(
+            query="test",
+            num_results=5,
+            min_score=0.5,
+        )
+
+        # Only dict content should be returned (strings are skipped)
+        assert len(patterns) == 1
+        assert len(gotchas) == 1
+
+    @pytest.mark.asyncio
+    async def test_handles_gotcha_json_decode_error(self, graphiti_search, mock_client):
+        """Test get_patterns_and_gotchas handles gotcha JSON decode errors (lines 345-346)."""
+        valid_pattern = _create_valid_pattern()
+        valid_gotcha = _create_valid_gotcha()
+        # Invalid JSON that contains the episode type "gotcha"
+        invalid_gotcha_json = '{"type": "gotcha", "gotcha": "test" invalid'
+
+        mock_client.graphiti.search = AsyncMock(
+            side_effect=[
+                [_create_mock_result(content=valid_pattern, score=0.9)],
+                [
+                    _create_mock_result(content=valid_gotcha, score=0.8),
+                    _create_mock_result(content=invalid_gotcha_json, score=0.7),
+                ],
+            ]
+        )
+
+        patterns, gotchas = await graphiti_search.get_patterns_and_gotchas(
+            query="test",
+            num_results=5,
+            min_score=0.5,
+        )
+
+        # Should skip invalid JSON and return valid items
         assert len(patterns) == 1
         assert len(gotchas) == 1
 

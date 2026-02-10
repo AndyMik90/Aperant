@@ -491,6 +491,64 @@ class TestValidateEmbeddingConfig:
         assert is_valid is False
         assert "OLLAMA_EMBEDDING_DIM" in message
 
+    def test_validate_embedding_config_openai_logs_dimension(self, mock_config):
+        """Test validate_embedding_config logs OpenAI dimension (lines 52-58)."""
+        mock_config.embedder_provider = "openai"
+        mock_config.openai_embedding_model = "text-embedding-3-small"
+
+        with patch(
+            "integrations.graphiti.providers_pkg.validators.logger"
+        ) as mock_logger:
+            is_valid, message = validate_embedding_config(mock_config)
+            assert is_valid is True
+            # Verify debug log was called for OpenAI model dimension
+            mock_logger.debug.assert_called_once()
+            call_args = mock_logger.debug.call_args[0][0]
+            assert "text-embedding-3-small" in call_args
+            assert "1536" in call_args
+
+    def test_validate_embedding_config_voyage_logs_dimension(self, mock_config):
+        """Test validate_embedding_config logs Voyage dimension (lines 60-65)."""
+        mock_config.embedder_provider = "voyage"
+        mock_config.voyage_embedding_model = "voyage-3"
+
+        with patch(
+            "integrations.graphiti.providers_pkg.validators.logger"
+        ) as mock_logger:
+            is_valid, message = validate_embedding_config(mock_config)
+            assert is_valid is True
+            # Verify debug log was called for Voyage model dimension
+            mock_logger.debug.assert_called_once()
+            call_args = mock_logger.debug.call_args[0][0]
+            assert "voyage-3" in call_args
+            assert "1024" in call_args
+
+    def test_validate_embedding_config_openai_unknown_model_no_log(self, mock_config):
+        """Test validate_embedding_config with OpenAI unknown model doesn't crash."""
+        mock_config.embedder_provider = "openai"
+        mock_config.openai_embedding_model = "unknown-model"
+
+        # Should still succeed even with unknown model (OpenAI handles this)
+        is_valid, message = validate_embedding_config(mock_config)
+        assert is_valid is True
+
+    def test_validate_embedding_config_voyage_unknown_model_no_log(self, mock_config):
+        """Test validate_embedding_config with Voyage unknown model doesn't crash."""
+        mock_config.embedder_provider = "voyage"
+        mock_config.voyage_embedding_model = "unknown-model"
+
+        # Should still succeed even with unknown model
+        is_valid, message = validate_embedding_config(mock_config)
+        assert is_valid is True
+
+    def test_validate_embedding_config_unknown_provider(self, mock_config):
+        """Test validate_embedding_config with unknown provider."""
+        mock_config.embedder_provider = "unknown_provider"
+
+        # Unknown providers should just pass validation
+        is_valid, message = validate_embedding_config(mock_config)
+        assert is_valid is True
+
 
 class TestTestLLMConnection:
     """Test test_llm_connection validator."""
@@ -618,50 +676,374 @@ class TestTestEmbedderConnection:
                 assert is_connected is False
                 assert "Invalid configuration" in message
 
+    @pytest.mark.asyncio
+    async def test_test_embedder_connection_generic_exception(self, mock_config):
+        """Test test_embedder_connection handles generic exceptions (lines 124-125)."""
+        with patch(
+            "integrations.graphiti.providers_pkg.validators.validate_embedding_config",
+            return_value=(True, "Valid"),
+        ):
+            with patch(
+                "integrations.graphiti.providers_pkg.factory.create_embedder",
+                side_effect=Exception("Unexpected error"),
+            ):
+                is_connected, message = await test_embedder_connection(mock_config)
+                assert is_connected is False
+                assert "Failed to create embedder" in message
+
 
 class TestTestOllamaConnection:
     """Test test_ollama_connection validator."""
 
-    @pytest.mark.skip(
-        "Requires complex async mocking - test manually with real Ollama instance"
-    )
-    @pytest.mark.parametrize(
-        "base_url", ["http://localhost:11434", "http://localhost:11434/v1"]
-    )
     @pytest.mark.asyncio
-    async def test_test_ollama_connection_success_aiohttp(self, base_url):
+    async def test_test_ollama_connection_success_aiohttp(self):
         """Test test_ollama_connection with successful aiohttp connection."""
-        pass
+        # Mock the aiohttp import
+        mock_aiohttp = MagicMock()
 
-    @pytest.mark.skip(
-        "Requires complex async mocking - test manually with real Ollama instance"
-    )
+        # Create a mock response
+        mock_response = AsyncMock()
+        mock_response.status = 200
+
+        # Mock the ClientSession and context manager
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_session.get = MagicMock(return_value=mock_response)
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=None)
+
+        mock_client_session = MagicMock(return_value=mock_session)
+
+        mock_aiohttp.ClientSession = mock_client_session
+        mock_aiohttp.ClientTimeout = MagicMock()
+
+        # Patch sys.modules to make aiohttp import succeed
+        import sys
+
+        with patch.dict(sys.modules, {"aiohttp": mock_aiohttp}):
+            is_connected, message = await test_ollama_connection(
+                "http://localhost:11434"
+            )
+            assert is_connected is True
+            assert "Ollama is running" in message
+
+    @pytest.mark.asyncio
+    async def test_test_ollama_connection_with_v1_suffix(self):
+        """Test test_ollama_connection removes /v1 suffix from URL."""
+        # Mock the aiohttp import
+        mock_aiohttp = MagicMock()
+
+        # Create a mock response
+        mock_response = AsyncMock()
+        mock_response.status = 200
+
+        # Mock the ClientSession and context manager
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_session.get = MagicMock(return_value=mock_response)
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=None)
+
+        mock_client_session = MagicMock(return_value=mock_session)
+
+        mock_aiohttp.ClientSession = mock_client_session
+        mock_aiohttp.ClientTimeout = MagicMock()
+
+        # Patch sys.modules to make aiohttp import succeed
+        import sys
+
+        with patch.dict(sys.modules, {"aiohttp": mock_aiohttp}):
+            is_connected, message = await test_ollama_connection(
+                "http://localhost:11434/v1"
+            )
+            assert is_connected is True
+            # URL should be normalized (without /v1)
+            assert "localhost:11434" in message
+
     @pytest.mark.asyncio
     async def test_test_ollama_connection_failure_aiohttp(self):
         """Test test_ollama_connection with aiohttp connection failure."""
-        pass
+        # Mock the aiohttp import
+        mock_aiohttp = MagicMock()
 
-    @pytest.mark.skip(
-        "Requires complex async mocking - test manually with real Ollama instance"
-    )
+        # Create a ClientError subclass
+        class MockClientError(Exception):
+            pass
+
+        mock_aiohttp.ClientError = MockClientError
+        mock_aiohttp.ClientTimeout = MagicMock()
+
+        # Patch sys.modules to make aiohttp import succeed
+        import sys
+
+        with patch.dict(sys.modules, {"aiohttp": mock_aiohttp}):
+            # Mock ClientSession to raise ClientError
+            mock_client_session = MagicMock(
+                side_effect=MockClientError("Connection refused")
+            )
+            mock_aiohttp.ClientSession = mock_client_session
+
+            is_connected, message = await test_ollama_connection(
+                "http://localhost:11434"
+            )
+            assert is_connected is False
+            assert "Cannot connect" in message
+
     @pytest.mark.asyncio
     async def test_test_ollama_connection_timeout_aiohttp(self):
         """Test test_ollama_connection with aiohttp timeout."""
-        pass
+        # Mock the aiohttp import
+        mock_aiohttp = MagicMock()
 
-    @pytest.mark.skip(
-        "Requires complex async mocking - test manually with real Ollama instance"
-    )
-    def test_test_ollama_connection_success_urllib(self):
-        """Test test_ollama_connection with successful urllib fallback."""
-        pass
+        # Patch sys.modules to make aiohttp import succeed
+        import sys
 
-    @pytest.mark.skip(
-        "Requires complex async mocking - test manually with real Ollama instance"
-    )
-    def test_test_ollama_connection_failure_urllib(self):
-        """Test test_ollama_connection with urllib connection failure."""
-        pass
+        with patch.dict(sys.modules, {"aiohttp": mock_aiohttp}):
+            # Import asyncio inside the patched context
+            import asyncio
+
+            # Mock ClientSession to raise TimeoutError
+            mock_client_session = MagicMock(side_effect=asyncio.TimeoutError())
+            mock_aiohttp.ClientSession = mock_client_session
+
+            is_connected, message = await test_ollama_connection(
+                "http://localhost:11434"
+            )
+            assert is_connected is False
+            assert "timed out" in message
+
+    @pytest.mark.asyncio
+    async def test_test_ollama_connection_non_200_status(self):
+        """Test test_ollama_connection with non-200 status code."""
+        # Mock the aiohttp import
+        mock_aiohttp = MagicMock()
+
+        # Create a mock response with 500 status
+        mock_response = AsyncMock()
+        mock_response.status = 500
+
+        # Mock the ClientSession and context manager
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_session.get = MagicMock(return_value=mock_response)
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=None)
+
+        mock_client_session = MagicMock(return_value=mock_session)
+
+        mock_aiohttp.ClientSession = mock_client_session
+        mock_aiohttp.ClientTimeout = MagicMock()
+
+        # Patch sys.modules to make aiohttp import succeed
+        import sys
+
+        with patch.dict(sys.modules, {"aiohttp": mock_aiohttp}):
+            is_connected, message = await test_ollama_connection(
+                "http://localhost:11434"
+            )
+            assert is_connected is False
+            assert "returned status" in message
+
+    @pytest.mark.asyncio
+    async def test_test_ollama_connection_urllib_fallback_success(self):
+        """Test test_ollama_connection falls back to urllib when aiohttp not available."""
+        # Mock aiohttp import to fail
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "aiohttp":
+                raise ImportError("aiohttp not installed")
+            return original_import(name, *args, **kwargs)
+
+        # Mock urllib.request.urlopen to succeed
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=None)
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            with patch("urllib.request.urlopen", return_value=mock_response):
+                is_connected, message = await test_ollama_connection(
+                    "http://localhost:11434"
+                )
+                assert is_connected is True
+                assert "Ollama is running" in message
+
+    @pytest.mark.asyncio
+    async def test_test_ollama_connection_urllib_fallback_failure(self):
+        """Test test_ollama_connection urllib fallback handles connection errors."""
+        # Mock aiohttp import to fail
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "aiohttp":
+                raise ImportError("aiohttp not installed")
+            return original_import(name, *args, **kwargs)
+
+        # Mock urllib.request.urlopen to raise URLError
+        import urllib.error
+
+        mock_error = urllib.error.URLError("Connection refused")
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            with patch("urllib.request.urlopen", side_effect=mock_error):
+                is_connected, message = await test_ollama_connection(
+                    "http://localhost:11434"
+                )
+                assert is_connected is False
+                assert "Cannot connect" in message
+
+    @pytest.mark.asyncio
+    async def test_test_ollama_connection_generic_exception_aiohttp(self):
+        """Test test_ollama_connection handles generic exceptions with aiohttp."""
+        # Mock the aiohttp import with proper ClientError exception
+        mock_aiohttp = MagicMock()
+
+        # Create a proper ClientError exception class
+        class MockClientError(Exception):
+            pass
+
+        mock_aiohttp.ClientError = MockClientError
+        mock_aiohttp.ClientTimeout = MagicMock()
+
+        # Patch sys.modules to make aiohttp import succeed
+        import sys
+
+        with patch.dict(sys.modules, {"aiohttp": mock_aiohttp}):
+            # Mock ClientSession to raise generic Exception (not ClientError)
+            # This will be caught by the generic exception handler
+            mock_client_session = MagicMock(
+                side_effect=RuntimeError("Unexpected error")
+            )
+            mock_aiohttp.ClientSession = mock_client_session
+
+            is_connected, message = await test_ollama_connection(
+                "http://localhost:11434"
+            )
+            assert is_connected is False
+            assert "Ollama connection error" in message
+
+    @pytest.mark.asyncio
+    async def test_test_ollama_connection_urllib_trailing_slash(self):
+        """Test test_ollama_connection handles trailing slash in URL with urllib fallback."""
+        # Mock aiohttp import to fail
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "aiohttp":
+                raise ImportError("aiohttp not installed")
+            return original_import(name, *args, **kwargs)
+
+        # Mock urllib.request.urlopen to succeed
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=None)
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            with patch(
+                "urllib.request.urlopen", return_value=mock_response
+            ) as mock_urlopen:
+                is_connected, message = await test_ollama_connection(
+                    "http://localhost:11434/"
+                )
+                assert is_connected is True
+                # Verify the URL was normalized (check the Request object's full_url)
+                request_obj = mock_urlopen.call_args[0][0]
+                assert "api/tags" in str(request_obj.full_url)
+
+    @pytest.mark.asyncio
+    async def test_test_ollama_connection_urllib_v1_suffix_removal(self):
+        """Test test_ollama_connection removes /v1 suffix in urllib fallback (line 153)."""
+        # Mock aiohttp import to fail
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "aiohttp":
+                raise ImportError("aiohttp not installed")
+            return original_import(name, *args, **kwargs)
+
+        # Mock urllib.request.urlopen to succeed
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=None)
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            with patch(
+                "urllib.request.urlopen", return_value=mock_response
+            ) as mock_urlopen:
+                is_connected, message = await test_ollama_connection(
+                    "http://localhost:11434/v1"
+                )
+                assert is_connected is True
+                # Verify the /v1 suffix was removed in the URL
+                request_obj = mock_urlopen.call_args[0][0]
+                # The URL should have /v1 removed before adding /api/tags
+                assert "localhost:11434/api/tags" in str(request_obj.full_url)
+
+    @pytest.mark.asyncio
+    async def test_test_ollama_connection_urllib_non_200_status(self):
+        """Test test_ollama_connection handles non-200 status in urllib fallback (line 159)."""
+        # Mock aiohttp import to fail
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "aiohttp":
+                raise ImportError("aiohttp not installed")
+            return original_import(name, *args, **kwargs)
+
+        # Mock urllib.request.urlopen to return 500 status
+        mock_response = MagicMock()
+        mock_response.status = 500
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=None)
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            with patch("urllib.request.urlopen", return_value=mock_response):
+                is_connected, message = await test_ollama_connection(
+                    "http://localhost:11434"
+                )
+                assert is_connected is False
+                assert "returned status" in message
+                assert "500" in message
+
+    @pytest.mark.asyncio
+    async def test_test_ollama_connection_urllib_generic_exception(self):
+        """Test test_ollama_connection handles generic exception in urllib fallback (lines 162-163)."""
+        # Mock aiohttp import to fail
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "aiohttp":
+                raise ImportError("aiohttp not installed")
+            return original_import(name, *args, **kwargs)
+
+        # Mock urllib.request.urlopen to raise generic exception
+        with patch("builtins.__import__", side_effect=mock_import):
+            with patch(
+                "urllib.request.urlopen", side_effect=ValueError("Unexpected error")
+            ):
+                is_connected, message = await test_ollama_connection(
+                    "http://localhost:11434"
+                )
+                assert is_connected is False
+                assert "Ollama connection error" in message
 
 
 # =============================================================================
@@ -696,6 +1078,64 @@ class TestGetGraphHints:
         ):
             hints = await get_graph_hints("test query", "project-123")
             assert hints == []
+
+    @pytest.mark.asyncio
+    async def test_get_graph_hints_success_fast(self):
+        """Test get_graph_hints returns hints successfully (covers lines 85-94)."""
+        # Create a mock memory instance
+        mock_memory = AsyncMock()
+        mock_memory.get_relevant_context.return_value = [
+            {"content": "hint 1", "score": 0.9, "type": "pattern"},
+            {"content": "hint 2", "score": 0.8, "type": "gotcha"},
+        ]
+        mock_memory.close = AsyncMock()
+
+        # Create the GraphitiMemory mock
+        mock_graphiti_memory_class = MagicMock(return_value=mock_memory)
+
+        # Create GroupIdMode mock
+        mock_group_id_mode = MagicMock()
+        mock_group_id_mode.PROJECT = "project"
+
+        # Patch at the graphiti_config level (where is_graphiti_enabled comes from)
+        with patch(
+            "graphiti_config.is_graphiti_enabled",
+            return_value=True,
+        ):
+            # Patch the local imports inside the function
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                mock_graphiti_memory_class,
+            ):
+                with patch(
+                    "integrations.graphiti.memory.GroupIdMode",
+                    mock_group_id_mode,
+                ):
+                    # Patch tempfile and Path to avoid file system operations
+                    with patch("tempfile.mkdtemp", return_value="/tmp/spec_dir"):
+                        with patch("pathlib.Path.cwd") as mock_cwd:
+                            mock_cwd.return_value = MagicMock()
+
+                            hints = await get_graph_hints(
+                                "authentication patterns", "project-123", max_results=10
+                            )
+
+                            # Verify results
+                            assert len(hints) == 2
+                            assert hints[0]["content"] == "hint 1"
+                            assert hints[1]["score"] == 0.8
+
+                            # Verify memory.get_relevant_context was called
+                            mock_memory.get_relevant_context.assert_called_once()
+                            call_kwargs = (
+                                mock_memory.get_relevant_context.call_args.kwargs
+                            )
+                            assert call_kwargs["query"] == "authentication patterns"
+                            assert call_kwargs["num_results"] == 10
+                            assert call_kwargs["include_project_context"] is True
+
+                            # Verify memory.close was called
+                            mock_memory.close.assert_called_once()
 
     @pytest.mark.asyncio
     @pytest.mark.skip("Requires complex mocking of multiple imports inside function")
