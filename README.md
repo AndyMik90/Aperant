@@ -221,3 +221,4 @@ Commercial licensing available for closed-source use cases.
 
 [![Star History Chart](https://api.star-history.com/svg?repos=AndyMik90/Auto-Claude&type=Date)](https://star-history.com/#AndyMik90/Auto-Claude&Date)
 # CodeQL scan trigger
+# CodeQL verification
