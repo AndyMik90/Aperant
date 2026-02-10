@@ -130,7 +130,6 @@ export function registerInvestigateIssue(
               // Runtime validation: ensure we got an array
               if (!Array.isArray(notesPage)) {
                 debugLog('GitLab notes API returned non-array, stopping pagination');
-                hasMore = false;
                 break;
               }
 
