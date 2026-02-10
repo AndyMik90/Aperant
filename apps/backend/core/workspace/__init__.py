@@ -99,6 +99,8 @@ from .models import (
     MergeLockError,
     ParallelMergeResult,
     ParallelMergeTask,
+    SpecNumberLock,
+    SpecNumberLockError,
     WorkspaceChoice,
     WorkspaceMode,
 )
@@ -118,18 +120,9 @@ from .setup import (
 __all__ = [
     # Merge Operations (from workspace.py)
     "merge_existing_build",
-    "_run_parallel_merges",  # Private but used internally
-    "_resolve_git_conflicts_with_ai",  # Internal AI conflict resolution
-    "_attempt_ai_merge",  # Internal AI merge attempt function
-    "_merge_file_with_ai_async",  # Internal async AI file merge
-    "AI_MERGE_SYSTEM_PROMPT",  # System prompt for AI merge (ACS-194)
-    "_build_merge_prompt",  # Internal prompt builder (ACS-194)
-    "_check_git_conflicts",  # Internal git conflict detection (ACS-224)
-    "_rebase_spec_branch",  # Internal rebase function (ACS-224)
-    "_create_merge_progress_callback",  # Internal progress callback factory
-    "_infer_language_from_path",  # Internal language inference for merge
-    "_strip_code_fences",  # Internal code fence stripping
-    "_try_simple_3way_merge",  # Internal simple 3-way merge logic
+    # Note: Private functions (_run_parallel_merges, _resolve_git_conflicts_with_ai, etc.)
+    # are kept as module-level assignments for internal use but not exported in __all__
+    # to maintain the underscore convention for private/internal APIs
     # Models
     "WorkspaceMode",
     "WorkspaceChoice",
@@ -137,6 +130,8 @@ __all__ = [
     "ParallelMergeResult",
     "MergeLock",
     "MergeLockError",
+    "SpecNumberLock",
+    "SpecNumberLockError",
     # Git Utils
     "has_uncommitted_changes",
     "get_current_branch",
