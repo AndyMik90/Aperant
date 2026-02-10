@@ -133,8 +133,10 @@ def _get_tool_detail(tool_name: str, tool_input: dict[str, Any]) -> str:
 # Prevents runaway retry loops from consuming unbounded resources
 MAX_MESSAGE_COUNT = 500
 
-# Abort after 3 consecutive repeats (4 total identical responses)
-REPEATED_RESPONSE_THRESHOLD = 3
+# Abort after 1 consecutive repeat (2 total identical responses).
+# Low threshold catches error loops quickly (e.g., auth errors returned as AI text).
+# Normal AI responses never produce the exact same text block twice in a row.
+REPEATED_RESPONSE_THRESHOLD = 1
 
 # Max length for auth error detection - real auth errors are short (~1-2 sentences).
 # Longer texts are likely AI discussion about auth topics, not actual errors.
@@ -169,8 +171,10 @@ def _is_auth_error_response(text: str) -> bool:
         return False
     auth_error_patterns = [
         "please login again",
-        "account does not have access",
-        # Catches both "does not have access to claude" and partial variants
+        # Catches both "does not have access to claude" and partial variants.
+        # "account does not have access" was intentionally excluded — it's too
+        # broad and can match short AI responses about access control generally.
+        # Generic error loops are caught by REPEATED_RESPONSE_THRESHOLD instead.
         "not have access to claude",
     ]
     return any(pattern in text_lower for pattern in auth_error_patterns)

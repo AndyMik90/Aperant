@@ -284,6 +284,12 @@ class TestIsAuthErrorResponse:
         fn = self._load_fn()
         assert fn("Task completed successfully.") is False
 
+    def test_generic_access_denied_not_detected(self):
+        """Generic 'account does not have access' should NOT trigger (too broad)."""
+        fn = self._load_fn()
+        assert fn("This account does not have access to the repository.") is False
+        assert fn("The service account does not have access to deploy.") is False
+
     def test_boundary_exactly_300_chars_detected(self):
         """Text of exactly 300 chars with auth phrase should be detected."""
         fn = self._load_fn()
