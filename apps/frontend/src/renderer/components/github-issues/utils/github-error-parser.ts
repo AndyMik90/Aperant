@@ -376,8 +376,14 @@ export function parseGitHubError(error: string | null | undefined): GitHubErrorI
 /**
  * Check if an error is a rate limit error.
  * Convenience function for quick checks without full parsing.
+ * @param error - Raw error string or null/undefined
+ * @param parsedInfo - Optional pre-parsed GitHubErrorInfo to avoid re-classification
  */
-export function isRateLimitError(error: string | null | undefined): boolean {
+export function isRateLimitError(
+  error: string | null | undefined,
+  parsedInfo?: GitHubErrorInfo | null
+): boolean {
+  if (parsedInfo) return parsedInfo.type === 'rate_limit';
   if (!error) return false;
   return classifyError(error.trim()) === 'rate_limit';
 }
@@ -385,8 +391,14 @@ export function isRateLimitError(error: string | null | undefined): boolean {
 /**
  * Check if an error is an authentication error.
  * Convenience function for quick checks without full parsing.
+ * @param error - Raw error string or null/undefined
+ * @param parsedInfo - Optional pre-parsed GitHubErrorInfo to avoid re-classification
  */
-export function isAuthError(error: string | null | undefined): boolean {
+export function isAuthError(
+  error: string | null | undefined,
+  parsedInfo?: GitHubErrorInfo | null
+): boolean {
+  if (parsedInfo) return parsedInfo.type === 'auth';
   if (!error) return false;
   return classifyError(error.trim()) === 'auth';
 }
@@ -394,8 +406,14 @@ export function isAuthError(error: string | null | undefined): boolean {
 /**
  * Check if an error is a network error.
  * Convenience function for quick checks without full parsing.
+ * @param error - Raw error string or null/undefined
+ * @param parsedInfo - Optional pre-parsed GitHubErrorInfo to avoid re-classification
  */
-export function isNetworkError(error: string | null | undefined): boolean {
+export function isNetworkError(
+  error: string | null | undefined,
+  parsedInfo?: GitHubErrorInfo | null
+): boolean {
+  if (parsedInfo) return parsedInfo.type === 'network';
   if (!error) return false;
   return classifyError(error.trim()) === 'network';
 }
@@ -403,8 +421,14 @@ export function isNetworkError(error: string | null | undefined): boolean {
 /**
  * Check if an error is recoverable (user can retry).
  * Rate limit, network, and unknown errors are considered recoverable.
+ * @param error - Raw error string or null/undefined
+ * @param parsedInfo - Optional pre-parsed GitHubErrorInfo to avoid re-classification
  */
-export function isRecoverableError(error: string | null | undefined): boolean {
+export function isRecoverableError(
+  error: string | null | undefined,
+  parsedInfo?: GitHubErrorInfo | null
+): boolean {
+  if (parsedInfo) return ['rate_limit', 'network', 'unknown'].includes(parsedInfo.type);
   if (!error) return false;
   const errorType = classifyError(error.trim());
   return ['rate_limit', 'network', 'unknown'].includes(errorType);
@@ -413,8 +437,14 @@ export function isRecoverableError(error: string | null | undefined): boolean {
 /**
  * Check if an error requires user action in settings.
  * Auth and permission errors require settings changes.
+ * @param error - Raw error string or null/undefined
+ * @param parsedInfo - Optional pre-parsed GitHubErrorInfo to avoid re-classification
  */
-export function requiresSettingsAction(error: string | null | undefined): boolean {
+export function requiresSettingsAction(
+  error: string | null | undefined,
+  parsedInfo?: GitHubErrorInfo | null
+): boolean {
+  if (parsedInfo) return ['auth', 'permission'].includes(parsedInfo.type);
   if (!error) return false;
   const errorType = classifyError(error.trim());
   return ['auth', 'permission'].includes(errorType);

@@ -462,6 +462,21 @@ describe('GitHubErrorDisplay', () => {
   });
 
   describe('accessibility', () => {
+    it('should have role="alert" for screen reader announcements', () => {
+      const errorInfo = createMockErrorInfo('rate_limit');
+      render(<GitHubErrorDisplay error={errorInfo} />);
+
+      // The error card should have role="alert" for accessibility
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+
+    it('should have role="alert" in compact mode', () => {
+      const errorInfo = createMockErrorInfo('network');
+      render(<GitHubErrorDisplay error={errorInfo} compact />);
+
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+
     it('should have accessible button labels', () => {
       const errorInfo = createMockErrorInfo('rate_limit');
       // eslint-disable-next-line @typescript-eslint/no-empty-function -- callback not needed for this test

@@ -224,9 +224,11 @@ export function GitHubErrorDisplay({
 
   // Get the translated message with appropriate interpolation values
   const messageKey = getMessageKey(errorInfo);
-  const minutes = errorInfo.rateLimitResetTime
+  // Only pass positive minutes/hours values to avoid stale negative/zero values
+  const rawMinutes = errorInfo.rateLimitResetTime
     ? Math.ceil((errorInfo.rateLimitResetTime.getTime() - Date.now()) / 60000)
     : undefined;
+  const minutes = rawMinutes && rawMinutes > 0 ? rawMinutes : undefined;
   const hours = minutes ? Math.ceil(minutes / 60) : undefined;
 
   const errorMessage = t(messageKey, {
@@ -240,6 +242,7 @@ export function GitHubErrorDisplay({
   if (compact) {
     return (
       <div
+        role="alert"
         className={cn(
           'flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border',
           className
@@ -278,7 +281,7 @@ export function GitHubErrorDisplay({
 
   // Full card variant for blocking errors
   return (
-    <Card className={cn('border-destructive/50 m-4', className)}>
+    <Card role="alert" className={cn('border-destructive/50 m-4', className)}>
       <CardContent className="pt-6">
         <div className="flex flex-col items-center gap-4 text-center">
           <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center">
