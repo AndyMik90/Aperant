@@ -72,6 +72,8 @@ async def test_graphiti_connection() -> tuple[bool, str]:
     """
     Test if LadybugDB is available and Graphiti can connect.
 
+    Uses the embedded LadybugDB via the patched KuzuDriver (no remote connection).
+
     Returns:
         Tuple of (success: bool, message: str)
     """
@@ -87,8 +89,13 @@ async def test_graphiti_connection() -> tuple[bool, str]:
 
     try:
         from graphiti_core import Graphiti
-        from graphiti_core.driver.falkordb_driver import FalkorDriver
         from graphiti_providers import ProviderError, create_embedder, create_llm_client
+
+        # Import the patched driver creator (handles LadybugDB monkeypatch internally)
+        from integrations.graphiti.queries_pkg.client import _apply_ladybug_monkeypatch
+        from integrations.graphiti.queries_pkg.kuzu_driver_patched import (
+            create_patched_kuzu_driver,
+        )
 
         # Create providers
         try:
@@ -97,14 +104,13 @@ async def test_graphiti_connection() -> tuple[bool, str]:
         except ProviderError as e:
             return False, f"Provider error: {e}"
 
-        # Try to connect
-        # This code path requires FalkorDB/LadybugDB to be available
-        driver = FalkorDriver(  # pragma: no cover
-            host=config.falkordb_host,
-            port=config.falkordb_port,
-            password=config.falkordb_password or None,
-            database=config.database,
-        )
+        # Apply LadybugDB monkeypatch for embedded database
+        if not _apply_ladybug_monkeypatch():  # pragma: no cover
+            return False, "LadybugDB not installed (requires Python 3.12+)"
+
+        # Create embedded database driver
+        db_path = config.get_db_path()
+        driver = create_patched_kuzu_driver(db=str(db_path))  # pragma: no cover
 
         graphiti = Graphiti(  # pragma: no cover
             graph_driver=driver,
@@ -117,7 +123,7 @@ async def test_graphiti_connection() -> tuple[bool, str]:
         await graphiti.close()  # pragma: no cover
 
         return True, (  # pragma: no cover
-            f"Connected to LadybugDB at {config.falkordb_host}:{config.falkordb_port} "
+            f"Connected to LadybugDB at {db_path} "
             f"(providers: {config.get_provider_summary()})"
         )
 

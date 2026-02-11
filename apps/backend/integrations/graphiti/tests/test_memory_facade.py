@@ -157,7 +157,11 @@ class TestGetGraphitiMemory:
 
 
 class TestTestGraphitiConnection:
-    """Tests for the test_graphiti_connection async function."""
+    """Tests for the test_graphiti_connection async function.
+
+    Note: The function now uses embedded LadybugDB via patched KuzuDriver
+    instead of remote FalkorDB with host/port credentials.
+    """
 
     @pytest.mark.asyncio
     async def test_returns_true_when_successful(self):
@@ -165,27 +169,21 @@ class TestTestGraphitiConnection:
         mock_config = MagicMock()
         mock_config.enabled = True
         mock_config.get_validation_errors.return_value = []
-        mock_config.falkordb_host = "localhost"
-        mock_config.falkordb_port = 6233
-        mock_config.falkordb_password = None
-        mock_config.database = "test_db"
+        mock_config.get_db_path.return_value = Path("/test/db/memory.db")
         mock_config.get_provider_summary.return_value = "LLM: openai, Embedder: openai"
 
         mock_llm_client = MagicMock()
         mock_embedder = MagicMock()
         mock_driver = MagicMock()
         mock_graphiti = AsyncMock()
+        mock_graphiti.build_indices_and_constraints = AsyncMock()
         mock_graphiti.close = AsyncMock()
 
         # Mock sys.modules for graphiti_core
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = lambda **kwargs: mock_graphiti
-        mock_falkordb_driver = MagicMock()
-        mock_falkordb_driver.FalkorDriver = lambda **kwargs: mock_driver
 
         sys.modules["graphiti_core"] = mock_graphiti_core
-        sys.modules["graphiti_core.driver"] = MagicMock()
-        sys.modules["graphiti_core.driver.falkordb_driver"] = mock_falkordb_driver
 
         try:
             with patch(
@@ -198,16 +196,22 @@ class TestTestGraphitiConnection:
                     with patch(
                         "graphiti_providers.create_embedder", return_value=mock_embedder
                     ):
-                        success, message = await fn_test_graphiti_connection()
+                        with patch(
+                            "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch",
+                            return_value=True,
+                        ):
+                            with patch(
+                                "integrations.graphiti.queries_pkg.kuzu_driver_patched.create_patched_kuzu_driver",
+                                return_value=mock_driver,
+                            ):
+                                success, message = await fn_test_graphiti_connection()
 
-                        assert success is True
-                        assert "Connected to LadybugDB" in message
-                        assert "localhost:6233" in message
+                                assert success is True
+                                assert "Connected to LadybugDB" in message
+                                assert "/test/db/memory.db" in message
         finally:
             # Clean up sys.modules
             sys.modules.pop("graphiti_core", None)
-            sys.modules.pop("graphiti_core.driver", None)
-            sys.modules.pop("graphiti_core.driver.falkordb_driver", None)
 
     @pytest.mark.asyncio
     async def test_returns_false_when_not_enabled(self):
@@ -257,8 +261,6 @@ class TestTestGraphitiConnection:
         # Mock sys.modules for graphiti_core
         mock_graphiti_core = MagicMock()
         sys.modules["graphiti_core"] = mock_graphiti_core
-        sys.modules["graphiti_core.driver"] = MagicMock()
-        sys.modules["graphiti_core.driver.falkordb_driver"] = MagicMock()
 
         try:
             with patch(
@@ -275,8 +277,6 @@ class TestTestGraphitiConnection:
         finally:
             # Clean up sys.modules
             sys.modules.pop("graphiti_core", None)
-            sys.modules.pop("graphiti_core.driver", None)
-            sys.modules.pop("graphiti_core.driver.falkordb_driver", None)
 
     @pytest.mark.asyncio
     async def test_returns_false_for_import_error(self):
@@ -303,24 +303,14 @@ class TestTestGraphitiConnection:
         mock_config = MagicMock()
         mock_config.enabled = True
         mock_config.get_validation_errors.return_value = []
-        mock_config.falkordb_host = "localhost"
-        mock_config.falkordb_port = 6233
-        mock_config.falkordb_password = None
-        mock_config.database = "test_db"
+        mock_config.get_db_path.return_value = Path("/test/db/memory.db")
 
         mock_llm_client = MagicMock()
         mock_embedder = MagicMock()
 
         # Mock sys.modules for graphiti_core
         mock_graphiti_core = MagicMock()
-        mock_falkordb_driver = MagicMock()
-        mock_falkordb_driver.FalkorDriver = MagicMock(
-            side_effect=RuntimeError("Connection failed")
-        )
-
         sys.modules["graphiti_core"] = mock_graphiti_core
-        sys.modules["graphiti_core.driver"] = MagicMock()
-        sys.modules["graphiti_core.driver.falkordb_driver"] = mock_falkordb_driver
 
         try:
             with patch(
@@ -333,15 +323,21 @@ class TestTestGraphitiConnection:
                     with patch(
                         "graphiti_providers.create_embedder", return_value=mock_embedder
                     ):
-                        success, message = await fn_test_graphiti_connection()
+                        with patch(
+                            "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch",
+                            return_value=True,
+                        ):
+                            with patch(
+                                "integrations.graphiti.queries_pkg.kuzu_driver_patched.create_patched_kuzu_driver",
+                                side_effect=RuntimeError("Connection failed"),
+                            ):
+                                success, message = await fn_test_graphiti_connection()
 
-                        assert success is False
-                        assert "Connection failed" in message
+                                assert success is False
+                                assert "Connection failed" in message
         finally:
             # Clean up sys.modules
             sys.modules.pop("graphiti_core", None)
-            sys.modules.pop("graphiti_core.driver", None)
-            sys.modules.pop("graphiti_core.driver.falkordb_driver", None)
 
     @pytest.mark.asyncio
     async def test_builds_indices_on_successful_connection(self):
@@ -349,10 +345,7 @@ class TestTestGraphitiConnection:
         mock_config = MagicMock()
         mock_config.enabled = True
         mock_config.get_validation_errors.return_value = []
-        mock_config.falkordb_host = "localhost"
-        mock_config.falkordb_port = 6233
-        mock_config.falkordb_password = None
-        mock_config.database = "test_db"
+        mock_config.get_db_path.return_value = Path("/test/db/memory.db")
         mock_config.get_provider_summary.return_value = "LLM: openai, Embedder: openai"
 
         mock_llm_client = MagicMock()
@@ -365,12 +358,8 @@ class TestTestGraphitiConnection:
         # Mock sys.modules for graphiti_core
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = lambda **kwargs: mock_graphiti
-        mock_falkordb_driver = MagicMock()
-        mock_falkordb_driver.FalkorDriver = lambda **kwargs: mock_driver
 
         sys.modules["graphiti_core"] = mock_graphiti_core
-        sys.modules["graphiti_core.driver"] = MagicMock()
-        sys.modules["graphiti_core.driver.falkordb_driver"] = mock_falkordb_driver
 
         try:
             with patch(
@@ -383,14 +372,20 @@ class TestTestGraphitiConnection:
                     with patch(
                         "graphiti_providers.create_embedder", return_value=mock_embedder
                     ):
-                        await fn_test_graphiti_connection()
+                        with patch(
+                            "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch",
+                            return_value=True,
+                        ):
+                            with patch(
+                                "integrations.graphiti.queries_pkg.kuzu_driver_patched.create_patched_kuzu_driver",
+                                return_value=mock_driver,
+                            ):
+                                await fn_test_graphiti_connection()
 
-                        mock_graphiti.build_indices_and_constraints.assert_called_once()
+                                mock_graphiti.build_indices_and_constraints.assert_called_once()
         finally:
             # Clean up sys.modules
             sys.modules.pop("graphiti_core", None)
-            sys.modules.pop("graphiti_core.driver", None)
-            sys.modules.pop("graphiti_core.driver.falkordb_driver", None)
 
     @pytest.mark.asyncio
     async def test_closes_connection_after_test(self):
@@ -398,10 +393,7 @@ class TestTestGraphitiConnection:
         mock_config = MagicMock()
         mock_config.enabled = True
         mock_config.get_validation_errors.return_value = []
-        mock_config.falkordb_host = "localhost"
-        mock_config.falkordb_port = 6233
-        mock_config.falkordb_password = None
-        mock_config.database = "test_db"
+        mock_config.get_db_path.return_value = Path("/test/db/memory.db")
         mock_config.get_provider_summary.return_value = "LLM: openai, Embedder: openai"
 
         mock_llm_client = MagicMock()
@@ -414,12 +406,8 @@ class TestTestGraphitiConnection:
         # Mock sys.modules for graphiti_core
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = lambda **kwargs: mock_graphiti
-        mock_falkordb_driver = MagicMock()
-        mock_falkordb_driver.FalkorDriver = lambda **kwargs: mock_driver
 
         sys.modules["graphiti_core"] = mock_graphiti_core
-        sys.modules["graphiti_core.driver"] = MagicMock()
-        sys.modules["graphiti_core.driver.falkordb_driver"] = mock_falkordb_driver
 
         try:
             with patch(
@@ -432,14 +420,20 @@ class TestTestGraphitiConnection:
                     with patch(
                         "graphiti_providers.create_embedder", return_value=mock_embedder
                     ):
-                        await fn_test_graphiti_connection()
+                        with patch(
+                            "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch",
+                            return_value=True,
+                        ):
+                            with patch(
+                                "integrations.graphiti.queries_pkg.kuzu_driver_patched.create_patched_kuzu_driver",
+                                return_value=mock_driver,
+                            ):
+                                await fn_test_graphiti_connection()
 
-                        mock_graphiti.close.assert_called_once()
+                                mock_graphiti.close.assert_called_once()
         finally:
             # Clean up sys.modules
             sys.modules.pop("graphiti_core", None)
-            sys.modules.pop("graphiti_core.driver", None)
-            sys.modules.pop("graphiti_core.driver.falkordb_driver", None)
 
     @pytest.mark.asyncio
     async def test_creates_llm_client_with_config(self):
@@ -447,10 +441,7 @@ class TestTestGraphitiConnection:
         mock_config = MagicMock()
         mock_config.enabled = True
         mock_config.get_validation_errors.return_value = []
-        mock_config.falkordb_host = "localhost"
-        mock_config.falkordb_port = 6233
-        mock_config.falkordb_password = None
-        mock_config.database = "test_db"
+        mock_config.get_db_path.return_value = Path("/test/db/memory.db")
         mock_config.get_provider_summary.return_value = "LLM: openai, Embedder: openai"
 
         mock_llm_client = MagicMock()
@@ -463,12 +454,8 @@ class TestTestGraphitiConnection:
         # Mock sys.modules for graphiti_core
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = lambda **kwargs: mock_graphiti
-        mock_falkordb_driver = MagicMock()
-        mock_falkordb_driver.FalkorDriver = lambda **kwargs: mock_driver
 
         sys.modules["graphiti_core"] = mock_graphiti_core
-        sys.modules["graphiti_core.driver"] = MagicMock()
-        sys.modules["graphiti_core.driver.falkordb_driver"] = mock_falkordb_driver
 
         try:
             with patch(
@@ -481,14 +468,20 @@ class TestTestGraphitiConnection:
                     with patch(
                         "graphiti_providers.create_embedder", return_value=mock_embedder
                     ):
-                        await fn_test_graphiti_connection()
+                        with patch(
+                            "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch",
+                            return_value=True,
+                        ):
+                            with patch(
+                                "integrations.graphiti.queries_pkg.kuzu_driver_patched.create_patched_kuzu_driver",
+                                return_value=mock_driver,
+                            ):
+                                await fn_test_graphiti_connection()
 
-                        mock_create_llm.assert_called_once_with(mock_config)
+                                mock_create_llm.assert_called_once_with(mock_config)
         finally:
             # Clean up sys.modules
             sys.modules.pop("graphiti_core", None)
-            sys.modules.pop("graphiti_core.driver", None)
-            sys.modules.pop("graphiti_core.driver.falkordb_driver", None)
 
     @pytest.mark.asyncio
     async def test_creates_embedder_with_config(self):
@@ -496,10 +489,7 @@ class TestTestGraphitiConnection:
         mock_config = MagicMock()
         mock_config.enabled = True
         mock_config.get_validation_errors.return_value = []
-        mock_config.falkordb_host = "localhost"
-        mock_config.falkordb_port = 6233
-        mock_config.falkordb_password = None
-        mock_config.database = "test_db"
+        mock_config.get_db_path.return_value = Path("/test/db/memory.db")
         mock_config.get_provider_summary.return_value = "LLM: openai, Embedder: openai"
 
         mock_llm_client = MagicMock()
@@ -512,12 +502,8 @@ class TestTestGraphitiConnection:
         # Mock sys.modules for graphiti_core
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = lambda **kwargs: mock_graphiti
-        mock_falkordb_driver = MagicMock()
-        mock_falkordb_driver.FalkorDriver = lambda **kwargs: mock_driver
 
         sys.modules["graphiti_core"] = mock_graphiti_core
-        sys.modules["graphiti_core.driver"] = MagicMock()
-        sys.modules["graphiti_core.driver.falkordb_driver"] = mock_falkordb_driver
 
         try:
             with patch(
@@ -530,25 +516,28 @@ class TestTestGraphitiConnection:
                     with patch(
                         "graphiti_providers.create_embedder", return_value=mock_embedder
                     ) as mock_create_emb:
-                        await fn_test_graphiti_connection()
+                        with patch(
+                            "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch",
+                            return_value=True,
+                        ):
+                            with patch(
+                                "integrations.graphiti.queries_pkg.kuzu_driver_patched.create_patched_kuzu_driver",
+                                return_value=mock_driver,
+                            ):
+                                await fn_test_graphiti_connection()
 
-                        mock_create_emb.assert_called_once_with(mock_config)
+                                mock_create_emb.assert_called_once_with(mock_config)
         finally:
             # Clean up sys.modules
             sys.modules.pop("graphiti_core", None)
-            sys.modules.pop("graphiti_core.driver", None)
-            sys.modules.pop("graphiti_core.driver.falkordb_driver", None)
 
     @pytest.mark.asyncio
-    async def test_creates_falkor_driver_with_config_params(self):
-        """Creates FalkorDriver with config parameters."""
+    async def test_creates_patched_kuzu_driver_with_db_path(self):
+        """Creates patched KuzuDriver with db_path from config."""
         mock_config = MagicMock()
         mock_config.enabled = True
         mock_config.get_validation_errors.return_value = []
-        mock_config.falkordb_host = "test-host"
-        mock_config.falkordb_port = 9999
-        mock_config.falkordb_password = "test-password"
-        mock_config.database = "test_db"
+        mock_config.get_db_path.return_value = Path("/custom/db/memory.db")
         mock_config.get_provider_summary.return_value = "LLM: openai, Embedder: openai"
 
         mock_llm_client = MagicMock()
@@ -561,12 +550,8 @@ class TestTestGraphitiConnection:
         # Mock sys.modules for graphiti_core
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = lambda **kwargs: mock_graphiti
-        mock_falkordb_driver = MagicMock()
-        mock_falkordb_driver.FalkorDriver = MagicMock(return_value=mock_driver)
 
         sys.modules["graphiti_core"] = mock_graphiti_core
-        sys.modules["graphiti_core.driver"] = MagicMock()
-        sys.modules["graphiti_core.driver.falkordb_driver"] = mock_falkordb_driver
 
         try:
             with patch(
@@ -579,19 +564,22 @@ class TestTestGraphitiConnection:
                     with patch(
                         "graphiti_providers.create_embedder", return_value=mock_embedder
                     ):
-                        await fn_test_graphiti_connection()
+                        with patch(
+                            "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch",
+                            return_value=True,
+                        ):
+                            with patch(
+                                "integrations.graphiti.queries_pkg.kuzu_driver_patched.create_patched_kuzu_driver",
+                                return_value=mock_driver,
+                            ) as mock_create_driver:
+                                await fn_test_graphiti_connection()
 
-                        mock_falkordb_driver.FalkorDriver.assert_called_once_with(
-                            host="test-host",
-                            port=9999,
-                            password="test-password",
-                            database="test_db",
-                        )
+                                mock_create_driver.assert_called_once_with(
+                                    db="/custom/db/memory.db"
+                                )
         finally:
             # Clean up sys.modules
             sys.modules.pop("graphiti_core", None)
-            sys.modules.pop("graphiti_core.driver", None)
-            sys.modules.pop("graphiti_core.driver.falkordb_driver", None)
 
     @pytest.mark.asyncio
     async def test_creates_graphiti_with_driver_and_providers(self):
@@ -599,10 +587,7 @@ class TestTestGraphitiConnection:
         mock_config = MagicMock()
         mock_config.enabled = True
         mock_config.get_validation_errors.return_value = []
-        mock_config.falkordb_host = "localhost"
-        mock_config.falkordb_port = 6233
-        mock_config.falkordb_password = None
-        mock_config.database = "test_db"
+        mock_config.get_db_path.return_value = Path("/test/db/memory.db")
         mock_config.get_provider_summary.return_value = "LLM: openai, Embedder: openai"
 
         mock_llm_client = MagicMock()
@@ -615,12 +600,8 @@ class TestTestGraphitiConnection:
         # Mock sys.modules for graphiti_core
         mock_graphiti_core = MagicMock()
         mock_graphiti_core.Graphiti = MagicMock(return_value=mock_graphiti)
-        mock_falkordb_driver = MagicMock()
-        mock_falkordb_driver.FalkorDriver = MagicMock(return_value=mock_driver)
 
         sys.modules["graphiti_core"] = mock_graphiti_core
-        sys.modules["graphiti_core.driver"] = MagicMock()
-        sys.modules["graphiti_core.driver.falkordb_driver"] = mock_falkordb_driver
 
         try:
             with patch(
@@ -633,18 +614,24 @@ class TestTestGraphitiConnection:
                     with patch(
                         "graphiti_providers.create_embedder", return_value=mock_embedder
                     ):
-                        await fn_test_graphiti_connection()
+                        with patch(
+                            "integrations.graphiti.queries_pkg.client._apply_ladybug_monkeypatch",
+                            return_value=True,
+                        ):
+                            with patch(
+                                "integrations.graphiti.queries_pkg.kuzu_driver_patched.create_patched_kuzu_driver",
+                                return_value=mock_driver,
+                            ):
+                                await fn_test_graphiti_connection()
 
-                        mock_graphiti_core.Graphiti.assert_called_once()
-                        call_kwargs = mock_graphiti_core.Graphiti.call_args[1]
-                        assert call_kwargs["graph_driver"] == mock_driver
-                        assert call_kwargs["llm_client"] == mock_llm_client
-                        assert call_kwargs["embedder"] == mock_embedder
+                                mock_graphiti_core.Graphiti.assert_called_once()
+                                call_kwargs = mock_graphiti_core.Graphiti.call_args[1]
+                                assert call_kwargs["graph_driver"] == mock_driver
+                                assert call_kwargs["llm_client"] == mock_llm_client
+                                assert call_kwargs["embedder"] == mock_embedder
         finally:
             # Clean up sys.modules
             sys.modules.pop("graphiti_core", None)
-            sys.modules.pop("graphiti_core.driver", None)
-            sys.modules.pop("graphiti_core.driver.falkordb_driver", None)
 
 
 # =============================================================================
