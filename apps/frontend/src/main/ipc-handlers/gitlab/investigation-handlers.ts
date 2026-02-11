@@ -8,7 +8,7 @@ import { IPC_CHANNELS } from '../../../shared/constants';
 import type { GitLabInvestigationStatus, GitLabInvestigationResult } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 import { getGitLabConfig, gitlabFetch, encodeProjectPath } from './utils';
-import type { GitLabAPIIssue } from './types';
+import type { GitLabAPIIssue, GitLabNoteBasic } from './types';
 import { createSpecForIssue } from './spec-utils';
 import type { AgentManager } from '../../agent';
 
@@ -110,10 +110,10 @@ export function registerInvestigateIssue(
         ) as GitLabAPIIssue;
 
         // Fetch notes if any selected (with pagination to get all notes)
-        let filteredNotes: Array<{ body: string; author: { username: string } }> = [];
+        let filteredNotes: GitLabNoteBasic[] = [];
         if (selectedNoteIds && selectedNoteIds.length > 0) {
           // Fetch all notes with pagination (GitLab defaults to 20 per page)
-          const allNotes: Array<{ id: number; body: string; author: { username: string } }> = [];
+          const allNotes: GitLabNoteBasic[] = [];
           let page = 1;
           const perPage = 100;
           const MAX_PAGES = 50; // Safety limit: max 5000 notes
@@ -125,7 +125,7 @@ export function registerInvestigateIssue(
                 config.token,
                 config.instanceUrl,
                 `/projects/${encodedProject}/issues/${issueIid}/notes?page=${page}&per_page=${perPage}`
-              ) as Array<{ id: number; body: string; author: { username: string } }>;
+              ) as unknown[];
 
               // Runtime validation: ensure we got an array
               if (!Array.isArray(notesPage)) {
@@ -136,7 +136,13 @@ export function registerInvestigateIssue(
               if (notesPage.length === 0) {
                 hasMore = false;
               } else {
-                allNotes.push(...notesPage);
+                // Extract only needed fields (id, body, author.username)
+                const noteSummaries: GitLabNoteBasic[] = notesPage.map((note: unknown) => ({
+                  id: (note as { id: number }).id,
+                  body: (note as { body: string }).body,
+                  author: (note as { author: { username: string } }).author,
+                }));
+                allNotes.push(...noteSummaries);
                 if (notesPage.length < perPage) {
                   hasMore = false;
                 } else {
