@@ -96,8 +96,9 @@ const RATE_LIMIT_RESET_PATTERN = /(?:reset[s]?\s*(?:at|in)[:\s]*|X-RateLimit-Res
  * - "requires: repo, read:org"
  * - "missing scopes: repo, workflow"
  * - "X-Accepted-OAuth-Scopes: repo"
+ * Stops at sentence boundaries or non-scope characters
  */
-const REQUIRED_SCOPES_PATTERN = /(?:requires?[:\s]*|missing\s*scopes?[:\s]*|X-Accepted-OAuth-Scopes[:\s]*)([a-z0-9_:,\s]+)/i;
+const REQUIRED_SCOPES_PATTERN = /(?:requires?[:\s]*|missing\s*scopes?[:\s]*|X-Accepted-OAuth-Scopes[:\s]*)([a-z0-9_:]+(?:[,\s]+[a-z0-9_:]+)*)/i;
 
 /**
  * Pattern to extract HTTP status code from error messages

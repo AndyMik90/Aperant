@@ -152,21 +152,30 @@ export function GitHubErrorDisplay({
     }
 
     const resetTime = errorInfo.rateLimitResetTime;
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+
     const updateCountdown = () => {
-      if (resetTime) {
-        const formatted = formatCountdown(resetTime);
-        setCountdown(formatted);
+      const formatted = formatCountdown(resetTime);
+      setCountdown(formatted);
+      // Stop the interval when countdown expires
+      if (!formatted && intervalId) {
+        clearInterval(intervalId);
+        intervalId = undefined;
       }
     };
 
     // Update immediately
     updateCountdown();
 
-    // Then update every second
-    const intervalId = setInterval(updateCountdown, 1000);
+    // Only set interval if countdown is still active
+    if (formatCountdown(resetTime)) {
+      intervalId = setInterval(updateCountdown, 1000);
+    }
 
     // Cleanup on unmount or when error changes
-    return () => clearInterval(intervalId);
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [errorInfo.type, errorInfo.rateLimitResetTime]);
 
   // Get configuration for this error type
@@ -184,25 +193,42 @@ export function GitHubErrorDisplay({
   // Don't render if no error
   if (!error) return null;
 
-  // Map error type to translation key for message
-  const messageKeyMap: Record<GitHubErrorType, string> = {
-    rate_limit: 'githubErrors.rateLimitMessage',
-    auth: 'githubErrors.authMessage',
-    permission: 'githubErrors.permissionMessage',
-    not_found: 'githubErrors.notFoundMessage',
-    network: 'githubErrors.networkMessage',
-    unknown: 'githubErrors.unknownMessage',
-  };
+  // Select the most specific message key based on available metadata
+  function getMessageKey(info: GitHubErrorInfo): string {
+    if (info.type === 'rate_limit' && info.rateLimitResetTime) {
+      const diffMs = info.rateLimitResetTime.getTime() - Date.now();
+      if (diffMs > 0) {
+        const diffMins = Math.ceil(diffMs / 60000);
+        return diffMins >= 60
+          ? 'githubErrors.rateLimitMessageHours'
+          : 'githubErrors.rateLimitMessageMinutes';
+      }
+    }
+    if (info.type === 'permission' && info.requiredScopes && info.requiredScopes.length > 0) {
+      return 'githubErrors.permissionMessageScopes';
+    }
+    const baseKeys: Record<GitHubErrorType, string> = {
+      rate_limit: 'githubErrors.rateLimitMessage',
+      auth: 'githubErrors.authMessage',
+      permission: 'githubErrors.permissionMessage',
+      not_found: 'githubErrors.notFoundMessage',
+      network: 'githubErrors.networkMessage',
+      unknown: 'githubErrors.unknownMessage',
+    };
+    return baseKeys[info.type];
+  }
 
-  // Get the translated message
-  const errorMessage = t(messageKeyMap[errorInfo.type], {
+  // Get the translated message with appropriate interpolation values
+  const messageKey = getMessageKey(errorInfo);
+  const minutes = errorInfo.rateLimitResetTime
+    ? Math.ceil((errorInfo.rateLimitResetTime.getTime() - Date.now()) / 60000)
+    : undefined;
+  const hours = minutes ? Math.ceil(minutes / 60) : undefined;
+
+  const errorMessage = t(messageKey, {
     defaultValue: errorInfo.message,
-    minutes: errorInfo.rateLimitResetTime
-      ? Math.ceil((errorInfo.rateLimitResetTime.getTime() - Date.now()) / 60000)
-      : undefined,
-    hours: errorInfo.rateLimitResetTime
-      ? Math.ceil((errorInfo.rateLimitResetTime.getTime() - Date.now()) / 3600000)
-      : undefined,
+    minutes,
+    hours,
     scopes: errorInfo.requiredScopes?.join(', '),
   });
 

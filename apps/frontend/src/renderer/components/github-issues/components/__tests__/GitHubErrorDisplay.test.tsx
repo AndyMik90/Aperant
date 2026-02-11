@@ -23,8 +23,11 @@ vi.mock('react-i18next', () => ({
         'githubErrors.networkTitle': 'GitHub Connection Error',
         'githubErrors.unknownTitle': 'GitHub Error',
         'githubErrors.rateLimitMessage': 'GitHub API rate limit reached. Please wait a moment before trying again.',
+        'githubErrors.rateLimitMessageMinutes': `GitHub API rate limit reached. Please wait ${options?.minutes || 'X'} minute(s) before trying again.`,
+        'githubErrors.rateLimitMessageHours': `GitHub API rate limit reached. Rate limit resets in approximately ${options?.hours || 'X'} hour(s).`,
         'githubErrors.authMessage': 'GitHub authentication failed. Please check your GitHub token in Settings.',
         'githubErrors.permissionMessage': 'GitHub permission denied. Your token may not have the required access.',
+        'githubErrors.permissionMessageScopes': `GitHub permission denied. Your token is missing required scopes: ${options?.scopes || ''}. Please update your GitHub token in Settings.`,
         'githubErrors.notFoundMessage': 'The requested GitHub resource was not found.',
         'githubErrors.networkMessage': 'Unable to connect to GitHub. Please check your internet connection.',
         'githubErrors.unknownMessage': 'An unexpected error occurred while communicating with GitHub.',
@@ -127,9 +130,10 @@ describe('GitHubErrorDisplay', () => {
       render(<GitHubErrorDisplay error={errorInfo} />);
 
       expect(screen.getByText('GitHub Permission Denied')).toBeInTheDocument();
-      expect(screen.getByText(/permission denied/)).toBeInTheDocument();
-      // Should show required scopes
-      expect(screen.getByText(/repo, workflow/)).toBeInTheDocument();
+      // Check that permission message is rendered
+      expect(screen.getByText(/Your token is missing required scopes/)).toBeInTheDocument();
+      // Should show required scopes in the code element
+      expect(screen.getByText('repo, workflow')).toBeInTheDocument();
     });
 
     it('should render not_found error correctly', () => {
@@ -318,15 +322,14 @@ describe('GitHubErrorDisplay', () => {
       render(<GitHubErrorDisplay error={errorInfo} />);
 
       // Initial countdown should be displayed
-      const initialText = screen.getByText(/Resets in/).textContent;
-      expect(initialText).toMatch(/Resets in/);
-
-      // Advance time by 1 second and verify countdown updates
-      vi.advanceTimersByTime(1000);
       expect(screen.getByText(/Resets in/)).toBeInTheDocument();
 
-      // The countdown should still be showing after advancing timers
-      vi.advanceTimersByTime(5000);
+      // Verify interval is running by checking timers
+      const timerCount = vi.getTimerCount();
+      expect(timerCount).toBe(1); // One interval should be running
+
+      // Advance time and verify interval still fires
+      vi.advanceTimersByTime(1000);
       expect(screen.getByText(/Resets in/)).toBeInTheDocument();
 
       vi.useRealTimers();
@@ -385,7 +388,8 @@ describe('GitHubErrorDisplay', () => {
       render(<GitHubErrorDisplay error={errorInfo} />);
 
       expect(screen.getByText('Required scopes:')).toBeInTheDocument();
-      expect(screen.getByText(/repo, read:org, workflow/)).toBeInTheDocument();
+      // The scopes appear in a code element
+      expect(screen.getByText('repo, read:org, workflow')).toBeInTheDocument();
     });
 
     it('should NOT display scopes section when no scopes are provided', () => {
