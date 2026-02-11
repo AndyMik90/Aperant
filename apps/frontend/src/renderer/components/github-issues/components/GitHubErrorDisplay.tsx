@@ -147,9 +147,12 @@ export function GitHubErrorDisplay({
       return;
     }
 
+    const resetTime = errorInfo.rateLimitResetTime;
     const updateCountdown = () => {
-      const formatted = formatCountdown(errorInfo.rateLimitResetTime!);
-      setCountdown(formatted);
+      if (resetTime) {
+        const formatted = formatCountdown(resetTime);
+        setCountdown(formatted);
+      }
     };
 
     // Update immediately
