@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { ScrollArea } from '../../ui/scroll-area';
 import { IssueListItem } from './IssueListItem';
 import { EmptyState } from './EmptyStates';
@@ -92,10 +92,13 @@ export function IssueList({
           <div ref={loadMoreTriggerRef} className="py-4 flex flex-col items-center gap-2">
             {/* Inline error for load-more failures (when issues are already loaded) */}
             {error && issues.length > 0 && (
-              <div className="flex items-center gap-2 text-sm text-destructive">
-                <AlertCircle className="h-4 w-4" />
-                {error}
-              </div>
+              <GitHubErrorDisplay
+                error={error}
+                onRetry={onRetry}
+                onOpenSettings={onOpenSettings}
+                compact
+                className="w-full"
+              />
             )}
             {isLoadingMore ? (
               <div className="flex items-center gap-2 text-muted-foreground">
