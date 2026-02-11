@@ -98,12 +98,13 @@ export function writeFileAtomicSync(
   data: string | Buffer,
   encoding: BufferEncoding = 'utf-8'
 ): void {
-  const dir = path.dirname(filepath);
+  const absolutePath = path.resolve(filepath);
+  const dir = path.dirname(absolutePath);
   const tempSuffix = randomBytes(8).toString('hex');
-  const tempPath = path.join(dir, `.${path.basename(filepath)}.tmp.${tempSuffix}`);
+  const tempPath = path.join(dir, `.${path.basename(absolutePath)}.tmp.${tempSuffix}`);
   try {
     writeFileSync(tempPath, data, encoding);
-    renameSync(tempPath, filepath);
+    renameSync(tempPath, absolutePath);
   } catch (err) {
     try { unlinkSync(tempPath); } catch { /* ignore cleanup */ }
     throw err;
