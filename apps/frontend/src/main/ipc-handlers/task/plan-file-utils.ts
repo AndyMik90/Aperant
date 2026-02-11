@@ -18,11 +18,12 @@
  */
 
 import path from 'path';
-import { readFileSync, writeFileSync, mkdirSync, renameSync, unlinkSync } from 'fs';
+import { readFileSync, mkdirSync } from 'fs';
 import { AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { TaskStatus, Project, Task } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 import type { TaskEventPayload } from '../../agent/task-event-schema';
+import { writeFileAtomicSync } from '../../utils/atomic-file';
 
 // In-memory locks for plan file operations
 // Key: plan file path, Value: Promise chain for serializing operations
@@ -112,7 +113,7 @@ export async function persistPlanStatus(planPath: string, status: TaskStatus, pr
       plan.planStatus = mapStatusToPlanStatus(status);
       plan.updated_at = new Date().toISOString();
 
-      writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+      writeFileAtomicSync(planPath, JSON.stringify(plan, null, 2));
       console.warn(`[plan-file-utils] Successfully persisted status: ${status} to implementation_plan.json`);
 
       // Invalidate tasks cache since status changed
@@ -168,7 +169,7 @@ export function persistPlanStatusSync(planPath: string, status: TaskStatus, proj
     plan.planStatus = mapStatusToPlanStatus(status);
     plan.updated_at = new Date().toISOString();
 
-    writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+    writeFileAtomicSync(planPath, JSON.stringify(plan, null, 2));
 
     // Invalidate tasks cache since status changed
     if (projectId) {
@@ -205,7 +206,7 @@ export function persistPlanLastEventSync(planPath: string, event: TaskEventPaylo
     };
     plan.updated_at = new Date().toISOString();
 
-    writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+    writeFileAtomicSync(planPath, JSON.stringify(plan, null, 2));
     return true;
   } catch (err) {
     if (isFileNotFoundError(err)) {
@@ -264,7 +265,7 @@ export function persistPlanStatusAndReasonSync(
     }
     plan.updated_at = new Date().toISOString();
 
-    writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+    writeFileAtomicSync(planPath, JSON.stringify(plan, null, 2));
 
     if (projectId) {
       projectStore.invalidateTasksCache(projectId);
@@ -327,7 +328,7 @@ export function persistPlanPhaseSync(
 
     plan.updated_at = new Date().toISOString();
 
-    writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+    writeFileAtomicSync(planPath, JSON.stringify(plan, null, 2));
 
     if (projectId) {
       projectStore.invalidateTasksCache(projectId);
@@ -362,7 +363,7 @@ export async function updatePlanFile<T extends Record<string, unknown>>(
       // Add updated_at timestamp - use type assertion since T extends Record<string, unknown>
       (updatedPlan as Record<string, unknown>).updated_at = new Date().toISOString();
 
-      writeFileSync(planPath, JSON.stringify(updatedPlan, null, 2), 'utf-8');
+      writeFileAtomicSync(planPath, JSON.stringify(updatedPlan, null, 2));
       console.warn(`[plan-file-utils] Successfully updated implementation_plan.json`);
       return updatedPlan;
     } catch (err) {
@@ -429,7 +430,7 @@ export async function createPlanIfNotExists(
       }
     }
 
-    writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+    writeFileAtomicSync(planPath, JSON.stringify(plan, null, 2));
   });
 }
 
@@ -476,16 +477,7 @@ export async function resetStuckSubtasks(planPath: string, projectId?: string): 
       // Only write if we actually reset something
       if (resetCount > 0) {
         plan.updated_at = new Date().toISOString();
-        const content = JSON.stringify(plan, null, 2);
-        // Atomic write: write to temp file then rename to prevent corruption on crash
-        const tempPath = `${planPath}.${process.pid}.tmp`;
-        try {
-          writeFileSync(tempPath, content, 'utf-8');
-          renameSync(tempPath, planPath);
-        } catch (writeError) {
-          try { unlinkSync(tempPath); } catch { /* ignore cleanup */ }
-          throw writeError;
-        }
+        writeFileAtomicSync(planPath, JSON.stringify(plan, null, 2));
         console.log(`[plan-file-utils] Successfully reset ${resetCount} stuck subtask(s) in implementation_plan.json`);
 
         // Invalidate tasks cache since subtask status changed
@@ -539,7 +531,7 @@ export function updateTaskMetadataPrUrl(metadataPath: string, prUrl: string): bo
     mkdirSync(path.dirname(metadataPath), { recursive: true });
 
     // Write back
-    writeFileSync(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
+    writeFileAtomicSync(metadataPath, JSON.stringify(metadata, null, 2));
     return true;
   } catch (err) {
     console.warn(`[plan-file-utils] Could not update metadata at ${metadataPath}:`, err);

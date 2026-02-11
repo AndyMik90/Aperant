@@ -17,7 +17,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../ui/alert-dialog';
-import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '../../lib/utils';
 import { useProjectStore } from '../../stores/project-store';
 
@@ -459,7 +458,7 @@ export function WorktreeSelector({
         <div className="border-t border-border" />
 
         {/* Scrollable results */}
-        <ScrollArea className="max-h-[300px]">
+        <div className="max-h-[min(500px,60vh)] overflow-y-auto">
           <div id={listboxId} role="listbox" aria-label={t('terminal:worktree.searchPlaceholder')} className="p-1">
             {isLoading ? (
               <div className="flex items-center justify-center py-2">
@@ -507,7 +506,7 @@ export function WorktreeSelector({
               </>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
 

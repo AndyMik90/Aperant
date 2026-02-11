@@ -5,9 +5,8 @@ Tests for Finding Validation System
 Tests the finding-validator agent integration and FindingValidationResult models.
 This system prevents false positives from persisting by re-investigating unresolved findings.
 
-NOTE: The validation system has been updated to use EVIDENCE-BASED validation
-instead of confidence scores. The key field is now `evidence_verified_in_file`
-which is a boolean indicating whether the code evidence was found at the specified location.
+NOTE: The validation system uses simplified models with finding_id, validation_status,
+code_evidence, and explanation fields.
 """
 
 import sys
@@ -55,14 +54,11 @@ class TestFindingValidationResultModel:
             finding_id="SEC-001",
             validation_status="confirmed_valid",
             code_evidence="const query = `SELECT * FROM users WHERE id = ${userId}`;",
-            line_range=(45, 45),
             explanation="SQL injection is present - user input is concatenated directly into the query.",
-            evidence_verified_in_file=True,
         )
         assert result.finding_id == "SEC-001"
         assert result.validation_status == "confirmed_valid"
         assert "SELECT" in result.code_evidence
-        assert result.evidence_verified_in_file is True
 
     def test_valid_dismissed_false_positive(self):
         """Test creating a dismissed_false_positive validation result."""
@@ -70,12 +66,9 @@ class TestFindingValidationResultModel:
             finding_id="QUAL-002",
             validation_status="dismissed_false_positive",
             code_evidence="const sanitized = DOMPurify.sanitize(data);",
-            line_range=(23, 26),
             explanation="Original finding claimed XSS but code uses DOMPurify.sanitize() for protection.",
-            evidence_verified_in_file=True,
         )
         assert result.validation_status == "dismissed_false_positive"
-        assert result.evidence_verified_in_file is True
 
     def test_valid_needs_human_review(self):
         """Test creating a needs_human_review validation result."""
@@ -83,67 +76,39 @@ class TestFindingValidationResultModel:
             finding_id="LOGIC-003",
             validation_status="needs_human_review",
             code_evidence="async function handleRequest(req) { ... }",
-            line_range=(100, 150),
             explanation="Race condition claim requires runtime analysis to verify.",
-            evidence_verified_in_file=True,
         )
         assert result.validation_status == "needs_human_review"
-        assert result.evidence_verified_in_file is True
 
-    def test_hallucinated_finding_not_verified(self):
-        """Test creating a result where evidence was not verified (hallucinated finding)."""
+    def test_hallucinated_finding_dismissed(self):
+        """Test creating a result where finding was hallucinated."""
         result = FindingValidationResult(
             finding_id="HALLUC-001",
             validation_status="dismissed_false_positive",
             code_evidence="// Line 710 does not exist - file only has 600 lines",
-            line_range=(600, 600),
             explanation="Original finding cited line 710 but file only has 600 lines. Hallucinated finding.",
-            evidence_verified_in_file=False,
         )
         assert result.validation_status == "dismissed_false_positive"
-        assert result.evidence_verified_in_file is False
 
-    def test_code_evidence_required(self):
-        """Test that code_evidence cannot be empty."""
-        with pytest.raises(ValidationError) as exc_info:
-            FindingValidationResult(
-                finding_id="SEC-001",
-                validation_status="confirmed_valid",
-                code_evidence="",  # Empty string should fail
-                line_range=(45, 45),
-                explanation="This is a detailed explanation of the issue.",
-                evidence_verified_in_file=True,
-            )
-        errors = exc_info.value.errors()
-        assert any("code_evidence" in str(e) for e in errors)
+    def test_code_evidence_accepts_empty(self):
+        """Test that code_evidence accepts empty string (no min_length constraint)."""
+        result = FindingValidationResult(
+            finding_id="SEC-001",
+            validation_status="confirmed_valid",
+            code_evidence="",
+            explanation="This is a detailed explanation of the issue.",
+        )
+        assert result.code_evidence == ""
 
-    def test_explanation_min_length(self):
-        """Test that explanation must be at least 20 characters."""
-        with pytest.raises(ValidationError) as exc_info:
-            FindingValidationResult(
-                finding_id="SEC-001",
-                validation_status="confirmed_valid",
-                code_evidence="const x = 1;",
-                line_range=(45, 45),
-                explanation="Too short",  # Less than 20 chars
-                evidence_verified_in_file=True,
-            )
-        errors = exc_info.value.errors()
-        assert any("explanation" in str(e) for e in errors)
-
-    def test_evidence_verified_required(self):
-        """Test that evidence_verified_in_file is required."""
-        with pytest.raises(ValidationError) as exc_info:
-            FindingValidationResult(
-                finding_id="SEC-001",
-                validation_status="confirmed_valid",
-                code_evidence="const query = `SELECT * FROM users`;",
-                line_range=(45, 45),
-                explanation="SQL injection vulnerability found in the query construction.",
-                # Missing evidence_verified_in_file
-            )
-        errors = exc_info.value.errors()
-        assert any("evidence_verified_in_file" in str(e) for e in errors)
+    def test_explanation_accepts_short_string(self):
+        """Test that explanation accepts short strings (no min_length constraint)."""
+        result = FindingValidationResult(
+            finding_id="SEC-001",
+            validation_status="confirmed_valid",
+            code_evidence="const x = 1;",
+            explanation="Too short",
+        )
+        assert result.explanation == "Too short"
 
     def test_invalid_validation_status(self):
         """Test that invalid validation_status values are rejected."""
@@ -152,9 +117,7 @@ class TestFindingValidationResultModel:
                 finding_id="SEC-001",
                 validation_status="invalid_status",  # Not a valid status
                 code_evidence="const x = 1;",
-                line_range=(45, 45),
                 explanation="This is a detailed explanation of the issue.",
-                evidence_verified_in_file=True,
             )
 
 
@@ -169,17 +132,13 @@ class TestFindingValidationResponse:
                     finding_id="SEC-001",
                     validation_status="confirmed_valid",
                     code_evidence="const query = `SELECT * FROM users`;",
-                    line_range=(45, 45),
                     explanation="SQL injection confirmed in this query.",
-                    evidence_verified_in_file=True,
                 ),
                 FindingValidationResult(
                     finding_id="QUAL-002",
                     validation_status="dismissed_false_positive",
                     code_evidence="const sanitized = DOMPurify.sanitize(data);",
-                    line_range=(23, 26),
                     explanation="Code uses DOMPurify so XSS claim is false.",
-                    evidence_verified_in_file=True,
                 ),
             ],
             summary="1 finding confirmed valid, 1 dismissed as false positive",
@@ -194,10 +153,7 @@ class TestParallelFollowupResponseWithValidation:
     def test_response_includes_finding_validations(self):
         """Test that ParallelFollowupResponse accepts finding_validations."""
         response = ParallelFollowupResponse(
-            analysis_summary="Follow-up review with validation",
             agents_invoked=["resolution-verifier", "finding-validator"],
-            commits_analyzed=3,
-            files_changed=5,
             resolution_verifications=[
                 ResolutionVerification(
                     finding_id="SEC-001",
@@ -210,13 +166,10 @@ class TestParallelFollowupResponseWithValidation:
                     finding_id="SEC-001",
                     validation_status="confirmed_valid",
                     code_evidence="const query = `SELECT * FROM users`;",
-                    line_range=(45, 45),
                     explanation="SQL injection confirmed in this query.",
-                    evidence_verified_in_file=True,
                 )
             ],
             new_findings=[],
-            comment_analyses=[],
             comment_findings=[],
             verdict="NEEDS_REVISION",
             verdict_reasoning="1 confirmed valid security issue remains",
@@ -227,10 +180,7 @@ class TestParallelFollowupResponseWithValidation:
     def test_response_with_dismissed_findings(self):
         """Test response where findings are dismissed as false positives."""
         response = ParallelFollowupResponse(
-            analysis_summary="All findings dismissed as false positives",
             agents_invoked=["resolution-verifier", "finding-validator"],
-            commits_analyzed=3,
-            files_changed=5,
             resolution_verifications=[
                 ResolutionVerification(
                     finding_id="SEC-001",
@@ -243,13 +193,10 @@ class TestParallelFollowupResponseWithValidation:
                     finding_id="SEC-001",
                     validation_status="dismissed_false_positive",
                     code_evidence="const query = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);",
-                    line_range=(45, 48),
                     explanation="Original review misread - using parameterized query.",
-                    evidence_verified_in_file=True,
                 )
             ],
             new_findings=[],
-            comment_analyses=[],
             comment_findings=[],
             verdict="READY_TO_MERGE",
             verdict_reasoning="Previous finding was a false positive, now dismissed",
@@ -350,31 +297,23 @@ class TestValidationIntegration:
         # so we verify the Pydantic models work correctly instead
 
         response = ParallelFollowupResponse(
-            analysis_summary="Follow-up with validation",
             agents_invoked=["resolution-verifier", "finding-validator"],
-            commits_analyzed=3,
-            files_changed=5,
             resolution_verifications=[],
             finding_validations=[
                 FindingValidationResult(
                     finding_id="SEC-001",
                     validation_status="confirmed_valid",
                     code_evidence="const query = `SELECT * FROM users`;",
-                    line_range=(45, 45),
                     explanation="SQL injection confirmed in this query construction.",
-                    evidence_verified_in_file=True,
                 ),
                 FindingValidationResult(
                     finding_id="QUAL-002",
                     validation_status="dismissed_false_positive",
                     code_evidence="const sanitized = DOMPurify.sanitize(data);",
-                    line_range=(23, 26),
                     explanation="Original XSS claim was incorrect - uses DOMPurify.",
-                    evidence_verified_in_file=True,
                 ),
             ],
             new_findings=[],
-            comment_analyses=[],
             comment_findings=[],
             verdict="READY_TO_MERGE",
             verdict_reasoning="1 dismissed as false positive, 1 confirmed valid but low severity",
@@ -404,9 +343,7 @@ class TestValidationIntegration:
                 finding_id="TEST-001",
                 validation_status=status,
                 code_evidence="const x = 1;",
-                line_range=(1, 1),
                 explanation="This is a valid explanation for the finding status.",
-                evidence_verified_in_file=True,
             )
             assert result.validation_status == status
 
@@ -425,13 +362,10 @@ class TestEvidenceQuality:
             finding_id="SEC-001",
             validation_status="confirmed_valid",
             code_evidence="const query = db.query(`SELECT * FROM users WHERE id = ${userId}`);",
-            line_range=(45, 45),
             explanation="SQL injection - user input interpolated directly into query string.",
-            evidence_verified_in_file=True,
         )
         assert "SELECT" in result.code_evidence
         assert "userId" in result.code_evidence
-        assert result.evidence_verified_in_file is True
 
     def test_evidence_multiline_code_block(self):
         """Test evidence spanning multiple lines."""
@@ -443,11 +377,8 @@ class TestEvidenceQuality:
             finding_id="SEC-002",
             validation_status="confirmed_valid",
             code_evidence=multiline_evidence,
-            line_range=(10, 14),
             explanation="SQL injection across multiple lines - user input flows into query.",
-            evidence_verified_in_file=True,
         )
-        assert result.line_range == [10, 14]
         assert "processInput" in result.code_evidence
         assert "userInput" in result.code_evidence
 
@@ -461,9 +392,7 @@ element.innerHTML = sanitized;"""
             finding_id="XSS-001",
             validation_status="dismissed_false_positive",
             code_evidence=context_evidence,
-            line_range=(20, 24),
             explanation="XSS claim was false - code uses DOMPurify to sanitize before innerHTML.",
-            evidence_verified_in_file=True,
         )
         assert "DOMPurify.sanitize" in result.code_evidence
         assert result.validation_status == "dismissed_false_positive"
@@ -477,9 +406,7 @@ return transformedData;"""
             finding_id="LOGIC-001",
             validation_status="needs_human_review",
             code_evidence=ambiguous_evidence,
-            line_range=(50, 53),
             explanation="Cannot determine if race condition exists - requires runtime analysis.",
-            evidence_verified_in_file=True,
         )
         assert result.validation_status == "needs_human_review"
 
@@ -489,11 +416,8 @@ return transformedData;"""
             finding_id="HALLUC-001",
             validation_status="dismissed_false_positive",
             code_evidence="// File ends at line 200, original finding referenced line 500",
-            line_range=(200, 200),
             explanation="Original finding cited non-existent line. File only has 200 lines.",
-            evidence_verified_in_file=False,
         )
-        assert result.evidence_verified_in_file is False
         assert result.validation_status == "dismissed_false_positive"
 
     def test_evidence_with_special_characters(self):
@@ -504,9 +428,7 @@ const encoded = str.replace(regex, (c) => `&#${c.charCodeAt(0)};`);"""
             finding_id="XSS-002",
             validation_status="dismissed_false_positive",
             code_evidence=special_evidence,
-            line_range=(30, 31),
             explanation="XSS claim incorrect - code properly encodes special characters.",
-            evidence_verified_in_file=True,
         )
         assert "<>" in result.code_evidence or "[<>" in result.code_evidence
 
@@ -516,9 +438,7 @@ const encoded = str.replace(regex, (c) => `&#${c.charCodeAt(0)};`);"""
             finding_id="SEC-003",
             validation_status="confirmed_valid",
             code_evidence="eval(userInput);  // Execute user-provided code",
-            line_range=(100, 100),
             explanation="Critical: eval() called on user input without sanitization. Remote code execution.",
-            evidence_verified_in_file=True,
         )
         assert "eval" in result.code_evidence
         assert "userInput" in result.code_evidence
@@ -530,9 +450,7 @@ const encoded = str.replace(regex, (c) => `&#${c.charCodeAt(0)};`);"""
             finding_id="LOGIC-002",
             validation_status="dismissed_false_positive",
             code_evidence="if (items.length === 0) { return []; }  // Empty array handled",
-            line_range=(75, 75),
             explanation="Original finding claimed missing empty array check, but line 75 shows check exists.",
-            evidence_verified_in_file=True,
         )
         assert "length === 0" in result.code_evidence
         assert result.validation_status == "dismissed_false_positive"
@@ -690,25 +608,19 @@ class TestScopeFiltering:
                 finding_id="SEC-001",
                 validation_status="confirmed_valid",
                 code_evidence="eval(userInput);",
-                line_range=(10, 10),
                 explanation="Confirmed: eval on user input is a security risk.",
-                evidence_verified_in_file=True,
             ),
             FindingValidationResult(
                 finding_id="QUAL-001",
                 validation_status="dismissed_false_positive",
                 code_evidence="const x = sanitize(input);",
-                line_range=(20, 20),
                 explanation="Dismissed: input is properly sanitized before use.",
-                evidence_verified_in_file=True,
             ),
             FindingValidationResult(
                 finding_id="LOGIC-001",
                 validation_status="needs_human_review",
                 code_evidence="async function race() { ... }",
-                line_range=(30, 35),
                 explanation="Needs review: potential race condition requires runtime analysis.",
-                evidence_verified_in_file=True,
             ),
         ]
 
@@ -720,41 +632,35 @@ class TestScopeFiltering:
         assert len(dismissed) == 1
         assert len(needs_review) == 1
 
-    def test_filter_validations_by_evidence_verified(self):
-        """Test filtering validation results by evidence verification status."""
+    def test_filter_validations_by_status_type(self):
+        """Test filtering validation results by validation status type."""
         validations = [
             FindingValidationResult(
                 finding_id="REAL-001",
                 validation_status="confirmed_valid",
                 code_evidence="const password = 'hardcoded';",
-                line_range=(50, 50),
                 explanation="Confirmed: hardcoded password found at specified location.",
-                evidence_verified_in_file=True,
             ),
             FindingValidationResult(
                 finding_id="HALLUC-001",
                 validation_status="dismissed_false_positive",
                 code_evidence="// Line does not exist in file",
-                line_range=(999, 999),
                 explanation="Dismissed: original finding referenced non-existent line.",
-                evidence_verified_in_file=False,
             ),
             FindingValidationResult(
                 finding_id="REAL-002",
                 validation_status="dismissed_false_positive",
                 code_evidence="const sanitized = escape(input);",
-                line_range=(75, 75),
                 explanation="Dismissed: code properly escapes input.",
-                evidence_verified_in_file=True,
             ),
         ]
 
-        verified = [v for v in validations if v.evidence_verified_in_file]
-        not_verified = [v for v in validations if not v.evidence_verified_in_file]
+        confirmed = [v for v in validations if v.validation_status == "confirmed_valid"]
+        dismissed = [v for v in validations if v.validation_status == "dismissed_false_positive"]
 
-        assert len(verified) == 2
-        assert len(not_verified) == 1
-        assert not_verified[0].finding_id == "HALLUC-001"
+        assert len(confirmed) == 1
+        assert len(dismissed) == 2
+        assert confirmed[0].finding_id == "REAL-001"
 
     def test_filter_findings_multiple_criteria(self):
         """Test filtering findings with multiple criteria combined."""
@@ -1191,25 +1097,19 @@ class TestFindingDeduplication:
                 finding_id="SEC-001",
                 validation_status="confirmed_valid",
                 code_evidence="const query = `SELECT * FROM users`;",
-                line_range=(45, 45),
                 explanation="SQL injection confirmed - first validation.",
-                evidence_verified_in_file=True,
             ),
             FindingValidationResult(
                 finding_id="SEC-001",  # Same finding ID
                 validation_status="confirmed_valid",
                 code_evidence="const query = `SELECT * FROM users`;",
-                line_range=(45, 45),
                 explanation="SQL injection confirmed - duplicate validation.",
-                evidence_verified_in_file=True,
             ),
             FindingValidationResult(
                 finding_id="SEC-002",
                 validation_status="dismissed_false_positive",
                 code_evidence="const sanitized = escape(input);",
-                line_range=(60, 60),
                 explanation="Input is properly escaped - false positive.",
-                evidence_verified_in_file=True,
             ),
         ]
 

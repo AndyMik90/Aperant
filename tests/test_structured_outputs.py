@@ -512,41 +512,47 @@ class TestVerificationEvidence:
         assert result.line_range_examined == [10, 11]
         assert result.verification_method == "direct_code_inspection"
 
-    def test_empty_code_examined_rejected(self):
-        """Test that empty code_examined is rejected."""
+    def test_empty_code_examined_accepted(self):
+        """Test that empty code_examined is accepted (no min_length constraint)."""
         data = {
             "code_examined": "",
             "line_range_examined": [1, 5],
             "verification_method": "direct_code_inspection",
         }
-        with pytest.raises(ValidationError) as exc_info:
-            VerificationEvidence.model_validate(data)
-        assert "code_examined" in str(exc_info.value)
+        result = VerificationEvidence.model_validate(data)
+        assert result.code_examined == ""
 
-    def test_invalid_line_range_rejected(self):
-        """Test that invalid line ranges are rejected."""
+    def test_line_range_defaults_to_empty_list(self):
+        """Test that line_range_examined defaults to empty list when omitted."""
         data = {
             "code_examined": "some code",
-            "line_range_examined": [1],  # Should have exactly 2 elements
             "verification_method": "direct_code_inspection",
         }
-        with pytest.raises(ValidationError) as exc_info:
-            VerificationEvidence.model_validate(data)
-        assert "line_range_examined" in str(exc_info.value)
+        result = VerificationEvidence.model_validate(data)
+        assert result.line_range_examined == []
 
-    def test_invalid_verification_method_rejected(self):
-        """Test that invalid verification method is rejected."""
+    def test_single_element_line_range_accepted(self):
+        """Test that single element line range is accepted (list[int])."""
+        data = {
+            "code_examined": "some code",
+            "line_range_examined": [1],
+            "verification_method": "direct_code_inspection",
+        }
+        result = VerificationEvidence.model_validate(data)
+        assert result.line_range_examined == [1]
+
+    def test_custom_verification_method_accepted(self):
+        """Test that any string verification method is accepted."""
         data = {
             "code_examined": "some code",
             "line_range_examined": [1, 5],
-            "verification_method": "guessed",  # Invalid method
+            "verification_method": "custom_method",
         }
-        with pytest.raises(ValidationError) as exc_info:
-            VerificationEvidence.model_validate(data)
-        assert "verification_method" in str(exc_info.value)
+        result = VerificationEvidence.model_validate(data)
+        assert result.verification_method == "custom_method"
 
     def test_all_verification_methods(self):
-        """Test all valid verification methods."""
+        """Test common verification methods."""
         methods = [
             "direct_code_inspection",
             "cross_file_trace",
