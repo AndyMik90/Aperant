@@ -12,9 +12,6 @@ Tests for SpecDocumentValidator class covering:
 """
 
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
 
 
 class TestSpecDocumentValidatorInit:
@@ -58,7 +55,7 @@ class TestValidateFileNotFound:
         from spec.validate_pkg.validators.spec_document_validator import SpecDocumentValidator
 
         validator = SpecDocumentValidator(spec_dir)
-        result = result = validator.validate()
+        result = validator.validate()
 
         assert "spec.md" in result.errors[0]
 
