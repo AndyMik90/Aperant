@@ -147,7 +147,7 @@ jobs:
           elif echo "$HTTP_CODE" | grep -qi "E404\|not found\|is not in this registry"; then
             npm publish --workspace libs/types --access public --provenance
           else
-            echo "::error::Unexpected error checking @auto-claude/types@${PACKAGE_VERSION}: ${HTTP_CODE}"
+            echo "::warning::Unexpected error checking @auto-claude/types@${PACKAGE_VERSION}: ${HTTP_CODE}"
             npm publish --workspace libs/types --access public --provenance
           fi
 
@@ -160,6 +160,6 @@ jobs:
           elif echo "$HTTP_CODE" | grep -qi "E404\|not found\|is not in this registry"; then
             npm publish --workspace libs/ui --access public --provenance
           else
-            echo "::error::Unexpected error checking @auto-claude/ui@${PACKAGE_VERSION}: ${HTTP_CODE}"
+            echo "::warning::Unexpected error checking @auto-claude/ui@${PACKAGE_VERSION}: ${HTTP_CODE}"
             npm publish --workspace libs/ui --access public --provenance
           fi
