@@ -2007,9 +2007,6 @@ class TestHandleBuildInterruptEdgeCases:
         # so we can check the resume instructions
         with patch("cli.build_commands.select_menu", return_value="skip"):
             with patch("agent.run_autonomous_agent") as mock_agent:
-                async def agent_fn(*args, **kwargs):
-                    return (True, "Success")
-                mock_agent.side_effect = agent_fn
                 mock_agent.side_effect = SystemExit(0)
 
                 # Execute - will exit after trying to resume
@@ -2544,27 +2541,36 @@ class TestBuildCommandsModuleImport:
         module_path = build_cmd_module.__file__
         parent_dir = str(Path(module_path).parent.parent)
 
-        # Save original sys.path
+        # Save original state
         original_path = sys.path.copy()
+        original_modules = {k: v for k, v in sys.modules.items() if k.startswith('cli.build_commands')}
 
-        # Remove the parent directory from sys.path to make the condition True
-        while parent_dir in sys.path:
-            sys.path.remove(parent_dir)
+        try:
+            # Remove the parent directory from sys.path to make the condition True
+            while parent_dir in sys.path:
+                sys.path.remove(parent_dir)
 
-        # Remove module and its submodules from sys.modules to force re-import
-        modules_to_remove = [k for k in sys.modules.keys() if k.startswith('cli.build_commands')]
-        for mod_name in modules_to_remove:
-            del sys.modules[mod_name]
+            # Remove module and its submodules from sys.modules to force re-import
+            modules_to_remove = [k for k in sys.modules.keys() if k.startswith('cli.build_commands')]
+            for mod_name in modules_to_remove:
+                del sys.modules[mod_name]
 
-        # Now import it fresh - this should execute line 15 under coverage
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("cli.build_commands", module_path)
-        module = importlib.util.module_from_spec(spec)
-        sys.modules['cli.build_commands'] = module
-        spec.loader.exec_module(module)
+            # Now import it fresh - this should execute line 15 under coverage
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("cli.build_commands", module_path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules['cli.build_commands'] = module
+            spec.loader.exec_module(module)
 
-        # Verify the module loaded correctly
-        assert hasattr(module, 'handle_build_command')
-
-        # Restore original sys.path
-        sys.path[:] = original_path
+            # Verify the module loaded correctly
+            assert hasattr(module, 'handle_build_command')
+        finally:
+            # Always restore original state, even if an exception occurred
+            sys.path[:] = original_path
+            # Restore original module references
+            for mod_name, mod_obj in original_modules.items():
+                sys.modules[mod_name] = mod_obj
+            # Remove any newly added modules that weren't in original state
+            modules_to_remove = [k for k in sys.modules.keys() if k.startswith('cli.build_commands') and k not in original_modules]
+            for mod_name in modules_to_remove:
+                del sys.modules[mod_name]

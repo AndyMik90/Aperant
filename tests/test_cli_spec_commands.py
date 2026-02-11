@@ -486,34 +486,9 @@ class TestSpecCommandsModuleLevel:
         # Should be the apps/backend directory
         assert parent_dir.name in ["backend", "apps"]
 
-    @pytest.mark.skipif(
-        True,  # Subprocess test requires full environment including claude_agent_sdk (not available in CI)
-        reason="Subprocess test requires claude_agent_sdk dependency; coverage achieved via reload test"
-    )
-    def test_parent_dir_inserted_to_sys_path_subprocess(self):
-        """Tests that parent dir is inserted to sys.path at module import (line 14)."""
-        import subprocess
-        import sys
-        import os
-
-        # Get the apps/backend directory
-        backend_dir = Path(__file__).parent.parent / "apps" / "backend"
-
-        # Run in subprocess to ensure clean import
-        # This tests line 14: sys.path.insert(0, str(_PARENT_DIR))
-        code = "import sys; from cli.spec_commands import _PARENT_DIR; assert str(_PARENT_DIR) in sys.path; print('OK')"
-
-        result = subprocess.run(
-            [sys.executable, "-c", code],
-            cwd=backend_dir,
-            env={**os.environ, "PYTHONPATH": str(backend_dir)},
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-
-        assert result.returncode == 0, f"stderr: {result.stderr}"
-        assert "OK" in result.stdout
+    # Removed: test_parent_dir_inserted_to_sys_path_subprocess
+    # This test was permanently skipped with @pytest.mark.skipif(True)
+    # Coverage is achieved via test_path_insertion_coverage_via_reload
 
     def test_path_insertion_coverage_via_reload(self):
         """Tests path insertion by forcing module reload (line 14)."""

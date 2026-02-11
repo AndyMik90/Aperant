@@ -151,13 +151,13 @@ def handle_batch_status_command(project_dir: str) -> bool:
             except json.JSONDecodeError:
                 pass
 
-        # Determine status
-        if (spec_dir / "spec.md").exists():
+        # Determine status (highest priority first)
+        if (spec_dir / "qa_report.md").exists():
+            status = "qa_approved"
+        elif (spec_dir / "spec.md").exists():
             status = "spec_created"
         elif (spec_dir / "implementation_plan.json").exists():
             status = "building"
-        elif (spec_dir / "qa_report.md").exists():
-            status = "qa_approved"
         else:
             status = "pending_spec"
 

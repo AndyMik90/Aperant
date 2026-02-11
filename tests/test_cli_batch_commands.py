@@ -321,8 +321,12 @@ class TestHandleBatchStatusCommand:
         handle_batch_status_command(str(project_with_specs))
 
         captured = capsys.readouterr()
-        # Status icons for different states
-        assert "📋" in captured.out  # spec_created (all 3 specs have spec.md)
+        # Status icons for different states:
+        # 001: spec.md only → spec_created (📋)
+        # 002: spec.md + implementation_plan.json → spec_created (📋)
+        # 003: qa_report.md → qa_approved (✅)
+        assert "📋" in captured.out
+        assert "✅" in captured.out
 
     def test_returns_true_for_no_specs_directory(
         self, capsys, temp_git_repo: Path

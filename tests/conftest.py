@@ -637,24 +637,21 @@ def mock_run_agent_fn():
             output: The output message to return
             side_effect: Optional list of (success, output) tuples for sequential calls
         """
-        call_count = 0
-
         async def _mock_agent(
             prompt_file: str,
             additional_context: str = None,
             phase_name: str = None,
         ) -> tuple[bool, str]:
             nonlocal call_count
+            call_count += 1
             if side_effect is not None:
-                if call_count < len(side_effect):
-                    result = side_effect[call_count]
-                    call_count += 1
+                if call_count <= len(side_effect):
+                    result = side_effect[call_count - 1]
                     return result
                 # Fallback to last result if more calls than expected
                 return side_effect[-1]
             return (success, output)
 
-        _mock_agent.call_count = 0
         return _mock_agent
 
     return _create_mock
