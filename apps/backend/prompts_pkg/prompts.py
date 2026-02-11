@@ -573,7 +573,19 @@ This shows only changes made in the spec branch since it diverged from `{base_br
         spec_context += "\n"
 
         # Inject startup commands from project_index services
-        for svc_name, svc in project_index.get("services", {}).items():
+        # Handle both dict format (services by name) and list format
+        services = project_index.get("services", {})
+        if isinstance(services, dict):
+            services_iter = services.items()
+        elif isinstance(services, list):
+            services_iter = (
+                (svc.get("name", f"service-{i}"), svc)
+                for i, svc in enumerate(services)
+                if isinstance(svc, dict)
+            )
+        else:
+            services_iter = iter([])
+        for svc_name, svc in services_iter:
             svc_scripts = svc.get("scripts", {})
             dev_cmd = svc.get("dev_command", "")
             if svc_scripts or dev_cmd:

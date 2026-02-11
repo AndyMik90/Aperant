@@ -235,10 +235,11 @@ class FrameworkAnalyzer(BaseAnalyzer):
 
         # Scripts
         scripts = pkg.get("scripts", {})
+        pkg_mgr = self.analysis.get("package_manager", "npm")
         if "dev" in scripts:
-            self.analysis["dev_command"] = "npm run dev"
+            self.analysis["dev_command"] = f"{pkg_mgr} run dev"
         elif "start" in scripts:
-            self.analysis["dev_command"] = "npm run start"
+            self.analysis["dev_command"] = f"{pkg_mgr} run start"
 
         # Capture available scripts for downstream consumers (QA agents, init.sh)
         if scripts:
