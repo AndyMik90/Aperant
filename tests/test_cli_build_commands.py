@@ -312,6 +312,7 @@ class TestHandleBuildCommandModels:
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
+        capsys,
         successful_agent_fn
     ):
         """Build uses default model when none specified."""
