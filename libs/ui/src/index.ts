@@ -4,4 +4,5 @@
  * Shared UI primitives and components for the Auto Claude platform.
  */
 
-export {};
+export { cn } from './utils';
+export type { ClassValue } from 'clsx';
