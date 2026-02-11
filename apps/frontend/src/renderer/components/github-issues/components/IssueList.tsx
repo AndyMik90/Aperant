@@ -3,6 +3,7 @@ import { Loader2, AlertCircle } from 'lucide-react';
 import { ScrollArea } from '../../ui/scroll-area';
 import { IssueListItem } from './IssueListItem';
 import { EmptyState } from './EmptyStates';
+import { GitHubErrorDisplay } from './GitHubErrorDisplay';
 import type { IssueListProps } from '../types';
 import { useTranslation } from 'react-i18next';
 
@@ -15,7 +16,9 @@ export function IssueList({
   error,
   onSelectIssue,
   onInvestigate,
-  onLoadMore
+  onLoadMore,
+  onRetry,
+  onOpenSettings
 }: IssueListProps) {
   const { t } = useTranslation('common');
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
@@ -50,12 +53,12 @@ export function IssueList({
   // Load-more errors are shown inline near the load-more trigger
   if (error && issues.length === 0) {
     return (
-      <div className="p-4 bg-destructive/10 border-b border-destructive/30">
-        <div className="flex items-center gap-2 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-        </div>
-      </div>
+      <GitHubErrorDisplay
+        error={error}
+        onRetry={onRetry}
+        onOpenSettings={onOpenSettings}
+        className="flex-1"
+      />
     );
   }
 
