@@ -29,7 +29,6 @@ export default defineConfig({
       exclude: [
         // Workspace packages — must be bundled, not externalized
         '@auto-claude/types',
-        '@auto-claude/ui',
         'uuid',
         'chokidar',
         'dotenv',

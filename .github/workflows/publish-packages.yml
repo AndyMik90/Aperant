@@ -115,6 +115,23 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Validate tag matches package versions
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          TYPES_VERSION=$(node -p "require('./libs/types/package.json').version")
+          UI_VERSION=$(node -p "require('./libs/ui/package.json').version")
+          echo "Tag version: ${TAG_VERSION}"
+          echo "types version: ${TYPES_VERSION}"
+          echo "ui version: ${UI_VERSION}"
+          if [ "$TAG_VERSION" != "$TYPES_VERSION" ]; then
+            echo "::error::Tag v${TAG_VERSION} does not match @auto-claude/types version ${TYPES_VERSION}"
+            exit 1
+          fi
+          if [ "$TAG_VERSION" != "$UI_VERSION" ]; then
+            echo "::error::Tag v${TAG_VERSION} does not match @auto-claude/ui version ${UI_VERSION}"
+            exit 1
+          fi
+
       - name: Build @auto-claude/types
         run: npx tsc --project libs/types/tsconfig.build.json
 
@@ -124,19 +141,25 @@ jobs:
       - name: Publish @auto-claude/types
         run: |
           PACKAGE_VERSION=$(node -p "require('./libs/types/package.json').version")
-          PUBLISHED=$(npm view @auto-claude/types@${PACKAGE_VERSION} version 2>/dev/null || echo "")
-          if [ "$PUBLISHED" = "$PACKAGE_VERSION" ]; then
+          HTTP_CODE=$(npm view "@auto-claude/types@${PACKAGE_VERSION}" version --json 2>&1) && RC=$? || RC=$?
+          if [ $RC -eq 0 ] && echo "$HTTP_CODE" | grep -q "$PACKAGE_VERSION"; then
             echo "::notice::@auto-claude/types@${PACKAGE_VERSION} already published, skipping"
+          elif echo "$HTTP_CODE" | grep -qi "E404\|not found\|is not in this registry"; then
+            npm publish --workspace libs/types --access public --provenance
           else
+            echo "::error::Unexpected error checking @auto-claude/types@${PACKAGE_VERSION}: ${HTTP_CODE}"
             npm publish --workspace libs/types --access public --provenance
           fi
 
       - name: Publish @auto-claude/ui
         run: |
           PACKAGE_VERSION=$(node -p "require('./libs/ui/package.json').version")
-          PUBLISHED=$(npm view @auto-claude/ui@${PACKAGE_VERSION} version 2>/dev/null || echo "")
-          if [ "$PUBLISHED" = "$PACKAGE_VERSION" ]; then
+          HTTP_CODE=$(npm view "@auto-claude/ui@${PACKAGE_VERSION}" version --json 2>&1) && RC=$? || RC=$?
+          if [ $RC -eq 0 ] && echo "$HTTP_CODE" | grep -q "$PACKAGE_VERSION"; then
             echo "::notice::@auto-claude/ui@${PACKAGE_VERSION} already published, skipping"
+          elif echo "$HTTP_CODE" | grep -qi "E404\|not found\|is not in this registry"; then
+            npm publish --workspace libs/ui --access public --provenance
           else
+            echo "::error::Unexpected error checking @auto-claude/ui@${PACKAGE_VERSION}: ${HTTP_CODE}"
             npm publish --workspace libs/ui --access public --provenance
           fi
