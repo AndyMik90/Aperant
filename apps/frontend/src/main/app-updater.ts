@@ -134,7 +134,8 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
     autoUpdater = updaterModule.autoUpdater;
   }
 
-  // TypeScript guard: autoUpdater is guaranteed to be non-null after initialization above
+  // TypeScript type narrowing: The assignment above doesn't narrow the type, so this guard
+  // allows TypeScript to infer non-null for the rest of the function
   if (!autoUpdater) {
     throw new Error('[app-updater] Failed to initialize autoUpdater');
   }

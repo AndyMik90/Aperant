@@ -131,6 +131,14 @@ export function getWindowsExecutablePaths(
 }
 
 /**
+ * Get the Windows system root directory (e.g., C:\Windows).
+ * Checks both casing variants of the environment variable with a safe fallback.
+ */
+export function getSystemRoot(): string {
+  return process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows';
+}
+
+/**
  * Get the full path to where.exe.
  * Using the full path ensures where.exe works even when System32 isn't in PATH,
  * which can happen in restricted environments or when Electron doesn't inherit
@@ -139,8 +147,19 @@ export function getWindowsExecutablePaths(
  * @returns Full path to where.exe (e.g., C:\Windows\System32\where.exe)
  */
 export function getWhereExePath(): string {
-  const systemRoot = process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows';
-  return path.join(systemRoot, 'System32', 'where.exe');
+  return path.join(getSystemRoot(), 'System32', 'where.exe');
+}
+
+/**
+ * Get the full path to taskkill.exe.
+ * Using the full path ensures taskkill.exe works even when System32 isn't in PATH,
+ * which can happen in restricted environments or when Electron doesn't inherit
+ * the full system PATH.
+ *
+ * @returns Full path to taskkill.exe (e.g., C:\Windows\System32\taskkill.exe)
+ */
+export function getTaskkillExePath(): string {
+  return path.join(getSystemRoot(), 'System32', 'taskkill.exe');
 }
 
 /**

@@ -10,7 +10,7 @@ globalThis.require = require;
 
 // Load .env file FIRST before any other imports that might use process.env
 import { config } from 'dotenv';
-import { resolve, dirname } from 'path';
+import { resolve, dirname, sep } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 
@@ -448,8 +448,9 @@ app.whenReady().then(() => {
         // Old structure: /path/to/project/auto-claude
         // New structure: /path/to/project/apps/backend
         let migrated = false;
-        if (validAutoBuildPath.endsWith('/auto-claude') || validAutoBuildPath.endsWith('\\auto-claude')) {
-          const basePath = validAutoBuildPath.replace(/[/\\]auto-claude$/, '');
+        const legacySuffix = `${sep}auto-claude`;
+        if (validAutoBuildPath.endsWith(legacySuffix)) {
+          const basePath = validAutoBuildPath.slice(0, -legacySuffix.length);
           const correctedPath = joinPaths(basePath, 'apps', 'backend');
           const correctedSpecRunnerPath = joinPaths(correctedPath, 'runners', 'spec_runner.py');
 

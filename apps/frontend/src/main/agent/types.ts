@@ -41,7 +41,7 @@ export interface AgentManagerEvents {
 
 export interface RoadmapConfig {
   model?: string;          // Model shorthand (opus, sonnet, haiku)
-  thinkingLevel?: string;  // Thinking level (none, low, medium, high, ultrathink)
+  thinkingLevel?: string;  // Thinking level (low, medium, high)
 }
 
 export interface TaskExecutionOptions {
@@ -57,20 +57,20 @@ export interface SpecCreationMetadata {
   // Auto profile - phase-based model and thinking configuration
   isAutoProfile?: boolean;
   phaseModels?: {
-    spec: 'haiku' | 'sonnet' | 'opus';
-    planning: 'haiku' | 'sonnet' | 'opus';
-    coding: 'haiku' | 'sonnet' | 'opus';
-    qa: 'haiku' | 'sonnet' | 'opus';
+    spec: 'haiku' | 'sonnet' | 'opus' | 'opus-1m' | 'opus-4.5';
+    planning: 'haiku' | 'sonnet' | 'opus' | 'opus-1m' | 'opus-4.5';
+    coding: 'haiku' | 'sonnet' | 'opus' | 'opus-1m' | 'opus-4.5';
+    qa: 'haiku' | 'sonnet' | 'opus' | 'opus-1m' | 'opus-4.5';
   };
   phaseThinking?: {
-    spec: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
-    planning: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
-    coding: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
-    qa: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
+    spec: 'low' | 'medium' | 'high';
+    planning: 'low' | 'medium' | 'high';
+    coding: 'low' | 'medium' | 'high';
+    qa: 'low' | 'medium' | 'high';
   };
   // Non-auto profile - single model and thinking level
-  model?: 'haiku' | 'sonnet' | 'opus';
-  thinkingLevel?: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
+  model?: 'haiku' | 'sonnet' | 'opus' | 'opus-1m' | 'opus-4.5';
+  thinkingLevel?: 'low' | 'medium' | 'high';
   // Workspace mode - whether to use worktree isolation
   useWorktree?: boolean; // If false, use --direct mode (no worktree isolation)
   useLocalBranch?: boolean; // If true, use local branch directly instead of preferring origin/branch

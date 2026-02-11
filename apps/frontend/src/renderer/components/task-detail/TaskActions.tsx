@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Play, Square, CheckCircle2, RotateCcw, Trash2, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/button';
 import {
@@ -21,6 +22,8 @@ interface TaskActionsProps {
   showDeleteDialog: boolean;
   isDeleting: boolean;
   deleteError: string | null;
+  worktreeChangesInfo: { hasChanges: boolean; worktreePath?: string; changedFileCount?: number } | null;
+  isCheckingChanges: boolean;
   onStartStop: () => void;
   onRecover: () => void;
   onDelete: () => void;
@@ -36,11 +39,14 @@ export function TaskActions({
   showDeleteDialog,
   isDeleting,
   deleteError,
+  worktreeChangesInfo,
+  isCheckingChanges,
   onStartStop,
   onRecover,
   onDelete,
   onShowDeleteDialog
 }: TaskActionsProps) {
+  const { t } = useTranslation(['tasks']);
   return (
     <>
       <div className="p-4">
@@ -117,15 +123,32 @@ export function TaskActions({
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Delete Task
+              {t('tasks:deleteDialog.title')}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="text-sm text-muted-foreground space-y-3">
                 <p>
-                  Are you sure you want to delete <strong className="text-foreground">"{task.title}"</strong>?
+                  {t('tasks:deleteDialog.confirmMessage')} <strong className="text-foreground">"{task.title}"</strong>?
                 </p>
+                {isCheckingChanges && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t('tasks:deleteDialog.checkingChanges')}
+                  </div>
+                )}
+                {worktreeChangesInfo?.hasChanges && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-lg text-sm space-y-1">
+                    <p className="font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                      <AlertTriangle className="h-4 w-4" />
+                      {t('tasks:deleteDialog.uncommittedChanges', { count: worktreeChangesInfo.changedFileCount })}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {t('tasks:deleteDialog.uncommittedChangesHint')}
+                    </p>
+                  </div>
+                )}
                 <p className="text-destructive">
-                  This action cannot be undone. All task files, including the spec, implementation plan, and any generated code will be permanently deleted from the project.
+                  {t('tasks:deleteDialog.destructiveWarning')}
                 </p>
                 {deleteError && (
                   <p className="text-destructive bg-destructive/10 px-3 py-2 rounded-lg text-sm">
@@ -136,7 +159,7 @@ export function TaskActions({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>{t('tasks:deleteDialog.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
@@ -148,12 +171,12 @@ export function TaskActions({
               {isDeleting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
+                  {t('tasks:deleteDialog.deleting')}
                 </>
               ) : (
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Permanently
+                  {t('tasks:deleteDialog.deletePermanently')}
                 </>
               )}
             </AlertDialogAction>

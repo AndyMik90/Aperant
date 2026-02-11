@@ -61,6 +61,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [worktreeChangesInfo, setWorktreeChangesInfo] = useState<{ hasChanges: boolean; worktreePath?: string; changedFileCount?: number } | null>(null);
+  const [isCheckingChanges, setIsCheckingChanges] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [worktreeStatus, setWorktreeStatus] = useState<WorktreeStatus | null>(null);
   const [worktreeDiff, setWorktreeDiff] = useState<WorktreeDiff | null>(null);
@@ -132,6 +134,21 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
 
     return () => clearInterval(intervalId);
   }, [task.id, isActiveTask]);
+
+  // Check for uncommitted worktree changes when delete dialog opens
+  useEffect(() => {
+    if (showDeleteDialog && task) {
+      setIsCheckingChanges(true);
+      window.electronAPI.checkWorktreeChanges(task.id).then((result) => {
+        if (result.success && result.data) {
+          setWorktreeChangesInfo(result.data);
+        }
+        setIsCheckingChanges(false);
+      }).catch(() => setIsCheckingChanges(false));
+    } else {
+      setWorktreeChangesInfo(null);
+    }
+  }, [showDeleteDialog, task]);
 
   // Handle scroll events in logs to detect if user scrolled away from anchor
   const handleLogsScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -486,6 +503,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     showDeleteDialog,
     isDeleting,
     deleteError,
+    worktreeChangesInfo,
+    isCheckingChanges,
     isEditDialogOpen,
     worktreeStatus,
     worktreeDiff,
@@ -530,6 +549,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     setShowDeleteDialog,
     setIsDeleting,
     setDeleteError,
+    setWorktreeChangesInfo,
+    setIsCheckingChanges,
     setIsEditDialogOpen,
     setWorktreeStatus,
     setWorktreeDiff,

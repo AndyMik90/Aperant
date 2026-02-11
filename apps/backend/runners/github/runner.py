@@ -77,6 +77,7 @@ from core.sentry import capture_exception, init_sentry, set_context
 init_sentry(component="github-runner")
 
 from debug import debug_error
+from phase_config import sanitize_thinking_level
 
 # Add github runner directory to path for direct imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -182,6 +183,7 @@ def get_config(args) -> GitHubRunnerConfig:
         bot_token=bot_token,
         model=args.model,
         thinking_level=args.thinking_level,
+        fast_mode=getattr(args, "fast_mode", False),
         auto_fix_enabled=getattr(args, "auto_fix_enabled", False),
         auto_fix_labels=getattr(args, "auto_fix_labels", ["auto-fix"]),
         auto_post_reviews=getattr(args, "auto_post", False),
@@ -688,8 +690,12 @@ def main():
         "--thinking-level",
         type=str,
         default="medium",
-        choices=["none", "low", "medium", "high"],
-        help="Thinking level for extended reasoning",
+        help="Thinking level for extended reasoning (low, medium, high)",
+    )
+    parser.add_argument(
+        "--fast-mode",
+        action="store_true",
+        help="Enable Fast Mode for faster Opus 4.6 output",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
@@ -795,6 +801,9 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Validate and sanitize thinking level (handles legacy values like 'ultrathink')
+    args.thinking_level = sanitize_thinking_level(args.thinking_level)
 
     if not args.command:
         parser.print_help()

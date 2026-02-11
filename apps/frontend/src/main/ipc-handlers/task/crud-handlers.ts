@@ -1,7 +1,8 @@
 import { ipcMain, nativeImage } from 'electron';
-import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
+import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir, VALID_THINKING_LEVELS, sanitizeThinkingLevel } from '../../../shared/constants';
 import type { IPCResult, Task, TaskMetadata } from '../../../shared/types';
 import path from 'path';
+import { execFileSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, Dirent } from 'fs';
 import { projectStore } from '../../project-store';
 import { titleGenerator } from '../../title-generator';
@@ -10,7 +11,33 @@ import { findTaskAndProject } from './shared';
 import { findAllSpecPaths, isValidTaskId } from '../../utils/spec-path-helpers';
 import { isPathWithinBase, findTaskWorktree } from '../../worktree-paths';
 import { cleanupWorktree } from '../../utils/worktree-cleanup';
+import { getToolPath } from '../../cli-tool-manager';
+import { getIsolatedGitEnv } from '../../utils/git-isolation';
 import { taskStateManager } from '../../task-state-manager';
+
+/**
+ * Sanitize thinking levels in task metadata in-place.
+ * Maps legacy values (e.g. 'ultrathink' → 'high') and defaults unknown values to 'medium'.
+ */
+function sanitizeThinkingLevels(metadata: TaskMetadata): void {
+  const isValid = (val: string): boolean => VALID_THINKING_LEVELS.includes(val as typeof VALID_THINKING_LEVELS[number]);
+
+  if (metadata.thinkingLevel && !isValid(metadata.thinkingLevel)) {
+    const mapped = sanitizeThinkingLevel(metadata.thinkingLevel);
+    console.warn(`[TASK_CRUD] Sanitized invalid thinkingLevel "${metadata.thinkingLevel}" to "${mapped}"`);
+    metadata.thinkingLevel = mapped as TaskMetadata['thinkingLevel'];
+  }
+
+  if (metadata.phaseThinking) {
+    for (const phase of Object.keys(metadata.phaseThinking) as Array<keyof typeof metadata.phaseThinking>) {
+      if (!isValid(metadata.phaseThinking[phase])) {
+        const mapped = sanitizeThinkingLevel(metadata.phaseThinking[phase]);
+        console.warn(`[TASK_CRUD] Sanitized invalid phaseThinking.${phase} "${metadata.phaseThinking[phase]}" to "${mapped}"`);
+        metadata.phaseThinking[phase] = mapped as typeof metadata.phaseThinking[typeof phase];
+      }
+    }
+  }
+}
 
 /**
  * Register task CRUD (Create, Read, Update, Delete) handlers
@@ -196,10 +223,12 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
       writeFileSync(planPath, JSON.stringify(implementationPlan, null, 2), 'utf-8');
 
-      // Save task metadata if provided
+      // Save task metadata if provided (sanitize thinking levels before writing)
       if (taskMetadata) {
+        sanitizeThinkingLevels(taskMetadata);
         const metadataPath = path.join(specDir, 'task_metadata.json');
         writeFileSync(metadataPath, JSON.stringify(taskMetadata, null, 2), 'utf-8');
+        console.log(`[TASK_CREATE] [Fast Mode] ${taskMetadata.fastMode ? 'ENABLED' : 'disabled'} — written to task_metadata.json for spec ${specId}`);
       }
 
       // Create requirements.json with attached images
@@ -284,7 +313,6 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           worktreePath,
           projectPath: project.path,
           specId: task.specId,
-          commitMessage: 'Auto-save before task deletion',
           logPrefix: '[TASK_DELETE]',
           deleteBranch: true
         });
@@ -293,13 +321,8 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           console.error(`[TASK_DELETE] Worktree cleanup failed:`, cleanupResult.warnings);
           hasErrors = true;
           errors.push(`Worktree cleanup: ${cleanupResult.warnings.join('; ')}`);
-        } else {
-          if (cleanupResult.autoCommitted) {
-            console.warn(`[TASK_DELETE] Auto-committed uncommitted work before deletion`);
-          }
-          if (cleanupResult.warnings.length > 0) {
-            console.warn(`[TASK_DELETE] Cleanup warnings:`, cleanupResult.warnings);
-          }
+        } else if (cleanupResult.warnings.length > 0) {
+          console.warn(`[TASK_DELETE] Cleanup warnings:`, cleanupResult.warnings);
         }
       }
 
@@ -509,7 +532,8 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
             updatedMetadata.attachedImages = savedImages;
           }
 
-          // Update task_metadata.json
+          // Sanitize thinking levels and update task_metadata.json
+          sanitizeThinkingLevels(updatedMetadata);
           const metadataPath = path.join(specDir, 'task_metadata.json');
           try {
             writeFileSync(metadataPath, JSON.stringify(updatedMetadata, null, 2), 'utf-8');
@@ -647,6 +671,43 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error loading thumbnail'
         };
+      }
+    }
+  );
+
+  /**
+   * Check if a task's worktree has uncommitted changes
+   * Used by the UI before showing the delete confirmation dialog
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_CHECK_WORKTREE_CHANGES,
+    async (_, taskId: string): Promise<IPCResult<{ hasChanges: boolean; worktreePath?: string; changedFileCount?: number }>> => {
+      const { task, project } = findTaskAndProject(taskId);
+      if (!task || !project) {
+        return { success: true, data: { hasChanges: false } };
+      }
+
+      const worktreePath = findTaskWorktree(project.path, task.specId);
+      if (!worktreePath) {
+        return { success: true, data: { hasChanges: false } };
+      }
+
+      try {
+        const status = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
+          cwd: worktreePath,
+          encoding: 'utf-8',
+          env: getIsolatedGitEnv(),
+          timeout: 5000
+        }).trim();
+
+        const changedFiles = status ? status.split('\n').length : 0;
+        return {
+          success: true,
+          data: { hasChanges: changedFiles > 0, worktreePath, changedFileCount: changedFiles }
+        };
+      } catch {
+        // On error/timeout, return false as fail-safe (don't block deletion)
+        return { success: true, data: { hasChanges: false, worktreePath } };
       }
     }
   );

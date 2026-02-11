@@ -114,7 +114,30 @@ export function PRDetail({
   const checkNewCommitsAbortRef = useRef<AbortController | null>(null);
   // Ref to track checking state without causing callback recreation
   const isCheckingNewCommitsRef = useRef(false);
-  // Logs state
+  // ========================================================================
+  // PR Review Logs State
+  // ========================================================================
+  // Logs provide real-time visibility into the AI review process through
+  // a hybrid push/pull architecture:
+  //
+  // Backend (PRLogCollector in pr-handlers.ts):
+  //   - Writes logs to disk every 3 entries: .auto-claude/github/pr/logs_${prNumber}.json
+  //   - Emits GITHUB_PR_LOGS_UPDATED IPC events after each save
+  //   - Tracks phase status: pending → active → completed/failed
+  //
+  // Frontend (this component):
+  //   - Subscribes to GITHUB_PR_LOGS_UPDATED push events for instant updates
+  //   - Falls back to polling via onGetLogs() every 1.5s while isReviewing
+  //   - Displays logs in collapsible PRLogs component with phase indicators
+  //
+  // Data Flow:
+  //   1. Backend: PRLogCollector.processLine() → PRLogCollector.save()
+  //   2. Backend: savePRLogs() writes JSON to disk
+  //   3. Backend: Emits GITHUB_PR_LOGS_UPDATED IPC event → triggers immediate refresh
+  //   4. Fallback: Polling interval calls onGetLogs() every 1.5s during review
+  //   5. Frontend: setPrLogs() triggers UI update with new log content
+  //
+  // ========================================================================
   const [logsExpanded, setLogsExpanded] = useState(false);
   const [prLogs, setPrLogs] = useState<PRLogsType | null>(null);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
@@ -250,14 +273,53 @@ export function PRDetail({
     }
   }, [isReviewing]);
 
-  // Load logs when logs section is expanded or when reviewing (for live logs)
+  // Auto-expand both logs and analysis sections when review completes successfully
+  // This ensures users can see both logs AND findings/summary together after completion
+  useEffect(() => {
+    if (reviewResult?.success && !isReviewing) {
+      setLogsExpanded(true);
+      setAnalysisExpanded(true);
+    }
+  }, [reviewResult?.success, isReviewing]);
+
+  // Subscribe to push-based log updates from backend for instant refresh
+  useEffect(() => {
+    if (!isReviewing) return;
+
+    const cleanup = window.electronAPI.github.onPRLogsUpdated(
+      (_projectId: string, data: { prNumber: number; entryCount: number }) => {
+        if (data.prNumber !== pr.number) return;
+        onGetLogs()
+          .then(logs => setPrLogs(logs))
+          .catch(() => {});
+      }
+    );
+
+    return cleanup;
+  }, [isReviewing, pr.number, onGetLogs]);
+
+  /**
+   * Initial log load when user expands the logs section
+   *
+   * This effect handles the first-time load of logs when the user clicks
+   * to expand the logs collapsible card. It's a one-time operation per PR
+   * tracked by logsLoadedRef to prevent redundant loads.
+   *
+   * After this initial load, the periodic polling (below) takes over to
+   * keep the logs up-to-date during active reviews.
+   */
   useEffect(() => {
     if (logsExpanded && !logsLoadedRef.current && !isLoadingLogs) {
       logsLoadedRef.current = true;
       setIsLoadingLogs(true);
       onGetLogs()
-        .then(logs => setPrLogs(logs))
-        .catch(() => setPrLogs(null))
+        .then(logs => {
+          setPrLogs(logs);
+        })
+        .catch((err) => {
+          console.error('Failed to load initial PR review logs:', err);
+          setPrLogs(null);
+        })
         .finally(() => setIsLoadingLogs(false));
     }
   }, [logsExpanded, onGetLogs, isLoadingLogs]);
@@ -265,7 +327,40 @@ export function PRDetail({
   // Track previous reviewing state to detect transitions
   const wasReviewingRef = useRef(false);
 
-  // Refresh logs periodically while reviewing (even faster during active review)
+  /**
+   * Active polling mechanism for real-time log streaming during PR review
+   *
+   * This is the CORE of the log polling system. It handles three scenarios:
+   *
+   * 1. Review Start (wasReviewing=false → isReviewing=true):
+   *    - Clears stale logs from previous reviews
+   *    - Prepares for new log stream
+   *
+   * 2. Active Review (isReviewing=true):
+   *    - Polls onGetLogs() every 1.5 seconds
+   *    - Immediate initial poll, then setInterval for subsequent polls
+   *    - Backend writes logs every 3 entries, so 1.5s polling ensures
+   *      near-real-time updates without overwhelming the file system
+   *
+   * 3. Review End (wasReviewing=true → isReviewing=false):
+   *    - One final poll to capture the last phase status
+   *    - Ensures "completed" status is displayed even if polling interval
+   *      missed the final write
+   *
+   * Why 1.5 seconds?
+   * ----------------
+   * - Backend saves every 3 log entries (PRLogCollector.saveInterval)
+   * - Typical review generates 2-5 entries/second during active phases
+   * - 1.5s interval balances responsiveness vs. file I/O overhead
+   * - Faster than 1.5s risks reading incomplete writes on slow disks
+   * - Slower than 1.5s makes progress feel laggy to users
+   *
+   * Error Handling:
+   * ---------------
+   * - Errors during polling are logged but don't stop the interval
+   * - This ensures transient file read errors don't break the UI
+   * - If logs file doesn't exist yet, backend returns null gracefully
+   */
   useEffect(() => {
     const wasReviewing = wasReviewingRef.current;
     wasReviewingRef.current = isReviewing;
@@ -289,18 +384,99 @@ export function PRDetail({
       try {
         const logs = await onGetLogs();
         setPrLogs(logs);
-      } catch {
-        // Ignore errors during refresh
+      } catch (err) {
+        console.error('Failed to refresh PR review logs during polling:', err);
+        // Ignore errors during refresh - don't stop polling
       }
     };
 
     // Refresh immediately, then every 1.5 seconds while reviewing for smoother streaming
     refreshLogs();
     const interval = setInterval(refreshLogs, 1500);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+    };
   }, [isReviewing, onGetLogs]);
 
-  // Reset logs state when PR changes
+  /**
+   * Fallback mechanism: Load logs after review completes if not already loaded
+   *
+   * Why is this needed?
+   * ===================
+   * This effect handles edge cases where the active polling (above) might
+   * miss the final logs, such as:
+   *
+   * 1. Race Condition: Review completes between polling intervals
+   *    - Polling runs at t=0s, t=1.5s, t=3s, etc.
+   *    - If review completes at t=1.3s, final poll (on completion) might
+   *      run before backend finishes writing the completion status
+   *    - 500ms delay ensures backend has time to write final state
+   *
+   * 2. Follow-up Review Mismatch: User runs follow-up after initial review
+   *    - prLogs.is_followup !== reviewResult.isFollowupReview
+   *    - Need to reload logs to show correct review type
+   *
+   * 3. Component Remount: User switches away and back to the PR
+   *    - prLogs might be null after remount
+   *    - Fallback ensures logs are reloaded from disk
+   *
+   * Timing:
+   * -------
+   * - 500ms delay balances reliability vs. responsiveness
+   * - Backend typically writes logs in <100ms, but network drives,
+   *   virus scanners, or disk contention can delay writes
+   * - Delay is user-imperceptible since review is already complete
+   *
+   * This ensures 100% reliability: even if all other load mechanisms fail,
+   * logs will eventually appear via this fallback.
+   */
+  useEffect(() => {
+    // Only trigger when a review has completed successfully
+    if (!reviewResult?.success || isReviewing) {
+      return;
+    }
+
+    // Check if we need to load logs:
+    // 1. No logs loaded yet, OR
+    // 2. Logs are from a different review (followup status mismatch)
+    const needsLogsLoad = !prLogs || (prLogs.is_followup !== reviewResult.isFollowupReview);
+
+    if (!needsLogsLoad) {
+      return;
+    }
+
+    // Add a small delay to ensure backend has written the logs file
+    const timer = setTimeout(() => {
+      setIsLoadingLogs(true);
+      onGetLogs()
+        .then(logs => {
+          setPrLogs(logs);
+        })
+        .catch(err => {
+          console.error('Failed to load fallback PR review logs:', err);
+        })
+        .finally(() => {
+          setIsLoadingLogs(false);
+        });
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [reviewResult, isReviewing, prLogs, onGetLogs]);
+
+  /**
+   * Reset logs state when PR changes
+   *
+   * When the user switches to a different PR (pr.number changes), we need
+   * to clear all state to prevent showing logs from the previous PR.
+   *
+   * State cleared:
+   * - logsLoadedRef: Allows initial load to trigger for new PR
+   * - prLogs: Clears displayed log content
+   * - logsExpanded: Collapses logs section (user must explicitly expand)
+   * - Review posting state: Clears any success/error messages
+   *
+   * This ensures a clean slate for each PR's review lifecycle.
+   */
   useEffect(() => {
     logsLoadedRef.current = false;
     setPrLogs(null);

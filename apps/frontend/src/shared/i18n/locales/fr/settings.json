@@ -107,7 +107,8 @@
       "defaultPlaceholder": "ex. : claude-sonnet-4-5-20250929",
       "haikuPlaceholder": "ex. : claude-haiku-4-5-20251001",
       "sonnetPlaceholder": "ex. : claude-sonnet-4-5-20250929",
-      "opusPlaceholder": "ex. : claude-opus-4-5-20251101"
+      "opusPlaceholder": "ex. : claude-opus-4-6",
+      "opus1mPlaceholder": "ex. : claude-opus-4-6 (contexte 1M)"
     },
     "empty": {
       "title": "Aucun profil API configuré",
@@ -399,6 +400,10 @@
     "resetToProfileDefaults": "Réinitialiser aux défauts de {{profile}}",
     "customized": "Personnalisé",
     "phaseConfigNote": "Ces paramètres seront utilisés par défaut lors de la création de nouvelles tâches avec ce profil. Vous pouvez les modifier par tâche dans l'assistant de création.",
+    "adaptiveThinking": {
+      "badge": "Adaptatif",
+      "tooltip": "Opus utilise la réflexion adaptative — il décide dynamiquement de la profondeur de réflexion dans la limite du budget défini par le niveau de réflexion."
+    },
     "phases": {
       "spec": {
         "label": "Création de spec",
