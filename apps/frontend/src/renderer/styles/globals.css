@@ -1,7 +1,7 @@
 @import "tailwindcss";
-@import "../../../../libs/ui/src/styles/theme.css";
+@import "../../../../../libs/ui/src/styles/theme.css";
 @plugin "@tailwindcss/typography";
-@source "../../../../libs/ui/src";
+@source "../../../../../libs/ui/src";
 
 /* Base styles */
 * {

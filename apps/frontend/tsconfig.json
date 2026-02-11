@@ -21,10 +21,12 @@
       "@components/*": ["src/renderer/shared/components/*"],
       "@hooks/*": ["src/renderer/shared/hooks/*"],
       "@lib/*": ["src/renderer/shared/lib/*"],
+      "@auto-claude/types": ["../../libs/types/src/index.ts"],
+      "@auto-claude/types/*": ["../../libs/types/src/*"],
       "@auto-claude/ui": ["../../libs/ui/src/index.ts"],
       "@auto-claude/ui/*": ["../../libs/ui/src/*"]
     }
   },
-  "include": ["src/**/*", "../../libs/ui/src/**/*"],
+  "include": ["src/**/*", "../../libs/types/src/**/*", "../../libs/ui/src/**/*"],
   "exclude": ["node_modules", "out", "dist"]
 }

@@ -27,6 +27,9 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin({
       // Bundle these packages into the main process (they won't be in node_modules in packaged app)
       exclude: [
+        // Workspace packages — must be bundled, not externalized
+        '@auto-claude/types',
+        '@auto-claude/ui',
         'uuid',
         'chokidar',
         'dotenv',
@@ -90,7 +93,10 @@ export default defineConfig({
         '@features': resolve(__dirname, 'src/renderer/features'),
         '@components': resolve(__dirname, 'src/renderer/shared/components'),
         '@hooks': resolve(__dirname, 'src/renderer/shared/hooks'),
-        '@lib': resolve(__dirname, 'src/renderer/shared/lib')
+        '@lib': resolve(__dirname, 'src/renderer/shared/lib'),
+        // Workspace packages — resolve to source for HMR support
+        '@auto-claude/types': resolve(__dirname, '../../libs/types/src'),
+        '@auto-claude/ui': resolve(__dirname, '../../libs/ui/src')
       }
     },
     server: {
