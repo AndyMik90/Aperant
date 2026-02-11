@@ -14,6 +14,7 @@ import { cleanupWorktree } from '../../utils/worktree-cleanup';
 import { getToolPath } from '../../cli-tool-manager';
 import { getIsolatedGitEnv } from '../../utils/git-isolation';
 import { taskStateManager } from '../../task-state-manager';
+import * as Sentry from '@sentry/electron/main';
 
 /**
  * Sanitize thinking levels in task metadata in-place.
@@ -91,21 +92,53 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       if (!title || !title.trim()) {
         console.warn('[TASK_CREATE] Title is empty, generating with Claude AI...');
         try {
+          Sentry.addBreadcrumb({
+            category: 'task-crud',
+            message: 'Title generation invoked (empty title detected)',
+            level: 'info',
+            data: { handler: 'TASK_CREATE', descriptionLength: description.length },
+          });
+        } catch { /* Sentry not initialized */ }
+        try {
           const generatedTitle = await titleGenerator.generateTitle(description);
           if (generatedTitle) {
             finalTitle = generatedTitle;
             console.warn('[TASK_CREATE] Generated title:', finalTitle);
+            try {
+              Sentry.addBreadcrumb({
+                category: 'task-crud',
+                message: 'Title generation succeeded',
+                level: 'info',
+                data: { handler: 'TASK_CREATE', generatedTitleLength: finalTitle.length },
+              });
+            } catch { /* Sentry not initialized */ }
           } else {
             // Fallback: create title from first line of description
             finalTitle = description.split('\n')[0].substring(0, 60);
             if (finalTitle.length === 60) finalTitle += '...';
             console.warn('[TASK_CREATE] AI generation failed, using fallback:', finalTitle);
+            try {
+              Sentry.addBreadcrumb({
+                category: 'task-crud',
+                message: 'Title generation returned null, using description truncation fallback',
+                level: 'warning',
+                data: { handler: 'TASK_CREATE', fallbackTitle: finalTitle },
+              });
+            } catch { /* Sentry not initialized */ }
           }
         } catch (err) {
           console.error('[TASK_CREATE] Title generation error:', err);
           // Fallback: create title from first line of description
           finalTitle = description.split('\n')[0].substring(0, 60);
           if (finalTitle.length === 60) finalTitle += '...';
+          try {
+            Sentry.addBreadcrumb({
+              category: 'task-crud',
+              message: 'Title generation error, using description truncation fallback',
+              level: 'error',
+              data: { handler: 'TASK_CREATE', error: err instanceof Error ? err.message : String(err) },
+            });
+          } catch { /* Sentry not initialized */ }
         }
       }
 
@@ -399,21 +432,53 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           const descriptionToUse = updates.description ?? task.description;
           console.warn('[TASK_UPDATE] Title is empty, generating with Claude AI...');
           try {
+            Sentry.addBreadcrumb({
+              category: 'task-crud',
+              message: 'Title generation invoked (empty title detected)',
+              level: 'info',
+              data: { handler: 'TASK_UPDATE', taskId, descriptionLength: descriptionToUse.length },
+            });
+          } catch { /* Sentry not initialized */ }
+          try {
             const generatedTitle = await titleGenerator.generateTitle(descriptionToUse);
             if (generatedTitle) {
               finalTitle = generatedTitle;
               console.warn('[TASK_UPDATE] Generated title:', finalTitle);
+              try {
+                Sentry.addBreadcrumb({
+                  category: 'task-crud',
+                  message: 'Title generation succeeded',
+                  level: 'info',
+                  data: { handler: 'TASK_UPDATE', taskId, generatedTitleLength: finalTitle.length },
+                });
+              } catch { /* Sentry not initialized */ }
             } else {
               // Fallback: create title from first line of description
               finalTitle = descriptionToUse.split('\n')[0].substring(0, 60);
               if (finalTitle.length === 60) finalTitle += '...';
               console.warn('[TASK_UPDATE] AI generation failed, using fallback:', finalTitle);
+              try {
+                Sentry.addBreadcrumb({
+                  category: 'task-crud',
+                  message: 'Title generation returned null, using description truncation fallback',
+                  level: 'warning',
+                  data: { handler: 'TASK_UPDATE', taskId, fallbackTitle: finalTitle },
+                });
+              } catch { /* Sentry not initialized */ }
             }
           } catch (err) {
             console.error('[TASK_UPDATE] Title generation error:', err);
             // Fallback: create title from first line of description
             finalTitle = descriptionToUse.split('\n')[0].substring(0, 60);
             if (finalTitle.length === 60) finalTitle += '...';
+            try {
+              Sentry.addBreadcrumb({
+                category: 'task-crud',
+                message: 'Title generation error, using description truncation fallback',
+                level: 'error',
+                data: { handler: 'TASK_UPDATE', taskId, error: err instanceof Error ? err.message : String(err) },
+              });
+            } catch { /* Sentry not initialized */ }
           }
         }
 
