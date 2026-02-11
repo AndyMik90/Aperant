@@ -21,7 +21,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./*": "./src/*.ts",
-    "./primitives/*": "./src/primitives/*.tsx"
+    "./primitives/*": "./src/primitives/*.tsx",
+    "./primitives/use-toast": "./src/primitives/use-toast.ts"
   },
   "files": [
     "src"
