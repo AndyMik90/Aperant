@@ -474,6 +474,16 @@ app.whenReady().then(() => {
   // Create window
   createWindow();
 
+  // Run startup recovery scan to reset any tasks stuck in "in_progress" from a crash/restart.
+  // At startup no agents are running, so any in_progress tasks are stale.
+  // This resets stuck subtasks (in_progress/failed -> pending) and task-level status (in_progress -> queue),
+  // allowing the user to restart tasks cleanly.
+  if (agentManager) {
+    agentManager.runStartupRecoveryScan().catch((error) => {
+      console.error('[main] Startup recovery scan failed:', error);
+    });
+  }
+
   // Pre-warm CLI tool cache in background (non-blocking)
   // This ensures CLI detection is done before user needs it
   // Include all commonly used tools to prevent sync blocking on first use
