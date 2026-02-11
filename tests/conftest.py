@@ -637,6 +637,8 @@ def mock_run_agent_fn():
             output: The output message to return
             side_effect: Optional list of (success, output) tuples for sequential calls
         """
+        call_count = 0
+
         async def _mock_agent(
             prompt_file: str,
             additional_context: str = None,
