@@ -671,6 +671,8 @@
     "networkMessage": "Impossible de se connecter à GitHub. Veuillez vérifier votre connexion Internet et réessayer.",
     "unknownMessage": "Une erreur inattendue s'est produite lors de la communication avec GitHub. Veuillez réessayer.",
     "resetsIn": "Réinitialisation dans {{time}}",
+    "countdownHoursMinutes": "{{hours}}h {{minutes}}m",
+    "countdownMinutesSeconds": "{{minutes}}m {{seconds}}s",
     "rateLimitExpired": "La limite de débit a été réinitialisée. Vous pouvez réessayer maintenant.",
     "requiredScopes": "Permissions requises"
   },

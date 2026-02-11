@@ -255,7 +255,8 @@ function getUnknownMessage(): string {
 
 /**
  * Classify error type based on pattern matching.
- * Priority: rate_limit > auth > not_found > network > permission > unknown
+ * Priority: rate_limit > auth > permission > not_found > network > unknown
+ * Note: Permission checks run before not_found to properly classify 403 responses.
  */
 function classifyError(error: string): GitHubErrorType {
   // Check rate limit first (403 can also be permission, but rate limit is more specific)
@@ -268,6 +269,12 @@ function classifyError(error: string): GitHubErrorType {
     return 'auth';
   }
 
+  // Check permission (403 without rate limit context) before not_found
+  // to properly classify 403 responses that might contain "not found" text
+  if (matchesPatterns(error, PERMISSION_PATTERNS)) {
+    return 'permission';
+  }
+
   // Check not found (404 is always not_found)
   if (matchesPatterns(error, NOT_FOUND_PATTERNS)) {
     return 'not_found';
@@ -276,11 +283,6 @@ function classifyError(error: string): GitHubErrorType {
   // Check network errors
   if (matchesPatterns(error, NETWORK_PATTERNS)) {
     return 'network';
-  }
-
-  // Check permission (403 without rate limit context)
-  if (matchesPatterns(error, PERMISSION_PATTERNS)) {
-    return 'permission';
   }
 
   return 'unknown';

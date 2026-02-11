@@ -32,6 +32,8 @@ vi.mock('react-i18next', () => ({
         'githubErrors.networkMessage': 'Unable to connect to GitHub. Please check your internet connection.',
         'githubErrors.unknownMessage': 'An unexpected error occurred while communicating with GitHub.',
         'githubErrors.resetsIn': options?.time ? `Resets in ${options.time as string}` : 'Resets in',
+        'githubErrors.countdownHoursMinutes': `${options?.hours ?? 0}h ${options?.minutes ?? 0}m`,
+        'githubErrors.countdownMinutesSeconds': `${options?.minutes ?? 0}m ${options?.seconds ?? 0}s`,
         'githubErrors.rateLimitExpired': 'Rate limit has reset. You can retry now.',
         'githubErrors.requiredScopes': 'Required scopes',
         'buttons.retry': 'Retry',

@@ -671,6 +671,8 @@
     "networkMessage": "Unable to connect to GitHub. Please check your internet connection and try again.",
     "unknownMessage": "An unexpected error occurred while communicating with GitHub. Please try again.",
     "resetsIn": "Resets in {{time}}",
+    "countdownHoursMinutes": "{{hours}}h {{minutes}}m",
+    "countdownMinutesSeconds": "{{minutes}}m {{seconds}}s",
     "rateLimitExpired": "Rate limit has reset. You can retry now.",
     "requiredScopes": "Required scopes"
   },

@@ -76,28 +76,48 @@ const ERROR_CONFIG: Record<
 };
 
 /**
- * Format remaining time as a human-readable countdown string.
- * Returns "Xm Ys" format for times under an hour, or "Xh Ym" for longer.
+ * Base message keys for each error type.
+ * Hoisted to module scope to avoid recreation on every function call.
  */
-function formatCountdown(resetTime: Date): string {
+const BASE_MESSAGE_KEYS: Record<GitHubErrorType, string> = {
+  rate_limit: 'githubErrors.rateLimitMessage',
+  auth: 'githubErrors.authMessage',
+  permission: 'githubErrors.permissionMessage',
+  not_found: 'githubErrors.notFoundMessage',
+  network: 'githubErrors.networkMessage',
+  unknown: 'githubErrors.unknownMessage',
+};
+
+/**
+ * Countdown time components for i18n-friendly formatting.
+ */
+interface CountdownComponents {
+  hours: number;
+  minutes: number;
+  seconds: number;
+}
+
+/**
+ * Calculate countdown time components from reset time.
+ * Returns numeric values for i18n-friendly formatting in the component.
+ */
+function getCountdownComponents(resetTime: Date): CountdownComponents | null {
   const now = new Date();
   const diffMs = resetTime.getTime() - now.getTime();
 
   if (diffMs <= 0) {
-    return '';
+    return null;
   }
 
   const diffSecs = Math.floor(diffMs / 1000);
   const diffMins = Math.floor(diffSecs / 60);
   const diffHours = Math.floor(diffMins / 60);
 
-  if (diffHours > 0) {
-    const remainingMins = diffMins % 60;
-    return `${diffHours}h ${remainingMins}m`;
-  }
-
-  const remainingSecs = diffSecs % 60;
-  return `${diffMins}m ${remainingSecs}s`;
+  return {
+    hours: diffHours,
+    minutes: diffHours > 0 ? diffMins % 60 : diffMins,
+    seconds: diffSecs % 60,
+  };
 }
 
 /**
@@ -117,15 +137,7 @@ function getMessageKey(info: GitHubErrorInfo): string {
   if (info.type === 'permission' && info.requiredScopes && info.requiredScopes.length > 0) {
     return 'githubErrors.permissionMessageScopes';
   }
-  const baseKeys: Record<GitHubErrorType, string> = {
-    rate_limit: 'githubErrors.rateLimitMessage',
-    auth: 'githubErrors.authMessage',
-    permission: 'githubErrors.permissionMessage',
-    not_found: 'githubErrors.notFoundMessage',
-    network: 'githubErrors.networkMessage',
-    unknown: 'githubErrors.unknownMessage',
-  };
-  return baseKeys[info.type];
+  return BASE_MESSAGE_KEYS[info.type];
 }
 
 /**
@@ -167,11 +179,11 @@ export function GitHubErrorDisplay({
     [error]
   );
 
-  // State for rate limit countdown
-  const [countdown, setCountdown] = useState<string>(() =>
+  // State for rate limit countdown components
+  const [countdownComponents, setCountdownComponents] = useState<CountdownComponents | null>(() =>
     errorInfo.rateLimitResetTime
-      ? formatCountdown(errorInfo.rateLimitResetTime)
-      : ''
+      ? getCountdownComponents(errorInfo.rateLimitResetTime)
+      : null
   );
 
   // Update countdown every second for rate limit errors
@@ -184,10 +196,10 @@ export function GitHubErrorDisplay({
     let intervalId: ReturnType<typeof setInterval> | undefined;
 
     const updateCountdown = () => {
-      const formatted = formatCountdown(resetTime);
-      setCountdown(formatted);
+      const components = getCountdownComponents(resetTime);
+      setCountdownComponents(components);
       // Stop the interval when countdown expires
-      if (!formatted && intervalId) {
+      if (!components && intervalId) {
         clearInterval(intervalId);
         intervalId = undefined;
       }
@@ -197,7 +209,7 @@ export function GitHubErrorDisplay({
     updateCountdown();
 
     // Only set interval if countdown is still active
-    if (formatCountdown(resetTime)) {
+    if (getCountdownComponents(resetTime)) {
       intervalId = setInterval(updateCountdown, 1000);
     }
 
@@ -206,6 +218,21 @@ export function GitHubErrorDisplay({
       if (intervalId) clearInterval(intervalId);
     };
   }, [errorInfo.type, errorInfo.rateLimitResetTime]);
+
+  // Format countdown using i18n
+  const formatCountdownDisplay = (components: CountdownComponents | null): string => {
+    if (!components) return '';
+    if (components.hours > 0) {
+      return t('githubErrors.countdownHoursMinutes', {
+        hours: components.hours,
+        minutes: components.minutes,
+      });
+    }
+    return t('githubErrors.countdownMinutesSeconds', {
+      minutes: components.minutes,
+      seconds: components.seconds,
+    });
+  };
 
   // Get configuration for this error type
   const config = ERROR_CONFIG[errorInfo.type];
@@ -293,9 +320,9 @@ export function GitHubErrorDisplay({
             </h3>
             <p className="text-sm text-muted-foreground">{errorMessage}</p>
             {/* Rate limit countdown display */}
-            {errorInfo.type === 'rate_limit' && countdown && (
+            {errorInfo.type === 'rate_limit' && countdownComponents && (
               <p className="text-xs text-warning font-medium">
-                {t('githubErrors.resetsIn', { time: countdown })}
+                {t('githubErrors.resetsIn', { time: formatCountdownDisplay(countdownComponents) })}
               </p>
             )}
             {/* Rate limit expired - show retry prompt */}
