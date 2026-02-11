@@ -240,6 +240,10 @@ class FrameworkAnalyzer(BaseAnalyzer):
         elif "start" in scripts:
             self.analysis["dev_command"] = "npm run start"
 
+        # Capture available scripts for downstream consumers (QA agents, init.sh)
+        if scripts:
+            self.analysis["scripts"] = dict(scripts)
+
     def _detect_go_framework(self, content: str) -> None:
         """Detect Go framework."""
         from .port_detector import PortDetector
