@@ -104,11 +104,11 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @auto-claude/types
-        run: npm publish --workspace libs/types --access public
+        run: npm publish --workspace libs/types --access public --provenance
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @auto-claude/ui
-        run: npm publish --workspace libs/ui --access public
+        run: npm publish --workspace libs/ui --access public --provenance
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
