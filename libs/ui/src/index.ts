@@ -6,3 +6,6 @@
 
 export { cn } from './utils';
 export type { ClassValue } from 'clsx';
+
+// Re-export all primitives
+export * from './primitives';
