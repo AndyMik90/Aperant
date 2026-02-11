@@ -408,7 +408,8 @@ def get_current_phase(spec_dir: Path) -> dict | None:
         for phase in plan.get("phases", []):
             subtasks = phase.get("subtasks", phase.get("chunks", []))
             # Phase is current if it has incomplete subtasks and dependencies are met
-            has_incomplete = any(s.get("status") != "completed" for s in subtasks)
+            # Treat 'failed' as terminal (consistent with get_next_subtask and print_progress_summary)
+            has_incomplete = any(s.get("status") not in {"completed", "failed"} for s in subtasks)
             if has_incomplete:
                 return {
                     "id": phase.get("id"),

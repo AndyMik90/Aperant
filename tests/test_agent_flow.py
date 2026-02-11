@@ -1135,6 +1135,162 @@ class TestFileValidationAndFailedStatus:
         assert subtask["status"] == "failed"
         assert subtask["notes"] == "test reason"
 
+    def test_get_next_subtask_skips_in_progress(self, test_env):
+        """get_next_subtask must skip in_progress subtasks (only returns pending)."""
+        from progress import get_next_subtask
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        create_implementation_plan(spec_dir, [
+            {"id": "subtask-1", "description": "In progress task", "status": "in_progress"},
+            {"id": "subtask-2", "description": "Pending task", "status": "pending"},
+        ])
+
+        next_subtask = get_next_subtask(spec_dir)
+        assert next_subtask is not None, "Should find pending subtask"
+        assert next_subtask["id"] == "subtask-2", "Should skip in_progress subtask"
+
+    def test_get_next_subtask_returns_none_when_all_in_progress(self, test_env):
+        """get_next_subtask returns None when remaining subtasks are in_progress (not pending)."""
+        from progress import get_next_subtask
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        create_implementation_plan(spec_dir, [
+            {"id": "subtask-1", "description": "In progress", "status": "in_progress"},
+        ])
+
+        assert get_next_subtask(spec_dir) is None
+
+    def test_phase2_boundary_at_bypass_threshold(self, test_env):
+        """Phase 2 should trigger at exactly FILE_VALIDATION_BYPASS_THRESHOLD - 1."""
+        from agents.base import FILE_VALIDATION_BYPASS_THRESHOLD, MAX_SUBTASK_RETRIES
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        # Phase 1: attempt_count < FILE_VALIDATION_BYPASS_THRESHOLD - 1
+        for count in range(FILE_VALIDATION_BYPASS_THRESHOLD - 1):
+            assert count < FILE_VALIDATION_BYPASS_THRESHOLD - 1, (
+                f"attempt_count={count} should be in Phase 1"
+            )
+
+        # Phase 2: FILE_VALIDATION_BYPASS_THRESHOLD - 1 <= attempt_count < MAX_SUBTASK_RETRIES - 1
+        for count in range(FILE_VALIDATION_BYPASS_THRESHOLD - 1, MAX_SUBTASK_RETRIES - 1):
+            assert count >= FILE_VALIDATION_BYPASS_THRESHOLD - 1, (
+                f"attempt_count={count} should be in Phase 2"
+            )
+            assert count < MAX_SUBTASK_RETRIES - 1, (
+                f"attempt_count={count} should be in Phase 2, not Phase 3"
+            )
+
+        # Phase 3: attempt_count >= MAX_SUBTASK_RETRIES - 1
+        assert MAX_SUBTASK_RETRIES - 1 >= MAX_SUBTASK_RETRIES - 1, "Phase 3 starts at MAX_SUBTASK_RETRIES - 1"
+
+    def test_reset_subtask_updates_plan_status(self, test_env):
+        """After retry recovery, reset_subtask + plan update makes subtask re-selectable."""
+        from recovery import reset_subtask
+        from agents.utils import update_subtask_status_in_plan, load_implementation_plan, find_subtask_in_plan
+        from progress import get_next_subtask
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        create_implementation_plan(spec_dir, [
+            {"id": "subtask-1", "description": "Stuck task", "status": "in_progress"},
+        ])
+
+        # Before reset: get_next_subtask should return None (in_progress is not selectable)
+        assert get_next_subtask(spec_dir) is None
+
+        # Reset attempt history and update plan status (the FU-001 fix)
+        reset_subtask(spec_dir, project_dir, "subtask-1")
+        update_subtask_status_in_plan(spec_dir, "subtask-1", "pending")
+
+        # After reset: subtask should be selectable again
+        next_subtask = get_next_subtask(spec_dir)
+        assert next_subtask is not None, "Reset subtask should be selectable"
+        assert next_subtask["id"] == "subtask-1"
+
+        # Verify the plan was actually updated
+        plan = load_implementation_plan(spec_dir)
+        subtask = find_subtask_in_plan(plan, "subtask-1")
+        assert subtask["status"] == "pending"
+
+    def test_update_subtask_status_preserves_notes_on_status_match(self, test_env):
+        """update_subtask_status_in_plan should update notes even when status matches (FU-002)."""
+        from agents.utils import update_subtask_status_in_plan, load_implementation_plan, find_subtask_in_plan
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        create_implementation_plan(spec_dir, [
+            {"id": "subtask-1", "description": "Test task", "status": "failed", "notes": "old reason"},
+        ])
+
+        # Update with same status but different notes
+        result = update_subtask_status_in_plan(spec_dir, "subtask-1", "failed", "new reason")
+        assert result is True
+
+        plan = load_implementation_plan(spec_dir)
+        subtask = find_subtask_in_plan(plan, "subtask-1")
+        assert subtask["notes"] == "new reason", "Notes should be updated even when status matches"
+
+    def test_get_current_phase_skips_all_failed_phase(self, test_env):
+        """get_current_phase should not report a fully-failed phase as current (NEW-001)."""
+        from progress import get_current_phase
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        plan = {
+            "feature": "Test",
+            "workflow_type": "feature",
+            "phases": [
+                {
+                    "id": "phase-1",
+                    "name": "Phase 1",
+                    "subtasks": [
+                        {"id": "s1", "description": "T1", "status": "failed"},
+                        {"id": "s2", "description": "T2", "status": "failed"},
+                    ]
+                },
+                {
+                    "id": "phase-2",
+                    "name": "Phase 2",
+                    "subtasks": [
+                        {"id": "s3", "description": "T3", "status": "pending"},
+                    ]
+                }
+            ]
+        }
+        (spec_dir / "implementation_plan.json").write_text(json.dumps(plan))
+
+        current = get_current_phase(spec_dir)
+        assert current is not None
+        assert current["id"] == "phase-2", "Should skip all-failed phase and report phase-2 as current"
+
+    def test_final_summary_distinguishes_failed_from_pending(self, test_env):
+        """count_subtasks_detailed correctly separates failed from actionable subtasks (NCR-003)."""
+        from progress import count_subtasks, count_subtasks_detailed
+
+        temp_dir, spec_dir, project_dir = test_env
+
+        create_implementation_plan(spec_dir, [
+            {"id": "s1", "description": "T1", "status": "completed"},
+            {"id": "s2", "description": "T2", "status": "completed"},
+            {"id": "s3", "description": "T3", "status": "completed"},
+            {"id": "s4", "description": "T4", "status": "failed"},
+        ])
+
+        # count_subtasks only sees completed vs total
+        completed, total = count_subtasks(spec_dir)
+        assert completed == 3
+        assert total == 4
+        # This would misleadingly say "1 remaining" — the old bug
+
+        # count_subtasks_detailed correctly separates
+        details = count_subtasks_detailed(spec_dir)
+        actionable = details["pending"] + details["in_progress"]
+        assert actionable == 0, "No actionable subtasks — only failed remain"
+        assert details["failed"] == 1, "1 failed subtask"
+
     def test_phase_display_terminal_with_failures(self, test_env):
         """Phase with all terminal subtasks (some failed) should show as complete."""
         temp_dir, spec_dir, project_dir = test_env

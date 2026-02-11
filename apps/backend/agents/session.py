@@ -78,6 +78,11 @@ def _execute_recovery_action(
     elif recovery_action.action == "retry":
         print_status(f"Resetting subtask {subtask_id} for retry", "info")
         reset_subtask(spec_dir, project_dir, subtask_id)
+        # Also reset the subtask status in implementation_plan.json so
+        # get_next_subtask() will pick it up again (FU-001)
+        from .utils import update_subtask_status_in_plan
+
+        update_subtask_status_in_plan(spec_dir, subtask_id, "pending")
         print_status("Subtask reset - will retry with different approach", "success")
 
     elif recovery_action.action in ("skip", "escalate"):

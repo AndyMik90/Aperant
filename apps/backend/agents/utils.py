@@ -216,7 +216,7 @@ def update_subtask_status_in_plan(
 
     # Skip redundant writes — avoids extra I/O when post_session_processing
     # already marked the subtask via _execute_recovery_action
-    if subtask.get("status") == status:
+    if subtask.get("status") == status and (not notes or subtask.get("notes") == notes):
         return True
 
     subtask["status"] = status

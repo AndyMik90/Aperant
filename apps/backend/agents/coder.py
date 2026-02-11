@@ -749,8 +749,10 @@ async def run_autonomous_agent(
                     # find the correct files using its tools (Glob, Grep, etc.)
                     # Don't record attempt here — post_session_processing records after agent runs,
                     # giving Phase 2 its full 2 self-correction attempts.
+                    phase2_attempt = attempt_count - FILE_VALIDATION_BYPASS_THRESHOLD + 2
+                    phase2_max = MAX_SUBTASK_RETRIES - FILE_VALIDATION_BYPASS_THRESHOLD
                     print_status(
-                        f"Bypassing file validation — launching agent for self-correction (attempt {attempt_count + 1}/{MAX_SUBTASK_RETRIES - 1})",
+                        f"Bypassing file validation — launching agent for self-correction (attempt {phase2_attempt}/{phase2_max})",
                         "warning",
                     )
                     # Build list of problematic files for the recovery prompt
@@ -786,6 +788,13 @@ async def run_autonomous_agent(
                 else:
                     # Phase 3: Give up — mark as failed in implementation plan so get_next_subtask() skips it
                     reason = f"File validation failed after {attempt_count} attempts: {error_msg}"
+                    recovery_manager.record_attempt(
+                        subtask_id=subtask_id,
+                        session=iteration,
+                        success=False,
+                        approach="File validation failed — giving up",
+                        error=error_msg,
+                    )
                     mark_subtask_failed(recovery_manager, spec_dir, subtask_id, reason)
                     print_status(
                         f"Subtask {subtask_id} marked as FAILED after {attempt_count} failed validation attempts",
@@ -923,6 +932,7 @@ async def run_autonomous_agent(
             linear_is_enabled = (
                 linear_task is not None and linear_task.task_id is not None
             )
+            attempts_before_post = recovery_manager.get_attempt_count(subtask_id)
             success = await post_session_processing(
                 spec_dir=spec_dir,
                 project_dir=project_dir,
@@ -937,17 +947,41 @@ async def run_autonomous_agent(
                 error_info=error_info,
             )
 
+            # Defensive fallback: if post_session_processing failed early (e.g., plan
+            # load error) without recording an attempt, record one here to prevent
+            # Phase 2 from looping indefinitely (NEW-003).
+            if not success and file_recovery_context:
+                attempts_after_post = recovery_manager.get_attempt_count(subtask_id)
+                if attempts_after_post == attempts_before_post:
+                    recovery_manager.record_attempt(
+                        subtask_id=subtask_id,
+                        session=iteration,
+                        success=False,
+                        approach="File validation self-correction — post-session processing failed",
+                        error="post_session_processing returned False without recording attempt",
+                    )
+
             # Check for stuck subtasks
             attempt_count = recovery_manager.get_attempt_count(subtask_id)
             if not success and attempt_count >= MAX_SUBTASK_RETRIES:
-                reason = f"Failed after {attempt_count} attempts"
-                mark_subtask_failed(recovery_manager, spec_dir, subtask_id, reason)
-                print()
-                print_status(
-                    f"Subtask {subtask_id} marked as FAILED after {attempt_count} attempts",
-                    "error",
-                )
-                print(muted("Consider: manual intervention or skipping this subtask"))
+                # Skip if already marked as failed by _execute_recovery_action (FU-005)
+                stuck_ids = {s["subtask_id"] for s in recovery_manager.get_stuck_subtasks()}
+                if subtask_id in stuck_ids:
+                    print()
+                    print_status(
+                        f"Subtask {subtask_id} already marked as FAILED",
+                        "error",
+                    )
+                    print(muted("Consider: manual intervention or skipping this subtask"))
+                else:
+                    reason = f"Failed after {attempt_count} attempts"
+                    mark_subtask_failed(recovery_manager, spec_dir, subtask_id, reason)
+                    print()
+                    print_status(
+                        f"Subtask {subtask_id} marked as FAILED after {attempt_count} attempts",
+                        "error",
+                    )
+                    print(muted("Consider: manual intervention or skipping this subtask"))
 
                 # Record stuck subtask in Linear (if enabled)
                 if linear_is_enabled:
@@ -1274,15 +1308,30 @@ async def run_autonomous_agent(
         for stuck in stuck_subtasks:
             print(f"  {icon(Icons.ERROR)} {stuck['subtask_id']}: {stuck['reason']}")
 
-    # Instructions
-    completed, total = count_subtasks(spec_dir)
-    if completed < total:
-        content = [
-            bold(f"{icon(Icons.PLAY)} NEXT STEPS"),
-            "",
-            f"{total - completed} subtasks remaining.",
-            f"Run again: {highlight(f'python auto-claude/run.py --spec {spec_dir.name}')}",
-        ]
+    # Instructions — use detailed counts to distinguish failed from pending (NCR-003)
+    details = count_subtasks_detailed(spec_dir)
+    if details["completed"] < details["total"]:
+        failed = details["failed"]
+        actionable = details["pending"] + details["in_progress"]
+        if actionable > 0:
+            content = [
+                bold(f"{icon(Icons.PLAY)} NEXT STEPS"),
+                "",
+                f"{actionable} subtask(s) remaining.",
+            ]
+            if failed > 0:
+                content.append(f"{failed} subtask(s) failed (manual intervention needed).")
+            content.append(
+                f"Run again: {highlight(f'python auto-claude/run.py --spec {spec_dir.name}')}"
+            )
+        else:
+            # Only failed subtasks remain — nothing actionable to run
+            content = [
+                bold(f"{icon(Icons.WARNING)} NEXT STEPS"),
+                "",
+                f"{failed} subtask(s) failed — manual intervention needed.",
+                "Review the stuck subtasks above and fix them manually.",
+            ]
     else:
         content = [
             bold(f"{icon(Icons.SUCCESS)} NEXT STEPS"),
@@ -1298,7 +1347,7 @@ async def run_autonomous_agent(
     print()
 
     # Set final status
-    if completed == total:
+    if details["completed"] == details["total"]:
         status_manager.update(state=BuildState.COMPLETE)
     else:
         status_manager.update(state=BuildState.PAUSED)
