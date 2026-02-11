@@ -854,7 +854,11 @@ export interface StartTaskOrQueueResult {
  * Start a task or queue it if parallel task capacity is full.
  * If the task is already in_progress (stuck restart), it is excluded from the
  * capacity count so restarting is always allowed.
- * Returns a result so callers can provide user-facing feedback on failure.
+ * Returns a result so callers can provide user-facing feedback.
+ *
+ * For action 'started', success indicates the IPC start command was dispatched.
+ * Backend failures are surfaced asynchronously through task status change events,
+ * not through this return value.
  */
 export async function startTaskOrQueue(taskId: string): Promise<StartTaskOrQueueResult> {
   const task = useTaskStore.getState().tasks.find(t => t.id === taskId);

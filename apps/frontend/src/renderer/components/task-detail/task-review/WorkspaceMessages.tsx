@@ -63,6 +63,8 @@ export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
       const result = await startTaskOrQueue(task.id);
       if (!result.success) {
         setError(result.error || 'Failed to start task');
+      } else if (result.action === 'queued') {
+        setError('Task moved to queue — parallel task limit reached.');
       }
     } catch (err) {
       console.error('Error proceeding to coding:', err);

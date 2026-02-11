@@ -238,6 +238,8 @@ export const TaskCard = memo(function TaskCard({
           description: result.error,
           variant: 'destructive',
         });
+      } else if (result.action === 'queued') {
+        toast({ title: t('tasks:queue.movedToQueue') });
       }
     }
   };

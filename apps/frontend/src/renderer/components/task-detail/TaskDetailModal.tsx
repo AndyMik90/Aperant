@@ -112,6 +112,8 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           description: result.error,
           variant: 'destructive',
         });
+      } else if (result.action === 'queued') {
+        toast({ title: t('tasks:queue.movedToQueue') });
       }
     }
   };
