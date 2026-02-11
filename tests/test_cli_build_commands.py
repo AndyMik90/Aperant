@@ -360,6 +360,7 @@ class TestHandleBuildCommandModels:
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
+        capsys,
         successful_agent_fn
     ):
         """Build uses custom model when specified."""
@@ -411,6 +412,7 @@ class TestHandleBuildCommandMaxIterations:
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
+        capsys,
         successful_agent_fn
     ):
         """Build displays max_iterations when specified."""
@@ -458,6 +460,7 @@ class TestHandleBuildCommandMaxIterations:
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
+        capsys,
         successful_agent_fn
     ):
         """Build shows unlimited iterations when max_iterations is None."""
@@ -512,6 +515,7 @@ class TestHandleBuildCommandWorkspace:
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
+        capsys,
         successful_agent_fn
     ):
         """Build uses isolated workspace when forced."""
@@ -770,6 +774,7 @@ class TestHandleBuildCommandAutoContinue:
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
+        capsys,
         successful_agent_fn
     ):
         """Auto-continue mode logs debug message (lines 176-177)."""
@@ -1042,6 +1047,7 @@ class TestHandleBuildCommandErrors:
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
+        capsys,
         successful_agent_fn
     ):
         """Build shows traceback in verbose mode."""
@@ -1105,6 +1111,7 @@ class TestHandleBuildCommandModelDisplay:
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
+        capsys,
         successful_agent_fn
     ):
         """Build displays short model names when models have hyphens (line 109)."""
@@ -1169,6 +1176,7 @@ class TestHandleBuildCommandExistingBuild:
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
+        capsys,
         successful_agent_fn
     ):
         """Existing build handling with auto_continue mode (lines 174-177)."""
@@ -1224,6 +1232,7 @@ class TestHandleBuildCommandExistingBuild:
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
+        capsys,
         successful_agent_fn
     ):
         """Existing build handling when user chooses to continue (lines 179-182)."""
@@ -1500,6 +1509,7 @@ class TestHandleBuildCommandQAOutcomes:
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
+        capsys,
         successful_agent_fn
     ):
         """QA syncs implementation plan to source after validation (lines 293-296)."""
@@ -1615,6 +1625,7 @@ class TestHandleBuildCommandWorkspaceFinalization:
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
+        capsys,
         successful_agent_fn
     ):
         """Workspace finalization with auto_continue mode (lines 305-313)."""
@@ -2233,6 +2244,7 @@ class TestHandleBuildCommandLocalizedSpec:
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
+        capsys,
         successful_agent_fn
     ):
         """Isolated mode uses localized spec directory for AI access (lines 224-226)."""
