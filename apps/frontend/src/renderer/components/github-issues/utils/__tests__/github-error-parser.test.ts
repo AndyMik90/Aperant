@@ -11,7 +11,7 @@ import {
   isRecoverableError,
   requiresSettingsAction,
 } from '../github-error-parser';
-import type { GitHubErrorType } from '../../../types';
+import type { GitHubErrorType } from '../../types';
 
 describe('parseGitHubError', () => {
   describe('null/undefined/empty handling', () => {
@@ -110,7 +110,7 @@ describe('parseGitHubError', () => {
       const result = parseGitHubError(longError);
       expect(result.type).toBe('rate_limit');
       expect(result.rawMessage).toBeDefined();
-      expect(result.rawMessage!.length).toBeLessThanOrEqual(503); // 500 + '...'
+      expect(result.rawMessage?.length).toBeLessThanOrEqual(503); // 500 + '...'
     });
   });
 

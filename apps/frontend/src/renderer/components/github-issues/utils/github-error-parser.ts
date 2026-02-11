@@ -130,17 +130,17 @@ function extractRateLimitResetTime(error: string): Date | undefined {
   // Check if it's an ISO date string
   if (resetValue.includes('-') && resetValue.includes('T')) {
     const date = new Date(resetValue);
-    return isNaN(date.getTime()) ? undefined : date;
+    return Number.isNaN(date.getTime()) ? undefined : date;
   }
 
   // Check if it's a Unix timestamp (seconds or milliseconds)
   const numericValue = parseInt(resetValue, 10);
-  if (!isNaN(numericValue)) {
+  if (!Number.isNaN(numericValue)) {
     // GitHub API uses seconds, JavaScript uses milliseconds
     // Values > 1e12 are likely milliseconds already
     const timestamp = numericValue > 1e12 ? numericValue : numericValue * 1000;
     const date = new Date(timestamp);
-    return isNaN(date.getTime()) ? undefined : date;
+    return Number.isNaN(date.getTime()) ? undefined : date;
   }
 
   return undefined;
@@ -191,7 +191,7 @@ function matchesPatterns(error: string, patterns: RegExp[]): boolean {
 /**
  * Get a user-friendly message for rate limit errors.
  */
-function getRateLimitMessage(error: string, resetTime?: Date): string {
+function getRateLimitMessage(_error: string, resetTime?: Date): string {
   if (resetTime) {
     const now = new Date();
     const diffMs = resetTime.getTime() - now.getTime();
@@ -357,7 +357,6 @@ export function parseGitHubError(error: string | null | undefined): GitHubErrorI
         rawMessage: sanitizeRawError(trimmedError),
       };
 
-    case 'unknown':
     default:
       return {
         type: 'unknown',

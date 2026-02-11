@@ -5,7 +5,7 @@
  * Unit tests for GitHubErrorDisplay component.
  * Tests error display, icon rendering, button visibility, and countdown functionality.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GitHubErrorDisplay } from '../GitHubErrorDisplay';
@@ -428,7 +428,8 @@ describe('GitHubErrorDisplay', () => {
   describe('accessibility', () => {
     it('should have accessible button labels', () => {
       const errorInfo = createMockErrorInfo('rate_limit');
-      render(<GitHubErrorDisplay error={errorInfo} onRetry={() => {}} />);
+      // eslint-disable-next-line @typescript-eslint/no-empty-function -- callback not needed for this test
+      render(<GitHubErrorDisplay error={errorInfo} onRetry={() => { /* no-op */ }} />);
 
       const button = screen.getByRole('button', { name: /retry/i });
       expect(button).toHaveTextContent('Retry');
@@ -436,7 +437,8 @@ describe('GitHubErrorDisplay', () => {
 
     it('should have accessible settings button label', () => {
       const errorInfo = createMockErrorInfo('auth');
-      render(<GitHubErrorDisplay error={errorInfo} onOpenSettings={() => {}} />);
+      // eslint-disable-next-line @typescript-eslint/no-empty-function -- callback not needed for this test
+      render(<GitHubErrorDisplay error={errorInfo} onOpenSettings={() => { /* no-op */ }} />);
 
       const button = screen.getByRole('button', { name: /settings/i });
       expect(button).toHaveTextContent('Settings');
