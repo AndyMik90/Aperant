@@ -654,6 +654,17 @@
       "remote": "Remote"
     }
   },
+  "githubErrors": {
+    "rateLimitTitle": "GitHub Rate Limit Reached",
+    "authTitle": "GitHub Authentication Required",
+    "permissionTitle": "GitHub Permission Denied",
+    "notFoundTitle": "GitHub Resource Not Found",
+    "networkTitle": "GitHub Connection Error",
+    "unknownTitle": "GitHub Error",
+    "resetsIn": "Resets in {{time}}",
+    "rateLimitExpired": "Rate limit has reset. You can retry now.",
+    "requiredScopes": "Required scopes"
+  },
   "roadmapProgress": {
     "elapsedTime": "Elapsed",
     "lastActivity": "Last activity",
