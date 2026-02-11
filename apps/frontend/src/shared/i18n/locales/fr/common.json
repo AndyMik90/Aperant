@@ -654,6 +654,17 @@
       "remote": "Distante"
     }
   },
+  "githubErrors": {
+    "rateLimitTitle": "Limite de débit GitHub atteinte",
+    "authTitle": "Authentification GitHub requise",
+    "permissionTitle": "Permission GitHub refusée",
+    "notFoundTitle": "Ressource GitHub introuvable",
+    "networkTitle": "Erreur de connexion GitHub",
+    "unknownTitle": "Erreur GitHub",
+    "resetsIn": "Réinitialisation dans {{time}}",
+    "rateLimitExpired": "La limite de débit a été réinitialisée. Vous pouvez réessayer maintenant.",
+    "requiredScopes": "Permissions requises"
+  },
   "roadmapProgress": {
     "elapsedTime": "Écoulé",
     "lastActivity": "Dernière activité",
