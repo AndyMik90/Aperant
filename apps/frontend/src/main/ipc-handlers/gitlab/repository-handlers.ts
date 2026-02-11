@@ -49,6 +49,11 @@ export function registerCheckConnection(): void {
         };
       }
 
+      // Always log connection attempts (not just in debug mode) to help diagnose self-hosted issues
+      console.info(
+        `[GitLab] Checking connection: instance=${config.instanceUrl}, project=${config.project}, sslVerify=${config.sslVerify}`
+      );
+
       try {
         const encodedProject = encodeProjectPath(config.project);
 
@@ -59,6 +64,7 @@ export function registerCheckConnection(): void {
           `/projects/${encodedProject}`
         ) as GitLabAPIProject;
 
+        console.info(`[GitLab] Connection OK: ${projectInfo.path_with_namespace}`);
         debugLog('Project info retrieved:', { name: projectInfo.name });
 
         // Get issue count from X-Total header
@@ -81,7 +87,11 @@ export function registerCheckConnection(): void {
         };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Failed to connect to GitLab';
-        debugLog('Connection check failed:', errorMessage);
+        // Always log connection failures with full details
+        console.warn(`[GitLab] Connection check failed for ${config.instanceUrl}: ${errorMessage}`);
+        if (error instanceof Error && (error as Error & { cause?: unknown }).cause) {
+          console.warn(`[GitLab] Root cause:`, (error as Error & { cause?: unknown }).cause);
+        }
         return {
           success: true,
           data: {

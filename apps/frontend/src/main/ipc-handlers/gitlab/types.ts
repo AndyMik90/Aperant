@@ -6,6 +6,7 @@ export interface GitLabConfig {
   token: string;
   instanceUrl: string; // e.g., "https://gitlab.com" or "https://gitlab.mycompany.com"
   project: string; // Can be numeric ID or "group/project" path
+  sslVerify: boolean; // Whether to verify SSL certificates (default: true). Set GITLAB_SSL_VERIFY=false in .env for self-signed certs.
 }
 
 export interface GitLabAPIProject {
