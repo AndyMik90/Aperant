@@ -854,7 +854,10 @@ export async function startTaskOrQueue(taskId: string): Promise<void> {
   const excludeId = task?.status === 'in_progress' ? taskId : undefined;
 
   if (isQueueAtCapacity(excludeId)) {
-    await persistTaskStatus(taskId, 'queue');
+    const result = await persistTaskStatus(taskId, 'queue');
+    if (!result.success) {
+      console.error('[Queue] Failed to queue task:', taskId, result.error);
+    }
     return;
   }
 

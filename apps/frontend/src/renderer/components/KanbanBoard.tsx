@@ -953,10 +953,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     // ============================================
     // QUEUE SYSTEM: Enforce parallel task limit
-    // Excludes the task itself from the count to handle re-entry (e.g., redundant status
-    // change or race with auto-promotion). The isAutoPromotionInProgress guard is not needed
-    // here because handleStatusChange is only called from user interactions (dropdown menu),
-    // never from processQueue auto-promotion.
+    // Called from both the dropdown menu and the drag-and-drop handler.
+    // Excludes the task itself from the count to handle re-entry (e.g., redundant
+    // status change or race with auto-promotion). processQueue auto-promotion
+    // calls persistTaskStatus directly, never this function.
     // ============================================
     if (newStatus === 'in_progress' && isQueueAtCapacity(taskId)) {
       console.log('[Queue] In Progress full, redirecting task to Queue');
@@ -1420,26 +1420,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     if (!newStatus || newStatus === oldStatus) return;
 
-    // ============================================
-    // QUEUE SYSTEM: Enforce parallel task limit
-    // Excludes the dragged task from the count to handle edge cases where the task
-    // is already in_progress (e.g., redundant drag or race condition).
-    // ============================================
-    if (newStatus === 'in_progress' && isQueueAtCapacity(activeTaskId)) {
-      // Only bypass the capacity check if coming from queue AND queue is being auto-processed
-      // This prevents race condition where both auto-promotion and manual drag exceed the limit
-      const isAutoPromotionInProgress = oldStatus === 'queue' && isProcessingQueueRef.current;
-
-      if (!isAutoPromotionInProgress) {
-        console.log('[Queue] In Progress full, moving task to Queue');
-        newStatus = 'queue';
-      }
-    }
-
-    // Persist status change to file and update local state
-    // Use handleStatusChange to properly handle worktree cleanup dialog.
-    // handleStatusChange already calls processQueue() when a task leaves in_progress,
-    // so no additional processQueue() call is needed here.
+    // Persist status change via handleStatusChange which enforces queue capacity,
+    // handles worktree cleanup dialogs, and calls processQueue() when a task
+    // leaves in_progress.
     await handleStatusChange(activeTaskId, newStatus, task);
   };
 
