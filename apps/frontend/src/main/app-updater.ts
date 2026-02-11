@@ -46,6 +46,66 @@ type UpdateChannel = 'latest' | 'beta';
 let periodicCheckIntervalId: ReturnType<typeof setInterval> | null = null;
 
 /**
+ * Convert basic HTML (from GitHub release bodies) to markdown.
+ * Handles the common tags GitHub uses in release notes.
+ */
+function htmlToMarkdown(html: string): string {
+  let md = html;
+
+  // Block-level replacements
+  md = md.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n');
+  md = md.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n');
+  md = md.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n');
+  md = md.replace(/<h4[^>]*>(.*?)<\/h4>/gi, '#### $1\n\n');
+
+  // Lists: convert <ol>/<ul> with <li> items
+  // First handle <li> within <ol> (numbered)
+  md = md.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_match, content: string) => {
+    let i = 0;
+    return content.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_m: string, text: string) => {
+      i++;
+      return `${i}. ${text.trim()}\n`;
+    }) + '\n';
+  });
+  // Then <li> within <ul> (bulleted)
+  md = md.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_match, content: string) => {
+    return content.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_m: string, text: string) => {
+      return `- ${text.trim()}\n`;
+    }) + '\n';
+  });
+
+  // Inline replacements
+  md = md.replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**');
+  md = md.replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**');
+  md = md.replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*');
+  md = md.replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*');
+  md = md.replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`');
+  md = md.replace(/<tt[^>]*>(.*?)<\/tt>/gi, '`$1`');
+  md = md.replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)');
+
+  // Block elements
+  md = md.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, '$1\n\n');
+  md = md.replace(/<br\s*\/?>/gi, '\n');
+  md = md.replace(/<hr\s*\/?>/gi, '---\n\n');
+
+  // Remove any remaining HTML tags
+  md = md.replace(/<[^>]+>/g, '');
+
+  // Decode common HTML entities
+  md = md.replace(/&amp;/g, '&');
+  md = md.replace(/&lt;/g, '<');
+  md = md.replace(/&gt;/g, '>');
+  md = md.replace(/&quot;/g, '"');
+  md = md.replace(/&#39;/g, "'");
+  md = md.replace(/&nbsp;/g, ' ');
+
+  // Clean up excessive whitespace
+  md = md.replace(/\n{3,}/g, '\n\n');
+
+  return md.trim();
+}
+
+/**
  * Convert releaseNotes from electron-updater to a markdown string.
  * releaseNotes can be:
  * - string: Return as-is
@@ -57,8 +117,12 @@ function formatReleaseNotes(releaseNotes: UpdateInfo['releaseNotes']): string | 
     return undefined;
   }
 
-  // If it's already a string, return as-is
+  // If it's a string, convert HTML to markdown if needed
+  // electron-updater returns GitHub release bodies as HTML
   if (typeof releaseNotes === 'string') {
+    if (releaseNotes.trimStart().startsWith('<')) {
+      return htmlToMarkdown(releaseNotes);
+    }
     return releaseNotes;
   }
 
@@ -74,8 +138,12 @@ function formatReleaseNotes(releaseNotes: UpdateInfo['releaseNotes']): string | 
       .filter(item => item.note) // Filter out entries with null/undefined notes
       .map(item => {
         // Each item has version and note properties
+        // note can be HTML (GitHub provider) so convert if needed
         const versionHeader = item.version ? `## ${item.version}\n` : '';
-        return `${versionHeader}${item.note}`;
+        const note = typeof item.note === 'string' && item.note.trimStart().startsWith('<')
+          ? htmlToMarkdown(item.note)
+          : item.note;
+        return `${versionHeader}${note}`;
       })
       .join('\n\n');
 
