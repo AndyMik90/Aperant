@@ -109,13 +109,15 @@ ELECTRON VALIDATION:
 ### Handling Common Issues
 
 **App Not Running:**
-If Electron app is not running or debug port is not accessible:
-1. Document that Electron validation was skipped
-2. Note reason: "App not running with --remote-debugging-port=9222"
-3. Add to QA report as "Manual verification required"
+If the Electron app is not running or debug port is not accessible:
+
+1. Check the project commands listed in the PROJECT CAPABILITIES section for a debug/MCP startup script
+2. Try starting the app with the appropriate command
+3. If the app still cannot be started:
+   - **For specs with UI changes**: This is a CRITICAL blocking issue. Mark as **REJECTED** — visual verification is mandatory for UI changes and cannot be skipped
+   - **For non-UI changes**: Document as "Electron validation skipped — no UI files changed" and proceed with code-based review
 
 **Headless Environment (CI/CD):**
 If running in headless environment without display:
-1. Skip interactive Electron validation
-2. Document: "Electron UI validation skipped - headless environment"
-3. Rely on unit/integration tests for validation
+1. For UI changes: Document as critical issue — "Visual verification required but unavailable in headless environment"
+2. For non-UI changes: Skip interactive Electron validation and rely on automated tests
