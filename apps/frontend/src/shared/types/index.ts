@@ -1,25 +1,20 @@
 /**
  * Central export point for all shared types
+ *
+ * Re-exports shared platform types from @auto-claude/types,
+ * plus Electron-specific type definitions.
  */
 
-// Common types
-export * from './common';
+// Shared platform types
+export * from '@auto-claude/types';
 
-// Domain-specific types
-export * from './project';
-export * from './task';
-export * from './kanban';
+// Electron-specific types
 export * from './terminal';
-export * from './agent';
-export * from './profile';
-export * from './settings';
-export * from './changelog';
-export * from './insights';
-export * from './roadmap';
-export * from './integrations';
+export * from './terminal-session';
+export * from './screenshot';
 export * from './app-update';
 export * from './cli';
-export * from './pr-status';
+export * from './profile';
 
 // IPC types (must be last to use types from other modules)
 export * from './ipc';

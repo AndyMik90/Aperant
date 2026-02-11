@@ -3,7 +3,7 @@
  */
 
 import type { ThinkingLevel, PhaseModelConfig, PhaseThinkingConfig } from './settings';
-import type { ExecutionPhase as ExecutionPhaseType, CompletablePhase } from './constants';
+import type { ExecutionPhase, CompletablePhase } from './constants';
 
 export type TaskStatus = 'backlog' | 'queue' | 'in_progress' | 'ai_review' | 'human_review' | 'done' | 'pr_created' | 'error';
 
@@ -18,9 +18,6 @@ export type TaskOrderState = Record<TaskStatus, string[]>;
 export type ReviewReason = 'completed' | 'errors' | 'qa_rejected' | 'plan_review' | 'stopped';
 
 export type SubtaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
-
-// Re-exported from constants - single source of truth
-export type ExecutionPhase = ExecutionPhaseType;
 
 export interface ExecutionProgress {
   phase: ExecutionPhase;
