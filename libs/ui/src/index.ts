@@ -15,3 +15,6 @@ export * from './core';
 
 // Re-export spec management components
 export * from './specs';
+
+// Re-export persona management components
+export * from './personas';
