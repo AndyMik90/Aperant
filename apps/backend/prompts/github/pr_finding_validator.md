@@ -271,9 +271,7 @@ Return one result per finding:
   "finding_id": "SEC-001",
   "validation_status": "confirmed_valid",
   "code_evidence": "const query = `SELECT * FROM users WHERE id = ${userId}`;",
-  "line_range": [45, 45],
-  "explanation": "SQL injection vulnerability confirmed. User input 'userId' is directly interpolated into the SQL query at line 45 without any sanitization. The query is executed via db.execute() on line 46.",
-  "evidence_verified_in_file": true
+  "explanation": "SQL injection vulnerability confirmed. User input 'userId' is directly interpolated into the SQL query at line 45 without any sanitization. The query is executed via db.execute() on line 46."
 }
 ```
 
@@ -282,9 +280,7 @@ Return one result per finding:
   "finding_id": "QUAL-002",
   "validation_status": "dismissed_false_positive",
   "code_evidence": "function processInput(data: string): string {\n  const sanitized = DOMPurify.sanitize(data);\n  return sanitized;\n}",
-  "line_range": [23, 26],
-  "explanation": "The original finding claimed XSS vulnerability, but the code uses DOMPurify.sanitize() before output. The input is properly sanitized at line 24 before being returned. The code evidence proves the issue does NOT exist.",
-  "evidence_verified_in_file": true
+  "explanation": "The original finding claimed XSS vulnerability, but the code uses DOMPurify.sanitize() before output. The input is properly sanitized at line 24 before being returned."
 }
 ```
 
@@ -293,9 +289,7 @@ Return one result per finding:
   "finding_id": "LOGIC-003",
   "validation_status": "needs_human_review",
   "code_evidence": "async function handleRequest(req) {\n  // Complex async logic...\n}",
-  "line_range": [100, 150],
-  "explanation": "The original finding claims a race condition, but verifying this requires understanding the runtime behavior and concurrency model. The static code doesn't provide definitive evidence either way.",
-  "evidence_verified_in_file": true
+  "explanation": "The original finding claims a race condition, but verifying this requires understanding the runtime behavior and concurrency model. The static code doesn't provide definitive evidence either way."
 }
 ```
 
@@ -304,9 +298,7 @@ Return one result per finding:
   "finding_id": "HALLUC-004",
   "validation_status": "dismissed_false_positive",
   "code_evidence": "// Line 710 does not exist - file only has 600 lines",
-  "line_range": [600, 600],
-  "explanation": "The original finding claimed an issue at line 710, but the file only has 600 lines. This is a hallucinated finding - the code doesn't exist.",
-  "evidence_verified_in_file": false
+  "explanation": "The original finding claimed an issue at line 710, but the file only has 600 lines. This is a hallucinated finding - the code doesn't exist."
 }
 ```
 
@@ -324,7 +316,7 @@ Validation is binary based on what the code evidence shows:
 **Decision rules:**
 - If `code_evidence` contains problematic code → `confirmed_valid`
 - If `code_evidence` proves issue doesn't exist → `dismissed_false_positive`
-- If `evidence_verified_in_file` is false → `dismissed_false_positive` (hallucinated finding)
+- If the code/line doesn't exist → `dismissed_false_positive` (hallucinated finding)
 - If you can't determine from the code → `needs_human_review`
 
 ## Common False Positive Patterns
@@ -403,7 +395,7 @@ CROSS-FILE CHECK:
 5. **When evidence is inconclusive, escalate** - Use `needs_human_review` rather than guessing
 6. **Look for mitigations** - Check surrounding code for sanitization/validation
 7. **Check the full context** - Read ±20 lines, not just the flagged line
-8. **Verify code exists** - Set `evidence_verified_in_file` to false if the code/line doesn't exist
+8. **Verify code exists** - Dismiss as false positive if the code/line doesn't exist
 9. **SEARCH BEFORE CLAIMING ABSENCE** - If you claim something doesn't exist (no helper, no validation, no error handling), you MUST show the search you performed:
    - Use Grep to search for the pattern
    - Include the search command in your explanation
@@ -414,5 +406,5 @@ CROSS-FILE CHECK:
 - **Trusting the original finding blindly** - Always verify with actual code
 - **Dismissing without reading code** - Must provide code_evidence that proves your point
 - **Vague explanations** - Be specific about what the code shows and why it proves/disproves the issue
-- **Missing line numbers** - Always include line_range
+- **Vague evidence** - Always include actual code snippets
 - **Speculative conclusions** - Only conclude what the code evidence actually proves
