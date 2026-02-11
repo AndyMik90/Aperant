@@ -31,7 +31,8 @@ import {
   JSON_ERROR_PREFIX,
   JSON_ERROR_TITLE_SUFFIX
 } from '../../shared/constants';
-import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, hasRecentActivity } from '../stores/task-store';
+import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, hasRecentActivity, persistTaskStatus, useTaskStore } from '../stores/task-store';
+import { useProjectStore } from '../stores/project-store';
 import type { Task, TaskCategory, ReviewReason, TaskStatus } from '../../shared/types';
 
 // Category icon mapping
@@ -229,6 +230,17 @@ export const TaskCard = memo(function TaskCard({
     if (isRunning && !isStuck) {
       stopTask(task.id);
     } else {
+      // Queue system: check capacity before starting
+      const maxParallelTasks = useProjectStore.getState().getActiveProject()?.settings?.maxParallelTasks ?? 1;
+      const currentTasks = useTaskStore.getState().tasks;
+      const inProgressCount = currentTasks.filter((t) =>
+        t.status === 'in_progress' && !t.metadata?.archivedAt
+      ).length;
+
+      if (inProgressCount >= maxParallelTasks) {
+        persistTaskStatus(task.id, 'queue');
+        return;
+      }
       startTask(task.id);
     }
   };
