@@ -360,6 +360,34 @@ describe('parseGitHubError', () => {
       const result = parseGitHubError('403 API rate limit exceeded');
       expect(result.type).toBe('rate_limit');
     });
+
+    it('should prioritize auth over not_found when both patterns present', () => {
+      // "401" should be classified as auth, not not_found
+      const result = parseGitHubError('HTTP 401 Unauthorized - user not found');
+      expect(result.type).toBe('auth');
+    });
+
+    it('should prioritize auth over network when 401 appears with network context', () => {
+      const result = parseGitHubError('Network error: HTTP 401');
+      expect(result.type).toBe('auth');
+    });
+
+    it('should classify as not_found when 404 without auth patterns', () => {
+      const result = parseGitHubError('HTTP 404 Not Found');
+      expect(result.type).toBe('not_found');
+    });
+
+    it('should not match bare 401 in unrelated numbers', () => {
+      // The word boundary should prevent matching "1401" as a 401 error
+      const result = parseGitHubError('Error code 14010 occurred');
+      expect(result.type).toBe('unknown');
+    });
+
+    it('should not match bare 404 embedded in other numbers', () => {
+      // The word boundary should prevent matching "404" embedded in "14040"
+      const result = parseGitHubError('Error code 14040 occurred');
+      expect(result.type).toBe('unknown');
+    });
   });
 
   describe('edge cases', () => {

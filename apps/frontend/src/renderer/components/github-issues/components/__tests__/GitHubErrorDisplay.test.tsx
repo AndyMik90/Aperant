@@ -22,6 +22,12 @@ vi.mock('react-i18next', () => ({
         'githubErrors.notFoundTitle': 'GitHub Resource Not Found',
         'githubErrors.networkTitle': 'GitHub Connection Error',
         'githubErrors.unknownTitle': 'GitHub Error',
+        'githubErrors.rateLimitMessage': 'GitHub API rate limit reached. Please wait a moment before trying again.',
+        'githubErrors.authMessage': 'GitHub authentication failed. Please check your GitHub token in Settings.',
+        'githubErrors.permissionMessage': 'GitHub permission denied. Your token may not have the required access.',
+        'githubErrors.notFoundMessage': 'The requested GitHub resource was not found.',
+        'githubErrors.networkMessage': 'Unable to connect to GitHub. Please check your internet connection.',
+        'githubErrors.unknownMessage': 'An unexpected error occurred while communicating with GitHub.',
         'githubErrors.resetsIn': options?.time ? `Resets in ${options.time}` : 'Resets in',
         'githubErrors.rateLimitExpired': 'Rate limit has reset. You can retry now.',
         'githubErrors.requiredScopes': 'Required scopes',
@@ -303,16 +309,27 @@ describe('GitHubErrorDisplay', () => {
     });
 
     it('should set up interval to update countdown', () => {
+      vi.useFakeTimers();
       const resetTime = new Date(Date.now() + 2 * 60 * 1000);
       const errorInfo = createMockErrorInfo('rate_limit', {
         rateLimitResetTime: resetTime,
       });
 
-      // Just verify rendering doesn't throw and countdown is shown
       render(<GitHubErrorDisplay error={errorInfo} />);
 
       // Initial countdown should be displayed
+      const initialText = screen.getByText(/Resets in/).textContent;
+      expect(initialText).toMatch(/Resets in/);
+
+      // Advance time by 1 second and verify countdown updates
+      vi.advanceTimersByTime(1000);
       expect(screen.getByText(/Resets in/)).toBeInTheDocument();
+
+      // The countdown should still be showing after advancing timers
+      vi.advanceTimersByTime(5000);
+      expect(screen.getByText(/Resets in/)).toBeInTheDocument();
+
+      vi.useRealTimers();
     });
 
     it('should NOT show countdown for non-rate-limit errors', () => {
@@ -337,6 +354,9 @@ describe('GitHubErrorDisplay', () => {
     });
 
     it('should cleanup interval on unmount', () => {
+      vi.useFakeTimers();
+      const clearIntervalSpy = vi.spyOn(global, 'clearInterval');
+
       const resetTime = new Date(Date.now() + 5 * 60 * 1000);
       const errorInfo = createMockErrorInfo('rate_limit', {
         rateLimitResetTime: resetTime,
@@ -347,8 +367,12 @@ describe('GitHubErrorDisplay', () => {
       // Verify the countdown was rendered
       expect(screen.getByText(/Resets in/)).toBeInTheDocument();
 
-      // Should not throw when unmounting (cleanup should work)
-      expect(() => unmount()).not.toThrow();
+      // Unmount and verify clearInterval was called
+      unmount();
+      expect(clearIntervalSpy).toHaveBeenCalled();
+
+      clearIntervalSpy.mockRestore();
+      vi.useRealTimers();
     });
   });
 

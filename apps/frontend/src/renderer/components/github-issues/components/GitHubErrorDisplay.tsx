@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
@@ -129,10 +129,14 @@ export function GitHubErrorDisplay({
   const { t } = useTranslation('common');
 
   // Parse error if it's a string, otherwise use the provided GitHubErrorInfo
-  const errorInfo: GitHubErrorInfo =
-    typeof error === 'string' || error === null
-      ? parseGitHubError(error)
-      : error;
+  // Memoize to prevent useEffect churn from new Date references on each render
+  const errorInfo: GitHubErrorInfo = useMemo(
+    () =>
+      typeof error === 'string' || error === null
+        ? parseGitHubError(error)
+        : error,
+    [error]
+  );
 
   // State for rate limit countdown
   const [countdown, setCountdown] = useState<string>(() =>
@@ -177,23 +181,30 @@ export function GitHubErrorDisplay({
     errorInfo.rateLimitResetTime &&
     new Date() >= errorInfo.rateLimitResetTime;
 
-  // Handler for retry button
-  const handleRetry = useCallback(() => {
-    onRetry?.();
-  }, [onRetry]);
-
-  // Handler for settings button
-  const handleOpenSettings = useCallback(() => {
-    onOpenSettings?.();
-  }, [onOpenSettings]);
-
   // Don't render if no error
-  if (!error || errorInfo.type === 'unknown') {
-    if (!error) return null;
-  }
+  if (!error) return null;
 
-  // Get the message - use parsed message or fallback to translation
-  const errorMessage = errorInfo.message;
+  // Map error type to translation key for message
+  const messageKeyMap: Record<GitHubErrorType, string> = {
+    rate_limit: 'githubErrors.rateLimitMessage',
+    auth: 'githubErrors.authMessage',
+    permission: 'githubErrors.permissionMessage',
+    not_found: 'githubErrors.notFoundMessage',
+    network: 'githubErrors.networkMessage',
+    unknown: 'githubErrors.unknownMessage',
+  };
+
+  // Get the translated message
+  const errorMessage = t(messageKeyMap[errorInfo.type], {
+    defaultValue: errorInfo.message,
+    minutes: errorInfo.rateLimitResetTime
+      ? Math.ceil((errorInfo.rateLimitResetTime.getTime() - Date.now()) / 60000)
+      : undefined,
+    hours: errorInfo.rateLimitResetTime
+      ? Math.ceil((errorInfo.rateLimitResetTime.getTime() - Date.now()) / 3600000)
+      : undefined,
+    scopes: errorInfo.requiredScopes?.join(', '),
+  });
 
   // Compact variant for inline display
   if (compact) {
@@ -209,7 +220,7 @@ export function GitHubErrorDisplay({
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleRetry}
+            onClick={onRetry}
             className="h-7 px-2"
           >
             <RefreshCw className="h-3 w-3 mr-1" />
@@ -220,7 +231,7 @@ export function GitHubErrorDisplay({
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleOpenSettings}
+            onClick={onOpenSettings}
             className="h-7 px-2"
           >
             <Settings2 className="h-3 w-3 mr-1" />
@@ -271,13 +282,13 @@ export function GitHubErrorDisplay({
           {/* Action buttons */}
           <div className="flex gap-2">
             {showRetry && onRetry && (
-              <Button onClick={handleRetry} variant="outline" size="sm">
+              <Button onClick={onRetry} variant="outline" size="sm">
                 <RefreshCw className="h-4 w-4 mr-2" />
                 {t('buttons.retry')}
               </Button>
             )}
             {showSettings && onOpenSettings && (
-              <Button onClick={handleOpenSettings} variant="outline" size="sm">
+              <Button onClick={onOpenSettings} variant="outline" size="sm">
                 <Settings2 className="h-4 w-4 mr-2" />
                 {t('actions.settings')}
               </Button>

@@ -28,7 +28,7 @@ const RATE_LIMIT_PATTERNS = [
  * Patterns for authentication errors (HTTP 401)
  */
 const AUTH_PATTERNS = [
-  /401/i,
+  /\b401\b/i,
   /unauthorized/i,
   /bad\s*credentials/i,
   /authentication\s*failed/i,
@@ -41,7 +41,7 @@ const AUTH_PATTERNS = [
  * Patterns for permission/scope errors (HTTP 403 with scope context)
  */
 const PERMISSION_PATTERNS = [
-  /403/i,
+  /\b403\b/i,
   /forbidden/i,
   /permission\s*denied/i,
   /insufficient\s*(scope|permission)/i,
@@ -56,7 +56,7 @@ const PERMISSION_PATTERNS = [
  * Patterns for not found errors (HTTP 404)
  */
 const NOT_FOUND_PATTERNS = [
-  /404/i,
+  /\b404\b/i,
   /not\s*found/i,
   /no\s*such\s*(repository|repo|issue|resource)/i,
   /does\s*not\s*exist/i,
@@ -101,8 +101,9 @@ const REQUIRED_SCOPES_PATTERN = /(?:requires?[:\s]*|missing\s*scopes?[:\s]*|X-Ac
 
 /**
  * Pattern to extract HTTP status code from error messages
+ * Matches status codes with HTTP context keywords to avoid false positives
  */
-const STATUS_CODE_PATTERN = /\b(\d{3})\b/;
+const STATUS_CODE_PATTERN = /(?:^|HTTP\s*|status[:\s]*|error[:\s]*|code[:\s]*)\b([1-5]\d{2})\b/i;
 
 /**
  * Sanitize error output to a reasonable length.
