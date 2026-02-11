@@ -82,15 +82,6 @@ const NETWORK_PATTERNS = [
 ];
 
 /**
- * Pattern to extract rate limit reset time from error messages
- * Matches formats like:
- * - "resets at 2024-01-15T12:00:00Z"
- * - "reset in 3600 seconds"
- * - "X-RateLimit-Reset: 1705312800"
- */
-const RATE_LIMIT_RESET_PATTERN = /(?:reset[s]?\s*(?:at|in)[:\s]*|X-RateLimit-Reset[:\s]*)(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z?|\d+)/i;
-
-/**
  * Pattern to extract required OAuth scopes from error messages
  * Matches formats like:
  * - "requires: repo, read:org"
@@ -120,9 +111,22 @@ function sanitizeRawError(error: string): string {
 /**
  * Extract rate limit reset time from error message.
  * Parses various formats and returns a Date object if found.
+ * Handles both absolute timestamps and relative durations ("in X seconds").
  */
 function extractRateLimitResetTime(error: string): Date | undefined {
-  const match = error.match(RATE_LIMIT_RESET_PATTERN);
+  // First, try to match relative duration pattern (e.g., "reset in 3600 seconds")
+  const relativePattern = /reset[s]?\s*in[:\s]*(\d+)\s*seconds?/i;
+  const relativeMatch = error.match(relativePattern);
+  if (relativeMatch) {
+    const seconds = parseInt(relativeMatch[1], 10);
+    if (!Number.isNaN(seconds) && seconds > 0) {
+      return new Date(Date.now() + seconds * 1000);
+    }
+  }
+
+  // Then try absolute timestamp pattern
+  const absolutePattern = /(?:reset[s]?\s*at[:\s]*|X-RateLimit-Reset[:\s]*)(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z?|\d+)/i;
+  const match = error.match(absolutePattern);
   if (!match) {
     return undefined;
   }

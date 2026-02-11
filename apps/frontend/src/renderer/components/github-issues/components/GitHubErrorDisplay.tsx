@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
+import { cn } from '../../../lib/utils';
 import { parseGitHubError } from '../utils/github-error-parser';
 import type { GitHubErrorInfo, GitHubErrorType } from '../types';
 
@@ -97,6 +98,34 @@ function formatCountdown(resetTime: Date): string {
 
   const remainingSecs = diffSecs % 60;
   return `${diffMins}m ${remainingSecs}s`;
+}
+
+/**
+ * Select the most specific message key based on available metadata.
+ * Pure function extracted to module scope to avoid recreation on each render.
+ */
+function getMessageKey(info: GitHubErrorInfo): string {
+  if (info.type === 'rate_limit' && info.rateLimitResetTime) {
+    const diffMs = info.rateLimitResetTime.getTime() - Date.now();
+    if (diffMs > 0) {
+      const diffMins = Math.ceil(diffMs / 60000);
+      return diffMins >= 60
+        ? 'githubErrors.rateLimitMessageHours'
+        : 'githubErrors.rateLimitMessageMinutes';
+    }
+  }
+  if (info.type === 'permission' && info.requiredScopes && info.requiredScopes.length > 0) {
+    return 'githubErrors.permissionMessageScopes';
+  }
+  const baseKeys: Record<GitHubErrorType, string> = {
+    rate_limit: 'githubErrors.rateLimitMessage',
+    auth: 'githubErrors.authMessage',
+    permission: 'githubErrors.permissionMessage',
+    not_found: 'githubErrors.notFoundMessage',
+    network: 'githubErrors.networkMessage',
+    unknown: 'githubErrors.unknownMessage',
+  };
+  return baseKeys[info.type];
 }
 
 /**
@@ -193,31 +222,6 @@ export function GitHubErrorDisplay({
   // Don't render if no error
   if (!error) return null;
 
-  // Select the most specific message key based on available metadata
-  function getMessageKey(info: GitHubErrorInfo): string {
-    if (info.type === 'rate_limit' && info.rateLimitResetTime) {
-      const diffMs = info.rateLimitResetTime.getTime() - Date.now();
-      if (diffMs > 0) {
-        const diffMins = Math.ceil(diffMs / 60000);
-        return diffMins >= 60
-          ? 'githubErrors.rateLimitMessageHours'
-          : 'githubErrors.rateLimitMessageMinutes';
-      }
-    }
-    if (info.type === 'permission' && info.requiredScopes && info.requiredScopes.length > 0) {
-      return 'githubErrors.permissionMessageScopes';
-    }
-    const baseKeys: Record<GitHubErrorType, string> = {
-      rate_limit: 'githubErrors.rateLimitMessage',
-      auth: 'githubErrors.authMessage',
-      permission: 'githubErrors.permissionMessage',
-      not_found: 'githubErrors.notFoundMessage',
-      network: 'githubErrors.networkMessage',
-      unknown: 'githubErrors.unknownMessage',
-    };
-    return baseKeys[info.type];
-  }
-
   // Get the translated message with appropriate interpolation values
   const messageKey = getMessageKey(errorInfo);
   const minutes = errorInfo.rateLimitResetTime
@@ -236,9 +240,13 @@ export function GitHubErrorDisplay({
   if (compact) {
     return (
       <div
-        className={`flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border ${className || ''}`}
+        className={cn(
+          'flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border',
+          className
+        )}
+        title={errorMessage}
       >
-        <Icon className={`h-4 w-4 shrink-0 ${config.iconColorClass}`} />
+        <Icon className={cn('h-4 w-4 shrink-0', config.iconColorClass)} />
         <span className="text-sm text-muted-foreground flex-1 truncate">
           {t(config.titleKey)}
         </span>
@@ -270,13 +278,11 @@ export function GitHubErrorDisplay({
 
   // Full card variant for blocking errors
   return (
-    <Card className={`border-destructive/50 m-4 ${className || ''}`}>
+    <Card className={cn('border-destructive/50 m-4', className)}>
       <CardContent className="pt-6">
         <div className="flex flex-col items-center gap-4 text-center">
-          <div
-            className={`w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center`}
-          >
-            <Icon className={`h-6 w-6 ${config.iconColorClass}`} />
+          <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center">
+            <Icon className={cn('h-6 w-6', config.iconColorClass)} />
           </div>
           <div className="space-y-2 max-w-md">
             <h3 className="font-semibold text-lg text-foreground">

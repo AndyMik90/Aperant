@@ -14,7 +14,7 @@ import type { GitHubErrorInfo } from '../../types';
 // Mock react-i18next
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: Record<string, string>) => {
+    t: (key: string, options?: Record<string, unknown>) => {
       const translations: Record<string, string> = {
         'githubErrors.rateLimitTitle': 'GitHub Rate Limit Reached',
         'githubErrors.authTitle': 'GitHub Authentication Required',
@@ -23,15 +23,15 @@ vi.mock('react-i18next', () => ({
         'githubErrors.networkTitle': 'GitHub Connection Error',
         'githubErrors.unknownTitle': 'GitHub Error',
         'githubErrors.rateLimitMessage': 'GitHub API rate limit reached. Please wait a moment before trying again.',
-        'githubErrors.rateLimitMessageMinutes': `GitHub API rate limit reached. Please wait ${options?.minutes || 'X'} minute(s) before trying again.`,
-        'githubErrors.rateLimitMessageHours': `GitHub API rate limit reached. Rate limit resets in approximately ${options?.hours || 'X'} hour(s).`,
+        'githubErrors.rateLimitMessageMinutes': `GitHub API rate limit reached. Please wait ${options?.minutes ?? 'X'} minute(s) before trying again.`,
+        'githubErrors.rateLimitMessageHours': `GitHub API rate limit reached. Rate limit resets in approximately ${options?.hours ?? 'X'} hour(s).`,
         'githubErrors.authMessage': 'GitHub authentication failed. Please check your GitHub token in Settings.',
         'githubErrors.permissionMessage': 'GitHub permission denied. Your token may not have the required access.',
-        'githubErrors.permissionMessageScopes': `GitHub permission denied. Your token is missing required scopes: ${options?.scopes || ''}. Please update your GitHub token in Settings.`,
+        'githubErrors.permissionMessageScopes': `GitHub permission denied. Your token is missing required scopes: ${options?.scopes ?? ''}. Please update your GitHub token in Settings.`,
         'githubErrors.notFoundMessage': 'The requested GitHub resource was not found.',
         'githubErrors.networkMessage': 'Unable to connect to GitHub. Please check your internet connection.',
         'githubErrors.unknownMessage': 'An unexpected error occurred while communicating with GitHub.',
-        'githubErrors.resetsIn': options?.time ? `Resets in ${options.time}` : 'Resets in',
+        'githubErrors.resetsIn': options?.time ? `Resets in ${options.time as string}` : 'Resets in',
         'githubErrors.rateLimitExpired': 'Rate limit has reset. You can retry now.',
         'githubErrors.requiredScopes': 'Required scopes',
         'buttons.retry': 'Retry',
@@ -85,6 +85,14 @@ describe('GitHubErrorDisplay', () => {
   describe('rendering null/empty states', () => {
     it('should render nothing when error is null', () => {
       const { container } = render(<GitHubErrorDisplay error={null} />);
+      expect(container.firstChild).toBeNull();
+    });
+
+    it('should render nothing when error is an empty string', () => {
+      // Empty string is falsy, so component should return null
+      const { container } = render(
+        <GitHubErrorDisplay error={'' as string} />
+      );
       expect(container.firstChild).toBeNull();
     });
   });
