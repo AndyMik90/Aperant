@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import path from 'path';
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
@@ -14,7 +14,7 @@ import {
   RoadmapConfig
 } from './types';
 import type { IdeationConfig } from '../../shared/types';
-import { resetStuckSubtasks } from '../ipc-handlers/task/plan-file-utils';
+import { recoverStuckPlan, resetStuckSubtasks } from '../ipc-handlers/task/plan-file-utils';
 import { AUTO_BUILD_PATHS, getSpecsDir, sanitizeThinkingLevel } from '../../shared/constants';
 import { projectStore } from '../project-store';
 
@@ -156,57 +156,17 @@ export class AgentManager extends EventEmitter {
 
             totalScanned++;
 
-            // 1. Reset stuck subtasks (in_progress/failed -> pending)
-            const { success, resetCount } = await resetStuckSubtasks(planPath, project.id);
+            // Recover stuck subtasks and task-level status in a single atomic operation
+            const result = await recoverStuckPlan(planPath, project.id);
 
-            if (success && resetCount > 0) {
-              totalSubtasksReset += resetCount;
-              console.log(`[AgentManager] Startup recovery: Reset ${resetCount} stuck subtask(s) in ${specDirName}`);
+            if (result.subtasksReset > 0) {
+              totalSubtasksReset += result.subtasksReset;
+              console.log(`[AgentManager] Startup recovery: Reset ${result.subtasksReset} stuck subtask(s) in ${specDirName}`);
             }
 
-            // 2. Reset stuck task-level status
-            // At startup no agents are running, so any task with in_progress status is stuck.
-            // Choose the correct target status based on subtask completion:
-            // - All subtasks completed → human_review (work is done, needs review)
-            // - Some subtasks incomplete → queue (work needs to resume)
-            try {
-              const planContent = readFileSync(planPath, 'utf-8');
-              const plan = JSON.parse(planContent);
-
-              if (plan.status === 'in_progress') {
-                // Check subtask completion state (after stuck subtasks were already reset above)
-                const allSubtasks = (plan.phases || []).flatMap(
-                  (p: { subtasks?: { status: string }[] }) => p.subtasks || []
-                );
-                const allCompleted = allSubtasks.length > 0 &&
-                  allSubtasks.every((s: { status: string }) => s.status === 'completed');
-
-                if (allCompleted) {
-                  // All coding work is done — move to human_review so user can approve or re-run QA
-                  plan.status = 'human_review';
-                  plan.planStatus = 'review';
-                  plan.xstateState = 'human_review';
-                  plan.executionPhase = 'complete';
-                  console.log(`[AgentManager] Startup recovery: Task ${specDirName} has all subtasks completed — setting to human_review`);
-                } else {
-                  // Work is incomplete — set to queue so user can restart
-                  plan.status = 'queue';
-                  plan.planStatus = 'queued';
-                  delete plan.xstateState;
-                  delete plan.executionPhase;
-                  console.log(`[AgentManager] Startup recovery: Reset task status in_progress -> queue in ${specDirName}`);
-                }
-
-                plan.updated_at = new Date().toISOString();
-                writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
-                totalTasksReset++;
-
-                if (project.id) {
-                  projectStore.invalidateTasksCache(project.id);
-                }
-              }
-            } catch (planErr) {
-              console.warn(`[AgentManager] Failed to check/reset task status for ${specDirName}:`, planErr);
+            if (result.taskStatusChanged) {
+              totalTasksReset++;
+              console.log(`[AgentManager] Startup recovery: Task ${specDirName} status → ${result.newStatus}`);
             }
           }
         } catch (err) {

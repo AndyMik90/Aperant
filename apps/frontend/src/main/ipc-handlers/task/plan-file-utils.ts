@@ -502,6 +502,137 @@ export async function resetStuckSubtasks(planPath: string, projectId?: string): 
 }
 
 /**
+ * Subtask shape used within implementation plan phases.
+ * Phases may use either 'subtasks' or 'chunks' as the property name.
+ */
+interface PlanSubtask {
+  id: string;
+  status: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+}
+
+/**
+ * Minimal shape of a parsed implementation_plan.json for recovery operations.
+ */
+interface RecoveryPlan {
+  status?: string;
+  planStatus?: string;
+  xstateState?: string;
+  executionPhase?: string;
+  updated_at?: string;
+  phases?: Array<{
+    subtasks?: PlanSubtask[];
+    chunks?: PlanSubtask[];
+  }>;
+  [key: string]: unknown;
+}
+
+/** Result of a startup recovery operation on a single plan file. */
+export interface RecoveryResult {
+  success: boolean;
+  subtasksReset: number;
+  taskStatusChanged: boolean;
+  newStatus?: string;
+}
+
+/**
+ * Recover a stuck plan file during startup.
+ *
+ * Performs two recovery actions in a single atomic, locked operation:
+ * 1. Resets stuck subtasks (in_progress/failed → pending)
+ * 2. Corrects task-level status (in_progress/error → queue or human_review)
+ *
+ * Thread-safe via withPlanLock. Uses atomic temp+rename writes to prevent
+ * file corruption if the process is interrupted.
+ *
+ * Handles both 'subtasks' and 'chunks' phase property naming for backward
+ * compatibility with older plan formats.
+ *
+ * @param planPath - Path to the implementation_plan.json file
+ * @param projectId - Optional project ID to invalidate cache
+ * @returns RecoveryResult with details of what was changed
+ */
+export async function recoverStuckPlan(planPath: string, projectId?: string): Promise<RecoveryResult> {
+  return withPlanLock(planPath, async () => {
+    try {
+      // Read file directly without existence check to avoid TOCTOU race condition
+      const planContent = readFileSync(planPath, 'utf-8');
+      const plan: RecoveryPlan = JSON.parse(planContent);
+
+      let subtasksReset = 0;
+      let taskStatusChanged = false;
+      let newStatus: string | undefined;
+
+      // 1. Reset stuck subtasks (in_progress/failed → pending)
+      // Handle both 'subtasks' and 'chunks' naming (older plan format)
+      if (plan.phases && Array.isArray(plan.phases)) {
+        for (const phase of plan.phases) {
+          const items: PlanSubtask[] = phase.subtasks || phase.chunks || [];
+          for (const subtask of items) {
+            if (subtask.status === 'in_progress' || subtask.status === 'failed') {
+              const originalStatus = subtask.status;
+              subtask.status = 'pending';
+              subtask.started_at = null;
+              subtask.completed_at = null;
+              subtasksReset++;
+              console.log(`[plan-file-utils] Reset subtask ${subtask.id} from ${originalStatus} to pending`);
+            }
+          }
+        }
+      }
+
+      // 2. Correct stuck task-level status
+      // At startup no agents are running, so in_progress or error status means the task is stuck.
+      if (plan.status === 'in_progress' || plan.status === 'error') {
+        // Determine target status based on subtask completion
+        // (checked AFTER subtask reset, so in_progress subtasks are now pending)
+        const allSubtasks: PlanSubtask[] = (plan.phases || []).flatMap(
+          (p) => p.subtasks || p.chunks || []
+        );
+        const allCompleted = allSubtasks.length > 0 &&
+          allSubtasks.every((s) => s.status === 'completed');
+
+        if (allCompleted) {
+          // All coding work is done — move to human_review
+          plan.status = 'human_review';
+          plan.planStatus = 'review';
+          plan.xstateState = 'human_review';
+          plan.executionPhase = 'complete';
+          newStatus = 'human_review';
+        } else {
+          // Work is incomplete — set to queue so user can restart
+          plan.status = 'queue';
+          plan.planStatus = 'queued';
+          delete plan.xstateState;
+          delete plan.executionPhase;
+          newStatus = 'queue';
+        }
+        taskStatusChanged = true;
+      }
+
+      // Only write if something changed
+      if (subtasksReset > 0 || taskStatusChanged) {
+        plan.updated_at = new Date().toISOString();
+        writeFileAtomicSync(planPath, JSON.stringify(plan, null, 2));
+
+        if (projectId) {
+          projectStore.invalidateTasksCache(projectId);
+        }
+      }
+
+      return { success: true, subtasksReset, taskStatusChanged, newStatus };
+    } catch (err) {
+      if (isFileNotFoundError(err)) {
+        return { success: false, subtasksReset: 0, taskStatusChanged: false };
+      }
+      console.warn(`[plan-file-utils] Could not recover stuck plan at ${planPath}:`, err);
+      return { success: false, subtasksReset: 0, taskStatusChanged: false };
+    }
+  });
+}
+
+/**
  * Update task_metadata.json to add PR URL.
  * This is a simple JSON file update (no locking needed as it's rarely updated concurrently).
  *
