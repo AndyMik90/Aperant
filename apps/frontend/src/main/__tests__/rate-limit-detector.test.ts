@@ -607,6 +607,20 @@ Please authenticate and try again.`;
 
       expect(result.isAuthFailure).toBe(true);
     });
+
+    it('should NOT false-positive on AI discussion text mentioning auth topics', async () => {
+      const { detectAuthFailure } = await import('../rate-limit-detector');
+
+      // This simulates an AI PR review that discusses authentication — it should NOT trigger auth detection
+      const aiReviewText = `The PR adds authentication error detection to prevent infinite retry loops. ` +
+        `When the API returns a message like "does not have access to Claude", the system now detects it. ` +
+        `However, this pattern could also match if a user discusses authentication in a PR review. ` +
+        `We should ensure the detection is specific enough to avoid false positives. ` +
+        `Please login again is another phrase that could appear in normal discussion.`;
+      const result = detectAuthFailure(aiReviewText);
+
+      expect(result.isAuthFailure).toBe(false);
+    });
   });
 });
 
