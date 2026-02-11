@@ -1437,16 +1437,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
 
     // Persist status change to file and update local state
-    // Use handleStatusChange to properly handle worktree cleanup dialog
+    // Use handleStatusChange to properly handle worktree cleanup dialog.
+    // handleStatusChange already calls processQueue() when a task leaves in_progress,
+    // so no additional processQueue() call is needed here.
     await handleStatusChange(activeTaskId, newStatus, task);
-
-    // ============================================
-    // QUEUE SYSTEM: Auto-process queue when slot opens
-    // ============================================
-    if (oldStatus === 'in_progress' && newStatus !== 'in_progress') {
-      // A task left In Progress - check if we can promote from queue
-      await processQueue();
-    }
   };
 
   return (
