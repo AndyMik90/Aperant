@@ -222,7 +222,8 @@
       "useWorktreeDescription": "Creates changes in a separate git worktree for safe review before merging. Disable to build directly in your project (faster but riskier)."
     },
     "errors": {
-      "createFailed": "Failed to create task. Please try again."
+      "createFailed": "Failed to create task. Please try again.",
+      "startFailed": "Failed to start task"
     }
   },
   "feedback": {

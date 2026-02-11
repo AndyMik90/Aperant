@@ -303,35 +303,24 @@ Provide your synthesis as a structured response matching the ParallelFollowupRes
 
 ```json
 {
-  "analysis_summary": "Brief summary of what was analyzed",
   "agents_invoked": ["resolution-verifier", "finding-validator", "new-code-reviewer"],
-  "commits_analyzed": 5,
-  "files_changed": 12,
   "resolution_verifications": [...],
   "finding_validations": [
     {
       "finding_id": "SEC-001",
       "validation_status": "confirmed_valid",
       "code_evidence": "const query = `SELECT * FROM users WHERE id = ${userId}`;",
-      "line_range": [45, 45],
       "explanation": "SQL injection is present - user input is concatenated directly into query"
     },
     {
       "finding_id": "QUAL-002",
       "validation_status": "dismissed_false_positive",
       "code_evidence": "const sanitized = DOMPurify.sanitize(data);",
-      "line_range": [23, 26],
       "explanation": "Original finding claimed XSS but code uses DOMPurify for sanitization"
     }
   ],
   "new_findings": [...],
-  "comment_analyses": [...],
   "comment_findings": [...],
-  "agent_agreement": {
-    "agreed_findings": [],
-    "conflicting_findings": [],
-    "resolution_notes": null
-  },
   "verdict": "READY_TO_MERGE",
   "verdict_reasoning": "2 findings resolved, 1 dismissed as false positive, 1 confirmed valid but LOW severity..."
 }

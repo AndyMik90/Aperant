@@ -31,7 +31,8 @@ import {
   JSON_ERROR_PREFIX,
   JSON_ERROR_TITLE_SUFFIX
 } from '../../shared/constants';
-import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, hasRecentActivity } from '../stores/task-store';
+import { stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, hasRecentActivity, startTaskOrQueue } from '../stores/task-store';
+import { useToast } from '../hooks/use-toast';
 import type { Task, TaskCategory, ReviewReason, TaskStatus } from '../../shared/types';
 
 // Category icon mapping
@@ -133,6 +134,7 @@ export const TaskCard = memo(function TaskCard({
   onToggleSelect
 }: TaskCardProps) {
   const { t } = useTranslation(['tasks', 'errors']);
+  const { toast } = useToast();
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const stuckIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -224,12 +226,21 @@ export const TaskCard = memo(function TaskCard({
     };
   }, [task.id, isRunning]);
 
-  const handleStartStop = (e: React.MouseEvent) => {
+  const handleStartStop = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isRunning && !isStuck) {
       stopTask(task.id);
     } else {
-      startTask(task.id);
+      const result = await startTaskOrQueue(task.id);
+      if (!result.success) {
+        toast({
+          title: t('tasks:wizard.errors.startFailed'),
+          description: result.error,
+          variant: 'destructive',
+        });
+      } else if (result.action === 'queued') {
+        toast({ title: t('tasks:queue.movedToQueue') });
+      }
     }
   };
 

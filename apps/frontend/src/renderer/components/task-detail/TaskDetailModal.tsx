@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { calculateProgress } from '../../lib/utils';
-import { startTask, stopTask, submitReview, recoverStuckTask, deleteTask, useTaskStore } from '../../stores/task-store';
+import { stopTask, submitReview, recoverStuckTask, deleteTask, useTaskStore, startTaskOrQueue } from '../../stores/task-store';
 import { useProjectStore } from '../../stores/project-store';
 import { TASK_STATUS_LABELS } from '../../../shared/constants';
 import { TaskEditDialog } from '../TaskEditDialog';
@@ -105,7 +105,16 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           return;
         }
       }
-      startTask(task.id);
+      const result = await startTaskOrQueue(task.id);
+      if (!result.success) {
+        toast({
+          title: t('tasks:wizard.errors.startFailed'),
+          description: result.error,
+          variant: 'destructive',
+        });
+      } else if (result.action === 'queued') {
+        toast({ title: t('tasks:queue.movedToQueue') });
+      }
     }
   };
 

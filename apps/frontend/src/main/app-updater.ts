@@ -36,7 +36,7 @@ const GITHUB_REPO = 'Auto-Claude';
 const DEBUG_UPDATER = process.env.DEBUG_UPDATER === 'true' || process.env.NODE_ENV === 'development';
 
 // Configure electron-updater
-autoUpdater.autoDownload = true;  // Automatically download updates when available
+autoUpdater.autoDownload = false;  // We control downloads manually to prevent downgrades
 autoUpdater.autoInstallOnAppQuit = true;  // Automatically install on app quit
 
 // Update channels: 'latest' for stable, 'beta' for pre-release
@@ -44,6 +44,66 @@ type UpdateChannel = 'latest' | 'beta';
 
 // Store interval ID for cleanup during shutdown
 let periodicCheckIntervalId: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Convert basic HTML (from GitHub release bodies) to markdown.
+ * Handles the common tags GitHub uses in release notes.
+ */
+function htmlToMarkdown(html: string): string {
+  let md = html;
+
+  // Block-level replacements
+  md = md.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n');
+  md = md.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n');
+  md = md.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n');
+  md = md.replace(/<h4[^>]*>(.*?)<\/h4>/gi, '#### $1\n\n');
+
+  // Lists: convert <ol>/<ul> with <li> items
+  // First handle <li> within <ol> (numbered)
+  md = md.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_match, content: string) => {
+    let i = 0;
+    return content.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_m: string, text: string) => {
+      i++;
+      return `${i}. ${text.trim()}\n`;
+    }) + '\n';
+  });
+  // Then <li> within <ul> (bulleted)
+  md = md.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_match, content: string) => {
+    return content.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_m: string, text: string) => {
+      return `- ${text.trim()}\n`;
+    }) + '\n';
+  });
+
+  // Inline replacements
+  md = md.replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**');
+  md = md.replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**');
+  md = md.replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*');
+  md = md.replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*');
+  md = md.replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`');
+  md = md.replace(/<tt[^>]*>(.*?)<\/tt>/gi, '`$1`');
+  md = md.replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)');
+
+  // Block elements
+  md = md.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, '$1\n\n');
+  md = md.replace(/<br\s*\/?>/gi, '\n');
+  md = md.replace(/<hr\s*\/?>/gi, '---\n\n');
+
+  // Remove any remaining HTML tags
+  md = md.replace(/<[^>]+>/g, '');
+
+  // Decode common HTML entities
+  md = md.replace(/&amp;/g, '&');
+  md = md.replace(/&lt;/g, '<');
+  md = md.replace(/&gt;/g, '>');
+  md = md.replace(/&quot;/g, '"');
+  md = md.replace(/&#39;/g, "'");
+  md = md.replace(/&nbsp;/g, ' ');
+
+  // Clean up excessive whitespace
+  md = md.replace(/\n{3,}/g, '\n\n');
+
+  return md.trim();
+}
 
 /**
  * Convert releaseNotes from electron-updater to a markdown string.
@@ -57,8 +117,12 @@ function formatReleaseNotes(releaseNotes: UpdateInfo['releaseNotes']): string | 
     return undefined;
   }
 
-  // If it's already a string, return as-is
+  // If it's a string, convert HTML to markdown if needed
+  // electron-updater returns GitHub release bodies as HTML
   if (typeof releaseNotes === 'string') {
+    if (releaseNotes.trimStart().startsWith('<')) {
+      return htmlToMarkdown(releaseNotes);
+    }
     return releaseNotes;
   }
 
@@ -74,8 +138,12 @@ function formatReleaseNotes(releaseNotes: UpdateInfo['releaseNotes']): string | 
       .filter(item => item.note) // Filter out entries with null/undefined notes
       .map(item => {
         // Each item has version and note properties
+        // note can be HTML (GitHub provider) so convert if needed
         const versionHeader = item.version ? `## ${item.version}\n` : '';
-        return `${versionHeader}${item.note}`;
+        const note = typeof item.note === 'string' && item.note.trimStart().startsWith('<')
+          ? htmlToMarkdown(item.note)
+          : item.note;
+        return `${versionHeader}${note}`;
       })
       .join('\n\n');
 
@@ -118,6 +186,9 @@ let mainWindow: BrowserWindow | null = null;
 // Track downloaded update state so it persists across Settings page navigations
 let downloadedUpdateInfo: AppUpdateInfo | null = null;
 
+// Flag to allow intentional downgrades (e.g., switching from beta to stable)
+let intentionalDowngrade = false;
+
 /**
  * Initialize the app updater system
  *
@@ -140,7 +211,7 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
   console.warn('[app-updater] App packaged:', app.isPackaged);
   console.warn('[app-updater] Current version:', autoUpdater.currentVersion.version);
   console.warn('[app-updater] Update channel:', channel);
-  console.warn('[app-updater] Auto-download enabled:', autoUpdater.autoDownload);
+  console.warn('[app-updater] Auto-download enabled:', autoUpdater.autoDownload, '(manual download after version check)');
   console.warn('[app-updater] Debug mode:', DEBUG_UPDATER);
   console.warn('[app-updater] ========================================');
 
@@ -150,7 +221,16 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
 
   // Update available - new version found
   autoUpdater.on('update-available', (info) => {
-    console.warn('[app-updater] Update available:', info.version);
+    const currentVersion = autoUpdater.currentVersion.version;
+    const isNewer = compareVersions(info.version, currentVersion) > 0;
+    console.warn(`[app-updater] Update available: ${info.version} (current: ${currentVersion}, isNewer: ${isNewer})`);
+
+    // Skip if the "update" is actually a downgrade, unless it's an intentional downgrade
+    if (!isNewer && !intentionalDowngrade) {
+      console.warn('[app-updater] Ignoring update - not newer than current version');
+      return;
+    }
+
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.APP_UPDATE_AVAILABLE, {
         version: info.version,
@@ -158,11 +238,25 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
         releaseDate: info.releaseDate
       });
     }
+
+    // Download the update now that we've confirmed it's valid
+    autoUpdater.downloadUpdate().catch((error) => {
+      console.error('[app-updater] Failed to download update:', error.message);
+    });
   });
 
   // Update downloaded - ready to install
   autoUpdater.on('update-downloaded', (info) => {
-    console.warn('[app-updater] Update downloaded:', info.version);
+    const currentVersion = autoUpdater.currentVersion.version;
+    const isNewer = compareVersions(info.version, currentVersion) > 0;
+    console.warn(`[app-updater] Update downloaded: ${info.version} (current: ${currentVersion}, isNewer: ${isNewer})`);
+
+    // Skip if the downloaded "update" is actually a downgrade, unless intentional
+    if (!isNewer && !intentionalDowngrade) {
+      console.warn('[app-updater] Ignoring downloaded update - not newer than current version');
+      return;
+    }
+
     // Store downloaded update info so it persists across Settings page navigations
     downloadedUpdateInfo = {
       version: info.version,
@@ -559,22 +653,22 @@ export async function downloadStableVersion(): Promise<void> {
   setUpdateChannel('latest');
   // Enable downgrade to allow downloading older versions (e.g., stable when on beta)
   autoUpdater.allowDowngrade = true;
+  intentionalDowngrade = true;
   console.warn('[app-updater] Downloading stable version (allowDowngrade=true)...');
 
   try {
     // Force a fresh check on the stable channel, then download
     const result = await autoUpdater.checkForUpdates();
-    if (result) {
-      await autoUpdater.downloadUpdate();
-    } else {
+    if (!result) {
       throw new Error('No stable version available for download');
     }
   } catch (error) {
     console.error('[app-updater] Failed to download stable version:', error);
     throw error;
   } finally {
-    // Reset allowDowngrade to prevent unintended downgrades in normal update checks
+    // Reset flags to prevent unintended downgrades in normal update checks
     autoUpdater.allowDowngrade = false;
+    intentionalDowngrade = false;
   }
 }
 
