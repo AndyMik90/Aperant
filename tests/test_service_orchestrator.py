@@ -438,7 +438,7 @@ class TestEdgeCases:
 
     def test_nonexistent_directory(self):
         """Test handling of non-existent directory."""
-        fake_dir = Path("/nonexistent/path")
+        fake_dir = Path("/tmp/test-nonexistent-orchestrator-123456")
 
         # Should not crash - mock exists to avoid permission error
         with patch.object(Path, 'exists', return_value=False):
