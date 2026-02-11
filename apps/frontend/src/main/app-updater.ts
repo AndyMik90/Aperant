@@ -36,7 +36,7 @@ const GITHUB_REPO = 'Auto-Claude';
 const DEBUG_UPDATER = process.env.DEBUG_UPDATER === 'true' || process.env.NODE_ENV === 'development';
 
 // Configure electron-updater
-autoUpdater.autoDownload = true;  // Automatically download updates when available
+autoUpdater.autoDownload = false;  // We control downloads manually to prevent downgrades
 autoUpdater.autoInstallOnAppQuit = true;  // Automatically install on app quit
 
 // Update channels: 'latest' for stable, 'beta' for pre-release
@@ -118,6 +118,9 @@ let mainWindow: BrowserWindow | null = null;
 // Track downloaded update state so it persists across Settings page navigations
 let downloadedUpdateInfo: AppUpdateInfo | null = null;
 
+// Flag to allow intentional downgrades (e.g., switching from beta to stable)
+let intentionalDowngrade = false;
+
 /**
  * Initialize the app updater system
  *
@@ -140,7 +143,7 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
   console.warn('[app-updater] App packaged:', app.isPackaged);
   console.warn('[app-updater] Current version:', autoUpdater.currentVersion.version);
   console.warn('[app-updater] Update channel:', channel);
-  console.warn('[app-updater] Auto-download enabled:', autoUpdater.autoDownload);
+  console.warn('[app-updater] Auto-download enabled:', autoUpdater.autoDownload, '(manual download after version check)');
   console.warn('[app-updater] Debug mode:', DEBUG_UPDATER);
   console.warn('[app-updater] ========================================');
 
@@ -150,7 +153,16 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
 
   // Update available - new version found
   autoUpdater.on('update-available', (info) => {
-    console.warn('[app-updater] Update available:', info.version);
+    const currentVersion = autoUpdater.currentVersion.version;
+    const isNewer = compareVersions(info.version, currentVersion) > 0;
+    console.warn(`[app-updater] Update available: ${info.version} (current: ${currentVersion}, isNewer: ${isNewer})`);
+
+    // Skip if the "update" is actually a downgrade, unless it's an intentional downgrade
+    if (!isNewer && !intentionalDowngrade) {
+      console.warn('[app-updater] Ignoring update - not newer than current version');
+      return;
+    }
+
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.APP_UPDATE_AVAILABLE, {
         version: info.version,
@@ -158,11 +170,25 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
         releaseDate: info.releaseDate
       });
     }
+
+    // Download the update now that we've confirmed it's valid
+    autoUpdater.downloadUpdate().catch((error) => {
+      console.error('[app-updater] Failed to download update:', error.message);
+    });
   });
 
   // Update downloaded - ready to install
   autoUpdater.on('update-downloaded', (info) => {
-    console.warn('[app-updater] Update downloaded:', info.version);
+    const currentVersion = autoUpdater.currentVersion.version;
+    const isNewer = compareVersions(info.version, currentVersion) > 0;
+    console.warn(`[app-updater] Update downloaded: ${info.version} (current: ${currentVersion}, isNewer: ${isNewer})`);
+
+    // Skip if the downloaded "update" is actually a downgrade, unless intentional
+    if (!isNewer && !intentionalDowngrade) {
+      console.warn('[app-updater] Ignoring downloaded update - not newer than current version');
+      return;
+    }
+
     // Store downloaded update info so it persists across Settings page navigations
     downloadedUpdateInfo = {
       version: info.version,
@@ -559,22 +585,22 @@ export async function downloadStableVersion(): Promise<void> {
   setUpdateChannel('latest');
   // Enable downgrade to allow downloading older versions (e.g., stable when on beta)
   autoUpdater.allowDowngrade = true;
+  intentionalDowngrade = true;
   console.warn('[app-updater] Downloading stable version (allowDowngrade=true)...');
 
   try {
     // Force a fresh check on the stable channel, then download
     const result = await autoUpdater.checkForUpdates();
-    if (result) {
-      await autoUpdater.downloadUpdate();
-    } else {
+    if (!result) {
       throw new Error('No stable version available for download');
     }
   } catch (error) {
     console.error('[app-updater] Failed to download stable version:', error);
     throw error;
   } finally {
-    // Reset allowDowngrade to prevent unintended downgrades in normal update checks
+    // Reset flags to prevent unintended downgrades in normal update checks
     autoUpdater.allowDowngrade = false;
+    intentionalDowngrade = false;
   }
 }
 
