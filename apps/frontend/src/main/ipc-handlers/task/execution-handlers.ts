@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { IPCResult, TaskStartOptions, TaskStatus, ImageAttachment } from '../../../shared/types';
 import path from 'path';
-import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { spawnSync, execFileSync } from 'child_process';
 import { getToolPath } from '../../cli-tool-manager';
 import { AgentManager } from '../../agent';
@@ -17,30 +17,10 @@ import {
   createPlanIfNotExists,
   resetStuckSubtasks
 } from './plan-file-utils';
+import { writeFileAtomicSync } from '../../utils/atomic-file';
 import { findTaskWorktree } from '../../worktree-paths';
 import { projectStore } from '../../project-store';
 import { getIsolatedGitEnv, detectWorktreeBranch } from '../../utils/git-isolation';
-
-/**
- * Atomic file write to prevent TOCTOU race conditions.
- * Writes to a temporary file first, then atomically renames to target.
- * This ensures the target file is never in an inconsistent state.
- */
-function atomicWriteFileSync(filePath: string, content: string): void {
-  const tempPath = `${filePath}.${process.pid}.tmp`;
-  try {
-    writeFileSync(tempPath, content, 'utf-8');
-    renameSync(tempPath, filePath);
-  } catch (error) {
-    // Clean up temp file if rename failed
-    try {
-      unlinkSync(tempPath);
-    } catch {
-      // Ignore cleanup errors
-    }
-    throw error;
-  }
-}
 
 /**
  * Safe file read that handles missing files without TOCTOU issues.
@@ -846,7 +826,7 @@ export function registerTaskExecutionHandlers(
           resumed_at: new Date().toISOString(),
           resumed_by: 'user'
         });
-        atomicWriteFileSync(resumeFilePath, resumeContent);
+        writeFileAtomicSync(resumeFilePath, resumeContent);
         console.log(`[TASK_RESUME_PAUSED] Wrote RESUME file to: ${resumeFilePath}`);
 
         // Also write to worktree if it exists (backend may be running inside the worktree)
@@ -854,7 +834,7 @@ export function registerTaskExecutionHandlers(
         if (worktreePath) {
           const worktreeResumeFilePath = path.join(worktreePath, specsBaseDir, task.specId, 'RESUME');
           try {
-            atomicWriteFileSync(worktreeResumeFilePath, resumeContent);
+            writeFileAtomicSync(worktreeResumeFilePath, resumeContent);
             console.log(`[TASK_RESUME_PAUSED] Also wrote RESUME file to worktree: ${worktreeResumeFilePath}`);
           } catch (worktreeError) {
             // Non-fatal - main spec dir RESUME is sufficient
@@ -1014,7 +994,7 @@ export function registerTaskExecutionHandlers(
             let writeSucceededForComplete = false;
             for (const pathToUpdate of planPathsToUpdate) {
               try {
-                atomicWriteFileSync(pathToUpdate, planContent);
+                writeFileAtomicSync(pathToUpdate, planContent);
                 console.log(`[Recovery] Successfully wrote to: ${pathToUpdate}`);
                 writeSucceededForComplete = true;
               } catch (writeError) {
@@ -1150,7 +1130,7 @@ export function registerTaskExecutionHandlers(
               const restartPlanContent = JSON.stringify(plan, null, 2);
               for (const pathToUpdate of planPathsToUpdate) {
                 try {
-                  atomicWriteFileSync(pathToUpdate, restartPlanContent);
+                  writeFileAtomicSync(pathToUpdate, restartPlanContent);
                   console.log(`[Recovery] Wrote restart status to: ${pathToUpdate}`);
                 } catch (writeError) {
                   console.error(`[Recovery] Failed to write plan file for restart at ${pathToUpdate}:`, writeError);

@@ -15,7 +15,7 @@
  */
 
 import { mkdir, rename, unlink, writeFile, readFile } from 'fs/promises';
-import { existsSync } from 'fs';
+import { existsSync, writeFileSync, renameSync, unlinkSync } from 'fs';
 import path from 'path';
 import { randomBytes } from 'crypto';
 
@@ -80,6 +80,33 @@ export async function writeFileAtomic(
       console.warn(`Failed to cleanup temp file ${tempPath}:`, cleanupError);
     }
     throw error;
+  }
+}
+
+/**
+ * Synchronous variant of writeFileAtomic.
+ *
+ * Write data to file atomically using temp file and rename.
+ * Uses randomBytes for collision-safe temp file naming.
+ *
+ * @param filepath - Target file path
+ * @param data - Data to write (string or Buffer)
+ * @param encoding - File encoding (default: 'utf-8')
+ */
+export function writeFileAtomicSync(
+  filepath: string,
+  data: string | Buffer,
+  encoding: BufferEncoding = 'utf-8'
+): void {
+  const dir = path.dirname(filepath);
+  const tempSuffix = randomBytes(8).toString('hex');
+  const tempPath = path.join(dir, `.${path.basename(filepath)}.tmp.${tempSuffix}`);
+  try {
+    writeFileSync(tempPath, data, encoding);
+    renameSync(tempPath, filepath);
+  } catch (err) {
+    try { unlinkSync(tempPath); } catch { /* ignore cleanup */ }
+    throw err;
   }
 }
 

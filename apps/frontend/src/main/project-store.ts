@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, renameSync, unlinkSync, Dirent } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, Dirent } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask, KanbanPreferences, ExecutionPhase } from '../shared/types';
@@ -8,6 +8,7 @@ import { getAutoBuildPath, isInitialized } from './project-initializer';
 import { getTaskWorktreeDir } from './worktree-paths';
 import { findAllSpecPaths } from './utils/spec-path-helpers';
 import { ensureAbsolutePath } from './utils/path-helpers';
+import { writeFileAtomicSync } from './utils/atomic-file';
 
 interface TabState {
   openProjectIds: string[];
@@ -631,14 +632,7 @@ export class ProjectStore {
       };
       try {
         // Atomic write to prevent 0-byte corruption on crash
-        const tempPath = `${planPath}.${process.pid}.tmp`;
-        try {
-          writeFileSync(tempPath, JSON.stringify(correctedPlan, null, 2), 'utf-8');
-          renameSync(tempPath, planPath);
-        } catch (atomicErr) {
-          try { unlinkSync(tempPath); } catch { /* ignore cleanup */ }
-          throw atomicErr;
-        }
+        writeFileAtomicSync(planPath, JSON.stringify(correctedPlan, null, 2));
         // Write succeeded — apply mutations to the in-memory plan so the rest of
         // loadTasksFromSpecsDir sees the corrected values (e.g., executionProgress)
         Object.assign(plan, correctedPlan);
