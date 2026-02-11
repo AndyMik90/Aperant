@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, readdirSync, mkdirSync } from 'fs';
 import path from 'path';
 import {
   writeFileAtomic,
@@ -500,24 +500,23 @@ describe('writeFileAtomicSync', () => {
 
       writeFileAtomicSync(filePath, 'content');
 
-      const files = fsPromises.readdir(TEST_DIR);
-      return files.then(f => {
-        const tempFiles = f.filter(name => name.includes('.tmp.'));
-        expect(tempFiles).toHaveLength(0);
-      });
+      const files = readdirSync(TEST_DIR);
+      const tempFiles = files.filter(name => name.includes('.tmp.'));
+      expect(tempFiles).toHaveLength(0);
     });
 
-    it('should clean up temp file on write error', () => {
-      // Try to write to a path where the directory doesn't exist
-      const filePath = path.join(TEST_DIR, 'nonexistent-dir', 'file.txt');
+    it('should clean up temp file when rename fails', () => {
+      // Create a subdirectory as the "target" — renameSync will fail because
+      // you can't atomically replace a directory with a file
+      const dirTarget = path.join(TEST_DIR, 'is-a-dir');
+      mkdirSync(dirTarget);
 
-      expect(() => writeFileAtomicSync(filePath, 'content')).toThrow();
+      expect(() => writeFileAtomicSync(dirTarget, 'content')).toThrow();
 
-      // Verify no temp files left in TEST_DIR
-      return fsPromises.readdir(TEST_DIR).then(f => {
-        const tempFiles = f.filter(name => name.includes('.tmp.'));
-        expect(tempFiles).toHaveLength(0);
-      });
+      // Verify temp file was cleaned up (it was created in TEST_DIR)
+      const files = readdirSync(TEST_DIR);
+      const tempFiles = files.filter(name => name.includes('.tmp.'));
+      expect(tempFiles).toHaveLength(0);
     });
   });
 

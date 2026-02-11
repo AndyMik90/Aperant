@@ -89,6 +89,9 @@ export async function writeFileAtomic(
  * Write data to file atomically using temp file and rename.
  * Uses randomBytes for collision-safe temp file naming.
  *
+ * NOTE: Unlike writeFileAtomic, this function does NOT create parent directories.
+ * The caller must ensure the target directory exists.
+ *
  * @param filepath - Target file path
  * @param data - Data to write (string or Buffer)
  * @param encoding - File encoding (default: 'utf-8')
