@@ -217,33 +217,6 @@ body {
   box-shadow: 0 0 0 1px var(--primary), var(--shadow-lg);
 }
 
-/* Progress bar working animation */
-.progress-working {
-  position: relative;
-  overflow: hidden;
-}
-
-.progress-working::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.15) 50%,
-    transparent 100%
-  );
-  animation: progress-sweep 2s ease-in-out infinite;
-}
-
-@keyframes progress-sweep {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(200%); }
-}
-
 /* Status badge pulse for running tasks */
 .status-running {
   animation: status-pulse 2s ease-in-out infinite;

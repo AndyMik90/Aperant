@@ -19,12 +19,26 @@
     "npm": ">=10.0.0"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./*": "./src/*.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
   },
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
   "files": [
+    "dist",
     "src"
   ],
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
   "devDependencies": {
     "typescript": "^5.9.3"
   }

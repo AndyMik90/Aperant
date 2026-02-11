@@ -19,18 +19,50 @@
     "npm": ">=10.0.0"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./*": "./src/*.ts",
-    "./primitives": "./src/primitives/index.ts",
-    "./primitives/*": "./src/primitives/*.tsx",
-    "./primitives/use-toast": "./src/primitives/use-toast.ts",
-    "./core": "./src/core/index.ts",
-    "./specs": "./src/specs/index.ts",
-    "./personas": "./src/personas/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    },
+    "./primitives": {
+      "types": "./dist/primitives/index.d.ts",
+      "default": "./dist/primitives/index.js"
+    },
+    "./primitives/*": {
+      "types": "./dist/primitives/*.d.ts",
+      "default": "./dist/primitives/*.js"
+    },
+    "./primitives/use-toast": {
+      "types": "./dist/primitives/use-toast.d.ts",
+      "default": "./dist/primitives/use-toast.js"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "default": "./dist/core/index.js"
+    },
+    "./specs": {
+      "types": "./dist/specs/index.d.ts",
+      "default": "./dist/specs/index.js"
+    },
+    "./personas": {
+      "types": "./dist/personas/index.d.ts",
+      "default": "./dist/personas/index.js"
+    }
   },
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
   "files": [
+    "dist",
     "src"
   ],
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
   "peerDependencies": {
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

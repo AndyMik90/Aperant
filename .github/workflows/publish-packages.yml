@@ -47,6 +47,12 @@ jobs:
       - name: Typecheck @auto-claude/ui
         run: npx tsc --project libs/ui/tsconfig.json --noEmit
 
+      - name: Build @auto-claude/types
+        run: npx tsc --project libs/types/tsconfig.build.json
+
+      - name: Build @auto-claude/ui
+        run: npx tsc --project libs/ui/tsconfig.build.json
+
       - name: Typecheck frontend
         working-directory: apps/frontend
         run: npm run typecheck
@@ -71,6 +77,12 @@ jobs:
         uses: ./.github/actions/setup-node-frontend
         with:
           ignore-scripts: 'true'
+
+      - name: Build @auto-claude/types
+        run: npx tsc --project libs/types/tsconfig.build.json
+
+      - name: Build @auto-claude/ui
+        run: npx tsc --project libs/ui/tsconfig.build.json
 
       - name: Dry run publish @auto-claude/types
         run: npm publish --workspace libs/types --dry-run
@@ -103,12 +115,28 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Build @auto-claude/types
+        run: npx tsc --project libs/types/tsconfig.build.json
+
+      - name: Build @auto-claude/ui
+        run: npx tsc --project libs/ui/tsconfig.build.json
+
       - name: Publish @auto-claude/types
-        run: npm publish --workspace libs/types --access public --provenance
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./libs/types/package.json').version")
+          PUBLISHED=$(npm view @auto-claude/types@${PACKAGE_VERSION} version 2>/dev/null || echo "")
+          if [ "$PUBLISHED" = "$PACKAGE_VERSION" ]; then
+            echo "::notice::@auto-claude/types@${PACKAGE_VERSION} already published, skipping"
+          else
+            npm publish --workspace libs/types --access public --provenance
+          fi
 
       - name: Publish @auto-claude/ui
-        run: npm publish --workspace libs/ui --access public --provenance
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./libs/ui/package.json').version")
+          PUBLISHED=$(npm view @auto-claude/ui@${PACKAGE_VERSION} version 2>/dev/null || echo "")
+          if [ "$PUBLISHED" = "$PACKAGE_VERSION" ]; then
+            echo "::notice::@auto-claude/ui@${PACKAGE_VERSION} already published, skipping"
+          else
+            npm publish --workspace libs/ui --access public --provenance
+          fi
