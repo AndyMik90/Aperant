@@ -136,12 +136,16 @@ export function registerInvestigateIssue(
               if (notesPage.length === 0) {
                 hasMore = false;
               } else {
-                // Extract only needed fields (id, body, author.username)
-                const noteSummaries: GitLabNoteBasic[] = notesPage.map((note: unknown) => ({
-                  id: (note as { id: number }).id,
-                  body: (note as { body: string }).body,
-                  author: (note as { author: { username: string } }).author,
-                }));
+                // Extract only needed fields with null-safe defaults
+                const noteSummaries: GitLabNoteBasic[] = notesPage
+                  .filter((note: unknown): note is Record<string, unknown> =>
+                    note !== null && typeof note === 'object' && typeof (note as Record<string, unknown>).id === 'number'
+                  )
+                  .map((note) => ({
+                    id: note.id as number,
+                    body: (note.body as string | undefined) || '',
+                    author: (note.author as { username: string } | undefined) || { username: 'unknown' },
+                  }));
                 allNotes.push(...noteSummaries);
                 if (notesPage.length < perPage) {
                   hasMore = false;
