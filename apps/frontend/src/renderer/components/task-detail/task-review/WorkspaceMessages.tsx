@@ -58,7 +58,10 @@ export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
 
     setIsProceeding(true);
     try {
-      await startTaskOrQueue(task.id);
+      const result = await startTaskOrQueue(task.id);
+      if (!result.success) {
+        console.error('Error proceeding to coding:', result.error);
+      }
     } catch (err) {
       console.error('Error proceeding to coding:', err);
     } finally {

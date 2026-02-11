@@ -221,7 +221,8 @@
       "useWorktreeDescription": "Crée les changements dans un worktree git séparé pour une révision sécurisée avant la fusion. Désactivez pour travailler directement dans votre projet (plus rapide mais risqué)."
     },
     "errors": {
-      "createFailed": "Échec de la création de la tâche. Veuillez réessayer."
+      "createFailed": "Échec de la création de la tâche. Veuillez réessayer.",
+      "startFailed": "Échec du démarrage de la tâche"
     }
   },
   "feedback": {

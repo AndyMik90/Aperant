@@ -985,10 +985,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           variant: 'destructive'
         });
       }
-    } else if (oldStatus === 'in_progress' && newStatus !== 'in_progress') {
-      // A task left In Progress - check if we can promote from queue
-      await processQueue();
     }
+    // Note: queue auto-promotion when a task leaves in_progress is handled by the
+    // useEffect task status change listener (registerTaskStatusChangeListener), so
+    // no explicit processQueue() call is needed here.
   };
 
   /**

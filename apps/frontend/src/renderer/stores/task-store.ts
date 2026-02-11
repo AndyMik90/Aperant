@@ -843,12 +843,20 @@ export function isQueueAtCapacity(excludeTaskId?: string): boolean {
   return inProgressCount >= maxParallelTasks;
 }
 
+export interface StartTaskOrQueueResult {
+  /** Whether the task was started ('started') or redirected to queue ('queued') */
+  action: 'started' | 'queued';
+  success: boolean;
+  error?: string;
+}
+
 /**
  * Start a task or queue it if parallel task capacity is full.
  * If the task is already in_progress (stuck restart), it is excluded from the
  * capacity count so restarting is always allowed.
+ * Returns a result so callers can provide user-facing feedback on failure.
  */
-export async function startTaskOrQueue(taskId: string): Promise<void> {
+export async function startTaskOrQueue(taskId: string): Promise<StartTaskOrQueueResult> {
   const task = useTaskStore.getState().tasks.find(t => t.id === taskId);
   // Exclude this task from the capacity check when it's already in_progress (stuck restart)
   const excludeId = task?.status === 'in_progress' ? taskId : undefined;
@@ -857,11 +865,13 @@ export async function startTaskOrQueue(taskId: string): Promise<void> {
     const result = await persistTaskStatus(taskId, 'queue');
     if (!result.success) {
       console.error('[Queue] Failed to queue task:', taskId, result.error);
+      return { action: 'queued', success: false, error: result.error };
     }
-    return;
+    return { action: 'queued', success: true };
   }
 
   startTask(taskId);
+  return { action: 'started', success: true };
 }
 
 /**

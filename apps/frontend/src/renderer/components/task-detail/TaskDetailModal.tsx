@@ -105,7 +105,14 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           return;
         }
       }
-      await startTaskOrQueue(task.id);
+      const result = await startTaskOrQueue(task.id);
+      if (!result.success) {
+        toast({
+          title: t('tasks:errors.startFailed'),
+          description: result.error,
+          variant: 'destructive',
+        });
+      }
     }
   };
 
