@@ -1,41 +1,44 @@
-import * as React from 'react';
+import type * as React from "react";
 
 export interface AuthGateProps {
-  isAuthenticated: boolean;
-  children: React.ReactNode;
-  fallback?: React.ReactNode;
-  loginUrl?: string;
+	isAuthenticated: boolean;
+	children: React.ReactNode;
+	fallback?: React.ReactNode;
+	loginUrl?: string;
+	/** Override the default "Sign in to continue" link text */
+	loginLabel?: string;
 }
 
 const AuthGate: React.FC<AuthGateProps> = ({
-  isAuthenticated,
-  children,
-  fallback,
-  loginUrl,
+	isAuthenticated,
+	children,
+	fallback,
+	loginUrl,
+	loginLabel = "Sign in to continue",
 }) => {
-  if (isAuthenticated) {
-    return <>{children}</>;
-  }
+	if (isAuthenticated) {
+		return <>{children}</>;
+	}
 
-  if (fallback) {
-    return <>{fallback}</>;
-  }
+	if (fallback) {
+		return <>{fallback}</>;
+	}
 
-  if (loginUrl) {
-    return (
-      <div className="flex items-center justify-center p-6">
-        <a
-          href={loginUrl}
-          className="text-sm text-primary underline-offset-4 hover:underline"
-        >
-          Sign in to continue
-        </a>
-      </div>
-    );
-  }
+	if (loginUrl) {
+		return (
+			<div className="flex items-center justify-center p-6">
+				<a
+					href={loginUrl}
+					className="text-sm text-primary underline-offset-4 hover:underline"
+				>
+					{loginLabel}
+				</a>
+			</div>
+		);
+	}
 
-  return null;
+	return null;
 };
-AuthGate.displayName = 'AuthGate';
+AuthGate.displayName = "AuthGate";
 
 export { AuthGate };

@@ -4,232 +4,254 @@
  * Combines PersonaList with an inline editor form for creating/editing personas.
  * Pure prop-driven component with no direct store or i18n dependencies.
  */
-import * as React from 'react';
-import type { AgentProfile } from '@auto-claude/types';
-import { PersonaList } from './PersonaList';
-import { cn } from '../utils';
+
+import type { AgentProfile } from "@auto-claude/types";
+import * as React from "react";
+import { Button } from "../primitives/button";
+import { Input } from "../primitives/input";
+import { Label } from "../primitives/label";
+import { PersonaList } from "./PersonaList";
 
 export interface PersonaFormData {
-  name: string;
-  description: string;
-  model: string;
-  thinkingLevel: string;
-  icon?: string;
+	name: string;
+	description: string;
+	model: string;
+	thinkingLevel: string;
+	icon?: string;
+}
+
+export interface PersonaManagerLabels {
+	heading?: string;
+	createButton?: string;
+	createFormTitle?: string;
+	editFormTitle?: string;
+	nameLabel?: string;
+	descriptionLabel?: string;
+	modelLabel?: string;
+	thinkingLevelLabel?: string;
+	submitCreate?: string;
+	submitSave?: string;
+	cancel?: string;
 }
 
 export interface PersonaManagerProps {
-  personas: AgentProfile[];
-  activePersonaId?: string;
-  onCreate: (data: PersonaFormData) => void;
-  onUpdate: (id: string, data: PersonaFormData) => void;
-  onDelete: (id: string) => void;
-  onSelect?: (id: string) => void;
-  isLoading?: boolean;
-  maxPersonas?: number;
+	personas: AgentProfile[];
+	activePersonaId?: string;
+	onCreate: (data: PersonaFormData) => void;
+	onUpdate: (id: string, data: PersonaFormData) => void;
+	onDelete: (id: string) => void;
+	onSelect?: (id: string) => void;
+	isLoading?: boolean;
+	maxPersonas?: number;
+	/** Override default English labels for i18n */
+	labels?: PersonaManagerLabels;
 }
 
 const MODEL_OPTIONS = [
-  { value: 'opus', label: 'Opus' },
-  { value: 'sonnet', label: 'Sonnet' },
-  { value: 'haiku', label: 'Haiku' },
+	{ value: "opus", label: "Opus" },
+	{ value: "sonnet", label: "Sonnet" },
+	{ value: "haiku", label: "Haiku" },
 ] as const;
 
 const THINKING_OPTIONS = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
+	{ value: "low", label: "Low" },
+	{ value: "medium", label: "Medium" },
+	{ value: "high", label: "High" },
 ] as const;
 
 function PersonaManager({
-  personas,
-  activePersonaId,
-  onCreate,
-  onUpdate,
-  onDelete,
-  onSelect,
-  isLoading = false,
-  maxPersonas,
+	personas,
+	activePersonaId,
+	onCreate,
+	onUpdate,
+	onDelete,
+	onSelect,
+	isLoading = false,
+	maxPersonas,
+	labels,
 }: PersonaManagerProps) {
-  const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [isCreating, setIsCreating] = React.useState(false);
-  const [formData, setFormData] = React.useState<PersonaFormData>({
-    name: '',
-    description: '',
-    model: 'sonnet',
-    thinkingLevel: 'medium',
-  });
+	const [editingId, setEditingId] = React.useState<string | null>(null);
+	const [isCreating, setIsCreating] = React.useState(false);
+	const [formData, setFormData] = React.useState<PersonaFormData>({
+		name: "",
+		description: "",
+		model: "sonnet",
+		thinkingLevel: "medium",
+	});
 
-  const atLimit = maxPersonas !== undefined && personas.length >= maxPersonas;
+	const atLimit = maxPersonas !== undefined && personas.length >= maxPersonas;
 
-  const handleStartCreate = () => {
-    setEditingId(null);
-    setFormData({ name: '', description: '', model: 'sonnet', thinkingLevel: 'medium' });
-    setIsCreating(true);
-  };
+	const handleStartCreate = () => {
+		setEditingId(null);
+		setFormData({
+			name: "",
+			description: "",
+			model: "sonnet",
+			thinkingLevel: "medium",
+		});
+		setIsCreating(true);
+	};
 
-  const handleStartEdit = (id: string) => {
-    const persona = personas.find((p) => p.id === id);
-    if (!persona) return;
-    setIsCreating(false);
-    setEditingId(id);
-    setFormData({
-      name: persona.name,
-      description: persona.description,
-      model: persona.model,
-      thinkingLevel: persona.thinkingLevel,
-      icon: persona.icon,
-    });
-  };
+	const handleStartEdit = (id: string) => {
+		const persona = personas.find((p) => p.id === id);
+		if (!persona) return;
+		setIsCreating(false);
+		setEditingId(id);
+		setFormData({
+			name: persona.name,
+			description: persona.description,
+			model: persona.model,
+			thinkingLevel: persona.thinkingLevel,
+			icon: persona.icon,
+		});
+	};
 
-  const handleCancel = () => {
-    setEditingId(null);
-    setIsCreating(false);
-  };
+	const handleCancel = () => {
+		setEditingId(null);
+		setIsCreating(false);
+	};
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name.trim()) return;
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!formData.name.trim()) return;
 
-    if (isCreating) {
-      onCreate(formData);
-    } else if (editingId) {
-      onUpdate(editingId, formData);
-    }
-    handleCancel();
-  };
+		if (isCreating) {
+			onCreate(formData);
+		} else if (editingId) {
+			onUpdate(editingId, formData);
+		}
+		handleCancel();
+	};
 
-  const renderForm = () => (
-    <form
-      onSubmit={handleSubmit}
-      className="rounded-lg border border-border bg-card p-4 space-y-3"
-    >
-      <h4 className="text-sm font-medium">
-        {isCreating ? 'Create Persona' : 'Edit Persona'}
-      </h4>
+	const selectClass =
+		"flex h-9 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50 transition-colors duration-200";
 
-      <div className="space-y-2">
-        <label className="block text-xs font-medium text-muted-foreground" htmlFor="persona-name">
-          Name
-        </label>
-        <input
-          id="persona-name"
-          type="text"
-          className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary"
-          value={formData.name}
-          onChange={(e) => setFormData((d) => ({ ...d, name: e.target.value }))}
-          placeholder="Persona name"
-          required
-        />
-      </div>
+	const renderForm = () => (
+		<form
+			onSubmit={handleSubmit}
+			className="rounded-lg border border-border bg-card p-4 space-y-3"
+		>
+			<h4 className="text-sm font-medium">
+				{isCreating
+					? (labels?.createFormTitle ?? "Create Persona")
+					: (labels?.editFormTitle ?? "Edit Persona")}
+			</h4>
 
-      <div className="space-y-2">
-        <label className="block text-xs font-medium text-muted-foreground" htmlFor="persona-desc">
-          Description
-        </label>
-        <input
-          id="persona-desc"
-          type="text"
-          className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary"
-          value={formData.description}
-          onChange={(e) => setFormData((d) => ({ ...d, description: e.target.value }))}
-          placeholder="Brief description"
-        />
-      </div>
+			<div className="space-y-2">
+				<Label htmlFor="persona-name">{labels?.nameLabel ?? "Name"}</Label>
+				<Input
+					id="persona-name"
+					type="text"
+					value={formData.name}
+					onChange={(e) => setFormData((d) => ({ ...d, name: e.target.value }))}
+					placeholder="Persona name"
+					required
+				/>
+			</div>
 
-      <div className="flex gap-3">
-        <div className="flex-1 space-y-2">
-          <label className="block text-xs font-medium text-muted-foreground" htmlFor="persona-model">
-            Model
-          </label>
-          <select
-            id="persona-model"
-            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary"
-            value={formData.model}
-            onChange={(e) => setFormData((d) => ({ ...d, model: e.target.value }))}
-          >
-            {MODEL_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
+			<div className="space-y-2">
+				<Label htmlFor="persona-desc">
+					{labels?.descriptionLabel ?? "Description"}
+				</Label>
+				<Input
+					id="persona-desc"
+					type="text"
+					value={formData.description}
+					onChange={(e) =>
+						setFormData((d) => ({ ...d, description: e.target.value }))
+					}
+					placeholder="Brief description"
+				/>
+			</div>
 
-        <div className="flex-1 space-y-2">
-          <label className="block text-xs font-medium text-muted-foreground" htmlFor="persona-thinking">
-            Thinking Level
-          </label>
-          <select
-            id="persona-thinking"
-            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary"
-            value={formData.thinkingLevel}
-            onChange={(e) => setFormData((d) => ({ ...d, thinkingLevel: e.target.value }))}
-          >
-            {THINKING_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+			<div className="flex gap-3">
+				<div className="flex-1 space-y-2">
+					<Label htmlFor="persona-model">{labels?.modelLabel ?? "Model"}</Label>
+					<select
+						id="persona-model"
+						className={selectClass}
+						value={formData.model}
+						onChange={(e) =>
+							setFormData((d) => ({ ...d, model: e.target.value }))
+						}
+					>
+						{MODEL_OPTIONS.map((opt) => (
+							<option key={opt.value} value={opt.value}>
+								{opt.label}
+							</option>
+						))}
+					</select>
+				</div>
 
-      <div className="flex items-center gap-2 pt-1">
-        <button
-          type="submit"
-          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-        >
-          {isCreating ? 'Create' : 'Save'}
-        </button>
-        <button
-          type="button"
-          className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          onClick={handleCancel}
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
+				<div className="flex-1 space-y-2">
+					<Label htmlFor="persona-thinking">
+						{labels?.thinkingLevelLabel ?? "Thinking Level"}
+					</Label>
+					<select
+						id="persona-thinking"
+						className={selectClass}
+						value={formData.thinkingLevel}
+						onChange={(e) =>
+							setFormData((d) => ({ ...d, thinkingLevel: e.target.value }))
+						}
+					>
+						{THINKING_OPTIONS.map((opt) => (
+							<option key={opt.value} value={opt.value}>
+								{opt.label}
+							</option>
+						))}
+					</select>
+				</div>
+			</div>
 
-  return (
-    <div className="space-y-4">
-      {/* Header with create button */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">Personas</h3>
-        {!isCreating && !editingId && (
-          <button
-            type="button"
-            className={cn(
-              'rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors',
-              atLimit
-                ? 'cursor-not-allowed opacity-50'
-                : 'hover:bg-primary/90',
-            )}
-            onClick={handleStartCreate}
-            disabled={atLimit}
-            title={atLimit ? `Maximum of ${maxPersonas} personas reached` : undefined}
-          >
-            New Persona
-          </button>
-        )}
-      </div>
+			<div className="flex items-center gap-2 pt-1">
+				<Button type="submit" size="sm">
+					{isCreating
+						? (labels?.submitCreate ?? "Create")
+						: (labels?.submitSave ?? "Save")}
+				</Button>
+				<Button type="button" variant="ghost" size="sm" onClick={handleCancel}>
+					{labels?.cancel ?? "Cancel"}
+				</Button>
+			</div>
+		</form>
+	);
 
-      {/* Inline editor form */}
-      {(isCreating || editingId) && renderForm()}
+	return (
+		<div className="space-y-4">
+			{/* Header with create button */}
+			<div className="flex items-center justify-between">
+				<h3 className="text-sm font-medium">{labels?.heading ?? "Personas"}</h3>
+				{!isCreating && !editingId && (
+					<Button
+						type="button"
+						size="sm"
+						onClick={handleStartCreate}
+						disabled={atLimit}
+						title={
+							atLimit ? `Maximum of ${maxPersonas} personas reached` : undefined
+						}
+					>
+						{labels?.createButton ?? "New Persona"}
+					</Button>
+				)}
+			</div>
 
-      {/* Persona list */}
-      <PersonaList
-        personas={personas}
-        isLoading={isLoading}
-        onEdit={handleStartEdit}
-        onDelete={onDelete}
-        onSelect={onSelect}
-        activePersonaId={activePersonaId}
-        emptyStateMessage="No personas configured. Create one to get started."
-      />
-    </div>
-  );
+			{/* Inline editor form */}
+			{(isCreating || editingId) && renderForm()}
+
+			{/* Persona list */}
+			<PersonaList
+				personas={personas}
+				isLoading={isLoading}
+				onEdit={handleStartEdit}
+				onDelete={onDelete}
+				onSelect={onSelect}
+				activePersonaId={activePersonaId}
+				emptyStateMessage="No personas configured. Create one to get started."
+			/>
+		</div>
+	);
 }
 
 export { PersonaManager };

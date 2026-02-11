@@ -21,8 +21,12 @@
   "exports": {
     ".": "./src/index.ts",
     "./*": "./src/*.ts",
+    "./primitives": "./src/primitives/index.ts",
     "./primitives/*": "./src/primitives/*.tsx",
-    "./primitives/use-toast": "./src/primitives/use-toast.ts"
+    "./primitives/use-toast": "./src/primitives/use-toast.ts",
+    "./core": "./src/core/index.ts",
+    "./specs": "./src/specs/index.ts",
+    "./personas": "./src/personas/index.ts"
   },
   "files": [
     "src"
@@ -30,7 +34,9 @@
   "peerDependencies": {
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "@auto-claude/types": "2.7.6-beta.3"
+    "@auto-claude/types": "2.7.6-beta.3",
+    "react-i18next": ">=14.0.0",
+    "i18next": ">=23.0.0"
   },
   "dependencies": {
     "clsx": "^2.1.1",

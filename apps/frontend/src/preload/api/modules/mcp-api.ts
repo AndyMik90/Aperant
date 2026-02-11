@@ -6,7 +6,7 @@
 
 import { ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants/ipc';
-import type { IPCResult } from '../../../shared/types/common';
+import type { IPCResult } from '@auto-claude/types';
 import type { CustomMcpServer, McpHealthCheckResult, McpTestConnectionResult } from '../../../shared/types/project';
 
 export interface McpAPI {

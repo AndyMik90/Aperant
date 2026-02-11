@@ -2,9 +2,7 @@
  * IPC (Inter-Process Communication) types for Electron API
  */
 
-import type { IPCResult } from './common';
-import type { KanbanPreferences } from './kanban';
-import type { SupportedIDE, SupportedTerminal } from './settings';
+import type { IPCResult, KanbanPreferences, SupportedIDE, SupportedTerminal } from '@auto-claude/types';
 import type {
   Project,
   ProjectSettings,

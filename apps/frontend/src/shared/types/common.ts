@@ -1,10 +1,5 @@
 /**
- * Common utility types shared across the application
+ * Re-exports common types from @auto-claude/types.
+ * Kept for backwards compatibility — prefer importing directly from '@auto-claude/types'.
  */
-
-// IPC Types
-export interface IPCResult<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
+export type { IPCResult } from '@auto-claude/types';

@@ -5,4 +5,4 @@ export { PersonaList } from './PersonaList';
 export type { PersonaListProps } from './PersonaList';
 
 export { PersonaManager } from './PersonaManager';
-export type { PersonaManagerProps, PersonaFormData } from './PersonaManager';
+export type { PersonaManagerProps, PersonaManagerLabels, PersonaFormData } from './PersonaManager';
