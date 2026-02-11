@@ -1460,41 +1460,6 @@ def successful_agent_fn():
 
 
 @pytest.fixture
-def standard_build_mocks(
-    mock_validate_env,
-    mock_should_run_qa,
-    mock_get_phase_model,
-    mock_choose_workspace,
-    mock_get_existing,
-):
-    """
-    Standard happy-path mock configuration for build command tests.
-
-    Replaces the duplicated 5-line mock setup pattern that was repeated 20+ times
-    across test_cli_build_commands.py.
-
-    Usage:
-        def test_something(standard_build_mocks, mock_run_agent, successful_agent_fn):
-            # All standard mocks are configured
-            mock_run_agent.side_effect = successful_agent_fn
-    """
-    from core.worktree import WorkspaceMode
-
-    mock_validate_env.return_value = True
-    mock_should_run_qa.return_value = False
-    mock_get_phase_model.side_effect = lambda spec_dir, phase, model: model or "sonnet"
-    mock_choose_workspace.return_value = WorkspaceMode.DIRECT
-    mock_get_existing.return_value = None
-    return {
-        'validate_env': mock_validate_env,
-        'should_run_qa': mock_should_run_qa,
-        'get_phase_model': mock_get_phase_model,
-        'choose_workspace': mock_choose_workspace,
-        'get_existing': mock_get_existing,
-    }
-
-
-@pytest.fixture
 def worktree_manager(temp_project_dir):
     """Create a WorktreeManager instance."""
     from core.worktree import WorktreeManager

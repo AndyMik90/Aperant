@@ -105,11 +105,15 @@ class TestHandleBuildCommandApproval:
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
-        successful_agent_fn,
-        standard_build_mocks,
+        successful_agent_fn
     ):
         """Build proceeds when spec has valid approval."""
         # Setup
+        mock_validate_env.return_value = True
+        mock_should_run_qa.return_value = False
+        mock_get_phase_model.side_effect = lambda spec_dir, phase, model: model or "sonnet"
+        mock_choose_workspace.return_value = WorkspaceMode.DIRECT
+        mock_get_existing.return_value = None
         mock_run_agent.side_effect = successful_agent_fn
 
         # Execute - should not raise SystemExit
@@ -175,14 +179,18 @@ class TestHandleBuildCommandApproval:
         mock_get_existing,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_should_run_qa,
         mock_get_phase_model,
         build_spec_dir,
-        temp_git_repo,
+        temp_git_repo
     ):
         """Build proceeds with --force despite missing approval."""
         # Setup
+        mock_validate_env.return_value = True
+        mock_should_run_qa.return_value = False
+        mock_get_phase_model.side_effect = lambda spec_dir, phase, model: model or "sonnet"
+        mock_choose_workspace.return_value = WorkspaceMode.DIRECT
+        mock_get_existing.return_value = None
         mock_run_agent.side_effect = successful_agent_fn
 
         # Execute - should not raise SystemExit
@@ -301,15 +309,19 @@ class TestHandleBuildCommandModels:
         mock_get_existing,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
-        capsys,
+        capsys
     ):
         """Build uses default model when none specified."""
         # Setup
+        mock_validate_env.return_value = True
+        mock_should_run_qa.return_value = False
+        mock_get_phase_model.side_effect = lambda spec_dir, phase, model: model or "sonnet"
+        mock_choose_workspace.return_value = WorkspaceMode.DIRECT
+        mock_get_existing.return_value = None
         mock_run_agent.side_effect = successful_agent_fn
 
         # Execute
@@ -398,15 +410,19 @@ class TestHandleBuildCommandMaxIterations:
         mock_get_existing,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
-        capsys,
+        capsys
     ):
         """Build displays max_iterations when specified."""
         # Setup
+        mock_validate_env.return_value = True
+        mock_should_run_qa.return_value = False
+        mock_get_phase_model.side_effect = lambda spec_dir, phase, model: model or "sonnet"
+        mock_choose_workspace.return_value = WorkspaceMode.DIRECT
+        mock_get_existing.return_value = None
         mock_run_agent.side_effect = successful_agent_fn
 
         # Execute
@@ -501,11 +517,10 @@ class TestHandleBuildCommandWorkspace:
         mock_setup_workspace,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
-        temp_git_repo,
+        temp_git_repo
     ):
         """Build uses isolated workspace when forced."""
         # Setup
@@ -606,12 +621,11 @@ class TestHandleBuildCommandQA:
         mock_get_existing,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_run_qa,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
-        temp_git_repo,
+        temp_git_repo
     ):
         """Build runs QA validation when not skipped."""
         # Setup
@@ -715,12 +729,11 @@ class TestHandleBuildCommandAutoContinue:
         mock_get_existing,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
-        capsys,
+        capsys
     ):
         """Auto-continue mode resumes existing build without prompting."""
         # Setup
@@ -988,12 +1001,11 @@ class TestHandleBuildCommandErrors:
         mock_get_existing,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
-        capsys,
+        capsys
     ):
         """Build handles exceptions from agent gracefully."""
         # Setup
@@ -1108,12 +1120,11 @@ class TestHandleBuildCommandModelDisplay:
         mock_get_existing,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
-        capsys,
+        capsys
     ):
         """Build displays short model names when models have hyphens (line 109)."""
         # Setup
@@ -1175,12 +1186,11 @@ class TestHandleBuildCommandExistingBuild:
         mock_check_existing,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
-        capsys,
+        capsys
     ):
         """Existing build handling with auto_continue mode (lines 174-177)."""
         # Setup
@@ -1285,11 +1295,10 @@ class TestHandleBuildCommandExistingBuild:
         mock_check_existing,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
-        temp_git_repo,
+        temp_git_repo
     ):
         """Existing build handling when user chooses fresh start (lines 183-185)."""
         # Setup
@@ -1346,11 +1355,10 @@ class TestHandleBuildCommandBaseBranch:
         mock_get_existing,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
-        temp_git_repo,
+        temp_git_repo
     ):
         """Build uses base_branch from task_metadata.json (lines 203-207)."""
         # Setup
@@ -1463,13 +1471,12 @@ class TestHandleBuildCommandQAOutcomes:
         mock_get_existing,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_run_qa,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
-        capsys,
+        capsys
     ):
         """QA incomplete shows appropriate message (lines 281-289)."""
         # Setup
@@ -1570,13 +1577,12 @@ class TestHandleBuildCommandQAOutcomes:
         mock_get_existing,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_run_qa,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
-        capsys,
+        capsys
     ):
         """QA keyboard interrupt shows resume message (lines 297-300)."""
         # Setup
@@ -1641,11 +1647,10 @@ class TestHandleBuildCommandWorkspaceFinalization:
         mock_setup_workspace,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
-        temp_git_repo,
+        temp_git_repo
     ):
         """Workspace finalization with auto_continue mode (lines 305-313)."""
         # Setup
@@ -1768,10 +1773,9 @@ class TestHandleBuildCommandOuterInterrupt:
         mock_get_existing,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_get_phase_model,
         approved_build_spec,
-        temp_git_repo,
+        temp_git_repo
     ):
         """KeyboardInterrupt in outer try block calls interrupt handler (line 316)."""
         # Setup
@@ -2068,11 +2072,10 @@ class TestHandleBuildCommandLocalBranch:
         mock_setup_workspace,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
-        temp_git_repo,
+        temp_git_repo
     ):
         """Build uses use_local_branch from task_metadata.json (lines 210-211, 222)."""
         # Setup
@@ -2144,11 +2147,10 @@ class TestHandleBuildCommandSourceSpecSync:
         mock_setup_workspace,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
-        temp_git_repo,
+        temp_git_repo
     ):
         """Isolated mode tracks source spec directory for syncing (lines 213-214, 249)."""
         # Setup
@@ -2211,14 +2213,13 @@ class TestHandleBuildCommandQAApproved:
         mock_get_existing,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_sync_spec,
         mock_run_qa,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
         temp_git_repo,
-        capsys,
+        capsys
     ):
         """QA approval shows production-ready message (lines 274-279)."""
         # Setup
@@ -2280,11 +2281,10 @@ class TestHandleBuildCommandLocalizedSpec:
         mock_setup_workspace,
         mock_run_agent,
         successful_agent_fn,
-        standard_build_mocks,
         mock_should_run_qa,
         mock_get_phase_model,
         approved_build_spec,
-        temp_git_repo,
+        temp_git_repo
     ):
         """Isolated mode uses localized spec directory for AI access (lines 224-226)."""
         # Setup
