@@ -100,6 +100,7 @@
     "remark-gfm": "^4.0.1",
     "semver": "^7.7.3",
     "tailwind-merge": "^3.4.0",
+    "undici": "^7.21.0",
     "uuid": "^13.0.0",
     "xstate": "^5.26.0",
     "zod": "^4.2.1",

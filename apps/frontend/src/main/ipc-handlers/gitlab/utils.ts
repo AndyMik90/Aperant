@@ -5,6 +5,7 @@
 import { readFile, access } from 'fs/promises';
 import { execFileSync } from 'child_process';
 import path from 'path';
+import { Agent as UndiciAgent } from 'undici';
 import type { Project } from '../../../shared/types';
 import { parseEnvFile } from '../utils';
 import type { GitLabConfig } from './types';
@@ -39,6 +40,16 @@ function getSslVerify(instanceUrl: string): boolean {
 // Error Extraction
 // ============================================
 
+// Known TLS error codes — hoisted to module scope to avoid re-allocation per call.
+const SSL_ERROR_CODES = new Set([
+  'DEPTH_ZERO_SELF_SIGNED_CERT',
+  'SELF_SIGNED_CERT_IN_CHAIN',
+  'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+  'CERT_HAS_EXPIRED',
+  'ERR_TLS_CERT_ALTNAME_INVALID',
+  'CERT_UNTRUSTED',
+]);
+
 /**
  * Extract a human-readable error message from a fetch failure.
  *
@@ -57,16 +68,8 @@ function extractFetchErrorMessage(error: unknown): string {
     const causeCode = cause.code || '';
 
     // SSL / TLS certificate errors — check code first (more reliable), then message
-    const SSL_CODES = new Set([
-      'DEPTH_ZERO_SELF_SIGNED_CERT',
-      'SELF_SIGNED_CERT_IN_CHAIN',
-      'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
-      'CERT_HAS_EXPIRED',
-      'ERR_TLS_CERT_ALTNAME_INVALID',
-      'CERT_UNTRUSTED',
-    ]);
     if (
-      SSL_CODES.has(causeCode) ||
+      SSL_ERROR_CODES.has(causeCode) ||
       causeMsg.includes('SELF_SIGNED_CERT') ||
       causeMsg.includes('unable to verify the first certificate')
     ) {
@@ -346,25 +349,16 @@ const GITLAB_API_TIMEOUT_MS = 30000;
 // to control TLS per-request, avoiding mutation of global process.env.
 
 // Lazy singleton — created on first use, reused for all insecure requests.
-let insecureDispatcher: unknown | undefined;
+let insecureDispatcher: UndiciAgent | undefined;
 
 /**
  * Return a fetch `dispatcher` that skips TLS certificate verification.
  * Returns `undefined` when SSL verification is enabled (use default behavior).
  */
-function getInsecureDispatcher(): unknown {
+function getInsecureDispatcher(): UndiciAgent | undefined {
   if (insecureDispatcher) return insecureDispatcher;
-  try {
-    // undici ships with Node.js 18+ and is available in Electron's main process.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const undici = require('undici');
-    insecureDispatcher = new undici.Agent({ connect: { rejectUnauthorized: false } });
-    return insecureDispatcher;
-  } catch {
-    // Shouldn't happen in Electron 39+ / Node.js 22+, but log if it does.
-    console.warn('[GitLab] undici not available — SSL bypass will not work.');
-    return undefined;
-  }
+  insecureDispatcher = new UndiciAgent({ connect: { rejectUnauthorized: false } });
+  return insecureDispatcher;
 }
 
 /**
@@ -397,6 +391,8 @@ export async function gitlabFetch(
   const timeoutId = setTimeout(() => controller.abort(), GITLAB_API_TIMEOUT_MS);
 
   try {
+    // Widen RequestInit with Record<string, unknown> to allow undici's non-standard
+    // `dispatcher` property for per-request SSL bypass. Do not remove — see getInsecureDispatcher().
     const fetchOptions: RequestInit & Record<string, unknown> = {
       ...options,
       signal: controller.signal,
@@ -425,7 +421,7 @@ export async function gitlabFetch(
     // Extract the real cause for network-level failures (SSL, DNS, etc.)
     const message = extractFetchErrorMessage(error);
     console.warn(`[GitLab] API request failed: ${endpoint} → ${message}`);
-    throw new Error(message);
+    throw new Error(message, { cause: error });
   } finally {
     clearTimeout(timeoutId);
   }
