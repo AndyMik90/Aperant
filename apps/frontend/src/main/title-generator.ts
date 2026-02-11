@@ -2,14 +2,13 @@ import path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { spawn } from 'child_process';
 import { EventEmitter } from 'events';
-import * as Sentry from '@sentry/electron/main';
 import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv } from './rate-limit-detector';
 import { parsePythonCommand, getValidatedPythonPath } from './python-detector';
 import { pythonEnvManager, getConfiguredPythonPath } from './python-env-manager';
 import { getAPIProfileEnv } from './services/profile';
 import { getOAuthModeClearVars } from './agent/env-utils';
 import { getEffectiveSourcePath } from './updater/path-resolver';
-import { getSentryEnvForSubprocess } from './sentry';
+import { getSentryEnvForSubprocess, safeBreadcrumb, safeCaptureException } from './sentry';
 import { maskUserPaths } from '../shared/utils/sentry-privacy';
 
 /**
@@ -127,28 +126,24 @@ export class TitleGenerator extends EventEmitter {
 
     if (!autoBuildSource) {
       debug('Auto-claude source path not found');
-      try {
-        Sentry.addBreadcrumb({
-          category: 'title-generator',
-          message: 'Source path not found',
-          level: 'warning',
-          data: {
-            hasConfiguredPath: !!this.autoBuildSourcePath,
-            effectivePathExists: existsSync(getEffectiveSourcePath()),
-          },
-        });
-      } catch { /* Sentry not initialized */ }
+      safeBreadcrumb({
+        category: 'title-generator',
+        message: 'Source path not found',
+        level: 'warning',
+        data: {
+          hasConfiguredPath: !!this.autoBuildSourcePath,
+          effectivePathExists: existsSync(getEffectiveSourcePath()),
+        },
+      });
       return null;
     }
 
-    try {
-      Sentry.addBreadcrumb({
-        category: 'title-generator',
-        message: 'Source path resolved',
-        level: 'info',
-        data: { sourcePath: maskUserPaths(autoBuildSource) },
-      });
-    } catch { /* Sentry not initialized */ }
+    safeBreadcrumb({
+      category: 'title-generator',
+      message: 'Source path resolved',
+      level: 'info',
+      data: { sourcePath: maskUserPaths(autoBuildSource) },
+    });
 
     const prompt = this.createTitlePrompt(description);
     const script = this.createGenerationScript(prompt);
@@ -191,49 +186,43 @@ export class TitleGenerator extends EventEmitter {
       profileEnvClearsOAuthToken: profileEnv.CLAUDE_CODE_OAUTH_TOKEN === ''
     });
 
-    // Resolve Python path and add breadcrumb
+    // Resolve Python path and check env readiness
     const resolvedPythonPath = this.pythonPath;
     const venvReady = pythonEnvManager.isEnvReady();
-    try {
-      Sentry.addBreadcrumb({
+
+    safeBreadcrumb({
+      category: 'title-generator',
+      message: 'Python path resolved',
+      level: 'info',
+      data: {
+        pythonPath: maskUserPaths(resolvedPythonPath),
+        venvReady,
+        isApiProfileActive,
+        hasOAuthEnv: !!profileEnv.CLAUDE_CONFIG_DIR,
+      },
+    });
+
+    // Guard: if Python env isn't ready, log and fall back gracefully
+    if (!venvReady) {
+      debug('Python environment not ready, skipping title generation');
+      safeBreadcrumb({
         category: 'title-generator',
-        message: 'Python path resolved',
-        level: 'info',
-        data: {
-          pythonPath: maskUserPaths(resolvedPythonPath),
-          venvReady,
-          isApiProfileActive,
-          hasOAuthEnv: !!profileEnv.CLAUDE_CONFIG_DIR,
-        },
+        message: 'Python environment not ready - skipping title generation',
+        level: 'warning',
       });
-    } catch { /* Sentry not initialized */ }
+      return null;
+    }
 
     return new Promise((resolve) => {
       // Parse Python command to handle space-separated commands like "py -3"
       const [pythonCommand, pythonBaseArgs] = parsePythonCommand(resolvedPythonPath);
 
-      try {
-        Sentry.addBreadcrumb({
-          category: 'title-generator',
-          message: 'Spawning process',
-          level: 'info',
-          data: { pythonCommand: maskUserPaths(pythonCommand) },
-        });
-      } catch { /* Sentry not initialized */ }
-
-      // Guard: if Python env isn't ready, log and fall back gracefully
-      if (!pythonEnvManager.isEnvReady()) {
-        debug('Python environment not ready, skipping title generation');
-        try {
-          Sentry.addBreadcrumb({
-            category: 'title-generator',
-            message: 'Python environment not ready - skipping title generation',
-            level: 'warning',
-          });
-        } catch { /* Sentry not initialized */ }
-        resolve(null);
-        return;
-      }
+      safeBreadcrumb({
+        category: 'title-generator',
+        message: 'Spawning process',
+        level: 'info',
+        data: { pythonCommand: maskUserPaths(pythonCommand) },
+      });
 
       const childProcess = spawn(pythonCommand, [...pythonBaseArgs, '-c', script], {
         cwd: autoBuildSource,
@@ -244,6 +233,7 @@ export class TitleGenerator extends EventEmitter {
           ...profileEnv, // Claude OAuth profile - includes CLAUDE_CONFIG_DIR and clears CLAUDE_CODE_OAUTH_TOKEN
           ...apiProfileEnv, // API profile (ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, etc.)
           ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
+          PYTHONUNBUFFERED: '1', // Ensure stdout isn't buffered (critical for reading output before kill/timeout)
         }
       });
 
@@ -251,23 +241,21 @@ export class TitleGenerator extends EventEmitter {
       let errorOutput = '';
       const timeout = setTimeout(() => {
         console.warn('[TitleGenerator] Title generation timed out after 60s');
-        try {
-          Sentry.addBreadcrumb({
-            category: 'title-generator',
-            message: 'Process timed out after 60s',
-            level: 'warning',
-          });
-          Sentry.captureException(new Error('TitleGenerator: process timed out'), {
-            contexts: {
-              titleGenerator: {
-                pythonPath: maskUserPaths(resolvedPythonPath),
-                sourcePath: maskUserPaths(autoBuildSource),
-                venvReady,
-                stderrSnippet: maskUserPaths(errorOutput.substring(0, 500)),
-              },
+        safeBreadcrumb({
+          category: 'title-generator',
+          message: 'Process timed out after 60s',
+          level: 'warning',
+        });
+        safeCaptureException(new Error('TitleGenerator: process timed out'), {
+          contexts: {
+            titleGenerator: {
+              pythonPath: maskUserPaths(resolvedPythonPath),
+              sourcePath: maskUserPaths(autoBuildSource),
+              venvReady,
+              stderrSnippet: maskUserPaths(errorOutput.substring(0, 500)),
             },
-          });
-        } catch { /* Sentry not initialized */ }
+          },
+        });
         childProcess.kill();
         resolve(null);
       }, 60000); // 60 second timeout for SDK initialization + API call
@@ -286,13 +274,11 @@ export class TitleGenerator extends EventEmitter {
         if (code === 0 && output.trim()) {
           const title = this.cleanTitle(output.trim());
           debug('Generated title:', title);
-          try {
-            Sentry.addBreadcrumb({
-              category: 'title-generator',
-              message: 'Title generated successfully',
-              level: 'info',
-            });
-          } catch { /* Sentry not initialized */ }
+          safeBreadcrumb({
+            category: 'title-generator',
+            message: 'Title generated successfully',
+            level: 'info',
+          });
           resolve(title);
         } else {
           // Check for rate limit
@@ -305,17 +291,15 @@ export class TitleGenerator extends EventEmitter {
               suggestedProfile: rateLimitDetection.suggestedProfile?.name
             });
 
-            try {
-              Sentry.addBreadcrumb({
-                category: 'title-generator',
-                message: 'Rate limit detected',
-                level: 'warning',
-                data: {
-                  limitType: rateLimitDetection.limitType,
-                  resetTime: rateLimitDetection.resetTime,
-                },
-              });
-            } catch { /* Sentry not initialized */ }
+            safeBreadcrumb({
+              category: 'title-generator',
+              message: 'Rate limit detected',
+              level: 'warning',
+              data: {
+                limitType: rateLimitDetection.limitType,
+                resetTime: rateLimitDetection.resetTime,
+              },
+            });
 
             const rateLimitInfo = createSDKRateLimitInfo('title-generator', rateLimitDetection);
             this.emit('sdk-rate-limit', rateLimitInfo);
@@ -329,24 +313,22 @@ export class TitleGenerator extends EventEmitter {
             isRateLimited: rateLimitDetection.isRateLimited
           });
 
-          try {
-            Sentry.captureException(
-              new Error(`TitleGenerator: process exited with code ${code}`),
-              {
-                contexts: {
-                  titleGenerator: {
-                    exitCode: code,
-                    pythonPath: maskUserPaths(resolvedPythonPath),
-                    sourcePath: maskUserPaths(autoBuildSource),
-                    venvReady,
-                    isRateLimited: rateLimitDetection.isRateLimited,
-                    isApiProfileActive,
-                    stderrSnippet: maskUserPaths(errorOutput.substring(0, 500)),
-                  },
+          safeCaptureException(
+            new Error(`TitleGenerator: process exited with code ${code}`),
+            {
+              contexts: {
+                titleGenerator: {
+                  exitCode: code,
+                  pythonPath: maskUserPaths(resolvedPythonPath),
+                  sourcePath: maskUserPaths(autoBuildSource),
+                  venvReady,
+                  isRateLimited: rateLimitDetection.isRateLimited,
+                  isApiProfileActive,
+                  stderrSnippet: maskUserPaths(errorOutput.substring(0, 500)),
                 },
-              }
-            );
-          } catch { /* Sentry not initialized */ }
+              },
+            }
+          );
 
           resolve(null);
         }
@@ -355,18 +337,16 @@ export class TitleGenerator extends EventEmitter {
       childProcess.on('error', (err) => {
         clearTimeout(timeout);
         console.warn('[TitleGenerator] Process error:', err.message);
-        try {
-          Sentry.captureException(err, {
-            contexts: {
-              titleGenerator: {
-                pythonPath: maskUserPaths(resolvedPythonPath),
-                sourcePath: maskUserPaths(autoBuildSource),
-                venvReady,
-                isApiProfileActive,
-              },
+        safeCaptureException(err, {
+          contexts: {
+            titleGenerator: {
+              pythonPath: maskUserPaths(resolvedPythonPath),
+              sourcePath: maskUserPaths(autoBuildSource),
+              venvReady,
+              isApiProfileActive,
             },
-          });
-        } catch { /* Sentry not initialized */ }
+          },
+        });
         resolve(null);
       });
     });
