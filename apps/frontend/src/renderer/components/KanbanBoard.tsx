@@ -947,8 +947,26 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
    * Handle status change with worktree cleanup dialog support
    * Consolidated handler that accepts an optional task object for the dialog title
    */
-  const handleStatusChange = async (taskId: string, newStatus: TaskStatus, providedTask?: Task) => {
+  const handleStatusChange = async (taskId: string, requestedStatus: TaskStatus, providedTask?: Task) => {
     const task = providedTask || tasks.find(t => t.id === taskId);
+    let newStatus = requestedStatus;
+
+    // ============================================
+    // QUEUE SYSTEM: Enforce parallel task limit
+    // ============================================
+    if (newStatus === 'in_progress') {
+      const currentTasks = useTaskStore.getState().tasks;
+      const inProgressCount = currentTasks.filter((t) =>
+        t.status === 'in_progress' && !t.metadata?.archivedAt
+      ).length;
+
+      if (inProgressCount >= maxParallelTasks) {
+        console.log(`[Queue] In Progress full (${inProgressCount}/${maxParallelTasks}), redirecting task to Queue`);
+        newStatus = 'queue';
+      }
+    }
+
+    const oldStatus = task?.status;
     const result = await persistTaskStatus(taskId, newStatus);
 
     if (!result.success) {
@@ -970,6 +988,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           variant: 'destructive'
         });
       }
+    } else if (oldStatus === 'in_progress' && newStatus !== 'in_progress') {
+      // A task left In Progress - check if we can promote from queue
+      await processQueue();
     }
   };
 
