@@ -61,6 +61,7 @@ Thumbs.db
 
 # Tests (development only)
 tests/
+!agents/tests/
 
 # Auto Claude data directory
 .auto-claude/
