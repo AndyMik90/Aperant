@@ -1,0 +1,31 @@
+{
+  "name": "@auto-claude/types",
+  "version": "2.7.6-beta.3",
+  "type": "module",
+  "description": "Shared TypeScript type definitions for Auto Claude",
+  "homepage": "https://github.com/AndyMik90/Auto-Claude",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AndyMik90/Auto-Claude.git",
+    "directory": "libs/types"
+  },
+  "author": {
+    "name": "Auto Claude Team",
+    "email": "119136210+AndyMik90@users.noreply.github.com"
+  },
+  "license": "AGPL-3.0",
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=10.0.0"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
