@@ -33,6 +33,7 @@ interface NoWorkspaceMessageProps {
 export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
   const [isMarkingDone, setIsMarkingDone] = useState(false);
   const [isProceeding, setIsProceeding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const isPlanReview =
     task?.status === 'human_review' &&
@@ -57,13 +58,15 @@ export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
     if (!task) return;
 
     setIsProceeding(true);
+    setError(null);
     try {
       const result = await startTaskOrQueue(task.id);
       if (!result.success) {
-        console.error('Error proceeding to coding:', result.error);
+        setError(result.error || 'Failed to start task');
       }
     } catch (err) {
       console.error('Error proceeding to coding:', err);
+      setError(err instanceof Error ? err.message : 'Failed to start task');
     } finally {
       setIsProceeding(false);
     }
@@ -122,6 +125,10 @@ export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
             </>
           )}
         </Button>
+      )}
+
+      {error && (
+        <p className="text-xs text-destructive mt-2">{error}</p>
       )}
     </div>
   );
