@@ -491,7 +491,7 @@ export async function gitlabFetchWithCount(
     // Extract the real cause for network-level failures (SSL, DNS, etc.)
     const message = extractFetchErrorMessage(error);
     console.warn(`[GitLab] API request failed: ${endpoint} → ${message}`);
-    throw new Error(message);
+    throw new Error(message, { cause: error });
   } finally {
     clearTimeout(timeoutId);
   }
