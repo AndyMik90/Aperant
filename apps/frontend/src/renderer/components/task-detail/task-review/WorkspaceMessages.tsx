@@ -1,8 +1,7 @@
 import { AlertCircle, GitMerge, Loader2, Check, RotateCcw, Play } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../../ui/button';
-import { persistTaskStatus, startTask, useTaskStore } from '../../../stores/task-store';
-import { useProjectStore } from '../../../stores/project-store';
+import { persistTaskStatus, startTaskOrQueue } from '../../../stores/task-store';
 import type { Task } from '../../../../shared/types';
 
 interface LoadingMessageProps {
@@ -59,18 +58,7 @@ export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
 
     setIsProceeding(true);
     try {
-      // Queue system: check capacity before starting
-      const maxParallelTasks = useProjectStore.getState().getActiveProject()?.settings?.maxParallelTasks ?? 1;
-      const currentTasks = useTaskStore.getState().tasks;
-      const inProgressCount = currentTasks.filter((t) =>
-        t.status === 'in_progress' && !t.metadata?.archivedAt
-      ).length;
-
-      if (inProgressCount >= maxParallelTasks) {
-        await persistTaskStatus(task.id, 'queue');
-        return;
-      }
-      await startTask(task.id);
+      await startTaskOrQueue(task.id);
     } catch (err) {
       console.error('Error proceeding to coding:', err);
     } finally {

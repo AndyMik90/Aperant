@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment, TaskOrderState } from '../../shared/types';
 import { debugLog, debugWarn } from '../../shared/utils/debug-logger';
+import { useProjectStore } from './project-store';
+
+/** Default max parallel tasks when no project setting is configured */
+export const DEFAULT_MAX_PARALLEL_TASKS = 3;
 
 interface TaskState {
   tasks: Task[];
@@ -824,6 +828,37 @@ export async function persistTaskStatus(
  */
 export async function forceCompleteTask(taskId: string): Promise<PersistStatusResult> {
   return persistTaskStatus(taskId, 'done', { forceCleanup: true });
+}
+
+/**
+ * Check if the in_progress queue is at capacity.
+ * @param excludeTaskId - Task ID to exclude from the count (e.g., when restarting a stuck task already in in_progress)
+ */
+export function isQueueAtCapacity(excludeTaskId?: string): boolean {
+  const maxParallelTasks = useProjectStore.getState().getActiveProject()?.settings?.maxParallelTasks ?? DEFAULT_MAX_PARALLEL_TASKS;
+  const currentTasks = useTaskStore.getState().tasks;
+  const inProgressCount = currentTasks.filter((t) =>
+    t.status === 'in_progress' && !t.metadata?.archivedAt && (!excludeTaskId || t.id !== excludeTaskId)
+  ).length;
+  return inProgressCount >= maxParallelTasks;
+}
+
+/**
+ * Start a task or queue it if parallel task capacity is full.
+ * If the task is already in_progress (stuck restart), it is excluded from the
+ * capacity count so restarting is always allowed.
+ */
+export async function startTaskOrQueue(taskId: string): Promise<void> {
+  const task = useTaskStore.getState().tasks.find(t => t.id === taskId);
+  // Exclude this task from the capacity check when it's already in_progress (stuck restart)
+  const excludeId = task?.status === 'in_progress' ? taskId : undefined;
+
+  if (isQueueAtCapacity(excludeId)) {
+    await persistTaskStatus(taskId, 'queue');
+    return;
+  }
+
+  startTask(taskId);
 }
 
 /**

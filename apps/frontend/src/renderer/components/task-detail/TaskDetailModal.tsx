@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { calculateProgress } from '../../lib/utils';
-import { startTask, stopTask, submitReview, recoverStuckTask, deleteTask, useTaskStore, persistTaskStatus } from '../../stores/task-store';
+import { stopTask, submitReview, recoverStuckTask, deleteTask, useTaskStore, startTaskOrQueue } from '../../stores/task-store';
 import { useProjectStore } from '../../stores/project-store';
 import { TASK_STATUS_LABELS } from '../../../shared/constants';
 import { TaskEditDialog } from '../TaskEditDialog';
@@ -105,18 +105,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           return;
         }
       }
-      // Queue system: check capacity before starting
-      const maxParallelTasks = useProjectStore.getState().getActiveProject()?.settings?.maxParallelTasks ?? 1;
-      const currentTasks = useTaskStore.getState().tasks;
-      const inProgressCount = currentTasks.filter((t) =>
-        t.status === 'in_progress' && !t.metadata?.archivedAt
-      ).length;
-
-      if (inProgressCount >= maxParallelTasks) {
-        persistTaskStatus(task.id, 'queue');
-        return;
-      }
-      startTask(task.id);
+      await startTaskOrQueue(task.id);
     }
   };
 
