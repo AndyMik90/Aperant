@@ -548,30 +548,35 @@ class TestMemoryIntegration:
     @pytest.mark.asyncio
     async def test_memory_context_retrieval(self, mock_client, spec_dir, fix_request_file):
         """Test that memory context is retrieved during session."""
+        from unittest.mock import AsyncMock, patch
+
         # Setup implementation plan
         plan = {"feature": "Test"}
         save_implementation_plan(spec_dir, plan)
-
-        # Mock memory context
-        mock_memory_manager.get_graphiti_context.return_value = "Past fix patterns: check imports"
 
         # Mock client responses
         mock_client.query.return_value = None
         mock_client.receive_response.return_value.set_messages(_create_mock_response())
 
-        await run_qa_fixer_session(
-            mock_client,
-            spec_dir,
-            1,
-            False
-        )
+        # Patch where the function is used (in qa.fixer module)
+        with patch('qa.fixer.get_graphiti_context', new_callable=AsyncMock) as mock_get_context:
+            mock_get_context.return_value = "Past fix patterns: check imports"
 
-        # Verify memory context was retrieved
-        assert mock_memory_manager.get_graphiti_context.called
+            await run_qa_fixer_session(
+                mock_client,
+                spec_dir,
+                1,
+                False
+            )
+
+            # Verify memory context was retrieved
+            assert mock_get_context.called
 
     @pytest.mark.asyncio
     async def test_memory_save_on_fixed(self, mock_client, spec_dir, fix_request_file):
         """Test that session memory is saved when fixes are applied."""
+        from unittest.mock import AsyncMock, patch
+
         # Setup implementation plan
         plan = {
             "feature": "Test",
@@ -586,15 +591,19 @@ class TestMemoryIntegration:
         mock_client.query.return_value = None
         mock_client.receive_response.return_value.set_messages(_create_mock_fixed_response())
 
-        await run_qa_fixer_session(
-            mock_client,
-            spec_dir,
-            1,
-            False
-        )
+        # Patch where the function is used
+        with patch('qa.fixer.get_graphiti_context', new_callable=AsyncMock, return_value=None), \
+             patch('qa.fixer.save_session_memory', new_callable=AsyncMock) as mock_save:
 
-        # Verify memory was saved
-        assert mock_memory_manager.save_session_memory.called
+            await run_qa_fixer_session(
+                mock_client,
+                spec_dir,
+                1,
+                False
+            )
+
+            # Verify memory was saved
+            assert mock_save.called
 
 
 class TestErrorDetection:
@@ -626,25 +635,29 @@ class TestErrorDetection:
     @pytest.mark.asyncio
     async def test_tool_concurrency_error_detection(self, mock_client, spec_dir, fix_request_file):
         """Test that tool concurrency errors are properly detected."""
+        from unittest.mock import AsyncMock, patch
+
         # Setup implementation plan
         plan = {"feature": "Test"}
         save_implementation_plan(spec_dir, plan)
 
-        # Mock error detection to return concurrency error
-        mock_error_utils.is_tool_concurrency_error.return_value = True
-
         # Mock client to raise exception
         mock_client.query.side_effect = Exception("Tool concurrency limit")
 
-        result = await run_qa_fixer_session(
-            mock_client,
-            spec_dir,
-            1,
-            False
-        )
+        # Patch where the functions are used (qa.fixer) not where they're defined
+        with patch('qa.fixer.is_tool_concurrency_error', return_value=True), \
+             patch('qa.fixer.is_rate_limit_error', return_value=False), \
+             patch('qa.fixer.get_graphiti_context', new_callable=AsyncMock, return_value=None):
 
-        assert result[0] == "error"
-        assert result[2]["type"] == "tool_concurrency"
+            result = await run_qa_fixer_session(
+                mock_client,
+                spec_dir,
+                1,
+                False
+            )
+
+            assert result[0] == "error"
+            assert result[2]["type"] == "tool_concurrency"
 
 
 class TestStatusNotUpdated:
@@ -653,6 +666,8 @@ class TestStatusNotUpdated:
     @pytest.mark.asyncio
     async def test_fixed_assumed_when_status_not_updated(self, mock_client, spec_dir, fix_request_file):
         """Test that fixed is assumed even when status not updated."""
+        from unittest.mock import AsyncMock, patch
+
         # Setup implementation plan without ready_for_qa_revalidation
         plan = {"feature": "Test"}
         save_implementation_plan(spec_dir, plan)
@@ -661,17 +676,21 @@ class TestStatusNotUpdated:
         mock_client.query.return_value = None
         mock_client.receive_response.return_value.set_messages(_create_mock_response())
 
-        result = await run_qa_fixer_session(
-            mock_client,
-            spec_dir,
-            1,
-            False
-        )
+        # Patch where the function is used
+        with patch('qa.fixer.get_graphiti_context', new_callable=AsyncMock, return_value=None), \
+             patch('qa.fixer.save_session_memory', new_callable=AsyncMock) as mock_save:
 
-        # Should still return "fixed" even though status wasn't updated
-        assert result[0] == "fixed"
-        # Memory should still be saved
-        assert mock_memory_manager.save_session_memory.called
+            result = await run_qa_fixer_session(
+                mock_client,
+                spec_dir,
+                1,
+                False
+            )
+
+            # Should still return "fixed" even though status wasn't updated
+            assert result[0] == "fixed"
+            # Memory should still be saved
+            assert mock_save.called
 
 
 class TestToolUseHandling:

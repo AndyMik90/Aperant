@@ -384,9 +384,10 @@ class TestEdgeCases:
         """Test handling of non-existent directory."""
         fake_dir = Path("/nonexistent/path")
 
-        # Should not crash, may have errors
-        result = scanner.scan(fake_dir)
-        assert isinstance(result, SecurityScanResult)
+        # Should not crash, may have errors - mock exists to avoid permission error
+        with patch.object(Path, 'exists', return_value=False):
+            result = scanner.scan(fake_dir)
+            assert isinstance(result, SecurityScanResult)
 
     def test_scan_specific_files(self, scanner, python_project):
         """Test scanning specific files only."""
