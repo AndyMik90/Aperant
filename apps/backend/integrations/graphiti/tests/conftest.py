@@ -19,26 +19,16 @@ sys.path.insert(0, str(backend_dir))
 
 def pytest_collection_modifyitems(config, items):
     """
-    Exclude validator functions and standalone scripts from test collection.
+    Exclude validator functions from test collection.
 
     The validators.py module contains functions named test_llm_connection and
     test_embedder_connection which are not pytest tests but validator functions.
-
-    The test_graphiti_memory.py and test_ollama_embedding_memory.py files are
-    standalone test scripts, not pytest tests.
     """
     # Filter out items that are from validators.py and are not in test classes
     filtered_items = []
     for item in items:
         # Get the full path of the test
         item_path = str(item.fspath) if hasattr(item, "fspath") else str(item.path)
-
-        # Skip standalone test scripts (they're not pytest tests)
-        if (
-            "test_graphiti_memory.py" in item_path
-            or "test_ollama_embedding_memory.py" in item_path
-        ):
-            continue
 
         # Skip the standalone test_llm_connection and test_embedder_connection
         # functions from validators.py (they're not pytest tests)

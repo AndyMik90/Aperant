@@ -53,24 +53,36 @@ def mock_external_dependencies():
 
 
 @pytest.fixture
-def temp_spec_dir(tmp_path):
-    """Create a temporary spec directory."""
+def graphiti_test_spec_dir(tmp_path):
+    """Create a temporary spec directory for GraphitiMemory tests.
+
+    Note: Named differently from conftest.graphiti_test_spec_dir to avoid shadowing.
+    GraphitiMemory tests need a slightly different directory structure.
+    """
     spec_dir = tmp_path / "specs" / "001-test-spec"
     spec_dir.mkdir(parents=True)
     return spec_dir
 
 
 @pytest.fixture
-def temp_project_dir(tmp_path):
-    """Create a temporary project directory."""
+def graphiti_test_project_dir(tmp_path):
+    """Create a temporary project directory for GraphitiMemory tests.
+
+    Note: Named differently from conftest.graphiti_test_project_dir to avoid shadowing.
+    GraphitiMemory tests need a slightly different directory structure.
+    """
     project_dir = tmp_path / "test_project"
     project_dir.mkdir(parents=True)
     return project_dir
 
 
 @pytest.fixture
-def mock_config():
-    """Create a mock GraphitiConfig."""
+def mock_graphiti_config():
+    """Create a mock GraphitiConfig for GraphitiMemory tests.
+
+    Note: Named differently from conftest.mock_config to avoid shadowing.
+    Uses MagicMock instead of real GraphitiConfig for simpler test setup.
+    """
     config = MagicMock()
     config.enabled = True
     config.is_valid.return_value = True
@@ -83,8 +95,12 @@ def mock_config():
 
 
 @pytest.fixture
-def mock_state():
-    """Create a mock GraphitiState."""
+def mock_graphiti_state():
+    """Create a mock GraphitiState for GraphitiMemory tests.
+
+    Note: Named differently from conftest.mock_state to avoid shadowing.
+    Uses MagicMock instead of real GraphitiState for simpler test setup.
+    """
     state = MagicMock()
     state.initialized = False
     state.database = None
@@ -142,11 +158,13 @@ def mock_search():
 class TestGraphitiMemoryInit:
     """Test GraphitiMemory initialization."""
 
-    def test_init_with_spec_mode(self, temp_spec_dir, temp_project_dir, mock_config):
+    def test_init_with_spec_mode(
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
+    ):
         """Test initialization with SPEC group_id_mode."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -155,24 +173,28 @@ class TestGraphitiMemoryInit:
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
                 memory = GraphitiMemory(
-                    temp_spec_dir, temp_project_dir, group_id_mode="spec"
+                    graphiti_test_spec_dir,
+                    graphiti_test_project_dir,
+                    group_id_mode="spec",
                 )
 
-                assert memory.spec_dir == temp_spec_dir
-                assert memory.project_dir == temp_project_dir
+                assert memory.spec_dir == graphiti_test_spec_dir
+                assert memory.project_dir == graphiti_test_project_dir
                 assert memory.group_id_mode == "spec"
-                assert memory.config == mock_config
+                assert memory.config == mock_graphiti_config
                 assert memory._available is True
                 assert memory.state is None
                 assert memory._client is None
                 assert memory._queries is None
                 assert memory._search is None
 
-    def test_init_with_project_mode(self, temp_spec_dir, temp_project_dir, mock_config):
+    def test_init_with_project_mode(
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
+    ):
         """Test initialization with PROJECT group_id_mode."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -181,12 +203,16 @@ class TestGraphitiMemoryInit:
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
                 memory = GraphitiMemory(
-                    temp_spec_dir, temp_project_dir, group_id_mode="project"
+                    graphiti_test_spec_dir,
+                    graphiti_test_project_dir,
+                    group_id_mode="project",
                 )
 
                 assert memory.group_id_mode == "project"
 
-    def test_init_with_disabled_config(self, temp_spec_dir, temp_project_dir):
+    def test_init_with_disabled_config(
+        self, graphiti_test_spec_dir, graphiti_test_project_dir
+    ):
         """Test initialization when Graphiti is disabled."""
         mock_config = MagicMock()
         mock_config.enabled = False
@@ -202,29 +228,37 @@ class TestGraphitiMemoryInit:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 assert memory._available is False
 
     def test_init_loads_existing_state(
-        self, temp_spec_dir, temp_project_dir, mock_config, mock_state
+        self,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
     ):
         """Test initialization loads existing state if available."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
-                assert memory.state == mock_state
+                assert memory.state == mock_graphiti_state
 
 
 # =============================================================================
@@ -235,7 +269,9 @@ class TestGraphitiMemoryInit:
 class TestGraphitiMemoryProperties:
     """Test GraphitiMemory properties."""
 
-    def test_is_enabled_returns_available(self, temp_spec_dir, temp_project_dir):
+    def test_is_enabled_returns_available(
+        self, graphiti_test_spec_dir, graphiti_test_project_dir
+    ):
         """Test is_enabled returns _available."""
         mock_config = MagicMock()
         mock_config.is_valid.return_value = True
@@ -250,7 +286,9 @@ class TestGraphitiMemoryProperties:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._available = True
 
                 assert memory.is_enabled is True
@@ -259,12 +297,12 @@ class TestGraphitiMemoryProperties:
                 assert memory.is_enabled is False
 
     def test_is_initialized_when_not_initialized(
-        self, temp_spec_dir, temp_project_dir, mock_config
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
     ):
         """Test is_initialized returns False when not initialized."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -272,46 +310,54 @@ class TestGraphitiMemoryProperties:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 assert memory.is_initialized is False
 
     def test_is_initialized_when_initialized(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
     ):
         """Test is_initialized returns True when initialized."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
 
                 assert memory.is_initialized is True
 
     def test_is_initialized_when_state_missing(
-        self, temp_spec_dir, temp_project_dir, mock_config, mock_client
+        self,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_client,
     ):
         """Test is_initialized returns False when state is None."""
         mock_client.is_initialized = True
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -319,39 +365,45 @@ class TestGraphitiMemoryProperties:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
 
                 assert memory.is_initialized is False
 
     def test_is_initialized_when_state_not_initialized(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
     ):
         """Test is_initialized returns False when state.initialized is False."""
-        mock_state.initialized = False
+        mock_graphiti_state.initialized = False
         mock_client.is_initialized = True
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
 
                 assert memory.is_initialized is False
 
-    def test_group_id_in_spec_mode(self, temp_spec_dir, temp_project_dir):
+    def test_group_id_in_spec_mode(
+        self, graphiti_test_spec_dir, graphiti_test_project_dir
+    ):
         """Test group_id returns spec_dir.name in SPEC mode."""
         mock_config = MagicMock()
         mock_config.is_valid.return_value = True
@@ -367,12 +419,16 @@ class TestGraphitiMemoryProperties:
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
                 memory = GraphitiMemory(
-                    temp_spec_dir, temp_project_dir, group_id_mode="spec"
+                    graphiti_test_spec_dir,
+                    graphiti_test_project_dir,
+                    group_id_mode="spec",
                 )
 
                 assert memory.group_id == "001-test-spec"
 
-    def test_group_id_in_project_mode(self, temp_spec_dir, temp_project_dir):
+    def test_group_id_in_project_mode(
+        self, graphiti_test_spec_dir, graphiti_test_project_dir
+    ):
         """Test group_id returns project hash in PROJECT mode."""
         mock_config = MagicMock()
         mock_config.is_valid.return_value = True
@@ -388,7 +444,9 @@ class TestGraphitiMemoryProperties:
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
                 memory = GraphitiMemory(
-                    temp_spec_dir, temp_project_dir, group_id_mode="project"
+                    graphiti_test_spec_dir,
+                    graphiti_test_project_dir,
+                    group_id_mode="project",
                 )
 
                 # Should start with "project_test_project_"
@@ -396,7 +454,7 @@ class TestGraphitiMemoryProperties:
                 # Should have 8 character hash
                 assert len(memory.group_id.split("_")[-1]) == 8
 
-    def test_spec_context_id(self, temp_spec_dir, temp_project_dir):
+    def test_spec_context_id(self, graphiti_test_spec_dir, graphiti_test_project_dir):
         """Test spec_context_id returns spec_dir.name."""
         mock_config = MagicMock()
         mock_config.is_valid.return_value = True
@@ -411,7 +469,9 @@ class TestGraphitiMemoryProperties:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 assert memory.spec_context_id == "001-test-spec"
 
@@ -427,23 +487,23 @@ class TestInitialize:
     @pytest.mark.asyncio
     async def test_initialize_returns_true_when_already_initialized(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
     ):
         """Test initialize returns True when already initialized."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import (
                     GraphitiClient,
@@ -456,7 +516,9 @@ class TestInitialize:
                     "integrations.graphiti.queries_pkg.graphiti.GraphitiClient",
                     return_value=mock_client,
                 ):
-                    memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                    memory = GraphitiMemory(
+                        graphiti_test_spec_dir, graphiti_test_project_dir
+                    )
                     memory._client = mock_client
 
                     result = await memory.initialize()
@@ -465,7 +527,7 @@ class TestInitialize:
 
     @pytest.mark.asyncio
     async def test_initialize_returns_false_when_not_available(
-        self, temp_spec_dir, temp_project_dir
+        self, graphiti_test_spec_dir, graphiti_test_project_dir
     ):
         """Test initialize returns False when not available."""
         mock_config = MagicMock()
@@ -481,7 +543,9 @@ class TestInitialize:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 result = await memory.initialize()
 
@@ -490,9 +554,9 @@ class TestInitialize:
     @pytest.mark.asyncio
     async def test_initialize_creates_client_and_modules(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
         mock_client,
         mock_queries,
         mock_search,
@@ -502,7 +566,7 @@ class TestInitialize:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -527,7 +591,9 @@ class TestInitialize:
                             "integrations.graphiti.queries_pkg.graphiti.GraphitiSearch",
                             return_value=mock_search,
                         ):
-                            memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                            memory = GraphitiMemory(
+                                graphiti_test_spec_dir, graphiti_test_project_dir
+                            )
 
                             result = await memory.initialize()
 
@@ -540,9 +606,9 @@ class TestInitialize:
     @pytest.mark.asyncio
     async def test_initialize_creates_new_state_when_none_exists(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
         mock_client,
     ):
         """Test initialize creates new state when none exists."""
@@ -550,7 +616,7 @@ class TestInitialize:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -576,26 +642,33 @@ class TestInitialize:
                             "integrations.graphiti.queries_pkg.graphiti.GraphitiSearch",
                             return_value=MagicMock(),
                         ):
-                            memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                            memory = GraphitiMemory(
+                                graphiti_test_spec_dir, graphiti_test_project_dir
+                            )
 
                             result = await memory.initialize()
 
                             assert result is True
                             assert memory.state is not None
                             assert memory.state.initialized is True
-                            assert memory.state.database == mock_config.database
-                            assert memory.state.llm_provider == mock_config.llm_provider
+                            assert (
+                                memory.state.database == mock_graphiti_config.database
+                            )
+                            assert (
+                                memory.state.llm_provider
+                                == mock_graphiti_config.llm_provider
+                            )
                             assert (
                                 memory.state.embedder_provider
-                                == mock_config.embedder_provider
+                                == mock_graphiti_config.embedder_provider
                             )
 
     @pytest.mark.asyncio
     async def test_initialize_saves_state_to_file(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
         mock_client,
     ):
         """Test initialize saves state to spec directory."""
@@ -603,7 +676,7 @@ class TestInitialize:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -628,30 +701,32 @@ class TestInitialize:
                             "integrations.graphiti.queries_pkg.graphiti.GraphitiSearch",
                             return_value=MagicMock(),
                         ):
-                            memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                            memory = GraphitiMemory(
+                                graphiti_test_spec_dir, graphiti_test_project_dir
+                            )
 
                             result = await memory.initialize()
 
                             assert result is True
                             # Check state file was created
-                            state_file = temp_spec_dir / ".graphiti_state.json"
+                            state_file = graphiti_test_spec_dir / ".graphiti_state.json"
                             assert state_file.exists()
 
     @pytest.mark.asyncio
     async def test_initialize_detects_provider_change(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
     ):
         """Test initialize detects and logs provider change."""
-        mock_state.initialized = True
-        mock_state.embedder_provider = "ollama"
-        mock_config.embedder_provider = "openai"
-        mock_state.has_provider_changed.return_value = True
-        mock_state.get_migration_info.return_value = {
+        mock_graphiti_state.initialized = True
+        mock_graphiti_state.embedder_provider = "ollama"
+        mock_graphiti_config.embedder_provider = "openai"
+        mock_graphiti_state.has_provider_changed.return_value = True
+        mock_graphiti_state.get_migration_info.return_value = {
             "old_provider": "ollama",
             "new_provider": "openai",
             "episode_count": 5,
@@ -660,11 +735,11 @@ class TestInitialize:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import (
                     GraphitiClient,
@@ -685,21 +760,23 @@ class TestInitialize:
                             "integrations.graphiti.queries_pkg.graphiti.GraphitiSearch",
                             return_value=MagicMock(),
                         ):
-                            memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                            memory = GraphitiMemory(
+                                graphiti_test_spec_dir, graphiti_test_project_dir
+                            )
 
                             result = await memory.initialize()
 
                             assert result is True
-                            mock_state.has_provider_changed.assert_called_once_with(
-                                mock_config
+                            mock_graphiti_state.has_provider_changed.assert_called_once_with(
+                                mock_graphiti_config
                             )
 
     @pytest.mark.asyncio
     async def test_initialize_returns_false_on_client_init_failure(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
         mock_client,
     ):
         """Test initialize returns False when client initialize fails."""
@@ -707,7 +784,7 @@ class TestInitialize:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -722,7 +799,9 @@ class TestInitialize:
                     "integrations.graphiti.queries_pkg.graphiti.GraphitiClient",
                     return_value=mock_client,
                 ):
-                    memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                    memory = GraphitiMemory(
+                        graphiti_test_spec_dir, graphiti_test_project_dir
+                    )
 
                     result = await memory.initialize()
 
@@ -732,14 +811,14 @@ class TestInitialize:
     @pytest.mark.asyncio
     async def test_initialize_returns_false_on_exception(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
     ):
         """Test initialize returns False on exception."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -754,7 +833,9 @@ class TestInitialize:
                     "integrations.graphiti.queries_pkg.graphiti.GraphitiClient",
                     side_effect=RuntimeError("Connection failed"),
                 ):
-                    memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                    memory = GraphitiMemory(
+                        graphiti_test_spec_dir, graphiti_test_project_dir
+                    )
 
                     result = await memory.initialize()
 
@@ -764,14 +845,14 @@ class TestInitialize:
     @pytest.mark.asyncio
     async def test_initialize_captures_exception_to_sentry(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
     ):
         """Test initialize captures exception to Sentry."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -789,7 +870,9 @@ class TestInitialize:
                     with patch(
                         "integrations.graphiti.queries_pkg.graphiti.capture_exception"
                     ) as mock_capture:
-                        memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                        memory = GraphitiMemory(
+                            graphiti_test_spec_dir, graphiti_test_project_dir
+                        )
 
                         result = await memory.initialize()
 
@@ -808,15 +891,15 @@ class TestClose:
     @pytest.mark.asyncio
     async def test_close_closes_client_and_clears_modules(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
         mock_client,
     ):
         """Test close closes client and clears modules."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -824,7 +907,9 @@ class TestClose:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = MagicMock()
                 memory._search = MagicMock()
@@ -838,12 +923,12 @@ class TestClose:
 
     @pytest.mark.asyncio
     async def test_close_does_nothing_when_no_client(
-        self, temp_spec_dir, temp_project_dir, mock_config
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
     ):
         """Test close does nothing when no client exists."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -851,7 +936,9 @@ class TestClose:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = None
 
                 # Should not raise
@@ -868,12 +955,12 @@ class TestSaveSessionInsights:
 
     @pytest.mark.asyncio
     async def test_save_session_insights_returns_false_when_not_initialized(
-        self, temp_spec_dir, temp_project_dir, mock_config
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
     ):
         """Test save_session_insights returns False when not initialized."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -881,7 +968,9 @@ class TestSaveSessionInsights:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 result = await memory.save_session_insights(1, {})
 
@@ -890,15 +979,15 @@ class TestSaveSessionInsights:
     @pytest.mark.asyncio
     async def test_save_session_insights_delegates_to_queries(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
         mock_queries,
     ):
         """Test save_session_insights delegates to queries module."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_queries.add_session_insight = AsyncMock(return_value=True)
 
@@ -906,18 +995,20 @@ class TestSaveSessionInsights:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = mock_queries
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.save_session_insights(1, insights)
 
@@ -927,50 +1018,52 @@ class TestSaveSessionInsights:
     @pytest.mark.asyncio
     async def test_save_session_insights_updates_state_on_success(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
         mock_queries,
     ):
         """Test save_session_insights updates state on success."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_queries.add_session_insight = AsyncMock(return_value=True)
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = mock_queries
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 await memory.save_session_insights(1, {})
 
-                assert mock_state.last_session == 1
-                assert mock_state.episode_count == 1
-                mock_state.save.assert_called_once()
+                assert mock_graphiti_state.last_session == 1
+                assert mock_graphiti_state.episode_count == 1
+                mock_graphiti_state.save.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_save_session_insights_handles_exception(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
     ):
         """Test save_session_insights handles exceptions."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_queries = MagicMock()
         mock_queries.add_session_insight = AsyncMock(
@@ -979,23 +1072,25 @@ class TestSaveSessionInsights:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = mock_queries
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.save_session_insights(1, {})
 
                 assert result is False
-                mock_state.record_error.assert_called_once()
+                mock_graphiti_state.record_error.assert_called_once()
 
 
 # =============================================================================
@@ -1008,12 +1103,12 @@ class TestSaveCodebaseDiscoveries:
 
     @pytest.mark.asyncio
     async def test_save_codebase_discoveries_returns_false_when_not_initialized(
-        self, temp_spec_dir, temp_project_dir, mock_config
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
     ):
         """Test save_codebase_discoveries returns False when not initialized."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -1021,7 +1116,9 @@ class TestSaveCodebaseDiscoveries:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 result = await memory.save_codebase_discoveries({})
 
@@ -1030,15 +1127,15 @@ class TestSaveCodebaseDiscoveries:
     @pytest.mark.asyncio
     async def test_save_codebase_discoveries_delegates_to_queries(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
         mock_queries,
     ):
         """Test save_codebase_discoveries delegates to queries module."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_queries.add_codebase_discoveries = AsyncMock(return_value=True)
 
@@ -1046,18 +1143,20 @@ class TestSaveCodebaseDiscoveries:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = mock_queries
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.save_codebase_discoveries(discoveries)
 
@@ -1069,49 +1168,51 @@ class TestSaveCodebaseDiscoveries:
     @pytest.mark.asyncio
     async def test_save_codebase_discoveries_updates_state_on_success(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
         mock_queries,
     ):
         """Test save_codebase_discoveries updates state on success."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_queries.add_codebase_discoveries = AsyncMock(return_value=True)
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = mock_queries
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 await memory.save_codebase_discoveries({})
 
-                assert mock_state.episode_count == 1
-                mock_state.save.assert_called_once()
+                assert mock_graphiti_state.episode_count == 1
+                mock_graphiti_state.save.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_save_codebase_discoveries_handles_exception(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
     ):
         """Test save_codebase_discoveries handles exceptions."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_queries = MagicMock()
         mock_queries.add_codebase_discoveries = AsyncMock(
@@ -1120,23 +1221,25 @@ class TestSaveCodebaseDiscoveries:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = mock_queries
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.save_codebase_discoveries({})
 
                 assert result is False
-                mock_state.record_error.assert_called_once()
+                mock_graphiti_state.record_error.assert_called_once()
 
 
 # =============================================================================
@@ -1149,12 +1252,12 @@ class TestSavePattern:
 
     @pytest.mark.asyncio
     async def test_save_pattern_returns_false_when_not_initialized(
-        self, temp_spec_dir, temp_project_dir, mock_config
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
     ):
         """Test save_pattern returns False when not initialized."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -1162,7 +1265,9 @@ class TestSavePattern:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 result = await memory.save_pattern("test pattern")
 
@@ -1171,15 +1276,15 @@ class TestSavePattern:
     @pytest.mark.asyncio
     async def test_save_pattern_delegates_to_queries(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
         mock_queries,
     ):
         """Test save_pattern delegates to queries module."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_queries.add_pattern = AsyncMock(return_value=True)
 
@@ -1187,18 +1292,20 @@ class TestSavePattern:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = mock_queries
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.save_pattern(pattern)
 
@@ -1208,32 +1315,34 @@ class TestSavePattern:
     @pytest.mark.asyncio
     async def test_save_pattern_handles_exception(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
     ):
         """Test save_pattern handles exceptions."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_queries = MagicMock()
         mock_queries.add_pattern = AsyncMock(side_effect=RuntimeError("Save failed"))
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = mock_queries
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.save_pattern("test pattern")
 
@@ -1250,12 +1359,12 @@ class TestSaveGotcha:
 
     @pytest.mark.asyncio
     async def test_save_gotcha_returns_false_when_not_initialized(
-        self, temp_spec_dir, temp_project_dir, mock_config
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
     ):
         """Test save_gotcha returns False when not initialized."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -1263,7 +1372,9 @@ class TestSaveGotcha:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 result = await memory.save_gotcha("test gotcha")
 
@@ -1272,15 +1383,15 @@ class TestSaveGotcha:
     @pytest.mark.asyncio
     async def test_save_gotcha_delegates_to_queries(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
         mock_queries,
     ):
         """Test save_gotcha delegates to queries module."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_queries.add_gotcha = AsyncMock(return_value=True)
 
@@ -1288,18 +1399,20 @@ class TestSaveGotcha:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = mock_queries
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.save_gotcha(gotcha)
 
@@ -1309,32 +1422,34 @@ class TestSaveGotcha:
     @pytest.mark.asyncio
     async def test_save_gotcha_handles_exception(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
     ):
         """Test save_gotcha handles exceptions."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_queries = MagicMock()
         mock_queries.add_gotcha = AsyncMock(side_effect=RuntimeError("Save failed"))
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = mock_queries
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.save_gotcha("test gotcha")
 
@@ -1351,12 +1466,12 @@ class TestSaveTaskOutcome:
 
     @pytest.mark.asyncio
     async def test_save_task_outcome_returns_false_when_not_initialized(
-        self, temp_spec_dir, temp_project_dir, mock_config
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
     ):
         """Test save_task_outcome returns False when not initialized."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -1364,7 +1479,9 @@ class TestSaveTaskOutcome:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 result = await memory.save_task_outcome("task-1", True, "Success")
 
@@ -1373,15 +1490,15 @@ class TestSaveTaskOutcome:
     @pytest.mark.asyncio
     async def test_save_task_outcome_delegates_to_queries(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
         mock_queries,
     ):
         """Test save_task_outcome delegates to queries module."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_queries.add_task_outcome = AsyncMock(return_value=True)
 
@@ -1392,18 +1509,20 @@ class TestSaveTaskOutcome:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = mock_queries
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.save_task_outcome(
                     task_id, success, outcome, metadata
@@ -1417,32 +1536,34 @@ class TestSaveTaskOutcome:
     @pytest.mark.asyncio
     async def test_save_task_outcome_with_none_metadata(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
         mock_queries,
     ):
         """Test save_task_outcome with None metadata."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_queries.add_task_outcome = AsyncMock(return_value=True)
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = mock_queries
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 await memory.save_task_outcome("task-1", True, "Success", None)
 
@@ -1453,14 +1574,14 @@ class TestSaveTaskOutcome:
     @pytest.mark.asyncio
     async def test_save_task_outcome_handles_exception(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
     ):
         """Test save_task_outcome handles exceptions."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_queries = MagicMock()
         mock_queries.add_task_outcome = AsyncMock(
@@ -1469,18 +1590,20 @@ class TestSaveTaskOutcome:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = mock_queries
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.save_task_outcome("task-1", True, "Success")
 
@@ -1497,12 +1620,12 @@ class TestSaveStructuredInsights:
 
     @pytest.mark.asyncio
     async def test_save_structured_insights_returns_false_when_not_initialized(
-        self, temp_spec_dir, temp_project_dir, mock_config
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
     ):
         """Test save_structured_insights returns False when not initialized."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -1510,7 +1633,9 @@ class TestSaveStructuredInsights:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 result = await memory.save_structured_insights({})
 
@@ -1519,15 +1644,15 @@ class TestSaveStructuredInsights:
     @pytest.mark.asyncio
     async def test_save_structured_insights_delegates_to_queries(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
         mock_queries,
     ):
         """Test save_structured_insights delegates to queries module."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_queries.add_structured_insights = AsyncMock(return_value=True)
 
@@ -1535,18 +1660,20 @@ class TestSaveStructuredInsights:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = mock_queries
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.save_structured_insights(insights)
 
@@ -1556,14 +1683,14 @@ class TestSaveStructuredInsights:
     @pytest.mark.asyncio
     async def test_save_structured_insights_handles_exception(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
     ):
         """Test save_structured_insights handles exceptions."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_queries = MagicMock()
         mock_queries.add_structured_insights = AsyncMock(
@@ -1572,18 +1699,20 @@ class TestSaveStructuredInsights:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._queries = mock_queries
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.save_structured_insights({})
 
@@ -1600,12 +1729,12 @@ class TestGetRelevantContext:
 
     @pytest.mark.asyncio
     async def test_get_relevant_context_returns_empty_when_not_initialized(
-        self, temp_spec_dir, temp_project_dir, mock_config
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
     ):
         """Test get_relevant_context returns [] when not initialized."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -1613,7 +1742,9 @@ class TestGetRelevantContext:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 result = await memory.get_relevant_context("test query")
 
@@ -1622,15 +1753,15 @@ class TestGetRelevantContext:
     @pytest.mark.asyncio
     async def test_get_relevant_context_delegates_to_search(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
         mock_search,
     ):
         """Test get_relevant_context delegates to search module."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         expected_results = [{"content": "result1"}, {"content": "result2"}]
         mock_search.get_relevant_context = AsyncMock(return_value=expected_results)
@@ -1640,18 +1771,20 @@ class TestGetRelevantContext:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._search = mock_search
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.get_relevant_context(query, num_results)
 
@@ -1663,32 +1796,34 @@ class TestGetRelevantContext:
     @pytest.mark.asyncio
     async def test_get_relevant_context_passes_include_project_context(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
         mock_search,
     ):
         """Test get_relevant_context passes include_project_context parameter."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_search.get_relevant_context = AsyncMock(return_value=[])
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._search = mock_search
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 await memory.get_relevant_context(
                     "query", include_project_context=False
@@ -1701,14 +1836,14 @@ class TestGetRelevantContext:
     @pytest.mark.asyncio
     async def test_get_relevant_context_handles_exception(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
     ):
         """Test get_relevant_context handles exceptions."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_search = MagicMock()
         mock_search.get_relevant_context = AsyncMock(
@@ -1717,18 +1852,20 @@ class TestGetRelevantContext:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._search = mock_search
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.get_relevant_context("query")
 
@@ -1745,12 +1882,12 @@ class TestGetSessionHistory:
 
     @pytest.mark.asyncio
     async def test_get_session_history_returns_empty_when_not_initialized(
-        self, temp_spec_dir, temp_project_dir, mock_config
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
     ):
         """Test get_session_history returns [] when not initialized."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -1758,7 +1895,9 @@ class TestGetSessionHistory:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 result = await memory.get_session_history()
 
@@ -1767,15 +1906,15 @@ class TestGetSessionHistory:
     @pytest.mark.asyncio
     async def test_get_session_history_delegates_to_search(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
         mock_search,
     ):
         """Test get_session_history delegates to search module."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         expected_history = [
             {"session": 1, "content": "insights1"},
@@ -1788,18 +1927,20 @@ class TestGetSessionHistory:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._search = mock_search
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.get_session_history(limit, spec_only)
 
@@ -1811,14 +1952,14 @@ class TestGetSessionHistory:
     @pytest.mark.asyncio
     async def test_get_session_history_handles_exception(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
     ):
         """Test get_session_history handles exceptions."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_search = MagicMock()
         mock_search.get_session_history = AsyncMock(
@@ -1827,18 +1968,20 @@ class TestGetSessionHistory:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._search = mock_search
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.get_session_history()
 
@@ -1855,12 +1998,12 @@ class TestGetSimilarTaskOutcomes:
 
     @pytest.mark.asyncio
     async def test_get_similar_task_outcomes_returns_empty_when_not_initialized(
-        self, temp_spec_dir, temp_project_dir, mock_config
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
     ):
         """Test get_similar_task_outcomes returns [] when not initialized."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -1868,7 +2011,9 @@ class TestGetSimilarTaskOutcomes:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 result = await memory.get_similar_task_outcomes("task description")
 
@@ -1877,15 +2022,15 @@ class TestGetSimilarTaskOutcomes:
     @pytest.mark.asyncio
     async def test_get_similar_task_outcomes_delegates_to_search(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
         mock_search,
     ):
         """Test get_similar_task_outcomes delegates to search module."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         expected_outcomes = [
             {"task_id": "task-1", "success": True, "outcome": "Completed"},
@@ -1899,18 +2044,20 @@ class TestGetSimilarTaskOutcomes:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._search = mock_search
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.get_similar_task_outcomes(task_description, limit)
 
@@ -1922,14 +2069,14 @@ class TestGetSimilarTaskOutcomes:
     @pytest.mark.asyncio
     async def test_get_similar_task_outcomes_handles_exception(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
     ):
         """Test get_similar_task_outcomes handles exceptions."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_search = MagicMock()
         mock_search.get_similar_task_outcomes = AsyncMock(
@@ -1938,18 +2085,20 @@ class TestGetSimilarTaskOutcomes:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._search = mock_search
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 result = await memory.get_similar_task_outcomes("task description")
 
@@ -1966,12 +2115,12 @@ class TestGetPatternsAndGotchas:
 
     @pytest.mark.asyncio
     async def test_get_patterns_and_gotchas_returns_empty_when_not_initialized(
-        self, temp_spec_dir, temp_project_dir, mock_config
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
     ):
         """Test get_patterns_and_gotchas returns [], [] when not initialized."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -1979,7 +2128,9 @@ class TestGetPatternsAndGotchas:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 patterns, gotchas = await memory.get_patterns_and_gotchas("query")
 
@@ -1989,15 +2140,15 @@ class TestGetPatternsAndGotchas:
     @pytest.mark.asyncio
     async def test_get_patterns_and_gotchas_delegates_to_search(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
         mock_search,
     ):
         """Test get_patterns_and_gotchas delegates to search module."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         expected_patterns = [
             {"content": "Use async/await"},
@@ -2017,18 +2168,20 @@ class TestGetPatternsAndGotchas:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._search = mock_search
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 patterns, gotchas = await memory.get_patterns_and_gotchas(
                     query, num_results, min_score
@@ -2043,14 +2196,14 @@ class TestGetPatternsAndGotchas:
     @pytest.mark.asyncio
     async def test_get_patterns_and_gotchas_handles_exception(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
     ):
         """Test get_patterns_and_gotchas handles exceptions."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
         mock_search = MagicMock()
         mock_search.get_patterns_and_gotchas = AsyncMock(
@@ -2059,18 +2212,20 @@ class TestGetPatternsAndGotchas:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
                 memory._search = mock_search
-                memory.state = mock_state
+                memory.state = mock_graphiti_state
 
                 patterns, gotchas = await memory.get_patterns_and_gotchas("query")
 
@@ -2087,7 +2242,7 @@ class TestGetStatusSummary:
     """Test GraphitiMemory.get_status_summary() method."""
 
     def test_get_status_summary_with_disabled_memory(
-        self, temp_spec_dir, temp_project_dir
+        self, graphiti_test_spec_dir, graphiti_test_project_dir
     ):
         """Test get_status_summary returns None values when disabled."""
         mock_config = MagicMock()
@@ -2104,7 +2259,9 @@ class TestGetStatusSummary:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 status = memory.get_status_summary()
 
@@ -2120,34 +2277,36 @@ class TestGetStatusSummary:
 
     def test_get_status_summary_with_enabled_memory(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
     ):
         """Test get_status_summary returns config values when enabled."""
-        mock_config.enabled = True
-        mock_config.is_valid.return_value = True
-        mock_config.database = "test_db"
-        mock_config.db_path = "~/.auto-claude/memories"
-        mock_config.llm_provider = "openai"
-        mock_config.embedder_provider = "openai"
+        mock_graphiti_config.enabled = True
+        mock_graphiti_config.is_valid.return_value = True
+        mock_graphiti_config.database = "test_db"
+        mock_graphiti_config.db_path = "~/.auto-claude/memories"
+        mock_graphiti_config.llm_provider = "openai"
+        mock_graphiti_config.embedder_provider = "openai"
 
-        mock_state.episode_count = 10
-        mock_state.last_session = 5
-        mock_state.error_log = ["error1", "error2"]
+        mock_graphiti_state.episode_count = 10
+        mock_graphiti_state.last_session = 5
+        mock_graphiti_state.error_log = ["error1", "error2"]
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 status = memory.get_status_summary()
 
@@ -2161,12 +2320,12 @@ class TestGetStatusSummary:
                 assert status["errors"] == 2
 
     def test_get_status_summary_includes_group_id(
-        self, temp_spec_dir, temp_project_dir, mock_config
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
     ):
         """Test get_status_summary includes group_id."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -2174,7 +2333,9 @@ class TestGetStatusSummary:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
 
                 status = memory.get_status_summary()
 
@@ -2193,27 +2354,29 @@ class TestEnsureInitialized:
     @pytest.mark.asyncio
     async def test_ensure_initialized_returns_true_when_already_initialized(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
-        mock_state,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
         mock_client,
     ):
         """Test _ensure_initialized returns True when already initialized."""
-        mock_state.initialized = True
+        mock_graphiti_state.initialized = True
         mock_client.is_initialized = True
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._client = mock_client
 
                 result = await memory._ensure_initialized()
@@ -2222,7 +2385,7 @@ class TestEnsureInitialized:
 
     @pytest.mark.asyncio
     async def test_ensure_initialized_returns_false_when_not_available(
-        self, temp_spec_dir, temp_project_dir
+        self, graphiti_test_spec_dir, graphiti_test_project_dir
     ):
         """Test _ensure_initialized returns False when not available."""
         mock_config = MagicMock()
@@ -2238,7 +2401,9 @@ class TestEnsureInitialized:
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory._available = False
 
                 result = await memory._ensure_initialized()
@@ -2248,9 +2413,9 @@ class TestEnsureInitialized:
     @pytest.mark.asyncio
     async def test_ensure_initialized_calls_initialize(
         self,
-        temp_spec_dir,
-        temp_project_dir,
-        mock_config,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
         mock_client,
     ):
         """Test _ensure_initialized calls initialize when needed."""
@@ -2259,7 +2424,7 @@ class TestEnsureInitialized:
 
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -2284,7 +2449,9 @@ class TestEnsureInitialized:
                             "integrations.graphiti.queries_pkg.graphiti.GraphitiSearch",
                             return_value=MagicMock(),
                         ):
-                            memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                            memory = GraphitiMemory(
+                                graphiti_test_spec_dir, graphiti_test_project_dir
+                            )
 
                             result = await memory._ensure_initialized()
 
@@ -2300,12 +2467,12 @@ class TestRecordError:
     """Test GraphitiMemory._record_error() method."""
 
     def test_record_error_creates_state_when_none(
-        self, temp_spec_dir, temp_project_dir, mock_config
+        self, graphiti_test_spec_dir, graphiti_test_project_dir, mock_graphiti_config
     ):
         """Test _record_error creates state when None."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
@@ -2316,7 +2483,9 @@ class TestRecordError:
                     GraphitiState,
                 )
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
                 memory.state = None
 
                 with patch(
@@ -2331,23 +2500,31 @@ class TestRecordError:
                     mock_state.record_error.assert_called_once_with("Test error")
 
     def test_record_error_records_and_saves(
-        self, temp_spec_dir, temp_project_dir, mock_config, mock_state
+        self,
+        graphiti_test_spec_dir,
+        graphiti_test_project_dir,
+        mock_graphiti_config,
+        mock_graphiti_state,
     ):
         """Test _record_error records error and saves state."""
         with patch(
             "integrations.graphiti.queries_pkg.graphiti.GraphitiConfig.from_env",
-            return_value=mock_config,
+            return_value=mock_graphiti_config,
         ):
             with patch(
                 "integrations.graphiti.queries_pkg.graphiti.GraphitiState.load",
-                return_value=mock_state,
+                return_value=mock_graphiti_state,
             ):
                 from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
 
-                memory = GraphitiMemory(temp_spec_dir, temp_project_dir)
-                memory.state = mock_state
+                memory = GraphitiMemory(
+                    graphiti_test_spec_dir, graphiti_test_project_dir
+                )
+                memory.state = mock_graphiti_state
 
                 memory._record_error("Test error message")
 
-                mock_state.record_error.assert_called_once_with("Test error message")
-                mock_state.save.assert_called_once_with(temp_spec_dir)
+                mock_graphiti_state.record_error.assert_called_once_with(
+                    "Test error message"
+                )
+                mock_graphiti_state.save.assert_called_once_with(graphiti_test_spec_dir)
