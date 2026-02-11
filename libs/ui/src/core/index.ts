@@ -6,3 +6,9 @@ export type { UsageLimitGateProps } from './UsageLimitGate';
 
 export { UpgradePrompt } from './UpgradePrompt';
 export type { UpgradePromptProps } from './UpgradePrompt';
+
+export { AuthGate } from './AuthGate';
+export type { AuthGateProps } from './AuthGate';
+
+export { LoginForm } from './LoginForm';
+export type { LoginFormProps, OAuthProvider } from './LoginForm';

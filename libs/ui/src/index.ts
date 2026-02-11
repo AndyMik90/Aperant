@@ -9,3 +9,6 @@ export type { ClassValue } from 'clsx';
 
 // Re-export all primitives
 export * from './primitives';
+
+// Re-export core components
+export * from './core';
