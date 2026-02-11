@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, Dirent } from 'fs';
+import { readFileSync, existsSync, mkdirSync, readdirSync, Dirent } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask, KanbanPreferences, ExecutionPhase } from '../shared/types';
@@ -79,7 +79,7 @@ export class ProjectStore {
    * Save store to disk
    */
   private save(): void {
-    writeFileSync(this.storePath, JSON.stringify(this.data, null, 2), 'utf-8');
+    writeFileAtomicSync(this.storePath, JSON.stringify(this.data, null, 2));
   }
 
   /**
@@ -800,7 +800,7 @@ export class ProjectStore {
             metadata.archivedInVersion = version;
           }
 
-          writeFileSync(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
+          writeFileAtomicSync(metadataPath, JSON.stringify(metadata, null, 2));
         } catch (error) {
           console.error(`[ProjectStore] archiveTasks: Failed to archive task ${taskId} at ${specPath}:`, error);
           hasErrors = true;
@@ -858,7 +858,7 @@ export class ProjectStore {
 
           delete metadata.archivedAt;
           delete metadata.archivedInVersion;
-          writeFileSync(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
+          writeFileAtomicSync(metadataPath, JSON.stringify(metadata, null, 2));
         } catch (error) {
           console.error(`[ProjectStore] unarchiveTasks: Failed to unarchive task ${taskId} at ${specPath}:`, error);
           hasErrors = true;
