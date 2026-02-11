@@ -221,18 +221,29 @@ export class TitleGenerator extends EventEmitter {
         });
       } catch { /* Sentry not initialized */ }
 
+      // Guard: if Python env isn't ready, log and fall back gracefully
+      if (!pythonEnvManager.isEnvReady()) {
+        debug('Python environment not ready, skipping title generation');
+        try {
+          Sentry.addBreadcrumb({
+            category: 'title-generator',
+            message: 'Python environment not ready - skipping title generation',
+            level: 'warning',
+          });
+        } catch { /* Sentry not initialized */ }
+        resolve(null);
+        return;
+      }
+
       const childProcess = spawn(pythonCommand, [...pythonBaseArgs, '-c', script], {
         cwd: autoBuildSource,
         env: {
-          ...process.env,
+          ...pythonEnvManager.getPythonEnv(), // Python environment including PYTHONPATH (fixes subprocess Python resolution)
+          ...getSentryEnvForSubprocess(), // Sentry config for subprocess error tracking
           ...autoBuildEnv,
           ...profileEnv, // Claude OAuth profile - includes CLAUDE_CONFIG_DIR and clears CLAUDE_CODE_OAUTH_TOKEN
           ...apiProfileEnv, // API profile (ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, etc.)
           ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
-          ...getSentryEnvForSubprocess(),
-          PYTHONUNBUFFERED: '1',
-          PYTHONIOENCODING: 'utf-8',
-          PYTHONUTF8: '1'
         }
       });
 
