@@ -67,7 +67,8 @@ class GraphitiSearch:
         Args:
             query: Search query
             num_results: Maximum number of results to return
-            include_project_context: If True and in PROJECT mode, search project-wide
+            include_project_context: If True and in SPEC mode, also search project-wide
+            min_score: Minimum relevance score threshold (0.0 to 1.0)
 
         Returns:
             List of relevant context items with content, score, and type

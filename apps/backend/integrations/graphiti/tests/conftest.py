@@ -409,17 +409,16 @@ def mock_embedder():
     """Mocked embedder with get_embedding() method.
 
     Provides a mock embedder that returns fake embeddings without making
-    actual API calls.
+    actual API calls. Uses deterministic values for reproducibility.
 
     Returns:
         tuple: (mock_embedder, test_embedding_list)
     """
     embedder = Mock()
 
-    # Return a fixed-size embedding vector (1536 dimensions is common for OpenAI)
-    import random
-
-    test_embedding = [random.random() for _ in range(1536)]
+    # Return a deterministic embedding vector (1536 dimensions is common for OpenAI)
+    # Using 0.1 for all values makes tests reproducible
+    test_embedding = [0.1] * 1536
 
     embedder.get_embedding = Mock(return_value=test_embedding)
     embedder.get_embeddings = Mock(return_value=[test_embedding])

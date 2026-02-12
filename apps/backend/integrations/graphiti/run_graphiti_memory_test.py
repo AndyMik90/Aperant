@@ -22,13 +22,13 @@ Usage:
 
     # Run the test:
     cd auto-claude
-    python integrations/graphiti/test_graphiti_memory.py
+    python integrations/graphiti/run_graphiti_memory_test.py
 
     # Or run specific tests:
-    python integrations/graphiti/test_graphiti_memory.py --test connection
-    python integrations/graphiti/test_graphiti_memory.py --test save
-    python integrations/graphiti/test_graphiti_memory.py --test search
-    python integrations/graphiti/test_graphiti_memory.py --test ollama
+    python integrations/graphiti/run_graphiti_memory_test.py --test connection
+    python integrations/graphiti/run_graphiti_memory_test.py --test save
+    python integrations/graphiti/run_graphiti_memory_test.py --test search
+    python integrations/graphiti/run_graphiti_memory_test.py --test ollama
 """
 
 import argparse
@@ -185,7 +185,7 @@ async def test_save_episode(db_path: str, database: str) -> tuple[str, str]:
             name=episode_name,
             episode_body=json.dumps(test_data),
             source=EpisodeType.text,
-            source_description="Test episode from test_graphiti_memory.py",
+            source_description="Test episode from run_graphiti_memory_test.py",
             reference_time=datetime.now(timezone.utc),
             group_id=group_id,
         )
@@ -700,14 +700,14 @@ async def main():
     print()
     print("  Quick commands:")
     print("    # Run all tests:")
-    print("    python integrations/graphiti/test_graphiti_memory.py")
+    print("    python integrations/graphiti/run_graphiti_memory_test.py")
     print()
     print("    # Test just Ollama embeddings:")
-    print("    python integrations/graphiti/test_graphiti_memory.py --test ollama")
+    print("    python integrations/graphiti/run_graphiti_memory_test.py --test ollama")
     print()
     print("    # Test with production database:")
     print(
-        "    python integrations/graphiti/test_graphiti_memory.py --database auto_claude_memory"
+        "    python integrations/graphiti/run_graphiti_memory_test.py --database auto_claude_memory"
     )
     print()
 

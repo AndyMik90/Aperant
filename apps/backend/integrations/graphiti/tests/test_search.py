@@ -1507,6 +1507,65 @@ class TestEdgeCases:
         assert len(result_filtered) == 0
 
     @pytest.mark.asyncio
+    async def test_get_similar_task_outcomes_with_none_score(
+        self, graphiti_search, mock_client
+    ):
+        """Test get_similar_task_outcomes handles results with None score."""
+        task_outcome = {
+            "type": "task_outcome",
+            "task_id": "task-123",
+            "task_description": "Test task",
+            "success": True,
+            "outcome": "Completed successfully",
+        }
+        mock_result = Mock()
+        mock_result.content = json.dumps(task_outcome)
+        mock_result.fact = None
+        mock_result.score = None  # None score
+
+        mock_client.graphiti.search.return_value = [mock_result]
+
+        result = await graphiti_search.get_similar_task_outcomes(
+            task_description="Test task"
+        )
+
+        # Should handle None score gracefully (converts to 0.0 in result)
+        assert len(result) == 1
+        assert result[0]["task_id"] == "task-123"
+        # The score will be 0.0 since production code converts None to 0.0
+        assert result[0]["score"] == 0.0
+
+    @pytest.mark.asyncio
+    async def test_get_patterns_and_gotchas_with_none_score(
+        self, graphiti_search, mock_client
+    ):
+        """Test get_patterns_and_gotchas handles results with None score."""
+        pattern = {
+            "type": "pattern",
+            "pattern": "Test pattern content",
+            "applies_to": "test scenarios",
+            "example": "test example",
+        }
+        mock_result = Mock()
+        mock_result.content = json.dumps(pattern)
+        mock_result.fact = None
+        mock_result.score = None  # None score
+
+        mock_client.graphiti.search.return_value = [mock_result]
+
+        patterns, gotchas = await graphiti_search.get_patterns_and_gotchas(
+            query="test patterns",
+            min_score=0.0,  # Allow 0.0 score to pass through
+        )
+
+        # Should handle None score gracefully (converts to 0.0 in result)
+        assert len(patterns) == 1
+        assert patterns[0]["pattern"] == "Test pattern content"
+        # The score will be 0.0 since production code converts None to 0.0
+        assert patterns[0]["score"] == 0.0
+        assert len(gotchas) == 0
+
+    @pytest.mark.asyncio
     async def test_all_methods_handle_string_and_dict_content(
         self, graphiti_search, mock_client
     ):

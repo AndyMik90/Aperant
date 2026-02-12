@@ -36,13 +36,13 @@ NOTE: graphiti-core internally uses an OpenAI reranker for search ranking.
 
 Usage:
     cd apps/backend
-    python integrations/graphiti/test_ollama_embedding_memory.py
+    python integrations/graphiti/run_ollama_embedding_test.py
 
     # Run specific tests:
-    python integrations/graphiti/test_ollama_embedding_memory.py --test embeddings
-    python integrations/graphiti/test_ollama_embedding_memory.py --test create
-    python integrations/graphiti/test_ollama_embedding_memory.py --test retrieve
-    python integrations/graphiti/test_ollama_embedding_memory.py --test full-cycle
+    python integrations/graphiti/run_ollama_embedding_test.py --test embeddings
+    python integrations/graphiti/run_ollama_embedding_test.py --test create
+    python integrations/graphiti/run_ollama_embedding_test.py --test retrieve
+    python integrations/graphiti/run_ollama_embedding_test.py --test full-cycle
 """
 
 import argparse
@@ -843,18 +843,18 @@ async def main():
     print()
     print("  Commands:")
     print("    # Run all tests:")
-    print("    python integrations/graphiti/test_ollama_embedding_memory.py")
+    print("    python integrations/graphiti/run_ollama_embedding_test.py")
     print()
     print("    # Run specific test:")
     print(
-        "    python integrations/graphiti/test_ollama_embedding_memory.py --test embeddings"
+        "    python integrations/graphiti/run_ollama_embedding_test.py --test embeddings"
     )
     print(
-        "    python integrations/graphiti/test_ollama_embedding_memory.py --test full-cycle"
+        "    python integrations/graphiti/run_ollama_embedding_test.py --test full-cycle"
     )
     print()
     print("    # Keep database for inspection:")
-    print("    python integrations/graphiti/test_ollama_embedding_memory.py --keep-db")
+    print("    python integrations/graphiti/run_ollama_embedding_test.py --keep-db")
     print()
 
 
