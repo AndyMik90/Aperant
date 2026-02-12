@@ -9,6 +9,7 @@ import { getTaskWorktreeDir } from './worktree-paths';
 import { findAllSpecPaths } from './utils/spec-path-helpers';
 import { ensureAbsolutePath } from './utils/path-helpers';
 import { writeFileAtomicSync } from './utils/atomic-file';
+import { updateRoadmapFeatureOutcome, revertRoadmapFeatureOutcome } from './utils/roadmap-utils';
 
 interface TabState {
   openProjectIds: string[];
@@ -809,10 +810,23 @@ export class ProjectStore {
       }
     }
 
+    // Update linked roadmap features for archived tasks
+    this.updateRoadmapForArchivedTasks(project, taskIds);
+
     // Invalidate cache since task metadata changed
     this.invalidateTasksCache(projectId);
 
     return !hasErrors;
+  }
+
+  /**
+   * Update roadmap features linked to archived tasks
+   */
+  private updateRoadmapForArchivedTasks(project: Project, taskIds: string[]): void {
+    const roadmapFile = path.join(project.path, AUTO_BUILD_PATHS.ROADMAP_DIR, AUTO_BUILD_PATHS.ROADMAP_FILE);
+    updateRoadmapFeatureOutcome(roadmapFile, taskIds, 'archived', '[ProjectStore]').catch((err) => {
+      console.warn('[ProjectStore] Failed to update roadmap for archived tasks:', err);
+    });
   }
 
   /**
@@ -866,6 +880,12 @@ export class ProjectStore {
         }
       }
     }
+
+    // Revert linked roadmap features from 'archived' back to 'in_progress'
+    const roadmapFile = path.join(project.path, AUTO_BUILD_PATHS.ROADMAP_DIR, AUTO_BUILD_PATHS.ROADMAP_FILE);
+    revertRoadmapFeatureOutcome(roadmapFile, taskIds, '[ProjectStore]').catch((err) => {
+      console.warn('[ProjectStore] Failed to revert roadmap for unarchived tasks:', err);
+    });
 
     // Invalidate cache since task metadata changed
     this.invalidateTasksCache(projectId);
