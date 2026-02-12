@@ -15,10 +15,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Add apps/backend to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
-# Add tests directory to path for test_utils import
-sys.path.insert(0, str(Path(__file__).parent))
+# Note: conftest.py handles apps/backend path
+# Add tests directory to path for test_utils import (conftest doesn't handle this)
+if str(Path(__file__).parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).parent))
 
 
 # =============================================================================

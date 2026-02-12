@@ -113,19 +113,23 @@ def pytest_runtest_setup(item):
 
     module_name = item.module.__name__
 
+    # Common mock sets - defined once to reduce duplication and maintenance burden
+    QA_REPORT_MOCKS = {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'}
+    SDK_MOCKS = {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'claude_agent_sdk.types'}
+
     # Map of which test modules mock which specific modules
     # Each test module should only preserve the mocks it installed
     module_mocks = {
-        'test_qa_criteria': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
-        'test_qa_report': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
-        'test_qa_report_iteration': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
-        'test_qa_report_recurring': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
-        'test_qa_report_project_detection': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
-        'test_qa_report_manual_plan': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
-        'test_qa_report_config': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
-        'test_qa_loop': {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'claude_agent_sdk.types'},
+        'test_qa_criteria': QA_REPORT_MOCKS,
+        'test_qa_report': QA_REPORT_MOCKS,
+        'test_qa_report_iteration': QA_REPORT_MOCKS,
+        'test_qa_report_recurring': QA_REPORT_MOCKS,
+        'test_qa_report_project_detection': QA_REPORT_MOCKS,
+        'test_qa_report_manual_plan': QA_REPORT_MOCKS,
+        'test_qa_report_config': QA_REPORT_MOCKS,
+        'test_qa_loop': SDK_MOCKS,
         'test_spec_pipeline': {'claude_code_sdk', 'claude_code_sdk.types', 'init', 'client', 'review', 'task_logger', 'ui', 'validate_spec'},
-        'test_spec_complexity': {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'claude_agent_sdk.types'},
+        'test_spec_complexity': SDK_MOCKS,
         'test_spec_phases': {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'graphiti_providers', 'validate_spec', 'client'},
         'test_qa_fixer': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client', 'agents.memory_manager', 'agents.base', 'core.error_utils', 'security.tool_input_validator', 'debug'},
         'test_qa_reviewer': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client', 'agents.memory_manager', 'agents.base', 'core.error_utils', 'security.tool_input_validator', 'debug', 'prompts_pkg', 'prompts_pkg.project_context'},
@@ -161,16 +165,19 @@ def pytest_runtest_setup(item):
             if qa_module in sys.modules:
                 try:
                     importlib.reload(sys.modules[qa_module])
-                except Exception:
-                    pass  # Some modules may fail to reload due to circular imports
+                except Exception as e:
+                    # Log reload failures - circular imports are expected but other errors should be visible
+                    import warnings
+                    warnings.warn(f'Failed to reload {qa_module}: {e}')
         # Reload review module chain
         for review_module in ['review.state', 'review.formatters', 'review']:
             if review_module in sys.modules:
                 try:
                     importlib.reload(sys.modules[review_module])
-                except Exception:
-                    # Module reload may fail if dependencies aren't loaded; safe to ignore
-                    pass
+                except Exception as e:
+                    # Log reload failures - some modules may fail if dependencies aren't loaded
+                    import warnings
+                    warnings.warn(f'Failed to reload {review_module}: {e}')
 
 
 # =============================================================================

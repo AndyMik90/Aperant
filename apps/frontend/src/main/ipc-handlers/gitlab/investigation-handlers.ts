@@ -163,13 +163,17 @@ export function registerInvestigateIssue(
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : String(error);
 
-              // Check for authentication/rate-limit errors - these should be surfaced
-              const isAuthError = errorMessage.includes('401') || errorMessage.includes('403');
-              const isRateLimited = errorMessage.includes('429');
+              // Check for authentication/rate-limit errors using structured status codes
+              // Fall back to string matching only if status codes are unavailable
+              const statusCode = (error as any).statusCode ?? (error as any).status ?? (error as any).response?.status;
+              const isAuthError = statusCode === 401 || statusCode === 403 ||
+                (!statusCode && (errorMessage.includes('401') || errorMessage.includes('403')));
+              const isRateLimited = statusCode === 429 ||
+                (!statusCode && errorMessage.includes('429'));
 
               if (isAuthError || isRateLimited) {
                 // Re-throw critical errors to let the outer handler surface them to the user
-                console.warn(`[GitLab Investigation] ${isAuthError ? 'Authentication' : 'Rate limit'} error during notes fetch`, { page, error: errorMessage });
+                console.warn(`[GitLab Investigation] ${isAuthError ? 'Authentication' : 'Rate limit'} error during notes fetch`, { page, error: errorMessage, statusCode });
                 throw error;
               }
 

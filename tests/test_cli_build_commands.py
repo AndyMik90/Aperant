@@ -28,10 +28,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Ensure we can import from apps/backend
-sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
-# Add tests directory to path for test_utils
-sys.path.insert(0, str(Path(__file__).parent))
+# Note: conftest.py handles apps/backend path
+# Add tests directory to path for test_utils import (conftest doesn't handle this)
+if str(Path(__file__).parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).parent))
 
 from cli.build_commands import _handle_build_interrupt, handle_build_command
 from review import ReviewState
