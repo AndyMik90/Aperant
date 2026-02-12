@@ -189,6 +189,8 @@ export function GitHubErrorDisplay({
   // Update countdown every second for rate limit errors
   useEffect(() => {
     if (errorInfo.type !== 'rate_limit' || !errorInfo.rateLimitResetTime) {
+      // Clear stale countdown state when error type changes away from rate_limit
+      setCountdownComponents(null);
       return;
     }
 

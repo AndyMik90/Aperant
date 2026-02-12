@@ -109,6 +109,12 @@ function sanitizeRawError(error: string): string {
 }
 
 /**
+ * Maximum reasonable reset duration in seconds (24 hours).
+ * Prevents malformed error strings from creating far-future dates.
+ */
+const MAX_RESET_SECONDS = 86400;
+
+/**
  * Extract rate limit reset time from error message.
  * Parses various formats and returns a Date object if found.
  * Handles both absolute timestamps and relative durations ("in X seconds").
@@ -119,7 +125,8 @@ function extractRateLimitResetTime(error: string): Date | undefined {
   const relativeMatch = error.match(relativePattern);
   if (relativeMatch) {
     const seconds = parseInt(relativeMatch[1], 10);
-    if (!Number.isNaN(seconds) && seconds > 0) {
+    // Validate: positive, non-NaN, and within reasonable bounds (24 hours max)
+    if (!Number.isNaN(seconds) && seconds > 0 && seconds <= MAX_RESET_SECONDS) {
       return new Date(Date.now() + seconds * 1000);
     }
   }
