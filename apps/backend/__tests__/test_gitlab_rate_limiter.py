@@ -8,7 +8,6 @@ Tests for token bucket rate limiting and rate limiter state model.
 import time
 from unittest.mock import patch
 
-import pytest
 from runners.gitlab.utils.rate_limiter import RateLimiterState, TokenBucket
 
 
