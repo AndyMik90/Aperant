@@ -9,8 +9,8 @@ Tests utility functions and edge cases:
 - Debug function fallbacks
 """
 
-import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import Generator
 from unittest.mock import MagicMock, patch
@@ -30,146 +30,28 @@ TEST_SPEC_BRANCH = f"auto-claude/{TEST_SPEC_NAME}"
 
 
 # =============================================================================
-# FIXTURES
+# MODULE ISOLATION FIXTURE
 # =============================================================================
 
-@pytest.fixture
-def mock_project_dir(temp_git_repo: Path) -> Path:
-    """Create a mock project directory with git repo."""
-    return temp_git_repo
+# Store original module reference to restore after tests
+_original_workspace_commands = sys.modules.get('cli.workspace_commands')
+_original_debug = sys.modules.get('debug')
 
 
-@pytest.fixture
-def mock_worktree_path(temp_git_repo: Path) -> Path:
-    """Create a mock worktree path."""
-    worktree_path = temp_git_repo / ".worktrees" / TEST_SPEC_NAME
-    worktree_path.mkdir(parents=True, exist_ok=True)
-    return worktree_path
+@pytest.fixture(scope="module", autouse=True)
+def restore_workspace_commands_module():
+    """Ensure workspace_commands module is restored after all tests in this file.
 
-
-@pytest.fixture
-def spec_dir(temp_git_repo: Path) -> Path:
-    """Create a spec directory."""
-    spec_dir = temp_git_repo / ".auto-claude" / "specs" / TEST_SPEC_NAME
-    spec_dir.mkdir(parents=True, exist_ok=True)
-    return spec_dir
-
-
-@pytest.fixture
-def with_spec_branch(temp_git_repo: Path) -> Generator[Path, None, None]:
-    """Create a temp git repo with a spec branch."""
-    # Create initial commit on main
-    (temp_git_repo / "README.md").write_text("# Test Repo")
-    subprocess.run(
-        ["git", "add", "README.md"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "Initial commit"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    # Create spec branch
-    subprocess.run(
-        ["git", "checkout", "-b", TEST_SPEC_BRANCH],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    # Add a change on spec branch
-    (temp_git_repo / "test.txt").write_text("test content")
-    subprocess.run(
-        ["git", "add", "test.txt"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "Test commit"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    # Go back to main
-    subprocess.run(
-        ["git", "checkout", "main"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    yield temp_git_repo
-
-
-@pytest.fixture
-def with_conflicting_branches(temp_git_repo: Path) -> Generator[Path, None, None]:
-    """Create temp git repo with conflicting branches for merge testing."""
-    # Create initial commit
-    (temp_git_repo / "README.md").write_text("# Test Repo")
-    subprocess.run(
-        ["git", "add", "README.md"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "Initial commit"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    # Create spec branch
-    subprocess.run(
-        ["git", "checkout", "-b", TEST_SPEC_BRANCH],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    # Add a file on spec branch
-    (temp_git_repo / "conflict.txt").write_text("spec branch content")
-    subprocess.run(
-        ["git", "add", "conflict.txt"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "Spec change"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    # Go back to main and make conflicting change
-    subprocess.run(
-        ["git", "checkout", "main"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-    (temp_git_repo / "conflict.txt").write_text("main branch content")
-    subprocess.run(
-        ["git", "add", "conflict.txt"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "Main change"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    yield temp_git_repo
+    Some tests in this file manipulate sys.modules to test fallback behavior.
+    This fixture ensures the module is properly restored to prevent state
+    corruption from affecting other test files.
+    """
+    yield
+    # Restore original module references after all tests in this module
+    if _original_workspace_commands is not None:
+        sys.modules['cli.workspace_commands'] = _original_workspace_commands
+    if _original_debug is not None:
+        sys.modules['debug'] = _original_debug
 
 
 # =============================================================================

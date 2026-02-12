@@ -21,11 +21,10 @@ Tests the workspace_commands.py module functionality including:
 
 """
 
-import json
 import subprocess
 from pathlib import Path
 from typing import Generator
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -39,149 +38,6 @@ from cli import workspace_commands
 
 TEST_SPEC_NAME = "001-test-spec"
 TEST_SPEC_BRANCH = f"auto-claude/{TEST_SPEC_NAME}"
-
-
-# =============================================================================
-# FIXTURES
-# =============================================================================
-
-@pytest.fixture
-def mock_project_dir(temp_git_repo: Path) -> Path:
-    """Create a mock project directory with git repo."""
-    return temp_git_repo
-
-
-@pytest.fixture
-def mock_worktree_path(temp_git_repo: Path) -> Path:
-    """Create a mock worktree path."""
-    worktree_path = temp_git_repo / ".worktrees" / TEST_SPEC_NAME
-    worktree_path.mkdir(parents=True, exist_ok=True)
-    return worktree_path
-
-
-@pytest.fixture
-def spec_dir(temp_git_repo: Path) -> Path:
-    """Create a spec directory."""
-    spec_dir = temp_git_repo / ".auto-claude" / "specs" / TEST_SPEC_NAME
-    spec_dir.mkdir(parents=True, exist_ok=True)
-    return spec_dir
-
-
-@pytest.fixture
-def with_spec_branch(temp_git_repo: Path) -> Generator[Path, None, None]:
-    """Create a temp git repo with a spec branch."""
-    # Create initial commit on main
-    (temp_git_repo / "README.md").write_text("# Test Repo")
-    subprocess.run(
-        ["git", "add", "README.md"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "Initial commit"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    # Create spec branch
-    subprocess.run(
-        ["git", "checkout", "-b", TEST_SPEC_BRANCH],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    # Add a change on spec branch
-    (temp_git_repo / "test.txt").write_text("test content")
-    subprocess.run(
-        ["git", "add", "test.txt"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "Test commit"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    # Go back to main
-    subprocess.run(
-        ["git", "checkout", "main"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    yield temp_git_repo
-
-
-@pytest.fixture
-def with_conflicting_branches(temp_git_repo: Path) -> Generator[Path, None, None]:
-    """Create temp git repo with conflicting branches for merge testing."""
-    # Create initial commit
-    (temp_git_repo / "README.md").write_text("# Test Repo")
-    subprocess.run(
-        ["git", "add", "README.md"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "Initial commit"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    # Create spec branch
-    subprocess.run(
-        ["git", "checkout", "-b", TEST_SPEC_BRANCH],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    # Add a file on spec branch
-    (temp_git_repo / "conflict.txt").write_text("spec branch content")
-    subprocess.run(
-        ["git", "add", "conflict.txt"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "Spec change"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    # Go back to main and make conflicting change
-    subprocess.run(
-        ["git", "checkout", "main"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-    (temp_git_repo / "conflict.txt").write_text("main branch content")
-    subprocess.run(
-        ["git", "add", "conflict.txt"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "Main change"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-
-    yield temp_git_repo
 
 
 # =============================================================================
@@ -701,7 +557,7 @@ class TestGenerateAndSaveCommitMessageEdgeCases:
     @patch("commit_message.generate_commit_message_sync")
     @patch("subprocess.run")
     def test_git_diff_failure_returns_empty_summary(
-        self, mock_run, mock_generate, mock_project_dir: Path, spec_dir: Path
+        self, mock_run, mock_generate, mock_project_dir: Path, workspace_spec_dir: Path
     ):
         """Handles git diff failure gracefully."""
         mock_run.side_effect = Exception("Git command failed")
@@ -730,7 +586,7 @@ class TestGenerateAndSaveCommitMessageEdgeCases:
 
     @patch("commit_message.generate_commit_message_sync", return_value=None)
     def test_no_commit_message_generated_logs_warning(
-        self, mock_generate, mock_project_dir: Path, spec_dir: Path
+        self, mock_generate, mock_project_dir: Path, workspace_spec_dir: Path
     ):
         """Logs warning when no commit message is generated."""
         workspace_commands._generate_and_save_commit_message(
@@ -741,7 +597,7 @@ class TestGenerateAndSaveCommitMessageEdgeCases:
 
     @patch("commit_message.generate_commit_message_sync", side_effect=ImportError)
     def test_import_error_logs_warning(
-        self, mock_generate, mock_project_dir: Path, spec_dir: Path
+        self, mock_generate, mock_project_dir: Path, workspace_spec_dir: Path
     ):
         """Logs warning when commit_message module import fails."""
         workspace_commands._generate_and_save_commit_message(
@@ -752,7 +608,7 @@ class TestGenerateAndSaveCommitMessageEdgeCases:
 
     @patch("commit_message.generate_commit_message_sync", side_effect=Exception("Generation failed"))
     def test_generation_exception_logs_warning(
-        self, mock_generate, mock_project_dir: Path, spec_dir: Path
+        self, mock_generate, mock_project_dir: Path, workspace_spec_dir: Path
     ):
         """Logs warning when commit message generation raises exception."""
         workspace_commands._generate_and_save_commit_message(
