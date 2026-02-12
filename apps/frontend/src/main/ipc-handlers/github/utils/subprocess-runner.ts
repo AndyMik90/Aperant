@@ -9,12 +9,7 @@ import { spawn, exec, execFile } from 'child_process';
 import type { ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import fs from 'fs';
-
-// ESM-compatible __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 import type { Project } from '../../../../shared/types';
 import type { AuthFailureInfo, BillingFailureInfo } from '../../../../shared/types/terminal';
 import { parsePythonCommand } from '../../../python-detector';
@@ -506,10 +501,12 @@ export function getRunnerPath(backendPath: string): string {
 /**
  * Get the auto-claude backend path for a project
  *
- * Auto-detects the backend location using multiple strategies:
- * 1. Development repo structure (apps/backend)
- * 2. Electron app bundle location
- * 3. Current working directory
+ * Uses getEffectiveSourcePath() which handles:
+ * 1. User settings (autoBuildPath)
+ * 2. userData override (backend-source) for user-updated backend
+ * 3. Bundled backend (process.resourcesPath/backend)
+ * 4. Development paths
+ * Falls back to project.path/apps/backend for development repos.
  */
 export function getBackendPath(project: Project): string | null {
   // Use shared path resolver which handles:
