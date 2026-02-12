@@ -51,7 +51,7 @@ try:
     from .category_utils import map_category
     from .io_utils import safe_print
     from .pr_worktree_manager import PRWorktreeManager
-    from .pydantic_models import ParallelFollowupResponse
+    from .pydantic_models import FollowupExtractionResponse, ParallelFollowupResponse
     from .sdk_utils import process_sdk_stream
 except (ImportError, ValueError, SystemError):
     from context_gatherer import _validate_git_ref
@@ -75,7 +75,10 @@ except (ImportError, ValueError, SystemError):
     from services.category_utils import map_category
     from services.io_utils import safe_print
     from services.pr_worktree_manager import PRWorktreeManager
-    from services.pydantic_models import ParallelFollowupResponse
+    from services.pydantic_models import (
+        FollowupExtractionResponse,
+        ParallelFollowupResponse,
+    )
     from services.sdk_utils import process_sdk_stream
 
 
@@ -576,16 +579,36 @@ The SDK will run invoked agents in parallel automatically.
                 )
 
                 # Check for stream processing errors
-                if stream_result.get("error"):
-                    logger.error(
-                        f"[ParallelFollowup] SDK stream failed: {stream_result['error']}"
-                    )
-                    raise RuntimeError(
-                        f"SDK stream processing failed: {stream_result['error']}"
-                    )
+                stream_error = stream_result.get("error")
+                if stream_error:
+                    if stream_result.get("error_recoverable"):
+                        # Recoverable error — attempt extraction call fallback
+                        logger.warning(
+                            f"[ParallelFollowup] Recoverable error: {stream_error}. "
+                            f"Attempting extraction call fallback."
+                        )
+                        safe_print(
+                            f"[ParallelFollowup] WARNING: {stream_error} — "
+                            f"attempting recovery with minimal extraction...",
+                            flush=True,
+                        )
+                    else:
+                        # Fatal error — raise as before
+                        logger.error(
+                            f"[ParallelFollowup] SDK stream failed: {stream_error}"
+                        )
+                        raise RuntimeError(
+                            f"SDK stream processing failed: {stream_error}"
+                        )
 
                 result_text = stream_result["result_text"]
-                structured_output = stream_result["structured_output"]
+                last_assistant_text = stream_result.get("last_assistant_text", "")
+                # Nullify structured output on recoverable errors to force Tier 2 fallback
+                structured_output = (
+                    None
+                    if (stream_error and stream_result.get("error_recoverable"))
+                    else stream_result["structured_output"]
+                )
                 agents_invoked = stream_result["agents_invoked"]
                 msg_count = stream_result["msg_count"]
 
@@ -596,22 +619,28 @@ The SDK will run invoked agents in parallel automatically.
                 pr_number=context.pr_number,
             )
 
-            # Parse findings from output
+            # Parse findings from output (three-tier recovery cascade)
             if structured_output:
                 result_data = self._parse_structured_output(structured_output, context)
             else:
-                # Log when structured output is missing - this shouldn't happen normally
-                # when output_format is configured, so it indicates a problem
+                # Structured output missing or validation failed.
+                # Tier 2: Attempt extraction call with minimal schema
                 logger.warning(
-                    "[ParallelFollowup] No structured output received from SDK - "
-                    "falling back to text parsing. Resolution data may be incomplete."
+                    "[ParallelFollowup] No structured output — attempting extraction call"
                 )
-                safe_print(
-                    "[ParallelFollowup] WARNING: Structured output not captured, "
-                    "using text fallback (resolution tracking may be incomplete)",
-                    flush=True,
+                # Use last_assistant_text (cleaner) if available, fall back to full transcript
+                fallback_text = last_assistant_text or result_text
+                result_data = await self._attempt_extraction_call(
+                    fallback_text, context
                 )
-                result_data = self._parse_text_output(result_text, context)
+                if result_data is None:
+                    # Tier 3: Fall back to basic text parsing
+                    safe_print(
+                        "[ParallelFollowup] WARNING: Extraction call failed, "
+                        "using text fallback (resolution tracking may be incomplete)",
+                        flush=True,
+                    )
+                    result_data = self._parse_text_output(result_text, context)
 
             # Extract data
             findings = result_data.get("findings", [])
@@ -730,7 +759,9 @@ The SDK will run invoked agents in parallel automatically.
                     blockers.append(f"{finding.category.value}: {finding.title}")
 
             # Extract validation counts
-            dismissed_count = len(result_data.get("dismissed_false_positive_ids", []))
+            dismissed_count = len(
+                result_data.get("dismissed_false_positive_ids", [])
+            ) or result_data.get("dismissed_finding_count", 0)
             confirmed_count = result_data.get("confirmed_valid_count", 0)
             needs_human_count = result_data.get("needs_human_review_count", 0)
 
@@ -1074,16 +1105,128 @@ The SDK will run invoked agents in parallel automatically.
         elif "needs revision" in text_lower or "request changes" in text_lower:
             verdict = MergeVerdict.NEEDS_REVISION
         else:
-            verdict = MergeVerdict.MERGE_WITH_CHANGES
+            verdict = MergeVerdict.NEEDS_REVISION
 
         return {
             "findings": findings,
             "resolved_ids": [],
             "unresolved_ids": [],
             "new_finding_ids": [],
+            "dismissed_false_positive_ids": [],
+            "confirmed_valid_count": 0,
+            "dismissed_finding_count": 0,
+            "needs_human_review_count": 0,
             "verdict": verdict,
             "verdict_reasoning": text[:500] if text else "Unable to parse response",
+            "agents_invoked": [],
         }
+
+    async def _attempt_extraction_call(
+        self, text: str, context: FollowupReviewContext
+    ) -> dict | None:
+        """Attempt a short SDK call with a minimal schema to recover review data.
+
+        This is the Tier 2 recovery step when full structured output validation fails.
+        Uses FollowupExtractionResponse (~6 flat fields) which has near-100% success rate.
+
+        Returns parsed result dict on success, None on failure.
+        """
+        if not text or not text.strip():
+            logger.warning("[ParallelFollowup] No text available for extraction call")
+            return None
+
+        try:
+            safe_print(
+                "[ParallelFollowup] Attempting recovery with minimal extraction schema...",
+                flush=True,
+            )
+
+            extraction_prompt = (
+                "Extract the key review data from the following AI analysis output. "
+                "Return the verdict, reasoning, resolved finding IDs, unresolved finding IDs, "
+                "one-line summaries of any new findings, and counts of confirmed/dismissed findings.\n\n"
+                f"--- AI ANALYSIS OUTPUT ---\n{text[:8000]}\n--- END ---"
+            )
+
+            model_shorthand = self.config.model or "sonnet"
+            model = resolve_model_id(model_shorthand)
+
+            extraction_client = create_client(
+                project_dir=self.project_dir,
+                spec_dir=self.github_dir,
+                model=model,
+                agent_type="pr_followup_extraction",
+                fast_mode=self.config.fast_mode,
+                output_format={
+                    "type": "json_schema",
+                    "schema": FollowupExtractionResponse.model_json_schema(),
+                },
+            )
+
+            async with extraction_client:
+                await extraction_client.query(extraction_prompt)
+
+                stream_result = await process_sdk_stream(
+                    client=extraction_client,
+                    context_name="FollowupExtraction",
+                    model=model,
+                    system_prompt=extraction_prompt,
+                    max_messages=20,
+                )
+
+            if stream_result.get("error"):
+                logger.warning(
+                    f"[ParallelFollowup] Extraction call also failed: {stream_result['error']}"
+                )
+                return None
+
+            extraction_output = stream_result.get("structured_output")
+            if not extraction_output:
+                logger.warning(
+                    "[ParallelFollowup] Extraction call returned no structured output"
+                )
+                return None
+
+            # Parse the minimal extraction response
+            extracted = FollowupExtractionResponse.model_validate(extraction_output)
+
+            # Map verdict string to MergeVerdict enum
+            verdict_map = {
+                "READY_TO_MERGE": MergeVerdict.READY_TO_MERGE,
+                "MERGE_WITH_CHANGES": MergeVerdict.MERGE_WITH_CHANGES,
+                "NEEDS_REVISION": MergeVerdict.NEEDS_REVISION,
+                "BLOCKED": MergeVerdict.BLOCKED,
+            }
+            verdict = verdict_map.get(extracted.verdict, MergeVerdict.NEEDS_REVISION)
+
+            safe_print(
+                f"[ParallelFollowup] Extraction recovered: verdict={extracted.verdict}, "
+                f"{len(extracted.resolved_finding_ids)} resolved, "
+                f"{len(extracted.new_finding_summaries)} new findings",
+                flush=True,
+            )
+
+            return {
+                "findings": [],  # Full findings not recoverable via extraction
+                "resolved_ids": extracted.resolved_finding_ids,
+                "unresolved_ids": extracted.unresolved_finding_ids,
+                "new_finding_ids": [],
+                "dismissed_false_positive_ids": [],
+                "confirmed_valid_count": extracted.confirmed_finding_count,
+                "dismissed_finding_count": extracted.dismissed_finding_count,
+                "needs_human_review_count": 0,
+                "verdict": verdict,
+                "verdict_reasoning": f"[Recovered via extraction] {extracted.verdict_reasoning}",
+                "agents_invoked": [],
+            }
+
+        except Exception as e:
+            logger.warning(f"[ParallelFollowup] Extraction call failed: {e}")
+            safe_print(
+                f"[ParallelFollowup] Extraction call failed: {e}",
+                flush=True,
+            )
+            return None
 
     def _create_empty_result(self) -> dict:
         """Create empty result structure."""
@@ -1092,8 +1235,13 @@ The SDK will run invoked agents in parallel automatically.
             "resolved_ids": [],
             "unresolved_ids": [],
             "new_finding_ids": [],
+            "dismissed_false_positive_ids": [],
+            "confirmed_valid_count": 0,
+            "dismissed_finding_count": 0,
+            "needs_human_review_count": 0,
             "verdict": MergeVerdict.NEEDS_REVISION,
             "verdict_reasoning": "Unable to parse review results",
+            "agents_invoked": [],
         }
 
     def _extract_partial_data(self, data: dict) -> dict | None:

@@ -133,6 +133,13 @@ def _get_tool_detail(tool_name: str, tool_input: dict[str, Any]) -> str:
 # Prevents runaway retry loops from consuming unbounded resources
 MAX_MESSAGE_COUNT = 500
 
+# Errors that are recoverable (callers can fall back to text parsing or retry)
+# vs fatal errors (auth failures, circuit breaker) that should propagate
+RECOVERABLE_ERRORS = {
+    "structured_output_validation_failed",
+    "tool_use_concurrency_error",
+}
+
 # Abort after 1 consecutive repeat (2 total identical responses).
 # Low threshold catches error loops quickly (e.g., auth errors returned as AI text).
 # Normal AI responses never produce the exact same text block twice in a row.
@@ -261,8 +268,11 @@ async def process_sdk_stream(
         - msg_count: Total message count
         - subagent_tool_ids: Mapping of tool_id -> agent_name
         - error: Error message if stream processing failed (None on success)
+        - error_recoverable: Boolean indicating if the error is recoverable (fallback possible) vs fatal
+        - last_assistant_text: Last non-empty assistant text block (for cleaner fallback parsing)
     """
     result_text = ""
+    last_assistant_text = ""  # Last assistant text block (for cleaner fallback parsing)
     structured_output = None
     agents_invoked = []
     msg_count = 0
@@ -481,6 +491,9 @@ async def process_sdk_stream(
                         block_type = type(block).__name__
                         if block_type == "TextBlock" and hasattr(block, "text"):
                             result_text += block.text
+                            # Track last non-empty text for fallback parsing
+                            if block.text.strip():
+                                last_assistant_text = block.text
                             # Check for auth/access error returned as AI response text.
                             # Note: break exits this inner for-loop over msg.content;
                             # the outer message loop exits via `if stream_error: break`.
@@ -647,11 +660,16 @@ async def process_sdk_stream(
             f"[{context_name}] Tool use concurrency error detected - caller should retry"
         )
 
+    # Categorize error as recoverable (fallback possible) vs fatal
+    error_recoverable = stream_error in RECOVERABLE_ERRORS if stream_error else False
+
     return {
         "result_text": result_text,
+        "last_assistant_text": last_assistant_text,
         "structured_output": structured_output,
         "agents_invoked": agents_invoked,
         "msg_count": msg_count,
         "subagent_tool_ids": subagent_tool_ids,
         "error": stream_error,
+        "error_recoverable": error_recoverable,
     }

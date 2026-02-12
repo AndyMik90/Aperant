@@ -1785,6 +1785,7 @@ For EACH finding above:
                             or "concurrency" in error_str
                             or "circuit breaker" in error_str
                             or "tool_use" in error_str
+                            or "structured_output" in error_str
                         )
 
                         if is_retryable and attempt < MAX_VALIDATION_RETRIES:

@@ -710,3 +710,39 @@ class FindingValidationResponse(BaseModel):
             "how many dismissed, how many need human review"
         )
     )
+
+
+# =============================================================================
+# Minimal Extraction Schema (Fallback for structured output validation failure)
+# =============================================================================
+
+
+class FollowupExtractionResponse(BaseModel):
+    """Minimal extraction schema for recovering data when full structured output fails.
+
+    Deliberately kept small (~6 fields, no nesting) for near-100% validation success.
+    Used as an intermediate recovery step before falling back to raw text parsing.
+    """
+
+    verdict: Literal[
+        "READY_TO_MERGE", "MERGE_WITH_CHANGES", "NEEDS_REVISION", "BLOCKED"
+    ] = Field(description="Overall merge verdict")
+    verdict_reasoning: str = Field(description="Explanation for the verdict")
+    resolved_finding_ids: list[str] = Field(
+        default_factory=list,
+        description="IDs of previous findings that are now resolved",
+    )
+    unresolved_finding_ids: list[str] = Field(
+        default_factory=list,
+        description="IDs of previous findings that remain unresolved",
+    )
+    new_finding_summaries: list[str] = Field(
+        default_factory=list,
+        description="One-line summary of each new finding (e.g. 'HIGH: cleanup deletes QA-rejected specs in batch_commands.py')",
+    )
+    confirmed_finding_count: int = Field(
+        0, description="Number of findings confirmed as valid"
+    )
+    dismissed_finding_count: int = Field(
+        0, description="Number of findings dismissed as false positives"
+    )
