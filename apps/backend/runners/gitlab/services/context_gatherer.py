@@ -356,8 +356,6 @@ class MRContextGatherer:
                 tool_name = name
                 break
             # Word boundary match (pattern followed by non-alphanumeric)
-            import re
-
             if re.search(rf"\b{re.escape(pattern_lower)}\b", author_lower):
                 tool_name = name
                 break

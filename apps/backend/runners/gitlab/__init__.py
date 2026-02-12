@@ -20,6 +20,7 @@ from .models import (
     ReviewCategory,
     ReviewSeverity,
     TriageCategory,
+    TriageResult,
 )
 from .orchestrator import GitLabOrchestrator
 

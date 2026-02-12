@@ -50,22 +50,6 @@ try:
     from .services.io_utils import safe_print
 except (ImportError, ValueError, SystemError):
     # When imported directly (runner.py adds github dir to path)
-    # Use importlib for path manipulation instead of sys.path mutation
-    import importlib.util
-    import sys
-
-    _github_dir = Path(__file__).parent
-
-    def _import_module(name: str, path: Path):
-        """Dynamically import a module from a file path."""
-        spec = importlib.util.spec_from_file_location(name, path / f"{name}.py")
-        if spec and spec.loader:
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[name] = module
-            spec.loader.exec_module(module)
-            return module
-        return None
-
     # Use try/except for each import to handle partial failures gracefully
     try:
         from bot_detection import GitHubBotDetector

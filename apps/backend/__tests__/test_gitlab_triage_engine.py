@@ -10,7 +10,6 @@ import pytest
 try:
     from runners.gitlab.glab_client import GitLabConfig
     from runners.gitlab.models import TriageCategory, TriageResult
-    from runners.gitlab.services.response_parsers import ResponseParser
     from runners.gitlab.services.triage_engine import TriageEngine
 except ImportError:
     from glab_client import GitLabConfig

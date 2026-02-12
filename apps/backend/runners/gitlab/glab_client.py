@@ -244,6 +244,7 @@ class GitLabClient:
                     error_json = json.loads(error_body)
                     gitlab_message = error_json.get("message", "")
                 except json.JSONDecodeError:
+                    # Intentionally ignore: error body is not JSON, use empty message
                     pass
 
                 # Handle rate limit (429)
