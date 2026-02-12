@@ -164,15 +164,13 @@ export function registerInvestigateIssue(
               const errorMessage = error instanceof Error ? error.message : String(error);
 
               // Check for authentication/rate-limit errors using structured status codes
-              // from GitLabApiError, falling back to string matching for non-API errors
-              const statusCode = error instanceof GitLabApiError ? error.statusCode : undefined;
-              const isAuthError = statusCode === 401 || statusCode === 403 ||
-                (statusCode === undefined && (errorMessage.includes('401') || errorMessage.includes('403')));
-              const isRateLimited = statusCode === 429 ||
-                (statusCode === undefined && errorMessage.includes('429'));
+              // (gitlabFetch wraps all HTTP errors as GitLabApiError)
+              const isAuthError = error instanceof GitLabApiError && (error.statusCode === 401 || error.statusCode === 403);
+              const isRateLimited = error instanceof GitLabApiError && error.statusCode === 429;
 
               if (isAuthError || isRateLimited) {
                 // Re-throw critical errors to let the outer handler surface them to the user
+                const statusCode = error instanceof GitLabApiError ? error.statusCode : undefined;
                 console.warn(`[GitLab Investigation] ${isAuthError ? 'Authentication' : 'Rate limit'} error during notes fetch`, { page, error: errorMessage, statusCode });
                 throw error;
               }
