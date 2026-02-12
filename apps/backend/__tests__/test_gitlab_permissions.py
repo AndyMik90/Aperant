@@ -9,10 +9,7 @@ import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from runners.gitlab.permissions import (
-    GitLabPermissionChecker,
-    GitLabRole,
-)
+from runners.gitlab.permissions import GitLabPermissionChecker
 from runners.gitlab.permissions import PermissionError as GitLabPermissionError
 
 

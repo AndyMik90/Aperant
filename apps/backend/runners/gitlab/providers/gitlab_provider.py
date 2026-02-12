@@ -596,7 +596,7 @@ class GitLabProvider:
             )
             return
         except Exception:
-            # Intentionally ignore: not an MR, try issue below
+            # Not an MR, fall through to try issue below
             pass
 
         # Try issue
@@ -613,7 +613,7 @@ class GitLabProvider:
                 data={"labels": ",".join(new_labels)},
             )
         except Exception:
-            # Intentionally ignore: label application failed, non-critical operation
+            # Label application failed - non-critical, MR may not exist
             pass
 
     async def remove_labels(
@@ -645,7 +645,7 @@ class GitLabProvider:
             )
             return
         except Exception:
-            # Intentionally ignore: not an MR, try issue below
+            # Not an MR, fall through to try issue below
             pass
 
         # Try issue
@@ -662,7 +662,7 @@ class GitLabProvider:
                 data={"labels": ",".join(new_labels)},
             )
         except Exception:
-            # Intentionally ignore: label removal failed, non-critical operation
+            # Label removal failed - non-critical, issue may not exist
             pass
 
     async def create_label(self, label: LabelData) -> None:
@@ -700,6 +700,7 @@ class GitLabProvider:
                     data=data,
                 )
             except Exception:
+                # Label update failed - may already be in desired state
                 pass
 
     async def list_labels(self) -> list[LabelData]:

@@ -203,7 +203,7 @@ class GitlabBatchProcessor:
             batcher.save_batch(batch)
 
             # Build combined issue description (used for spec creation)
-            _combined_description = self._build_combined_description(batch)
+            self._build_combined_description(batch)
 
             # Create spec ID for this batch
             spec_id = f"batch-{batch.batch_id}"

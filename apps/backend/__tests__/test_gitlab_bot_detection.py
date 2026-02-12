@@ -6,7 +6,6 @@ Tests for bot detection to prevent infinite review loops.
 """
 
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import pytest
 from __tests__.fixtures.gitlab import mock_mr_data

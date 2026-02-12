@@ -80,7 +80,7 @@ class TestRetryLogic:
             return _create_mock_response()
 
         with patch("urllib.request.urlopen", mock_urlopen):
-            _result = client._fetch("/projects/namespace%2Fproject")
+            client._fetch("/projects/namespace%2Fproject")
 
             assert call_count == 2  # Retried once
 
@@ -105,7 +105,7 @@ class TestRetryLogic:
             return _create_mock_response()
 
         with patch("urllib.request.urlopen", mock_urlopen):
-            _result = client._fetch("/projects/namespace%2Fproject")
+            client._fetch("/projects/namespace%2Fproject")
 
             assert call_count == 2
 
@@ -130,7 +130,7 @@ class TestRetryLogic:
             return _create_mock_response()
 
         with patch("urllib.request.urlopen", mock_urlopen):
-            _result = client._fetch("/projects/namespace%2Fproject")
+            client._fetch("/projects/namespace%2Fproject")
 
             assert call_count == 2
 
@@ -147,7 +147,7 @@ class TestRetryLogic:
             return _create_mock_response()
 
         with patch("urllib.request.urlopen", mock_urlopen):
-            _result = client._fetch("/projects/namespace%2Fproject")
+            client._fetch("/projects/namespace%2Fproject")
 
             assert call_count == 2
 
@@ -164,7 +164,7 @@ class TestRetryLogic:
             return _create_mock_response()
 
         with patch("urllib.request.urlopen", mock_urlopen):
-            _result = client._fetch("/projects/namespace%2Fproject")
+            client._fetch("/projects/namespace%2Fproject")
 
             assert call_count == 2
 

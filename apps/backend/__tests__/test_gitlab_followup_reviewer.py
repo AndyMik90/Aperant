@@ -64,6 +64,8 @@ def sample_previous_review():
         verdict_reasoning="High severity issues must be resolved",
         reviewed_commit_sha="abc123def456",
         reviewed_file_blobs={"src/api/users.py": "blob1", "src/utils/file.py": "blob2"},
+        # Set a fixed past timestamp so tests with recent notes work
+        reviewed_at="2024-01-01T10:00:00Z",
     )
 
 
@@ -396,13 +398,13 @@ async def test_review_comment_question_detection(
         diff_since_review="",
     )
 
+    # Note: created_at must be AFTER previous review time (2024-01-01T10:00:00Z)
     mock_client.get_mr_notes_async.return_value = [
         {
             "id": 1,
-            "commit_id": "commit1",
             "author": {"username": "contributor"},
             "body": "Should we add error handling here?",
-            "created_at": "2024-01-01T00:00:00Z",
+            "created_at": "2024-01-01T11:00:00Z",  # After the review
         },
     ]
 
@@ -413,10 +415,10 @@ async def test_review_comment_question_detection(
 
 
 @pytest.mark.asyncio
-async def test_review_comment_filters_by_commit(
+async def test_review_comment_filters_by_timestamp(
     reviewer, mock_client, sample_previous_review
 ):
-    """Test that only comments from new commits are reviewed."""
+    """Test that only comments added after the previous review are analyzed."""
     from runners.gitlab.models import FollowupMRContext
 
     context = FollowupMRContext(
@@ -429,25 +431,25 @@ async def test_review_comment_filters_by_commit(
         diff_since_review="",
     )
 
+    # Previous review was at 2024-01-01T10:00:00Z
     mock_client.get_mr_notes_async.return_value = [
         {
             "id": 1,
-            "commit_id": "commit1",  # New commit
             "author": {"username": "contributor"},
             "body": "Should we add error handling?",
-            "created_at": "2024-01-01T00:00:00Z",
+            "created_at": "2024-01-01T11:00:00Z",  # After review - should be detected
         },
         {
             "id": 2,
-            "commit_id": "old-commit",  # Old commit, should be ignored
             "author": {"username": "contributor"},
             "body": "Another question?",
-            "created_at": "2024-01-01T00:00:00Z",
+            "created_at": "2024-01-01T09:00:00Z",  # Before review - should be ignored
         },
     ]
 
     result = await reviewer.review_followup(context, mock_client)
 
-    # Should only have one finding from the new commit
+    # Should only have one finding from the newer comment
     question_findings = [f for f in result.findings if "question" in f.title.lower()]
     assert len(question_findings) == 1
+    assert "error handling" in question_findings[0].description

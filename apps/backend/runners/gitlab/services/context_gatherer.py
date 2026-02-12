@@ -943,9 +943,6 @@ class FollowupMRContextGatherer:
 
         safe_print(f"[Followup] Gathering context since commit {previous_sha[:8]}...")
 
-        # Get current MR data
-        mr_data = await self.client.get_mr_async(self.mr_iid)
-
         # Get current commits
         commits = await self.client.get_mr_commits_async(self.mr_iid)
 

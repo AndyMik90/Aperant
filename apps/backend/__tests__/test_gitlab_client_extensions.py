@@ -83,7 +83,7 @@ class TestMRExtensions:
         with patch.object(client, "_fetch") as mock_fetch:
             mock_fetch.return_value = {"iid": 123, "title": "Updated"}
 
-            _result = client.update_mr(
+            client.update_mr(
                 mr_iid=123,
                 title="Updated",
                 labels={"bug": True, "feature": False},
