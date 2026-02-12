@@ -1486,15 +1486,16 @@ class TestEdgeCases:
 
         mock_client.graphiti.search.return_value = [mock_result]
 
-        # Without min_score filter, None score should be returned
+        # Without min_score filter, None score should be handled gracefully
         result = await graphiti_search.get_relevant_context(
             query="test",
         )
 
-        # Should handle None score gracefully (converts to None in result)
+        # Should handle None score gracefully (converts to 0.0 in result)
         assert len(result) == 1
         assert result[0]["content"] == "Test content"
-        # The score will be None since getattr returns None
+        # The score will be 0.0 since production code converts None to 0.0
+        assert result[0]["score"] == 0.0
 
         # With min_score filter, None score should be filtered out
         result_filtered = await graphiti_search.get_relevant_context(

@@ -170,15 +170,13 @@ def mock_config():
 
     config = GraphitiConfig(
         enabled=True,
-        dataset_name="test_dataset",
+        database="test_dataset",
         db_path="/tmp/test_graphiti.db",
-        user_id="test_user",
-        session_id="test_session",
-        project_id="test_project",
         llm_provider="openai",
-        llm_model="claude-3-5-sonnet-20241022",
+        openai_model="gpt-5-mini",
         embedder_provider="openai",
-        embedder_model="text-embedding-3-small",
+        openai_embedding_model="text-embedding-3-small",
+        openai_api_key="sk-test-key-for-testing",
     )
 
     return config
@@ -200,13 +198,10 @@ def mock_env_vars(tmp_path):
         "GRAPHITI_ENABLED": "true",
         "GRAPHITI_LLM_PROVIDER": "openai",
         "GRAPHITI_EMBEDDER_PROVIDER": "openai",
-        "GRAPHITI_DATASET_NAME": "test_dataset",
+        "GRAPHITI_DATABASE": "test_dataset",
         "GRAPHITI_DB_PATH": test_db_path,
-        "GRAPHITI_USER_ID": "test_user",
-        "GRAPHITI_SESSION_ID": "test_session",
-        "GRAPHITI_PROJECT_ID": "test_project",
-        "GRAPHITI_LLM_MODEL": "claude-3-5-sonnet-20241022",
-        "GRAPHITI_EMBEDDER_MODEL": "text-embedding-3-small",
+        "OPENAI_MODEL": "gpt-5-mini",
+        "OPENAI_EMBEDDING_MODEL": "text-embedding-3-small",
         "OPENAI_API_KEY": "sk-test-key-for-testing",
     }
 
@@ -265,7 +260,7 @@ def mock_graphiti_client():
     # Configuration
     client.get_config = Mock(
         return_value=Mock(
-            enabled=True, dataset_name="test_dataset", db_path="/tmp/test_graphiti.db"
+            enabled=True, database="test_dataset", db_path="/tmp/test_graphiti.db"
         )
     )
 
@@ -300,9 +295,7 @@ def mock_graphiti_instance():
     instance.get_graph_summary = Mock(return_value={"nodes": 0, "edges": 0})
 
     # Configuration
-    instance.dataset_name = "test_dataset"
-    instance.user_id = "test_user"
-    instance.session_id = "test_session"
+    instance.database = "test_dataset"
 
     return instance
 
@@ -452,17 +445,11 @@ def mock_state():
     from integrations.graphiti.config import GraphitiState
 
     state = GraphitiState(
-        enabled=True,
         initialized=True,
-        session_id="test_session",
-        user_id="test_user",
-        project_id="test_project",
-        dataset_name="test_dataset",
-        db_path="/tmp/test_graphiti.db",
+        database="test_dataset",
+        indices_built=True,
         llm_provider="openai",
-        llm_model="claude-3-5-sonnet-20241022",
         embedder_provider="openai",
-        embedder_model="text-embedding-3-small",
     )
 
     return state
