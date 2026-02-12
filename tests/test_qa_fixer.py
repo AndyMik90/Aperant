@@ -77,11 +77,7 @@ def mock_client():
 
 @pytest.fixture(autouse=True, scope='function')
 def reset_shared_mocks_before_test():
-    """Reset shared module-level mocks before and after each test.
-
-    This ensures tests don't interfere with each other when run together
-    with tests from other modules that share the same mocks.
-    """
+    """Reset shared module-level mocks before and after each test."""
     reset_qa_mocks()
     yield
     reset_qa_mocks()
@@ -99,11 +95,6 @@ def _create_mock_response(text: str = "Fixer session complete."):
 def _create_mock_fixed_response():
     """Create mock response for fixed QA."""
     return create_mock_fixed_response()
-
-
-def _create_mock_no_signoff_response():
-    """Create mock response where agent doesn't update signoff."""
-    return create_mock_response("QA review complete.")
 
 
 def _create_mock_tool_use_response():
@@ -165,7 +156,6 @@ class TestLoadQAFixerPrompt:
 class TestRunQAFixerSessionFixed:
     """Tests for run_qa_fixer_session returning fixed status."""
 
-    @pytest.mark.asyncio
     async def test_fixed_status(self, mock_client, spec_dir, fix_request_file):
         """Test that fixed status is returned when ready_for_qa_revalidation is True."""
         # Setup implementation plan with ready_for_qa_revalidation
@@ -193,7 +183,6 @@ class TestRunQAFixerSessionFixed:
         assert len(result[1]) > 0  # Response text
         assert result[2] == {}  # No error info
 
-    @pytest.mark.asyncio
     async def test_fixed_status_with_project_dir(self, mock_client, spec_dir, project_dir):
         """Test session with explicit project_dir parameter."""
         # Create fix request file
@@ -228,7 +217,6 @@ class TestRunQAFixerSessionFixed:
 class TestRunQAFixerSessionError:
     """Tests for run_qa_fixer_session error handling."""
 
-    @pytest.mark.asyncio
     async def test_error_missing_fix_request(self, mock_client, spec_dir):
         """Test error when QA_FIX_REQUEST.md is missing."""
         # Setup implementation plan
@@ -249,7 +237,6 @@ class TestRunQAFixerSessionError:
         assert result[2]["type"] == "other"
         assert result[2]["exception_type"] == "FileNotFoundError"
 
-    @pytest.mark.asyncio
     async def test_exception_handling(self, mock_client, spec_dir, fix_request_file):
         """Test exception handling during fixer session."""
         # Setup implementation plan
@@ -275,7 +262,6 @@ class TestRunQAFixerSessionError:
 class TestRunQAFixerSessionParameters:
     """Tests for run_qa_fixer_session parameter handling."""
 
-    @pytest.mark.asyncio
     async def test_verbose_mode(self, mock_client, spec_dir, fix_request_file):
         """Test session with verbose mode enabled."""
         # Setup implementation plan
@@ -296,7 +282,6 @@ class TestRunQAFixerSessionParameters:
         # Verify query was called
         assert mock_client.query.called
 
-    @pytest.mark.asyncio
     async def test_fix_session_number(self, mock_client, spec_dir, fix_request_file):
         """Test session with different fix_session numbers."""
         # Setup implementation plan
@@ -321,7 +306,6 @@ class TestRunQAFixerSessionParameters:
 class TestRunQAFixerSessionIntegration:
     """Integration tests for QA fixer session."""
 
-    @pytest.mark.asyncio
     async def test_full_session_flow(self, mock_client, spec_dir, fix_request_file):
         """Test complete session flow from start to finish."""
         # Setup implementation plan
@@ -353,7 +337,6 @@ class TestRunQAFixerSessionIntegration:
 class TestMemoryIntegration:
     """Tests for memory integration in QA fixer."""
 
-    @pytest.mark.asyncio
     async def test_memory_context_retrieval(self, mock_client, spec_dir, fix_request_file):
         """Test that memory context is retrieved during session."""
         # Setup implementation plan
@@ -378,7 +361,6 @@ class TestMemoryIntegration:
             # Verify memory context was retrieved
             assert mock_get_context.called
 
-    @pytest.mark.asyncio
     async def test_memory_save_on_fixed(self, mock_client, spec_dir, fix_request_file):
         """Test that session memory is saved when fixes are applied."""
         # Setup implementation plan
@@ -413,7 +395,6 @@ class TestMemoryIntegration:
 class TestErrorDetection:
     """Tests for error type detection in QA fixer."""
 
-    @pytest.mark.asyncio
     async def test_rate_limit_error_detection(self, mock_client, spec_dir, fix_request_file):
         """Test that rate limit errors are properly detected."""
         # Setup implementation plan
@@ -437,7 +418,6 @@ class TestErrorDetection:
             assert result[0] == "error"
             assert result[2]["type"] == "rate_limit"
 
-    @pytest.mark.asyncio
     async def test_tool_concurrency_error_detection(self, mock_client, spec_dir, fix_request_file):
         """Test that tool concurrency errors are properly detected."""
         # Setup implementation plan
@@ -466,7 +446,6 @@ class TestErrorDetection:
 class TestStatusNotUpdated:
     """Tests for when fixer doesn't update status."""
 
-    @pytest.mark.asyncio
     async def test_fixed_assumed_when_status_not_updated(self, mock_client, spec_dir, fix_request_file):
         """Test that fixed is assumed even when status not updated."""
         # Setup implementation plan without ready_for_qa_revalidation
@@ -497,7 +476,6 @@ class TestStatusNotUpdated:
 class TestToolUseHandling:
     """Tests for tool use handling in QA fixer."""
 
-    @pytest.mark.asyncio
     async def test_tool_use_blocks(self, mock_client, spec_dir, fix_request_file):
         """Test that tool use blocks are handled correctly."""
         # Setup implementation plan

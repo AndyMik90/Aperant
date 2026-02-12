@@ -119,7 +119,6 @@ def _create_tool_use_response():
 class TestRunQAAgentSessionApproved:
     """Tests for run_qa_agent_session returning approved status."""
 
-    @pytest.mark.asyncio
     async def test_approved_status(self, mock_client, spec_dir, project_dir):
         """Test that approved status is returned correctly."""
         # Setup implementation plan with approved status
@@ -154,7 +153,6 @@ class TestRunQAAgentSessionApproved:
 class TestRunQAAgentSessionRejected:
     """Tests for run_qa_agent_session returning rejected status."""
 
-    @pytest.mark.asyncio
     async def test_rejected_status(self, mock_client, spec_dir, project_dir):
         """Test that rejected status is returned correctly."""
         # Setup implementation plan with rejected status
@@ -192,7 +190,6 @@ class TestRunQAAgentSessionRejected:
 class TestRunQAAgentSessionError:
     """Tests for run_qa_agent_session error handling."""
 
-    @pytest.mark.asyncio
     async def test_error_status_no_signoff(self, mock_client, spec_dir, project_dir):
         """Test error status when agent doesn't update signoff."""
         # Setup implementation plan without qa_signoff
@@ -216,7 +213,6 @@ class TestRunQAAgentSessionError:
         assert "did not update" in result[1].lower()
         assert result[2]["type"] == "other"
 
-    @pytest.mark.asyncio
     async def test_exception_handling(self, mock_client, spec_dir, project_dir):
         """Test exception handling during QA session."""
         # Setup implementation plan
@@ -244,7 +240,6 @@ class TestRunQAAgentSessionError:
 class TestRunQAAgentSessionParameters:
     """Tests for run_qa_agent_session parameter handling."""
 
-    @pytest.mark.asyncio
     async def test_with_previous_error(self, mock_client, spec_dir, project_dir):
         """Test session with previous error context."""
         # Setup implementation plan
@@ -274,7 +269,6 @@ class TestRunQAAgentSessionParameters:
         # Verify query was called (it should include error context)
         assert mock_client.query.called
 
-    @pytest.mark.asyncio
     async def test_verbose_mode(self, mock_client, spec_dir, project_dir):
         """Test session with verbose mode enabled."""
         # Setup implementation plan
@@ -301,7 +295,6 @@ class TestRunQAAgentSessionParameters:
 class TestRunQAAgentSessionIntegration:
     """Integration tests for QA reviewer session."""
 
-    @pytest.mark.asyncio
     async def test_full_session_flow(self, mock_client, spec_dir, project_dir):
         """Test complete session flow from start to finish."""
         # Setup implementation plan
@@ -337,7 +330,6 @@ class TestRunQAAgentSessionIntegration:
 class TestMemoryIntegration:
     """Tests for memory integration in QA reviewer."""
 
-    @pytest.mark.asyncio
     async def test_memory_context_retrieval(self, mock_client, spec_dir, project_dir):
         """Test that memory context is retrieved during session."""
         # Setup implementation plan
@@ -364,7 +356,6 @@ class TestMemoryIntegration:
             # Verify memory context was retrieved
             assert mock_get_context.called
 
-    @pytest.mark.asyncio
     async def test_memory_save_on_approved(self, mock_client, spec_dir, project_dir):
         """Test that session memory is saved on approval."""
         # Setup implementation plan with approved status
@@ -398,7 +389,6 @@ class TestMemoryIntegration:
             # Verify memory was saved
             assert mock_save.called
 
-    @pytest.mark.asyncio
     async def test_memory_save_on_rejected(self, mock_client, spec_dir, project_dir):
         """Test that session memory is saved on rejection with issues."""
         # Setup implementation plan with rejected status
@@ -439,7 +429,6 @@ class TestMemoryIntegration:
 class TestErrorDetection:
     """Tests for error type detection in QA reviewer."""
 
-    @pytest.mark.asyncio
     async def test_rate_limit_error_detection(self, mock_client, spec_dir, project_dir):
         """Test that rate limit errors are properly detected."""
         # Setup implementation plan
@@ -465,7 +454,6 @@ class TestErrorDetection:
             assert result[0] == "error"
             assert result[2]["type"] == "rate_limit"
 
-    @pytest.mark.asyncio
     async def test_tool_concurrency_error_detection(self, mock_client, spec_dir, project_dir):
         """Test that tool concurrency errors are properly detected."""
         # Setup implementation plan
@@ -495,7 +483,6 @@ class TestErrorDetection:
 class TestToolUseHandling:
     """Tests for tool use handling in QA reviewer."""
 
-    @pytest.mark.asyncio
     async def test_tool_use_blocks(self, mock_client, spec_dir, project_dir):
         """Test that tool use blocks are handled correctly."""
         # Setup implementation plan

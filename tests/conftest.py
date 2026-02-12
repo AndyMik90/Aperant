@@ -121,7 +121,7 @@ def pytest_runtest_setup(item):
         'test_spec_complexity': {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'claude_agent_sdk.types'},
         'test_spec_phases': {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'graphiti_providers', 'validate_spec', 'client'},
         'test_qa_fixer': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client', 'agents.memory_manager', 'agents.base', 'core.error_utils', 'security.tool_input_validator', 'debug'},
-        'test_qa_reviewer': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client', 'agents.memory_manager', 'agents.base', 'core.error_utils', 'security.tool_input_validator', 'debug', 'prompts_pkg'},
+        'test_qa_reviewer': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client', 'agents.memory_manager', 'agents.base', 'core.error_utils', 'security.tool_input_validator', 'debug', 'prompts_pkg', 'prompts_pkg.project_context'},
     }
 
     # Get the mocks that the current test module needs to preserve

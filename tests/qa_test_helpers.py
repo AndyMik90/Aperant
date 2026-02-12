@@ -13,6 +13,7 @@ This module provides:
 - reset_qa_mocks(): Reset shared mocks to default state
 - get_mock_*(): Accessor functions for mock objects
 - Mock response creation helpers
+- Shared pytest fixtures
 """
 
 import sys
@@ -136,10 +137,11 @@ def setup_qa_mocks(include_prompts_pkg: bool = False):
 
     Call this at module level before importing from qa modules.
     """
-    # Store original modules
-    for name in _mocked_module_names:
-        if name in sys.modules:
-            _original_modules[name] = sys.modules[name]
+    # Guard against re-setup - only store originals once
+    if not _mock_state['setup_done']:
+        for name in _mocked_module_names:
+            if name in sys.modules and name not in _original_modules:
+                _original_modules[name] = sys.modules[name]
 
     # Mock claude_agent_sdk FIRST
     mock_sdk = MagicMock()
@@ -241,6 +243,8 @@ def cleanup_qa_mocks():
         elif name in sys.modules:
             del sys.modules[name]
     _mock_state['setup_done'] = False
+    # Clear stored originals to prevent stale state between test runs
+    _original_modules.clear()
 
 
 def reset_qa_mocks():
@@ -321,24 +325,6 @@ def create_mock_tool_use_response(tool_name: str = "Bash", tool_input: dict = No
     msg2.content = []
 
     return [msg1, msg2]
-
-
-def create_mock_qa_approved_response():
-    """Create mock response for QA approved.
-
-    Returns:
-        List of mock messages indicating QA approval
-    """
-    return create_mock_response("QA review complete. All tests passed. APPROVED")
-
-
-def create_mock_qa_rejected_response():
-    """Create mock response for QA rejected.
-
-    Returns:
-        List of mock messages indicating QA rejection with issues
-    """
-    return create_mock_response("QA review found issues. REJECTED. Fix: Add error handling.")
 
 
 # =============================================================================
