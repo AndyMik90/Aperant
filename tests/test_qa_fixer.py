@@ -11,13 +11,10 @@ Tests the qa/fixer.py module functionality including:
 - Memory integration hooks
 """
 
-import json
 import shutil
 import tempfile
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -27,8 +24,6 @@ import pytest
 
 # Import shared mock helpers
 from tests.qa_test_helpers import (
-    AsyncIteratorMock,
-    ReceiveResponseMock,
     setup_qa_mocks,
     cleanup_qa_mocks,
     reset_qa_mocks,
@@ -36,8 +31,6 @@ from tests.qa_test_helpers import (
     create_mock_fixed_response,
     create_mock_tool_use_response,
     create_mock_client,
-    get_mock_error_utils,
-    get_mock_memory_manager,
 )
 
 # Set up mocks (no prompts_pkg needed for fixer)
@@ -427,22 +420,22 @@ class TestErrorDetection:
         plan = {"feature": "Test"}
         save_implementation_plan(spec_dir, plan)
 
-        # Mock error detection to return rate limit
-        mock_error_utils = get_mock_error_utils()
-        mock_error_utils.is_rate_limit_error.return_value = True
-
         # Mock client to raise exception
         mock_client.query.side_effect = Exception("Rate limit exceeded")
 
-        result = await run_qa_fixer_session(
-            mock_client,
-            spec_dir,
-            1,
-            False
-        )
+        # Patch where the functions are used (qa.fixer) not where they're defined
+        with patch('qa.fixer.is_rate_limit_error', return_value=True), \
+             patch('qa.fixer.is_tool_concurrency_error', return_value=False):
 
-        assert result[0] == "error"
-        assert result[2]["type"] == "rate_limit"
+            result = await run_qa_fixer_session(
+                mock_client,
+                spec_dir,
+                1,
+                False
+            )
+
+            assert result[0] == "error"
+            assert result[2]["type"] == "rate_limit"
 
     @pytest.mark.asyncio
     async def test_tool_concurrency_error_detection(self, mock_client, spec_dir, fix_request_file):
