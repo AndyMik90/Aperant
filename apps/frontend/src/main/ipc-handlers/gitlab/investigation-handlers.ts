@@ -7,7 +7,7 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { GitLabInvestigationStatus, GitLabInvestigationResult } from '../../../shared/types';
 import { projectStore } from '../../project-store';
-import { getGitLabConfig, gitlabFetch, encodeProjectPath } from './utils';
+import { getGitLabConfig, gitlabFetch, encodeProjectPath, GitLabApiError } from './utils';
 import type { GitLabAPIIssue, GitLabNoteBasic } from './types';
 import { createSpecForIssue } from './spec-utils';
 import type { AgentManager } from '../../agent';
@@ -164,12 +164,12 @@ export function registerInvestigateIssue(
               const errorMessage = error instanceof Error ? error.message : String(error);
 
               // Check for authentication/rate-limit errors using structured status codes
-              // Fall back to string matching only if status codes are unavailable
-              const statusCode = (error as any).statusCode ?? (error as any).status ?? (error as any).response?.status;
+              // from GitLabApiError, falling back to string matching for non-API errors
+              const statusCode = error instanceof GitLabApiError ? error.statusCode : undefined;
               const isAuthError = statusCode === 401 || statusCode === 403 ||
-                (!statusCode && (errorMessage.includes('401') || errorMessage.includes('403')));
+                (statusCode === undefined && (errorMessage.includes('401') || errorMessage.includes('403')));
               const isRateLimited = statusCode === 429 ||
-                (!statusCode && errorMessage.includes('429'));
+                (statusCode === undefined && errorMessage.includes('429'));
 
               if (isAuthError || isRateLimited) {
                 // Re-throw critical errors to let the outer handler surface them to the user

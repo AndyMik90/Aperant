@@ -855,8 +855,8 @@ def mock_ui_icons():
 
     Usage:
         def test_something(mock_ui_icons):
-            icons = mock_ui_icons()
-            assert icons.SUCCESS == ("✓", "[OK]")
+            Icons = mock_ui_icons
+            assert Icons.SUCCESS == ("✓", "[OK]")
     """
     class MockIcons:
         """Mock Icons class - complete with all icons used by the codebase."""
