@@ -147,6 +147,9 @@ export function extractProfileId(unifiedId: string): string {
  */
 export function toOAuthUnifiedId(profileId: string): string {
   if (profileId.startsWith(OAUTH_ID_PREFIX)) return profileId;
+  if (profileId.startsWith(API_ID_PREFIX)) {
+    throw new Error(`Cannot convert API-prefixed ID "${profileId}" to OAuth unified ID`);
+  }
   return `${OAUTH_ID_PREFIX}${profileId}`;
 }
 
@@ -156,5 +159,8 @@ export function toOAuthUnifiedId(profileId: string): string {
  */
 export function toAPIUnifiedId(profileId: string): string {
   if (profileId.startsWith(API_ID_PREFIX)) return profileId;
+  if (profileId.startsWith(OAUTH_ID_PREFIX)) {
+    throw new Error(`Cannot convert OAuth-prefixed ID "${profileId}" to API unified ID`);
+  }
   return `${API_ID_PREFIX}${profileId}`;
 }

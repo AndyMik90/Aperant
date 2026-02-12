@@ -671,17 +671,26 @@ export class ClaudeProfileManager {
   }
 
   /**
+   * Load API profiles from profiles.json with error handling
+   * Shared helper to avoid duplication across methods
+   */
+  private async loadProfilesFileSafe(): Promise<{ profiles: APIProfile[]; activeProfileId?: string }> {
+    try {
+      const file = await loadProfilesFile();
+      return { profiles: file.profiles, activeProfileId: file.activeProfileId ?? undefined };
+    } catch (error) {
+      console.error('[ClaudeProfileManager] Failed to load profiles file:', error);
+      return { profiles: [] };
+    }
+  }
+
+  /**
    * Load API profiles from profiles.json
    * Used by the unified account selection to consider API profiles as fallback
    */
   async loadAPIProfiles(): Promise<APIProfile[]> {
-    try {
-      const profilesFile = await loadProfilesFile();
-      return profilesFile.profiles;
-    } catch (error) {
-      console.error('[ClaudeProfileManager] Failed to load API profiles:', error);
-      return [];
-    }
+    const { profiles } = await this.loadProfilesFileSafe();
+    return profiles;
   }
 
   /**
@@ -697,15 +706,7 @@ export class ClaudeProfileManager {
     const activeOAuthId = this.data.activeProfileId;
 
     // Load API profiles and active API profile ID from profiles.json
-    let apiProfiles: APIProfile[] = [];
-    let activeAPIId: string | undefined;
-    try {
-      const profilesFile = await loadProfilesFile();
-      apiProfiles = profilesFile.profiles;
-      activeAPIId = profilesFile.activeProfileId ?? undefined;
-    } catch (error) {
-      console.error('[ClaudeProfileManager] Failed to load API profiles for unified selection:', error);
-    }
+    const { profiles: apiProfiles, activeProfileId: activeAPIId } = await this.loadProfilesFileSafe();
 
     return getBestAvailableUnifiedAccount(
       this.data.profiles,

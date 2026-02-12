@@ -21,7 +21,8 @@ import type { ClaudeProfile, ClaudeAutoSwitchSettings, APIProfile } from '../../
 import type { UnifiedAccount } from '../../shared/types/unified-account';
 import {
   claudeProfileToUnified,
-  apiProfileToUnified
+  apiProfileToUnified,
+  OAUTH_ID_PREFIX
 } from '../../shared/utils/unified-account';
 import { isProfileRateLimited } from './rate-limit-manager';
 import { isProfileAuthenticated } from './profile-utils';
@@ -397,7 +398,7 @@ export function getBestAvailableProfile(
 
   // Score and check availability for each profile
   const scoredProfiles: ScoredProfile[] = candidates.map(profile => {
-    const unifiedId = `oauth-${profile.id}`;
+    const unifiedId = `${OAUTH_ID_PREFIX}${profile.id}`;
     const priorityIndex = priorityOrder.indexOf(unifiedId);
     const availability = checkProfileAvailability(profile, settings);
     const fallbackScore = calculateFallbackScore(profile, settings);
