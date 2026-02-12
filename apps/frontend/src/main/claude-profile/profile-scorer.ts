@@ -252,18 +252,21 @@ export function getBestAvailableUnifiedAccount(
   for (const profile of oauthProfiles) {
     const isActive = profile.id === activeOAuthId;
     const rateLimitStatus = isProfileRateLimited(profile);
+    // Compute authentication status - profile.isAuthenticated may not be set on raw profiles
+    const isAuthenticated = isProfileAuthenticated(profile);
 
     unifiedAccounts.push(claudeProfileToUnified(profile, isActive, {
       isRateLimited: rateLimitStatus.limited,
-      rateLimitType: rateLimitStatus.type
+      rateLimitType: rateLimitStatus.type,
+      isAuthenticated
     }));
   }
 
   // Convert API profiles
   for (const profile of apiProfiles) {
     const isActive = profile.id === activeAPIId;
-    // API profiles are considered authenticated if they have an API key
-    // Note: This assumes the key has been tested. Consider adding validation tracking.
+    // TODO: API profiles are considered authenticated if they have an API key.
+    // Add validation tracking to distinguish "has key" from "key is confirmed valid".
     const isAuthenticated = !!profile.apiKey;
     unifiedAccounts.push(apiProfileToUnified(profile, isActive, isAuthenticated));
   }

@@ -33,6 +33,9 @@ export const API_ID_PREFIX = 'api-';
  * @param profile - The OAuth profile to convert
  * @param isActive - Whether this is the currently active account
  * @param options - Additional options for conversion
+ * @param options.isRateLimited - Whether the profile is currently rate limited
+ * @param options.rateLimitType - The type of rate limit (session or weekly)
+ * @param options.isAuthenticated - Whether the profile is authenticated (REQUIRED - must be computed by caller)
  */
 export function claudeProfileToUnified(
   profile: ClaudeProfile,
@@ -40,14 +43,17 @@ export function claudeProfileToUnified(
   options?: {
     isRateLimited?: boolean;
     rateLimitType?: RateLimitType;
+    isAuthenticated?: boolean;
   }
 ): UnifiedAccount {
   // Check for rate limit from profile's rate limit events
   const activeRateLimit = profile.rateLimitEvents?.find(e => e.resetAt > new Date());
   const isRateLimited = options?.isRateLimited ?? !!activeRateLimit;
+  // Use explicit isAuthenticated from options, falling back to profile property (which may be undefined for raw profiles)
+  const isAuthenticated = options?.isAuthenticated ?? profile.isAuthenticated ?? false;
 
-  // Derive isAvailable from the computed isRateLimited value
-  const isAvailable = !!(profile.isAuthenticated && !isRateLimited);
+  // Derive isAvailable from the computed values
+  const isAvailable = !!(isAuthenticated && !isRateLimited);
 
   return {
     id: `${OAUTH_ID_PREFIX}${profile.id}`,
@@ -63,7 +69,7 @@ export function claudeProfileToUnified(
     weeklyPercent: profile.usage?.weeklyUsagePercent,
     isRateLimited,
     rateLimitType: options?.rateLimitType ?? activeRateLimit?.type,
-    isAuthenticated: profile.isAuthenticated,
+    isAuthenticated,
     needsReauthentication: false // Set separately if needed
   };
 }
