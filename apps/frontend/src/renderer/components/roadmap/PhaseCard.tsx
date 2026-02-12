@@ -97,9 +97,10 @@ export function PhaseCard({
         <h4 className="text-sm font-medium mb-2">Features ({features.length})</h4>
         <div className="grid gap-2">
           {visibleFeatures.map((feature) => (
-            <div
+            <button
+              type="button"
               key={feature.id}
-              className="flex items-center justify-between p-2 rounded-md bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
+              className="flex items-center justify-between p-2 rounded-md bg-muted/50 hover:bg-muted cursor-pointer transition-colors w-full text-left"
               onClick={() => onFeatureSelect(feature)}
             >
               <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -147,13 +148,13 @@ export function PhaseCard({
                   Build
                 </Button>
               )}
-            </div>
+            </button>
           ))}
           {hasMoreFeatures && (
             <Button
               type="button"
               variant="ghost"
-              onClick={() => setIsExpanded(!isExpanded)}
+              onClick={() => setIsExpanded((prev) => !prev)}
               aria-expanded={isExpanded}
               className="flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground w-full"
             >
