@@ -154,11 +154,9 @@ export function registerInvestigateIssue(
                 }
               }
             } catch (error) {
-              // Notify user of pagination failure, but proceed with partial notes
+              // Log pagination failure as warning, but proceed with partial notes
               const errorMessage = error instanceof Error ? error.message : String(error);
-              const warningMessage = `Warning: Failed to fetch all notes (page ${page}, error: ${errorMessage}). Using ${allNotes.length} notes retrieved so far.`;
-              sendError(getMainWindow, project.id, warningMessage);
-              debugLog('Failed to fetch notes page, using partial notes', { page, error });
+              debugLog('Failed to fetch notes page, using partial notes', { page, error: errorMessage, notesRetrieved: allNotes.length });
               hasMore = false;
             }
           }
