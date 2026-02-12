@@ -174,8 +174,8 @@ class CIChecker:
             safe_print(f"[CI] No pipelines found for MR !{mr_iid}")
             return None
 
-        # Get the most recent pipeline (last in list)
-        latest_pipeline_data = pipelines[-1]
+        # Get the most recent pipeline (first in list - GitLab API returns newest-first)
+        latest_pipeline_data = pipelines[0]
 
         pipeline_id = latest_pipeline_data.get("id")
         status_str = latest_pipeline_data.get("status", "unknown")
