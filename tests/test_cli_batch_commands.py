@@ -404,13 +404,16 @@ class TestHandleBatchStatusCommand:
     def test_detects_qa_approved_status(
         self, temp_git_repo: Path
     ) -> None:
-        """Correctly detects specs with qa_report.md as 'qa_approved'."""
+        """Correctly detects specs with qa_signoff as 'qa_approved'."""
         specs_dir = temp_git_repo / ".auto-claude" / "specs"
         specs_dir.mkdir(parents=True)
 
         spec_001 = specs_dir / "001-test"
         spec_001.mkdir()
         (spec_001 / "qa_report.md").write_text("# QA Approved\n")
+        (spec_001 / "implementation_plan.json").write_text(
+            '{"qa_signoff": {"status": "approved"}}'
+        )
 
         result = handle_batch_status_command(str(temp_git_repo))
 
@@ -664,10 +667,13 @@ class TestBatchCommandsIntegration:
 
         handle_batch_create_command(str(batch_file), str(temp_git_repo))
 
-        # Mark as complete
+        # Mark as complete with proper QA approval
         specs_dir = temp_git_repo / ".auto-claude" / "specs"
         spec_001 = specs_dir / "001-test-task"
         (spec_001 / "qa_report.md").write_text("# QA Approved\n")
+        (spec_001 / "implementation_plan.json").write_text(
+            '{"qa_signoff": {"status": "approved"}}'
+        )
 
         # Dry run cleanup
         result = handle_batch_cleanup_command(str(temp_git_repo), dry_run=True)
@@ -689,11 +695,14 @@ class TestBatchCommandsExceptionCoverage:
     ) -> None:
         """Test cleanup handles permission errors gracefully."""
 
-        # Create a completed spec
+        # Create a completed spec with proper QA approval
         specs_dir = temp_git_repo / ".auto-claude" / "specs"
         spec_001 = specs_dir / "001-test-task"
         spec_001.mkdir(parents=True)
         (spec_001 / "qa_report.md").write_text("# QA Approved\n")
+        (spec_001 / "implementation_plan.json").write_text(
+            '{"qa_signoff": {"status": "approved"}}'
+        )
 
         # Mock shutil.rmtree to raise permission error
         def mock_rmtree_raises(path, *args, **kwargs):
@@ -711,11 +720,14 @@ class TestBatchCommandsExceptionCoverage:
     ) -> None:
         """Test cleanup handles generic exceptions gracefully."""
 
-        # Create a completed spec
+        # Create a completed spec with proper QA approval
         specs_dir = temp_git_repo / ".auto-claude" / "specs"
         spec_001 = specs_dir / "001-test-task"
         spec_001.mkdir(parents=True)
         (spec_001 / "qa_report.md").write_text("# QA Approved\n")
+        (spec_001 / "implementation_plan.json").write_text(
+            '{"qa_signoff": {"status": "approved"}}'
+        )
 
         # Mock shutil.rmtree to raise generic exception
         def mock_rmtree_raises(path, *args, **kwargs):
