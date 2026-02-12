@@ -31,8 +31,10 @@ function cacheSslVerify(instanceUrl: string, verify: boolean): void {
 
 /**
  * Look up the SSL verify preference for an instance URL (defaults to true).
+ * Populated by getGitLabConfig() — must be called before gitlabFetch() for the
+ * setting to take effect.
  */
-function getSslVerify(instanceUrl: string): boolean {
+export function getSslVerify(instanceUrl: string): boolean {
   return sslVerifyCache.get(instanceUrl) ?? true;
 }
 
@@ -278,7 +280,7 @@ export async function getGitLabConfig(project: Project): Promise<GitLabConfig | 
     }
 
     if (!token || !projectRef) return null;
-    return { token, instanceUrl, project: projectRef, sslVerify };
+    return { token, instanceUrl, project: projectRef };
   } catch {
     return null;
   }
@@ -362,6 +364,74 @@ function getInsecureDispatcher(): UndiciAgent | undefined {
 }
 
 /**
+ * Validate inputs and build a fully-resolved URL for a GitLab API endpoint.
+ * Shared by gitlabFetch and gitlabFetchWithCount.
+ */
+function resolveApiRequest(
+  token: string,
+  instanceUrl: string,
+  endpoint: string
+): { url: string; baseUrl: string; safeToken: string } {
+  const baseUrl = parseInstanceUrl(instanceUrl);
+  if (!baseUrl) {
+    throw new Error('Invalid GitLab instance URL');
+  }
+  if (!endpoint.startsWith('/')) {
+    throw new Error('GitLab endpoint must be a relative path');
+  }
+  const safeToken = sanitizeToken(token);
+  if (!safeToken) {
+    throw new Error('Invalid GitLab token');
+  }
+  return { url: `${baseUrl}/api/v4${endpoint}`, baseUrl, safeToken };
+}
+
+/**
+ * Build the fetch init object with headers, signal, and optional SSL bypass dispatcher.
+ * Widens RequestInit with Record<string, unknown> to allow undici's non-standard
+ * `dispatcher` property. Do not remove the widening — see getInsecureDispatcher().
+ */
+function buildFetchInit(
+  options: RequestInit,
+  signal: AbortSignal,
+  safeToken: string,
+  sslVerify: boolean
+): RequestInit & Record<string, unknown> {
+  const init: RequestInit & Record<string, unknown> = {
+    ...options,
+    signal,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+      'PRIVATE-TOKEN': safeToken
+    }
+  };
+  if (!sslVerify) {
+    init.dispatcher = getInsecureDispatcher();
+  }
+  return init;
+}
+
+/**
+ * Handle errors from a GitLab API fetch call.
+ * Only applies network-error extraction to actual fetch failures (TypeError "fetch failed");
+ * HTTP-level errors (4xx/5xx) are re-thrown as-is since they already have clear messages.
+ */
+function handleFetchError(error: unknown, url: string, endpoint: string): never {
+  if (error instanceof Error && error.name === 'AbortError') {
+    throw new Error(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`);
+  }
+  // Only extract cause for network-level fetch failures (SSL, DNS, connection errors).
+  // HTTP errors (4xx/5xx) already have clear messages and don't need rewriting.
+  if (error instanceof TypeError && error.message === 'fetch failed') {
+    const message = extractFetchErrorMessage(error);
+    console.warn(`[GitLab] Network error: ${endpoint} → ${message}`);
+    throw new Error(message, { cause: error });
+  }
+  throw error;
+}
+
+/**
  * Make a request to the GitLab API with timeout
  */
 export async function gitlabFetch(
@@ -370,43 +440,15 @@ export async function gitlabFetch(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<unknown> {
-  // Ensure instanceUrl doesn't have trailing slash
-  const baseUrl = parseInstanceUrl(instanceUrl);
-  if (!baseUrl) {
-    throw new Error('Invalid GitLab instance URL');
-  }
-  if (!endpoint.startsWith('/')) {
-    throw new Error('GitLab endpoint must be a relative path');
-  }
-  const url = `${baseUrl}/api/v4${endpoint}`;
-  const safeToken = sanitizeToken(token);
-  if (!safeToken) {
-    throw new Error('Invalid GitLab token');
-  }
-
-  const sslVerify = getSslVerify(baseUrl);
-
-  // Create abort controller for timeout
+  const { url, baseUrl, safeToken } = resolveApiRequest(token, instanceUrl, endpoint);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), GITLAB_API_TIMEOUT_MS);
 
   try {
-    // Widen RequestInit with Record<string, unknown> to allow undici's non-standard
-    // `dispatcher` property for per-request SSL bypass. Do not remove — see getInsecureDispatcher().
-    const fetchOptions: RequestInit & Record<string, unknown> = {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-        'PRIVATE-TOKEN': safeToken
-      }
-    };
-    if (!sslVerify) {
-      fetchOptions.dispatcher = getInsecureDispatcher();
-    }
-
-    const response = await fetch(url, fetchOptions);
+    const response = await fetch(
+      url,
+      buildFetchInit(options, controller.signal, safeToken, getSslVerify(baseUrl))
+    );
 
     if (!response.ok) {
       const errorBody = await response.text();
@@ -415,13 +457,7 @@ export async function gitlabFetch(
 
     return response.json();
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`);
-    }
-    // Extract the real cause for network-level failures (SSL, DNS, etc.)
-    const message = extractFetchErrorMessage(error);
-    console.warn(`[GitLab] API request failed: ${endpoint} → ${message}`);
-    throw new Error(message, { cause: error });
+    handleFetchError(error, url, endpoint);
   } finally {
     clearTimeout(timeoutId);
   }
@@ -437,41 +473,15 @@ export async function gitlabFetchWithCount(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<{ data: unknown; totalCount: number }> {
-  // Ensure instanceUrl doesn't have trailing slash
-  const baseUrl = parseInstanceUrl(instanceUrl);
-  if (!baseUrl) {
-    throw new Error('Invalid GitLab instance URL');
-  }
-  if (!endpoint.startsWith('/')) {
-    throw new Error('GitLab endpoint must be a relative path');
-  }
-  const url = `${baseUrl}/api/v4${endpoint}`;
-  const safeToken = sanitizeToken(token);
-  if (!safeToken) {
-    throw new Error('Invalid GitLab token');
-  }
-
-  const sslVerify = getSslVerify(baseUrl);
-
-  // Create abort controller for timeout
+  const { url, baseUrl, safeToken } = resolveApiRequest(token, instanceUrl, endpoint);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), GITLAB_API_TIMEOUT_MS);
 
   try {
-    const fetchOptions: RequestInit & Record<string, unknown> = {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-        'PRIVATE-TOKEN': safeToken
-      }
-    };
-    if (!sslVerify) {
-      fetchOptions.dispatcher = getInsecureDispatcher();
-    }
-
-    const response = await fetch(url, fetchOptions);
+    const response = await fetch(
+      url,
+      buildFetchInit(options, controller.signal, safeToken, getSslVerify(baseUrl))
+    );
 
     if (!response.ok) {
       const errorBody = await response.text();
@@ -485,13 +495,7 @@ export async function gitlabFetchWithCount(
     const data = await response.json();
     return { data, totalCount };
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`);
-    }
-    // Extract the real cause for network-level failures (SSL, DNS, etc.)
-    const message = extractFetchErrorMessage(error);
-    console.warn(`[GitLab] API request failed: ${endpoint} → ${message}`);
-    throw new Error(message, { cause: error });
+    handleFetchError(error, url, endpoint);
   } finally {
     clearTimeout(timeoutId);
   }
