@@ -11,7 +11,6 @@ Tests the qa/reviewer.py module functionality including:
 """
 
 from datetime import datetime, timezone
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
