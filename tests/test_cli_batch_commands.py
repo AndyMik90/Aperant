@@ -123,18 +123,24 @@ def project_with_completed_specs_and_worktrees(temp_git_repo: Path) -> Path:
     worktrees_dir = temp_git_repo / ".auto-claude" / "worktrees" / "tasks"
     worktrees_dir.mkdir(parents=True)
 
-    # Completed spec 001 with worktree
+    # Completed spec 001 with worktree (QA approved)
     spec_001 = specs_dir / "001-completed-with-wt"
     spec_001.mkdir()
     (spec_001 / "qa_report.md").write_text("# QA Approved\n")
+    (spec_001 / "implementation_plan.json").write_text(
+        '{"qa_signoff": {"status": "approved"}}'
+    )
 
     wt_001 = worktrees_dir / "001-completed-with-wt"
     wt_001.mkdir(parents=True)
 
-    # Completed spec 002 without worktree
+    # Completed spec 002 without worktree (QA approved)
     spec_002 = specs_dir / "002-completed-no-wt"
     spec_002.mkdir()
     (spec_002 / "qa_report.md").write_text("# QA Approved\n")
+    (spec_002 / "implementation_plan.json").write_text(
+        '{"qa_signoff": {"status": "approved"}}'
+    )
 
     # Incomplete spec 003
     spec_003 = specs_dir / "003-incomplete"
