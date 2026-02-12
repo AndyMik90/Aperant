@@ -30,10 +30,15 @@ import pytest
 
 # Ensure we can import from apps/backend
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
+# Add tests directory to path for test_utils
+sys.path.insert(0, str(Path(__file__).parent))
 
 from cli.build_commands import _handle_build_interrupt, handle_build_command
 from review import ReviewState
 from workspace import WorkspaceMode
+
+# Import helper from test_utils
+from test_utils import configure_build_mocks
 
 
 # =============================================================================
@@ -108,14 +113,12 @@ class TestHandleBuildCommandApproval:
         successful_agent_fn,
     ):
         """Build proceeds when spec has valid approval."""
-        # Setup
-        mock_validate_env.return_value = True
-        mock_should_run_qa.return_value = False
-        mock_get_phase_model.side_effect = lambda spec_dir, phase, model: model or "sonnet"
-        mock_choose_workspace.return_value = WorkspaceMode.DIRECT
-        mock_get_existing.return_value = None
-
-        mock_run_agent.side_effect = successful_agent_fn
+        # Setup using helper
+        configure_build_mocks(
+            mock_validate_env, mock_should_run_qa, mock_get_phase_model,
+            mock_choose_workspace, mock_get_existing, mock_run_agent,
+            successful_agent_fn
+        )
 
         # Execute - should not raise SystemExit
         handle_build_command(
@@ -187,13 +190,12 @@ class TestHandleBuildCommandApproval:
     ):
         """Build proceeds with --force despite missing approval."""
         # Setup
-        mock_validate_env.return_value = True
-        mock_should_run_qa.return_value = False
-        mock_get_phase_model.side_effect = lambda spec_dir, phase, model: model or "sonnet"
-        mock_choose_workspace.return_value = WorkspaceMode.DIRECT
-        mock_get_existing.return_value = None
-
-        mock_run_agent.side_effect = successful_agent_fn
+        # Setup using helper
+        configure_build_mocks(
+            mock_validate_env, mock_should_run_qa, mock_get_phase_model,
+            mock_choose_workspace, mock_get_existing, mock_run_agent,
+            successful_agent_fn
+        )
 
         # Execute - should not raise SystemExit
         handle_build_command(
@@ -319,13 +321,12 @@ class TestHandleBuildCommandModels:
     ):
         """Build uses default model when none specified."""
         # Setup
-        mock_validate_env.return_value = True
-        mock_should_run_qa.return_value = False
-        mock_get_phase_model.side_effect = lambda spec_dir, phase, model: model or "sonnet"
-        mock_choose_workspace.return_value = WorkspaceMode.DIRECT
-        mock_get_existing.return_value = None
-
-        mock_run_agent.side_effect = successful_agent_fn
+        # Setup using helper
+        configure_build_mocks(
+            mock_validate_env, mock_should_run_qa, mock_get_phase_model,
+            mock_choose_workspace, mock_get_existing, mock_run_agent,
+            successful_agent_fn
+        )
 
         # Execute
         handle_build_command(
@@ -368,13 +369,12 @@ class TestHandleBuildCommandModels:
     ):
         """Build uses custom model when specified."""
         # Setup
-        mock_validate_env.return_value = True
-        mock_should_run_qa.return_value = False
-        mock_get_phase_model.side_effect = lambda spec_dir, phase, model: model or "sonnet"
-        mock_choose_workspace.return_value = WorkspaceMode.DIRECT
-        mock_get_existing.return_value = None
-
-        mock_run_agent.side_effect = successful_agent_fn
+        # Setup using helper
+        configure_build_mocks(
+            mock_validate_env, mock_should_run_qa, mock_get_phase_model,
+            mock_choose_workspace, mock_get_existing, mock_run_agent,
+            successful_agent_fn
+        )
 
         # Execute
         handle_build_command(
@@ -426,13 +426,12 @@ class TestHandleBuildCommandMaxIterations:
     ):
         """Build displays max_iterations when specified."""
         # Setup
-        mock_validate_env.return_value = True
-        mock_should_run_qa.return_value = False
-        mock_get_phase_model.side_effect = lambda spec_dir, phase, model: model or "sonnet"
-        mock_choose_workspace.return_value = WorkspaceMode.DIRECT
-        mock_get_existing.return_value = None
-
-        mock_run_agent.side_effect = successful_agent_fn
+        # Setup using helper
+        configure_build_mocks(
+            mock_validate_env, mock_should_run_qa, mock_get_phase_model,
+            mock_choose_workspace, mock_get_existing, mock_run_agent,
+            successful_agent_fn
+        )
 
         # Execute
         handle_build_command(
@@ -475,13 +474,12 @@ class TestHandleBuildCommandMaxIterations:
     ):
         """Build shows unlimited iterations when max_iterations is None."""
         # Setup
-        mock_validate_env.return_value = True
-        mock_should_run_qa.return_value = False
-        mock_get_phase_model.side_effect = lambda spec_dir, phase, model: model or "sonnet"
-        mock_choose_workspace.return_value = WorkspaceMode.DIRECT
-        mock_get_existing.return_value = None
-
-        mock_run_agent.side_effect = successful_agent_fn
+        # Setup using helper
+        configure_build_mocks(
+            mock_validate_env, mock_should_run_qa, mock_get_phase_model,
+            mock_choose_workspace, mock_get_existing, mock_run_agent,
+            successful_agent_fn
+        )
 
         # Execute
         handle_build_command(
@@ -588,13 +586,12 @@ class TestHandleBuildCommandWorkspace:
     ):
         """Build uses direct workspace when forced."""
         # Setup
-        mock_validate_env.return_value = True
-        mock_should_run_qa.return_value = False
-        mock_get_phase_model.side_effect = lambda spec_dir, phase, model: model or "sonnet"
-        mock_choose_workspace.return_value = WorkspaceMode.DIRECT
-        mock_get_existing.return_value = None
-
-        mock_run_agent.side_effect = successful_agent_fn
+        # Setup using helper
+        configure_build_mocks(
+            mock_validate_env, mock_should_run_qa, mock_get_phase_model,
+            mock_choose_workspace, mock_get_existing, mock_run_agent,
+            successful_agent_fn
+        )
 
         # Execute
         handle_build_command(
