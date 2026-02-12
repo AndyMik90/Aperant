@@ -195,8 +195,8 @@ class AutoFixProcessor:
             issue_iid=issue_iid,
         )
 
-        # Load or create state
-        state = AutoFixState.load(self.gitlab_dir, issue_iid)
+        # Load or create state (async to avoid blocking event loop)
+        state = await AutoFixState.load_async(self.gitlab_dir, issue_iid)
         if state and state.status not in [
             AutoFixStatus.FAILED,
             AutoFixStatus.COMPLETED,
@@ -335,8 +335,8 @@ class AutoFixProcessor:
             if not matching_labels:
                 continue
 
-            # Check if not already in queue
-            state = AutoFixState.load(self.gitlab_dir, issue["iid"])
+            # Check if not already in queue (async to avoid blocking event loop)
+            state = await AutoFixState.load_async(self.gitlab_dir, issue["iid"])
             if state and state.status not in [
                 AutoFixStatus.FAILED,
                 AutoFixStatus.COMPLETED,

@@ -296,6 +296,11 @@ class CIChecker:
                     f"Pipeline failed: {', '.join(failed_job_names)}. "
                     f"Fix these jobs before merging."
                 )
+            if pipeline.has_security_issues:
+                return (
+                    f"Security scan failures detected: "
+                    f"{', '.join(i['type'] for i in pipeline.security_issues[:3])}"
+                )
             return "Pipeline failed. Check CI for details."
 
         if pipeline.status == PipelineStatus.CANCELED:
@@ -303,12 +308,6 @@ class CIChecker:
 
         if pipeline.status in (PipelineStatus.RUNNING, PipelineStatus.PENDING):
             return f"Pipeline is {pipeline.status.value}. Wait for completion."
-
-        if pipeline.has_security_issues:
-            return (
-                f"Security scan failures detected: "
-                f"{', '.join(i['type'] for i in pipeline.security_issues[:3])}"
-            )
 
         return f"Pipeline status: {pipeline.status.value}"
 

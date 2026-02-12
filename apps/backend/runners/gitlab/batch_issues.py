@@ -275,10 +275,7 @@ Respond with JSON only:
                 return self._fallback_batches(issues)
 
         except Exception as e:
-            logger.error(f"[BATCH_ANALYZER] Error: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logger.exception(f"[BATCH_ANALYZER] Error during batch analysis: {e}")
             return self._fallback_batches(issues)
 
     def _parse_json_response(self, response_text: str) -> dict[str, Any]:

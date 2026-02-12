@@ -236,8 +236,8 @@ async def run_autonomous_agent(
             print(f"  python auto-claude/run.py --spec {spec_dir.name}")
             return
 
-        # Check max iterations
-        if max_iterations and iteration > max_iterations:
+        # Check max iterations (use explicit None check to handle max_iterations=0 correctly)
+        if max_iterations is not None and iteration > max_iterations:
             print(f"\nReached max iterations ({max_iterations})")
             print("To continue, run the script again without --max-iterations")
             break
@@ -419,11 +419,20 @@ async def run_autonomous_agent(
             task_logger.set_subtask(subtask_id)
             task_logger.set_session(iteration)
 
+        # Track if status-specific sleep occurred (to avoid double delay)
+        status_sleep_occurred = False
+
         # Run session with async context manager
         async with client:
-            status, response, _error_info = await run_agent_session(
-                client, prompt, spec_dir, verbose, phase=current_log_phase
-            )
+            try:
+                status, response, _error_info = await run_agent_session(
+                    client, prompt, spec_dir, verbose, phase=current_log_phase
+                )
+            except Exception as e:
+                # Catch transient failures (network issues, API timeouts, etc.)
+                logger.error(f"Agent session failed with error: {e}")
+                status = "error"
+                print_status(f"Session error: {e}", "error")
 
         plan_validated = False
         if is_planning_phase and status != "error":
@@ -555,6 +564,7 @@ async def run_autonomous_agent(
                     )
 
             await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+            status_sleep_occurred = True
 
         elif status == "error":
             emit_phase(ExecutionPhase.FAILED, "Session encountered an error")
@@ -562,9 +572,12 @@ async def run_autonomous_agent(
             print(muted("Will retry with a fresh session..."))
             status_manager.update(state=BuildState.ERROR)
             await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+            status_sleep_occurred = True
 
-        # Small delay between sessions
-        if max_iterations is None or iteration < max_iterations:
+        # Small delay between sessions (skip if status-specific sleep already occurred)
+        if (
+            max_iterations is None or iteration < max_iterations
+        ) and not status_sleep_occurred:
             print("\nPreparing next session...\n")
             await asyncio.sleep(1)
 

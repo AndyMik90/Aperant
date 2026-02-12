@@ -369,13 +369,18 @@ class TestURLConstruction:
 
     @pytest.mark.asyncio
     async def test_issue_url_construction(self, processor, mock_config):
-        """Test that issue URLs are constructed correctly."""
+        """Test that issue URLs are constructed correctly.
+
+        Note: trigger_label=None intentionally bypasses permission checks,
+        allowing this test to exercise URL construction without mocking
+        the permission checker's async verify_automation_trigger method.
+        """
         issue = {"iid": 123}
 
         state = await processor.process_issue(
             issue_iid=123,
             issue=issue,
-            trigger_label=None,
+            trigger_label=None,  # Bypasses permission check
         )
 
         assert (

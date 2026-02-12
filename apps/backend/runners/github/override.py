@@ -11,7 +11,6 @@ Handles user overrides, cancellations, and undo operations:
 
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -20,12 +19,12 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from runners.shared.file_lock import locked_json_update
+    from runners.shared.file_lock import locked_json_read, locked_json_update
 
     from .audit import ActorType, AuditLogger
 except (ImportError, ValueError, SystemError):
     from audit import ActorType, AuditLogger
-    from file_lock import locked_json_update
+    from file_lock import locked_json_read, locked_json_update
 
 
 class OverrideType(str, Enum):
@@ -247,7 +246,7 @@ class OverrideManager:
     # GRACE PERIOD MANAGEMENT
     # =========================================================================
 
-    def start_grace_period(
+    async def start_grace_period(
         self,
         issue_number: int,
         trigger_label: str,
@@ -277,10 +276,10 @@ class OverrideManager:
             expires_at=(now + timedelta(minutes=minutes)).isoformat(),
         )
 
-        self._save_grace_entry(entry)
+        await self._save_grace_entry(entry)
         return entry
 
-    def _save_grace_entry(self, entry: GracePeriodEntry) -> None:
+    async def _save_grace_entry(self, entry: GracePeriodEntry) -> None:
         """Save grace period entry to file."""
         grace_file = self._get_grace_file()
 
@@ -291,32 +290,29 @@ class OverrideManager:
             data["last_updated"] = datetime.now(timezone.utc).isoformat()
             return data
 
-        import asyncio
+        await locked_json_update(grace_file, update_grace, timeout=5.0)
 
-        asyncio.run(locked_json_update(grace_file, update_grace, timeout=5.0))
-
-    def get_grace_period(self, issue_number: int) -> GracePeriodEntry | None:
+    async def get_grace_period(self, issue_number: int) -> GracePeriodEntry | None:
         """Get grace period entry for an issue."""
         grace_file = self._get_grace_file()
         if not grace_file.exists():
             return None
 
-        with open(grace_file, encoding="utf-8") as f:
-            data = json.load(f)
+        data = await locked_json_read(grace_file, timeout=5.0)
 
         entry_data = data.get("entries", {}).get(str(issue_number))
         if entry_data:
             return GracePeriodEntry.from_dict(entry_data)
         return None
 
-    def is_in_grace_period(self, issue_number: int) -> bool:
+    async def is_in_grace_period(self, issue_number: int) -> bool:
         """Check if issue is still in grace period."""
-        entry = self.get_grace_period(issue_number)
+        entry = await self.get_grace_period(issue_number)
         if entry:
             return entry.is_in_grace_period()
         return False
 
-    def cancel_grace_period(
+    async def cancel_grace_period(
         self,
         issue_number: int,
         cancelled_by: str,
@@ -339,7 +335,7 @@ class OverrideManager:
         entry.cancelled_by = cancelled_by
         entry.cancelled_at = datetime.now(timezone.utc).isoformat()
 
-        self._save_grace_entry(entry)
+        await self._save_grace_entry(entry)
         return True
 
     # =========================================================================
@@ -457,13 +453,13 @@ class OverrideManager:
                 return result
 
             # Check grace period
-            if self.is_in_grace_period(issue_number):
-                if self.cancel_grace_period(issue_number, command.author):
+            if await self.is_in_grace_period(issue_number):
+                if await self.cancel_grace_period(issue_number, command.author):
                     result["success"] = True
                     result["message"] = f"Auto-fix cancelled for issue #{issue_number}"
 
                     # Record override
-                    override = self._record_override(
+                    override = await self._record_override(
                         override_type=OverrideType.CANCEL_AUTOFIX,
                         issue_number=issue_number,
                         repo=repo,
@@ -483,7 +479,7 @@ class OverrideManager:
                     f"Note: Grace period has expired."
                 )
 
-                override = self._record_override(
+                override = await self._record_override(
                     override_type=OverrideType.CANCEL_AUTOFIX,
                     issue_number=issue_number,
                     repo=repo,
@@ -495,7 +491,7 @@ class OverrideManager:
                 result["override_id"] = override.id
 
         elif command.command == CommandType.NOT_SPAM:
-            result = self._handle_triage_override(
+            result = await self._handle_triage_override(
                 OverrideType.NOT_SPAM,
                 issue_number,
                 repo,
@@ -504,7 +500,7 @@ class OverrideManager:
             )
 
         elif command.command == CommandType.NOT_DUPLICATE:
-            result = self._handle_triage_override(
+            result = await self._handle_triage_override(
                 OverrideType.NOT_DUPLICATE,
                 issue_number,
                 repo,
@@ -518,7 +514,7 @@ class OverrideManager:
                 f"Retry requested for issue #{issue_number or pr_number}"
             )
 
-            override = self._record_override(
+            override = await self._record_override(
                 override_type=OverrideType.FORCE_RETRY,
                 issue_number=issue_number,
                 pr_number=pr_number,
@@ -538,7 +534,7 @@ class OverrideManager:
             result["success"] = True
             result["message"] = "Approved"
 
-            override = self._record_override(
+            override = await self._record_override(
                 override_type=OverrideType.APPROVE_SPEC,
                 issue_number=issue_number,
                 pr_number=pr_number,
@@ -553,7 +549,7 @@ class OverrideManager:
             result["success"] = True
             result["message"] = "Rejected"
 
-            override = self._record_override(
+            override = await self._record_override(
                 override_type=OverrideType.REJECT_SPEC,
                 issue_number=issue_number,
                 pr_number=pr_number,
@@ -568,7 +564,7 @@ class OverrideManager:
             result["success"] = True
             result["message"] = f"AI review skipped for PR #{pr_number}"
 
-            override = self._record_override(
+            override = await self._record_override(
                 override_type=OverrideType.SKIP_REVIEW,
                 pr_number=pr_number,
                 repo=repo,
@@ -580,7 +576,7 @@ class OverrideManager:
 
         return result
 
-    def _handle_triage_override(
+    async def _handle_triage_override(
         self,
         override_type: OverrideType,
         issue_number: int | None,
@@ -595,7 +591,7 @@ class OverrideManager:
             result["message"] = "Issue number required"
             return result
 
-        override = self._record_override(
+        override = await self._record_override(
             override_type=override_type,
             issue_number=issue_number,
             repo=repo,
@@ -621,7 +617,7 @@ class OverrideManager:
         result = {"success": False, "message": "", "override_id": None}
 
         # Find most recent action for this issue/PR
-        history = self.get_override_history(
+        history = await self.get_override_history(
             issue_number=issue_number,
             pr_number=pr_number,
             limit=1,
@@ -634,7 +630,7 @@ class OverrideManager:
         last_action = history[0]
 
         # Record the undo
-        override = self._record_override(
+        override = await self._record_override(
             override_type=OverrideType.UNDO_LAST,
             issue_number=issue_number,
             pr_number=pr_number,
@@ -660,7 +656,7 @@ class OverrideManager:
         lines = ["**Automation Status:**\n"]
 
         if issue_number:
-            grace = self.get_grace_period(issue_number)
+            grace = await self.get_grace_period(issue_number)
             if grace:
                 if grace.is_in_grace_period():
                     remaining = grace.time_remaining()
@@ -676,7 +672,7 @@ class OverrideManager:
                     lines.append(f"- Issue #{issue_number}: Grace period expired")
 
         # Get recent overrides
-        history = self.get_override_history(
+        history = await self.get_override_history(
             issue_number=issue_number, pr_number=pr_number, limit=5
         )
         if history:
@@ -693,7 +689,7 @@ class OverrideManager:
     # OVERRIDE HISTORY
     # =========================================================================
 
-    def _record_override(
+    async def _record_override(
         self,
         override_type: OverrideType,
         repo: str,
@@ -719,7 +715,7 @@ class OverrideManager:
             metadata=metadata or {},
         )
 
-        self._save_override_record(record)
+        await self._save_override_record(record)
 
         # Log to audit if available
         if self.audit_logger:
@@ -739,7 +735,7 @@ class OverrideManager:
 
         return record
 
-    def _save_override_record(self, record: OverrideRecord) -> None:
+    async def _save_override_record(self, record: OverrideRecord) -> None:
         """Save override record to history file."""
         history_file = self._get_history_file()
 
@@ -752,11 +748,9 @@ class OverrideManager:
             data["last_updated"] = datetime.now(timezone.utc).isoformat()
             return data
 
-        import asyncio
+        await locked_json_update(history_file, update_history, timeout=5.0)
 
-        asyncio.run(locked_json_update(history_file, update_history, timeout=5.0))
-
-    def get_override_history(
+    async def get_override_history(
         self,
         issue_number: int | None = None,
         pr_number: int | None = None,
@@ -779,8 +773,7 @@ class OverrideManager:
         if not history_file.exists():
             return []
 
-        with open(history_file, encoding="utf-8") as f:
-            data = json.load(f)
+        data = await locked_json_read(history_file, timeout=5.0)
 
         records = []
         for record_data in data.get("records", []):
@@ -801,7 +794,7 @@ class OverrideManager:
 
         return records
 
-    def get_override_statistics(
+    async def get_override_statistics(
         self,
         repo: str | None = None,
     ) -> dict[str, Any]:
@@ -810,8 +803,7 @@ class OverrideManager:
         if not history_file.exists():
             return {"total": 0, "by_type": {}, "by_actor": {}}
 
-        with open(history_file, encoding="utf-8") as f:
-            data = json.load(f)
+        data = await locked_json_read(history_file, timeout=5.0)
 
         stats = {
             "total": 0,

@@ -21,9 +21,10 @@ if [ -f ".git" ]; then
   WORKTREE_GIT_DIR=$(sed -n 's/^gitdir: //p' .git | head -1)
   if [ -n "$WORKTREE_GIT_DIR" ] && [ -d "$WORKTREE_GIT_DIR" ]; then
     # Resolve to absolute path to avoid issues with relative gitdir paths
-    WORKTREE_GIT_DIR=$(cd "$(dirname "$WORKTREE_GIT_DIR")" && pwd)/$(basename "$WORKTREE_GIT_DIR")
+    # Use pwd -P to canonicalize symlinks (resolves symlinked directories)
+    WORKTREE_GIT_DIR=$(cd "$(dirname "$WORKTREE_GIT_DIR")" && pwd -P)/$(basename "$WORKTREE_GIT_DIR")
     export GIT_DIR="$WORKTREE_GIT_DIR"
-    export GIT_WORK_TREE="$(pwd)"
+    export GIT_WORK_TREE="$(pwd -P)"
   else
     # .git file exists but is malformed or points to non-existent directory
     # CRITICAL: Clear any inherited GIT_DIR/GIT_WORK_TREE to prevent cross-worktree leakage
@@ -210,8 +211,11 @@ if git diff --cached --name-only | grep -q "^apps/backend/.*\.py$"; then
         PYTHONPATH=. $VENV_PYTHON -m pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
       else
         echo "Warning: pytest not installed in venv. Installing test dependencies..."
-        $VENV_PYTHON -m pip install -q -r ../../tests/requirements-test.txt
-        PYTHONPATH=. $VENV_PYTHON -m pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
+        if $VENV_PYTHON -m pip install -q -r ../../tests/requirements-test.txt; then
+          PYTHONPATH=. $VENV_PYTHON -m pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
+        else
+          echo "Warning: Failed to install test dependencies. Skipping tests."
+        fi
       fi
     elif [ -d ".venv" ]; then
       echo "Warning: venv exists but Python not found in it, using system Python"

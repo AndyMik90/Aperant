@@ -18,7 +18,7 @@ import importlib.util
 # Load file_lock first (models.py depends on it)
 file_lock_spec = importlib.util.spec_from_file_location(
     "file_lock",
-    backend_path / "runners" / "github" / "file_lock.py"
+    backend_path / "runners" / "shared" / "file_lock.py"
 )
 file_lock_module = importlib.util.module_from_spec(file_lock_spec)
 sys.modules['file_lock'] = file_lock_module  # Make it available for models imports

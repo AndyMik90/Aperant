@@ -23,7 +23,7 @@ from typing import Any
 from core.gh_executable import get_gh_executable
 
 try:
-    from runners.shared.rate_limiter import RateLimiter, RateLimitExceeded
+    from .rate_limiter import RateLimiter, RateLimitExceeded
 except (ImportError, ValueError, SystemError):
     from rate_limiter import RateLimiter, RateLimitExceeded
 

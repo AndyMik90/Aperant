@@ -44,20 +44,24 @@ class TriageEngine:
         if self.progress_callback:
             import sys
 
-            if "orchestrator" in sys.modules:
-                ProgressCallback = sys.modules["orchestrator"].ProgressCallback
-            else:
-                # Fallback: try relative import
-                try:
-                    from ..orchestrator import ProgressCallback
-                except ImportError:
-                    from orchestrator import ProgressCallback
+            try:
+                if "orchestrator" in sys.modules:
+                    ProgressCallback = sys.modules["orchestrator"].ProgressCallback
+                else:
+                    # Fallback: try relative import
+                    try:
+                        from ..orchestrator import ProgressCallback
+                    except ImportError:
+                        from orchestrator import ProgressCallback
 
-            self.progress_callback(
-                ProgressCallback(
-                    phase=phase, progress=progress, message=message, **kwargs
+                self.progress_callback(
+                    ProgressCallback(
+                        phase=phase, progress=progress, message=message, **kwargs
+                    )
                 )
-            )
+            except Exception:
+                # Progress reporting is non-critical, ignore failures
+                pass
 
     async def triage_single_issue(
         self, issue: dict, all_issues: list[dict]

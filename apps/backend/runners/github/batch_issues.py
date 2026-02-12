@@ -938,7 +938,7 @@ class IssueBatcher:
                 self._batch_index[item.issue_number] = batch.batch_id
 
             # Save batch
-            batch.save(self.github_dir)
+            await batch.save(self.github_dir)
             final_batches.append(batch)
 
             logger.info(

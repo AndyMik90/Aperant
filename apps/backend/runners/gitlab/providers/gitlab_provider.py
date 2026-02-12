@@ -9,7 +9,6 @@ Wraps the existing GitLabClient functionality and converts to provider-agnostic 
 from __future__ import annotations
 
 import urllib.parse
-import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -97,6 +96,8 @@ class GitLabProvider:
     @property
     def glab_client(self) -> GitLabClient:
         """Get the underlying GitLabClient."""
+        if self._glab_client is None:
+            raise RuntimeError("GitLabClient not initialized")
         return self._glab_client
 
     # -------------------------------------------------------------------------
@@ -765,13 +766,15 @@ class GitLabProvider:
                         "path": new_path or old_path,
                         "new_path": new_path,
                         "old_path": old_path,
-                        "status": change.get("new_file")
-                        and "added"
-                        or change.get("deleted_file")
-                        and "deleted"
-                        or change.get("renamed_file")
-                        and "renamed"
-                        or "modified",
+                        "status": (
+                            "added"
+                            if change.get("new_file")
+                            else "deleted"
+                            if change.get("deleted_file")
+                            else "renamed"
+                            if change.get("renamed_file")
+                            else "modified"
+                        ),
                     }
                 )
 

@@ -80,11 +80,12 @@ def get_provider(
     if provider_type == ProviderType.GITHUB:
         return GitHubProvider(_repo=repo, **kwargs)
 
-    # Future providers (not yet implemented)
+    # Non-GitHub providers should use their respective factories
+    # (e.g., runners.gitlab.providers.factory for GitLab)
     if provider_type == ProviderType.GITLAB:
-        raise NotImplementedError(
-            "GitLab provider not yet implemented. "
-            "See providers/gitlab_provider.py.stub for interface."
+        raise ValueError(
+            "GitLab provider requested from GitHub factory. "
+            "Use 'from runners.gitlab.providers.factory import get_provider' instead."
         )
 
     if provider_type == ProviderType.BITBUCKET:

@@ -560,8 +560,12 @@ class AutoFixState:
     mr_url: str | None = None
     bot_comments: list[str] = field(default_factory=list)
     error: str | None = None
-    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    created_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+    updated_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
     def to_dict(self) -> dict:
         return {
@@ -587,8 +591,10 @@ class AutoFixState:
         project = data["project"]
         # Construct issue_url if missing (for backwards compatibility)
         # Use provided instance_url for self-hosted GitLab instances
+        # Strip trailing slashes from instance_url to avoid double slashes
+        base_url = instance_url.rstrip("/")
         issue_url = (
-            data.get("issue_url") or f"{instance_url}/{project}/-/issues/{issue_iid}"
+            data.get("issue_url") or f"{base_url}/{project}/-/issues/{issue_iid}"
         )
 
         return cls(
@@ -602,8 +608,8 @@ class AutoFixState:
             mr_url=data.get("mr_url"),
             bot_comments=data.get("bot_comments", []),
             error=data.get("error"),
-            created_at=data.get("created_at", datetime.now().isoformat()),
-            updated_at=data.get("updated_at", datetime.now().isoformat()),
+            created_at=data.get("created_at", datetime.now(timezone.utc).isoformat()),
+            updated_at=data.get("updated_at", datetime.now(timezone.utc).isoformat()),
         )
 
     def update_status(self, status: AutoFixStatus) -> None:
@@ -613,7 +619,7 @@ class AutoFixState:
                 f"Invalid state transition: {self.status.value} -> {status.value}"
             )
         self.status = status
-        self.updated_at = datetime.now().isoformat()
+        self.updated_at = datetime.now(timezone.utc).isoformat()
 
     async def save(self, gitlab_dir: Path) -> None:
         """Save auto-fix state to .auto-claude/gitlab/issues/ with file locking."""

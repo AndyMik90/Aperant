@@ -83,11 +83,14 @@ class FollowupReviewer:
             except (ImportError, ValueError, SystemError):
                 from runners.gitlab.orchestrator import ProgressCallback
 
-            self.progress_callback(
-                ProgressCallback(
-                    phase=phase, progress=progress, message=message, mr_iid=mr_iid
+            try:
+                self.progress_callback(
+                    ProgressCallback(
+                        phase=phase, progress=progress, message=message, mr_iid=mr_iid
+                    )
                 )
-            )
+            except Exception as e:
+                logger.warning(f"Progress callback failed: {e}")
         safe_print(f"[Followup] [{phase}] {message}")
 
     async def review_followup(
@@ -183,8 +186,10 @@ class FollowupReviewer:
             new_findings_since_last_review=[f.id for f in all_new_findings],
         )
 
-        # Save result
-        result.save(self.gitlab_dir)
+        # Save result (async to avoid blocking event loop)
+        import asyncio
+
+        await asyncio.to_thread(result.save, self.gitlab_dir)
 
         return result
 

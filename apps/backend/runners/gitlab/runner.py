@@ -334,9 +334,13 @@ async def cmd_triage(args) -> int:
         for issue in actionable[:10]:
             iid = issue.get("iid")
             title = issue.get("title", "No title")
-            labels = issue.get("labels", [])
+            raw_labels = issue.get("labels", [])
+            # Extract label names - GitLab API returns list of dicts with 'name' key or strings
+            label_names = [
+                lbl.get("name") if isinstance(lbl, dict) else lbl for lbl in raw_labels
+            ]
             print(f"  !{iid}: {title}")
-            print(f"      Labels: {', '.join(labels)}")
+            print(f"      Labels: {', '.join(label_names)}")
 
     return 0
 
