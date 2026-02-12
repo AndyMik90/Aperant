@@ -116,6 +116,7 @@ _mock_state = {
     'linear': None,
     'client_module': None,
     'setup_done': False,
+    'include_prompts_pkg': False,  # Track what config was used
 }
 
 
@@ -137,9 +138,32 @@ def setup_qa_mocks(include_prompts_pkg: bool = False):
 
     Call this at module level before importing from qa modules.
     """
-    # Guard against double setup - prevents overwriting _mock_state with new mocks
-    # while modules still hold references to the original mocks
+    # Guard against redundant setup when called with same parameters
+    # But allow prompts_pkg to be added if a later call needs it
     if _mock_state['setup_done']:
+        # If prompts_pkg is already set up OR current call doesn't need it, skip
+        if _mock_state['include_prompts_pkg'] or not include_prompts_pkg:
+            return
+        # Otherwise, we need to add prompts_pkg to existing setup
+        # Fall through to only set up prompts_pkg below
+
+    # If setup is done but we need to add prompts_pkg, only do that part
+    if _mock_state['setup_done'] and include_prompts_pkg and not _mock_state['include_prompts_pkg']:
+        # Save originals before mocking
+        for name in ['prompts_pkg', 'prompts_pkg.project_context']:
+            if name in sys.modules and name not in _original_modules:
+                _original_modules[name] = sys.modules[name]
+
+        # Only set up prompts_pkg
+        mock_prompts_pkg = MagicMock()
+        mock_prompts_pkg.get_qa_reviewer_prompt = MagicMock(return_value="Test QA prompt")
+        sys.modules['prompts_pkg'] = mock_prompts_pkg
+        _mock_state['prompts_pkg'] = mock_prompts_pkg
+        mock_project_context = MagicMock()
+        mock_prompts_pkg.project_context = mock_project_context
+        sys.modules['prompts_pkg.project_context'] = mock_project_context
+        _mock_state['project_context'] = mock_project_context
+        _mock_state['include_prompts_pkg'] = True
         return
 
     # Save originals for each module individually before mocking
@@ -235,6 +259,7 @@ def setup_qa_mocks(include_prompts_pkg: bool = False):
     sys.modules['client'] = mock_client_module
     _mock_state['client_module'] = mock_client_module
     _mock_state['setup_done'] = True
+    _mock_state['include_prompts_pkg'] = include_prompts_pkg
 
 
 def cleanup_qa_mocks():
@@ -248,6 +273,7 @@ def cleanup_qa_mocks():
         elif name in sys.modules:
             del sys.modules[name]
     _mock_state['setup_done'] = False
+    _mock_state['include_prompts_pkg'] = False
     # Note: We do NOT clear _original_modules here because:
     # 1. Multiple test modules may call cleanup, and clearing would break subsequent cleanups
     # 2. The 'if name not in _original_modules' guard in setup_qa_mocks prevents stale state

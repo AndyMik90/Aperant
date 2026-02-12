@@ -12,7 +12,6 @@ Tests for planner→coder→QA state transitions including:
 Note: Uses temp_git_repo fixture from conftest.py for proper git isolation.
 """
 
-import asyncio
 import json
 import subprocess
 import sys

@@ -269,7 +269,7 @@ class TestValidationResultStructure:
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
-    def test_handles_relative_paths(self, temp_dir: Path):
+    def test_handles_relative_paths(self, temp_dir: Path, monkeypatch):
         """Should handle relative path arguments."""
         from spec.validate_pkg.validators.prereqs_validator import PrereqsValidator
 
@@ -277,16 +277,11 @@ class TestEdgeCases:
         spec_path = temp_dir / "spec"
         spec_path.mkdir()
 
-        # Use relative path
+        # Use relative path with monkeypatch for safe directory change
         relative_path = "spec"
-        original_cwd = Path.cwd()
-        try:
-            import os
-            os.chdir(temp_dir)
-            validator = PrereqsValidator(relative_path)
-            result = validator.validate()
-        finally:
-            os.chdir(original_cwd)
+        monkeypatch.chdir(temp_dir)
+        validator = PrereqsValidator(relative_path)
+        result = validator.validate()
 
         # Should work (will be invalid since no project_index.json)
         assert result.checkpoint == "prereqs"
