@@ -1,4 +1,5 @@
 import { ExternalLink, Play, TrendingUp } from 'lucide-react';
+import { TaskOutcomeBadge, getTaskOutcomeColorClass } from './TaskOutcomeBadge';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -18,6 +19,7 @@ export function FeatureCard({
   onGoToTask,
   hasCompetitorInsight = false,
 }: FeatureCardProps) {
+
   return (
     <Card className="p-4 hover:bg-muted/50 cursor-pointer transition-colors" onClick={onClick}>
       <div className="flex items-start justify-between">
@@ -53,7 +55,11 @@ export function FeatureCard({
           <h3 className="font-medium">{feature.title}</h3>
           <p className="text-sm text-muted-foreground line-clamp-2">{feature.description}</p>
         </div>
-        {feature.linkedSpecId ? (
+        {feature.taskOutcome ? (
+          <Badge variant="outline" className={`text-xs ${getTaskOutcomeColorClass(feature.taskOutcome)}`}>
+            <TaskOutcomeBadge outcome={feature.taskOutcome} size="md" />
+          </Badge>
+        ) : feature.linkedSpecId ? (
           <Button
             variant="outline"
             size="sm"

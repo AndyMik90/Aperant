@@ -20,8 +20,10 @@ import type {
   ClaudeProfileSettings,
   ClaudeUsageData,
   ClaudeRateLimitEvent,
-  ClaudeAutoSwitchSettings
+  ClaudeAutoSwitchSettings,
+  APIProfile
 } from '../shared/types';
+import type { UnifiedAccount } from '../shared/types/unified-account';
 
 // Module imports
 import { encryptToken, decryptToken } from './claude-profile/token-encryption';
@@ -40,9 +42,11 @@ import {
 import {
   getBestAvailableProfile,
   shouldProactivelySwitch as shouldProactivelySwitchImpl,
-  getProfilesSortedByAvailability as getProfilesSortedByAvailabilityImpl
+  getProfilesSortedByAvailability as getProfilesSortedByAvailabilityImpl,
+  getBestAvailableUnifiedAccount
 } from './claude-profile/profile-scorer';
 import { getCredentialsFromKeychain, normalizeWindowsPath, updateProfileSubscriptionMetadata } from './claude-profile/credential-utils';
+import { loadProfilesFile } from './services/profile/profile-manager';
 import {
   CLAUDE_PROFILES_DIR,
   generateProfileId as generateProfileIdImpl,
@@ -664,6 +668,57 @@ export class ClaudeProfileManager {
     const settings = this.getAutoSwitchSettings();
     const priorityOrder = this.getAccountPriorityOrder();
     return getBestAvailableProfile(this.data.profiles, settings, excludeProfileId, priorityOrder);
+  }
+
+  /**
+   * Load API profiles from profiles.json with error handling
+   * Shared helper to avoid duplication across methods
+   */
+  private async loadProfilesFileSafe(): Promise<{ profiles: APIProfile[]; activeProfileId?: string }> {
+    try {
+      const file = await loadProfilesFile();
+      return { profiles: file.profiles, activeProfileId: file.activeProfileId ?? undefined };
+    } catch (error) {
+      console.error('[ClaudeProfileManager] Failed to load profiles file:', error);
+      return { profiles: [] };
+    }
+  }
+
+  /**
+   * Load API profiles from profiles.json
+   * Used by the unified account selection to consider API profiles as fallback
+   */
+  async loadAPIProfiles(): Promise<APIProfile[]> {
+    const { profiles } = await this.loadProfilesFileSafe();
+    return profiles;
+  }
+
+  /**
+   * Get the best available unified account from both OAuth and API profiles
+   * This enables cross-type account switching when OAuth profiles are exhausted
+   *
+   * @param excludeAccountId - Unified account ID to exclude (e.g., 'oauth-profile1')
+   * @returns The best available UnifiedAccount, or null if none available
+   */
+  async getBestAvailableUnifiedAccount(excludeAccountId?: string): Promise<UnifiedAccount | null> {
+    const settings = this.getAutoSwitchSettings();
+    const priorityOrder = this.getAccountPriorityOrder();
+    const activeOAuthId = this.data.activeProfileId;
+
+    // Load API profiles and active API profile ID from profiles.json
+    const { profiles: apiProfiles, activeProfileId: activeAPIId } = await this.loadProfilesFileSafe();
+
+    return getBestAvailableUnifiedAccount(
+      this.data.profiles,
+      apiProfiles,
+      settings,
+      {
+        excludeAccountId,
+        priorityOrder,
+        activeOAuthId,
+        activeAPIId
+      }
+    );
   }
 
   /**
