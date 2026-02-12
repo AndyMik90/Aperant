@@ -603,13 +603,12 @@ The SDK will run invoked agents in parallel automatically.
 
                 result_text = stream_result["result_text"]
                 last_assistant_text = stream_result.get("last_assistant_text", "")
-                structured_output = stream_result["structured_output"]
+                # Nullify structured output on recoverable errors to force Tier 2 fallback
+                structured_output = (
+                    None if (stream_error and stream_result.get("error_recoverable"))
+                    else stream_result["structured_output"]
+                )
                 agents_invoked = stream_result["agents_invoked"]
-
-                # Force Tier 2 fallback path on recoverable errors — don't attempt
-                # to parse partial structured output that failed validation
-                if stream_error and stream_result.get("error_recoverable"):
-                    structured_output = None
                 msg_count = stream_result["msg_count"]
 
             self._report_progress(
@@ -759,7 +758,7 @@ The SDK will run invoked agents in parallel automatically.
                     blockers.append(f"{finding.category.value}: {finding.title}")
 
             # Extract validation counts
-            dismissed_count = len(result_data.get("dismissed_false_positive_ids", []))
+            dismissed_count = len(result_data.get("dismissed_false_positive_ids", [])) or result_data.get("dismissed_finding_count", 0)
             confirmed_count = result_data.get("confirmed_valid_count", 0)
             needs_human_count = result_data.get("needs_human_review_count", 0)
 
@@ -1103,15 +1102,20 @@ The SDK will run invoked agents in parallel automatically.
         elif "needs revision" in text_lower or "request changes" in text_lower:
             verdict = MergeVerdict.NEEDS_REVISION
         else:
-            verdict = MergeVerdict.MERGE_WITH_CHANGES
+            verdict = MergeVerdict.NEEDS_REVISION
 
         return {
             "findings": findings,
             "resolved_ids": [],
             "unresolved_ids": [],
             "new_finding_ids": [],
+            "dismissed_false_positive_ids": [],
+            "confirmed_valid_count": 0,
+            "dismissed_finding_count": 0,
+            "needs_human_review_count": 0,
             "verdict": verdict,
             "verdict_reasoning": text[:500] if text else "Unable to parse response",
+            "agents_invoked": [],
         }
 
     async def _attempt_extraction_call(
@@ -1228,8 +1232,13 @@ The SDK will run invoked agents in parallel automatically.
             "resolved_ids": [],
             "unresolved_ids": [],
             "new_finding_ids": [],
+            "dismissed_false_positive_ids": [],
+            "confirmed_valid_count": 0,
+            "dismissed_finding_count": 0,
+            "needs_human_review_count": 0,
             "verdict": MergeVerdict.NEEDS_REVISION,
             "verdict_reasoning": "Unable to parse review results",
+            "agents_invoked": [],
         }
 
     def _extract_partial_data(self, data: dict) -> dict | None:
