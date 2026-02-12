@@ -659,6 +659,28 @@
       "remote": "Distante"
     }
   },
+  "githubErrors": {
+    "rateLimitTitle": "Limite de débit GitHub atteinte",
+    "authTitle": "Authentification GitHub requise",
+    "permissionTitle": "Permission GitHub refusée",
+    "notFoundTitle": "Ressource GitHub introuvable",
+    "networkTitle": "Erreur de connexion GitHub",
+    "unknownTitle": "Erreur GitHub",
+    "rateLimitMessage": "Limite de débit de l'API GitHub atteinte. Veuillez patienter un moment avant de réessayer.",
+    "rateLimitMessageMinutes": "Limite de débit de l'API GitHub atteinte. Veuillez attendre {{minutes}} minute(s) avant de réessayer.",
+    "rateLimitMessageHours": "Limite de débit de l'API GitHub atteinte. La limite se réinitialise dans environ {{hours}} heure(s).",
+    "authMessage": "Échec de l'authentification GitHub. Veuillez vérifier votre jeton GitHub dans les Paramètres et réessayer.",
+    "permissionMessage": "Permission GitHub refusée. Votre jeton n'a peut-être pas les accès requis. Veuillez vérifier les permissions de votre jeton dans les Paramètres.",
+    "permissionMessageScopes": "Permission GitHub refusée. Votre jeton manque de permissions requises : {{scopes}}. Veuillez mettre à jour votre jeton GitHub dans les Paramètres.",
+    "notFoundMessage": "La ressource GitHub demandée est introuvable. Veuillez vérifier que le dépôt existe et que vous y avez accès.",
+    "networkMessage": "Impossible de se connecter à GitHub. Veuillez vérifier votre connexion Internet et réessayer.",
+    "unknownMessage": "Une erreur inattendue s'est produite lors de la communication avec GitHub. Veuillez réessayer.",
+    "resetsIn": "Réinitialisation dans {{time}}",
+    "countdownHoursMinutes": "{{hours}}h {{minutes}}m",
+    "countdownMinutesSeconds": "{{minutes}}m {{seconds}}s",
+    "rateLimitExpired": "La limite de débit a été réinitialisée. Vous pouvez réessayer maintenant.",
+    "requiredScopes": "Permissions requises"
+  },
   "roadmapProgress": {
     "elapsedTime": "Écoulé",
     "lastActivity": "Dernière activité",
