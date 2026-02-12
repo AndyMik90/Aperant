@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 
 try:
     from ..models import (
@@ -35,10 +36,14 @@ except (ImportError, ValueError, SystemError):
 # Evidence-based validation replaces confidence scoring
 MIN_EVIDENCE_LENGTH = 20  # Minimum chars for evidence to be considered valid
 
+# Lock for thread-safe printing
+_print_lock = threading.Lock()
+
 
 def safe_print(msg: str, **kwargs) -> None:
     """Thread-safe print helper."""
-    print(msg, **kwargs)
+    with _print_lock:
+        print(msg, **kwargs)
 
 
 class ResponseParser:

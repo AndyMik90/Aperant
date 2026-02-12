@@ -20,8 +20,9 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from runners.shared.file_lock import locked_json_update
+
     from .audit import ActorType, AuditLogger
-    from .file_lock import locked_json_update
 except (ImportError, ValueError, SystemError):
     from audit import ActorType, AuditLogger
     from file_lock import locked_json_update

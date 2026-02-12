@@ -162,7 +162,7 @@ class TestCoolingOff:
         """Test PR within cooling off period."""
         # Set last review to 30 seconds ago (within 1 minute cooling off)
         import datetime as dt
-        half_min_ago = dt.datetime.now() - timedelta(seconds=30)
+        half_min_ago = dt.datetime.now(dt.timezone.utc) - timedelta(seconds=30)
         mock_bot_detector.state.last_review_times["123"] = half_min_ago.isoformat()
 
         is_cooling, reason = mock_bot_detector.is_within_cooling_off(123)
@@ -174,7 +174,7 @@ class TestCoolingOff:
         """Test PR outside cooling off period."""
         # Set last review to 2 minutes ago (outside 1 minute cooling off)
         import datetime as dt
-        two_min_ago = dt.datetime.now() - timedelta(minutes=2)
+        two_min_ago = dt.datetime.now(dt.timezone.utc) - timedelta(minutes=2)
         mock_bot_detector.state.last_review_times["123"] = two_min_ago.isoformat()
 
         is_cooling, reason = mock_bot_detector.is_within_cooling_off(123)
@@ -266,7 +266,7 @@ class TestShouldSkipReview:
         """Test skipping during cooling off period."""
         # Set last review to 30 seconds ago (within 1 minute cooling off)
         import datetime as dt
-        half_min_ago = dt.datetime.now() - timedelta(seconds=30)
+        half_min_ago = dt.datetime.now(dt.timezone.utc) - timedelta(seconds=30)
         mock_bot_detector.state.last_review_times["123"] = half_min_ago.isoformat()
 
         pr_data = {"author": {"login": "alice"}}

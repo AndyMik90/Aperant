@@ -13,7 +13,7 @@ Features:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
@@ -65,20 +65,10 @@ class PipelineInfo:
     updated_at: str
     finished_at: str | None = None
     duration: float | None = None
-    jobs: list[JobStatus] = None
-    failed_jobs: list[JobStatus] = None
-    blocked_jobs: list[JobStatus] = None
-    security_issues: list[dict] = None
-
-    def __post_init__(self):
-        if self.jobs is None:
-            self.jobs = []
-        if self.failed_jobs is None:
-            self.failed_jobs = []
-        if self.blocked_jobs is None:
-            self.blocked_jobs = []
-        if self.security_issues is None:
-            self.security_issues = []
+    jobs: list[JobStatus] = field(default_factory=list)
+    failed_jobs: list[JobStatus] = field(default_factory=list)
+    blocked_jobs: list[JobStatus] = field(default_factory=list)
+    security_issues: list[dict] = field(default_factory=list)
 
     @property
     def has_failures(self) -> bool:
@@ -94,7 +84,7 @@ class PipelineInfo:
     def is_blocking(self) -> bool:
         """Check if pipeline status blocks merge."""
         # Only SUCCESS status allows merge
-        # FAILED, CANCELED, RUNNING (with blocking jobs) block merge
+        # FAILED, CANCELED, RUNNING, PENDING all block merge
         if self.status == PipelineStatus.SUCCESS:
             return False
         if self.status == PipelineStatus.FAILED:
@@ -102,10 +92,8 @@ class PipelineInfo:
         if self.status == PipelineStatus.CANCELED:
             return True
         if self.status in (PipelineStatus.RUNNING, PipelineStatus.PENDING):
-            # Check if any critical jobs are expected to fail
-            return any(
-                not job.allow_failure for job in self.jobs if job.status == "failed"
-            )
+            # Running/pending pipelines block merge until they complete
+            return True
         return False
 
 
@@ -413,11 +401,16 @@ class CIChecker:
             Final PipelineInfo or None if timeout
         """
         import asyncio
+        import time
 
         safe_print(f"[CI] Waiting for MR !{mr_iid} pipeline to complete...")
 
-        elapsed = 0
-        while elapsed < timeout_seconds:
+        start = time.monotonic()
+        while True:
+            remaining = start + timeout_seconds - time.monotonic()
+            if remaining <= 0:
+                break
+
             pipeline = await self.check_mr_pipeline(mr_iid)
 
             if not pipeline:
@@ -432,13 +425,13 @@ class CIChecker:
                 safe_print(f"[CI] Pipeline completed: {pipeline.status.value}")
                 return pipeline
 
+            elapsed = time.monotonic() - start
             safe_print(
-                f"[CI] Pipeline still running... ({elapsed}s elapsed, "
-                f"{timeout_seconds - elapsed}s remaining)"
+                f"[CI] Pipeline still running... ({int(elapsed)}s elapsed, "
+                f"{int(remaining)}s remaining)"
             )
 
             await asyncio.sleep(check_interval)
-            elapsed += check_interval
 
         safe_print(f"[CI] Timeout waiting for pipeline ({timeout_seconds}s)")
         return None

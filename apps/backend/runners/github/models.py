@@ -17,7 +17,7 @@ from enum import Enum
 from pathlib import Path
 
 try:
-    from .file_lock import locked_json_update, locked_json_write
+    from runners.shared.file_lock import locked_json_update, locked_json_write
 except (ImportError, ValueError, SystemError):
     from file_lock import locked_json_update, locked_json_write
 

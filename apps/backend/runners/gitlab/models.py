@@ -8,9 +8,10 @@ Stored in .auto-claude/gitlab/mr/
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
@@ -240,7 +241,9 @@ class MRReviewResult:
     findings: list[MRReviewFinding] = field(default_factory=list)
     summary: str = ""
     overall_status: str = "comment"  # approve, request_changes, comment
-    reviewed_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    reviewed_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
     error: str | None = None
 
     # Verdict system
@@ -577,13 +580,15 @@ class AutoFixState:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> AutoFixState:
+    def from_dict(
+        cls, data: dict, instance_url: str = "https://gitlab.com"
+    ) -> AutoFixState:
         issue_iid = data["issue_iid"]
         project = data["project"]
         # Construct issue_url if missing (for backwards compatibility)
+        # Use provided instance_url for self-hosted GitLab instances
         issue_url = (
-            data.get("issue_url")
-            or f"https://gitlab.com/{project}/-/issues/{issue_iid}"
+            data.get("issue_url") or f"{instance_url}/{project}/-/issues/{issue_iid}"
         )
 
         return cls(
@@ -613,7 +618,7 @@ class AutoFixState:
     async def save(self, gitlab_dir: Path) -> None:
         """Save auto-fix state to .auto-claude/gitlab/issues/ with file locking."""
         try:
-            from .utils.file_lock import atomic_write
+            from runners.shared.file_lock import atomic_write
         except ImportError:
             from runners.gitlab.utils.file_lock import atomic_write
 
@@ -638,5 +643,5 @@ class AutoFixState:
 
     @classmethod
     async def load_async(cls, gitlab_dir: Path, issue_iid: int) -> AutoFixState | None:
-        """Async wrapper for loading state."""
-        return cls.load(gitlab_dir, issue_iid)
+        """Async wrapper for loading state using thread pool."""
+        return await asyncio.to_thread(cls.load, gitlab_dir, issue_iid)

@@ -197,12 +197,18 @@ def create_mock_client(project_dir=None):
     from runners.gitlab.glab_client import GitLabClient, GitLabConfig
 
     if project_dir is None:
-        project_dir = Path(tempfile.mkdtemp())
+        tmpdir = tempfile.TemporaryDirectory()
+        project_dir = Path(tmpdir.name)
     else:
+        tmpdir = None
         project_dir = Path(project_dir)
 
     config = GitLabConfig(**MOCK_GITLAB_CONFIG)
-    return GitLabClient(project_dir=project_dir, config=config)
+    client = GitLabClient(project_dir=project_dir, config=config)
+    # Attach tmpdir to client so it stays alive for the client's lifetime
+    if tmpdir is not None:
+        client._tempdir = tmpdir
+    return client
 
 
 def mock_mr_data(**overrides):

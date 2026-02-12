@@ -1,8 +1,8 @@
 """
 File Locking for Concurrent Operations
-=====================================
+======================================
 
-Thread-safe and process-safe file locking utilities for GitHub automation.
+Thread-safe and process-safe file locking utilities for provider automation.
 Uses fcntl.flock() on Unix systems and msvcrt.locking() on Windows for proper
 cross-process locking.
 
@@ -477,7 +477,7 @@ async def locked_json_update(
         )
 
         try:
-            with os.fdopen(fd, "w") as f:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(updated_data, f, indent=indent)
 
             await asyncio.get_running_loop().run_in_executor(

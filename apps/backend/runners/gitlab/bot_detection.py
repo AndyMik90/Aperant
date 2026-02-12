@@ -39,11 +39,10 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 try:
-    from .utils.file_lock import FileLock, atomic_write
-except (ImportError, ValueError, SystemError):
+    from runners.shared.file_lock import FileLock, atomic_write
+except ImportError:
     # Direct import fallback for when running as script
     import sys
-    from pathlib import Path
 
     _utils_dir = str(Path(__file__).parent / "utils")
     if _utils_dir not in sys.path:
@@ -301,8 +300,8 @@ class GitLabBotDetector:
         if not commits:
             return None
 
-        # GitLab API returns commits in chronological order (oldest first, newest last)
-        latest = commits[-1]
+        # GitLab API returns commits newest-first, so use commits[0]
+        latest = commits[0]
         return latest.get("id") or latest.get("sha")
 
     def is_within_cooling_off(self, mr_iid: int) -> tuple[bool, str]:

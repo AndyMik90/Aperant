@@ -23,10 +23,11 @@ logger = logging.getLogger(__name__)
 
 # Import validators
 try:
+    from runners.shared.file_lock import locked_json_write
+
     from ..phase_config import resolve_model_id
     from .batch_validator import BatchValidator
     from .duplicates import SIMILAR_THRESHOLD
-    from .file_lock import locked_json_write
 except (ImportError, ValueError, SystemError):
     from batch_validator import BatchValidator
     from duplicates import SIMILAR_THRESHOLD

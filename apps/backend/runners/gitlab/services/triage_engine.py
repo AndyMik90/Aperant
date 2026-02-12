@@ -129,17 +129,25 @@ class TriageEngine:
         Returns:
             Formatted context string for AI
         """
-        # Find potential duplicates by title similarity
+        # Find potential duplicates by Jaccard similarity on title words
         potential_dupes = []
+        title_words = set(issue["title"].lower().split())
+
         for other in all_issues:
             if other["iid"] == issue["iid"]:
                 continue
-            # Simple word overlap check
-            title_words = set(issue["title"].lower().split())
+
             other_words = set(other["title"].lower().split())
-            overlap = len(title_words & other_words) / max(len(title_words), 1)
-            if overlap > 0.3:
-                potential_dupes.append(other)
+
+            # Jaccard similarity: intersection / union
+            intersection = len(title_words & other_words)
+            union = len(title_words | other_words)
+
+            if union > 0:
+                jaccard_similarity = intersection / union
+                # Use ~0.5 threshold as specified
+                if jaccard_similarity >= 0.5:
+                    potential_dupes.append(other)
 
         # Extract author username from GitLab API response
         author = issue.get("author", {})

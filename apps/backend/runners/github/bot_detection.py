@@ -40,9 +40,8 @@ import json
 import logging
 import os
 import subprocess
-import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from core.gh_executable import get_gh_executable
@@ -50,7 +49,7 @@ from core.gh_executable import get_gh_executable
 logger = logging.getLogger(__name__)
 
 try:
-    from .file_lock import FileLock, atomic_write
+    from runners.shared.file_lock import FileLock, atomic_write
 except (ImportError, ValueError, SystemError):
     from file_lock import FileLock, atomic_write
 
@@ -97,14 +96,16 @@ class BotDetectionState:
 
     @classmethod
     def load(cls, state_dir: Path) -> BotDetectionState:
-        """Load state from disk."""
+        """Load state from disk with file locking for concurrent safety."""
         state_file = state_dir / "bot_detection_state.json"
 
         if not state_file.exists():
             return cls()
 
-        with open(state_file, encoding="utf-8") as f:
-            return cls.from_dict(json.load(f))
+        # Use shared lock for reading (allows concurrent reads)
+        with FileLock(state_file, timeout=5.0, exclusive=False):
+            with open(state_file, encoding="utf-8") as f:
+                return cls.from_dict(json.load(f))
 
 
 class GitHubBotDetector:
@@ -153,9 +154,8 @@ class GitHubBotDetector:
         # Identify bot username from token
         self.bot_username = self._get_bot_username()
 
-        print(
-            f"[BotDetector] Initialized: bot_user={self.bot_username}, review_own_prs={review_own_prs}",
-            file=sys.stderr,
+        logger.info(
+            f"[BotDetector] Initialized: bot_user={self.bot_username}, review_own_prs={review_own_prs}"
         )
 
     def _get_bot_username(self) -> str | None:
@@ -166,18 +166,16 @@ class GitHubBotDetector:
             Bot username or None if token not provided or invalid
         """
         if not self.bot_token:
-            print(
-                "[BotDetector] No bot token provided, cannot identify bot user",
-                file=sys.stderr,
+            logger.warning(
+                "[BotDetector] No bot token provided, cannot identify bot user"
             )
             return None
 
         try:
             gh_exec = get_gh_executable()
             if not gh_exec:
-                print(
-                    "[BotDetector] gh CLI not found, cannot identify bot user",
-                    file=sys.stderr,
+                logger.warning(
+                    "[BotDetector] gh CLI not found, cannot identify bot user"
                 )
                 return None
 
@@ -196,14 +194,16 @@ class GitHubBotDetector:
             if result.returncode == 0:
                 user_data = json.loads(result.stdout)
                 username = user_data.get("login")
-                print(f"[BotDetector] Identified bot user: {username}")
+                logger.info(f"[BotDetector] Identified bot user: {username}")
                 return username
             else:
-                print(f"[BotDetector] Failed to identify bot user: {result.stderr}")
+                logger.warning(
+                    f"[BotDetector] Failed to identify bot user: {result.stderr}"
+                )
                 return None
 
         except Exception as e:
-            print(f"[BotDetector] Error identifying bot user: {e}")
+            logger.error(f"[BotDetector] Error identifying bot user: {e}")
             return None
 
     def is_bot_pr(self, pr_data: dict) -> bool:
@@ -223,7 +223,7 @@ class GitHubBotDetector:
         is_bot = pr_author == self.bot_username
 
         if is_bot:
-            print(f"[BotDetector] PR is bot-authored: {pr_author}")
+            logger.info(f"[BotDetector] PR is bot-authored: {pr_author}")
 
         return is_bot
 
@@ -249,7 +249,7 @@ class GitHubBotDetector:
         )
 
         if is_bot:
-            print(
+            logger.info(
                 f"[BotDetector] Commit is bot-authored: {commit_author or commit_committer}"
             )
 
@@ -289,7 +289,7 @@ class GitHubBotDetector:
 
         try:
             last_review = datetime.fromisoformat(last_review_str)
-            time_since = datetime.now() - last_review
+            time_since = datetime.now(tz=timezone.utc) - last_review
 
             if time_since < timedelta(minutes=self.COOLING_OFF_MINUTES):
                 minutes_left = self.COOLING_OFF_MINUTES - (
@@ -299,11 +299,11 @@ class GitHubBotDetector:
                     f"Cooling off period active (reviewed {int(time_since.total_seconds() / 60)}m ago, "
                     f"{int(minutes_left)}m remaining)"
                 )
-                print(f"[BotDetector] PR #{pr_number}: {reason}")
+                logger.info(f"[BotDetector] PR #{pr_number}: {reason}")
                 return True, reason
 
         except (ValueError, TypeError) as e:
-            print(f"[BotDetector] Error parsing last review time: {e}")
+            logger.warning(f"[BotDetector] Error parsing last review time: {e}")
 
         return False, ""
 
@@ -341,16 +341,15 @@ class GitHubBotDetector:
 
         try:
             start_time = datetime.fromisoformat(start_time_str)
-            time_elapsed = datetime.now() - start_time
+            time_elapsed = datetime.now(tz=timezone.utc) - start_time
 
             # Check if review is stale (timeout exceeded)
             if time_elapsed > timedelta(minutes=self.IN_PROGRESS_TIMEOUT_MINUTES):
                 # Mark as stale and clear the in-progress state
-                print(
+                logger.warning(
                     f"[BotDetector] Review for PR #{pr_number} is stale "
                     f"(started {int(time_elapsed.total_seconds() / 60)}m ago, "
-                    f"timeout: {self.IN_PROGRESS_TIMEOUT_MINUTES}m) - clearing in-progress state",
-                    file=sys.stderr,
+                    f"timeout: {self.IN_PROGRESS_TIMEOUT_MINUTES}m) - clearing in-progress state"
                 )
                 self.mark_review_finished(pr_number, success=False)
                 return False, ""
@@ -358,14 +357,11 @@ class GitHubBotDetector:
             # Review is actively in progress
             minutes_elapsed = int(time_elapsed.total_seconds() / 60)
             reason = f"Review already in progress (started {minutes_elapsed}m ago)"
-            print(f"[BotDetector] PR #{pr_number}: {reason}", file=sys.stderr)
+            logger.info(f"[BotDetector] PR #{pr_number}: {reason}")
             return True, reason
 
         except (ValueError, TypeError) as e:
-            print(
-                f"[BotDetector] Error parsing in-progress start time: {e}",
-                file=sys.stderr,
-            )
+            logger.error(f"[BotDetector] Error parsing in-progress start time: {e}")
             # Clear invalid state
             self.mark_review_finished(pr_number, success=False)
             return False, ""
@@ -381,14 +377,15 @@ class GitHubBotDetector:
         """
         pr_key = str(pr_number)
 
-        # Record start time
-        self.state.in_progress_reviews[pr_key] = datetime.now().isoformat()
+        # Record start time with timezone awareness
+        self.state.in_progress_reviews[pr_key] = datetime.now(
+            tz=timezone.utc
+        ).isoformat()
 
         # Save state
         self.state.save(self.state_dir)
 
         logger.info(f"[BotDetector] Marked PR #{pr_number} review as started")
-        print(f"[BotDetector] Started review for PR #{pr_number}", file=sys.stderr)
 
     def mark_review_finished(self, pr_number: int, success: bool = True) -> None:
         """
@@ -414,10 +411,6 @@ class GitHubBotDetector:
             logger.info(
                 f"[BotDetector] Marked PR #{pr_number} review as finished ({status})"
             )
-            print(
-                f"[BotDetector] Finished review for PR #{pr_number} ({status})",
-                file=sys.stderr,
-            )
 
     def should_skip_pr_review(
         self,
@@ -441,7 +434,7 @@ class GitHubBotDetector:
         # Check 1: Is this a bot-authored PR?
         if not self.review_own_prs and self.is_bot_pr(pr_data):
             reason = f"PR authored by bot user ({self.bot_username})"
-            print(f"[BotDetector] SKIP PR #{pr_number}: {reason}")
+            logger.info(f"[BotDetector] SKIP PR #{pr_number}: {reason}")
             return True, reason
 
         # Check 2: Is the latest commit by the bot?
@@ -450,30 +443,30 @@ class GitHubBotDetector:
             latest_commit = commits[-1] if commits else None
             if latest_commit and self.is_bot_commit(latest_commit):
                 reason = "Latest commit authored by bot (likely an auto-fix)"
-                print(f"[BotDetector] SKIP PR #{pr_number}: {reason}")
+                logger.info(f"[BotDetector] SKIP PR #{pr_number}: {reason}")
                 return True, reason
 
         # Check 3: Is a review already in progress?
         is_in_progress, reason = self.is_review_in_progress(pr_number)
         if is_in_progress:
-            print(f"[BotDetector] SKIP PR #{pr_number}: {reason}")
+            logger.info(f"[BotDetector] SKIP PR #{pr_number}: {reason}")
             return True, reason
 
         # Check 4: Are we in the cooling off period?
         is_cooling, reason = self.is_within_cooling_off(pr_number)
         if is_cooling:
-            print(f"[BotDetector] SKIP PR #{pr_number}: {reason}")
+            logger.info(f"[BotDetector] SKIP PR #{pr_number}: {reason}")
             return True, reason
 
         # Check 5: Have we already reviewed this exact commit?
         head_sha = self.get_last_commit_sha(commits) if commits else None
         if head_sha and self.has_reviewed_commit(pr_number, head_sha):
             reason = f"Already reviewed commit {head_sha[:8]}"
-            print(f"[BotDetector] SKIP PR #{pr_number}: {reason}")
+            logger.info(f"[BotDetector] SKIP PR #{pr_number}: {reason}")
             return True, reason
 
         # All checks passed - safe to review
-        print(f"[BotDetector] PR #{pr_number} is safe to review")
+        logger.info(f"[BotDetector] PR #{pr_number} is safe to review")
         return False, ""
 
     def mark_reviewed(self, pr_number: int, commit_sha: str) -> None:
@@ -496,8 +489,8 @@ class GitHubBotDetector:
         if commit_sha not in self.state.reviewed_commits[pr_key]:
             self.state.reviewed_commits[pr_key].append(commit_sha)
 
-        # Update last review time
-        self.state.last_review_times[pr_key] = datetime.now().isoformat()
+        # Update last review time with timezone awareness
+        self.state.last_review_times[pr_key] = datetime.now(tz=timezone.utc).isoformat()
 
         # Clear in-progress state
         if pr_key in self.state.in_progress_reviews:
@@ -531,7 +524,7 @@ class GitHubBotDetector:
 
         self.state.save(self.state_dir)
 
-        print(f"[BotDetector] Cleared state for PR #{pr_number}")
+        logger.info(f"[BotDetector] Cleared state for PR #{pr_number}")
 
     def get_stats(self) -> dict:
         """
@@ -572,8 +565,8 @@ class GitHubBotDetector:
         Returns:
             Number of PRs cleaned up
         """
-        cutoff = datetime.now() - timedelta(days=max_age_days)
-        in_progress_cutoff = datetime.now() - timedelta(
+        cutoff = datetime.now(tz=timezone.utc) - timedelta(days=max_age_days)
+        in_progress_cutoff = datetime.now(tz=timezone.utc) - timedelta(
             minutes=self.IN_PROGRESS_TIMEOUT_MINUTES
         )
         prs_to_remove: list[str] = []
@@ -613,19 +606,20 @@ class GitHubBotDetector:
             if pr_key in self.state.in_progress_reviews:
                 del self.state.in_progress_reviews[pr_key]
 
-        total_cleaned = len(prs_to_remove) + len(stale_in_progress)
+        # Deduplicate: a PR can be in both prs_to_remove and stale_in_progress
+        unique_prs_cleaned = len(set(prs_to_remove) | set(stale_in_progress))
 
-        if total_cleaned > 0:
+        if unique_prs_cleaned > 0:
             self.state.save(self.state_dir)
             if prs_to_remove:
-                print(
+                logger.info(
                     f"[BotDetector] Cleaned up {len(prs_to_remove)} stale PRs "
                     f"(older than {max_age_days} days)"
                 )
             if stale_in_progress:
-                print(
+                logger.info(
                     f"[BotDetector] Cleaned up {len(stale_in_progress)} stale in-progress reviews "
                     f"(older than {self.IN_PROGRESS_TIMEOUT_MINUTES} minutes)"
                 )
 
-        return total_cleaned
+        return unique_prs_cleaned

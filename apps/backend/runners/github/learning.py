@@ -309,7 +309,7 @@ class LearningTracker:
 
     def _save_outcomes(self, repo: str) -> None:
         """Save outcomes for a repo to disk with file locking for concurrency safety."""
-        from .file_lock import FileLock, atomic_write
+        from runners.shared.file_lock import FileLock, atomic_write
 
         file = self._get_outcomes_file(repo)
         repo_outcomes = [o for o in self._outcomes.values() if o.repo == repo]

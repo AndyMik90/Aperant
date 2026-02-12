@@ -372,26 +372,33 @@ async def cmd_auto_fix(args) -> int:
 
     title = issue.get("title", "")
     description = issue.get("description", "")
-    labels = issue.get("labels", [])
+    raw_labels = issue.get("labels", [])
     author = issue.get("author", {}).get("username", "")
+
+    # Extract label names - GitLab API returns list of dicts with 'name' key or strings
+    label_names = [
+        lbl.get("name") if isinstance(lbl, dict) else lbl for lbl in raw_labels
+    ]
 
     print(f"\n{'=' * 60}")
     print(f"Auto-fix for Issue !{args.issue_iid}")
     print(f"{'=' * 60}")
     print(f"Title: {title}")
     print(f"Author: {author}")
-    print(f"Labels: {', '.join(labels)}")
+    print(f"Labels: {', '.join(label_names)}")
     print(f"\nDescription:\n{description[:500]}...")
 
     # Check if already auto-fixable
-    if any(label in labels for label in ["auto-fix", "spec-created"]):
+    if any(label in label_names for label in ["auto-fix", "spec-created"]):
         safe_print("[Auto-fix] Issue already marked for auto-fix or has spec")
         return 0
 
     # Add auto-fix label
     if not args.dry_run:
         try:
-            client.update_issue(args.issue_iid, labels=list(set(labels + ["auto-fix"])))
+            client.update_issue(
+                args.issue_iid, labels=list(set(label_names + ["auto-fix"]))
+            )
             safe_print(f"[Auto-fix] Added 'auto-fix' label to issue !{args.issue_iid}")
         except Exception as e:
             safe_print(f"[Auto-fix] Failed to update issue: {e}")

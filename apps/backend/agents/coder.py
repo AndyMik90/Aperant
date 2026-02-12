@@ -358,7 +358,8 @@ async def run_autonomous_agent(
                                 "success",
                             )
                             # Successfully found subtask after retry - break to continue processing
-                            # Note: next_subtask now has the updated values for use later
+                            # Update subtask_id since next_subtask was replaced by retry
+                            subtask_id = next_subtask.get("id")
                             break
                         print_status(
                             f"Retry {retry_attempt + 1}/3: No subtask found yet...",

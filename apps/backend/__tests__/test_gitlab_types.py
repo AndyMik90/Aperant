@@ -252,7 +252,7 @@ class TestTotalFalseBehavior:
     """Tests for total=False behavior in TypedDict (all fields optional)."""
 
     def test_mr_minimal_dict(self):
-        """Test creating MR with minimal required fields."""
+        """Test creating MR with minimal required fields and type-checking structure."""
         # In practice, GitLab API always returns certain fields
         # But TypedDict with total=False allows flexibility
         mr: GitLabMR = {
@@ -262,10 +262,19 @@ class TestTotalFalseBehavior:
             "state": "opened",
         }
 
+        # Type-check that required fields exist and have correct types
+        assert isinstance(mr["iid"], int)
+        assert isinstance(mr["id"], int)
+        assert isinstance(mr["title"], str)
+        assert isinstance(mr["state"], str)
+        # Validate expected values
         assert mr["iid"] == 123
+        assert mr["id"] == 456
+        assert mr["title"] == "Minimal MR"
+        assert mr["state"] in ("opened", "closed", "locked", "merged")
 
     def test_issue_minimal_dict(self):
-        """Test creating issue with minimal required fields."""
+        """Test creating issue with minimal required fields and type-checking structure."""
         issue: GitLabIssue = {
             "iid": 456,
             "id": 789,
@@ -273,7 +282,16 @@ class TestTotalFalseBehavior:
             "state": "opened",
         }
 
+        # Type-check that required fields exist and have correct types
+        assert isinstance(issue["iid"], int)
+        assert isinstance(issue["id"], int)
+        assert isinstance(issue["title"], str)
+        assert isinstance(issue["state"], str)
+        # Validate expected values
         assert issue["iid"] == 456
+        assert issue["id"] == 789
+        assert issue["title"] == "Minimal Issue"
+        assert issue["state"] in ("opened", "closed")
 
 
 class TestNestedTypedDicts:

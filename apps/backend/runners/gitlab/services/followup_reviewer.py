@@ -30,7 +30,7 @@ try:
         ReviewSeverity,
     )
     from .io_utils import safe_print
-except (ImportError, ValueError, SystemError):
+except ImportError as e:
     from runners.gitlab.glab_client import GitLabClient
     from runners.gitlab.models import (
         MergeVerdict,
@@ -40,6 +40,8 @@ except (ImportError, ValueError, SystemError):
         ReviewSeverity,
     )
     from runners.gitlab.services.io_utils import safe_print
+
+    safe_print(f"[FollowupReviewer] Import fallback triggered: {e}")
 
 logger = logging.getLogger(__name__)
 
@@ -260,7 +262,8 @@ class FollowupReviewer:
                     old_count = int(match.group(2)) if match.group(2) else 1
 
                     # Check if finding line is in the changed range
-                    if old_start <= finding.line <= old_start + old_count:
+                    # Range is inclusive: [old_start, old_start + old_count - 1]
+                    if old_start <= finding.line <= old_start + old_count - 1:
                         # Finding was in changed region
                         return True
 
@@ -301,9 +304,21 @@ class FollowupReviewer:
             # Check for common issues
             file_diff = diff.split(file_pattern)[1].split("\n")[0:50]  # First 50 lines
 
-            # Look for TODO/FIXME comments
+            # Track current hunk for line number computation
+            current_new_line = 0
+
+            # Look for TODO/FIXME comments in added lines
             for i, line in enumerate(file_diff):
-                if "+" in line and (
+                # Parse hunk header to get line numbers
+                if line.startswith("@@"):
+                    # Format: @@ -old_start,old_count +new_start,new_count @@
+                    match = re.search(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@", line)
+                    if match:
+                        current_new_line = int(match.group(1))
+                    continue
+
+                # Only check added lines (start with "+")
+                if line.startswith("+") and (
                     "TODO" in line or "FIXME" in line or "HACK" in line
                 ):
                     finding_id += 1
@@ -315,11 +330,15 @@ class FollowupReviewer:
                             title=f"Developer TODO in {file_path}",
                             description=f"Line contains: {line.strip()}",
                             file=file_path,
-                            line=i,
+                            line=current_new_line if current_new_line > 0 else i,
                             suggested_fix="Remove TODO or convert to issue",
                             fixable=False,
                         )
                     )
+
+                # Increment line counter for non-hunk-header lines
+                if not line.startswith("@@") and not line.startswith("-"):
+                    current_new_line += 1
 
         return findings
 
@@ -482,10 +501,19 @@ class FollowupReviewer:
     ) -> str:
         """Get reasoning for the verdict."""
         if verdict == MergeVerdict.READY_TO_MERGE:
-            return (
-                f"All {len(resolved)} previous findings were resolved. "
-                f"{len(new_findings)} new issues are low severity."
-            )
+            resolved_count = len(resolved)
+            new_count = len(new_findings)
+            if resolved_count > 0 and new_count > 0:
+                return (
+                    f"All {resolved_count} previous findings were resolved. "
+                    f"{new_count} new issues are low severity."
+                )
+            elif resolved_count > 0:
+                return f"All {resolved_count} previous findings were resolved."
+            elif new_count > 0:
+                return f"{new_count} new issues are low severity."
+            else:
+                return "No issues found. Ready to merge."
         elif verdict == MergeVerdict.MERGE_WITH_CHANGES:
             return (
                 f"{len(unresolved)} findings remain unresolved, "

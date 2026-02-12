@@ -25,11 +25,10 @@ except (ImportError, ValueError, SystemError):
         encode_project_path,
     )
 
-# Import the protocol and data models from GitHub's protocol definition
-# This ensures compatibility across providers
-# If GitHub runners aren't available, define the types locally
+# Import the protocol and data models from the shared protocol definition
+# This ensures compatibility across all providers
 try:
-    from ...github.providers.protocol import (
+    from ...shared.protocol import (
         IssueData,
         IssueFilters,
         LabelData,
@@ -39,109 +38,15 @@ try:
         ReviewData,
     )
 except (ImportError, ValueError, SystemError):
-    try:
-        from runners.github.providers.protocol import (
-            IssueData,
-            IssueFilters,
-            LabelData,
-            PRData,
-            PRFilters,
-            ProviderType,
-            ReviewData,
-        )
-    except ImportError:
-        # GitHub runners not available - define protocol types locally
-        from dataclasses import dataclass as _dataclass
-        from enum import Enum
-        from typing import Any as _Any
-
-        class ProviderType(Enum):
-            """Git provider type."""
-
-            GITHUB = "GITHUB"
-            GITLAB = "GITLAB"
-
-        @_dataclass
-        class LabelData:
-            """Label data."""
-
-            name: str
-            color: str | None = None
-            description: str | None = None
-
-        @_dataclass
-        class IssueData:
-            """Issue data."""
-
-            number: int
-            title: str
-            body: str
-            state: str
-            author: str
-            labels: list[LabelData]
-            created_at: str
-            updated_at: str
-            assignees: list[str] | None = None
-            url: str = ""
-            milestone: str | None = None
-            provider: ProviderType = ProviderType.GITLAB
-            raw_data: dict[str, _Any] | None = None
-
-        @_dataclass
-        class PRData:
-            """Pull request/MR data."""
-
-            number: int
-            title: str
-            body: str
-            state: str
-            author: str
-            source_branch: str
-            target_branch: str
-            labels: list[LabelData]
-            created_at: str
-            updated_at: str
-            provider: ProviderType
-            diff: str | None = None
-            assignees: list[str] | None = None
-            additions: int = 0
-            deletions: int = 0
-            changed_files: int = 0
-            files: list[_Any] | None = None
-            url: str = ""
-            reviewers: list[str] | None = None
-            is_draft: bool = False
-            mergeable: bool = True
-            raw_data: dict[str, _Any] | None = None
-
-        @_dataclass
-        class ReviewData:
-            """Review data."""
-
-            body: str
-            event: str
-            comments: list[_Any] | None = None
-
-        @_dataclass
-        class IssueFilters:
-            """Issue filters."""
-
-            state: str | None = None
-            labels: list[str] | None = None
-            limit: int | None = None
-            author: str | None = None
-            include_prs: bool = True
-
-        @_dataclass
-        class PRFilters:
-            """PR filters."""
-
-            state: str = "open"
-            labels: list[str] | None = None
-            limit: int | None = None
-            author: str | None = None
-            base_branch: str | None = None
-            head_branch: str | None = None
+    from runners.shared.protocol import (
+        IssueData,
+        IssueFilters,
+        LabelData,
+        PRData,
+        PRFilters,
+        ProviderType,
+        ReviewData,
+    )
 
 
 @dataclass
@@ -479,7 +384,10 @@ class GitLabProvider:
             assignee_ids = []
             for username in assignees:
                 try:
-                    user_data = self._glab_client._fetch(f"/users?username={username}")
+                    # Use params parameter to avoid URL injection
+                    user_data = self._glab_client._fetch(
+                        "/users", params={"username": username}
+                    )
                     if user_data:
                         assignee_ids.append(user_data[0]["id"])
                 except Exception:
@@ -768,8 +676,18 @@ class GitLabProvider:
             )
 
             if result:
+                # SECURITY: GitLab's query parameter performs fuzzy matching.
+                # We must verify exact username match to prevent privilege escalation
+                # where an attacker could register a similar username (e.g., "adminn")
+                # and gain access intended for "admin".
+                member = next(
+                    (m for m in result if m.get("username") == username), None
+                )
+                if member is None:
+                    return "none"
+
                 # GitLab access levels: 10=guest, 20=reporter, 30=developer, 40=maintainer, 50=owner
-                access_level = result[0].get("access_level", 0)
+                access_level = member.get("access_level", 0)
 
                 level_map = {
                     50: "admin",

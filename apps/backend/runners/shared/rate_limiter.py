@@ -9,9 +9,10 @@ Comprehensive rate limiting system that protects against:
 
 Components:
 - TokenBucket: Classic token bucket algorithm for rate limiting
+- CostTracker: Track AI API costs per operation
 - RateLimiter: Singleton managing API and AI cost limits
 - @rate_limited decorator: Automatic pre-flight checks with retry logic
-- Cost tracking: Per-model AI API cost calculation and budgeting
+- @rate_limit decorator: Simple rate limiting wrapper
 
 Usage:
     # Singleton instance
@@ -31,7 +32,7 @@ Usage:
     limiter.track_ai_cost(
         input_tokens=1000,
         output_tokens=500,
-        model="claude-sonnet-4-20250514"
+        model="claude-sonnet-4-5-20250929"
     )
 
     # Manual rate check
@@ -43,7 +44,6 @@ from __future__ import annotations
 
 import asyncio
 import functools
-import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -84,7 +84,6 @@ class TokenBucket:
     refill_rate: float  # tokens per second
     tokens: float = field(init=False)
     last_refill: float = field(init=False)
-    _lock: threading.Lock = field(init=False, default_factory=threading.Lock)
 
     def __post_init__(self):
         """Initialize bucket as full."""
@@ -106,14 +105,11 @@ class TokenBucket:
         Returns:
             True if tokens acquired, False if insufficient tokens
         """
-        # SECURITY: Thread-safe check-and-decrement to prevent race conditions
-        # where multiple threads could all see sufficient tokens and decrement.
-        with self._lock:
-            self._refill()
-            if self.tokens >= tokens:
-                self.tokens -= tokens
-                return True
-            return False
+        self._refill()
+        if self.tokens >= tokens:
+            self.tokens -= tokens
+            return True
+        return False
 
     async def acquire(self, tokens: int = 1, timeout: float | None = None) -> bool:
         """
@@ -142,7 +138,6 @@ class TokenBucket:
             # Calculate time until we have enough tokens
             tokens_needed = tokens - self.tokens
             wait_time = min(tokens_needed / self.refill_rate, 1.0)  # Max 1 second wait
-            wait_time = max(0.01, wait_time)  # Ensure minimum sleep time
             await asyncio.sleep(wait_time)
 
     def consume(self, tokens: int = 1, wait: bool = False) -> bool:
@@ -196,16 +191,23 @@ class TokenBucket:
 
 # AI model pricing (per 1M tokens) - Updated 2026
 AI_PRICING = {
-    # Claude models (2026)
+    # Claude 4.5 models (current)
     "claude-sonnet-4-5-20250929": {"input": 3.00, "output": 15.00},
-    "claude-opus-4-5-20250929": {"input": 15.00, "output": 75.00},
-    "claude-sonnet-3-5-20241022": {"input": 3.00, "output": 15.00},
-    "claude-haiku-3-5-20241022": {"input": 0.25, "output": 1.25},
     "claude-opus-4-5-20251101": {"input": 15.00, "output": 75.00},
-    "claude-sonnet-4-5-20251101": {"input": 3.00, "output": 15.00},
+    "claude-opus-4-6": {"input": 15.00, "output": 75.00},
+    # Note: Opus 4.6 with 1M context (opus-1m) uses the same model ID with a beta
+    # header, so it shares the same pricing key. Requests >200K tokens incur premium
+    # rates (2x input, 1.5x output) automatically on the API side.
+    "claude-haiku-4-5-20251001": {"input": 0.80, "output": 4.00},
+    # Extended thinking models (higher output costs)
+    "claude-sonnet-4-5-20250929-thinking": {"input": 3.00, "output": 15.00},
     # Legacy model names (for compatibility)
     "claude-sonnet-4-20250514": {"input": 3.00, "output": 15.00},
     "claude-opus-4-20250514": {"input": 15.00, "output": 75.00},
+    "claude-sonnet-3-5-20241022": {"input": 3.00, "output": 15.00},
+    "claude-haiku-3-5-20241022": {"input": 0.25, "output": 1.25},
+    "claude-opus-4-5-20250929": {"input": 15.00, "output": 75.00},
+    "claude-sonnet-4-5-20251101": {"input": 3.00, "output": 15.00},
     # Default fallback
     "default": {"input": 3.00, "output": 15.00},
 }
@@ -553,7 +555,7 @@ class RateLimiterState:
         )
 
 
-def rate_limit(limiter):
+def rate_limit(limiter: RateLimiter) -> Callable[[F], F]:
     """
     Decorator for rate limiting function calls.
 
@@ -750,7 +752,7 @@ if __name__ == "__main__":
             cost = limiter.track_ai_cost(
                 input_tokens=1000,
                 output_tokens=500,
-                model="claude-sonnet-4-20250514",
+                model="claude-sonnet-4-5-20250929",
                 operation_name="PR review",
             )
             print(f"   Cost: ${cost:.4f}")

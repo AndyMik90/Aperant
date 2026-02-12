@@ -19,7 +19,7 @@ try:
 except (ImportError, ValueError, SystemError):
     from gh_client import GHClient
 
-from .protocol import (
+from runners.shared.protocol import (
     IssueData,
     IssueFilters,
     LabelData,

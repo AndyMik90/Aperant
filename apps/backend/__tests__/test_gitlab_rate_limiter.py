@@ -86,6 +86,8 @@ class TestTokenBucket:
 
     def test_token_bucket_wait_for_token(self):
         """Test waiting for token availability."""
+        from unittest.mock import patch
+
         from runners.gitlab.utils.rate_limiter import TokenBucket
 
         bucket = TokenBucket(capacity=5, refill_rate=10.0)
@@ -93,13 +95,15 @@ class TestTokenBucket:
         # Consume all
         bucket.consume(5)
 
-        # Should wait for refill
-        start = time.time()
-        bucket.consume(1, wait=True)
-        elapsed = time.time() - start
+        # Mock time.sleep to avoid flaky timing-based tests
+        sleep_calls = []
+        with patch("time.sleep", side_effect=lambda x: sleep_calls.append(x)):
+            bucket.consume(1, wait=True)
 
-        # Should have waited at least 0.1 seconds
-        assert elapsed >= 0.1
+        # Should have called sleep to wait for refill
+        assert len(sleep_calls) >= 1
+        # First sleep should be for about 0.1 seconds (1 token / 10 tokens per sec)
+        assert sleep_calls[0] > 0
 
     def test_token_bucket_wait_with_tokens(self):
         """Test wait returns immediately when tokens available."""

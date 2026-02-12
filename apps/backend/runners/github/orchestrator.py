@@ -20,6 +20,8 @@ from pathlib import Path
 
 try:
     # When imported as part of package
+    from runners.shared.rate_limiter import RateLimiter
+
     from .bot_detection import GitHubBotDetector
     from .context_gatherer import PRContext, PRContextGatherer
     from .gh_client import GHClient
@@ -39,7 +41,6 @@ try:
         TriageResult,
     )
     from .permissions import GitHubPermissionChecker
-    from .rate_limiter import RateLimiter
     from .services import (
         AutoFixProcessor,
         BatchProcessor,
@@ -49,13 +50,22 @@ try:
     from .services.io_utils import safe_print
 except (ImportError, ValueError, SystemError):
     # When imported directly (runner.py adds github dir to path)
-    # Ensure we import from the github directory to avoid conflicts
+    # Use importlib for path manipulation instead of sys.path mutation
+    import importlib.util
     import sys
-    from pathlib import Path
 
     _github_dir = Path(__file__).parent
-    if str(_github_dir) not in sys.path:
-        sys.path.insert(0, str(_github_dir))
+
+    def _import_module(name: str, path: Path):
+        """Dynamically import a module from a file path."""
+        spec = importlib.util.spec_from_file_location(name, path / f"{name}.py")
+        if spec and spec.loader:
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[name] = module
+            spec.loader.exec_module(module)
+            return module
+        return None
+
     # Use try/except for each import to handle partial failures gracefully
     try:
         from bot_detection import GitHubBotDetector
@@ -63,13 +73,10 @@ except (ImportError, ValueError, SystemError):
         GitHubBotDetector = None  # type: ignore
 
     try:
-        from .context_gatherer import PRContext, PRContextGatherer
+        from context_gatherer import PRContext, PRContextGatherer
     except ImportError:
-        try:
-            from context_gatherer import PRContext, PRContextGatherer
-        except ImportError:
-            PRContext = None  # type: ignore
-            PRContextGatherer = None  # type: ignore
+        PRContext = None  # type: ignore
+        PRContextGatherer = None  # type: ignore
 
     try:
         from gh_client import GHClient
@@ -114,7 +121,7 @@ except (ImportError, ValueError, SystemError):
         GitHubPermissionChecker = None  # type: ignore
 
     try:
-        from rate_limiter import RateLimiter
+        from runners.shared.rate_limiter import RateLimiter
     except ImportError:
         RateLimiter = None  # type: ignore
 
@@ -223,7 +230,7 @@ class GitHubOrchestrator:
         )
 
         # Initialize bot detector for preventing infinite loops
-        # Note: GitHub GitHubBotDetector uses bot_token and review_own_prs parameters
+        # Note: GitHubBotDetector uses bot_token and review_own_prs parameters
         self.bot_detector: GitHubBotDetector = GitHubBotDetector(
             state_dir=self.github_dir,
             bot_token=config.bot_token,

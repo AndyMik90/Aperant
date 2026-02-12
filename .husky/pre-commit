@@ -20,6 +20,8 @@ if [ -f ".git" ]; then
   # Use -n with /p to only print lines that match the gitdir: prefix, head -1 for safety
   WORKTREE_GIT_DIR=$(sed -n 's/^gitdir: //p' .git | head -1)
   if [ -n "$WORKTREE_GIT_DIR" ] && [ -d "$WORKTREE_GIT_DIR" ]; then
+    # Resolve to absolute path to avoid issues with relative gitdir paths
+    WORKTREE_GIT_DIR=$(cd "$(dirname "$WORKTREE_GIT_DIR")" && pwd)/$(basename "$WORKTREE_GIT_DIR")
     export GIT_DIR="$WORKTREE_GIT_DIR"
     export GIT_WORK_TREE="$(pwd)"
   else
@@ -181,9 +183,17 @@ if git diff --cached --name-only | grep -q "^apps/backend/.*\.py$"; then
   # Use subshell to isolate directory changes and prevent worktree corruption
   echo "Running Python tests..."
   (
-    cd apps/backend
-    # Tests to skip: graphiti (external deps), merge_file_tracker/service_orchestrator/worktree/workspace (Windows path/git issues)
-    # Also skip tests that require optional dependencies (pydantic structured outputs)
+    cd apps/backend || exit 1
+    # Tests to skip and reasons why:
+    # - test_graphiti.py: Requires external Graphiti service (not available in CI)
+    # - test_merge_file_tracker.py: Windows path handling issues (uses backslash assumptions)
+    # - test_service_orchestrator.py: Windows git path issues (worktree handling)
+    # - test_worktree.py: Windows git path issues (worktree handling)
+    # - test_workspace.py: Windows path handling issues (uses backslash assumptions)
+    # - test_finding_validation.py: Requires pydantic structured outputs (optional dependency)
+    # - test_sdk_structured_output.py: Requires pydantic structured outputs (optional dependency)
+    # - test_structured_outputs.py: Requires pydantic structured outputs (optional dependency)
+    # TODO: Re-evaluate exclusions periodically as Windows support improves and deps change
     IGNORE_TESTS="--ignore=../../tests/test_graphiti.py --ignore=../../tests/test_merge_file_tracker.py --ignore=../../tests/test_service_orchestrator.py --ignore=../../tests/test_worktree.py --ignore=../../tests/test_workspace.py --ignore=../../tests/test_finding_validation.py --ignore=../../tests/test_sdk_structured_output.py --ignore=../../tests/test_structured_outputs.py"
 
     # Determine Python executable from venv
@@ -265,7 +275,7 @@ if git diff --cached --name-only | grep -q "^apps/frontend/"; then
     # Dependencies available - run full frontend checks
     # Use subshell to isolate directory changes and prevent worktree corruption
     (
-      cd apps/frontend
+      cd apps/frontend || exit 1
 
       # Run lint-staged (handles staged .ts/.tsx files)
       npm exec lint-staged

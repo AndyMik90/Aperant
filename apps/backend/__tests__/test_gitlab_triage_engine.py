@@ -10,6 +10,7 @@ import pytest
 try:
     from runners.gitlab.glab_client import GitLabConfig
     from runners.gitlab.models import TriageCategory, TriageResult
+    from runners.gitlab.services.response_parsers import ResponseParser
     from runners.gitlab.services.triage_engine import TriageEngine
 except ImportError:
     from glab_client import GitLabConfig
@@ -17,9 +18,9 @@ except ImportError:
     from runners.gitlab.triage_engine import TriageEngine
 
 
-# Mock response parser for testing
+# Use the real ResponseParser for parsing triage results
 def parse_findings_from_response(response: str) -> dict:
-    """Mock parser for testing triage engine."""
+    """Parse JSON response using the real ResponseParser."""
     import json
     import re
 

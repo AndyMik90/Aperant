@@ -218,7 +218,7 @@ class TestResponseParser:
     "comment_id": "12345",
     "tool_name": "claude-code",
     "original_summary": "AI suggested using different approach",
-    "verdict": "actionable",
+    "verdict": "triage",
     "reasoning": "The suggestion provides concrete improvement",
     "file": "main.py",
     "line": 42
@@ -231,7 +231,7 @@ class TestResponseParser:
         assert triages[0].comment_id == "12345"
         assert triages[0].tool_name == "claude-code"
         assert triages[0].original_comment == "AI suggested using different approach"
-        assert triages[0].triage_result == "actionable"
+        assert triages[0].triage_result == "triage"
         assert triages[0].file == "main.py"
         assert triages[0].line == 42
 

@@ -285,8 +285,8 @@ class MRContextGatherer:
                 ci_status = pipeline.get("status")
                 ci_pipeline_id = pipeline.get("id")
                 safe_print(f"[Context] CI pipeline: {ci_status}")
-        except Exception:
-            pass  # CI status is optional
+        except Exception as e:
+            safe_print(f"[Context] Failed to fetch CI pipeline status: {e}")
 
         return MRContext(
             mr_iid=self.mr_iid,
@@ -346,10 +346,19 @@ class MRContextGatherer:
             return None
 
         # Check if author matches any known AI bot pattern
+        # Use exact match or word boundary to avoid false positives
         tool_name = None
         author_lower = author.lower()
         for pattern, name in GITLAB_AI_BOT_PATTERNS.items():
-            if pattern in author_lower:
+            pattern_lower = pattern.lower()
+            # Exact match
+            if author_lower == pattern_lower:
+                tool_name = name
+                break
+            # Word boundary match (pattern followed by non-alphanumeric)
+            import re
+
+            if re.search(rf"\b{re.escape(pattern_lower)}\b", author_lower):
                 tool_name = name
                 break
 

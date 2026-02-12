@@ -368,5 +368,5 @@ class TestPipelineInfo:
             updated_at="2025-01-14T10:05:00",
         )
 
-        # Running with no failed jobs is not blocking
-        assert pipeline.is_blocking is False
+        # Running pipelines block merge until they complete
+        assert pipeline.is_blocking is True

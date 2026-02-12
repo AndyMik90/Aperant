@@ -73,9 +73,11 @@ class TestGetFileContents:
     @pytest.mark.asyncio
     async def test_get_file_contents_async(self, client):
         """Test async variant of get_file_contents."""
-        # Patch _fetch instead of _fetch_async since _fetch_async calls _fetch
-        with patch.object(client, "_fetch") as mock_fetch:
-            mock_fetch.return_value = {
+        from unittest.mock import AsyncMock
+
+        # Patch _fetch_async to exercise the async code path
+        with patch.object(client, "_fetch_async", AsyncMock()) as mock_fetch_async:
+            mock_fetch_async.return_value = {
                 "file_name": "test.py",
                 "content": "dGVzdA==",
             }

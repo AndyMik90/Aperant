@@ -11,8 +11,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from runners.shared.protocol import GitProvider, ProviderType
+
 from .github_provider import GitHubProvider
-from .protocol import GitProvider, ProviderType
 
 # Provider registry for dynamic registration
 _PROVIDER_REGISTRY: dict[ProviderType, Callable[..., GitProvider]] = {}

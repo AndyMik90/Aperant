@@ -19,8 +19,6 @@ import socket
 import ssl
 import time
 import urllib.error
-
-logger = logging.getLogger(__name__)
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -28,6 +26,8 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # Retry configuration for enhanced error handling
 RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
@@ -57,7 +57,7 @@ def _async_method(func):
     @functools.wraps(func)
     def async_wrapper(self, *args, **kwargs):
         async def runner():
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             return await loop.run_in_executor(
                 None, functools.partial(func, self, *args, **kwargs)
             )
@@ -814,8 +814,10 @@ class GitLabClient:
     def get_branch(self, branch_name: str) -> dict:
         """Get branch details."""
         encoded_project = encode_project_path(self.config.project)
+        # Encode branch name with safe='' to also encode slashes as %2F
+        encoded_branch = urllib.parse.quote(branch_name, safe="")
         return self._fetch(
-            f"/projects/{encoded_project}/repository/branches/{urllib.parse.quote(branch_name)}"
+            f"/projects/{encoded_project}/repository/branches/{encoded_branch}"
         )
 
     def create_branch(
@@ -847,8 +849,10 @@ class GitLabClient:
     def delete_branch(self, branch_name: str) -> None:
         """Delete a branch."""
         encoded_project = encode_project_path(self.config.project)
+        # Encode branch name with safe='' to also encode slashes as %2F
+        encoded_branch = urllib.parse.quote(branch_name, safe="")
         self._fetch(
-            f"/projects/{encoded_project}/repository/branches/{urllib.parse.quote(branch_name)}",
+            f"/projects/{encoded_project}/repository/branches/{encoded_branch}",
             method="DELETE",
         )
 
@@ -1099,7 +1103,7 @@ class GitLabClient:
         timeout: float | None = None,
     ) -> Any:
         """Async wrapper around _fetch that runs in thread pool."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
             lambda: self._fetch(
@@ -1319,8 +1323,10 @@ class GitLabClient:
     async def get_branch_async(self, branch_name: str) -> dict:
         """Async version of get_branch."""
         encoded_project = encode_project_path(self.config.project)
+        # Encode branch name with safe='' to also encode slashes as %2F
+        encoded_branch = urllib.parse.quote(branch_name, safe="")
         return await self._fetch_async(
-            f"/projects/{encoded_project}/repository/branches/{urllib.parse.quote(branch_name)}"
+            f"/projects/{encoded_project}/repository/branches/{encoded_branch}"
         )
 
     async def create_branch_async(
@@ -1343,8 +1349,10 @@ class GitLabClient:
     async def delete_branch_async(self, branch_name: str) -> None:
         """Async version of delete_branch."""
         encoded_project = encode_project_path(self.config.project)
+        # Encode branch name with safe='' to also encode slashes as %2F
+        encoded_branch = urllib.parse.quote(branch_name, safe="")
         await self._fetch_async(
-            f"/projects/{encoded_project}/repository/branches/{urllib.parse.quote(branch_name)}",
+            f"/projects/{encoded_project}/repository/branches/{encoded_branch}",
             method="DELETE",
         )
 

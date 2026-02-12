@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from runners.gitlab.autofix_processor import AutoFixProcessor
 from runners.gitlab.models import AutoFixState, AutoFixStatus, GitLabRunnerConfig
-from runners.gitlab.permissions import GitLabPermissionChecker
+from runners.gitlab.permissions import GitLabPermissionChecker, GitLabPermissionError
 
 
 @pytest.fixture
@@ -100,7 +100,7 @@ class TestProcessIssue:
             reason="Not a maintainer",
         )
 
-        with pytest.raises(PermissionError):
+        with pytest.raises(GitLabPermissionError):
             await processor.process_issue(
                 issue_iid=456,
                 issue=issue,

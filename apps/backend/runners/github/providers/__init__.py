@@ -17,9 +17,7 @@ Usage:
     await provider.post_review(123, review)
 """
 
-from .factory import get_provider, register_provider
-from .github_provider import GitHubProvider
-from .protocol import (
+from runners.shared.protocol import (
     GitProvider,
     IssueData,
     IssueFilters,
@@ -29,6 +27,9 @@ from .protocol import (
     ReviewData,
     ReviewFinding,
 )
+
+from .factory import get_provider, register_provider
+from .github_provider import GitHubProvider
 
 __all__ = [
     # Protocol

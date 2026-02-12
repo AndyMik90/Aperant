@@ -28,7 +28,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["integrations/graphiti/tests", "core/workspace/tests"]
+testpaths = ["integrations/graphiti/tests", "core/workspace/tests", "__tests__"]
 pythonpath = ["."]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]

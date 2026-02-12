@@ -15,6 +15,7 @@ Key features:
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import Literal
 
@@ -28,7 +29,7 @@ except (ImportError, ValueError, SystemError):
 
 
 # GitLab permission roles (access levels)
-# 50 = Reporter, 30 = Developer, 40 = Maintainer, 10 = Guest
+# 10 = Guest, 20 = Reporter, 30 = Developer, 40 = Maintainer, 50 = Owner
 # Owner = Maintainer + owns project
 GitLabRole = Literal["OWNER", "MAINTAINER", "DEVELOPER", "REPORTER", "GUEST", "NONE"]
 
@@ -43,8 +44,8 @@ class PermissionCheckResult:
     reason: str | None = None
 
 
-class PermissionError(Exception):
-    """Raised when permission checks fail."""
+class GitLabPermissionError(Exception):
+    """Raised when GitLab permission checks fail."""
 
     pass
 
@@ -103,7 +104,11 @@ class GitLabPermissionChecker:
         self.allow_external_contributors = allow_external_contributors
 
         # Cache for user roles (avoid repeated API calls)
-        self._role_cache: dict[str, GitLabRole] = {}
+        # Stores tuples of (role, timestamp) for TTL support
+        self._role_cache: dict[str, tuple[GitLabRole, float]] = {}
+
+        # Cache TTL in seconds (5 minutes)
+        self._cache_ttl: float = 300.0
 
         logger.info(
             f"Initialized GitLab permission checker for {project} "
@@ -112,7 +117,7 @@ class GitLabPermissionChecker:
 
     async def verify_token_scopes(self) -> None:
         """
-        Verify token has required scopes. Raises PermissionError if insufficient.
+        Verify token has required scopes. Raises GitLabPermissionError if insufficient.
 
         This should be called at startup to fail fast if permissions are inadequate.
         """
@@ -125,18 +130,18 @@ class GitLabPermissionChecker:
             )
 
             if not project_info:
-                raise PermissionError(
+                raise GitLabPermissionError(
                     f"Cannot access project {self.project}. "
                     f"Check your token is valid and has 'api' scope."
                 )
 
             logger.info(f"✓ Token verified for {self.project}")
 
-        except PermissionError:
+        except GitLabPermissionError:
             raise
         except Exception as e:
             logger.error(f"Failed to verify token: {e}")
-            raise PermissionError(f"Could not verify token permissions: {e}")
+            raise GitLabPermissionError(f"Could not verify token permissions: {e}")
 
     async def check_label_adder(
         self, issue_iid: int, label: str
@@ -152,7 +157,7 @@ class GitLabPermissionChecker:
             Tuple of (username, role) who added the label
 
         Raises:
-            PermissionError: If label was not found or couldn't determine who added it
+            GitLabPermissionError: If label was not found or couldn't determine who added it
         """
         logger.info(f"Checking who added label '{label}' to issue #{issue_iid}")
 
@@ -172,7 +177,7 @@ class GitLabPermissionChecker:
                     username = user.get("username")
 
                     if not username:
-                        raise PermissionError(
+                        raise GitLabPermissionError(
                             f"Could not determine who added label '{label}'"
                         )
 
@@ -184,13 +189,13 @@ class GitLabPermissionChecker:
                     )
                     return username, role
 
-            raise PermissionError(
+            raise GitLabPermissionError(
                 f"Label '{label}' not found in issue #{issue_iid} label events"
             )
 
         except Exception as e:
             logger.error(f"Failed to check label adder: {e}")
-            raise PermissionError(f"Could not verify label adder: {e}")
+            raise GitLabPermissionError(f"Could not verify label adder: {e}")
 
     async def get_user_role(self, username: str) -> GitLabRole:
         """
@@ -210,9 +215,13 @@ class GitLabPermissionChecker:
             - GUEST: Has Guest access level (10+)
             - NONE: No relationship to project
         """
-        # Check cache first
+        # Check cache first (with TTL validation)
         if username in self._role_cache:
-            return self._role_cache[username]
+            cached_role, cached_time = self._role_cache[username]
+            if time.monotonic() - cached_time <= self._cache_ttl:
+                return cached_role
+            # Cache expired, remove entry
+            del self._role_cache[username]
 
         logger.debug(f"Checking role for user: {username}")
 
@@ -229,7 +238,7 @@ class GitLabPermissionChecker:
                 if not member:
                     # No exact match found
                     role = "NONE"
-                    self._role_cache[username] = role
+                    self._role_cache[username] = (role, time.monotonic())
                     return role
 
                 access_level = member.get("access_level", 0)
@@ -245,7 +254,7 @@ class GitLabPermissionChecker:
                 else:
                     role = "GUEST"
 
-                self._role_cache[username] = role
+                self._role_cache[username] = (role, time.monotonic())
                 return role
 
             # Not a direct member - check if user is the namespace owner
@@ -260,18 +269,23 @@ class GitLabPermissionChecker:
             # Check if namespace owner matches username
             owner_id = namespace_info.get("owner_id")
             if owner_id:
-                # Get user info
+                # Get user info using params to avoid URL injection
                 user_info = await self.glab_client._fetch_async(
-                    f"/users?username={username}"
+                    "/users", params={"username": username}
                 )
-                if user_info and user_info[0].get("id") == owner_id:
+                # Explicitly check type and length to prevent IndexError
+                if (
+                    isinstance(user_info, list)
+                    and len(user_info) > 0
+                    and user_info[0].get("id") == owner_id
+                ):
                     role = "OWNER"
-                    self._role_cache[username] = role
+                    self._role_cache[username] = (role, time.monotonic())
                     return role
 
             # No relationship found
             role = "NONE"
-            self._role_cache[username] = role
+            self._role_cache[username] = (role, time.monotonic())
             return role
 
         except Exception as e:
@@ -335,7 +349,7 @@ class GitLabPermissionChecker:
             PermissionCheckResult with full details
 
         Raises:
-            PermissionError: If verification fails
+            GitLabPermissionError: If verification fails
         """
         logger.info(
             f"Verifying automation trigger for issue #{issue_iid}, label: {trigger_label}"

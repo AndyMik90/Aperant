@@ -67,10 +67,13 @@ from pathlib import Path
 
 try:
     from ..models import AutoFixState, AutoFixStatus, GitLabRunnerConfig
-    from ..permissions import GitLabPermissionChecker
+    from ..permissions import GitLabPermissionChecker, GitLabPermissionError
 except (ImportError, ValueError, SystemError):
     from runners.gitlab.models import AutoFixState, AutoFixStatus, GitLabRunnerConfig
-    from runners.gitlab.permissions import GitLabPermissionChecker
+    from runners.gitlab.permissions import (
+        GitLabPermissionChecker,
+        GitLabPermissionError,
+    )
 
 
 class AutoFixProcessor:
@@ -141,7 +144,10 @@ class AutoFixProcessor:
 
     def _report_progress(self, phase: str, progress: int, message: str, **kwargs):
         """Report progress if callback is set."""
-        if self.progress_callback:
+        if not self.progress_callback:
+            return
+
+        try:
             import sys
 
             if "orchestrator" in sys.modules:
@@ -158,6 +164,9 @@ class AutoFixProcessor:
                     phase=phase, progress=progress, message=message, **kwargs
                 )
             )
+        except Exception as e:
+            # Log error instead of propagating - progress reporting is non-critical
+            print(f"[AutoFixProcessor] Progress reporting failed: {e}", flush=True)
 
     async def process_issue(
         self,
@@ -177,7 +186,7 @@ class AutoFixProcessor:
             AutoFixState tracking the fix progress
 
         Raises:
-            PermissionError: If the user who added the trigger label isn't authorized
+            GitLabPermissionError: If the user who added the trigger label isn't authorized
         """
         self._report_progress(
             "fetching",
@@ -197,6 +206,15 @@ class AutoFixProcessor:
 
         try:
             # PERMISSION CHECK: Verify who triggered the auto-fix
+            # SECURITY: trigger_label=None bypasses permission verification.
+            # This should only happen in explicit internal/testing contexts.
+            if trigger_label is None:
+                print(
+                    "[SECURITY WARNING] Auto-fix triggered without trigger_label - "
+                    "permission verification SKIPPED. This should only occur in "
+                    "internal/testing contexts.",
+                    flush=True,
+                )
             if trigger_label:
                 self._report_progress(
                     "verifying",
@@ -215,7 +233,7 @@ class AutoFixProcessor:
                         f"[PERMISSION] Auto-fix denied for #{issue_iid}: {permission_result.reason}",
                         flush=True,
                     )
-                    raise PermissionError(
+                    raise GitLabPermissionError(
                         f"Auto-fix not authorized: {permission_result.reason}"
                     )
                 print(
@@ -261,21 +279,27 @@ class AutoFixProcessor:
 
     async def get_queue(self) -> list[AutoFixState]:
         """Get all issues in the auto-fix queue."""
-        issues_dir = self.gitlab_dir / "issues"
-        if not issues_dir.exists():
-            return []
+        import asyncio
 
-        queue = []
-        for f in issues_dir.glob("autofix_*.json"):
-            try:
-                issue_iid = int(f.stem.replace("autofix_", ""))
-                state = AutoFixState.load(self.gitlab_dir, issue_iid)
-                if state:
-                    queue.append(state)
-            except (ValueError, json.JSONDecodeError):
-                continue
+        # Run filesystem operations in a thread to avoid blocking the event loop
+        def _load_queue():
+            issues_dir = self.gitlab_dir / "issues"
+            if not issues_dir.exists():
+                return []
 
-        return sorted(queue, key=lambda s: s.created_at, reverse=True)
+            queue = []
+            for f in issues_dir.glob("autofix_*.json"):
+                try:
+                    issue_iid = int(f.stem.replace("autofix_", ""))
+                    state = AutoFixState.load(self.gitlab_dir, issue_iid)
+                    if state:
+                        queue.append(state)
+                except (ValueError, json.JSONDecodeError):
+                    continue
+
+            return sorted(queue, key=lambda s: s.created_at, reverse=True)
+
+        return await asyncio.to_thread(_load_queue)
 
     async def check_labeled_issues(
         self, all_issues: list[dict], verify_permissions: bool = True

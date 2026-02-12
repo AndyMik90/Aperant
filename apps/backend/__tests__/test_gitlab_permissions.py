@@ -9,8 +9,7 @@ import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from runners.gitlab.permissions import GitLabPermissionChecker
-from runners.gitlab.permissions import PermissionError as GitLabPermissionError
+from runners.gitlab.permissions import GitLabPermissionChecker, GitLabPermissionError
 
 
 class MockGitLabClient:
@@ -90,8 +89,10 @@ async def test_check_label_adder_success(permission_checker, mock_glab_client):
         },
     ]
 
-    # Mock get_user_role to return a specific role
-    permission_checker._role_cache = {"alice": "DEVELOPER"}
+    # Mock get_user_role to return a specific role (with timestamp for TTL)
+    import time
+
+    permission_checker._role_cache = {"alice": ("DEVELOPER", time.monotonic())}
 
     username, role = await permission_checker.check_label_adder(123, "auto-fix")
 
@@ -102,7 +103,8 @@ async def test_check_label_adder_success(permission_checker, mock_glab_client):
 @pytest.mark.asyncio
 async def test_check_label_adder_label_not_found(permission_checker, mock_glab_client):
     """Test label not found raises GitLabPermissionError."""
-    mock_glab_client.get_project_members_async.return_value = [
+    # Mock _fetch_async to return label event list structure
+    mock_glab_client._fetch_async.return_value = [
         {
             "id": 1,
             "user": {"username": "alice"},
@@ -153,7 +155,7 @@ async def test_get_user_role_owner_via_namespace(permission_checker, mock_glab_c
     import asyncio
 
     # Create a fetch function that returns data based on the endpoint
-    async def mock_fetch(endpoint):
+    async def mock_fetch(endpoint, params=None):
         if "members" in endpoint:
             return []  # No project members
         elif endpoint.startswith("/projects/"):
@@ -168,7 +170,7 @@ async def test_get_user_role_owner_via_namespace(permission_checker, mock_glab_c
             return {  # Namespace info
                 "owner_id": 999,
             }
-        elif "/users?" in endpoint:
+        elif endpoint == "/users":
             return [  # User info matches owner
                 {
                     "id": 999,
@@ -189,7 +191,7 @@ async def test_get_user_role_no_relationship(permission_checker, mock_glab_clien
     """Test getting role for user with no relationship."""
 
     # Create a fetch function that returns data based on the endpoint
-    async def mock_fetch(endpoint):
+    async def mock_fetch(endpoint, params=None):
         if "members" in endpoint:
             return []  # No project members
         elif endpoint.startswith("/projects/"):
@@ -204,7 +206,7 @@ async def test_get_user_role_no_relationship(permission_checker, mock_glab_clien
             return {  # Namespace info
                 "owner_id": 999,
             }
-        elif "/users?" in endpoint:
+        elif endpoint == "/users":
             return [  # User doesn't match owner
                 {
                     "id": 111,

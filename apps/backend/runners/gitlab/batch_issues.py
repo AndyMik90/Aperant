@@ -19,10 +19,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    pass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -326,13 +323,15 @@ Respond with JSON only:
 
     async def _collect_response(self, client: Any) -> str:
         """Collect text response from Claude client."""
+        from claude_agent_sdk import AssistantMessage
+        from claude_agent_sdk.types import TextBlock
+
         response_text = ""
 
         async for msg in client.receive_response():
-            msg_type = type(msg).__name__
-            if msg_type == "AssistantMessage" and hasattr(msg, "content"):
+            if isinstance(msg, AssistantMessage) and hasattr(msg, "content"):
                 for block in msg.content:
-                    if type(block).__name__ == "TextBlock" and hasattr(block, "text"):
+                    if isinstance(block, TextBlock):
                         response_text += block.text
 
         return response_text
@@ -493,7 +492,7 @@ def format_batch_summary(batch: GitlabIssueBatch) -> str:
         f"Batch: {batch.batch_id}",
         f"Status: {batch.status.value}",
         f"Primary Issue: !{batch.primary_issue}",
-        f"Theme: {batch.theme or batch.common_themes[0] if batch.common_themes else 'N/A'}",
+        f"Theme: {batch.theme or (batch.common_themes[0] if batch.common_themes else 'N/A')}",
         f"Issues ({len(batch.issues)}):",
     ]
 
