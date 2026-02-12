@@ -1,0 +1,82 @@
+# Pyproject configuration for Auto-Claude backend
+
+[project]
+name = "auto-claude-backend"
+version = "2.7.6"
+description = "Auto-Claude autonomous coding framework - Python backend"
+requires-python = ">=3.12"
+dependencies = [
+    "claude-agent-sdk>=0.1.25",
+    "python-dotenv>=1.0.0",
+    "graphiti-core>=0.5.0",
+    "pandas>=2.2.0",
+    "google-generativeai>=0.8.0",
+    "pydantic>=2.0.0",
+    "sentry-sdk>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "pytest-timeout>=2.0.0",
+    "pytest-mock>=3.0.0",
+    "coverage>=7.0.0",
+    "mypy>=1.0.0",
+    "types-toml>=0.10.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["integrations/graphiti/tests", "core/workspace/tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+python_classes = ["Test*"]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
+
+# Markers for long-running tests
+markers = [
+    "slow: marks tests as slow (skipped in CI by default) - takes >2 seconds or involves external services",
+    "integration: marks tests as integration tests (external services like database, network, API calls)",
+    "smoke: marks smoke tests for quick verification",
+]
+
+# Optimizations
+addopts = [
+    "--maxfail=5",
+    "-v",
+    "-m", "not slow",
+    "--tb=short",
+]
+
+[tool.coverage.run]
+source = ["integrations", "core", "agents", "cli", "context", "qa", "spec", "runners", "services"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/.venv/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
