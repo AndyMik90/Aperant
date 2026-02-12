@@ -39,8 +39,26 @@ if (!fs.existsSync(pytestPath)) {
 }
 
 // Get any additional args passed to the script
+// Process args to properly handle -m flag with spaces
 const args = process.argv.slice(2);
-const testArgs = args.length > 0 ? args.join(' ') : '-v';
+let testArgs = '';
+
+if (args.length > 0) {
+  // Reconstruct args, joining -m with its value if separated
+  const processedArgs = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '-m' && i + 1 < args.length) {
+      // Join -m with its value and quote it
+      processedArgs.push(`-m "${args[i + 1]}"`);
+      i++; // Skip next arg since we consumed it
+    } else {
+      processedArgs.push(args[i]);
+    }
+  }
+  testArgs = processedArgs.join(' ');
+} else {
+  testArgs = '-v';
+}
 
 // Run pytest
 const cmd = `"${pytestPath}" "${testsDir}" ${testArgs}`;
