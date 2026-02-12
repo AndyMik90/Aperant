@@ -22,7 +22,7 @@ import type { UnifiedAccount } from '../../shared/types/unified-account';
 import {
   claudeProfileToUnified,
   apiProfileToUnified
-} from '../../shared/types/unified-account';
+} from '../../shared/utils/unified-account';
 import { isProfileRateLimited } from './rate-limit-manager';
 import { isProfileAuthenticated } from './profile-utils';
 
