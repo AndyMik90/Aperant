@@ -186,6 +186,9 @@ export function GitHubErrorDisplay({
   );
 
   // Update countdown every second for rate limit errors
+  // Extract timestamp for stable useEffect dependency (avoids optional chaining in deps)
+  const resetTimeMs = errorInfo.rateLimitResetTime?.getTime();
+
   useEffect(() => {
     if (errorInfo.type !== 'rate_limit' || !errorInfo.rateLimitResetTime) {
       // Clear stale countdown state when error type changes away from rate_limit
@@ -218,7 +221,7 @@ export function GitHubErrorDisplay({
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [errorInfo.type, errorInfo.rateLimitResetTime?.getTime()]);
+  }, [errorInfo.type, resetTimeMs]);
 
   // Format countdown using i18n
   const formatCountdownDisplay = (components: CountdownComponents | null): string => {

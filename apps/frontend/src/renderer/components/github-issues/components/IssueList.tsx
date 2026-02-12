@@ -88,18 +88,18 @@ export function IssueList({
         ))}
 
         {/* Load more trigger / Loading indicator */}
+        {/* Inline error for load-more failures (visible even when onLoadMore is undefined during search) */}
+        {error && issues.length > 0 && (
+          <GitHubErrorDisplay
+            error={error}
+            onRetry={onRetry}
+            onOpenSettings={onOpenSettings}
+            compact
+            className="w-full"
+          />
+        )}
         {onLoadMore && (
           <div ref={loadMoreTriggerRef} className="py-4 flex flex-col items-center gap-2">
-            {/* Inline error for load-more failures (when issues are already loaded) */}
-            {error && issues.length > 0 && (
-              <GitHubErrorDisplay
-                error={error}
-                onRetry={onRetry}
-                onOpenSettings={onOpenSettings}
-                compact
-                className="w-full"
-              />
-            )}
             {isLoadingMore ? (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />

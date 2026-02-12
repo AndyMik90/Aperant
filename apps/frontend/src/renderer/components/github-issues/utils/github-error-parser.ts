@@ -53,7 +53,7 @@ const PERMISSION_PATTERNS = [
   /missing\s*required\s*scope/i,
   // Matches "requires: repo" or "requires workflow" for OAuth scope context
   // Uses specific scope names to avoid matching "requires authentication" (auth error)
-  /requires[:\s]+(?:repo|admin|write|read|workflow|org|gist|notification|user|project|package|delete|gist|discussion)/i,
+  /requires[:\s]+(?:repo|admin|write|read|workflow|org|gist|notification|user|project|package|delete|discussion)/i,
 ];
 
 /**

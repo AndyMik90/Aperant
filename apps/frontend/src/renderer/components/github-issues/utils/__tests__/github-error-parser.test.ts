@@ -460,6 +460,18 @@ describe('isRateLimitError', () => {
     expect(isRateLimitError(undefined)).toBe(false);
     expect(isRateLimitError('')).toBe(false);
   });
+
+  it('should use parsedInfo when provided', () => {
+    const parsedInfo = { type: 'rate_limit' as const, message: 'test' };
+    expect(isRateLimitError('unrelated error', parsedInfo)).toBe(true);
+    expect(isRateLimitError(null, parsedInfo)).toBe(true);
+    expect(isRateLimitError(undefined, parsedInfo)).toBe(true);
+  });
+
+  it('should ignore parsedInfo when error type differs', () => {
+    const authParsedInfo = { type: 'auth' as const, message: 'test' };
+    expect(isRateLimitError('rate limit exceeded', authParsedInfo)).toBe(false);
+  });
 });
 
 describe('isAuthError', () => {
@@ -480,6 +492,18 @@ describe('isAuthError', () => {
     expect(isAuthError(null)).toBe(false);
     expect(isAuthError(undefined)).toBe(false);
     expect(isAuthError('')).toBe(false);
+  });
+
+  it('should use parsedInfo when provided', () => {
+    const parsedInfo = { type: 'auth' as const, message: 'test' };
+    expect(isAuthError('unrelated error', parsedInfo)).toBe(true);
+    expect(isAuthError(null, parsedInfo)).toBe(true);
+    expect(isAuthError(undefined, parsedInfo)).toBe(true);
+  });
+
+  it('should ignore parsedInfo when error type differs', () => {
+    const rateLimitParsedInfo = { type: 'rate_limit' as const, message: 'test' };
+    expect(isAuthError('401 Unauthorized', rateLimitParsedInfo)).toBe(false);
   });
 });
 
@@ -502,6 +526,18 @@ describe('isNetworkError', () => {
     expect(isNetworkError(undefined)).toBe(false);
     expect(isNetworkError('')).toBe(false);
   });
+
+  it('should use parsedInfo when provided', () => {
+    const parsedInfo = { type: 'network' as const, message: 'test' };
+    expect(isNetworkError('unrelated error', parsedInfo)).toBe(true);
+    expect(isNetworkError(null, parsedInfo)).toBe(true);
+    expect(isNetworkError(undefined, parsedInfo)).toBe(true);
+  });
+
+  it('should ignore parsedInfo when error type differs', () => {
+    const authParsedInfo = { type: 'auth' as const, message: 'test' };
+    expect(isNetworkError('Network error', authParsedInfo)).toBe(false);
+  });
 });
 
 describe('isRecoverableError', () => {
@@ -521,6 +557,24 @@ describe('isRecoverableError', () => {
     expect(isRecoverableError(null)).toBe(false);
     expect(isRecoverableError(undefined)).toBe(false);
     expect(isRecoverableError('')).toBe(false);
+  });
+
+  it('should use parsedInfo when provided', () => {
+    const rateLimitInfo = { type: 'rate_limit' as const, message: 'test' };
+    const networkInfo = { type: 'network' as const, message: 'test' };
+    const unknownInfo = { type: 'unknown' as const, message: 'test' };
+    expect(isRecoverableError('unrelated error', rateLimitInfo)).toBe(true);
+    expect(isRecoverableError(null, networkInfo)).toBe(true);
+    expect(isRecoverableError(undefined, unknownInfo)).toBe(true);
+  });
+
+  it('should ignore parsedInfo when error type is non-recoverable', () => {
+    const authParsedInfo = { type: 'auth' as const, message: 'test' };
+    const permissionParsedInfo = { type: 'permission' as const, message: 'test' };
+    const notFoundParsedInfo = { type: 'not_found' as const, message: 'test' };
+    expect(isRecoverableError('Network error', authParsedInfo)).toBe(false);
+    expect(isRecoverableError('rate limit exceeded', permissionParsedInfo)).toBe(false);
+    expect(isRecoverableError('unknown', notFoundParsedInfo)).toBe(false);
   });
 });
 
@@ -543,6 +597,23 @@ describe('requiresSettingsAction', () => {
     expect(requiresSettingsAction(null)).toBe(false);
     expect(requiresSettingsAction(undefined)).toBe(false);
     expect(requiresSettingsAction('')).toBe(false);
+  });
+
+  it('should use parsedInfo when provided', () => {
+    const authInfo = { type: 'auth' as const, message: 'test' };
+    const permissionInfo = { type: 'permission' as const, message: 'test' };
+    expect(requiresSettingsAction('unrelated error', authInfo)).toBe(true);
+    expect(requiresSettingsAction(null, permissionInfo)).toBe(true);
+    expect(requiresSettingsAction(undefined, authInfo)).toBe(true);
+  });
+
+  it('should ignore parsedInfo when error type does not require settings', () => {
+    const rateLimitInfo = { type: 'rate_limit' as const, message: 'test' };
+    const networkInfo = { type: 'network' as const, message: 'test' };
+    const notFoundInfo = { type: 'not_found' as const, message: 'test' };
+    expect(requiresSettingsAction('401 Unauthorized', rateLimitInfo)).toBe(false);
+    expect(requiresSettingsAction('403 Forbidden', networkInfo)).toBe(false);
+    expect(requiresSettingsAction('invalid token', notFoundInfo)).toBe(false);
   });
 });
 
