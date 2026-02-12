@@ -18,7 +18,7 @@ import { getClaudeProfileManager } from '../../../claude-profile-manager';
 import { getOperationRegistry, type OperationType } from '../../../claude-profile/operation-registry';
 import { isWindows, isMacOS } from '../../../platform';
 import { getEffectiveSourcePath } from '../../../updater/path-resolver';
-import { getConfiguredPythonPath } from '../../../python-env-manager';
+import { pythonEnvManager, getConfiguredPythonPath } from '../../../python-env-manager';
 import { getTaskkillExePath, getWhereExePath } from '../../../utils/windows-paths';
 
 const execAsync = promisify(exec);
@@ -476,14 +476,18 @@ export function runPythonSubprocess<T = unknown>(
 }
 
 /**
- * Get the Python path for a project's backend
- * Cross-platform: uses Scripts/python.exe on Windows, bin/python on Unix
+ * Get the Python path for running GitHub runners.
+ *
+ * Prefers the managed Python environment (bundled app venv) when ready,
+ * falls back to project-local .venv for development repos.
  */
 export function getPythonPath(backendPath: string): string {
-  // Try managed Python path first (handles bundled app venv)
-  const configured = getConfiguredPythonPath();
-  if (configured && fs.existsSync(configured)) {
-    return configured;
+  // Use managed env when it's fully set up (has dependencies installed)
+  if (pythonEnvManager.isEnvReady()) {
+    const managed = getConfiguredPythonPath();
+    if (fs.existsSync(managed)) {
+      return managed;
+    }
   }
   // Fallback to venv in backend path (dev mode)
   return isWindows()
