@@ -659,6 +659,28 @@
       "remote": "Remote"
     }
   },
+  "githubErrors": {
+    "rateLimitTitle": "GitHub Rate Limit Reached",
+    "authTitle": "GitHub Authentication Required",
+    "permissionTitle": "GitHub Permission Denied",
+    "notFoundTitle": "GitHub Resource Not Found",
+    "networkTitle": "GitHub Connection Error",
+    "unknownTitle": "GitHub Error",
+    "rateLimitMessage": "GitHub API rate limit reached. Please wait a moment before trying again.",
+    "rateLimitMessageMinutes": "GitHub API rate limit reached. Please wait {{minutes}} minute(s) before trying again.",
+    "rateLimitMessageHours": "GitHub API rate limit reached. Rate limit resets in approximately {{hours}} hour(s).",
+    "authMessage": "GitHub authentication failed. Please check your GitHub token in Settings and try again.",
+    "permissionMessage": "GitHub permission denied. Your token may not have the required access. Please check your token permissions in Settings.",
+    "permissionMessageScopes": "GitHub permission denied. Your token is missing required scopes: {{scopes}}. Please update your GitHub token in Settings.",
+    "notFoundMessage": "The requested GitHub resource was not found. Please verify the repository exists and you have access to it.",
+    "networkMessage": "Unable to connect to GitHub. Please check your internet connection and try again.",
+    "unknownMessage": "An unexpected error occurred while communicating with GitHub. Please try again.",
+    "resetsIn": "Resets in {{time}}",
+    "countdownHoursMinutes": "{{hours}}h {{minutes}}m",
+    "countdownMinutesSeconds": "{{minutes}}m {{seconds}}s",
+    "rateLimitExpired": "Rate limit has reset. You can retry now.",
+    "requiredScopes": "Required scopes"
+  },
   "roadmapProgress": {
     "elapsedTime": "Elapsed",
     "lastActivity": "Last activity",

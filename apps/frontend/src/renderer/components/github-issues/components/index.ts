@@ -6,3 +6,4 @@ export { IssueListHeader } from './IssueListHeader';
 export { IssueList } from './IssueList';
 export { AutoFixButton } from './AutoFixButton';
 export { BatchReviewWizard } from './BatchReviewWizard';
+export { GitHubErrorDisplay } from './GitHubErrorDisplay';
