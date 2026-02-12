@@ -51,7 +51,7 @@ class TestNoExternalParallelism:
     def test_no_subtask_worker_config(self):
         """No external subtask worker agent config should exist."""
         worker_config = (
-            Path(__file__).parent.parent / ".claude" / "agents" / "subtask-worker.md"
+            Path(__file__).parent.parent.parent / ".claude" / "agents" / "subtask-worker.md"
         )
         assert not worker_config.exists(), (
             "subtask-worker.md should not exist. Subagents use Claude Code's "

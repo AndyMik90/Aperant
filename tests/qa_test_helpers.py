@@ -137,6 +137,11 @@ def setup_qa_mocks(include_prompts_pkg: bool = False):
 
     Call this at module level before importing from qa modules.
     """
+    # Guard against double setup - prevents overwriting _mock_state with new mocks
+    # while modules still hold references to the original mocks
+    if _mock_state['setup_done']:
+        return
+
     # Save originals for each module individually before mocking
     # This handles multiple setup calls with different parameters
     for name in _mocked_module_names:
@@ -243,8 +248,10 @@ def cleanup_qa_mocks():
         elif name in sys.modules:
             del sys.modules[name]
     _mock_state['setup_done'] = False
-    # Clear stored originals to prevent stale state between test runs
-    _original_modules.clear()
+    # Note: We do NOT clear _original_modules here because:
+    # 1. Multiple test modules may call cleanup, and clearing would break subsequent cleanups
+    # 2. The 'if name not in _original_modules' guard in setup_qa_mocks prevents stale state
+    # 3. Originals are saved per-module, so different setups can coexist
 
 
 def reset_qa_mocks():
