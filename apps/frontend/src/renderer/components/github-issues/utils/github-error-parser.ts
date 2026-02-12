@@ -34,6 +34,7 @@ const AUTH_PATTERNS = [
   /invalid\s*(oauth\s*)?token/i,
   /token\s*(is\s*)?(invalid|expired|required)/i,
   /not\s*authenticated/i,
+  /requires\s*authentication/i, // GitHub 401 response body
 ];
 
 /**
@@ -50,7 +51,9 @@ const PERMISSION_PATTERNS = [
   /not\s*authorized\s*to\s*access/i,
   /requires\s*(admin|write|read)\s*access/i,
   /missing\s*required\s*scope/i,
-  /requires[:\s]+[a-z]/i, // Matches "requires: repo" or "requires repo" for scope context
+  // Matches "requires: repo" or "requires workflow" for OAuth scope context
+  // Uses specific scope names to avoid matching "requires authentication" (auth error)
+  /requires[:\s]+(?:repo|admin|write|read|workflow|org|gist|notification|user|project|package|delete|gist|discussion)/i,
 ];
 
 /**
@@ -94,8 +97,9 @@ const NETWORK_PATTERNS = [
 const REQUIRED_SCOPES_PATTERN = /(?:requires?[:\s]*|missing\s*scopes?[:\s]*|X-Accepted-OAuth-Scopes[:\s]*)([a-z0-9_:]+(?:[,\s]+[a-z0-9_:]+)*)/i;
 
 /**
- * Pattern to extract HTTP status code from error messages
- * Matches status codes with HTTP context keywords to avoid false positives
+ * Pattern to extract HTTP status code from error messages.
+ * Matches status codes preceded by HTTP context keywords or at string start
+ * (for common error formats like "403 Forbidden").
  */
 const STATUS_CODE_PATTERN = /(?:^|HTTP\s*|status[:\s]*|error[:\s]*|code[:\s]*)\b([1-5]\d{2})\b/i;
 
@@ -422,7 +426,8 @@ export function isRateLimitError(
 ): boolean {
   if (parsedInfo) return parsedInfo.type === 'rate_limit';
   if (!error) return false;
-  return classifyError(error.trim()) === 'rate_limit';
+  const trimmed = error.trim();
+  return classifyError(trimmed, extractStatusCode(trimmed)) === 'rate_limit';
 }
 
 /**
@@ -437,7 +442,8 @@ export function isAuthError(
 ): boolean {
   if (parsedInfo) return parsedInfo.type === 'auth';
   if (!error) return false;
-  return classifyError(error.trim()) === 'auth';
+  const trimmed = error.trim();
+  return classifyError(trimmed, extractStatusCode(trimmed)) === 'auth';
 }
 
 /**
@@ -452,7 +458,8 @@ export function isNetworkError(
 ): boolean {
   if (parsedInfo) return parsedInfo.type === 'network';
   if (!error) return false;
-  return classifyError(error.trim()) === 'network';
+  const trimmed = error.trim();
+  return classifyError(trimmed, extractStatusCode(trimmed)) === 'network';
 }
 
 /**
@@ -467,7 +474,8 @@ export function isRecoverableError(
 ): boolean {
   if (parsedInfo) return ['rate_limit', 'network', 'unknown'].includes(parsedInfo.type);
   if (!error) return false;
-  const errorType = classifyError(error.trim());
+  const trimmed = error.trim();
+  const errorType = classifyError(trimmed, extractStatusCode(trimmed));
   return ['rate_limit', 'network', 'unknown'].includes(errorType);
 }
 
@@ -483,6 +491,7 @@ export function requiresSettingsAction(
 ): boolean {
   if (parsedInfo) return ['auth', 'permission'].includes(parsedInfo.type);
   if (!error) return false;
-  const errorType = classifyError(error.trim());
+  const trimmed = error.trim();
+  const errorType = classifyError(trimmed, extractStatusCode(trimmed));
   return ['auth', 'permission'].includes(errorType);
 }
