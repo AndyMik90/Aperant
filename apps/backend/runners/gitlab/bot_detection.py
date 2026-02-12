@@ -386,9 +386,9 @@ class GitLabBotDetector:
             return True, reason
 
         # Check 2: Is the latest commit by the bot?
-        # Note: GitLab API returns commits oldest-first, so commits[-1] is the latest
+        # Note: GitLab API returns commits newest-first, so commits[0] is the latest
         if commits and not self.review_own_mrs:
-            latest_commit = commits[-1] if commits else None
+            latest_commit = commits[0] if commits else None
             if latest_commit and self.is_bot_commit(latest_commit):
                 reason = "Latest commit authored by bot (likely an auto-fix)"
                 logger.info(f"SKIP MR !{mr_iid}: {reason}")
