@@ -605,7 +605,8 @@ The SDK will run invoked agents in parallel automatically.
                 last_assistant_text = stream_result.get("last_assistant_text", "")
                 # Nullify structured output on recoverable errors to force Tier 2 fallback
                 structured_output = (
-                    None if (stream_error and stream_result.get("error_recoverable"))
+                    None
+                    if (stream_error and stream_result.get("error_recoverable"))
                     else stream_result["structured_output"]
                 )
                 agents_invoked = stream_result["agents_invoked"]
@@ -758,7 +759,9 @@ The SDK will run invoked agents in parallel automatically.
                     blockers.append(f"{finding.category.value}: {finding.title}")
 
             # Extract validation counts
-            dismissed_count = len(result_data.get("dismissed_false_positive_ids", [])) or result_data.get("dismissed_finding_count", 0)
+            dismissed_count = len(
+                result_data.get("dismissed_false_positive_ids", [])
+            ) or result_data.get("dismissed_finding_count", 0)
             confirmed_count = result_data.get("confirmed_valid_count", 0)
             needs_human_count = result_data.get("needs_human_review_count", 0)
 
