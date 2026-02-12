@@ -101,8 +101,10 @@ describe('useProfileSwapNotifications', () => {
           fromProfileName: 'Profile 1',
           toProfileId: 'profile-2',
           toProfileName: 'Profile 2',
-          swappedAt: new Date().toISOString(),
+          taskId: 'task-1',
           reason: 'rate_limit',
+          timestamp: new Date(),
+          swappedAt: new Date().toISOString(),
           sessionResumed: false
         }
       };
@@ -142,8 +144,10 @@ describe('useProfileSwapNotifications', () => {
           fromProfileName: 'Profile 1',
           toProfileId: toProfile,
           toProfileName: `Profile ${toProfile}`,
-          swappedAt: new Date().toISOString(),
+          taskId,
           reason: 'capacity',
+          timestamp: new Date(),
+          swappedAt: new Date().toISOString(),
           sessionResumed: false
         }
       });
@@ -188,8 +192,10 @@ describe('useProfileSwapNotifications', () => {
           fromProfileName: 'Profile 1',
           toProfileId: 'profile-2',
           toProfileName: 'Profile 2',
-          swappedAt: new Date().toISOString(),
+          taskId,
           reason: 'rate_limit',
+          timestamp: new Date(),
+          swappedAt: new Date().toISOString(),
           sessionResumed: false
         }
       });
@@ -260,8 +266,10 @@ describe('useProfileSwapNotifications', () => {
             fromProfileName: 'Profile 1',
             toProfileId: 'p2',
             toProfileName: 'Profile 2',
-            swappedAt: new Date().toISOString(),
+            taskId: 'task-1',
             reason: 'rate_limit',
+            timestamp: new Date(),
+            swappedAt: new Date().toISOString(),
             sessionResumed: false
           }
         });

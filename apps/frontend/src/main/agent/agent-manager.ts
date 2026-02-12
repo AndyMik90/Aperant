@@ -13,7 +13,7 @@ import {
   TaskExecutionOptions,
   RoadmapConfig
 } from './types';
-import type { IdeationConfig } from '../../shared/types';
+import type { IdeationConfig, ProfileAssignmentReason } from '../../shared/types';
 import { resetStuckSubtasks } from '../ipc-handlers/task/plan-file-utils';
 import { AUTO_BUILD_PATHS, getSpecsDir, sanitizeThinkingLevel } from '../../shared/constants';
 import { projectStore } from '../project-store';
@@ -686,7 +686,7 @@ export class AgentManager extends EventEmitter {
     taskId: string,
     profileId: string,
     profileName: string,
-    reason: 'proactive' | 'reactive' | 'manual'
+    reason: ProfileAssignmentReason
   ): void {
     this.state.assignProfileToTask(taskId, profileId, profileName, reason);
   }

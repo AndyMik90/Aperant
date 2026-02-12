@@ -75,6 +75,10 @@ export interface ClaudeUsageSnapshot {
   weeklyUsageValue?: number;
   /** Weekly usage limit (total quota) */
   weeklyUsageLimit?: number;
+  /** Email address of the profile (for display) */
+  profileEmail?: string;
+  /** Whether this profile needs re-authentication */
+  needsReauthentication?: boolean;
 }
 
 /**
@@ -131,6 +135,10 @@ export interface ClaudeProfile {
    * This is NOT persisted, it's computed dynamically on each getSettings() call.
    */
   isAuthenticated?: boolean;
+  /** Subscription type (e.g., 'pro', 'free') */
+  subscriptionType?: string;
+  /** Rate limit tier for this profile */
+  rateLimitTier?: string;
 }
 
 /**
@@ -167,6 +175,8 @@ export interface ClaudeAutoSwitchSettings {
   // Reactive recovery
   /** Whether to automatically switch on unexpected rate limit (vs. prompting user) */
   autoSwitchOnRateLimit: boolean;
+  /** Whether to automatically switch when authentication fails (401 errors) */
+  autoSwitchOnAuthFailure?: boolean;
 }
 
 export interface ClaudeAuthResult {
@@ -189,4 +199,98 @@ export interface TerminalProfileChangedEvent {
     /** Whether the session was successfully migrated to new profile */
     sessionMigrated?: boolean;
   }>;
+}
+
+// ============================================
+// Multi-Profile Usage Types
+// ============================================
+
+/**
+ * Usage summary for a single profile
+ * Used in the profile selector and usage displays
+ */
+export interface ProfileUsageSummary {
+  profileId: string;
+  profileName: string;
+  profileEmail?: string;
+  /** Usage snapshot with detailed data (may be null for inactive profiles) */
+  snapshot?: ClaudeUsageSnapshot | null;
+  /** Whether this is the default profile */
+  isDefault?: boolean;
+  lastUsedAt?: Date;
+  isAuthenticated?: boolean;
+  /** Session usage percentage (0-100) */
+  sessionPercent: number;
+  /** Weekly usage percentage (0-100) */
+  weeklyPercent: number;
+  /** Whether this profile is currently rate limited */
+  isRateLimited: boolean;
+  /** Type of rate limit ('session' or 'weekly') if limited */
+  rateLimitType?: 'session' | 'weekly';
+  /** Availability score (0-100, higher = more available) */
+  availabilityScore: number;
+  /** Whether this is the currently active profile */
+  isActive: boolean;
+  /** When usage was last fetched (ISO string) */
+  lastFetchedAt?: string;
+  /** Whether this profile needs re-authentication */
+  needsReauthentication: boolean;
+  /** Session reset timestamp for countdown calculation */
+  sessionResetTimestamp?: string;
+  /** Weekly reset timestamp for countdown calculation */
+  weeklyResetTimestamp?: string;
+}
+
+/**
+ * Usage data for all profiles combined
+ */
+export interface AllProfilesUsage {
+  /** The currently active profile's usage */
+  activeProfile: ProfileUsageSummary | ClaudeUsageSnapshot | null;
+  /** All profiles with their usage data */
+  allProfiles: ProfileUsageSummary[];
+  /** When this data was fetched */
+  fetchedAt: Date;
+}
+
+/**
+ * Reason for profile assignment in queue routing
+ */
+export type ProfileAssignmentReason =
+  | 'manual'
+  | 'auto_switch_rate_limit'
+  | 'auto_switch_threshold'
+  | 'auto_switch_auth_failure'
+  | 'profile_restored'
+  | 'default'
+  | 'proactive'
+  | 'reactive'
+  | 'rate_limit'
+  | 'capacity';
+
+/**
+ * Running tasks grouped by profile
+ */
+export interface RunningTasksByProfile {
+  /** Tasks grouped by profile ID */
+  byProfile: Record<string, string[]>;
+  /** Total number of running tasks across all profiles */
+  totalRunning: number;
+}
+
+/**
+ * Record of a profile swap event
+ */
+export interface ProfileSwapRecord {
+  fromProfileId: string;
+  toProfileId: string;
+  fromProfileName?: string;
+  toProfileName?: string;
+  taskId: string;
+  reason: ProfileAssignmentReason;
+  timestamp: Date;
+  /** When the swap was executed (ISO string) */
+  swappedAt?: string;
+  /** Whether a session was resumed on the new profile */
+  sessionResumed?: boolean;
 }

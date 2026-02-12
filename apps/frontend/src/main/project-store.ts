@@ -334,6 +334,42 @@ export class ProjectStore {
     this.tasksCache.clear();
   }
 
+  // ============================================
+  // Kanban Preferences
+  // ============================================
+
+  /**
+   * Get Kanban column preferences for a project
+   * @param projectId - The project ID
+   * @returns Column preferences or null if not set
+   */
+  getKanbanPreferences(projectId: string): Record<string, { width: number; isCollapsed: boolean; isLocked: boolean }> | null {
+    const project = this.getProject(projectId);
+    if (!project) {
+      return null;
+    }
+    // Store kanban preferences in project settings under 'kanbanColumns' key
+    const kanbanColumns = project.settings.kanbanColumns as Record<string, { width: number; isCollapsed: boolean; isLocked: boolean }> | undefined;
+    return kanbanColumns || null;
+  }
+
+  /**
+   * Save Kanban column preferences for a project
+   * @param projectId - The project ID
+   * @param preferences - Column preferences to save
+   */
+  saveKanbanPreferences(projectId: string, preferences: Record<string, { width: number; isCollapsed: boolean; isLocked: boolean }>): void {
+    const project = this.data.projects.find((p) => p.id === projectId);
+    if (project) {
+      project.settings = {
+        ...project.settings,
+        kanbanColumns: preferences
+      };
+      project.updatedAt = new Date();
+      this.save();
+    }
+  }
+
   /**
    * Load tasks from a specs directory (helper method for main project and worktrees)
    */

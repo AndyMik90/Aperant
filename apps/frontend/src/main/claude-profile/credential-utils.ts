@@ -1774,3 +1774,451 @@ export function updateKeychainCredentials(
 
   return { success: false, error: `Unsupported platform: ${process.platform}` };
 }
+
+// =============================================================================
+// Utility Functions
+// =============================================================================
+
+/**
+ * Normalize Windows path by converting backslashes to forward slashes
+ * and handling drive letter casing. This is useful for consistent path
+ * comparison and storage.
+ *
+ * On non-Windows platforms, returns the path unchanged.
+ *
+ * @param path - The path to normalize
+ * @returns The normalized path
+ */
+export function normalizeWindowsPath(path: string): string {
+  if (!isWindows()) {
+    return path;
+  }
+  // Convert backslashes to forward slashes
+  let normalized = path.replace(/\\/g, '/');
+  // Normalize drive letter to uppercase (C:/ -> C:/)
+  if (normalized.length >= 2 && normalized.charAt(1) === ':') {
+    normalized = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  }
+  return normalized;
+}
+
+/**
+ * Result of updating profile subscription metadata
+ */
+export interface SubscriptionMetadataResult extends UpdateCredentialsResult {
+  subscriptionTypeUpdated?: boolean;
+  subscriptionType?: string | null;
+  rateLimitTierUpdated?: boolean;
+  rateLimitTier?: string | null;
+}
+
+/**
+ * Update subscription metadata for a profile in the keychain/credential store.
+ * This updates the subscriptionType and rateLimitTier fields in the stored credentials.
+ *
+ * These fields determine "Max" vs "API" display in Claude Code and are NOT returned
+ * by the OAuth token refresh endpoint - they must be preserved from the original auth.
+ *
+ * Supports multiple call signatures:
+ * 1. (profile, configDir, options) - from profile manager
+ * 2. (profile, fullCredentials) - from terminal integration (copies credentials to profile)
+ * 3. (configDir, metadata) - original signature (deprecated but supported)
+ *
+ * @param profileOrConfigDir - Either a ClaudeProfile object or a config directory string
+ * @param configDirOrCredsOrOptions - Either a config directory string, FullOAuthCredentials object, or options object
+ * @param options - Options object (optional)
+ * @returns Result indicating success or failure with update details
+ */
+export function updateProfileSubscriptionMetadata(
+  profileOrConfigDir: unknown,
+  configDirOrCredsOrOptions?: string | FullOAuthCredentials | { onlyIfMissing?: boolean },
+  options?: { onlyIfMissing?: boolean }
+): SubscriptionMetadataResult {
+  // Handle overloaded signatures:
+  // 1. (profile, configDir, options) - from profile manager
+  // 2. (profile, fullCredentials) - from terminal integration
+  // 3. (configDir, metadata) - original signature (deprecated but supported)
+
+  let configDir: string | undefined;
+  let onlyIfMissing = false;
+  let currentProfileSubscriptionType: string | undefined;
+  let currentProfileRateLimitTier: string | undefined;
+  let providedCredentials: FullOAuthCredentials | undefined;
+
+  if (typeof profileOrConfigDir === 'string' || profileOrConfigDir === undefined) {
+    // Original signature: (configDir, metadata)
+    configDir = profileOrConfigDir;
+    if (typeof configDirOrCredsOrOptions === 'object' && configDirOrCredsOrOptions !== null) {
+      if ('onlyIfMissing' in configDirOrCredsOrOptions) {
+        onlyIfMissing = configDirOrCredsOrOptions.onlyIfMissing ?? false;
+      }
+    }
+  } else if (typeof profileOrConfigDir === 'object' && profileOrConfigDir !== null) {
+    // New signature: (profile, configDir, options) or (profile, fullCredentials)
+    const profile = profileOrConfigDir as {
+      configDir?: string;
+      subscriptionType?: string;
+      rateLimitTier?: string;
+    };
+    currentProfileSubscriptionType = profile.subscriptionType;
+    currentProfileRateLimitTier = profile.rateLimitTier;
+
+    if (typeof configDirOrCredsOrOptions === 'string') {
+      // (profile, configDir, options) signature
+      configDir = configDirOrCredsOrOptions;
+      if (options) {
+        onlyIfMissing = options.onlyIfMissing ?? false;
+      }
+    } else if (typeof configDirOrCredsOrOptions === 'object' && configDirOrCredsOrOptions !== null) {
+      // Check if it's FullOAuthCredentials (has token property) or options (has onlyIfMissing)
+      const secondArg = configDirOrCredsOrOptions as Record<string, unknown>;
+      if ('token' in secondArg || 'subscriptionType' in secondArg || 'rateLimitTier' in secondArg) {
+        // (profile, fullCredentials) signature
+        providedCredentials = configDirOrCredsOrOptions as FullOAuthCredentials;
+        configDir = profile.configDir;
+      } else if ('onlyIfMissing' in secondArg) {
+        // (profile, options) signature
+        configDir = profile.configDir;
+        onlyIfMissing = secondArg.onlyIfMissing as boolean;
+      } else {
+        configDir = profile.configDir;
+      }
+    } else {
+      configDir = profile.configDir;
+    }
+  }
+
+  // Use provided credentials or read from keychain
+  const currentCreds = providedCredentials || getFullCredentialsFromKeychain(configDir);
+
+  if (!currentCreds.token || !currentCreds.refreshToken) {
+    return { success: false, error: 'No existing credentials to update' };
+  }
+
+  // Determine what values to use
+  const keychainSubscriptionType = currentCreds.subscriptionType;
+  const keychainRateLimitTier = currentCreds.rateLimitTier;
+
+  // If onlyIfMissing is true, only update if the profile doesn't have values
+  let subscriptionTypeToUpdate: string | null | undefined;
+  let rateLimitTierToUpdate: string | null | undefined;
+  let subscriptionTypeUpdated = false;
+  let rateLimitTierUpdated = false;
+
+  if (onlyIfMissing) {
+    // Only update profile fields if they're missing and we have values from keychain
+    if (!currentProfileSubscriptionType && keychainSubscriptionType) {
+      subscriptionTypeToUpdate = keychainSubscriptionType;
+      subscriptionTypeUpdated = true;
+    }
+    if (!currentProfileRateLimitTier && keychainRateLimitTier) {
+      rateLimitTierToUpdate = keychainRateLimitTier;
+      rateLimitTierUpdated = true;
+    }
+  } else {
+    // Update keychain with any new values
+    subscriptionTypeToUpdate = keychainSubscriptionType;
+    rateLimitTierToUpdate = keychainRateLimitTier;
+  }
+
+  // If nothing to update, return success with info
+  if (!subscriptionTypeUpdated && !rateLimitTierUpdated) {
+    return {
+      success: true,
+      subscriptionType: keychainSubscriptionType,
+      rateLimitTier: keychainRateLimitTier
+    };
+  }
+
+  // Update credentials with metadata
+  const result = updateKeychainCredentialsWithMetadata(configDir, {
+    accessToken: currentCreds.token,
+    refreshToken: currentCreds.refreshToken,
+    expiresAt: currentCreds.expiresAt || Date.now() + 3600000,
+    scopes: currentCreds.scopes || undefined,
+    email: currentCreds.email || undefined,
+    subscriptionType: subscriptionTypeToUpdate,
+    rateLimitTier: rateLimitTierToUpdate
+  });
+
+  return {
+    ...result,
+    subscriptionTypeUpdated,
+    subscriptionType: subscriptionTypeToUpdate,
+    rateLimitTierUpdated,
+    rateLimitTier: rateLimitTierToUpdate
+  };
+}
+
+/**
+ * Helper to update keychain credentials with full metadata support across platforms
+ */
+function updateKeychainCredentialsWithMetadata(
+  configDir: string | undefined,
+  credentials: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: number;
+    scopes?: string[];
+    email?: string;
+    subscriptionType?: string | null;
+    rateLimitTier?: string | null;
+  }
+): UpdateCredentialsResult {
+  if (isMacOS()) {
+    return updateMacOSKeychainCredentialsWithMetadata(configDir, credentials);
+  }
+
+  if (isLinux()) {
+    return updateLinuxCredentialsWithMetadata(configDir, credentials);
+  }
+
+  if (isWindows()) {
+    return updateWindowsCredentialsWithMetadata(configDir, credentials);
+  }
+
+  return { success: false, error: `Unsupported platform: ${process.platform}` };
+}
+
+/**
+ * Update macOS Keychain credentials with full metadata support
+ */
+function updateMacOSKeychainCredentialsWithMetadata(
+  configDir: string | undefined,
+  credentials: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: number;
+    scopes?: string[];
+    email?: string;
+    subscriptionType?: string | null;
+    rateLimitTier?: string | null;
+  }
+): UpdateCredentialsResult {
+  const serviceName = getKeychainServiceName(configDir);
+  const isDebug = process.env.DEBUG === 'true';
+
+  let securityPath: string | null = null;
+  const candidatePaths = ['/usr/bin/security', '/bin/security'];
+
+  for (const candidate of candidatePaths) {
+    if (existsSync(candidate)) {
+      securityPath = candidate;
+      break;
+    }
+  }
+
+  if (!securityPath) {
+    return { success: false, error: 'macOS security command not found' };
+  }
+
+  try {
+    const newCredentialData = {
+      claudeAiOauth: {
+        accessToken: credentials.accessToken,
+        refreshToken: credentials.refreshToken,
+        expiresAt: credentials.expiresAt,
+        scopes: credentials.scopes || [],
+        email: credentials.email,
+        emailAddress: credentials.email,
+        subscriptionType: credentials.subscriptionType,
+        rateLimitTier: credentials.rateLimitTier
+      },
+      email: credentials.email
+    };
+
+    const credentialsJson = JSON.stringify(newCredentialData);
+
+    // Delete existing entry
+    try {
+      execFileSync(
+        securityPath,
+        ['delete-generic-password', '-s', serviceName],
+        { encoding: 'utf-8', timeout: MACOS_KEYCHAIN_TIMEOUT_MS, windowsHide: true }
+      );
+    } catch { /* ignore */ }
+
+    // Add new entry
+    const accountName = userInfo().username;
+    execFileSync(
+      securityPath,
+      ['add-generic-password', '-s', serviceName, '-a', accountName, '-w', credentialsJson],
+      { encoding: 'utf-8', timeout: MACOS_KEYCHAIN_TIMEOUT_MS, windowsHide: true }
+    );
+
+    if (isDebug) {
+      console.warn('[CredentialUtils:macOS:Metadata] Updated subscription metadata for service:', serviceName);
+    }
+
+    clearCredentialCache(configDir);
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { success: false, error: `Keychain metadata update failed: ${errorMessage}` };
+  }
+}
+
+/**
+ * Update Linux credentials with full metadata support
+ */
+function updateLinuxCredentialsWithMetadata(
+  configDir: string | undefined,
+  credentials: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: number;
+    scopes?: string[];
+    email?: string;
+    subscriptionType?: string | null;
+    rateLimitTier?: string | null;
+  }
+): UpdateCredentialsResult {
+  // Try Secret Service first
+  const secretToolPath = findSecretToolPath();
+  if (secretToolPath) {
+    const attribute = getSecretServiceAttribute(configDir);
+    const newCredentialData = {
+      claudeAiOauth: {
+        accessToken: credentials.accessToken,
+        refreshToken: credentials.refreshToken,
+        expiresAt: credentials.expiresAt,
+        scopes: credentials.scopes || [],
+        email: credentials.email,
+        emailAddress: credentials.email,
+        subscriptionType: credentials.subscriptionType,
+        rateLimitTier: credentials.rateLimitTier
+      },
+      email: credentials.email
+    };
+
+    try {
+      execFileSync(
+        secretToolPath,
+        ['store', '--label=Claude Code-credentials', 'application', attribute],
+        { encoding: 'utf-8', timeout: LINUX_SECRET_TOOL_TIMEOUT_MS, input: JSON.stringify(newCredentialData), windowsHide: true }
+      );
+      clearCredentialCache(configDir);
+      return { success: true };
+    } catch { /* fall through to file */ }
+  }
+
+  // Fall back to file
+  const credentialsPath = getLinuxCredentialsPath(configDir);
+  if (!isValidCredentialsPath(credentialsPath)) {
+    return { success: false, error: 'Invalid credentials path' };
+  }
+
+  try {
+    const newCredentialData = {
+      claudeAiOauth: {
+        accessToken: credentials.accessToken,
+        refreshToken: credentials.refreshToken,
+        expiresAt: credentials.expiresAt,
+        scopes: credentials.scopes || [],
+        email: credentials.email,
+        emailAddress: credentials.email,
+        subscriptionType: credentials.subscriptionType,
+        rateLimitTier: credentials.rateLimitTier
+      },
+      email: credentials.email
+    };
+
+    writeFileSync(credentialsPath, JSON.stringify(newCredentialData, null, 2), { mode: 0o600, encoding: 'utf-8' });
+    clearCredentialCache(configDir);
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { success: false, error: `File metadata update failed: ${errorMessage}` };
+  }
+}
+
+/**
+ * Update Windows Credential Manager credentials with full metadata support
+ */
+function updateWindowsCredentialsWithMetadata(
+  configDir: string | undefined,
+  credentials: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: number;
+    scopes?: string[];
+    email?: string;
+    subscriptionType?: string | null;
+    rateLimitTier?: string | null;
+  }
+): UpdateCredentialsResult {
+  const targetName = getWindowsCredentialTarget(configDir);
+  if (!isValidTargetName(targetName)) {
+    return { success: false, error: 'Invalid credential target name format' };
+  }
+
+  const psPath = findPowerShellPath();
+  if (!psPath) {
+    return { success: false, error: 'PowerShell not found' };
+  }
+
+  try {
+    const newCredentialData = {
+      claudeAiOauth: {
+        accessToken: credentials.accessToken,
+        refreshToken: credentials.refreshToken,
+        expiresAt: credentials.expiresAt,
+        scopes: credentials.scopes || [],
+        email: credentials.email,
+        emailAddress: credentials.email,
+        subscriptionType: credentials.subscriptionType,
+        rateLimitTier: credentials.rateLimitTier
+      },
+      email: credentials.email
+    };
+
+    const credentialsJson = JSON.stringify(newCredentialData);
+    const base64Json = encodeBase64ForPowerShell(credentialsJson);
+
+    const psScript = `
+      $ErrorActionPreference = 'Stop'
+      $sig = @'
+      [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+      public struct CREDENTIAL {
+        public int Flags; public int Type; public string TargetName; public string Comment;
+        public System.Runtime.InteropServices.ComTypes.FILETIME LastWritten;
+        public int CredentialBlobSize; public IntPtr CredentialBlob;
+        public int Persist; public int AttributeCount; public IntPtr Attributes;
+        public string TargetAlias; public string UserName;
+      }
+      [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+      public static extern bool CredWrite(ref CREDENTIAL credential, int flags);
+'@
+      Add-Type -MemberDefinition $sig -Namespace Win32 -Name Credential
+      $json = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${base64Json}'))
+      $jsonBytes = [System.Text.Encoding]::Unicode.GetBytes($json)
+      $jsonPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($jsonBytes.Length)
+      [System.Runtime.InteropServices.Marshal]::Copy($jsonBytes, 0, $jsonPtr, $jsonBytes.Length)
+      try {
+        $cred = New-Object Win32.Credential+CREDENTIAL
+        $cred.Type = 1; $cred.TargetName = "${escapePowerShellString(targetName)}"
+        $cred.CredentialBlob = $jsonPtr; $cred.CredentialBlobSize = $jsonBytes.Length
+        $cred.Persist = 2; $cred.UserName = "claude-ai-oauth"
+        $success = [Win32.Credential]::CredWrite([ref]$cred, 0)
+        if (-not $success) { throw "CredWrite failed" }
+        Write-Output "SUCCESS"
+      } finally { [System.Runtime.InteropServices.Marshal]::FreeHGlobal($jsonPtr) }
+    `;
+
+    const result = execFileSync(
+      psPath,
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', psScript],
+      { encoding: 'utf-8', timeout: WINDOWS_CREDMAN_TIMEOUT_MS, windowsHide: true }
+    );
+
+    if (result.trim() !== 'SUCCESS') {
+      return { success: false, error: 'Credential Manager metadata update failed' };
+    }
+
+    clearCredentialCache(configDir);
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { success: false, error: `Credential Manager metadata update failed: ${errorMessage}` };
+  }
+}

@@ -1,4 +1,5 @@
 import { AgentProcess } from './types';
+import type { ProfileAssignmentReason } from '../../shared/types';
 
 /**
  * Profile assignment for a task
@@ -6,7 +7,7 @@ import { AgentProcess } from './types';
 interface TaskProfileAssignment {
   profileId: string;
   profileName: string;
-  reason: 'proactive' | 'reactive' | 'manual';
+  reason: ProfileAssignmentReason;
   sessionId?: string;
 }
 
@@ -146,7 +147,7 @@ export class AgentState {
     taskId: string,
     profileId: string,
     profileName: string,
-    reason: 'proactive' | 'reactive' | 'manual'
+    reason: ProfileAssignmentReason
   ): void {
     const existing = this.taskProfileAssignments.get(taskId);
     this.taskProfileAssignments.set(taskId, {

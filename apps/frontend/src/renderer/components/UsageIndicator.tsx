@@ -169,7 +169,7 @@ export function UsageIndicator() {
       isRateLimited: false,
       availabilityScore: 100 - Math.max(usage?.sessionPercent || 0, usage?.weeklyPercent || 0),
       isActive: false, // It's no longer active
-      needsReauthentication: usage?.needsReauthentication,
+      needsReauthentication: usage?.needsReauthentication ?? false,
     };
 
     // 2. Convert target profile to a ClaudeUsageSnapshot for the active display

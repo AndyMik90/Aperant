@@ -87,7 +87,7 @@ class GitlabBatchProcessor:
         Returns:
             List of GitlabIssueBatch objects that were created
         """
-        from .batch_issues import GitlabIssueBatcher
+        from ..batch_issues import GitlabIssueBatcher
 
         self._report_progress("batching", 10, "Analyzing issues for batching...")
 
@@ -152,7 +152,7 @@ class GitlabBatchProcessor:
         Returns:
             AutoFixState for the batch, or None if failed
         """
-        from .batch_issues import GitlabBatchStatus, GitlabIssueBatcher
+        from ..batch_issues import GitlabBatchStatus, GitlabIssueBatcher
 
         # Guard against empty batches
         if not batch.issues:
@@ -191,7 +191,7 @@ class GitlabBatchProcessor:
         try:
             # Update batch status
             batch.status = GitlabBatchStatus.ANALYZING
-            from .batch_issues import GitlabIssueBatcher
+            from ..batch_issues import GitlabIssueBatcher
 
             # Create batcher instance to call save_batch (instance method)
             batcher = GitlabIssueBatcher(
@@ -239,7 +239,7 @@ class GitlabBatchProcessor:
             safe_print(f"[BATCH] Error processing batch {batch.batch_id}: {e}")
             batch.status = GitlabBatchStatus.FAILED
             batch.error = str(e)
-            from .batch_issues import GitlabIssueBatcher
+            from ..batch_issues import GitlabIssueBatcher
 
             # Create batcher instance to save the failed batch state
             batcher = GitlabIssueBatcher(
@@ -289,7 +289,7 @@ class GitlabBatchProcessor:
         """Get all batches in the queue."""
         import asyncio
 
-        from .batch_issues import GitlabIssueBatcher
+        from ..batch_issues import GitlabIssueBatcher
 
         # Offload blocking filesystem I/O to a thread pool
         loop = asyncio.get_running_loop()

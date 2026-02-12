@@ -28,6 +28,8 @@ export interface ProjectSettings {
   useClaudeMd?: boolean;
   /** Maximum parallel tasks allowed (default: 3) */
   maxParallelTasks?: number;
+  /** Kanban column preferences (width, collapsed state, locked state) */
+  kanbanColumns?: Record<string, { width: number; isCollapsed: boolean; isLocked: boolean }>;
 }
 
 export interface NotificationSettings {
