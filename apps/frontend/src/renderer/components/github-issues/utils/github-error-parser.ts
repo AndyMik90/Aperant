@@ -291,19 +291,28 @@ function classifyError(error: string): GitHubErrorType {
 /**
  * Parse a GitHub API error string and return classified error information.
  *
+ * IMPORTANT: The returned `message` field contains hardcoded English strings
+ * intended ONLY as a fallback defaultValue for i18n translation. Consumers
+ * should use the `type` field to look up the appropriate translation key
+ * (e.g., 'githubErrors.rateLimitMessage') via react-i18next rather than
+ * displaying `message` directly. This ensures proper localization.
+ *
+ * Translation key mapping by type:
+ * - rate_limit → 'githubErrors.rateLimitMessage' (or rateLimitMessageMinutes/Hours)
+ * - auth → 'githubErrors.authMessage'
+ * - permission → 'githubErrors.permissionMessage' (or permissionMessageScopes)
+ * - not_found → 'githubErrors.notFoundMessage'
+ * - network → 'githubErrors.networkMessage'
+ * - unknown → 'githubErrors.unknownMessage'
+ *
  * @param error - The raw error string (typically from issues-store error state)
  * @returns GitHubErrorInfo object with classified type, user-friendly message, and metadata
  *
  * @example
  * ```typescript
  * const errorInfo = parseGitHubError('GitHub API error: 403 - API rate limit exceeded');
- * // Returns:
- * // {
- * //   type: 'rate_limit',
- * //   message: 'GitHub API rate limit reached. Please wait a moment before trying again.',
- * //   rawMessage: 'GitHub API error: 403 - API rate limit exceeded',
- * //   statusCode: 403
- * // }
+ * // Use type to get i18n key, message only as fallback:
+ * // t(`githubErrors.${errorInfo.type}Message`, { defaultValue: errorInfo.message })
  * ```
  */
 export function parseGitHubError(error: string | null | undefined): GitHubErrorInfo {

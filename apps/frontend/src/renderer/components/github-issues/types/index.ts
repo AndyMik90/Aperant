@@ -18,11 +18,21 @@ export type GitHubErrorType =
 /**
  * Parsed GitHub error information with metadata.
  * Returned by the github-error-parser utility.
+ *
+ * IMPORTANT: The `message` field contains hardcoded English strings intended
+ * ONLY as a fallback defaultValue for i18n translation. Direct consumers should
+ * use the `type` field to look up the appropriate translation key (e.g.,
+ * 'githubErrors.rateLimitMessage') via react-i18next rather than displaying
+ * `message` directly. This ensures proper localization for all users.
  */
 export interface GitHubErrorInfo {
   /** The classified error type */
   type: GitHubErrorType;
-  /** User-friendly error message (can be displayed directly) */
+  /**
+   * User-friendly error message in English.
+   * NOTE: Use only as defaultValue for i18n - do not display directly.
+   * Use type field to look up translation key (e.g., 'githubErrors.rateLimitMessage').
+   */
   message: string;
   /** Original raw error string (for debugging/details) */
   rawMessage?: string;
