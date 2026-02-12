@@ -52,6 +52,7 @@ const PERMISSION_PATTERNS = [
   /not\s*authorized\s*to\s*access/i,
   /requires\s*(admin|write|read)\s*access/i,
   /missing\s*required\s*scope/i,
+  /requires[:\s]+[a-z]/i, // Matches "requires: repo" or "requires repo" for scope context
 ];
 
 /**
@@ -270,11 +271,15 @@ function getUnknownMessage(): string {
 }
 
 /**
- * Classify error type based on pattern matching.
+ * Classify error type based on pattern matching and optional status code.
  * Priority: rate_limit > auth > permission > not_found > network > unknown
  * Note: Permission checks run before not_found to properly classify 403 responses.
+ * Status code fallback takes priority over network patterns since HTTP status
+ * codes are more specific than generic network error text.
+ * @param error - The error string to classify
+ * @param statusCode - Optional HTTP status code extracted with context (helps classify when text patterns don't match)
  */
-function classifyError(error: string): GitHubErrorType {
+function classifyError(error: string, statusCode?: number): GitHubErrorType {
   // Check rate limit first (403 can also be permission, but rate limit is more specific)
   if (matchesPatterns(error, RATE_LIMIT_PATTERNS)) {
     return 'rate_limit';
@@ -296,7 +301,13 @@ function classifyError(error: string): GitHubErrorType {
     return 'not_found';
   }
 
-  // Check network errors
+  // Use status code fallback BEFORE network patterns
+  // HTTP status codes are more specific than generic network error text
+  if (statusCode === 401) return 'auth';
+  if (statusCode === 403) return 'permission';
+  if (statusCode === 404) return 'not_found';
+
+  // Check network errors (only if no status code fallback matched)
   if (matchesPatterns(error, NETWORK_PATTERNS)) {
     return 'network';
   }
@@ -341,8 +352,9 @@ export function parseGitHubError(error: string | null | undefined): GitHubErrorI
   }
 
   const trimmedError = error.trim();
-  const errorType = classifyError(trimmedError);
+  // Extract status code first so we can use it for classification fallback
   const statusCode = extractStatusCode(trimmedError);
+  const errorType = classifyError(trimmedError, statusCode);
 
   switch (errorType) {
     case 'rate_limit': {
