@@ -10,6 +10,7 @@ import {
   TooltipTrigger
 } from './ui/tooltip';
 import { Play, ExternalLink, TrendingUp, Layers, ThumbsUp } from 'lucide-react';
+import { TaskOutcomeBadge, getTaskOutcomeColorClass } from './roadmap/TaskOutcomeBadge';
 import {
   ROADMAP_PRIORITY_COLORS,
   ROADMAP_PRIORITY_LABELS,
@@ -120,7 +121,14 @@ export function SortableFeatureCard({
             <h3 className="font-medium text-sm leading-snug line-clamp-2">{feature.title}</h3>
           </div>
           <div className="shrink-0">
-            {feature.linkedSpecId ? (
+            {feature.taskOutcome ? (
+              <Badge
+                variant="outline"
+                className={`text-[10px] px-1.5 py-0 ${getTaskOutcomeColorClass(feature.taskOutcome)}`}
+              >
+                <TaskOutcomeBadge outcome={feature.taskOutcome} size="sm" />
+              </Badge>
+            ) : feature.linkedSpecId ? (
               <Button
                 variant="outline"
                 size="sm"

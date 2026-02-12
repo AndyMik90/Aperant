@@ -11,6 +11,7 @@ import { getConfiguredPythonPath, PythonEnvManager, pythonEnvManager as pythonEn
 import { getEffectiveSourcePath } from '../../updater/path-resolver';
 import { getBestAvailableProfileEnv } from '../../rate-limit-detector';
 import { findTaskAndProject } from './shared';
+import { updateRoadmapFeatureOutcome } from '../../utils/roadmap-utils';
 import { parsePythonCommand } from '../../python-detector';
 import { getToolPath } from '../../cli-tool-manager';
 import { promisify } from 'util';
@@ -3351,6 +3352,14 @@ export function registerWorktreeHandlers(
                     task.specId,
                     debug
                   );
+
+                  // Update linked roadmap feature on backend (complements renderer-side handling)
+                  if (project.path && task.specId) {
+                    const roadmapFile = path.join(project.path, AUTO_BUILD_PATHS.ROADMAP_DIR, AUTO_BUILD_PATHS.ROADMAP_FILE);
+                    updateRoadmapFeatureOutcome(roadmapFile, [task.specId], 'completed', '[PR_CREATE]').catch((err) => {
+                      debug('Failed to update roadmap feature after PR creation:', err);
+                    });
+                  }
                 } else if (result.alreadyExists) {
                   debug('PR already exists, not updating task status');
                 }

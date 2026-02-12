@@ -577,6 +577,7 @@ export const IPC_CHANNELS = {
   // Queue routing (rate limit recovery)
   QUEUE_GET_RUNNING_TASKS_BY_PROFILE: 'queue:getRunningTasksByProfile',
   QUEUE_GET_BEST_PROFILE_FOR_TASK: 'queue:getBestProfileForTask',
+  QUEUE_GET_BEST_UNIFIED_ACCOUNT: 'queue:getBestUnifiedAccount', // Unified OAuth + API account selection
   QUEUE_ASSIGN_PROFILE_TO_TASK: 'queue:assignProfileToTask',
   QUEUE_UPDATE_TASK_SESSION: 'queue:updateTaskSession',
   QUEUE_GET_TASK_SESSION: 'queue:getTaskSession',

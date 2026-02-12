@@ -19,3 +19,13 @@ export function filterIssuesBySearch(issues: GitHubIssue[], searchQuery: string)
     issue.body?.toLowerCase().includes(query)
   );
 }
+
+// Re-export GitHub error parser utilities
+export {
+  parseGitHubError,
+  isRateLimitError,
+  isAuthError,
+  isNetworkError,
+  isRecoverableError,
+  requiresSettingsAction,
+} from './github-error-parser';

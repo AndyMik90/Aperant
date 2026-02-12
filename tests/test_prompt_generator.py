@@ -66,16 +66,21 @@ class TestDetectWorktreeIsolation:
 
     def test_legacy_worktree_windows_path(self):
         """Test detection of legacy worktree location on Windows."""
+        from unittest.mock import patch
+
         project_dir = Path("C:/projects/x/.worktrees/009-audit")
 
-        is_worktree, forbidden = detect_worktree_isolation(project_dir)
+        # Mock resolve() to return a fixed path on Windows-style paths
+        # since resolve() on Linux would prepend current working directory
+        with patch.object(Path, 'resolve', return_value=Path("C:/projects/x/.worktrees/009-audit")):
+            is_worktree, forbidden = detect_worktree_isolation(project_dir)
 
-        assert is_worktree is True
-        assert forbidden is not None
-        # Check the essential parts
-        norm_forbidden = normalize_path(str(forbidden))
-        assert "projects" in norm_forbidden
-        assert ".worktrees" not in norm_forbidden
+            assert is_worktree is True
+            assert forbidden is not None
+            # Check the essential parts
+            norm_forbidden = normalize_path(str(forbidden))
+            assert "projects" in norm_forbidden
+            assert ".worktrees" not in norm_forbidden
 
     def test_pr_worktree_unix_path(self):
         """Test detection of PR review worktree location on Unix-style path."""
