@@ -88,33 +88,33 @@ describe('provider-detection', () => {
     it('should return orange colors for Anthropic', () => {
       const color = getProviderBadgeColor('anthropic');
       expect(color).toContain('orange');
-      expect(color).toContain('bg-orange-500/10');
-      expect(color).toContain('text-orange-500');
-      expect(color).toContain('border-orange-500/20');
+      expect(color).toContain('bg-orange-100');
+      expect(color).toContain('text-orange-800');
+      expect(color).toContain('border-orange-300');
     });
 
     it('should return blue colors for z.ai', () => {
       const color = getProviderBadgeColor('zai');
       expect(color).toContain('blue');
-      expect(color).toContain('bg-blue-500/10');
-      expect(color).toContain('text-blue-500');
-      expect(color).toContain('border-blue-500/20');
+      expect(color).toContain('bg-blue-100');
+      expect(color).toContain('text-blue-800');
+      expect(color).toContain('border-blue-300');
     });
 
-    it('should return purple colors for ZHIPU', () => {
+    it('should return green colors for ZHIPU', () => {
       const color = getProviderBadgeColor('zhipu');
-      expect(color).toContain('purple');
-      expect(color).toContain('bg-purple-500/10');
-      expect(color).toContain('text-purple-500');
-      expect(color).toContain('border-purple-500/20');
+      expect(color).toContain('green');
+      expect(color).toContain('bg-green-100');
+      expect(color).toContain('text-green-800');
+      expect(color).toContain('border-green-300');
     });
 
     it('should return gray colors for unknown', () => {
       const color = getProviderBadgeColor('unknown');
       expect(color).toContain('gray');
-      expect(color).toContain('bg-gray-500/10');
-      expect(color).toContain('text-gray-500');
-      expect(color).toContain('border-gray-500/20');
+      expect(color).toContain('bg-gray-100');
+      expect(color).toContain('text-gray-800');
+      expect(color).toContain('border-gray-300');
     });
   });
 });

@@ -216,7 +216,7 @@ describe('AuthStatusIndicator', () => {
 
       const { rerender } = render(<AuthStatusIndicator />);
       const anthropicButton = screen.getByRole('button');
-      expect(anthropicButton.className).toContain('text-orange-500');
+      expect(anthropicButton.className).toContain('text-orange-800');
 
       // Test z.ai (blue)
       vi.mocked(useSettingsStore).mockReturnValue(
@@ -225,16 +225,16 @@ describe('AuthStatusIndicator', () => {
 
       rerender(<AuthStatusIndicator />);
       const zaiButton = screen.getByRole('button');
-      expect(zaiButton.className).toContain('text-blue-500');
+      expect(zaiButton.className).toContain('text-blue-800');
 
-      // Test ZHIPU (purple)
+      // Test ZHIPU (green)
       vi.mocked(useSettingsStore).mockReturnValue(
         createUseSettingsStoreMock({ activeProfileId: 'profile-4' })
       );
 
       rerender(<AuthStatusIndicator />);
       const zhipuButton = screen.getByRole('button');
-      expect(zhipuButton.className).toContain('text-purple-500');
+      expect(zhipuButton.className).toContain('text-green-800');
     });
   });
 
