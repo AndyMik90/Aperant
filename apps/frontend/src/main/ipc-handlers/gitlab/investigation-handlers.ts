@@ -161,9 +161,25 @@ export function registerInvestigateIssue(
                 }
               }
             } catch (error) {
-              // Log pagination failure as warning, but proceed with partial notes
               const errorMessage = error instanceof Error ? error.message : String(error);
-              debugLog('Failed to fetch notes page, using partial notes', { page, error: errorMessage, notesRetrieved: allNotes.length });
+
+              // Check for authentication/rate-limit errors - these should be surfaced
+              const isAuthError = errorMessage.includes('401') || errorMessage.includes('403');
+              const isRateLimited = errorMessage.includes('429');
+
+              if (isAuthError || isRateLimited) {
+                // Re-throw critical errors to let the outer handler surface them to the user
+                console.warn(`[GitLab Investigation] ${isAuthError ? 'Authentication' : 'Rate limit'} error during notes fetch`, { page, error: errorMessage });
+                throw error;
+              }
+
+              // For transient errors on page 1, warn the user but continue
+              if (page === 1 && allNotes.length === 0) {
+                console.warn('[GitLab Investigation] Failed to fetch any notes, proceeding without notes context', { error: errorMessage });
+              } else {
+                // Log pagination failure for subsequent pages
+                debugLog('Failed to fetch notes page, using partial notes', { page, error: errorMessage, notesRetrieved: allNotes.length });
+              }
               hasMore = false;
             }
           }
