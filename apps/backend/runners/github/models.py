@@ -24,7 +24,7 @@ except (ImportError, ValueError, SystemError):
 
 def _utc_now_iso() -> str:
     """Return current UTC time as ISO 8601 string with timezone info."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class ReviewSeverity(str, Enum):
