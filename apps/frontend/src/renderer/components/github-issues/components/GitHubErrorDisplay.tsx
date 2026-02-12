@@ -274,6 +274,7 @@ export function GitHubErrorDisplay({
     return (
       <div
         role="alert"
+        aria-label={errorMessage}
         className={cn(
           'flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border',
           className

@@ -12,16 +12,14 @@ import type { GitHubErrorType, GitHubErrorInfo } from '../types';
 const MAX_RAW_ERROR_LENGTH = 500;
 
 /**
- * Patterns for rate limit errors (HTTP 403 with rate limit context)
+ * Patterns for rate limit errors (HTTP 403 with rate limit context).
+ * Note: Pattern 1 covers all "rate limit" variations (api rate limit exceeded,
+ * abuse rate limit, secondary rate limit, etc.) via substring matching.
  */
 const RATE_LIMIT_PATTERNS = [
-  /rate\s*limit/i,
-  /api\s*rate\s*limit\s*exceeded/i,
-  /rate\s*limit\s*exceeded/i,
+  /rate\s*limit/i, // Covers all variations containing "rate limit"
   /too\s*many\s*requests/i,
   /403.*rate/i,
-  /abuse\s*rate\s*limit/i,
-  /secondary\s*rate\s*limit/i,
 ];
 
 /**
