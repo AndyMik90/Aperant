@@ -47,7 +47,8 @@ export function claudeProfileToUnified(
   }
 ): UnifiedAccount {
   // Check for rate limit from profile's rate limit events
-  const activeRateLimit = profile.rateLimitEvents?.find(e => e.resetAt > new Date());
+  const now = new Date();
+  const activeRateLimit = profile.rateLimitEvents?.find(e => e.resetAt > now);
   const isRateLimited = options?.isRateLimited ?? !!activeRateLimit;
   // Use explicit isAuthenticated from options, falling back to profile property (which may be undefined for raw profiles)
   const isAuthenticated = options?.isAuthenticated ?? profile.isAuthenticated ?? false;
@@ -104,7 +105,8 @@ export function apiProfileToUnified(
     weeklyPercent: undefined, // Not applicable to API profiles
     isRateLimited: false, // API profiles don't have rate limits
     rateLimitType: undefined,
-    isAuthenticated
+    isAuthenticated,
+    needsReauthentication: false
   };
 }
 

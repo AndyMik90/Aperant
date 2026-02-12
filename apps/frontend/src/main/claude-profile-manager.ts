@@ -711,10 +711,12 @@ export class ClaudeProfileManager {
       this.data.profiles,
       apiProfiles,
       settings,
-      excludeAccountId,
-      priorityOrder,
-      activeOAuthId,
-      activeAPIId
+      {
+        excludeAccountId,
+        priorityOrder,
+        activeOAuthId,
+        activeAPIId
+      }
     );
   }
 

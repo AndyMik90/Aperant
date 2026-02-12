@@ -144,6 +144,20 @@ interface ScoredUnifiedAccount {
 }
 
 /**
+ * Options for unified account selection
+ */
+export interface UnifiedAccountSelectionOptions {
+  /** Unified account ID to exclude (usually the current/failing one) */
+  excludeAccountId?: string;
+  /** User's configured priority order (array of unified IDs) */
+  priorityOrder?: string[];
+  /** Currently active OAuth profile ID (if any) */
+  activeOAuthId?: string;
+  /** Currently active API profile ID (if any) */
+  activeAPIId?: string;
+}
+
+/**
  * Score a single unified account for availability
  *
  * @param account - The unified account to score
@@ -231,20 +245,15 @@ function scoreUnifiedAccount(
  * @param oauthProfiles - All OAuth (Claude) profiles
  * @param apiProfiles - All API profiles
  * @param settings - Auto-switch settings (contains thresholds for OAuth)
- * @param excludeAccountId - Unified account ID to exclude (usually the current/failing one)
- * @param priorityOrder - User's configured priority order (array of unified IDs)
- * @param activeOAuthId - Currently active OAuth profile ID (if any)
- * @param activeAPIId - Currently active API profile ID (if any)
+ * @param options - Optional configuration for selection
  */
 export function getBestAvailableUnifiedAccount(
   oauthProfiles: ClaudeProfile[],
   apiProfiles: APIProfile[],
   settings: ClaudeAutoSwitchSettings,
-  excludeAccountId?: string,
-  priorityOrder: string[] = [],
-  activeOAuthId?: string,
-  activeAPIId?: string
+  options: UnifiedAccountSelectionOptions = {}
 ): UnifiedAccount | null {
+  const { excludeAccountId, priorityOrder = [], activeOAuthId, activeAPIId } = options;
   // Convert all profiles to unified format
   const unifiedAccounts: UnifiedAccount[] = [];
 
@@ -329,20 +338,26 @@ export function getBestAvailableUnifiedAccount(
   const best = scoredAccounts[0];
 
   if (best.isAvailable) {
-    console.warn('[ProfileScorer] Best available account:', best.account.displayName,
-      '(type:', best.account.type, ', priority index:', best.priorityIndex, ')');
+    if (isDebug) {
+      console.warn('[ProfileScorer] Best available account:', best.account.displayName,
+        '(type:', best.account.type, ', priority index:', best.priorityIndex, ')');
+    }
     return best.account;
   }
 
   // No account meets all criteria - check if we should return the least bad option
   if (best.score > 0) {
-    console.warn('[ProfileScorer] No ideal account available, using least-bad option:', best.account.displayName,
-      '(type:', best.account.type, ', score:', best.score, ', reason:', best.unavailableReason, ')');
+    if (isDebug) {
+      console.warn('[ProfileScorer] No ideal account available, using least-bad option:', best.account.displayName,
+        '(type:', best.account.type, ', score:', best.score, ', reason:', best.unavailableReason, ')');
+    }
     return best.account;
   }
 
   // All accounts are truly unusable
-  console.warn('[ProfileScorer] No usable account available, all have issues');
+  if (isDebug) {
+    console.warn('[ProfileScorer] No usable account available, all have issues');
+  }
   return null;
 }
 
