@@ -104,6 +104,9 @@ async def run_followup_planner(
         spec_dir, "planning", planning_model
     )
     fast_mode = get_fast_mode(spec_dir)
+    logger.info(
+        f"[Planner] [Fast Mode] {'ENABLED' if fast_mode else 'disabled'} for follow-up planning"
+    )
     client = create_client(
         project_dir,
         spec_dir,

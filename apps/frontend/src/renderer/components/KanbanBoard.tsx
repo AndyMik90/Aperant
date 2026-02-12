@@ -29,7 +29,7 @@ import { SortableTaskCard } from './SortableTaskCard';
 import { QueueSettingsModal } from './QueueSettingsModal';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, forceCompleteTask, archiveTasks, deleteTasks, useTaskStore } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, archiveTasks, deleteTasks, useTaskStore, isQueueAtCapacity, DEFAULT_MAX_PARALLEL_TASKS } from '../stores/task-store';
 import { updateProjectSettings, useProjectStore } from '../stores/project-store';
 import { useKanbanSettingsStore, DEFAULT_COLUMN_WIDTH, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH, COLLAPSED_COLUMN_WIDTH_REM, MIN_COLUMN_WIDTH_REM, MAX_COLUMN_WIDTH_REM, BASE_FONT_SIZE, pxToRem } from '../stores/kanban-settings-store';
 import { useToast } from '../hooks/use-toast';
@@ -663,7 +663,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Get projectId from first task
   const projectId = tasks[0]?.projectId;
   const project = projectId ? projects.find((p) => p.id === projectId) : undefined;
-  const maxParallelTasks = project?.settings?.maxParallelTasks ?? 3;
+  const maxParallelTasks = project?.settings?.maxParallelTasks ?? DEFAULT_MAX_PARALLEL_TASKS;
 
   // Queue settings modal state
   const [showQueueSettings, setShowQueueSettings] = useState(false);
@@ -947,8 +947,23 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
    * Handle status change with worktree cleanup dialog support
    * Consolidated handler that accepts an optional task object for the dialog title
    */
-  const handleStatusChange = async (taskId: string, newStatus: TaskStatus, providedTask?: Task) => {
+  const handleStatusChange = async (taskId: string, requestedStatus: TaskStatus, providedTask?: Task) => {
     const task = providedTask || tasks.find(t => t.id === taskId);
+    let newStatus = requestedStatus;
+
+    // ============================================
+    // QUEUE SYSTEM: Enforce parallel task limit
+    // Called from both the dropdown menu and the drag-and-drop handler.
+    // Excludes the task itself from the count to handle re-entry (e.g., redundant
+    // status change or race with auto-promotion). processQueue auto-promotion
+    // calls persistTaskStatus directly, never this function.
+    // ============================================
+    if (newStatus === 'in_progress' && isQueueAtCapacity(taskId)) {
+      console.log('[Queue] In Progress full, redirecting task to Queue');
+      newStatus = 'queue';
+    }
+
+    const oldStatus = task?.status;
     const result = await persistTaskStatus(taskId, newStatus);
 
     if (!result.success) {
@@ -971,6 +986,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         });
       }
     }
+    // Note: queue auto-promotion when a task leaves in_progress is handled by the
+    // useEffect task status change listener (registerTaskStatusChangeListener), so
+    // no explicit processQueue() call is needed here.
   };
 
   /**
@@ -1402,40 +1420,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     if (!newStatus || newStatus === oldStatus) return;
 
-    // ============================================
-    // QUEUE SYSTEM: Enforce parallel task limit
-    // ============================================
-    if (newStatus === 'in_progress') {
-      // Get CURRENT state from store directly to avoid stale prop/memo issues during rapid dragging
-      const currentTasks = useTaskStore.getState().tasks;
-      const inProgressCount = currentTasks.filter((t) =>
-        t.status === 'in_progress' && !t.metadata?.archivedAt
-      ).length;
-
-      // If limit reached, move to queue instead
-      if (inProgressCount >= maxParallelTasks) {
-        // Only bypass the capacity check if coming from queue AND queue is NOT being processed
-        // This prevents race condition where both auto-promotion and manual drag exceed the limit
-        const isAutoPromotionInProgress = oldStatus === 'queue' && isProcessingQueueRef.current;
-
-        if (!isAutoPromotionInProgress) {
-          console.log(`[Queue] In Progress full (${inProgressCount}/${maxParallelTasks}), moving task to Queue`);
-          newStatus = 'queue';
-        }
-      }
-    }
-
-    // Persist status change to file and update local state
-    // Use handleStatusChange to properly handle worktree cleanup dialog
+    // Persist status change via handleStatusChange which enforces queue capacity,
+    // handles worktree cleanup dialogs, and calls processQueue() when a task
+    // leaves in_progress.
     await handleStatusChange(activeTaskId, newStatus, task);
-
-    // ============================================
-    // QUEUE SYSTEM: Auto-process queue when slot opens
-    // ============================================
-    if (oldStatus === 'in_progress' && newStatus !== 'in_progress') {
-      // A task left In Progress - check if we can promote from queue
-      await processQueue();
-    }
   };
 
   return (

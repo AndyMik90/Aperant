@@ -148,8 +148,10 @@ function queueUpdate(taskId: string, update: BatchedUpdate): void {
 function isTaskForCurrentProject(eventProjectId?: string): boolean {
   // If no projectId provided (backward compatibility), accept the event
   if (!eventProjectId) return true;
-  const currentProjectId = useProjectStore.getState().selectedProjectId;
-  // If no project selected, accept the event
+  const { activeProjectId, selectedProjectId } = useProjectStore.getState();
+  // Keep filtering aligned with App task loading logic (active first, selected fallback)
+  const currentProjectId = activeProjectId || selectedProjectId;
+  // If no project selected/active, accept the event
   if (!currentProjectId) return true;
   return currentProjectId === eventProjectId;
 }

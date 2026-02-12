@@ -77,6 +77,7 @@ from core.sentry import capture_exception, init_sentry, set_context
 init_sentry(component="github-runner")
 
 from debug import debug_error
+from phase_config import sanitize_thinking_level
 
 # Add github runner directory to path for direct imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -689,8 +690,7 @@ def main():
         "--thinking-level",
         type=str,
         default="medium",
-        choices=["low", "medium", "high"],
-        help="Thinking level for extended reasoning",
+        help="Thinking level for extended reasoning (low, medium, high)",
     )
     parser.add_argument(
         "--fast-mode",
@@ -801,6 +801,9 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Validate and sanitize thinking level (handles legacy values like 'ultrathink')
+    args.thinking_level = sanitize_thinking_level(args.thinking_level)
 
     if not args.command:
         parser.print_help()

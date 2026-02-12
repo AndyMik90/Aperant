@@ -7,8 +7,10 @@
 // Terminal Timing Constants
 // ============================================
 
-/** Delay for DOM updates before terminal operations (refit, resize) */
-export const TERMINAL_DOM_UPDATE_DELAY_MS = 50;
+/** Delay for DOM updates before terminal operations (refit, resize).
+ * Must be long enough for dnd-kit CSS transitions to complete after drag-drop reorder.
+ * 50ms was too short, causing xterm to fit into containers with zero/invalid dimensions. */
+export const TERMINAL_DOM_UPDATE_DELAY_MS = 250;
 
 /** Grace period before cleaning up error panel constraints after panel removal */
 export const PANEL_CLEANUP_GRACE_PERIOD_MS = 150;

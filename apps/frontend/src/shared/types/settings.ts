@@ -161,7 +161,7 @@ export interface ColorThemeDefinition {
 export type ThinkingLevel = 'low' | 'medium' | 'high';
 
 // Model type shorthand
-export type ModelTypeShort = 'haiku' | 'sonnet' | 'opus' | 'opus-1m';
+export type ModelTypeShort = 'haiku' | 'sonnet' | 'opus' | 'opus-1m' | 'opus-4.5';
 
 // Phase-based model configuration for Auto profile
 // Each phase can use a different model optimized for that task type
@@ -292,6 +292,7 @@ export interface AppSettings {
   // Migration flags (internal use)
   _migratedAgentProfileToAuto?: boolean;
   _migratedDefaultModelSync?: boolean;
+  _migratedUltrathinkToHigh?: boolean;
   // Language preference for UI (i18n)
   language?: SupportedLanguage;
   // Developer tools preferences
@@ -320,8 +321,6 @@ export interface AppSettings {
   vaultAutoLoad?: boolean;
   /** Whether to allow write operations to vault (default: false for safety) */
   vaultWriteEnabled?: boolean;
-  /** Fast Mode — faster Opus 4.6 output, requires extra usage on Claude subscription */
-  fastMode?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

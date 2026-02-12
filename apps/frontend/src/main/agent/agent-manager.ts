@@ -15,7 +15,7 @@ import {
 } from './types';
 import type { IdeationConfig } from '../../shared/types';
 import { resetStuckSubtasks } from '../ipc-handlers/task/plan-file-utils';
-import { AUTO_BUILD_PATHS, getSpecsDir } from '../../shared/constants';
+import { AUTO_BUILD_PATHS, getSpecsDir, sanitizeThinkingLevel } from '../../shared/constants';
 import { projectStore } from '../project-store';
 
 /**
@@ -304,15 +304,16 @@ export class AgentManager extends EventEmitter {
 
     // Pass model and thinking level configuration
     // For auto profile, use phase-specific config; otherwise use single model/thinking
+    // Validate thinking levels to prevent legacy values (e.g. 'ultrathink') from reaching the backend
     if (metadata?.isAutoProfile && metadata.phaseModels && metadata.phaseThinking) {
       // Pass the spec phase model and thinking level to spec_runner
       args.push('--model', metadata.phaseModels.spec);
-      args.push('--thinking-level', metadata.phaseThinking.spec);
+      args.push('--thinking-level', sanitizeThinkingLevel(metadata.phaseThinking.spec));
     } else if (metadata?.model) {
       // Non-auto profile: use single model and thinking level
       args.push('--model', metadata.model);
       if (metadata.thinkingLevel) {
-        args.push('--thinking-level', metadata.thinkingLevel);
+        args.push('--thinking-level', sanitizeThinkingLevel(metadata.thinkingLevel));
       }
     }
 
