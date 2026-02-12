@@ -14,14 +14,14 @@ from pathlib import Path
 
 import pytest
 
-# Add the backend directory to path
+# Add the backend and github runner directories to path
+# conftest.py adds apps/backend; we also need runners/github for services.*
 _backend_dir = Path(__file__).parent.parent / "apps" / "backend"
 _github_dir = _backend_dir / "runners" / "github"
-_services_dir = _github_dir / "services"
-_agents_dir = _backend_dir / "agents" / "tools_pkg"
-for p in [str(_github_dir), str(_backend_dir), str(_services_dir), str(_agents_dir)]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
+if str(_github_dir) not in sys.path:
+    sys.path.insert(0, str(_github_dir))
+if str(_backend_dir) not in sys.path:
+    sys.path.insert(0, str(_backend_dir))
 
 from agents.tools_pkg.models import AGENT_CONFIGS
 from services.pydantic_models import (
