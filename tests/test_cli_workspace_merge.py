@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 """
-Tests for CLI Workspace Commands
-==================================
-
 Tests for CLI Workspace Merge/Review/Discard Commands
-==================================================
+=====================================================
 
 Tests the workspace_commands.py module functionality including:
 - handle_merge_command()

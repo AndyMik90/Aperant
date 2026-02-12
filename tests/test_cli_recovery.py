@@ -25,11 +25,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 # Mock external dependencies before importing cli.recovery
 # =============================================================================
 
-def _create_mock_module():
-    """Create a mock module with necessary attributes."""
-    mock = MagicMock()
-    return mock
-
 # Mock spec.pipeline module which provides get_specs_dir
 if 'spec.pipeline' not in sys.modules:
     mock_pipeline = MagicMock()

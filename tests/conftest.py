@@ -1606,48 +1606,6 @@ def successful_agent_fn():
     return _fn
 
 
-def configure_build_mocks(
-    mock_validate_env,
-    mock_should_run_qa,
-    mock_get_phase_model,
-    mock_choose_workspace,
-    mock_get_existing,
-    mock_run_agent,
-    successful_agent_fn,
-    validate_env=True,
-    should_run_qa=False,
-    workspace_mode=None,
-    existing_spec=None,
-):
-    """
-    Configure common mock defaults for build command tests.
-
-    This helper reduces the boilerplate of setting up the same 6-line mock pattern
-    that was repeated 27+ times across test_cli_build_commands.py.
-
-    Usage:
-        def test_something(
-            mock_validate_env, mock_should_run_qa, mock_get_phase_model,
-            mock_choose_workspace, mock_get_existing, mock_run_agent,
-            successful_agent_fn
-        ):
-            configure_build_mocks(
-                mock_validate_env, mock_should_run_qa, mock_get_phase_model,
-                mock_choose_workspace, mock_get_existing, mock_run_agent,
-                successful_agent_fn
-            )
-            # ... rest of test
-    """
-    from cli.workspace_commands import WorkspaceMode
-
-    mock_validate_env.return_value = validate_env
-    mock_should_run_qa.return_value = should_run_qa
-    mock_get_phase_model.side_effect = lambda spec_dir, phase, model: model or "sonnet"
-    mock_choose_workspace.return_value = workspace_mode or WorkspaceMode.DIRECT
-    mock_get_existing.return_value = existing_spec
-    mock_run_agent.side_effect = successful_agent_fn
-
-
 @pytest.fixture
 def worktree_manager(temp_project_dir):
     """Create a WorktreeManager instance."""

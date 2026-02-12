@@ -20,15 +20,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Add apps/backend to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
+# Add tests directory to path for test_utils import
+sys.path.insert(0, str(Path(__file__).parent))
+
 
 # =============================================================================
 # Mock external dependencies before importing cli.utils
 # =============================================================================
 
-def _create_mock_module():
-    """Create a mock module with necessary attributes."""
-    mock = MagicMock()
-    return mock
+# Import shared helper for creating mock modules
+from test_utils import _create_mock_module
 
 # Mock modules that may not be available
 if 'graphiti_config' not in sys.modules:
