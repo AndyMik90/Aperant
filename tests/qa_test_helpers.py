@@ -137,11 +137,11 @@ def setup_qa_mocks(include_prompts_pkg: bool = False):
 
     Call this at module level before importing from qa modules.
     """
-    # Guard against re-setup - only store originals once
-    if not _mock_state['setup_done']:
-        for name in _mocked_module_names:
-            if name in sys.modules and name not in _original_modules:
-                _original_modules[name] = sys.modules[name]
+    # Save originals for each module individually before mocking
+    # This handles multiple setup calls with different parameters
+    for name in _mocked_module_names:
+        if name in sys.modules and name not in _original_modules:
+            _original_modules[name] = sys.modules[name]
 
     # Mock claude_agent_sdk FIRST
     mock_sdk = MagicMock()
