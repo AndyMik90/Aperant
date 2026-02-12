@@ -22,6 +22,8 @@ import { detectAuthFailure, detectBillingFailure } from '../../../rate-limit-det
 import { getClaudeProfileManager } from '../../../claude-profile-manager';
 import { getOperationRegistry, type OperationType } from '../../../claude-profile/operation-registry';
 import { isWindows, isMacOS } from '../../../platform';
+import { getEffectiveSourcePath } from '../../../updater/path-resolver';
+import { getConfiguredPythonPath } from '../../../python-env-manager';
 import { getTaskkillExePath, getWhereExePath } from '../../../utils/windows-paths';
 
 const execAsync = promisify(exec);
@@ -483,6 +485,12 @@ export function runPythonSubprocess<T = unknown>(
  * Cross-platform: uses Scripts/python.exe on Windows, bin/python on Unix
  */
 export function getPythonPath(backendPath: string): string {
+  // Try managed Python path first (handles bundled app venv)
+  const configured = getConfiguredPythonPath();
+  if (configured && fs.existsSync(configured)) {
+    return configured;
+  }
+  // Fallback to venv in backend path (dev mode)
   return isWindows()
     ? path.join(backendPath, '.venv', 'Scripts', 'python.exe')
     : path.join(backendPath, '.venv', 'bin', 'python');
@@ -504,36 +512,20 @@ export function getRunnerPath(backendPath: string): string {
  * 3. Current working directory
  */
 export function getBackendPath(project: Project): string | null {
-  // Import app module for production path detection
-  let app: any;
-  try {
-    app = require('electron').app;
-  } catch {
-    // Electron not available in tests
+  // Use shared path resolver which handles:
+  // 1. User settings (autoBuildPath)
+  // 2. userData override (backend-source) for user-updated backend
+  // 3. Bundled backend (process.resourcesPath/backend)
+  // 4. Development paths
+  const effectivePath = getEffectiveSourcePath();
+  if (fs.existsSync(effectivePath) && fs.existsSync(path.join(effectivePath, 'runners', 'github', 'runner.py'))) {
+    return effectivePath;
   }
 
-  // Check if this is a development repo (has apps/backend structure)
+  // Fallback: check project path for development repo structure
   const appsBackendPath = path.join(project.path, 'apps', 'backend');
   if (fs.existsSync(path.join(appsBackendPath, 'runners', 'github', 'runner.py'))) {
     return appsBackendPath;
-  }
-
-  // Auto-detect from app location (same logic as agent-process.ts)
-  const possiblePaths = [
-    // Dev mode: from dist/main -> ../../backend (apps/frontend/out/main -> apps/backend)
-    path.resolve(__dirname, '..', '..', '..', '..', '..', 'backend'),
-    // Alternative: from app root -> apps/backend
-    app ? path.resolve(app.getAppPath(), '..', 'backend') : null,
-    // If running from repo root with apps structure
-    path.resolve(process.cwd(), 'apps', 'backend'),
-  ].filter((p): p is string => p !== null);
-
-  for (const backendPath of possiblePaths) {
-    // Check for runner.py as marker
-    const runnerPath = path.join(backendPath, 'runners', 'github', 'runner.py');
-    if (fs.existsSync(runnerPath)) {
-      return backendPath;
-    }
   }
 
   return null;
