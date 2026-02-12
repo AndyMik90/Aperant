@@ -605,6 +605,11 @@ The SDK will run invoked agents in parallel automatically.
                 last_assistant_text = stream_result.get("last_assistant_text", "")
                 structured_output = stream_result["structured_output"]
                 agents_invoked = stream_result["agents_invoked"]
+
+                # Force Tier 2 fallback path on recoverable errors — don't attempt
+                # to parse partial structured output that failed validation
+                if stream_error and stream_result.get("error_recoverable"):
+                    structured_output = None
                 msg_count = stream_result["msg_count"]
 
             self._report_progress(
@@ -1140,7 +1145,7 @@ The SDK will run invoked agents in parallel automatically.
             model = resolve_model_id(model_shorthand)
 
             extraction_client = create_client(
-                project_dir=str(Path.cwd()),
+                project_dir=self.project_dir,
                 spec_dir=self.github_dir,
                 model=model,
                 agent_type="pr_followup_extraction",
@@ -1201,6 +1206,7 @@ The SDK will run invoked agents in parallel automatically.
                 "new_finding_ids": [],
                 "dismissed_false_positive_ids": [],
                 "confirmed_valid_count": extracted.confirmed_finding_count,
+                "dismissed_finding_count": extracted.dismissed_finding_count,
                 "needs_human_review_count": 0,
                 "verdict": verdict,
                 "verdict_reasoning": f"[Recovered via extraction] {extracted.verdict_reasoning}",
