@@ -696,17 +696,16 @@ export class ClaudeProfileManager {
     const priorityOrder = this.getAccountPriorityOrder();
     const activeOAuthId = this.data.activeProfileId;
 
-    // Load API profiles
+    // Load API profiles and active API profile ID from profiles.json
     let apiProfiles: APIProfile[] = [];
+    let activeAPIId: string | undefined;
     try {
-      apiProfiles = await this.loadAPIProfiles();
+      const profilesFile = await loadProfilesFile();
+      apiProfiles = profilesFile.profiles;
+      activeAPIId = profilesFile.activeProfileId ?? undefined;
     } catch (error) {
       console.error('[ClaudeProfileManager] Failed to load API profiles for unified selection:', error);
     }
-
-    // Get active API profile ID if we have any
-    const activeAPIProfile = apiProfiles.find(p => p.id === activeOAuthId);
-    const activeAPIId = activeAPIProfile?.id;
 
     return getBestAvailableUnifiedAccount(
       this.data.profiles,

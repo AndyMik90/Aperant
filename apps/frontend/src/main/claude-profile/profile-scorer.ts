@@ -83,32 +83,6 @@ function checkProfileAvailability(
 }
 
 /**
- * Check if an API profile is available for use
- * API profiles have no usage limits (pay-per-use), so only API key validity matters
- *
- * @param profile - The API profile to check
- * @param isAuthenticated - Whether the API key has been validated
- */
-export function checkAPIProfileAvailability(
-  profile: APIProfile,
-  isAuthenticated: boolean = true
-): { available: boolean; reason?: string } {
-  // Check if API key exists
-  if (!profile.apiKey) {
-    return { available: false, reason: 'no API key configured' };
-  }
-
-  // Check if API key was validated
-  if (!isAuthenticated) {
-    return { available: false, reason: 'API key not validated' };
-  }
-
-  // API profiles have unlimited usage (pay-per-use)
-  // No usage threshold checks needed
-  return { available: true };
-}
-
-/**
  * Calculate a fallback score for when no profiles meet all criteria
  * Used to pick the "least bad" option
  */
@@ -171,13 +145,19 @@ interface ScoredUnifiedAccount {
 
 /**
  * Score a single unified account for availability
+ *
+ * @param account - The unified account to score
+ * @param priorityIndex - Index in the user's priority order (lower = higher priority)
+ * @param settings - Auto-switch settings containing usage thresholds
  */
 function scoreUnifiedAccount(
   account: UnifiedAccount,
-  priorityIndex: number
+  priorityIndex: number,
+  settings: ClaudeAutoSwitchSettings
 ): ScoredUnifiedAccount {
   let score = 100;
   let unavailableReason: string | undefined;
+  let isOverThreshold = false;
 
   // For API profiles: simple availability check
   if (account.type === 'api') {
@@ -199,7 +179,7 @@ function scoreUnifiedAccount(
     };
   }
 
-  // For OAuth profiles: detailed scoring
+  // For OAuth profiles: detailed scoring with threshold enforcement
   if (!account.isAuthenticated) {
     score = -1000;
     unavailableReason = 'not authenticated';
@@ -210,17 +190,30 @@ function scoreUnifiedAccount(
       score = -200;
     }
     unavailableReason = `rate limited (${account.rateLimitType || 'unknown'})`;
-  } else if (account.sessionPercent !== undefined && account.weeklyPercent !== undefined) {
-    // Penalize high usage (prefer lower usage)
-    score -= account.weeklyPercent * 0.3;
-    score -= account.sessionPercent * 0.1;
+  } else {
+    // Check usage thresholds (matching checkProfileAvailability behavior)
+    if (account.weeklyPercent !== undefined && account.weeklyPercent >= settings.weeklyThreshold) {
+      isOverThreshold = true;
+      unavailableReason = `weekly usage ${account.weeklyPercent}% >= threshold ${settings.weeklyThreshold}%`;
+    } else if (account.sessionPercent !== undefined && account.sessionPercent >= settings.sessionThreshold) {
+      isOverThreshold = true;
+      unavailableReason = `session usage ${account.sessionPercent}% >= threshold ${settings.sessionThreshold}%`;
+    }
+
+    // Apply proportional penalties for high usage (even if not over threshold)
+    if (account.weeklyPercent !== undefined) {
+      score -= account.weeklyPercent * 0.3;
+    }
+    if (account.sessionPercent !== undefined) {
+      score -= account.sessionPercent * 0.1;
+    }
   }
 
   return {
     account,
     score,
     priorityIndex,
-    isAvailable: score > 0 && account.isAuthenticated === true && !account.isRateLimited,
+    isAvailable: score > 0 && account.isAuthenticated === true && !account.isRateLimited && !isOverThreshold,
     unavailableReason
   };
 }
@@ -269,7 +262,8 @@ export function getBestAvailableUnifiedAccount(
   // Convert API profiles
   for (const profile of apiProfiles) {
     const isActive = profile.id === activeAPIId;
-    // Assume API profiles are authenticated if they have an API key
+    // API profiles are considered authenticated if they have an API key
+    // Note: This assumes the key has been tested. Consider adding validation tracking.
     const isAuthenticated = !!profile.apiKey;
     unifiedAccounts.push(apiProfileToUnified(profile, isActive, isAuthenticated));
   }
@@ -290,7 +284,7 @@ export function getBestAvailableUnifiedAccount(
   // Score and check availability for each account
   const scoredAccounts: ScoredUnifiedAccount[] = candidates.map(account => {
     const priorityIndex = priorityOrder.indexOf(account.id);
-    const scored = scoreUnifiedAccount(account, priorityIndex === -1 ? Infinity : priorityIndex);
+    const scored = scoreUnifiedAccount(account, priorityIndex === -1 ? Infinity : priorityIndex, settings);
 
     if (isDebug) {
       console.warn('[ProfileScorer] Scoring account:', account.displayName, '(', account.id, ')');

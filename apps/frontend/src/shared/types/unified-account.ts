@@ -114,14 +114,12 @@ export function claudeProfileToUnified(
     rateLimitType?: RateLimitType;
   }
 ): UnifiedAccount {
-  const isAvailable = !!(
-    profile.isAuthenticated &&
-    !options?.isRateLimited &&
-    !profile.rateLimitEvents?.some(e => e.resetAt > new Date())
-  );
-
   // Check for rate limit from profile's rate limit events
   const activeRateLimit = profile.rateLimitEvents?.find(e => e.resetAt > new Date());
+  const isRateLimited = options?.isRateLimited ?? !!activeRateLimit;
+
+  // Derive isAvailable from the computed isRateLimited value
+  const isAvailable = !!(profile.isAuthenticated && !isRateLimited);
 
   return {
     id: `${OAUTH_ID_PREFIX}${profile.id}`,
@@ -135,7 +133,7 @@ export function claudeProfileToUnified(
     hasUnlimitedUsage: false, // OAuth accounts have usage limits
     sessionPercent: profile.usage?.sessionUsagePercent,
     weeklyPercent: profile.usage?.weeklyUsagePercent,
-    isRateLimited: options?.isRateLimited ?? !!activeRateLimit,
+    isRateLimited,
     rateLimitType: options?.rateLimitType ?? activeRateLimit?.type,
     isAuthenticated: profile.isAuthenticated,
     needsReauthentication: false // Set separately if needed
@@ -147,12 +145,12 @@ export function claudeProfileToUnified(
  *
  * @param profile - The API profile to convert
  * @param isActive - Whether this is the currently active account
- * @param isAuthenticated - Whether the API key is valid (has been tested)
+ * @param isAuthenticated - Whether the API key is valid (has been tested). Defaults to false for safety.
  */
 export function apiProfileToUnified(
   profile: APIProfile,
   isActive: boolean,
-  isAuthenticated: boolean = true
+  isAuthenticated: boolean = false
 ): UnifiedAccount {
   // API profiles are available if they have a valid API key
   // They have unlimited usage (pay-per-use)
@@ -205,14 +203,18 @@ export function extractProfileId(unifiedId: string): string {
 
 /**
  * Create a unified account ID from an OAuth profile ID
+ * Guards against double-prefixing if profileId already has the prefix
  */
 export function toOAuthUnifiedId(profileId: string): string {
+  if (profileId.startsWith(OAUTH_ID_PREFIX)) return profileId;
   return `${OAUTH_ID_PREFIX}${profileId}`;
 }
 
 /**
  * Create a unified account ID from an API profile ID
+ * Guards against double-prefixing if profileId already has the prefix
  */
 export function toAPIUnifiedId(profileId: string): string {
+  if (profileId.startsWith(API_ID_PREFIX)) return profileId;
   return `${API_ID_PREFIX}${profileId}`;
 }
