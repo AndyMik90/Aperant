@@ -205,10 +205,10 @@ def handle_batch_cleanup_command(project_dir: str, dry_run: bool = True) -> bool
         print_status("No specs directory found", "info")
         return True
 
-    # Find completed specs
+    # Find completed specs (only QA-approved, matching status display logic)
     completed = []
     for spec_dir in specs_dir.iterdir():
-        if spec_dir.is_dir() and (spec_dir / "qa_report.md").exists():
+        if spec_dir.is_dir() and is_qa_approved(spec_dir):
             completed.append(spec_dir.name)
 
     if not completed:
