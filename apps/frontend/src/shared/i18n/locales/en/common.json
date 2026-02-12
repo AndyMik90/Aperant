@@ -594,6 +594,11 @@
     "step3": "Click \"Authenticate\" to complete login",
     "footer": "The account will be available once you complete authentication."
   },
+  "roadmap": {
+    "taskCompleted": "Completed",
+    "taskDeleted": "Deleted",
+    "taskArchived": "Archived"
+  },
   "roadmapGeneration": {
     "progress": "Progress",
     "elapsed": "Elapsed: {{time}}",

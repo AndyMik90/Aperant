@@ -594,6 +594,11 @@
     "step3": "Cliquez sur « Authentifier » pour terminer la connexion",
     "footer": "Le compte sera disponible une fois l'authentification terminée."
   },
+  "roadmap": {
+    "taskCompleted": "Terminé",
+    "taskDeleted": "Supprimé",
+    "taskArchived": "Archivé"
+  },
   "roadmapGeneration": {
     "progress": "Progression",
     "elapsed": "Écoulé : {{time}}",
