@@ -12,6 +12,7 @@ Tests cover:
 import json
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -439,9 +440,10 @@ class TestEdgeCases:
         """Test handling of non-existent directory."""
         fake_dir = Path("/nonexistent/path")
 
-        # Should not crash
-        orchestrator = ServiceOrchestrator(fake_dir)
-        assert orchestrator.is_multi_service() is False
+        # Should not crash - mock exists to avoid permission error
+        with patch.object(Path, 'exists', return_value=False):
+            orchestrator = ServiceOrchestrator(fake_dir)
+            assert orchestrator.is_multi_service() is False
 
     def test_empty_compose_file(self, temp_dir):
         """Test handling of empty compose file."""

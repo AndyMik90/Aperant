@@ -12,7 +12,6 @@ Tests for planner→coder→QA state transitions including:
 Note: Uses temp_git_repo fixture from conftest.py for proper git isolation.
 """
 
-import asyncio
 import json
 import subprocess
 import sys
@@ -22,7 +21,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 # Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "apps" / "backend"))
 
 
 # =============================================================================
@@ -190,7 +189,7 @@ class TestPlannerToCoderTransition:
 class TestPostSessionProcessing:
     """Tests for post_session_processing function."""
 
-    def test_completed_subtask_records_success(self, test_env):
+    async def test_completed_subtask_records_success(self, test_env):
         """Test that completed subtask is recorded as successful."""
         from recovery import RecoveryManager
         from agents.session import post_session_processing
@@ -212,20 +211,16 @@ class TestPostSessionProcessing:
             mock_insights.return_value = {"file_insights": [], "patterns_discovered": []}
             mock_memory.return_value = (True, "file")
 
-            # Run async function using asyncio.run()
-            async def run_test():
-                return await post_session_processing(
-                    spec_dir=spec_dir,
-                    project_dir=project_dir,
-                    subtask_id="subtask-1",
-                    session_num=1,
-                    commit_before=commit_before,
-                    commit_count_before=1,
-                    recovery_manager=recovery_manager,
-                    linear_enabled=False,
-                )
-
-            result = asyncio.run(run_test())
+            result = await post_session_processing(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                subtask_id="subtask-1",
+                session_num=1,
+                commit_before=commit_before,
+                commit_count_before=1,
+                recovery_manager=recovery_manager,
+                linear_enabled=False,
+            )
 
         assert result is True, "Completed subtask should return True"
 
@@ -235,7 +230,7 @@ class TestPostSessionProcessing:
         assert history["attempts"][0]["success"] is True, "Attempt should be successful"
         assert history["status"] == "completed", "Status should be completed"
 
-    def test_in_progress_subtask_records_failure(self, test_env):
+    async def test_in_progress_subtask_records_failure(self, test_env):
         """Test that in_progress subtask is recorded as incomplete."""
         from recovery import RecoveryManager
         from agents.session import post_session_processing
@@ -258,20 +253,16 @@ class TestPostSessionProcessing:
             mock_insights.return_value = {"file_insights": [], "patterns_discovered": []}
             mock_memory.return_value = (True, "file")
 
-            # Run async function using asyncio.run()
-            async def run_test():
-                return await post_session_processing(
-                    spec_dir=spec_dir,
-                    project_dir=project_dir,
-                    subtask_id="subtask-1",
-                    session_num=1,
-                    commit_before=commit_before,
-                    commit_count_before=1,
-                    recovery_manager=recovery_manager,
-                    linear_enabled=False,
-                )
-
-            result = asyncio.run(run_test())
+            result = await post_session_processing(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                subtask_id="subtask-1",
+                session_num=1,
+                commit_before=commit_before,
+                commit_count_before=1,
+                recovery_manager=recovery_manager,
+                linear_enabled=False,
+            )
 
         assert result is False, "In-progress subtask should return False"
 
@@ -280,7 +271,7 @@ class TestPostSessionProcessing:
         assert len(history["attempts"]) == 1, "Should have 1 attempt"
         assert history["attempts"][0]["success"] is False, "Attempt should be unsuccessful"
 
-    def test_pending_subtask_records_failure(self, test_env):
+    async def test_pending_subtask_records_failure(self, test_env):
         """Test that pending (no progress) subtask is recorded as failure."""
         from recovery import RecoveryManager
         from agents.session import post_session_processing
@@ -301,20 +292,16 @@ class TestPostSessionProcessing:
             mock_insights.return_value = {"file_insights": [], "patterns_discovered": []}
             mock_memory.return_value = (True, "file")
 
-            # Run async function using asyncio.run()
-            async def run_test():
-                return await post_session_processing(
-                    spec_dir=spec_dir,
-                    project_dir=project_dir,
-                    subtask_id="subtask-1",
-                    session_num=1,
-                    commit_before=commit_before,
-                    commit_count_before=1,
-                    recovery_manager=recovery_manager,
-                    linear_enabled=False,
-                )
-
-            result = asyncio.run(run_test())
+            result = await post_session_processing(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                subtask_id="subtask-1",
+                session_num=1,
+                commit_before=commit_before,
+                commit_count_before=1,
+                recovery_manager=recovery_manager,
+                linear_enabled=False,
+            )
 
         assert result is False, "Pending subtask should return False"
 

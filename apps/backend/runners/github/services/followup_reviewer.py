@@ -18,7 +18,6 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -33,6 +32,7 @@ try:
         PRReviewResult,
         ReviewCategory,
         ReviewSeverity,
+        _utc_now_iso,
     )
     from .category_utils import map_category
     from .io_utils import safe_print
@@ -46,6 +46,7 @@ except (ImportError, ValueError, SystemError):
         PRReviewResult,
         ReviewCategory,
         ReviewSeverity,
+        _utc_now_iso,
     )
     from services.category_utils import map_category
     from services.io_utils import safe_print
@@ -265,7 +266,7 @@ class FollowupReviewer:
             verdict=verdict,
             verdict_reasoning=verdict_reasoning,
             blockers=blockers,
-            reviewed_at=datetime.now().isoformat(),
+            reviewed_at=_utc_now_iso(),
             # Follow-up specific fields
             reviewed_commit_sha=context.current_commit_sha,
             reviewed_file_blobs=file_blobs,
