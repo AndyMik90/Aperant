@@ -28,7 +28,7 @@ from models import (
     MergeVerdict,
     FollowupReviewContext,
 )
-from bot_detection import BotDetector as GitHubBotDetector
+from bot_detection import GitHubBotDetector
 
 
 # ============================================================================

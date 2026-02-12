@@ -5,8 +5,6 @@ Tests for GitLab TypedDict Definitions
 Tests for type definitions and TypedDict usage.
 """
 
-import pytest
-
 try:
     from runners.gitlab.types import (
         GitLabCommit,

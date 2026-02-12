@@ -22,7 +22,7 @@ try:
     from .io_utils import safe_print
 except ImportError:
     from core.io_utils import safe_print
-    from glab_client import GitLabClient, GitLabConfig
+    from runners.gitlab.glab_client import GitLabClient, GitLabConfig
 
 
 class PipelineStatus(str, Enum):

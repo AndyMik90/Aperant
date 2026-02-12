@@ -19,7 +19,11 @@ from typing import Any
 try:
     from ..glab_client import GitLabClient, GitLabConfig, encode_project_path
 except (ImportError, ValueError, SystemError):
-    from glab_client import GitLabClient, GitLabConfig, encode_project_path
+    from runners.gitlab.glab_client import (
+        GitLabClient,
+        GitLabConfig,
+        encode_project_path,
+    )
 
 # Import the protocol and data models from GitHub's protocol definition
 # This ensures compatibility across providers
@@ -592,6 +596,7 @@ class GitLabProvider:
             )
             return
         except Exception:
+            # Intentionally ignore: not an MR, try issue below
             pass
 
         # Try issue
@@ -608,6 +613,7 @@ class GitLabProvider:
                 data={"labels": ",".join(new_labels)},
             )
         except Exception:
+            # Intentionally ignore: label application failed, non-critical operation
             pass
 
     async def remove_labels(
@@ -639,6 +645,7 @@ class GitLabProvider:
             )
             return
         except Exception:
+            # Intentionally ignore: not an MR, try issue below
             pass
 
         # Try issue
@@ -655,6 +662,7 @@ class GitLabProvider:
                 data={"labels": ",".join(new_labels)},
             )
         except Exception:
+            # Intentionally ignore: label removal failed, non-critical operation
             pass
 
     async def create_label(self, label: LabelData) -> None:

@@ -21,7 +21,7 @@ try:
         TriageResult,
     )
 except (ImportError, ValueError, SystemError):
-    from models import (
+    from runners.gitlab.models import (
         AICommentTriage,
         MRReviewFinding,
         ReviewCategory,

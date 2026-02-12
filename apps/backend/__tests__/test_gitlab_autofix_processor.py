@@ -5,19 +5,12 @@ Tests for GitLab Auto-fix Processor
 Tests for auto-fix workflow, permission verification, and state management.
 """
 
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
-try:
-    from runners.gitlab.autofix_processor import AutoFixProcessor
-    from runners.gitlab.models import AutoFixState, AutoFixStatus, GitLabRunnerConfig
-    from runners.gitlab.permissions import GitLabPermissionChecker
-except ImportError:
-    from models import AutoFixState, AutoFixStatus, GitLabRunnerConfig
-    from runners.gitlab.autofix_processor import AutoFixProcessor
-    from runners.gitlab.permissions import GitLabPermissionChecker
+from runners.gitlab.autofix_processor import AutoFixProcessor
+from runners.gitlab.models import AutoFixState, AutoFixStatus, GitLabRunnerConfig
+from runners.gitlab.permissions import GitLabPermissionChecker
 
 
 @pytest.fixture

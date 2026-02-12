@@ -16,10 +16,10 @@ try:
     from .prompt_manager import PromptManager
     from .response_parsers import ResponseParser
 except (ImportError, ValueError, SystemError):
-    from models import GitLabRunnerConfig, TriageCategory, TriageResult
     from phase_config import resolve_model_id
-    from services.prompt_manager import PromptManager
-    from services.response_parsers import ResponseParser
+    from runners.gitlab.models import GitLabRunnerConfig, TriageCategory, TriageResult
+    from runners.gitlab.services.prompt_manager import PromptManager
+    from runners.gitlab.services.response_parsers import ResponseParser
 
 
 class TriageEngine:

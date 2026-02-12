@@ -25,7 +25,7 @@ try:
     )
 except ImportError:
     # Fallback for direct script execution (not as a module)
-    from models import (
+    from runners.gitlab.models import (
         GitLabRunnerConfig,
         MergeVerdict,
         MRContext,

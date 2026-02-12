@@ -5,10 +5,8 @@ Tests for GitLab Client Error Handling
 Tests for enhanced retry logic, rate limiting, and error handling.
 """
 
-import socket
 import urllib.error
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -82,7 +80,7 @@ class TestRetryLogic:
             return _create_mock_response()
 
         with patch("urllib.request.urlopen", mock_urlopen):
-            result = client._fetch("/projects/namespace%2Fproject")
+            _result = client._fetch("/projects/namespace%2Fproject")
 
             assert call_count == 2  # Retried once
 
@@ -107,7 +105,7 @@ class TestRetryLogic:
             return _create_mock_response()
 
         with patch("urllib.request.urlopen", mock_urlopen):
-            result = client._fetch("/projects/namespace%2Fproject")
+            _result = client._fetch("/projects/namespace%2Fproject")
 
             assert call_count == 2
 
@@ -132,7 +130,7 @@ class TestRetryLogic:
             return _create_mock_response()
 
         with patch("urllib.request.urlopen", mock_urlopen):
-            result = client._fetch("/projects/namespace%2Fproject")
+            _result = client._fetch("/projects/namespace%2Fproject")
 
             assert call_count == 2
 
@@ -149,7 +147,7 @@ class TestRetryLogic:
             return _create_mock_response()
 
         with patch("urllib.request.urlopen", mock_urlopen):
-            result = client._fetch("/projects/namespace%2Fproject")
+            _result = client._fetch("/projects/namespace%2Fproject")
 
             assert call_count == 2
 
@@ -166,7 +164,7 @@ class TestRetryLogic:
             return _create_mock_response()
 
         with patch("urllib.request.urlopen", mock_urlopen):
-            result = client._fetch("/projects/namespace%2Fproject")
+            _result = client._fetch("/projects/namespace%2Fproject")
 
             assert call_count == 2
 

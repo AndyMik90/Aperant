@@ -14,7 +14,7 @@ Key Features:
 - Stale review detection with automatic cleanup
 
 Usage:
-    detector = BotDetector(bot_token="ghp_...")
+    detector = GitHubBotDetector(state_dir=Path(".auto-claude/github"), bot_token="ghp_...")
 
     # Check if PR should be skipped
     should_skip, reason = detector.should_skip_pr_review(pr_data, commits)
@@ -107,7 +107,7 @@ class BotDetectionState:
             return cls.from_dict(json.load(f))
 
 
-class BotDetector:
+class GitHubBotDetector:
     """
     Detects bot-authored PRs and commits to prevent infinite review loops.
 

@@ -6,13 +6,12 @@ Tests for GitLabPermissionChecker and permission verification.
 """
 
 import logging
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from runners.gitlab.permissions import (
     GitLabPermissionChecker,
     GitLabRole,
-    PermissionCheckResult,
 )
 from runners.gitlab.permissions import PermissionError as GitLabPermissionError
 

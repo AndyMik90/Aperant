@@ -5,18 +5,6 @@ GitLab MR Review Tests
 Tests for MR review models, findings, verdicts.
 """
 
-import json
-from datetime import datetime, timezone
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
-
-import pytest
-from __tests__.fixtures.gitlab import (
-    MOCK_GITLAB_CONFIG,
-    mock_issue_data,
-    mock_mr_data,
-)
-
 
 class TestMRReviewFinding:
     """Test MRReviewFinding model."""

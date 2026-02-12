@@ -13,7 +13,7 @@ from pathlib import Path
 try:
     from ..models import ReviewPass
 except (ImportError, ValueError, SystemError):
-    from models import ReviewPass
+    from runners.gitlab.models import ReviewPass
 
 
 class PromptManager:

@@ -5,14 +5,10 @@ GitLab CI Checker Tests
 Tests for CI/CD pipeline status checking.
 """
 
-from datetime import datetime, timezone
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import patch
 
 import pytest
 from __tests__.fixtures.gitlab import (
-    MOCK_GITLAB_CONFIG,
-    mock_mr_data,
     mock_pipeline_data,
     mock_pipeline_jobs,
 )

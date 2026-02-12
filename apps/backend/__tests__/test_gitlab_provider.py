@@ -5,19 +5,12 @@ GitLab Provider Tests
 Tests for GitLabProvider implementation of the GitProvider protocol.
 """
 
-import json
-from datetime import datetime, timezone
-from enum import Enum
-from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import patch
 
 import pytest
 from __tests__.fixtures.gitlab import (
-    MOCK_GITLAB_CONFIG,
     mock_issue_data,
     mock_mr_data,
-    mock_pipeline_data,
 )
 
 # Mock ProviderType enum since GitHub runners aren't available in this branch

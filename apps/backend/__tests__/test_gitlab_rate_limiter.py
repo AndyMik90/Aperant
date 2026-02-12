@@ -7,8 +7,6 @@ Tests for token bucket rate limiting and rate limiter state model.
 
 import time
 
-import pytest
-
 
 class TestTokenBucket:
     """Test TokenBucket for rate limiting."""

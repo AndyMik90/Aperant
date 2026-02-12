@@ -8,9 +8,6 @@ Tests the ResponseParser class which handles:
 - Error handling for malformed responses
 """
 
-import json
-
-import pytest
 from runners.gitlab.models import (
     ReviewCategory,
     ReviewSeverity,

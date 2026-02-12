@@ -12,7 +12,7 @@ as if it were in services/ directory). These are marked for future fix.
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from runners.gitlab.models import GitLabRunnerConfig

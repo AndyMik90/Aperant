@@ -231,7 +231,7 @@ class GitLabClient:
                     try:
                         return json.loads(response_body)
                     except json.JSONDecodeError:
-                        # Return raw response if not JSON
+                        # Intentionally ignore: response is not valid JSON, return raw text
                         return response_body
 
             except urllib.error.HTTPError as e:

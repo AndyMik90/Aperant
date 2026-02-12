@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 try:
-    from .bot_detection import BotDetector as GitLabBotDetector
+    from .bot_detection import GitLabBotDetector
     from .glab_client import GitLabClient, GitLabConfig
     from .models import (
         GitLabRunnerConfig,
@@ -38,7 +38,7 @@ except ImportError:
     _gitlab_dir = Path(__file__).parent
     if str(_gitlab_dir) not in sys.path:
         sys.path.insert(0, str(_gitlab_dir))
-    from bot_detection import BotDetector as GitLabBotDetector
+    from bot_detection import GitLabBotDetector
     from glab_client import GitLabClient, GitLabConfig
     from models import (
         GitLabRunnerConfig,

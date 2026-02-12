@@ -20,7 +20,7 @@ from pathlib import Path
 
 try:
     # When imported as part of package
-    from .bot_detection import BotDetector as GitHubBotDetector
+    from .bot_detection import GitHubBotDetector
     from .context_gatherer import PRContext, PRContextGatherer
     from .gh_client import GHClient
     from .models import (
@@ -58,7 +58,7 @@ except (ImportError, ValueError, SystemError):
         sys.path.insert(0, str(_github_dir))
     # Use try/except for each import to handle partial failures gracefully
     try:
-        from bot_detection import BotDetector as GitHubBotDetector
+        from bot_detection import GitHubBotDetector
     except ImportError:
         GitHubBotDetector = None  # type: ignore
 

@@ -31,7 +31,7 @@ from models import (
     GitHubRunnerConfig,
     FollowupReviewContext,
 )
-from bot_detection import BotDetector as GitHubBotDetector
+from bot_detection import GitHubBotDetector
 
 
 # ============================================================================

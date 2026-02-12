@@ -19,7 +19,7 @@ _github_dir = _backend_dir / "runners" / "github"
 if str(_github_dir) not in sys.path:
     sys.path.insert(0, str(_github_dir))
 
-from bot_detection import BotDetectionState, BotDetector as GitHubBotDetector
+from bot_detection import BotDetectionState, GitHubBotDetector
 
 
 @pytest.fixture

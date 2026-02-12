@@ -5,12 +5,10 @@ Unit Tests for GitLab Follow-up MR Reviewer
 Tests for FollowupReviewer class.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from runners.gitlab.models import (
-    AutoFixState,
-    AutoFixStatus,
     MergeVerdict,
     MRReviewFinding,
     MRReviewResult,

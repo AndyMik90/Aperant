@@ -26,8 +26,8 @@ try:
     from .io_utils import safe_print
 except ImportError:
     from core.io_utils import safe_print
-    from glab_client import GitLabClient, GitLabConfig
-    from models import MRContext
+    from runners.gitlab.glab_client import GitLabClient, GitLabConfig
+    from runners.gitlab.models import MRContext
 
 
 # Validation patterns for git refs and paths
@@ -417,6 +417,7 @@ class MRContextGatherer:
                             f"**Workspaces**: {', '.join(pkg_data['workspaces'])}"
                         )
             except (json.JSONDecodeError, KeyError):
+                # Intentionally ignore: package.json parsing failed, continue without workspace info
                 pass
 
         # Check for Python project structure

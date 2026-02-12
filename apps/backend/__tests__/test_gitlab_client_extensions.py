@@ -5,8 +5,7 @@ Tests for GitLab Client API Extensions
 Tests for new CRUD endpoints, branch operations, file operations, and webhooks.
 """
 
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -84,7 +83,7 @@ class TestMRExtensions:
         with patch.object(client, "_fetch") as mock_fetch:
             mock_fetch.return_value = {"iid": 123, "title": "Updated"}
 
-            result = client.update_mr(
+            _result = client.update_mr(
                 mr_iid=123,
                 title="Updated",
                 labels={"bug": True, "feature": False},

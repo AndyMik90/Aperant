@@ -5,8 +5,7 @@ Tests for GitLab Batch Issues
 Tests for issue batching, similarity detection, and batch processing.
 """
 
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 

@@ -12,7 +12,7 @@ Key Features:
 - Tracks reviewed commits to avoid duplicate reviews
 
 Usage:
-    detector = BotDetector(
+    detector = GitLabBotDetector(
         state_dir=Path("/path/to/state"),
         bot_username="auto-claude-bot",
         review_own_mrs=False
@@ -41,7 +41,14 @@ logger = logging.getLogger(__name__)
 try:
     from .utils.file_lock import FileLock, atomic_write
 except (ImportError, ValueError, SystemError):
-    from runners.gitlab.utils.file_lock import FileLock, atomic_write
+    # Direct import fallback for when running as script
+    import sys
+    from pathlib import Path
+
+    _utils_dir = str(Path(__file__).parent / "utils")
+    if _utils_dir not in sys.path:
+        sys.path.insert(0, _utils_dir)
+    from file_lock import FileLock, atomic_write
 
 
 @dataclass
@@ -117,7 +124,7 @@ GITLAB_BOT_PATTERNS = [
 ]
 
 
-class BotDetector:
+class GitLabBotDetector:
     """
     Detects bot-authored MRs and commits to prevent infinite review loops.
 
@@ -156,7 +163,7 @@ class BotDetector:
         self.state = BotDetectionState.load(state_dir)
 
         logger.info(
-            f"Initialized BotDetector: bot_user={bot_username}, review_own_mrs={review_own_mrs}"
+            f"Initialized GitLabBotDetector: bot_user={bot_username}, review_own_mrs={review_own_mrs}"
         )
 
     def _is_bot_username(self, username: str | None) -> bool:

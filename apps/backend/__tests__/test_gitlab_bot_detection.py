@@ -5,27 +5,23 @@ GitLab Bot Detection Tests
 Tests for bot detection to prevent infinite review loops.
 """
 
-import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from __tests__.fixtures.gitlab import (
-    MOCK_GITLAB_CONFIG,
-    mock_mr_data,
-)
+from __tests__.fixtures.gitlab import mock_mr_data
+
+# Use package imports - they work correctly now that __init__.py doesn't import runner
+from runners.gitlab.bot_detection import GitLabBotDetector
 
 
-class TestBotDetector:
+class TestGitLabBotDetector:
     """Test bot detection prevents infinite loops."""
 
     @pytest.fixture
     def detector(self, tmp_path):
-        """Create a BotDetector instance for testing."""
-        from runners.gitlab.bot_detection import BotDetector
-
-        return BotDetector(
+        """Create a GitLabBotDetector instance for testing."""
+        return GitLabBotDetector(
             state_dir=tmp_path,
             bot_username="auto-claude-bot",
             review_own_mrs=False,
@@ -188,17 +184,17 @@ class TestBotDetector:
 
     def test_state_persistence(self, tmp_path):
         """Test state is saved and loaded correctly."""
-        from runners.gitlab.bot_detection import BotDetector
+        from runners.gitlab.bot_detection import GitLabBotDetector
 
         # Create detector and mark as reviewed
-        detector1 = BotDetector(
+        detector1 = GitLabBotDetector(
             state_dir=tmp_path,
             bot_username="test-bot",
         )
         detector1.mark_reviewed(123, "abc123")
 
         # Create new detector instance (should load state)
-        detector2 = BotDetector(
+        detector2 = GitLabBotDetector(
             state_dir=tmp_path,
             bot_username="test-bot",
         )

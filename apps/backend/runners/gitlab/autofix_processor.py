@@ -69,8 +69,8 @@ try:
     from ..models import AutoFixState, AutoFixStatus, GitLabRunnerConfig
     from ..permissions import GitLabPermissionChecker
 except (ImportError, ValueError, SystemError):
-    from models import AutoFixState, AutoFixStatus, GitLabRunnerConfig
-    from permissions import GitLabPermissionChecker
+    from runners.gitlab.models import AutoFixState, AutoFixStatus, GitLabRunnerConfig
+    from runners.gitlab.permissions import GitLabPermissionChecker
 
 
 class AutoFixProcessor:

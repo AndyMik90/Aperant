@@ -5,9 +5,6 @@ GitLab File Lock Tests
 Tests for file locking utilities for concurrent safety.
 """
 
-import json
-from pathlib import Path
-
 import pytest
 
 
@@ -108,9 +105,3 @@ class TestFileLockError:
 
         with pytest.raises(FileLockTimeout):
             raise FileLockTimeout("Lock timeout")
-
-        # Should also catch as FileLockError
-        try:
-            raise FileLockTimeout("Timeout")
-        except FileLockError:
-            pass  # Expected

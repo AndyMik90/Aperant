@@ -19,8 +19,8 @@ try:
     from ..models import AutoFixState, AutoFixStatus
     from .io_utils import safe_print
 except (ImportError, ValueError, SystemError):
-    from models import AutoFixState, AutoFixStatus
-    from services.io_utils import safe_print
+    from runners.gitlab.models import AutoFixState, AutoFixStatus
+    from runners.gitlab.services.io_utils import safe_print
 
 
 class GitlabBatchProcessor:
@@ -59,7 +59,7 @@ class GitlabBatchProcessor:
                     try:
                         from ..orchestrator import ProgressCallback
                     except ImportError:
-                        from orchestrator import ProgressCallback
+                        from runners.gitlab.orchestrator import ProgressCallback
 
                 self.progress_callback(
                     ProgressCallback(
@@ -202,8 +202,8 @@ class GitlabBatchProcessor:
             )
             batcher.save_batch(batch)
 
-            # Build combined issue description
-            combined_description = self._build_combined_description(batch)
+            # Build combined issue description (used for spec creation)
+            _combined_description = self._build_combined_description(batch)
 
             # Create spec ID for this batch
             spec_id = f"batch-{batch.batch_id}"

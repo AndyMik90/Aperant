@@ -5,19 +5,13 @@ GitLab MR E2E Tests
 End-to-end tests for MR review lifecycle.
 """
 
-import json
-from datetime import datetime, timezone
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from __tests__.fixtures.gitlab import (
-    MOCK_GITLAB_CONFIG,
     mock_mr_changes,
     mock_mr_commits,
     mock_mr_data,
-    mock_pipeline_data,
-    mock_pipeline_jobs,
 )
 
 

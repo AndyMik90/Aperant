@@ -30,19 +30,19 @@ try:
     )
     from .io_utils import safe_print
 except (ImportError, ValueError, SystemError):
-    from glab_client import GitLabClient
-    from models import (
+    from runners.gitlab.glab_client import GitLabClient
+    from runners.gitlab.models import (
         MergeVerdict,
         MRReviewFinding,
         MRReviewResult,
         ReviewCategory,
         ReviewSeverity,
     )
-    from services.io_utils import safe_print
+    from runners.gitlab.services.io_utils import safe_print
 
 logger = logging.getLogger(__name__)
 
-# Severity mapping for AI responses
+# Severity mapping for AI responses (reserved for future AI-powered review)
 _SEVERITY_MAPPING = {
     "critical": ReviewSeverity.CRITICAL,
     "high": ReviewSeverity.HIGH,
@@ -86,7 +86,7 @@ class FollowupReviewer:
             try:
                 from ..orchestrator import ProgressCallback
             except (ImportError, ValueError, SystemError):
-                from orchestrator import ProgressCallback
+                from runners.gitlab.orchestrator import ProgressCallback
 
             self.progress_callback(
                 ProgressCallback(
@@ -265,8 +265,10 @@ class FollowupReviewer:
                 if match:
                     old_start = int(match.group(1))
                     old_count = int(match.group(2)) if match.group(2) else 1
-                    new_start = int(match.group(3))
-                    new_count = int(match.group(4)) if match.group(4) else 1
+                    _new_start = int(
+                        match.group(3)
+                    )  # Reserved for future line number mapping
+                    _new_count = int(match.group(4)) if match.group(4) else 1
 
                     # Check if finding line is in the changed range
                     if old_start <= finding.line <= old_start + old_count:

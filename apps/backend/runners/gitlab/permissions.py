@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 try:
     from ..glab_client import encode_project_path
 except (ImportError, ValueError, SystemError):
-    from glab_client import encode_project_path
+    from runners.gitlab.glab_client import encode_project_path
 
 
 # GitLab permission roles (access levels)

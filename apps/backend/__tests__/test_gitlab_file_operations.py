@@ -5,8 +5,7 @@ Tests for GitLab File Operations
 Tests for file content retrieval, creation, updating, and deletion.
 """
 
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
