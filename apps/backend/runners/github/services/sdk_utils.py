@@ -133,6 +133,13 @@ def _get_tool_detail(tool_name: str, tool_input: dict[str, Any]) -> str:
 # Prevents runaway retry loops from consuming unbounded resources
 MAX_MESSAGE_COUNT = 500
 
+# Errors that are recoverable (callers can fall back to text parsing or retry)
+# vs fatal errors (auth failures, circuit breaker) that should propagate
+RECOVERABLE_ERRORS = {
+    "structured_output_validation_failed",
+    "tool_use_concurrency_error",
+}
+
 # Abort after 1 consecutive repeat (2 total identical responses).
 # Low threshold catches error loops quickly (e.g., auth errors returned as AI text).
 # Normal AI responses never produce the exact same text block twice in a row.
@@ -261,6 +268,8 @@ async def process_sdk_stream(
         - msg_count: Total message count
         - subagent_tool_ids: Mapping of tool_id -> agent_name
         - error: Error message if stream processing failed (None on success)
+        - error_recoverable: Boolean indicating if the error is recoverable (fallback possible) vs fatal
+        - last_assistant_text: Last non-empty assistant text block (for cleaner fallback parsing)
     """
     result_text = ""
     last_assistant_text = ""  # Last assistant text block (for cleaner fallback parsing)
@@ -652,10 +661,6 @@ async def process_sdk_stream(
         )
 
     # Categorize error as recoverable (fallback possible) vs fatal
-    RECOVERABLE_ERRORS = {
-        "structured_output_validation_failed",
-        "tool_use_concurrency_error",
-    }
     error_recoverable = stream_error in RECOVERABLE_ERRORS if stream_error else False
 
     return {

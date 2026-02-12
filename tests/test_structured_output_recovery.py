@@ -3,14 +3,14 @@ Tests for Structured Output Recovery
 ======================================
 
 Tests the three-tier recovery cascade when structured output validation fails:
-1. Error categorization in sdk_utils (recoverable vs fatal)
-2. Extraction call fallback in parallel_followup_reviewer
-3. FindingValidator retryable error handling
+1. FollowupExtractionResponse model validation
+2. Error categorization imported from sdk_utils
+3. Agent config registration for pr_followup_extraction
 """
 
+import json
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -18,17 +18,17 @@ import pytest
 _backend_dir = Path(__file__).parent.parent / "apps" / "backend"
 _github_dir = _backend_dir / "runners" / "github"
 _services_dir = _github_dir / "services"
-if str(_github_dir) not in sys.path:
-    sys.path.insert(0, str(_github_dir))
-if str(_backend_dir) not in sys.path:
-    sys.path.insert(0, str(_backend_dir))
-if str(_services_dir) not in sys.path:
-    sys.path.insert(0, str(_services_dir))
+_agents_dir = _backend_dir / "agents" / "tools_pkg"
+for p in [str(_github_dir), str(_backend_dir), str(_services_dir), str(_agents_dir)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
+from agents.tools_pkg.models import AGENT_CONFIGS
 from services.pydantic_models import (
     FollowupExtractionResponse,
     ParallelFollowupResponse,
 )
+from services.sdk_utils import RECOVERABLE_ERRORS
 
 
 # ============================================================================
@@ -68,8 +68,6 @@ class TestFollowupExtractionResponse:
 
     def test_schema_is_small(self):
         """Schema should be significantly smaller than ParallelFollowupResponse."""
-        import json
-
         extraction_schema = json.dumps(
             FollowupExtractionResponse.model_json_schema()
         )
@@ -93,90 +91,54 @@ class TestFollowupExtractionResponse:
 
 
 # ============================================================================
-# Test error categorization in sdk_utils return dict
+# Test error categorization using the actual RECOVERABLE_ERRORS from sdk_utils
 # ============================================================================
 
 
 class TestErrorCategorization:
-    """Tests that sdk_utils properly categorizes errors as recoverable vs fatal."""
+    """Tests that sdk_utils RECOVERABLE_ERRORS constant classifies errors correctly."""
 
     def test_structured_output_error_is_recoverable(self):
-        """structured_output_validation_failed should be marked recoverable."""
-        RECOVERABLE_ERRORS = {
-            "structured_output_validation_failed",
-            "tool_use_concurrency_error",
-        }
-        error = "structured_output_validation_failed"
-        assert error in RECOVERABLE_ERRORS
+        """structured_output_validation_failed should be in RECOVERABLE_ERRORS."""
+        assert "structured_output_validation_failed" in RECOVERABLE_ERRORS
 
     def test_concurrency_error_is_recoverable(self):
-        """tool_use_concurrency_error should be marked recoverable."""
-        RECOVERABLE_ERRORS = {
-            "structured_output_validation_failed",
-            "tool_use_concurrency_error",
-        }
-        error = "tool_use_concurrency_error"
-        assert error in RECOVERABLE_ERRORS
+        """tool_use_concurrency_error should be in RECOVERABLE_ERRORS."""
+        assert "tool_use_concurrency_error" in RECOVERABLE_ERRORS
 
     def test_auth_error_is_fatal(self):
-        """Auth errors should NOT be marked recoverable."""
-        RECOVERABLE_ERRORS = {
-            "structured_output_validation_failed",
-            "tool_use_concurrency_error",
-        }
-        error = "Authentication error detected in AI response: please login again"
-        assert error not in RECOVERABLE_ERRORS
+        """Auth errors should NOT be in RECOVERABLE_ERRORS."""
+        assert "Authentication error detected in AI response: please login again" not in RECOVERABLE_ERRORS
 
     def test_circuit_breaker_is_fatal(self):
-        """Circuit breaker errors should NOT be marked recoverable."""
-        RECOVERABLE_ERRORS = {
-            "structured_output_validation_failed",
-            "tool_use_concurrency_error",
-        }
-        error = "Circuit breaker triggered: message count (501) exceeded limit (500)."
-        assert error not in RECOVERABLE_ERRORS
+        """Circuit breaker errors should NOT be in RECOVERABLE_ERRORS."""
+        for error in RECOVERABLE_ERRORS:
+            assert "circuit breaker" not in error.lower()
 
-    def test_none_error_is_not_recoverable(self):
-        """No error should result in error_recoverable=False."""
-        stream_error = None
-        error_recoverable = (
-            stream_error in {"structured_output_validation_failed", "tool_use_concurrency_error"}
-            if stream_error
-            else False
-        )
-        assert error_recoverable is False
+    def test_none_is_not_recoverable(self):
+        """None should not be in RECOVERABLE_ERRORS."""
+        assert None not in RECOVERABLE_ERRORS
 
 
 # ============================================================================
-# Test FindingValidator retryable error handling
+# Test agent config registration
 # ============================================================================
 
 
-class TestFindingValidatorRetryable:
-    """Tests that FindingValidator treats structured_output errors as retryable."""
+class TestAgentConfigRegistration:
+    """Tests that pr_followup_extraction agent type is registered."""
 
-    def test_structured_output_error_is_retryable(self):
-        """structured_output_validation_failed should match the retryable check."""
-        error = "structured_output_validation_failed"
-        error_str = str(error).lower()
-        is_retryable = (
-            "400" in error_str
-            or "concurrency" in error_str
-            or "circuit breaker" in error_str
-            or "tool_use" in error_str
-            or "structured_output" in error_str
-        )
-        assert is_retryable is True
+    def test_extraction_agent_type_registered(self):
+        """pr_followup_extraction must exist in AGENT_CONFIGS."""
+        assert "pr_followup_extraction" in AGENT_CONFIGS
 
-    def test_auth_error_is_not_retryable(self):
-        """Auth errors should NOT be retryable."""
-        error = "Authentication error detected"
-        error_str = str(error).lower()
-        is_retryable = (
-            "400" in error_str
-            or "concurrency" in error_str
-            or "circuit breaker" in error_str
-            or "tool_use" in error_str
-            or "structured_output" in error_str
-        )
-        assert is_retryable is False
+    def test_extraction_agent_needs_no_tools(self):
+        """Extraction agent should have no tools (pure structured output)."""
+        config = AGENT_CONFIGS["pr_followup_extraction"]
+        assert config["tools"] == []
+        assert config["mcp_servers"] == []
+
+    def test_extraction_agent_low_thinking(self):
+        """Extraction agent should use low thinking (lightweight call)."""
+        config = AGENT_CONFIGS["pr_followup_extraction"]
+        assert config["thinking_default"] == "low"

@@ -1144,7 +1144,7 @@ The SDK will run invoked agents in parallel automatically.
                 spec_dir=self.github_dir,
                 model=model,
                 agent_type="pr_followup_extraction",
-                fast_mode=True,
+                fast_mode=self.config.fast_mode,
                 output_format={
                     "type": "json_schema",
                     "schema": FollowupExtractionResponse.model_json_schema(),
