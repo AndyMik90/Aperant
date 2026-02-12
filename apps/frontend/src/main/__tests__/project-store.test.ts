@@ -28,7 +28,7 @@ function setupTestDirs(): void {
   TEST_DIR = mkdtempSync(path.join(tmpdir(), 'project-store-test-'));
   USER_DATA_PATH = path.join(TEST_DIR, 'userData');
   TEST_PROJECT_PATH = path.join(TEST_DIR, 'test-project');
-  
+
   mkdirSync(USER_DATA_PATH, { recursive: true });
   mkdirSync(path.join(USER_DATA_PATH, 'store'), { recursive: true });
   mkdirSync(TEST_PROJECT_PATH, { recursive: true });

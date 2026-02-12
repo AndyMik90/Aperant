@@ -457,7 +457,7 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
 
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">{t('memory.embeddingModel')}</Label>
-                      <OllamaModelSelector 
+                      <OllamaModelSelector
                          selectedModel={config.ollamaEmbeddingModel}
                          baseUrl={config.ollamaBaseUrl}
                          onModelSelect={(model, dim) => {
