@@ -123,16 +123,15 @@ function getCountdownComponents(resetTime: Date): CountdownComponents | null {
 /**
  * Select the most specific message key based on available metadata.
  * Pure function extracted to module scope to avoid recreation on each render.
+ * @param info - The error info object
+ * @param rateLimitDiffMs - Pre-computed time difference in milliseconds (avoids dual calculation)
  */
-function getMessageKey(info: GitHubErrorInfo): string {
-  if (info.type === 'rate_limit' && info.rateLimitResetTime) {
-    const diffMs = info.rateLimitResetTime.getTime() - Date.now();
-    if (diffMs > 0) {
-      const diffMins = Math.ceil(diffMs / 60000);
-      return diffMins >= 60
-        ? 'githubErrors.rateLimitMessageHours'
-        : 'githubErrors.rateLimitMessageMinutes';
-    }
+function getMessageKey(info: GitHubErrorInfo, rateLimitDiffMs?: number): string {
+  if (info.type === 'rate_limit' && rateLimitDiffMs !== undefined && rateLimitDiffMs > 0) {
+    const diffMins = Math.ceil(rateLimitDiffMs / 60000);
+    return diffMins >= 60
+      ? 'githubErrors.rateLimitMessageHours'
+      : 'githubErrors.rateLimitMessageMinutes';
   }
   if (info.type === 'permission' && info.requiredScopes && info.requiredScopes.length > 0) {
     return 'githubErrors.permissionMessageScopes';
@@ -219,7 +218,7 @@ export function GitHubErrorDisplay({
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [errorInfo.type, errorInfo.rateLimitResetTime]);
+  }, [errorInfo.type, errorInfo.rateLimitResetTime?.getTime()]);
 
   // Format countdown using i18n
   const formatCountdownDisplay = (components: CountdownComponents | null): string => {
@@ -251,12 +250,15 @@ export function GitHubErrorDisplay({
   // Don't render if no error
   if (!error) return null;
 
-  // Get the translated message with appropriate interpolation values
-  const messageKey = getMessageKey(errorInfo);
-  // Only pass positive minutes/hours values to avoid stale negative/zero values
-  const rawMinutes = errorInfo.rateLimitResetTime
-    ? Math.ceil((errorInfo.rateLimitResetTime.getTime() - Date.now()) / 60000)
+  // Compute time remaining once for both message key selection and translation
+  const rateLimitDiffMs = errorInfo.rateLimitResetTime
+    ? errorInfo.rateLimitResetTime.getTime() - Date.now()
     : undefined;
+
+  // Get the translated message with appropriate interpolation values
+  const messageKey = getMessageKey(errorInfo, rateLimitDiffMs);
+  // Only pass positive minutes/hours values to avoid stale negative/zero values
+  const rawMinutes = rateLimitDiffMs ? Math.ceil(rateLimitDiffMs / 60000) : undefined;
   const minutes = rawMinutes && rawMinutes > 0 ? rawMinutes : undefined;
   const hours = minutes ? Math.ceil(minutes / 60) : undefined;
 

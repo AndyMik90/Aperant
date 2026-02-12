@@ -26,9 +26,10 @@ const RATE_LIMIT_PATTERNS = [
 
 /**
  * Patterns for authentication errors (HTTP 401)
+ * Note: Bare status codes are intentionally omitted here - STATUS_CODE_PATTERN
+ * handles HTTP-context-aware matching to avoid false positives.
  */
 const AUTH_PATTERNS = [
-  /\b401\b/i,
   /unauthorized/i,
   /bad\s*credentials/i,
   /authentication\s*failed/i,
@@ -39,9 +40,10 @@ const AUTH_PATTERNS = [
 
 /**
  * Patterns for permission/scope errors (HTTP 403 with scope context)
+ * Note: Bare status codes are intentionally omitted here - STATUS_CODE_PATTERN
+ * handles HTTP-context-aware matching to avoid false positives.
  */
 const PERMISSION_PATTERNS = [
-  /\b403\b/i,
   /forbidden/i,
   /permission\s*denied/i,
   /insufficient\s*(scope|permission)/i,
@@ -54,9 +56,10 @@ const PERMISSION_PATTERNS = [
 
 /**
  * Patterns for not found errors (HTTP 404)
+ * Note: Bare status codes are intentionally omitted here - STATUS_CODE_PATTERN
+ * handles HTTP-context-aware matching to avoid false positives (e.g., "Issue #404").
  */
 const NOT_FOUND_PATTERNS = [
-  /\b404\b/i,
   /not\s*found/i,
   /no\s*such\s*(repository|repo|issue|resource)/i,
   /does\s*not\s*exist/i,
@@ -143,7 +146,10 @@ function extractRateLimitResetTime(error: string): Date | undefined {
   // Check if it's an ISO date string
   if (resetValue.includes('-') && resetValue.includes('T')) {
     const date = new Date(resetValue);
-    return Number.isNaN(date.getTime()) ? undefined : date;
+    if (Number.isNaN(date.getTime())) return undefined;
+    // Validate: within reasonable bounds (24 hours max from now)
+    if (date.getTime() - Date.now() > MAX_RESET_SECONDS * 1000) return undefined;
+    return date;
   }
 
   // Check if it's a Unix timestamp (seconds or milliseconds)
@@ -153,7 +159,10 @@ function extractRateLimitResetTime(error: string): Date | undefined {
     // Values > 1e12 are likely milliseconds already
     const timestamp = numericValue > 1e12 ? numericValue : numericValue * 1000;
     const date = new Date(timestamp);
-    return Number.isNaN(date.getTime()) ? undefined : date;
+    if (Number.isNaN(date.getTime())) return undefined;
+    // Validate: within reasonable bounds (24 hours max from now)
+    if (date.getTime() - Date.now() > MAX_RESET_SECONDS * 1000) return undefined;
+    return date;
   }
 
   return undefined;
