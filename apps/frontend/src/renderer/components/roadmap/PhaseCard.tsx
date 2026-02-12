@@ -150,10 +150,12 @@ export function PhaseCard({
             </div>
           ))}
           {hasMoreFeatures && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => setIsExpanded(!isExpanded)}
-              className="flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground text-center py-1 transition-colors cursor-pointer"
+              aria-expanded={isExpanded}
+              className="flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground w-full"
             >
               {isExpanded ? (
                 <>
@@ -166,7 +168,7 @@ export function PhaseCard({
                   {t('roadmap.showMoreFeatures', { count: hiddenCount })}
                 </>
               )}
-            </button>
+            </Button>
           )}
         </div>
       </div>
