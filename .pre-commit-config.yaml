@@ -99,7 +99,6 @@ repos:
 
   # Python tests (apps/backend/) - run full test suite from project root
   # Tests to skip: graphiti (external deps), merge_file_tracker/service_orchestrator/worktree/workspace (Windows path/git issues)
-  # NOTE: Skip this hook in worktrees (where .git is a file, not a directory)
   - repo: local
     hooks:
       - id: pytest
@@ -108,12 +107,6 @@ repos:
         args:
           - -c
           - |
-            # Skip in worktrees - .git is a file pointing to main repo, not a directory
-            # This prevents path resolution issues with ../../tests/ in worktree context
-            if [ -f ".git" ]; then
-              echo "Skipping pytest in worktree (path resolution would fail)"
-              exit 0
-            fi
             # Run pytest directly from project root
             if [ -f "apps/backend/.venv/bin/pytest" ]; then
               PYTEST_CMD="apps/backend/.venv/bin/pytest"
