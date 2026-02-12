@@ -296,22 +296,11 @@ def workspace_spec_dir(temp_git_repo: Path) -> Path:
 
 @pytest.fixture
 def with_spec_branch(temp_git_repo: Path) -> Generator[Path, None, None]:
-    """Create a temp git repo with a spec branch."""
-    # Create initial commit on main
-    (temp_git_repo / "README.md").write_text("# Test Repo")
-    subprocess.run(
-        ["git", "add", "README.md"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "Initial commit"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
+    """Create a temp git repo with a spec branch.
 
+    Note: temp_git_repo already provides an initialized repo with initial commit,
+    so we only need to create the spec branch and add changes.
+    """
     # Create spec branch
     subprocess.run(
         ["git", "checkout", "-b", TEST_SPEC_BRANCH],
@@ -348,22 +337,11 @@ def with_spec_branch(temp_git_repo: Path) -> Generator[Path, None, None]:
 
 @pytest.fixture
 def with_conflicting_branches(temp_git_repo: Path) -> Generator[Path, None, None]:
-    """Create temp git repo with conflicting branches for merge testing."""
-    # Create initial commit
-    (temp_git_repo / "README.md").write_text("# Test Repo")
-    subprocess.run(
-        ["git", "add", "README.md"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "Initial commit"],
-        cwd=temp_git_repo,
-        capture_output=True,
-        check=True,
-    )
+    """Create temp git repo with conflicting branches for merge testing.
 
+    Note: temp_git_repo already provides an initialized repo with initial commit,
+    so we only need to create branches with conflicting changes.
+    """
     # Create spec branch
     subprocess.run(
         ["git", "checkout", "-b", TEST_SPEC_BRANCH],

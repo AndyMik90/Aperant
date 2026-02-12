@@ -141,11 +141,18 @@ export function registerInvestigateIssue(
                   .filter((note: unknown): note is Record<string, unknown> =>
                     note !== null && typeof note === 'object' && typeof (note as Record<string, unknown>).id === 'number'
                   )
-                  .map((note) => ({
-                    id: note.id as number,
-                    body: (note.body as string | undefined) || '',
-                    author: (note.author as { username: string } | undefined) || { username: 'unknown' },
-                  }));
+                  .map((note) => {
+                    // Validate author structure defensively
+                    const author = note.author;
+                    const username = (author !== null && typeof author === 'object' && typeof (author as Record<string, unknown>).username === 'string')
+                      ? (author as Record<string, unknown>).username as string
+                      : 'unknown';
+                    return {
+                      id: note.id as number,
+                      body: (note.body as string | undefined) || '',
+                      author: { username },
+                    };
+                  });
                 allNotes.push(...noteSummaries);
                 if (notesPage.length < perPage) {
                   hasMore = false;
@@ -159,6 +166,11 @@ export function registerInvestigateIssue(
               debugLog('Failed to fetch notes page, using partial notes', { page, error: errorMessage, notesRetrieved: allNotes.length });
               hasMore = false;
             }
+          }
+
+          // Warn if we hit the pagination limit
+          if (page > MAX_PAGES && hasMore) {
+            debugLog('Pagination limit reached, some notes may be missing', { maxPages: MAX_PAGES, notesRetrieved: allNotes.length });
           }
 
           // Filter notes based on selection
