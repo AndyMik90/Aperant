@@ -10,6 +10,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from qa.criteria import is_fixes_applied, is_qa_approved, is_qa_rejected
 from ui import highlight, print_status
 
 
@@ -152,10 +153,19 @@ def handle_batch_status_command(project_dir: str) -> bool:
                 pass
 
         # Determine status (highest priority first)
-        if (spec_dir / "qa_report.md").exists():
+        # Use authoritative QA status check, not just file existence
+        if is_qa_approved(spec_dir):
             status = "qa_approved"
+        elif is_qa_rejected(spec_dir):
+            status = "qa_rejected"
+        elif is_fixes_applied(spec_dir):
+            status = "fixes_applied"
         elif (spec_dir / "implementation_plan.json").exists():
-            status = "building"
+            # Check if there's a qa_report.md but no approval yet (QA in progress)
+            if (spec_dir / "qa_report.md").exists():
+                status = "qa_in_progress"
+            else:
+                status = "building"
         elif (spec_dir / "spec.md").exists():
             status = "spec_created"
         else:
@@ -165,7 +175,10 @@ def handle_batch_status_command(project_dir: str) -> bool:
             "pending_spec": "⏳",
             "spec_created": "📋",
             "building": "⚙️",
+            "qa_in_progress": "🔍",
             "qa_approved": "✅",
+            "qa_rejected": "❌",
+            "fixes_applied": "🔧",
             "unknown": "❓",
         }.get(status, "❓")
 

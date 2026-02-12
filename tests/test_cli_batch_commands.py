@@ -102,11 +102,13 @@ def project_with_specs(temp_git_repo: Path) -> Path:
     (spec_002 / "spec.md").write_text("# In Progress\n")
     (spec_002 / "implementation_plan.json").write_text('{"phases": []}')
 
-    # Spec 003 - complete with qa_report.md
+    # Spec 003 - complete with QA approval in implementation_plan.json
     spec_003 = specs_dir / "003-completed"
     spec_003.mkdir()
     (spec_003 / "spec.md").write_text("# Completed\n")
-    (spec_003 / "implementation_plan.json").write_text('{"phases": []}')
+    (spec_003 / "implementation_plan.json").write_text(
+        '{"phases": [], "qa_signoff": {"status": "approved"}}'
+    )
     (spec_003 / "qa_report.md").write_text("# QA Approved\n")
 
     return temp_git_repo
