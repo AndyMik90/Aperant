@@ -5,6 +5,9 @@
  * Used by the priority list to display and manage all accounts in a single interface.
  */
 
+import type { ClaudeProfile } from './agent';
+import type { APIProfile } from './profile';
+
 /**
  * Type discriminator for unified accounts
  */
@@ -80,4 +83,136 @@ export interface UnifiedAccount {
    * The user should be prompted to log in again.
    */
   needsReauthentication?: boolean;
+}
+
+// ============================================
+// Conversion Utilities
+// ============================================
+
+/**
+ * ID prefix for OAuth accounts in unified format
+ */
+export const OAUTH_ID_PREFIX = 'oauth-';
+
+/**
+ * ID prefix for API accounts in unified format
+ */
+export const API_ID_PREFIX = 'api-';
+
+/**
+ * Convert a ClaudeProfile (OAuth) to UnifiedAccount format
+ *
+ * @param profile - The OAuth profile to convert
+ * @param isActive - Whether this is the currently active account
+ * @param options - Additional options for conversion
+ */
+export function claudeProfileToUnified(
+  profile: ClaudeProfile,
+  isActive: boolean,
+  options?: {
+    isRateLimited?: boolean;
+    rateLimitType?: RateLimitType;
+  }
+): UnifiedAccount {
+  const isAvailable = !!(
+    profile.isAuthenticated &&
+    !options?.isRateLimited &&
+    !profile.rateLimitEvents?.some(e => e.resetAt > new Date())
+  );
+
+  // Check for rate limit from profile's rate limit events
+  const activeRateLimit = profile.rateLimitEvents?.find(e => e.resetAt > new Date());
+
+  return {
+    id: `${OAUTH_ID_PREFIX}${profile.id}`,
+    name: profile.name,
+    type: 'oauth',
+    displayName: profile.name,
+    identifier: profile.email || profile.id,
+    isActive,
+    isNext: false, // Computed later based on priority order
+    isAvailable,
+    hasUnlimitedUsage: false, // OAuth accounts have usage limits
+    sessionPercent: profile.usage?.sessionUsagePercent,
+    weeklyPercent: profile.usage?.weeklyUsagePercent,
+    isRateLimited: options?.isRateLimited ?? !!activeRateLimit,
+    rateLimitType: options?.rateLimitType ?? activeRateLimit?.type,
+    isAuthenticated: profile.isAuthenticated,
+    needsReauthentication: false // Set separately if needed
+  };
+}
+
+/**
+ * Convert an APIProfile to UnifiedAccount format
+ *
+ * @param profile - The API profile to convert
+ * @param isActive - Whether this is the currently active account
+ * @param isAuthenticated - Whether the API key is valid (has been tested)
+ */
+export function apiProfileToUnified(
+  profile: APIProfile,
+  isActive: boolean,
+  isAuthenticated: boolean = true
+): UnifiedAccount {
+  // API profiles are available if they have a valid API key
+  // They have unlimited usage (pay-per-use)
+  const isAvailable = isAuthenticated && !!profile.apiKey;
+
+  return {
+    id: `${API_ID_PREFIX}${profile.id}`,
+    name: profile.name,
+    type: 'api',
+    displayName: profile.name,
+    identifier: profile.baseUrl,
+    isActive,
+    isNext: false, // Computed later based on priority order
+    isAvailable,
+    hasUnlimitedUsage: true, // API profiles are pay-per-use with no rate limits
+    sessionPercent: undefined, // Not applicable to API profiles
+    weeklyPercent: undefined, // Not applicable to API profiles
+    isRateLimited: false, // API profiles don't have rate limits
+    rateLimitType: undefined,
+    isAuthenticated
+  };
+}
+
+/**
+ * Check if a unified account ID is for an OAuth account
+ */
+export function isOAuthAccountId(id: string): boolean {
+  return id.startsWith(OAUTH_ID_PREFIX);
+}
+
+/**
+ * Check if a unified account ID is for an API account
+ */
+export function isAPIAccountId(id: string): boolean {
+  return id.startsWith(API_ID_PREFIX);
+}
+
+/**
+ * Extract the original profile ID from a unified account ID
+ */
+export function extractProfileId(unifiedId: string): string {
+  if (unifiedId.startsWith(OAUTH_ID_PREFIX)) {
+    return unifiedId.slice(OAUTH_ID_PREFIX.length);
+  }
+  if (unifiedId.startsWith(API_ID_PREFIX)) {
+    return unifiedId.slice(API_ID_PREFIX.length);
+  }
+  return unifiedId;
+}
+
+/**
+ * Create a unified account ID from an OAuth profile ID
+ */
+export function toOAuthUnifiedId(profileId: string): string {
+  return `${OAUTH_ID_PREFIX}${profileId}`;
+}
+
+/**
+ * Create a unified account ID from an API profile ID
+ */
+export function toAPIUnifiedId(profileId: string): string {
+  return `${API_ID_PREFIX}${profileId}`;
 }
