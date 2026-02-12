@@ -14,21 +14,22 @@ from pathlib import Path
 
 import pytest
 
-# Add the backend and github runner directories to path
-# conftest.py adds apps/backend; we also need runners/github for services.*
+# Add paths for imports — conftest.py adds apps/backend, but there's a
+# services/ package at both apps/backend/services/ and runners/github/services/.
+# To avoid collision, add the github services dir directly and import bare module names.
 _backend_dir = Path(__file__).parent.parent / "apps" / "backend"
-_github_dir = _backend_dir / "runners" / "github"
-if str(_github_dir) not in sys.path:
-    sys.path.insert(0, str(_github_dir))
+_github_services_dir = _backend_dir / "runners" / "github" / "services"
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
+if str(_github_services_dir) not in sys.path:
+    sys.path.insert(0, str(_github_services_dir))
 
 from agents.tools_pkg.models import AGENT_CONFIGS
-from services.pydantic_models import (
+from pydantic_models import (
     FollowupExtractionResponse,
     ParallelFollowupResponse,
 )
-from services.sdk_utils import RECOVERABLE_ERRORS
+from sdk_utils import RECOVERABLE_ERRORS
 
 
 # ============================================================================
