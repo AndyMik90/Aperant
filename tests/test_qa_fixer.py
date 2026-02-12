@@ -12,10 +12,12 @@ Tests the qa/fixer.py module functionality including:
 """
 
 import json
+import shutil
+import tempfile
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -23,122 +25,25 @@ import pytest
 # MOCK SETUP - Must happen before ANY imports from auto-claude
 # =============================================================================
 
-class _AsyncIteratorMock:
-    """Async iterator mock that yields stored messages and acts as async context manager."""
+# Import shared mock helpers
+from tests.qa_test_helpers import (
+    AsyncIteratorMock,
+    ReceiveResponseMock,
+    setup_qa_mocks,
+    cleanup_qa_mocks,
+    reset_qa_mocks,
+    create_mock_response,
+    create_mock_fixed_response,
+    create_mock_tool_use_response,
+    create_mock_client,
+    get_mock_error_utils,
+    get_mock_memory_manager,
+)
 
-    def __init__(self):
-        self._messages = []
-        self._index = 0
+# Set up mocks (no prompts_pkg needed for fixer)
+setup_qa_mocks(include_prompts_pkg=False)
 
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        if self._index >= len(self._messages):
-            raise StopAsyncIteration
-        msg = self._messages[self._index]
-        self._index += 1
-        return msg
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        return False
-
-    def set_messages(self, messages):
-        self._messages = messages
-        self._index = 0
-
-
-# Store original modules for cleanup
-_original_modules = {}
-_mocked_module_names = [
-    'claude_agent_sdk',
-    'ui',
-    'progress',
-    'task_logger',
-    'linear_updater',
-    'client',
-    'agents.memory_manager',
-    'agents.base',
-    'core.error_utils',
-    'security.tool_input_validator',
-    'debug',
-]
-
-for name in _mocked_module_names:
-    if name in sys.modules:
-        _original_modules[name] = sys.modules[name]
-
-# Mock claude_agent_sdk FIRST
-mock_sdk = MagicMock()
-mock_sdk.ClaudeSDKClient = MagicMock()
-mock_sdk.ClaudeAgentOptions = MagicMock()
-mock_sdk.ClaudeCodeOptions = MagicMock()
-sys.modules['claude_agent_sdk'] = mock_sdk
-
-# Mock agents.memory_manager
-mock_memory_manager = MagicMock()
-mock_memory_manager.get_graphiti_context = AsyncMock(return_value=None)
-mock_memory_manager.save_session_memory = AsyncMock(return_value=None)
-sys.modules['agents.memory_manager'] = mock_memory_manager
-
-# Mock agents.base
-mock_agents_base = MagicMock()
-mock_agents_base.sanitize_error_message = lambda x: x
-sys.modules['agents.base'] = mock_agents_base
-
-# Mock core.error_utils
-mock_error_utils = MagicMock()
-mock_error_utils.is_rate_limit_error = MagicMock(return_value=False)
-mock_error_utils.is_tool_concurrency_error = MagicMock(return_value=False)
-sys.modules['core.error_utils'] = mock_error_utils
-
-# Mock security.tool_input_validator
-mock_validator = MagicMock()
-mock_validator.get_safe_tool_input = lambda block: getattr(block, 'input', {})
-sys.modules['security.tool_input_validator'] = mock_validator
-
-# Mock debug
-mock_debug = MagicMock()
-sys.modules['debug'] = mock_debug
-
-# Mock UI module
-mock_ui = MagicMock()
-sys.modules['ui'] = mock_ui
-
-# Mock progress module
-mock_progress = MagicMock()
-sys.modules['progress'] = mock_progress
-
-# Mock task_logger
-mock_task_logger = MagicMock()
-mock_task_logger.LogPhase = MagicMock()
-mock_task_logger.LogEntryType = MagicMock()
-mock_task_logger.get_task_logger = MagicMock(return_value=None)
-sys.modules['task_logger'] = mock_task_logger
-
-# Mock linear_updater
-mock_linear = MagicMock()
-sys.modules['linear_updater'] = mock_linear
-
-# Mock client - create a factory that returns properly configured clients
-def _create_mock_client():
-    """Factory function that creates a properly configured mock client."""
-    client = MagicMock()
-    client.query = AsyncMock()
-    response_iter = _AsyncIteratorMock()
-    client.receive_response = MagicMock(return_value=response_iter)
-    return client
-
-mock_client_module = MagicMock()
-mock_client_module.create_client = _create_mock_client
-sys.modules['client'] = mock_client_module
-
-# Now add auto-claude to path and import
-sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
-
+# Import after mocks are set up
 from qa.fixer import load_qa_fixer_prompt, run_qa_fixer_session
 from qa.criteria import save_implementation_plan
 
@@ -151,12 +56,8 @@ from qa.criteria import save_implementation_plan
 @pytest.fixture(scope="module", autouse=True)
 def cleanup_mocked_modules():
     """Restore original modules after all tests in this module complete."""
-    yield  # Run all tests first
-    for name in _mocked_module_names:
-        if name in _original_modules:
-            sys.modules[name] = _original_modules[name]
-        elif name in sys.modules:
-            del sys.modules[name]
+    yield
+    cleanup_qa_mocks()
 
 
 @pytest.fixture
@@ -178,128 +79,43 @@ def project_dir(temp_dir):
 @pytest.fixture
 def mock_client():
     """Create a mock Claude SDK client."""
-    client = MagicMock()
-    client.query = AsyncMock()
-
-    # Create an async iterator for receive_response
-    response_iter = _AsyncIteratorMock()
-
-    # Make receive_response return the async iterator when called
-    client.receive_response = MagicMock(return_value=response_iter)
-
-    return client
+    return create_mock_client()
 
 
 @pytest.fixture(autouse=True, scope='function')
 def reset_shared_mocks_before_test():
-    """Reset shared module-level mocks before each test.
+    """Reset shared module-level mocks before and after each test.
 
     This ensures tests don't interfere with each other when run together
     with tests from other modules that share the same mocks.
     """
-    # Reset BEFORE the test runs (this runs after conftest's pytest_runtest_call)
-    mock_error_utils.is_rate_limit_error.return_value = False
-    mock_error_utils.is_tool_concurrency_error.return_value = False
-    mock_memory_manager.get_graphiti_context.reset_mock()
-    mock_memory_manager.save_session_memory.reset_mock()
-
+    reset_qa_mocks()
     yield
-
-    # Reset AFTER the test runs for cleanup
-    mock_error_utils.is_rate_limit_error.return_value = False
-    mock_error_utils.is_tool_concurrency_error.return_value = False
-    mock_memory_manager.get_graphiti_context.reset_mock()
-    mock_memory_manager.save_session_memory.reset_mock()
+    reset_qa_mocks()
 
 
 # =============================================================================
-# MOCK RESPONSE HELPERS
+# MOCK RESPONSE HELPERS (fixer-specific)
 # =============================================================================
 
 def _create_mock_response(text: str = "Fixer session complete."):
-    """Create a standard mock assistant+user message pair.
-
-    Args:
-        text: Text content for the AssistantMessage's TextBlock
-
-    Returns:
-        List of mock messages [AssistantMessage, UserMessage]
-    """
-    from unittest.mock import MagicMock
-
-    msg1 = MagicMock()
-    msg1.__class__.__name__ = "AssistantMessage"
-    text_block = MagicMock()
-    text_block.__class__.__name__ = "TextBlock"
-    text_block.text = text
-    msg1.content = [text_block]
-
-    msg2 = MagicMock()
-    msg2.__class__.__name__ = "UserMessage"
-    msg2.content = []
-
-    return [msg1, msg2]
+    """Create a standard mock assistant+user message pair."""
+    return create_mock_response(text)
 
 
 def _create_mock_fixed_response():
-    """Create mock response for fixed QA.
-
-    Returns:
-        List of mock messages [AssistantMessage with 'Fixes applied successfully.', UserMessage]
-    """
-    return _create_mock_response("Fixes applied successfully.")
+    """Create mock response for fixed QA."""
+    return create_mock_fixed_response()
 
 
 def _create_mock_no_signoff_response():
-    """Create mock response where agent doesn't update signoff.
-
-    Returns:
-        List of mock messages [AssistantMessage with 'QA review complete.', UserMessage]
-    """
-    return _create_mock_response("QA review complete.")
+    """Create mock response where agent doesn't update signoff."""
+    return create_mock_response("QA review complete.")
 
 
 def _create_mock_tool_use_response():
-    """Create mock response with tool use blocks.
-
-    Returns:
-        List of mock messages including ToolUseBlock and ToolResultBlock
-    """
-    from unittest.mock import MagicMock
-
-    msg1 = MagicMock()
-    msg1.__class__.__name__ = "AssistantMessage"
-    text_block = MagicMock()
-    text_block.__class__.__name__ = "TextBlock"
-    text_block.text = "Applying fixes..."
-
-    tool_block = MagicMock()
-    tool_block.__class__.__name__ = "ToolUseBlock"
-    tool_block.name = "Edit"
-    tool_block.input = {"file_path": "/test/file.py"}
-
-    msg1.content = [text_block, tool_block]
-
-    msg2 = MagicMock()
-    msg2.__class__.__name__ = "UserMessage"
-    result_block = MagicMock()
-    result_block.__class__.__name__ = "ToolResultBlock"
-    result_block.is_error = False
-    result_block.content = "Edit successful"
-    msg2.content = [result_block]
-
-    msg3 = MagicMock()
-    msg3.__class__.__name__ = "AssistantMessage"
-    text_block2 = MagicMock()
-    text_block2.__class__.__name__ = "TextBlock"
-    text_block2.text = "Fixes complete."
-    msg3.content = [text_block2]
-
-    msg4 = MagicMock()
-    msg4.__class__.__name__ = "UserMessage"
-    msg4.content = []
-
-    return [msg1, msg2, msg3, msg4]
+    """Create mock response with tool use blocks."""
+    return create_mock_tool_use_response("Edit", {"file_path": "/test/file.py"})
 
 
 @pytest.fixture
@@ -339,19 +155,18 @@ class TestLoadQAFixerPrompt:
     def test_load_prompt_file_not_found(self, monkeypatch):
         """Test FileNotFoundError when prompt file doesn't exist."""
         # Create an empty temp directory with no qa_fixer.md
-        import tempfile
         empty_dir = Path(tempfile.mkdtemp())
 
-        # Patch QA_PROMPTS_DIR to point to empty directory
-        import qa.fixer as qa_fixer_module
-        monkeypatch.setattr(qa_fixer_module, "QA_PROMPTS_DIR", empty_dir)
+        try:
+            # Patch QA_PROMPTS_DIR to point to empty directory
+            import qa.fixer as qa_fixer_module
+            monkeypatch.setattr(qa_fixer_module, "QA_PROMPTS_DIR", empty_dir)
 
-        with pytest.raises(FileNotFoundError):
-            load_qa_fixer_prompt()
-
-        # Clean up temp directory
-        import shutil
-        shutil.rmtree(empty_dir)
+            with pytest.raises(FileNotFoundError):
+                load_qa_fixer_prompt()
+        finally:
+            # Clean up temp directory
+            shutil.rmtree(empty_dir)
 
 
 class TestRunQAFixerSessionFixed:
@@ -548,8 +363,6 @@ class TestMemoryIntegration:
     @pytest.mark.asyncio
     async def test_memory_context_retrieval(self, mock_client, spec_dir, fix_request_file):
         """Test that memory context is retrieved during session."""
-        from unittest.mock import AsyncMock, patch
-
         # Setup implementation plan
         plan = {"feature": "Test"}
         save_implementation_plan(spec_dir, plan)
@@ -575,8 +388,6 @@ class TestMemoryIntegration:
     @pytest.mark.asyncio
     async def test_memory_save_on_fixed(self, mock_client, spec_dir, fix_request_file):
         """Test that session memory is saved when fixes are applied."""
-        from unittest.mock import AsyncMock, patch
-
         # Setup implementation plan
         plan = {
             "feature": "Test",
@@ -617,6 +428,7 @@ class TestErrorDetection:
         save_implementation_plan(spec_dir, plan)
 
         # Mock error detection to return rate limit
+        mock_error_utils = get_mock_error_utils()
         mock_error_utils.is_rate_limit_error.return_value = True
 
         # Mock client to raise exception
@@ -635,8 +447,6 @@ class TestErrorDetection:
     @pytest.mark.asyncio
     async def test_tool_concurrency_error_detection(self, mock_client, spec_dir, fix_request_file):
         """Test that tool concurrency errors are properly detected."""
-        from unittest.mock import AsyncMock, patch
-
         # Setup implementation plan
         plan = {"feature": "Test"}
         save_implementation_plan(spec_dir, plan)
@@ -666,8 +476,6 @@ class TestStatusNotUpdated:
     @pytest.mark.asyncio
     async def test_fixed_assumed_when_status_not_updated(self, mock_client, spec_dir, fix_request_file):
         """Test that fixed is assumed even when status not updated."""
-        from unittest.mock import AsyncMock, patch
-
         # Setup implementation plan without ready_for_qa_revalidation
         plan = {"feature": "Test"}
         save_implementation_plan(spec_dir, plan)
