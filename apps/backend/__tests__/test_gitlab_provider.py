@@ -101,9 +101,7 @@ class TestGitLabProvider:
 
     def test_fetch_issue(self, provider):
         """Test fetching a single issue."""
-        from __tests__.fixtures.gitlab import SAMPLE_ISSUE_DATA
-
-        provider._glab_client._fetch_async = AsyncMock(return_value=SAMPLE_ISSUE_DATA)
+        provider._glab_client._fetch_async = AsyncMock(return_value=mock_issue_data())
 
         issue = await_if_needed(provider.fetch_issue(42))
 

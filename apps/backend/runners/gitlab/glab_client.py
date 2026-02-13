@@ -199,9 +199,12 @@ class GitLabClient:
                         try:
                             content_size = int(content_length)
                         except ValueError:
-                            # Malformed Content-Length header - will check after reading
+                            # Malformed Content-Length header - force chunked path
                             logger.warning(
                                 f"Malformed Content-Length header: {content_length}"
+                            )
+                            content_length = (
+                                None  # Force chunked reading with size checks
                             )
                         else:
                             if content_size > MAX_RESPONSE_SIZE:
