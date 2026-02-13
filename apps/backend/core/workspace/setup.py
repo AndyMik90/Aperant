@@ -597,6 +597,7 @@ def _apply_symlink_strategy(
                 ["cmd", "/c", "mklink", "/J", str(target_path), str(source_path)],
                 capture_output=True,
                 text=True,
+                timeout=30,
             )
             if result.returncode != 0:
                 raise OSError(result.stderr or "mklink /J failed")
@@ -719,6 +720,10 @@ def _apply_recreate_strategy(
                             f"Warning: Dependency install failed for {req_file}",
                             "warning",
                         )
+                        # Clean up broken venv so retries aren't blocked
+                        if venv_path.exists():
+                            shutil.rmtree(venv_path, ignore_errors=True)
+                        return
                 except subprocess.TimeoutExpired:
                     debug_warning(
                         MODULE,
@@ -728,8 +733,16 @@ def _apply_recreate_strategy(
                         f"Warning: Dependency install timed out for {req_file}",
                         "warning",
                     )
+                    # Clean up broken venv so retries aren't blocked
+                    if venv_path.exists():
+                        shutil.rmtree(venv_path, ignore_errors=True)
+                    return
                 except OSError as e:
                     debug_warning(MODULE, f"pip install failed: {e}")
+                    # Clean up broken venv so retries aren't blocked
+                    if venv_path.exists():
+                        shutil.rmtree(venv_path, ignore_errors=True)
+                    return
 
     debug(MODULE, f"Recreated venv at {config.source_rel_path}")
 

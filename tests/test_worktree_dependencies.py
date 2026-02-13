@@ -311,7 +311,7 @@ class TestServiceAnalyzerDependencyLocations:
         assert venv_entry["requirements_file"] == "requirements.txt"
 
     def test_returns_no_local_deps_for_go_project(self, tmp_path: Path):
-        """Returns only node_modules (not exists) for Go project with no local deps."""
+        """Returns no dependency locations for Go project with no package.json."""
         from analysis.analyzers.service_analyzer import ServiceAnalyzer
 
         (tmp_path / "go.mod").write_text("module example.com/app")
@@ -320,12 +320,8 @@ class TestServiceAnalyzerDependencyLocations:
         analyzer._detect_dependency_locations()
 
         locations = analyzer.analysis["dependency_locations"]
-        # node_modules always present but marked not existing
-        node_entry = next(l for l in locations if l["type"] == "node_modules")
-        assert node_entry["exists"] is False
-        # No venv, vendor, target, or bundle entries
-        other_types = [l for l in locations if l["type"] != "node_modules"]
-        assert len(other_types) == 0
+        # No entries — node_modules only appears when package.json exists
+        assert len(locations) == 0
 
 
 class TestSetupWorktreeDependencies:

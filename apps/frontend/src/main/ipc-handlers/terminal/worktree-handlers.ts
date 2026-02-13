@@ -456,7 +456,7 @@ async function setupWorktreeDependencies(projectPath: string, worktreePath: stri
           break;
         case 'skip':
           debugLog('[TerminalWorktree] Skipping', config.depType, `(${config.sourceRelPath}) - skip strategy`);
-          break;
+          continue; // Don't record skipped entries in processed list
       }
       processed.push(config.sourceRelPath);
     } catch (error) {
@@ -532,7 +532,7 @@ async function applyRecreateStrategy(projectPath: string, worktreePath: string, 
 
   // Detect Python executable from the source venv or fall back to system Python
   const sourceVenv = path.join(projectPath, config.sourceRelPath);
-  let pythonExec = 'python3';
+  let pythonExec = isWindows() ? 'python' : 'python3';
 
   if (existsSync(sourceVenv)) {
     const unixCandidate = path.join(sourceVenv, 'bin', 'python');
@@ -604,6 +604,11 @@ async function applyRecreateStrategy(projectPath: string, worktreePath: string, 
           } else {
             debugError('[TerminalWorktree] pip install failed:', error);
           }
+          // Clean up broken venv so retries aren't blocked
+          if (existsSync(venvPath)) {
+            try { rmSync(venvPath, { recursive: true, force: true }); } catch { /* best-effort */ }
+          }
+          return;
         }
       }
     }

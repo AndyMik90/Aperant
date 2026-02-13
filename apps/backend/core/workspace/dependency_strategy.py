@@ -94,7 +94,7 @@ def get_dependency_configs(
             p = PurePosixPath(rel_path)
             if p.is_absolute() or PureWindowsPath(rel_path).is_absolute():
                 continue
-            if ".." in p.parts:
+            if ".." in p.parts or ".." in PureWindowsPath(rel_path).parts:
                 continue
 
             # Deduplicate by relative path
@@ -112,6 +112,7 @@ def get_dependency_configs(
                     rp.is_absolute()
                     or PureWindowsPath(req_file).is_absolute()
                     or ".." in rp.parts
+                    or ".." in PureWindowsPath(req_file).parts
                 ):
                     req_file = None
 

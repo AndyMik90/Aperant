@@ -215,15 +215,16 @@ class ServiceAnalyzer(BaseAnalyzer):
         """Detect where dependencies live on disk for this service."""
         locations: list[dict[str, Any]] = []
 
-        # Node.js: node_modules
-        node_modules = self.path / "node_modules"
-        locations.append(
-            {
-                "type": "node_modules",
-                "path": "node_modules",
-                "exists": node_modules.exists() and node_modules.is_dir(),
-            }
-        )
+        # Node.js: node_modules (only if package.json exists)
+        if self._exists("package.json"):
+            node_modules = self.path / "node_modules"
+            locations.append(
+                {
+                    "type": "node_modules",
+                    "path": "node_modules",
+                    "exists": node_modules.exists() and node_modules.is_dir(),
+                }
+            )
 
         # Python: .venv or venv
         for venv_dir in [".venv", "venv"]:
