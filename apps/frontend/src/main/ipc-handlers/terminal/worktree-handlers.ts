@@ -312,6 +312,62 @@ function symlinkNodeModulesToWorktree(projectPath: string, worktreePath: string)
   return symlinked;
 }
 
+/**
+ * Symlink the project root's .claude/ directory into a terminal worktree.
+ * This enables Claude Code features (settings, commands, memory) in worktree terminals.
+ * Follows the same pattern as symlinkNodeModulesToWorktree().
+ */
+function symlinkClaudeConfigToWorktree(projectPath: string, worktreePath: string): string[] {
+  const symlinked: string[] = [];
+
+  const sourceRel = '.claude';
+  const sourcePath = path.join(projectPath, sourceRel);
+  const targetPath = path.join(worktreePath, sourceRel);
+
+  // Skip if source doesn't exist
+  if (!existsSync(sourcePath)) {
+    debugLog('[TerminalWorktree] Skipping .claude symlink - source does not exist:', sourcePath);
+    return symlinked;
+  }
+
+  // Skip if target already exists
+  if (existsSync(targetPath)) {
+    debugLog('[TerminalWorktree] Skipping .claude symlink - target already exists:', targetPath);
+    return symlinked;
+  }
+
+  // Also skip if target is a symlink (even if broken)
+  try {
+    lstatSync(targetPath);
+    debugLog('[TerminalWorktree] Skipping .claude symlink - target exists (possibly broken symlink):', targetPath);
+    return symlinked;
+  } catch {
+    // Target doesn't exist at all - good, we can create symlink
+  }
+
+  // Ensure parent directory exists
+  const targetDir = path.dirname(targetPath);
+  if (!existsSync(targetDir)) {
+    mkdirSync(targetDir, { recursive: true });
+  }
+
+  try {
+    if (isWindows()) {
+      symlinkSync(sourcePath, targetPath, 'junction');
+      debugLog('[TerminalWorktree] Created .claude junction (Windows):', sourceRel, '->', sourcePath);
+    } else {
+      const relativePath = path.relative(path.dirname(targetPath), sourcePath);
+      symlinkSync(relativePath, targetPath);
+      debugLog('[TerminalWorktree] Created .claude symlink (Unix):', sourceRel, '->', relativePath);
+    }
+    symlinked.push(sourceRel);
+  } catch (error) {
+    debugError('[TerminalWorktree] Could not create symlink for .claude:', error);
+  }
+
+  return symlinked;
+}
+
 function saveWorktreeConfig(projectPath: string, name: string, config: TerminalWorktreeConfig): void {
   const metadataDir = getTerminalWorktreeMetadataDir(projectPath);
   mkdirSync(metadataDir, { recursive: true });
