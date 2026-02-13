@@ -451,6 +451,13 @@ def setup_workspace(
     if symlinked_modules:
         print_status(f"Dependencies linked: {', '.join(symlinked_modules)}", "success")
 
+    # Symlink .claude/ config to worktree for Claude Code features (settings, commands, etc.)
+    symlinked_claude = symlink_claude_config_to_worktree(
+        project_dir, worktree_info.path
+    )
+    if symlinked_claude:
+        print_status(f"Claude config linked: {', '.join(symlinked_claude)}", "success")
+
     # Copy security configuration files if they exist
     # Note: Unlike env files, security files always overwrite to ensure
     # the worktree uses the same security rules as the main project.
