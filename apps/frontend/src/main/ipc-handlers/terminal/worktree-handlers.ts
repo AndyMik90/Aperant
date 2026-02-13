@@ -562,18 +562,32 @@ async function applyRecreateStrategy(projectPath: string, worktreePath: string, 
         ? path.join(venvPath, 'Scripts', 'pip.exe')
         : path.join(venvPath, 'bin', 'pip');
 
-      try {
-        debugLog('[TerminalWorktree] Installing deps from', config.requirementsFile);
-        await execFileAsync(pipExec, ['install', '-r', reqPath], {
-          encoding: 'utf-8',
-          timeout: 120000,
-        });
-      } catch (error) {
-        if (isTimeoutError(error)) {
-          debugError('[TerminalWorktree] pip install timed out for', config.requirementsFile);
-          console.warn(`[TerminalWorktree] Warning: Dependency install timed out for ${config.requirementsFile}`);
-        } else {
-          debugError('[TerminalWorktree] pip install failed:', error);
+      // Build install command based on file type
+      const reqBasename = path.basename(config.requirementsFile);
+      let installArgs: string[] | null;
+      if (reqBasename === 'pyproject.toml') {
+        installArgs = ['install', '-e', path.dirname(reqPath)];
+      } else if (reqBasename === 'Pipfile') {
+        debugLog('[TerminalWorktree] Skipping Pipfile-based install (use pipenv in worktree)');
+        installArgs = null;
+      } else {
+        installArgs = ['install', '-r', reqPath];
+      }
+
+      if (installArgs) {
+        try {
+          debugLog('[TerminalWorktree] Installing deps from', config.requirementsFile);
+          await execFileAsync(pipExec, installArgs, {
+            encoding: 'utf-8',
+            timeout: 120000,
+          });
+        } catch (error) {
+          if (isTimeoutError(error)) {
+            debugError('[TerminalWorktree] pip install timed out for', config.requirementsFile);
+            console.warn(`[TerminalWorktree] Warning: Dependency install timed out for ${config.requirementsFile}`);
+          } else {
+            debugError('[TerminalWorktree] pip install failed:', error);
+          }
         }
       }
     }

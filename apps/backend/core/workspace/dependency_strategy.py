@@ -89,7 +89,9 @@ def get_dependency_configs(
             if not dep_type or not rel_path:
                 continue
 
-            # Path containment: reject traversals that escape the project root
+            # Path containment: reject absolute paths and traversals
+            if PurePosixPath(rel_path).is_absolute():
+                continue
             if ".." in PurePosixPath(rel_path).parts:
                 continue
 
@@ -100,12 +102,19 @@ def get_dependency_configs(
 
             strategy = DEFAULT_STRATEGY_MAP.get(dep_type, DependencyStrategy.SKIP)
 
+            # Validate requirements_file path containment too
+            req_file = dep.get("requirements_file")
+            if req_file:
+                req_parts = PurePosixPath(req_file)
+                if req_parts.is_absolute() or ".." in req_parts.parts:
+                    req_file = None
+
             configs.append(
                 DependencyShareConfig(
                     dep_type=dep_type,
                     strategy=strategy,
                     source_rel_path=rel_path,
-                    requirements_file=dep.get("requirements_file"),
+                    requirements_file=req_file,
                     package_manager=dep.get("package_manager"),
                 )
             )

@@ -144,7 +144,9 @@ class ProjectAnalyzer:
                 try:
                     service_rel = Path(service_path).relative_to(self.project_dir)
                 except ValueError:
-                    service_rel = Path(service_path)
+                    # Service path is outside the project root — skip its deps
+                    # to avoid producing absolute paths that bypass containment
+                    continue
 
             for dep in service_deps:
                 # Build project-relative path from service path + dep path
@@ -167,8 +169,11 @@ class ProjectAnalyzer:
                         )
                     else:
                         entry["requirements_file"] = dep["requirements_file"]
-                if dep.get("package_manager"):
-                    entry["package_manager"] = dep["package_manager"]
+                pkg_mgr = dep.get("package_manager") or service_info.get(
+                    "package_manager"
+                )
+                if pkg_mgr:
+                    entry["package_manager"] = pkg_mgr
                 aggregated.append(entry)
 
         self.index["dependency_locations"] = aggregated

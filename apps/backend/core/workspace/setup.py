@@ -588,14 +588,9 @@ def _apply_symlink_strategy(
 
     try:
         if is_windows():
-            # Windows: use junctions (no admin rights required)
-            result = subprocess.run(
-                ["cmd", "/c", "mklink", "/J", str(target_path), str(source_path)],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                raise OSError(result.stderr or "mklink /J failed")
+            # Windows: use directory junctions (no admin rights required).
+            # os.symlink with target_is_directory creates a junction on Windows.
+            os.symlink(str(source_path), str(target_path), target_is_directory=True)
         else:
             # macOS/Linux: relative symlinks for portability
             relative_source = os.path.relpath(source_path, target_path.parent)
@@ -674,35 +669,53 @@ def _apply_recreate_strategy(
             else:
                 pip_exec = str(venv_path / "bin" / "pip")
 
-            try:
-                debug(MODULE, f"Installing deps from {req_file}")
-                pip_result = subprocess.run(
-                    [pip_exec, "install", "-r", str(req_path)],
-                    capture_output=True,
-                    text=True,
-                    timeout=120,
+            # Build install command based on file type
+            req_basename = Path(req_file).name
+            if req_basename == "pyproject.toml":
+                # pyproject.toml: install the project itself
+                install_cmd = [pip_exec, "install", "-e", str(req_path.parent)]
+            elif req_basename == "Pipfile":
+                # Pipfile: not directly installable via pip, skip
+                debug(
+                    MODULE,
+                    f"Skipping Pipfile-based install for {req_file} "
+                    "(use pipenv in the worktree)",
                 )
-                if pip_result.returncode != 0:
+                install_cmd = None
+            else:
+                # requirements.txt or similar: pip install -r
+                install_cmd = [pip_exec, "install", "-r", str(req_path)]
+
+            if install_cmd:
+                try:
+                    debug(MODULE, f"Installing deps from {req_file}")
+                    pip_result = subprocess.run(
+                        install_cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=120,
+                    )
+                    if pip_result.returncode != 0:
+                        debug_warning(
+                            MODULE,
+                            f"pip install failed (exit {pip_result.returncode}): "
+                            f"{pip_result.stderr}",
+                        )
+                        print_status(
+                            f"Warning: Dependency install failed for {req_file}",
+                            "warning",
+                        )
+                except subprocess.TimeoutExpired:
                     debug_warning(
                         MODULE,
-                        f"pip install failed (exit {pip_result.returncode}): "
-                        f"{pip_result.stderr}",
+                        f"pip install timed out for {req_file}",
                     )
                     print_status(
-                        f"Warning: Dependency install failed for {req_file}",
+                        f"Warning: Dependency install timed out for {req_file}",
                         "warning",
                     )
-            except subprocess.TimeoutExpired:
-                debug_warning(
-                    MODULE,
-                    f"pip install timed out for {req_file}",
-                )
-                print_status(
-                    f"Warning: Dependency install timed out for {req_file}",
-                    "warning",
-                )
-            except OSError as e:
-                debug_warning(MODULE, f"pip install failed: {e}")
+                except OSError as e:
+                    debug_warning(MODULE, f"pip install failed: {e}")
 
     debug(MODULE, f"Recreated venv at {config.source_rel_path}")
 
