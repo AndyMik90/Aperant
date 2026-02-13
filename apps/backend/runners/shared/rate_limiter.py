@@ -140,25 +140,37 @@ class TokenBucket:
             wait_time = min(tokens_needed / self.refill_rate, 1.0)  # Max 1 second wait
             await asyncio.sleep(wait_time)
 
-    def consume(self, tokens: int = 1, wait: bool = False) -> bool:
+    def consume(
+        self, tokens: int = 1, wait: bool = False, timeout: float = 5.0
+    ) -> bool:
         """
         Consume tokens from bucket (synchronous version).
 
         Args:
             tokens: Number of tokens to consume
             wait: If True, wait for tokens to become available
+            timeout: Maximum time to wait in seconds (default 5.0)
 
         Returns:
-            True if tokens consumed, False if insufficient
+            True if tokens consumed, False if insufficient or timeout
         """
         if not wait:
             return self.try_acquire(tokens)
-        else:
-            # Calculate wait time needed
-            wait_time = self.time_until_available(tokens)
+
+        start_time = time.monotonic()
+        while True:
+            if self.try_acquire(tokens):
+                return True
+
+            # Check timeout
+            elapsed = time.monotonic() - start_time
+            if elapsed >= timeout:
+                return False
+
+            # Wait for tokens to refill (max 0.1s per iteration)
+            wait_time = min(self.time_until_available(tokens), 0.1)
             if wait_time > 0:
                 time.sleep(wait_time)
-            return self.try_acquire(tokens)
 
     def reset(self) -> None:
         """Reset bucket to full capacity."""
