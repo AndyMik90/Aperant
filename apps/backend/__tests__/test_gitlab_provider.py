@@ -5,7 +5,7 @@ GitLab Provider Tests
 Tests for GitLabProvider implementation of the GitProvider protocol.
 """
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from __tests__.fixtures.gitlab import (
@@ -52,17 +52,19 @@ class TestGitLabProvider:
 
     def test_fetch_pr(self, provider):
         """Test fetching a single MR."""
-        # Mock client responses
-        provider._glab_client.get_mr.return_value = mock_mr_data()
-        provider._glab_client.get_mr_changes.return_value = {
-            "changes": [
-                {
-                    "diff": "@@ -0,0 +1,10 @@\n+new line",
-                    "new_path": "test.py",
-                    "old_path": "test.py",
-                }
-            ]
-        }
+        # Mock client responses with AsyncMock for async methods
+        provider._glab_client.get_mr_async = AsyncMock(return_value=mock_mr_data())
+        provider._glab_client.get_mr_changes_async = AsyncMock(
+            return_value={
+                "changes": [
+                    {
+                        "diff": "@@ -0,0 +1,10 @@\n+new line",
+                        "new_path": "test.py",
+                        "old_path": "test.py",
+                    }
+                ]
+            }
+        )
 
         # Fetch MR
         pr = await_if_needed(provider.fetch_pr(123))
@@ -77,10 +79,12 @@ class TestGitLabProvider:
 
     def test_fetch_prs(self, provider):
         """Test fetching multiple MRs with filters."""
-        provider._glab_client._fetch.return_value = [
-            mock_mr_data(iid=100),
-            mock_mr_data(iid=101, state="closed"),
-        ]
+        provider._glab_client._fetch_async = AsyncMock(
+            return_value=[
+                mock_mr_data(iid=100),
+                mock_mr_data(iid=101, state="closed"),
+            ]
+        )
 
         prs = await_if_needed(provider.fetch_prs())
 
@@ -89,7 +93,7 @@ class TestGitLabProvider:
     def test_fetch_pr_diff(self, provider):
         """Test fetching MR diff."""
         expected_diff = "diff content here"
-        provider._glab_client.get_mr_diff.return_value = expected_diff
+        provider._glab_client.get_mr_diff_async = AsyncMock(return_value=expected_diff)
 
         diff = await_if_needed(provider.fetch_pr_diff(123))
 
@@ -99,7 +103,7 @@ class TestGitLabProvider:
         """Test fetching a single issue."""
         from __tests__.fixtures.gitlab import SAMPLE_ISSUE_DATA
 
-        provider._glab_client._fetch.return_value = SAMPLE_ISSUE_DATA
+        provider._glab_client._fetch_async = AsyncMock(return_value=SAMPLE_ISSUE_DATA)
 
         issue = await_if_needed(provider.fetch_issue(42))
 
@@ -110,10 +114,12 @@ class TestGitLabProvider:
 
     def test_fetch_issues(self, provider):
         """Test fetching issues with filters."""
-        provider._glab_client._fetch.return_value = [
-            mock_issue_data(iid=10),
-            mock_issue_data(iid=11),
-        ]
+        provider._glab_client._fetch_async = AsyncMock(
+            return_value=[
+                mock_issue_data(iid=10),
+                mock_issue_data(iid=11),
+            ]
+        )
 
         issues = await_if_needed(provider.fetch_issues())
 
@@ -124,8 +130,8 @@ class TestGitLabProvider:
         # Import ReviewData from GitHub protocol (which GitLabProvider uses)
         from runners.github.providers.protocol import ReviewData
 
-        provider._glab_client.post_mr_note.return_value = {"id": 999}
-        provider._glab_client._fetch.return_value = {}  # approve MR response
+        provider._glab_client.post_mr_note_async = AsyncMock(return_value={"id": 999})
+        provider._glab_client.approve_mr_async = AsyncMock(return_value={})
 
         review = ReviewData(
             pr_number=123,
@@ -136,11 +142,13 @@ class TestGitLabProvider:
         note_id = await_if_needed(provider.post_review(123, review))
 
         assert note_id == 999
-        provider._glab_client.post_mr_note.assert_called_once()
+        provider._glab_client.post_mr_note_async.assert_called_once()
 
     def test_merge_pr(self, provider):
         """Test merging an MR."""
-        provider._glab_client.merge_mr.return_value = {"status": "success"}
+        provider._glab_client.merge_mr_async = AsyncMock(
+            return_value={"status": "success"}
+        )
 
         result = await_if_needed(provider.merge_pr(123, merge_method="merge"))
 
@@ -148,7 +156,8 @@ class TestGitLabProvider:
 
     def test_close_pr(self, provider):
         """Test closing an MR."""
-        provider._glab_client._fetch.return_value = {}
+        provider._glab_client._fetch_async = AsyncMock(return_value={})
+        provider._glab_client.post_mr_note_async = AsyncMock(return_value={"id": 1})
 
         result = await_if_needed(
             provider.close_pr(123, comment="Closing as not needed")
@@ -166,7 +175,7 @@ class TestGitLabProvider:
         # Create an alias for readability
         LabelData = GitLabLabelData
 
-        provider._glab_client._fetch.return_value = {}
+        provider._glab_client._fetch_async = AsyncMock(return_value={})
 
         label = LabelData(
             name="bug",
@@ -177,7 +186,7 @@ class TestGitLabProvider:
         await_if_needed(provider.create_label(label))
 
         # Verify the label payload was sent correctly
-        call_args = provider._glab_client._fetch.call_args
+        call_args = provider._glab_client._fetch_async.call_args
         assert call_args is not None
         data = call_args[1].get("data") if call_args and len(call_args) > 1 else None
         assert data is not None
@@ -187,10 +196,12 @@ class TestGitLabProvider:
 
     def test_list_labels(self, provider):
         """Test listing labels."""
-        provider._glab_client._fetch.return_value = [
-            {"name": "bug", "color": "ff0000", "description": "Bug"},
-            {"name": "feature", "color": "00ff00", "description": "Feature"},
-        ]
+        provider._glab_client._fetch_async = AsyncMock(
+            return_value=[
+                {"name": "bug", "color": "ff0000", "description": "Bug"},
+                {"name": "feature", "color": "00ff00", "description": "Feature"},
+            ]
+        )
 
         labels = await_if_needed(provider.list_labels())
 
@@ -200,11 +211,13 @@ class TestGitLabProvider:
 
     def test_get_repository_info(self, provider):
         """Test getting repository info."""
-        provider._glab_client._fetch.return_value = {
-            "name": "project",
-            "path_with_namespace": "group/project",
-            "default_branch": "main",
-        }
+        provider._glab_client._fetch_async = AsyncMock(
+            return_value={
+                "name": "project",
+                "path_with_namespace": "group/project",
+                "default_branch": "main",
+            }
+        )
 
         info = await_if_needed(provider.get_repository_info())
 
@@ -212,9 +225,11 @@ class TestGitLabProvider:
 
     def test_get_default_branch(self, provider):
         """Test getting default branch."""
-        provider._glab_client._fetch.return_value = {
-            "default_branch": "main",
-        }
+        provider._glab_client._fetch_async = AsyncMock(
+            return_value={
+                "default_branch": "main",
+            }
+        )
 
         branch = await_if_needed(provider.get_default_branch())
 
@@ -222,7 +237,7 @@ class TestGitLabProvider:
 
     def test_api_get(self, provider):
         """Test low-level API GET."""
-        provider._glab_client._fetch.return_value = {"data": "value"}
+        provider._glab_client._fetch_async = AsyncMock(return_value={"data": "value"})
 
         result = await_if_needed(provider.api_get("/projects/1"))
 
@@ -230,7 +245,7 @@ class TestGitLabProvider:
 
     def test_api_post(self, provider):
         """Test low-level API POST."""
-        provider._glab_client._fetch.return_value = {"id": 123}
+        provider._glab_client._fetch_async = AsyncMock(return_value={"id": 123})
 
         result = await_if_needed(
             provider.api_post("/projects/1/notes", {"body": "test"})

@@ -167,14 +167,16 @@ class TokenBucket:
 
     def reset(self) -> None:
         """Reset bucket to full capacity."""
-        self._refill()
-        self.tokens = float(self.capacity)
-        self.last_refill = time.monotonic()
+        with self._lock:
+            self._refill()
+            self.tokens = float(self.capacity)
+            self.last_refill = time.monotonic()
 
     def available(self) -> int:
         """Get number of available tokens."""
-        self._refill()
-        return int(self.tokens)
+        with self._lock:
+            self._refill()
+            return int(self.tokens)
 
     def get_available(self) -> int:
         """Get number of available tokens (alias for available())."""
@@ -187,11 +189,12 @@ class TokenBucket:
         Returns:
             0 if tokens immediately available, otherwise seconds to wait
         """
-        self._refill()
-        if self.tokens >= tokens:
-            return 0.0
-        tokens_needed = tokens - self.tokens
-        return tokens_needed / self.refill_rate
+        with self._lock:
+            self._refill()
+            if self.tokens >= tokens:
+                return 0.0
+            tokens_needed = tokens - self.tokens
+            return tokens_needed / self.refill_rate
 
 
 # AI model pricing (per 1M tokens) - Updated 2026
@@ -327,6 +330,7 @@ class RateLimiter:
 
     _instance: RateLimiter | None = None
     _initialized: bool = False
+    _lock: threading.Lock = threading.Lock()  # Class-level lock for singleton safety
 
     def __init__(
         self,
@@ -383,12 +387,15 @@ class RateLimiter:
             RateLimiter singleton instance
         """
         if cls._instance is None:
-            cls._instance = RateLimiter(
-                api_limit=api_limit,
-                api_refill_rate=api_refill_rate,
-                cost_limit=cost_limit,
-                max_retry_delay=max_retry_delay,
-            )
+            with cls._lock:
+                # Double-check after acquiring lock
+                if cls._instance is None:
+                    cls._instance = RateLimiter(
+                        api_limit=api_limit,
+                        api_refill_rate=api_refill_rate,
+                        cost_limit=cost_limit,
+                        max_retry_delay=max_retry_delay,
+                    )
         return cls._instance
 
     @classmethod

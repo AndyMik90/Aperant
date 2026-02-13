@@ -214,18 +214,28 @@ class GitLabClient:
                     if response.status == 204:
                         return None
 
-                    # Validate Content-Type for JSON responses
-                    content_type = response.headers.get("Content-Type", "")
-                    if "application/json" not in content_type and response.status < 400:
-                        # Non-JSON response on success - return as text
-                        return response.read().decode("utf-8")
-
-                    # Check response size limit
+                    # Check Content-Length for size limit (fast path)
                     content_length = response.headers.get("Content-Length")
                     if content_length and int(content_length) > MAX_RESPONSE_SIZE:
                         raise ValueError(f"Response too large: {content_length} bytes")
 
-                    response_body = response.read().decode("utf-8")
+                    # Validate Content-Type for JSON responses
+                    content_type = response.headers.get("Content-Type", "")
+
+                    # Read response body
+                    # For responses with Content-Length, we already checked size above
+                    # For chunked responses (no Content-Length), read and check size after
+                    response_bytes = response.read()
+                    if len(response_bytes) > MAX_RESPONSE_SIZE:
+                        raise ValueError(
+                            f"Response too large: {len(response_bytes)} bytes (limit: {MAX_RESPONSE_SIZE})"
+                        )
+                    response_body = response_bytes.decode("utf-8")
+
+                    # Handle non-JSON success responses
+                    if "application/json" not in content_type and response.status < 400:
+                        # Non-JSON response on success - return as text
+                        return response_body
 
                     # Try to parse JSON for better error messages
                     try:

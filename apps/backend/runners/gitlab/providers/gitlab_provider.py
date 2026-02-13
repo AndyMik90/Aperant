@@ -114,11 +114,11 @@ class GitLabProvider:
         Returns:
             PRData with full MR details including diff
         """
-        # Get MR details
-        mr_data = self._glab_client.get_mr(number)
+        # Get MR details using async methods
+        mr_data = await self._glab_client.get_mr_async(number)
 
         # Get MR changes (includes diff)
-        changes_data = self._glab_client.get_mr_changes(number)
+        changes_data = await self._glab_client.get_mr_changes_async(number)
 
         # Build diff from changes
         diffs = []
@@ -161,7 +161,7 @@ class GitLabProvider:
         encoded_project = encode_project_path(self._repo)
         endpoint = f"/projects/{encoded_project}/merge_requests"
 
-        mrs_data = self._glab_client._fetch(endpoint, params=params)
+        mrs_data = await self._glab_client._fetch_async(endpoint, params=params)
 
         result = []
         for mr_data in mrs_data:
@@ -194,7 +194,7 @@ class GitLabProvider:
         Returns:
             Unified diff string
         """
-        return self._glab_client.get_mr_diff(number)
+        return await self._glab_client.get_mr_diff_async(number)
 
     async def post_review(self, pr_number: int, review: ReviewData) -> int:
         """
@@ -213,12 +213,12 @@ class GitLabProvider:
         Returns:
             Note ID (or 0 if not available)
         """
-        # Post the review body as a note
-        note_data = self._glab_client.post_mr_note(pr_number, review.body)
+        # Post the review body as a note using async method
+        note_data = await self._glab_client.post_mr_note_async(pr_number, review.body)
 
         # If approving, also approve the MR
         if review.event == "approve":
-            self._glab_client.approve_mr(pr_number)
+            await self._glab_client.approve_mr_async(pr_number)
 
         # Return note ID
         return note_data.get("id", 0)
@@ -244,7 +244,7 @@ class GitLabProvider:
         squash = merge_method == "squash"
 
         try:
-            result = self._glab_client.merge_mr(pr_number, squash=squash)
+            result = await self._glab_client.merge_mr_async(pr_number, squash=squash)
             # Check if merge was successful
             return result.get("status") != "failed"
         except Exception:
@@ -268,13 +268,13 @@ class GitLabProvider:
         try:
             # Post closing comment if provided
             if comment:
-                self._glab_client.post_mr_note(pr_number, comment)
+                await self._glab_client.post_mr_note_async(pr_number, comment)
 
             # GitLab doesn't have a direct "close" endpoint for MRs
             # We need to use the API to set the state event to close
             encoded_project = encode_project_path(self._repo)
             data = {"state_event": "close"}
-            self._glab_client._fetch(
+            await self._glab_client._fetch_async(
                 f"/projects/{encoded_project}/merge_requests/{pr_number}",
                 method="PUT",
                 data=data,
@@ -298,7 +298,7 @@ class GitLabProvider:
             IssueData with full issue details
         """
         encoded_project = encode_project_path(self._repo)
-        issue_data = self._glab_client._fetch(
+        issue_data = await self._glab_client._fetch_async(
             f"/projects/{encoded_project}/issues/{number}"
         )
         return self._parse_issue_data(issue_data)
@@ -329,7 +329,7 @@ class GitLabProvider:
         encoded_project = encode_project_path(self._repo)
         endpoint = f"/projects/{encoded_project}/issues"
 
-        issues_data = self._glab_client._fetch(endpoint, params=params)
+        issues_data = await self._glab_client._fetch_async(endpoint, params=params)
 
         result = []
         for issue_data in issues_data:
@@ -386,7 +386,7 @@ class GitLabProvider:
             for username in assignees:
                 try:
                     # Use params parameter to avoid URL injection
-                    user_data = self._glab_client._fetch(
+                    user_data = await self._glab_client._fetch_async(
                         "/users", params={"username": username}
                     )
                     if user_data:
@@ -396,7 +396,7 @@ class GitLabProvider:
             if assignee_ids:
                 data["assignee_ids"] = assignee_ids
 
-        result = self._glab_client._fetch(
+        result = await self._glab_client._fetch_async(
             f"/projects/{encoded_project}/issues",
             method="POST",
             data=data,
@@ -424,7 +424,7 @@ class GitLabProvider:
             # Post closing comment if provided
             if comment:
                 encoded_project = encode_project_path(self._repo)
-                self._glab_client._fetch(
+                await self._glab_client._fetch_async(
                     f"/projects/{encoded_project}/issues/{number}/notes",
                     method="POST",
                     data={"body": comment},
@@ -432,7 +432,7 @@ class GitLabProvider:
 
             # Close the issue
             encoded_project = encode_project_path(self._repo)
-            self._glab_client._fetch(
+            await self._glab_client._fetch_async(
                 f"/projects/{encoded_project}/issues/{number}",
                 method="PUT",
                 data={"state_event": "close"},
@@ -458,12 +458,14 @@ class GitLabProvider:
         """
         # Try MR first, then issue
         try:
-            note_data = self._glab_client.post_mr_note(issue_or_pr_number, body)
+            note_data = await self._glab_client.post_mr_note_async(
+                issue_or_pr_number, body
+            )
             return note_data.get("id", 0)
         except Exception:
             try:
                 encoded_project = encode_project_path(self._repo)
-                note_data = self._glab_client._fetch(
+                note_data = await self._glab_client._fetch_async(
                     f"/projects/{encoded_project}/issues/{issue_or_pr_number}/notes",
                     method="POST",
                     data={"body": body},
@@ -492,13 +494,13 @@ class GitLabProvider:
 
         # Try MR first
         try:
-            current_data = self._glab_client._fetch(
+            current_data = await self._glab_client._fetch_async(
                 f"/projects/{encoded_project}/merge_requests/{issue_or_pr_number}"
             )
             current_labels = current_data.get("labels", [])
             new_labels = list(set(current_labels + labels))
 
-            self._glab_client._fetch(
+            await self._glab_client._fetch_async(
                 f"/projects/{encoded_project}/merge_requests/{issue_or_pr_number}",
                 method="PUT",
                 data={"labels": ",".join(new_labels)},
@@ -510,13 +512,13 @@ class GitLabProvider:
 
         # Try issue
         try:
-            current_data = self._glab_client._fetch(
+            current_data = await self._glab_client._fetch_async(
                 f"/projects/{encoded_project}/issues/{issue_or_pr_number}"
             )
             current_labels = current_data.get("labels", [])
             new_labels = list(set(current_labels + labels))
 
-            self._glab_client._fetch(
+            await self._glab_client._fetch_async(
                 f"/projects/{encoded_project}/issues/{issue_or_pr_number}",
                 method="PUT",
                 data={"labels": ",".join(new_labels)},
@@ -541,13 +543,13 @@ class GitLabProvider:
 
         # Try MR first
         try:
-            current_data = self._glab_client._fetch(
+            current_data = await self._glab_client._fetch_async(
                 f"/projects/{encoded_project}/merge_requests/{issue_or_pr_number}"
             )
             current_labels = current_data.get("labels", [])
             new_labels = [label for label in current_labels if label not in labels]
 
-            self._glab_client._fetch(
+            await self._glab_client._fetch_async(
                 f"/projects/{encoded_project}/merge_requests/{issue_or_pr_number}",
                 method="PUT",
                 data={"labels": ",".join(new_labels)},
@@ -559,13 +561,13 @@ class GitLabProvider:
 
         # Try issue
         try:
-            current_data = self._glab_client._fetch(
+            current_data = await self._glab_client._fetch_async(
                 f"/projects/{encoded_project}/issues/{issue_or_pr_number}"
             )
             current_labels = current_data.get("labels", [])
             new_labels = [label for label in current_labels if label not in labels]
 
-            self._glab_client._fetch(
+            await self._glab_client._fetch_async(
                 f"/projects/{encoded_project}/issues/{issue_or_pr_number}",
                 method="PUT",
                 data={"labels": ",".join(new_labels)},
@@ -595,7 +597,7 @@ class GitLabProvider:
             data["description"] = label.description
 
         try:
-            self._glab_client._fetch(
+            await self._glab_client._fetch_async(
                 f"/projects/{encoded_project}/labels",
                 method="POST",
                 data=data,
@@ -603,7 +605,7 @@ class GitLabProvider:
         except Exception:
             # Label might already exist, try to update
             try:
-                self._glab_client._fetch(
+                await self._glab_client._fetch_async(
                     f"/projects/{encoded_project}/labels/{urllib.parse.quote(label.name)}",
                     method="PUT",
                     data=data,
@@ -621,7 +623,7 @@ class GitLabProvider:
         """
         encoded_project = encode_project_path(self._repo)
 
-        labels_data = self._glab_client._fetch(
+        labels_data = await self._glab_client._fetch_async(
             f"/projects/{encoded_project}/labels",
             params={"per_page": 100},
         )
@@ -647,7 +649,7 @@ class GitLabProvider:
             Repository metadata
         """
         encoded_project = encode_project_path(self._repo)
-        return self._glab_client._fetch(f"/projects/{encoded_project}")
+        return await self._glab_client._fetch_async(f"/projects/{encoded_project}")
 
     async def get_default_branch(self) -> str:
         """
@@ -671,7 +673,7 @@ class GitLabProvider:
         """
         try:
             encoded_project = encode_project_path(self._repo)
-            result = self._glab_client._fetch(
+            result = await self._glab_client._fetch_async(
                 f"/projects/{encoded_project}/members/all",
                 params={"query": username},
             )
@@ -723,7 +725,7 @@ class GitLabProvider:
         Returns:
             API response data
         """
-        return self._glab_client._fetch(endpoint, params=params)
+        return await self._glab_client._fetch_async(endpoint, params=params)
 
     async def api_post(
         self,
@@ -740,7 +742,7 @@ class GitLabProvider:
         Returns:
             API response data
         """
-        return self._glab_client._fetch(endpoint, method="POST", data=data)
+        return await self._glab_client._fetch_async(endpoint, method="POST", data=data)
 
     # -------------------------------------------------------------------------
     # Helper Methods

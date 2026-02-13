@@ -262,6 +262,13 @@ class GitLabPermissionChecker:
                 f"/projects/{encode_project_path(self.glab_client.config.project)}"
             )
             namespace_path = project_info.get("namespace", {}).get("full_path", "")
+
+            # Guard against empty namespace_path to avoid unexpected API call
+            if not namespace_path:
+                role = "NONE"
+                self._role_cache[username] = (role, time.monotonic())
+                return role
+
             namespace_info = await self.glab_client._fetch_async(
                 f"/namespaces/{encode_project_path(namespace_path)}"
             )

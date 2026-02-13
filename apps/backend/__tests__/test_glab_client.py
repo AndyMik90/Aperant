@@ -637,17 +637,18 @@ class TestGitLabClientConfig:
 
         from runners.gitlab.glab_client import GitLabClient, GitLabConfig
 
-        project_dir = Path(tempfile.mkdtemp())
-        config = GitLabConfig(
-            token="test-token",
-            project="group/project",
-            instance_url="https://gitlab.com",
-        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            config = GitLabConfig(
+                token="test-token",
+                project="group/project",
+                instance_url="https://gitlab.com",
+            )
 
-        client = GitLabClient(project_dir=project_dir, config=config)
+            client = GitLabClient(project_dir=project_dir, config=config)
 
-        assert client.config.instance_url == "https://gitlab.com"
-        assert client.default_timeout == 30.0
+            assert client.config.instance_url == "https://gitlab.com"
+            assert client.default_timeout == 30.0
 
     def test_config_to_dict(self):
         """Test converting config to dict using dataclasses."""

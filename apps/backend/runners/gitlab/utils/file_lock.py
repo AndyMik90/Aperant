@@ -2,7 +2,7 @@
 File Locking for Concurrent Operations
 =====================================
 
-Thread-safe and process-safe file locking utilities for GitHub automation.
+Thread-safe and process-safe file locking utilities for provider automation.
 Uses fcntl.flock() on Unix systems and msvcrt.locking() on Windows for proper
 cross-process locking.
 
