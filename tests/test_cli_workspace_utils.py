@@ -1204,16 +1204,8 @@ class TestEdgeCaseLines:
         # - superseded_files = 1, total_files = 2, 1 > 2/2? NO (1 > 1 is false)
         # - diverged_files should be empty (all files matched as already_merged or superseded)
         # So we should hit the else branch at lines 678-679
-
-        # The result should be normal_conflict since neither is majority
-        # OR it could be one of the other scenarios depending on how the code evaluates
-        # Let me check the actual result
-
-        # Actually, looking at the code more carefully, I think the issue is that
-        # with equal numbers, neither condition is strictly greater than 50%
-        # So we should get to the else branch
-
-        assert result["scenario"] in ["normal_conflict", "already_merged", "superseded"]
+        assert result["scenario"] == "normal_conflict", \
+            f"Expected 'normal_conflict' with equal already_merged/superseded (50% each, neither > 50%), got: {result['scenario']}"
 
 
 # =============================================================================
@@ -1223,83 +1215,74 @@ class TestEdgeCaseLines:
 
 
 class TestFallbackDebugFunctionsDirectImport:
-    """Tests for fallback debug functions by directly triggering ImportError."""
+    """Tests for fallback debug functions by directly triggering ImportError.
 
-    def test_fallback_functions_direct_import_error_coverage(self):
-        """Tests fallback functions by removing debug module functions and reimporting."""
+    Uses subprocess isolation to avoid test pollution across modules.
+    """
+
+    def test_fallback_functions_with_debug_blocked(self):
+        """Tests fallback functions when debug module is completely blocked.
+
+        Uses subprocess for true isolation without risk of module state leakage.
+        This tests the ImportError fallback path (lines 335-363).
+        """
+        import subprocess
         import sys
-        import importlib
+        import os
 
-        # Save original state
-        original_modules = {}
-        for key in list(sys.modules.keys()):
-            if 'workspace_commands' in key or key == 'cli':
-                original_modules[key] = sys.modules[key]
+        backend_dir = Path(__file__).parent.parent / "apps" / "backend"
 
-        try:
-            # Remove workspace_commands to force reimport
-            if 'cli.workspace_commands' in sys.modules:
-                del sys.modules['cli.workspace_commands']
-            # Note: Keep cli module but workspace_commands will be reimported
+        # Run in subprocess with debug module completely blocked
+        # This is the same approach as test_fallback_debug_functions_when_debug_unavailable
+        code = """
+import sys
+import os
+os.chdir(sys.argv[1])
+sys.path.insert(0, sys.argv[1])
 
-            # Save the debug module
-            debug_module = sys.modules.get('debug')
+# Block debug module import completely
+class DebugBlocker:
+    def find_module(self, fullname, path=None):
+        if fullname == 'debug' or fullname.startswith('debug.'):
+            return self
+        return None
+    def load_module(self, fullname):
+        raise ImportError(f"Blocked import of {fullname}")
 
-            # Create a mock debug module that raises ImportError for specific functions
-            class MockDebugModule:
-                """Mock debug module that simulates missing functions."""
-                def __getattr__(self, name):
-                    if name in ['debug', 'debug_detailed', 'debug_verbose',
-                               'debug_success', 'debug_error', 'debug_section',
-                               'is_debug_enabled']:
-                        raise AttributeError(f"debug.{name} not available")
-                    # For other attributes (like debug_warning), try the real module
-                    if debug_module is not None:
-                        return getattr(debug_module, name)
-                    raise AttributeError(f"debug.{name} not found")
+sys.meta_path.insert(0, DebugBlocker())
 
-            # Replace debug module temporarily
-            sys.modules['debug'] = MockDebugModule()
+# Now import workspace_commands - should trigger fallback functions (lines 335-363)
+from cli.workspace_commands import (
+    debug, debug_detailed, debug_verbose,
+    debug_success, debug_error, debug_section,
+    is_debug_enabled
+)
 
-            # Now import workspace_commands - should trigger ImportError for the specific functions
-            # This executes lines 335-363 (fallback functions)
-            import cli.workspace_commands
+# Verify fallback functions work without error
+debug('MODULE', 'test message')
+debug_detailed('MODULE', 'detailed')
+debug_verbose('MODULE', 'verbose')
+debug_success('MODULE', 'success')
+debug_error('MODULE', 'error')
+debug_section('MODULE', 'section')
 
-            # Verify fallback functions exist and are callable
-            assert hasattr(cli.workspace_commands, 'debug')
-            assert callable(cli.workspace_commands.debug)
-            assert hasattr(cli.workspace_commands, 'debug_detailed')
-            assert callable(cli.workspace_commands.debug_detailed)
-            assert hasattr(cli.workspace_commands, 'debug_verbose')
-            assert callable(cli.workspace_commands.debug_verbose)
-            assert hasattr(cli.workspace_commands, 'debug_success')
-            assert callable(cli.workspace_commands.debug_success)
-            assert hasattr(cli.workspace_commands, 'debug_error')
-            assert callable(cli.workspace_commands.debug_error)
-            assert hasattr(cli.workspace_commands, 'debug_section')
-            assert callable(cli.workspace_commands.debug_section)
-            assert hasattr(cli.workspace_commands, 'is_debug_enabled')
-            assert callable(cli.workspace_commands.is_debug_enabled)
+# Test is_debug_enabled returns False (line 363)
+result = is_debug_enabled()
+assert result == False, f"Expected False, got {result}"
+print('OK')
+"""
 
-            # Execute fallback functions to ensure they work (lines 337-363)
-            cli.workspace_commands.debug('MODULE', 'test message')
-            cli.workspace_commands.debug_detailed('MODULE', 'detailed')
-            cli.workspace_commands.debug_verbose('MODULE', 'verbose')
-            cli.workspace_commands.debug_success('MODULE', 'success')
-            cli.workspace_commands.debug_error('MODULE', 'error')
-            cli.workspace_commands.debug_section('MODULE', 'section')
+        result = subprocess.run(
+            [sys.executable, "-c", code, str(backend_dir)],
+            env={**os.environ, "PYTHONPATH": str(backend_dir)},
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
 
-            # Test is_debug_enabled returns False (line 363)
-            result = cli.workspace_commands.is_debug_enabled()
-            assert result == False
-
-        finally:
-            # Restore modules
-            for key, mod in original_modules.items():
-                sys.modules[key] = mod
-            # Restore debug module
-            if debug_module is not None:
-                sys.modules['debug'] = debug_module
+        # Verify subprocess succeeded - this validates fallback functions work
+        assert result.returncode == 0, f"Subprocess failed: stderr={result.stderr}"
+        assert "OK" in result.stdout, f"Expected 'OK' in output, got: {result.stdout}"
 
     @patch("subprocess.run")
     def test_line_649_spec_exists_base_doesnt_exist_exact(self, mock_run, mock_project_dir: Path):

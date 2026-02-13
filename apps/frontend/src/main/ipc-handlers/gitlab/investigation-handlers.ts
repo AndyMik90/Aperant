@@ -7,9 +7,9 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { GitLabInvestigationStatus, GitLabInvestigationResult } from '../../../shared/types';
 import { projectStore } from '../../project-store';
-import { getGitLabConfig, gitlabFetch, encodeProjectPath, GitLabAPIError } from './utils';
+import { getGitLabConfig, gitlabFetch, encodeProjectPath } from './utils';
 import type { GitLabAPIIssue, GitLabAPINoteBasic } from './types';
-import { createSpecForIssue } from './spec-utils';
+import { createSpecForIssue, fetchAllIssueNotes } from './spec-utils';
 import type { AgentManager } from '../../agent';
 
 // Debug logging helper
@@ -112,104 +112,18 @@ export function registerInvestigateIssue(
         // Fetch notes if any selected (with pagination to get all notes)
         let filteredNotes: GitLabAPINoteBasic[] = [];
         if (selectedNoteIds && selectedNoteIds.length > 0) {
-          // Fetch all notes with pagination (GitLab defaults to 20 per page)
-          const allNotes: GitLabAPINoteBasic[] = [];
-          let page = 1;
-          const perPage = 100;
-          const MAX_PAGES = 50; // Safety limit: max 5000 notes
-          let hasMore = true;
-
-          while (hasMore && page <= MAX_PAGES) {
-            try {
-              const notesPage = await gitlabFetch(
-                config.token,
-                config.instanceUrl,
-                `/projects/${encodedProject}/issues/${issueIid}/notes?page=${page}&per_page=${perPage}`
-              ) as unknown[];
-
-              // Runtime validation: ensure we got an array
-              if (!Array.isArray(notesPage)) {
-                debugLog('GitLab notes API returned non-array, stopping pagination');
-                break;
-              }
-
-              if (notesPage.length === 0) {
-                hasMore = false;
-              } else {
-                // Extract only needed fields with null-safe defaults
-                const noteSummaries: GitLabAPINoteBasic[] = notesPage
-                  .filter((note: unknown): note is Record<string, unknown> =>
-                    note !== null && typeof note === 'object' && typeof (note as Record<string, unknown>).id === 'number'
-                  )
-                  .map((note) => {
-                    // Validate author structure defensively
-                    const author = note.author;
-                    const username = (author !== null && typeof author === 'object' && typeof (author as Record<string, unknown>).username === 'string')
-                      ? (author as Record<string, unknown>).username as string
-                      : 'unknown';
-                    return {
-                      id: note.id as number,
-                      body: (note.body as string | undefined) || '',
-                      author: { username },
-                    };
-                  });
-                allNotes.push(...noteSummaries);
-                if (notesPage.length < perPage) {
-                  hasMore = false;
-                } else {
-                  page++;
-                }
-              }
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : String(error);
-
-              // Check for authentication/rate-limit errors using structured status codes
-              // (gitlabFetch wraps all HTTP errors as GitLabAPIError)
-              const isAuthError = error instanceof GitLabAPIError && (error.statusCode === 401 || error.statusCode === 403);
-              const isRateLimited = error instanceof GitLabAPIError && error.statusCode === 429;
-
-              if (isAuthError || isRateLimited) {
-                // Re-throw critical errors to let the outer handler surface them to the user
-                // At this point error is guaranteed to be GitLabAPIError due to the isAuthError/isRateLimited checks
-                const statusCode = error.statusCode;
-                console.warn(`[GitLab Investigation] ${isAuthError ? 'Authentication' : 'Rate limit'} error during notes fetch`, { page, error: errorMessage, statusCode });
-                throw error;
-              }
-
-              // For transient errors on page 1, warn the user but continue
-              if (page === 1 && allNotes.length === 0) {
-                console.warn('[GitLab Investigation] Failed to fetch any notes, proceeding without notes context', { error: errorMessage });
-              } else {
-                // Log pagination failure for subsequent pages
-                debugLog('Failed to fetch notes page, using partial notes', { page, error: errorMessage, notesRetrieved: allNotes.length });
-              }
-              hasMore = false;
-            }
-          }
-
-          // Warn if we hit the pagination limit
-          if (page > MAX_PAGES && hasMore) {
-            debugLog('Pagination limit reached, some notes may be missing', { maxPages: MAX_PAGES, notesRetrieved: allNotes.length });
-          }
-
+          // Fetch all notes using the paginated utility function
+          const allNotes = await fetchAllIssueNotes(config, encodedProject, issueIid);
           // Filter notes based on selection
           filteredNotes = allNotes.filter(note => selectedNoteIds.includes(note.id));
         }
 
-        // Phase 2: Analyzing
-        sendProgress(getMainWindow, project.id, {
-          phase: 'analyzing',
-          issueIid,
-          progress: 30,
-          message: 'Analyzing issue with AI...'
-        });
-
-        // Phase 3: Creating task
+        // Phase 2: Creating task
         sendProgress(getMainWindow, project.id, {
           phase: 'creating_task',
           issueIid,
-          progress: 80,
-          message: 'Creating task from analysis...'
+          progress: 50,
+          message: 'Creating task from issue...'
         });
 
         // Create spec for the issue with notes
