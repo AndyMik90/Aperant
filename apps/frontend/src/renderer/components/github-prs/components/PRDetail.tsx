@@ -413,7 +413,26 @@ export function PRDetail({
   useEffect(() => {
     if (!isReviewing || !isExternalReview) return;
 
+    const POLL_INTERVAL_MS = 3000;
+    const MAX_POLL_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+    const pollStart = Date.now();
+
     const pollForCompletion = async () => {
+      // Timeout: stop polling after 30 minutes to avoid indefinite polling
+      if (Date.now() - pollStart > MAX_POLL_DURATION_MS) {
+        usePRReviewStore.getState().setPRReviewResult(projectId, {
+          prNumber: pr.number,
+          repo: '',
+          success: false,
+          findings: [],
+          summary: '',
+          overallStatus: 'comment',
+          reviewedAt: new Date().toISOString(),
+          error: 'External review polling timed out after 30 minutes',
+        });
+        return;
+      }
+
       try {
         const result = await window.electronAPI.github.getPRReview(projectId, pr.number);
         if (result && result.overallStatus !== 'in_progress') {
@@ -429,7 +448,9 @@ export function PRDetail({
       }
     };
 
-    const interval = setInterval(pollForCompletion, 3000);
+    // Poll immediately, then every 3 seconds
+    pollForCompletion();
+    const interval = setInterval(pollForCompletion, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [isReviewing, isExternalReview, projectId, pr.number, startedAt]);
 

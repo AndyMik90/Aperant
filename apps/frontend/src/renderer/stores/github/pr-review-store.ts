@@ -62,7 +62,7 @@ interface PRReviewStoreState {
   /** Clear PR status fields for a specific PR */
   clearPRStatus: (projectId: string, prNumber: number) => void;
   /** Start an external review (from PR list) - sets isReviewing and isExternalReview */
-  setExternalReviewInProgress: (projectId: string, prNumber: number) => void;
+  setExternalReviewInProgress: (projectId: string, prNumber: number, inProgressSince?: string) => void;
 
   // Selectors
   getPRReviewState: (projectId: string, prNumber: number) => PRReviewState | null;
@@ -332,7 +332,7 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
     };
   }),
 
-  setExternalReviewInProgress: (projectId: string, prNumber: number) => set((state) => {
+  setExternalReviewInProgress: (projectId: string, prNumber: number, inProgressSince?: string) => set((state) => {
     const key = `${projectId}:${prNumber}`;
     const existing = state.prReviews[key];
     return {
@@ -342,7 +342,7 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           prNumber,
           projectId,
           isReviewing: true,
-          startedAt: new Date().toISOString(),
+          startedAt: inProgressSince || new Date().toISOString(),
           progress: null,
           result: existing?.result ?? null,
           previousResult: existing?.previousResult ?? null,
@@ -420,7 +420,7 @@ export function initializePRReviewListeners(): void {
       // a real result. Transition to external-review-in-progress so the log polling
       // activates and the UI shows the ongoing review.
       if (result.overallStatus === 'in_progress') {
-        store.setExternalReviewInProgress(projectId, result.prNumber);
+        store.setExternalReviewInProgress(projectId, result.prNumber, result.inProgressSince);
         return;
       }
 

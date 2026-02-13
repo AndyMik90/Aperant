@@ -1518,7 +1518,32 @@ async function runPRReview(
       debugLog("Auth failure detected in PR review", authFailureInfo);
       mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
     },
-    onComplete: () => {
+    onComplete: (stdout: string) => {
+      // Check stdout for in_progress JSON marker (not saved to disk by backend)
+      const inProgressMarker = "__RESULT_JSON__:";
+      for (const line of stdout.split("\n")) {
+        if (line.startsWith(inProgressMarker)) {
+          try {
+            const data = JSON.parse(line.slice(inProgressMarker.length));
+            if (data.overall_status === "in_progress") {
+              debugLog("In-progress result parsed from stdout", { prNumber });
+              return {
+                prNumber: data.pr_number,
+                repo: data.repo,
+                success: data.success,
+                findings: [],
+                summary: data.summary ?? "",
+                overallStatus: "in_progress" as const,
+                reviewedAt: data.reviewed_at ?? new Date().toISOString(),
+                inProgressSince: data.in_progress_since,
+              };
+            }
+          } catch {
+            debugLog("Failed to parse __RESULT_JSON__ line", { line });
+          }
+        }
+      }
+
       // Load the result from disk
       const reviewResult = getReviewResult(project, prNumber);
       if (!reviewResult) {

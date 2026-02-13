@@ -235,6 +235,12 @@ async def cmd_review_pr(args) -> int:
         safe_print(f"[DEBUG] review_pr returned, success={result.success}")
 
     if result.success:
+        # For in_progress results (not saved to disk), output JSON so the frontend
+        # can parse it from stdout instead of relying on the disk file.
+        if result.overall_status == "in_progress":
+            safe_print(f"__RESULT_JSON__:{json.dumps(result.to_dict())}")
+            return 0
+
         safe_print(f"\n{'=' * 60}")
         safe_print(f"PR #{result.pr_number} Review Complete")
         safe_print(f"{'=' * 60}")
