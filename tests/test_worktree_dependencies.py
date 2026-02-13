@@ -317,6 +317,62 @@ class TestGetDependencyConfigs:
         assert len(configs) == 1
         assert configs[0].source_rel_path == "safe/node_modules"
 
+    def test_requirements_file_traversal_rejected(self):
+        """requirements_file with '..' traversal is nullified."""
+        project_index = {
+            "dependency_locations": [
+                {
+                    "type": "venv",
+                    "path": ".venv",
+                    "requirements_file": "../../etc/passwd",
+                    "service": "evil",
+                },
+            ]
+        }
+
+        configs = get_dependency_configs(project_index)
+
+        assert len(configs) == 1
+        assert configs[0].source_rel_path == ".venv"
+        assert configs[0].requirements_file is None
+
+    def test_requirements_file_absolute_path_rejected(self):
+        """requirements_file with absolute path is nullified."""
+        project_index = {
+            "dependency_locations": [
+                {
+                    "type": "venv",
+                    "path": ".venv",
+                    "requirements_file": "/etc/passwd",
+                    "service": "evil",
+                },
+            ]
+        }
+
+        configs = get_dependency_configs(project_index)
+
+        assert len(configs) == 1
+        assert configs[0].requirements_file is None
+
+    def test_requirements_file_valid_preserved(self):
+        """Valid requirements_file is preserved."""
+        project_index = {
+            "dependency_locations": [
+                {
+                    "type": "venv",
+                    "path": ".venv",
+                    "requirements_file": "requirements.txt",
+                    "package_manager": "pip",
+                    "service": "backend",
+                },
+            ]
+        }
+
+        configs = get_dependency_configs(project_index)
+
+        assert len(configs) == 1
+        assert configs[0].requirements_file == "requirements.txt"
+
 
 class TestServiceAnalyzerDependencyLocations:
     """Tests for ServiceAnalyzer._detect_dependency_locations()."""
