@@ -278,7 +278,7 @@ export interface PRReviewResult {
   success: boolean;
   findings: PRReviewFinding[];
   summary: string;
-  overallStatus: "approve" | "request_changes" | "comment";
+  overallStatus: "approve" | "request_changes" | "comment" | "in_progress";
   reviewId?: number;
   reviewedAt: string;
   error?: string;
@@ -1941,6 +1941,20 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           });
 
           const result = await runPRReview(project, prNumber, mainWindow);
+
+          if (result.overallStatus === "in_progress") {
+            // Review is already running externally (detected by BotDetector).
+            // Send the result as-is so the renderer can activate external review polling.
+            debugLog("PR review already in progress externally", { prNumber });
+            sendProgress({
+              phase: "complete",
+              prNumber,
+              progress: 100,
+              message: "Review already in progress",
+            });
+            sendComplete(result);
+            return;
+          }
 
           debugLog("PR review completed", { prNumber, findingsCount: result.findings.length });
           sendProgress({
