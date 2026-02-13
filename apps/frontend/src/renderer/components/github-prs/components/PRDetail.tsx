@@ -1098,6 +1098,7 @@ ${t('prReview.blockedStatusMessageFooter')}`;
         <ReviewStatusTree
           status={prStatus.status}
           isReviewing={isReviewing}
+          isExternalReview={isExternalReview}
           startedAt={startedAt}
           reviewResult={reviewResult}
           previousReviewResult={previousReviewResult}
