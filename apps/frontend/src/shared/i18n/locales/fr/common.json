@@ -292,6 +292,8 @@
     "newIssue": "{{count}} nouveau problème",
     "newIssue_plural": "{{count}} nouveaux problèmes",
     "reviewFailed": "Révision échouée",
+    "externalReviewDetected": "Révision externe détectée",
+    "reviewStartedExternally": "Cette révision a été lancée depuis une autre session",
     "description": "Description",
     "noDescription": "Aucune description fournie.",
     "followupReviewDetails": "Détails de la révision de suivi",

@@ -278,7 +278,7 @@ export interface PRReviewResult {
   success: boolean;
   findings: PRReviewFinding[];
   summary: string;
-  overallStatus: "approve" | "request_changes" | "comment";
+  overallStatus: "approve" | "request_changes" | "comment" | "in_progress";
   reviewId?: number;
   reviewedAt: string;
   error?: string;
@@ -294,6 +294,8 @@ export interface PRReviewResult {
   hasPostedFindings?: boolean;
   postedFindingIds?: string[];
   postedAt?: string;
+  // In-progress review tracking
+  inProgressSince?: string;
 }
 
 /**
@@ -1356,6 +1358,8 @@ function getReviewResult(project: Project, prNumber: number): PRReviewResult | n
       hasPostedFindings: data.has_posted_findings ?? false,
       postedFindingIds: data.posted_finding_ids ?? [],
       postedAt: data.posted_at,
+      // In-progress review tracking
+      inProgressSince: data.in_progress_since,
     };
   } catch {
     // File doesn't exist or couldn't be read
@@ -1514,7 +1518,32 @@ async function runPRReview(
       debugLog("Auth failure detected in PR review", authFailureInfo);
       mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
     },
-    onComplete: () => {
+    onComplete: (stdout: string) => {
+      // Check stdout for in_progress JSON marker (not saved to disk by backend)
+      const inProgressMarker = "__RESULT_JSON__:";
+      for (const line of stdout.split("\n")) {
+        if (line.startsWith(inProgressMarker)) {
+          try {
+            const data = JSON.parse(line.slice(inProgressMarker.length));
+            if (data.overall_status === "in_progress") {
+              debugLog("In-progress result parsed from stdout", { prNumber });
+              return {
+                prNumber: data.pr_number,
+                repo: data.repo,
+                success: data.success,
+                findings: [],
+                summary: data.summary ?? "",
+                overallStatus: "in_progress" as const,
+                reviewedAt: data.reviewed_at ?? new Date().toISOString(),
+                inProgressSince: data.in_progress_since,
+              };
+            }
+          } catch {
+            debugLog("Failed to parse __RESULT_JSON__ line", { line });
+          }
+        }
+      }
+
       // Load the result from disk
       const reviewResult = getReviewResult(project, prNumber);
       if (!reviewResult) {
@@ -1864,9 +1893,15 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           projectId
         );
 
-        // Check if already running
+        // Check if already running — notify renderer so it can display ongoing logs
         if (runningReviews.has(reviewKey)) {
-          debugLog("Review already running", { reviewKey });
+          debugLog("Review already running, notifying renderer", { reviewKey });
+          sendProgress({
+            phase: "analyzing",
+            prNumber,
+            progress: 50,
+            message: "Review is already in progress. Reconnecting to ongoing review...",
+          });
           return;
         }
 
@@ -1935,6 +1970,20 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           });
 
           const result = await runPRReview(project, prNumber, mainWindow);
+
+          if (result.overallStatus === "in_progress") {
+            // Review is already running externally (detected by BotDetector).
+            // Send the result as-is so the renderer can activate external review polling.
+            debugLog("PR review already in progress externally", { prNumber });
+            sendProgress({
+              phase: "complete",
+              prNumber,
+              progress: 100,
+              message: "Review already in progress",
+            });
+            sendComplete(result);
+            return;
+          }
 
           debugLog("PR review completed", { prNumber, findingsCount: result.findings.length });
           sendProgress({
