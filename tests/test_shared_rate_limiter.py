@@ -110,7 +110,9 @@ class TestTokenBucket:
 
     def test_consume_synchronous_wait(self):
         """Test synchronous consume with wait."""
-        bucket = TokenBucket(capacity=10, refill_rate=100.0)
+        # Use slower refill rate (10.0) to avoid timing flakiness on Windows CI
+        # At 10 tokens/sec, waiting for 1 token takes 100ms (vs 10ms at 100/sec)
+        bucket = TokenBucket(capacity=10, refill_rate=10.0)
         bucket.try_acquire(10)  # Empty
 
         # This should wait and succeed
