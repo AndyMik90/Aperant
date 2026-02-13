@@ -103,7 +103,7 @@ export function PhaseCard({
             >
               <button
                 type="button"
-                className="flex items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
+                className="flex items-center gap-2 flex-1 min-w-0 text-left cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 onClick={() => onFeatureSelect(feature)}
               >
                 <Badge
