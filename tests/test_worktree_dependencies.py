@@ -8,7 +8,14 @@ Tests the dependency_strategy.py and models.py functionality including:
 - DependencyShareConfig dataclass
 - DEFAULT_STRATEGY_MAP entries
 - get_dependency_configs() with various inputs
+- ServiceAnalyzer._detect_dependency_locations()
+- setup_worktree_dependencies() strategy dispatch
+- symlink_node_modules_to_worktree() backward compatibility
 """
+
+import os
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -274,3 +281,185 @@ class TestGetDependencyConfigs:
 
         assert len(configs) == 1
         assert configs[0].dep_type == "node_modules"
+
+
+class TestServiceAnalyzerDependencyLocations:
+    """Tests for ServiceAnalyzer._detect_dependency_locations()."""
+
+    def test_detects_node_modules_when_package_json_exists(self, tmp_path: Path):
+        """Detects node_modules directory when package.json exists."""
+        from analysis.analyzers.service_analyzer import ServiceAnalyzer
+
+        (tmp_path / "package.json").write_text("{}")
+        (tmp_path / "node_modules").mkdir()
+
+        analyzer = ServiceAnalyzer(tmp_path, "frontend")
+        analyzer._detect_dependency_locations()
+
+        locations = analyzer.analysis["dependency_locations"]
+        node_entry = next(l for l in locations if l["type"] == "node_modules")
+        assert node_entry["exists"] is True
+        assert node_entry["path"] == "node_modules"
+
+    def test_detects_venv_when_requirements_txt_exists(self, tmp_path: Path):
+        """Detects .venv directory when requirements.txt exists."""
+        from analysis.analyzers.service_analyzer import ServiceAnalyzer
+
+        (tmp_path / "requirements.txt").write_text("flask")
+        (tmp_path / ".venv").mkdir()
+
+        analyzer = ServiceAnalyzer(tmp_path, "backend")
+        analyzer._detect_dependency_locations()
+
+        locations = analyzer.analysis["dependency_locations"]
+        venv_entry = next(l for l in locations if l["type"] == "venv")
+        assert venv_entry["exists"] is True
+        assert venv_entry["path"] == ".venv"
+        assert venv_entry["requirements_file"] == "requirements.txt"
+
+    def test_returns_no_local_deps_for_go_project(self, tmp_path: Path):
+        """Returns only node_modules (not exists) for Go project with no local deps."""
+        from analysis.analyzers.service_analyzer import ServiceAnalyzer
+
+        (tmp_path / "go.mod").write_text("module example.com/app")
+
+        analyzer = ServiceAnalyzer(tmp_path, "goapp")
+        analyzer._detect_dependency_locations()
+
+        locations = analyzer.analysis["dependency_locations"]
+        # node_modules always present but marked not existing
+        node_entry = next(l for l in locations if l["type"] == "node_modules")
+        assert node_entry["exists"] is False
+        # No venv, vendor, target, or bundle entries
+        other_types = [l for l in locations if l["type"] != "node_modules"]
+        assert len(other_types) == 0
+
+
+class TestSetupWorktreeDependencies:
+    """Tests for setup_worktree_dependencies()."""
+
+    def test_symlink_created_for_node_modules(self, tmp_path: Path):
+        """SYMLINK strategy creates symlink for node_modules."""
+        from core.workspace.setup import setup_worktree_dependencies
+
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        (project_dir / "node_modules").mkdir()
+        (project_dir / "node_modules" / "react").mkdir()
+
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        project_index = {
+            "services": {
+                "frontend": {
+                    "dependency_locations": [
+                        {"type": "node_modules", "path": "node_modules"},
+                    ]
+                }
+            }
+        }
+
+        results = setup_worktree_dependencies(project_dir, worktree_path, project_index)
+
+        assert "symlink" in results
+        assert "node_modules" in results["symlink"]
+        target = worktree_path / "node_modules"
+        assert target.exists() or target.is_symlink()
+
+    def test_none_project_index_uses_fallback(self, tmp_path: Path):
+        """None project_index uses fallback node_modules-only behavior."""
+        from core.workspace.setup import setup_worktree_dependencies
+
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        (project_dir / "node_modules").mkdir()
+
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        results = setup_worktree_dependencies(project_dir, worktree_path, None)
+
+        assert "symlink" in results
+        assert "node_modules" in results["symlink"]
+
+    def test_source_missing_skipped_gracefully(self, tmp_path: Path):
+        """Source dependency that doesn't exist is skipped gracefully."""
+        from core.workspace.setup import setup_worktree_dependencies
+
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        # No node_modules directory created
+
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        project_index = {
+            "services": {
+                "frontend": {
+                    "dependency_locations": [
+                        {"type": "node_modules", "path": "node_modules"},
+                    ]
+                }
+            }
+        }
+
+        # Should not raise
+        results = setup_worktree_dependencies(project_dir, worktree_path, project_index)
+
+        assert "symlink" in results
+        # Path is still recorded even though source was missing
+        assert "node_modules" in results["symlink"]
+        # But no symlink was actually created
+        assert not (worktree_path / "node_modules").exists()
+
+    def test_target_already_exists_skipped_gracefully(self, tmp_path: Path):
+        """Target that already exists is skipped gracefully."""
+        from core.workspace.setup import setup_worktree_dependencies
+
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        (project_dir / "node_modules").mkdir()
+
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+        # Pre-create target
+        (worktree_path / "node_modules").mkdir()
+
+        project_index = {
+            "services": {
+                "frontend": {
+                    "dependency_locations": [
+                        {"type": "node_modules", "path": "node_modules"},
+                    ]
+                }
+            }
+        }
+
+        # Should not raise
+        results = setup_worktree_dependencies(project_dir, worktree_path, project_index)
+
+        assert "symlink" in results
+        # Target is still a real directory, not a symlink
+        assert (worktree_path / "node_modules").is_dir()
+        assert not (worktree_path / "node_modules").is_symlink()
+
+
+class TestSymlinkNodeModulesToWorktreeBackwardCompat:
+    """Tests for symlink_node_modules_to_worktree() backward compatibility."""
+
+    def test_wrapper_still_works(self, tmp_path: Path):
+        """symlink_node_modules_to_worktree() still works as a wrapper."""
+        from core.workspace.setup import symlink_node_modules_to_worktree
+
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        (project_dir / "node_modules").mkdir()
+
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        result = symlink_node_modules_to_worktree(project_dir, worktree_path)
+
+        assert isinstance(result, list)
+        assert "node_modules" in result
