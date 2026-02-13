@@ -23,7 +23,7 @@ Each dependency ecosystem has different constraints:
 
 from __future__ import annotations
 
-from pathlib import PurePosixPath
+from pathlib import PurePosixPath, PureWindowsPath
 
 from .models import DependencyShareConfig, DependencyStrategy
 
@@ -89,10 +89,12 @@ def get_dependency_configs(
             if not dep_type or not rel_path:
                 continue
 
-            # Path containment: reject absolute paths and traversals
-            if PurePosixPath(rel_path).is_absolute():
+            # Path containment: reject absolute paths and traversals.
+            # Check both POSIX and Windows path styles for cross-platform safety.
+            p = PurePosixPath(rel_path)
+            if p.is_absolute() or PureWindowsPath(rel_path).is_absolute():
                 continue
-            if ".." in PurePosixPath(rel_path).parts:
+            if ".." in p.parts:
                 continue
 
             # Deduplicate by relative path
@@ -105,8 +107,12 @@ def get_dependency_configs(
             # Validate requirements_file path containment too
             req_file = dep.get("requirements_file")
             if req_file:
-                req_parts = PurePosixPath(req_file)
-                if req_parts.is_absolute() or ".." in req_parts.parts:
+                rp = PurePosixPath(req_file)
+                if (
+                    rp.is_absolute()
+                    or PureWindowsPath(req_file).is_absolute()
+                    or ".." in rp.parts
+                ):
                     req_file = None
 
             configs.append(

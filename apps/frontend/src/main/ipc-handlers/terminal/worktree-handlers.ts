@@ -389,11 +389,23 @@ function loadDependencyConfigs(projectPath: string): DependencyConfig[] {
           seen.add(relPath);
 
           const strategy = DEFAULT_STRATEGY_MAP[depType] ?? 'skip';
+
+          // Validate requirementsFile path containment
+          let reqFile: string | undefined;
+          if (depObj.requirements_file) {
+            const rf = String(depObj.requirements_file);
+            const rfParts = rf.split('/');
+            const rfPartsWin = rf.split('\\');
+            if (!path.isAbsolute(rf) && !rfParts.includes('..') && !rfPartsWin.includes('..')) {
+              reqFile = rf;
+            }
+          }
+
           configs.push({
             depType,
             strategy,
             sourceRelPath: relPath,
-            requirementsFile: depObj.requirements_file ? String(depObj.requirements_file) : undefined,
+            requirementsFile: reqFile,
             packageManager: depObj.package_manager ? String(depObj.package_manager) : undefined,
           });
         }
@@ -566,7 +578,11 @@ async function applyRecreateStrategy(projectPath: string, worktreePath: string, 
       const reqBasename = path.basename(config.requirementsFile);
       let installArgs: string[] | null;
       if (reqBasename === 'pyproject.toml') {
-        installArgs = ['install', '-e', path.dirname(reqPath)];
+        // Snapshot-install from worktree copy (non-editable to avoid
+        // symlinking back to the main project source tree).
+        const worktreeReq = path.join(worktreePath, config.requirementsFile!);
+        const installDir = existsSync(worktreeReq) ? path.dirname(worktreeReq) : path.dirname(reqPath);
+        installArgs = ['install', installDir];
       } else if (reqBasename === 'Pipfile') {
         debugLog('[TerminalWorktree] Skipping Pipfile-based install (use pipenv in worktree)');
         installArgs = null;

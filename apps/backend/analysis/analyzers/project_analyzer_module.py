@@ -149,11 +149,15 @@ class ProjectAnalyzer:
                     continue
 
             for dep in service_deps:
+                dep_path = dep.get("path")
+                if not dep_path:
+                    continue
+
                 # Build project-relative path from service path + dep path
                 if service_rel is not None:
-                    project_relative = str(service_rel / dep["path"])
+                    project_relative = str(service_rel / dep_path)
                 else:
-                    project_relative = dep["path"]
+                    project_relative = dep_path
 
                 entry: dict[str, Any] = {
                     "type": dep.get("type", "unknown"),

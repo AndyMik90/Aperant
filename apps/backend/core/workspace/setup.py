@@ -556,6 +556,8 @@ def setup_worktree_dependencies(
                 _apply_copy_strategy(project_dir, worktree_path, config)
             elif config.strategy == DependencyStrategy.SKIP:
                 _apply_skip_strategy(config)
+                # Don't record skipped entries — only report actual work
+                continue
             results[strategy_name].append(config.source_rel_path)
         except Exception as e:
             debug_warning(
@@ -589,8 +591,15 @@ def _apply_symlink_strategy(
     try:
         if is_windows():
             # Windows: use directory junctions (no admin rights required).
-            # os.symlink with target_is_directory creates a junction on Windows.
-            os.symlink(str(source_path), str(target_path), target_is_directory=True)
+            # os.symlink creates a directory symlink that needs admin/DevMode,
+            # so we use mklink /J which creates a junction without privileges.
+            result = subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(target_path), str(source_path)],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                raise OSError(result.stderr or "mklink /J failed")
         else:
             # macOS/Linux: relative symlinks for portability
             relative_source = os.path.relpath(source_path, target_path.parent)
@@ -672,8 +681,13 @@ def _apply_recreate_strategy(
             # Build install command based on file type
             req_basename = Path(req_file).name
             if req_basename == "pyproject.toml":
-                # pyproject.toml: install the project itself
-                install_cmd = [pip_exec, "install", "-e", str(req_path.parent)]
+                # pyproject.toml: snapshot-install from the worktree copy.
+                # Non-editable so the venv doesn't symlink back to the source.
+                worktree_req = worktree_path / req_file
+                install_dir = str(
+                    worktree_req.parent if worktree_req.is_file() else req_path.parent
+                )
+                install_cmd = [pip_exec, "install", install_dir]
             elif req_basename == "Pipfile":
                 # Pipfile: not directly installable via pip, skip
                 debug(
