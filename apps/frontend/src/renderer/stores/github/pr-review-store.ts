@@ -35,6 +35,8 @@ interface PRReviewState {
   mergeableState: MergeableState | null;
   /** Timestamp of last status poll (ISO 8601 string) */
   lastPolled: string | null;
+  /** Whether this review was initiated externally (e.g., from PR list) rather than from detail view */
+  isExternalReview: boolean;
 }
 
 interface PRReviewStoreState {
@@ -59,6 +61,8 @@ interface PRReviewStoreState {
   }) => void;
   /** Clear PR status fields for a specific PR */
   clearPRStatus: (projectId: string, prNumber: number) => void;
+  /** Start an external review (from PR list) - sets isReviewing and isExternalReview */
+  setExternalReviewInProgress: (projectId: string, prNumber: number) => void;
 
   // Selectors
   getPRReviewState: (projectId: string, prNumber: number) => PRReviewState | null;
@@ -96,7 +100,8 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           checksStatus: existing?.checksStatus ?? null,
           reviewsStatus: existing?.reviewsStatus ?? null,
           mergeableState: existing?.mergeableState ?? null,
-          lastPolled: existing?.lastPolled ?? null
+          lastPolled: existing?.lastPolled ?? null,
+          isExternalReview: false
         }
       }
     };
@@ -130,7 +135,8 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           checksStatus: existing?.checksStatus ?? null,
           reviewsStatus: existing?.reviewsStatus ?? null,
           mergeableState: existing?.mergeableState ?? null,
-          lastPolled: existing?.lastPolled ?? null
+          lastPolled: existing?.lastPolled ?? null,
+          isExternalReview: false
         }
       }
     };
@@ -155,7 +161,8 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           checksStatus: existing?.checksStatus ?? null,
           reviewsStatus: existing?.reviewsStatus ?? null,
           mergeableState: existing?.mergeableState ?? null,
-          lastPolled: existing?.lastPolled ?? null
+          lastPolled: existing?.lastPolled ?? null,
+          isExternalReview: existing?.isExternalReview ?? false
         }
       }
     };
@@ -182,7 +189,8 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           checksStatus: existing?.checksStatus ?? null,
           reviewsStatus: existing?.reviewsStatus ?? null,
           mergeableState: existing?.mergeableState ?? null,
-          lastPolled: existing?.lastPolled ?? null
+          lastPolled: existing?.lastPolled ?? null,
+          isExternalReview: existing?.isExternalReview ?? false
         }
       }
     };
@@ -207,7 +215,8 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           checksStatus: existing?.checksStatus ?? null,
           reviewsStatus: existing?.reviewsStatus ?? null,
           mergeableState: existing?.mergeableState ?? null,
-          lastPolled: existing?.lastPolled ?? null
+          lastPolled: existing?.lastPolled ?? null,
+          isExternalReview: existing?.isExternalReview ?? false
         }
       }
     };
@@ -234,7 +243,8 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
             checksStatus: null,
             reviewsStatus: null,
             mergeableState: null,
-            lastPolled: null
+            lastPolled: null,
+            isExternalReview: false
           }
         }
       };
@@ -282,7 +292,8 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
             checksStatus: status.checksStatus,
             reviewsStatus: status.reviewsStatus,
             mergeableState: status.mergeableState,
-            lastPolled: status.lastPolled
+            lastPolled: status.lastPolled,
+            isExternalReview: false
           }
         }
       };
@@ -316,6 +327,32 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           reviewsStatus: null,
           mergeableState: null,
           lastPolled: null
+        }
+      }
+    };
+  }),
+
+  setExternalReviewInProgress: (projectId: string, prNumber: number) => set((state) => {
+    const key = `${projectId}:${prNumber}`;
+    const existing = state.prReviews[key];
+    return {
+      prReviews: {
+        ...state.prReviews,
+        [key]: {
+          prNumber,
+          projectId,
+          isReviewing: true,
+          startedAt: new Date().toISOString(),
+          progress: null,
+          result: existing?.result ?? null,
+          previousResult: existing?.previousResult ?? null,
+          error: null,
+          newCommitsCheck: existing?.newCommitsCheck ?? null,
+          checksStatus: existing?.checksStatus ?? null,
+          reviewsStatus: existing?.reviewsStatus ?? null,
+          mergeableState: existing?.mergeableState ?? null,
+          lastPolled: existing?.lastPolled ?? null,
+          isExternalReview: true
         }
       }
     };
