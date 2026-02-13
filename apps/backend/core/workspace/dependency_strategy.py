@@ -1,0 +1,115 @@
+"""
+Dependency Strategy Mapping
+============================
+
+Maps dependency types to sharing strategies for worktree creation.
+
+Each dependency ecosystem has different constraints:
+
+- **node_modules**: Safe to symlink. Node's resolution algorithm follows symlinks
+  correctly, and the directory is self-contained.
+
+- **venv / .venv**: Must be recreated. Python's ``pyvenv.cfg`` discovery walks the
+  real directory hierarchy without resolving symlinks (CPython bug #106045), so a
+  symlinked venv resolves paths relative to the *target*, not the worktree.
+
+- **vendor (PHP)**: Safe to symlink. Composer's autoloader uses ``__DIR__``-relative
+  paths that resolve correctly through symlinks.
+
+- **cargo registry / go modules**: Skip entirely. Cargo and Go use a global cache
+  (``~/.cargo/registry``, ``$GOPATH/pkg/mod``) and do not store dependencies inside
+  the project tree, so there is nothing to share.
+"""
+
+from __future__ import annotations
+
+from .models import DependencyShareConfig, DependencyStrategy
+
+# ---------------------------------------------------------------------------
+# Default strategy map
+# ---------------------------------------------------------------------------
+# Maps dependency type identifiers to the strategy that should be used when
+# sharing that dependency across worktrees.  Data-driven — add new entries
+# here rather than writing if/else branches.
+# ---------------------------------------------------------------------------
+
+DEFAULT_STRATEGY_MAP: dict[str, DependencyStrategy] = {
+    # JavaScript / Node.js — symlink is safe and fast
+    "node_modules": DependencyStrategy.SYMLINK,
+    # Python — venvs MUST be recreated (pyvenv.cfg symlink bug)
+    "venv": DependencyStrategy.RECREATE,
+    ".venv": DependencyStrategy.RECREATE,
+    # PHP — Composer vendor dir is safe to symlink
+    "vendor_php": DependencyStrategy.SYMLINK,
+    # Rust — global cache, nothing in-tree to share
+    "cargo_registry": DependencyStrategy.SKIP,
+    # Go — global module cache, nothing in-tree to share
+    "go_modules": DependencyStrategy.SKIP,
+}
+
+
+def get_dependency_configs(
+    project_index: dict | None,
+) -> list[DependencyShareConfig]:
+    """Derive dependency share configs from a project index.
+
+    If *project_index* is ``None`` or lacks ``services`` with
+    ``dependency_locations``, falls back to a hardcoded node_modules-only
+    config for backward compatibility with existing worktree setups.
+
+    Args:
+        project_index: Parsed ``project_index.json`` dict, or ``None``.
+
+    Returns:
+        List of :class:`DependencyShareConfig` objects — one per discovered
+        dependency location.
+    """
+
+    configs: list[DependencyShareConfig] = []
+    seen: set[str] = set()
+
+    if project_index is not None:
+        services = project_index.get("services") or {}
+        for _service_name, service_data in services.items():
+            if not isinstance(service_data, dict):
+                continue
+            dep_locations = service_data.get("dependency_locations") or []
+            for dep in dep_locations:
+                if not isinstance(dep, dict):
+                    continue
+
+                dep_type = dep.get("type", "")
+                rel_path = dep.get("path", "")
+
+                if not dep_type or not rel_path:
+                    continue
+
+                # Deduplicate by relative path
+                if rel_path in seen:
+                    continue
+                seen.add(rel_path)
+
+                strategy = DEFAULT_STRATEGY_MAP.get(dep_type, DependencyStrategy.SKIP)
+
+                configs.append(
+                    DependencyShareConfig(
+                        dep_type=dep_type,
+                        strategy=strategy,
+                        source_rel_path=rel_path,
+                        requirements_file=dep.get("requirements_file"),
+                        package_manager=dep.get("package_manager"),
+                    )
+                )
+
+    # Fallback: if no configs were discovered, default to node_modules-only
+    # so existing worktree behaviour is preserved.
+    if not configs:
+        configs.append(
+            DependencyShareConfig(
+                dep_type="node_modules",
+                strategy=DependencyStrategy.SYMLINK,
+                source_rel_path="node_modules",
+            )
+        )
+
+    return configs
