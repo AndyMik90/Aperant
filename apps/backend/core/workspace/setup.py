@@ -628,7 +628,7 @@ def setup_worktree_dependencies(
             if config.strategy == DependencyStrategy.SYMLINK:
                 performed = _apply_symlink_strategy(project_dir, worktree_path, config)
             elif config.strategy == DependencyStrategy.RECREATE:
-                _apply_recreate_strategy(project_dir, worktree_path, config)
+                performed = _apply_recreate_strategy(project_dir, worktree_path, config)
             elif config.strategy == DependencyStrategy.COPY:
                 performed = _apply_copy_strategy(project_dir, worktree_path, config)
             elif config.strategy == DependencyStrategy.SKIP:
@@ -711,13 +711,16 @@ def _apply_recreate_strategy(
     project_dir: Path,
     worktree_path: Path,
     config: DependencyShareConfig,
-) -> None:
-    """Create a fresh virtual environment in the worktree and install deps."""
+) -> bool:
+    """Create a fresh virtual environment in the worktree and install deps.
+
+    Returns True if the venv was successfully created, False if skipped or failed.
+    """
     venv_path = worktree_path / config.source_rel_path
 
     if venv_path.exists():
         debug(MODULE, f"Skipping recreate {config.source_rel_path} - already exists")
-        return
+        return False
 
     # Detect Python executable from the source venv or fall back to sys.executable
     source_venv = project_dir / config.source_rel_path
@@ -749,7 +752,7 @@ def _apply_recreate_strategy(
             # Clean up partial venv so retries aren't blocked
             if venv_path.exists():
                 shutil.rmtree(venv_path, ignore_errors=True)
-            return
+            return False
     except subprocess.TimeoutExpired:
         debug_warning(MODULE, f"venv creation timed out for {config.source_rel_path}")
         print_status(
@@ -759,7 +762,7 @@ def _apply_recreate_strategy(
         # Clean up partial venv so retries aren't blocked
         if venv_path.exists():
             shutil.rmtree(venv_path, ignore_errors=True)
-        return
+        return False
 
     # Install from requirements file if specified
     req_file = config.requirements_file
@@ -816,7 +819,7 @@ def _apply_recreate_strategy(
                         # Clean up broken venv so retries aren't blocked
                         if venv_path.exists():
                             shutil.rmtree(venv_path, ignore_errors=True)
-                        return
+                        return False
                 except subprocess.TimeoutExpired:
                     debug_warning(
                         MODULE,
@@ -829,15 +832,16 @@ def _apply_recreate_strategy(
                     # Clean up broken venv so retries aren't blocked
                     if venv_path.exists():
                         shutil.rmtree(venv_path, ignore_errors=True)
-                    return
+                    return False
                 except OSError as e:
                     debug_warning(MODULE, f"pip install failed: {e}")
                     # Clean up broken venv so retries aren't blocked
                     if venv_path.exists():
                         shutil.rmtree(venv_path, ignore_errors=True)
-                    return
+                    return False
 
     debug(MODULE, f"Recreated venv at {config.source_rel_path}")
+    return True
 
 
 def _apply_copy_strategy(

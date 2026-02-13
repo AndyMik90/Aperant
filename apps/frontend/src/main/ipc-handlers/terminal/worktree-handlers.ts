@@ -379,12 +379,13 @@ function loadDependencyConfigs(projectPath: string): DependencyConfig[] {
           const relPath = String(depObj.path || '');
           if (!depType || !relPath || seen.has(relPath)) continue;
 
-          // Path containment: reject traversals that escape the project root
+          // Path containment: reject absolute paths and traversals
+          if (path.isAbsolute(relPath)) continue;
           if (relPath.split('/').includes('..') || relPath.split('\\').includes('..')) continue;
 
-          // Validate resolved path stays within project
+          // Defense-in-depth: verify resolved path stays within project
           const resolved = path.resolve(projectPath, relPath);
-          if (!resolved.startsWith(path.resolve(projectPath))) continue;
+          if (!resolved.startsWith(path.resolve(projectPath) + path.sep)) continue;
 
           seen.add(relPath);
 
@@ -444,21 +445,22 @@ async function setupWorktreeDependencies(projectPath: string, worktreePath: stri
 
   for (const config of configs) {
     try {
+      let performed = false;
       switch (config.strategy) {
         case 'symlink':
-          applySymlinkStrategy(projectPath, worktreePath, config);
+          performed = applySymlinkStrategy(projectPath, worktreePath, config);
           break;
         case 'recreate':
-          await applyRecreateStrategy(projectPath, worktreePath, config);
+          performed = await applyRecreateStrategy(projectPath, worktreePath, config);
           break;
         case 'copy':
-          applyCopyStrategy(projectPath, worktreePath, config);
+          performed = applyCopyStrategy(projectPath, worktreePath, config);
           break;
         case 'skip':
           debugLog('[TerminalWorktree] Skipping', config.depType, `(${config.sourceRelPath}) - skip strategy`);
           continue; // Don't record skipped entries in processed list
       }
-      processed.push(config.sourceRelPath);
+      if (performed) processed.push(config.sourceRelPath);
     } catch (error) {
       debugError('[TerminalWorktree] Failed to apply', config.strategy, 'strategy for', config.sourceRelPath, ':', error);
       console.warn(`[TerminalWorktree] Warning: Failed to set up ${config.sourceRelPath}`);
@@ -472,25 +474,25 @@ async function setupWorktreeDependencies(projectPath: string, worktreePath: stri
  * Apply symlink strategy: create a symlink (or Windows junction) from worktree to project source.
  * Reuses the existing platform-specific symlink creation pattern.
  */
-function applySymlinkStrategy(projectPath: string, worktreePath: string, config: DependencyConfig): void {
+function applySymlinkStrategy(projectPath: string, worktreePath: string, config: DependencyConfig): boolean {
   const sourcePath = path.join(projectPath, config.sourceRelPath);
   const targetPath = path.join(worktreePath, config.sourceRelPath);
 
   if (!existsSync(sourcePath)) {
     debugLog('[TerminalWorktree] Skipping symlink', config.sourceRelPath, '- source missing');
-    return;
+    return false;
   }
 
   if (existsSync(targetPath)) {
     debugLog('[TerminalWorktree] Skipping symlink', config.sourceRelPath, '- target exists');
-    return;
+    return false;
   }
 
   // Check for broken symlinks
   try {
     lstatSync(targetPath);
     debugLog('[TerminalWorktree] Skipping symlink', config.sourceRelPath, '- target exists (possibly broken symlink)');
-    return;
+    return false;
   } catch {
     // Target doesn't exist at all — good, we can create symlink
   }
@@ -509,9 +511,11 @@ function applySymlinkStrategy(projectPath: string, worktreePath: string, config:
       symlinkSync(relativePath, targetPath);
       debugLog('[TerminalWorktree] Created symlink (Unix):', config.sourceRelPath, '->', relativePath);
     }
+    return true;
   } catch (error) {
     debugError('[TerminalWorktree] Could not create symlink for', config.sourceRelPath, ':', error);
     console.warn(`[TerminalWorktree] Warning: Failed to link ${config.sourceRelPath}`);
+    return false;
   }
 }
 
@@ -522,12 +526,12 @@ function applySymlinkStrategy(projectPath: string, worktreePath: string, config:
  * discovery does not resolve symlinks, so paths resolve relative to the
  * symlink target instead of the worktree.
  */
-async function applyRecreateStrategy(projectPath: string, worktreePath: string, config: DependencyConfig): Promise<void> {
+async function applyRecreateStrategy(projectPath: string, worktreePath: string, config: DependencyConfig): Promise<boolean> {
   const venvPath = path.join(worktreePath, config.sourceRelPath);
 
   if (existsSync(venvPath)) {
     debugLog('[TerminalWorktree] Skipping recreate', config.sourceRelPath, '- already exists');
-    return;
+    return false;
   }
 
   // Detect Python executable from the source venv or fall back to system Python
@@ -563,7 +567,7 @@ async function applyRecreateStrategy(projectPath: string, worktreePath: string, 
     if (existsSync(venvPath)) {
       try { rmSync(venvPath, { recursive: true, force: true }); } catch { /* best-effort */ }
     }
-    return;
+    return false;
   }
 
   // Install from requirements file if specified
@@ -608,30 +612,31 @@ async function applyRecreateStrategy(projectPath: string, worktreePath: string, 
           if (existsSync(venvPath)) {
             try { rmSync(venvPath, { recursive: true, force: true }); } catch { /* best-effort */ }
           }
-          return;
+          return false;
         }
       }
     }
   }
 
   debugLog('[TerminalWorktree] Recreated venv at', config.sourceRelPath);
+  return true;
 }
 
 /**
  * Apply copy strategy: copy a file or directory from project to worktree.
  */
-function applyCopyStrategy(projectPath: string, worktreePath: string, config: DependencyConfig): void {
+function applyCopyStrategy(projectPath: string, worktreePath: string, config: DependencyConfig): boolean {
   const sourcePath = path.join(projectPath, config.sourceRelPath);
   const targetPath = path.join(worktreePath, config.sourceRelPath);
 
   if (!existsSync(sourcePath)) {
     debugLog('[TerminalWorktree] Skipping copy', config.sourceRelPath, '- source missing');
-    return;
+    return false;
   }
 
   if (existsSync(targetPath)) {
     debugLog('[TerminalWorktree] Skipping copy', config.sourceRelPath, '- target exists');
-    return;
+    return false;
   }
 
   const targetDir = path.dirname(targetPath);
@@ -646,9 +651,11 @@ function applyCopyStrategy(projectPath: string, worktreePath: string, config: De
       copyFileSync(sourcePath, targetPath);
     }
     debugLog('[TerminalWorktree] Copied', config.sourceRelPath, 'to worktree');
+    return true;
   } catch (error) {
     debugError('[TerminalWorktree] Could not copy', config.sourceRelPath, ':', error);
     console.warn(`[TerminalWorktree] Warning: Could not copy ${config.sourceRelPath}`);
+    return false;
   }
 }
 
