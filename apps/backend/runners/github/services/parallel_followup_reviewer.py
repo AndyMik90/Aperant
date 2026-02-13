@@ -45,7 +45,6 @@ try:
         MergeVerdict,
         PRReviewFinding,
         PRReviewResult,
-        ReviewCategory,
         ReviewSeverity,
     )
     from .agent_utils import create_working_dir_injector
@@ -53,6 +52,7 @@ try:
     from .io_utils import safe_print
     from .pr_worktree_manager import PRWorktreeManager
     from .pydantic_models import FollowupExtractionResponse, ParallelFollowupResponse
+    from .recovery_utils import create_finding_from_summary
     from .sdk_utils import process_sdk_stream
 except (ImportError, ValueError, SystemError):
     from context_gatherer import _validate_git_ref
@@ -65,7 +65,6 @@ except (ImportError, ValueError, SystemError):
         MergeVerdict,
         PRReviewFinding,
         PRReviewResult,
-        ReviewCategory,
         ReviewSeverity,
     )
     from phase_config import (
@@ -81,6 +80,7 @@ except (ImportError, ValueError, SystemError):
         FollowupExtractionResponse,
         ParallelFollowupResponse,
     )
+    from services.recovery_utils import create_finding_from_summary
     from services.sdk_utils import process_sdk_stream
 
 
@@ -1206,36 +1206,11 @@ The SDK will run invoked agents in parallel automatically.
             new_finding_ids = []
 
             # 1. Convert new_finding_summaries to minimal PRReviewFinding objects
-            # Summaries follow the pattern "SEVERITY: description"
+            # Uses shared helper for "SEVERITY: description" parsing and ID generation
             for i, summary in enumerate(extracted.new_finding_summaries):
-                # Parse "SEVERITY: description" pattern
-                severity = ReviewSeverity.MEDIUM
-                description = summary
-                upper_summary = summary.upper()
-                for sev_name, sev_val in [
-                    ("CRITICAL:", ReviewSeverity.CRITICAL),
-                    ("HIGH:", ReviewSeverity.HIGH),
-                    ("MEDIUM:", ReviewSeverity.MEDIUM),
-                    ("LOW:", ReviewSeverity.LOW),
-                ]:
-                    if upper_summary.startswith(sev_name):
-                        severity = sev_val
-                        description = summary[len(sev_name) :].strip()
-                        break
-
-                finding_id = self._generate_finding_id("unknown", i, description)
-                new_finding_ids.append(finding_id)
-                findings.append(
-                    PRReviewFinding(
-                        id=finding_id,
-                        severity=severity,
-                        category=ReviewCategory.QUALITY,
-                        title=description[:80],
-                        description=f"[Recovered via extraction] {description}",
-                        file="unknown",
-                        line=0,
-                    )
-                )
+                finding = create_finding_from_summary(summary, i, id_prefix="FU")
+                new_finding_ids.append(finding.id)
+                findings.append(finding)
 
             # 2. Reconstruct unresolved findings from previous review context
             if extracted.unresolved_finding_ids and context.previous_review.findings:
@@ -1422,6 +1397,7 @@ The SDK will run invoked agents in parallel automatically.
                 "new_finding_ids": new_finding_ids,
                 "dismissed_false_positive_ids": [],
                 "confirmed_valid_count": 0,
+                "dismissed_finding_count": 0,
                 "needs_human_review_count": 0,
                 "verdict": verdict,
                 "verdict_reasoning": f"[Partial extraction] {verdict_reasoning}",

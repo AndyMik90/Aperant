@@ -25,6 +25,8 @@ if TYPE_CHECKING:
     from ..models import FollowupReviewContext, GitHubRunnerConfig
 
 try:
+    from ...core.client import create_client
+    from ...phase_config import resolve_model_id
     from ..gh_client import GHClient
     from ..models import (
         MergeVerdict,
@@ -38,7 +40,10 @@ try:
     from .io_utils import safe_print
     from .prompt_manager import PromptManager
     from .pydantic_models import FollowupExtractionResponse, FollowupReviewResponse
+    from .recovery_utils import create_finding_from_summary
+    from .sdk_utils import process_sdk_stream
 except (ImportError, ValueError, SystemError):
+    from core.client import create_client
     from gh_client import GHClient
     from models import (
         MergeVerdict,
@@ -48,6 +53,7 @@ except (ImportError, ValueError, SystemError):
         ReviewSeverity,
         _utc_now_iso,
     )
+    from phase_config import resolve_model_id
     from services.category_utils import map_category
     from services.io_utils import safe_print
     from services.prompt_manager import PromptManager
@@ -55,6 +61,8 @@ except (ImportError, ValueError, SystemError):
         FollowupExtractionResponse,
         FollowupReviewResponse,
     )
+    from services.recovery_utils import create_finding_from_summary
+    from services.sdk_utils import process_sdk_stream
 
 logger = logging.getLogger(__name__)
 
@@ -880,15 +888,15 @@ Analyze this follow-up review context and provide your structured response.
         This is the extraction recovery step when full structured output validation fails.
         Uses FollowupExtractionResponse (~6 flat fields) which has near-100% success rate.
 
+        Uses create_client() + process_sdk_stream() for proper OAuth handling,
+        matching the pattern in parallel_followup_reviewer.py.
+
         Returns parsed result dict on success, None on failure.
         """
         if not text or not text.strip():
             return None
 
         try:
-            from claude_agent_sdk import ClaudeAgentOptions, query
-            from phase_config import resolve_model_id
-
             extraction_prompt = (
                 "Extract the key review data from the following AI analysis output. "
                 "Return the verdict, reasoning, resolved finding IDs, unresolved finding IDs, "
@@ -898,77 +906,71 @@ Analyze this follow-up review context and provide your structured response.
 
             model_shorthand = self.config.model or "sonnet"
             model = resolve_model_id(model_shorthand)
-            schema = FollowupExtractionResponse.model_json_schema()
 
-            extracted = None
-            async for message in query(
-                prompt=extraction_prompt,
-                options=ClaudeAgentOptions(
+            extraction_client = create_client(
+                project_dir=self.project_dir,
+                spec_dir=self.github_dir,
+                model=model,
+                agent_type="pr_followup_extraction",
+                output_format={
+                    "type": "json_schema",
+                    "schema": FollowupExtractionResponse.model_json_schema(),
+                },
+            )
+
+            async with extraction_client:
+                await extraction_client.query(extraction_prompt)
+
+                stream_result = await process_sdk_stream(
+                    client=extraction_client,
+                    context_name="FollowupExtraction",
                     model=model,
-                    system_prompt="You extract structured review data from text.",
-                    allowed_tools=[],
-                    max_turns=2,
-                    output_format={
-                        "type": "json_schema",
-                        "schema": schema,
-                    },
-                ),
-            ):
-                msg_type = type(message).__name__
-                if msg_type == "AssistantMessage":
-                    content = getattr(message, "content", [])
-                    for block in content:
-                        if type(block).__name__ == "ToolUseBlock":
-                            if getattr(block, "name", "") == "StructuredOutput":
-                                data = getattr(block, "input", None)
-                                if data:
-                                    extracted = (
-                                        FollowupExtractionResponse.model_validate(data)
-                                    )
-                    if (
-                        not extracted
-                        and hasattr(message, "structured_output")
-                        and message.structured_output
-                    ):
-                        extracted = FollowupExtractionResponse.model_validate(
-                            message.structured_output
-                        )
+                    system_prompt=extraction_prompt,
+                    max_messages=20,
+                )
 
-            if not extracted:
+            if stream_result.get("error"):
+                logger.warning(
+                    f"[Followup] Extraction call also failed: {stream_result['error']}"
+                )
                 return None
+
+            extraction_output = stream_result.get("structured_output")
+            if not extraction_output:
+                logger.warning(
+                    "[Followup] Extraction call returned no structured output"
+                )
+                return None
+
+            extracted = FollowupExtractionResponse.model_validate(extraction_output)
 
             # Convert extraction to internal format with reconstructed findings
             new_findings = []
             for i, summary in enumerate(extracted.new_finding_summaries):
-                severity = ReviewSeverity.MEDIUM
-                description = summary
-                upper_summary = summary.upper()
-                for sev_name, sev_val in [
-                    ("CRITICAL:", ReviewSeverity.CRITICAL),
-                    ("HIGH:", ReviewSeverity.HIGH),
-                    ("MEDIUM:", ReviewSeverity.MEDIUM),
-                    ("LOW:", ReviewSeverity.LOW),
-                ]:
-                    if upper_summary.startswith(sev_name):
-                        severity = sev_val
-                        description = summary[len(sev_name) :].strip()
-                        break
-
-                finding_id = hashlib.md5(
-                    f"extraction-{i}-{description}".encode(),
-                    usedforsecurity=False,
-                ).hexdigest()[:12]
                 new_findings.append(
-                    PRReviewFinding(
-                        id=finding_id,
-                        severity=severity,
-                        category=ReviewCategory.QUALITY,
-                        title=description[:80],
-                        description=f"[Recovered via extraction] {description}",
-                        file="unknown",
-                        line=0,
-                    )
+                    create_finding_from_summary(summary, i, id_prefix="FR")
                 )
+
+            # Reconstruct unresolved findings from previous review context
+            # (matches the pattern in parallel_followup_reviewer.py)
+            if extracted.unresolved_finding_ids and context.previous_review.findings:
+                previous_map = {f.id: f for f in context.previous_review.findings}
+                for uid in extracted.unresolved_finding_ids:
+                    original = previous_map.get(uid)
+                    if original:
+                        new_findings.append(
+                            PRReviewFinding(
+                                id=original.id,
+                                severity=original.severity,
+                                category=original.category,
+                                title=f"[UNRESOLVED] {original.title}",
+                                description=original.description,
+                                file=original.file,
+                                line=original.line,
+                                suggested_fix=original.suggested_fix,
+                                fixable=original.fixable,
+                            )
+                        )
 
             # Build finding_resolutions from extraction data for _apply_ai_resolutions
             finding_resolutions = []
