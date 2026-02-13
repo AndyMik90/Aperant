@@ -97,11 +97,18 @@ export function PhaseCard({
         <h4 className="text-sm font-medium mb-2">Features ({features.length})</h4>
         <div className="grid gap-2">
           {visibleFeatures.map((feature) => (
-            <button
-              type="button"
+            <div
               key={feature.id}
-              className="flex items-center justify-between p-2 rounded-md bg-muted/50 hover:bg-muted cursor-pointer transition-colors w-full text-left"
+              role="button"
+              tabIndex={0}
+              className="flex items-center justify-between p-2 rounded-md bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
               onClick={() => onFeatureSelect(feature)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onFeatureSelect(feature);
+                }
+              }}
             >
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <Badge
@@ -148,7 +155,7 @@ export function PhaseCard({
                   Build
                 </Button>
               )}
-            </button>
+            </div>
           ))}
           {hasMoreFeatures && (
             <Button
