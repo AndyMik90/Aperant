@@ -415,6 +415,15 @@ export function initializePRReviewListeners(): void {
   // Listen for PR review completion events
   const cleanupComplete = window.electronAPI.github.onPRReviewComplete(
     (projectId: string, result: PRReviewResult) => {
+      // When the backend detects an already-running review (e.g., started from another
+      // client or the PR list), it returns overallStatus === 'in_progress' instead of
+      // a real result. Transition to external-review-in-progress so the log polling
+      // activates and the UI shows the ongoing review.
+      if (result.overallStatus === 'in_progress') {
+        store.setExternalReviewInProgress(projectId, result.prNumber);
+        return;
+      }
+
       store.setPRReviewResult(projectId, result);
       // Trigger all registered refresh callbacks when review completes
       refreshCallbacks.forEach(callback => {

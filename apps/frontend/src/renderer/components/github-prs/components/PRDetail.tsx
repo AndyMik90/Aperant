@@ -44,6 +44,7 @@ interface PRDetailProps {
   reviewProgress: PRReviewProgress | null;
   startedAt: string | null;
   isReviewing: boolean;
+  isExternalReview?: boolean;
   initialNewCommitsCheck?: NewCommitsCheck | null;
   isActive?: boolean;
   isLoadingFiles?: boolean;
@@ -78,6 +79,7 @@ export function PRDetail({
   reviewProgress,
   startedAt,
   isReviewing,
+  isExternalReview = false,
   initialNewCommitsCheck,
   isActive: _isActive = false,
   isLoadingFiles = false,
@@ -397,6 +399,35 @@ export function PRDetail({
       clearInterval(interval);
     };
   }, [isReviewing, onGetLogs]);
+
+  /**
+   * Completion detection for external (in-progress) reviews
+   *
+   * When the backend reports overallStatus === 'in_progress', the store sets
+   * isExternalReview = true and isReviewing = true. This effect polls the
+   * review result file every 3 seconds to detect when the external review
+   * finishes. Once a completed result is found (overallStatus !== 'in_progress'),
+   * we update the store which will set isReviewing = false and display the result.
+   */
+  useEffect(() => {
+    if (!isReviewing || !isExternalReview) return;
+
+    const pollForCompletion = async () => {
+      try {
+        const result = await window.electronAPI.github.getPRReview(projectId, pr.number);
+        if (result && result.overallStatus !== 'in_progress') {
+          // Review completed externally — update the store with the real result
+          const { usePRReviewStore } = await import('../../../stores/github/pr-review-store');
+          usePRReviewStore.getState().setPRReviewResult(projectId, result);
+        }
+      } catch {
+        // Ignore errors — transient file read failures shouldn't stop polling
+      }
+    };
+
+    const interval = setInterval(pollForCompletion, 3000);
+    return () => clearInterval(interval);
+  }, [isReviewing, isExternalReview, projectId, pr.number]);
 
   /**
    * Fallback mechanism: Load logs after review completes if not already loaded
