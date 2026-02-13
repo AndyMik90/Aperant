@@ -219,7 +219,10 @@ def init_sentry(
     # - force_enable is True
     is_packaged = getattr(sys, "frozen", False) or hasattr(sys, "__compiled__")
     sentry_dev = os.environ.get("SENTRY_DEV", "").lower() in ("true", "1", "yes")
-    should_enable = is_packaged or sentry_dev or force_enable
+    # Also treat explicitly-set DSN as "packaged" — the Electron main process
+    # only passes SENTRY_DSN to subprocesses in production builds
+    dsn_explicitly_set = bool(dsn)
+    should_enable = is_packaged or sentry_dev or dsn_explicitly_set or force_enable
 
     if not should_enable:
         logger.debug(
