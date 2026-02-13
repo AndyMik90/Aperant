@@ -579,6 +579,12 @@ async function createTerminalWorktree(
       debugLog('[TerminalWorktree] Symlinked dependencies:', symlinkedModules.join(', '));
     }
 
+    // Symlink .claude/ config for Claude Code features (settings, commands, memory)
+    const symlinkedClaude = symlinkClaudeConfigToWorktree(projectPath, worktreePath);
+    if (symlinkedClaude.length > 0) {
+      debugLog('[TerminalWorktree] Symlinked Claude config:', symlinkedClaude.join(', '));
+    }
+
     const config: TerminalWorktreeConfig = {
       name,
       worktreePath,
