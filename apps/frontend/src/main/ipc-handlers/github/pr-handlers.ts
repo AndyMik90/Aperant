@@ -36,6 +36,8 @@ import {
   buildRunnerArgs,
 } from "./utils/subprocess-runner";
 import { getPRStatusPoller } from "../../services/pr-status-poller";
+import { safeBreadcrumb, safeCaptureException } from "../../sentry";
+import { sanitizeForSentry } from "../../../shared/utils/sentry-privacy";
 import type {
   StartPollingRequest,
   StopPollingRequest,
@@ -1462,6 +1464,20 @@ async function runPRReview(
 
   debugLog("Spawning PR review process", { args, model, thinkingLevel });
 
+  safeBreadcrumb({
+    category: 'pr-review',
+    message: 'Spawning PR review subprocess',
+    level: 'info',
+    data: {
+      pythonPath: getPythonPath(backendPath),
+      runnerPath: getRunnerPath(backendPath),
+      cwd: backendPath,
+      model,
+      thinkingLevel,
+      prNumber,
+    },
+  });
+
   // Create log collector for this review
   const config = getGitHubConfig(project);
   const repo = config?.repo || project.name || "unknown";
@@ -1525,9 +1541,22 @@ async function runPRReview(
     // Wait for the process to complete
     const result = await promise;
 
+    safeBreadcrumb({
+      category: 'pr-review',
+      message: `PR review subprocess exited`,
+      level: result.success ? 'info' : 'error',
+      data: { exitCode: result.exitCode, success: result.success, prNumber },
+    });
+
     if (!result.success) {
       // Finalize logs with failure
       logCollector.finalize(false);
+
+      safeCaptureException(
+        new Error(`PR review subprocess failed: ${result.error ?? 'unknown error'}`),
+        { extra: { exitCode: result.exitCode, prNumber, stderr: sanitizeForSentry(result.stderr.slice(0, 500)) } }
+      );
+
       throw new Error(result.error ?? "Review failed");
     }
 
@@ -2907,6 +2936,20 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
 
           debugLog("Spawning follow-up review process", { args, model, thinkingLevel });
 
+          safeBreadcrumb({
+            category: 'pr-review',
+            message: 'Spawning follow-up PR review subprocess',
+            level: 'info',
+            data: {
+              pythonPath: getPythonPath(backendPath),
+              runnerPath: getRunnerPath(backendPath),
+              cwd: backendPath,
+              model,
+              thinkingLevel,
+              prNumber,
+            },
+          });
+
           // Create log collector for this follow-up review (config already declared above)
           const repo = config?.repo || project.name || "unknown";
           const logCollector = new PRLogCollector(project, prNumber, repo, true, mainWindow);
@@ -2964,9 +3007,22 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
 
             const result = await promise;
 
+            safeBreadcrumb({
+              category: 'pr-review',
+              message: 'Follow-up PR review subprocess exited',
+              level: result.success ? 'info' : 'error',
+              data: { exitCode: result.exitCode, success: result.success, prNumber },
+            });
+
             if (!result.success) {
               // Finalize logs with failure
               logCollector.finalize(false);
+
+              safeCaptureException(
+                new Error(`Follow-up PR review subprocess failed: ${result.error ?? 'unknown error'}`),
+                { extra: { exitCode: result.exitCode, prNumber, stderr: sanitizeForSentry(result.stderr.slice(0, 500)) } }
+              );
+
               throw new Error(result.error ?? "Follow-up review failed");
             }
 
