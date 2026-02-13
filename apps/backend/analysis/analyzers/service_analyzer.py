@@ -260,7 +260,7 @@ class ServiceAnalyzer(BaseAnalyzer):
         if vendor_path.exists() and vendor_path.is_dir():
             locations.append(
                 {
-                    "type": "vendor",
+                    "type": "vendor_php",
                     "path": "vendor",
                     "exists": True,
                 }
@@ -271,7 +271,7 @@ class ServiceAnalyzer(BaseAnalyzer):
         if target_path.exists() and target_path.is_dir():
             locations.append(
                 {
-                    "type": "target",
+                    "type": "cargo_registry",
                     "path": "target",
                     "exists": True,
                 }

@@ -116,23 +116,16 @@ class TestGetDependencyConfigs:
     def test_with_mock_project_index(self):
         """Returns correct strategy per dependency type from project index."""
         project_index = {
-            "services": {
-                "frontend": {
-                    "dependency_locations": [
-                        {"type": "node_modules", "path": "node_modules"},
-                    ]
+            "dependency_locations": [
+                {"type": "node_modules", "path": "node_modules", "service": "frontend"},
+                {
+                    "type": "venv",
+                    "path": "apps/backend/.venv",
+                    "requirements_file": "requirements.txt",
+                    "package_manager": "uv",
+                    "service": "backend",
                 },
-                "backend": {
-                    "dependency_locations": [
-                        {
-                            "type": "venv",
-                            "path": "apps/backend/.venv",
-                            "requirements_file": "requirements.txt",
-                            "package_manager": "uv",
-                        },
-                    ]
-                },
-            }
+            ]
         }
 
         configs = get_dependency_configs(project_index)
@@ -148,16 +141,18 @@ class TestGetDependencyConfigs:
         assert by_type["venv"].package_manager == "uv"
 
     def test_none_returns_fallback(self):
-        """None project_index returns fallback node_modules-only config."""
+        """None project_index returns fallback node_modules configs."""
         configs = get_dependency_configs(None)
 
-        assert len(configs) == 1
+        assert len(configs) == 2
         assert configs[0].dep_type == "node_modules"
         assert configs[0].strategy == DependencyStrategy.SYMLINK
         assert configs[0].source_rel_path == "node_modules"
+        assert configs[1].dep_type == "node_modules"
+        assert configs[1].source_rel_path == "apps/frontend/node_modules"
 
     def test_missing_dependency_locations_returns_fallback(self):
-        """Project index with services but no dependency_locations returns fallback."""
+        """Project index without dependency_locations returns fallback."""
         project_index = {
             "services": {
                 "frontend": {
@@ -168,27 +163,23 @@ class TestGetDependencyConfigs:
 
         configs = get_dependency_configs(project_index)
 
-        assert len(configs) == 1
+        assert len(configs) == 2
         assert configs[0].dep_type == "node_modules"
         assert configs[0].strategy == DependencyStrategy.SYMLINK
 
-    def test_empty_services_returns_fallback(self):
-        """Project index with empty services returns fallback."""
-        configs = get_dependency_configs({"services": {}})
+    def test_empty_dependency_locations_returns_fallback(self):
+        """Project index with empty dependency_locations returns fallback."""
+        configs = get_dependency_configs({"dependency_locations": []})
 
-        assert len(configs) == 1
+        assert len(configs) == 2
         assert configs[0].dep_type == "node_modules"
 
     def test_unknown_dep_type_defaults_to_skip(self):
         """Unknown dependency type defaults to SKIP strategy."""
         project_index = {
-            "services": {
-                "app": {
-                    "dependency_locations": [
-                        {"type": "unknown_ecosystem", "path": "deps/"},
-                    ]
-                }
-            }
+            "dependency_locations": [
+                {"type": "unknown_ecosystem", "path": "deps/", "service": "app"},
+            ]
         }
 
         configs = get_dependency_configs(project_index)
@@ -197,8 +188,8 @@ class TestGetDependencyConfigs:
         assert configs[0].dep_type == "unknown_ecosystem"
         assert configs[0].strategy == DependencyStrategy.SKIP
 
-    def test_python_service_no_venv_detected(self):
-        """Python service with no venv in dependency_locations gets no venv config."""
+    def test_no_dependency_locations_returns_fallback(self):
+        """Project index with no dependency_locations falls back."""
         project_index = {
             "services": {
                 "backend": {
@@ -208,38 +199,31 @@ class TestGetDependencyConfigs:
             }
         }
 
-        # Empty dependency_locations means fallback
+        # No top-level dependency_locations means fallback
         configs = get_dependency_configs(project_index)
 
-        assert len(configs) == 1
+        assert len(configs) == 2
         assert configs[0].dep_type == "node_modules"
-        # No venv config — SKIP effectively since it's not listed
 
     def test_multiple_python_services_own_venv_configs(self):
         """Multiple Python services each get their own venv config with correct paths."""
         project_index = {
-            "services": {
-                "api": {
-                    "dependency_locations": [
-                        {
-                            "type": "venv",
-                            "path": "services/api/.venv",
-                            "requirements_file": "requirements.txt",
-                            "package_manager": "pip",
-                        },
-                    ]
+            "dependency_locations": [
+                {
+                    "type": "venv",
+                    "path": "services/api/.venv",
+                    "requirements_file": "requirements.txt",
+                    "package_manager": "pip",
+                    "service": "api",
                 },
-                "worker": {
-                    "dependency_locations": [
-                        {
-                            "type": "venv",
-                            "path": "services/worker/.venv",
-                            "requirements_file": "pyproject.toml",
-                            "package_manager": "uv",
-                        },
-                    ]
+                {
+                    "type": "venv",
+                    "path": "services/worker/.venv",
+                    "requirements_file": "pyproject.toml",
+                    "package_manager": "uv",
+                    "service": "worker",
                 },
-            }
+            ]
         }
 
         configs = get_dependency_configs(project_index)
@@ -263,24 +247,30 @@ class TestGetDependencyConfigs:
     def test_deduplicates_by_path(self):
         """Duplicate paths are deduplicated."""
         project_index = {
-            "services": {
-                "frontend": {
-                    "dependency_locations": [
-                        {"type": "node_modules", "path": "node_modules"},
-                    ]
-                },
-                "storybook": {
-                    "dependency_locations": [
-                        {"type": "node_modules", "path": "node_modules"},
-                    ]
-                },
-            }
+            "dependency_locations": [
+                {"type": "node_modules", "path": "node_modules", "service": "frontend"},
+                {"type": "node_modules", "path": "node_modules", "service": "storybook"},
+            ]
         }
 
         configs = get_dependency_configs(project_index)
 
         assert len(configs) == 1
         assert configs[0].dep_type == "node_modules"
+
+    def test_path_traversal_rejected(self):
+        """Paths with '..' components are rejected for containment safety."""
+        project_index = {
+            "dependency_locations": [
+                {"type": "node_modules", "path": "../../etc/passwd", "service": "evil"},
+                {"type": "node_modules", "path": "safe/node_modules", "service": "ok"},
+            ]
+        }
+
+        configs = get_dependency_configs(project_index)
+
+        assert len(configs) == 1
+        assert configs[0].source_rel_path == "safe/node_modules"
 
 
 class TestServiceAnalyzerDependencyLocations:
@@ -351,13 +341,9 @@ class TestSetupWorktreeDependencies:
         worktree_path.mkdir()
 
         project_index = {
-            "services": {
-                "frontend": {
-                    "dependency_locations": [
-                        {"type": "node_modules", "path": "node_modules"},
-                    ]
-                }
-            }
+            "dependency_locations": [
+                {"type": "node_modules", "path": "node_modules", "service": "frontend"},
+            ]
         }
 
         results = setup_worktree_dependencies(project_dir, worktree_path, project_index)
@@ -368,7 +354,7 @@ class TestSetupWorktreeDependencies:
         assert target.exists() or target.is_symlink()
 
     def test_none_project_index_uses_fallback(self, tmp_path: Path):
-        """None project_index uses fallback node_modules-only behavior."""
+        """None project_index uses fallback node_modules behavior."""
         from core.workspace.setup import setup_worktree_dependencies
 
         project_dir = tmp_path / "project"
@@ -395,13 +381,9 @@ class TestSetupWorktreeDependencies:
         worktree_path.mkdir()
 
         project_index = {
-            "services": {
-                "frontend": {
-                    "dependency_locations": [
-                        {"type": "node_modules", "path": "node_modules"},
-                    ]
-                }
-            }
+            "dependency_locations": [
+                {"type": "node_modules", "path": "node_modules", "service": "frontend"},
+            ]
         }
 
         # Should not raise
@@ -427,13 +409,9 @@ class TestSetupWorktreeDependencies:
         (worktree_path / "node_modules").mkdir()
 
         project_index = {
-            "services": {
-                "frontend": {
-                    "dependency_locations": [
-                        {"type": "node_modules", "path": "node_modules"},
-                    ]
-                }
-            }
+            "dependency_locations": [
+                {"type": "node_modules", "path": "node_modules", "service": "frontend"},
+            ]
         }
 
         # Should not raise

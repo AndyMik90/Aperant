@@ -8,7 +8,7 @@ import type {
   OtherWorktreeInfo,
 } from '../../../shared/types';
 import path from 'path';
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, symlinkSync, lstatSync, copyFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, symlinkSync, lstatSync, copyFileSync, cpSync, statSync } from 'fs';
 import { execFileSync, execFile } from 'child_process';
 import { promisify } from 'util';
 import { minimatch } from 'minimatch';
@@ -362,33 +362,38 @@ function loadDependencyConfigs(projectPath: string): DependencyConfig[] {
   if (existsSync(indexPath)) {
     try {
       const index = JSON.parse(readFileSync(indexPath, 'utf-8'));
-      const services = index?.services;
-      if (services && typeof services === 'object') {
+      // Use the aggregated top-level dependency_locations which already
+      // contain project-relative paths (e.g. "apps/backend/.venv" instead
+      // of just ".venv"), avoiding a monorepo path resolution bug.
+      const depLocations = index?.dependency_locations;
+      if (Array.isArray(depLocations)) {
         const configs: DependencyConfig[] = [];
         const seen = new Set<string>();
 
-        for (const serviceData of Object.values(services)) {
-          if (!serviceData || typeof serviceData !== 'object') continue;
-          const depLocations = (serviceData as Record<string, unknown>).dependency_locations;
-          if (!Array.isArray(depLocations)) continue;
+        for (const dep of depLocations) {
+          if (!dep || typeof dep !== 'object') continue;
+          const depObj = dep as Record<string, unknown>;
+          const depType = String(depObj.type || '');
+          const relPath = String(depObj.path || '');
+          if (!depType || !relPath || seen.has(relPath)) continue;
 
-          for (const dep of depLocations) {
-            if (!dep || typeof dep !== 'object') continue;
-            const depObj = dep as Record<string, unknown>;
-            const depType = String(depObj.type || '');
-            const relPath = String(depObj.path || '');
-            if (!depType || !relPath || seen.has(relPath)) continue;
-            seen.add(relPath);
+          // Path containment: reject traversals that escape the project root
+          if (relPath.split('/').includes('..') || relPath.split('\\').includes('..')) continue;
 
-            const strategy = DEFAULT_STRATEGY_MAP[depType] ?? 'skip';
-            configs.push({
-              depType,
-              strategy,
-              sourceRelPath: relPath,
-              requirementsFile: depObj.requirements_file ? String(depObj.requirements_file) : undefined,
-              packageManager: depObj.package_manager ? String(depObj.package_manager) : undefined,
-            });
-          }
+          // Validate resolved path stays within project
+          const resolved = path.resolve(projectPath, relPath);
+          if (!resolved.startsWith(path.resolve(projectPath))) continue;
+
+          seen.add(relPath);
+
+          const strategy = DEFAULT_STRATEGY_MAP[depType] ?? 'skip';
+          configs.push({
+            depType,
+            strategy,
+            sourceRelPath: relPath,
+            requirementsFile: depObj.requirements_file ? String(depObj.requirements_file) : undefined,
+            packageManager: depObj.package_manager ? String(depObj.package_manager) : undefined,
+          });
         }
 
         if (configs.length > 0) {
@@ -572,7 +577,7 @@ async function applyRecreateStrategy(projectPath: string, worktreePath: string, 
 }
 
 /**
- * Apply copy strategy: copy a file from project to worktree.
+ * Apply copy strategy: copy a file or directory from project to worktree.
  */
 function applyCopyStrategy(projectPath: string, worktreePath: string, config: DependencyConfig): void {
   const sourcePath = path.join(projectPath, config.sourceRelPath);
@@ -594,7 +599,11 @@ function applyCopyStrategy(projectPath: string, worktreePath: string, config: De
   }
 
   try {
-    copyFileSync(sourcePath, targetPath);
+    if (statSync(sourcePath).isDirectory()) {
+      cpSync(sourcePath, targetPath, { recursive: true });
+    } else {
+      copyFileSync(sourcePath, targetPath);
+    }
     debugLog('[TerminalWorktree] Copied', config.sourceRelPath, 'to worktree');
   } catch (error) {
     debugError('[TerminalWorktree] Could not copy', config.sourceRelPath, ':', error);

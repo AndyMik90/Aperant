@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 from core.git_executable import run_git
+from core.platform import is_windows
 from merge import FileTimelineTracker
 from security.constants import ALLOWLIST_FILENAME, PROFILE_FILENAME
 from ui import (
@@ -586,7 +587,7 @@ def _apply_symlink_strategy(
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
-        if sys.platform == "win32":
+        if is_windows():
             # Windows: use junctions (no admin rights required)
             result = subprocess.run(
                 ["cmd", "/c", "mklink", "/J", str(target_path), str(source_path)],
@@ -662,19 +663,29 @@ def _apply_recreate_strategy(
         req_path = project_dir / req_file
         if req_path.is_file():
             # Determine pip executable inside the new venv
-            if sys.platform == "win32":
+            if is_windows():
                 pip_exec = str(venv_path / "Scripts" / "pip.exe")
             else:
                 pip_exec = str(venv_path / "bin" / "pip")
 
             try:
                 debug(MODULE, f"Installing deps from {req_file}")
-                subprocess.run(
+                pip_result = subprocess.run(
                     [pip_exec, "install", "-r", str(req_path)],
                     capture_output=True,
                     text=True,
                     timeout=120,
                 )
+                if pip_result.returncode != 0:
+                    debug_warning(
+                        MODULE,
+                        f"pip install failed (exit {pip_result.returncode}): "
+                        f"{pip_result.stderr}",
+                    )
+                    print_status(
+                        f"Warning: Dependency install failed for {req_file}",
+                        "warning",
+                    )
             except subprocess.TimeoutExpired:
                 debug_warning(
                     MODULE,

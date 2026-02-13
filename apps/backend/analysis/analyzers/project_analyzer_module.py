@@ -150,14 +150,17 @@ class ProjectAnalyzer:
                 else:
                     project_relative = dep["path"]
 
-                aggregated.append(
-                    {
-                        "type": dep.get("type", "unknown"),
-                        "path": project_relative,
-                        "exists": dep.get("exists", False),
-                        "service": service_name,
-                    }
-                )
+                entry: dict[str, Any] = {
+                    "type": dep.get("type", "unknown"),
+                    "path": project_relative,
+                    "exists": dep.get("exists", False),
+                    "service": service_name,
+                }
+                if dep.get("requirements_file"):
+                    entry["requirements_file"] = dep["requirements_file"]
+                if dep.get("package_manager"):
+                    entry["package_manager"] = dep["package_manager"]
+                aggregated.append(entry)
 
         self.index["dependency_locations"] = aggregated
 

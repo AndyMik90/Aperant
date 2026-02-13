@@ -23,6 +23,8 @@ Each dependency ecosystem has different constraints:
 
 from __future__ import annotations
 
+from pathlib import PurePosixPath
+
 from .models import DependencyShareConfig, DependencyStrategy
 
 # ---------------------------------------------------------------------------
@@ -69,37 +71,42 @@ def get_dependency_configs(
     seen: set[str] = set()
 
     if project_index is not None:
-        services = project_index.get("services") or {}
-        for _service_name, service_data in services.items():
-            if not isinstance(service_data, dict):
+        # Use the aggregated top-level dependency_locations which already
+        # contain project-relative paths (e.g. "apps/backend/.venv" instead
+        # of just ".venv").  This avoids a monorepo path resolution bug
+        # where service-relative paths were incorrectly treated as project-
+        # relative.
+        dep_locations = project_index.get("dependency_locations") or []
+        for dep in dep_locations:
+            if not isinstance(dep, dict):
                 continue
-            dep_locations = service_data.get("dependency_locations") or []
-            for dep in dep_locations:
-                if not isinstance(dep, dict):
-                    continue
 
-                dep_type = dep.get("type", "")
-                rel_path = dep.get("path", "")
+            dep_type = dep.get("type", "")
+            rel_path = dep.get("path", "")
 
-                if not dep_type or not rel_path:
-                    continue
+            if not dep_type or not rel_path:
+                continue
 
-                # Deduplicate by relative path
-                if rel_path in seen:
-                    continue
-                seen.add(rel_path)
+            # Path containment: reject traversals that escape the project root
+            if ".." in PurePosixPath(rel_path).parts:
+                continue
 
-                strategy = DEFAULT_STRATEGY_MAP.get(dep_type, DependencyStrategy.SKIP)
+            # Deduplicate by relative path
+            if rel_path in seen:
+                continue
+            seen.add(rel_path)
 
-                configs.append(
-                    DependencyShareConfig(
-                        dep_type=dep_type,
-                        strategy=strategy,
-                        source_rel_path=rel_path,
-                        requirements_file=dep.get("requirements_file"),
-                        package_manager=dep.get("package_manager"),
-                    )
+            strategy = DEFAULT_STRATEGY_MAP.get(dep_type, DependencyStrategy.SKIP)
+
+            configs.append(
+                DependencyShareConfig(
+                    dep_type=dep_type,
+                    strategy=strategy,
+                    source_rel_path=rel_path,
+                    requirements_file=dep.get("requirements_file"),
+                    package_manager=dep.get("package_manager"),
                 )
+            )
 
     # Fallback: if no configs were discovered, default to node_modules-only
     # so existing worktree behaviour is preserved.
@@ -109,6 +116,13 @@ def get_dependency_configs(
                 dep_type="node_modules",
                 strategy=DependencyStrategy.SYMLINK,
                 source_rel_path="node_modules",
+            )
+        )
+        configs.append(
+            DependencyShareConfig(
+                dep_type="node_modules",
+                strategy=DependencyStrategy.SYMLINK,
+                source_rel_path="apps/frontend/node_modules",
             )
         )
 
