@@ -951,28 +951,8 @@ Analyze this follow-up review context and provide your structured response.
                     create_finding_from_summary(summary, i, id_prefix="FR")
                 )
 
-            # Reconstruct unresolved findings from previous review context
-            # (matches the pattern in parallel_followup_reviewer.py)
-            if extracted.unresolved_finding_ids and context.previous_review.findings:
-                previous_map = {f.id: f for f in context.previous_review.findings}
-                for uid in extracted.unresolved_finding_ids:
-                    original = previous_map.get(uid)
-                    if original:
-                        new_findings.append(
-                            PRReviewFinding(
-                                id=original.id,
-                                severity=original.severity,
-                                category=original.category,
-                                title=f"[UNRESOLVED] {original.title}",
-                                description=original.description,
-                                file=original.file,
-                                line=original.line,
-                                suggested_fix=original.suggested_fix,
-                                fixable=original.fixable,
-                            )
-                        )
-
             # Build finding_resolutions from extraction data for _apply_ai_resolutions
+            # (unresolved findings are handled via finding_resolutions + _apply_ai_resolutions)
             finding_resolutions = []
             for fid in extracted.resolved_finding_ids:
                 finding_resolutions.append(
