@@ -1466,6 +1466,7 @@ async function runPRReview(
   safeBreadcrumb({
     category: 'pr-review',
     message: 'Spawning PR review subprocess',
+    level: 'info',
     data: {
       pythonPath: getPythonPath(backendPath),
       runnerPath: getRunnerPath(backendPath),
@@ -1542,6 +1543,7 @@ async function runPRReview(
     safeBreadcrumb({
       category: 'pr-review',
       message: `PR review subprocess exited`,
+      level: result.success ? 'info' : 'error',
       data: { exitCode: result.exitCode, success: result.success, prNumber },
     });
 
