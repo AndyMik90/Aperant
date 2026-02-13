@@ -288,388 +288,162 @@ function DiffLine({ line, type, lineNumber }: { line: string; type: 'add' | 'rem
 }
 
 /**
- * Tool block - Claude Code terminal style
- * Features: colored bullets, diff backgrounds, collapsible sections
+ * Tool block — Claude Code terminal style
+ * Compact one-liner by default, clean indented expansion on click.
+ * No emojis, no colored card backgrounds — just clean monospace text.
  */
 function ToolBlock({ tool }: { tool: ToolUseContent }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [showExpanded, setShowExpanded] = useState(false);
+  const [showFullOutput, setShowFullOutput] = useState(false);
   const { searchQuery } = useContext(SearchContext);
 
-  // Check if output should be collapsed by default
-  const shouldCollapseByDefault = (output: string | undefined) => {
-    if (!output) return false;
-    const lineCount = output.split('\n').length;
-    return lineCount > 15;
+  // Tool name → color class (no emojis)
+  const TOOL_COLORS: Record<string, string> = {
+    Read: 'text-cyan-400',
+    Write: 'text-green-400',
+    Edit: 'text-yellow-400',
+    Bash: 'text-purple-400',
+    Glob: 'text-blue-400',
+    Grep: 'text-pink-400',
+    Task: 'text-indigo-400',
+    WebFetch: 'text-teal-400',
+    WebSearch: 'text-teal-400',
+    AskUserQuestion: 'text-amber-400',
   };
 
-  // Render status indicator
-  const StatusIndicator = ({ status }: { status?: string }) => {
-    if (status === 'success') return <span className="text-green-500 ml-1">✓</span>;
-    if (status === 'error') return <span className="text-red-500 ml-1">✗</span>;
-    if (status === 'running') return <span className="text-blue-400 ml-1 animate-pulse">●</span>;
-    return null;
+  const colorClass = TOOL_COLORS[tool.toolName] || 'text-cyan-400';
+
+  // Extract display target for one-liner
+  const getTarget = (): string => {
+    // Runtime: input can be a string (from SDK parser) or an object (from claude-output-parser).
+    // The TS type says Record<string, unknown> but the SDK parser passes raw display strings.
+    const raw: unknown = tool.input;
+
+    // Main process SDK parser sends input as a raw display string (e.g. "/path/to/file")
+    if (typeof raw === 'string' && raw) {
+      return raw.length > 80 ? raw.slice(0, 77) + '…' : raw;
+    }
+
+    // Structured object input (from claude-output-parser or SDK tool_use blocks)
+    const obj = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+    if (tool.toolName === 'Read' || tool.toolName === 'Write' || tool.toolName === 'Edit') {
+      return (obj.file_path as string) || '';
+    }
+    if (tool.toolName === 'Bash') {
+      const cmd = (obj.command as string) || (obj.description as string) || '';
+      return cmd.length > 80 ? cmd.slice(0, 77) + '…' : cmd;
+    }
+    if (tool.toolName === 'Grep') return obj.pattern ? `"${obj.pattern}"` : '';
+    if (tool.toolName === 'Glob') return obj.pattern ? `"${obj.pattern}"` : '';
+    if (tool.toolName === 'Task') return (obj.description as string) || '';
+    // Generic fallback
+    const values = Object.values(obj);
+    return values.find((v): v is string => typeof v === 'string' && v.length < 80) || '';
   };
 
-  // Render Bash tool - command/output format with card-like container
-  if (tool.toolName === 'Bash') {
-    const command = tool.input?.command as string || '';
-    const description = tool.input?.description as string || '';
-    const hasOutput = Boolean(tool.output);
-    const isCollapsible = shouldCollapseByDefault(tool.output);
+  const target = getTarget();
+  const statusIcon = tool.status === 'success' ? '✓' : tool.status === 'error' ? '✗' : tool.status === 'running' ? '●' : '';
+  const statusColor = tool.status === 'success' ? 'text-green-500' : tool.status === 'error' ? 'text-red-500' : tool.status === 'running' ? 'text-blue-400 animate-pulse' : 'text-muted-foreground/30';
 
+  // ═══ COMPACT ONE-LINER (default) ═══
+  if (!showExpanded) {
     return (
-      <div className="py-1.5 font-mono text-xs">
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {/* Header bar */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-purple-500/10 border-b border-border">
-            <span className="text-purple-400 font-medium">Bash</span>
-            <span className="text-muted-foreground/70 truncate flex-1">{command || 'command'}</span>
-            <StatusIndicator status={tool.status} />
-            {hasOutput && isCollapsible && (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {isExpanded ? 'collapse' : 'expand'}
-              </button>
-            )}
-          </div>
-          {/* Description */}
-          {description && (
-            <div className="px-3 py-1 text-muted-foreground/60 text-[10px] bg-muted/20 border-b border-border/50">
-              {description}
-            </div>
-          )}
-          {/* Output */}
-          {tool.output && (isExpanded || !isCollapsible) && (
-            <div className={cn(
-              "overflow-hidden",
-              tool.status === 'error' ? 'bg-red-500/5' : 'bg-muted/30'
-            )}>
-              <pre className={cn(
-                "p-3 whitespace-pre-wrap break-all max-h-64 overflow-y-auto text-[11px]",
-                tool.status === 'error' ? 'text-red-400' : 'text-muted-foreground'
-              )}>
-                {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
-              </pre>
-            </div>
-          )}
-        </div>
+      <div
+        className="flex items-center gap-2 py-0.5 font-mono text-xs cursor-pointer hover:bg-muted/20 rounded transition-colors"
+        onClick={() => setShowExpanded(true)}
+      >
+        <span className={cn("font-medium min-w-[36px] flex-shrink-0", colorClass)}>{tool.toolName}</span>
+        <span className="text-muted-foreground/50 truncate flex-1">{target}</span>
+        {statusIcon && <span className={cn("text-[10px] flex-shrink-0", statusColor)}>{statusIcon}</span>}
       </div>
     );
   }
 
-  // Render Edit tool - diff format with card-like container
-  if (tool.toolName === 'Edit') {
-    const filePath = tool.input?.file_path as string || '';
-    const oldString = tool.input?.old_string as string || '';
-    const newString = tool.input?.new_string as string || '';
-    const hasDiff = oldString || newString;
-    const fileName = filePath.split(/[/\\]/).pop() || filePath;
-
-    return (
-      <div className="py-1.5 font-mono text-xs">
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {/* Header bar */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border-b border-border">
-            <span className="text-green-400 font-medium">Edit</span>
-            <span className="text-muted-foreground/70 truncate flex-1">{fileName}</span>
-            <StatusIndicator status={tool.status} />
-            {hasDiff && (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {isExpanded ? 'collapse' : 'expand'}
-              </button>
-            )}
-          </div>
-          {/* File path */}
-          <div className="px-3 py-1 text-muted-foreground/60 text-[10px] bg-muted/20 border-b border-border/50 truncate" title={filePath}>
-            {filePath}
-          </div>
-          {/* Diff content */}
-          {isExpanded && hasDiff && (
-            <div className="bg-muted/30 max-h-80 overflow-y-auto text-[11px]">
-              {oldString && oldString.split('\n').map((line, i) => (
-                <DiffLine key={`old-${i}`} line={line} type="remove" lineNumber={i + 1} />
-              ))}
-              {oldString && newString && (
-                <div className="border-t border-border/50 my-1" />
-              )}
-              {newString && newString.split('\n').map((line, i) => (
-                <DiffLine key={`new-${i}`} line={line} type="add" lineNumber={i + 1} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Render Write tool - similar to Edit but showing new content
-  if (tool.toolName === 'Write') {
-    const filePath = tool.input?.file_path as string || '';
-    const content = tool.input?.content as string || '';
-    const hasContent = Boolean(content);
-    const fileName = filePath.split(/[/\\]/).pop() || filePath;
-    const lineCount = content ? content.split('\n').length : 0;
-
-    return (
-      <div className="py-1.5 font-mono text-xs">
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {/* Header bar */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border-b border-border">
-            <span className="text-green-400 font-medium">Write</span>
-            <span className="text-muted-foreground/70 truncate flex-1">{fileName}</span>
-            <span className="text-muted-foreground/50 text-[10px]">+{lineCount} lines</span>
-            <StatusIndicator status={tool.status} />
-            {hasContent && (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {isExpanded ? 'collapse' : 'expand'}
-              </button>
-            )}
-          </div>
-          {/* File path */}
-          <div className="px-3 py-1 text-muted-foreground/60 text-[10px] bg-muted/20 border-b border-border/50 truncate" title={filePath}>
-            {filePath}
-          </div>
-          {/* Content */}
-          {isExpanded && hasContent && (
-            <div className="bg-green-500/5 max-h-80 overflow-y-auto text-[11px]">
-              {content.split('\n').map((line, i) => (
-                <DiffLine key={i} line={line} type="add" lineNumber={i + 1} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Render Read tool - file path with expandable content
-  if (tool.toolName === 'Read') {
-    const filePath = tool.input?.file_path as string || '';
-    const offset = tool.input?.offset as number | undefined;
-    const limit = tool.input?.limit as number | undefined;
-    const lineRange = offset !== undefined && limit !== undefined
-      ? ` lines ${offset}-${offset + limit}`
-      : '';
-    const fileName = filePath.split(/[/\\]/).pop() || filePath;
-    const hasOutput = Boolean(tool.output);
-    const isCollapsible = shouldCollapseByDefault(tool.output);
-
-    return (
-      <div className="py-1.5 font-mono text-xs">
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {/* Header bar */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-blue-500/10 border-b border-border">
-            <span className="text-blue-400 font-medium">Read</span>
-            <span className="text-muted-foreground/70 truncate flex-1">{fileName}</span>
-            {lineRange && <span className="text-muted-foreground/50 text-[10px]">{lineRange}</span>}
-            <StatusIndicator status={tool.status} />
-            {hasOutput && isCollapsible && (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {isExpanded ? 'collapse' : 'expand'}
-              </button>
-            )}
-          </div>
-          {/* File path */}
-          <div className="px-3 py-1 text-muted-foreground/60 text-[10px] bg-muted/20 border-b border-border/50 truncate" title={filePath}>
-            {filePath}
-          </div>
-          {/* Output content */}
-          {tool.output && (isExpanded || !isCollapsible) && (
-            <div className="bg-muted/30">
-              <pre className="p-3 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
-                {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
-              </pre>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Render Grep tool - pattern with results count
-  if (tool.toolName === 'Grep') {
-    const pattern = tool.input?.pattern as string || '';
-    const path = tool.input?.path as string || '';
-    const hasOutput = Boolean(tool.output);
-    const matchCount = tool.output ? tool.output.split('\n').filter(l => l.trim()).length : 0;
-    const isCollapsible = shouldCollapseByDefault(tool.output);
-
-    return (
-      <div className="py-1.5 font-mono text-xs">
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {/* Header bar */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-orange-500/10 border-b border-border">
-            <span className="text-orange-400 font-medium">Grep</span>
-            <span className="text-yellow-300 truncate flex-1">"{pattern}"</span>
-            {hasOutput && (
-              <span className="text-muted-foreground/50 text-[10px]">
-                {matchCount} {matchCount === 1 ? 'match' : 'matches'}
-              </span>
-            )}
-            <StatusIndicator status={tool.status} />
-            {hasOutput && isCollapsible && (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {isExpanded ? 'collapse' : 'expand'}
-              </button>
-            )}
-          </div>
-          {/* Search path */}
-          {path && (
-            <div className="px-3 py-1 text-muted-foreground/60 text-[10px] bg-muted/20 border-b border-border/50 truncate">
-              in {path}
-            </div>
-          )}
-          {/* Results */}
-          {tool.output && (isExpanded || !isCollapsible) && (
-            <div className="bg-muted/30">
-              <pre className="p-3 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
-                {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
-              </pre>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Render Glob tool - pattern with file count
-  if (tool.toolName === 'Glob') {
-    const pattern = tool.input?.pattern as string || '';
-    const path = tool.input?.path as string || '';
-    const hasOutput = Boolean(tool.output);
-    const fileCount = tool.output ? tool.output.split('\n').filter(l => l.trim()).length : 0;
-    const isCollapsible = shouldCollapseByDefault(tool.output);
-
-    return (
-      <div className="py-1.5 font-mono text-xs">
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {/* Header bar */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-pink-500/10 border-b border-border">
-            <span className="text-pink-400 font-medium">Glob</span>
-            <span className="text-yellow-300 truncate flex-1">"{pattern}"</span>
-            {hasOutput && (
-              <span className="text-muted-foreground/50 text-[10px]">
-                {fileCount} {fileCount === 1 ? 'file' : 'files'}
-              </span>
-            )}
-            <StatusIndicator status={tool.status} />
-            {hasOutput && isCollapsible && (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {isExpanded ? 'collapse' : 'expand'}
-              </button>
-            )}
-          </div>
-          {/* Search path */}
-          {path && (
-            <div className="px-3 py-1 text-muted-foreground/60 text-[10px] bg-muted/20 border-b border-border/50 truncate">
-              in {path}
-            </div>
-          )}
-          {/* Files list */}
-          {tool.output && (isExpanded || !isCollapsible) && (
-            <div className="bg-muted/30">
-              <pre className="p-3 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
-                {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
-              </pre>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Render Task tool - subagent spawning
-  if (tool.toolName === 'Task') {
-    const description = tool.input?.description as string || '';
-    const prompt = tool.input?.prompt as string || '';
-    const hasOutput = Boolean(tool.output);
-    const isCollapsible = shouldCollapseByDefault(tool.output);
-
-    return (
-      <div className="py-1.5 font-mono text-xs">
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {/* Header bar */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 border-b border-border">
-            <span className="text-indigo-400 font-medium">Task</span>
-            <span className="text-muted-foreground/70 truncate flex-1">{description || 'subagent'}</span>
-            <StatusIndicator status={tool.status} />
-            {hasOutput && isCollapsible && (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {isExpanded ? 'collapse' : 'expand'}
-              </button>
-            )}
-          </div>
-          {/* Prompt */}
-          {prompt && (
-            <div className="px-3 py-1 text-muted-foreground/60 text-[10px] bg-muted/20 border-b border-border/50 truncate" title={prompt}>
-              {prompt.slice(0, 100)}{prompt.length > 100 ? '...' : ''}
-            </div>
-          )}
-          {/* Output */}
-          {tool.output && (isExpanded || !isCollapsible) && (
-            <div className="bg-muted/30">
-              <pre className="p-3 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
-                {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
-              </pre>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Default tool rendering - generic format with card container
-  const input = tool.input || {};
-  const inputValues = Object.values(input);
-  const firstValue = inputValues.find((v): v is string => typeof v === 'string' && v.length < 100);
+  // ═══ EXPANDED VIEW — clean indented content ═══
   const hasOutput = Boolean(tool.output);
-  const isCollapsible = shouldCollapseByDefault(tool.output);
+  const outputLines = tool.output ? tool.output.split('\n').length : 0;
+  const isLongOutput = outputLines > 20;
+  // Handle string input (from SDK parser) vs object input (from claude-output-parser)
+  const rawInput: unknown = tool.input;
+  const inputIsString = typeof rawInput === 'string';
+  const inputObj = (inputIsString ? {} : rawInput) as Record<string, unknown> || {};
+  const filePath: string = inputIsString
+    ? (['Read', 'Write', 'Edit'].includes(tool.toolName) ? String(rawInput) : '')
+    : String(inputObj.file_path ?? '');
+  const command: string = inputIsString
+    ? (tool.toolName === 'Bash' ? String(rawInput) : '')
+    : String(inputObj.command ?? '');
+  const oldString: string = inputIsString ? '' : String(inputObj.old_string ?? '');
+  const newString: string = inputIsString ? '' : String(inputObj.new_string ?? '');
+  const hasDiff = tool.toolName === 'Edit' && (oldString || newString);
 
   return (
-    <div className="py-1.5 font-mono text-xs">
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        {/* Header bar */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-cyan-500/10 border-b border-border">
-          <span className="text-cyan-400 font-medium">{tool.toolName}</span>
-          {firstValue && (
-            <span className="text-muted-foreground/70 truncate flex-1">{firstValue}</span>
-          )}
-          <StatusIndicator status={tool.status} />
-          {hasOutput && isCollapsible && (
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {isExpanded ? 'collapse' : 'expand'}
-            </button>
-          )}
-        </div>
-        {/* Output */}
-        {tool.output && (isExpanded || !isCollapsible) && (
-          <div className="bg-muted/30">
-            <pre className="p-3 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
-              {searchQuery ? highlightSearchMatches(tool.output, searchQuery) : tool.output}
+    <div className="font-mono text-xs">
+      {/* Header line — click to collapse */}
+      <div
+        className="flex items-center gap-2 py-0.5 cursor-pointer hover:bg-muted/20 rounded transition-colors"
+        onClick={() => setShowExpanded(false)}
+      >
+        <span className={cn("font-medium min-w-[36px] flex-shrink-0", colorClass)}>{tool.toolName}</span>
+        <span className="text-muted-foreground/50 truncate flex-1">{target}</span>
+        {statusIcon && <span className={cn("text-[10px] flex-shrink-0", statusColor)}>{statusIcon}</span>}
+        <ChevronUp className="h-3 w-3 text-muted-foreground/30 flex-shrink-0" />
+      </div>
+
+      {/* Indented content below */}
+      <div className="ml-9 mt-0.5 mb-2 pl-3 border-l border-border/30">
+        {/* File path (for file-based tools) */}
+        {filePath && (
+          <div className="text-[10px] text-muted-foreground/40 truncate mb-1" title={filePath}>{filePath}</div>
+        )}
+
+        {/* Command preview (for Bash) */}
+        {command.length > 0 && tool.toolName === 'Bash' && (
+          <div className="text-[10px] text-muted-foreground/50 mb-1 truncate" title={command}>$ {command}</div>
+        )}
+
+        {/* Diff view (for Edit) */}
+        {hasDiff && (
+          <div className="mb-1 max-h-60 overflow-y-auto">
+            {oldString && oldString.split('\n').map((line, i) => (
+              <DiffLine key={`old-${i}`} line={line} type="remove" lineNumber={i + 1} />
+            ))}
+            {oldString && newString && <div className="h-px bg-border/30 my-1" />}
+            {newString && newString.split('\n').map((line, i) => (
+              <DiffLine key={`new-${i}`} line={line} type="add" lineNumber={i + 1} />
+            ))}
+          </div>
+        )}
+
+        {/* Write content (for Write) */}
+        {tool.toolName === 'Write' && typeof tool.input?.content === 'string' && (
+          <div className="mb-1 max-h-60 overflow-y-auto">
+            {tool.input.content.split('\n').map((line: string, i: number) => (
+              <DiffLine key={i} line={line} type="add" lineNumber={i + 1} />
+            ))}
+          </div>
+        )}
+
+        {/* Output (for everything else) */}
+        {hasOutput && !hasDiff && (
+          <div className="max-h-48 overflow-y-auto">
+            <pre className={cn(
+              "text-[11px] whitespace-pre-wrap",
+              tool.status === 'error' ? 'text-red-400/70' : 'text-muted-foreground/60'
+            )}>
+              {isLongOutput && !showFullOutput
+                ? (tool.output!.split('\n').slice(0, 15).join('\n') + '\n…')
+                : (searchQuery ? highlightSearchMatches(tool.output!, searchQuery) : tool.output)
+              }
             </pre>
+            {isLongOutput && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowFullOutput(!showFullOutput); }}
+                className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground mt-1"
+              >
+                {showFullOutput ? 'show less' : `show all ${outputLines} lines`}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -677,10 +451,15 @@ function ToolBlock({ tool }: { tool: ToolUseContent }) {
   );
 }
 
+// Track seen security settings blocks for deduplication in raw view
+const seenSecurityBlocksRef = { current: new Set<string>() };
+
 /**
- * Text block with bullet point
- * FIX-5: Enhanced phase headers for better readability
+ * Text block — Claude Code-style rendering
+ * Detects line types (phase headers, subphases, status lines, system boxes)
+ * and renders each with appropriate styling for a clean terminal experience.
  * TERM-7: Search highlighting support
+ * NOISE-FILTER: Hides __TASK_LOG__ / __SDK_MSG__ markers, security settings, duplicate lines
  */
 function TextBlock({ content }: { content: string }) {
   const { searchQuery } = useContext(SearchContext);
@@ -688,22 +467,203 @@ function TextBlock({ content }: { content: string }) {
   // Skip empty content
   if (!content.trim()) return null;
 
-  // Phase markers - simple terminal style
-  if (content.startsWith('[Phase:') || content.startsWith('[Subphase:')) {
-    const phaseText = content.replace(/[\[\]]/g, '');
-    return (
-      <div className="py-2 font-mono text-xs">
-        <span className="text-cyan-400">═══ {phaseText} ═══</span>
+  // Filter __TASK_LOG__ markers — entire block is a marker
+  if (content.match(/^__TASK_LOG_\w+__:/)) return null;
+
+  // Strip inline markers appended to regular text
+  let displayContent = content;
+  if (displayContent.includes('__TASK_LOG_')) {
+    displayContent = displayContent.replace(/__TASK_LOG_\w+__:\s*\{[\s\S]*$/, '').trim();
+    if (!displayContent) return null;
+  }
+  if (displayContent.includes('__SDK_MSG__:')) {
+    displayContent = displayContent.replace(/__SDK_MSG__:\s*\{[\s\S]*$/, '').trim();
+    if (!displayContent) return null;
+  }
+
+  // Hide security settings blocks entirely (noise in raw view)
+  if (
+    displayContent.includes('IMPORTANT: Tool permissions') ||
+    displayContent.includes('Allowed tools:') ||
+    displayContent.includes('security_settings') ||
+    displayContent.includes('allowed_tools')
+  ) {
+    const blockHash = displayContent.slice(0, 100);
+    if (seenSecurityBlocksRef.current.has(blockHash)) return null;
+    seenSecurityBlocksRef.current.add(blockHash);
+  }
+
+  // ═══ LINE-BY-LINE STYLED RENDERING ═══
+  const lines = displayContent.split('\n');
+
+  // Deduplicate consecutive identical lines (parser artifact)
+  const dedupedLines: string[] = [];
+  for (const line of lines) {
+    if (dedupedLines.length === 0 || dedupedLines[dedupedLines.length - 1] !== line) {
+      dedupedLines.push(line);
+    }
+  }
+
+  const rendered: React.ReactNode[] = [];
+  let systemBoxLines: string[] = [];
+
+  // Flush accumulated system/orchestrator box lines into a single styled block
+  const flushSystemBox = () => {
+    if (systemBoxLines.length > 0) {
+      rendered.push(
+        <div key={`sys-${rendered.length}`} className="my-1 px-3 py-2 rounded-md bg-muted/10 border border-border/20 font-mono text-[11px] text-muted-foreground/40 whitespace-pre-wrap leading-relaxed">
+          {systemBoxLines.join('\n')}
+        </div>
+      );
+      systemBoxLines = [];
+    }
+  };
+
+  for (let i = 0; i < dedupedLines.length; i++) {
+    const line = dedupedLines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) continue;
+
+    // Strip [Tool: XXX] prefix from text lines (Jerry marker that didn't match tool pattern)
+    // Handles MCP tool names with hyphens/dots like mcp__context7__resolve-library-id
+    let cleanLine = trimmed;
+    const toolPrefixMatch = cleanLine.match(/^\[Tool:\s*[\w.:/-]+\]\s*(.*)/);
+    if (toolPrefixMatch) {
+      cleanLine = toolPrefixMatch[1].trim();
+      if (!cleanLine) continue; // Skip bare [Tool: XXX] lines
+    }
+
+    // Security/config lines — hide entirely
+    if (
+      cleanLine.startsWith('Security settings:') ||
+      cleanLine.startsWith('- Sandbox enabled') ||
+      cleanLine.startsWith('- Filesystem restricted') ||
+      cleanLine.startsWith('- Bash commands restricted') ||
+      cleanLine.startsWith('- Extended thinking') ||
+      cleanLine.startsWith('- MCP servers:') ||
+      cleanLine.startsWith('- CLAUDE.md:') ||
+      cleanLine.startsWith('- Claude CLI:') ||
+      cleanLine.match(/^Using cached security profile/)
+    ) {
+      continue;
+    }
+
+    // System/orchestrator boxes (╔║╗╚╝│─═ box-drawing characters)
+    if (/^[╔╗╚╝║│┌┐└┘├┤─═┃┏┓┗┛]/.test(cleanLine)) {
+      systemBoxLines.push(cleanLine);
+      continue;
+    }
+
+    // Flush system box before other content
+    flushSystemBox();
+
+    // ── Phase headers ── colored left border with phase label
+    if (cleanLine.startsWith('[Phase:') || cleanLine.match(/^═+\s*Phase:/)) {
+      const phaseText = cleanLine
+        .replace(/[\[\]]/g, '')
+        .replace(/^═+\s*/, '')
+        .replace(/\s*═+$/, '')
+        .trim();
+
+      const lowerPhase = phaseText.toLowerCase();
+      const isPlanning = lowerPhase.includes('planning');
+      const isCoding = lowerPhase.includes('coding') || lowerPhase.includes('implementation');
+      const isValidation = lowerPhase.includes('validation') || lowerPhase.includes('testing') || lowerPhase.includes('review');
+
+      const borderColor = isPlanning ? 'border-amber-500' : isCoding ? 'border-blue-500' : isValidation ? 'border-purple-500' : 'border-cyan-500';
+      const textColor = isPlanning ? 'text-amber-400' : isCoding ? 'text-blue-400' : isValidation ? 'text-purple-400' : 'text-cyan-400';
+
+      rendered.push(
+        <div key={`phase-${i}`} className={cn("mt-4 mb-2 pl-3 border-l-[3px]", borderColor)}>
+          <span className={cn("font-mono text-[13px] font-semibold tracking-wide", textColor)}>
+            {searchQuery ? highlightSearchMatches(phaseText, searchQuery) : phaseText}
+          </span>
+        </div>
+      );
+      continue;
+    }
+
+    // ── Subphase headers ── centered label with horizontal rules
+    if (
+      cleanLine.startsWith('[Subphase:') ||
+      cleanLine.match(/^│?\s*[📁📄🔧⚡🧪📋]\s*PHASE\s+\d+/i) ||
+      cleanLine.match(/^│?\s*PHASE\s+\d+:/i)
+    ) {
+      const subphaseText = cleanLine
+        .replace(/[\[\]│]/g, '')
+        .replace(/^Subphase:\s*/, '')
+        .trim();
+
+      rendered.push(
+        <div key={`subphase-${i}`} className="flex items-center gap-2 py-2 mt-1">
+          <div className="flex-1 h-px bg-border/40" />
+          <span className="text-[10px] text-muted-foreground/35 uppercase tracking-widest font-medium">
+            {searchQuery ? highlightSearchMatches(subphaseText, searchQuery) : subphaseText}
+          </span>
+          <div className="flex-1 h-px bg-border/40" />
+        </div>
+      );
+      continue;
+    }
+
+    // ── Status lines ── icon + colored text
+    const statusMatch = cleanLine.match(/^(✓|✅|ℹ|ℹ️|◐|⏳|✗|❌)\s*(.+)/);
+    if (statusMatch) {
+      const [, icon, text] = statusMatch;
+      const isSuccess = icon === '✓' || icon === '✅';
+      const isInfo = icon === 'ℹ' || icon === 'ℹ️';
+      const isPending = icon === '◐' || icon === '⏳';
+      const iconColor = isSuccess ? 'text-green-400' : isInfo ? 'text-blue-400' : isPending ? 'text-yellow-400' : 'text-red-400';
+
+      rendered.push(
+        <div key={`status-${i}`} className="flex items-center gap-2 py-0.5 font-mono text-xs">
+          <span className={cn("w-4 text-center flex-shrink-0", iconColor)}>{icon}</span>
+          <span className="text-foreground/70">
+            {searchQuery ? highlightSearchMatches(text, searchQuery) : text}
+          </span>
+        </div>
+      );
+      continue;
+    }
+
+    // ── Completion / success banners ──
+    if (
+      (cleanLine.toLowerCase().includes('complete') || cleanLine.toLowerCase().includes('finished')) &&
+      (cleanLine.includes('✓') || cleanLine.toLowerCase().startsWith('spec creation') || cleanLine.toLowerCase().startsWith('planning complete'))
+    ) {
+      rendered.push(
+        <div key={`complete-${i}`} className="my-2 px-3 py-2 rounded-md bg-green-500/8 border border-green-500/20 font-mono text-xs text-green-400 font-medium">
+          ✓ {searchQuery ? highlightSearchMatches(cleanLine.replace(/^✓\s*/, ''), searchQuery) : cleanLine.replace(/^✓\s*/, '')}
+        </div>
+      );
+      continue;
+    }
+
+    // ── "Starting phase" lines — dimmed (informational, not actionable)
+    if (cleanLine.match(/^Starting phase \d+:/i)) {
+      rendered.push(
+        <div key={`starting-${i}`} className="py-0.5 font-mono text-xs text-muted-foreground/35">
+          {searchQuery ? highlightSearchMatches(cleanLine, searchQuery) : cleanLine}
+        </div>
+      );
+      continue;
+    }
+
+    // ── Regular text ──
+    rendered.push(
+      <div key={`text-${i}`} className="py-0.5 font-mono text-xs text-foreground/85 whitespace-pre-wrap leading-relaxed">
+        {searchQuery ? highlightSearchMatches(cleanLine, searchQuery) : cleanLine}
       </div>
     );
   }
 
-  // Regular text - simple terminal output
-  return (
-    <div className="py-0.5 font-mono text-xs text-foreground/90 whitespace-pre-wrap">
-      {searchQuery ? highlightSearchMatches(content, searchQuery) : content}
-    </div>
-  );
+  // Flush any remaining system box
+  flushSystemBox();
+
+  if (rendered.length === 0) return null;
+
+  return <>{rendered}</>;
 }
 
 /**
@@ -1020,8 +980,18 @@ export function TaskMonitorChat({
         if (!result.success) {
           console.error('[TaskMonitorChat] Failed to send message to supervisor:', result.error);
         }
+      } else if (hasCompanion) {
+        // Companion agent is running (e.g. after planning completes) - route via companion IPC channel
+        // This uses the companion-specific channel which checks isCompanionRunning() instead of isRunning(),
+        // so it works even when the main task process (coder) hasn't started yet.
+        const result = await window.electronAPI.invoke<{ success: boolean; error?: string }>(
+          'task:send-companion-message', taskId, message
+        );
+        if (!result.success) {
+          console.error('[TaskMonitorChat] Failed to send message to companion:', result.error);
+        }
       } else if (isTaskRunning) {
-        // Send to the running task/companion agent
+        // Send to the running task agent
         const result = await window.electronAPI.sendMessageToTask(taskId, message);
         if (!result.success) {
           console.error('[TaskMonitorChat] Failed to send message:', result.error);
@@ -1034,7 +1004,7 @@ export function TaskMonitorChat({
     } finally {
       setIsSending(false);
     }
-  }, [inputValue, taskId, isSending, isTaskRunning, hasSupervisor, terminal.id, addUserMessage, task?.status]);
+  }, [inputValue, taskId, isSending, isTaskRunning, hasCompanion, hasSupervisor, terminal.id, addUserMessage, task?.status]);
 
   // Handle key press in textarea
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1342,7 +1312,7 @@ export function TaskMonitorChat({
             {/* TERM-3b: Conditional rendering based on view mode */}
             {viewMode === 'structured' ? (
               /* Structured timeline view with auto-scroll */
-              <StructuredOutput messages={messages} autoScroll={autoScroll} />
+              <StructuredOutput messages={messages} autoScroll={autoScroll} taskId={terminal.taskId} />
             ) : (
               /* Raw view - existing implementation */
               messages.length === 0 ? (

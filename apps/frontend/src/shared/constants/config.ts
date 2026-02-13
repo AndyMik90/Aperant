@@ -93,6 +93,7 @@ export const AUTO_BUILD_PATHS = {
   IDEATION_DIR: '.ac.jerry/ideation',
   IMPLEMENTATION_PLAN: 'implementation_plan.json',
   SPEC_FILE: 'spec.md',
+  RALPH_PROMPT_FILE: 'ralph_prompt.md',
   QA_REPORT: 'qa_report.md',
   BUILD_PROGRESS: 'build-progress.txt',
   CONTEXT: 'context.json',

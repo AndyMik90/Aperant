@@ -363,6 +363,10 @@ export function registerTaskExecutionHandlers(
         const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
         recordTaskTimestamp(planPath, 'planning_started');
 
+        // NOTE: Planning file reset (rename spec files, write PLANNING_FEEDBACK.md)
+        // is now handled by TASK_RESET_PLANNING IPC handler, called by PlanningReview
+        // BEFORE startTask, so there's no race condition with file operations.
+
         // Map chat-suggested complexity to backend override (skips expensive AI classification)
         const complexityOverride = mapComplexityToOverride(task.metadata?.complexity);
         const specMetadata = complexityOverride
@@ -1756,6 +1760,137 @@ export function registerTaskExecutionHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to read spec file'
+        };
+      }
+    }
+  );
+
+  // Check if planning is complete (spec.md + ralph_prompt.md exist + plan review status)
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_CHECK_PLANNING_COMPLETE,
+    async (_event, taskId: string): Promise<IPCResult<{ specExists: boolean; promptExists: boolean; planHasSubtasks: boolean; complete: boolean }>> => {
+      try {
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          return { success: false, error: 'Task or project not found' };
+        }
+
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const specDir = task.specsPath || path.join(project.path, specsBaseDir, task.specId);
+
+        // Check spec.md
+        const specFilePath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
+        const specExists = existsSync(specFilePath);
+
+        // Check ralph_prompt.md (case-insensitive: check both ralph_prompt.md and RALPH_PROMPT.md)
+        const promptLower = path.join(specDir, 'ralph_prompt.md');
+        const promptUpper = path.join(specDir, 'RALPH_PROMPT.md');
+        const promptExists = existsSync(promptLower) || existsSync(promptUpper);
+
+        // Check implementation_plan.json has subtasks (planning produced a plan)
+        // Note: planStatus is NOT a reliable indicator of planning completion.
+        // After planning creates subtasks, update_status_from_subtasks() sets planStatus
+        // to "pending" (all subtasks pending), not "review". planStatus only becomes
+        // "review" after coding completes. Instead, check that the plan has phases with subtasks.
+        let planHasSubtasks = false;
+        const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+        if (existsSync(planPath)) {
+          try {
+            const planContent = safeReadFileSync(planPath);
+            if (planContent) {
+              const plan = JSON.parse(planContent);
+              // Check if plan has phases with at least one subtask
+              const phases = plan.phases || [];
+              const subtaskCount = phases.reduce((count: number, phase: { subtasks?: unknown[]; chunks?: unknown[] }) => {
+                const items = phase.subtasks || phase.chunks || [];
+                return count + items.length;
+              }, 0);
+              planHasSubtasks = subtaskCount > 0;
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        }
+
+        // If PLANNING_FEEDBACK.md exists, the task was sent back to planning
+        // and the agent hasn't processed the feedback yet — NOT complete
+        const feedbackPath = path.join(specDir, 'PLANNING_FEEDBACK.md');
+        const hasPendingFeedback = existsSync(feedbackPath);
+
+        const complete = specExists && promptExists && planHasSubtasks && !hasPendingFeedback;
+
+        return {
+          success: true,
+          data: { specExists, promptExists, planHasSubtasks, complete }
+        };
+      } catch (error) {
+        console.error(`[checkPlanningComplete] Error:`, error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to check planning status'
+        };
+      }
+    }
+  );
+
+  // Reset planning files when sending a task back to planning.
+  // Renames spec files to .previous and writes PLANNING_FEEDBACK.md synchronously
+  // so the renderer can update UI state AFTER files are guaranteed renamed.
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_RESET_PLANNING,
+    async (_event, taskId: string, notes?: string): Promise<IPCResult<boolean>> => {
+      try {
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          return { success: false, error: 'Task or project not found' };
+        }
+
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const specDir = task.specsPath || path.join(project.path, specsBaseDir, task.specId);
+
+        console.warn('[resetPlanning] Resetting planning files for:', task.specId, 'in:', specDir);
+
+        // Rename old spec files to .previous — agent can reference them for iteration
+        const filesToRename = ['spec.md', 'ralph_prompt.md', 'implementation_plan.json'];
+        for (const filename of filesToRename) {
+          const srcPath = path.join(specDir, filename);
+          const dstPath = path.join(specDir, filename.replace(/(\.\w+)$/, '.previous$1'));
+          try {
+            if (existsSync(srcPath)) {
+              renameSync(srcPath, dstPath);
+              console.warn(`[resetPlanning] Renamed ${filename} → ${filename.replace(/(\.\w+)$/, '.previous$1')}`);
+            }
+          } catch (err) {
+            console.error(`[resetPlanning] Failed to rename ${filename}:`, err);
+          }
+        }
+
+        // Write PLANNING_FEEDBACK.md if notes provided
+        if (notes && notes.trim()) {
+          const feedbackPath = path.join(specDir, 'PLANNING_FEEDBACK.md');
+          const feedbackContent = [
+            '# Planning Feedback',
+            '',
+            `**Date:** ${new Date().toISOString()}`,
+            '',
+            '## User Feedback',
+            '',
+            notes.trim(),
+            '',
+            '---',
+            'Please incorporate this feedback when updating the spec and implementation plan.',
+            'Previous spec files are available as .previous versions in this directory for reference.',
+          ].join('\n');
+          writeFileSync(feedbackPath, feedbackContent, 'utf-8');
+          console.warn('[resetPlanning] Wrote planning feedback');
+        }
+
+        return { success: true, data: true };
+      } catch (error) {
+        console.error('[resetPlanning] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to reset planning'
         };
       }
     }

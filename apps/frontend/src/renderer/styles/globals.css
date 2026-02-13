@@ -1268,6 +1268,15 @@ body {
   background-color: #1A1A1F;
 }
 
+/* Fix: Radix ScrollArea internal viewport wrapper uses display:table which
+   causes content to size to its intrinsic width rather than respecting the
+   container boundary. This prevents text from wrapping and causes content
+   to overflow/clip behind adjacent panels (e.g. Task Queue sidebar).
+   Overriding to display:block makes content respect the viewport width. */
+[data-radix-scroll-area-viewport] > div {
+  display: block !important;
+}
+
 /* Custom scrollbar - following design system */
 ::-webkit-scrollbar {
   width: 6px;

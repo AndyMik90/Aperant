@@ -55,8 +55,8 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
     const isCollapsible = shouldCollapseByDefault(tool.output);
 
     return (
-      <div className="py-1.5 font-mono text-xs">
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="py-1.5 font-mono text-xs w-full">
+        <div className="rounded-lg border border-border bg-card overflow-hidden w-full">
           <div className="flex items-center gap-2 px-3 py-2 bg-purple-500/10 border-b border-border">
             <span className="text-purple-400 font-medium">Bash</span>
             <span className="text-muted-foreground/70 truncate flex-1">{command || 'command'}</span>
@@ -73,9 +73,9 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
             </div>
           )}
           {tool.output && (isExpanded || !isCollapsible) && (
-            <div className={cn("overflow-hidden", tool.status === 'error' ? 'bg-red-500/5' : 'bg-muted/30')}>
+            <div className={cn("overflow-hidden w-full", tool.status === 'error' ? 'bg-red-500/5' : 'bg-muted/30')}>
               <pre className={cn(
-                "p-3 whitespace-pre-wrap break-all max-h-64 overflow-y-auto text-[11px]",
+                "p-3 whitespace-pre-wrap break-all max-h-64 overflow-y-auto text-[11px] w-full",
                 tool.status === 'error' ? 'text-red-400' : 'text-muted-foreground'
               )}>
                 {renderOutput(tool.output)}
@@ -96,8 +96,8 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
     const fileName = filePath.split(/[/\\]/).pop() || filePath;
 
     return (
-      <div className="py-1.5 font-mono text-xs">
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="py-1.5 font-mono text-xs w-full">
+        <div className="rounded-lg border border-border bg-card overflow-hidden w-full">
           <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border-b border-border">
             <span className="text-green-400 font-medium">Edit</span>
             <span className="text-muted-foreground/70 truncate flex-1">{fileName}</span>
@@ -136,8 +136,8 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
     const lineCount = content ? content.split('\n').length : 0;
 
     return (
-      <div className="py-1.5 font-mono text-xs">
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="py-1.5 font-mono text-xs w-full">
+        <div className="rounded-lg border border-border bg-card overflow-hidden w-full">
           <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border-b border-border">
             <span className="text-green-400 font-medium">Write</span>
             <span className="text-muted-foreground/70 truncate flex-1">{fileName}</span>
@@ -175,8 +175,8 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
     const isCollapsible = shouldCollapseByDefault(tool.output);
 
     return (
-      <div className="py-1.5 font-mono text-xs">
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="py-1.5 font-mono text-xs w-full">
+        <div className="rounded-lg border border-border bg-card overflow-hidden w-full">
           <div className="flex items-center gap-2 px-3 py-2 bg-blue-500/10 border-b border-border">
             <span className="text-blue-400 font-medium">Read</span>
             <span className="text-muted-foreground/70 truncate flex-1">{fileName}</span>
@@ -192,8 +192,8 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
             {filePath}
           </div>
           {tool.output && (isExpanded || !isCollapsible) && (
-            <div className="bg-muted/30">
-              <pre className="p-3 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
+            <div className="bg-muted/30 w-full">
+              <pre className="p-3 whitespace-pre-wrap break-all max-h-64 overflow-y-auto text-[11px] text-muted-foreground w-full">
                 {renderOutput(tool.output)}
               </pre>
             </div>
@@ -212,8 +212,8 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
     const isCollapsible = shouldCollapseByDefault(tool.output);
 
     return (
-      <div className="py-1.5 font-mono text-xs">
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="py-1.5 font-mono text-xs w-full">
+        <div className="rounded-lg border border-border bg-card overflow-hidden w-full">
           <div className="flex items-center gap-2 px-3 py-2 bg-orange-500/10 border-b border-border">
             <span className="text-orange-400 font-medium">Grep</span>
             <span className="text-yellow-300 truncate flex-1">"{pattern}"</span>
@@ -235,8 +235,8 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
             </div>
           )}
           {tool.output && (isExpanded || !isCollapsible) && (
-            <div className="bg-muted/30">
-              <pre className="p-3 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
+            <div className="bg-muted/30 w-full">
+              <pre className="p-3 whitespace-pre-wrap break-all max-h-64 overflow-y-auto text-[11px] text-muted-foreground w-full">
                 {renderOutput(tool.output)}
               </pre>
             </div>
@@ -255,8 +255,8 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
     const isCollapsible = shouldCollapseByDefault(tool.output);
 
     return (
-      <div className="py-1.5 font-mono text-xs">
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="py-1.5 font-mono text-xs w-full">
+        <div className="rounded-lg border border-border bg-card overflow-hidden w-full">
           <div className="flex items-center gap-2 px-3 py-2 bg-pink-500/10 border-b border-border">
             <span className="text-pink-400 font-medium">Glob</span>
             <span className="text-yellow-300 truncate flex-1">"{pattern}"</span>
@@ -278,8 +278,8 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
             </div>
           )}
           {tool.output && (isExpanded || !isCollapsible) && (
-            <div className="bg-muted/30">
-              <pre className="p-3 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
+            <div className="bg-muted/30 w-full">
+              <pre className="p-3 whitespace-pre-wrap break-all max-h-64 overflow-y-auto text-[11px] text-muted-foreground w-full">
                 {renderOutput(tool.output)}
               </pre>
             </div>
@@ -297,8 +297,8 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
     const isCollapsible = shouldCollapseByDefault(tool.output);
 
     return (
-      <div className="py-1.5 font-mono text-xs">
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="py-1.5 font-mono text-xs w-full">
+        <div className="rounded-lg border border-border bg-card overflow-hidden w-full">
           <div className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 border-b border-border">
             <span className="text-indigo-400 font-medium">Task</span>
             <span className="text-muted-foreground/70 truncate flex-1">{description || 'subagent'}</span>
@@ -315,8 +315,8 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
             </div>
           )}
           {tool.output && (isExpanded || !isCollapsible) && (
-            <div className="bg-muted/30">
-              <pre className="p-3 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
+            <div className="bg-muted/30 w-full">
+              <pre className="p-3 whitespace-pre-wrap break-all max-h-64 overflow-y-auto text-[11px] text-muted-foreground w-full">
                 {renderOutput(tool.output)}
               </pre>
             </div>
@@ -333,8 +333,8 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
   const isCollapsible = shouldCollapseByDefault(tool.output);
 
   return (
-    <div className="py-1.5 font-mono text-xs">
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
+    <div className="py-1.5 font-mono text-xs w-full">
+      <div className="rounded-lg border border-border bg-card overflow-hidden w-full">
         <div className="flex items-center gap-2 px-3 py-2 bg-cyan-500/10 border-b border-border">
           <span className="text-cyan-400 font-medium">{tool.toolName}</span>
           {firstValue && <span className="text-muted-foreground/70 truncate flex-1">{firstValue}</span>}
@@ -346,8 +346,8 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
           )}
         </div>
         {tool.output && (isExpanded || !isCollapsible) && (
-          <div className="bg-muted/30">
-            <pre className="p-3 whitespace-pre-wrap max-h-64 overflow-y-auto text-[11px] text-muted-foreground">
+          <div className="bg-muted/30 w-full">
+            <pre className="p-3 whitespace-pre-wrap break-all max-h-64 overflow-y-auto text-[11px] text-muted-foreground w-full">
               {renderOutput(tool.output)}
             </pre>
           </div>

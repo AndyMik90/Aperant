@@ -28,7 +28,7 @@ import {
   JSON_ERROR_PREFIX,
   JSON_ERROR_TITLE_SUFFIX
 } from '../../shared/constants';
-import { startTask, stopTask, startBuild, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, useTaskStore, isTaskBlocked, getBlockingTasks, getDependentTasks } from '../stores/task-store';
+import { startTask, stopTask, startBuild, checkTaskRunning, checkPlanningComplete, recoverStuckTask, isIncompleteHumanReview, archiveTasks, useTaskStore, isTaskBlocked, getBlockingTasks, getDependentTasks } from '../stores/task-store';
 import { formatDurationShort } from '../utils/format-time';
 import type { Task, TaskCategory, ReviewReason, TaskStatus } from '../../shared/types';
 
@@ -226,6 +226,10 @@ export const TaskCard = memo(function TaskCard({
 
   // Check if the agent was stopped (for visual feedback on stop button)
   const isAgentStopped = useTaskStore((state) => state.isAgentStopped(task.id));
+  // Check if processes are being checked on app start
+  const isCheckingProcesses = useTaskStore((state) => state.isCheckingProcesses);
+  // Check if planning is complete (spec + prompt exist)
+  const planningComplete = useTaskStore((state) => state.planningCompleteCache.get(task.id) ?? false);
   // Coding tasks have active execution agents (but not if agent was stopped/interrupted)
   const isRunning = task.status === 'coding' && !isAgentStopped;
   // Phase 2: Planning tasks may have active planning agents
@@ -249,6 +253,13 @@ export const TaskCard = memo(function TaskCard({
 
   // METRICS-1B: Elapsed time tracking
   const [elapsedTime, setElapsedTime] = useState<number | null>(null);
+
+  // Check if planning is complete (spec + prompt exist) for planning tasks
+  useEffect(() => {
+    if (task.status === 'planning' && !planningComplete) {
+      checkPlanningComplete(task.id);
+    }
+  }, [task.id, task.status, planningComplete]);
 
   // METRICS-1B: Update elapsed time every second while task is running
   useEffect(() => {
@@ -286,9 +297,10 @@ export const TaskCard = memo(function TaskCard({
     if (task.description.startsWith(JSON_ERROR_PREFIX)) {
       const errorMessage = task.description.slice(JSON_ERROR_PREFIX.length);
       const translatedDesc = t('errors:task.jsonError.description', { error: errorMessage });
-      return sanitizeMarkdownForDisplay(translatedDesc, 120);
+      return sanitizeMarkdownForDisplay(translatedDesc, 200);
     }
-    return sanitizeMarkdownForDisplay(task.description, 120);
+    // Allow more text since line-clamp-3 handles visual overflow
+    return sanitizeMarkdownForDisplay(task.description, 200);
   }, [task.description, t]);
 
   // Memoize title with JSON error suffix handling
@@ -590,11 +602,11 @@ export const TaskCard = memo(function TaskCard({
           )}
 
           <div className={isSelectable ? 'flex-1 min-w-0' : 'min-w-0'}>
-            {/* Title - single line with ellipsis, full text on hover */}
+            {/* Title - up to 2 lines with ellipsis, full text on hover */}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <h3 className="font-semibold text-sm text-foreground truncate">
+                  <h3 className="font-semibold text-sm text-foreground line-clamp-2 break-words">
                     {displayTitle}
                   </h3>
                 </TooltipTrigger>
@@ -725,6 +737,13 @@ export const TaskCard = memo(function TaskCard({
                       className={cn("text-[10px] px-1.5 py-0.5", ANIMATION_CLASSES.statusTransition)}
                     >
                       {getStatusLabel(task.status)}
+                    </Badge>
+                  ) : planningComplete && isPlanning ? (
+                    <Badge
+                      variant="success"
+                      className={cn("text-[10px] px-1.5 py-0.5", ANIMATION_CLASSES.statusTransition)}
+                    >
+                      {t('labels.specReady', { defaultValue: 'Spec Ready' })}
                     </Badge>
                   ) : (
                    <Badge
@@ -970,78 +989,59 @@ export const TaskCard = memo(function TaskCard({
                 </Tooltip>
               </TooltipProvider>
             ) : isPlanning ? (
-              // Phase 2: Planning tasks - show Stop while agent runs, Start Build only when spec is ready
-              // FIX-14: "Start Build" only shown when agent is stopped (spec may be ready)
-              // KANBAN_BUILD_BUTTON: Also show Start Build when planning completes naturally
-              // Show Start Build when: (1) agent manually stopped, OR (2) planning completed (has subtasks + not actively planning)
               <div className="flex items-center gap-1">
-                {isAgentStopped || (task.subtasks && task.subtasks.length > 0 && !hasActiveAgent) ? (
-                  // Agent was stopped OR planning completed naturally - show Resume + Start Build (spec may be ready)
-                  <>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 px-2.5"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startTask(task.id);
-                            }}
-                          >
-                            <Play className="mr-1.5 h-3 w-3" />
-                            {t('actions.resume')}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{t('tooltips.resumePlanningAgent')}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            className="h-7 px-2.5"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!isBlocked) {
-                                startBuild(task.id);
-                              }
-                            }}
-                            disabled={isBlocked}
-                          >
-                            {isBlocked ? (
-                              <>
-                                <Link2 className="mr-1.5 h-3 w-3" />
-                                {t('tasks:dependencies.blocked', { defaultValue: 'Blocked' })}
-                              </>
-                            ) : (
-                              <>
-                                <Play className="mr-1.5 h-3 w-3" />
-                                {t('actions.startBuild')}
-                              </>
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>
-                            {isBlocked
-                              ? t('tasks:dependencies.blockedTooltip', {
-                                  defaultValue: 'Cannot start: waiting for dependencies to complete'
-                                })
-                              : t('tooltips.startBuild')
-                            }
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </>
+                {isCheckingProcesses ? (
+                  <div className="flex items-center gap-1.5">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : planningComplete && (isAgentStopped || !hasActiveAgent) ? (
+                  // Planning complete (spec + prompt exist) — show Review button
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="h-7 px-2.5"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onClick();
+                          }}
+                        >
+                          <ArrowRight className="mr-1.5 h-3 w-3" />
+                          {t('actions.review', { defaultValue: 'Review' })}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{t('tooltips.reviewSpec', { defaultValue: 'Review spec and prompt before starting build' })}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : isAgentStopped || (task.subtasks && task.subtasks.length > 0 && !hasActiveAgent) ? (
+                  // Planning interrupted (no spec or no prompt) — show Resume only
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2.5"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startTask(task.id);
+                          }}
+                        >
+                          <Play className="mr-1.5 h-3 w-3" />
+                          {t('actions.resume')}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{t('tooltips.resumePlanningAgent')}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 ) : (
-                  // Agent is running - show Stop button only (no Start Build during active planning)
+                  // Agent is running — show Stop button
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -1065,26 +1065,32 @@ export const TaskCard = memo(function TaskCard({
                   </TooltipProvider>
                 )}
               </div>
-            ) : task.status === 'coding' && (
-              <Button
-                variant={isRunning ? 'destructive' : 'default'}
-                size="sm"
-                className="h-7 px-2.5"
-                onClick={handleStartStop}
-              >
-                {isRunning ? (
-                  <>
-                    <Square className="mr-1.5 h-3 w-3" />
-                    {t('actions.stop')}
-                  </>
-                ) : (
-                  <>
-                    <Play className="mr-1.5 h-3 w-3" />
-                    {isAgentStopped ? t('actions.resume') : t('actions.run')}
-                  </>
-                )}
-              </Button>
-            )}
+            ) : task.status === 'coding' ? (
+              isCheckingProcesses ? (
+                <div className="flex items-center gap-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <Button
+                  variant={isRunning ? 'destructive' : 'default'}
+                  size="sm"
+                  className="h-7 px-2.5"
+                  onClick={handleStartStop}
+                >
+                  {isRunning ? (
+                    <>
+                      <Square className="mr-1.5 h-3 w-3" />
+                      {t('actions.stop')}
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-1.5 h-3 w-3" />
+                      {isAgentStopped ? t('actions.resume') : t('actions.run')}
+                    </>
+                  )}
+                </Button>
+              )
+            ) : null}
 
             {/* View Terminal button - opens in bottom panel */}
             {/* TERM-4b: Added status indicator dot next to terminal button */}

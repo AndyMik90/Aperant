@@ -25,9 +25,10 @@ export class FileWatcher extends EventEmitter {
 
     const planPath = path.join(specDir, 'implementation_plan.json');
 
-    // Check if plan file exists
+    // Check if plan file exists — may not exist yet during (re)planning
     if (!existsSync(planPath)) {
-      this.emit('error', taskId, `Plan file not found: ${planPath}`);
+      // Not an error during planning — the file will be created by the planning agent.
+      // The watcher will be re-initialized when the task transitions to coding.
       return;
     }
 

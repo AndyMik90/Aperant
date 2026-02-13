@@ -296,6 +296,45 @@ class SpecOrchestrator:
             )
         )
 
+        # Check for planning feedback from user review
+        # If PLANNING_FEEDBACK.md exists, inject it into the task description so the
+        # planning agent incorporates user feedback when regenerating the spec/plan.
+        feedback_path = self.spec_dir / "PLANNING_FEEDBACK.md"
+        if feedback_path.exists():
+            try:
+                feedback_content = feedback_path.read_text(encoding="utf-8").strip()
+                if feedback_content:
+                    print_status("User planning feedback found — incorporating into context", "info")
+                    # Append feedback to task description so all phases see it
+                    # Check for .previous spec files that contain the old plan
+                    prev_spec = self.spec_dir / "spec.previous.md"
+                    prev_prompt = self.spec_dir / "ralph_prompt.previous.md"
+                    prev_plan = self.spec_dir / "implementation_plan.previous.json"
+                    has_previous = prev_spec.exists() or prev_prompt.exists() or prev_plan.exists()
+
+                    previous_note = ""
+                    if has_previous:
+                        previous_note = (
+                            "\n\nThe previous spec/plan files have been preserved with .previous extensions "
+                            "in the spec directory for reference. You can read them to understand what was "
+                            "there before and iterate on it based on the feedback above."
+                        )
+
+                    self.task_description = (
+                        f"{self.task_description}\n\n"
+                        f"--- USER FEEDBACK FROM PREVIOUS REVIEW ---\n"
+                        f"{feedback_content}\n"
+                        f"--- END FEEDBACK ---\n\n"
+                        f"IMPORTANT: The user reviewed the previous spec/plan and sent it back with the above feedback. "
+                        f"Please incorporate their feedback when updating the spec and implementation plan."
+                        f"{previous_note}"
+                    )
+                # Remove the feedback file so it doesn't trigger again
+                feedback_path.unlink()
+                print_status("Planning feedback incorporated and cleared", "success")
+            except Exception as e:
+                print_status(f"Failed to read planning feedback: {e}", "warning")
+
         # Smart cache: refresh project index if dependency files have changed
         await self._ensure_fresh_project_index()
 

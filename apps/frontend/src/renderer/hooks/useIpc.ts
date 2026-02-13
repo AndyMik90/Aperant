@@ -322,6 +322,15 @@ export function useIpcListeners(): void {
       (taskId: string) => {
         // Mark agent as stopped for UI feedback
         useTaskStore.getState().setAgentStopped(taskId, true);
+
+        // For planning tasks, re-check if planning is complete now that agent stopped
+        const task = useTaskStore.getState().tasks.find(t => t.id === taskId);
+        if (task?.status === 'planning') {
+          import('../stores/task-store').then(({ invalidatePlanningCompleteCache, checkPlanningComplete: checkComplete }) => {
+            invalidatePlanningCompleteCache(taskId);
+            checkComplete(taskId);
+          });
+        }
       }
     );
 
@@ -369,17 +378,23 @@ export function useIpcListeners(): void {
         const task = useTaskStore.getState().tasks.find(t => t.id === taskId || t.specId === specId);
         const taskTitle = task?.title || specId;
 
+        // Invalidate planning complete cache so UI re-checks
+        import('../stores/task-store').then(({ invalidatePlanningCompleteCache, checkPlanningComplete: checkComplete }) => {
+          invalidatePlanningCompleteCache(taskId);
+          checkComplete(taskId);
+        });
+
         // Show toast notification
         toast({
           title: "Spec Ready for Review",
-          description: `"${taskTitle}" spec is complete. Review and click "Start Build" to begin coding.`,
+          description: `"${taskTitle}" spec and prompt are ready. Click "Review" to approve or send back.`,
           duration: 10000, // 10 seconds - longer for important notification
         });
         // Add notification for spec ready
         useNotificationStore.getState().addNotification({
           type: 'info',
           title: 'Spec Ready for Review',
-          message: `"${taskTitle}" spec is complete`,
+          message: `"${taskTitle}" spec and prompt are ready`,
           taskId,
           taskTitle,
         });

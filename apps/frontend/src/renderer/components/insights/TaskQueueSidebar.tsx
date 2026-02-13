@@ -82,7 +82,7 @@ function CollapsibleSection({
   );
 }
 
-export function TaskQueueSidebar({ width = 280 }: TaskQueueSidebarProps = {}) {
+export function TaskQueueSidebar({ width = 240 }: TaskQueueSidebarProps = {}) {
   const { setActiveView } = useNavigation();
 
   // Queue store (Jerry suggestions, not yet started)
@@ -265,7 +265,7 @@ export function TaskQueueSidebar({ width = 280 }: TaskQueueSidebarProps = {}) {
 
   if (isSidebarCollapsed) {
     return (
-      <div className="w-12 border-l border-border bg-background flex flex-col">
+      <div className="w-12 border-l border-border bg-background flex flex-col flex-shrink-0">
         {/* Header - Expand button */}
         <div className="p-2 border-b border-border flex justify-center">
           <Button
@@ -319,7 +319,7 @@ export function TaskQueueSidebar({ width = 280 }: TaskQueueSidebarProps = {}) {
   }
 
   return (
-    <div className="border-l border-border bg-background flex flex-col overflow-hidden" style={{ width: `${width}px`, minWidth: `${Math.min(width, 220)}px` }}>
+    <div className="border-l border-border bg-background flex flex-col overflow-hidden flex-shrink-0" style={{ width: `${width}px`, minWidth: `${Math.min(width, 220)}px` }}>
       {/* Header */}
       <div className="h-12 flex items-center justify-between border-b border-border px-3">
         <div className="flex items-center gap-2 min-w-0 flex-1">

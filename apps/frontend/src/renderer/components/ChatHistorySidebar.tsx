@@ -112,7 +112,7 @@ export function ChatHistorySidebar({
   }, {} as Record<string, InsightsSessionSummary[]>);
 
   return (
-    <div className="flex h-full flex-col border-r border-border bg-muted/30" style={{ width: `${width}px` }}>
+    <div className="flex h-full flex-col border-r border-border bg-muted/30 flex-shrink-0" style={{ width: `${width}px` }}>
       {/* Header */}
       <div className="h-12 flex items-center justify-between border-b border-border px-3">
         <h3 className="text-sm font-semibold text-foreground">{t('chat.history', { defaultValue: 'Chat History' })}</h3>

@@ -25,13 +25,13 @@ export function DiffLine({ line, type, lineNumber }: DiffLineProps) {
   const prefix = type === 'add' ? '+' : type === 'remove' ? '-' : ' ';
 
   return (
-    <div className={cn("flex", bgClass)}>
+    <div className={cn("flex w-full", bgClass)}>
       {lineNumber !== undefined && (
         <span className="text-muted-foreground/50 w-8 text-right pr-2 select-none flex-shrink-0">
           {lineNumber}
         </span>
       )}
-      <span className={cn("flex-1", textClass)}>
+      <span className={cn("flex-1 break-all min-w-0", textClass)}>
         <span className="select-none">{prefix} </span>
         {line || ' '}
       </span>

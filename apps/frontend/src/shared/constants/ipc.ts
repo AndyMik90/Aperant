@@ -36,6 +36,8 @@ export const IPC_CHANNELS = {
   TASK_SUPERVISOR_SPAWNED: 'task:supervisor-spawned',  // Supervisor agent spawned (during coding)
   TASK_SUPERVISOR_STOPPED: 'task:supervisor-stopped',  // Supervisor agent stopped
   TASK_READ_SPEC_FILE: 'task:read-spec-file',  // Read a file from spec directory (spec.md, ralph_prompt.md)
+  TASK_CHECK_PLANNING_COMPLETE: 'task:checkPlanningComplete',  // Check if spec.md + ralph_prompt.md exist
+  TASK_RESET_PLANNING: 'task:resetPlanning',  // Reset spec files when sending back to planning
 
   // Workspace management (for human review)
   // Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/

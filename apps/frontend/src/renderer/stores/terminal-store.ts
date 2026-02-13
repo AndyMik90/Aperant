@@ -6,6 +6,7 @@ import { terminalBufferManager } from '../lib/terminal-buffer-manager';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import type { ParsedMessage, ContentBlock, ToolUseContent } from '../lib/claude-output-parser';
 import { ClaudeOutputParser } from '../lib/claude-output-parser';
+import { useTaskStore } from './task-store';
 
 /**
  * Module-level Map to store terminal ID -> xterm write callback mappings.
@@ -183,6 +184,7 @@ interface TerminalState {
   setViewMode: (id: string, mode: 'rich' | 'raw') => void;
   appendParsedMessages: (id: string, messages: ParsedMessage[]) => void;
   appendStructuredBlock: (id: string, block: StructuredBlock) => void;
+  appendStructuredBlocksBatch: (blocks: Array<{ terminalId: string; block: StructuredBlock }>) => void;
   setIsStreaming: (id: string, isStreaming: boolean) => void;
   setIsMinimized: (id: string, isMinimized: boolean) => void;
   initializeParser: (id: string) => void;
@@ -685,6 +687,128 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }));
   },
 
+  /**
+   * Append multiple structured blocks in a single state update.
+   * Used for batching rapid IPC events to avoid React error #185
+   * (Maximum update depth exceeded) from too many individual set() calls.
+   */
+  appendStructuredBlocksBatch: (blocks: Array<{ terminalId: string; block: StructuredBlock }>) => {
+    if (blocks.length === 0) return;
+
+    set((state) => ({
+      terminals: state.terminals.map((t) => {
+        if (!t.isTaskMonitor) return t;
+
+        // Collect all blocks for this terminal
+        const terminalBlocks = blocks.filter(b => b.terminalId === t.id);
+        if (terminalBlocks.length === 0) return t;
+
+        const messages = [...(t.messages || [])];
+
+        for (const { block } of terminalBlocks) {
+          let currentMessage = messages[messages.length - 1];
+
+          // Ensure we have a current message
+          if (!currentMessage || currentMessage.role !== 'assistant') {
+            currentMessage = {
+              role: 'assistant' as const,
+              content: [],
+              timestamp: Date.now(),
+            };
+            messages.push(currentMessage);
+          }
+
+          // Convert StructuredBlock to ContentBlock and append (same logic as appendStructuredBlock)
+          switch (block.type) {
+            case 'text': {
+              const lastContent = currentMessage.content[currentMessage.content.length - 1];
+              if (lastContent && lastContent.type === 'text') {
+                lastContent.text += '\n' + block.content;
+              } else if (block.content.trim()) {
+                currentMessage.content.push({ type: 'text', text: block.content });
+              }
+              break;
+            }
+            case 'thinking': {
+              currentMessage.content.push({
+                type: 'thinking',
+                text: block.content,
+                signature: 'signature' in block ? block.signature : undefined,
+              });
+              break;
+            }
+            case 'tool_use': {
+              currentMessage.content.push({
+                type: 'tool_use',
+                toolName: block.name,
+                toolId: block.id,
+                input: block.input || {},
+                status: 'running',
+              });
+              break;
+            }
+            case 'tool_result': {
+              for (let i = currentMessage.content.length - 1; i >= 0; i--) {
+                const content = currentMessage.content[i];
+                if (content.type === 'tool_use' && content.status === 'running') {
+                  const toolContent = content as ToolUseContent;
+                  if (toolContent.toolId === block.tool_use_id ||
+                      (!block.tool_use_id && toolContent.toolName === block.name)) {
+                    toolContent.status = block.is_error ? 'error' : 'success';
+                    toolContent.output = block.content;
+                    break;
+                  }
+                }
+              }
+              break;
+            }
+            case 'tool_start': {
+              currentMessage.content.push({
+                type: 'tool_use',
+                toolName: block.toolName,
+                input: block.input || {},
+                status: 'running',
+              });
+              break;
+            }
+            case 'tool_end': {
+              for (let i = currentMessage.content.length - 1; i >= 0; i--) {
+                const content = currentMessage.content[i];
+                if (content.type === 'tool_use' && content.status === 'running') {
+                  if (!block.toolName || content.toolName === block.toolName) {
+                    (content as ToolUseContent).status = block.success ? 'success' : 'error';
+                    if (block.result) {
+                      (content as ToolUseContent).output = block.result;
+                    }
+                    break;
+                  }
+                }
+              }
+              break;
+            }
+            case 'error': {
+              currentMessage.content.push({ type: 'text', text: `[Error] ${block.content}` });
+              break;
+            }
+            case 'phase_start':
+            case 'phase_end':
+            case 'subphase_start': {
+              const phaseText = block.type === 'phase_start'
+                ? `Phase: ${block.phase}`
+                : block.type === 'phase_end'
+                  ? `Phase ${block.phase} ${block.success ? 'completed' : 'failed'}`
+                  : `Subphase: ${block.subphase}`;
+              currentMessage.content.push({ type: 'text', text: `[${phaseText}]` });
+              break;
+            }
+          }
+        }
+
+        return { ...t, messages, isStreaming: true };
+      }),
+    }));
+  },
+
   setIsStreaming: (id: string, isStreaming: boolean) => {
     set((state) => ({
       terminals: state.terminals.map((t) =>
@@ -1108,19 +1232,28 @@ export async function recreateTaskMonitorTerminals(
 
       // FIX-3: For planning tasks, check if process is running and restart if not
       // Planning agents ARE auto-restarted to resume spec creation after app restart
-      // Main process recoverStuckTask checks hasSpec to skip completed plans
+      // BUT: Only if planning is NOT complete (no subtasks yet = spec not finished)
       if (task.status === 'planning' && !pendingRestartTasks.has(task.id)) {
-        try {
-          const runningResult = await window.electronAPI.checkTaskRunning(task.id);
-          if (runningResult.success && runningResult.data === false) {
-            console.log(`[TerminalStore] Task ${task.id} is planning but no process running, will restart planning agent`);
-            pendingRestartTasks.add(task.id);
-            tasksToRestart.push(task.id);
-          } else if (runningResult.success && runningResult.data === true) {
-            console.log(`[TerminalStore] Task ${task.id} planning agent is already running`);
+        // Don't auto-restart if planning is complete (has subtasks = spec/prompt were created)
+        const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+        if (hasSubtasks) {
+          console.log(`[TerminalStore] Task ${task.id} planning is complete (has ${task.subtasks?.length} subtasks), not auto-restarting`);
+          // Mark as stopped so UI shows Review button instead of Stop
+          const taskStore = useTaskStore.getState();
+          taskStore.setAgentStopped(task.id, true);
+        } else {
+          try {
+            const runningResult = await window.electronAPI.checkTaskRunning(task.id);
+            if (runningResult.success && runningResult.data === false) {
+              console.log(`[TerminalStore] Task ${task.id} is planning but no process running, will restart planning agent`);
+              pendingRestartTasks.add(task.id);
+              tasksToRestart.push(task.id);
+            } else if (runningResult.success && runningResult.data === true) {
+              console.log(`[TerminalStore] Task ${task.id} planning agent is already running`);
+            }
+          } catch (error) {
+            debugError(`[TerminalStore] Error checking if planning task ${task.id} is running:`, error);
           }
-        } catch (error) {
-          debugError(`[TerminalStore] Error checking if planning task ${task.id} is running:`, error);
         }
       }
     }
@@ -1138,6 +1271,9 @@ export async function recreateTaskMonitorTerminals(
             const result = await window.electronAPI.recoverStuckTask(taskId, { autoRestart: true });
             if (result.success) {
               console.log(`[TerminalStore] Task ${taskId} restarted successfully`);
+              // Update agent stopped state so UI shows correct buttons
+              const taskStore = useTaskStore.getState();
+              taskStore.setAgentStopped(taskId, false);  // Agent is now running
             } else {
               console.warn(`[TerminalStore] Failed to restart task ${taskId}:`, result.error);
             }

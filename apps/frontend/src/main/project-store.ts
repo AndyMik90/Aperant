@@ -2,7 +2,7 @@ import { app } from 'electron';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, Dirent } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask } from '../shared/types';
+import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask, AdaptiveComplexity } from '../shared/types';
 import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir, JSON_ERROR_PREFIX, JSON_ERROR_TITLE_SUFFIX } from '../shared/constants';
 import { getAutoBuildPath, isInitialized } from './project-initializer';
 import { getTaskWorktreeDir } from './worktree-paths';
@@ -476,6 +476,30 @@ export class ProjectStore {
           try {
             const content = readFileSync(metadataPath, 'utf-8');
             metadata = JSON.parse(content);
+
+            // Fix case mismatch: backend complexity_classifier writes uppercase values
+            // (SIMPLE/MEDIUM/COMPLEX) to "complexity" field, but frontend TaskComplexity
+            // expects lowercase (trivial/small/medium/large/complex).
+            // Uppercase values are adaptive complexity — move them to the correct field.
+            if (metadata && metadata.complexity) {
+              const ADAPTIVE_MAP: Record<string, AdaptiveComplexity> = {
+                'SIMPLE': 'SIMPLE',
+                'MEDIUM': 'MEDIUM',
+                'COMPLEX': 'COMPLEX',
+                'STANDARD': 'MEDIUM',  // spec_runner uses STANDARD, map to MEDIUM
+              };
+              const mapped = ADAPTIVE_MAP[metadata.complexity as string];
+              if (mapped) {
+                // Move to adaptiveComplexity where it belongs
+                if (!metadata.adaptiveComplexity) {
+                  metadata.adaptiveComplexity = mapped;
+                }
+                // Preserve complexityReason if set by classifier
+                // (already in metadata from task_metadata.json)
+                // Clear the complexity field to prevent empty badge rendering
+                delete metadata.complexity;
+              }
+            }
           } catch {
             // Ignore parse errors
           }

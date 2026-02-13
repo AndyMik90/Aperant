@@ -100,15 +100,34 @@ export function useGlobalTerminalListeners(): void {
     // Register structured output listener for task monitor UI
     // This receives pre-parsed blocks from main process for efficient rendering
     // IMPORTANT: Always process blocks regardless of view mode so data is always available
+    //
+    // FIX: React error #185 (Maximum update depth exceeded) — Rapid IPC events
+    // each calling appendStructuredBlock triggered individual Zustand set() calls,
+    // overwhelming React with state updates. We now queue blocks and flush them
+    // in a single batched update via requestAnimationFrame.
+    const pendingBlocks: Array<{ terminalId: string; block: StructuredBlock }> = [];
+    let flushScheduled = false;
+
+    const flushPendingBlocks = () => {
+      flushScheduled = false;
+      if (pendingBlocks.length === 0) return;
+      const blocks = pendingBlocks.splice(0);
+      useTerminalStore.getState().appendStructuredBlocksBatch(blocks);
+      debugLog(
+        `[GlobalTerminalListeners] Flushed ${blocks.length} structured blocks in batch`
+      );
+    };
+
     const cleanupStructuredOutput = window.electronAPI.onTerminalStructuredOutput(
       (terminalId: string, block: StructuredBlock) => {
         // Process for ALL task monitor terminals (both raw and rich modes)
         const terminal = useTerminalStore.getState().terminals.find(t => t.id === terminalId);
         if (terminal?.isTaskMonitor) {
-          useTerminalStore.getState().appendStructuredBlock(terminalId, block);
-          debugLog(
-            `[GlobalTerminalListeners] Processed structured block for ${terminalId}: ${block.type}`
-          );
+          pendingBlocks.push({ terminalId, block });
+          if (!flushScheduled) {
+            flushScheduled = true;
+            requestAnimationFrame(flushPendingBlocks);
+          }
         }
       }
     );

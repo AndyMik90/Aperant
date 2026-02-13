@@ -299,6 +299,10 @@ export interface TaskMetadata {
   // Title preservation
   originalTitle?: string;  // User-provided title at creation time — agents cannot overwrite this
 
+  // Planning review feedback
+  planningNotes?: string;  // User notes when sending task back to planning
+  planningNotesAt?: string;  // ISO date when planning notes were added
+
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
   archivedInVersion?: string;  // Version in which task was archived (from changelog)
@@ -586,4 +590,6 @@ export interface TaskStartOptions {
   baseBranch?: string; // Override base branch for worktree creation
   /** Pending user messages to send to the agent immediately after start */
   pendingMessages?: string[];
+  /** Planning feedback notes when sending a task back to planning */
+  planningNotes?: string;
 }

@@ -78,6 +78,10 @@ export const taskMock = {
 
   readSpecFile: async (_taskId: string, _fileName: string) => ({ success: true, data: null }),
 
+  checkPlanningComplete: async (_taskId: string) => ({ success: true, data: { specExists: false, promptExists: false, planHasSubtasks: false, complete: false } }),
+
+  resetPlanning: async (_taskId: string, _notes?: string) => ({ success: true as const, data: true }),
+
   // Task logs operations
   getTaskLogs: async () => ({
     success: true,

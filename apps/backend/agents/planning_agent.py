@@ -30,7 +30,7 @@ Uses Anthropic memory tool (memory_20250818) for conversation persistence.
 Memory files are stored in spec_dir/memories/ and auto-loaded on session resume.
 
 After planning is complete, generates a Ralph-compatible prompt for autonomous execution.
-The prompt is saved to RALPH_PROMPT.md in the spec directory.
+The prompt is saved to ralph_prompt.md in the spec directory.
 """
 
 import asyncio
@@ -211,7 +211,7 @@ async def run_planning_agent(
                     f"Plan: {highlight('implementation_plan.json')} - Created",
                 ]
                 if ralph_prompt_file:
-                    content.append(f"Ralph: {highlight('RALPH_PROMPT.md')} - Generated")
+                    content.append(f"Ralph: {highlight('ralph_prompt.md')} - Generated")
                 content.extend([
                     "",
                     muted("Review the plan and click 'Start Build' when ready."),
@@ -455,7 +455,7 @@ def _generate_ralph_prompt_file(spec_dir: Path, project_dir: Path) -> Optional[P
     """
     Generate a Ralph-compatible prompt file after planning completes.
 
-    The generated RALPH_PROMPT.md contains a ready-to-use /ralph-loop command
+    The generated ralph_prompt.md contains a ready-to-use /ralph-loop command
     that can be copy-pasted into Claude Code for autonomous execution.
 
     Args:

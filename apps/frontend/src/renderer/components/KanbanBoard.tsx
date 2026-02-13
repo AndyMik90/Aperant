@@ -44,6 +44,7 @@ import { useTerminalStore } from '../stores/terminal-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import { BulkPRDialog } from './BulkPRDialog';
+import { InterruptedTasksBanner } from './InterruptedTasksBanner';
 import type { Task, TaskStatus, TaskOrderState } from '../../shared/types';
 
 // Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
@@ -1145,6 +1146,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         )}
       </div>
       )}
+      {/* Banner for interrupted coding tasks after app restart */}
+      <InterruptedTasksBanner />
       {/* Kanban columns with resizable panels */}
       <DndContext
         sensors={sensors}

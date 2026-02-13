@@ -12,6 +12,7 @@ import { Copy, Check, FileQuestion, RefreshCw, AlertCircle, Loader2 } from 'luci
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '../../lib/utils';
+import { useTaskStore } from '../../stores/task-store';
 
 interface SpecDocViewProps {
   taskId: string;
@@ -26,6 +27,9 @@ export function SpecDocView({ taskId, fileName, title }: SpecDocViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const cacheRef = useRef<Record<string, string | null>>({});
+
+  // Watch spec cache version — when bumped (e.g. send-back-to-planning), clear local cache and re-fetch
+  const specVersion = useTaskStore((state) => state.specCacheVersion.get(taskId) ?? 0);
 
   const loadContent = useCallback(async (bypassCache = false) => {
     // Check cache first (unless bypassing)
@@ -71,6 +75,15 @@ export function SpecDocView({ taskId, fileName, title }: SpecDocViewProps) {
       cacheRef.current = {};
     };
   }, [taskId, fileName]);
+
+  // Clear local cache and re-fetch when spec cache version changes
+  // (e.g. after sending back to planning, old spec files are renamed)
+  useEffect(() => {
+    if (specVersion > 0) {
+      cacheRef.current = {};
+      loadContent(true);  // bypass cache, re-read from disk
+    }
+  }, [specVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCopy = useCallback(async () => {
     if (!content) return;

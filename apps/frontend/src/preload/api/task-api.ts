@@ -50,6 +50,8 @@ export interface TaskAPI {
     options?: import('../../shared/types').TaskRecoveryOptions
   ) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
+  checkPlanningComplete: (taskId: string) => Promise<IPCResult<{ specExists: boolean; promptExists: boolean; planHasSubtasks: boolean; complete: boolean }>>;
+  resetPlanning: (taskId: string, notes?: string) => Promise<IPCResult<boolean>>;
   sendMessageToTask: (taskId: string, message: string) => Promise<IPCResult<boolean>>;
   sendMessageToSupervisor: (taskId: string, message: string) => Promise<IPCResult<boolean>>;
   readSpecFile: (taskId: string, fileName: string) => Promise<IPCResult<string | null>>;
@@ -150,6 +152,12 @@ export const createTaskAPI = (): TaskAPI => ({
 
   checkTaskRunning: (taskId: string): Promise<IPCResult<boolean>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_CHECK_RUNNING, taskId),
+
+  checkPlanningComplete: (taskId: string): Promise<IPCResult<{ specExists: boolean; promptExists: boolean; planHasSubtasks: boolean; complete: boolean }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_CHECK_PLANNING_COMPLETE, taskId),
+
+  resetPlanning: (taskId: string, notes?: string): Promise<IPCResult<boolean>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_RESET_PLANNING, taskId, notes),
 
   sendMessageToTask: (taskId: string, message: string): Promise<IPCResult<boolean>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_SEND_MESSAGE, taskId, message),

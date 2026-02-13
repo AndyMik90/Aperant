@@ -70,7 +70,7 @@ function ViewLoader() {
   );
 }
 import { useProjectStore, loadProjects, addProject, initializeProject, removeProject } from './stores/project-store';
-import { useTaskStore, loadTasks } from './stores/task-store';
+import { useTaskStore, loadTasks, checkPlanningComplete } from './stores/task-store';
 import { useSettingsStore, loadSettings, loadProfiles } from './stores/settings-store';
 import { useClaudeProfileStore } from './stores/claude-profile-store';
 import { useTerminalStore, restoreTerminalSessions, recreateTaskMonitorTerminals } from './stores/terminal-store';
@@ -453,20 +453,63 @@ export function App() {
       console.log('[App] Tasks loaded, recreating task monitor terminals with', tasks.length, 'tasks');
       const store = useTerminalStore.getState();
       const currentTasks = [...tasks];
+
+      // Mark as checking processes
+      const taskStore = useTaskStore.getState();
+      taskStore.setCheckingProcesses(true);
+
       recreateTaskMonitorTerminals(selectedProject.path, store, currentTasks).then(() => {
-        // Mark interrupted coding tasks so UI shows Resume button instead of Stop
-        const taskStore = useTaskStore.getState();
+        // Check all active tasks for actual process state
+        const interruptedCoding: string[] = [];
+        const checkPromises: Promise<void>[] = [];
+        // Track planning tasks that need planning-complete checks
+        const planningTaskIds: string[] = [];
+
         for (const task of currentTasks) {
-          if (task.status === 'coding') {
-            window.electronAPI.checkTaskRunning(task.id).then(result => {
+          if (task.status === 'coding' || task.status === 'planning') {
+            const promise = window.electronAPI.checkTaskRunning(task.id).then(result => {
               if (result.success && result.data === false) {
                 taskStore.setAgentStopped(task.id, true);
+                if (task.status === 'coding') {
+                  interruptedCoding.push(task.id);
+                }
+                // Track stopped planning tasks for planning-complete check
+                if (task.status === 'planning') {
+                  planningTaskIds.push(task.id);
+                }
               }
             }).catch(() => { /* ignore check errors */ });
+            checkPromises.push(promise);
           }
         }
+
+        // When all process checks complete, run planning-complete checks BEFORE clearing spinner
+        Promise.all(checkPromises).then(() => {
+          // Also include planning tasks already marked as stopped by terminal-store
+          // (e.g., planning-complete tasks with subtasks detected during recreateTaskMonitorTerminals)
+          // Must run AFTER checkPromises resolve so planningTaskIds from the promise callbacks are populated
+          for (const task of currentTasks) {
+            if (task.status === 'planning' && taskStore.isAgentStopped(task.id) && !planningTaskIds.includes(task.id)) {
+              planningTaskIds.push(task.id);
+            }
+          }
+          // Eagerly check planning-complete for all stopped planning tasks
+          // This populates the cache BEFORE isCheckingProcesses becomes false,
+          // ensuring TaskCard shows "Review" instead of briefly flashing "Resume"
+          const planningChecks = planningTaskIds.map(taskId =>
+            checkPlanningComplete(taskId).catch(() => false)
+          );
+
+          Promise.all(planningChecks).then(() => {
+            taskStore.setCheckingProcesses(false);
+            if (interruptedCoding.length > 0) {
+              taskStore.setInterruptedCodingTaskIds(interruptedCoding);
+            }
+          });
+        });
       }).catch((err) => {
         console.error('[App] Failed to recreate task monitors:', err);
+        taskStore.setCheckingProcesses(false);
       });
     }, 2000); // 2s debounce — coalesces rapid tasks.length changes
 

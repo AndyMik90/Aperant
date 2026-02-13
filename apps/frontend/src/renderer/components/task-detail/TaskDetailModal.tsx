@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useToast } from '../../hooks/use-toast';
@@ -52,6 +52,8 @@ import { DependencyEditor } from './DependencyEditor';
 import { DriftTab } from '../drift/DriftTab';
 import { DriftIndicator } from '../drift/DriftIndicator';
 import { SpecDocView } from '../terminal/SpecDocView';
+import { PlanningReview } from './PlanningReview';
+import { checkPlanningComplete } from '../../stores/task-store';
 import type { Task, WorktreeCreatePROptions } from '../../../shared/types';
 
 interface TaskDetailModalProps {
@@ -103,6 +105,15 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
   const isPlanning = task.status === 'planning';
   // Check if task is blocked by dependencies
   const isBlocked = isTaskBlocked(task, allTasks);
+  // Check if planning is complete for planning tasks
+  const planningComplete = useTaskStore((state) => state.planningCompleteCache.get(task.id) ?? false);
+
+  // Trigger planning complete check when modal opens for a planning task
+  useEffect(() => {
+    if (isPlanning && !planningComplete) {
+      checkPlanningComplete(task.id);
+    }
+  }, [task.id, isPlanning, planningComplete]);
 
   // Event Handlers
   const handleStartStop = async () => {
@@ -327,42 +338,22 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
       );
     }
 
-    // Planning phase - gated workflow matching TaskCard.tsx:880-940
+    // Planning phase - gated workflow
     if (isPlanning) {
-      if (isAgentStopped) {
-        // Agent was stopped - show Resume + Start Build (spec may be ready)
+      if (planningComplete && (isAgentStopped || !state.isRunning)) {
+        // Planning complete — no footer actions, PlanningReview component handles them
+        return null;
+      } else if (isAgentStopped) {
+        // Planning interrupted — show Resume only
         return (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={handleStartStop}
-              title={t('tasks:tooltips.resumePlanningAgent', { defaultValue: 'Resume planning agent' })}
-            >
-              <Play className="mr-2 h-4 w-4" />
-              {t('tasks:actions.resume', { defaultValue: 'Resume' })}
-            </Button>
-            <Button
-              variant="default"
-              onClick={handleStartBuild}
-              disabled={isBlocked}
-              title={isBlocked
-                ? t('tasks:dependencies.blockedTooltip', { defaultValue: 'Cannot start: waiting for dependencies to complete' })
-                : t('tasks:tooltips.startBuild', { defaultValue: 'Start build' })
-              }
-            >
-              {isBlocked ? (
-                <>
-                  <Link2 className="mr-2 h-4 w-4" />
-                  {t('tasks:dependencies.blocked', { defaultValue: 'Blocked' })}
-                </>
-              ) : (
-                <>
-                  <Play className="mr-2 h-4 w-4" />
-                  {t('tasks:actions.startBuild', { defaultValue: 'Start Build' })}
-                </>
-              )}
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            onClick={handleStartStop}
+            title={t('tasks:tooltips.resumePlanningAgent', { defaultValue: 'Resume planning agent' })}
+          >
+            <Play className="mr-2 h-4 w-4" />
+            {t('tasks:actions.resume', { defaultValue: 'Resume' })}
+          </Button>
         );
       } else {
         // Agent is running - show Stop button only (no Start Build during active planning)
@@ -563,9 +554,14 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
               )}
             </div>
 
-            {/* Body - Single Column with Tabs */}
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <Tabs value={state.activeTab} onValueChange={state.setActiveTab} className="flex flex-col h-full">
+            {/* Body - Planning Review Banner + Tabs */}
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              {/* Planning complete banner — shown above tabs, all tabs remain visible */}
+              {planningComplete && isPlanning && (
+                <PlanningReview task={task} onClose={handleClose} />
+              )}
+
+              <Tabs value={state.activeTab} onValueChange={state.setActiveTab} className="flex flex-col flex-1 min-h-0">
                 <TabsList className="w-full justify-start rounded-none border-b border-border bg-transparent px-5 h-auto shrink-0">
                   <TabsTrigger
                     value="overview"

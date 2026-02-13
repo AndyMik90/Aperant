@@ -11,7 +11,11 @@ import {
   PanelLeftClose,
   PanelLeft,
   Pencil,
-  X
+  X,
+  FileText,
+  Terminal,
+  Search,
+  FolderSearch
 } from 'lucide-react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -101,21 +105,55 @@ export function Insights({ projectId }: InsightsProps) {
   const isLoadingSessions = useInsightsStore((state) => state.isLoadingSessions);
   const responseDuration = useInsightsStore((state) => state.responseDuration);
 
-  // Create markdown components with translated accessibility text
+  // Create markdown components with translated accessibility text + overflow-safe renderers
   const markdownComponents = useMemo(() => ({
     a: createSafeLink(t('accessibility.opensInNewWindow')),
+    // Force tables to fit within container
+    table: ({ children, ...props }: React.HTMLAttributes<HTMLTableElement>) => (
+      <div className="w-full overflow-x-auto">
+        <table {...props} className="w-full max-w-full" style={{ tableLayout: 'fixed', wordWrap: 'break-word' }}>
+          {children}
+        </table>
+      </div>
+    ),
+    // Pre blocks with horizontal scroll if needed
+    pre: ({ children, ...props }: React.HTMLAttributes<HTMLPreElement>) => (
+      <pre {...props} className="w-full max-w-full overflow-x-auto whitespace-pre-wrap break-all" style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}>
+        {children}
+      </pre>
+    ),
+    // Inline code with word breaking
+    code: ({ inline, children, ...props }: any) => {
+      if (inline) {
+        return <code {...props} className="break-all" style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}>{children}</code>;
+      }
+      return <code {...props} className="block w-full break-all" style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}>{children}</code>;
+    },
+    // Paragraphs with word breaking
+    p: ({ children, ...props }: React.HTMLAttributes<HTMLParagraphElement>) => (
+      <p {...props} className="w-full break-words" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+        {children}
+      </p>
+    ),
+    // List items with word breaking
+    li: ({ children, ...props }: React.HTMLAttributes<HTMLLIElement>) => (
+      <li {...props} className="w-full break-words" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+        {children}
+      </li>
+    ),
   }), [t]);
 
   const [inputValue, setInputValue] = useState('');
   const [creatingTask, setCreatingTask] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(256); // Chat History width
-  const [rightSidebarWidth, setRightSidebarWidth] = useState(280); // Task Queue width
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(240); // Task Queue width
+  const [accumulatedTools, setAccumulatedTools] = useState<ToolData[]>([]); // Track tools during streaming
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const leftSidebarStartWidth = useRef(256);
-  const rightSidebarStartWidth = useRef(280);
+  const rightSidebarStartWidth = useRef(240);
   const lastScrollTime = useRef(0);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const prevMessageCount = useRef(0);
@@ -169,8 +207,10 @@ export function Insights({ projectId }: InsightsProps) {
     const isNewMessage = currentCount > prevMessageCount.current;
     prevMessageCount.current = currentCount;
 
-    // Only scroll when a new message arrives or streaming content is active
-    if (isNewMessage || streamingContent) {
+    // Scroll when: new message, streaming content, tools change, or status changes
+    const shouldScroll = isNewMessage || streamingContent || accumulatedTools.length > 0 || currentTool;
+
+    if (shouldScroll) {
       const now = Date.now();
       const THROTTLE_MS = 100;
 
@@ -186,7 +226,7 @@ export function Insights({ projectId }: InsightsProps) {
       }
     }
     return () => clearTimeout(scrollTimeoutRef.current);
-  }, [session?.messages, streamingContent]);
+  }, [session?.messages, streamingContent, accumulatedTools, currentTool]);
 
   // Scroll to bottom on mount - use useLayoutEffect to prevent visible scroll
   useLayoutEffect(() => {
@@ -223,6 +263,33 @@ export function Insights({ projectId }: InsightsProps) {
       console.log('[Insights] Auto-queued task suggestion:', lastSuggestionMessage.suggestedTask.title);
     }
   }, [session?.messages, projectId, session?.id]);
+
+  // Accumulate tools during streaming - add to list when currentTool changes
+  useEffect(() => {
+    if (currentTool && status.phase === 'streaming') {
+      const toolData: ToolData = {
+        toolName: currentTool.name,
+        input: currentTool.input || undefined,
+        status: 'running',
+      };
+
+      // Only add if it's not already the last tool (avoid duplicates)
+      setAccumulatedTools(prev => {
+        const lastTool = prev[prev.length - 1];
+        if (lastTool?.toolName === currentTool.name && lastTool?.status === 'running') {
+          return prev; // Same tool still running, don't duplicate
+        }
+        return [...prev, toolData];
+      });
+    }
+  }, [currentTool, status.phase]);
+
+  // Clear accumulated tools when streaming stops
+  useEffect(() => {
+    if (status.phase !== 'streaming' && status.phase !== 'thinking') {
+      setAccumulatedTools([]);
+    }
+  }, [status.phase]);
 
   const handleSend = (message: string, images?: PastedImage[]) => {
     if (!message.trim() && (!images || images.length === 0)) return;
@@ -315,7 +382,7 @@ export function Insights({ projectId }: InsightsProps) {
     const newWidth = rightSidebarStartWidth.current - delta;
     const MIN_WIDTH = 200;
     // Cap at 50% of viewport width to prevent covering entire screen
-    const MAX_WIDTH = Math.min(450, Math.floor(window.innerWidth * 0.5));
+    const MAX_WIDTH = Math.min(360, Math.floor(window.innerWidth * 0.5));
     const COLLAPSED_WIDTH = 48;
 
     if (newWidth < MIN_WIDTH) {
@@ -351,8 +418,92 @@ export function Insights({ projectId }: InsightsProps) {
   const isLoading = status.phase === 'thinking' || status.phase === 'streaming';
   const messages = session?.messages || [];
 
+  // Generate dynamic status text based on current tool
+  const getStatusBadge = () => {
+    if (!currentTool) {
+      return streamingContent ? (
+        <>
+          <Pencil className="h-3 w-3" />
+          <span>Writing...</span>
+        </>
+      ) : null;
+    }
+
+    const toolName = currentTool.name.toLowerCase();
+    const input: any = currentTool.input;
+
+    // Extract filename from input if available
+    const getFileName = (): string => {
+      if (!input) return '';
+
+      // Check if input is a string path
+      if (typeof input === 'string') {
+        const parts = (input as string).split('/');
+        return parts[parts.length - 1];
+      }
+
+      // Check if input is an object with file_path
+      if (typeof input === 'object' && 'file_path' in input) {
+        const filePath = input.file_path;
+        if (typeof filePath === 'string') {
+          const parts = (filePath as string).split('/');
+          return parts[parts.length - 1];
+        }
+      }
+
+      return '';
+    };
+
+    const fileName = getFileName();
+
+    switch (toolName) {
+      case 'read':
+        return (
+          <>
+            <FileText className="h-3 w-3" />
+            <span>Reading {fileName || 'file'}...</span>
+          </>
+        );
+      case 'write':
+        return (
+          <>
+            <Pencil className="h-3 w-3" />
+            <span>Writing {fileName || 'file'}...</span>
+          </>
+        );
+      case 'bash':
+        return (
+          <>
+            <Terminal className="h-3 w-3" />
+            <span>Running command...</span>
+          </>
+        );
+      case 'glob':
+        return (
+          <>
+            <FolderSearch className="h-3 w-3" />
+            <span>Searching files...</span>
+          </>
+        );
+      case 'grep':
+        return (
+          <>
+            <Search className="h-3 w-3" />
+            <span>Searching code...</span>
+          </>
+        );
+      default:
+        return (
+          <>
+            <Sparkles className="h-3 w-3" />
+            <span>Thinking...</span>
+          </>
+        );
+    }
+  };
+
   return (
-    <div className="flex h-full">
+    <div className="flex h-full overflow-hidden">
       {/* Chat History Sidebar */}
       {showSidebar && (
         <>
@@ -371,7 +522,7 @@ export function Insights({ projectId }: InsightsProps) {
       )}
 
       {/* Main Chat Area */}
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header */}
         <div className="h-12 flex items-center justify-between border-b border-border px-3">
           <Button
@@ -397,7 +548,8 @@ export function Insights({ projectId }: InsightsProps) {
         </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 px-6 py-4">
+      <ScrollArea className="flex-1" viewportClassName="overflow-x-hidden">
+        <div className="px-6 py-4 w-full max-w-full" style={{ boxSizing: 'border-box' }}>
         {messages.length === 0 && !streamingContent ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
@@ -433,7 +585,7 @@ export function Insights({ projectId }: InsightsProps) {
             </div>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-6 w-full max-w-full overflow-x-hidden">
             {messages.map((message) => (
               <MessageBubble
                 key={message.id}
@@ -446,42 +598,52 @@ export function Insights({ projectId }: InsightsProps) {
               />
             ))}
 
-            {/* Streaming message — terminal-rich style */}
-            {(streamingContent || currentTool) && (
-              <div className="py-2 message-enter">
+            {/* Streaming message — improved UX with tools above text */}
+            {(streamingContent || currentTool || accumulatedTools.length > 0) && (
+              <div className="py-2 message-enter w-full max-w-full" style={{ boxSizing: 'border-box' }}>
+                {/* Header - just the name, no status */}
                 <div className="flex items-center gap-2 mb-2 px-1">
                   <Bot className="h-3.5 w-3.5 text-primary/70" />
                   <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">
                     Jerry
                   </span>
-                  {streamingContent && (
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground/60 writing-badge">
-                      <Pencil className="h-3 w-3" />
-                      <span>Writing...</span>
-                    </span>
-                  )}
                 </div>
-                <div className="pl-2">
-                  {streamingContent && (
-                    <div className="prose prose-sm dark:prose-invert max-w-none font-mono text-xs">
-                      {committedContent && (
-                        <CommittedMarkdown content={committedContent} components={markdownComponents} />
-                      )}
-                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                        {activeContent}
-                      </ReactMarkdown>
-                      <span className="streaming-cursor" />
+
+                <div className="pl-2 w-full max-w-full overflow-x-hidden" style={{ boxSizing: 'border-box' }}>
+                  {/* Accumulated tool blocks - shown ABOVE text output */}
+                  {accumulatedTools.length > 0 && (
+                    <div className="mb-2 space-y-2">
+                      {accumulatedTools.map((tool, index) => (
+                        <ToolBlock
+                          key={`${tool.toolName}-${index}`}
+                          tool={{
+                            ...tool,
+                            status: index === accumulatedTools.length - 1 && currentTool ? 'running' : 'success',
+                          }}
+                        />
+                      ))}
                     </div>
                   )}
-                  {/* Live tool usage - shown as rich card */}
-                  {currentTool && (
-                    <ToolBlock
-                      tool={{
-                        toolName: currentTool.name,
-                        input: currentTool.input || undefined,
-                        status: 'running',
-                      }}
-                    />
+
+                  {/* Streaming text output - appears BELOW tools */}
+                  {streamingContent && (
+                    <div className="w-full max-w-full" style={{ display: 'block', width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+                      <div className="prose prose-sm dark:prose-invert max-w-none w-full font-mono text-xs overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', width: '100%', maxWidth: '100%' }}>
+                        {committedContent && (
+                          <CommittedMarkdown content={committedContent} components={markdownComponents} />
+                        )}
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                          {activeContent}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Status badge footer - always visible at bottom */}
+                  {(currentTool || streamingContent) && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground/60 mt-2 writing-badge">
+                      {getStatusBadge()}
+                    </div>
                   )}
                 </div>
               </div>
@@ -523,6 +685,7 @@ export function Insights({ projectId }: InsightsProps) {
             <div ref={messagesEndRef} />
           </div>
         )}
+        </div>
       </ScrollArea>
 
       {/* Input */}
@@ -576,7 +739,7 @@ function MessageBubble({
 
   // Assistant messages: terminal-rich style with left-aligned bot indicator
   return (
-    <div className="py-2 message-enter">
+    <div className="py-2 message-enter w-full max-w-full" style={{ boxSizing: 'border-box' }}>
       {/* Role indicator */}
       <div className="flex items-center gap-2 mb-2 px-1">
         <Bot className="h-3.5 w-3.5 text-primary/70" />
@@ -586,17 +749,10 @@ function MessageBubble({
       </div>
 
       {/* Content */}
-      <div className="pl-2">
-        {/* Markdown text */}
-        <div className="prose prose-sm dark:prose-invert max-w-none font-mono text-xs text-foreground/90">
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-            {message.content}
-          </ReactMarkdown>
-        </div>
-
-        {/* Rich tool blocks (replaces old summary list) */}
+      <div className="pl-2 w-full max-w-full overflow-x-hidden" style={{ boxSizing: 'border-box' }}>
+        {/* Rich tool blocks - shown ABOVE text to match streaming layout */}
         {message.toolsUsed && message.toolsUsed.length > 0 && (
-          <div className="mt-2">
+          <div className="mb-2 space-y-2">
             {message.toolsUsed.map((tool, index) => {
               const toolData: ToolData = {
                 toolName: tool.name,
@@ -607,6 +763,15 @@ function MessageBubble({
             })}
           </div>
         )}
+
+        {/* Markdown text - appears BELOW tools to match streaming layout */}
+        <div className="w-full max-w-full" style={{ display: 'block', width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+          <div className="prose prose-sm dark:prose-invert max-w-none w-full font-mono text-xs text-foreground/90 overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', width: '100%', maxWidth: '100%' }}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+              {message.content}
+            </ReactMarkdown>
+          </div>
+        </div>
 
         {/* Task suggestion card */}
         {message.suggestedTask && (
@@ -666,19 +831,25 @@ function TaskSuggestionCard({
         </div>
 
         {/* Title */}
-        <h4 className="mb-2 font-medium text-foreground">
+        <h4 className="mb-2 font-medium text-foreground break-words w-full">
           {task.title}
         </h4>
 
         {/* Description — rendered as markdown, collapsible */}
-        <div className="mb-3">
+        <div className="mb-3 w-full max-w-full" style={{ display: 'block', width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
           <div
             ref={contentRef}
             className={cn(
-              'prose prose-sm dark:prose-invert max-w-none overflow-hidden',
+              'prose prose-sm dark:prose-invert max-w-none w-full overflow-hidden',
               !expanded && needsCollapse && 'collapsed-fade'
             )}
-            style={!expanded && needsCollapse ? { maxHeight: `${COLLAPSED_HEIGHT}px` } : undefined}
+            style={{
+              wordBreak: 'break-word',
+              overflowWrap: 'anywhere',
+              width: '100%',
+              maxWidth: '100%',
+              ...((!expanded && needsCollapse) ? { maxHeight: `${COLLAPSED_HEIGHT}px` } : {})
+            }}
           >
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
               {task.description}

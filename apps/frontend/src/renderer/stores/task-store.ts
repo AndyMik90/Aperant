@@ -21,6 +21,10 @@ interface TaskState {
   stoppedAgents: Set<string>;  // Track which tasks have stopped agents (for UI feedback)
   companionActive: Set<string>;  // Track which tasks have active companion agents
   supervisorActive: Set<string>;  // Track which tasks have active supervisor agents
+  isCheckingProcesses: boolean;
+  interruptedCodingTaskIds: string[];  // For Phase 1.5 banner
+  planningCompleteCache: Map<string, boolean>;  // Cache planning completion status per task
+  specCacheVersion: Map<string, number>;  // Incremented to force SpecDocView to re-fetch from disk
 
   // Actions
   setTasks: (tasks: Task[]) => void;
@@ -51,6 +55,11 @@ interface TaskState {
   // Track supervisor agent state
   setSupervisorActive: (taskId: string, active: boolean) => void;
   hasSupervisor: (taskId: string) => boolean;
+  // Loading state during process check period
+  setCheckingProcesses: (checking: boolean) => void;
+  setInterruptedCodingTaskIds: (ids: string[]) => void;
+  clearInterruptedCodingTaskIds: () => void;
+  resumeAllInterrupted: () => void;
 
   // Selectors
   getSelectedTask: () => Task | undefined;
@@ -190,6 +199,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   stoppedAgents: new Set<string>(),
   companionActive: new Set<string>(),
   supervisorActive: new Set<string>(),
+  isCheckingProcesses: true,  // Start as true — we're checking on launch
+  interruptedCodingTaskIds: [],
+  planningCompleteCache: new Map<string, boolean>(),
+  specCacheVersion: new Map<string, number>(),
 
   setTasks: (tasks) => set({ tasks }),
 
@@ -738,6 +751,21 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     return get().supervisorActive.has(taskId);
   },
 
+  setCheckingProcesses: (checking) => set({ isCheckingProcesses: checking }),
+
+  setInterruptedCodingTaskIds: (ids) => set({ interruptedCodingTaskIds: ids }),
+
+  clearInterruptedCodingTaskIds: () => set({ interruptedCodingTaskIds: [] }),
+
+  resumeAllInterrupted: () => {
+    const { interruptedCodingTaskIds } = get();
+    for (const taskId of interruptedCodingTaskIds) {
+      const { startTask } = require('../stores/task-store');
+      startTask(taskId);
+    }
+    set({ interruptedCodingTaskIds: [] });
+  },
+
   getSelectedTask: () => {
     const state = get();
     return state.tasks.find((t) => t.id === state.selectedTaskId);
@@ -819,7 +847,7 @@ export async function createTask(
  * Start a task
  * Collects any pending user messages from the task's terminal and sends them with the start request
  */
-export function startTask(taskId: string, options?: { parallel?: boolean; workers?: number }): void {
+export function startTask(taskId: string, options?: { parallel?: boolean; workers?: number; planningNotes?: string }): void {
   const store = useTaskStore.getState();
   // Clear stopped state when starting task
   store.setAgentStopped(taskId, false);
@@ -1520,4 +1548,62 @@ export async function persistTaskDependencies(
     console.error('Error persisting task dependencies:', error);
     return false;
   }
+}
+
+/**
+ * Check if a planning task has completed (spec.md + ralph_prompt.md exist).
+ * Caches the result to avoid repeated IPC calls.
+ * Returns true if planning is complete, false otherwise.
+ */
+export async function checkPlanningComplete(taskId: string): Promise<boolean> {
+  const store = useTaskStore.getState();
+
+  // Check cache first
+  const cached = store.planningCompleteCache.get(taskId);
+  if (cached !== undefined) return cached;
+
+  try {
+    const result = await window.electronAPI.checkPlanningComplete(taskId);
+    if (result.success && result.data) {
+      const complete = result.data.complete;
+      // Update cache
+      useTaskStore.setState((state) => {
+        const newCache = new Map(state.planningCompleteCache);
+        newCache.set(taskId, complete);
+        return { planningCompleteCache: newCache };
+      });
+      return complete;
+    }
+  } catch {
+    // Ignore errors, return false
+  }
+  return false;
+}
+
+/**
+ * Invalidate the planning complete cache for a task.
+ * Call this when file changes are detected for the task's spec directory.
+ */
+export function invalidatePlanningCompleteCache(taskId: string): void {
+  useTaskStore.setState((state) => {
+    const newCache = new Map(state.planningCompleteCache);
+    newCache.delete(taskId);
+    return { planningCompleteCache: newCache };
+  });
+}
+
+/**
+ * Force planning complete cache to false for a task.
+ * Use when sending back to planning — prevents the useEffect re-check
+ * from finding stale spec files before the TASK_START handler renames them.
+ */
+export function forcePlanningIncomplete(taskId: string): void {
+  useTaskStore.setState((state) => {
+    const newPlanCache = new Map(state.planningCompleteCache);
+    newPlanCache.set(taskId, false);
+    // Also bump spec cache version so SpecDocView re-fetches from disk
+    const newSpecCache = new Map(state.specCacheVersion);
+    newSpecCache.set(taskId, (newSpecCache.get(taskId) || 0) + 1);
+    return { planningCompleteCache: newPlanCache, specCacheVersion: newSpecCache };
+  });
 }

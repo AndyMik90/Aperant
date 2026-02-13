@@ -80,7 +80,8 @@ const PATTERNS = {
   TASK_LOG_EXEC: /^__EXEC_PHASE__:\s*(.+)$/,
 
   // Jerry tool use patterns - matches [Tool: ToolName] format
-  JERRY_TOOL_START: /^\[Tool:\s*(\w+)\]\s*$/,
+  // Supports MCP tool names with hyphens/dots like mcp__context7__resolve-library-id
+  JERRY_TOOL_START: /^\[Tool:\s*([\w.:/-]+)\]\s*$/,
   JERRY_TOOL_DONE: /^\s*\[Done\]\s*$/,
   JERRY_TOOL_ERROR: /^\s*\[Error\]\s*/,
 
@@ -135,6 +136,7 @@ export class ClaudeOutputParser {
   private inDiff = false;
   private inJerryTool = false;
   private jerryToolName = '';
+  private jerryToolInput: Record<string, unknown> = {};
   private jerryToolOutput: string[] = [];
   private codeBlockLanguage = '';
   private codeBlockFilename = '';
@@ -277,7 +279,34 @@ export class ClaudeOutputParser {
         if (logData.name) {
           this.inJerryTool = true;
           this.jerryToolName = logData.name;
-          this.jerryToolOutput = logData.input ? [JSON.stringify(logData.input, null, 2)] : [];
+
+          // Backend sends input as a display string, not an object.
+          // Reconstruct structured input based on tool name for the renderer.
+          if (logData.input && typeof logData.input === 'object') {
+            this.jerryToolInput = logData.input;
+          } else if (typeof logData.input === 'string' && logData.input) {
+            const displayStr = logData.input;
+            const name = logData.name;
+            if (name === 'Read' || name === 'Write' || name === 'Edit') {
+              this.jerryToolInput = { file_path: displayStr };
+            } else if (name === 'Bash') {
+              this.jerryToolInput = { command: displayStr };
+            } else if (name === 'Grep') {
+              this.jerryToolInput = { pattern: displayStr };
+            } else if (name === 'Glob') {
+              this.jerryToolInput = { pattern: displayStr };
+            } else if (name === 'Task') {
+              this.jerryToolInput = { description: displayStr };
+            } else if (name === 'WebFetch' || name === 'WebSearch') {
+              this.jerryToolInput = { url: displayStr };
+            } else {
+              this.jerryToolInput = { _display: displayStr };
+            }
+          } else {
+            this.jerryToolInput = {};
+          }
+
+          this.jerryToolOutput = logData.input ? [String(logData.input)] : [];
         }
       } catch (e) {
         // Ignore malformed log entries
@@ -361,6 +390,7 @@ export class ClaudeOutputParser {
     if (jerryToolMatch) {
       this.inJerryTool = true;
       this.jerryToolName = jerryToolMatch[1];
+      this.jerryToolInput = {};
       this.jerryToolOutput = [];
       return null;
     }
@@ -466,13 +496,14 @@ export class ClaudeOutputParser {
     this.currentMessage!.content.push({
       type: 'tool_use',
       toolName: this.jerryToolName,
-      input: {},
+      input: this.jerryToolInput,
       output: output || undefined,
       status,
     });
 
     this.inJerryTool = false;
     this.jerryToolName = '';
+    this.jerryToolInput = {};
     this.jerryToolOutput = [];
   }
 
@@ -566,6 +597,7 @@ export class ClaudeOutputParser {
     this.inDiff = false;
     this.inJerryTool = false;
     this.jerryToolName = '';
+    this.jerryToolInput = {};
     this.jerryToolOutput = [];
     this.codeBlockLanguage = '';
     this.codeBlockFilename = '';

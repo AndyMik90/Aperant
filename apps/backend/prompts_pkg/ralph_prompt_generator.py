@@ -641,7 +641,7 @@ class RalphPromptGenerator:
             return None
 
         if output_file is None:
-            output_file = spec_dir / "RALPH_PROMPT.md"
+            output_file = spec_dir / "ralph_prompt.md"
         else:
             output_file = Path(output_file)
 
