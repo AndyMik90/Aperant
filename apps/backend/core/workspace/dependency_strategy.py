@@ -23,8 +23,11 @@ Each dependency ecosystem has different constraints:
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
+
+logger = logging.getLogger(__name__)
 
 from .models import DependencyShareConfig, DependencyStrategy
 
@@ -66,7 +69,9 @@ def get_dependency_configs(
     Args:
         project_index: Parsed ``project_index.json`` dict, or ``None``.
         project_dir: Project root directory for resolved-path containment
-            checks (defense-in-depth). Optional for backward compatibility.
+            checks (defense-in-depth).  Should always be provided when
+            *project_index* is not ``None`` — omitting it disables the
+            resolved-path security check.
 
     Returns:
         List of :class:`DependencyShareConfig` objects — one per discovered
@@ -77,6 +82,12 @@ def get_dependency_configs(
     seen: set[str] = set()
 
     if project_index is not None:
+        if project_dir is None:
+            logger.warning(
+                "get_dependency_configs called with project_index but no "
+                "project_dir — resolved-path containment check is disabled"
+            )
+
         # Use the aggregated top-level dependency_locations which already
         # contain project-relative paths (e.g. "apps/backend/.venv" instead
         # of just ".venv").  This avoids a monorepo path resolution bug
