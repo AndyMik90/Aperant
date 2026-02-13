@@ -356,12 +356,10 @@ class GitLabOrchestrator:
                 blockers=blockers,
             )
 
-            # Add CI section if CI was checked
-            if ci_status and self.ci_checker:
-                pipeline_info = await self.ci_checker.check_mr_pipeline(mr_iid)
-                if pipeline_info:
-                    ci_section = self.ci_checker.format_pipeline_summary(pipeline_info)
-                    full_summary = f"{ci_section}\n\n---\n\n{full_summary}"
+            # Add CI section if CI was checked (reuse pipeline_info from earlier call)
+            if ci_status and self.ci_checker and pipeline_info:
+                ci_section = self.ci_checker.format_pipeline_summary(pipeline_info)
+                full_summary = f"{ci_section}\n\n---\n\n{full_summary}"
 
             # Create result
             result = MRReviewResult(
