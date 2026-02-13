@@ -7,8 +7,8 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { GitLabInvestigationStatus, GitLabInvestigationResult } from '../../../shared/types';
 import { projectStore } from '../../project-store';
-import { getGitLabConfig, gitlabFetch, encodeProjectPath, GitLabApiError } from './utils';
-import type { GitLabAPIIssue, GitLabNoteBasic } from './types';
+import { getGitLabConfig, gitlabFetch, encodeProjectPath, GitLabAPIError } from './utils';
+import type { GitLabAPIIssue, GitLabAPINoteBasic } from './types';
 import { createSpecForIssue } from './spec-utils';
 import type { AgentManager } from '../../agent';
 
@@ -110,10 +110,10 @@ export function registerInvestigateIssue(
         ) as GitLabAPIIssue;
 
         // Fetch notes if any selected (with pagination to get all notes)
-        let filteredNotes: GitLabNoteBasic[] = [];
+        let filteredNotes: GitLabAPINoteBasic[] = [];
         if (selectedNoteIds && selectedNoteIds.length > 0) {
           // Fetch all notes with pagination (GitLab defaults to 20 per page)
-          const allNotes: GitLabNoteBasic[] = [];
+          const allNotes: GitLabAPINoteBasic[] = [];
           let page = 1;
           const perPage = 100;
           const MAX_PAGES = 50; // Safety limit: max 5000 notes
@@ -137,7 +137,7 @@ export function registerInvestigateIssue(
                 hasMore = false;
               } else {
                 // Extract only needed fields with null-safe defaults
-                const noteSummaries: GitLabNoteBasic[] = notesPage
+                const noteSummaries: GitLabAPINoteBasic[] = notesPage
                   .filter((note: unknown): note is Record<string, unknown> =>
                     note !== null && typeof note === 'object' && typeof (note as Record<string, unknown>).id === 'number'
                   )
@@ -164,13 +164,13 @@ export function registerInvestigateIssue(
               const errorMessage = error instanceof Error ? error.message : String(error);
 
               // Check for authentication/rate-limit errors using structured status codes
-              // (gitlabFetch wraps all HTTP errors as GitLabApiError)
-              const isAuthError = error instanceof GitLabApiError && (error.statusCode === 401 || error.statusCode === 403);
-              const isRateLimited = error instanceof GitLabApiError && error.statusCode === 429;
+              // (gitlabFetch wraps all HTTP errors as GitLabAPIError)
+              const isAuthError = error instanceof GitLabAPIError && (error.statusCode === 401 || error.statusCode === 403);
+              const isRateLimited = error instanceof GitLabAPIError && error.statusCode === 429;
 
               if (isAuthError || isRateLimited) {
                 // Re-throw critical errors to let the outer handler surface them to the user
-                // At this point error is guaranteed to be GitLabApiError due to the isAuthError/isRateLimited checks
+                // At this point error is guaranteed to be GitLabAPIError due to the isAuthError/isRateLimited checks
                 const statusCode = error.statusCode;
                 console.warn(`[GitLab Investigation] ${isAuthError ? 'Authentication' : 'Rate limit'} error during notes fetch`, { page, error: errorMessage, statusCode });
                 throw error;

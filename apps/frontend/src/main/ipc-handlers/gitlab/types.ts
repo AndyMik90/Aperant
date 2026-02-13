@@ -52,7 +52,7 @@ export interface GitLabAPINote {
 }
 
 // Basic note type with only fields needed by investigation handlers
-export interface GitLabNoteBasic {
+export interface GitLabAPINoteBasic {
   id: number;
   body: string;
   author: { username: string };

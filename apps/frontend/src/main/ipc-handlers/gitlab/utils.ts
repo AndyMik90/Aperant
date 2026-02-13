@@ -16,12 +16,12 @@ const DEFAULT_GITLAB_URL = 'https://gitlab.com';
 /**
  * Custom error class for GitLab API errors with structured status code
  */
-export class GitLabApiError extends Error {
+export class GitLabAPIError extends Error {
   public readonly statusCode: number;
 
   constructor(message: string, statusCode: number) {
     super(message);
-    this.name = 'GitLabApiError';
+    this.name = 'GitLabAPIError';
     this.statusCode = statusCode;
   }
 }
@@ -274,7 +274,7 @@ export async function gitlabFetch(
 
     if (!response.ok) {
       const errorBody = await response.text();
-      throw new GitLabApiError(
+      throw new GitLabAPIError(
         `GitLab API error: ${response.status} ${response.statusText} - ${errorBody}`,
         response.status
       );
@@ -283,7 +283,7 @@ export async function gitlabFetch(
     return response.json();
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new GitLabApiError(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`, 0);
+      throw new GitLabAPIError(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`, 0);
     }
     throw error;
   } finally {
@@ -332,7 +332,7 @@ export async function gitlabFetchWithCount(
 
     if (!response.ok) {
       const errorBody = await response.text();
-      throw new GitLabApiError(
+      throw new GitLabAPIError(
         `GitLab API error: ${response.status} ${response.statusText} - ${errorBody}`,
         response.status
       );
@@ -346,7 +346,7 @@ export async function gitlabFetchWithCount(
     return { data, totalCount };
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new GitLabApiError(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`, 0);
+      throw new GitLabAPIError(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`, 0);
     }
     throw error;
   } finally {

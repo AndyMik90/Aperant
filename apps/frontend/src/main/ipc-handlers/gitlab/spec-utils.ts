@@ -6,7 +6,7 @@
 import { mkdir, writeFile, readFile, stat } from 'fs/promises';
 import path from 'path';
 import type { Project } from '../../../shared/types';
-import type { GitLabAPIIssue, GitLabNoteBasic, GitLabConfig } from './types';
+import type { GitLabAPIIssue, GitLabAPINoteBasic, GitLabConfig } from './types';
 import { labelMatchesWholeWord } from '../shared/label-utils';
 import { sanitizeText, sanitizeStringArray } from '../shared/sanitize';
 
@@ -212,7 +212,7 @@ export function buildIssueContext(
   issue: IssueLike,
   projectPath: string,
   instanceUrl: string,
-  notes?: GitLabNoteBasic[]
+  notes?: GitLabAPINoteBasic[]
 ): string {
   const lines: string[] = [];
   const safeProjectPath = sanitizeText(projectPath, 200);
@@ -279,7 +279,7 @@ export async function createSpecForIssue(
   issue: GitLabAPIIssue,
   config: GitLabConfig,
   baseBranch?: string,
-  notes?: GitLabNoteBasic[]
+  notes?: GitLabAPINoteBasic[]
 ): Promise<GitLabTaskInfo | null> {
   try {
     // Validate and sanitize network data before writing to disk
