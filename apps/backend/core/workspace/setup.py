@@ -213,6 +213,75 @@ def symlink_node_modules_to_worktree(
     return [path for paths in results.values() for path in paths]
 
 
+def symlink_claude_config_to_worktree(
+    project_dir: Path, worktree_path: Path
+) -> list[str]:
+    """
+    Symlink .claude/ directory from project root to worktree.
+
+    This ensures the worktree has access to Claude Code configuration
+    (settings, CLAUDE.md, MCP servers, etc.) so that terminals opened
+    in the worktree behave identically to the project root.
+
+    Args:
+        project_dir: The main project directory
+        worktree_path: Path to the worktree
+
+    Returns:
+        List of symlinked paths (relative to worktree)
+    """
+    symlinked = []
+
+    source_path = project_dir / ".claude"
+    target_path = worktree_path / ".claude"
+
+    # Skip if source doesn't exist
+    if not source_path.exists():
+        debug(MODULE, "Skipping .claude/ - source does not exist")
+        return symlinked
+
+    # Skip if target already exists
+    if target_path.exists():
+        debug(MODULE, "Skipping .claude/ - target already exists")
+        return symlinked
+
+    # Also skip if target is a symlink (even if broken)
+    if target_path.is_symlink():
+        debug(MODULE, "Skipping .claude/ - symlink already exists (possibly broken)")
+        return symlinked
+
+    # Ensure parent directory exists
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        if sys.platform == "win32":
+            # On Windows, use junctions instead of symlinks (no admin rights required)
+            result = subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(target_path), str(source_path)],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                raise OSError(result.stderr or "mklink /J failed")
+        else:
+            # On macOS/Linux, use relative symlinks for portability
+            relative_source = os.path.relpath(source_path, target_path.parent)
+            os.symlink(relative_source, target_path)
+        symlinked.append(".claude")
+        debug(MODULE, f"Symlinked .claude/ -> {source_path}")
+    except OSError as e:
+        debug_warning(
+            MODULE,
+            f"Could not symlink .claude/: {e}. Claude Code features may not work in worktree terminals.",
+        )
+        print_status(
+            "Warning: Could not link .claude/ - Claude Code features may not work in terminals",
+            "warning",
+        )
+
+    return symlinked
+
+
 def copy_spec_to_worktree(
     source_spec_dir: Path,
     worktree_path: Path,
@@ -324,6 +393,13 @@ def setup_workspace(
             print_status(
                 f"Dependencies ({strategy_name}): {', '.join(paths)}", "success"
             )
+
+    # Symlink .claude/ config to worktree for Claude Code features (settings, commands, etc.)
+    symlinked_claude = symlink_claude_config_to_worktree(
+        project_dir, worktree_info.path
+    )
+    if symlinked_claude:
+        print_status(f"Claude config linked: {', '.join(symlinked_claude)}", "success")
 
     # Copy security configuration files if they exist
     # Note: Unlike env files, security files always overwrite to ensure
@@ -539,7 +615,7 @@ def setup_worktree_dependencies(
     Returns:
         Dict mapping strategy names to lists of paths that were processed.
     """
-    configs = get_dependency_configs(project_index)
+    configs = get_dependency_configs(project_index, project_dir=project_dir)
     results: dict[str, list[str]] = {}
 
     for config in configs:
@@ -548,17 +624,19 @@ def setup_worktree_dependencies(
             results[strategy_name] = []
 
         try:
+            performed = True
             if config.strategy == DependencyStrategy.SYMLINK:
-                _apply_symlink_strategy(project_dir, worktree_path, config)
+                performed = _apply_symlink_strategy(project_dir, worktree_path, config)
             elif config.strategy == DependencyStrategy.RECREATE:
                 _apply_recreate_strategy(project_dir, worktree_path, config)
             elif config.strategy == DependencyStrategy.COPY:
-                _apply_copy_strategy(project_dir, worktree_path, config)
+                performed = _apply_copy_strategy(project_dir, worktree_path, config)
             elif config.strategy == DependencyStrategy.SKIP:
                 _apply_skip_strategy(config)
                 # Don't record skipped entries — only report actual work
                 continue
-            results[strategy_name].append(config.source_rel_path)
+            if performed:
+                results[strategy_name].append(config.source_rel_path)
         except Exception as e:
             debug_warning(
                 MODULE,
@@ -573,18 +651,21 @@ def _apply_symlink_strategy(
     project_dir: Path,
     worktree_path: Path,
     config: DependencyShareConfig,
-) -> None:
-    """Create a symlink (or Windows junction) from worktree to project source."""
+) -> bool:
+    """Create a symlink (or Windows junction) from worktree to project source.
+
+    Returns True if a symlink was created, False if skipped.
+    """
     source_path = project_dir / config.source_rel_path
     target_path = worktree_path / config.source_rel_path
 
     if not source_path.exists():
         debug(MODULE, f"Skipping symlink {config.source_rel_path} - source missing")
-        return
+        return False
 
     if target_path.exists() or target_path.is_symlink():
         debug(MODULE, f"Skipping symlink {config.source_rel_path} - target exists")
-        return
+        return False
 
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -606,12 +687,24 @@ def _apply_symlink_strategy(
             relative_source = os.path.relpath(source_path, target_path.parent)
             os.symlink(relative_source, target_path)
         debug(MODULE, f"Symlinked {config.source_rel_path} -> {source_path}")
+        return True
+    except subprocess.TimeoutExpired:
+        debug_warning(
+            MODULE,
+            f"Symlink creation timed out for {config.source_rel_path}",
+        )
+        print_status(
+            f"Warning: Symlink creation timed out for {config.source_rel_path}",
+            "warning",
+        )
+        return False
     except OSError as e:
         debug_warning(
             MODULE,
             f"Could not symlink {config.source_rel_path}: {e}",
         )
         print_status(f"Warning: Could not link {config.source_rel_path}", "warning")
+        return False
 
 
 def _apply_recreate_strategy(
@@ -751,18 +844,21 @@ def _apply_copy_strategy(
     project_dir: Path,
     worktree_path: Path,
     config: DependencyShareConfig,
-) -> None:
-    """Deep-copy a dependency directory from project to worktree."""
+) -> bool:
+    """Deep-copy a dependency directory from project to worktree.
+
+    Returns True if the copy was performed, False if skipped.
+    """
     source_path = project_dir / config.source_rel_path
     target_path = worktree_path / config.source_rel_path
 
     if not source_path.exists():
         debug(MODULE, f"Skipping copy {config.source_rel_path} - source missing")
-        return
+        return False
 
     if target_path.exists():
         debug(MODULE, f"Skipping copy {config.source_rel_path} - target exists")
-        return
+        return False
 
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -772,9 +868,11 @@ def _apply_copy_strategy(
         else:
             shutil.copytree(source_path, target_path)
         debug(MODULE, f"Copied {config.source_rel_path} to worktree")
+        return True
     except (OSError, shutil.Error) as e:
         debug_warning(MODULE, f"Could not copy {config.source_rel_path}: {e}")
         print_status(f"Warning: Could not copy {config.source_rel_path}", "warning")
+        return False
 
 
 def _apply_skip_strategy(config: DependencyShareConfig) -> None:

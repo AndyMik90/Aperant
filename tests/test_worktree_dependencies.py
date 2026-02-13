@@ -275,6 +275,48 @@ class TestGetDependencyConfigs:
         assert len(configs) == 1
         assert configs[0].source_rel_path == "safe/node_modules"
 
+    def test_windows_backslash_traversal_rejected(self):
+        """Windows-style backslash traversals are rejected."""
+        project_index = {
+            "dependency_locations": [
+                {"type": "node_modules", "path": "..\\..\\evil", "service": "evil"},
+                {"type": "node_modules", "path": "safe/node_modules", "service": "ok"},
+            ]
+        }
+
+        configs = get_dependency_configs(project_index)
+
+        assert len(configs) == 1
+        assert configs[0].source_rel_path == "safe/node_modules"
+
+    def test_absolute_posix_path_rejected(self):
+        """Absolute POSIX paths are rejected."""
+        project_index = {
+            "dependency_locations": [
+                {"type": "node_modules", "path": "/etc/passwd", "service": "evil"},
+                {"type": "node_modules", "path": "safe/node_modules", "service": "ok"},
+            ]
+        }
+
+        configs = get_dependency_configs(project_index)
+
+        assert len(configs) == 1
+        assert configs[0].source_rel_path == "safe/node_modules"
+
+    def test_absolute_windows_path_rejected(self):
+        """Absolute Windows paths are rejected."""
+        project_index = {
+            "dependency_locations": [
+                {"type": "node_modules", "path": "C:\\Windows", "service": "evil"},
+                {"type": "node_modules", "path": "safe/node_modules", "service": "ok"},
+            ]
+        }
+
+        configs = get_dependency_configs(project_index)
+
+        assert len(configs) == 1
+        assert configs[0].source_rel_path == "safe/node_modules"
+
 
 class TestServiceAnalyzerDependencyLocations:
     """Tests for ServiceAnalyzer._detect_dependency_locations()."""
@@ -388,10 +430,10 @@ class TestSetupWorktreeDependencies:
         # Should not raise
         results = setup_worktree_dependencies(project_dir, worktree_path, project_index)
 
-        assert "symlink" in results
-        # Path is still recorded even though source was missing
-        assert "node_modules" in results["symlink"]
-        # But no symlink was actually created
+        # Source missing → no work performed, so not recorded in results
+        symlink_results = results.get("symlink", [])
+        assert "node_modules" not in symlink_results
+        # No symlink was created
         assert not (worktree_path / "node_modules").exists()
 
     def test_target_already_exists_skipped_gracefully(self, tmp_path: Path):

@@ -23,7 +23,8 @@ Each dependency ecosystem has different constraints:
 
 from __future__ import annotations
 
-from pathlib import PurePosixPath, PureWindowsPath
+import os
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from .models import DependencyShareConfig, DependencyStrategy
 
@@ -54,6 +55,7 @@ DEFAULT_STRATEGY_MAP: dict[str, DependencyStrategy] = {
 
 def get_dependency_configs(
     project_index: dict | None,
+    project_dir: Path | None = None,
 ) -> list[DependencyShareConfig]:
     """Derive dependency share configs from a project index.
 
@@ -63,6 +65,8 @@ def get_dependency_configs(
 
     Args:
         project_index: Parsed ``project_index.json`` dict, or ``None``.
+        project_dir: Project root directory for resolved-path containment
+            checks (defense-in-depth). Optional for backward compatibility.
 
     Returns:
         List of :class:`DependencyShareConfig` objects — one per discovered
@@ -96,6 +100,12 @@ def get_dependency_configs(
                 continue
             if ".." in p.parts or ".." in PureWindowsPath(rel_path).parts:
                 continue
+
+            # Defense-in-depth: verify the resolved path stays within project_dir
+            if project_dir is not None:
+                resolved = (project_dir / rel_path).resolve()
+                if not str(resolved).startswith(str(project_dir.resolve()) + os.sep):
+                    continue
 
             # Deduplicate by relative path
             if rel_path in seen:

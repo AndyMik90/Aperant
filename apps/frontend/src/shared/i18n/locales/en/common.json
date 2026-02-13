@@ -292,6 +292,8 @@
     "newIssue": "{{count}} new issue",
     "newIssue_plural": "{{count}} new issues",
     "reviewFailed": "Review Failed",
+    "externalReviewDetected": "External Review Detected",
+    "reviewStartedExternally": "This review was started from another session",
     "description": "Description",
     "noDescription": "No description provided.",
     "followupReviewDetails": "Follow-up Review Details",
@@ -597,7 +599,10 @@
   "roadmap": {
     "taskCompleted": "Completed",
     "taskDeleted": "Deleted",
-    "taskArchived": "Archived"
+    "taskArchived": "Archived",
+    "showMoreFeatures": "Show {{count}} more feature",
+    "showMoreFeatures_plural": "Show {{count}} more features",
+    "showLessFeatures": "Show less"
   },
   "roadmapGeneration": {
     "progress": "Progress",

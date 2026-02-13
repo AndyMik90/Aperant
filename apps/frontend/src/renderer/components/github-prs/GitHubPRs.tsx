@@ -66,6 +66,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
     reviewProgress,
     startedAt,
     isReviewing,
+    isExternalReview,
     previousReviewResult,
     hasMore,
     selectPR,
@@ -269,6 +270,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
               reviewProgress={reviewProgress}
               startedAt={startedAt}
               isReviewing={isReviewing}
+              isExternalReview={isExternalReview}
               initialNewCommitsCheck={storedNewCommitsCheck}
               isActive={isActive}
               isLoadingFiles={isLoadingPRDetails}
