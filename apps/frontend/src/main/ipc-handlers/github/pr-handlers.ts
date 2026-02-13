@@ -1864,9 +1864,15 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           projectId
         );
 
-        // Check if already running
+        // Check if already running — notify renderer so it can display ongoing logs
         if (runningReviews.has(reviewKey)) {
-          debugLog("Review already running", { reviewKey });
+          debugLog("Review already running, notifying renderer", { reviewKey });
+          sendProgress({
+            phase: "analyzing",
+            prNumber,
+            progress: 50,
+            message: "Review is already in progress. Reconnecting to ongoing review...",
+          });
           return;
         }
 
