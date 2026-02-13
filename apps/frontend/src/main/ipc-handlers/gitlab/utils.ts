@@ -280,7 +280,7 @@ export async function getGitLabConfig(project: Project): Promise<GitLabConfig | 
     }
 
     if (!token || !projectRef) return null;
-    return { token, instanceUrl, project: projectRef };
+    return { token, instanceUrl, project: projectRef, sslVerify };
   } catch {
     return null;
   }
@@ -423,7 +423,8 @@ function handleFetchError(error: unknown, url: string, endpoint: string): never 
   }
   // Only extract cause for network-level fetch failures (SSL, DNS, connection errors).
   // HTTP errors (4xx/5xx) already have clear messages and don't need rewriting.
-  if (error instanceof TypeError && error.message === 'fetch failed') {
+  // Check for 'cause' in error alongside message since the exact "fetch failed" text is an implementation detail.
+  if (error instanceof TypeError && (error.message === 'fetch failed' || 'cause' in error)) {
     const message = extractFetchErrorMessage(error);
     console.warn(`[GitLab] Network error: ${endpoint} → ${message}`);
     throw new Error(message, { cause: error });

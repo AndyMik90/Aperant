@@ -7,7 +7,7 @@ import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult, GitLabSyncStatus } from '../../../shared/types';
 import { projectStore } from '../../project-store';
-import { getGitLabConfig, gitlabFetch, gitlabFetchWithCount, encodeProjectPath, getSslVerify } from './utils';
+import { getGitLabConfig, gitlabFetch, gitlabFetchWithCount, encodeProjectPath } from './utils';
 import type { GitLabAPIProject } from './types';
 
 // Debug logging helper
@@ -51,7 +51,7 @@ export function registerCheckConnection(): void {
 
       // Always log connection attempts (not just in debug mode) to help diagnose self-hosted issues
       console.info(
-        `[GitLab] Checking connection: instance=${config.instanceUrl}, project=${config.project}, sslVerify=${getSslVerify(config.instanceUrl)}`
+        `[GitLab] Checking connection: instance=${config.instanceUrl}, project=${config.project}, sslVerify=${config.sslVerify}`
       );
 
       try {
