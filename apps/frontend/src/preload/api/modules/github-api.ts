@@ -403,6 +403,8 @@ export interface PRReviewResult {
   hasPostedFindings?: boolean;
   postedFindingIds?: string[];
   postedAt?: string;
+  // In-progress review tracking
+  inProgressSince?: string;
 }
 
 /**

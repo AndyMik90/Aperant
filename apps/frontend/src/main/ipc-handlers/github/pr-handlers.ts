@@ -294,6 +294,8 @@ export interface PRReviewResult {
   hasPostedFindings?: boolean;
   postedFindingIds?: string[];
   postedAt?: string;
+  // In-progress review tracking
+  inProgressSince?: string;
 }
 
 /**
@@ -1356,6 +1358,8 @@ function getReviewResult(project: Project, prNumber: number): PRReviewResult | n
       hasPostedFindings: data.has_posted_findings ?? false,
       postedFindingIds: data.posted_finding_ids ?? [],
       postedAt: data.posted_at,
+      // In-progress review tracking
+      inProgressSince: data.in_progress_since,
     };
   } catch {
     // File doesn't exist or couldn't be read

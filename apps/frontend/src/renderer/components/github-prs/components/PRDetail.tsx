@@ -35,6 +35,7 @@ import { PRLogs } from './PRLogs';
 
 import type { PRData, PRReviewResult, PRReviewProgress } from '../hooks/useGitHubPRs';
 import type { NewCommitsCheck, MergeReadiness, PRLogs as PRLogsType, WorkflowsAwaitingApprovalResult } from '../../../../preload/api/modules/github-api';
+import { usePRReviewStore } from '../../../stores/github';
 
 interface PRDetailProps {
   pr: PRData;
@@ -416,9 +417,12 @@ export function PRDetail({
       try {
         const result = await window.electronAPI.github.getPRReview(projectId, pr.number);
         if (result && result.overallStatus !== 'in_progress') {
-          // Review completed externally — update the store with the real result
-          const { usePRReviewStore } = await import('../../../stores/github/pr-review-store');
-          usePRReviewStore.getState().setPRReviewResult(projectId, result);
+          // Only accept results that were produced AFTER we detected the external review.
+          // Otherwise this is a stale result from a previous review still on disk
+          // (in-progress results are intentionally NOT saved to disk).
+          if (startedAt && result.reviewedAt && new Date(result.reviewedAt) > new Date(startedAt)) {
+            usePRReviewStore.getState().setPRReviewResult(projectId, result);
+          }
         }
       } catch {
         // Ignore errors — transient file read failures shouldn't stop polling
@@ -427,7 +431,7 @@ export function PRDetail({
 
     const interval = setInterval(pollForCompletion, 3000);
     return () => clearInterval(interval);
-  }, [isReviewing, isExternalReview, projectId, pr.number]);
+  }, [isReviewing, isExternalReview, projectId, pr.number, startedAt]);
 
   /**
    * Fallback mechanism: Load logs after review completes if not already loaded

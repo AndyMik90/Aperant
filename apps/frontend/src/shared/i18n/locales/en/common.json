@@ -294,8 +294,6 @@
     "reviewFailed": "Review Failed",
     "externalReviewDetected": "External Review Detected",
     "reviewStartedExternally": "This review was started from another session",
-    "reviewInProgressStartedAgo": "Review in progress — started {{time}}",
-    "cannotCancelExternalReview": "Cannot cancel a review started from another session",
     "description": "Description",
     "noDescription": "No description provided.",
     "followupReviewDetails": "Follow-up Review Details",
