@@ -223,7 +223,8 @@ class TestTriageContextBuilding:
             issue,
             {
                 "iid": 2,
-                "title": "Login issue",
+                # "Login bug report" shares "login" and "bug" (2/3 words = 0.67 Jaccard)
+                "title": "Login bug report",
                 "description": "Login not working",
                 "author": {"username": "user2"},
                 "created_at": "2024-01-02T00:00:00Z",

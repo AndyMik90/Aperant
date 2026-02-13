@@ -12,7 +12,6 @@ with provider-agnostic interfaces.
 from __future__ import annotations
 
 import asyncio
-import functools  # noqa: F401 - kept for potential future use in async patterns
 import json
 import logging
 import socket
