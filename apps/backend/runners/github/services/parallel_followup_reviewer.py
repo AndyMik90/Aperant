@@ -52,6 +52,7 @@ try:
     from .io_utils import safe_print
     from .pr_worktree_manager import PRWorktreeManager
     from .pydantic_models import FollowupExtractionResponse, ParallelFollowupResponse
+    from .recovery_utils import create_finding_from_summary
     from .sdk_utils import process_sdk_stream
 except (ImportError, ValueError, SystemError):
     from context_gatherer import _validate_git_ref
@@ -79,6 +80,7 @@ except (ImportError, ValueError, SystemError):
         FollowupExtractionResponse,
         ParallelFollowupResponse,
     )
+    from services.recovery_utils import create_finding_from_summary
     from services.sdk_utils import process_sdk_stream
 
 
@@ -1199,18 +1201,52 @@ The SDK will run invoked agents in parallel automatically.
             }
             verdict = verdict_map.get(extracted.verdict, MergeVerdict.NEEDS_REVISION)
 
+            # Reconstruct findings from extraction data
+            findings = []
+            new_finding_ids = []
+
+            # 1. Convert new_finding_summaries to minimal PRReviewFinding objects
+            # Uses shared helper for "SEVERITY: description" parsing and ID generation
+            for i, summary in enumerate(extracted.new_finding_summaries):
+                finding = create_finding_from_summary(summary, i, id_prefix="FU")
+                new_finding_ids.append(finding.id)
+                findings.append(finding)
+
+            # 2. Reconstruct unresolved findings from previous review context
+            if extracted.unresolved_finding_ids and context.previous_review.findings:
+                previous_map = {f.id: f for f in context.previous_review.findings}
+                for uid in extracted.unresolved_finding_ids:
+                    original = previous_map.get(uid)
+                    if original:
+                        findings.append(
+                            PRReviewFinding(
+                                id=original.id,
+                                severity=original.severity,
+                                category=original.category,
+                                title=f"[UNRESOLVED] {original.title}",
+                                description=original.description,
+                                file=original.file,
+                                line=original.line,
+                                suggested_fix=original.suggested_fix,
+                                fixable=original.fixable,
+                                is_impact_finding=original.is_impact_finding,
+                            )
+                        )
+
             safe_print(
                 f"[ParallelFollowup] Extraction recovered: verdict={extracted.verdict}, "
                 f"{len(extracted.resolved_finding_ids)} resolved, "
-                f"{len(extracted.new_finding_summaries)} new findings",
+                f"{len(extracted.unresolved_finding_ids)} unresolved, "
+                f"{len(new_finding_ids)} new findings, "
+                f"{len(findings)} total findings reconstructed",
                 flush=True,
             )
 
             return {
-                "findings": [],  # Full findings not recoverable via extraction
+                "findings": findings,
                 "resolved_ids": extracted.resolved_finding_ids,
                 "unresolved_ids": extracted.unresolved_finding_ids,
-                "new_finding_ids": [],
+                "new_finding_ids": new_finding_ids,
                 "dismissed_false_positive_ids": [],
                 "confirmed_valid_count": extracted.confirmed_finding_count,
                 "dismissed_finding_count": extracted.dismissed_finding_count,
@@ -1250,6 +1286,7 @@ The SDK will run invoked agents in parallel automatically.
 
         This handles cases where the AI produced valid data but it doesn't exactly
         match the expected schema (missing optional fields, type mismatches, etc.).
+        Defensively extracts findings from the raw dict so partial results are preserved.
         """
         if not isinstance(data, dict):
             return None
@@ -1257,6 +1294,7 @@ The SDK will run invoked agents in parallel automatically.
         resolved_ids = []
         unresolved_ids = []
         new_finding_ids = []
+        findings = []
 
         # Try to extract resolution verifications
         resolution_verifications = data.get("resolution_verifications", [])
@@ -1275,14 +1313,68 @@ The SDK will run invoked agents in parallel automatically.
                         ):
                             unresolved_ids.append(finding_id)
 
-        # Try to extract new findings
-        new_findings = data.get("new_findings", [])
-        if isinstance(new_findings, list):
-            for nf in new_findings:
-                if isinstance(nf, dict):
-                    finding_id = nf.get("id", "")
-                    if finding_id:
-                        new_finding_ids.append(finding_id)
+        # Try to extract new findings as PRReviewFinding objects
+        new_findings_raw = data.get("new_findings", [])
+        if isinstance(new_findings_raw, list):
+            for nf in new_findings_raw:
+                if not isinstance(nf, dict):
+                    continue
+                try:
+                    finding_id = nf.get("id", "") or self._generate_finding_id(
+                        nf.get("file", "unknown"),
+                        nf.get("line", 0),
+                        nf.get("title", "unknown"),
+                    )
+                    new_finding_ids.append(finding_id)
+                    findings.append(
+                        PRReviewFinding(
+                            id=finding_id,
+                            severity=_map_severity(nf.get("severity", "medium")),
+                            category=map_category(nf.get("category", "quality")),
+                            title=nf.get("title", "Unknown issue"),
+                            description=nf.get("description", ""),
+                            file=nf.get("file", "unknown"),
+                            line=nf.get("line", 0) or 0,
+                            suggested_fix=nf.get("suggested_fix"),
+                            fixable=bool(nf.get("fixable", False)),
+                            is_impact_finding=bool(nf.get("is_impact_finding", False)),
+                        )
+                    )
+                except Exception as e:
+                    logger.debug(
+                        f"[ParallelFollowup] Skipping malformed new finding: {e}"
+                    )
+
+        # Try to extract comment findings as PRReviewFinding objects
+        comment_findings_raw = data.get("comment_findings", [])
+        if isinstance(comment_findings_raw, list):
+            for cf in comment_findings_raw:
+                if not isinstance(cf, dict):
+                    continue
+                try:
+                    finding_id = cf.get("id", "") or self._generate_finding_id(
+                        cf.get("file", "unknown"),
+                        cf.get("line", 0),
+                        cf.get("title", "unknown"),
+                    )
+                    new_finding_ids.append(finding_id)
+                    findings.append(
+                        PRReviewFinding(
+                            id=finding_id,
+                            severity=_map_severity(cf.get("severity", "medium")),
+                            category=map_category(cf.get("category", "quality")),
+                            title=f"[FROM COMMENTS] {cf.get('title', 'Unknown issue')}",
+                            description=cf.get("description", ""),
+                            file=cf.get("file", "unknown"),
+                            line=cf.get("line", 0) or 0,
+                            suggested_fix=cf.get("suggested_fix"),
+                            fixable=bool(cf.get("fixable", False)),
+                        )
+                    )
+                except Exception as e:
+                    logger.debug(
+                        f"[ParallelFollowup] Skipping malformed comment finding: {e}"
+                    )
 
         # Try to extract verdict
         verdict_str = data.get("verdict", "NEEDS_REVISION")
@@ -1297,14 +1389,15 @@ The SDK will run invoked agents in parallel automatically.
         verdict_reasoning = data.get("verdict_reasoning", "Extracted from partial data")
 
         # Only return if we got any useful data
-        if resolved_ids or unresolved_ids or new_finding_ids:
+        if resolved_ids or unresolved_ids or new_finding_ids or findings:
             return {
-                "findings": [],  # Can't reliably extract full findings without validation
+                "findings": findings,
                 "resolved_ids": resolved_ids,
                 "unresolved_ids": unresolved_ids,
                 "new_finding_ids": new_finding_ids,
                 "dismissed_false_positive_ids": [],
                 "confirmed_valid_count": 0,
+                "dismissed_finding_count": 0,
                 "needs_human_review_count": 0,
                 "verdict": verdict,
                 "verdict_reasoning": f"[Partial extraction] {verdict_reasoning}",
