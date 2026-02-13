@@ -229,6 +229,8 @@ function getDefaultBranch(projectPath: string): string {
  * Symlink node_modules from project root to worktree for TypeScript and tooling support.
  * This allows pre-commit hooks and IDE features to work without npm install in the worktree.
  *
+ * @deprecated Use {@link setupWorktreeDependencies} instead, which supports multiple dependency
+ * strategies (symlink, recreate, copy, skip) via configuration.
  * @param projectPath - The main project directory
  * @param worktreePath - Path to the worktree
  * @returns Array of symlinked paths (relative to worktree)
@@ -804,11 +806,11 @@ async function createTerminalWorktree(
       debugLog('[TerminalWorktree] Created worktree in detached HEAD mode from', baseRef);
     }
 
-    // Symlink node_modules for TypeScript and tooling support
+    // Set up dependencies (node_modules, venvs, etc.) for tooling support
     // This allows pre-commit hooks to run typecheck without npm install in worktree
-    const symlinkedModules = symlinkNodeModulesToWorktree(projectPath, worktreePath);
-    if (symlinkedModules.length > 0) {
-      debugLog('[TerminalWorktree] Symlinked dependencies:', symlinkedModules.join(', '));
+    const setupDeps = await setupWorktreeDependencies(projectPath, worktreePath);
+    if (setupDeps.length > 0) {
+      debugLog('[TerminalWorktree] Set up worktree dependencies:', setupDeps.join(', '));
     }
 
     const config: TerminalWorktreeConfig = {
