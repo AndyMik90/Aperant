@@ -170,7 +170,8 @@ export function registerInvestigateIssue(
 
               if (isAuthError || isRateLimited) {
                 // Re-throw critical errors to let the outer handler surface them to the user
-                const statusCode = error instanceof GitLabApiError ? error.statusCode : undefined;
+                // At this point error is guaranteed to be GitLabApiError due to the isAuthError/isRateLimited checks
+                const statusCode = error.statusCode;
                 console.warn(`[GitLab Investigation] ${isAuthError ? 'Authentication' : 'Rate limit'} error during notes fetch`, { page, error: errorMessage, statusCode });
                 throw error;
               }

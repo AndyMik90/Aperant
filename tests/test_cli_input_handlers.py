@@ -29,7 +29,8 @@ def setup_mock_ui_for_input_handlers(mock_ui_module_full):
 
 
 # =============================================================================
-# Import cli.input_handlers after mock UI is set up by autouse fixture
+# Import cli.input_handlers - works because conftest.py pre-mocks ui module in sys.modules
+# The autouse fixture refreshes the mock before each test.
 # =============================================================================
 
 from cli.input_handlers import (

@@ -31,9 +31,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch, Mock
 import pytest
 
-# Add backend to path
-backend_path = Path(__file__).parent.parent / "apps" / "backend"
-sys.path.insert(0, str(backend_path))
+# Note: conftest.py already adds apps/backend to sys.path at line 52
 
 # Mock import_dotenv to avoid sys.exit() during imports
 with patch("cli.utils.import_dotenv", return_value=Mock()):
