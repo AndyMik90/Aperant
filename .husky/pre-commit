@@ -215,14 +215,14 @@ if git diff --cached --name-only | grep -q "^apps/backend/.*\.py$"; then
       echo "   This is expected for auto-claude worktrees."
       echo "   Full validation will occur when PR is created/merged."
       echo ""
-      exit 2  # Signal: tests skipped (not failed, not passed)
+      exit 77  # GNU convention for 'test skipped' (avoids pytest exit-code collision)
     else
       echo "Warning: No .venv found in apps/backend, using system Python"
       PYTHONPATH=apps/backend python -m pytest tests/ -v --tb=short -x -m "not slow and not integration" -k "not windows_path" $IGNORE_TESTS
     fi
   )
   PYTHON_EXIT=$?
-  if [ $PYTHON_EXIT -eq 2 ]; then
+  if [ $PYTHON_EXIT -eq 77 ]; then
     echo "Backend checks passed! (Python tests skipped — worktree)"
   elif [ $PYTHON_EXIT -ne 0 ]; then
     echo "Python tests failed. Please fix failing tests before committing."

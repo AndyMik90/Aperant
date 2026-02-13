@@ -373,6 +373,68 @@ class TestGetDependencyConfigs:
         assert len(configs) == 1
         assert configs[0].requirements_file == "requirements.txt"
 
+    def test_resolved_path_containment_with_project_dir(self, tmp_path):
+        """Resolved-path containment check rejects escaping paths when project_dir is set."""
+        # Create a symlink inside tmp_path that points outside it
+        escape_dir = tmp_path / "escape"
+        escape_dir.mkdir()
+        outside = tmp_path.parent / "outside_target"
+        outside.mkdir(exist_ok=True)
+        (escape_dir / "node_modules").symlink_to(outside)
+
+        project_index = {
+            "dependency_locations": [
+                {"type": "node_modules", "path": "escape/node_modules", "service": "evil"},
+                {"type": "node_modules", "path": "safe_modules", "service": "ok"},
+            ]
+        }
+
+        configs = get_dependency_configs(project_index, project_dir=tmp_path)
+
+        # escape/node_modules resolves outside project_dir, so it's rejected
+        assert len(configs) == 1
+        assert configs[0].source_rel_path == "safe_modules"
+
+    def test_resolved_path_valid_with_project_dir(self, tmp_path):
+        """Valid paths pass both syntactic and resolved-path checks with project_dir."""
+        (tmp_path / "node_modules").mkdir()
+
+        project_index = {
+            "dependency_locations": [
+                {"type": "node_modules", "path": "node_modules", "service": "frontend"},
+            ]
+        }
+
+        configs = get_dependency_configs(project_index, project_dir=tmp_path)
+
+        assert len(configs) == 1
+        assert configs[0].source_rel_path == "node_modules"
+
+    def test_resolved_requirements_file_containment_with_project_dir(self, tmp_path):
+        """Resolved-path containment rejects requirements_file escaping project_dir."""
+        # Create a symlink that escapes project_dir
+        escape_dir = tmp_path / "reqs"
+        escape_dir.mkdir()
+        outside = tmp_path.parent / "outside_reqs"
+        outside.mkdir(exist_ok=True)
+        (escape_dir / "requirements.txt").symlink_to(outside / "evil.txt")
+
+        project_index = {
+            "dependency_locations": [
+                {
+                    "type": "venv",
+                    "path": ".venv",
+                    "requirements_file": "reqs/requirements.txt",
+                    "service": "backend",
+                },
+            ]
+        }
+
+        configs = get_dependency_configs(project_index, project_dir=tmp_path)
+
+        assert len(configs) == 1
+        assert configs[0].requirements_file is None
+
 
 class TestServiceAnalyzerDependencyLocations:
     """Tests for ServiceAnalyzer._detect_dependency_locations()."""
