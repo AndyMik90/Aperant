@@ -31,6 +31,7 @@ class ProjectAnalyzer:
         """Run full project analysis."""
         self._detect_project_type()
         self._find_and_analyze_services()
+        self._aggregate_dependency_locations()
         self._analyze_infrastructure()
         self._detect_conventions()
         self._map_dependencies()
@@ -123,6 +124,42 @@ class ProjectAnalyzer:
                 services["main"] = service_info
 
         self.index["services"] = services
+
+    def _aggregate_dependency_locations(self) -> None:
+        """Aggregate dependency location metadata from all services.
+
+        Collects dependency_locations from each service and stores them as
+        paths relative to the project root (e.g., 'apps/backend/.venv'
+        instead of just '.venv').
+        """
+        aggregated: list[dict[str, Any]] = []
+
+        for service_name, service_info in self.index.get("services", {}).items():
+            service_deps = service_info.get("dependency_locations", [])
+            service_path = service_info.get("path", "")
+
+            for dep in service_deps:
+                # Build project-relative path from service path + dep path
+                if service_path:
+                    try:
+                        service_rel = Path(service_path).relative_to(self.project_dir)
+                        project_relative = str(service_rel / dep["path"])
+                    except ValueError:
+                        # service_path is already relative or can't be made relative
+                        project_relative = str(Path(service_path) / dep["path"])
+                else:
+                    project_relative = dep["path"]
+
+                aggregated.append(
+                    {
+                        "type": dep.get("type", "unknown"),
+                        "path": project_relative,
+                        "exists": dep.get("exists", False),
+                        "service": service_name,
+                    }
+                )
+
+        self.index["dependency_locations"] = aggregated
 
     def _analyze_infrastructure(self) -> None:
         """Analyze infrastructure configuration."""
