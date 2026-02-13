@@ -126,6 +126,14 @@ def get_dependency_configs(
                 ):
                     req_file = None
 
+                # Defense-in-depth: resolved-path containment (matches rel_path check)
+                if req_file and project_dir is not None:
+                    resolved_req = (project_dir / req_file).resolve()
+                    if not str(resolved_req).startswith(
+                        str(project_dir.resolve()) + os.sep
+                    ):
+                        req_file = None
+
             configs.append(
                 DependencyShareConfig(
                     dep_type=dep_type,
