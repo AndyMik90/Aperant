@@ -96,7 +96,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/apps/backend
         run: |
           source .venv/bin/activate
-          pytest ../../tests/ -v --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=10
+          pytest ../../tests/ __tests__/ -v --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=10
 
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'

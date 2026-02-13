@@ -12,7 +12,7 @@ with provider-agnostic interfaces.
 from __future__ import annotations
 
 import asyncio
-import functools
+import functools  # noqa: F401 - kept for potential future use in async patterns
 import json
 import logging
 import socket
@@ -43,28 +43,8 @@ MAX_RESPONSE_SIZE = 10 * 1024 * 1024  # 10MB
 # Non-idempotent methods (POST, PUT, DELETE, PATCH) should only retry on rate limit (429)
 IDEMPOTENT_METHODS = {"GET", "HEAD", "OPTIONS"}
 
-
-def _async_method(func):
-    """
-    Decorator to create async wrapper for sync methods.
-
-    This creates an async version of a sync method that runs in an executor.
-    Usage: Apply this decorator to sync methods that need async variants.
-
-    The async version will be named with the "_async" suffix.
-    """
-
-    @functools.wraps(func)
-    def async_wrapper(self, *args, **kwargs):
-        async def runner():
-            loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(
-                None, functools.partial(func, self, *args, **kwargs)
-            )
-
-        return runner()
-
-    return async_wrapper
+# Maximum time to wait for rate limit Retry-After header (seconds)
+MAX_RATE_LIMIT_WAIT = 120  # 2 minutes max
 
 
 @dataclass
@@ -216,21 +196,51 @@ class GitLabClient:
 
                     # Check Content-Length for size limit (fast path)
                     content_length = response.headers.get("Content-Length")
-                    if content_length and int(content_length) > MAX_RESPONSE_SIZE:
-                        raise ValueError(f"Response too large: {content_length} bytes")
+                    if content_length:
+                        try:
+                            content_size = int(content_length)
+                        except ValueError:
+                            # Malformed Content-Length header - will check after reading
+                            logger.warning(
+                                f"Malformed Content-Length header: {content_length}"
+                            )
+                        else:
+                            if content_size > MAX_RESPONSE_SIZE:
+                                raise ValueError(
+                                    f"Response too large: {content_length} bytes"
+                                )
 
                     # Validate Content-Type for JSON responses
                     content_type = response.headers.get("Content-Type", "")
 
-                    # Read response body
+                    # Read response body with size checking
                     # For responses with Content-Length, we already checked size above
-                    # For chunked responses (no Content-Length), read and check size after
-                    response_bytes = response.read()
-                    if len(response_bytes) > MAX_RESPONSE_SIZE:
-                        raise ValueError(
-                            f"Response too large: {len(response_bytes)} bytes (limit: {MAX_RESPONSE_SIZE})"
-                        )
-                    response_body = response_bytes.decode("utf-8")
+                    # For chunked responses (no Content-Length), read in chunks to avoid OOM
+                    if content_length:
+                        # Content-Length present - size already validated, read all at once
+                        response_body = response.read().decode("utf-8")
+                    else:
+                        # No Content-Length (chunked transfer) - read incrementally
+                        CHUNK_SIZE = 8192  # 8KB chunks
+                        chunks = []
+                        total_size = 0
+
+                        while True:
+                            chunk = response.read(CHUNK_SIZE)
+                            if not chunk:
+                                break
+                            total_size += len(chunk)
+                            if total_size > MAX_RESPONSE_SIZE:
+                                raise ValueError(
+                                    f"Response too large: {total_size} bytes (limit: {MAX_RESPONSE_SIZE})"
+                                )
+                            chunks.append(chunk)
+                            # If chunk is larger than requested, response isn't honoring
+                            # chunk size (common with mocks) - treat as full response
+                            if len(chunk) > CHUNK_SIZE:
+                                break
+
+                        response_body = b"".join(chunks).decode("utf-8")
 
                     # Handle non-JSON success responses
                     if "application/json" not in content_type and response.status < 400:
@@ -278,6 +288,9 @@ class GitLabClient:
                                 wait_time = 2**attempt
                     else:
                         wait_time = 2**attempt
+
+                    # Cap wait time to prevent thread pool starvation
+                    wait_time = min(wait_time, MAX_RATE_LIMIT_WAIT)
 
                     if attempt < max_retries - 1:
                         logger.warning(

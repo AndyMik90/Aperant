@@ -95,7 +95,10 @@ class TestGitLabClientRetry:
             # Return successful response
             mock_resp = Mock()
             mock_resp.read.return_value = b'{"iid": 123}'
-            mock_resp.headers = {"Content-Type": "application/json"}
+            mock_resp.headers = {
+                "Content-Type": "application/json",
+                "Content-Length": "14",
+            }
             mock_resp.status = 200
             mock_resp.__enter__ = Mock(return_value=mock_resp)
             mock_resp.__exit__ = Mock(return_value=False)
@@ -121,7 +124,10 @@ class TestGitLabClientRetry:
             # Return successful response
             mock_resp = Mock()
             mock_resp.read.return_value = b'{"iid": 123}'
-            mock_resp.headers = {"Content-Type": "application/json"}
+            mock_resp.headers = {
+                "Content-Type": "application/json",
+                "Content-Length": "14",
+            }
             mock_resp.status = 200
             mock_resp.__enter__ = Mock(return_value=mock_resp)
             mock_resp.__exit__ = Mock(return_value=False)
@@ -158,7 +164,10 @@ class TestGitLabClientRetry:
             # Return successful response
             mock_resp = Mock()
             mock_resp.read.return_value = b'{"iid": 123}'
-            mock_resp.headers = {"Content-Type": "application/json"}
+            mock_resp.headers = {
+                "Content-Type": "application/json",
+                "Content-Length": "14",
+            }
             mock_resp.status = 200
             mock_resp.__enter__ = Mock(return_value=mock_resp)
             mock_resp.__exit__ = Mock(return_value=False)
@@ -207,7 +216,10 @@ class TestGitLabClientRetry:
             # Return successful response
             mock_resp = Mock()
             mock_resp.read.return_value = b'{"iid": 123}'
-            mock_resp.headers = {"Content-Type": "application/json"}
+            mock_resp.headers = {
+                "Content-Type": "application/json",
+                "Content-Length": "14",
+            }
             mock_resp.status = 200
             mock_resp.__enter__ = Mock(return_value=mock_resp)
             mock_resp.__exit__ = Mock(return_value=False)
@@ -557,7 +569,10 @@ class TestGitLabClientAuth:
             # Mock response object with proper attributes
             mock_response = Mock()
             mock_response.read.return_value = b'{"iid": 123}'
-            mock_response.headers = {"Content-Type": "application/json"}
+            mock_response.headers = {
+                "Content-Type": "application/json",
+                "Content-Length": "14",
+            }
             mock_response.status = 200
             mock_response.__enter__ = Mock(return_value=mock_response)
             mock_response.__exit__ = Mock(return_value=False)
@@ -597,7 +612,10 @@ class TestGitLabClientAuth:
             # Mock response object with proper attributes
             mock_response = Mock()
             mock_response.read.return_value = b'{"iid": 123}'
-            mock_response.headers = {"Content-Type": "application/json"}
+            mock_response.headers = {
+                "Content-Type": "application/json",
+                "Content-Length": "14",
+            }
             mock_response.status = 200
             mock_response.__enter__ = Mock(return_value=mock_response)
             mock_response.__exit__ = Mock(return_value=False)

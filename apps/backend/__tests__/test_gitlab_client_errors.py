@@ -42,7 +42,18 @@ def _create_mock_response(
     """Helper to create a mock HTTP response."""
     mock_resp = Mock()
     mock_resp.status = status
-    mock_resp.read = lambda: content
+
+    # Create stateful read function that returns content once, then empty
+    read_state = {"called": False}
+
+    def mock_read(size=-1):
+        if read_state["called"]:
+            return b""
+        read_state["called"] = True
+        return content
+
+    mock_resp.read = mock_read
+
     # Use a real dict for headers to properly support .get() method
     headers_dict = {"Content-Type": content_type}
     if headers:

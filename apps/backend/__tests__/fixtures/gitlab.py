@@ -233,21 +233,27 @@ def mock_mr_data(**overrides):
 
 def mock_mr_changes(**overrides):
     """Create mock MR changes with optional overrides."""
-    data = SAMPLE_MR_CHANGES.copy()
+    import copy
+
+    data = copy.deepcopy(SAMPLE_MR_CHANGES)
     data.update(overrides)
     return data
 
 
 def mock_issue_data(**overrides):
     """Create mock issue data with optional overrides."""
-    data = SAMPLE_ISSUE_DATA.copy()
+    import copy
+
+    data = copy.deepcopy(SAMPLE_ISSUE_DATA)
     data.update(overrides)
     return data
 
 
 def mock_pipeline_data(**overrides):
     """Create mock pipeline data with optional overrides."""
-    data = SAMPLE_PIPELINE_DATA.copy()
+    import copy
+
+    data = copy.deepcopy(SAMPLE_PIPELINE_DATA)
     data.update(overrides)
     return data
 

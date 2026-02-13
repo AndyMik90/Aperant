@@ -138,10 +138,8 @@ class TokenBucket:
                 if elapsed >= timeout:
                     return False
 
-            # Wait for next refill
-            # Calculate time until we have enough tokens
-            tokens_needed = tokens - self.tokens
-            wait_time = min(tokens_needed / self.refill_rate, 1.0)  # Max 1 second wait
+            # Wait for next refill using thread-safe time calculation
+            wait_time = min(self.time_until_available(tokens), 1.0)  # Max 1 second wait
             wait_time = max(0.01, wait_time)  # Ensure minimum sleep time
             await asyncio.sleep(wait_time)
 
