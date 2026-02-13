@@ -222,7 +222,5 @@ export function getSentryEnvForSubprocess(): Record<string, string> {
     SENTRY_DSN: dsn,
     SENTRY_TRACES_SAMPLE_RATE: String(getTracesSampleRate()),
     SENTRY_PROFILES_SAMPLE_RATE: String(getProfilesSampleRate()),
-    // Pass SENTRY_DEV so Python backend also enables Sentry in dev mode
-    ...(process.env.SENTRY_DEV ? { SENTRY_DEV: process.env.SENTRY_DEV } : {}),
   };
 }

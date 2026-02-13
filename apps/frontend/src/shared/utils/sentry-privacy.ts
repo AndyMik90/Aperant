@@ -75,6 +75,31 @@ export function maskUserPaths(text: string): string {
 }
 
 /**
+ * Sanitize text for safe inclusion in Sentry reports.
+ * Masks user paths and redacts potential secrets (tokens, keys, credentials).
+ */
+export function sanitizeForSentry(text: string): string {
+  if (!text) return text;
+
+  text = maskUserPaths(text);
+
+  // Redact common secret patterns (API keys, tokens, auth headers)
+  // Bearer/token auth
+  text = text.replace(/\b(Bearer|token|Token)\s+[A-Za-z0-9\-_.]+/gi, '$1 [REDACTED]');
+  // API keys / secrets in key=value or key: value format
+  text = text.replace(
+    /\b(api[_-]?key|api[_-]?secret|auth[_-]?token|access[_-]?token|refresh[_-]?token|secret[_-]?key|password|credential|private[_-]?key)[=:]\s*\S+/gi,
+    '$1=[REDACTED]'
+  );
+  // Anthropic API key format
+  text = text.replace(/\bsk-ant-[A-Za-z0-9\-_]{20,}/g, '[REDACTED_KEY]');
+  // Generic long hex/base64 tokens (40+ chars, likely secrets)
+  text = text.replace(/\b[A-Za-z0-9+/]{40,}={0,2}\b/g, '[REDACTED_TOKEN]');
+
+  return text;
+}
+
+/**
  * Recursively mask paths in an object
  * Handles nested objects and arrays
  */

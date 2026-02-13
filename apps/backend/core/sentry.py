@@ -186,14 +186,12 @@ def _before_send(event: dict, hint: dict) -> dict | None:
 
 def init_sentry(
     component: str = "backend",
-    force_enable: bool = False,
 ) -> bool:
     """
     Initialize Sentry for the Python backend.
 
     Args:
         component: Component name for tagging (e.g., "backend", "github-runner")
-        force_enable: Force enable even without packaged app detection
 
     Returns:
         True if Sentry was initialized, False otherwise
@@ -215,7 +213,7 @@ def init_sentry(
     # DSN is present (checked above), so Sentry should be enabled.
     # The Electron main process only passes SENTRY_DSN to subprocesses in
     # production builds, so its presence is sufficient to gate activation.
-    # In dev, you can still opt-in via SENTRY_DEV=true + SENTRY_DSN.
+    # In dev, set SENTRY_DSN in your environment to opt-in.
     is_packaged = getattr(sys, "frozen", False) or hasattr(sys, "__compiled__")
 
     try:
