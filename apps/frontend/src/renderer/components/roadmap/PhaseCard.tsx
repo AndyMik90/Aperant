@@ -99,18 +99,13 @@ export function PhaseCard({
           {visibleFeatures.map((feature) => (
             <div
               key={feature.id}
-              role="button"
-              tabIndex={0}
-              className="flex items-center justify-between p-2 rounded-md bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
-              onClick={() => onFeatureSelect(feature)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onFeatureSelect(feature);
-                }
-              }}
+              className="flex items-center justify-between p-2 rounded-md bg-muted/50 hover:bg-muted transition-colors"
             >
-              <div className="flex items-center gap-2 flex-1 min-w-0">
+              <button
+                type="button"
+                className="flex items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
+                onClick={() => onFeatureSelect(feature)}
+              >
                 <Badge
                   variant="outline"
                   className={`text-xs ${ROADMAP_PRIORITY_COLORS[feature.priority]}`}
@@ -121,7 +116,7 @@ export function PhaseCard({
                 {feature.competitorInsightIds && feature.competitorInsightIds.length > 0 && (
                   <TrendingUp className="h-3 w-3 text-primary flex-shrink-0" />
                 )}
-              </div>
+              </button>
               {feature.taskOutcome ? (
                 <span className="flex-shrink-0">
                   <TaskOutcomeBadge outcome={feature.taskOutcome} size="lg" showLabel={false} />
