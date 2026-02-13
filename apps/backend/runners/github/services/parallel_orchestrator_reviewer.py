@@ -633,13 +633,77 @@ Report findings with specific file paths, line numbers, and code evidence.
                 logger.error(
                     f"[Specialist:{specialist_name}] Failed to parse structured output: {e}"
                 )
-                # Fall through to text parsing
+                # Attempt to extract findings from raw dict before falling to text parsing
+                findings = self._extract_specialist_partial_data(
+                    specialist_name, structured_output
+                )
+                if findings:
+                    logger.info(
+                        f"[Specialist:{specialist_name}] Recovered {len(findings)} findings from partial extraction"
+                    )
 
         if not findings and result_text:
             # Fallback to text parsing
             findings = self._parse_text_output(result_text)
             for f in findings:
                 f.source_agents = [specialist_name]
+
+        return findings
+
+    def _extract_specialist_partial_data(
+        self,
+        specialist_name: str,
+        data: dict[str, Any],
+    ) -> list[PRReviewFinding]:
+        """Extract findings from raw specialist dict when Pydantic validation fails.
+
+        Defensively extracts each finding individually so partial results are preserved
+        even if some findings have validation issues.
+        """
+        findings = []
+        raw_findings = data.get("findings", [])
+        if not isinstance(raw_findings, list):
+            return findings
+
+        for f in raw_findings:
+            if not isinstance(f, dict):
+                continue
+            try:
+                file_path = f.get("file", "unknown")
+                line = f.get("line", 0) or 0
+                title = f.get("title", "Unknown issue")
+
+                finding_id = hashlib.md5(
+                    f"{file_path}:{line}:{title}".encode(),
+                    usedforsecurity=False,
+                ).hexdigest()[:12]
+
+                category = map_category(f.get("category", "quality"))
+
+                try:
+                    severity = ReviewSeverity(str(f.get("severity", "medium")).lower())
+                except ValueError:
+                    severity = ReviewSeverity.MEDIUM
+
+                finding = PRReviewFinding(
+                    id=finding_id,
+                    file=file_path,
+                    line=line,
+                    end_line=f.get("end_line"),
+                    title=title,
+                    description=f.get("description", ""),
+                    category=category,
+                    severity=severity,
+                    suggested_fix=f.get("suggested_fix", ""),
+                    evidence=f.get("evidence"),
+                    source_agents=[specialist_name],
+                    is_impact_finding=bool(f.get("is_impact_finding", False)),
+                )
+                findings.append(finding)
+            except Exception as e:
+                logger.debug(
+                    f"[Specialist:{specialist_name}] Skipping malformed finding: {e}"
+                )
 
         return findings
 
@@ -910,13 +974,15 @@ The SDK will run invoked agents in parallel automatically.
         except ValueError:
             severity = ReviewSeverity.MEDIUM
 
-        # Extract evidence: prefer verification.code_examined, fallback to evidence field
-        evidence = finding_data.evidence
+        # Extract evidence from verification.code_examined if available
+        evidence = None
         if hasattr(finding_data, "verification") and finding_data.verification:
-            # Structured verification has more detailed evidence
             verification = finding_data.verification
             if hasattr(verification, "code_examined") and verification.code_examined:
                 evidence = verification.code_examined
+        # Fallback to evidence field if present (e.g. from dict-based parsing)
+        if not evidence:
+            evidence = getattr(finding_data, "evidence", None)
 
         # Extract end_line if present
         end_line = getattr(finding_data, "end_line", None)
