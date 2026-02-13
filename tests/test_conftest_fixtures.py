@@ -9,9 +9,6 @@ they mock. This catches drift when the real module changes but the mock is not u
 
 import sys
 from pathlib import Path
-from typing import get_type_hints
-
-import pytest
 
 # Add apps/backend to path so we can import real modules
 backend_path = Path(__file__).parent.parent / "apps" / "backend"
