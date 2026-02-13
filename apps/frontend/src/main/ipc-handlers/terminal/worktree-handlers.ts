@@ -8,7 +8,7 @@ import type {
   OtherWorktreeInfo,
 } from '../../../shared/types';
 import path from 'path';
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, symlinkSync, lstatSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, symlinkSync, lstatSync, copyFileSync } from 'fs';
 import { execFileSync, execFile } from 'child_process';
 import { promisify } from 'util';
 import { minimatch } from 'minimatch';
@@ -310,6 +310,294 @@ function symlinkNodeModulesToWorktree(projectPath: string, worktreePath: string)
   }
 
   return symlinked;
+}
+
+/**
+ * Configuration for a single dependency to be shared in a worktree.
+ */
+interface DependencyConfig {
+  /** Dependency type identifier (e.g., 'node_modules', 'venv') */
+  depType: string;
+  /** Strategy for sharing this dependency in worktrees */
+  strategy: 'symlink' | 'recreate' | 'copy' | 'skip';
+  /** Relative path from project root to the dependency directory */
+  sourceRelPath: string;
+  /** Path to requirements file for recreate strategy (e.g., 'requirements.txt') */
+  requirementsFile?: string;
+  /** Package manager used (e.g., 'npm', 'pip', 'uv') */
+  packageManager?: string;
+}
+
+/**
+ * Default mapping from dependency type to sharing strategy.
+ *
+ * Data-driven — add new entries here rather than writing if/else branches.
+ * Mirrors the Python implementation in apps/backend/core/workspace/dependency_strategy.py.
+ */
+const DEFAULT_STRATEGY_MAP: Record<string, 'symlink' | 'recreate' | 'copy' | 'skip'> = {
+  // JavaScript / Node.js — symlink is safe and fast
+  node_modules: 'symlink',
+  // Python — venvs MUST be recreated, not symlinked.
+  // CPython bug #106045: pyvenv.cfg discovery does not resolve symlinks,
+  // so a symlinked venv resolves paths relative to the target, not the worktree.
+  venv: 'recreate',
+  '.venv': 'recreate',
+  // PHP — Composer vendor dir is safe to symlink
+  vendor_php: 'symlink',
+  // Rust — global cache, nothing in-tree to share
+  cargo_registry: 'skip',
+  // Go — global module cache, nothing in-tree to share
+  go_modules: 'skip',
+};
+
+/**
+ * Load dependency configs from the project index, or fall back to hardcoded
+ * node_modules-only behavior for backward compatibility.
+ */
+function loadDependencyConfigs(projectPath: string): DependencyConfig[] {
+  const indexPath = path.join(projectPath, '.auto-claude', 'project_index.json');
+
+  if (existsSync(indexPath)) {
+    try {
+      const index = JSON.parse(readFileSync(indexPath, 'utf-8'));
+      const services = index?.services;
+      if (services && typeof services === 'object') {
+        const configs: DependencyConfig[] = [];
+        const seen = new Set<string>();
+
+        for (const serviceData of Object.values(services)) {
+          if (!serviceData || typeof serviceData !== 'object') continue;
+          const depLocations = (serviceData as Record<string, unknown>).dependency_locations;
+          if (!Array.isArray(depLocations)) continue;
+
+          for (const dep of depLocations) {
+            if (!dep || typeof dep !== 'object') continue;
+            const depObj = dep as Record<string, unknown>;
+            const depType = String(depObj.type || '');
+            const relPath = String(depObj.path || '');
+            if (!depType || !relPath || seen.has(relPath)) continue;
+            seen.add(relPath);
+
+            const strategy = DEFAULT_STRATEGY_MAP[depType] ?? 'skip';
+            configs.push({
+              depType,
+              strategy,
+              sourceRelPath: relPath,
+              requirementsFile: depObj.requirements_file ? String(depObj.requirements_file) : undefined,
+              packageManager: depObj.package_manager ? String(depObj.package_manager) : undefined,
+            });
+          }
+        }
+
+        if (configs.length > 0) {
+          return configs;
+        }
+      }
+    } catch (error) {
+      debugError('[TerminalWorktree] Failed to read project index:', error);
+    }
+  }
+
+  // Fallback: hardcoded node_modules-only behavior (same as legacy)
+  return [
+    { depType: 'node_modules', strategy: 'symlink', sourceRelPath: 'node_modules' },
+    { depType: 'node_modules', strategy: 'symlink', sourceRelPath: 'apps/frontend/node_modules' },
+  ];
+}
+
+/**
+ * Set up dependencies in a worktree using strategy-based dispatch.
+ *
+ * Reads dependency configs from the project index and applies the correct
+ * strategy for each: symlink, recreate, copy, or skip.
+ *
+ * All operations are non-blocking on failure — errors are logged but never thrown.
+ *
+ * @param projectPath - The main project directory
+ * @param worktreePath - Path to the worktree
+ * @returns Array of successfully processed dependency relative paths
+ */
+async function setupWorktreeDependencies(projectPath: string, worktreePath: string): Promise<string[]> {
+  const configs = loadDependencyConfigs(projectPath);
+  const processed: string[] = [];
+
+  for (const config of configs) {
+    try {
+      switch (config.strategy) {
+        case 'symlink':
+          applySymlinkStrategy(projectPath, worktreePath, config);
+          break;
+        case 'recreate':
+          await applyRecreateStrategy(projectPath, worktreePath, config);
+          break;
+        case 'copy':
+          applyCopyStrategy(projectPath, worktreePath, config);
+          break;
+        case 'skip':
+          debugLog('[TerminalWorktree] Skipping', config.depType, `(${config.sourceRelPath}) - skip strategy`);
+          break;
+      }
+      processed.push(config.sourceRelPath);
+    } catch (error) {
+      debugError('[TerminalWorktree] Failed to apply', config.strategy, 'strategy for', config.sourceRelPath, ':', error);
+      console.warn(`[TerminalWorktree] Warning: Failed to set up ${config.sourceRelPath}`);
+    }
+  }
+
+  return processed;
+}
+
+/**
+ * Apply symlink strategy: create a symlink (or Windows junction) from worktree to project source.
+ * Reuses the existing platform-specific symlink creation pattern.
+ */
+function applySymlinkStrategy(projectPath: string, worktreePath: string, config: DependencyConfig): void {
+  const sourcePath = path.join(projectPath, config.sourceRelPath);
+  const targetPath = path.join(worktreePath, config.sourceRelPath);
+
+  if (!existsSync(sourcePath)) {
+    debugLog('[TerminalWorktree] Skipping symlink', config.sourceRelPath, '- source missing');
+    return;
+  }
+
+  if (existsSync(targetPath)) {
+    debugLog('[TerminalWorktree] Skipping symlink', config.sourceRelPath, '- target exists');
+    return;
+  }
+
+  // Check for broken symlinks
+  try {
+    lstatSync(targetPath);
+    debugLog('[TerminalWorktree] Skipping symlink', config.sourceRelPath, '- target exists (possibly broken symlink)');
+    return;
+  } catch {
+    // Target doesn't exist at all — good, we can create symlink
+  }
+
+  const targetDir = path.dirname(targetPath);
+  if (!existsSync(targetDir)) {
+    mkdirSync(targetDir, { recursive: true });
+  }
+
+  try {
+    if (isWindows()) {
+      symlinkSync(sourcePath, targetPath, 'junction');
+      debugLog('[TerminalWorktree] Created junction (Windows):', config.sourceRelPath, '->', sourcePath);
+    } else {
+      const relativePath = path.relative(path.dirname(targetPath), sourcePath);
+      symlinkSync(relativePath, targetPath);
+      debugLog('[TerminalWorktree] Created symlink (Unix):', config.sourceRelPath, '->', relativePath);
+    }
+  } catch (error) {
+    debugError('[TerminalWorktree] Could not create symlink for', config.sourceRelPath, ':', error);
+    console.warn(`[TerminalWorktree] Warning: Failed to link ${config.sourceRelPath}`);
+  }
+}
+
+/**
+ * Apply recreate strategy: create a fresh virtual environment in the worktree.
+ *
+ * Python venvs cannot be symlinked due to CPython bug #106045 — pyvenv.cfg
+ * discovery does not resolve symlinks, so paths resolve relative to the
+ * symlink target instead of the worktree.
+ */
+async function applyRecreateStrategy(projectPath: string, worktreePath: string, config: DependencyConfig): Promise<void> {
+  const venvPath = path.join(worktreePath, config.sourceRelPath);
+
+  if (existsSync(venvPath)) {
+    debugLog('[TerminalWorktree] Skipping recreate', config.sourceRelPath, '- already exists');
+    return;
+  }
+
+  // Detect Python executable from the source venv or fall back to system Python
+  const sourceVenv = path.join(projectPath, config.sourceRelPath);
+  let pythonExec = 'python3';
+
+  if (existsSync(sourceVenv)) {
+    const unixCandidate = path.join(sourceVenv, 'bin', 'python');
+    const winCandidate = path.join(sourceVenv, 'Scripts', 'python.exe');
+    if (existsSync(unixCandidate)) {
+      pythonExec = unixCandidate;
+    } else if (existsSync(winCandidate)) {
+      pythonExec = winCandidate;
+    }
+  }
+
+  // Create the venv
+  try {
+    debugLog('[TerminalWorktree] Creating venv at', config.sourceRelPath);
+    await execFileAsync(pythonExec, ['-m', 'venv', venvPath], {
+      encoding: 'utf-8',
+      timeout: 120000,
+    });
+  } catch (error) {
+    if (isTimeoutError(error)) {
+      debugError('[TerminalWorktree] venv creation timed out for', config.sourceRelPath);
+      console.warn(`[TerminalWorktree] Warning: venv creation timed out for ${config.sourceRelPath}`);
+    } else {
+      debugError('[TerminalWorktree] venv creation failed for', config.sourceRelPath, ':', error);
+      console.warn(`[TerminalWorktree] Warning: Could not create venv at ${config.sourceRelPath}`);
+    }
+    return;
+  }
+
+  // Install from requirements file if specified
+  if (config.requirementsFile) {
+    const reqPath = path.join(projectPath, config.requirementsFile);
+    if (existsSync(reqPath)) {
+      const pipExec = isWindows()
+        ? path.join(venvPath, 'Scripts', 'pip.exe')
+        : path.join(venvPath, 'bin', 'pip');
+
+      try {
+        debugLog('[TerminalWorktree] Installing deps from', config.requirementsFile);
+        await execFileAsync(pipExec, ['install', '-r', reqPath], {
+          encoding: 'utf-8',
+          timeout: 120000,
+        });
+      } catch (error) {
+        if (isTimeoutError(error)) {
+          debugError('[TerminalWorktree] pip install timed out for', config.requirementsFile);
+          console.warn(`[TerminalWorktree] Warning: Dependency install timed out for ${config.requirementsFile}`);
+        } else {
+          debugError('[TerminalWorktree] pip install failed:', error);
+        }
+      }
+    }
+  }
+
+  debugLog('[TerminalWorktree] Recreated venv at', config.sourceRelPath);
+}
+
+/**
+ * Apply copy strategy: copy a file from project to worktree.
+ */
+function applyCopyStrategy(projectPath: string, worktreePath: string, config: DependencyConfig): void {
+  const sourcePath = path.join(projectPath, config.sourceRelPath);
+  const targetPath = path.join(worktreePath, config.sourceRelPath);
+
+  if (!existsSync(sourcePath)) {
+    debugLog('[TerminalWorktree] Skipping copy', config.sourceRelPath, '- source missing');
+    return;
+  }
+
+  if (existsSync(targetPath)) {
+    debugLog('[TerminalWorktree] Skipping copy', config.sourceRelPath, '- target exists');
+    return;
+  }
+
+  const targetDir = path.dirname(targetPath);
+  if (!existsSync(targetDir)) {
+    mkdirSync(targetDir, { recursive: true });
+  }
+
+  try {
+    copyFileSync(sourcePath, targetPath);
+    debugLog('[TerminalWorktree] Copied', config.sourceRelPath, 'to worktree');
+  } catch (error) {
+    debugError('[TerminalWorktree] Could not copy', config.sourceRelPath, ':', error);
+    console.warn(`[TerminalWorktree] Warning: Could not copy ${config.sourceRelPath}`);
+  }
 }
 
 function saveWorktreeConfig(projectPath: string, name: string, config: TerminalWorktreeConfig): void {
