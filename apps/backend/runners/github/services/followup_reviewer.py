@@ -37,7 +37,7 @@ try:
     from .category_utils import map_category
     from .io_utils import safe_print
     from .prompt_manager import PromptManager
-    from .pydantic_models import FollowupReviewResponse
+    from .pydantic_models import FollowupExtractionResponse, FollowupReviewResponse
 except (ImportError, ValueError, SystemError):
     from gh_client import GHClient
     from models import (
@@ -51,7 +51,10 @@ except (ImportError, ValueError, SystemError):
     from services.category_utils import map_category
     from services.io_utils import safe_print
     from services.prompt_manager import PromptManager
-    from services.pydantic_models import FollowupReviewResponse
+    from services.pydantic_models import (
+        FollowupExtractionResponse,
+        FollowupReviewResponse,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -698,6 +701,9 @@ Analyze this follow-up review context and provide your structured response.
             )
             safe_print(f"[Followup] SDK query with output_format, model={model}")
 
+            # Capture assistant text for extraction fallback
+            captured_text = ""
+
             # Iterate through messages from the query
             # Note: max_turns=2 because structured output uses a tool call + response
             async for message in query(
@@ -722,7 +728,9 @@ Analyze this follow-up review context and provide your structured response.
                     content = getattr(message, "content", [])
                     for block in content:
                         block_type = type(block).__name__
-                        if block_type == "ToolUseBlock":
+                        if block_type == "TextBlock":
+                            captured_text += getattr(block, "text", "")
+                        elif block_type == "ToolUseBlock":
                             tool_name = getattr(block, "name", "")
                             if tool_name == "StructuredOutput":
                                 # Extract structured data from tool input
@@ -765,9 +773,31 @@ Analyze this follow-up review context and provide your structured response.
                         logger.warning(
                             "Claude could not produce valid structured output after retries"
                         )
+                        # Attempt extraction call recovery before giving up
+                        if captured_text:
+                            safe_print(
+                                "[Followup] Attempting extraction call recovery...",
+                                flush=True,
+                            )
+                            extraction_result = await self._attempt_extraction_call(
+                                captured_text, context
+                            )
+                            if extraction_result is not None:
+                                return extraction_result
                         return None
 
             logger.warning("No structured output received from AI")
+            # Attempt extraction call recovery before giving up
+            if captured_text:
+                safe_print(
+                    "[Followup] No structured output — attempting extraction call recovery...",
+                    flush=True,
+                )
+                extraction_result = await self._attempt_extraction_call(
+                    captured_text, context
+                )
+                if extraction_result is not None:
+                    return extraction_result
             return None
 
         except ValueError as e:
@@ -839,6 +869,141 @@ Analyze this follow-up review context and provide your structured response.
             "verdict": result.verdict,
             "verdict_reasoning": result.verdict_reasoning,
         }
+
+    async def _attempt_extraction_call(
+        self,
+        text: str,
+        context: FollowupReviewContext,
+    ) -> dict[str, Any] | None:
+        """Attempt a short SDK call with minimal schema to recover review data.
+
+        This is the extraction recovery step when full structured output validation fails.
+        Uses FollowupExtractionResponse (~6 flat fields) which has near-100% success rate.
+
+        Returns parsed result dict on success, None on failure.
+        """
+        if not text or not text.strip():
+            return None
+
+        try:
+            from claude_agent_sdk import ClaudeAgentOptions, query
+            from phase_config import resolve_model_id
+
+            extraction_prompt = (
+                "Extract the key review data from the following AI analysis output. "
+                "Return the verdict, reasoning, resolved finding IDs, unresolved finding IDs, "
+                "one-line summaries of any new findings, and counts of confirmed/dismissed findings.\n\n"
+                f"--- AI ANALYSIS OUTPUT ---\n{text[:8000]}\n--- END ---"
+            )
+
+            model_shorthand = self.config.model or "sonnet"
+            model = resolve_model_id(model_shorthand)
+            schema = FollowupExtractionResponse.model_json_schema()
+
+            extracted = None
+            async for message in query(
+                prompt=extraction_prompt,
+                options=ClaudeAgentOptions(
+                    model=model,
+                    system_prompt="You extract structured review data from text.",
+                    allowed_tools=[],
+                    max_turns=2,
+                    output_format={
+                        "type": "json_schema",
+                        "schema": schema,
+                    },
+                ),
+            ):
+                msg_type = type(message).__name__
+                if msg_type == "AssistantMessage":
+                    content = getattr(message, "content", [])
+                    for block in content:
+                        if type(block).__name__ == "ToolUseBlock":
+                            if getattr(block, "name", "") == "StructuredOutput":
+                                data = getattr(block, "input", None)
+                                if data:
+                                    extracted = (
+                                        FollowupExtractionResponse.model_validate(data)
+                                    )
+                    if (
+                        not extracted
+                        and hasattr(message, "structured_output")
+                        and message.structured_output
+                    ):
+                        extracted = FollowupExtractionResponse.model_validate(
+                            message.structured_output
+                        )
+
+            if not extracted:
+                return None
+
+            # Convert extraction to internal format with reconstructed findings
+            new_findings = []
+            for i, summary in enumerate(extracted.new_finding_summaries):
+                severity = ReviewSeverity.MEDIUM
+                description = summary
+                upper_summary = summary.upper()
+                for sev_name, sev_val in [
+                    ("CRITICAL:", ReviewSeverity.CRITICAL),
+                    ("HIGH:", ReviewSeverity.HIGH),
+                    ("MEDIUM:", ReviewSeverity.MEDIUM),
+                    ("LOW:", ReviewSeverity.LOW),
+                ]:
+                    if upper_summary.startswith(sev_name):
+                        severity = sev_val
+                        description = summary[len(sev_name) :].strip()
+                        break
+
+                finding_id = hashlib.md5(
+                    f"extraction-{i}-{description}".encode(),
+                    usedforsecurity=False,
+                ).hexdigest()[:12]
+                new_findings.append(
+                    PRReviewFinding(
+                        id=finding_id,
+                        severity=severity,
+                        category=ReviewCategory.QUALITY,
+                        title=description[:80],
+                        description=f"[Recovered via extraction] {description}",
+                        file="unknown",
+                        line=0,
+                    )
+                )
+
+            # Build finding_resolutions from extraction data for _apply_ai_resolutions
+            finding_resolutions = []
+            for fid in extracted.resolved_finding_ids:
+                finding_resolutions.append(
+                    {"finding_id": fid, "status": "resolved", "resolution_notes": None}
+                )
+            for fid in extracted.unresolved_finding_ids:
+                finding_resolutions.append(
+                    {
+                        "finding_id": fid,
+                        "status": "unresolved",
+                        "resolution_notes": None,
+                    }
+                )
+
+            safe_print(
+                f"[Followup] Extraction recovered: verdict={extracted.verdict}, "
+                f"{len(extracted.resolved_finding_ids)} resolved, "
+                f"{len(extracted.unresolved_finding_ids)} unresolved, "
+                f"{len(new_findings)} new findings",
+                flush=True,
+            )
+
+            return {
+                "finding_resolutions": finding_resolutions,
+                "new_findings": new_findings,
+                "comment_findings": [],
+                "verdict": extracted.verdict,
+                "verdict_reasoning": f"[Recovered via extraction] {extracted.verdict_reasoning}",
+            }
+
+        except Exception as e:
+            logger.warning(f"[Followup] Extraction call failed: {e}")
+            return None
 
     def _apply_ai_resolutions(
         self,
