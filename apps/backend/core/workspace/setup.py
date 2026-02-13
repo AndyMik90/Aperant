@@ -28,8 +28,9 @@ from ui import (
 )
 from worktree import WorktreeManager
 
+from .dependency_strategy import get_dependency_configs
 from .git_utils import has_uncommitted_changes
-from .models import WorkspaceMode
+from .models import DependencyShareConfig, DependencyStrategy, WorkspaceMode
 
 # Import debug utilities
 try:
@@ -572,6 +573,217 @@ def initialize_timeline_tracking(
         # Non-fatal - timeline tracking is supplementary
         debug_warning(MODULE, f"Could not initialize timeline tracking: {e}")
         print(muted(f"  Note: Timeline tracking could not be initialized: {e}"))
+
+
+def setup_worktree_dependencies(
+    project_dir: Path,
+    worktree_path: Path,
+    project_index: dict | None = None,
+) -> dict[str, list[str]]:
+    """
+    Set up dependencies in a worktree using strategy-based dispatch.
+
+    Reads dependency configs from the project index and applies the correct
+    strategy for each: symlink, recreate, copy, or skip.
+
+    All operations are non-blocking — failures produce warnings but do not
+    prevent worktree creation.
+
+    Args:
+        project_dir: The main project directory
+        worktree_path: Path to the worktree
+        project_index: Parsed project_index.json dict, or None
+
+    Returns:
+        Dict mapping strategy names to lists of paths that were processed.
+    """
+    configs = get_dependency_configs(project_index)
+    results: dict[str, list[str]] = {}
+
+    for config in configs:
+        strategy_name = config.strategy.value
+        if strategy_name not in results:
+            results[strategy_name] = []
+
+        try:
+            if config.strategy == DependencyStrategy.SYMLINK:
+                _apply_symlink_strategy(project_dir, worktree_path, config)
+            elif config.strategy == DependencyStrategy.RECREATE:
+                _apply_recreate_strategy(project_dir, worktree_path, config)
+            elif config.strategy == DependencyStrategy.COPY:
+                _apply_copy_strategy(project_dir, worktree_path, config)
+            elif config.strategy == DependencyStrategy.SKIP:
+                _apply_skip_strategy(config)
+            results[strategy_name].append(config.source_rel_path)
+        except Exception as e:
+            debug_warning(
+                MODULE,
+                f"Failed to apply {strategy_name} strategy for "
+                f"{config.source_rel_path}: {e}",
+            )
+
+    return results
+
+
+def _apply_symlink_strategy(
+    project_dir: Path,
+    worktree_path: Path,
+    config: DependencyShareConfig,
+) -> None:
+    """Create a symlink (or Windows junction) from worktree to project source."""
+    source_path = project_dir / config.source_rel_path
+    target_path = worktree_path / config.source_rel_path
+
+    if not source_path.exists():
+        debug(MODULE, f"Skipping symlink {config.source_rel_path} - source missing")
+        return
+
+    if target_path.exists() or target_path.is_symlink():
+        debug(MODULE, f"Skipping symlink {config.source_rel_path} - target exists")
+        return
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        if sys.platform == "win32":
+            # Windows: use junctions (no admin rights required)
+            result = subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(target_path), str(source_path)],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                raise OSError(result.stderr or "mklink /J failed")
+        else:
+            # macOS/Linux: relative symlinks for portability
+            relative_source = os.path.relpath(source_path, target_path.parent)
+            os.symlink(relative_source, target_path)
+        debug(MODULE, f"Symlinked {config.source_rel_path} -> {source_path}")
+    except OSError as e:
+        debug_warning(
+            MODULE,
+            f"Could not symlink {config.source_rel_path}: {e}",
+        )
+        print_status(f"Warning: Could not link {config.source_rel_path}", "warning")
+
+
+def _apply_recreate_strategy(
+    project_dir: Path,
+    worktree_path: Path,
+    config: DependencyShareConfig,
+) -> None:
+    """Create a fresh virtual environment in the worktree and install deps."""
+    venv_path = worktree_path / config.source_rel_path
+
+    if venv_path.exists():
+        debug(MODULE, f"Skipping recreate {config.source_rel_path} - already exists")
+        return
+
+    # Detect Python executable from the source venv or fall back to sys.executable
+    source_venv = project_dir / config.source_rel_path
+    python_exec = sys.executable
+
+    if source_venv.exists():
+        # Try to use the same Python version as the source venv
+        for candidate in ("bin/python", "Scripts/python.exe"):
+            candidate_path = source_venv / candidate
+            if candidate_path.exists():
+                python_exec = str(candidate_path.resolve())
+                break
+
+    # Create the venv
+    try:
+        debug(MODULE, f"Creating venv at {venv_path}")
+        result = subprocess.run(
+            [python_exec, "-m", "venv", str(venv_path)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode != 0:
+            debug_warning(MODULE, f"venv creation failed: {result.stderr}")
+            print_status(
+                f"Warning: Could not create venv at {config.source_rel_path}",
+                "warning",
+            )
+            return
+    except subprocess.TimeoutExpired:
+        debug_warning(MODULE, f"venv creation timed out for {config.source_rel_path}")
+        print_status(
+            f"Warning: venv creation timed out for {config.source_rel_path}",
+            "warning",
+        )
+        return
+
+    # Install from requirements file if specified
+    req_file = config.requirements_file
+    if req_file:
+        req_path = project_dir / req_file
+        if req_path.is_file():
+            # Determine pip executable inside the new venv
+            if sys.platform == "win32":
+                pip_exec = str(venv_path / "Scripts" / "pip.exe")
+            else:
+                pip_exec = str(venv_path / "bin" / "pip")
+
+            try:
+                debug(MODULE, f"Installing deps from {req_file}")
+                subprocess.run(
+                    [pip_exec, "install", "-r", str(req_path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+            except subprocess.TimeoutExpired:
+                debug_warning(
+                    MODULE,
+                    f"pip install timed out for {req_file}",
+                )
+                print_status(
+                    f"Warning: Dependency install timed out for {req_file}",
+                    "warning",
+                )
+            except OSError as e:
+                debug_warning(MODULE, f"pip install failed: {e}")
+
+    debug(MODULE, f"Recreated venv at {config.source_rel_path}")
+
+
+def _apply_copy_strategy(
+    project_dir: Path,
+    worktree_path: Path,
+    config: DependencyShareConfig,
+) -> None:
+    """Deep-copy a dependency directory from project to worktree."""
+    source_path = project_dir / config.source_rel_path
+    target_path = worktree_path / config.source_rel_path
+
+    if not source_path.exists():
+        debug(MODULE, f"Skipping copy {config.source_rel_path} - source missing")
+        return
+
+    if target_path.exists():
+        debug(MODULE, f"Skipping copy {config.source_rel_path} - target exists")
+        return
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        if source_path.is_file():
+            shutil.copy2(source_path, target_path)
+        else:
+            shutil.copytree(source_path, target_path)
+        debug(MODULE, f"Copied {config.source_rel_path} to worktree")
+    except (OSError, shutil.Error) as e:
+        debug_warning(MODULE, f"Could not copy {config.source_rel_path}: {e}")
+        print_status(f"Warning: Could not copy {config.source_rel_path}", "warning")
+
+
+def _apply_skip_strategy(config: DependencyShareConfig) -> None:
+    """Skip — nothing to do for this dependency type."""
+    debug(
+        MODULE, f"Skipping {config.dep_type} ({config.source_rel_path}) - skip strategy"
+    )
 
 
 # Export private functions for backward compatibility
