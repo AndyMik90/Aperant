@@ -309,7 +309,11 @@ function loadDependencyConfigs(projectPath: string): DependencyConfig[] {
             const rfParts = rf.split('/');
             const rfPartsWin = rf.split('\\');
             if (!path.isAbsolute(rf) && !rfParts.includes('..') && !rfPartsWin.includes('..')) {
-              reqFile = rf;
+              // Defense-in-depth: resolved-path containment (matches relPath check)
+              const resolvedReq = path.resolve(projectPath, rf);
+              if (resolvedReq.startsWith(path.resolve(projectPath) + path.sep)) {
+                reqFile = rf;
+              }
             }
           }
 
