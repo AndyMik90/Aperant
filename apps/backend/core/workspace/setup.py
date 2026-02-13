@@ -648,6 +648,9 @@ def _apply_recreate_strategy(
                 f"Warning: Could not create venv at {config.source_rel_path}",
                 "warning",
             )
+            # Clean up partial venv so retries aren't blocked
+            if venv_path.exists():
+                shutil.rmtree(venv_path, ignore_errors=True)
             return
     except subprocess.TimeoutExpired:
         debug_warning(MODULE, f"venv creation timed out for {config.source_rel_path}")
@@ -655,6 +658,9 @@ def _apply_recreate_strategy(
             f"Warning: venv creation timed out for {config.source_rel_path}",
             "warning",
         )
+        # Clean up partial venv so retries aren't blocked
+        if venv_path.exists():
+            shutil.rmtree(venv_path, ignore_errors=True)
         return
 
     # Install from requirements file if specified

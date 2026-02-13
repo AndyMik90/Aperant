@@ -346,8 +346,10 @@ const DEFAULT_STRATEGY_MAP: Record<string, 'symlink' | 'recreate' | 'copy' | 'sk
   '.venv': 'recreate',
   // PHP — Composer vendor dir is safe to symlink
   vendor_php: 'symlink',
-  // Rust — global cache, nothing in-tree to share
-  cargo_registry: 'skip',
+  // Ruby — Bundler vendor/bundle is safe to symlink
+  vendor_bundle: 'symlink',
+  // Rust — build output dir, skip (rebuilt per-worktree)
+  cargo_target: 'skip',
   // Go — global module cache, nothing in-tree to share
   go_modules: 'skip',
 };
@@ -544,6 +546,10 @@ async function applyRecreateStrategy(projectPath: string, worktreePath: string, 
     } else {
       debugError('[TerminalWorktree] venv creation failed for', config.sourceRelPath, ':', error);
       console.warn(`[TerminalWorktree] Warning: Could not create venv at ${config.sourceRelPath}`);
+    }
+    // Clean up partial venv so retries aren't blocked
+    if (existsSync(venvPath)) {
+      try { rmSync(venvPath, { recursive: true, force: true }); } catch { /* best-effort */ }
     }
     return;
   }

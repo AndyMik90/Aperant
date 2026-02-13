@@ -271,7 +271,7 @@ class ServiceAnalyzer(BaseAnalyzer):
         if target_path.exists() and target_path.is_dir():
             locations.append(
                 {
-                    "type": "cargo_registry",
+                    "type": "cargo_target",
                     "path": "target",
                     "exists": True,
                 }

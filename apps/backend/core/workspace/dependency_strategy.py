@@ -16,9 +16,9 @@ Each dependency ecosystem has different constraints:
 - **vendor (PHP)**: Safe to symlink. Composer's autoloader uses ``__DIR__``-relative
   paths that resolve correctly through symlinks.
 
-- **cargo registry / go modules**: Skip entirely. Cargo and Go use a global cache
-  (``~/.cargo/registry``, ``$GOPATH/pkg/mod``) and do not store dependencies inside
-  the project tree, so there is nothing to share.
+- **cargo target / go modules**: Skip entirely. Rust's ``target/`` dir contains
+  per-machine build artifacts that must be rebuilt. Go uses a global module cache
+  (``$GOPATH/pkg/mod``), so there is nothing in-tree to share.
 """
 
 from __future__ import annotations
@@ -43,8 +43,10 @@ DEFAULT_STRATEGY_MAP: dict[str, DependencyStrategy] = {
     ".venv": DependencyStrategy.RECREATE,
     # PHP — Composer vendor dir is safe to symlink
     "vendor_php": DependencyStrategy.SYMLINK,
-    # Rust — global cache, nothing in-tree to share
-    "cargo_registry": DependencyStrategy.SKIP,
+    # Ruby — Bundler vendor/bundle is safe to symlink
+    "vendor_bundle": DependencyStrategy.SYMLINK,
+    # Rust — build output dir, skip (rebuilt per-worktree)
+    "cargo_target": DependencyStrategy.SKIP,
     # Go — global module cache, nothing in-tree to share
     "go_modules": DependencyStrategy.SKIP,
 }
@@ -55,9 +57,9 @@ def get_dependency_configs(
 ) -> list[DependencyShareConfig]:
     """Derive dependency share configs from a project index.
 
-    If *project_index* is ``None`` or lacks ``services`` with
-    ``dependency_locations``, falls back to a hardcoded node_modules-only
-    config for backward compatibility with existing worktree setups.
+    If *project_index* is ``None`` or lacks ``dependency_locations``,
+    falls back to a hardcoded node_modules config for backward compatibility
+    with existing worktree setups.
 
     Args:
         project_index: Parsed ``project_index.json`` dict, or ``None``.

@@ -138,15 +138,18 @@ class ProjectAnalyzer:
             service_deps = service_info.get("dependency_locations", [])
             service_path = service_info.get("path", "")
 
+            # Compute service-relative prefix once per service
+            service_rel: Path | None = None
+            if service_path:
+                try:
+                    service_rel = Path(service_path).relative_to(self.project_dir)
+                except ValueError:
+                    service_rel = Path(service_path)
+
             for dep in service_deps:
                 # Build project-relative path from service path + dep path
-                if service_path:
-                    try:
-                        service_rel = Path(service_path).relative_to(self.project_dir)
-                        project_relative = str(service_rel / dep["path"])
-                    except ValueError:
-                        # service_path is already relative or can't be made relative
-                        project_relative = str(Path(service_path) / dep["path"])
+                if service_rel is not None:
+                    project_relative = str(service_rel / dep["path"])
                 else:
                     project_relative = dep["path"]
 
@@ -157,7 +160,13 @@ class ProjectAnalyzer:
                     "service": service_name,
                 }
                 if dep.get("requirements_file"):
-                    entry["requirements_file"] = dep["requirements_file"]
+                    # Convert to project-relative path like we do for "path"
+                    if service_rel is not None:
+                        entry["requirements_file"] = str(
+                            service_rel / dep["requirements_file"]
+                        )
+                    else:
+                        entry["requirements_file"] = dep["requirements_file"]
                 if dep.get("package_manager"):
                     entry["package_manager"] = dep["package_manager"]
                 aggregated.append(entry)

@@ -13,7 +13,6 @@ Tests the dependency_strategy.py and models.py functionality including:
 - symlink_node_modules_to_worktree() backward compatibility
 """
 
-import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -101,9 +100,13 @@ class TestDefaultStrategyMap:
         """vendor_php maps to SYMLINK."""
         assert DEFAULT_STRATEGY_MAP["vendor_php"] == DependencyStrategy.SYMLINK
 
-    def test_cargo_registry_is_skip(self):
-        """cargo_registry maps to SKIP."""
-        assert DEFAULT_STRATEGY_MAP["cargo_registry"] == DependencyStrategy.SKIP
+    def test_vendor_bundle_is_symlink(self):
+        """vendor_bundle maps to SYMLINK."""
+        assert DEFAULT_STRATEGY_MAP["vendor_bundle"] == DependencyStrategy.SYMLINK
+
+    def test_cargo_target_is_skip(self):
+        """cargo_target maps to SKIP."""
+        assert DEFAULT_STRATEGY_MAP["cargo_target"] == DependencyStrategy.SKIP
 
     def test_go_modules_is_skip(self):
         """go_modules maps to SKIP."""
