@@ -13,6 +13,7 @@ Tests the recovery system functionality including:
 import json
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -531,6 +532,322 @@ def test_checkpoint_clear_and_reset(test_env):
 
     # But subtask-1 history should still exist (just not marked stuck)
     assert manager2.get_attempt_count("subtask-1") == 2, "subtask-1 history lost"
+
+
+# =============================================================================
+# TIME-WINDOW FILTERING TESTS (get_attempt_count)
+# =============================================================================
+
+def test_get_attempt_count_time_window_filtering(test_env):
+    """Test that get_attempt_count only counts attempts within the 2-hour window."""
+    from datetime import timedelta
+
+    temp_dir, spec_dir, project_dir = test_env
+    manager = RecoveryManager(spec_dir, project_dir)
+
+    old_time = (datetime.now() - timedelta(hours=3)).isoformat()
+    recent_time = (datetime.now() - timedelta(minutes=30)).isoformat()
+
+    history = manager._load_attempt_history()
+    history["subtasks"]["test-1"] = {
+        "attempts": [
+            {"timestamp": old_time, "approach": "old approach", "success": False},
+            {"timestamp": recent_time, "approach": "recent approach", "success": False},
+        ],
+        "status": "failed",
+    }
+    manager._save_attempt_history(history)
+
+    count = manager.get_attempt_count("test-1")
+    assert count == 1, "Should only count the recent attempt within 2-hour window"
+
+
+def test_get_attempt_count_boundary_just_inside_and_outside(test_env):
+    """Test attempts just inside and outside the 2-hour cutoff boundary."""
+    from datetime import timedelta
+
+    temp_dir, spec_dir, project_dir = test_env
+    manager = RecoveryManager(spec_dir, project_dir)
+
+    # 1 second inside the window (1h 59m 59s ago) - should be included
+    inside_time = (datetime.now() - timedelta(seconds=7199)).isoformat()
+    # 10 seconds outside the window (2h 10s ago) - should be excluded
+    outside_time = (datetime.now() - timedelta(seconds=7210)).isoformat()
+
+    history = manager._load_attempt_history()
+    history["subtasks"]["test-boundary"] = {
+        "attempts": [
+            {"timestamp": inside_time, "approach": "inside window", "success": False},
+            {"timestamp": outside_time, "approach": "outside window", "success": False},
+        ],
+        "status": "failed",
+    }
+    manager._save_attempt_history(history)
+
+    count = manager.get_attempt_count("test-boundary")
+    assert count == 1, "Attempt inside window should be counted, outside should not"
+
+
+def test_get_attempt_count_all_outside_window(test_env):
+    """Test that all attempts outside the time window returns 0."""
+    from datetime import timedelta
+
+    temp_dir, spec_dir, project_dir = test_env
+    manager = RecoveryManager(spec_dir, project_dir)
+
+    old_time_1 = (datetime.now() - timedelta(hours=5)).isoformat()
+    old_time_2 = (datetime.now() - timedelta(hours=4)).isoformat()
+    old_time_3 = (datetime.now() - timedelta(hours=3)).isoformat()
+
+    history = manager._load_attempt_history()
+    history["subtasks"]["test-old"] = {
+        "attempts": [
+            {"timestamp": old_time_1, "approach": "old 1", "success": False},
+            {"timestamp": old_time_2, "approach": "old 2", "success": False},
+            {"timestamp": old_time_3, "approach": "old 3", "success": False},
+        ],
+        "status": "failed",
+    }
+    manager._save_attempt_history(history)
+
+    count = manager.get_attempt_count("test-old")
+    assert count == 0, "All attempts outside window should result in count of 0"
+
+
+def test_get_attempt_count_all_recent(test_env):
+    """Test that all recent attempts are counted."""
+    from datetime import timedelta
+
+    temp_dir, spec_dir, project_dir = test_env
+    manager = RecoveryManager(spec_dir, project_dir)
+
+    times = [
+        (datetime.now() - timedelta(minutes=10)).isoformat(),
+        (datetime.now() - timedelta(minutes=30)).isoformat(),
+        (datetime.now() - timedelta(minutes=90)).isoformat(),
+    ]
+
+    history = manager._load_attempt_history()
+    history["subtasks"]["test-recent"] = {
+        "attempts": [
+            {"timestamp": times[0], "approach": "a1", "success": False},
+            {"timestamp": times[1], "approach": "a2", "success": False},
+            {"timestamp": times[2], "approach": "a3", "success": False},
+        ],
+        "status": "failed",
+    }
+    manager._save_attempt_history(history)
+
+    count = manager.get_attempt_count("test-recent")
+    assert count == 3, "All recent attempts should be counted"
+
+
+def test_get_attempt_count_missing_timestamp_backward_compat(test_env):
+    """Test backward compatibility: attempts without timestamps are counted as recent."""
+    temp_dir, spec_dir, project_dir = test_env
+    manager = RecoveryManager(spec_dir, project_dir)
+
+    history = manager._load_attempt_history()
+    history["subtasks"]["test-no-ts"] = {
+        "attempts": [
+            {"approach": "no timestamp", "success": False},
+            {"approach": "also no timestamp", "success": False},
+        ],
+        "status": "failed",
+    }
+    manager._save_attempt_history(history)
+
+    count = manager.get_attempt_count("test-no-ts")
+    assert count == 2, "Attempts without timestamps should be counted (backward compat)"
+
+
+def test_get_attempt_count_invalid_timestamp_backward_compat(test_env):
+    """Test backward compatibility: attempts with invalid timestamps are counted as recent."""
+    temp_dir, spec_dir, project_dir = test_env
+    manager = RecoveryManager(spec_dir, project_dir)
+
+    history = manager._load_attempt_history()
+    history["subtasks"]["test-bad-ts"] = {
+        "attempts": [
+            {"timestamp": "not-a-date", "approach": "bad ts", "success": False},
+            {"timestamp": "2024-13-99T99:99:99", "approach": "invalid ts", "success": False},
+        ],
+        "status": "failed",
+    }
+    manager._save_attempt_history(history)
+
+    count = manager.get_attempt_count("test-bad-ts")
+    assert count == 2, "Attempts with invalid timestamps should be counted (backward compat)"
+
+
+def test_get_attempt_count_mixed_timestamps(test_env):
+    """Test mixed scenario: some attempts with timestamps, some without."""
+    from datetime import timedelta
+
+    temp_dir, spec_dir, project_dir = test_env
+    manager = RecoveryManager(spec_dir, project_dir)
+
+    old_time = (datetime.now() - timedelta(hours=5)).isoformat()
+    recent_time = (datetime.now() - timedelta(minutes=10)).isoformat()
+
+    history = manager._load_attempt_history()
+    history["subtasks"]["test-mixed"] = {
+        "attempts": [
+            {"timestamp": old_time, "approach": "old", "success": False},
+            {"timestamp": recent_time, "approach": "recent", "success": False},
+            {"approach": "no timestamp", "success": False},
+            {"timestamp": "garbage", "approach": "bad timestamp", "success": False},
+        ],
+        "status": "failed",
+    }
+    manager._save_attempt_history(history)
+
+    # old_time: excluded (outside window)
+    # recent_time: included (within window)
+    # no timestamp: included (backward compat)
+    # bad timestamp: included (backward compat)
+    count = manager.get_attempt_count("test-mixed")
+    assert count == 3, "Should count recent + missing/invalid timestamps, exclude old"
+
+
+# =============================================================================
+# ATTEMPT HISTORY TRIMMING TESTS (record_attempt)
+# =============================================================================
+
+def test_record_attempt_trimming_at_51(test_env):
+    """Test that recording the 51st attempt triggers trimming to 50."""
+    temp_dir, spec_dir, project_dir = test_env
+    manager = RecoveryManager(spec_dir, project_dir)
+
+    # Manually inject 50 attempts
+    history = manager._load_attempt_history()
+    history["subtasks"]["trim-test"] = {
+        "attempts": [
+            {
+                "session": i,
+                "timestamp": datetime.now().isoformat(),
+                "approach": f"approach-{i}",
+                "success": False,
+                "error": None,
+            }
+            for i in range(50)
+        ],
+        "status": "failed",
+    }
+    manager._save_attempt_history(history)
+
+    # Record the 51st attempt
+    manager.record_attempt("trim-test", 51, False, "approach-50", "error")
+
+    history = manager._load_attempt_history()
+    attempts = history["subtasks"]["trim-test"]["attempts"]
+    assert len(attempts) == 50, "Should trim to 50 after exceeding cap"
+
+
+def test_record_attempt_trimming_keeps_newest(test_env):
+    """Test that trimming keeps the newest 50 attempts, not the oldest."""
+    temp_dir, spec_dir, project_dir = test_env
+    manager = RecoveryManager(spec_dir, project_dir)
+
+    # Inject 50 attempts with identifiable approaches
+    history = manager._load_attempt_history()
+    history["subtasks"]["trim-order"] = {
+        "attempts": [
+            {
+                "session": i,
+                "timestamp": datetime.now().isoformat(),
+                "approach": f"old-approach-{i}",
+                "success": False,
+                "error": None,
+            }
+            for i in range(50)
+        ],
+        "status": "failed",
+    }
+    manager._save_attempt_history(history)
+
+    # Record new attempt (triggers trim)
+    manager.record_attempt("trim-order", 99, False, "newest-approach", "error")
+
+    history = manager._load_attempt_history()
+    attempts = history["subtasks"]["trim-order"]["attempts"]
+    assert len(attempts) == 50
+
+    # The oldest attempt (old-approach-0) should be gone
+    approaches = [a["approach"] for a in attempts]
+    assert "old-approach-0" not in approaches, "Oldest attempt should be trimmed"
+    # The newest attempt should be present
+    assert "newest-approach" in approaches, "Newest attempt should be kept"
+    # old-approach-1 should be the oldest remaining
+    assert "old-approach-1" in approaches, "Second oldest should now be first"
+
+
+def test_record_attempt_no_trimming_at_exactly_50(test_env):
+    """Test that exactly 50 attempts does not trigger trimming."""
+    temp_dir, spec_dir, project_dir = test_env
+    manager = RecoveryManager(spec_dir, project_dir)
+
+    # Inject 49 attempts
+    history = manager._load_attempt_history()
+    history["subtasks"]["no-trim"] = {
+        "attempts": [
+            {
+                "session": i,
+                "timestamp": datetime.now().isoformat(),
+                "approach": f"approach-{i}",
+                "success": False,
+                "error": None,
+            }
+            for i in range(49)
+        ],
+        "status": "failed",
+    }
+    manager._save_attempt_history(history)
+
+    # Record the 50th attempt (should NOT trigger trimming)
+    manager.record_attempt("no-trim", 50, False, "approach-49", "error")
+
+    history = manager._load_attempt_history()
+    attempts = history["subtasks"]["no-trim"]["attempts"]
+    assert len(attempts) == 50, "Exactly 50 should not trigger trimming"
+    # First attempt should still be present
+    assert attempts[0]["approach"] == "approach-0", "No attempts should be removed"
+
+
+def test_record_attempt_trimming_from_100(test_env):
+    """Test trimming from 100 attempts keeps exactly 50."""
+    temp_dir, spec_dir, project_dir = test_env
+    manager = RecoveryManager(spec_dir, project_dir)
+
+    # Inject 100 attempts
+    history = manager._load_attempt_history()
+    history["subtasks"]["big-trim"] = {
+        "attempts": [
+            {
+                "session": i,
+                "timestamp": datetime.now().isoformat(),
+                "approach": f"approach-{i}",
+                "success": False,
+                "error": None,
+            }
+            for i in range(100)
+        ],
+        "status": "failed",
+    }
+    manager._save_attempt_history(history)
+
+    # Record attempt 101 (triggers trim from 101 -> 50)
+    manager.record_attempt("big-trim", 101, False, "approach-100", "error")
+
+    history = manager._load_attempt_history()
+    attempts = history["subtasks"]["big-trim"]["attempts"]
+    assert len(attempts) == 50, "Should trim to exactly 50"
+
+    # Verify newest are kept
+    approaches = [a["approach"] for a in attempts]
+    assert "approach-100" in approaches, "Newest attempt should be kept"
+    assert "approach-0" not in approaches, "Oldest attempts should be trimmed"
+    assert "approach-50" not in approaches, "Mid-range old attempts should be trimmed"
 
 
 def run_all_tests():
