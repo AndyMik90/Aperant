@@ -709,10 +709,11 @@ export function registerTaskExecutionHandlers(
           }
 
           // Start file watcher for this task - use worktree path if available
+          const specsBaseDirForWatcher = getSpecsDir(project.autoBuildPath);
           const worktreePath = findTaskWorktree(project.path, task.specId);
           const specDirForWatcher = worktreePath
-            ? path.join(worktreePath, specsBaseDir, task.specId)
-            : specDir;
+            ? path.join(worktreePath, specsBaseDirForWatcher, task.specId)
+            : path.join(project.path, specsBaseDirForWatcher, task.specId);
           fileWatcher.watch(taskId, specDirForWatcher);
 
           // Check if spec.md exists
