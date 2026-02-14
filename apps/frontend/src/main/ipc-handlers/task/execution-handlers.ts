@@ -204,13 +204,12 @@ export function registerTaskExecutionHandlers(
         console.warn(`[TASK_START] Reset ${resetResult.resetCount} stuck subtask(s) before starting`);
       }
 
-      // Start file watcher for this task
+      // Start file watcher for this task - use worktree path if available
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
-      const specDir = path.join(
-        project.path,
-        specsBaseDir,
-        task.specId
-      );
+      const worktreePath = findTaskWorktree(project.path, task.specId);
+      const specDir = worktreePath
+        ? path.join(worktreePath, specsBaseDir, task.specId)
+        : path.join(project.path, specsBaseDir, task.specId);
       fileWatcher.watch(taskId, specDir);
 
       // Check if spec.md exists (indicates spec creation was already done or in progress)
@@ -709,8 +708,12 @@ export function registerTaskExecutionHandlers(
             console.warn(`[TASK_UPDATE_STATUS] Reset ${resetResult.resetCount} stuck subtask(s) before starting`);
           }
 
-          // Start file watcher for this task
-          fileWatcher.watch(taskId, specDir);
+          // Start file watcher for this task - use worktree path if available
+          const worktreePath = findTaskWorktree(project.path, task.specId);
+          const specDirForWatcher = worktreePath
+            ? path.join(worktreePath, specsBaseDir, task.specId)
+            : specDir;
+          fileWatcher.watch(taskId, specDirForWatcher);
 
           // Check if spec.md exists
           const specFilePath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
@@ -1145,9 +1148,12 @@ export function registerTaskExecutionHandlers(
             }
 
             // Start the task execution
-            // Start file watcher for this task
+            // Start file watcher for this task - use worktree path if available
             const specsBaseDir = getSpecsDir(project.autoBuildPath);
-            const specDirForWatcher = path.join(project.path, specsBaseDir, task.specId);
+            const worktreePath = findTaskWorktree(project.path, task.specId);
+            const specDirForWatcher = worktreePath
+              ? path.join(worktreePath, specsBaseDir, task.specId)
+              : path.join(project.path, specsBaseDir, task.specId);
             fileWatcher.watch(taskId, specDirForWatcher);
 
             // Check if spec.md exists to determine whether to run spec creation or task execution
