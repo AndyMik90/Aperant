@@ -15,11 +15,11 @@ const WARN_COOLDOWN_MS = 5000; // 5 seconds between warnings per channel
 /** Circuit breaker: kill agents after consecutive renderer disposal errors */
 const MAX_CONSECUTIVE_DISPOSAL_ERRORS = 10;
 let consecutiveDisposalErrors = 0;
-let agentManagerRef: { killAll: () => void } | null = null;
+let agentManagerRef: { killAll: () => void | Promise<void> } | null = null;
 let circuitBreakerTriggered = false;
 
 /** Set agent manager reference for circuit breaker cleanup */
-export function setAgentManagerRef(manager: { killAll: () => void }): void {
+export function setAgentManagerRef(manager: { killAll: () => void | Promise<void> }): void {
   agentManagerRef = manager;
 }
 
@@ -119,8 +119,9 @@ export function safeSendToRenderer(
 
     // All checks passed - safe to send
     mainWindow.webContents.send(channel, ...args);
-    // On successful send, reset circuit breaker counter
+    // On successful send, reset circuit breaker state (allow re-trigger after recovery)
     consecutiveDisposalErrors = 0;
+    circuitBreakerTriggered = false;
     return true;
   } catch (error) {
     // Catch any disposal errors that might occur between our checks and the actual send
@@ -133,7 +134,9 @@ export function safeSendToRenderer(
       if (consecutiveDisposalErrors >= MAX_CONSECUTIVE_DISPOSAL_ERRORS && !circuitBreakerTriggered && agentManagerRef) {
         circuitBreakerTriggered = true;
         console.error('[safeSendToRenderer] Circuit breaker triggered: killing all agents after renderer death');
-        agentManagerRef.killAll();
+        Promise.resolve(agentManagerRef.killAll()).catch((err) => {
+          console.error('[safeSendToRenderer] Error killing agents:', err);
+        });
       }
 
       if (!isWithinCooldown(channel)) {

@@ -226,24 +226,19 @@ class GraphitiClient:
                         self._driver = create_patched_kuzu_driver(db=str(db_path))
                         if attempt > 0:
                             logger.info(
-                                "LadybugDB lock acquired after %d retries", attempt
+                                f"LadybugDB lock acquired after {attempt} retries"
                             )
                         break  # Success
                     except Exception as e:
                         if _is_lock_error(e) and attempt < MAX_LOCK_RETRIES:
                             wait_time = _backoff_with_jitter(attempt)
                             logger.debug(
-                                "LadybugDB lock contention (attempt %d/%d), retrying in %.2fs",
-                                attempt + 1,
-                                MAX_LOCK_RETRIES,
-                                wait_time,
+                                f"LadybugDB lock contention (attempt {attempt + 1}/{MAX_LOCK_RETRIES}), retrying in {wait_time:.2f}s"
                             )
                             await asyncio.sleep(wait_time)
                             continue
                         logger.warning(
-                            "Failed to initialize LadybugDB driver at %s: %s",
-                            db_path,
-                            e,
+                            f"Failed to initialize LadybugDB driver at {db_path}: {e}"
                         )
                         capture_exception(
                             e,

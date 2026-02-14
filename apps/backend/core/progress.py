@@ -234,7 +234,7 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
                     )
 
         except (OSError, json.JSONDecodeError, UnicodeDecodeError) as e:
-            logger.debug("Failed to load plan file for phase summary: %s", e)
+            logger.debug(f"Failed to load plan file for phase summary: {e}")
     else:
         print()
         print_status("No implementation subtasks yet - planner needs to run", "pending")
