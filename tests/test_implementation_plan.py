@@ -1630,3 +1630,144 @@ class TestEdgeCaseStateTransitions:
         # All subtasks blocked = effectively pending state = backlog
         assert plan.status == "backlog"
         assert plan.planStatus == "pending"
+
+
+# =============================================================================
+# STUCK SUBTASK SKIPPING TESTS (progress.py get_next_subtask)
+# =============================================================================
+
+class TestStuckSubtaskSkipping:
+    """Tests for stuck subtask skipping in progress.get_next_subtask()."""
+
+    def _make_plan(self, subtasks):
+        """Helper to create a minimal implementation_plan.json dict."""
+        return {
+            "feature": "Test",
+            "workflow_type": "feature",
+            "phases": [
+                {
+                    "phase": 1,
+                    "name": "Phase 1",
+                    "depends_on": [],
+                    "subtasks": subtasks,
+                }
+            ],
+        }
+
+    def _make_attempt_history(self, stuck_ids):
+        """Helper to create attempt_history.json with stuck subtasks."""
+        return {
+            "subtasks": {},
+            "stuck_subtasks": [
+                {"subtask_id": sid, "reason": "stuck", "escalated_at": "2024-01-01T00:00:00"}
+                for sid in stuck_ids
+            ],
+            "metadata": {"created_at": "2024-01-01T00:00:00", "last_updated": "2024-01-01T00:00:00"},
+        }
+
+    def test_stuck_subtask_is_skipped(self, temp_dir):
+        """Stuck subtasks are skipped when selecting the next subtask."""
+        from progress import get_next_subtask
+
+        spec_dir = temp_dir / "spec"
+        spec_dir.mkdir(parents=True)
+
+        # Create plan with two pending subtasks
+        plan = self._make_plan([
+            {"id": "stuck-1", "description": "Stuck task", "status": "pending"},
+            {"id": "good-1", "description": "Normal task", "status": "pending"},
+        ])
+        (spec_dir / "implementation_plan.json").write_text(json.dumps(plan))
+
+        # Mark stuck-1 as stuck
+        memory_dir = spec_dir / "memory"
+        memory_dir.mkdir(parents=True)
+        history = self._make_attempt_history(["stuck-1"])
+        (memory_dir / "attempt_history.json").write_text(json.dumps(history))
+
+        result = get_next_subtask(spec_dir)
+        assert result is not None
+        assert result["id"] == "good-1", "Should skip stuck-1 and select good-1"
+
+    def test_normal_subtask_selected_when_stuck_exist(self, temp_dir):
+        """Normal pending subtasks are selected even when stuck ones exist."""
+        from progress import get_next_subtask
+
+        spec_dir = temp_dir / "spec"
+        spec_dir.mkdir(parents=True)
+
+        plan = self._make_plan([
+            {"id": "stuck-a", "description": "Stuck A", "status": "pending"},
+            {"id": "stuck-b", "description": "Stuck B", "status": "pending"},
+            {"id": "normal-c", "description": "Normal C", "status": "pending"},
+        ])
+        (spec_dir / "implementation_plan.json").write_text(json.dumps(plan))
+
+        memory_dir = spec_dir / "memory"
+        memory_dir.mkdir(parents=True)
+        history = self._make_attempt_history(["stuck-a", "stuck-b"])
+        (memory_dir / "attempt_history.json").write_text(json.dumps(history))
+
+        result = get_next_subtask(spec_dir)
+        assert result is not None
+        assert result["id"] == "normal-c"
+
+    def test_no_attempt_history_file(self, temp_dir):
+        """When attempt_history.json doesn't exist, normal selection proceeds."""
+        from progress import get_next_subtask
+
+        spec_dir = temp_dir / "spec"
+        spec_dir.mkdir(parents=True)
+
+        plan = self._make_plan([
+            {"id": "task-1", "description": "Task 1", "status": "pending"},
+        ])
+        (spec_dir / "implementation_plan.json").write_text(json.dumps(plan))
+
+        # No memory directory or attempt_history.json
+
+        result = get_next_subtask(spec_dir)
+        assert result is not None
+        assert result["id"] == "task-1"
+
+    def test_corrupted_attempt_history_json(self, temp_dir):
+        """When attempt_history.json is corrupted, normal selection proceeds."""
+        from progress import get_next_subtask
+
+        spec_dir = temp_dir / "spec"
+        spec_dir.mkdir(parents=True)
+
+        plan = self._make_plan([
+            {"id": "task-1", "description": "Task 1", "status": "pending"},
+        ])
+        (spec_dir / "implementation_plan.json").write_text(json.dumps(plan))
+
+        memory_dir = spec_dir / "memory"
+        memory_dir.mkdir(parents=True)
+        (memory_dir / "attempt_history.json").write_text("{invalid json!!!")
+
+        result = get_next_subtask(spec_dir)
+        assert result is not None
+        assert result["id"] == "task-1", "Should still select task when JSON is corrupted"
+
+    def test_all_pending_subtasks_stuck_returns_none(self, temp_dir):
+        """When ALL pending subtasks are stuck, returns None."""
+        from progress import get_next_subtask
+
+        spec_dir = temp_dir / "spec"
+        spec_dir.mkdir(parents=True)
+
+        plan = self._make_plan([
+            {"id": "stuck-1", "description": "Stuck 1", "status": "pending"},
+            {"id": "stuck-2", "description": "Stuck 2", "status": "pending"},
+            {"id": "done-1", "description": "Done 1", "status": "completed"},
+        ])
+        (spec_dir / "implementation_plan.json").write_text(json.dumps(plan))
+
+        memory_dir = spec_dir / "memory"
+        memory_dir.mkdir(parents=True)
+        history = self._make_attempt_history(["stuck-1", "stuck-2"])
+        (memory_dir / "attempt_history.json").write_text(json.dumps(history))
+
+        result = get_next_subtask(spec_dir)
+        assert result is None, "Should return None when all pending subtasks are stuck"

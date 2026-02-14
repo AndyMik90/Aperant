@@ -694,10 +694,25 @@ def get_auth_token(config_dir: str | None = None) -> str | None:
     Returns:
         Token string if found, None otherwise
     """
+    _debug = os.environ.get("DEBUG", "").lower() in ("true", "1")
+
+    if _debug:
+        # Log which auth env vars are set (presence only, never values)
+        set_vars = [v for v in AUTH_TOKEN_ENV_VARS if os.environ.get(v)]
+        logger.info(
+            "[Auth] get_auth_token() called — config_dir param=%s, "
+            "env vars present: %s, CLAUDE_CONFIG_DIR env=%s",
+            repr(config_dir),
+            set_vars or "(none)",
+            "set" if os.environ.get("CLAUDE_CONFIG_DIR") else "unset",
+        )
+
     # First check environment variables (highest priority)
     for var in AUTH_TOKEN_ENV_VARS:
         token = os.environ.get(var)
         if token:
+            if _debug:
+                logger.info("[Auth] Token resolved from env var: %s", var)
             return _try_decrypt_token(token)
 
     # Check CLAUDE_CONFIG_DIR environment variable (profile's custom config directory)
@@ -705,12 +720,13 @@ def get_auth_token(config_dir: str | None = None) -> str | None:
     effective_config_dir = config_dir or env_config_dir
 
     # Debug: Log which config_dir is being used for credential resolution
-    debug = os.environ.get("DEBUG", "").lower() in ("true", "1")
-    if debug and effective_config_dir:
+    if _debug and effective_config_dir:
         service_name = _get_keychain_service_name(effective_config_dir)
         logger.info(
-            f"[Auth] Resolving credentials for profile config_dir: {effective_config_dir} "
-            f"(Keychain service: {service_name})"
+            "[Auth] Resolving credentials for profile config_dir: %s "
+            "(Keychain service: %s)",
+            effective_config_dir,
+            service_name,
         )
 
     # If a custom config directory is specified, read from there first
@@ -718,24 +734,37 @@ def get_auth_token(config_dir: str | None = None) -> str | None:
         # Try reading from .credentials.json file in the config directory
         token = _get_token_from_config_dir(effective_config_dir)
         if token:
+            if _debug:
+                logger.info(
+                    "[Auth] Token resolved from config dir file: %s",
+                    effective_config_dir,
+                )
             return _try_decrypt_token(token)
 
         # Also try the system credential store with hash-based service name
         # This is needed because macOS stores credentials in Keychain, not files
         token = get_token_from_keychain(effective_config_dir)
         if token:
+            if _debug:
+                logger.info("[Auth] Token resolved from Keychain (profile-specific)")
             return _try_decrypt_token(token)
 
         # If config_dir was explicitly provided, DON'T fall back to default keychain
         # - that would return the wrong profile's token
         logger.debug(
-            f"No credentials found for config_dir '{effective_config_dir}' "
-            "in file or keychain"
+            "No credentials found for config_dir '%s' in file or keychain",
+            effective_config_dir,
         )
         return None
 
     # No config_dir specified - use default system credential store
-    return _try_decrypt_token(get_token_from_keychain())
+    keychain_token = get_token_from_keychain()
+    if _debug:
+        logger.info(
+            "[Auth] Token resolved from default Keychain: %s",
+            "found" if keychain_token else "not found",
+        )
+    return _try_decrypt_token(keychain_token)
 
 
 def get_auth_token_source(config_dir: str | None = None) -> str | None:
@@ -970,7 +999,17 @@ def configure_sdk_authentication(config_dir: str | None = None) -> None:
                    - API profile mode: requires ANTHROPIC_AUTH_TOKEN
                    - OAuth mode: requires CLAUDE_CODE_OAUTH_TOKEN (from Keychain or env)
     """
+    _debug = os.environ.get("DEBUG", "").lower() in ("true", "1")
     api_profile_mode = bool(os.environ.get("ANTHROPIC_BASE_URL", "").strip())
+
+    if _debug:
+        logger.info(
+            "[Auth] configure_sdk_authentication() — mode=%s, config_dir=%s, "
+            "CLAUDE_CONFIG_DIR env=%s",
+            "api_profile" if api_profile_mode else "oauth",
+            repr(config_dir),
+            "set" if os.environ.get("CLAUDE_CONFIG_DIR") else "unset",
+        )
 
     if api_profile_mode:
         # API profile mode: ensure ANTHROPIC_AUTH_TOKEN is present
@@ -998,6 +1037,14 @@ def configure_sdk_authentication(config_dir: str | None = None) -> None:
         # This is required because the SDK doesn't know about per-profile Keychain naming
         os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
         logger.info("Using OAuth authentication")
+
+        if _debug:
+            logger.info(
+                "[Auth] SDK env check — CLAUDE_CONFIG_DIR=%s, "
+                "CLAUDE_CODE_OAUTH_TOKEN=%s",
+                "set" if os.environ.get("CLAUDE_CONFIG_DIR") else "unset",
+                "set" if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN") else "unset",
+            )
 
 
 def ensure_claude_code_oauth_token() -> None:

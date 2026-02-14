@@ -572,6 +572,9 @@ class PRReviewResult:
     )  # IDs of posted findings
     posted_at: str | None = None  # Timestamp when findings were posted
 
+    # In-progress review tracking
+    in_progress_since: str | None = None  # ISO timestamp when active review started
+
     def to_dict(self) -> dict:
         return {
             "pr_number": self.pr_number,
@@ -603,6 +606,8 @@ class PRReviewResult:
             "has_posted_findings": self.has_posted_findings,
             "posted_finding_ids": self.posted_finding_ids,
             "posted_at": self.posted_at,
+            # In-progress review tracking
+            "in_progress_since": self.in_progress_since,
         }
 
     @classmethod
@@ -650,6 +655,8 @@ class PRReviewResult:
             has_posted_findings=data.get("has_posted_findings", False),
             posted_finding_ids=data.get("posted_finding_ids", []),
             posted_at=data.get("posted_at"),
+            # In-progress review tracking
+            in_progress_since=data.get("in_progress_since"),
         )
 
     async def save(self, github_dir: Path) -> None:

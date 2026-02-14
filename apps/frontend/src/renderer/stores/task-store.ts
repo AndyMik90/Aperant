@@ -7,6 +7,9 @@ import { useProjectStore } from './project-store';
 /** Default max parallel tasks when no project setting is configured */
 export const DEFAULT_MAX_PARALLEL_TASKS = 3;
 
+/** Maximum log entries stored per task to prevent renderer OOM */
+export const MAX_LOG_ENTRIES = 5000;
+
 interface TaskState {
   tasks: Task[];
   selectedTaskId: string | null;
@@ -475,7 +478,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       return {
         tasks: updateTaskAtIndex(state.tasks, index, (t) => ({
           ...t,
-          logs: [...(t.logs || []), log]
+          logs: [...(t.logs || []), log].slice(-MAX_LOG_ENTRIES)
         }))
       };
     }),
@@ -508,7 +511,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       return {
         tasks: updateTaskAtIndex(state.tasks, index, (t) => ({
           ...t,
-          logs: [...(t.logs || []), ...logs]
+          logs: [...(t.logs || []), ...logs].slice(-MAX_LOG_ENTRIES)
         }))
       };
     });
