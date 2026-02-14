@@ -32,6 +32,7 @@ interface UseGitHubPRsResult {
   reviewProgress: PRReviewProgress | null;
   startedAt: string | null;
   isReviewing: boolean;
+  isExternalReview: boolean;
   previousReviewResult: PRReviewResult | null;
   isConnected: boolean;
   repoFullName: string | null;
@@ -113,6 +114,7 @@ export function useGitHubPRs(
   const reviewResult = selectedPRReviewState?.result ?? null;
   const reviewProgress = selectedPRReviewState?.progress ?? null;
   const isReviewing = selectedPRReviewState?.isReviewing ?? false;
+  const isExternalReview = selectedPRReviewState?.isExternalReview ?? false;
   const previousReviewResult = selectedPRReviewState?.previousResult ?? null;
   const startedAt = selectedPRReviewState?.startedAt ?? null;
 
@@ -727,6 +729,7 @@ export function useGitHubPRs(
     reviewProgress,
     startedAt,
     isReviewing,
+    isExternalReview,
     previousReviewResult,
     isConnected,
     repoFullName,

@@ -52,6 +52,15 @@ Auto Claude is a desktop application (+ CLI) where users describe a goal and AI 
 
 **Electron path resolution** — For bug fixes in the Electron app, always check path resolution differences between dev and production builds (`app.isPackaged`, `process.resourcesPath`). Paths that work in dev often break when Electron is bundled for production — verify both contexts.
 
+### Resetting PR Review State
+
+To fully clear all PR review data so reviews run fresh, delete/reset these three things in `.auto-claude/github/`:
+
+1. `rm .auto-claude/github/pr/logs_*.json` — review log files
+2. `rm .auto-claude/github/pr/review_*.json` — review result files
+3. Reset `pr/index.json` to `{"reviews": [], "last_updated": null}`
+4. Reset `bot_detection_state.json` to `{"reviewed_commits": {}}` — this is the gatekeeper; without clearing it, the bot detector skips already-seen commits
+
 ## Project Structure
 
 ```

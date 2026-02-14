@@ -26,10 +26,10 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # =============================================================================
-# Verification Evidence (Required for All Findings)
+# Verification Evidence (Optional for findings — only code_examined is consumed)
 # =============================================================================
 
 
@@ -50,102 +50,28 @@ class VerificationEvidence(BaseModel):
 
 
 # =============================================================================
-# Common Finding Types
+# Severity / Category Validators
 # =============================================================================
 
-
-class BaseFinding(BaseModel):
-    """Base class for all finding types."""
-
-    id: str = Field(description="Unique identifier for this finding")
-    severity: Literal["critical", "high", "medium", "low"] = Field(
-        description="Issue severity level"
-    )
-    title: str = Field(description="Brief issue title (max 80 chars)")
-    description: str = Field(description="Detailed explanation of the issue")
-    file: str = Field(description="File path where issue was found")
-    line: int = Field(0, description="Line number of the issue")
-    suggested_fix: str | None = Field(None, description="How to fix this issue")
-    fixable: bool = Field(False, description="Whether this can be auto-fixed")
-    evidence: str | None = Field(
-        None,
-        description="DEPRECATED: Use verification.code_examined instead. Will be removed in Phase 5.",
-    )
-    verification: VerificationEvidence = Field(
-        description="Evidence that this finding was verified against actual code"
-    )
+_VALID_SEVERITIES = {"critical", "high", "medium", "low"}
 
 
-class SecurityFinding(BaseFinding):
-    """A security vulnerability finding."""
-
-    category: Literal["security"] = Field(
-        default="security", description="Always 'security' for security findings"
-    )
-
-
-class QualityFinding(BaseFinding):
-    """A code quality or redundancy finding."""
-
-    category: Literal[
-        "redundancy", "quality", "test", "performance", "pattern", "docs"
-    ] = Field(description="Issue category")
-    redundant_with: str | None = Field(
-        None, description="Reference to duplicate code (file:line) if redundant"
-    )
+def _normalize_severity(v: str) -> str:
+    """Normalize severity to a valid value, defaulting to 'medium'."""
+    if isinstance(v, str):
+        v = v.lower().strip()
+    if v not in _VALID_SEVERITIES:
+        return "medium"
+    return v
 
 
-class DeepAnalysisFinding(BaseFinding):
-    """A finding from deep analysis with verification info."""
-
-    category: Literal[
-        "verification_failed",
-        "redundancy",
-        "quality",
-        "pattern",
-        "performance",
-        "logic",
-    ] = Field(description="Issue category")
-    verification_note: str | None = Field(
-        None, description="What evidence is missing or couldn't be verified"
-    )
-
-
-class StructuralIssue(BaseModel):
-    """A structural issue with the PR."""
-
-    id: str = Field(description="Unique identifier")
-    issue_type: Literal[
-        "feature_creep", "scope_creep", "architecture_violation", "poor_structure"
-    ] = Field(description="Type of structural issue")
-    severity: Literal["critical", "high", "medium", "low"] = Field(
-        description="Issue severity"
-    )
-    title: str = Field(description="Brief issue title")
-    description: str = Field(description="Detailed explanation")
-    impact: str = Field(description="Why this matters")
-    suggestion: str = Field(description="How to fix")
-
-
-class AICommentTriage(BaseModel):
-    """Triage result for an AI tool comment."""
-
-    comment_id: int = Field(description="GitHub comment ID")
-    tool_name: str = Field(
-        description="AI tool name (CodeRabbit, Cursor, Greptile, etc.)"
-    )
-    verdict: Literal[
-        "critical",
-        "important",
-        "nice_to_have",
-        "trivial",
-        "addressed",
-        "false_positive",
-    ] = Field(description="Verdict on the comment")
-    reasoning: str = Field(description="Why this verdict was chosen")
-    response_comment: str | None = Field(
-        None, description="Optional comment to post in reply"
-    )
+def _normalize_category(v: str, valid_set: set[str], default: str = "quality") -> str:
+    """Normalize category to a valid value, defaulting to given default."""
+    if isinstance(v, str):
+        v = v.lower().strip().replace("-", "_")
+    if v not in valid_set:
+        return default
+    return v
 
 
 # =============================================================================
@@ -163,25 +89,34 @@ class FindingResolution(BaseModel):
     )
 
 
+_FOLLOWUP_CATEGORIES = {"security", "quality", "logic", "test", "docs"}
+
+
 class FollowupFinding(BaseModel):
-    """A new finding from follow-up review (simpler than initial review)."""
+    """A new finding from follow-up review (simpler than initial review).
+
+    verification is intentionally omitted — not consumed by followup_reviewer.py.
+    """
 
     id: str = Field(description="Unique identifier for this finding")
-    severity: Literal["critical", "high", "medium", "low"] = Field(
-        description="Issue severity level"
-    )
-    category: Literal["security", "quality", "logic", "test", "docs"] = Field(
-        description="Issue category"
-    )
+    severity: str = Field(description="Issue severity level")
+    category: str = Field(description="Issue category")
     title: str = Field(description="Brief issue title")
     description: str = Field(description="Detailed explanation of the issue")
     file: str = Field(description="File path where issue was found")
     line: int = Field(0, description="Line number of the issue")
     suggested_fix: str | None = Field(None, description="How to fix this issue")
     fixable: bool = Field(False, description="Whether this can be auto-fixed")
-    verification: VerificationEvidence = Field(
-        description="Evidence that this finding was verified against actual code"
-    )
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def _normalize_severity(cls, v: str) -> str:
+        return _normalize_severity(v)
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def _normalize_category(cls, v: str) -> str:
+        return _normalize_category(v, _FOLLOWUP_CATEGORIES)
 
 
 class FollowupReviewResponse(BaseModel):
@@ -201,81 +136,6 @@ class FollowupReviewResponse(BaseModel):
         "READY_TO_MERGE", "MERGE_WITH_CHANGES", "NEEDS_REVISION", "BLOCKED"
     ] = Field(description="Overall merge verdict")
     verdict_reasoning: str = Field(description="Explanation for the verdict")
-
-
-# =============================================================================
-# Initial Review Responses (Multi-Pass)
-# =============================================================================
-
-
-class QuickScanResult(BaseModel):
-    """Result from the quick scan pass."""
-
-    purpose: str = Field(description="Brief description of what the PR claims to do")
-    actual_changes: str = Field(
-        description="Brief description of what the code actually does"
-    )
-    purpose_match: bool = Field(
-        description="Whether actual changes match the claimed purpose"
-    )
-    purpose_match_note: str | None = Field(
-        None, description="Explanation if purpose doesn't match actual changes"
-    )
-    risk_areas: list[str] = Field(
-        default_factory=list, description="Areas needing careful review"
-    )
-    red_flags: list[str] = Field(
-        default_factory=list, description="Obvious issues or concerns"
-    )
-    requires_deep_verification: bool = Field(
-        description="Whether deep verification is needed"
-    )
-    complexity: Literal["low", "medium", "high"] = Field(description="PR complexity")
-
-
-class SecurityPassResult(BaseModel):
-    """Result from the security pass - array of security findings."""
-
-    findings: list[SecurityFinding] = Field(
-        default_factory=list, description="Security vulnerabilities found"
-    )
-
-
-class QualityPassResult(BaseModel):
-    """Result from the quality pass - array of quality findings."""
-
-    findings: list[QualityFinding] = Field(
-        default_factory=list, description="Quality and redundancy issues found"
-    )
-
-
-class DeepAnalysisResult(BaseModel):
-    """Result from the deep analysis pass."""
-
-    findings: list[DeepAnalysisFinding] = Field(
-        default_factory=list,
-        description="Deep analysis findings with verification info",
-    )
-
-
-class StructuralPassResult(BaseModel):
-    """Result from the structural pass."""
-
-    issues: list[StructuralIssue] = Field(
-        default_factory=list, description="Structural issues found"
-    )
-    verdict: Literal[
-        "READY_TO_MERGE", "MERGE_WITH_CHANGES", "NEEDS_REVISION", "BLOCKED"
-    ] = Field(description="Structural verdict")
-    verdict_reasoning: str = Field(description="Explanation for the verdict")
-
-
-class AICommentTriageResult(BaseModel):
-    """Result from AI comment triage pass."""
-
-    triages: list[AICommentTriage] = Field(
-        default_factory=list, description="Triage results for each AI comment"
-    )
 
 
 # =============================================================================
@@ -321,87 +181,20 @@ class IssueTriageResponse(BaseModel):
 
 
 # =============================================================================
-# Orchestrator Review Response
-# =============================================================================
-
-
-class OrchestratorFinding(BaseModel):
-    """A finding from the orchestrator review."""
-
-    file: str = Field(description="File path where issue was found")
-    line: int = Field(0, description="Line number of the issue")
-    title: str = Field(description="Brief issue title")
-    description: str = Field(description="Detailed explanation of the issue")
-    category: Literal[
-        "security",
-        "quality",
-        "style",
-        "docs",
-        "redundancy",
-        "verification_failed",
-        "pattern",
-        "performance",
-        "logic",
-        "test",
-    ] = Field(description="Issue category")
-    severity: Literal["critical", "high", "medium", "low"] = Field(
-        description="Issue severity level"
-    )
-    suggestion: str | None = Field(None, description="How to fix this issue")
-    evidence: str | None = Field(
-        None,
-        description="DEPRECATED: Use verification.code_examined instead. Will be removed in Phase 5.",
-    )
-    verification: VerificationEvidence = Field(
-        description="Evidence that this finding was verified against actual code"
-    )
-
-
-class OrchestratorReviewResponse(BaseModel):
-    """Complete response schema for orchestrator PR review."""
-
-    verdict: Literal[
-        "READY_TO_MERGE", "MERGE_WITH_CHANGES", "NEEDS_REVISION", "BLOCKED"
-    ] = Field(description="Overall merge verdict")
-    verdict_reasoning: str = Field(description="Explanation for the verdict")
-    findings: list[OrchestratorFinding] = Field(
-        default_factory=list, description="Issues found during review"
-    )
-    summary: str = Field(description="Brief summary of the review")
-
-
-# =============================================================================
 # Parallel Orchestrator Review Response (SDK Subagents)
 # =============================================================================
 
-
-class LogicFinding(BaseFinding):
-    """A logic/correctness finding from the logic review agent."""
-
-    category: Literal["logic"] = Field(
-        default="logic", description="Always 'logic' for logic findings"
-    )
-    example_input: str | None = Field(
-        None, description="Concrete input that triggers the bug"
-    )
-    actual_output: str | None = Field(None, description="What the buggy code produces")
-    expected_output: str | None = Field(
-        None, description="What the code should produce"
-    )
-
-
-class CodebaseFitFinding(BaseFinding):
-    """A codebase fit finding from the codebase fit review agent."""
-
-    category: Literal["codebase_fit"] = Field(
-        default="codebase_fit", description="Always 'codebase_fit' for fit findings"
-    )
-    existing_code: str | None = Field(
-        None, description="Reference to existing code that should be used instead"
-    )
-    codebase_pattern: str | None = Field(
-        None, description="Description of the established pattern being violated"
-    )
+_ORCHESTRATOR_CATEGORIES = {
+    "security",
+    "quality",
+    "logic",
+    "codebase_fit",
+    "test",
+    "docs",
+    "redundancy",
+    "pattern",
+    "performance",
+}
 
 
 class ParallelOrchestratorFinding(BaseModel):
@@ -413,26 +206,11 @@ class ParallelOrchestratorFinding(BaseModel):
     end_line: int | None = Field(None, description="End line for multi-line issues")
     title: str = Field(description="Brief issue title (max 80 chars)")
     description: str = Field(description="Detailed explanation of the issue")
-    category: Literal[
-        "security",
-        "quality",
-        "logic",
-        "codebase_fit",
-        "test",
-        "docs",
-        "redundancy",
-        "pattern",
-        "performance",
-    ] = Field(description="Issue category")
-    severity: Literal["critical", "high", "medium", "low"] = Field(
-        description="Issue severity level"
-    )
-    evidence: str | None = Field(
+    category: str = Field(description="Issue category")
+    severity: str = Field(description="Issue severity level")
+    verification: VerificationEvidence | None = Field(
         None,
-        description="DEPRECATED: Use verification.code_examined instead. Will be removed in Phase 5.",
-    )
-    verification: VerificationEvidence = Field(
-        description="Evidence that this finding was verified against actual code"
+        description="Evidence that this finding was verified against actual code",
     )
     is_impact_finding: bool = Field(
         False,
@@ -458,6 +236,16 @@ class ParallelOrchestratorFinding(BaseModel):
     cross_validated: bool = Field(
         False, description="Whether multiple agents agreed on this finding"
     )
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def _normalize_severity(cls, v: str) -> str:
+        return _normalize_severity(v)
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def _normalize_category(cls, v: str) -> str:
+        return _normalize_category(v, _ORCHESTRATOR_CATEGORIES)
 
 
 class AgentAgreement(BaseModel):
@@ -514,15 +302,22 @@ class ValidationSummary(BaseModel):
     )
 
 
+_SPECIALIST_CATEGORIES = {
+    "security",
+    "quality",
+    "logic",
+    "performance",
+    "pattern",
+    "test",
+    "docs",
+}
+
+
 class SpecialistFinding(BaseModel):
     """A finding from a specialist agent (used in parallel SDK sessions)."""
 
-    severity: Literal["critical", "high", "medium", "low"] = Field(
-        description="Issue severity level"
-    )
-    category: Literal[
-        "security", "quality", "logic", "performance", "pattern", "test", "docs"
-    ] = Field(description="Issue category")
+    severity: str = Field(description="Issue severity level")
+    category: str = Field(description="Issue category")
     title: str = Field(description="Brief issue title (max 80 chars)")
     description: str = Field(description="Detailed explanation of the issue")
     file: str = Field(description="File path where issue was found")
@@ -530,13 +325,23 @@ class SpecialistFinding(BaseModel):
     end_line: int | None = Field(None, description="End line number if multi-line")
     suggested_fix: str | None = Field(None, description="How to fix this issue")
     evidence: str = Field(
-        min_length=1,
-        description="Actual code snippet examined that shows the issue. Required.",
+        default="",
+        description="Actual code snippet examined that shows the issue.",
     )
     is_impact_finding: bool = Field(
         False,
         description="True if this is about affected code outside the PR (callers, dependencies)",
     )
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def _normalize_severity(cls, v: str) -> str:
+        return _normalize_severity(v)
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def _normalize_category(cls, v: str) -> str:
+        return _normalize_category(v, _SPECIALIST_CATEGORIES)
 
 
 class SpecialistResponse(BaseModel):
@@ -611,6 +416,17 @@ class ResolutionVerification(BaseModel):
     )
 
 
+_PARALLEL_FOLLOWUP_CATEGORIES = {
+    "security",
+    "quality",
+    "logic",
+    "test",
+    "docs",
+    "regression",
+    "incomplete_fix",
+}
+
+
 class ParallelFollowupFinding(BaseModel):
     """A finding from parallel follow-up review."""
 
@@ -619,24 +435,24 @@ class ParallelFollowupFinding(BaseModel):
     line: int = Field(0, description="Line number of the issue")
     title: str = Field(description="Brief issue title")
     description: str = Field(description="Detailed explanation of the issue")
-    category: Literal[
-        "security",
-        "quality",
-        "logic",
-        "test",
-        "docs",
-        "regression",
-        "incomplete_fix",
-    ] = Field(description="Issue category")
-    severity: Literal["critical", "high", "medium", "low"] = Field(
-        description="Issue severity level"
-    )
+    category: str = Field(description="Issue category")
+    severity: str = Field(description="Issue severity level")
     suggested_fix: str | None = Field(None, description="How to fix this issue")
     fixable: bool = Field(False, description="Whether this can be auto-fixed")
     is_impact_finding: bool = Field(
         False,
         description="True if this finding is about impact on OTHER files outside the PR diff",
     )
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def _normalize_severity(cls, v: str) -> str:
+        return _normalize_severity(v)
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def _normalize_category(cls, v: str) -> str:
+        return _normalize_category(v, _PARALLEL_FOLLOWUP_CATEGORIES)
 
 
 class ParallelFollowupResponse(BaseModel):

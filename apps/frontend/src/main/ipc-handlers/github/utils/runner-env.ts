@@ -3,6 +3,7 @@ import { getAPIProfileEnv } from '../../../services/profile';
 import { getBestAvailableProfileEnv } from '../../../rate-limit-detector';
 import { pythonEnvManager } from '../../../python-env-manager';
 import { getGitHubTokenForSubprocess } from '../utils';
+import { getSentryEnvForSubprocess } from '../../../sentry';
 
 /**
  * Get environment variables for Python runner subprocesses.
@@ -48,6 +49,7 @@ export async function getRunnerEnv(
     ...oauthModeClearVars,
     ...profileEnv,  // OAuth token from profile manager (fixes #563, rate-limit aware)
     ...githubEnv,  // Fresh GitHub token from gh CLI (fixes #151)
-    ...extraEnv,
+    ...getSentryEnvForSubprocess(),  // Sentry DSN + sample rates for Python subprocess
+    ...extraEnv,  // extraEnv last so callers can still override
   };
 }
