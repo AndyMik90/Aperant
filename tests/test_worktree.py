@@ -12,12 +12,13 @@ Tests the worktree.py module functionality including:
 - Worktree cleanup and age detection
 """
 
+import os
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
 import pytest
-
 from worktree import WorktreeManager
 
 
@@ -993,15 +994,18 @@ class TestWorktreeEnvSymlinks:
     """
 
     @pytest.fixture(autouse=True)
-    def _require_symlinks(self, tmp_path: Path):
-        """Skip all tests in this class if symlinks are not supported."""
-        target = tmp_path / "symlink-target"
-        link = tmp_path / "symlink-link"
+    def _require_file_links(self, tmp_path: Path):
+        """Skip all tests in this class if file linking is not supported."""
+        target = tmp_path / "link-target"
+        link = tmp_path / "link-test"
         try:
             target.write_text("x")
-            link.symlink_to(target)
+            if sys.platform == "win32":
+                os.link(str(target), str(link))
+            else:
+                link.symlink_to(target)
         except (OSError, NotImplementedError):
-            pytest.skip("Symlinks not supported on this platform/configuration")
+            pytest.skip("File linking not supported on this platform/configuration")
         finally:
             if link.exists() or link.is_symlink():
                 link.unlink()
@@ -1025,9 +1029,8 @@ class TestWorktreeEnvSymlinks:
         # Verify symlink was created
         worktree_env_path = info.path / ".auto-claude" / ".env"
         assert worktree_env_path.exists(), "Worktree .env should exist"
-        assert worktree_env_path.is_symlink(), "Worktree .env should be a symlink"
-        assert worktree_env_path.resolve() == main_env_path.resolve(), (
-            "Symlink should point to main project .env"
+        assert os.path.samefile(worktree_env_path, main_env_path), (
+            "Worktree .env should be linked to main project .env"
         )
 
         # Verify content is accessible through symlink
@@ -1035,7 +1038,9 @@ class TestWorktreeEnvSymlinks:
         assert "MCP_SERVER_CONFIG=test" in content
         assert "GRAPHITI_ENABLED=true" in content
 
-    def test_create_worktree_skips_env_symlink_if_no_main_env(self, temp_git_repo: Path):
+    def test_create_worktree_skips_env_symlink_if_no_main_env(
+        self, temp_git_repo: Path
+    ):
         """create_worktree does not create symlink when main project has no .env file."""
         manager = WorktreeManager(temp_git_repo)
         manager.setup()
@@ -1044,7 +1049,9 @@ class TestWorktreeEnvSymlinks:
         auto_claude_dir = temp_git_repo / ".auto-claude"
         auto_claude_dir.mkdir(parents=True, exist_ok=True)
         main_env_path = auto_claude_dir / ".env"
-        assert not main_env_path.exists(), "Test precondition: main .env should not exist"
+        assert not main_env_path.exists(), (
+            "Test precondition: main .env should not exist"
+        )
 
         # Create worktree
         info = manager.create_worktree("test-spec")
@@ -1072,19 +1079,15 @@ class TestWorktreeEnvSymlinks:
         # Call get_or_create to create symlink
         manager.get_or_create_worktree("test-spec")
 
-        # Verify symlink was created
+        # Verify link was created
         worktree_env_path = worktree_info.path / ".auto-claude" / ".env"
-        assert worktree_env_path.is_symlink()
-
-        # Get the original symlink target
-        original_target = worktree_env_path.resolve()
+        assert os.path.samefile(worktree_env_path, main_env_path)
 
         # Calling get_or_create_worktree again should be idempotent
         manager.get_or_create_worktree("test-spec")
 
-        # Verify symlink still exists and points to same location
-        assert worktree_env_path.is_symlink()
-        assert worktree_env_path.resolve() == original_target
+        # Verify link still exists and points to same location
+        assert os.path.samefile(worktree_env_path, main_env_path)
 
     def test_get_or_create_ensures_symlinks_for_existing_worktree(
         self, temp_git_repo: Path
@@ -1115,8 +1118,9 @@ class TestWorktreeEnvSymlinks:
         assert worktree_env_path.exists(), (
             "Worktree .env should exist after get_or_create"
         )
-        assert worktree_env_path.is_symlink(), "Worktree .env should be a symlink"
-        assert worktree_env_path.resolve() == main_env_path.resolve()
+        assert os.path.samefile(worktree_env_path, main_env_path), (
+            "Worktree .env should be linked to main project .env"
+        )
 
         # Verify content is accessible
         content = worktree_env_path.read_text()
@@ -1141,7 +1145,7 @@ class TestWorktreeEnvSymlinks:
         worktree_env_path = info.path / ".auto-claude" / ".env"
 
         # Verify initial content
-        assert worktree_env_path.is_symlink(), "Should be a symlink"
+        assert os.path.samefile(worktree_env_path, main_env_path), "Should be linked"
         assert "VERSION=1" in worktree_env_path.read_text()
 
         # Update main .env
@@ -1152,6 +1156,9 @@ class TestWorktreeEnvSymlinks:
         assert "VERSION=2" in content
         assert "NEW_KEY=value" in content
 
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="Broken symlinks are a Unix concept"
+    )
     def test_broken_symlink_is_replaced(self, temp_git_repo: Path):
         """Broken .env symlinks are detected and replaced with valid ones."""
         manager = WorktreeManager(temp_git_repo)
@@ -1206,9 +1213,10 @@ class TestWorktreeEnvSymlinks:
         # Call get_or_create - should replace regular file with symlink
         manager.get_or_create_worktree("test-spec")
 
-        # Verify it's now a symlink pointing to main .env
-        assert worktree_env_path.is_symlink(), "Should be replaced with symlink"
-        assert worktree_env_path.resolve() == main_env_path.resolve()
+        # Verify it's now linked to main .env
+        assert os.path.samefile(worktree_env_path, main_env_path), (
+            "Should be linked to main project .env"
+        )
 
         # Verify content is from main .env, not the old stale file
         content = worktree_env_path.read_text()
