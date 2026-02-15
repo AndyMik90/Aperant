@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
-import { cn } from '../lib/utils';
-import { Button } from './ui/button';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { SortableProjectTab } from './SortableProjectTab';
-import { UsageIndicator } from './UsageIndicator';
-import { AuthStatusIndicator } from './AuthStatusIndicator';
-import type { Project } from '../../shared/types';
+import { UsageIndicator } from '../UsageIndicator';
+import { AuthStatusIndicator } from '../AuthStatusIndicator';
+import type { Project } from '@shared/types';
 
 interface ProjectTabBarProps {
   projects: Project[];
@@ -15,8 +15,6 @@ interface ProjectTabBarProps {
   onProjectClose: (projectId: string) => void;
   onAddProject: () => void;
   className?: string;
-  // Control props for active tab
-  onSettingsClick?: () => void;
 }
 
 export function ProjectTabBar({
@@ -25,8 +23,7 @@ export function ProjectTabBar({
   onProjectSelect,
   onProjectClose,
   onAddProject,
-  className,
-  onSettingsClick
+  className
 }: ProjectTabBarProps) {
   const { t } = useTranslation('common');
 
@@ -86,45 +83,48 @@ export function ProjectTabBar({
 
   return (
     <div className={cn(
-      'flex items-center bg-background',
+      'flex items-center gap-1.5',
       'overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent',
+      'px-1',
       className
     )}>
-      <div className="flex items-center flex-1 min-w-0 gap-1.5 px-2 py-1.5">
-        {projects.map((project, index) => {
-          const isActiveTab = activeProjectId === project.id;
-          return (
-            <SortableProjectTab
-              key={project.id}
-              project={project}
-              isActive={isActiveTab}
-              canClose={projects.length > 1}
-              tabIndex={index}
-              onSelect={() => onProjectSelect(project.id)}
-              onClose={(e) => {
-                e.stopPropagation();
-                onProjectClose(project.id);
-              }}
-              // Pass control props only for active tab
-              onSettingsClick={isActiveTab ? onSettingsClick : undefined}
-            />
-          );
-        })}
-      </div>
+      {/* Project pills */}
+      {projects.map((project, index) => {
+        const isActiveTab = activeProjectId === project.id;
+        return (
+          <SortableProjectTab
+            key={project.id}
+            project={project}
+            isActive={isActiveTab}
+            canClose={projects.length > 1}
+            tabIndex={index}
+            onSelect={() => onProjectSelect(project.id)}
+            onClose={(e) => {
+              e.stopPropagation();
+              onProjectClose(project.id);
+            }}
+          />
+        );
+      })}
 
-      <div className="flex items-center gap-2 px-2 py-1">
-        <AuthStatusIndicator />
-        <UsageIndicator />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={onAddProject}
-          aria-label={t('projectTab.addProjectAriaLabel')}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
-      </div>
+      {/* Spacer */}
+      <div className="flex-1 min-w-4" />
+
+      {/* Separator before status indicators */}
+      <div className="h-4 w-px shrink-0 bg-border mx-1" />
+
+      {/* Status indicators and actions */}
+      <div className="electron-no-drag"><AuthStatusIndicator /></div>
+      <div className="electron-no-drag"><UsageIndicator /></div>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 rounded-full shrink-0 electron-no-drag"
+        onClick={onAddProject}
+        aria-label={t('projectTab.addProjectAriaLabel')}
+      >
+        <Plus className="h-4 w-4" />
+      </Button>
     </div>
   );
 }

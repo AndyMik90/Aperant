@@ -921,6 +921,9 @@ export interface ElectronAPI {
 
   // Queue Routing API (rate limit recovery)
   queue: import('../../preload/api/queue-api').QueueAPI;
+
+  // Window controls API
+  window: import('../../preload/api/window-api').WindowAPI;
 }
 
 /** Platform information exposed via contextBridge for platform-specific behavior */

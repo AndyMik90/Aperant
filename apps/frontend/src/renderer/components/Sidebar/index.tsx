@@ -1,68 +1,26 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Plus,
   Settings,
-  LayoutGrid,
-  Terminal,
-  Map,
-  BookOpen,
-  Lightbulb,
-  AlertCircle,
-  Download,
-  RefreshCw,
-  Github,
-  GitlabIcon,
-  GitPullRequest,
-  GitMerge,
-  FileText,
-  Sparkles,
-  GitBranch,
   HelpCircle,
-  Wrench,
+  PanelLeft,
+  PanelLeftClose,
 } from 'lucide-react';
+import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
+import { ScrollArea } from '../ui/scroll-area';
+import { Separator } from '../ui/separator';
 import {
-  Sidebar as SidebarPrimitive,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarRail,
-  SidebarSeparator,
-  SidebarTrigger,
-} from '../ui/sidebar';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from '../ui/dialog';
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '../ui/tooltip';
 import { cn } from '../../lib/utils';
-import {
-  useProjectStore,
-  removeProject,
-  initializeProject
-} from '../../stores/project-store';
-import { useSettingsStore, saveSettings } from '../../stores/settings-store';
-import {
-  useProjectEnvStore,
-  loadProjectEnvConfig,
-  clearProjectEnvConfig
-} from '../../stores/project-env-store';
-import { AddProjectModal } from '../AddProjectModal';
 import { GitSetupModal } from '../GitSetupModal';
 import { RateLimitIndicator } from '../RateLimitIndicator';
 import { ClaudeCodeStatusBadge } from '../ClaudeCodeStatusBadge';
 import { UpdateBanner } from '../UpdateBanner';
-import type { Project, GitStatus } from '../../../shared/types';
-import { SidebarProps, baseNavItems, githubNavItems, gitlabNavItems } from './constants/types';
+import { SidebarProps, type NavItem } from './constants/types';
+export type { SidebarView } from './constants/types';
 import useSidebar from './hooks/useSidebar';
 
 export function Sidebar({
@@ -72,214 +30,197 @@ export function Sidebar({
   onViewChange
 }: SidebarProps) {
  const {
-    showAddProjectModal,
-    setShowAddProjectModal,
-    showInitDialog,
-    setShowInitDialog,
     showGitSetupModal,
     setShowGitSetupModal,
     gitStatus,
-    setGitStatus,
-    pendingProject,
     t,
-    projects,
     selectedProjectId,
-    settings,
     visibleNavItems,
-    isInitializing,
     handleNavClick,
-    handleProjectAdded,
-    handleInitialize,
-    handleSkipInit,
     handleGitInitialized,
-    _handleRemoveProject,
-    githubEnabled,
-    gitlabEnabled,
-    lastLoadedProjectIdRef,
     selectedProject,
+    isCollapsed,
+    toggleSidebar,
  } = useSidebar({
     onSettingsClick, onNewTaskClick, activeView, onViewChange})
 
+  const renderNavItem = (item: NavItem) => {
+    const isActive = activeView === item.id;
+    const Icon = item.icon;
+
+    const button = (
+      <button
+        type="button"
+        key={item.id}
+        onClick={() => handleNavClick(item.id)}
+        disabled={!selectedProjectId}
+        aria-keyshortcuts={item.shortcut}
+        className={cn(
+          'flex w-full items-center rounded-lg text-sm transition-all duration-200 whitespace-nowrap overflow-hidden',
+          'hover:bg-accent hover:text-accent-foreground',
+          'disabled:pointer-events-none disabled:opacity-50',
+          isActive && 'bg-accent text-accent-foreground',
+          isCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        {!isCollapsed && (
+          <>
+            <span className="flex-1 text-left">{t(item.labelKey)}</span>
+            {item.shortcut && (
+              <Badge variant="muted" className="pointer-events-none hidden h-5 select-none items-center px-1.5 font-mono text-[10px] font-medium sm:flex shrink-0">
+                {item.shortcut}
+              </Badge>
+            )}
+          </>
+        )}
+      </button>
+    );
+
+    // Wrap in tooltip when collapsed
+    if (isCollapsed) {
+      return (
+        <Tooltip key={item.id}>
+          <TooltipTrigger asChild>{button}</TooltipTrigger>
+          <TooltipContent side="right">
+            <span>{t(item.labelKey)}</span>
+            {item.shortcut && (
+              <Badge variant="muted" className="ml-2 px-1 font-mono text-[10px]">
+                {item.shortcut}
+              </Badge>
+            )}
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return button;
+  };
+
   return (
     <>
-      <SidebarPrimitive collapsible="icon">
+      <div className={cn(
+        "flex h-full flex-col bg-sidebar transition-all duration-300 overflow-hidden",
+        isCollapsed ? "w-16" : "w-64"
+      )}>
         {/* Drag region for macOS traffic lights */}
-        <div className="electron-drag h-6 shrink-0" />
+        {window.platform?.isMacOS && <div className="electron-drag h-6 shrink-0" />}
 
         {/* Navigation */}
-        <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>
-              {t('sections.project')}
-              <SidebarTrigger className="electron-no-drag ml-auto" />
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {visibleNavItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <SidebarMenuItem key={item.id}>
-                      <SidebarMenuButton
-                        isActive={activeView === item.id}
-                        onClick={() => handleNavClick(item.id)}
-                        tooltip={t(item.labelKey)}
-                        disabled={!selectedProjectId}
-                        aria-keyshortcuts={item.shortcut}
-                      >
-                        <Icon />
-                        <span>{t(item.labelKey)}</span>
-                        {item.shortcut && (
-                          <kbd className="ml-auto pointer-events-none hidden select-none rounded-md border border-sidebar-border px-1.5 font-mono text-[10px] font-medium text-sidebar-foreground/70 sm:inline-block">
-                            {item.shortcut}
-                          </kbd>
-                        )}
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </SidebarContent>
+        <ScrollArea className="flex-1">
+          <div className={cn("py-4 transition-all duration-300", isCollapsed ? "px-2" : "px-3")}>
+            {/* Section header with toggle */}
+            <div className={cn(
+              "flex flex-row items-center whitespace-nowrap mb-1",
+              isCollapsed ? "justify-center px-2" : "justify-between px-3"
+            )}>
+              {!isCollapsed && (
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t('sections.project')}
+                </h3>
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex items-center justify-center rounded-lg electron-no-drag shrink-0 transition-all duration-200",
+                      "hover:bg-accent hover:text-accent-foreground text-muted-foreground",
+                      isCollapsed ? "h-9 w-9 p-2.5" : "h-7 w-7 p-1.5"
+                    )}
+                    onClick={toggleSidebar}
+                    aria-label={isCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
+                  >
+                    {isCollapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  {isCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
+                </TooltipContent>
+              </Tooltip>
+            </div>
 
-        <SidebarSeparator />
-
-        {/* Footer section */}
-        <SidebarFooter>
-          {/* Rate Limit Indicator - shows when Claude is rate limited */}
-          <RateLimitIndicator />
-
-          {/* Update Banner - shows when app update is available */}
-          <UpdateBanner />
-
-          {/* Claude Code Status Badge - hidden when collapsed */}
-          <div className="group-data-[collapsible=icon]:hidden">
-            <ClaudeCodeStatusBadge />
+            {/* Nav items */}
+            <nav className="space-y-1">
+              {visibleNavItems.map(renderNavItem)}
+            </nav>
           </div>
+        </ScrollArea>
 
-          {/* Settings and Help */}
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={onSettingsClick}
-                tooltip={t('tooltips.settings')}
-              >
-                <Settings />
-                <span>{t('actions.settings')}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={() => window.open('https://github.com/AndyMik90/Auto-Claude/issues', '_blank')}
-                tooltip={t('tooltips.help')}
-              >
-                <HelpCircle />
-                <span>{t('tooltips.help')}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+        <Separator />
+
+        {/* Rate Limit Indicator - shows when Claude is rate limited */}
+        <RateLimitIndicator />
+
+        {/* Update Banner - shows when app update is available */}
+        <UpdateBanner />
+
+        {/* Bottom section with Settings, Help, and New Task */}
+        <div className={cn("space-y-3 transition-all duration-300 whitespace-nowrap", isCollapsed ? "p-2" : "p-4")}>
+          {/* Claude Code Status Badge */}
+          {!isCollapsed && <ClaudeCodeStatusBadge />}
+
+          {/* Settings and Help row */}
+          <div className={cn(
+            "flex items-center overflow-hidden",
+            isCollapsed ? "flex-col gap-1" : "gap-2"
+          )}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size={isCollapsed ? "icon" : "sm"}
+                  className={cn("shrink-0", !isCollapsed && "flex-1 justify-start gap-2 overflow-hidden")}
+                  onClick={onSettingsClick}
+                >
+                  <Settings className="h-4 w-4 shrink-0" />
+                  {!isCollapsed && <span className="truncate">{t('actions.settings')}</span>}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side={isCollapsed ? "right" : "top"}>{t('tooltips.settings')}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0"
+                  onClick={() => window.open('https://github.com/AndyMik90/Auto-Claude/issues', '_blank')}
+                  aria-label={t('tooltips.help')}
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side={isCollapsed ? "right" : "top"}>{t('tooltips.help')}</TooltipContent>
+            </Tooltip>
+          </div>
 
           {/* New Task button */}
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                className={cn(
-                  'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground',
-                  'active:bg-primary/80'
-                )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                className="w-full overflow-hidden"
+                size={isCollapsed ? "icon" : "default"}
                 onClick={onNewTaskClick}
                 disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
-                tooltip={t('actions.newTask')}
               >
-                <Plus />
-                <span>{t('actions.newTask')}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-
-          {/* Init message when collapsed state hides it */}
-          <div className="group-data-[collapsible=icon]:hidden">
-            {selectedProject && !selectedProject.autoBuildPath && (
-              <p className="px-2 text-xs text-muted-foreground text-center">
-                {t('messages.initializeToCreateTasks')}
-              </p>
+                <Plus className={cn("h-4 w-4 shrink-0", !isCollapsed && "mr-2")} />
+                {!isCollapsed && <span className="truncate">{t('actions.newTask')}</span>}
+              </Button>
+            </TooltipTrigger>
+            {isCollapsed && (
+              <TooltipContent side="right">{t('actions.newTask')}</TooltipContent>
             )}
-          </div>
-        </SidebarFooter>
+          </Tooltip>
 
-        <SidebarRail />
-      </SidebarPrimitive>
-
-      {/* Initialize Auto Claude Dialog */}
-      <Dialog open={showInitDialog} onOpenChange={(open) => {
-        // Only allow closing if user manually closes (not during initialization)
-        if (!open && !isInitializing) {
-          handleSkipInit();
-        }
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Download className="h-5 w-5" />
-              {t('dialogs:initialize.title')}
-            </DialogTitle>
-            <DialogDescription>
-              {t('dialogs:initialize.description')}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="rounded-lg bg-muted p-4 text-sm">
-              <p className="font-medium mb-2">{t('dialogs:initialize.willDo')}</p>
-              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                <li>{t('dialogs:initialize.createFolder')}</li>
-                <li>{t('dialogs:initialize.copyFramework')}</li>
-                <li>{t('dialogs:initialize.setupSpecs')}</li>
-              </ul>
-            </div>
-            {!settings.autoBuildPath && (
-              <div className="mt-4 rounded-lg border border-warning/50 bg-warning/10 p-4 text-sm">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
-                  <div>
-                    <p className="font-medium text-warning">{t('dialogs:initialize.sourcePathNotConfigured')}</p>
-                    <p className="text-muted-foreground mt-1">
-                      {t('dialogs:initialize.sourcePathNotConfiguredDescription')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleSkipInit} disabled={isInitializing}>
-              {t('common:buttons.skip')}
-            </Button>
-            <Button
-              onClick={handleInitialize}
-              disabled={isInitializing || !settings.autoBuildPath}
-            >
-              {isInitializing ? (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  {t('common:labels.initializing')}
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  {t('common:buttons.initialize')}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Project Modal */}
-      <AddProjectModal
-        open={showAddProjectModal}
-        onOpenChange={setShowAddProjectModal}
-        onProjectAdded={handleProjectAdded}
-      />
+          {/* Init message - hidden when collapsed */}
+          {!isCollapsed && selectedProject && !selectedProject.autoBuildPath && (
+            <p className="mt-2 text-xs text-muted-foreground text-center whitespace-normal">
+              {t('messages.initializeToCreateTasks')}
+            </p>
+          )}
+        </div>
+      </div>
 
       {/* Git Setup Modal */}
       <GitSetupModal

@@ -250,6 +250,17 @@ const browserMockAPI: ElectronAPI = {
     onQueueBlockedNoProfiles: () => () => {}
   },
 
+  // Window controls API
+  window: {
+    minimize: async () => {},
+    maximize: async () => false,
+    close: async () => {},
+    isMaximized: async () => false,
+    getBounds: async () => ({ x: 0, y: 0, width: 1200, height: 800 }),
+    setBounds: () => {},
+    onMaximizeChanged: () => () => {}
+  },
+
   // Claude Code Operations
   checkClaudeCodeVersion: async () => ({
     success: true,

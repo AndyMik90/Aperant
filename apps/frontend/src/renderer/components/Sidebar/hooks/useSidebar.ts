@@ -1,10 +1,7 @@
-import { removeProject } from "@/stores/project-store";
-import { Project } from "@shared/types";
-import { initializeProject } from "src/main/project-initializer";
+import { useProjectStore, removeProject } from "@/stores/project-store";
+import { useSettingsStore, saveSettings } from "@/stores/settings-store";
 import { useTranslation } from "react-i18next";
-import { useProjectStore } from "src/renderer/stores/project-store";
-import { useSettingsStore } from "src/renderer/stores/settings-store";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GitStatus } from "@shared/types";
 import { clearProjectEnvConfig, loadProjectEnvConfig, useProjectEnvStore } from "@/stores/project-env-store";
 import { baseNavItems, githubNavItems, gitlabNavItems, SidebarProps, SidebarView } from "../constants/types";
@@ -15,12 +12,15 @@ const useSidebar = ({onViewChange}: SidebarProps) => {
     const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
     const settings = useSettingsStore((state) => state.settings);
 
-    const [showAddProjectModal, setShowAddProjectModal] = useState(false);
-    const [showInitDialog, setShowInitDialog] = useState(false);
+    // Sidebar collapse state — owned here now (no longer from shadcn SidebarProvider)
+    const isCollapsed = settings.sidebarCollapsed ?? false;
+    const toggleSidebar = useCallback(() => {
+      saveSettings({ sidebarCollapsed: !isCollapsed });
+    }, [isCollapsed]);
+
+    // Git setup state (Sidebar-owned — not part of dialog-store since it's Sidebar-specific)
     const [showGitSetupModal, setShowGitSetupModal] = useState(false);
     const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
-    const [pendingProject, setPendingProject] = useState<Project | null>(null);
-    const [isInitializing, setIsInitializing] = useState(false);
 
     const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
@@ -87,6 +87,13 @@ const useSidebar = ({onViewChange}: SidebarProps) => {
           return;
         }
 
+        // Cmd/Ctrl+B: Toggle sidebar collapse
+        if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+          e.preventDefault();
+          toggleSidebar();
+          return;
+        }
+
         // Only handle shortcuts when a project is selected
         if (!selectedProjectId) return;
 
@@ -106,7 +113,7 @@ const useSidebar = ({onViewChange}: SidebarProps) => {
 
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectedProjectId, onViewChange, visibleNavItems]);
+    }, [selectedProjectId, onViewChange, visibleNavItems, toggleSidebar]);
 
     // Check git status when project changes
     useEffect(() => {
@@ -130,36 +137,6 @@ const useSidebar = ({onViewChange}: SidebarProps) => {
       };
       checkGit();
     }, [selectedProject]);
-
-    const handleProjectAdded = (project: Project, needsInit: boolean) => {
-      if (needsInit) {
-        setPendingProject(project);
-        setShowInitDialog(true);
-      }
-    };
-
-    const handleInitialize = async () => {
-      if (!pendingProject) return;
-
-      const projectId = pendingProject.id;
-      setIsInitializing(true);
-      try {
-        const result = await initializeProject(projectId);
-        if (result?.success) {
-          // Clear pendingProject FIRST before closing dialog
-          // This prevents onOpenChange from triggering skip logic
-          setPendingProject(null);
-          setShowInitDialog(false);
-        }
-      } finally {
-        setIsInitializing(false);
-      }
-    };
-
-    const handleSkipInit = () => {
-      setShowInitDialog(false);
-      setPendingProject(null);
-    };
 
     const handleGitInitialized = async () => {
       // Refresh git status after initialization
@@ -185,26 +162,14 @@ const useSidebar = ({onViewChange}: SidebarProps) => {
       onViewChange?.(view);
     };
     return {
-        showAddProjectModal,
-        setShowAddProjectModal,
-        showInitDialog,
-        setShowInitDialog,
         showGitSetupModal,
         setShowGitSetupModal,
         gitStatus,
-        setGitStatus,
-        pendingProject,
-        setPendingProject,
-        isInitializing,
-        setIsInitializing,
         selectedProject,
         visibleNavItems,
-        handleProjectAdded,
-        handleInitialize,
-        handleSkipInit,
+        handleNavClick,
         handleGitInitialized,
         _handleRemoveProject,
-        handleNavClick,
         githubEnabled,
         gitlabEnabled,
         lastLoadedProjectIdRef,
@@ -212,6 +177,8 @@ const useSidebar = ({onViewChange}: SidebarProps) => {
         projects,
         selectedProjectId,
         settings,
+        isCollapsed,
+        toggleSidebar,
     }
 }
 

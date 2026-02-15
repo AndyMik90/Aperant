@@ -648,6 +648,13 @@
       "remote": "Remote"
     }
   },
+  "windowControls": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
+  "appTitle": "Auto Claude",
   "roadmapProgress": {
     "elapsedTime": "Elapsed",
     "lastActivity": "Last activity",

@@ -188,7 +188,9 @@ function createWindow(): void {
   const minWidth: number = Math.min(WINDOW_MIN_WIDTH, width);
   const minHeight: number = Math.min(WINDOW_MIN_HEIGHT, height);
 
-  // Create the browser window
+  // Create the browser window with platform-specific frame configuration
+  // macOS: hiddenInset keeps native traffic lights with custom positioning
+  // Windows/Linux: frame:false removes native title bar; custom controls in TopNavBar
   mainWindow = new BrowserWindow({
     width,
     height,
@@ -196,8 +198,10 @@ function createWindow(): void {
     minHeight,
     show: false,
     autoHideMenuBar: true,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 15, y: 10 },
+    ...(isMacOS()
+      ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 15, y: 10 } }
+      : { frame: false }
+    ),
     icon: getIconPath(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
@@ -207,6 +211,14 @@ function createWindow(): void {
       backgroundThrottling: false, // Prevent terminal lag when window loses focus
       spellcheck: true // Enable spell check for text inputs
     }
+  });
+
+  // Forward maximize state changes to renderer for custom window controls
+  mainWindow.on('maximize', () => {
+    mainWindow?.webContents.send(IPC_CHANNELS.WINDOW_MAXIMIZE_CHANGED, true);
+  });
+  mainWindow.on('unmaximize', () => {
+    mainWindow?.webContents.send(IPC_CHANNELS.WINDOW_MAXIMIZE_CHANGED, false);
   });
 
   // Show window when ready to avoid visual flash

@@ -1466,8 +1466,14 @@
   border-color: var(--border);
 }
 
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
-  background-color: var(--background);
+  margin: 0;
+  background-color: var(--sidebar, #0E0E12);
   color: var(--foreground);
   font-family: var(--font-sans);
   font-feature-settings: "rlig" 1, "calt" 1;
@@ -1520,10 +1526,34 @@ body {
   background-color: #1A1A1F;
 }
 
-/* Custom scrollbar - following design system */
+/* Custom scrollbar - ultra low-profile, theme-aware
+ * Uses overlay scrollbars that only appear on hover/scroll */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border);
+}
+
+/* Hide scrollbar by default, show on container hover */
+::-webkit-scrollbar-thumb {
+  visibility: hidden;
+}
+
+*:hover > ::-webkit-scrollbar-thumb,
+*:hover::-webkit-scrollbar-thumb {
+  visibility: visible;
 }
 
 /* Scroll anchoring - prevent scroll position jumps during DOM updates
@@ -1541,36 +1571,15 @@ body {
   overflow-anchor: auto;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--muted-foreground);
-  opacity: 0.3;
-  border-radius: var(--radius-full);
-  transition: background 0.2s;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  opacity: 0.5;
-}
-
-.dark ::-webkit-scrollbar-thumb {
-  background: rgba(134, 143, 151, 0.3);
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(134, 143, 151, 0.5);
-}
-
 /* Electron window dragging area */
 .electron-drag {
   -webkit-app-region: drag;
+  app-region: drag;
 }
 
 .electron-no-drag {
   -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 
 /* Focus visible styles - following accessibility guidelines */
