@@ -6,6 +6,7 @@ Phases for spec document creation and quality assurance.
 """
 
 import json
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .. import validator, writer
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
     pass
 
 
-def _is_greenfield_project(spec_dir) -> bool:
+def _is_greenfield_project(spec_dir: Path) -> bool:
     """Check if the project is empty/greenfield (0 discovered files)."""
     stats = get_project_index_stats(spec_dir)
     return stats.get("file_count", 0) == 0
@@ -42,6 +43,19 @@ Adapt your approach:
 class SpecPhaseMixin:
     """Mixin for spec writing and critique phase methods."""
 
+    def _check_and_log_greenfield(self) -> bool:
+        """Check if the project is greenfield and log if so.
+
+        Returns:
+            True if the project is greenfield (no existing files).
+        """
+        is_greenfield = _is_greenfield_project(self.spec_dir)
+        if is_greenfield:
+            self.ui.print_status(
+                "Greenfield project detected - adapting spec for new project", "info"
+            )
+        return is_greenfield
+
     async def phase_quick_spec(self) -> PhaseResult:
         """Quick spec for simple tasks - combines context and spec in one step."""
         spec_file = self.spec_dir / "spec.md"
@@ -53,12 +67,7 @@ class SpecPhaseMixin:
                 "quick_spec", True, [str(spec_file), str(plan_file)], [], 0
             )
 
-        is_greenfield = _is_greenfield_project(self.spec_dir)
-        if is_greenfield:
-            self.ui.print_status(
-                "Greenfield project detected - adapting spec for new project",
-                "info",
-            )
+        is_greenfield = self._check_and_log_greenfield()
 
         errors = []
         for attempt in range(MAX_RETRIES):
@@ -111,13 +120,7 @@ Create:
                 "spec.md exists but has issues, regenerating...", "warning"
             )
 
-        is_greenfield = _is_greenfield_project(self.spec_dir)
-        if is_greenfield:
-            self.ui.print_status(
-                "Greenfield project detected - adapting spec for new project",
-                "info",
-            )
-
+        is_greenfield = self._check_and_log_greenfield()
         greenfield_ctx = _greenfield_context() if is_greenfield else ""
 
         errors = []
