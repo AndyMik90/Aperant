@@ -21,6 +21,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -780,10 +781,29 @@ class WorktreeManager:
                 )
                 worktree_env_path.unlink()
 
-            # Use relative path for portability if project is moved
-            # Note: os.path.relpath is cross-platform in Python
-            relative_target = os.path.relpath(main_env_path, worktree_auto_claude_dir)
-            worktree_env_path.symlink_to(relative_target)
+            if sys.platform == "win32":
+                # On Windows, use junctions instead of symlinks (no admin rights required)
+                # Junctions require absolute paths
+                result = subprocess.run(
+                    [
+                        "cmd",
+                        "/c",
+                        "mklink",
+                        "/J",
+                        str(worktree_env_path),
+                        str(main_env_path),
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode != 0:
+                    raise OSError(result.stderr or "mklink /J failed")
+            else:
+                # On macOS/Linux, use relative symlinks for portability
+                relative_target = os.path.relpath(
+                    main_env_path, worktree_auto_claude_dir
+                )
+                worktree_env_path.symlink_to(relative_target)
             print_status("Linked .env from main project", "success")
         except OSError as e:
             print_status(f"Failed to create .env symlink: {e}", "error")
