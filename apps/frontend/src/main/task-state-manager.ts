@@ -169,6 +169,18 @@ export class TaskStateManager {
     return this.getCurrentState(taskId) === 'plan_review';
   }
 
+  /**
+   * Reset tracking state for a task that is about to be restarted.
+   * Clears terminalEventSeen (so process exits aren't swallowed) and
+   * lastSequenceByTask (so events from the new process aren't dropped
+   * as duplicates). Does NOT stop or remove the XState actor, since
+   * the caller may still need to send events to it.
+   */
+  prepareForRestart(taskId: string): void {
+    this.terminalEventSeen.delete(taskId);
+    this.lastSequenceByTask.delete(taskId);
+  }
+
   clearTask(taskId: string): void {
     this.lastSequenceByTask.delete(taskId);
     this.lastStateByTask.delete(taskId);
