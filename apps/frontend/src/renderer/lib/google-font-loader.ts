@@ -10,9 +10,12 @@
 const loadedFonts = new Set<string>();
 const pendingLoads = new Map<string, Promise<void>>();
 
+/** Default font weights loaded when none are specified */
+const DEFAULT_WEIGHTS: number[] = [400, 500, 600, 700];
+
 /* -- Helpers -------------------------------------------------------------- */
 
-function buildGoogleFontsUrl(family: string, weights: number[] = [400, 500, 600, 700]): string {
+function buildGoogleFontsUrl(family: string, weights: number[] = DEFAULT_WEIGHTS): string {
   const weightParam = weights.join(';');
   const encodedFamily = encodeURIComponent(family);
   return `https://fonts.googleapis.com/css2?family=${encodedFamily}:wght@${weightParam}&display=swap`;
@@ -29,7 +32,7 @@ function buildGoogleFontsUrl(family: string, weights: number[] = [400, 500, 600,
  * @returns Promise that resolves when the font stylesheet is loaded
  */
 export function loadGoogleFont(family: string, weights?: number[]): Promise<void> {
-  const key = `${family}:${(weights || [400, 500, 600, 700]).join(',')}`;
+  const key = `${family}:${(weights || DEFAULT_WEIGHTS).join(',')}`;
 
   if (loadedFonts.has(key)) {
     return Promise.resolve();
@@ -97,5 +100,9 @@ export async function applyThemeFonts(config: {
  * Check if a specific Google Font has already been loaded.
  */
 export function isFontLoaded(family: string): boolean {
-  return Array.from(loadedFonts).some((key) => key.startsWith(`${family}:`));
+  const prefix = `${family}:`;
+  for (const key of loadedFonts) {
+    if (key.startsWith(prefix)) return true;
+  }
+  return false;
 }

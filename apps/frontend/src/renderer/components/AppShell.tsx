@@ -37,6 +37,8 @@ export function AppShell() {
           ) : (
             <WelcomeScreen
               projects={projects}
+              // Both onNewProject and onOpenProject open the same modal intentionally:
+              // the AddProjectModal handles both creating new and opening existing projects.
               onNewProject={() => useDialogStore.getState().openAddProjectModal()}
               onOpenProject={() => useDialogStore.getState().openAddProjectModal()}
               onSelectProject={(projectId) => {

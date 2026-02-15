@@ -8,7 +8,7 @@
 @theme {
   /* Font families */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
 
   /* Colors - using CSS variables for theme switching */
@@ -176,7 +176,7 @@
   --chart-5: #D84F68;
 
   /* Font - serif fallback */
-  --font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
 
   /* Layout spacing (tweakcn standard) */
   --spacing: 0.25rem;
@@ -267,7 +267,7 @@
   --chart-5: #FF5C5C;
 
   /* Font - serif fallback */
-  --font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
 
   /* Layout spacing (tweakcn standard) */
   --spacing: 0.25rem;
@@ -364,7 +364,7 @@
   --chart-5: #D84F68;
 
   /* Font - serif fallback */
-  --font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
 
   /* Layout spacing (tweakcn standard) */
   --spacing: 0.25rem;
@@ -461,7 +461,7 @@
   --chart-5: #D84F68;
 
   /* Font - serif fallback */
-  --font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
 
   /* Layout spacing (tweakcn standard) */
   --spacing: 0.25rem;
@@ -558,7 +558,7 @@
   --chart-5: #DC2626;
 
   /* Font - serif fallback */
-  --font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
 
   /* Layout spacing (tweakcn standard) */
   --spacing: 0.25rem;
@@ -655,7 +655,7 @@
   --chart-5: #F87171;
 
   /* Font - serif fallback */
-  --font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
 
   /* Layout spacing (tweakcn standard) */
   --spacing: 0.25rem;
@@ -752,7 +752,7 @@
   --chart-5: #DC2626;
 
   /* Font - serif fallback */
-  --font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
 
   /* Layout spacing (tweakcn standard) */
   --spacing: 0.25rem;
@@ -849,7 +849,7 @@
   --chart-5: #F87171;
 
   /* Font - serif fallback */
-  --font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
 
   /* Layout spacing (tweakcn standard) */
   --spacing: 0.25rem;
@@ -946,7 +946,7 @@
   --chart-5: #B91C1C;
 
   /* Font - serif fallback */
-  --font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
 
   /* Layout spacing (tweakcn standard) */
   --spacing: 0.25rem;
@@ -1043,7 +1043,7 @@
   --chart-5: #F87171;
 
   /* Font - serif fallback */
-  --font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
 
   /* Layout spacing (tweakcn standard) */
   --spacing: 0.25rem;
@@ -1140,7 +1140,7 @@
   --chart-5: #E11D48;
 
   /* Font - serif fallback */
-  --font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
 
   /* Layout spacing (tweakcn standard) */
   --spacing: 0.25rem;
@@ -1237,7 +1237,7 @@
   --chart-5: #FB7185;
 
   /* Font - serif fallback */
-  --font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
 
   /* Layout spacing (tweakcn standard) */
   --spacing: 0.25rem;
@@ -1334,7 +1334,7 @@
   --chart-5: #DC2626;
 
   /* Font - serif fallback */
-  --font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
 
   /* Layout spacing (tweakcn standard) */
   --spacing: 0.25rem;
@@ -1431,7 +1431,7 @@
   --chart-5: #F87171;
 
   /* Font - serif fallback */
-  --font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
 
   /* Layout spacing (tweakcn standard) */
   --spacing: 0.25rem;
@@ -1540,15 +1540,12 @@ body {
 ::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--border) 60%, transparent);
   border-radius: 9999px;
+  /* Hide scrollbar by default, show on container hover */
+  visibility: hidden;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border);
-}
-
-/* Hide scrollbar by default, show on container hover */
-::-webkit-scrollbar-thumb {
-  visibility: hidden;
 }
 
 *:hover > ::-webkit-scrollbar-thumb,

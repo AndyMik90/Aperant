@@ -115,7 +115,7 @@ export function AppDialogs() {
 
       {/* Initialize Auto Claude Dialog */}
       <Dialog open={showInitDialog} onOpenChange={(open) => {
-        console.warn('[InitDialog] onOpenChange called', { open, pendingProject: !!pendingProject, isInitializing, initSuccess });
+        console.debug('[InitDialog] onOpenChange called', { open, pendingProject: !!pendingProject, isInitializing, initSuccess });
         if (!open && pendingProject && !isInitializing && !initSuccess) {
           useDialogStore.getState().skipInit();
         }
@@ -168,7 +168,7 @@ export function AppDialogs() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => useDialogStore.getState().skipInit()} disabled={isInitializing}>
-              {t('common:buttons.skip', { ns: 'common' })}
+              {t('common:buttons.skip')}
             </Button>
             <Button
               onClick={handleInitialize}
@@ -177,12 +177,12 @@ export function AppDialogs() {
               {isInitializing ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  {t('common:labels.initializing', { ns: 'common' })}
+                  {t('common:labels.initializing')}
                 </>
               ) : (
                 <>
                   <Download className="mr-2 h-4 w-4" />
-                  {t('common:buttons.initialize', { ns: 'common' })}
+                  {t('common:buttons.initialize')}
                 </>
               )}
             </Button>

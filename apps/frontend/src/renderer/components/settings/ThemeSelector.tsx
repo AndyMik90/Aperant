@@ -95,7 +95,7 @@ export function ThemeSelector({ settings, onSettingsChange }: ThemeSelectorProps
     }
 
     // Check for duplicate names (built-in + existing custom)
-    const builtinNames = COLOR_THEMES.map((t) => t.name.toLowerCase());
+    const builtinNames = COLOR_THEMES.map((theme) => theme.name.toLowerCase());
     const existingCustomNames = listCustomThemes().map((n) => n.toLowerCase());
     if (builtinNames.includes(trimmedName.toLowerCase()) || existingCustomNames.includes(trimmedName.toLowerCase())) {
       setValidationError(t('theme.customTheme.validationNameDuplicate'));

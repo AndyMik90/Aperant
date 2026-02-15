@@ -9,7 +9,7 @@ const VERSION_WARNING_275 = '2.7.5';
  * Also exports the close handler that persists the seen-warning state.
  */
 export function useVersionWarning(settingsHaveLoaded: boolean) {
-  const settings = useSettingsStore((state) => state.settings);
+  const seenVersionWarnings = useSettingsStore((state) => state.settings.seenVersionWarnings);
 
   useEffect(() => {
     const checkVersionWarning = async () => {
@@ -17,7 +17,7 @@ export function useVersionWarning(settingsHaveLoaded: boolean) {
 
       try {
         const version = await window.electronAPI.getAppVersion();
-        const seenWarnings = settings.seenVersionWarnings || [];
+        const seenWarnings = seenVersionWarnings || [];
 
         if (version === VERSION_WARNING_275 && !seenWarnings.includes(VERSION_WARNING_275)) {
           useDialogStore.getState().openVersionWarning();
@@ -28,7 +28,7 @@ export function useVersionWarning(settingsHaveLoaded: boolean) {
     };
 
     checkVersionWarning();
-  }, [settingsHaveLoaded, settings.seenVersionWarnings]);
+  }, [settingsHaveLoaded, seenVersionWarnings]);
 }
 
 /**
