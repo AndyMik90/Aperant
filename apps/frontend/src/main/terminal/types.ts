@@ -40,6 +40,7 @@ export interface RateLimitEvent {
   profileId: string;
   suggestedProfileId?: string;
   suggestedProfileName?: string;
+  suggestedAccountType?: 'oauth' | 'api';
   autoSwitchEnabled: boolean;
 }
 

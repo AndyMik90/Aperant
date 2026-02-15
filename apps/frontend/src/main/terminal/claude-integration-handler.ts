@@ -399,7 +399,41 @@ export function finalizeClaudeInvoke(
 }
 
 /**
- * Handle rate limit detection and profile switching
+ * Proactive profile swap: check if any better profile (OAuth or API) is available
+ * before invoking Claude. If the active profile is rate-limited or at capacity,
+ * swap to the best available unified account and persist the change globally.
+ *
+ * Safe to call from both sync and async invoke paths — errors are caught
+ * and logged, never propagated to the caller.
+ */
+async function ensureBestProfileActive(): Promise<void> {
+  try {
+    const profileManager = getClaudeProfileManager();
+    const activeProfile = profileManager.getActiveProfile();
+    const bestAccount = await profileManager.getBestAvailableUnifiedAccount(activeProfile.id);
+
+    if (bestAccount) {
+      if (bestAccount.type === 'api') {
+        const { setActiveAPIProfile } = await import('../services/profile/profile-manager');
+        await setActiveAPIProfile(bestAccount.id);
+      } else {
+        profileManager.setActiveProfile(bestAccount.id);
+      }
+      debugLog('[ClaudeIntegration] Proactive profile swap:', {
+        from: activeProfile.name,
+        to: bestAccount.name,
+        type: bestAccount.type,
+      });
+    }
+  } catch (err) {
+    debugError('[ClaudeIntegration] Proactive swap check failed (continuing with current profile):', err);
+  }
+}
+
+/**
+ * Handle rate limit detection and profile switching.
+ * Uses unified account selection (OAuth + API) so terminals can swap to
+ * API profiles like GLM when all OAuth profiles are rate-limited.
  */
 export function handleRateLimit(
   terminal: TerminalProcess,
@@ -432,29 +466,58 @@ export function handleRateLimit(
   }
 
   const autoSwitchSettings = profileManager.getAutoSwitchSettings();
-  const bestProfile = profileManager.getBestAvailableProfile(currentProfileId);
 
-  const win = getWindow();
-  if (win) {
-    win.webContents.send(IPC_CHANNELS.TERMINAL_RATE_LIMIT, {
-      terminalId: terminal.id,
-      resetTime,
-      detectedAt: new Date().toISOString(),
-      profileId: currentProfileId,
-      suggestedProfileId: bestProfile?.id,
-      suggestedProfileName: bestProfile?.name,
-      autoSwitchEnabled: autoSwitchSettings.autoSwitchOnRateLimit
-    } as RateLimitEvent);
-  }
+  // Use unified account selection (OAuth + API) instead of OAuth-only
+  profileManager.getBestAvailableUnifiedAccount(currentProfileId).then(bestAccount => {
+    const win = getWindow();
+    if (win) {
+      win.webContents.send(IPC_CHANNELS.TERMINAL_RATE_LIMIT, {
+        terminalId: terminal.id,
+        resetTime,
+        detectedAt: new Date().toISOString(),
+        profileId: currentProfileId,
+        suggestedProfileId: bestAccount?.id,
+        suggestedProfileName: bestAccount?.name,
+        suggestedAccountType: bestAccount?.type,
+        autoSwitchEnabled: autoSwitchSettings.autoSwitchOnRateLimit
+      } as RateLimitEvent);
+    }
 
-  if (autoSwitchSettings.enabled && autoSwitchSettings.autoSwitchOnRateLimit && bestProfile) {
-    console.warn('[ClaudeIntegration] Auto-switching to profile:', bestProfile.name);
-    switchProfileCallback(terminal.id, bestProfile.id).then(_result => {
-      console.warn('[ClaudeIntegration] Auto-switch completed');
-    }).catch(err => {
-      console.error('[ClaudeIntegration] Auto-switch failed:', err);
-    });
-  }
+    if (autoSwitchSettings.enabled && autoSwitchSettings.autoSwitchOnRateLimit && bestAccount) {
+      console.warn('[ClaudeIntegration] Auto-switching to account:', bestAccount.name, '(type:', bestAccount.type, ')');
+
+      if (bestAccount.type === 'api') {
+        // API profile: persist globally via setActiveAPIProfile
+        import('../services/profile/profile-manager').then(({ setActiveAPIProfile }) => {
+          return setActiveAPIProfile(bestAccount.id);
+        }).then(() => {
+          console.warn('[ClaudeIntegration] API profile auto-switch completed:', bestAccount.name);
+        }).catch(err => {
+          console.error('[ClaudeIntegration] API profile auto-switch failed:', err);
+        });
+      } else {
+        // OAuth profile: use existing callback
+        switchProfileCallback(terminal.id, bestAccount.id).then(() => {
+          console.warn('[ClaudeIntegration] OAuth profile auto-switch completed');
+        }).catch(err => {
+          console.error('[ClaudeIntegration] OAuth profile auto-switch failed:', err);
+        });
+      }
+    }
+  }).catch(err => {
+    // Fallback: send IPC event without suggested profile
+    console.error('[ClaudeIntegration] Unified account selection failed:', err);
+    const win = getWindow();
+    if (win) {
+      win.webContents.send(IPC_CHANNELS.TERMINAL_RATE_LIMIT, {
+        terminalId: terminal.id,
+        resetTime,
+        detectedAt: new Date().toISOString(),
+        profileId: currentProfileId,
+        autoSwitchEnabled: autoSwitchSettings.autoSwitchOnRateLimit
+      } as RateLimitEvent);
+    }
+  });
 }
 
 /**
@@ -1088,6 +1151,10 @@ export function invokeClaude(
     SessionHandler.releaseSessionId(terminal.id);
     terminal.claudeSessionId = undefined;
 
+    // Fire-and-forget proactive swap: if a swap is needed, it persists globally
+    // so the profile check later in this function will pick it up on next invocation.
+    ensureBestProfileActive().catch(() => {/* handled internally */});
+
     const startTime = Date.now();
     const projectPath = cwd || terminal.projectPath || terminal.cwd;
 
@@ -1279,6 +1346,10 @@ export async function invokeClaudeAsync(
     terminal.dangerouslySkipPermissions = dangerouslySkipPermissions;
     SessionHandler.releaseSessionId(terminal.id);
     terminal.claudeSessionId = undefined;
+
+    // Proactive swap: check if current profile is rate-limited/at-capacity
+    // and switch to a better profile (OAuth or API) before building the command.
+    await ensureBestProfileActive();
 
     const projectPath = cwd || terminal.projectPath || terminal.cwd;
 
