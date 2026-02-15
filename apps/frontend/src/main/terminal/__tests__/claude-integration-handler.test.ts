@@ -1164,11 +1164,6 @@ describe('claude-integration-handler - Helper Functions', () => {
     });
 
     it('sends IPC event with suggestedAccountType for API profiles', async () => {
-      // Override extractRateLimitReset for this test
-      vi.doMock('../output-parser', () => ({
-        extractRateLimitReset: () => 'Feb 19 at 11am',
-      }));
-
       const { handleRateLimit } = await import('../claude-integration-handler');
       const { terminal, lastNotified, getWindow } = createRateLimitTestContext();
 

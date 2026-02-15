@@ -15,6 +15,7 @@ function createOAuthProfile(overrides: Partial<ClaudeProfile> = {}): ClaudeProfi
     name: 'Account 1',
     isDefault: false,
     configDir: '/tmp/config',
+    oauthToken: 'fake-token-for-testing',
     usage: { weeklyUsagePercent: 50, sessionUsagePercent: 50 },
     rateLimitEvents: [],
     ...overrides,
