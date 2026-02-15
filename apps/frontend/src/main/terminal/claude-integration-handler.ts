@@ -1151,9 +1151,11 @@ export function invokeClaude(
     SessionHandler.releaseSessionId(terminal.id);
     terminal.claudeSessionId = undefined;
 
-    // Fire-and-forget proactive swap: if a swap is needed, it persists globally
-    // so the profile check later in this function will pick it up on next invocation.
-    ensureBestProfileActive().catch(() => {/* handled internally */});
+    // Proactive swap only when no explicit profile was requested (i.e. not a manual switch).
+    // When profileId is set, the user explicitly chose a profile — respect that choice.
+    if (!profileId) {
+      ensureBestProfileActive().catch(() => {/* handled internally */});
+    }
 
     const startTime = Date.now();
     const projectPath = cwd || terminal.projectPath || terminal.cwd;
@@ -1347,9 +1349,11 @@ export async function invokeClaudeAsync(
     SessionHandler.releaseSessionId(terminal.id);
     terminal.claudeSessionId = undefined;
 
-    // Proactive swap: check if current profile is rate-limited/at-capacity
-    // and switch to a better profile (OAuth or API) before building the command.
-    await ensureBestProfileActive();
+    // Proactive swap only when no explicit profile was requested (i.e. not a manual switch).
+    // When profileId is set, the user explicitly chose a profile — respect that choice.
+    if (!profileId) {
+      await ensureBestProfileActive();
+    }
 
     const projectPath = cwd || terminal.projectPath || terminal.cwd;
 

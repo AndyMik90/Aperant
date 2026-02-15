@@ -1295,4 +1295,57 @@ describe('claude-integration-handler - Helper Functions', () => {
       expect(mockSwitchProfileCallback).not.toHaveBeenCalled();
     });
   });
+
+  // ===========================================================================
+  // Proactive swap — respects manual profile selections
+  // ===========================================================================
+  describe('proactive swap respects manual profile selection', () => {
+    it('does not run proactive swap when profileId is explicitly provided (manual switch)', async () => {
+      // Set up a profile manager where getBestAvailableUnifiedAccount would swap
+      // to a different profile if called — proving it was NOT called.
+      const mockBestUnified = vi.fn().mockResolvedValue({
+        id: 'api-glm-1',
+        name: 'GLM API',
+        type: 'api',
+        isAvailable: true,
+      });
+      const profileManager = {
+        getActiveProfile: vi.fn(() => ({
+          id: 'oauth-1', name: 'Account 1', isDefault: true,
+        })),
+        getProfile: vi.fn((id: string) => ({
+          id, name: 'Manually Selected', isDefault: false,
+          configDir: '/tmp/manual-config',
+        })),
+        getAutoSwitchSettings: vi.fn(() => ({
+          enabled: true, autoSwitchOnRateLimit: true,
+        })),
+        getBestAvailableUnifiedAccount: mockBestUnified,
+        getProfileToken: vi.fn(() => null),
+        markProfileUsed: vi.fn(),
+        setActiveProfile: vi.fn(),
+      };
+
+      mockGetClaudeCliInvocationAsync.mockResolvedValue({
+        command: '/opt/claude/bin/claude',
+        env: { PATH: '/opt/claude/bin:/usr/bin' },
+      });
+      mockInitializeClaudeProfileManager.mockResolvedValue(profileManager);
+      mockGetClaudeProfileManager.mockReturnValue(profileManager);
+
+      const terminal = createMockTerminal();
+      const { invokeClaudeAsync } = await import('../claude-integration-handler');
+
+      // Provide an explicit profileId — simulating a manual switch
+      await invokeClaudeAsync(terminal, '/tmp/project', 'manual-profile-1', () => null, vi.fn());
+
+      // getBestAvailableUnifiedAccount should NOT have been called
+      // because proactive swap is skipped when profileId is explicit
+      expect(mockBestUnified).not.toHaveBeenCalled();
+
+      // The explicit profile should be used, not the auto-selected one
+      expect(profileManager.getProfile).toHaveBeenCalledWith('manual-profile-1');
+      expect(profileManager.markProfileUsed).toHaveBeenCalledWith('manual-profile-1');
+    });
+  });
 });
