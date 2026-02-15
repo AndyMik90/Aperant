@@ -108,6 +108,15 @@ export class FileWatcher extends EventEmitter {
   }
 
   /**
+   * Get the spec directory currently being watched for a task
+   */
+  getWatchedSpecDir(taskId: string): string | null {
+    const watcherInfo = this.watchers.get(taskId);
+    if (!watcherInfo) return null;
+    return path.dirname(watcherInfo.planPath);
+  }
+
+  /**
    * Get current plan state for a task
    */
   getCurrentPlan(taskId: string): ImplementationPlan | null {
