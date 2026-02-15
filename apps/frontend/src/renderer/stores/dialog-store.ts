@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import type { Project } from '../../shared/types';
-import type { AppSection } from '../components/settings/AppSettings';
-import type { ProjectSettingsSection } from '../components/settings/ProjectSettingsContent';
+import type { Project } from '@shared/types';
+import type { AppSection } from '@/components/settings/AppSettings';
+import type { ProjectSettingsSection } from '@/components/settings/ProjectSettingsContent';
 
 interface DialogState {
   // Task creation
@@ -24,6 +24,7 @@ interface DialogState {
   initError: string | null;
   skippedInitProjectId: string | null;
   openInitDialog: (project: Project) => void;
+  closeInitDialog: () => void;
   skipInit: () => void;
   resetInitState: () => void;
   setInitializing: (v: boolean) => void;
@@ -96,6 +97,11 @@ export const useDialogStore = create<DialogState>((set) => ({
       pendingProject: project,
       initError: null,
       initSuccess: false,
+    }),
+  closeInitDialog: () =>
+    set({
+      showInitDialog: false,
+      pendingProject: null,
     }),
   skipInit: () =>
     set((state) => ({

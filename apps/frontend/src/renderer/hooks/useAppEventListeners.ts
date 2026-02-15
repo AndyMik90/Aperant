@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useNavigationStore } from '../stores/navigation-store';
 import { useDialogStore } from '../stores/dialog-store';
 import { useProjectStore, addProject, initializeProject, loadProjects } from '../stores/project-store';
@@ -12,8 +11,6 @@ import i18n from '../../shared/i18n';
  * initialization/GitHub setup logic.
  */
 export function useAppEventListeners() {
-  const openProjectTab = useProjectStore((state) => state.openProjectTab);
-
   // Listen for open-app-settings events (e.g., from project settings)
   useEffect(() => {
     const handleOpenAppSettings = (event: Event) => {
@@ -60,10 +57,7 @@ export function useAppEventListeners() {
           if (path) {
             const project = await addProject(path);
             if (project) {
-              openProjectTab(project.id);
-              if (!project.autoBuildPath) {
-                useDialogStore.getState().openInitDialog(project);
-              }
+              handleProjectAdded(project, !project.autoBuildPath);
             }
           }
         } catch (error) {
@@ -74,7 +68,7 @@ export function useAppEventListeners() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [openProjectTab]);
+  }, []);
 }
 
 /**
@@ -102,8 +96,8 @@ export async function handleInitialize() {
       useDialogStore.getState().setInitSuccess(true);
       useDialogStore.getState().setInitializing(false);
 
-      // Close the init dialog
-      useDialogStore.setState({ showInitDialog: false, pendingProject: null });
+      // Close the init dialog via store action
+      useDialogStore.getState().closeInitDialog();
 
       // Show GitHub setup modal
       if (updatedProject) {

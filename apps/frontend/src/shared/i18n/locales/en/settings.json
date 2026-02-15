@@ -262,6 +262,7 @@
       "save": "Save Theme",
       "cancel": "Cancel",
       "deleteTitle": "Delete Custom Theme",
+      "deleteConfirmation": "Are you sure you want to delete the theme '{{name}}'? This action cannot be undone.",
       "deleteConfirm": "Delete",
       "validationNameRequired": "Theme name is required",
       "validationNameDuplicate": "A theme with this name already exists",

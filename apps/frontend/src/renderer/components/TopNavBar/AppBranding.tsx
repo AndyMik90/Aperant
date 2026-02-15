@@ -7,7 +7,7 @@ export function AppBranding() {
 
   return (
     <div className="flex items-center px-3 select-none shrink-0">
-      <Badge variant="destructive" className="gap-1.5 px-2 py-1 font-normal">
+      <Badge variant="secondary" className="gap-1.5 px-2 py-1 font-normal">
         <img src={appIcon} alt="" className="h-4 w-4" draggable={false} />
         {t('appTitle')}
       </Badge>

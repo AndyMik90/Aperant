@@ -41,6 +41,21 @@ interface ProjectState {
   getProjectTabs: () => Project[];
 }
 
+/**
+ * Shared selector: returns activeProjectId with fallback to selectedProjectId.
+ * Use this in all components that need the current project ID to avoid duplicated inline selectors.
+ */
+export const selectCurrentProjectId = (state: ProjectState) =>
+  state.activeProjectId || state.selectedProjectId;
+
+/**
+ * Shared selector: returns the currently active project (with fallback to selected project).
+ */
+export const selectCurrentProject = (state: ProjectState) => {
+  const id = state.activeProjectId || state.selectedProjectId;
+  return state.projects.find((p) => p.id === id);
+};
+
 export const useProjectStore = create<ProjectState>((set, get) => ({
   projects: [],
   selectedProjectId: null,

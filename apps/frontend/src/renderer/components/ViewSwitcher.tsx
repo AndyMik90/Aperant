@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { ErrorBoundary } from './ui/error-boundary';
 import { KanbanBoard } from './KanbanBoard';
 import { TerminalGrid } from './TerminalGrid';
@@ -14,9 +15,10 @@ import { Worktrees } from './Worktrees';
 import { AgentTools } from './AgentTools';
 import { useNavigationStore } from '../stores/navigation-store';
 import { useDialogStore } from '../stores/dialog-store';
-import { useProjectStore } from '../stores/project-store';
+import { useProjectStore, selectCurrentProjectId } from '../stores/project-store';
 import { useTaskStore } from '../stores/task-store';
-import type { SidebarView } from './Sidebar/constants/types';
+import type { Task } from '@shared/types';
+import type { SidebarView } from '@shared/types/settings';
 
 interface ViewConfig {
   id: SidebarView;
@@ -43,7 +45,7 @@ const VIEW_REGISTRY: ViewConfig[] = [
 
 export function ViewSwitcher({ projectPath }: { projectPath?: string }) {
   const activeView = useNavigationStore((state) => state.activeView);
-  const projectId = useProjectStore((state) => state.activeProjectId || state.selectedProjectId);
+  const projectId = useProjectStore(selectCurrentProjectId);
 
   return (
     <>
@@ -73,12 +75,24 @@ function KanbanView() {
   const tasks = useTaskStore((state) => state.tasks);
   const isRefreshingTasks = useNavigationStore((state) => state.isRefreshingTasks);
 
+  const handleTaskClick = useCallback((task: Task) => {
+    useNavigationStore.getState().setSelectedTask(task);
+  }, []);
+
+  const handleRefreshTasks = useCallback(() => {
+    useNavigationStore.getState().refreshTasks();
+  }, []);
+
+  const handleCloseTaskDetail = useCallback(() => {
+    useDialogStore.getState().openNewTaskDialog();
+  }, []);
+
   return (
     <KanbanBoard
       tasks={tasks}
-      onTaskClick={(task) => useNavigationStore.getState().setSelectedTask(task)}
-      onNewTaskClick={() => useDialogStore.getState().openNewTaskDialog()}
-      onRefresh={() => useNavigationStore.getState().refreshTasks()}
+      onTaskClick={handleTaskClick}
+      onNewTaskClick={handleCloseTaskDetail}
+      onRefresh={handleRefreshTasks}
       isRefreshing={isRefreshingTasks}
     />
   );
@@ -95,13 +109,13 @@ function TerminalView({ projectPath, isActive = false }: { projectPath?: string;
 }
 
 function RoadmapView() {
-  const projectId = useProjectStore((state) => state.activeProjectId || state.selectedProjectId);
+  const projectId = useProjectStore(selectCurrentProjectId);
   if (!projectId) return null;
   return <Roadmap projectId={projectId} onGoToTask={(id) => useNavigationStore.getState().goToTask(id)} />;
 }
 
 function ContextView() {
-  const projectId = useProjectStore((state) => state.activeProjectId || state.selectedProjectId);
+  const projectId = useProjectStore(selectCurrentProjectId);
   if (!projectId) return null;
   return (
     <ErrorBoundary>
@@ -111,13 +125,13 @@ function ContextView() {
 }
 
 function IdeationView() {
-  const projectId = useProjectStore((state) => state.activeProjectId || state.selectedProjectId);
+  const projectId = useProjectStore(selectCurrentProjectId);
   if (!projectId) return null;
   return <Ideation projectId={projectId} onGoToTask={(id) => useNavigationStore.getState().goToTask(id)} />;
 }
 
 function InsightsView() {
-  const projectId = useProjectStore((state) => state.activeProjectId || state.selectedProjectId);
+  const projectId = useProjectStore(selectCurrentProjectId);
   if (!projectId) return null;
   return <Insights projectId={projectId} />;
 }
@@ -150,7 +164,7 @@ function GitHubPRsView({ isActive = false }: { isActive?: boolean }) {
 }
 
 function GitLabMergeRequestsView() {
-  const projectId = useProjectStore((state) => state.activeProjectId || state.selectedProjectId);
+  const projectId = useProjectStore(selectCurrentProjectId);
   if (!projectId) return null;
   return (
     <GitLabMergeRequests
@@ -165,7 +179,7 @@ function ChangelogView() {
 }
 
 function WorktreesView() {
-  const projectId = useProjectStore((state) => state.activeProjectId || state.selectedProjectId);
+  const projectId = useProjectStore(selectCurrentProjectId);
   if (!projectId) return null;
   return <Worktrees projectId={projectId} />;
 }

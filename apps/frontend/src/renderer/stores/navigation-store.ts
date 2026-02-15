@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { Task } from '../../shared/types';
-import type { SidebarView } from '../components/Sidebar/constants/types';
+import type { Task } from '@shared/types';
+import type { SidebarView } from '@shared/types/settings';
 import { useTaskStore, loadTasks } from './task-store';
 import { useTerminalStore } from './terminal-store';
 import { useProjectStore } from './project-store';

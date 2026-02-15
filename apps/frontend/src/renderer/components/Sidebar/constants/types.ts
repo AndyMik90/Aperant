@@ -1,6 +1,7 @@
 import { Github, Wrench, GitMerge, GitlabIcon, GitPullRequest, LayoutGrid, Terminal, Sparkles, Lightbulb, FileText, BookOpen, GitBranch, Map } from "lucide-react";
+import type { SidebarView } from '@shared/types/settings';
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
+export type { SidebarView };
 
 export interface SidebarProps {
   onSettingsClick: () => void;

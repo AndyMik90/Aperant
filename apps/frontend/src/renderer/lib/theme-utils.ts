@@ -6,7 +6,8 @@
  * (hex, HSL, OKLCH, RGB) is supported.
  */
 
-import type { ColorThemeDefinition } from '../../shared/types/settings';
+import type { ColorThemeDefinition } from '@shared/types/settings';
+import i18n from '@shared/i18n';
 
 /* -- Types ---------------------------------------------------------------- */
 
@@ -71,6 +72,9 @@ export function parseTweakcnCSSWithSections(cssString: string): {
 } {
   const lightVariables: ThemeVariables = {};
   const darkVariables: ThemeVariables = {};
+
+  // Note: regex won't handle nested braces (e.g., @supports). This is fine
+  // for typical tweakcn.com exports which use flat variable declarations.
 
   // Extract :root { ... } block
   const rootMatch = cssString.match(/:root\s*\{([^}]*)\}/s);
@@ -323,9 +327,11 @@ export function getAllCustomThemeDefinitions(): ColorThemeDefinition[] {
     return Object.values(themes).map((theme) => {
       const preview = extractPreviewColors(theme);
       return {
+        // Cast needed because ColorThemeDefinition['id'] is a union of BuiltinColorTheme | `custom:${string}`,
+        // and template literal concatenation isn't narrowed automatically by TypeScript.
         id: `custom:${theme.name}` as ColorThemeDefinition['id'],
         name: theme.name,
-        description: 'Custom imported theme',
+        description: i18n.t('settings:theme.customTheme.customDescription'),
         previewColors: preview,
         isCustom: true,
       };

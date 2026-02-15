@@ -258,7 +258,7 @@ const browserMockAPI: ElectronAPI = {
   },
 
   // Window controls API
-  window: {
+  windowControls: {
     minimize: async () => {},
     maximize: async () => false,
     close: async () => {},

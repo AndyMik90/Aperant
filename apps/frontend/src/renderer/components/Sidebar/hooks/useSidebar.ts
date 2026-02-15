@@ -10,10 +10,9 @@ const useSidebar = ({onViewChange}: SidebarProps) => {
     const { t } = useTranslation(['navigation', 'dialogs', 'common']);
     const projects = useProjectStore((state) => state.projects);
     const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
-    const settings = useSettingsStore((state) => state.settings);
+    const isCollapsed = useSettingsStore((state) => state.settings.sidebarCollapsed) ?? false;
 
     // Sidebar collapse state — owned here now (no longer from shadcn SidebarProvider)
-    const isCollapsed = settings.sidebarCollapsed ?? false;
     const toggleSidebar = useCallback(() => {
       saveSettings({ sidebarCollapsed: !isCollapsed });
     }, [isCollapsed]);
@@ -57,7 +56,9 @@ const useSidebar = ({onViewChange}: SidebarProps) => {
           if (selectedProject.id !== lastLoadedProjectIdRef.current) {
             lastLoadedProjectIdRef.current = selectedProject.id;
             await loadProjectEnvConfig(selectedProject.id);
-            // Check if this effect was cancelled while loading
+            // Defense-in-depth: check if this effect was cancelled while loading.
+            // Works in concert with the store's requestId pattern to prevent
+            // stale async results from overwriting current state.
             if (!isCurrent) return;
           }
         } else {
@@ -138,7 +139,7 @@ const useSidebar = ({onViewChange}: SidebarProps) => {
       checkGit();
     }, [selectedProject?.id, selectedProject?.path]);
 
-    const handleGitInitialized = async () => {
+    const handleGitInitialized = useCallback(async () => {
       // Refresh git status after initialization
       if (selectedProject) {
         try {
@@ -150,11 +151,11 @@ const useSidebar = ({onViewChange}: SidebarProps) => {
           console.error('Failed to refresh git status:', error);
         }
       }
-    };
+    }, [selectedProject]);
 
-    const handleNavClick = (view: SidebarView) => {
+    const handleNavClick = useCallback((view: SidebarView) => {
       onViewChange?.(view);
-    };
+    }, [onViewChange]);
     return {
         showGitSetupModal,
         setShowGitSetupModal,

@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSettingsStore } from '../stores/settings-store';
-import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../../shared/constants';
-import { applyCustomTheme, clearAllCustomVariables } from '../lib/theme-utils';
-import type { ColorTheme } from '../../shared/types';
+import { useSettingsStore } from '@/stores/settings-store';
+import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '@shared/constants';
+import { applyCustomTheme, clearAllCustomVariables } from '@/lib/theme-utils';
+import type { ColorTheme } from '@shared/types';
 
 /**
  * Handles theme application (dark/light/system), color themes, UI scale,
@@ -85,7 +85,9 @@ export function useAppTheme() {
     if (settings.language && settings.language !== i18n.language) {
       i18n.changeLanguage(settings.language);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run when settings.language changes, not on every i18n object change
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run when settings.language changes, not on every i18n object change.
+    // i18n.changeLanguage is a stable reference provided by react-i18next (bound to the i18n instance),
+    // so including it in the dep array does not cause unnecessary re-runs.
   }, [settings.language, i18n.language, i18n.changeLanguage]);
 
   // Sync spell check language with i18n language

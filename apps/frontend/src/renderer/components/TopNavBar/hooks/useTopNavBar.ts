@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   PointerSensor,
   useSensor,
@@ -27,21 +27,21 @@ export function useTopNavBar() {
   // Track dragging state for overlay
   const [activeDragProject, setActiveDragProject] = useState<Project | null>(null);
 
-  const handleProjectTabSelect = (projectId: string) => {
+  const handleProjectTabSelect = useCallback((projectId: string) => {
     setActiveProject(projectId);
-  };
+  }, [setActiveProject]);
 
   // Handle drag start - set the active dragged project
-  const handleDragStart = (event: DragStartEvent) => {
+  const handleDragStart = useCallback((event: DragStartEvent) => {
     const { active } = event;
     const draggedProject = projectTabs.find(p => p.id === active.id);
     if (draggedProject) {
       setActiveDragProject(draggedProject);
     }
-  };
+  }, [projectTabs]);
 
   // Handle drag end - reorder tabs if dropped over another tab
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     setActiveDragProject(null);
 
@@ -53,7 +53,7 @@ export function useTopNavBar() {
     if (oldIndex !== newIndex && oldIndex !== -1 && newIndex !== -1) {
       reorderTabs(oldIndex, newIndex);
     }
-  };
+  }, [projectTabs, reorderTabs]);
 
   return {
     projectTabs,

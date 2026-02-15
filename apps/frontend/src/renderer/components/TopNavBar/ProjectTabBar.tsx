@@ -4,8 +4,8 @@ import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { SortableProjectTab } from './SortableProjectTab';
-import { UsageIndicator } from '../UsageIndicator';
-import { AuthStatusIndicator } from '../AuthStatusIndicator';
+import { UsageIndicator } from '@/components/UsageIndicator';
+import { AuthStatusIndicator } from '@/components/AuthStatusIndicator';
 import type { Project } from '@shared/types';
 
 interface ProjectTabBarProps {

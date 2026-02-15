@@ -377,7 +377,7 @@ export function ThemeSelector({ settings, onSettingsChange }: ThemeSelectorProps
             <DialogTitle>{t('theme.customTheme.deleteTitle')}</DialogTitle>
             <DialogDescription>
               {deleteTargetName
-                ? `"${deleteTargetName}"`
+                ? t('theme.customTheme.deleteConfirmation', { name: deleteTargetName })
                 : ''}
             </DialogDescription>
           </DialogHeader>

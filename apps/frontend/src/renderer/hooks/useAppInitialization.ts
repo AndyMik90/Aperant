@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { useProjectStore } from '../stores/project-store';
-import { useSettingsStore, loadSettings, loadProfiles } from '../stores/settings-store';
-import { loadClaudeProfiles } from '../stores/claude-profile-store';
-import { loadProjects } from '../stores/project-store';
-import { loadTasks, useTaskStore } from '../stores/task-store';
-import { restoreTerminalSessions } from '../stores/terminal-store';
-import { initializeGitHubListeners } from '../stores/github';
-import { initDownloadProgressListener } from '../stores/download-store';
-import { useNavigationStore } from '../stores/navigation-store';
-import { useDialogStore } from '../stores/dialog-store';
+import { useProjectStore, selectCurrentProject } from '@/stores/project-store';
+import { useSettingsStore, loadSettings, loadProfiles } from '@/stores/settings-store';
+import { loadClaudeProfiles } from '@/stores/claude-profile-store';
+import { loadProjects } from '@/stores/project-store';
+import { loadTasks, useTaskStore } from '@/stores/task-store';
+import { restoreTerminalSessions } from '@/stores/terminal-store';
+import { initializeGitHubListeners } from '@/stores/github';
+import { initDownloadProgressListener } from '@/stores/download-store';
+import { useNavigationStore } from '@/stores/navigation-store';
+import { useDialogStore } from '@/stores/dialog-store';
 
 /**
  * Handles initial app load, tab restore, project init detection, and task loading.
@@ -24,10 +24,7 @@ export function useAppInitialization(): { settingsHaveLoaded: boolean } {
   const getProjectTabs = useProjectStore((state) => state.getProjectTabs);
   const settingsLoading = useSettingsStore((state) => state.isLoading);
 
-  const selectedProject = useProjectStore((state) => {
-    const id = state.activeProjectId || state.selectedProjectId;
-    return state.projects.find((p) => p.id === id);
-  });
+  const selectedProject = useProjectStore(selectCurrentProject);
 
   const isInitializing = useDialogStore((state) => state.isInitializing);
   const initSuccess = useDialogStore((state) => state.initSuccess);
@@ -89,8 +86,8 @@ export function useAppInitialization(): { settingsHaveLoaded: boolean } {
         console.warn('[App] Tab state is valid, no action needed');
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- projectTabs is intentionally omitted to avoid infinite re-render (computed array creates new reference each render)
-  }, [projects, activeProjectId, selectedProjectId, openProjectIds, openProjectTab, setActiveProject, projectTabs.length, projectTabs.map]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- projectTabs is intentionally omitted to avoid infinite re-render (computed array creates new reference each render); projectTabs.length is sufficient
+  }, [projects, activeProjectId, selectedProjectId, openProjectIds, openProjectTab, setActiveProject, projectTabs.length]);
 
   // Mark settings as loaded when loading completes
   useEffect(() => {

@@ -37,7 +37,7 @@ export interface ElectronAPI extends
   /** Queue routing API for rate limit recovery */
   queue: QueueAPI;
   /** Window control API (minimize, maximize, close) */
-  window: WindowAPI;
+  windowControls: WindowAPI;
 }
 
 export const createElectronAPI = (): ElectronAPI => ({
@@ -55,7 +55,7 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createScreenshotAPI(),
   github: createGitHubAPI(),
   queue: createQueueAPI(),  // Queue routing for rate limit recovery
-  window: createWindowAPI()  // Window controls (minimize, maximize, close)
+  windowControls: createWindowAPI()  // Window controls (minimize, maximize, close)
 });
 
 // Export individual API creators for potential use in tests or specialized contexts

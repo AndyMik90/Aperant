@@ -2,19 +2,16 @@ import { Sidebar } from './Sidebar';
 import { TopNavBar } from './TopNavBar';
 import { WelcomeScreen } from './WelcomeScreen';
 import { ViewSwitcher } from './ViewSwitcher';
-import { useNavigationStore } from '../stores/navigation-store';
-import { useDialogStore } from '../stores/dialog-store';
-import { useProjectStore } from '../stores/project-store';
-import { handleProjectTabClose } from '../hooks/useAppEventListeners';
+import { useNavigationStore } from '@/stores/navigation-store';
+import { useDialogStore } from '@/stores/dialog-store';
+import { useProjectStore, selectCurrentProject } from '@/stores/project-store';
+import { handleProjectTabClose } from '@/hooks/useAppEventListeners';
 
 export function AppShell() {
   const activeView = useNavigationStore((state) => state.activeView);
   const setActiveView = useNavigationStore((state) => state.setActiveView);
   const projects = useProjectStore((state) => state.projects);
-  const selectedProject = useProjectStore((state) => {
-    const id = state.activeProjectId || state.selectedProjectId;
-    return state.projects.find((p) => p.id === id);
-  });
+  const selectedProject = useProjectStore(selectCurrentProject);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-sidebar">

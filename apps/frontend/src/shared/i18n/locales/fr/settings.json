@@ -262,6 +262,7 @@
       "save": "Enregistrer le thème",
       "cancel": "Annuler",
       "deleteTitle": "Supprimer le thème personnalisé",
+      "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer le thème '{{name}}' ? Cette action est irréversible.",
       "deleteConfirm": "Supprimer",
       "validationNameRequired": "Le nom du thème est requis",
       "validationNameDuplicate": "Un thème avec ce nom existe déjà",

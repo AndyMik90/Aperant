@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Download, RefreshCw, AlertCircle } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import { Button } from './ui/button';
 import {
   Dialog,
@@ -22,43 +23,63 @@ import { OnboardingWizard } from './onboarding';
 import { AppUpdateNotification } from './AppUpdateNotification';
 import { GlobalDownloadIndicator } from './GlobalDownloadIndicator';
 import { Toaster } from './ui/toaster';
-import { useNavigationStore } from '../stores/navigation-store';
-import { useDialogStore } from '../stores/dialog-store';
-import { useProjectStore } from '../stores/project-store';
-import { removeProject } from '../stores/project-store';
-import { useSettingsStore } from '../stores/settings-store';
+import { useNavigationStore } from '@/stores/navigation-store';
+import { useDialogStore } from '@/stores/dialog-store';
+import { useProjectStore, selectCurrentProjectId } from '@/stores/project-store';
+import { removeProject } from '@/stores/project-store';
+import { useSettingsStore } from '@/stores/settings-store';
 import {
   handleInitialize,
   handleGitHubSetupComplete,
   handleProjectAdded,
-} from '../hooks/useAppEventListeners';
-import { handleVersionWarningClose } from '../hooks/useVersionWarning';
+} from '@/hooks/useAppEventListeners';
+import { handleVersionWarningClose } from '@/hooks/useVersionWarning';
 
 export function AppDialogs() {
   const { t } = useTranslation('dialogs');
-  const projectId = useProjectStore((state) => state.activeProjectId || state.selectedProjectId);
+  const projectId = useProjectStore(selectCurrentProjectId);
 
   // Navigation store
   const selectedTask = useNavigationStore((state) => state.selectedTask);
 
-  // Dialog store
-  const isNewTaskDialogOpen = useDialogStore((state) => state.isNewTaskDialogOpen);
-  const isSettingsDialogOpen = useDialogStore((state) => state.isSettingsDialogOpen);
-  const settingsInitialSection = useDialogStore((state) => state.settingsInitialSection);
-  const settingsInitialProjectSection = useDialogStore((state) => state.settingsInitialProjectSection);
-  const showAddProjectModal = useDialogStore((state) => state.showAddProjectModal);
-  const showInitDialog = useDialogStore((state) => state.showInitDialog);
-  const pendingProject = useDialogStore((state) => state.pendingProject);
-  const isInitializing = useDialogStore((state) => state.isInitializing);
-  const initError = useDialogStore((state) => state.initError);
-  const showGitHubSetup = useDialogStore((state) => state.showGitHubSetup);
-  const gitHubSetupProject = useDialogStore((state) => state.gitHubSetupProject);
-  const showRemoveProjectDialog = useDialogStore((state) => state.showRemoveProjectDialog);
-  const removeProjectError = useDialogStore((state) => state.removeProjectError);
-  const projectToRemove = useDialogStore((state) => state.projectToRemove);
-  const isOnboardingWizardOpen = useDialogStore((state) => state.isOnboardingWizardOpen);
-  const isVersionWarningModalOpen = useDialogStore((state) => state.isVersionWarningModalOpen);
-  const initSuccess = useDialogStore((state) => state.initSuccess);
+  // Dialog store — consolidated with useShallow for referential equality
+  const {
+    isNewTaskDialogOpen,
+    isSettingsDialogOpen,
+    settingsInitialSection,
+    settingsInitialProjectSection,
+    showAddProjectModal,
+    showInitDialog,
+    pendingProject,
+    isInitializing,
+    initError,
+    initSuccess,
+    showGitHubSetup,
+    gitHubSetupProject,
+    showRemoveProjectDialog,
+    removeProjectError,
+    projectToRemove,
+    isOnboardingWizardOpen,
+    isVersionWarningModalOpen,
+  } = useDialogStore(useShallow((state) => ({
+    isNewTaskDialogOpen: state.isNewTaskDialogOpen,
+    isSettingsDialogOpen: state.isSettingsDialogOpen,
+    settingsInitialSection: state.settingsInitialSection,
+    settingsInitialProjectSection: state.settingsInitialProjectSection,
+    showAddProjectModal: state.showAddProjectModal,
+    showInitDialog: state.showInitDialog,
+    pendingProject: state.pendingProject,
+    isInitializing: state.isInitializing,
+    initError: state.initError,
+    initSuccess: state.initSuccess,
+    showGitHubSetup: state.showGitHubSetup,
+    gitHubSetupProject: state.gitHubSetupProject,
+    showRemoveProjectDialog: state.showRemoveProjectDialog,
+    removeProjectError: state.removeProjectError,
+    projectToRemove: state.projectToRemove,
+    isOnboardingWizardOpen: state.isOnboardingWizardOpen,
+    isVersionWarningModalOpen: state.isVersionWarningModalOpen,
+  })));
 
   const settings = useSettingsStore((state) => state.settings);
 

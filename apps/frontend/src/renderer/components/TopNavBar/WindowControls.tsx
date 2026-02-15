@@ -10,8 +10,8 @@ export function WindowControls() {
 
   useEffect(() => {
     if (isMacOS) return;
-    window.electronAPI.window.isMaximized().then(setIsMaximized).catch(() => {});
-    const cleanup = window.electronAPI.window.onMaximizeChanged(setIsMaximized);
+    window.electronAPI.windowControls.isMaximized().then(setIsMaximized).catch(() => {});
+    const cleanup = window.electronAPI.windowControls.onMaximizeChanged(setIsMaximized);
     return cleanup;
   }, [isMacOS]);
 
@@ -25,7 +25,7 @@ export function WindowControls() {
       <button
         type="button"
         className={cn(buttonBase, 'hover:bg-muted/80')}
-        onClick={() => window.electronAPI.window.minimize()}
+        onClick={() => window.electronAPI.windowControls.minimize()}
         aria-label={t('windowControls.minimize')}
       >
         <Minus className="h-4 w-4" />
@@ -33,7 +33,7 @@ export function WindowControls() {
       <button
         type="button"
         className={cn(buttonBase, 'hover:bg-muted/80')}
-        onClick={() => window.electronAPI.window.maximize()}
+        onClick={() => window.electronAPI.windowControls.maximize()}
         aria-label={isMaximized ? t('windowControls.restore') : t('windowControls.maximize')}
       >
         {isMaximized ? <Copy className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
@@ -41,7 +41,7 @@ export function WindowControls() {
       <button
         type="button"
         className={cn(buttonBase, 'hover:bg-destructive hover:text-destructive-foreground')}
-        onClick={() => window.electronAPI.window.close()}
+        onClick={() => window.electronAPI.windowControls.close()}
         aria-label={t('windowControls.close')}
       >
         <X className="h-4 w-4" />

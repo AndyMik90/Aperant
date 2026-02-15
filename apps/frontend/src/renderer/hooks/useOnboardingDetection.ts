@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { useSettingsStore } from '../stores/settings-store';
-import { useClaudeProfileStore } from '../stores/claude-profile-store';
-import { useDialogStore } from '../stores/dialog-store';
+import { useSettingsStore } from '@/stores/settings-store';
+import { useClaudeProfileStore } from '@/stores/claude-profile-store';
+import { useDialogStore } from '@/stores/dialog-store';
 
 /**
  * Detects first-run state and opens onboarding wizard if needed.

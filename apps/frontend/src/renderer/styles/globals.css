@@ -175,13 +175,6 @@
   --chart-4: #D2D714;
   --chart-5: #D84F68;
 
-  /* Font - serif fallback */
-  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
-
-  /* Layout spacing (tweakcn standard) */
-  --spacing: 0.25rem;
-  --letter-spacing: normal;
-
   /* Sidebar extended */
   --sidebar-primary: #A5A66A;
   --sidebar-primary-foreground: #0B0B0F;
@@ -190,6 +183,17 @@
   --sidebar-border: #DEDED9;
   --sidebar-ring: #A5A66A;
 
+  --shadow-focus: 0 0 0 3px rgba(165, 166, 106, 0.2);
+
+  /* Border radius */
+  --radius: 12px;
+
+  /* ---- Common light-mode variables (shared across all themes) ---- */
+  /* Font - serif fallback */
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
+  /* Layout spacing (tweakcn standard) */
+  --spacing: 0.25rem;
+  --letter-spacing: normal;
   /* Shadow decomposition (tweakcn compat) */
   --shadow-color: 0 0 0;
   --shadow-opacity: 0.05;
@@ -197,16 +201,11 @@
   --shadow-spread: 0px;
   --shadow-offset-x: 0px;
   --shadow-offset-y: 2px;
-
   /* Shadows - soft and diffused for light mode */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
-  --shadow-focus: 0 0 0 3px rgba(165, 166, 106, 0.2);
-
-  /* Border radius */
-  --radius: 12px;
 }
 
 /* Dark Mode - Oscura Midnight (Default/Primary theme per design system) */
@@ -266,13 +265,6 @@
   --chart-4: #D2D714;
   --chart-5: #FF5C5C;
 
-  /* Font - serif fallback */
-  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
-
-  /* Layout spacing (tweakcn standard) */
-  --spacing: 0.25rem;
-  --letter-spacing: normal;
-
   /* Sidebar extended */
   --sidebar-primary: #D6D876;
   --sidebar-primary-foreground: #0B0B0F;
@@ -281,6 +273,12 @@
   --sidebar-border: #232323;
   --sidebar-ring: #D6D876;
 
+  --shadow-focus: 0 0 0 2px rgba(214, 216, 118, 0.2);
+
+  /* ---- Common dark-mode variables (shared across all dark themes) ---- */
+  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
+  --spacing: 0.25rem;
+  --letter-spacing: normal;
   /* Shadow decomposition (tweakcn compat) */
   --shadow-color: 0 0 0;
   --shadow-opacity: 0.5;
@@ -288,13 +286,11 @@
   --shadow-spread: 0px;
   --shadow-offset-x: 0px;
   --shadow-offset-y: 2px;
-
   /* Shadows - deeper for dark mode, but cards use borders primarily */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.6);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.7);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.8);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.9);
-  --shadow-focus: 0 0 0 2px rgba(214, 216, 118, 0.2);
 }
 
 /* ============================================
@@ -363,13 +359,6 @@
   --chart-4: #D2D714;
   --chart-5: #D84F68;
 
-  /* Font - serif fallback */
-  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
-
-  /* Layout spacing (tweakcn standard) */
-  --spacing: 0.25rem;
-  --letter-spacing: normal;
-
   /* Sidebar extended */
   --sidebar-primary: #B8B978;
   --sidebar-primary-foreground: #131419;
@@ -378,19 +367,6 @@
   --sidebar-border: #E0E0DB;
   --sidebar-ring: #B8B978;
 
-  /* Shadow decomposition (tweakcn compat) */
-  --shadow-color: 0 0 0;
-  --shadow-opacity: 0.05;
-  --shadow-blur: 4px;
-  --shadow-spread: 0px;
-  --shadow-offset-x: 0px;
-  --shadow-offset-y: 2px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
   --shadow-focus: 0 0 0 3px rgba(184, 185, 120, 0.2);
 }
 
@@ -460,13 +436,6 @@
   --chart-4: #D2D714;
   --chart-5: #D84F68;
 
-  /* Font - serif fallback */
-  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
-
-  /* Layout spacing (tweakcn standard) */
-  --spacing: 0.25rem;
-  --letter-spacing: normal;
-
   /* Sidebar extended */
   --sidebar-primary: #E6E7A3;
   --sidebar-primary-foreground: #131419;
@@ -475,19 +444,6 @@
   --sidebar-border: #282828;
   --sidebar-ring: #E6E7A3;
 
-  /* Shadow decomposition (tweakcn compat) */
-  --shadow-color: 0 0 0;
-  --shadow-opacity: 0.5;
-  --shadow-blur: 4px;
-  --shadow-spread: 0px;
-  --shadow-offset-x: 0px;
-  --shadow-offset-y: 2px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
   --shadow-focus: 0 0 0 2px rgba(230, 231, 163, 0.25);
 }
 
@@ -557,13 +513,6 @@
   --chart-4: #2563EB;
   --chart-5: #DC2626;
 
-  /* Font - serif fallback */
-  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
-
-  /* Layout spacing (tweakcn standard) */
-  --spacing: 0.25rem;
-  --letter-spacing: normal;
-
   /* Sidebar extended */
   --sidebar-primary: #7C3AED;
   --sidebar-primary-foreground: #FFFFFF;
@@ -572,19 +521,6 @@
   --sidebar-border: #E2E8F0;
   --sidebar-ring: #7C3AED;
 
-  /* Shadow decomposition (tweakcn compat) */
-  --shadow-color: 0 0 0;
-  --shadow-opacity: 0.05;
-  --shadow-blur: 4px;
-  --shadow-spread: 0px;
-  --shadow-offset-x: 0px;
-  --shadow-offset-y: 2px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
   --shadow-focus: 0 0 0 3px rgba(124, 58, 237, 0.2);
 }
 
@@ -654,13 +590,6 @@
   --chart-4: #60A5FA;
   --chart-5: #F87171;
 
-  /* Font - serif fallback */
-  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
-
-  /* Layout spacing (tweakcn standard) */
-  --spacing: 0.25rem;
-  --letter-spacing: normal;
-
   /* Sidebar extended */
   --sidebar-primary: #8B5CF6;
   --sidebar-primary-foreground: #0F0F1A;
@@ -669,19 +598,6 @@
   --sidebar-border: #2E2E40;
   --sidebar-ring: #8B5CF6;
 
-  /* Shadow decomposition (tweakcn compat) */
-  --shadow-color: 0 0 0;
-  --shadow-opacity: 0.5;
-  --shadow-blur: 4px;
-  --shadow-spread: 0px;
-  --shadow-offset-x: 0px;
-  --shadow-offset-y: 2px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
   --shadow-focus: 0 0 0 3px rgba(139, 92, 246, 0.3);
 }
 
@@ -751,13 +667,6 @@
   --chart-4: #2563EB;
   --chart-5: #DC2626;
 
-  /* Font - serif fallback */
-  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
-
-  /* Layout spacing (tweakcn standard) */
-  --spacing: 0.25rem;
-  --letter-spacing: normal;
-
   /* Sidebar extended */
   --sidebar-primary: #0284C7;
   --sidebar-primary-foreground: #FFFFFF;
@@ -766,19 +675,6 @@
   --sidebar-border: #BAE6FD;
   --sidebar-ring: #0284C7;
 
-  /* Shadow decomposition (tweakcn compat) */
-  --shadow-color: 0 0 0;
-  --shadow-opacity: 0.05;
-  --shadow-blur: 4px;
-  --shadow-spread: 0px;
-  --shadow-offset-x: 0px;
-  --shadow-offset-y: 2px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
   --shadow-focus: 0 0 0 3px rgba(2, 132, 199, 0.2);
 }
 
@@ -848,13 +744,6 @@
   --chart-4: #60A5FA;
   --chart-5: #F87171;
 
-  /* Font - serif fallback */
-  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
-
-  /* Layout spacing (tweakcn standard) */
-  --spacing: 0.25rem;
-  --letter-spacing: normal;
-
   /* Sidebar extended */
   --sidebar-primary: #38BDF8;
   --sidebar-primary-foreground: #082F49;
@@ -863,19 +752,6 @@
   --sidebar-border: #0E7490;
   --sidebar-ring: #38BDF8;
 
-  /* Shadow decomposition (tweakcn compat) */
-  --shadow-color: 0 0 0;
-  --shadow-opacity: 0.5;
-  --shadow-blur: 4px;
-  --shadow-spread: 0px;
-  --shadow-offset-x: 0px;
-  --shadow-offset-y: 2px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
   --shadow-focus: 0 0 0 3px rgba(56, 189, 248, 0.3);
 }
 
@@ -945,13 +821,6 @@
   --chart-4: #1D4ED8;
   --chart-5: #B91C1C;
 
-  /* Font - serif fallback */
-  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
-
-  /* Layout spacing (tweakcn standard) */
-  --spacing: 0.25rem;
-  --letter-spacing: normal;
-
   /* Sidebar extended */
   --sidebar-primary: #D97706;
   --sidebar-primary-foreground: #FFFFFF;
@@ -960,19 +829,6 @@
   --sidebar-border: #FDE68A;
   --sidebar-ring: #D97706;
 
-  /* Shadow decomposition (tweakcn compat) */
-  --shadow-color: 0 0 0;
-  --shadow-opacity: 0.05;
-  --shadow-blur: 4px;
-  --shadow-spread: 0px;
-  --shadow-offset-x: 0px;
-  --shadow-offset-y: 2px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
   --shadow-focus: 0 0 0 3px rgba(217, 119, 6, 0.2);
 }
 
@@ -1042,13 +898,6 @@
   --chart-4: #60A5FA;
   --chart-5: #F87171;
 
-  /* Font - serif fallback */
-  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
-
-  /* Layout spacing (tweakcn standard) */
-  --spacing: 0.25rem;
-  --letter-spacing: normal;
-
   /* Sidebar extended */
   --sidebar-primary: #FBBF24;
   --sidebar-primary-foreground: #1C1917;
@@ -1057,19 +906,6 @@
   --sidebar-border: #78716C;
   --sidebar-ring: #FBBF24;
 
-  /* Shadow decomposition (tweakcn compat) */
-  --shadow-color: 0 0 0;
-  --shadow-opacity: 0.5;
-  --shadow-blur: 4px;
-  --shadow-spread: 0px;
-  --shadow-offset-x: 0px;
-  --shadow-offset-y: 2px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
   --shadow-focus: 0 0 0 3px rgba(251, 191, 36, 0.3);
 }
 
@@ -1139,13 +975,6 @@
   --chart-4: #8B5CF6;
   --chart-5: #E11D48;
 
-  /* Font - serif fallback */
-  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
-
-  /* Layout spacing (tweakcn standard) */
-  --spacing: 0.25rem;
-  --letter-spacing: normal;
-
   /* Sidebar extended */
   --sidebar-primary: #D946EF;
   --sidebar-primary-foreground: #FFFFFF;
@@ -1154,19 +983,6 @@
   --sidebar-border: #F0ABFC;
   --sidebar-ring: #D946EF;
 
-  /* Shadow decomposition (tweakcn compat) */
-  --shadow-color: 0 0 0;
-  --shadow-opacity: 0.05;
-  --shadow-blur: 4px;
-  --shadow-spread: 0px;
-  --shadow-offset-x: 0px;
-  --shadow-offset-y: 2px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
   --shadow-focus: 0 0 0 3px rgba(217, 70, 239, 0.2);
 }
 
@@ -1236,13 +1052,6 @@
   --chart-4: #A78BFA;
   --chart-5: #FB7185;
 
-  /* Font - serif fallback */
-  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
-
-  /* Layout spacing (tweakcn standard) */
-  --spacing: 0.25rem;
-  --letter-spacing: normal;
-
   /* Sidebar extended */
   --sidebar-primary: #F0ABFC;
   --sidebar-primary-foreground: #0F0720;
@@ -1251,15 +1060,7 @@
   --sidebar-border: #581C87;
   --sidebar-ring: #F0ABFC;
 
-  /* Shadow decomposition (tweakcn compat) */
-  --shadow-color: 0 0 0;
-  --shadow-opacity: 0.5;
-  --shadow-blur: 4px;
-  --shadow-spread: 0px;
-  --shadow-offset-x: 0px;
-  --shadow-offset-y: 2px;
-
-  /* Shadows - with subtle neon glow effect */
+  /* Shadows - with subtle neon glow effect (overrides common dark-mode shadows) */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4), 0 0 20px rgba(217, 70, 239, 0.1);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 0 30px rgba(217, 70, 239, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 0 40px rgba(217, 70, 239, 0.15);
@@ -1333,13 +1134,6 @@
   --chart-4: #0284C7;
   --chart-5: #DC2626;
 
-  /* Font - serif fallback */
-  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
-
-  /* Layout spacing (tweakcn standard) */
-  --spacing: 0.25rem;
-  --letter-spacing: normal;
-
   /* Sidebar extended */
   --sidebar-primary: #16A34A;
   --sidebar-primary-foreground: #FFFFFF;
@@ -1348,19 +1142,6 @@
   --sidebar-border: #86EFAC;
   --sidebar-ring: #16A34A;
 
-  /* Shadow decomposition (tweakcn compat) */
-  --shadow-color: 0 0 0;
-  --shadow-opacity: 0.05;
-  --shadow-blur: 4px;
-  --shadow-spread: 0px;
-  --shadow-offset-x: 0px;
-  --shadow-offset-y: 2px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
   --shadow-focus: 0 0 0 3px rgba(22, 163, 74, 0.2);
 }
 
@@ -1430,13 +1211,6 @@
   --chart-4: #38BDF8;
   --chart-5: #F87171;
 
-  /* Font - serif fallback */
-  --font-serif: georgia, cambria, 'Times New Roman', times, serif;
-
-  /* Layout spacing (tweakcn standard) */
-  --spacing: 0.25rem;
-  --letter-spacing: normal;
-
   /* Sidebar extended */
   --sidebar-primary: #4ADE80;
   --sidebar-primary-foreground: #052E16;
@@ -1445,19 +1219,6 @@
   --sidebar-border: #166534;
   --sidebar-ring: #4ADE80;
 
-  /* Shadow decomposition (tweakcn compat) */
-  --shadow-color: 0 0 0;
-  --shadow-opacity: 0.5;
-  --shadow-blur: 4px;
-  --shadow-spread: 0px;
-  --shadow-offset-x: 0px;
-  --shadow-offset-y: 2px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
   --shadow-focus: 0 0 0 3px rgba(74, 222, 128, 0.3);
 }
 

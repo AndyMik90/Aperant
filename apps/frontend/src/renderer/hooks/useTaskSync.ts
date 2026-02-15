@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { debugLog } from '../../shared/utils/debug-logger';
-import { useTaskStore } from '../stores/task-store';
-import { useNavigationStore } from '../stores/navigation-store';
+import { debugLog } from '@shared/utils/debug-logger';
+import { useTaskStore } from '@/stores/task-store';
+import { useNavigationStore } from '@/stores/navigation-store';
 
 /**
  * Keeps selectedTask in sync with the task-store's tasks array for real-time updates.
@@ -30,6 +30,12 @@ export function useTaskSync() {
 
     if (!updatedTask) {
       debugLog('[App] Updated task not found in tasks array');
+      return;
+    }
+
+    // Referential equality check — if it's the same object, no fields have changed
+    if (updatedTask === selectedTask) {
+      debugLog('[App] Task is referentially equal, skipping comparison');
       return;
     }
 

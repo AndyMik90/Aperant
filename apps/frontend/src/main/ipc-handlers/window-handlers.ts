@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, screen } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
 
 export function registerWindowHandlers(getMainWindow: () => BrowserWindow | null): void {
@@ -32,12 +32,31 @@ export function registerWindowHandlers(getMainWindow: () => BrowserWindow | null
     const win = getMainWindow();
     if (win) {
       const [minW, minH] = win.getMinimumSize();
-      win.setBounds({
+      const safeBounds = {
         x: bounds.x,
         y: bounds.y,
         width: Math.max(bounds.width, minW),
         height: Math.max(bounds.height, minH),
-      });
+      };
+
+      // Validate that the window position is on a visible display.
+      // If the requested position is off-screen (e.g., a disconnected monitor),
+      // adjust to the nearest visible display.
+      const targetDisplay = screen.getDisplayMatching(safeBounds);
+      const { x: dX, y: dY, width: dW, height: dH } = targetDisplay.workArea;
+      const isOnScreen =
+        safeBounds.x + safeBounds.width > dX &&
+        safeBounds.x < dX + dW &&
+        safeBounds.y + safeBounds.height > dY &&
+        safeBounds.y < dY + dH;
+
+      if (!isOnScreen) {
+        // Center the window on the nearest display
+        safeBounds.x = dX + Math.round((dW - safeBounds.width) / 2);
+        safeBounds.y = dY + Math.round((dH - safeBounds.height) / 2);
+      }
+
+      win.setBounds(safeBounds);
     }
   });
 
