@@ -219,10 +219,10 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
   // Enable more verbose logging in debug mode
   if (DEBUG_UPDATER) {
     autoUpdater.logger = {
-      info: (msg: string) => console.warn('[app-updater:debug]', msg),
-      warn: (msg: string) => console.warn('[app-updater:debug]', msg),
-      error: (msg: string) => console.error('[app-updater:debug]', msg),
-      debug: (msg: string) => console.warn('[app-updater:debug]', msg)
+      info: (message?: any) => console.warn('[app-updater:debug]', message),
+      warn: (message?: any) => console.warn('[app-updater:debug]', message),
+      error: (message?: any) => console.error('[app-updater:debug]', message),
+      debug: (message?: string) => console.warn('[app-updater:debug]', message)
     };
   }
 
@@ -714,6 +714,10 @@ export async function downloadStableVersion(): Promise<void> {
     throw new Error('autoUpdater not initialized');
   }
 
+  // Save current channel state for rollback on failure
+  const previousChannel = autoUpdater.channel as UpdateChannel;
+  const previousAllowPrerelease = autoUpdater.allowPrerelease;
+
   // Switch to stable channel (resets allowPrerelease and clears downloadedUpdateInfo)
   setUpdateChannel('latest');
   // Enable downgrade to allow downloading older versions (e.g., stable when on beta)
@@ -729,6 +733,9 @@ export async function downloadStableVersion(): Promise<void> {
     }
   } catch (error) {
     console.error('[app-updater] Failed to download stable version:', error);
+    // Restore previous channel state on failure so user isn't stuck on wrong channel
+    setUpdateChannel(previousChannel);
+    autoUpdater.allowPrerelease = previousAllowPrerelease;
     throw error;
   } finally {
     // Reset flags to prevent unintended downgrades in normal update checks

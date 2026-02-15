@@ -452,9 +452,12 @@ app.whenReady().then(() => {
         // Old structure: /path/to/project/auto-claude
         // New structure: /path/to/project/apps/backend
         let migrated = false;
+        // Normalize path separators before checking legacy suffix
+        // Windows paths may use forward slashes (e.g., C:/Users/project/auto-claude)
+        const normalizedPath = validAutoBuildPath.replace(/\//g, sep);
         const legacySuffix = `${sep}auto-claude`;
-        if (validAutoBuildPath.endsWith(legacySuffix)) {
-          const basePath = validAutoBuildPath.slice(0, -legacySuffix.length);
+        if (normalizedPath.endsWith(legacySuffix)) {
+          const basePath = normalizedPath.slice(0, -legacySuffix.length);
           const correctedPath = joinPaths(basePath, 'apps', 'backend');
           const correctedSpecRunnerPath = joinPaths(correctedPath, 'runners', 'spec_runner.py');
 
