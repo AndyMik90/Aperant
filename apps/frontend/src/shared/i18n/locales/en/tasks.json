@@ -340,5 +340,9 @@
   "referenceImages": {
     "title": "Reference Images (optional)",
     "description": "Add visual references like screenshots or designs to help the AI understand your requirements."
+  },
+  "automation": {
+    "failedTitle": "Post-QA Automation Failed",
+    "failedDescription": "Task \"{{taskId}}\" automation failed: {{error}}"
   }
 }

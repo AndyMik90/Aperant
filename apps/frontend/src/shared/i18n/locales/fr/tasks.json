@@ -339,5 +339,9 @@
   "referenceImages": {
     "title": "Images de référence (facultatif)",
     "description": "Ajoutez des références visuelles comme des captures d'écran ou des conceptions pour aider l'IA à comprendre vos exigences."
+  },
+  "automation": {
+    "failedTitle": "Échec de l'automatisation post-QA",
+    "failedDescription": "L'automatisation de la tâche « {{taskId}} » a échoué : {{error}}"
   }
 }

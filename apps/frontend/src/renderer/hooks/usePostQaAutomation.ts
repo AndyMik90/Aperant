@@ -78,7 +78,9 @@ export function usePostQaAutomation(options: PostQaAutomationOptions = {}) {
         // Trigger automation after a short delay to ensure state is settled
         const timeoutId = setTimeout(async () => {
           // Re-validate task state before executing to prevent race conditions
-          const currentTask = tasks.find(t => t.id === task.id);
+          // Access store directly to get fresh state, not the stale closure value
+          const currentTasks = useTaskStore.getState().tasks;
+          const currentTask = currentTasks.find(t => t.id === task.id);
           if (!currentTask ||
               currentTask.status !== 'human_review' ||
               currentTask.reviewReason !== 'completed' ||
@@ -204,8 +206,9 @@ async function archiveTask(taskId: string, projectId: string): Promise<void> {
   const result = await window.electronAPI.archiveTasks(projectId, [taskId]);
 
   if (!result.success) {
-    console.error(`[PostQaAutomation] Failed to archive task ${taskId}:`, result.error);
-  } else {
-    console.log(`[PostQaAutomation] Task ${taskId} archived successfully`);
+    const error = result.error || 'Unknown error';
+    console.error(`[PostQaAutomation] Failed to archive task ${taskId}:`, error);
+    throw new Error(`Failed to archive task: ${error}`);
   }
+  console.log(`[PostQaAutomation] Task ${taskId} archived successfully`);
 }

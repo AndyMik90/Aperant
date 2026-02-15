@@ -120,6 +120,9 @@ export function App() {
   // Toast for notifications
   const { toast } = useToast();
 
+  // i18n must be initialized before usePostQaAutomation because the callback uses t()
+  const { t, i18n } = useTranslation(['dialogs', 'tasks']);
+
   // Handle post-QA automation (auto-create PR, auto-merge, auto-archive)
   usePostQaAutomation({
     onAutomationTriggered: (taskId, action) => {
@@ -129,8 +132,8 @@ export function App() {
       console.error(`[App] Post-QA automation failed for task ${taskId}:`, error);
       toast({
         variant: 'destructive',
-        title: 'Post-QA Automation Failed',
-        description: `Task "${taskId}" automation failed: ${error}`,
+        title: t('tasks:automation.failedTitle'),
+        description: t('tasks:automation.failedDescription', { taskId, error }),
       });
     }
   });
@@ -328,7 +331,6 @@ export function App() {
   };
 
   // Sync i18n language with settings
-  const { t, i18n } = useTranslation('dialogs');
   useEffect(() => {
     if (settings.language && settings.language !== i18n.language) {
       i18n.changeLanguage(settings.language);
