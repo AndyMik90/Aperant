@@ -34,20 +34,6 @@ describe('task-store-persistence', () => {
   let useTaskStore: typeof import('../task-store').useTaskStore;
   let loadTasks: typeof import('../task-store').loadTasks;
   let createTask: typeof import('../task-store').createTask;
-  // Helper to create test tasks with all required fields
-  const makeTask = (overrides: Partial<Task> = {}): Task => ({
-    id: 'task-1',
-    specId: '001-test-task',
-    projectId: 'test-project',
-    title: 'Test Task',
-    description: 'Test description',
-    status: 'backlog' as TaskStatus,
-    logs: [],
-    subtasks: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...overrides
-  });
 
 
   beforeEach(async () => {

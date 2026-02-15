@@ -9,7 +9,10 @@ Enhanced with colored output, icons, and better visual formatting.
 """
 
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from core.plan_normalization import normalize_subtask_aliases
 from ui import (
@@ -230,8 +233,8 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
                         f"  {icon(Icons.ARROW_RIGHT)} Next: {highlight(next_id)} - {next_desc}"
                     )
 
-        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-            pass  # Ignore corrupted/unreadable progress files
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as e:
+            logger.debug(f"Failed to load plan file for phase summary: {e}")
     else:
         print()
         print_status("No implementation subtasks yet - planner needs to run", "pending")
@@ -404,6 +407,8 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
     """
     Find the next subtask to work on, respecting phase dependencies.
 
+    Skips subtasks that are marked as stuck in the recovery manager's attempt history.
+
     Args:
         spec_dir: Directory containing implementation_plan.json
 
@@ -414,6 +419,23 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
 
     if not plan_file.exists():
         return None
+
+    # Load stuck subtasks from recovery manager's attempt history
+    stuck_subtask_ids = set()
+    attempt_history_file = spec_dir / "memory" / "attempt_history.json"
+    if attempt_history_file.exists():
+        try:
+            with open(attempt_history_file, encoding="utf-8") as f:
+                attempt_history = json.load(f)
+            # Collect IDs of subtasks marked as stuck
+            stuck_subtask_ids = {
+                entry["subtask_id"]
+                for entry in attempt_history.get("stuck_subtasks", [])
+                if "subtask_id" in entry
+            }
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            # If we can't read the file, continue without stuck checking
+            pass
 
     try:
         with open(plan_file, encoding="utf-8") as f:
@@ -455,9 +477,15 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
             if not deps_satisfied:
                 continue
 
-            # Find first pending subtask in this phase
+            # Find first pending subtask in this phase (skip stuck subtasks)
             for subtask in phase.get("subtasks", phase.get("chunks", [])):
                 status = subtask.get("status", "pending")
+                subtask_id = subtask.get("id")
+
+                # Skip stuck subtasks
+                if subtask_id in stuck_subtask_ids:
+                    continue
+
                 if status in {"pending", "not_started", "not started"}:
                     subtask_out, _changed = normalize_subtask_aliases(subtask)
                     subtask_out["status"] = "pending"

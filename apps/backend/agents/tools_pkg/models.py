@@ -292,6 +292,14 @@ AGENT_CONFIGS = {
         "auto_claude_tools": [],
         "thinking_default": "high",
     },
+    "pr_followup_extraction": {
+        # Lightweight extraction call for recovering data when structured output fails
+        # Pure structured output extraction, no tools needed
+        "tools": [],
+        "mcp_servers": [],
+        "auto_claude_tools": [],
+        "thinking_default": "low",
+    },
     "pr_finding_validator": {
         # Standalone validator for re-checking findings against actual code
         # Called separately from orchestrator to validate findings with fresh context

@@ -1,9 +1,10 @@
 import { ipcMain, nativeImage } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir, VALID_THINKING_LEVELS, sanitizeThinkingLevel } from '../../../shared/constants';
-import type { IPCResult, Task, TaskMetadata } from '../../../shared/types';
+import type { IPCResult, Task, TaskMetadata, TaskOutcome } from '../../../shared/types';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, Dirent } from 'fs';
+import { updateRoadmapFeatureOutcome } from '../../utils/roadmap-utils';
 import { projectStore } from '../../project-store';
 import { titleGenerator } from '../../title-generator';
 import { AgentManager } from '../../agent';
@@ -14,6 +15,7 @@ import { cleanupWorktree } from '../../utils/worktree-cleanup';
 import { getToolPath } from '../../cli-tool-manager';
 import { getIsolatedGitEnv } from '../../utils/git-isolation';
 import { taskStateManager } from '../../task-state-manager';
+import { safeBreadcrumb } from '../../sentry';
 
 /**
  * Sanitize thinking levels in task metadata in-place.
@@ -37,6 +39,82 @@ function sanitizeThinkingLevels(metadata: TaskMetadata): void {
       }
     }
   }
+}
+
+/**
+ * Generate a title from a description using AI, with Sentry breadcrumbs and fallback.
+ * Shared between TASK_CREATE and TASK_UPDATE handlers.
+ */
+async function generateTitleWithFallback(
+  description: string,
+  handler: string,
+  taskId?: string,
+): Promise<string> {
+  const breadcrumbData = taskId ? { handler, taskId } : { handler };
+
+  safeBreadcrumb({
+    category: 'task-crud',
+    message: 'Title generation invoked (empty title detected)',
+    level: 'info',
+    data: { ...breadcrumbData, descriptionLength: description.length },
+  });
+
+  try {
+    const generatedTitle = await titleGenerator.generateTitle(description);
+    if (generatedTitle) {
+      console.warn(`[${handler}] Generated title:`, generatedTitle);
+      safeBreadcrumb({
+        category: 'task-crud',
+        message: 'Title generation succeeded',
+        level: 'info',
+        data: { ...breadcrumbData, generatedTitleLength: generatedTitle.length },
+      });
+      return generatedTitle;
+    }
+
+    // Fallback: create title from first line of description
+    const fallback = truncateToTitle(description);
+    console.warn(`[${handler}] AI generation failed, using fallback:`, fallback);
+    safeBreadcrumb({
+      category: 'task-crud',
+      message: 'Title generation returned null, using description truncation fallback',
+      level: 'warning',
+      data: { ...breadcrumbData, fallbackTitle: fallback },
+    });
+    return fallback;
+  } catch (err) {
+    console.error(`[${handler}] Title generation error:`, err);
+    const fallback = truncateToTitle(description);
+    safeBreadcrumb({
+      category: 'task-crud',
+      message: 'Title generation error, using description truncation fallback',
+      level: 'error',
+      data: { ...breadcrumbData, error: err instanceof Error ? err.message : String(err) },
+    });
+    return fallback;
+  }
+}
+
+/**
+ * Truncate a description to a short title (first line, max 60 chars).
+ */
+function truncateToTitle(description: string): string {
+  let title = description.split('\n')[0].substring(0, 60);
+  if (title.length === 60) title += '...';
+  return title;
+}
+
+/**
+ * Update a linked roadmap feature when a task is deleted.
+ * Delegates to shared utility with file locking and retry.
+ */
+async function updateLinkedRoadmapFeature(
+  projectPath: string,
+  specId: string,
+  taskOutcome: TaskOutcome
+): Promise<void> {
+  const roadmapFile = path.join(projectPath, AUTO_BUILD_PATHS.ROADMAP_DIR, AUTO_BUILD_PATHS.ROADMAP_FILE);
+  await updateRoadmapFeatureOutcome(roadmapFile, [specId], taskOutcome, '[TASK_CRUD]');
 }
 
 /**
@@ -90,23 +168,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       let finalTitle = title;
       if (!title || !title.trim()) {
         console.warn('[TASK_CREATE] Title is empty, generating with Claude AI...');
-        try {
-          const generatedTitle = await titleGenerator.generateTitle(description);
-          if (generatedTitle) {
-            finalTitle = generatedTitle;
-            console.warn('[TASK_CREATE] Generated title:', finalTitle);
-          } else {
-            // Fallback: create title from first line of description
-            finalTitle = description.split('\n')[0].substring(0, 60);
-            if (finalTitle.length === 60) finalTitle += '...';
-            console.warn('[TASK_CREATE] AI generation failed, using fallback:', finalTitle);
-          }
-        } catch (err) {
-          console.error('[TASK_CREATE] Title generation error:', err);
-          // Fallback: create title from first line of description
-          finalTitle = description.split('\n')[0].substring(0, 60);
-          if (finalTitle.length === 60) finalTitle += '...';
-        }
+        finalTitle = await generateTitleWithFallback(description, 'TASK_CREATE');
       }
 
       // Generate a unique spec ID based on existing specs
@@ -363,6 +425,13 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         };
       }
 
+      // Update any linked roadmap feature (only after successful deletion)
+      try {
+        await updateLinkedRoadmapFeature(project.path, task.specId, 'deleted');
+      } catch (err) {
+        console.warn('[TASK_DELETE] Failed to update linked roadmap feature:', err);
+      }
+
       return { success: true };
     }
   );
@@ -395,26 +464,9 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         // Auto-generate title if empty
         let finalTitle = updates.title;
         if (updates.title !== undefined && !updates.title.trim()) {
-          // Get description to use for title generation
           const descriptionToUse = updates.description ?? task.description;
           console.warn('[TASK_UPDATE] Title is empty, generating with Claude AI...');
-          try {
-            const generatedTitle = await titleGenerator.generateTitle(descriptionToUse);
-            if (generatedTitle) {
-              finalTitle = generatedTitle;
-              console.warn('[TASK_UPDATE] Generated title:', finalTitle);
-            } else {
-              // Fallback: create title from first line of description
-              finalTitle = descriptionToUse.split('\n')[0].substring(0, 60);
-              if (finalTitle.length === 60) finalTitle += '...';
-              console.warn('[TASK_UPDATE] AI generation failed, using fallback:', finalTitle);
-            }
-          } catch (err) {
-            console.error('[TASK_UPDATE] Title generation error:', err);
-            // Fallback: create title from first line of description
-            finalTitle = descriptionToUse.split('\n')[0].substring(0, 60);
-            if (finalTitle.length === 60) finalTitle += '...';
-          }
+          finalTitle = await generateTitleWithFallback(descriptionToUse, 'TASK_UPDATE', taskId);
         }
 
         // Update implementation_plan.json

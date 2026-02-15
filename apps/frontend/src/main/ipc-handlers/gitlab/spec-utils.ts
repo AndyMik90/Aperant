@@ -6,7 +6,7 @@
 import { mkdir, writeFile, readFile, stat } from 'fs/promises';
 import path from 'path';
 import type { Project } from '../../../shared/types';
-import type { GitLabAPIIssue, GitLabConfig } from './types';
+import type { GitLabAPIIssue, GitLabAPINoteBasic, GitLabConfig } from './types';
 import { labelMatchesWholeWord } from '../shared/label-utils';
 import { sanitizeText, sanitizeStringArray } from '../shared/sanitize';
 
@@ -208,7 +208,12 @@ function generateSpecDirName(issueIid: number, title: string): string {
 /**
  * Build issue context for spec creation
  */
-export function buildIssueContext(issue: IssueLike, projectPath: string, instanceUrl: string): string {
+export function buildIssueContext(
+  issue: IssueLike,
+  projectPath: string,
+  instanceUrl: string,
+  notes?: GitLabAPINoteBasic[]
+): string {
   const lines: string[] = [];
   const safeProjectPath = sanitizeText(projectPath, 200);
   const safeIssue = sanitizeIssueForSpec(issue, instanceUrl);
@@ -238,6 +243,19 @@ export function buildIssueContext(issue: IssueLike, projectPath: string, instanc
   lines.push('');
   lines.push(`**Web URL:** ${safeIssue.web_url}`);
 
+  // Add notes section if notes are provided
+  if (notes && notes.length > 0) {
+    lines.push('');
+    lines.push(`## Notes (${notes.length})`);
+    lines.push('');
+    for (const note of notes) {
+      const safeAuthor = sanitizeText(note.author?.username || 'unknown', 100);
+      const safeBody = sanitizeText(note.body, 20000, true);
+      lines.push(`**${safeAuthor}:** ${safeBody}`);
+      lines.push('');
+    }
+  }
+
   return lines.join('\n');
 }
 
@@ -254,13 +272,111 @@ async function pathExists(filePath: string): Promise<boolean> {
 }
 
 /**
+ * Fetches all notes for a GitLab issue with pagination.
+ * Handles rate limiting and authentication errors gracefully.
+ *
+ * @param config GitLab configuration with token and instance URL
+ * @param encodedProject URL-encoded project path
+ * @param issueIid Issue IID to fetch notes for
+ * @returns Array of basic note objects with id, body, and author
+ */
+export async function fetchAllIssueNotes(
+  config: { token: string; instanceUrl: string },
+  encodedProject: string,
+  issueIid: number
+): Promise<GitLabAPINoteBasic[]> {
+  const { gitlabFetch } = await import('./utils');
+  const { GitLabAPIError } = await import('./utils');
+
+  const allNotes: GitLabAPINoteBasic[] = [];
+  let page = 1;
+  const perPage = 100;
+  const MAX_PAGES = 50; // Safety limit: max 5000 notes
+  let hasMore = true;
+
+  while (hasMore && page <= MAX_PAGES) {
+    try {
+      const notesPage = await gitlabFetch(
+        config.token,
+        config.instanceUrl,
+        `/projects/${encodedProject}/issues/${issueIid}/notes?page=${page}&per_page=${perPage}`
+      ) as unknown[];
+
+      // Runtime validation: ensure we got an array
+      if (!Array.isArray(notesPage)) {
+        debugLog('GitLab notes API returned non-array, stopping pagination');
+        break;
+      }
+
+      if (notesPage.length === 0) {
+        hasMore = false;
+      } else {
+        // Extract only needed fields with null-safe defaults
+        const noteSummaries: GitLabAPINoteBasic[] = notesPage
+          .filter((note: unknown): note is Record<string, unknown> =>
+            note !== null && typeof note === 'object' && typeof (note as Record<string, unknown>).id === 'number'
+          )
+          .map((note) => {
+            // Validate author structure defensively
+            const author = note.author;
+            const username = (author !== null && typeof author === 'object' && typeof (author as Record<string, unknown>).username === 'string')
+              ? (author as Record<string, unknown>).username as string
+              : 'unknown';
+            return {
+              id: note.id as number,
+              body: (note.body as string | undefined) || '',
+              author: { username },
+            };
+          });
+        allNotes.push(...noteSummaries);
+        if (notesPage.length < perPage) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // Check for authentication/rate-limit errors using structured status codes
+      const isAuthError = error instanceof GitLabAPIError && (error.statusCode === 401 || error.statusCode === 403);
+      const isRateLimited = error instanceof GitLabAPIError && error.statusCode === 429;
+
+      if (isAuthError || isRateLimited) {
+        // Re-throw critical errors to let the caller surface them to the user
+        const statusCode = error instanceof GitLabAPIError ? error.statusCode : undefined;
+        console.warn(`[GitLab Notes] ${isAuthError ? 'Authentication' : 'Rate limit'} error during notes fetch`, { page, error: errorMessage, statusCode });
+        throw error;
+      }
+
+      // For transient errors on page 1, warn the user but continue
+      if (page === 1 && allNotes.length === 0) {
+        console.warn('[GitLab Notes] Failed to fetch any notes, proceeding without notes context', { error: errorMessage });
+      } else {
+        // Log pagination failure for subsequent pages
+        debugLog('Failed to fetch notes page, using partial notes', { page, error: errorMessage, notesRetrieved: allNotes.length });
+      }
+      hasMore = false;
+    }
+  }
+
+  // Warn if we hit the pagination limit
+  if (page > MAX_PAGES && hasMore) {
+    debugLog('Pagination limit reached, some notes may be missing', { maxPages: MAX_PAGES, notesRetrieved: allNotes.length });
+  }
+
+  return allNotes;
+}
+
+/**
  * Create a task spec from a GitLab issue
  */
 export async function createSpecForIssue(
   project: Project,
   issue: GitLabAPIIssue,
   config: GitLabConfig,
-  baseBranch?: string
+  baseBranch?: string,
+  notes?: GitLabAPINoteBasic[]
 ): Promise<GitLabTaskInfo | null> {
   try {
     // Validate and sanitize network data before writing to disk
@@ -319,8 +435,8 @@ export async function createSpecForIssue(
     // Create spec directory
     await mkdir(specDir, { recursive: true });
 
-    // Create TASK.md with issue context
-    const taskContent = buildIssueContext(safeIssue, safeProject, config.instanceUrl);
+    // Create TASK.md with issue context (including selected notes)
+    const taskContent = buildIssueContext(safeIssue, safeProject, safeInstanceUrl, notes);
     await writeFile(path.join(specDir, 'TASK.md'), taskContent, 'utf-8');
 
     // Create metadata.json (legacy format for GitLab-specific data)

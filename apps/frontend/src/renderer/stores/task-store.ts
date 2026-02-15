@@ -2,6 +2,13 @@ import { create } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment, TaskOrderState } from '../../shared/types';
 import { debugLog, debugWarn } from '../../shared/utils/debug-logger';
+import { useProjectStore } from './project-store';
+
+/** Default max parallel tasks when no project setting is configured */
+export const DEFAULT_MAX_PARALLEL_TASKS = 3;
+
+/** Maximum log entries stored per task to prevent renderer OOM */
+export const MAX_LOG_ENTRIES = 5000;
 
 interface TaskState {
   tasks: Task[];
@@ -471,7 +478,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       return {
         tasks: updateTaskAtIndex(state.tasks, index, (t) => ({
           ...t,
-          logs: [...(t.logs || []), log]
+          logs: [...(t.logs || []), log].slice(-MAX_LOG_ENTRIES)
         }))
       };
     }),
@@ -504,7 +511,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       return {
         tasks: updateTaskAtIndex(state.tasks, index, (t) => ({
           ...t,
-          logs: [...(t.logs || []), ...logs]
+          logs: [...(t.logs || []), ...logs].slice(-MAX_LOG_ENTRIES)
         }))
       };
     });
@@ -824,6 +831,54 @@ export async function persistTaskStatus(
  */
 export async function forceCompleteTask(taskId: string): Promise<PersistStatusResult> {
   return persistTaskStatus(taskId, 'done', { forceCleanup: true });
+}
+
+/**
+ * Check if the in_progress queue is at capacity.
+ * @param excludeTaskId - Task ID to exclude from the count (e.g., when restarting a stuck task already in in_progress)
+ */
+export function isQueueAtCapacity(excludeTaskId?: string): boolean {
+  const maxParallelTasks = useProjectStore.getState().getActiveProject()?.settings?.maxParallelTasks ?? DEFAULT_MAX_PARALLEL_TASKS;
+  const currentTasks = useTaskStore.getState().tasks;
+  const inProgressCount = currentTasks.filter((t) =>
+    t.status === 'in_progress' && !t.metadata?.archivedAt && (!excludeTaskId || t.id !== excludeTaskId)
+  ).length;
+  return inProgressCount >= maxParallelTasks;
+}
+
+export interface StartTaskOrQueueResult {
+  /** Whether the task was started ('started') or redirected to queue ('queued') */
+  action: 'started' | 'queued';
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Start a task or queue it if parallel task capacity is full.
+ * If the task is already in_progress (stuck restart), it is excluded from the
+ * capacity count so restarting is always allowed.
+ * Returns a result so callers can provide user-facing feedback.
+ *
+ * For action 'started', success indicates the IPC start command was dispatched.
+ * Backend failures are surfaced asynchronously through task status change events,
+ * not through this return value.
+ */
+export async function startTaskOrQueue(taskId: string): Promise<StartTaskOrQueueResult> {
+  const task = useTaskStore.getState().tasks.find(t => t.id === taskId);
+  // Exclude this task from the capacity check when it's already in_progress (stuck restart)
+  const excludeId = task?.status === 'in_progress' ? taskId : undefined;
+
+  if (isQueueAtCapacity(excludeId)) {
+    const result = await persistTaskStatus(taskId, 'queue');
+    if (!result.success) {
+      console.error('[Queue] Failed to queue task:', taskId, result.error);
+      return { action: 'queued', success: false, error: result.error };
+    }
+    return { action: 'queued', success: true };
+  }
+
+  startTask(taskId);
+  return { action: 'started', success: true };
 }
 
 /**

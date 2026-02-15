@@ -262,11 +262,16 @@ export function setupPtyHandlers(
 
 /**
  * Constants for chunked write behavior
- * CHUNKED_WRITE_THRESHOLD: Data larger than this (bytes) will be written in chunks
- * CHUNK_SIZE: Size of each chunk - smaller chunks yield to event loop more frequently
+ * CHUNKED_WRITE_THRESHOLD: Data larger than this (bytes) will be written in chunks.
+ *   Set high enough that typical pastes go through as a single synchronous write.
+ * CHUNK_SIZE: Size of each chunk. Larger chunks = fewer event-loop yields = less
+ *   GPU pressure when many terminals are rendering simultaneously.
+ *   Previous values (1000/100) caused GPU context exhaustion: a 9KB paste produced
+ *   ~91 setImmediate yields, letting GPU rendering tasks from 8+ terminals pile up
+ *   until ContextResult::kTransientFailure crashed the app.
  */
-const CHUNKED_WRITE_THRESHOLD = 1000;
-const CHUNK_SIZE = 100;
+const CHUNKED_WRITE_THRESHOLD = 16_384;
+const CHUNK_SIZE = 8_192;
 
 /**
  * Write queue per terminal to prevent interleaving of concurrent writes.
