@@ -420,6 +420,7 @@ export function registerTriageHandlers(
             }
 
             // Save result
+            // lgtm[js/http-to-file-access] - triageDir from controlled project path, issue_iid is numeric
             fs.writeFileSync(
               path.join(triageDir, `triage_${sanitizedResult.issue_iid}.json`),
               JSON.stringify(sanitizedResult, null, 2),

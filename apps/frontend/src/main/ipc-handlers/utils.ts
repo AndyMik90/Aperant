@@ -12,6 +12,17 @@ import type { BrowserWindow } from "electron";
 const warnTimestamps = new Map<string, number>();
 const WARN_COOLDOWN_MS = 5000; // 5 seconds between warnings per channel
 
+/** Circuit breaker: kill agents after consecutive renderer disposal errors */
+const MAX_CONSECUTIVE_DISPOSAL_ERRORS = 10;
+let consecutiveDisposalErrors = 0;
+let agentManagerRef: { killAll: () => void | Promise<void> } | null = null;
+let circuitBreakerTriggered = false;
+
+/** Set agent manager reference for circuit breaker cleanup */
+export function setAgentManagerRef(manager: { killAll: () => void | Promise<void> }): void {
+  agentManagerRef = manager;
+}
+
 /**
  * Check if a channel is within the warning cooldown period.
  * @returns true if within cooldown (should skip warning), false if cooldown expired
@@ -108,6 +119,9 @@ export function safeSendToRenderer(
 
     // All checks passed - safe to send
     mainWindow.webContents.send(channel, ...args);
+    // On successful send, reset circuit breaker state (allow re-trigger after recovery)
+    consecutiveDisposalErrors = 0;
+    circuitBreakerTriggered = false;
     return true;
   } catch (error) {
     // Catch any disposal errors that might occur between our checks and the actual send
@@ -115,6 +129,16 @@ export function safeSendToRenderer(
 
     // Only log disposal errors once per channel to avoid log spam
     if (errorMessage.includes("disposed") || errorMessage.includes("destroyed")) {
+      // Circuit breaker: track consecutive disposal errors
+      consecutiveDisposalErrors++;
+      if (consecutiveDisposalErrors >= MAX_CONSECUTIVE_DISPOSAL_ERRORS && !circuitBreakerTriggered && agentManagerRef) {
+        circuitBreakerTriggered = true;
+        console.error('[safeSendToRenderer] Circuit breaker triggered: killing all agents after renderer death');
+        Promise.resolve(agentManagerRef.killAll()).catch((err) => {
+          console.error('[safeSendToRenderer] Error killing agents:', err);
+        });
+      }
+
       if (!isWithinCooldown(channel)) {
         console.warn(`[safeSendToRenderer] Frame disposed, skipping send: ${channel}`);
         recordWarning(channel);

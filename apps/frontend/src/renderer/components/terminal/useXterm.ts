@@ -139,11 +139,18 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     };
 
     // Helper function to handle paste from clipboard
+    // Cap paste size to prevent GPU/memory pressure from extremely large clipboard contents.
+    const MAX_PASTE_BYTES = 1_048_576; // 1 MB
     const handlePasteFromClipboard = (): void => {
       navigator.clipboard.readText()
         .then((text) => {
           if (text) {
-            xterm.paste(text);
+            if (text.length > MAX_PASTE_BYTES) {
+              console.warn(`[useXterm] Paste truncated from ${text.length} to ${MAX_PASTE_BYTES} bytes`);
+              xterm.paste(text.slice(0, MAX_PASTE_BYTES));
+            } else {
+              xterm.paste(text);
+            }
           }
         })
         .catch((err) => {

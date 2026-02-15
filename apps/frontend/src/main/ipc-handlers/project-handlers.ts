@@ -1,6 +1,5 @@
-import { ipcMain, app } from 'electron';
-import { existsSync, } from 'fs';
-import path from 'path';
+import { ipcMain } from 'electron';
+import { existsSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {

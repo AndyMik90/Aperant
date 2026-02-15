@@ -4,13 +4,21 @@ Tests for prompt_generator module functions.
 Tests for worktree detection and environment context generation.
 """
 
+import sys
 from pathlib import Path
+
+import pytest
 
 # Note: sys.path manipulation is handled by conftest.py line 46
 from prompts_pkg.prompt_generator import (
     detect_worktree_isolation,
     generate_environment_context,
 )
+
+# Skip Windows-specific tests on non-Windows platforms
+is_windows = sys.platform == 'win32'
+skip_on_windows = pytest.mark.skipif(not is_windows, reason="Test only applies to Windows")
+skip_on_non_windows = pytest.mark.skipif(is_windows, reason="Test only applies to non-Windows platforms")
 
 
 def normalize_path(path_str: str) -> str:
@@ -36,6 +44,7 @@ class TestDetectWorktreeIsolation:
         assert "opt/dev/project" in norm_forbidden
         assert ".auto-claude" not in norm_forbidden
 
+    @skip_on_windows
     def test_new_worktree_windows_path(self):
         """Test detection of new worktree location on Windows."""
         # Windows path with backslashes
@@ -64,6 +73,7 @@ class TestDetectWorktreeIsolation:
         assert "opt/dev/project" in norm_forbidden
         assert ".worktrees" not in norm_forbidden
 
+    @skip_on_windows
     def test_legacy_worktree_windows_path(self):
         """Test detection of legacy worktree location on Windows."""
         from unittest.mock import patch

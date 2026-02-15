@@ -14,11 +14,18 @@ Key Features:
 """
 
 import json
+import logging
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
+
+# Recovery manager configuration
+ATTEMPT_WINDOW_SECONDS = 7200  # Only count attempts within last 2 hours
+MAX_ATTEMPT_HISTORY_PER_SUBTASK = 50  # Cap stored attempts per subtask
+
+logger = logging.getLogger(__name__)
 
 
 class FailureType(Enum):
@@ -82,8 +89,8 @@ class RecoveryManager:
             "subtasks": {},
             "stuck_subtasks": [],
             "metadata": {
-                "created_at": datetime.now().isoformat(),
-                "last_updated": datetime.now().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "last_updated": datetime.now(timezone.utc).isoformat(),
             },
         }
         with open(self.attempt_history_file, "w", encoding="utf-8") as f:
@@ -95,8 +102,8 @@ class RecoveryManager:
             "commits": [],
             "last_good_commit": None,
             "metadata": {
-                "created_at": datetime.now().isoformat(),
-                "last_updated": datetime.now().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "last_updated": datetime.now(timezone.utc).isoformat(),
             },
         }
         with open(self.build_commits_file, "w", encoding="utf-8") as f:
@@ -114,7 +121,7 @@ class RecoveryManager:
 
     def _save_attempt_history(self, data: dict) -> None:
         """Save attempt history to JSON file."""
-        data["metadata"]["last_updated"] = datetime.now().isoformat()
+        data["metadata"]["last_updated"] = datetime.now(timezone.utc).isoformat()
         with open(self.attempt_history_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
@@ -130,7 +137,7 @@ class RecoveryManager:
 
     def _save_build_commits(self, data: dict) -> None:
         """Save build commits to JSON file."""
-        data["metadata"]["last_updated"] = datetime.now().isoformat()
+        data["metadata"]["last_updated"] = datetime.now(timezone.utc).isoformat()
         with open(self.build_commits_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
@@ -185,17 +192,44 @@ class RecoveryManager:
 
     def get_attempt_count(self, subtask_id: str) -> int:
         """
-        Get how many times this subtask has been attempted.
+        Get how many times this subtask has been attempted within the time window.
+
+        Only counts attempts within ATTEMPT_WINDOW_SECONDS (default: 2 hours).
+        This prevents unbounded accumulation across crash/restart cycles.
 
         Args:
             subtask_id: ID of the subtask
 
         Returns:
-            Number of attempts
+            Number of attempts within the time window
         """
         history = self._load_attempt_history()
         subtask_data = history["subtasks"].get(subtask_id, {})
-        return len(subtask_data.get("attempts", []))
+        attempts = subtask_data.get("attempts", [])
+
+        # Calculate cutoff time for the window
+        cutoff_time = datetime.now(timezone.utc) - timedelta(
+            seconds=ATTEMPT_WINDOW_SECONDS
+        )
+        # For backward compatibility with naive timestamps, also create naive cutoff
+        cutoff_time_naive = datetime.now() - timedelta(seconds=ATTEMPT_WINDOW_SECONDS)
+
+        # Count only attempts within the time window
+        recent_count = 0
+        for attempt in attempts:
+            try:
+                attempt_time = datetime.fromisoformat(attempt["timestamp"])
+                # Use appropriate cutoff based on whether timestamp is naive or aware
+                cutoff = (
+                    cutoff_time_naive if attempt_time.tzinfo is None else cutoff_time
+                )
+                if attempt_time >= cutoff:
+                    recent_count += 1
+            except (KeyError, ValueError):
+                # If timestamp is missing or invalid, count it (backward compatibility)
+                recent_count += 1
+
+        return recent_count
 
     def record_attempt(
         self,
@@ -207,6 +241,8 @@ class RecoveryManager:
     ) -> None:
         """
         Record an attempt at a subtask.
+
+        Automatically trims old attempts if the history exceeds MAX_ATTEMPT_HISTORY_PER_SUBTASK.
 
         Args:
             subtask_id: ID of the subtask
@@ -224,12 +260,23 @@ class RecoveryManager:
         # Add the attempt
         attempt = {
             "session": session,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "approach": approach,
             "success": success,
             "error": error,
         }
         history["subtasks"][subtask_id]["attempts"].append(attempt)
+
+        # Hard cap: trim oldest attempts if we exceed the maximum
+        attempts = history["subtasks"][subtask_id]["attempts"]
+        if len(attempts) > MAX_ATTEMPT_HISTORY_PER_SUBTASK:
+            trimmed_count = len(attempts) - MAX_ATTEMPT_HISTORY_PER_SUBTASK
+            history["subtasks"][subtask_id]["attempts"] = attempts[
+                -MAX_ATTEMPT_HISTORY_PER_SUBTASK:
+            ]
+            logger.debug(
+                f"Trimmed {trimmed_count} old attempts for subtask {subtask_id} (cap: {MAX_ATTEMPT_HISTORY_PER_SUBTASK})"
+            )
 
         # Update status
         if success:
@@ -405,7 +452,7 @@ class RecoveryManager:
         commit_record = {
             "hash": commit_hash,
             "subtask_id": subtask_id,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         commits["commits"].append(commit_record)
@@ -450,7 +497,7 @@ class RecoveryManager:
         stuck_entry = {
             "subtask_id": subtask_id,
             "reason": reason,
-            "escalated_at": datetime.now().isoformat(),
+            "escalated_at": datetime.now(timezone.utc).isoformat(),
             "attempt_count": self.get_attempt_count(subtask_id),
         }
 

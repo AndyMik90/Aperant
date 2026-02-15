@@ -1872,6 +1872,7 @@ For EACH finding above:
                         break
 
             except Exception as e:
+                # Part of retry loop structure - handles retryable errors
                 error_str = str(e).lower()
                 is_retryable = (
                     "400" in error_str

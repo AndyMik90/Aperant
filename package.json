@@ -20,6 +20,7 @@
     "lint": "cd apps/frontend && npm run lint",
     "test": "cd apps/frontend && npm test",
     "test:backend": "node scripts/test-backend.js",
+    "test:coverage": "node scripts/test-backend.js --cov --cov-report=term-missing --cov-report=html",
     "package": "cd apps/frontend && npm run package",
     "package:mac": "cd apps/frontend && npm run package:mac",
     "package:win": "cd apps/frontend && npm run package:win",

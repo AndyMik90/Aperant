@@ -112,6 +112,7 @@ async function githubGraphQL<T>(
   query: string,
   variables: Record<string, unknown> = {}
 ): Promise<T> {
+  // lgtm[js/file-access-to-http] - Official GitHub GraphQL API endpoint
   const response = await fetch("https://api.github.com/graphql", {
     method: "POST",
     headers: {

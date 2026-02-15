@@ -7,6 +7,9 @@ import { useAuthFailureStore } from '../stores/auth-failure-store';
 import { useProjectStore } from '../stores/project-store';
 import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo, SDKRateLimitInfo, AuthFailureInfo } from '../../shared/types';
 
+/** Maximum log entries to buffer in the batch queue between flushes (OOM prevention) */
+const MAX_BATCH_QUEUE_LOGS = 100;
+
 /**
  * Batched update queue for IPC events.
  * Collects updates within a 16ms window (one frame) and flushes them together.
@@ -124,6 +127,10 @@ function queueUpdate(taskId: string, update: BatchedUpdate): void {
   let mergedLogs = existing.logs;
   if (update.logs) {
     mergedLogs = [...(existing.logs || []), ...update.logs];
+    // Cap batch queue logs to prevent OOM when logs arrive faster than flush interval
+    if (mergedLogs.length > MAX_BATCH_QUEUE_LOGS) {
+      mergedLogs = mergedLogs.slice(-MAX_BATCH_QUEUE_LOGS);
+    }
   }
 
   batchQueue.set(taskId, {
