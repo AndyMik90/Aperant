@@ -9,10 +9,34 @@ import json
 from typing import TYPE_CHECKING
 
 from .. import validator, writer
+from ..discovery import get_project_index_stats
 from .models import MAX_RETRIES, PhaseResult
 
 if TYPE_CHECKING:
     pass
+
+
+def _is_greenfield_project(spec_dir) -> bool:
+    """Check if the project is empty/greenfield (0 discovered files)."""
+    stats = get_project_index_stats(spec_dir)
+    return stats.get("file_count", 0) == 0
+
+
+def _greenfield_context() -> str:
+    """Return additional context for greenfield/empty projects."""
+    return """
+**GREENFIELD PROJECT**: This is an empty or new project with no existing code.
+There are no existing files to reference or modify. You are creating everything from scratch.
+
+Adapt your approach:
+- Do NOT reference existing files, patterns, or code structures
+- Focus on what needs to be CREATED, not modified
+- Define the initial project structure, files, and directories
+- Specify the tech stack, frameworks, and dependencies to install
+- Provide setup instructions for the new project
+- For "Files to Modify" and "Files to Reference" sections, list files to CREATE instead
+- For "Patterns to Follow", describe industry best practices rather than existing code
+"""
 
 
 class SpecPhaseMixin:
@@ -29,6 +53,13 @@ class SpecPhaseMixin:
                 "quick_spec", True, [str(spec_file), str(plan_file)], [], 0
             )
 
+        is_greenfield = _is_greenfield_project(self.spec_dir)
+        if is_greenfield:
+            self.ui.print_status(
+                "Greenfield project detected - adapting spec for new project",
+                "info",
+            )
+
         errors = []
         for attempt in range(MAX_RETRIES):
             self.ui.print_status(
@@ -42,7 +73,7 @@ class SpecPhaseMixin:
 
 This is a SIMPLE task. Create a minimal spec and implementation plan directly.
 No research or extensive analysis needed.
-
+{_greenfield_context() if is_greenfield else ""}
 Create:
 1. A concise spec.md with just the essential sections
 2. A simple implementation_plan.json with 1-2 subtasks
@@ -80,6 +111,15 @@ Create:
                 "spec.md exists but has issues, regenerating...", "warning"
             )
 
+        is_greenfield = _is_greenfield_project(self.spec_dir)
+        if is_greenfield:
+            self.ui.print_status(
+                "Greenfield project detected - adapting spec for new project",
+                "info",
+            )
+
+        greenfield_ctx = _greenfield_context() if is_greenfield else ""
+
         errors = []
         for attempt in range(MAX_RETRIES):
             self.ui.print_status(
@@ -88,6 +128,7 @@ Create:
 
             success, output = await self.run_agent_fn(
                 "spec_writer.md",
+                additional_context=greenfield_ctx,
                 phase_name="spec_writing",
             )
 
