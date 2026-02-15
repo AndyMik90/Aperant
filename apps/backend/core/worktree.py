@@ -775,29 +775,23 @@ class WorktreeManager:
                     # Valid symlink already exists
                     return
             elif worktree_env_path.exists():
-                # Regular file exists - remove it to replace with symlink
+                # On Windows, hard links look like regular files - check inode
+                # to see if it's already linked to the main .env
+                if (
+                    worktree_env_path.stat().st_ino == main_env_path.stat().st_ino
+                    and worktree_env_path.stat().st_dev == main_env_path.stat().st_dev
+                ):
+                    return
+                # Regular file exists - remove it to replace with link
                 print_status(
-                    "Replacing worktree .env with symlink to main project", "info"
+                    "Replacing worktree .env with link to main project", "info"
                 )
                 worktree_env_path.unlink()
 
             if sys.platform == "win32":
-                # On Windows, use junctions instead of symlinks (no admin rights required)
-                # Junctions require absolute paths
-                result = subprocess.run(
-                    [
-                        "cmd",
-                        "/c",
-                        "mklink",
-                        "/J",
-                        str(worktree_env_path),
-                        str(main_env_path),
-                    ],
-                    capture_output=True,
-                    text=True,
-                )
-                if result.returncode != 0:
-                    raise OSError(result.stderr or "mklink /J failed")
+                # On Windows, use hard links (no admin/Developer Mode required)
+                # Hard links work for files and propagate changes (same underlying data)
+                os.link(str(main_env_path), str(worktree_env_path))
             else:
                 # On macOS/Linux, use relative symlinks for portability
                 relative_target = os.path.relpath(
@@ -806,10 +800,10 @@ class WorktreeManager:
                 worktree_env_path.symlink_to(relative_target)
             print_status("Linked .env from main project", "success")
         except OSError as e:
-            print_status(f"Failed to create .env symlink: {e}", "error")
-            raise WorktreeError(
-                f"Could not create .env symlink in worktree. "
-                f"Worktree requires access to main project's .auto-claude/.env: {e}"
+            debug_warning("worktree", f"Could not create .env symlink: {e}")
+            print_status(
+                "Warning: Could not link .env from main project — MCP config may need manual copying",
+                "warning",
             )
 
     def get_or_create_worktree(self, spec_name: str) -> WorktreeInfo:
