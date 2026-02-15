@@ -1200,14 +1200,14 @@ export function registerTaskExecutionHandlers(
             // Start the task execution
             // Start file watcher for this task
             // Use worktree path if it exists, since the backend writes implementation_plan.json there
-            const specsBaseDirForRecovery = getSpecsDir(project.autoBuildPath);
-            const specDirForWatcher = getSpecDirForWatcher(project.path, specsBaseDirForRecovery, task.specId);
-            fileWatcher.watch(taskId, specDirForWatcher);
+            const specsBaseDir = getSpecsDir(project.autoBuildPath);
+            const watchSpecDir = getSpecDirForWatcher(project.path, specsBaseDir, task.specId);
+            fileWatcher.watch(taskId, watchSpecDir);
 
             // Check if spec.md exists to determine whether to run spec creation or task execution
             // Check main project path for spec file (spec is created before worktree)
-            const mainSpecDirForRecovery = path.join(project.path, specsBaseDirForRecovery, task.specId);
-            const specFilePath = path.join(mainSpecDirForRecovery, AUTO_BUILD_PATHS.SPEC_FILE);
+            const mainSpecDir = path.join(project.path, specsBaseDir, task.specId);
+            const specFilePath = path.join(mainSpecDir, AUTO_BUILD_PATHS.SPEC_FILE);
             const hasSpec = existsSync(specFilePath);
             const needsSpecCreation = !hasSpec;
 
@@ -1218,7 +1218,7 @@ export function registerTaskExecutionHandlers(
               // No spec file - need to run spec_runner.py to create the spec
               const taskDescription = task.description || task.title;
               console.warn(`[Recovery] Starting spec creation for: ${task.specId}`);
-              agentManager.startSpecCreation(taskId, project.path, taskDescription, mainSpecDirForRecovery, task.metadata, baseBranchForRecovery, project.id);
+              agentManager.startSpecCreation(taskId, project.path, taskDescription, mainSpecDir, task.metadata, baseBranchForRecovery, project.id);
             } else {
               // Spec exists - run task execution
               console.warn(`[Recovery] Starting task execution for: ${task.specId}`);

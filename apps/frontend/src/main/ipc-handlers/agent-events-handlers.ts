@@ -243,7 +243,9 @@ export function registerAgenteventsHandlers(
         const currentWatchDir = fileWatcher.getWatchedSpecDir(taskId);
         if (currentWatchDir && currentWatchDir !== worktreeSpecDir && existsSync(worktreePlanPath)) {
           console.warn(`[agent-events-handlers] Re-watching worktree path for ${taskId}: ${worktreeSpecDir}`);
-          fileWatcher.watch(taskId, worktreeSpecDir);
+          fileWatcher.watch(taskId, worktreeSpecDir).catch((err) => {
+            console.error(`[agent-events-handlers] Failed to re-watch worktree for ${taskId}:`, err);
+          });
         }
       }
     } else if (xstateInTerminalState && progress.phase) {
