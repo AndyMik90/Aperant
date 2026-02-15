@@ -15,7 +15,10 @@ from typing import Any
 # Import kuzu (might be real_ladybug via monkeypatch)
 try:
     import kuzu
-except ImportError:
+except ImportError:  # pragma: no cover
+    # Fallback to real_ladybug if kuzu is not available.
+    # This import-time fallback is hard to test in normal unit tests
+    # since the module is imported once before tests can mock anything.
     import real_ladybug as kuzu  # type: ignore
 
 logger = logging.getLogger(__name__)

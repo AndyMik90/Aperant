@@ -23,7 +23,8 @@
     "help": "Help & Feedback",
     "newTask": "New Task",
     "collapseSidebar": "Collapse Sidebar",
-    "expandSidebar": "Expand Sidebar"
+    "expandSidebar": "Expand Sidebar",
+    "sponsor": "Sponsor Us"
   },
   "tooltips": {
     "settings": "Application Settings",

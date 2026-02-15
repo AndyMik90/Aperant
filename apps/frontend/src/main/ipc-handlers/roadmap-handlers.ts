@@ -27,32 +27,7 @@ import { AgentManager } from "../agent";
 import { debugLog, debugError } from "../../shared/utils/debug-logger";
 import { safeSendToRenderer } from "./utils";
 import { writeFileWithRetry, readFileWithRetry } from "../utils/atomic-file";
-
-/**
- * Simple in-process file lock to serialize read-modify-write operations.
- * Prevents concurrent IPC calls from causing lost updates on the same file.
- */
-const fileLocks = new Map<string, Promise<void>>();
-
-async function withFileLock<T>(filepath: string, fn: () => Promise<T>): Promise<T> {
-  // Wait for any existing lock on this file
-  while (fileLocks.has(filepath)) {
-    await fileLocks.get(filepath);
-  }
-
-  let resolve: (() => void) | undefined;
-  const lockPromise = new Promise<void>((r) => {
-    resolve = r;
-  });
-  fileLocks.set(filepath, lockPromise);
-
-  try {
-    return await fn();
-  } finally {
-    fileLocks.delete(filepath);
-    resolve?.();
-  }
-}
+import { withFileLock } from "../utils/file-lock";
 
 /**
  * Read feature settings from the settings file
@@ -221,6 +196,8 @@ export function registerRoadmapHandlers(
             acceptanceCriteria: feature.acceptance_criteria || [],
             userStories: feature.user_stories || [],
             linkedSpecId: feature.linked_spec_id,
+            taskOutcome: feature.task_outcome,
+            previousStatus: feature.previous_status,
             competitorInsightIds: (feature.competitor_insight_ids as string[]) || undefined,
           })),
           status: rawRoadmap.status || "draft",
@@ -432,6 +409,8 @@ export function registerRoadmapHandlers(
             acceptance_criteria: feature.acceptanceCriteria || [],
             user_stories: feature.userStories || [],
             linked_spec_id: feature.linkedSpecId,
+            task_outcome: feature.taskOutcome,
+            previous_status: feature.previousStatus,
             competitor_insight_ids: feature.competitorInsightIds,
           }));
 
@@ -491,6 +470,10 @@ export function registerRoadmapHandlers(
           }
 
           feature.status = status;
+          if (status !== 'done') {
+            delete feature.task_outcome;
+            delete feature.previous_status;
+          }
           roadmap.metadata = roadmap.metadata || {};
           roadmap.metadata.updated_at = new Date().toISOString();
 

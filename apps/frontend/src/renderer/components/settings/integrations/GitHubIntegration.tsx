@@ -662,4 +662,3 @@ function AutoSyncToggle({ enabled, onToggle }: AutoSyncToggleProps) {
     </div>
   );
 }
-

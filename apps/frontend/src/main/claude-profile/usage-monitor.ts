@@ -1961,14 +1961,17 @@ export class UsageMonitor extends EventEmitter {
     this.clearProfileUsageCache(currentProfileId);
 
     // Switch to the new profile
+    // Note: bestAccount.id is already the raw profile ID (not unified format)
+    const rawProfileId = bestAccount.id;
+
     if (bestAccount.type === 'oauth') {
       // Switch OAuth profile via profile manager
-      profileManager.setActiveProfile(bestAccount.id);
+      profileManager.setActiveProfile(rawProfileId);
     } else {
       // Switch API profile via profile-manager service
       try {
         const { setActiveAPIProfile } = await import('../services/profile/profile-manager');
-        await setActiveAPIProfile(bestAccount.id);
+        await setActiveAPIProfile(rawProfileId);
       } catch (error) {
         console.error('[UsageMonitor] Failed to set active API profile:', error);
         return;
