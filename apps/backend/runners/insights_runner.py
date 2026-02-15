@@ -47,7 +47,7 @@ from debug import (
     debug_section,
     debug_success,
 )
-from phase_config import get_thinking_budget, resolve_model_id
+from phase_config import get_thinking_budget, resolve_model_id, sanitize_thinking_level
 
 
 def load_project_context(project_dir: str) -> str:
@@ -190,7 +190,6 @@ Current question: {message}"""
     )
 
     try:
-        # Build options dict - only include max_thinking_tokens if not None
         options_kwargs = {
             "model": resolve_model_id(model),  # Resolve via API Profile if configured
             "system_prompt": system_prompt,
@@ -199,9 +198,7 @@ Current question: {message}"""
             "cwd": str(project_path),
         }
 
-        # Only add thinking tokens if the thinking level is not "none"
-        if max_thinking_tokens is not None:
-            options_kwargs["max_thinking_tokens"] = max_thinking_tokens
+        options_kwargs["max_thinking_tokens"] = max_thinking_tokens
 
         # Create Claude SDK client with appropriate settings for insights
         client = ClaudeSDKClient(options=ClaudeAgentOptions(**options_kwargs))
@@ -356,10 +353,12 @@ def main():
     parser.add_argument(
         "--thinking-level",
         default="medium",
-        choices=["none", "low", "medium", "high", "ultrathink"],
-        help="Thinking level for extended reasoning (default: medium)",
+        help="Thinking level for extended reasoning (low, medium, high)",
     )
     args = parser.parse_args()
+
+    # Validate and sanitize thinking level (handles legacy values like 'ultrathink')
+    args.thinking_level = sanitize_thinking_level(args.thinking_level)
 
     debug_section("insights_runner", "Starting Insights Chat")
 

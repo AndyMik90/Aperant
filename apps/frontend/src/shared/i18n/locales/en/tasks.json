@@ -175,6 +175,7 @@
     "openInIDE": "Open in IDE"
   },
   "metadata": {
+    "fastMode": "Fast",
     "severity": "severity",
     "pullRequest": "Pull Request",
     "showMore": "Show more",
@@ -221,7 +222,8 @@
       "useWorktreeDescription": "Creates changes in a separate git worktree for safe review before merging. Disable to build directly in your project (faster but riskier)."
     },
     "errors": {
-      "createFailed": "Failed to create task. Please try again."
+      "createFailed": "Failed to create task. Please try again.",
+      "startFailed": "Failed to start task"
     }
   },
   "feedback": {
@@ -253,6 +255,9 @@
     "classificationOptional": "Classification (optional)",
     "requireReviewLabel": "Require human review before coding",
     "requireReviewDescription": "When enabled, you'll be prompted to review the spec and implementation plan before the coding phase begins. This allows you to approve, request changes, or provide feedback.",
+    "fastModeLabel": "Fast Mode",
+    "fastModeDescription": "Same Opus 4.6 model with faster output. Higher cost per token.",
+    "fastModeNotice": "Requires \"extra usage\" enabled on your Claude subscription.",
     "errors": {
       "descriptionRequired": "Please provide a description",
       "maxImagesReached": "Maximum of 5 images allowed",
@@ -329,6 +334,17 @@
       "description": "Screen capture is not available in development mode due to system permission restrictions.",
       "hint": "Use an external screenshot tool and paste directly into the task description with {{shortcut}}."
     }
+  },
+  "deleteDialog": {
+    "title": "Delete Task",
+    "confirmMessage": "Are you sure you want to delete",
+    "destructiveWarning": "This action cannot be undone. All task files, including the spec, implementation plan, and any generated code will be permanently deleted from the project.",
+    "checkingChanges": "Checking for uncommitted changes...",
+    "uncommittedChanges": "This task's worktree has {{count}} uncommitted file(s)",
+    "uncommittedChangesHint": "These changes have not been committed or merged. Deleting this task will permanently discard all uncommitted work in the worktree.",
+    "cancel": "Cancel",
+    "deletePermanently": "Delete Permanently",
+    "deleting": "Deleting..."
   },
   "referenceImages": {
     "title": "Reference Images (optional)",

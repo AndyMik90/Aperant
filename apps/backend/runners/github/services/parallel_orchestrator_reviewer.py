@@ -33,7 +33,12 @@ from claude_agent_sdk import AgentDefinition  # noqa: F401
 
 try:
     from ...core.client import create_client
-    from ...phase_config import get_thinking_budget, resolve_model_id
+    from ...phase_config import (
+        get_model_betas,
+        get_thinking_budget,
+        get_thinking_kwargs_for_model,
+        resolve_model_id,
+    )
     from ..context_gatherer import PRContext, _validate_git_ref
     from ..gh_client import GHClient
     from ..models import (
@@ -69,7 +74,12 @@ except (ImportError, ValueError, SystemError):
         PRReviewResult,
         ReviewSeverity,
     )
-    from phase_config import get_thinking_budget, resolve_model_id
+    from phase_config import (
+        get_model_betas,
+        get_thinking_budget,
+        get_thinking_kwargs_for_model,
+        resolve_model_id,
+    )
     from services.agent_utils import create_working_dir_injector
     from services.category_utils import map_category
     from services.io_utils import safe_print
@@ -498,16 +508,23 @@ Report findings with specific file paths, line numbers, and code evidence.
             # Note: Agent type uses the generic "pr_reviewer" since individual
             # specialist types aren't registered in AGENT_CONFIGS. The specialist-specific
             # system prompt handles differentiation.
+            # Get betas from model shorthand (before resolution to full ID)
+            betas = get_model_betas(self.config.model or "sonnet")
+            thinking_kwargs = get_thinking_kwargs_for_model(
+                model, self.config.thinking_level or "medium"
+            )
             client = create_client(
                 project_dir=project_root,
                 spec_dir=self.github_dir,
                 model=model,
                 agent_type="pr_reviewer",
-                max_thinking_tokens=thinking_budget,
+                betas=betas,
+                fast_mode=self.config.fast_mode,
                 output_format={
                     "type": "json_schema",
                     "schema": SpecialistResponse.model_json_schema(),
                 },
+                **thinking_kwargs,
             )
 
             async with client:
@@ -616,13 +633,77 @@ Report findings with specific file paths, line numbers, and code evidence.
                 logger.error(
                     f"[Specialist:{specialist_name}] Failed to parse structured output: {e}"
                 )
-                # Fall through to text parsing
+                # Attempt to extract findings from raw dict before falling to text parsing
+                findings = self._extract_specialist_partial_data(
+                    specialist_name, structured_output
+                )
+                if findings:
+                    logger.info(
+                        f"[Specialist:{specialist_name}] Recovered {len(findings)} findings from partial extraction"
+                    )
 
         if not findings and result_text:
             # Fallback to text parsing
             findings = self._parse_text_output(result_text)
             for f in findings:
                 f.source_agents = [specialist_name]
+
+        return findings
+
+    def _extract_specialist_partial_data(
+        self,
+        specialist_name: str,
+        data: dict[str, Any],
+    ) -> list[PRReviewFinding]:
+        """Extract findings from raw specialist dict when Pydantic validation fails.
+
+        Defensively extracts each finding individually so partial results are preserved
+        even if some findings have validation issues.
+        """
+        findings = []
+        raw_findings = data.get("findings", [])
+        if not isinstance(raw_findings, list):
+            return findings
+
+        for f in raw_findings:
+            if not isinstance(f, dict):
+                continue
+            try:
+                file_path = f.get("file", "unknown")
+                line = f.get("line", 0) or 0
+                title = f.get("title", "Unknown issue")
+
+                finding_id = hashlib.md5(
+                    f"{file_path}:{line}:{title}".encode(),
+                    usedforsecurity=False,
+                ).hexdigest()[:12]
+
+                category = map_category(f.get("category", "quality"))
+
+                try:
+                    severity = ReviewSeverity(str(f.get("severity", "medium")).lower())
+                except ValueError:
+                    severity = ReviewSeverity.MEDIUM
+
+                finding = PRReviewFinding(
+                    id=finding_id,
+                    file=file_path,
+                    line=line,
+                    end_line=f.get("end_line"),
+                    title=title,
+                    description=f.get("description", ""),
+                    category=category,
+                    severity=severity,
+                    suggested_fix=f.get("suggested_fix", ""),
+                    evidence=f.get("evidence"),
+                    source_agents=[specialist_name],
+                    is_impact_finding=bool(f.get("is_impact_finding", False)),
+                )
+                findings.append(finding)
+            except Exception as e:
+                logger.debug(
+                    f"[Specialist:{specialist_name}] Skipping malformed finding: {e}"
+                )
 
         return findings
 
@@ -793,17 +874,24 @@ The SDK will run invoked agents in parallel automatically.
         Returns:
             Configured SDK client instance
         """
+        # Get betas from model shorthand (before resolution to full ID)
+        betas = get_model_betas(self.config.model or "sonnet")
+        thinking_kwargs = get_thinking_kwargs_for_model(
+            model, self.config.thinking_level or "medium"
+        )
         return create_client(
             project_dir=project_root,
             spec_dir=self.github_dir,
             model=model,
             agent_type="pr_orchestrator_parallel",
-            max_thinking_tokens=thinking_budget,
+            betas=betas,
+            fast_mode=self.config.fast_mode,
             agents=self._define_specialist_agents(project_root),
             output_format={
                 "type": "json_schema",
                 "schema": ParallelOrchestratorResponse.model_json_schema(),
             },
+            **thinking_kwargs,
         )
 
     def _extract_structured_output(
@@ -886,13 +974,15 @@ The SDK will run invoked agents in parallel automatically.
         except ValueError:
             severity = ReviewSeverity.MEDIUM
 
-        # Extract evidence: prefer verification.code_examined, fallback to evidence field
-        evidence = finding_data.evidence
+        # Extract evidence from verification.code_examined if available
+        evidence = None
         if hasattr(finding_data, "verification") and finding_data.verification:
-            # Structured verification has more detailed evidence
             verification = finding_data.verification
             if hasattr(verification, "code_examined") and verification.code_examined:
                 evidence = verification.code_examined
+        # Fallback to evidence field if present (e.g. from dict-based parsing)
+        if not evidence:
+            evidence = getattr(finding_data, "evidence", None)
 
         # Extract end_line if present
         end_line = getattr(finding_data, "end_line", None)
@@ -1718,16 +1808,21 @@ For EACH finding above:
 
             # Create validator client (inherits worktree filesystem access)
             try:
+                # Get betas from model shorthand (before resolution to full ID)
+                betas = get_model_betas(self.config.model or "sonnet")
+                thinking_kwargs = get_thinking_kwargs_for_model(model, "medium")
                 validator_client = create_client(
                     project_dir=worktree_path,
                     spec_dir=self.github_dir,
                     model=model,
                     agent_type="pr_finding_validator",
-                    max_thinking_tokens=get_thinking_budget("medium"),
+                    betas=betas,
+                    fast_mode=self.config.fast_mode,
                     output_format={
                         "type": "json_schema",
                         "schema": FindingValidationResponse.model_json_schema(),
                     },
+                    **thinking_kwargs,
                 )
             except Exception as e:
                 logger.error(f"[PRReview] Failed to create validator client: {e}")
@@ -1756,6 +1851,7 @@ For EACH finding above:
                             or "concurrency" in error_str
                             or "circuit breaker" in error_str
                             or "tool_use" in error_str
+                            or "structured_output" in error_str
                         )
 
                         if is_retryable and attempt < MAX_VALIDATION_RETRIES:
@@ -1776,6 +1872,7 @@ For EACH finding above:
                         break
 
             except Exception as e:
+                # Part of retry loop structure - handles retryable errors
                 error_str = str(e).lower()
                 is_retryable = (
                     "400" in error_str

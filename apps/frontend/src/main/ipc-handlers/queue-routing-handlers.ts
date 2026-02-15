@@ -3,12 +3,17 @@
  *
  * Handles IPC communication for the rate limit recovery queue routing system.
  * Provides profile-aware task distribution to enable overnight autonomous operation.
+ *
+ * v3 Enhancement: Unified Account Support
+ * - Supports both OAuth profiles and API profiles in unified selection
+ * - New QUEUE_GET_BEST_UNIFIED_ACCOUNT handler for cross-type account switching
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { AgentManager } from '../agent/agent-manager';
 import type { ProfileAssignmentReason, RunningTasksByProfile, ClaudeProfile } from '../../shared/types';
+import type { UnifiedAccount } from '../../shared/types/unified-account';
 import type { ClaudeProfileManager } from '../claude-profile-manager';
 
 /**
@@ -85,6 +90,61 @@ export function registerQueueRoutingHandlers(
         return { success: true, data: bestProfile };
       } catch (error) {
         console.error('[QueueRouting] Failed to get best profile for task:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
+  // Get best unified account for a task (OAuth + API profiles)
+  ipcMain.handle(
+    IPC_CHANNELS.QUEUE_GET_BEST_UNIFIED_ACCOUNT,
+    async (
+      _event,
+      options?: {
+        excludeAccountId?: string;
+      }
+    ): Promise<{ success: boolean; data?: UnifiedAccount | null; error?: string }> => {
+      try {
+        // If no profile manager is available, return null (no preference)
+        if (!profileManager) {
+          console.log('[QueueRouting] Profile manager not available, returning null');
+          return { success: true, data: null };
+        }
+
+        // Get auto-switch settings to check if enabled
+        const settings = profileManager.getAutoSwitchSettings();
+
+        // If auto-switching is disabled, return null (no preference)
+        if (!settings.enabled) {
+          console.log('[QueueRouting] Auto-switching disabled, returning null');
+          return { success: true, data: null };
+        }
+
+        // Use getBestAvailableUnifiedAccount which handles:
+        // - User's configured priority order
+        // - OAuth profiles (with usage thresholds)
+        // - API profiles (always available if authenticated)
+        const bestAccount = await profileManager.getBestAvailableUnifiedAccount(
+          options?.excludeAccountId
+        );
+
+        if (bestAccount) {
+          console.log('[QueueRouting] Best unified account selected:', {
+            accountId: bestAccount.id,
+            accountName: bestAccount.displayName,
+            accountType: bestAccount.type,
+            excludedId: options?.excludeAccountId
+          });
+        } else {
+          console.log('[QueueRouting] No suitable unified account found for task routing');
+        }
+
+        return { success: true, data: bestAccount };
+      } catch (error) {
+        console.error('[QueueRouting] Failed to get best unified account for task:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error'

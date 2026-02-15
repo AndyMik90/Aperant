@@ -1,10 +1,15 @@
-import { CheckCircle2, Circle, ExternalLink, Play, TrendingUp } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle2, ChevronDown, ChevronUp, Circle, ExternalLink, Play, TrendingUp } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { TaskOutcomeBadge } from './TaskOutcomeBadge';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Progress } from '../ui/progress';
 import { ROADMAP_PRIORITY_COLORS } from '../../../shared/constants';
 import type { PhaseCardProps } from './types';
+
+const INITIAL_VISIBLE_COUNT = 5;
 
 export function PhaseCard({
   phase,
@@ -14,8 +19,13 @@ export function PhaseCard({
   onConvertToSpec,
   onGoToTask,
 }: PhaseCardProps) {
+  const { t } = useTranslation('common');
+  const [isExpanded, setIsExpanded] = useState(false);
   const completedCount = features.filter((f) => f.status === 'done').length;
   const progress = features.length > 0 ? (completedCount / features.length) * 100 : 0;
+  const visibleFeatures = isExpanded ? features : features.slice(0, INITIAL_VISIBLE_COUNT);
+  const hiddenCount = features.length - INITIAL_VISIBLE_COUNT;
+  const hasMoreFeatures = hiddenCount > 0;
 
   return (
     <Card className="p-4">
@@ -86,13 +96,16 @@ export function PhaseCard({
       <div>
         <h4 className="text-sm font-medium mb-2">Features ({features.length})</h4>
         <div className="grid gap-2">
-          {features.slice(0, 5).map((feature) => (
+          {visibleFeatures.map((feature) => (
             <div
               key={feature.id}
-              className="flex items-center justify-between p-2 rounded-md bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
-              onClick={() => onFeatureSelect(feature)}
+              className="flex items-center justify-between p-2 rounded-md bg-muted/50 hover:bg-muted transition-colors"
             >
-              <div className="flex items-center gap-2 flex-1 min-w-0">
+              <button
+                type="button"
+                className="flex items-center gap-2 flex-1 min-w-0 text-left cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                onClick={() => onFeatureSelect(feature)}
+              >
                 <Badge
                   variant="outline"
                   className={`text-xs ${ROADMAP_PRIORITY_COLORS[feature.priority]}`}
@@ -103,8 +116,12 @@ export function PhaseCard({
                 {feature.competitorInsightIds && feature.competitorInsightIds.length > 0 && (
                   <TrendingUp className="h-3 w-3 text-primary flex-shrink-0" />
                 )}
-              </div>
-              {feature.status === 'done' ? (
+              </button>
+              {feature.taskOutcome ? (
+                <span className="flex-shrink-0">
+                  <TaskOutcomeBadge outcome={feature.taskOutcome} size="lg" showLabel={false} />
+                </span>
+              ) : feature.status === 'done' ? (
                 <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
               ) : feature.linkedSpecId ? (
                 <Button
@@ -135,10 +152,26 @@ export function PhaseCard({
               )}
             </div>
           ))}
-          {features.length > 5 && (
-            <div className="text-sm text-muted-foreground text-center py-1">
-              +{features.length - 5} more features
-            </div>
+          {hasMoreFeatures && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIsExpanded((prev) => !prev)}
+              aria-expanded={isExpanded}
+              className="flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground w-full"
+            >
+              {isExpanded ? (
+                <>
+                  <ChevronUp className="h-4 w-4" />
+                  {t('roadmap.showLessFeatures')}
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4" />
+                  {t('roadmap.showMoreFeatures', { count: hiddenCount })}
+                </>
+              )}
+            </Button>
           )}
         </div>
       </div>

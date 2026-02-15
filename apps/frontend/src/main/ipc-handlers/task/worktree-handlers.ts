@@ -11,6 +11,7 @@ import { getConfiguredPythonPath, PythonEnvManager, pythonEnvManager as pythonEn
 import { getEffectiveSourcePath } from '../../updater/path-resolver';
 import { getBestAvailableProfileEnv } from '../../rate-limit-detector';
 import { findTaskAndProject } from './shared';
+import { updateRoadmapFeatureOutcome } from '../../utils/roadmap-utils';
 import { parsePythonCommand } from '../../python-detector';
 import { getToolPath } from '../../cli-tool-manager';
 import { promisify } from 'util';
@@ -2310,7 +2311,6 @@ export function registerWorktreeHandlers(
                     worktreePath,
                     projectPath: project.path,
                     specId: task.specId,
-                    commitMessage: 'Auto-save before merge cleanup',
                     logPrefix: '[TASK_WORKTREE_MERGE]',
                     deleteBranch: true
                   });
@@ -2753,7 +2753,6 @@ export function registerWorktreeHandlers(
           worktreePath,
           projectPath: project.path,
           specId: task.specId,
-          commitMessage: 'Auto-save before discard',
           logPrefix: '[TASK_WORKTREE_DISCARD]',
           deleteBranch: true
         });
@@ -2769,9 +2768,6 @@ export function registerWorktreeHandlers(
         // Log any non-fatal warnings
         if (cleanupResult.warnings.length > 0) {
           console.warn('[TASK_WORKTREE_DISCARD] Cleanup warnings:', cleanupResult.warnings);
-        }
-        if (cleanupResult.autoCommitted) {
-          console.warn('[TASK_WORKTREE_DISCARD] Auto-committed uncommitted work before discard');
         }
 
 
@@ -2844,13 +2840,11 @@ export function registerWorktreeHandlers(
           };
         }
 
-        // Use cleanupWorktree which auto-commits any uncommitted changes before deletion
-        // This preserves work in git history (recoverable via reflog for ~90 days)
+        // Use cleanupWorktree for robust, cross-platform worktree deletion
         const cleanupResult = await cleanupWorktree({
           worktreePath,
           projectPath: project.path,
           specId: specName,
-          commitMessage: 'Auto-save before orphaned worktree deletion',
           logPrefix: '[ORPHAN_CLEANUP]',
           deleteBranch: true
         });
@@ -2866,9 +2860,7 @@ export function registerWorktreeHandlers(
           success: true,
           data: {
             success: true,
-            message: cleanupResult.autoCommitted
-              ? 'Orphaned worktree deleted (uncommitted changes were auto-saved)'
-              : 'Orphaned worktree deleted successfully'
+            message: 'Orphaned worktree deleted successfully'
           }
         };
       } catch (error) {
@@ -3360,6 +3352,14 @@ export function registerWorktreeHandlers(
                     task.specId,
                     debug
                   );
+
+                  // Update linked roadmap feature on backend (complements renderer-side handling)
+                  if (project.path && task.specId) {
+                    const roadmapFile = path.join(project.path, AUTO_BUILD_PATHS.ROADMAP_DIR, AUTO_BUILD_PATHS.ROADMAP_FILE);
+                    updateRoadmapFeatureOutcome(roadmapFile, [task.specId], 'completed', '[PR_CREATE]').catch((err) => {
+                      debug('Failed to update roadmap feature after PR creation:', err);
+                    });
+                  }
                 } else if (result.alreadyExists) {
                   debug('PR already exists, not updating task status');
                 }

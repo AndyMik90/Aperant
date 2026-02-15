@@ -154,6 +154,7 @@ export interface TaskDraft {
   images: ImageAttachment[];
   referencedFiles: ReferencedFile[];
   requireReviewBeforeCoding?: boolean;
+  fastMode?: boolean;
   savedAt: Date;
 }
 
@@ -163,7 +164,7 @@ export type TaskImpact = 'low' | 'medium' | 'high' | 'critical';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 // Re-export ThinkingLevel (defined in settings.ts) for convenience
 export type { ThinkingLevel };
-export type ModelType = 'haiku' | 'sonnet' | 'opus';
+export type ModelType = 'haiku' | 'sonnet' | 'opus' | 'opus-1m' | 'opus-4.5';
 export type TaskCategory =
   | 'feature'
   | 'bug_fix'
@@ -227,11 +228,12 @@ export interface TaskMetadata {
 
   // Agent configuration (from agent profile or manual selection)
   model?: ModelType;  // Claude model to use (haiku, sonnet, opus) - used when not auto profile
-  thinkingLevel?: ThinkingLevel;  // Thinking budget level (none, low, medium, high, ultrathink)
+  thinkingLevel?: ThinkingLevel;  // Thinking budget level (low, medium, high)
   // Auto profile - per-phase model configuration
   isAutoProfile?: boolean;  // True when using Auto (Optimized) profile
   phaseModels?: PhaseModelConfig;  // Per-phase model configuration
   phaseThinking?: PhaseThinkingConfig;  // Per-phase thinking configuration
+  fastMode?: boolean;  // Fast Mode — faster Opus 4.6 output, higher cost per token
 
   // Git/Worktree configuration
   baseBranch?: string;  // Override base branch for this task's worktree

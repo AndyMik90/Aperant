@@ -53,6 +53,9 @@ export interface TaskAPI {
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
   resumePausedTask: (taskId: string) => Promise<IPCResult>;
 
+  // Worktree Change Detection
+  checkWorktreeChanges: (taskId: string) => Promise<IPCResult<{ hasChanges: boolean; worktreePath?: string; changedFileCount?: number }>>;
+
   // Image Operations
   loadImageThumbnail: (projectPath: string, specId: string, imagePath: string) => Promise<IPCResult<string>>;
 
@@ -147,6 +150,10 @@ export const createTaskAPI = (): TaskAPI => ({
 
   resumePausedTask: (taskId: string): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_RESUME_PAUSED, taskId),
+
+  // Worktree Change Detection
+  checkWorktreeChanges: (taskId: string): Promise<IPCResult<{ hasChanges: boolean; worktreePath?: string; changedFileCount?: number }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_CHECK_WORKTREE_CHANGES, taskId),
 
   // Image Operations
   loadImageThumbnail: (projectPath: string, specId: string, imagePath: string): Promise<IPCResult<string>> =>

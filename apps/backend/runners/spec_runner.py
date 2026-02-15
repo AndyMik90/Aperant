@@ -108,7 +108,7 @@ init_sentry(component="spec-runner")
 
 from core.platform import is_windows
 from debug import debug, debug_error, debug_section, debug_success
-from phase_config import resolve_model_id
+from phase_config import resolve_model_id, sanitize_thinking_level
 from review import ReviewState
 from spec import SpecOrchestrator
 from ui import Icons, highlight, muted, print_section, print_status
@@ -185,8 +185,7 @@ Examples:
         "--thinking-level",
         type=str,
         default="medium",
-        choices=["none", "low", "medium", "high", "ultrathink"],
-        help="Thinking level for extended thinking (none, low, medium, high, ultrathink)",
+        help="Thinking level for extended thinking (low, medium, high)",
     )
     parser.add_argument(
         "--no-ai-assessment",
@@ -221,6 +220,9 @@ Examples:
     )
 
     args = parser.parse_args()
+
+    # Validate and sanitize thinking level (handles legacy values like 'ultrathink')
+    args.thinking_level = sanitize_thinking_level(args.thinking_level)
 
     # Warn user about direct mode risks
     if args.direct:

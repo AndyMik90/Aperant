@@ -69,7 +69,7 @@ describe('AgentTools - Agent Profile Resolution', () => {
       const phaseThinking = profile?.phaseThinking;
 
       expect(phaseThinking).toBeDefined();
-      expect(phaseThinking?.spec).toBe('ultrathink');
+      expect(phaseThinking?.spec).toBe('high');
       expect(phaseThinking?.planning).toBe('high');
       expect(phaseThinking?.coding).toBe('low');
       expect(phaseThinking?.qa).toBe('low');
@@ -174,7 +174,7 @@ describe('AgentTools - Agent Profile Resolution', () => {
         resolvedSettings
       );
       expect(specAgent.model).toBe('opus');
-      expect(specAgent.thinking).toBe('ultrathink');
+      expect(specAgent.thinking).toBe('high');
 
       // Planning phase agent
       const planningAgent = resolveAgentSettings(

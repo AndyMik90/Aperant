@@ -499,6 +499,113 @@ describe('Roadmap Store', () => {
       const state = useRoadmapStore.getState();
       expect(state.roadmap?.features[0].status).toBe('in_progress');
     });
+
+    it('should clear taskOutcome and previousStatus when moving away from done', () => {
+      const features = [createTestFeature({
+        id: 'feature-1',
+        status: 'done' as RoadmapFeatureStatus,
+        taskOutcome: 'completed',
+        previousStatus: 'in_progress' as RoadmapFeatureStatus
+      })];
+      const roadmap = createTestRoadmap({ features });
+
+      useRoadmapStore.setState({ roadmap });
+
+      useRoadmapStore.getState().updateFeatureStatus('feature-1', 'in_progress');
+
+      const state = useRoadmapStore.getState();
+      expect(state.roadmap?.features[0].status).toBe('in_progress');
+      expect(state.roadmap?.features[0].taskOutcome).toBeUndefined();
+      expect(state.roadmap?.features[0].previousStatus).toBeUndefined();
+    });
+
+    it('should preserve taskOutcome when status remains done', () => {
+      const features = [createTestFeature({
+        id: 'feature-1',
+        status: 'done' as RoadmapFeatureStatus,
+        taskOutcome: 'completed'
+      })];
+      const roadmap = createTestRoadmap({ features });
+
+      useRoadmapStore.setState({ roadmap });
+
+      useRoadmapStore.getState().updateFeatureStatus('feature-1', 'done');
+
+      const state = useRoadmapStore.getState();
+      expect(state.roadmap?.features[0].taskOutcome).toBe('completed');
+    });
+  });
+
+  describe('markFeatureDoneBySpecId', () => {
+    it('should mark feature as done with taskOutcome', () => {
+      const features = [createTestFeature({
+        id: 'feature-1',
+        linkedSpecId: 'spec-001',
+        status: 'in_progress' as RoadmapFeatureStatus
+      })];
+      const roadmap = createTestRoadmap({ features });
+
+      useRoadmapStore.setState({ roadmap });
+
+      useRoadmapStore.getState().markFeatureDoneBySpecId('spec-001', 'completed');
+
+      const state = useRoadmapStore.getState();
+      expect(state.roadmap?.features[0].status).toBe('done');
+      expect(state.roadmap?.features[0].taskOutcome).toBe('completed');
+    });
+
+    it('should preserve previousStatus before overwriting to done', () => {
+      const features = [createTestFeature({
+        id: 'feature-1',
+        linkedSpecId: 'spec-001',
+        status: 'planned' as RoadmapFeatureStatus
+      })];
+      const roadmap = createTestRoadmap({ features });
+
+      useRoadmapStore.setState({ roadmap });
+
+      useRoadmapStore.getState().markFeatureDoneBySpecId('spec-001', 'archived');
+
+      const state = useRoadmapStore.getState();
+      expect(state.roadmap?.features[0].status).toBe('done');
+      expect(state.roadmap?.features[0].taskOutcome).toBe('archived');
+      expect(state.roadmap?.features[0].previousStatus).toBe('planned');
+    });
+
+    it('should not overwrite previousStatus if already done', () => {
+      const features = [createTestFeature({
+        id: 'feature-1',
+        linkedSpecId: 'spec-001',
+        status: 'done' as RoadmapFeatureStatus,
+        taskOutcome: 'completed',
+        previousStatus: 'in_progress' as RoadmapFeatureStatus
+      })];
+      const roadmap = createTestRoadmap({ features });
+
+      useRoadmapStore.setState({ roadmap });
+
+      useRoadmapStore.getState().markFeatureDoneBySpecId('spec-001', 'archived');
+
+      const state = useRoadmapStore.getState();
+      expect(state.roadmap?.features[0].taskOutcome).toBe('archived');
+      expect(state.roadmap?.features[0].previousStatus).toBe('in_progress');
+    });
+
+    it('should not affect features with different linkedSpecId', () => {
+      const features = [
+        createTestFeature({ id: 'feature-1', linkedSpecId: 'spec-001', status: 'in_progress' as RoadmapFeatureStatus }),
+        createTestFeature({ id: 'feature-2', linkedSpecId: 'spec-002', status: 'planned' as RoadmapFeatureStatus })
+      ];
+      const roadmap = createTestRoadmap({ features });
+
+      useRoadmapStore.setState({ roadmap });
+
+      useRoadmapStore.getState().markFeatureDoneBySpecId('spec-001', 'completed');
+
+      const state = useRoadmapStore.getState();
+      expect(state.roadmap?.features[1].status).toBe('planned');
+      expect(state.roadmap?.features[1].taskOutcome).toBeUndefined();
+    });
   });
 
   describe('updateFeatureLinkedSpec', () => {

@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 from core.git_executable import run_git
+from core.platform import is_windows
 from merge import FileTimelineTracker
 from security.constants import ALLOWLIST_FILENAME, PROFILE_FILENAME
 from ui import (
@@ -28,8 +29,9 @@ from ui import (
 )
 from worktree import WorktreeManager
 
+from .dependency_strategy import get_dependency_configs
 from .git_utils import has_uncommitted_changes
-from .models import WorkspaceMode
+from .models import DependencyShareConfig, DependencyStrategy, WorkspaceMode
 
 # Import debug utilities
 try:
@@ -189,11 +191,37 @@ def symlink_node_modules_to_worktree(
     """
     Symlink node_modules directories from project root to worktree.
 
-    This ensures the worktree has access to dependencies for TypeScript checks
-    and other tooling without requiring a separate npm install.
+    .. deprecated::
+        Use :func:`setup_worktree_dependencies` instead, which handles all
+        dependency types (node_modules, venvs, vendor dirs, etc.) via
+        strategy-based dispatch.
 
-    Works with npm workspace hoisting where dependencies are hoisted to root
-    and workspace-specific dependencies remain in nested node_modules.
+    This is a thin backward-compatibility wrapper that delegates to
+    ``setup_worktree_dependencies()`` with no project index (fallback mode).
+
+    Args:
+        project_dir: The main project directory
+        worktree_path: Path to the worktree
+
+    Returns:
+        List of symlinked paths (relative to worktree)
+    """
+    results = setup_worktree_dependencies(
+        project_dir, worktree_path, project_index=None
+    )
+    # Flatten all processed paths for backward-compatible return value
+    return [path for paths in results.values() for path in paths]
+
+
+def symlink_claude_config_to_worktree(
+    project_dir: Path, worktree_path: Path
+) -> list[str]:
+    """
+    Symlink .claude/ directory from project root to worktree.
+
+    This ensures the worktree has access to Claude Code configuration
+    (settings, CLAUDE.md, MCP servers, etc.) so that terminals opened
+    in the worktree behave identically to the project root.
 
     Args:
         project_dir: The main project directory
@@ -204,81 +232,52 @@ def symlink_node_modules_to_worktree(
     """
     symlinked = []
 
-    # Node modules locations to symlink for TypeScript and tooling support.
-    # These are the standard locations for this monorepo structure.
-    #
-    # Design rationale:
-    # - Hardcoded paths are intentional for simplicity and reliability
-    # - Dynamic discovery (reading workspaces from package.json) would add complexity
-    #   and potential failure points without significant benefit
-    # - This monorepo uses npm workspaces with hoisting, so dependencies are primarily
-    #   in root node_modules with workspace-specific deps in apps/frontend/node_modules
-    #
-    # To add new workspace locations:
-    # 1. Add (source_rel, target_rel) tuple below
-    # 2. Update the parallel TypeScript implementation in
-    #    apps/frontend/src/main/ipc-handlers/terminal/worktree-handlers.ts
-    # 3. Update the pre-commit hook check in .husky/pre-commit if needed
-    node_modules_locations = [
-        ("node_modules", "node_modules"),
-        ("apps/frontend/node_modules", "apps/frontend/node_modules"),
-    ]
+    source_path = project_dir / ".claude"
+    target_path = worktree_path / ".claude"
 
-    for source_rel, target_rel in node_modules_locations:
-        source_path = project_dir / source_rel
-        target_path = worktree_path / target_rel
+    # Skip if source doesn't exist
+    if not source_path.exists():
+        debug(MODULE, "Skipping .claude/ - source does not exist")
+        return symlinked
 
-        # Skip if source doesn't exist
-        if not source_path.exists():
-            debug(MODULE, f"Skipping {source_rel} - source does not exist")
-            continue
+    # Skip if target already exists
+    if target_path.exists():
+        debug(MODULE, "Skipping .claude/ - target already exists")
+        return symlinked
 
-        # Skip if target already exists (don't overwrite existing node_modules)
-        if target_path.exists():
-            debug(MODULE, f"Skipping {target_rel} - target already exists")
-            continue
+    # Also skip if target is a symlink (even if broken)
+    if target_path.is_symlink():
+        debug(MODULE, "Skipping .claude/ - symlink already exists (possibly broken)")
+        return symlinked
 
-        # Also skip if target is a symlink (even if broken - exists() returns False for broken symlinks)
-        if target_path.is_symlink():
-            debug(
-                MODULE,
-                f"Skipping {target_rel} - symlink already exists (possibly broken)",
+    # Ensure parent directory exists
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        if sys.platform == "win32":
+            # On Windows, use junctions instead of symlinks (no admin rights required)
+            result = subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(target_path), str(source_path)],
+                capture_output=True,
+                text=True,
             )
-            continue
-
-        # Ensure parent directory exists
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-
-        try:
-            if sys.platform == "win32":
-                # On Windows, use junctions instead of symlinks (no admin rights required)
-                # Junctions require absolute paths
-                result = subprocess.run(
-                    ["cmd", "/c", "mklink", "/J", str(target_path), str(source_path)],
-                    capture_output=True,
-                    text=True,
-                )
-                if result.returncode != 0:
-                    raise OSError(result.stderr or "mklink /J failed")
-            else:
-                # On macOS/Linux, use relative symlinks for portability
-                relative_source = os.path.relpath(source_path, target_path.parent)
-                os.symlink(relative_source, target_path)
-            symlinked.append(target_rel)
-            debug(MODULE, f"Symlinked {target_rel} -> {source_path}")
-        except OSError as e:
-            # Symlink/junction creation can fail on some systems (e.g., FAT32 filesystem)
-            # Log warning but don't fail - worktree is still usable, just without
-            # TypeScript checking
-            debug_warning(
-                MODULE,
-                f"Could not symlink {target_rel}: {e}. TypeScript checks may fail.",
-            )
-            # Warn user - pre-commit hooks may fail without dependencies
-            print_status(
-                f"Warning: Could not link {target_rel} - TypeScript checks may fail",
-                "warning",
-            )
+            if result.returncode != 0:
+                raise OSError(result.stderr or "mklink /J failed")
+        else:
+            # On macOS/Linux, use relative symlinks for portability
+            relative_source = os.path.relpath(source_path, target_path.parent)
+            os.symlink(relative_source, target_path)
+        symlinked.append(".claude")
+        debug(MODULE, f"Symlinked .claude/ -> {source_path}")
+    except OSError as e:
+        debug_warning(
+            MODULE,
+            f"Could not symlink .claude/: {e}. Claude Code features may not work in worktree terminals.",
+        )
+        print_status(
+            "Warning: Could not link .claude/ - Claude Code features may not work in terminals",
+            "warning",
+        )
 
     return symlinked
 
@@ -374,13 +373,33 @@ def setup_workspace(
             f"Environment files copied: {', '.join(copied_env_files)}", "success"
         )
 
-    # Symlink node_modules to worktree for TypeScript and tooling support
-    # This allows pre-commit hooks to run typecheck without npm install in worktree
-    symlinked_modules = symlink_node_modules_to_worktree(
+    # Set up dependencies in worktree using strategy-based dispatch
+    # Load project index if available for ecosystem-aware dependency handling
+    project_index = None
+    project_index_path = project_dir / ".auto-claude" / "project_index.json"
+    if project_index_path.is_file():
+        try:
+            with open(project_index_path, encoding="utf-8") as f:
+                project_index = json.load(f)
+            debug(MODULE, "Loaded project_index.json for dependency setup")
+        except (OSError, json.JSONDecodeError) as e:
+            debug_warning(MODULE, f"Could not load project_index.json: {e}")
+
+    dep_results = setup_worktree_dependencies(
+        project_dir, worktree_info.path, project_index=project_index
+    )
+    for strategy_name, paths in dep_results.items():
+        if paths:
+            print_status(
+                f"Dependencies ({strategy_name}): {', '.join(paths)}", "success"
+            )
+
+    # Symlink .claude/ config to worktree for Claude Code features (settings, commands, etc.)
+    symlinked_claude = symlink_claude_config_to_worktree(
         project_dir, worktree_info.path
     )
-    if symlinked_modules:
-        print_status(f"Dependencies linked: {', '.join(symlinked_modules)}", "success")
+    if symlinked_claude:
+        print_status(f"Claude config linked: {', '.join(symlinked_claude)}", "success")
 
     # Copy security configuration files if they exist
     # Note: Unlike env files, security files always overwrite to ensure
@@ -572,6 +591,299 @@ def initialize_timeline_tracking(
         # Non-fatal - timeline tracking is supplementary
         debug_warning(MODULE, f"Could not initialize timeline tracking: {e}")
         print(muted(f"  Note: Timeline tracking could not be initialized: {e}"))
+
+
+def setup_worktree_dependencies(
+    project_dir: Path,
+    worktree_path: Path,
+    project_index: dict | None = None,
+) -> dict[str, list[str]]:
+    """
+    Set up dependencies in a worktree using strategy-based dispatch.
+
+    Reads dependency configs from the project index and applies the correct
+    strategy for each: symlink, recreate, copy, or skip.
+
+    All operations are non-blocking — failures produce warnings but do not
+    prevent worktree creation.
+
+    Args:
+        project_dir: The main project directory
+        worktree_path: Path to the worktree
+        project_index: Parsed project_index.json dict, or None
+
+    Returns:
+        Dict mapping strategy names to lists of paths that were processed.
+    """
+    configs = get_dependency_configs(project_index, project_dir=project_dir)
+    results: dict[str, list[str]] = {}
+
+    for config in configs:
+        strategy_name = config.strategy.value
+        if strategy_name not in results:
+            results[strategy_name] = []
+
+        try:
+            performed = True
+            if config.strategy == DependencyStrategy.SYMLINK:
+                performed = _apply_symlink_strategy(project_dir, worktree_path, config)
+            elif config.strategy == DependencyStrategy.RECREATE:
+                performed = _apply_recreate_strategy(project_dir, worktree_path, config)
+            elif config.strategy == DependencyStrategy.COPY:
+                performed = _apply_copy_strategy(project_dir, worktree_path, config)
+            elif config.strategy == DependencyStrategy.SKIP:
+                _apply_skip_strategy(config)
+                # Don't record skipped entries — only report actual work
+                continue
+            if performed:
+                results[strategy_name].append(config.source_rel_path)
+        except Exception as e:
+            debug_warning(
+                MODULE,
+                f"Failed to apply {strategy_name} strategy for "
+                f"{config.source_rel_path}: {e}",
+            )
+
+    return results
+
+
+def _apply_symlink_strategy(
+    project_dir: Path,
+    worktree_path: Path,
+    config: DependencyShareConfig,
+) -> bool:
+    """Create a symlink (or Windows junction) from worktree to project source.
+
+    Returns True if a symlink was created, False if skipped.
+    """
+    source_path = project_dir / config.source_rel_path
+    target_path = worktree_path / config.source_rel_path
+
+    if not source_path.exists():
+        debug(MODULE, f"Skipping symlink {config.source_rel_path} - source missing")
+        return False
+
+    if target_path.exists() or target_path.is_symlink():
+        debug(MODULE, f"Skipping symlink {config.source_rel_path} - target exists")
+        return False
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        if is_windows():
+            # Windows: use directory junctions (no admin rights required).
+            # os.symlink creates a directory symlink that needs admin/DevMode,
+            # so we use mklink /J which creates a junction without privileges.
+            result = subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(target_path), str(source_path)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode != 0:
+                raise OSError(result.stderr or "mklink /J failed")
+        else:
+            # macOS/Linux: relative symlinks for portability
+            relative_source = os.path.relpath(source_path, target_path.parent)
+            os.symlink(relative_source, target_path)
+        debug(MODULE, f"Symlinked {config.source_rel_path} -> {source_path}")
+        return True
+    except subprocess.TimeoutExpired:
+        debug_warning(
+            MODULE,
+            f"Symlink creation timed out for {config.source_rel_path}",
+        )
+        print_status(
+            f"Warning: Symlink creation timed out for {config.source_rel_path}",
+            "warning",
+        )
+        return False
+    except OSError as e:
+        debug_warning(
+            MODULE,
+            f"Could not symlink {config.source_rel_path}: {e}",
+        )
+        print_status(f"Warning: Could not link {config.source_rel_path}", "warning")
+        return False
+
+
+def _apply_recreate_strategy(
+    project_dir: Path,
+    worktree_path: Path,
+    config: DependencyShareConfig,
+) -> bool:
+    """Create a fresh virtual environment in the worktree and install deps.
+
+    Returns True if the venv was successfully created, False if skipped or failed.
+    """
+    venv_path = worktree_path / config.source_rel_path
+
+    if venv_path.exists():
+        debug(MODULE, f"Skipping recreate {config.source_rel_path} - already exists")
+        return False
+
+    # Detect Python executable from the source venv or fall back to sys.executable
+    source_venv = project_dir / config.source_rel_path
+    python_exec = sys.executable
+
+    if source_venv.exists():
+        # Try to use the same Python version as the source venv
+        for candidate in ("bin/python", "Scripts/python.exe"):
+            candidate_path = source_venv / candidate
+            if candidate_path.exists():
+                python_exec = str(candidate_path.resolve())
+                break
+
+    # Create the venv
+    try:
+        debug(MODULE, f"Creating venv at {venv_path}")
+        result = subprocess.run(
+            [python_exec, "-m", "venv", str(venv_path)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode != 0:
+            debug_warning(MODULE, f"venv creation failed: {result.stderr}")
+            print_status(
+                f"Warning: Could not create venv at {config.source_rel_path}",
+                "warning",
+            )
+            # Clean up partial venv so retries aren't blocked
+            if venv_path.exists():
+                shutil.rmtree(venv_path, ignore_errors=True)
+            return False
+    except subprocess.TimeoutExpired:
+        debug_warning(MODULE, f"venv creation timed out for {config.source_rel_path}")
+        print_status(
+            f"Warning: venv creation timed out for {config.source_rel_path}",
+            "warning",
+        )
+        # Clean up partial venv so retries aren't blocked
+        if venv_path.exists():
+            shutil.rmtree(venv_path, ignore_errors=True)
+        return False
+
+    # Install from requirements file if specified
+    req_file = config.requirements_file
+    if req_file:
+        req_path = project_dir / req_file
+        if req_path.is_file():
+            # Determine pip executable inside the new venv
+            if is_windows():
+                pip_exec = str(venv_path / "Scripts" / "pip.exe")
+            else:
+                pip_exec = str(venv_path / "bin" / "pip")
+
+            # Build install command based on file type
+            req_basename = Path(req_file).name
+            if req_basename == "pyproject.toml":
+                # pyproject.toml: snapshot-install from the worktree copy.
+                # Non-editable so the venv doesn't symlink back to the source.
+                worktree_req = worktree_path / req_file
+                install_dir = str(
+                    worktree_req.parent if worktree_req.is_file() else req_path.parent
+                )
+                install_cmd = [pip_exec, "install", install_dir]
+            elif req_basename == "Pipfile":
+                # Pipfile: not directly installable via pip, skip
+                debug(
+                    MODULE,
+                    f"Skipping Pipfile-based install for {req_file} "
+                    "(use pipenv in the worktree)",
+                )
+                install_cmd = None
+            else:
+                # requirements.txt or similar: pip install -r
+                install_cmd = [pip_exec, "install", "-r", str(req_path)]
+
+            if install_cmd:
+                try:
+                    debug(MODULE, f"Installing deps from {req_file}")
+                    pip_result = subprocess.run(
+                        install_cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=120,
+                    )
+                    if pip_result.returncode != 0:
+                        debug_warning(
+                            MODULE,
+                            f"pip install failed (exit {pip_result.returncode}): "
+                            f"{pip_result.stderr}",
+                        )
+                        print_status(
+                            f"Warning: Dependency install failed for {req_file}",
+                            "warning",
+                        )
+                        # Clean up broken venv so retries aren't blocked
+                        if venv_path.exists():
+                            shutil.rmtree(venv_path, ignore_errors=True)
+                        return False
+                except subprocess.TimeoutExpired:
+                    debug_warning(
+                        MODULE,
+                        f"pip install timed out for {req_file}",
+                    )
+                    print_status(
+                        f"Warning: Dependency install timed out for {req_file}",
+                        "warning",
+                    )
+                    # Clean up broken venv so retries aren't blocked
+                    if venv_path.exists():
+                        shutil.rmtree(venv_path, ignore_errors=True)
+                    return False
+                except OSError as e:
+                    debug_warning(MODULE, f"pip install failed: {e}")
+                    # Clean up broken venv so retries aren't blocked
+                    if venv_path.exists():
+                        shutil.rmtree(venv_path, ignore_errors=True)
+                    return False
+
+    debug(MODULE, f"Recreated venv at {config.source_rel_path}")
+    return True
+
+
+def _apply_copy_strategy(
+    project_dir: Path,
+    worktree_path: Path,
+    config: DependencyShareConfig,
+) -> bool:
+    """Deep-copy a dependency directory from project to worktree.
+
+    Returns True if the copy was performed, False if skipped.
+    """
+    source_path = project_dir / config.source_rel_path
+    target_path = worktree_path / config.source_rel_path
+
+    if not source_path.exists():
+        debug(MODULE, f"Skipping copy {config.source_rel_path} - source missing")
+        return False
+
+    if target_path.exists():
+        debug(MODULE, f"Skipping copy {config.source_rel_path} - target exists")
+        return False
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        if source_path.is_file():
+            shutil.copy2(source_path, target_path)
+        else:
+            shutil.copytree(source_path, target_path)
+        debug(MODULE, f"Copied {config.source_rel_path} to worktree")
+        return True
+    except (OSError, shutil.Error) as e:
+        debug_warning(MODULE, f"Could not copy {config.source_rel_path}: {e}")
+        print_status(f"Warning: Could not copy {config.source_rel_path}", "warning")
+        return False
+
+
+def _apply_skip_strategy(config: DependencyShareConfig) -> None:
+    """Skip — nothing to do for this dependency type."""
+    debug(
+        MODULE, f"Skipping {config.dep_type} ({config.source_rel_path}) - skip strategy"
+    )
 
 
 # Export private functions for backward compatibility

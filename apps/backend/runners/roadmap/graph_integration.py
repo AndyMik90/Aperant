@@ -2,10 +2,10 @@
 Graphiti integration for retrieving graph hints during roadmap generation.
 """
 
-import json
 from datetime import datetime
 from pathlib import Path
 
+from core.file_utils import write_json_atomic
 from debug import debug, debug_error, debug_success
 from graphiti_providers import get_graph_hints, is_graphiti_enabled
 from ui import print_status
@@ -81,42 +81,36 @@ class GraphHintsProvider:
 
     def _create_disabled_hints_file(self):
         """Create a hints file indicating Graphiti is disabled."""
-        with open(self.hints_file, "w", encoding="utf-8") as f:
-            json.dump(
-                {
-                    "enabled": False,
-                    "reason": "Graphiti not configured",
-                    "hints": [],
-                    "created_at": datetime.now().isoformat(),
-                },
-                f,
-                indent=2,
-            )
+        write_json_atomic(
+            self.hints_file,
+            {
+                "enabled": False,
+                "reason": "Graphiti not configured",
+                "hints": [],
+                "created_at": datetime.now().isoformat(),
+            },
+        )
 
     def _save_hints(self, hints: list):
         """Save retrieved hints to file."""
-        with open(self.hints_file, "w", encoding="utf-8") as f:
-            json.dump(
-                {
-                    "enabled": True,
-                    "hints": hints,
-                    "hint_count": len(hints),
-                    "created_at": datetime.now().isoformat(),
-                },
-                f,
-                indent=2,
-            )
+        write_json_atomic(
+            self.hints_file,
+            {
+                "enabled": True,
+                "hints": hints,
+                "hint_count": len(hints),
+                "created_at": datetime.now().isoformat(),
+            },
+        )
 
     def _save_error_hints(self, error: str):
         """Save error information to hints file."""
-        with open(self.hints_file, "w", encoding="utf-8") as f:
-            json.dump(
-                {
-                    "enabled": True,
-                    "error": error,
-                    "hints": [],
-                    "created_at": datetime.now().isoformat(),
-                },
-                f,
-                indent=2,
-            )
+        write_json_atomic(
+            self.hints_file,
+            {
+                "enabled": True,
+                "error": error,
+                "hints": [],
+                "created_at": datetime.now().isoformat(),
+            },
+        )

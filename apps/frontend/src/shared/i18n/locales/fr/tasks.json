@@ -2,6 +2,7 @@
   "refreshTasks": "Actualiser les tâches",
   "status": {
     "backlog": "Backlog",
+    "queue": "File d'attente",
     "todo": "À faire",
     "in_progress": "En cours",
     "review": "Révision",
@@ -174,6 +175,7 @@
     "openInIDE": "Ouvrir dans l'IDE"
   },
   "metadata": {
+    "fastMode": "Rapide",
     "severity": "sévérité",
     "pullRequest": "Pull Request",
     "showMore": "Afficher plus",
@@ -220,7 +222,8 @@
       "useWorktreeDescription": "Crée les changements dans un worktree git séparé pour une révision sécurisée avant la fusion. Désactivez pour travailler directement dans votre projet (plus rapide mais risqué)."
     },
     "errors": {
-      "createFailed": "Échec de la création de la tâche. Veuillez réessayer."
+      "createFailed": "Échec de la création de la tâche. Veuillez réessayer.",
+      "startFailed": "Échec du démarrage de la tâche"
     }
   },
   "feedback": {
@@ -252,6 +255,9 @@
     "classificationOptional": "Classification (optionnel)",
     "requireReviewLabel": "Exiger une révision humaine avant le codage",
     "requireReviewDescription": "Lorsque activé, vous serez invité à réviser la spécification et le plan d'implémentation avant le début de la phase de codage. Cela vous permet d'approuver, de demander des modifications ou de fournir des commentaires.",
+    "fastModeLabel": "Mode Rapide",
+    "fastModeDescription": "Même modèle Opus 4.6 avec une sortie plus rapide. Coût plus élevé par token.",
+    "fastModeNotice": "Nécessite « utilisation supplémentaire » activée sur votre abonnement Claude.",
     "errors": {
       "descriptionRequired": "Veuillez fournir une description",
       "maxImagesReached": "Maximum de 5 images autorisé",
@@ -328,6 +334,17 @@
       "description": "La capture d'écran n'est pas disponible en mode développement en raison des restrictions de permissions système.",
       "hint": "Utilisez un outil de capture d'écran externe et collez directement dans la description de la tâche avec {{shortcut}}."
     }
+  },
+  "deleteDialog": {
+    "title": "Supprimer la t\u00e2che",
+    "confirmMessage": "\u00cates-vous s\u00fbr de vouloir supprimer",
+    "destructiveWarning": "Cette action est irr\u00e9versible. Tous les fichiers de t\u00e2che, y compris la sp\u00e9cification, le plan d'impl\u00e9mentation et tout code g\u00e9n\u00e9r\u00e9 seront d\u00e9finitivement supprim\u00e9s du projet.",
+    "checkingChanges": "V\u00e9rification des changements non valid\u00e9s...",
+    "uncommittedChanges": "Le worktree de cette t\u00e2che contient {{count}} fichier(s) non valid\u00e9(s)",
+    "uncommittedChangesHint": "Ces changements n'ont pas \u00e9t\u00e9 valid\u00e9s ni fusionn\u00e9s. La suppression de cette t\u00e2che supprimera d\u00e9finitivement tout le travail non valid\u00e9 dans le worktree.",
+    "cancel": "Annuler",
+    "deletePermanently": "Supprimer d\u00e9finitivement",
+    "deleting": "Suppression..."
   },
   "referenceImages": {
     "title": "Images de référence (facultatif)",

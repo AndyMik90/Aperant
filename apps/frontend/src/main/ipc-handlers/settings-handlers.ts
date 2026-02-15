@@ -8,7 +8,7 @@ import { is } from '@electron-toolkit/utils';
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-import { IPC_CHANNELS, DEFAULT_APP_SETTINGS, DEFAULT_AGENT_PROFILES, SPELL_CHECK_LANGUAGE_MAP, DEFAULT_SPELL_CHECK_LANGUAGE } from '../../shared/constants';
+import { IPC_CHANNELS, DEFAULT_APP_SETTINGS, DEFAULT_AGENT_PROFILES, SPELL_CHECK_LANGUAGE_MAP, DEFAULT_SPELL_CHECK_LANGUAGE, sanitizeThinkingLevel, VALID_THINKING_LEVELS } from '../../shared/constants';
 import { setAppLanguage } from '../app-language';
 import type {
   AppSettings,
@@ -132,6 +132,39 @@ export function registerSettingsHandlers(
           }
         }
         settings._migratedDefaultModelSync = true;
+        needsSave = true;
+      }
+
+      // Migration: Replace legacy thinking levels with valid equivalents
+      // The 'ultrathink' value was removed but may persist in stored customPhaseThinking
+      if (!settings._migratedUltrathinkToHigh) {
+        if (settings.customPhaseThinking) {
+          let changed = false;
+          for (const phase of Object.keys(settings.customPhaseThinking) as Array<keyof typeof settings.customPhaseThinking>) {
+            if (!(VALID_THINKING_LEVELS as readonly string[]).includes(settings.customPhaseThinking[phase])) {
+              const mapped = sanitizeThinkingLevel(settings.customPhaseThinking[phase]);
+              settings.customPhaseThinking[phase] = mapped as import('../../shared/types/settings').ThinkingLevel;
+              changed = true;
+            }
+          }
+          if (changed) {
+            console.warn('[SETTINGS_GET] Migrated invalid thinking levels in customPhaseThinking');
+          }
+        }
+        if (settings.featureThinking) {
+          let changed = false;
+          for (const feature of Object.keys(settings.featureThinking) as Array<keyof typeof settings.featureThinking>) {
+            if (!(VALID_THINKING_LEVELS as readonly string[]).includes(settings.featureThinking[feature])) {
+              const mapped = sanitizeThinkingLevel(settings.featureThinking[feature]);
+              settings.featureThinking[feature] = mapped as import('../../shared/types/settings').ThinkingLevel;
+              changed = true;
+            }
+          }
+          if (changed) {
+            console.warn('[SETTINGS_GET] Migrated invalid thinking levels in featureThinking');
+          }
+        }
+        settings._migratedUltrathinkToHigh = true;
         needsSave = true;
       }
 

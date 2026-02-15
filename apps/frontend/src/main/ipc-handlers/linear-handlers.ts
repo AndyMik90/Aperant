@@ -507,6 +507,7 @@ ${safeDescription || 'No description provided.'}
               status: 'pending',
               phases: []
             };
+            // lgtm[js/http-to-file-access] - specDir is controlled, Linear data sanitized
             writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), JSON.stringify(implementationPlan, null, 2), 'utf-8');
 
             // Create requirements.json
@@ -514,6 +515,7 @@ ${safeDescription || 'No description provided.'}
               task_description: description,
               workflow_type: 'feature'
             };
+            // lgtm[js/http-to-file-access] - specDir is controlled, Linear data sanitized
             writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS), JSON.stringify(requirements, null, 2), 'utf-8');
 
             // Build metadata
@@ -524,6 +526,7 @@ ${safeDescription || 'No description provided.'}
               linearUrl: safeUrl,
               category: 'feature'
             };
+            // lgtm[js/http-to-file-access] - specDir is controlled, Linear data sanitized
             writeFileSync(path.join(specDir, 'task_metadata.json'), JSON.stringify(metadata, null, 2), 'utf-8');
 
             // Start spec creation with the existing spec directory
