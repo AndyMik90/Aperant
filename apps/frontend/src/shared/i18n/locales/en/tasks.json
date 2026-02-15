@@ -14,7 +14,13 @@
     "run": "Run",
     "startBuild": "Start Build",
     "stop": "Stop",
+    "stopTesting": "Stop Testing",
     "recover": "Recover",
+    "restartCoding": "Restart Coding",
+    "restartCodingTitle": "Restart Coding",
+    "restartCodingDesc": "This will reset all coding progress for <strong>\"{{title}}\"</strong> and start the coding phase from scratch.",
+    "restartCodingPlanNote": "The implementation plan will be preserved, but all subtask progress, attempt history, and stuck states will be cleared.",
+    "restartCodingFailed": "Failed to restart coding. Please try again.",
     "resume": "Resume",
     "archive": "Archive",
     "delete": "Delete",
@@ -210,7 +216,14 @@
     "maxImagesError": "Maximum of {{count}} images allowed",
     "invalidTypeError": "Invalid image type. Allowed: {{types}}",
     "removeImage": "Remove image",
-    "processingError": "Failed to process image"
+    "processingError": "Failed to process image",
+    "requestChanges": "Request Changes",
+    "description": "Found issues? Describe what needs to be fixed and the AI will continue working on it.",
+    "placeholder": "Describe the issues or changes needed...",
+    "submitting": "Submitting...",
+    "restarting": "Restarting...",
+    "restartFromPlanning": "Restart from Planning",
+    "restartFromCoding": "Restart from Coding"
   },
   "review": {
     "mergeTooltip": "Merges changes from the task's worktree branch back to your base branch. AI will resolve any conflicts. You can then choose whether to keep or remove the worktree."
@@ -374,6 +387,34 @@
       "quickFixDesc": "Trivial fix, no review needed",
       "refactor": "Refactoring",
       "refactorDesc": "Code cleanup with low impact"
+    }
+  },
+  "phaseBanners": {
+    "coding": {
+      "running": "Writing code...",
+      "paused": "Coding Paused",
+      "stuck": "Task is Stuck",
+      "stuckDesc": "The agent encountered an issue and needs recovery.",
+      "progress": "{{current}}/{{total}} subtasks completed"
+    },
+    "aiReview": {
+      "running": "Running Tests...",
+      "runningDesc": "AI is reviewing the implementation and running validation checks.",
+      "paused": "Testing Paused",
+      "pausedDesc": "Testing was interrupted. Results may be incomplete."
+    },
+    "humanReview": {
+      "title": "Ready for Review",
+      "approve": "Approve & Merge"
+    },
+    "done": {
+      "title": "Task Complete",
+      "description": "All work has been completed and approved."
+    },
+    "prCreated": {
+      "title": "Pull Request Created",
+      "description": "Changes have been pushed and a PR is ready for review.",
+      "markDone": "Mark as Done"
     }
   }
 }

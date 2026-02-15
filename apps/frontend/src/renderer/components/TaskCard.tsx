@@ -726,8 +726,13 @@ export const TaskCard = memo(function TaskCard({
                 {getContextualPhaseLabel(task.status, executionPhase)}
               </Badge>
             )}
-            {/* Drift badge - shows drift score from real-time or disk */}
-            <DriftBadge taskId={task.id} specDir={task.specsPath} />
+            {/* Drift badge - shows drift score from real-time, disk, or persisted metadata */}
+            <DriftBadge
+              taskId={task.id}
+              specDir={task.specsPath}
+              taskAlertLevel={task.driftAlertLevel}
+              taskDriftScore={task.driftScore}
+            />
              {/* Status badge - hide when execution phase badge is showing */}
              {!hasActiveExecution && (
                <>

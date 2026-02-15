@@ -42,7 +42,14 @@ export function TaskSubtasks({ task }: TaskSubtasksProps) {
           <>
             {/* Progress summary */}
             <div className="flex items-center justify-between text-xs text-muted-foreground pb-2 border-b border-border/50">
-              <span>{task.subtasks.filter(c => c.status === 'completed').length} of {task.subtasks.length} completed</span>
+              <div className="flex items-center gap-2">
+                <span>{task.subtasks.filter(c => c.status === 'completed').length} of {task.subtasks.length} completed</span>
+                {task.subtasks.filter(c => c.status === 'failed').length > 0 && (
+                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                    {task.subtasks.filter(c => c.status === 'failed').length} failed
+                  </Badge>
+                )}
+              </div>
               <span className="tabular-nums">{progress}%</span>
             </div>
             {task.subtasks.map((subtask, index) => (
@@ -91,6 +98,14 @@ export function TaskSubtasks({ task }: TaskSubtasksProps) {
                         </TooltipContent>
                       )}
                     </Tooltip>
+                    {/* Show stuck/failure reason for failed subtasks */}
+                    {subtask.status === 'failed' && subtask.notes && (
+                      <div className="mt-2 px-2 py-1.5 rounded-md bg-destructive/10 border border-destructive/20">
+                        <p className="text-xs text-destructive">
+                          {subtask.notes}
+                        </p>
+                      </div>
+                    )}
                     {subtask.files && subtask.files.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
                         {subtask.files.map((file) => (

@@ -14,7 +14,13 @@
     "run": "Exécuter",
     "startBuild": "Lancer le build",
     "stop": "Arrêter",
+    "stopTesting": "Arrêter les tests",
     "recover": "Récupérer",
+    "restartCoding": "Relancer le codage",
+    "restartCodingTitle": "Relancer le codage",
+    "restartCodingDesc": "Ceci réinitialisera toute la progression du codage pour <strong>\"{{title}}\"</strong> et relancera la phase de codage depuis le début.",
+    "restartCodingPlanNote": "Le plan d'implémentation sera préservé, mais toute la progression des sous-tâches, l'historique des tentatives et les états bloqués seront effacés.",
+    "restartCodingFailed": "Échec du redémarrage du codage. Veuillez réessayer.",
     "resume": "Reprendre",
     "archive": "Archiver",
     "delete": "Supprimer",
@@ -210,7 +216,14 @@
     "maxImagesError": "Maximum de {{count}} images autorisées",
     "invalidTypeError": "Type d'image invalide. Autorisés : {{types}}",
     "removeImage": "Supprimer l'image",
-    "processingError": "Échec du traitement de l'image"
+    "processingError": "Échec du traitement de l'image",
+    "requestChanges": "Demander des modifications",
+    "description": "Des problèmes trouvés ? Décrivez ce qui doit être corrigé et l'IA continuera à travailler dessus.",
+    "placeholder": "Décrivez les problèmes ou les modifications nécessaires...",
+    "submitting": "Soumission en cours...",
+    "restarting": "Redémarrage en cours...",
+    "restartFromPlanning": "Redémarrer depuis la planification",
+    "restartFromCoding": "Redémarrer depuis le codage"
   },
   "review": {
     "mergeTooltip": "Fusionne les changements de la branche worktree de la tâche vers votre branche de base. L'IA résoudra les conflits éventuels. Vous pourrez ensuite choisir de conserver ou de supprimer le worktree."
@@ -374,6 +387,34 @@
       "quickFixDesc": "Correction triviale, sans révision",
       "refactor": "Refactoring",
       "refactorDesc": "Nettoyage de code avec faible impact"
+    }
+  },
+  "phaseBanners": {
+    "coding": {
+      "running": "Écriture du code...",
+      "paused": "Codage en pause",
+      "stuck": "Tâche bloquée",
+      "stuckDesc": "L'agent a rencontré un problème et nécessite une récupération.",
+      "progress": "{{current}}/{{total}} sous-tâches terminées"
+    },
+    "aiReview": {
+      "running": "Exécution des tests...",
+      "runningDesc": "L'IA vérifie l'implémentation et exécute les contrôles de validation.",
+      "paused": "Tests en pause",
+      "pausedDesc": "Les tests ont été interrompus. Les résultats peuvent être incomplets."
+    },
+    "humanReview": {
+      "title": "Prêt pour la révision",
+      "approve": "Approuver et fusionner"
+    },
+    "done": {
+      "title": "Tâche terminée",
+      "description": "Tout le travail a été complété et approuvé."
+    },
+    "prCreated": {
+      "title": "Pull Request créée",
+      "description": "Les changements ont été poussés et une PR est prête pour la révision.",
+      "markDone": "Marquer comme terminé"
     }
   }
 }

@@ -1106,7 +1106,7 @@ export async function checkTaskRunning(taskId: string): Promise<boolean> {
  */
 export async function recoverStuckTask(
   taskId: string,
-  options: { targetStatus?: TaskStatus; autoRestart?: boolean } = { autoRestart: true }
+  options: { targetStatus?: TaskStatus; autoRestart?: boolean; restartCoding?: boolean } = { autoRestart: true }
 ): Promise<{ success: boolean; message: string; autoRestarted?: boolean }> {
   const store = useTaskStore.getState();
 
@@ -1116,6 +1116,10 @@ export async function recoverStuckTask(
     if (result.success && result.data) {
       // Update local state
       store.updateTaskStatus(taskId, result.data.newStatus);
+      // Immediately refresh subtasks from the updated plan (don't wait for file watcher)
+      if (result.data.updatedPlan) {
+        store.updateTaskFromPlan(taskId, result.data.updatedPlan);
+      }
       // Clear stopped state and reset execution progress when recovering
       if (result.data.autoRestarted) {
         store.setAgentStopped(taskId, false);

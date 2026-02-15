@@ -8,6 +8,9 @@ interface WatcherInfo {
   taskId: string;
   watcher: FSWatcher;
   planPath: string;
+  /** Secondary watcher for worktree plan path (agent writes here during isolated builds) */
+  worktreeWatcher?: FSWatcher;
+  worktreePlanPath?: string;
 }
 
 /**
@@ -17,9 +20,10 @@ export class FileWatcher extends EventEmitter {
   private watchers: Map<string, WatcherInfo> = new Map();
 
   /**
-   * Start watching a task's implementation plan
+   * Start watching a task's implementation plan.
+   * Optionally also watches a worktree spec dir (agent writes plan there during isolated builds).
    */
-  async watch(taskId: string, specDir: string): Promise<void> {
+  async watch(taskId: string, specDir: string, worktreeSpecDir?: string): Promise<void> {
     // Stop any existing watcher for this task
     await this.unwatch(taskId);
 
@@ -82,6 +86,45 @@ export class FileWatcher extends EventEmitter {
     } catch {
       // Initial read failed - not critical
     }
+
+    // Also watch the worktree plan path if provided and different from main
+    // The coding agent writes to the worktree during isolated builds, so we need
+    // to detect those changes for real-time subtask updates in the UI.
+    if (worktreeSpecDir && worktreeSpecDir !== specDir) {
+      const worktreePlanPath = path.join(worktreeSpecDir, 'implementation_plan.json');
+      if (existsSync(worktreePlanPath)) {
+        const worktreeWatcher = chokidar.watch(worktreePlanPath, {
+          persistent: true,
+          ignoreInitial: true,
+          awaitWriteFinish: {
+            stabilityThreshold: 300,
+            pollInterval: 100
+          }
+        });
+
+        worktreeWatcher.on('change', () => {
+          try {
+            const content = readFileSync(worktreePlanPath, 'utf-8');
+            const plan: ImplementationPlan = JSON.parse(content);
+            this.emit('progress', taskId, plan);
+          } catch {
+            // File might be in the middle of being written
+          }
+        });
+
+        worktreeWatcher.on('error', (error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          console.warn(`[FileWatcher] Worktree watcher error for ${taskId}: ${message}`);
+        });
+
+        // Update watcher info with worktree watcher
+        const watcherInfo = this.watchers.get(taskId);
+        if (watcherInfo) {
+          watcherInfo.worktreeWatcher = worktreeWatcher;
+          watcherInfo.worktreePlanPath = worktreePlanPath;
+        }
+      }
+    }
   }
 
   /**
@@ -91,6 +134,9 @@ export class FileWatcher extends EventEmitter {
     const watcherInfo = this.watchers.get(taskId);
     if (watcherInfo) {
       await watcherInfo.watcher.close();
+      if (watcherInfo.worktreeWatcher) {
+        await watcherInfo.worktreeWatcher.close();
+      }
       this.watchers.delete(taskId);
     }
   }
@@ -102,6 +148,9 @@ export class FileWatcher extends EventEmitter {
     const closePromises = Array.from(this.watchers.values()).map(
       async (info) => {
         await info.watcher.close();
+        if (info.worktreeWatcher) {
+          await info.worktreeWatcher.close();
+        }
       }
     );
     await Promise.all(closePromises);

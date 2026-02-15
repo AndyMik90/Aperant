@@ -26,8 +26,12 @@ interface QAFeedbackSectionProps {
   onReject: () => void;
   /** Callback to restart the task from planning phase */
   onRestartFromPlanning?: () => void;
+  /** Callback to restart the task from coding phase (keeps plan, redoes implementation) */
+  onRestartFromCoding?: () => void;
   /** Whether a restart from planning is in progress */
   isRestarting?: boolean;
+  /** Whether a restart from coding is in progress */
+  isRestartingCoding?: boolean;
   /** Image attachments for visual feedback - optional for backward compatibility */
   images?: ImageAttachment[];
   /** Callback when images change - optional for backward compatibility */
@@ -48,7 +52,9 @@ export function QAFeedbackSection({
   onFeedbackChange,
   onReject,
   onRestartFromPlanning,
+  onRestartFromCoding,
   isRestarting = false,
+  isRestartingCoding = false,
   images = [],
   onImagesChange,
   saveAsLearning = false,
@@ -414,25 +420,50 @@ export function QAFeedbackSection({
         )}
       </Button>
 
-      {onRestartFromPlanning && (
-        <Button
-          variant="outline"
-          onClick={onRestartFromPlanning}
-          disabled={isRestarting || isSubmitting}
-          className="w-full text-muted-foreground hover:text-foreground"
-        >
-          {isRestarting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {t('feedback.restarting', 'Restarting...')}
-            </>
-          ) : (
-            <>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              {t('feedback.restartFromPlanning', 'Restart from Planning')}
-            </>
+      {/* Restart buttons */}
+      {(onRestartFromCoding || onRestartFromPlanning) && (
+        <div className="flex flex-col gap-2 mt-2">
+          {onRestartFromCoding && (
+            <Button
+              variant="outline"
+              onClick={onRestartFromCoding}
+              disabled={isRestartingCoding || isRestarting || isSubmitting}
+              className="w-full text-muted-foreground hover:text-foreground"
+            >
+              {isRestartingCoding ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('feedback.restarting', 'Restarting...')}
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  {t('feedback.restartFromCoding', 'Restart from Coding')}
+                </>
+              )}
+            </Button>
           )}
-        </Button>
+          {onRestartFromPlanning && (
+            <Button
+              variant="outline"
+              onClick={onRestartFromPlanning}
+              disabled={isRestarting || isRestartingCoding || isSubmitting}
+              className="w-full text-muted-foreground hover:text-foreground"
+            >
+              {isRestarting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('feedback.restarting', 'Restarting...')}
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  {t('feedback.restartFromPlanning', 'Restart from Planning')}
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );

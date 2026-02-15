@@ -1,10 +1,9 @@
 import { CheckCircle2 } from 'lucide-react';
 import { Button } from '../ui/button';
-import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, ImageAttachment, WorktreeCreatePRResult } from '../../../shared/types';
+import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, WorktreeCreatePRResult } from '../../../shared/types';
 import {
   StagedSuccessMessage,
   WorkspaceStatus,
-  QAFeedbackSection,
   DiscardDialog,
   DiffViewDialog,
   ConflictDetailsDialog,
@@ -16,8 +15,6 @@ import {
 
 interface TaskReviewProps {
   task: Task;
-  feedback: string;
-  isSubmitting: boolean;
   worktreeStatus: WorktreeStatus | null;
   worktreeDiff: WorktreeDiff | null;
   isLoadingWorktree: boolean;
@@ -34,16 +31,6 @@ interface TaskReviewProps {
   mergePreview: { files: string[]; conflicts: MergeConflict[]; summary: MergeStats; gitConflicts?: GitConflictInfo; uncommittedChanges?: { hasChanges: boolean; files: string[]; count: number } | null } | null;
   isLoadingPreview: boolean;
   showConflictDialog: boolean;
-  onFeedbackChange: (value: string) => void;
-  onReject: () => void;
-  /** Callback to restart the task from planning phase */
-  onRestartFromPlanning?: () => void;
-  /** Whether a restart from planning is in progress */
-  isRestarting?: boolean;
-  /** Image attachments for visual feedback */
-  images?: ImageAttachment[];
-  /** Callback when images change */
-  onImagesChange?: (images: ImageAttachment[]) => void;
   onMerge: () => void;
   onMarkDone: () => void;
   onDiscard: () => void;
@@ -66,16 +53,13 @@ interface TaskReviewProps {
 /**
  * TaskReview Component
  *
- * Main component for reviewing task completion, displaying workspace status,
- * merge previews, and providing options to merge, stage, or discard changes.
+ * Displays workspace status, merge previews, and options to merge, stage, or discard changes.
+ * The QA feedback section has been moved to HumanReviewPhaseBanner (shown above tabs).
  *
- * This component has been refactored into smaller, focused sub-components for better
- * maintainability. See ./task-review/ directory for individual component implementations.
+ * See ./task-review/ directory for individual component implementations.
  */
 export function TaskReview({
   task,
-  feedback,
-  isSubmitting,
   worktreeStatus,
   worktreeDiff,
   isLoadingWorktree,
@@ -92,12 +76,6 @@ export function TaskReview({
   mergePreview,
   isLoadingPreview,
   showConflictDialog,
-  onFeedbackChange,
-  onReject,
-  onRestartFromPlanning,
-  isRestarting,
-  images,
-  onImagesChange,
   onMerge,
   onMarkDone,
   onDiscard,
@@ -183,18 +161,6 @@ export function TaskReview({
       ) : (
         <NoWorkspaceMessage task={task} onClose={onClose} />
       )}
-
-      {/* QA Feedback Section */}
-      <QAFeedbackSection
-        feedback={feedback}
-        isSubmitting={isSubmitting}
-        onFeedbackChange={onFeedbackChange}
-        onReject={onReject}
-        onRestartFromPlanning={onRestartFromPlanning}
-        isRestarting={isRestarting}
-        images={images}
-        onImagesChange={onImagesChange}
-      />
 
       {/* Discard Confirmation Dialog */}
       <DiscardDialog

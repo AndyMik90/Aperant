@@ -18,6 +18,8 @@ import {
 
 interface DriftIndicatorProps {
   taskId: string;
+  /** Task-level drift alert level from metadata (persisted fallback) */
+  taskAlertLevel?: 'normal' | 'warning' | 'critical';
   className?: string;
   showLabel?: boolean;
   size?: 'sm' | 'md' | 'lg';
@@ -28,11 +30,13 @@ interface DriftIndicatorProps {
  */
 export function DriftIndicator({
   taskId,
+  taskAlertLevel,
   className,
   showLabel = false,
   size = 'sm',
 }: DriftIndicatorProps) {
-  const alertLevel = useDriftAlertLevel(taskId);
+  const storeAlertLevel = useDriftAlertLevel(taskId);
+  const alertLevel = storeAlertLevel || taskAlertLevel || null;
 
   // Don't render if no alert level
   if (!alertLevel) {
@@ -113,11 +117,15 @@ interface DriftBadgeProps {
   taskId: string;
   specDir?: string;
   score?: number;
+  /** Task-level drift alert level from metadata (persisted across restarts) */
+  taskAlertLevel?: 'normal' | 'warning' | 'critical';
+  /** Task-level drift score from metadata (persisted across restarts) */
+  taskDriftScore?: number;
   className?: string;
 }
 
-export function DriftBadge({ taskId, specDir, score: scoreProp, className }: DriftBadgeProps) {
-  const alertLevel = useDriftAlertLevel(taskId);
+export function DriftBadge({ taskId, specDir, score: scoreProp, taskAlertLevel, taskDriftScore, className }: DriftBadgeProps) {
+  const storeAlertLevel = useDriftAlertLevel(taskId);
   const taskDrift = useTaskDrift(taskId);
   const loadDriftReport = useDriftStore((s) => s.loadDriftReport);
 
@@ -128,12 +136,15 @@ export function DriftBadge({ taskId, specDir, score: scoreProp, className }: Dri
     }
   }, [taskId, specDir, taskDrift, loadDriftReport]);
 
+  // Use store data first (real-time), fall back to task-level metadata (persisted)
+  const alertLevel = storeAlertLevel || taskAlertLevel || null;
+
   // Don't render if no data
   if (!alertLevel) {
     return null;
   }
 
-  const driftScore = scoreProp ?? taskDrift?.report?.overall_drift_score;
+  const driftScore = scoreProp ?? taskDrift?.report?.overall_drift_score ?? taskDriftScore;
 
   const badgeClasses = {
     normal: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',

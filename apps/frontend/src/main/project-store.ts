@@ -577,6 +577,9 @@ export class ProjectStore {
           mergedAt,
           location, // Add location metadata (main vs worktree)
           specsPath: specPath, // Add full path to specs directory
+          // Drift monitoring - load persisted drift data from metadata
+          ...(metadata?.driftScore !== undefined && { driftScore: metadata.driftScore }),
+          ...(metadata?.driftAlertLevel && { driftAlertLevel: metadata.driftAlertLevel as 'normal' | 'warning' | 'critical' }),
           // SUG-6: Map metadata dependencies to top-level field for blocking logic
           dependencies: metadata?.dependencies?.filter((d): d is string => typeof d === 'string' && d.length > 0) || undefined,
           createdAt: new Date(plan?.created_at || Date.now()),

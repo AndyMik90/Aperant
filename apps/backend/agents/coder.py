@@ -519,6 +519,33 @@ async def run_autonomous_agent(
                             print("No pending subtasks found - build may be complete!")
                             break
                         else:
+                            # FIX-GATE: Check if we're stuck (failed/stuck subtasks blocking progress)
+                            detailed = count_subtasks_detailed(spec_dir)
+                            has_stuck = detailed.get("failed", 0) > 0
+
+                            if has_stuck:
+                                # Subtasks are stuck/failed — do NOT proceed to QA
+                                # Instead, signal incomplete build so frontend can offer restart
+                                print_status(
+                                    f"Build INCOMPLETE: {detailed['failed']} failed/stuck, "
+                                    f"{detailed['completed']}/{detailed['total']} completed. "
+                                    "Cannot proceed to QA.",
+                                    "error",
+                                )
+                                emit_sdk_msg("phase_end", {
+                                    "phase": "coding",
+                                    "success": False,
+                                    "message": (
+                                        f"Coding incomplete: {detailed['failed']} subtask(s) failed/stuck, "
+                                        f"{detailed['pending']} pending, "
+                                        f"{detailed['completed']}/{detailed['total']} completed"
+                                    ),
+                                })
+                                status_manager.update(state=BuildState.ERROR)
+                                status = "stuck"  # Prevent QA trigger
+                                break
+
+                            # No stuck subtasks — possible file read error or dependency issue
                             print_status(
                                 "No pending subtasks found but build not confirmed complete — "
                                 "possible file read error or dependency issue. Retrying...",
@@ -528,6 +555,21 @@ async def run_autonomous_agent(
                             next_subtask = get_next_subtask(spec_dir)
                             if not next_subtask:
                                 print("Still no pending subtasks after retry — exiting loop.")
+                                # Final check: if still not complete, mark as stuck
+                                if not is_build_complete(spec_dir):
+                                    detailed = count_subtasks_detailed(spec_dir)
+                                    print_status(
+                                        f"Build stalled: {detailed['completed']}/{detailed['total']} completed, "
+                                        f"{detailed['failed']} failed, {detailed['pending']} pending",
+                                        "error",
+                                    )
+                                    emit_sdk_msg("phase_end", {
+                                        "phase": "coding",
+                                        "success": False,
+                                        "message": "Build stalled — no subtasks available but build not complete",
+                                    })
+                                    status_manager.update(state=BuildState.ERROR)
+                                    status = "stuck"
                                 break
                             subtask_id = next_subtask.get("id")
                             phase_name = next_subtask.get("phase_name")
@@ -963,6 +1005,26 @@ async def run_autonomous_agent(
                         )
 
                 await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+
+            elif status == "stuck":
+                # FIX-GATE: Build exited due to stuck/failed subtasks
+                # Do NOT proceed to QA — let the user decide (restart coding or manual fix)
+                detailed = count_subtasks_detailed(spec_dir)
+                print_status(
+                    f"Build stopped: {detailed['completed']}/{detailed['total']} subtasks completed, "
+                    f"{detailed['failed']} failed/stuck. Use 'Restart Coding' to retry.",
+                    "error",
+                )
+
+                if task_logger:
+                    task_logger.end_phase(
+                        LogPhase.CODING,
+                        success=False,
+                        message=f"Build incomplete: {detailed['failed']} subtask(s) stuck",
+                    )
+
+                # Don't break — fall through to end of loop (no QA trigger)
+                break
 
             elif status == "error":
                 emit_phase(ExecutionPhase.FAILED, "Session encountered an error")

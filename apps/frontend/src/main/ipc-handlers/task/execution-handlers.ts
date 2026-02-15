@@ -298,14 +298,16 @@ export function registerTaskExecutionHandlers(
 
       console.warn('[TASK_START] Found task:', task.specId, 'status:', task.status, 'subtasks:', task.subtasks.length);
 
-      // Start file watcher for this task
+      // Start file watcher for this task (also watch worktree for real-time subtask updates)
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specDir = path.join(
         project.path,
         specsBaseDir,
         task.specId
       );
-      fileWatcher.watch(taskId, specDir);
+      const worktreePath = findTaskWorktree(project.path, task.specId);
+      const worktreeSpecDir = worktreePath ? path.join(worktreePath, specsBaseDir, task.specId) : undefined;
+      fileWatcher.watch(taskId, specDir, worktreeSpecDir);
 
       // Create task monitor terminal for live output viewing
       const terminalId = `task-${taskId}`;
@@ -655,8 +657,10 @@ export function registerTaskExecutionHandlers(
         };
       }
 
-      // Start file watcher for this task
-      fileWatcher.watch(taskId, specDir);
+      // Start file watcher for this task (also watch worktree for real-time subtask updates)
+      const worktreePathForBuild = findTaskWorktree(project.path, task.specId);
+      const worktreeSpecDirForBuild = worktreePathForBuild ? path.join(worktreePathForBuild, specsBaseDir, task.specId) : undefined;
+      fileWatcher.watch(taskId, specDir, worktreeSpecDirForBuild);
 
       // Get base branch
       const baseBranch = task.metadata?.baseBranch || project.settings?.mainBranch;
@@ -1244,10 +1248,11 @@ export function registerTaskExecutionHandlers(
     async (
       _,
       taskId: string,
-      options?: { targetStatus?: TaskStatus; autoRestart?: boolean }
-    ): Promise<IPCResult<{ taskId: string; recovered: boolean; newStatus: TaskStatus; message: string; autoRestarted?: boolean }>> => {
+      options?: { targetStatus?: TaskStatus; autoRestart?: boolean; restartCoding?: boolean }
+    ): Promise<IPCResult<{ taskId: string; recovered: boolean; newStatus: TaskStatus; message: string; autoRestarted?: boolean; updatedPlan?: Record<string, unknown> }>> => {
       const targetStatus = options?.targetStatus;
       const autoRestart = options?.autoRestart ?? false;
+      const restartCoding = options?.restartCoding ?? false;
       // Check if task is actually running
       const isActuallyRunning = agentManager.isRunning(taskId);
 
@@ -1322,10 +1327,16 @@ export function registerTaskExecutionHandlers(
         // If targetStatus is explicitly provided, use it; otherwise calculate from subtasks
         let newStatus: TaskStatus = targetStatus || 'planning';
 
-        // When user clicks "Recover & Restart" on a human_review task (autoRestart=true),
+        // When user clicks "Restart from Coding" on a human_review task (restartCoding=true),
+        // they want to restart from coding phase - reset subtasks and start coding agent
+        const isRestartCodingFromHumanReview = restartCoding && task.status === 'human_review';
+        // When user clicks "Restart from Planning" on a human_review task (autoRestart=true),
         // they want to restart from planning - don't let subtask analysis override that
-        const isRestartFromHumanReview = autoRestart && task.status === 'human_review' && !targetStatus;
-        if (isRestartFromHumanReview) {
+        const isRestartFromHumanReview = autoRestart && task.status === 'human_review' && !targetStatus && !restartCoding;
+        if (isRestartCodingFromHumanReview) {
+          newStatus = 'coding';
+          console.log('[Recovery] Task is in human_review with restartCoding - restarting from coding');
+        } else if (isRestartFromHumanReview) {
           newStatus = 'planning';
           console.log('[Recovery] Task is in human_review with autoRestart - restarting from planning');
         } else if (!targetStatus && plan?.phases && Array.isArray(plan.phases)) {
@@ -1362,7 +1373,7 @@ export function registerTaskExecutionHandlers(
           // BUT skip this early return if user explicitly wants to restart from human_review
           const { allCompleted } = checkSubtasksCompletion(plan);
 
-          if (allCompleted && !isRestartFromHumanReview) {
+          if (allCompleted && !isRestartFromHumanReview && !isRestartCodingFromHumanReview) {
             console.log('[Recovery] Task is fully complete (all subtasks done), setting to human_review without restart');
             // Don't reset any subtasks - task is done!
             // Just update status in plan file (project store reads from file, no separate update needed)
@@ -1400,6 +1411,24 @@ export function registerTaskExecutionHandlers(
                 autoRestarted: false
               }
             };
+          }
+
+          // When restarting coding from human_review, reset ALL subtasks so coding starts fresh
+          if (isRestartCodingFromHumanReview && plan.phases && Array.isArray(plan.phases)) {
+            for (const phase of plan.phases as Array<{ subtasks?: Array<{ status: string; actual_output?: string; started_at?: string; completed_at?: string; notes?: string }> }>) {
+              if (phase.subtasks && Array.isArray(phase.subtasks)) {
+                for (const subtask of phase.subtasks) {
+                  if (subtask.status !== 'pending') {
+                    subtask.status = 'pending';
+                    delete subtask.actual_output;
+                    delete subtask.started_at;
+                    delete subtask.completed_at;
+                    delete subtask.notes;
+                  }
+                }
+              }
+            }
+            console.log('[Recovery] Reset all subtasks for restart-coding from human_review');
           }
 
           // When restarting from human_review, reset ALL subtasks so the task can be re-planned
@@ -1526,10 +1555,12 @@ export function registerTaskExecutionHandlers(
           }
 
           try {
-            // Start file watcher for this task
+            // Start file watcher for this task (also watch worktree for real-time subtask updates)
             const specsBaseDir = getSpecsDir(project.autoBuildPath);
             const specDirForWatcher = path.join(project.path, specsBaseDir, task.specId);
-            fileWatcher.watch(taskId, specDirForWatcher);
+            const worktreePathForWatcher = findTaskWorktree(project.path, task.specId);
+            const worktreeSpecDirForWatcher = worktreePathForWatcher ? path.join(worktreePathForWatcher, specsBaseDir, task.specId) : undefined;
+            fileWatcher.watch(taskId, specDirForWatcher, worktreeSpecDirForWatcher);
 
             // Check if spec.md exists to determine whether to run spec creation or task execution
             const specFilePath = path.join(specDirForWatcher, AUTO_BUILD_PATHS.SPEC_FILE);
@@ -1580,31 +1611,136 @@ export function registerTaskExecutionHandlers(
               newStatus = 'planning';
               autoRestarted = false;
             } else if (task.status === 'coding') {
-              // FIX-3/FIX-4: Coding tasks should NOT auto-restart on recovery
-              // Instead, mark as interrupted so user can click "Resume" button
-              // This prevents unwanted auto-starts after app restart or recovery
-              console.log(`[Recovery] Task ${taskId} is in coding status, marking as interrupted (no auto-restart)`);
               newStatus = 'coding';
 
-              // Update plan status to indicate interrupted state
-              if (plan) {
-                plan.status = 'coding';
-                plan.planStatus = 'coding';
-                plan.interrupted = true;
-                plan.interruptedAt = new Date().toISOString();
-                const interruptedPlanContent = JSON.stringify(plan, null, 2);
-                for (const pathToUpdate of planPathsToUpdate) {
-                  try {
-                    atomicWriteFileSync(pathToUpdate, interruptedPlanContent);
-                    console.log(`[Recovery] Wrote interrupted status to: ${pathToUpdate}`);
-                  } catch (writeError) {
-                    console.error(`[Recovery] Failed to write plan file for interrupted status at ${pathToUpdate}:`, writeError);
+              if (restartCoding) {
+                // FIX-RESTART-CODING: Full coding restart — reset ALL subtasks and clear attempt history
+                console.log(`[Recovery] Task ${taskId} - RESTART CODING: resetting all subtasks and clearing attempt history`);
+
+                // Reset ALL subtask statuses (failed, in_progress, completed) back to pending
+                if (plan && plan.phases && Array.isArray(plan.phases)) {
+                  for (const phase of plan.phases as Array<{ subtasks?: Array<{ status: string; actual_output?: string; started_at?: string; completed_at?: string; notes?: string }> }>) {
+                    if (phase.subtasks && Array.isArray(phase.subtasks)) {
+                      for (const subtask of phase.subtasks) {
+                        if (subtask.status !== 'pending') {
+                          subtask.status = 'pending';
+                          delete subtask.actual_output;
+                          delete subtask.started_at;
+                          delete subtask.completed_at;
+                          delete subtask.notes;
+                        }
+                      }
+                    }
                   }
                 }
-              }
 
-              // Do NOT auto-start the coding agent - user must click "Resume"
-              autoRestarted = false;
+                // Clear attempt_history.json to remove stuck state and attempt counts
+                const attemptHistoryPaths = [
+                  path.join(specDir, 'memory', 'attempt_history.json'),
+                  ...(mainSpecDir !== specDir ? [path.join(mainSpecDir, 'memory', 'attempt_history.json')] : []),
+                  ...(worktreeSpecDir && worktreeSpecDir !== specDir ? [path.join(worktreeSpecDir, 'memory', 'attempt_history.json')] : []),
+                ];
+                for (const historyPath of attemptHistoryPaths) {
+                  try {
+                    if (existsSync(historyPath)) {
+                      // Reset to empty history instead of deleting (preserves file structure)
+                      atomicWriteFileSync(historyPath, JSON.stringify({ subtasks: {}, stuck_subtasks: [] }, null, 2));
+                      console.log(`[Recovery] Cleared attempt history at: ${historyPath}`);
+                    }
+                  } catch (clearError) {
+                    console.error(`[Recovery] Failed to clear attempt history at ${historyPath}:`, clearError);
+                  }
+                }
+
+                // Update plan status
+                if (plan) {
+                  plan.status = 'coding';
+                  plan.planStatus = 'coding';
+                  delete plan.interrupted;
+                  delete plan.interruptedAt;
+                  plan.recoveryNote = `Coding restarted from scratch at ${new Date().toISOString()}`;
+                  const restartPlanContent = JSON.stringify(plan, null, 2);
+                  for (const pathToUpdate of planPathsToUpdate) {
+                    try {
+                      atomicWriteFileSync(pathToUpdate, restartPlanContent);
+                      console.log(`[Recovery] Wrote restart-coding plan to: ${pathToUpdate}`);
+                    } catch (writeError) {
+                      console.error(`[Recovery] Failed to write plan file for restart-coding at ${pathToUpdate}:`, writeError);
+                    }
+                  }
+                }
+
+                // Auto-start the coding agent after restart
+                console.warn(`[Recovery] Starting coding agent after restart for: ${task.specId}`);
+                await agentManager.startTaskExecution(
+                  taskId,
+                  project.path,
+                  task.specId,
+                  {
+                    parallel: false,
+                    workers: 1,
+                    baseBranch: baseBranchForRecovery,
+                    useWorktree: task.metadata?.useWorktree,
+                  }
+                );
+                autoRestarted = true;
+                console.warn(`[Recovery] Auto-restarted coding agent for task ${taskId}`);
+              } else {
+                // FIX-3/FIX-4: Normal recovery — mark as interrupted, reset stuck subtasks
+                // Also clear stuck entries from attempt_history.json so Resume actually works
+                console.log(`[Recovery] Task ${taskId} is in coding status, resetting stuck state`);
+
+                // Clear stuck_subtasks from attempt_history.json and reset attempt counts for failed subtasks
+                const attemptHistoryPath = path.join(specDir, 'memory', 'attempt_history.json');
+                try {
+                  if (existsSync(attemptHistoryPath)) {
+                    const historyContent = safeReadFileSync(attemptHistoryPath);
+                    if (historyContent) {
+                      const history = JSON.parse(historyContent);
+                      // Clear stuck_subtasks list
+                      if (history.stuck_subtasks && Array.isArray(history.stuck_subtasks)) {
+                        console.log(`[Recovery] Clearing ${history.stuck_subtasks.length} stuck subtask entries`);
+                        history.stuck_subtasks = [];
+                      }
+                      // Reset attempt counts for failed subtasks so they can be retried
+                      if (history.subtasks && typeof history.subtasks === 'object') {
+                        for (const [subtaskId, data] of Object.entries(history.subtasks)) {
+                          const subtaskData = data as { status?: string; attempts?: Array<unknown> };
+                          if (subtaskData.status === 'failed' || subtaskData.status === 'stuck') {
+                            subtaskData.status = 'pending';
+                            console.log(`[Recovery] Reset attempt history status for ${subtaskId}`);
+                          }
+                        }
+                      }
+                      atomicWriteFileSync(attemptHistoryPath, JSON.stringify(history, null, 2));
+                      console.log(`[Recovery] Updated attempt_history.json`);
+                    }
+                  }
+                } catch (historyError) {
+                  console.error(`[Recovery] Failed to update attempt_history.json:`, historyError);
+                  // Non-fatal — continue with recovery
+                }
+
+                // Update plan status to indicate interrupted state
+                if (plan) {
+                  plan.status = 'coding';
+                  plan.planStatus = 'coding';
+                  plan.interrupted = true;
+                  plan.interruptedAt = new Date().toISOString();
+                  const interruptedPlanContent = JSON.stringify(plan, null, 2);
+                  for (const pathToUpdate of planPathsToUpdate) {
+                    try {
+                      atomicWriteFileSync(pathToUpdate, interruptedPlanContent);
+                      console.log(`[Recovery] Wrote interrupted status to: ${pathToUpdate}`);
+                    } catch (writeError) {
+                      console.error(`[Recovery] Failed to write plan file for interrupted status at ${pathToUpdate}:`, writeError);
+                    }
+                  }
+                }
+
+                // Do NOT auto-start the coding agent - user must click "Resume"
+                autoRestarted = false;
+              }
             } else if (task.status === 'ai_review') {
               // FIX-18: AI Review tasks - mark as interrupted, require manual intervention
               // The QA agent was running, user should trigger QA again via the UI
@@ -1630,6 +1766,61 @@ export function registerTaskExecutionHandlers(
 
               // Do NOT auto-start the QA agent - user must trigger via UI
               autoRestarted = false;
+            } else if (task.status === 'human_review' && isRestartCodingFromHumanReview) {
+              // User explicitly wants to restart this task from coding (keep the plan, redo implementation)
+              console.log(`[Recovery] Task ${taskId} is in human_review, restarting as coding agent`);
+              newStatus = 'coding';
+
+              // Clear attempt_history.json to remove stuck state and attempt counts
+              const attemptHistoryPathsForRestart = [
+                path.join(specDir, 'memory', 'attempt_history.json'),
+                ...(mainSpecDir !== specDir ? [path.join(mainSpecDir, 'memory', 'attempt_history.json')] : []),
+                ...(worktreeSpecDir && worktreeSpecDir !== specDir ? [path.join(worktreeSpecDir, 'memory', 'attempt_history.json')] : []),
+              ];
+              for (const historyPath of attemptHistoryPathsForRestart) {
+                try {
+                  if (existsSync(historyPath)) {
+                    atomicWriteFileSync(historyPath, JSON.stringify({ subtasks: {}, stuck_subtasks: [] }, null, 2));
+                    console.log(`[Recovery] Cleared attempt history at: ${historyPath}`);
+                  }
+                } catch (clearError) {
+                  console.error(`[Recovery] Failed to clear attempt history at ${historyPath}:`, clearError);
+                }
+              }
+
+              // Update plan status for restart to coding
+              if (plan) {
+                plan.status = 'coding';
+                plan.planStatus = 'coding';
+                delete plan.interrupted;
+                delete plan.interruptedAt;
+                plan.recoveryNote = `Coding restarted from human_review at ${new Date().toISOString()}`;
+                const restartCodingPlanContent = JSON.stringify(plan, null, 2);
+                for (const pathToUpdate of planPathsToUpdate) {
+                  try {
+                    atomicWriteFileSync(pathToUpdate, restartCodingPlanContent);
+                    console.log(`[Recovery] Wrote restart-coding status from human_review to: ${pathToUpdate}`);
+                  } catch (writeError) {
+                    console.error(`[Recovery] Failed to write plan file for restart-coding at ${pathToUpdate}:`, writeError);
+                  }
+                }
+              }
+
+              // Start the coding agent
+              console.warn(`[Recovery] Starting coding agent (from human_review) for: ${task.specId}`);
+              await agentManager.startTaskExecution(
+                taskId,
+                project.path,
+                task.specId,
+                {
+                  parallel: false,
+                  workers: 1,
+                  baseBranch: baseBranchForRecovery,
+                  useWorktree: task.metadata?.useWorktree,
+                }
+              );
+              autoRestarted = true;
+              console.warn(`[Recovery] Auto-restarted coding agent for task ${taskId} (was human_review)`);
             } else if (task.status === 'human_review' && isRestartFromHumanReview) {
               // User explicitly wants to restart this task from planning
               console.log(`[Recovery] Task ${taskId} is in human_review, restarting as planning agent`);
@@ -1705,6 +1896,17 @@ export function registerTaskExecutionHandlers(
           );
         }
 
+        // Re-read the plan after all modifications so renderer gets the latest subtask state
+        let updatedPlan: Record<string, unknown> | undefined;
+        try {
+          const updatedPlanContent = safeReadFileSync(planPath);
+          if (updatedPlanContent) {
+            updatedPlan = JSON.parse(updatedPlanContent);
+          }
+        } catch {
+          // Non-fatal — renderer will eventually get plan from file watcher
+        }
+
         return {
           success: true,
           data: {
@@ -1714,7 +1916,8 @@ export function registerTaskExecutionHandlers(
             message: autoRestarted
               ? 'Task recovered and restarted successfully'
               : `Task recovered successfully and moved to ${newStatus}`,
-            autoRestarted
+            autoRestarted,
+            updatedPlan
           }
         };
       } catch (error) {

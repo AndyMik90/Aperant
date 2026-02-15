@@ -34,6 +34,7 @@ import {
   FileText,
   Code,
   Clock,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { calculateProgress } from '../../lib/utils';
@@ -53,6 +54,13 @@ import { DriftTab } from '../drift/DriftTab';
 import { DriftIndicator } from '../drift/DriftIndicator';
 import { SpecDocView } from '../terminal/SpecDocView';
 import { PlanningReview } from './PlanningReview';
+import {
+  CodingPhaseBanner,
+  AIReviewPhaseBanner,
+  HumanReviewPhaseBanner,
+  DonePhaseBanner,
+  PRCreatedPhaseBanner,
+} from './phase-banners';
 import { checkPlanningComplete } from '../../stores/task-store';
 import type { Task, WorktreeCreatePROptions } from '../../../shared/types';
 
@@ -156,6 +164,24 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
       state.setHasCheckedRunning(false);
     }
     setIsRestarting(false);
+  };
+
+  const [isRestartingCoding, setIsRestartingCoding] = useState(false);
+  const handleRestartCoding = async () => {
+    setIsRestartingCoding(true);
+    const result = await recoverStuckTask(task.id, { restartCoding: true });
+    if (result.success) {
+      state.setIsStuck(false);
+      state.setHasCheckedRunning(false);
+    } else {
+      toast({
+        title: t('tasks:actions.restartCodingTitle', { defaultValue: 'Restart Coding' }),
+        description: t('tasks:actions.restartCodingFailed', { defaultValue: 'Failed to restart coding. Please try again.' }),
+        variant: 'destructive',
+        duration: 5000,
+      });
+    }
+    setIsRestartingCoding(false);
   };
 
   const handleReject = async () => {
@@ -338,13 +364,14 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
       );
     }
 
-    // Planning phase - gated workflow
+    // All phase-specific actions are now in banners above tabs.
+    // Only planning (non-complete, non-banner) states need footer actions for backward compat.
     if (isPlanning) {
       if (planningComplete && (isAgentStopped || !state.isRunning)) {
-        // Planning complete — no footer actions, PlanningReview component handles them
+        // Planning complete — PlanningReview banner handles actions
         return null;
       } else if (isAgentStopped) {
-        // Planning interrupted — show Resume only
+        // Planning interrupted — show Resume only (no banner for incomplete planning)
         return (
           <Button
             variant="outline"
@@ -356,7 +383,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           </Button>
         );
       } else {
-        // Agent is running - show Stop button only (no Start Build during active planning)
+        // Agent is running - show Stop button (no banner for running planning)
         return (
           <Button
             variant="destructive"
@@ -370,58 +397,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
       }
     }
 
-    // Coding phase
-    if (task.status === 'coding') {
-      return (
-        <Button
-          variant={state.isRunning ? 'destructive' : 'default'}
-          onClick={handleStartStop}
-        >
-          {state.isRunning ? (
-            <>
-              <Square className="mr-2 h-4 w-4" />
-              {t('tasks:actions.stop', { defaultValue: 'Stop Task' })}
-            </>
-          ) : (
-            <>
-              <Play className="mr-2 h-4 w-4" />
-              {isAgentStopped ? t('tasks:actions.resume', { defaultValue: 'Resume' }) : t('tasks:actions.run', { defaultValue: 'Run' })}
-            </>
-          )}
-        </Button>
-      );
-    }
-
-    if (task.status === 'done') {
-      return (
-        <div className="completion-state text-sm flex items-center gap-2 text-success">
-          <CheckCircle2 className="h-5 w-5" />
-          <span className="font-medium">{t('tasks:status.complete')}</span>
-        </div>
-      );
-    }
-
-    if (task.status === 'pr_created') {
-      return (
-        <div className="flex items-center gap-4">
-          <div className="completion-state text-sm flex items-center gap-2 text-success">
-            <CheckCircle2 className="h-5 w-5" />
-            <span className="font-medium">{t('tasks:status.complete')}</span>
-          </div>
-           {task.metadata?.prUrl && (
-             <button
-               type="button"
-               onClick={() => window.electronAPI?.openExternal(task.metadata!.prUrl!)}
-               className="completion-state text-sm flex items-center gap-2 text-info cursor-pointer hover:underline bg-transparent border-none p-0"
-             >
-              <GitPullRequest className="h-5 w-5" />
-              <span className="font-medium">{t(TASK_STATUS_LABELS[task.status])}</span>
-            </button>
-          )}
-        </div>
-      );
-    }
-
+    // All other phases — actions handled by phase banners above tabs
     return null;
   };
 
@@ -504,7 +480,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                         </span>
                       )}
                       {/* Drift indicator */}
-                      <DriftIndicator taskId={task.id} showLabel size="sm" />
+                      <DriftIndicator taskId={task.id} taskAlertLevel={task.driftAlertLevel} showLabel size="sm" />
                     </div>
                   </DialogPrimitive.Description>
                 </div>
@@ -554,11 +530,55 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
               )}
             </div>
 
-            {/* Body - Planning Review Banner + Tabs */}
+            {/* Body - Phase Banners + Tabs */}
             <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-              {/* Planning complete banner — shown above tabs, all tabs remain visible */}
+              {/* Phase-specific banners — shown above tabs, all tabs remain visible */}
               {planningComplete && isPlanning && (
                 <PlanningReview task={task} onClose={handleClose} />
+              )}
+              {task.status === 'coding' && (
+                <CodingPhaseBanner
+                  task={task}
+                  isRunning={state.isRunning}
+                  isAgentStopped={isAgentStopped}
+                  isStuck={state.isStuck}
+                  isRecovering={state.isRecovering}
+                  completedSubtasks={completedSubtasks}
+                  totalSubtasks={totalSubtasks}
+                  onStartStop={handleStartStop}
+                  onRecover={handleRecover}
+                  onRestartCoding={handleRestartCoding}
+                  isRestartingCoding={isRestartingCoding}
+                />
+              )}
+              {task.status === 'ai_review' && (
+                <AIReviewPhaseBanner
+                  isRunning={state.isRunning}
+                  onStop={handleStartStop}
+                />
+              )}
+              {task.status === 'human_review' && (
+                <HumanReviewPhaseBanner
+                  task={task}
+                  feedback={state.feedback}
+                  isSubmitting={state.isSubmitting}
+                  onFeedbackChange={state.setFeedback}
+                  onReject={handleReject}
+                  onMerge={handleMerge}
+                  isMerging={state.isMerging}
+                  onRestartFromPlanning={handleRestartFromPlanning}
+                  onRestartFromCoding={handleRestartCoding}
+                  isRestarting={isRestarting}
+                  isRestartingCoding={isRestartingCoding}
+                  images={state.feedbackImages}
+                  onImagesChange={state.setFeedbackImages}
+                />
+              )}
+              {task.status === 'done' && (
+                <DonePhaseBanner task={task} />
+              )}
+              {task.status === 'pr_created' && (
+                <PRCreatedPhaseBanner task={task} onClose={handleClose} />
               )}
 
               <Tabs value={state.activeTab} onValueChange={state.setActiveTab} className="flex flex-col flex-1 min-h-0">
@@ -588,7 +608,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm flex items-center gap-1.5"
                   >
                     Drift
-                    <DriftIndicator taskId={task.id} size="sm" />
+                    <DriftIndicator taskId={task.id} taskAlertLevel={task.driftAlertLevel} size="sm" />
                   </TabsTrigger>
                   <TabsTrigger
                     value="spec"
@@ -630,8 +650,6 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                           <Separator />
                           <TaskReview
                             task={task}
-                            feedback={state.feedback}
-                            isSubmitting={state.isSubmitting}
                             worktreeStatus={state.worktreeStatus}
                             worktreeDiff={state.worktreeDiff}
                             isLoadingWorktree={state.isLoadingWorktree}
@@ -648,12 +666,6 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             mergePreview={state.mergePreview}
                             isLoadingPreview={state.isLoadingPreview}
                             showConflictDialog={state.showConflictDialog}
-                            onFeedbackChange={state.setFeedback}
-                            onReject={handleReject}
-                            onRestartFromPlanning={handleRestartFromPlanning}
-                            isRestarting={isRestarting}
-                            images={state.feedbackImages}
-                            onImagesChange={state.setFeedbackImages}
                             onMerge={handleMerge}
                             onMarkDone={handleMarkDone}
                             onDiscard={handleDiscard}

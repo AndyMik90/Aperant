@@ -217,6 +217,30 @@ export function registerAgenteventsHandlers(
       if (driftReport) {
         console.log(`[Drift] Report received for task ${taskId}: score=${driftReport.overall_drift_score}, alert=${driftReport.alert_level}`);
         emitDriftReport(mainWindow, taskId, driftReport);
+
+        // Persist drift data to task_metadata.json so it survives app restarts
+        // This is the FINAL report (not interim), so it's the definitive score
+        if (!driftReport.is_interim) {
+          try {
+            const { task: driftTask, project: driftProject } = findTaskAndProject(taskId);
+            if (driftTask && driftProject) {
+              const specsBaseDir = getSpecsDir(driftProject.autoBuildPath);
+              const specDir = driftTask.specsPath || path.join(driftProject.path, specsBaseDir, driftTask.specId);
+              const metadataPath = path.join(specDir, 'task_metadata.json');
+              const { readFileSync, writeFileSync } = require('fs');
+              let metadata: Record<string, unknown> = {};
+              if (existsSync(metadataPath)) {
+                try { metadata = JSON.parse(readFileSync(metadataPath, 'utf-8')); } catch { /* ignore */ }
+              }
+              metadata.driftScore = driftReport.overall_drift_score;
+              metadata.driftAlertLevel = driftReport.alert_level;
+              writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+              console.log(`[Drift] Persisted drift data to task_metadata.json for task ${taskId}`);
+            }
+          } catch (err) {
+            console.error('[Drift] Failed to persist drift data to metadata:', err);
+          }
+        }
       }
       const driftInterim = parseDriftInterim(log);
       if (driftInterim) {

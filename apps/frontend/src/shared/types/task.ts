@@ -42,6 +42,7 @@ export interface Subtask {
   description: string;
   status: SubtaskStatus;
   files: string[];
+  notes?: string;
   verification?: {
     type: 'command' | 'browser';
     run?: string;
@@ -306,6 +307,10 @@ export interface TaskMetadata {
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
   archivedInVersion?: string;  // Version in which task was archived (from changelog)
+
+  // Drift monitoring (persisted when drift report received)
+  driftScore?: number;  // 0.0 to 1.0 overall drift score
+  driftAlertLevel?: 'normal' | 'warning' | 'critical';  // Last alert level
 }
 
 export interface Task {
@@ -328,6 +333,9 @@ export interface Task {
   location?: 'main' | 'worktree';  // Where task was loaded from (main project or worktree)
   specsPath?: string;  // Full path to specs directory for this task
   terminalId?: string;  // ID of associated task monitor terminal
+  // Drift monitoring - persisted from last drift report
+  driftScore?: number;  // 0.0 to 1.0 overall drift score
+  driftAlertLevel?: 'normal' | 'warning' | 'critical';  // Last known alert level
   // SUG-6: Task dependencies - array of task IDs this task depends on
   dependencies?: string[];  // Task IDs that must complete before this task can start
   // METRICS-1: Duration tracking
@@ -394,6 +402,7 @@ export interface PlanSubtask {
   id: string;
   description: string;
   status: SubtaskStatus;
+  notes?: string;
   verification?: {
     type: string;
     run?: string;
@@ -570,11 +579,15 @@ export interface TaskRecoveryResult {
   newStatus: TaskStatus;
   message: string;
   autoRestarted?: boolean;
+  /** Updated plan data — allows renderer to refresh subtasks immediately without waiting for file watcher */
+  updatedPlan?: ImplementationPlan;
 }
 
 export interface TaskRecoveryOptions {
   targetStatus?: TaskStatus;
   autoRestart?: boolean;
+  /** When true, resets all stuck/failed subtasks and clears attempt history, then restarts coding */
+  restartCoding?: boolean;
 }
 
 export interface TaskProgressUpdate {

@@ -229,6 +229,50 @@ async def post_session_processing(
     print_key_value("New commits", str(new_commits))
 
     if subtask_status == "completed":
+        # FIX-VERIFY: Independent verification — don't blindly trust the agent's claim.
+        # Check that the agent actually made code changes (new commits) for this subtask.
+        # If no commits were made, the agent may have falsely marked it as completed.
+        has_code_changes = commit_after and commit_after != commit_before
+        if not has_code_changes and new_commits == 0:
+            # Agent claims completed but made NO commits — suspicious.
+            # Check if this subtask has files_to_modify defined (could be a config-only task)
+            files_to_modify = subtask.get("files_to_modify", subtask.get("files", []))
+            if files_to_modify:
+                # Has files listed but no commits — likely a false completion
+                print_status(
+                    f"WARNING: Subtask {subtask_id} marked as 'completed' but NO commits were made. "
+                    f"Expected changes to: {', '.join(files_to_modify[:3])}{'...' if len(files_to_modify) > 3 else ''}. "
+                    "Resetting to pending for retry.",
+                    "warning",
+                )
+                # Reset back to pending
+                plan_file = spec_dir / "implementation_plan.json"
+                try:
+                    fresh_plan = load_implementation_plan(spec_dir)
+                    if fresh_plan:
+                        fresh_subtask = find_subtask_in_plan(fresh_plan, subtask_id)
+                        if fresh_subtask:
+                            fresh_subtask["status"] = "pending"
+                            write_json_atomic(plan_file, fresh_plan, indent=2)
+                            print_status(f"Reset subtask {subtask_id} from completed to pending (no code changes)", "info")
+                except Exception as e:
+                    logger.error(f"Failed to reset falsely completed subtask {subtask_id}: {e}")
+
+                recovery_manager.record_attempt(
+                    subtask_id=subtask_id,
+                    session=session_num,
+                    success=False,
+                    approach=f"Agent claimed completion but made no code changes",
+                    error="No commits detected despite files_to_modify being set",
+                )
+                return False
+            else:
+                # No files_to_modify defined — could be a legitimate config/setup task
+                print_status(
+                    f"Subtask {subtask_id} completed (no commits, but no files_to_modify specified — accepting)",
+                    "info",
+                )
+
         # Success! Record the attempt and good commit (fast, critical)
         print_status(f"Subtask {subtask_id} completed successfully", "success")
 
