@@ -226,7 +226,11 @@ export function loadCustomTheme(name: string): CustomTheme | null {
     const theme = themes[name];
 
     if (theme) {
-      applyThemeVariables(theme.variables);
+      // Apply and track variables so clearAllCustomVariables can remove them
+      for (const [key, value] of Object.entries(theme.variables)) {
+        document.documentElement.style.setProperty(`--${key}`, value);
+        appliedVariables.add(key);
+      }
       return theme;
     }
   } catch {

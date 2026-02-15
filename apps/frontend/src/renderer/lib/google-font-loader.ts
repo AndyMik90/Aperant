@@ -8,6 +8,7 @@
 /* -- State ---------------------------------------------------------------- */
 
 const loadedFonts = new Set<string>();
+const pendingLoads = new Map<string, Promise<void>>();
 
 /* -- Helpers -------------------------------------------------------------- */
 
@@ -34,17 +35,30 @@ export function loadGoogleFont(family: string, weights?: number[]): Promise<void
     return Promise.resolve();
   }
 
-  return new Promise((resolve, reject) => {
+  // Return existing in-flight load to prevent duplicate <link> tags
+  const pending = pendingLoads.get(key);
+  if (pending) {
+    return pending;
+  }
+
+  const promise = new Promise<void>((resolve, reject) => {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = buildGoogleFontsUrl(family, weights);
     link.onload = () => {
       loadedFonts.add(key);
+      pendingLoads.delete(key);
       resolve();
     };
-    link.onerror = () => reject(new Error(`Failed to load font: ${family}`));
+    link.onerror = () => {
+      pendingLoads.delete(key);
+      reject(new Error(`Failed to load font: ${family}`));
+    };
     document.head.appendChild(link);
   });
+
+  pendingLoads.set(key, promise);
+  return promise;
 }
 
 /**

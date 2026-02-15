@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigationStore } from '../stores/navigation-store';
 import { useDialogStore } from '../stores/dialog-store';
 import { useProjectStore, addProject, initializeProject, loadProjects } from '../stores/project-store';
 import type { AppSection } from '../components/settings/AppSettings';
 import type { Project } from '../../shared/types';
+import i18n from '../../shared/i18n';
 
 /**
  * Handles custom events, keyboard shortcuts, update listeners, and
@@ -109,13 +111,13 @@ export async function handleInitialize() {
       }
     } else {
       console.warn('[InitDialog] Initialization failed, showing error');
-      const errorMessage = result?.error || 'Failed to initialize Auto Claude. Please try again.';
+      const errorMessage = result?.error || i18n.t('errors:initialize.failed');
       useDialogStore.getState().setInitError(errorMessage);
       useDialogStore.getState().setInitializing(false);
     }
   } catch (error) {
     console.error('[InitDialog] Unexpected error during initialization:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    const errorMessage = error instanceof Error ? error.message : i18n.t('errors:initialize.unexpected');
     useDialogStore.getState().setInitError(errorMessage);
     useDialogStore.getState().setInitializing(false);
   }

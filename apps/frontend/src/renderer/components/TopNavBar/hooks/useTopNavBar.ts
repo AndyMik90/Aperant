@@ -10,12 +10,10 @@ import { useProjectStore } from '@/stores/project-store';
 import type { Project } from '@shared/types';
 
 export function useTopNavBar() {
-  const getProjectTabs = useProjectStore((state) => state.getProjectTabs);
+  const projectTabs = useProjectStore((state) => state.getProjectTabs());
   const activeProjectId = useProjectStore((state) => state.activeProjectId);
   const setActiveProject = useProjectStore((state) => state.setActiveProject);
   const reorderTabs = useProjectStore((state) => state.reorderTabs);
-
-  const projectTabs = getProjectTabs();
 
   // Setup drag sensors
   const sensors = useSensors(

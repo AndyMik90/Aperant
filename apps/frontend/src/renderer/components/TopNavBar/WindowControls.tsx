@@ -10,7 +10,7 @@ export function WindowControls() {
 
   useEffect(() => {
     if (isMacOS) return;
-    window.electronAPI.window.isMaximized().then(setIsMaximized);
+    window.electronAPI.window.isMaximized().then(setIsMaximized).catch(() => {});
     const cleanup = window.electronAPI.window.onMaximizeChanged(setIsMaximized);
     return cleanup;
   }, [isMacOS]);

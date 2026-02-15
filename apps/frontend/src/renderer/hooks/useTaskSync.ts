@@ -19,7 +19,7 @@ export function useTaskSync() {
     }
 
     const updatedTask = tasks.find(
-      (t) => t.id === selectedTask.id || t.specId === selectedTask.specId
+      (t) => t.id === selectedTask.id || (selectedTask.specId != null && t.specId === selectedTask.specId)
     );
 
     debugLog('[App] Task lookup result', {
@@ -92,6 +92,6 @@ export function useTaskSync() {
       });
       useNavigationStore.getState().setSelectedTask(updatedTask);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally omit selectedTask object to prevent infinite re-render loop
-  }, [tasks, selectedTask?.id, selectedTask?.specId, selectedTask]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Only re-run when tasks array or selected task identity changes, not on selectedTask object ref
+  }, [tasks, selectedTask?.id, selectedTask?.specId]);
 }

@@ -29,7 +29,7 @@ export function AppShell() {
           activeView={activeView}
           onViewChange={setActiveView}
         />
-        <main className="flex flex-1 overflow-hidden bg-card shadow-sm shadow-shadow rounded-(--radius) border border-border mt-4">
+        <main className="flex flex-1 overflow-hidden bg-card shadow-sm shadow-shadow rounded-[var(--radius)] border border-border mt-4">
           {selectedProject ? (
             <div className="flex flex-col h-full w-full">
               <ViewSwitcher projectPath={selectedProject.path} />

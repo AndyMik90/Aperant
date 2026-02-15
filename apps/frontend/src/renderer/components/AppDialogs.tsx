@@ -224,11 +224,11 @@ export function AppDialogs() {
             <Button variant="outline" onClick={() => useDialogStore.getState().closeRemoveProjectDialog()}>
               {t('removeProject.cancel')}
             </Button>
-            <Button variant="destructive" onClick={() => {
+            <Button variant="destructive" onClick={async () => {
               if (projectToRemove) {
                 try {
                   useDialogStore.getState().setRemoveProjectError(null);
-                  removeProject(projectToRemove.id);
+                  await removeProject(projectToRemove.id);
                   useDialogStore.getState().closeRemoveProjectDialog();
                 } catch (err) {
                   console.error('[App] Failed to remove project:', err);

@@ -1,4 +1,4 @@
-import { useProjectStore, removeProject } from "@/stores/project-store";
+import { useProjectStore } from "@/stores/project-store";
 import { useSettingsStore, saveSettings } from "@/stores/settings-store";
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -136,7 +136,7 @@ const useSidebar = ({onViewChange}: SidebarProps) => {
         }
       };
       checkGit();
-    }, [selectedProject]);
+    }, [selectedProject?.id, selectedProject?.path]);
 
     const handleGitInitialized = async () => {
       // Refresh git status after initialization
@@ -152,12 +152,6 @@ const useSidebar = ({onViewChange}: SidebarProps) => {
       }
     };
 
-    const _handleRemoveProject = async (projectId: string, e: React.MouseEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
-      await removeProject(projectId);
-    };
-
     const handleNavClick = (view: SidebarView) => {
       onViewChange?.(view);
     };
@@ -169,14 +163,8 @@ const useSidebar = ({onViewChange}: SidebarProps) => {
         visibleNavItems,
         handleNavClick,
         handleGitInitialized,
-        _handleRemoveProject,
-        githubEnabled,
-        gitlabEnabled,
-        lastLoadedProjectIdRef,
         t,
-        projects,
         selectedProjectId,
-        settings,
         isCollapsed,
         toggleSidebar,
     }
