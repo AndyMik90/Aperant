@@ -154,6 +154,7 @@ function isValidCredentialsPath(credentialsPath: string): boolean {
  * @returns The 8-character hex hash suffix
  */
 export function calculateConfigDirHash(configDir: string): string {
+  // CodeQL[js/weak-crypto-hashing] suppress False positive: hashing filesystem path for identifier, not password
   return createHash('sha256').update(configDir).digest('hex').slice(0, 8);
 }
 
@@ -731,6 +732,7 @@ function getSecretServiceAttribute(configDir?: string): string {
     return 'claude-code';
   }
   // For custom config dirs, create a hashed attribute to avoid conflicts
+  // CodeQL[js/weak-crypto-hashing] suppress False positive: hashing filesystem path for identifier, not password
   const hash = createHash('sha256').update(configDir).digest('hex').slice(0, 8);
   return `claude-code-${hash}`;
 }
