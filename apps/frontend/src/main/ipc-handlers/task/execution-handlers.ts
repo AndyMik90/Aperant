@@ -537,6 +537,9 @@ export function registerTaskExecutionHandlers(
           return { success: false, error: 'Failed to write QA fix request file' };
         }
 
+        // Clear stale tracking state before starting new QA process
+        taskStateManager.prepareForRestart(taskId);
+
         // Restart QA process - use worktree path if it exists, otherwise main project
         // The QA process needs to run where the implementation_plan.json with completed subtasks is
         const qaProjectPath = hasWorktree ? worktreePath : project.path;
