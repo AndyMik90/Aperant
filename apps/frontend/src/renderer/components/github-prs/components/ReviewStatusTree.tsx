@@ -21,6 +21,7 @@ export type ReviewStatus =
 export interface ReviewStatusTreeProps {
   status: ReviewStatus;
   isReviewing: boolean;
+  isExternalReview?: boolean;
   startedAt: string | null;
   reviewResult: PRReviewResult | null;
   previousReviewResult: PRReviewResult | null;
@@ -39,6 +40,7 @@ export interface ReviewStatusTreeProps {
 export function ReviewStatusTree({
   status,
   isReviewing,
+  isExternalReview = false,
   startedAt,
   reviewResult,
   previousReviewResult,
@@ -137,7 +139,9 @@ export function ReviewStatusTree({
     if (isReviewing) {
       steps.push({
         id: 'analysis',
-        label: t('prReview.analysisInProgress'),
+        label: isExternalReview
+          ? t('prReview.reviewStartedExternally')
+          : t('prReview.analysisInProgress'),
         status: 'current',
         date: null
       });
@@ -255,7 +259,7 @@ export function ReviewStatusTree({
 
   // Status label - explicitly handle all statuses
   const getStatusLabel = (): string => {
-    if (isReviewing) return t('prReview.aiReviewInProgress');
+    if (isReviewing) return isExternalReview ? t('prReview.externalReviewDetected') : t('prReview.aiReviewInProgress');
     switch (status) {
       case 'ready_to_merge':
         return t('prReview.readyToMerge');
@@ -279,7 +283,7 @@ export function ReviewStatusTree({
     <CollapsibleCard
       title={statusLabel}
       icon={<div className={statusDotColor} />}
-      headerAction={isReviewing ? (
+      headerAction={isReviewing && !isExternalReview ? (
         <Button
           variant="ghost"
           size="sm"

@@ -58,12 +58,18 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
   const commandBufferRef = useRef<string>('');
   const isDisposedRef = useRef<boolean>(false);
   const dimensionsReadyCalledRef = useRef<boolean>(false);
+  const onResizeRef = useRef(onResize);
   const [dimensions, setDimensions] = useState<{ cols: number; rows: number }>({ cols: 80, rows: 24 });
 
   // Get font settings from store
   // Note: We subscribe to the entire store here for initial terminal creation.
   // The subscription effect below handles reactive updates for font changes.
   const fontSettings = useTerminalFontSettingsStore();
+
+  // Keep onResizeRef up-to-date to avoid stale closures in retry logic
+  useEffect(() => {
+    onResizeRef.current = onResize;
+  }, [onResize]);
 
   // Initialize xterm.js UI
   useEffect(() => {
@@ -133,11 +139,18 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     };
 
     // Helper function to handle paste from clipboard
+    // Cap paste size to prevent GPU/memory pressure from extremely large clipboard contents.
+    const MAX_PASTE_BYTES = 1_048_576; // 1 MB
     const handlePasteFromClipboard = (): void => {
       navigator.clipboard.readText()
         .then((text) => {
           if (text) {
-            xterm.paste(text);
+            if (text.length > MAX_PASTE_BYTES) {
+              console.warn(`[useXterm] Paste truncated from ${text.length} to ${MAX_PASTE_BYTES} bytes`);
+              xterm.paste(text.slice(0, MAX_PASTE_BYTES));
+            } else {
+              xterm.paste(text);
+            }
           }
         })
         .catch((err) => {
@@ -385,6 +398,10 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
           const cols = xtermRef.current.cols;
           const rows = xtermRef.current.rows;
           setDimensions({ cols, rows });
+          // Force redraw — panels can briefly collapse to 0 during layout changes
+          // (e.g. drag-drop reorder), clearing the canvas. When they expand back,
+          // fit() may detect no dimension change and skip the repaint.
+          xtermRef.current.refresh(0, xtermRef.current.rows - 1);
           // Notify when dimensions become valid (for late PTY creation)
           if (!dimensionsReadyCalledRef.current && cols > 0 && rows > 0) {
             dimensionsReadyCalledRef.current = true;
@@ -409,7 +426,12 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
 
   // Listen for terminal refit events (triggered after drag-drop reorder)
   useEffect(() => {
-    const handleRefitAll = () => {
+    const activeTimeouts = new Set<ReturnType<typeof setTimeout>>();
+
+    const handleRefitAll = (retryCount = 0) => {
+      const MAX_RETRIES = 8;
+      const RETRY_DELAY_MS = 80;
+
       if (fitAddonRef.current && xtermRef.current && terminalRef.current) {
         const rect = terminalRef.current.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0) {
@@ -417,12 +439,45 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
           const cols = xtermRef.current.cols;
           const rows = xtermRef.current.rows;
           setDimensions({ cols, rows });
+
+          // Force a full visual redraw. During drag-drop the container may briefly
+          // collapse to 0 then expand back. The canvas gets cleared during the 0-size
+          // phase, but fit() detects no net dimension change and skips the repaint,
+          // leaving the terminal blank. refresh() forces xterm to redraw all visible
+          // rows regardless of whether dimensions changed.
+          xtermRef.current.refresh(0, xtermRef.current.rows - 1);
+
+          // Notify PTY about new dimensions after drag-drop reorder
+          if (onResizeRef.current && cols > 0 && rows > 0) {
+            onResizeRef.current(cols, rows);
+          }
+        } else if (retryCount < MAX_RETRIES) {
+          // Container not ready yet (still transitioning from drag-drop), retry
+          const timeoutId = setTimeout(() => {
+            activeTimeouts.delete(timeoutId);
+            handleRefitAll(retryCount + 1);
+          }, RETRY_DELAY_MS);
+          activeTimeouts.add(timeoutId);
         }
       }
     };
 
-    window.addEventListener('terminal-refit-all', handleRefitAll);
-    return () => window.removeEventListener('terminal-refit-all', handleRefitAll);
+    const listener = () => {
+      // Cancel any in-flight retry chain before starting a new one
+      for (const id of activeTimeouts) {
+        clearTimeout(id);
+      }
+      activeTimeouts.clear();
+      handleRefitAll(0);
+    };
+    window.addEventListener('terminal-refit-all', listener);
+    return () => {
+      window.removeEventListener('terminal-refit-all', listener);
+      for (const id of activeTimeouts) {
+        clearTimeout(id);
+      }
+      activeTimeouts.clear();
+    };
   }, []);
 
   /**

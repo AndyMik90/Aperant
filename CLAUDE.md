@@ -40,6 +40,27 @@ Auto Claude is a desktop application (+ CLI) where users describe a goal and AI 
 
 **PR target** — Always target the `develop` branch for PRs to AndyMik90/Auto-Claude, NOT `main`.
 
+## Work Approach
+
+**Investigate before speculating** — Always read the actual code before proposing root causes. Spawn agents to grep and read relevant source files before forming any hypothesis. Never guess at causes without evidence from the codebase.
+
+**Spawn agents for complex tasks** — When tackling complex tasks, spawn sub-agents/agent teams immediately rather than trying to handle everything in a single context window. Never attempt to analyze large codebases or multiple features monolithically.
+
+**Minimal fixes only** — Prefer the simplest approach (e.g., prompt-only changes, single guard clause) before suggesting multi-component solutions. If the user asks for X, implement X — don't bundle additional fixes they didn't request.
+
+## Known Gotchas
+
+**Electron path resolution** — For bug fixes in the Electron app, always check path resolution differences between dev and production builds (`app.isPackaged`, `process.resourcesPath`). Paths that work in dev often break when Electron is bundled for production — verify both contexts.
+
+### Resetting PR Review State
+
+To fully clear all PR review data so reviews run fresh, delete/reset these three things in `.auto-claude/github/`:
+
+1. `rm .auto-claude/github/pr/logs_*.json` — review log files
+2. `rm .auto-claude/github/pr/review_*.json` — review result files
+3. Reset `pr/index.json` to `{"reviews": [], "last_updated": null}`
+4. Reset `bot_detection_state.json` to `{"reviewed_commits": {}}` — this is the gatekeeper; without clearing it, the bot detector skips already-seen commits
+
 ## Project Structure
 
 ```
@@ -98,30 +119,6 @@ cd apps/backend && uv venv && uv pip install -r requirements.txt
 cd apps/frontend && npm install
 ```
 
-### Backend
-```bash
-cd apps/backend
-python spec_runner.py --interactive            # Create spec interactively
-python spec_runner.py --task "description"      # Create from task
-python run.py --spec 001                        # Run autonomous build
-python run.py --spec 001 --qa                   # Run QA validation
-python run.py --spec 001 --merge                # Merge completed build
-python run.py --list                            # List all specs
-```
-
-### Frontend
-```bash
-cd apps/frontend
-npm run dev              # Dev mode (Electron + Vite HMR)
-npm run build            # Production build
-npm run test             # Vitest unit tests
-npm run test:watch       # Vitest watch mode
-npm run lint             # Biome check
-npm run lint:fix         # Biome auto-fix
-npm run typecheck        # TypeScript strict check
-npm run package          # Package for distribution
-```
-
 ### Testing
 
 | Stack | Command | Tool |
@@ -145,30 +142,7 @@ See [RELEASE.md](RELEASE.md) for full release process.
 
 Client: `apps/backend/core/client.py` — `create_client()` returns a configured `ClaudeSDKClient` with security hooks, tool permissions, and MCP server integration.
 
-Model and thinking level are user-configurable (via the Electron UI settings or CLI override). Use `phase_config.py` helpers to resolve the correct values:
-
-```python
-from core.client import create_client
-from phase_config import get_phase_model, get_phase_thinking_budget
-
-# Resolve model/thinking from user settings (Electron UI or CLI override)
-phase_model = get_phase_model(spec_dir, "coding", cli_model=None)
-phase_thinking = get_phase_thinking_budget(spec_dir, "coding", cli_thinking=None)
-
-client = create_client(
-    project_dir=project_dir,
-    spec_dir=spec_dir,
-    model=phase_model,
-    agent_type="coder",          # planner | coder | qa_reviewer | qa_fixer
-    max_thinking_tokens=phase_thinking,
-)
-
-# Run agent session (uses context manager + run_agent_session helper)
-async with client:
-    status, response = await run_agent_session(client, prompt, spec_dir)
-```
-
-Working examples: `agents/planner.py`, `agents/coder.py`, `qa/reviewer.py`, `qa/fixer.py`, `spec/`
+Model and thinking level are user-configurable (via the Electron UI settings or CLI override). Use `phase_config.py` helpers to resolve the correct values
 
 ### Agent Prompts (`apps/backend/prompts/`)
 
@@ -323,6 +297,8 @@ cd apps/backend && python run.py --spec 001
 # Desktop app
 npm start          # Production build + run
 npm run dev        # Development mode with HMR
+npm run dev:debug  # Debug mode with verbose output
+npm run dev:mcp    # Electron MCP server for AI debugging
 
 # Project data: .auto-claude/specs/ (gitignored)
 ```

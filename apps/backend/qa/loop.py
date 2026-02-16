@@ -131,6 +131,10 @@ async def run_qa_validation_loop(
     )
 
     fast_mode = get_fast_mode(spec_dir)
+    debug(
+        "qa_loop",
+        f"[Fast Mode] {'ENABLED' if fast_mode else 'disabled'} for QA validation",
+    )
 
     # Check if there's pending human feedback that needs to be processed
     fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
@@ -211,6 +215,7 @@ async def run_qa_validation_loop(
                         "Removed QA_FIX_REQUEST.md after permanent fixer error",
                     )
                 except OSError:
+                    # File removal failure is not critical here
                     pass
             return False
 
@@ -226,6 +231,7 @@ async def run_qa_validation_loop(
             fix_request_file.unlink()
             debug("qa_loop", "Removed processed QA_FIX_REQUEST.md")
         except OSError:
+            # File removal failure is not critical here
             pass  # Ignore if file removal fails
 
     # Check for no-test projects

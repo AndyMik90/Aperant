@@ -127,6 +127,13 @@ fi
 if git diff --cached --name-only | grep -q "^apps/backend/.*\.py$"; then
   echo "Python changes detected, running backend checks..."
 
+  # Detect if we're in a worktree
+  IS_WORKTREE=false
+  if [ -f ".git" ]; then
+    # .git is a file (not directory) in worktrees
+    IS_WORKTREE=true
+  fi
+
   # Determine ruff command (venv or global)
   RUFF=""
   if [ -f "apps/backend/.venv/bin/ruff" ]; then
@@ -158,7 +165,16 @@ if git diff --cached --name-only | grep -q "^apps/backend/.*\.py$"; then
       echo "$STAGED_PY_FILES" | xargs git add
     fi
   else
-    echo "Warning: ruff not found, skipping Python linting. Install with: uv pip install ruff"
+    if [ "$IS_WORKTREE" = true ]; then
+      echo ""
+      echo "⚠️  WARNING: ruff not available in this worktree."
+      echo "   Python linting checks will be skipped."
+      echo "   This is expected for auto-claude worktrees."
+      echo "   Full validation will occur when PR is created/merged."
+      echo ""
+    else
+      echo "Warning: ruff not found, skipping Python linting. Install with: uv pip install ruff"
+    fi
   fi
 
   # Run pytest (skip slow/integration tests and Windows-incompatible tests for pre-commit speed)
@@ -192,17 +208,28 @@ if git diff --cached --name-only | grep -q "^apps/backend/.*\.py$"; then
     elif [ -d "apps/backend/.venv" ]; then
       echo "Warning: venv exists but Python not found in it, using system Python"
       PYTHONPATH=apps/backend python -m pytest tests/ -v --tb=short -x -m "not slow and not integration" -k "not windows_path" $IGNORE_TESTS
+    elif [ "$IS_WORKTREE" = true ]; then
+      echo ""
+      echo "⚠️  WARNING: Python venv not available in this worktree."
+      echo "   Python tests will be skipped."
+      echo "   This is expected for auto-claude worktrees."
+      echo "   Full validation will occur when PR is created/merged."
+      echo ""
+      exit 77  # GNU convention for 'test skipped' (avoids pytest exit-code collision)
     else
       echo "Warning: No .venv found in apps/backend, using system Python"
       PYTHONPATH=apps/backend python -m pytest tests/ -v --tb=short -x -m "not slow and not integration" -k "not windows_path" $IGNORE_TESTS
     fi
   )
-  if [ $? -ne 0 ]; then
+  PYTHON_EXIT=$?
+  if [ $PYTHON_EXIT -eq 77 ]; then
+    echo "Backend checks passed! (Python tests skipped — worktree)"
+  elif [ $PYTHON_EXIT -ne 0 ]; then
     echo "Python tests failed. Please fix failing tests before committing."
     exit 1
+  else
+    echo "Backend checks passed!"
   fi
-
-  echo "Backend checks passed!"
 fi
 
 # =============================================================================

@@ -31,6 +31,7 @@ from core.auth import (
     configure_sdk_authentication,
     get_sdk_env_vars,
 )
+from core.fast_mode import ensure_fast_mode_in_user_settings
 from core.platform import validate_cli_path
 from phase_config import get_thinking_budget
 
@@ -71,8 +72,8 @@ def create_simple_client(
         betas: Optional list of SDK beta header strings (e.g., ["context-1m-2025-08-07"])
         effort_level: Optional effort level for adaptive thinking models (e.g., "low",
                      "medium", "high"). Injected as CLAUDE_CODE_EFFORT_LEVEL env var.
-        fast_mode: Enable Fast Mode for faster Opus 4.6 output. Injected as
-                  CLAUDE_CODE_FAST_MODE=true env var.
+        fast_mode: Enable Fast Mode for faster Opus 4.6 output. Enables the "user"
+                  setting source so the CLI reads fastMode from ~/.claude/settings.json.
 
     Returns:
         Configured ClaudeSDKClient for single-turn operations
@@ -94,9 +95,12 @@ def create_simple_client(
     if effort_level:
         sdk_env["CLAUDE_CODE_EFFORT_LEVEL"] = effort_level
 
-    # Inject fast mode for faster Opus 4.6 output
+    # Fast mode: the CLI reads "fastMode" from user settings (~/.claude/settings.json).
+    # By default the SDK passes --setting-sources "" which blocks all filesystem settings.
+    # We enable "user" source so the CLI can read fastMode from user settings.
     if fast_mode:
-        sdk_env["CLAUDE_CODE_FAST_MODE"] = "true"
+        ensure_fast_mode_in_user_settings()
+        logger.info("[Fast Mode] ACTIVE — will enable user setting source for fastMode")
 
     # Get agent configuration (raises ValueError if unknown type)
     config = get_agent_config(agent_type)
@@ -119,6 +123,11 @@ def create_simple_client(
         "cwd": str(cwd.resolve()) if cwd else None,
         "env": sdk_env,
     }
+
+    # Fast mode: enable user setting source so CLI reads fastMode from
+    # ~/.claude/settings.json. Without this, --setting-sources "" blocks it.
+    if fast_mode:
+        options_kwargs["setting_sources"] = ["user"]
 
     # Only add max_thinking_tokens if not None (Haiku doesn't support extended thinking)
     if max_thinking_tokens is not None:

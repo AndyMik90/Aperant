@@ -12,6 +12,7 @@ import type { AgentProfile, PhaseModelConfig, FeatureModelConfig, FeatureThinkin
 export const AVAILABLE_MODELS = [
   { value: 'opus', label: 'Claude Opus 4.6' },
   { value: 'opus-1m', label: 'Claude Opus 4.6 (1M)' },
+  { value: 'opus-4.5', label: 'Claude Opus 4.5' },
   { value: 'sonnet', label: 'Claude Sonnet 4.5' },
   { value: 'haiku', label: 'Claude Haiku 4.5' }
 ] as const;
@@ -21,6 +22,7 @@ export const AVAILABLE_MODELS = [
 export const MODEL_ID_MAP: Record<string, string> = {
   opus: 'claude-opus-4-6',
   'opus-1m': 'claude-opus-4-6',
+  'opus-4.5': 'claude-opus-4-5-20251101',
   sonnet: 'claude-sonnet-4-5-20250929',
   haiku: 'claude-haiku-4-5-20251001'
 } as const;
@@ -195,6 +197,24 @@ export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
 
 // Models that support Fast Mode (same model, faster API routing, higher cost)
 export const FAST_MODE_MODELS: readonly string[] = ['opus', 'opus-1m'] as const;
+
+// Models that use adaptive thinking (Opus dynamically decides how much to think within the budget cap)
+export const ADAPTIVE_THINKING_MODELS: readonly string[] = ['opus', 'opus-1m'] as const;
+
+// Valid thinking levels for validation
+export const VALID_THINKING_LEVELS = ['low', 'medium', 'high'] as const;
+
+// Legacy thinking level mappings (must match backend phase_config.py LEGACY_THINKING_LEVEL_MAP)
+export const LEGACY_THINKING_MAP: Record<string, string> = { ultrathink: 'high', none: 'low' } as const;
+
+/** Sanitize a thinking level value, mapping legacy values to valid ones */
+export function sanitizeThinkingLevel(val: string): string {
+  if (VALID_THINKING_LEVELS.includes(val as typeof VALID_THINKING_LEVELS[number])) return val;
+  return LEGACY_THINKING_MAP[val] ?? 'medium';
+}
+
+// Phase keys for iterating over phase model/thinking configuration
+export const PHASE_KEYS: readonly (keyof PhaseModelConfig)[] = ['spec', 'planning', 'coding', 'qa'] as const;
 
 // ============================================
 // Memory Backends
